@@ -9,10 +9,10 @@
     <script src="https://www.w3schools.com/lib/w3.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.css">
 
-    <script src="https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.js"></script>    
+    <script src="https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.js"></script>
     <!--<script data-main="app" src="lib/require.js"></script>-->
     <script>
-    
+
     $(function() {
     $('a[href*="#"]:not([href="#"])').click(function() {
         if (location.pathname.replace(/^\//,'') == this.pathname.replace(/^\//,'') && location.hostname == this.hostname) {
@@ -29,88 +29,88 @@
     });
 
     $(function(){
-      $("#includedContent").load("manual.html"); 
+      $("#includedContent").load("manual.html");
     });
 
     function bla (d) {
-        $(".page").each(function () {this.style.display = "None"})        
+        $(".page").each(function () {this.style.display = "None"})
 
         d1 = document.getElementById("#" + d);
         d1.style.display = "Block";
-         
-   
+
+
     }
     </script>
-        
+
     <style>
     /*.anchor { padding-top: 90px; }*/
     </style>
 </head>
-<body>                       
+<body>
     <!-- top menu -->
     <div class="ui top fixed menu fluid">
         <a  onclick="bla('home')" class="item"><i class="icon home"></i>PRo3D</a>
-        <a  onclick="bla('started')" class="item">Getting Started</a>               
-        <a  onclick="bla('tech')" class="item">Technology</a>                
+        <a  onclick="bla('started')" class="item">Getting Started</a>
+        <a  onclick="bla('tech')" class="item">Technology</a>
     </div>
     <br>
     <br>
-    <br>    
-    <div class="ui justified text container fluid page" style="display:Show" id='#home'>       
+    <br>
+    <div class="ui justified text container fluid page" style="display:Show" id='#home'>
         <img class="ui fluid image rounded rectangle " src="./images/garden.jpg">
-        
+
         <div class="ui raised segment">
                 <p style="font-size: 1.4rem">
                 PRo3D, short for <u>P</u>lanetary <u>Ro</u>botics <u>3D</u> Viewer, is an interactive 3D visualization tool to allow planetary scientists to work with high-resolution 3D reconstructions of the Martian surface.
-                </p>                    
+                </p>
         </div>
-        <div class="ui raised segment"> 
+        <div class="ui raised segment">
                 <h2 class="ui header centered">Who uses PRo3D?</h1>
                 <p style="font-size: 1.1rem">
-                PRo3D aims to support planetary scientists in the course of NASA's and ESA's missions to find signs of life on the red planet by exploring high-resolution 3D surface reconstructions from obiter and rover cameras.
+                PRo3D aims to support planetary scientists in the course of NASA's and ESA's missions to find signs of life on the red planet by exploring high-resolution 3D surface reconstructions from orbiter and rover cameras.
                 </p>
 
                 <p style="font-size: 1.1rem">
-                For the past 5 years the development of PRo3D has been geared towards providing planetary <b>geologists</b> with interactive tools to digitize geological features on digital outcrop models (DOMs) on the Martian surface. During our fruitful cooporation with geologists from the Imperial College of London, PRo3D has emerged as their main tool to conduct remote geological analysis which lead to many publications and talks at various geological science venues.
+                For the past 5 years the development of PRo3D has been geared towards providing planetary <b>geologists</b> with interactive tools to digitize geological features on digital outcrop models (DOMs) on the Martian surface. During our fruitful cooperation with geologists from the Imperial College of London, PRo3D has emerged as their main tool to conduct remote geological analysis which lead to many publications and talks at various geological science venues.
                 </p>
 
                 <p style="font-size: 1.1rem">
                 Planetary geology is the most elaborately supported use-case of PRo3D, however we strive to expand our user groups to other use-cases, so we have also developed features for supporting science goals in <b>landing site selection</b> and <b>mission planning</b>.
                 </p>
 
-                <div class="ui section divider"></div>        
+                <div class="ui section divider"></div>
                 <h2 class="ui header centered">Features</h1>
 
                 <div class="ui vertically divided grid">
-                    <div class="two column row">                                               
+                    <div class="two column row">
                         <div class="column"><p>
                         <h2 class="header ui">Geological Annotation</h2>
                         <p>
-                            PRo3D lets users pick points on the 3D surface at the full resolution of the data present. Our tools contain point, line, and polyline annotations, while line segments are projected onto the surface. 
+                            PRo3D lets users pick points on the 3D surface at the full resolution of the data present. Our tools contain point, line, and polyline annotations, while line segments are projected onto the surface.
 
                             Various measurements are computed at the highest possible accuracy, such as the distance along a 3D surface (waylength) or dip-and-strike orientations of sediment structures.
-                        </p>                
+                        </p>
                         </div>
                         <div class="eight wide column right floated">
                             <img class="ui image middle aligned" src="./images/cd.png">
                         </div>
                     </div>
-                    <div class="two column row">                                               
+                    <div class="two column row">
                         <div class="column"><p>
                         <h2 class="header ui">Large Data</h2>
                         <p>
                             Surface reconstructions from high-resolution satellite images can easily yield gigabytes of data in terms of geometry, imagery, and additional layers. With PRo3D users can explore huge datasets interactively and even perform measurements of topographic features. The displayed dataset on the right consists of 2GB of raw 3D position vectors, a 1GB elevation map, and 10GB of image data rendered at interactive framerates with commodity hardware, utilizing adjustable level-of-detail and out-of-core techniques.
-                        </p>                
+                        </p>
                         </div>
                         <div class="eight wide column right floated">
                             <img class="ui image" src="./images/landing.png">
                         </div>
                     </div>
-                    <div class="two column row">                                               
+                    <div class="two column row">
                         <div class="column"><p>
                         <h2 class="header ui">3D Layers</h2>
-                        Although, PRo3D is not a GIS system, we need to to provide our users with typical GIS features to solve their geospatial problems, such as evaluating topographic or geological features. Our 3D layering techique allows a seemless integration of different reconstructions present at a single location. Unlike image or DTM layering we allow users to blend full 3D data by assigning rendering priorities, which is crucial to explore reconstructions from multiple rover camera instruments.
-                        </p>                
+                        Although, PRo3D is not a GIS system, we need to provide our users with typical GIS features to solve their geospatial problems, such as evaluating topographic or geological features. Our 3D layering technique allows a seamless integration of different reconstructions present at a single location. Unlike image or DTM layering we allow users to blend full 3D data by assigning rendering priorities, which is crucial to explore reconstructions from multiple rover camera instruments.
+                        </p>
                         </div>
                         <div class="eight wide column right floated">
                             <img class="ui image rounded rectangle" src="./images/priority.png">
@@ -130,25 +130,25 @@
                 </div>
         </div>
     </div>
-    <div class="ui justified text container fluid page" style="display:None" id='#started'>    
+    <div class="ui justified text container fluid page" style="display:None" id='#started'>
         <div class="ui raised segment">
             <h2 class="header ui centered">Getting started</h2>
             <p style="font-size: 1.2rem">
                 At the moment PRo3D and outcrop reconstructions (OPCs) are not publicly available. This quickstart guide is for people associated with the respective projects of NASA and ESA missions and for people participating in respective workshops, having access to a version of PRo3D and data. For scientific, academic, or commercial inquiries please contact gerhard.paar[at]joanneum.at.
             </p>
-            <div class="ui section divider"></div>        
+            <div class="ui section divider"></div>
             <h2 class="header ui centered">Importing OPCs</h2>
             <video width="660" src="./videos/20180128_Tut_AddSurface.webm" controls></video>
-            <p style="font-size: 1.2rem">               
+            <p style="font-size: 1.2rem">
             At first we want to add a surface to our 3D scene. Open the sidebar by clicking <i class="icon sidebar"></i> and select 'Add Surface' which opens a Folder Browser Dialog. A Surface folder contains one or more OPC folders. Select the Surfaces you want to add and confirm by clicking 'Select Folder'. If you get lost in the black void of 3D space just click onto <i class="icon ui home"></i> to find your surfaces again. If you are not sure what an OPC folder is, it always contains a 'patches' and an 'images' subfolder. <a href="./videos/20180128_Tut_AddSurface.webm">View fullsize</a>.
             </p>
-            <div class="ui section divider"></div>        
+            <div class="ui section divider"></div>
             <h2 class="header ui centered">Save your scene</h2>
             <video width="660" src="./videos/20180128_Tut_SaveScene.webm" controls></video>
             <p style="font-size: 1.2rem">
             Next, we want to save our 3D scene with the imported surfaces. To do this open the sidebar (<i class="icon sidebar"></i>) again and select <i class="save icon"></i> or <i class="save icon"></i><i class= "ui icon top right corner arrow down"></i>.  If you open PRo3D for the first time, it will start up with an empty scene, so in this case the two icons behave the same. You can name the scene anyway you like,for instance, gardencity.scn. On your next startup PRo3D will load your most recently saved scene automatically. <a href="./videos/20180128_Tut_SaveScene.webm">View fullsize</a>.
             </p>
-            <div class="ui section divider"></div>        
+            <div class="ui section divider"></div>
 
             <h2 class="header ui centered">Navigate the scene</h2>
             <video width="660" src="./videos/20180128_Tut_Navigation.webm" controls></video>
@@ -159,7 +159,7 @@
             So far we only discussed the 'FreeFly' navigation. To access the 'ArcBall' navigation, first select 'PickExploreCenter' from the <i class="icon wizard"></i> interaction menu (top toolbar, second dropdown menu). Most interactions in this menu require you to pick a point on the surface. To do this, hold down CTRL and click the LMB. If a pink dot appears, you have successfully picked the explore center and the navigation switches to the arcball controller. Holding LMB and moving the mouse now rotates the scene around this center. To switch back to 'FreeFly' just select it from the <i class="icon location arrow"></i> menu. <a href="./videos/20180128_Tut_Navigation.webm">View fullsize</a>.
             </p>
 
-            <div class="ui section divider"></div>                            
+            <div class="ui section divider"></div>
 
             <h2 class="header ui centered">Draw on the surface</h2>
         </div>
@@ -172,11 +172,11 @@
         </div>
 
 
-    </div>        
-    <div class="ui justified text container fluid page" style="display:None"id='#tech'>   
-        
-        
-        <div class="ui raised segment">            
+    </div>
+    <div class="ui justified text container fluid page" style="display:None"id='#tech'>
+
+
+        <div class="ui raised segment">
             <img class="ui fluid image" src="./images/aard.png">
             <h2 class="header ui centered">Technology behind PRo3D</h2>
             <p style="font-size: 1.2rem">
@@ -194,7 +194,7 @@
                 <div class="column">
                         <a href="https://www.joanneum.at/"><img class="ui image" src="./images/JR.png"></a>
                 </div>
-            </div>                                
-    </div>    
+            </div>
+    </div>
 </body>
 </html>
