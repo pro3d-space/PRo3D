@@ -56,7 +56,7 @@
     <br>
     <br>
     <br>
-    <div class="ui justified text container fluid page" style="display:Show" id='#home'>
+    <div class="ui justified text container fluid page" style="display:None" id='#home'>
         <img class="ui fluid image rounded rectangle " src="./images/garden.jpg">
 
         <div class="ui raised segment">
@@ -130,7 +130,7 @@
                 </div>
         </div>
     </div>
-    <div class="ui justified text container fluid page" style="display:None" id='#started'>
+    <div class="ui justified text container fluid page" style="display:Show" id='#started'>
         <div class="ui raised segment">
             <h2 class="header ui centered">Getting started</h2>
             <p style="font-size: 1.2rem">
@@ -160,8 +160,22 @@
             </p>
 
             <div class="ui section divider"></div>
+            <h2 class="header ui centered">Draw on the surface</h2>            
+            <h3 class="header ui">Drawing primitives</h2>            
+            <video width="660" src="./videos/20180204_Tut_Primitives.webm" controls></video>
+            <p style="font-size: 1.2rem">
+            To start drawing in the 3D surface, you need to select 'DrawAnnotation' from the <i class="icon wizard"></i> interaction menu, which reveals the <i class="icon write"></i> drawing menu consisting of four elements: drawing primitive, projection mode, color, and line width. PRo3D offers the following drawing primitives: point, line, polyline, polygon, and Dns (Dip and Strike). By default 'polyline' and 'viewpoint' projection are selected. We can start to draw a polygon by holding down CTRL use the LMB to pick points on the surface. When we our polyline has enough points we press ENTER to finish it, which automatically opens the annotaions tab on the right. There, we can select individual annotations by clicking on the text, inspect their properties and modify them, for instance change their color or add a text.</p>
+            
+            <p style="font-size: 1.2rem">
+            The Dns annotation has a special measurement, which automatically computes the 3D dipping and strike vector for a picked polyline represented by a colored disc. By default, blue represents a dip of 0° and red a dep of 90°. Technically, a plane is fitted to the picked points by linear regression. Disc sizes can be adapted in the config tab. 
+            </p>
 
-            <h2 class="header ui centered">Draw on the surface</h2>
+
+            <h3 class="header ui">Projection modes</h2>
+            <video width="660" src="./videos/20180204_Tut_Projections.webm" controls></video>
+            <p style="font-size: 1.2rem">
+            With the projection mode we can decide how the points we picked are connected. 'Linear' simply connects the picked points directly, while the other two modes compute hundreds of intermediate points. In case of 'Viewpoint', these intermediate points are projected onto the surface along the viewing direction, very much like we would have picked these points ourselves along the connection. When using 'Sky' projection, the intermediate points are projected orthogonally from above onto the surface, which is for instance usefull for estimating the waylength along a surface opposed to air-line distance.
+            </p>
         </div>
         <div class="ui raised segment">
             <h2 class="header ui centered">Manual</h2>
