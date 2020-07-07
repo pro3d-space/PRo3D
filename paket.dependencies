@@ -3,8 +3,8 @@ framework: netstandard2.0, net471, netcoreapp2.0, netcoreapp3.1
 source https://api.nuget.org/v3/index.json
 source https://vrvis.myget.org/F/aardvark/auth/11394d4d-4fe9-44ec-87c8-f3e98909f975/api/v3/index.json
 
-nuget FSharp.Core                           ~> 4.6.2
-nuget FSharp.Data                           ~> 3.1.1
+nuget FSharp.Core                  >= 4.6.2 lowest_matching: true
+nuget FSharp.Data                  ~> 3.1.1
 
 nuget Aardvark.Base                         ~> 4.5.29
 nuget Aardvark.Base.Incremental             ~> 4.5.29
@@ -43,10 +43,9 @@ nuget WindowsAPICodePack-Core
 nuget WindowsAPICodePack-ShellExtensions
 
 group Build
-framework: net45
+framework: netstandard2.0
 
-content: none
+nuget Fake.IO.FileSystem
+
 source https://api.nuget.org/v3/index.json
 github aardvark-platform/aardvark.fake:v5
-
-nuget FSharp.Core                           ~> 4.6.2
