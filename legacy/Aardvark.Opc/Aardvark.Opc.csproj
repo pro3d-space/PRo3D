@@ -1,0 +1,243 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>9.0.30729</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{9000D727-3B4F-4F3E-916E-735E3A78E532}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Aardvark.Opc</RootNamespace>
+    <AssemblyName>Aardvark.Opc</AssemblyName>
+    <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
+    <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\..\Solutions\</SolutionDir>
+    <RestorePackages>true</RestorePackages>
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>WARNING, Do not change manually, is changed by Aardvark's MSBuildCleaner</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>WARNING, Do not change manually, is changed by Aardvark's MSBuildCleaner</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="SlimDX, Version=4.0.11.43, Culture=neutral, PublicKeyToken=b1b0c32fd1ffe4f9, processorArchitecture=AMD64">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\BinPrebuilt\Release\x64\SlimDX.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core">
+      <RequiredTargetFramework>3.5</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Net.Http.Extensions, Version=2.2.29.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\Packages\Microsoft.Net.Http.2.2.29\lib\net45\System.Net.Http.Extensions.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Net.Http.Primitives, Version=4.2.29.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\Packages\Microsoft.Net.Http.2.2.29\lib\net45\System.Net.Http.Primitives.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Net.Http.WebRequest" />
+    <Reference Include="System.Reactive.Core, Version=2.2.5.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\Packages\Rx-Core.2.2.5\lib\net45\System.Reactive.Core.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Reactive.Interfaces, Version=2.2.5.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\Packages\Rx-Interfaces.2.2.5\lib\net45\System.Reactive.Interfaces.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Reactive.Linq, Version=2.2.5.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\Packages\Rx-Linq.2.2.5\lib\net45\System.Reactive.Linq.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Reactive.PlatformServices, Version=2.2.5.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\Packages\Rx-PlatformServices.2.2.5\lib\net45\System.Reactive.PlatformServices.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xaml" />
+    <Reference Include="System.Xml.Linq">
+      <RequiredTargetFramework>3.5</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="System.Xml" />
+    <Reference Include="WindowsBase" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Enums.cs" />
+    <Compile Include="IndexArrayCache.cs" />
+    <Compile Include="KdTree\KdTreeUtils.cs" />
+    <Compile Include="KdTree\LazyKdTreeSet.cs" />
+    <Compile Include="LevelOfDetail.cs" />
+    <Compile Include="OpcEvents.cs" />
+    <Compile Include="OpcIndices.cs" />
+    <Compile Include="OpcResourceManager.cs" />
+    <Compile Include="PatchHierarchy\OpcSgBuilderStrategy.cs" />
+    <Compile Include="PatchHierarchy\OpcFileUtils.cs" />
+    <Compile Include="PatchHierarchy\OpcPaths.cs" />
+    <Compile Include="PatchHierarchy\Patch.cs" />
+    <Compile Include="PatchHierarchy\PatchFileInfo.cs" />
+    <Compile Include="PatchHierarchy\PatchHierarchy.cs" />
+    <Compile Include="PatchHierarchy\PatchHierarchyInfo.cs" />
+    <Compile Include="PatchHierarchy\PatchHierarchyXML.cs" />
+    <Compile Include="PatchHierarchy\PatchLoadingStrategy.cs" />
+    <Compile Include="PatchHierarchy\PatchTree.cs" />
+    <Compile Include="PatchHierarchy\ProfileLookUpTable.cs" />
+    <Compile Include="PointSampleExtensions.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Include="SupplementalFilesHandling.cs" />
+    <Compile Include="VertexGeometryContent.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Aardvark.Algodat.Convertibles\Aardvark.Algodat.Convertibles.csproj">
+      <Project>{FC6B2005-B20D-4342-A973-F62FEA18F1A3}</Project>
+      <Name>Aardvark.Algodat.Convertibles</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Aardvark.Algodat.Points\Aardvark.Algodat.Points.csproj">
+      <Project>{EF27DA5E-0B38-4184-B8D4-15B6D10BCA10}</Project>
+      <Name>Aardvark.Algodat.Points</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Aardvark.Algodat.Rendering\Aardvark.Algodat.Rendering.csproj">
+      <Project>{E60CBB93-7847-437B-AA02-61A6241F7452}</Project>
+      <Name>Aardvark.Algodat.Rendering</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Aardvark.Base\Aardvark.Base.csproj">
+      <Project>{377da721-c821-45f6-b803-9c8724c7b37f}</Project>
+      <Name>Aardvark.Base</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Aardvark.Control\Aardvark.Control.csproj">
+      <Project>{D60A7E49-BA49-4256-9285-57F916C31684}</Project>
+      <Name>Aardvark.Control</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Aardvark.DebugTools\Aardvark.DebugTools.csproj">
+      <Project>{36E3FBC0-4742-4A5A-8EFC-CB76A3C391EF}</Project>
+      <Name>Aardvark.DebugTools</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Aardvark.Lod\Aardvark.Lod.csproj">
+      <Project>{31B2CBA7-C3A4-4D58-B3EE-C3C3C9FE8AD4}</Project>
+      <Name>Aardvark.Lod</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Aardvark-Base\Aardvark.VRVis.Base\Aardvark.VRVis.Base.csproj">
+      <Project>{4b4c6b5f-a44e-41b5-b985-033ac23d3958}</Project>
+      <Name>Aardvark.VRVis.Base</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Aardvark-Base\Aardvark.VRVis.Geometry\Aardvark.VRVis.Geometry.csproj">
+      <Project>{2cb9e062-0048-41f2-ace3-6b3bf01da052}</Project>
+      <Name>Aardvark.VRVis.Geometry</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Aardvark-Base\Aardvark.VRVis.Images\Aardvark.VRVis.Images.csproj">
+      <Project>{61baa8c5-bdd5-4689-a9d0-475d45249f97}</Project>
+      <Name>Aardvark.VRVis.Images</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Algodat\Aardvark.Algodat.Images\Aardvark.Algodat.Images.csproj">
+      <Project>{9BA25713-B1A9-41D5-8E23-8450F52EB306}</Project>
+      <Name>Aardvark.Algodat.Images</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Runtime\Aardvark.Runtime.IO\Aardvark.Runtime.IO.csproj">
+      <Project>{E7B169D6-913C-43CB-B8E4-FCBF27989380}</Project>
+      <Name>Aardvark.Runtime.IO</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Runtime\Aardvark.Runtime.Kernel\Aardvark.Runtime.Kernel.csproj">
+      <Project>{1EE33AD8-8832-482E-9BC6-2FCBAAC38E2E}</Project>
+      <Name>Aardvark.Runtime.Kernel</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Aardvark.Parser.Aara\Aardvark.Parser.Aara.csproj">
+      <Project>{23BCB484-7C50-4A88-B214-BFF2785E3615}</Project>
+      <Name>Aardvark.Parser.Aara</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Aardvark.Rendering.SlimDx\Aardvark.Rendering.SlimDx.csproj">
+      <Project>{7924D430-28E4-4765-8688-ACBCB6CA9A34}</Project>
+      <Name>Aardvark.Rendering.SlimDx</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Algodat\Aardvark.Algodat.Base\Aardvark.Algodat.Base.csproj">
+      <Project>{B7EF7131-1C8F-45C8-8725-EF9D0937FD38}</Project>
+      <Name>Aardvark.Algodat.Base</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Algodat\Aardvark.Algodat.Geometry\Aardvark.Algodat.Geometry.csproj">
+      <Project>{E6465D68-14F2-4700-89EB-0D7B6F8227EF}</Project>
+      <Name>Aardvark.Algodat.Geometry</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Runtime\Aardvark.Runtime.Base\Aardvark.Runtime.Base.csproj">
+      <Project>{3F6BB612-53F1-4F7B-9BFE-CDA3396B9316}</Project>
+      <Name>Aardvark.Runtime.Base</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\SceneGraph\Aardvark.SceneGraph.Base\Aardvark.SceneGraph.Base.csproj">
+      <Project>{F5A9E328-7BBB-401A-A1B2-10B92E715EAD}</Project>
+      <Name>Aardvark.SceneGraph.Base</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\SceneGraph\Aardvark.SceneGraph.Core\Aardvark.SceneGraph.Core.csproj">
+      <Project>{7D896D1A-22EC-44F9-BBAE-3D3B0F8BC338}</Project>
+      <Name>Aardvark.SceneGraph.Core</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\SceneGraph\Aardvark.SceneGraph.Interaction\Aardvark.SceneGraph.Interaction.csproj">
+      <Project>{B774779C-6C17-4260-BBBD-E986140331A2}</Project>
+      <Name>Aardvark.SceneGraph.Interaction</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\SceneGraph\Aardvark.SceneGraph.Rules\Aardvark.SceneGraph.Rules.csproj">
+      <Project>{DFD0EB4A-C8DA-4DA8-947D-4D7139A15305}</Project>
+      <Name>Aardvark.SceneGraph.Rules</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources.resx">
+      <Generator>PublicResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+    <None Include="Resources\HueColorMap.png" />
+  </ItemGroup>
+  <PropertyGroup>
+    <CustomBeforeMicrosoftCommonTargets>$(SolutionDir)\Aardvark.targets</CustomBeforeMicrosoftCommonTargets>
+  </PropertyGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
+  <Import Project="..\..\Packages\Microsoft.Bcl.Build.1.0.21\build\Microsoft.Bcl.Build.targets" Condition="Exists('..\..\Packages\Microsoft.Bcl.Build.1.0.21\build\Microsoft.Bcl.Build.targets')" />
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\..\Packages\Microsoft.Bcl.Build.1.0.21\build\Microsoft.Bcl.Build.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\Packages\Microsoft.Bcl.Build.1.0.21\build\Microsoft.Bcl.Build.targets'))" />
+  </Target>
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

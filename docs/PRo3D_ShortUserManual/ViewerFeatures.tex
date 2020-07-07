@@ -1,0 +1,316 @@
+%----------------------------------------------------------------------------------------
+%	Section: Viewer Features
+%----------------------------------------------------------------------------------------
+\section{Viewer Features}
+
+\begin{figure}[h]
+    	\centering
+    		\includegraphics[width=1\textwidth]{pics/SurfacesAI.png}
+    	\caption[Viewer Features]{There are pages (right) for each feature in the viewer.}
+    	\label{fig:featureMenu}
+   \end{figure}
+	
+The feature pages show a list of the respective features, the properties of the selected feature from this list, and some actions for this feature.
+For surfaces, annotations, and bookmarks it is possible to group them, as described in Section~\ref{sec:grouping}.
+%----------------------------------------------------------------------------------------
+%	SubSection: Surfaces
+%----------------------------------------------------------------------------------------
+\subsection{Surfaces}
+\label{sec:surfaces}
+
+The listing shows all surfaces in the scene. You can classify them in any group and subgroup layers, described in Section~\ref{sec:grouping}.
+You can select a surface by clicking on the surface's name, which turns its color to green. Or you can set ``PickSurface'' in the actions menu (Figure~\ref{fig:Interactions}), press CTRL+LMB and pick the surface in the main view. Then you can see the surface's properties in the properties panel and use the actions in the actions panel. 
+It is also possible to select multiple surfaces by clicking the square icon in front of each surface. The selected surfaces have a green square in the list. The multiselection is used to move one ore more surfaces from one group to the active group.
+Under the surface's name is a little menu:
+\begin{itemize}
+	\item \textit{FlyTo}: A click on the button triggers a FlyTo animation.
+	\item \textit{openFolder}: Opens the folder where the scene file resides.	
+	\item \textit{Cloud}: Creates new kd-tree files.	
+	%\item \textit{portable}: This creates a folder hierarchy as used in the old viewer version. A scene file is created and the surfaces are
+  %copied to the surface folder.
+	\item \textit{Toggle Visible}: Toggles the surface visible/invisible.	
+	\item \textit{Toggle IsActice}: You can only pick on active surfaces (explore center, annotations, ...).
+	
+\end{itemize}
+
+\begin{figure}[h]
+    	\centering
+    		\includegraphics[width=1\textwidth]{pics/SurfaceTranslation.png}
+    	\caption[Surface Translation]{Translation of the selected surface along the axes of the coordinate system.}
+    	\label{fig:surfaceTranslation}
+   \end{figure}
+
+For each selected surface there are several panels as shown in Figure~\ref{fig:featureMenu} A to E. 
+
+In the surface properties panel (Figure~\ref{fig:featureMenu} A) some adjustments are possible:
+\begin{itemize}
+	\item \textit{Name}: The surface's name. You can change it in the text field and press ``enter''.
+	\item \textit{Visible}: The surface is visible (checked) or not (unchecked).
+	\item \textit{Active}: The surface is active (checked) or not (unchecked). You can only pick on active surfaces.
+	\item \textit{Priority}:  Often multiple surfaces are available for a certain area on the planet surface. These surfaces represent the same piece of ground and typically overlap. This parameter allows you to assign a priority to a surface to tell the graphics card which surface should be rendered in front. Lower numbers mean a higher priority in rendering, with 0 being the highest priority. You can also give the highest priority surface a ranking of, for instance, 0.1 (= 10cm) to make annotations more visible. The priority can be dynamically changed via the surface properties so you can try out what works best.
+	\item \textit{Quality}: 
+	\item \textit{TriangleFilter}: Excludes triangles with edges bigger than the entered value.
+	\item \textit{Scale}: 
+	\item \textit{FillMode}: You can switch between solid/ wireframe/ point rendering of the geometry.
+	\item \textit{Scalars}: Select an attribute layer.
+	\item \textit{Textures}: Select a texture layer.
+	\item \textit{Cull Faces}:
+	\item \textit{Set Homeposition}: You set a new camera position for FlyTo.
+\end{itemize}
+
+The surfaces actions (Figure~\ref{fig:featureMenu} B) are described in Section~\ref{sec:leafActions}. \\
+
+
+You can translate the surface along the north-, east and up axis of the coordinate system, described in Section~\ref{sec:placeCS}. And you can rotate the surface around the up vector of the coordinate system. The Translation panel is shown in Figure~\ref{fig:featureMenu} B and Figure~\ref{fig:surfaceTranslation}. \\
+
+\begin{center}
+\colorbox{red}{\parbox{1.0\textwidth}{NOTE: Translation and Rotation only work for surfaces. Annotations, Rovers, the Coordinate System, etc. will NOT move with the surface. You have to transform the surface first!}}
+\end{center}
+
+\begin{figure}[h]
+    	\centering
+    		\includegraphics[width=1\textwidth]{pics/SurfaceColorCorrection.png}
+    	\caption[Surface Color Correction]{Contrast-, brightness- and color filters applied on the selected surface.}
+    	\label{fig:surfaceColorCorrection}
+   \end{figure}
+
+You can apply different color correction filters on the selected surface	(Figure~\ref{fig:surfaceColorCorrection}). \\
+
+\begin{figure}[h]
+    	\centering
+    		\includegraphics[width=1\textwidth]{pics/SurfaceColorLegend.png}
+    	\caption[Surface Color Legend]{A height map visualized by false color mapping.}
+    	\label{fig:surfaceColorLegend}
+   \end{figure}
+	
+Within the effort of including more and more meta data for a surface we included the so-called SurfaceAttributes (see Figure~\ref{fig:surfaceColorLegend}),
+which are specified in an .opcx file carrying the name of the respective surface.
+For now, these surface attributes mainly contain additional layers, which can either be a texture layer or an attribute layer.
+Texture layers are just alternative texture maps that can be mapped onto the surface, such as images from different filters or even sensors (spectral image). 
+Attribute maps on the other hand present an additional value for each position of a surface. 
+If a surface has an .opcx file attached its layers are listed and can be selected in the \textit{Scalars} and the \textit{Textures} combo boxes as part of the surface's property control (Figure~\ref{fig:featureMenu}). 
+In the Scalars ColorLegend panel, the color legend can be adjusted (Figure~\ref{fig:surfaceColorLegend}).
+
+%----------------------------------------------------------------------------------------
+%	SubSection: Annotations
+%----------------------------------------------------------------------------------------
+\newpage
+\subsection{Annotations}
+\label{sec:annotations}
+
+\begin{figure}[h]
+    	\centering
+    		\includegraphics[width=1\textwidth]{pics/AnnotationsAI.png}
+    	\caption[Viewer Features Annotations]{The annotations page.}
+    	\label{fig:annoProps}
+   \end{figure}
+	
+The listing shows all annotations in the scene. You can classify them in any group and subgroup layers, described in Section~\ref{sec:grouping}.
+You can select an annotation by clicking on the annotation's name, which turns its color to green. Or you can set ``PickAnnotation'' in the actions menu (Figure~\ref{fig:Interactions}), press CTRL+LMB and pick the annotation in the main view. Then you can see the annotation's properties in the properties panel and use the actions in the actions panel. 
+It is also possible to select multiple annotations by clicking the square icon in front of each annotation. The selected annotations have a green square in the list. The multiselection is used to move one ore more annotations from one group to the active group.\\
+Under the annotation's name is a little menu:
+\begin{itemize}
+  \item \textit{Toggle}: Toggles the annotation visible/invisible.
+	\item \textit{FlyTo}: A click on the button triggers a FlyTo animation.
+\end{itemize}
+
+For each selected annotation there are several panels as shown in Figure~\ref{fig:annoProps} A to E. 
+
+The properties of the selected annotation (click on annotation's name) are shown in Figure~\ref{fig:annoProps} A. There you can get information and change some of the settings:
+\begin{itemize}
+	\item \textit{Geometry}: Shows the annotation mode (described in Section~\ref{sec:drawAnnotation}). This is not changeable retrospectively.
+	\item \textit{Projection}: Shows the projection which determines the direction of the picking ray (described in Section~\ref{sec:drawAnnotation}, shown in Figure~\ref{fig:projection}). This is not changeable retrospectively.
+	\item \textit{Semantic}: 
+	\item \textit{Thickness}: You can change the annotation's line thickness.
+	\item \textit{Color}: You can change the annotation's color.
+	\item \textit{Text}: You can append a note. Write in the text field and press ``Enter''. The note will appear next to the annotation in the viewer. 
+	\item \textit{TextSize}: You can change the textsize.
+	\item \textit{Visible}: The annotation is visible (checked) or not (unchecked).
+	\item \textit{ShowDnS}: For each annotation with more than three picking points Dip and Strike information (Section~\ref{sec:drawAnnotation}) is available. The DnS is visible (checked) or not (unchecked).
+\end{itemize}
+
+The annotations actions (Figure~\ref{fig:annoProps} B) are described in Section~\ref{sec:leafActions}.\\
+
+The measurements tab (Figure~\ref{fig:annoProps} C) contains some information:
+\begin{itemize}
+	\item \textit{Position}: Shows the position (only for point annotations).
+	\item \textit{PrintPosition}: Prints the position in the console window.
+	\item \textit{Height}:  The height between the annotation's start and end point.
+	\item \textit{HeightDelta}: The height difference between the highest and lowest point of the projected line.
+	\item \textit{AvgAltitude}: The average altitude.
+	\item \textit{Length}: The sum of direct distances between the picking points.
+	\item \textit{WayLength}: The sum of projected distances between the picking points.
+	\item \textit{Bearing}: The annotation's bearing.
+	\item \textit{Slope}: The annotation's slope.
+	\item \textit{Vertical Distance}: The vertical distance between the annotation's start and end point in relation to the up vector of the coordinate system.
+	\item \textit{Horizontal Distance}: The horizontal distance between the annotation's start and end point in relation to the north- and right vector of the coordinate system.
+\end{itemize}
+
+\begin{figure}[h]
+    	\centering
+    		\includegraphics[width=1\textwidth]{pics/DnsAI.png}
+    	\caption[Viewer Features DnSColorLegend]{Colorcoding of the Dip\&Strike annotations according to their dipping angles.}
+    	\label{fig:dnSColorLegend}
+   \end{figure}
+	
+Measurements for the dip and strike annotations are shown in the Dip\&Strike tab (Figure~\ref{fig:annoProps} D and Figure~\ref{fig:dnSColorLegend} D).\\
+
+The color coding of the DnS annotation's discs and arrows is specified by the dipping angle. The color legend's parameters can be adjusted in the
+Dip\&Strike ColorLegend tab shown in Figure~\ref{fig:dnSColorLegend} E.
+
+%----------------------------------------------------------------------------------------Import AnnotationGroups
+%\subsubsection{Import Annotations from old viewer versions} 
+%
+%To import annotations from old scene files click the ``browse'' button in the \textbf{ImportAnnotationGroups} section in the Scene Menu (Figure~\ref{fig:StartMenu}). This opens a folder browser dialog, where you can select an old scene file an click ''Open''.
+%The annotations are loaded in the same group hierarchy to the ``root'' group.
+
+
+%----------------------------------------------------------------------------------------
+%	SubSection: ViewPlanner
+%----------------------------------------------------------------------------------------
+%\subsection{ViewPlanner}
+%\label{sec:viewPlanner}
+
+%----------------------------------------------------------------------------------------
+%	SubSection: Bookmarks
+%----------------------------------------------------------------------------------------
+\subsection{Bookmarks}
+\label{sec:bookmarks}
+
+%\begin{figure}[h]
+    	%\centering
+    		%\includegraphics[width=0.5\textwidth]{pics/bookmarks.png}
+    	%\caption[Viewer Features Bookmarks]{The bookmarks tab.}
+    	%\label{fig:bookmarks}
+   %\end{figure}
+	
+Bookmarks enable the user to record a certain camera viewpoint.
+To add a new bookmark click the ``+'' button on top of the page. The new bookmark is added to the active group in the bookmarks listing.
+To view the bookmark's properties and actions click on the bookmark's name. Clicking the ``house'' button beside the bookmark's name triggers a FlyTo. For multiselection click on the bookmark's square icons.
+
+%----------------------------------------------------------------------------------------
+%	SubSection: Viewer Configuration
+%----------------------------------------------------------------------------------------
+\subsection{Viewer Configuration}
+\label{sec:config}
+
+To edit the viewer properties, select the ``Config'' page.
+
+%----------------------------------------------------------------------------------------Viewer Config
+\subsubsection{ViewerConfig} 
+
+A set of major viewer properties can be adjusted:
+\begin{itemize}
+	\item \textit{Near/Far Plane}: The near- and the far clipping plane are automatically adjusted according to the data to be rendered. The set values are shown in the config panel and can be adjusted afterwards. 
+	\item \textit{Navigation Sensitivity}: The navigation sensitivity can also be adjusted by PageUp and PageDown keys. 
+	\item \textit{Arrow Length/Thickness}: The arrow length and thickness is set for up- and north vectors, dip and strike vectors and the up- and lookAt vectors in the rover view planner. 
+	\item \textit{D+S Plane Size}: The dip and strike measurements plane size, described in Section~\ref{sec:drawAnnotation}
+ (Figure~\ref{fig:drawAnnotations}).
+	\item \textit{Min/Max Dipping Angle}: The dip and strike measurements dipping angle range. The dipping angle is coded into the color of the disc and arrow of a measurement (Figure~\ref{fig:drawAnnotations}).
+	\item \textit{Lod Colors}: The different levels of detail of the surface geometry can be colored in different shades of red.
+			This helps to evaluate the export of OPC data.
+\end{itemize}
+
+%----------------------------------------------------------------------------------------Coordinate System
+\subsubsection{Coordinate System} 
+
+The coordinate system menu shows the position, Up- and North Vector of the coordinate system described in Section~\ref{sec:placeCS}, shown in Figure~\ref{fig:coordinateSystem}.
+The Up- and the North Vector are used for the projection measurements (Figure~\ref{fig:drawAnnotations}). Initially the Up Vector's direction is set in the positive z-direction and the North Vector's in the positive y-direction. But you can manipulate the Up Vector manually for different data. Both vectors are computed automatically with picking of a new position for the coordinate system. The north vector is further relevant for bearing measurements. % and the rover placement in the View Planner (see Section 4.6). 
+
+%----------------------------------------------------------------------------------------Camera
+\subsubsection{Camera} 
+
+The Camera submenu shows the Location, Forward- and Sky vector of the main camera.
+%----------------------------------------------------------------------------------------
+%	SubSection: Grouping
+%----------------------------------------------------------------------------------------
+\subsection{Grouping}
+\label{sec:grouping}
+
+%\begin{figure}[h]
+    	%\centering
+    		%\includegraphics[width=0.5\textwidth]{pics/GroupsProperties.png}
+    	%\caption[Viewer Features]{The group properties and actions.}
+    	%\label{fig:groupProps}
+   %\end{figure}
+
+Grouping is possible for surfaces, annotations and bookmarks.
+The ``root'' group is the highest level where you can add leafs and subgroups.
+Each group has a context menu:
+\begin{itemize}
+	\item \textit{Set Active}: The active group gets the new leaf. Per default the ``root'' is active.
+	\item \textit{Add Group}: Adds a new and empty subgroup.
+	\item \textit{Toggle Group}: Sets all leafs in this group and its subgroups invisible.
+\end{itemize}
+
+%----------------------------------------------------------------------------------------Group actions
+\subsubsection{Group Actions}
+\label{sec:groupActions}
+
+\begin{itemize}
+	\item \textit{Remove}: Removes the group with all its leafs and subgroups.
+	\item \textit{Clear}: Removes all leafs and subgroups from group but retains the empty group. 
+	\item \textit{Selection: Move}: Moves all selected leafs (green squares) to the active group.
+	\item \textit{Selection: Clear}: Clears the selection (the leafs were not removed).
+\end{itemize}
+	
+%----------------------------------------------------------------------------------------Leaf actions
+\subsubsection{Leaf Actions}
+\label{sec:leafActions}
+
+\begin{itemize}
+	\item \textit{Remove}: Removes the leaf.
+	\item \textit{Selection: Move}: Moves all selected leafs (green squares) to the active group.
+	\item \textit{Selection: Clear}: Clears the selection (the leafs were not removed).
+\end{itemize}
+
+%----------------------------------------------------------------------------------------
+%	SubSection: ViewPlanner
+%----------------------------------------------------------------------------------------
+\newpage
+\subsection{View Planner}
+\label{sec:viewplanner}
+
+\begin{figure}[h]
+    	\centering
+    		\includegraphics[width=1\textwidth]{pics/ViewPlanner1.png}
+    	\caption[View Planner]{The view planner. The rover is placed on the surface in the main view (left). All rovers in the scene are listed in the ViewPlanner tab (right).}
+    	\label{fig:viewPlanner}
+   \end{figure}
+To use the View Planner make sure that a \textbf{rover.xml} file is in the \textbf{\path{Release\InstrumentStuff}} folder. Then you can place one or more rover into your scene.
+Therefore set ``PlaceRover'' in the actions menu (Figure~\ref{fig:viewPlanner} A), select a rover model in the rover menu (Figure~\ref{fig:viewPlanner} B), press CTRL+LMB and pick two points on the surface in the main view. The first point (green) is the position and the second point (yellow) the viewing direction of the rover. In the ViewPlanner tab is a listing that shows all ViewPlans in the scene (Figure~\ref{fig:viewPlanner} C). There is a little menu beside each ViewPlan shown in Figure~\ref{fig:viewPlanner} D:
+\begin{itemize}
+	\item FlyTo: clicking on the ``house button'' triggers an animation to the camera position from where the rover placement happened.
+	\item (In)Visible: switch the rover to visible\textbackslash invisible.
+	\item Remove: clicking on the red ``x'' removes the View Plan from the list and the view.
+\end{itemize}
+Select a view plan by clicking on the square icon in front of it to adjust it's properties:
+\begin{itemize}
+	\item ChangeVPName: change the name and press the enter button.
+	\item Name: shows the rover's name.
+	\item Instrument: select an instrument (camera) from the list (Figure~\ref{fig:viewPlanner} E).
+\end{itemize}
+\begin{figure}[h]
+    	\centering
+    		\includegraphics[width=1\textwidth]{pics/ViewPlannerGuiAi.png}
+    	\caption[View PlannerGui]{The footprint for the selected camera is shown in light gray on the surface in the main view. In the properties panel (right) you can adjust the rover and camera parameters.}
+    	\label{fig:viewPlannerGui}
+   \end{figure}
+When a camera is selected you can change the instrument parameters as shown in Figure~\ref{fig:viewPlannerGui} A:
+\begin{itemize}
+	\item Sensor (px): the image size in pixel.
+	\item Focal (mm): the focal length of the camera sensor (zoom).
+\end{itemize}
+You can also change the rover's pan- and tilt axis (in degree) (Figure~\ref{fig:viewPlannerGui} B).
+In the main view the footprint of the selected camera is shown in light gray. For the footprint there are following settings:
+\begin{itemize}
+	\item show footprint: you can enable\textbackslash disable the footprint in the main view.
+	\item export footprint: you get one screenshot from the main view, one from the instrument view (Figure~\ref{fig:instView}) and a \textbf{*.svx} file with diverse meta information.
+	\item open footprint folder: opens the folder with the screenshots and the meta file.
+\end{itemize}
+\begin{figure}[h]
+    	\centering
+    		\includegraphics[width=1\textwidth]{pics/InstrumentView.png}
+    	\caption[Instrument View]{The instrument view (right) shows the instrument's camera view.}
+    	\label{fig:instView}
+   \end{figure}

@@ -1,0 +1,5 @@
+Horizon0=unit boundary;units;Lith_bounds;Lithological_bounds;Unit Boundaries
+Horizon1=bed set boundary;set boundary;beds;Set_bounds;Set_bound_DnS;Facies_Assoc_bounds
+Horizon2=Outcrop_scale_bound_surf
+Horizon3=Set-bounds
+Crossbed=cross beds;Scarp_Lams_DnS;Cross_Lam_DnS;X beds;Cross bed;Cross-Set_DnS;Internal laminations

@@ -1,0 +1,74 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net471</TargetFramework>
+    <RuntimeIdentifier>win7-x64</RuntimeIdentifier>
+    <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <OutputPath>..\..\bin\Debug\</OutputPath>
+    <PlatformTarget>x64</PlatformTarget>
+    <DefineConstants>TRACE;DEBUG;NET471</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <OutputPath>..\..\bin\Release</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup>
+    <RunWorkingDirectory>$(OutputPath)</RunWorkingDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+	<Content Include="docking.css">
+	  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	</Content>
+	<Content Include="spectrum.css">
+	  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	</Content>
+	<None Include="spectrum.js">
+	  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	</None>
+	<Content Include="semui-overrides.css">
+	  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	</Content>
+	<Compile Include="Rendering.fs" />
+	<Compile Include="UIEvents.fs" />
+	<Compile Include="SvgTags.fs" />
+	<Compile Include="Mars.fs" />
+	<Compile Include="CorrelationDrawingTypes.fs" />
+	<Compile Include="NumericExt.fs" />
+	<Compile Include="Utilities.fs" />
+	<Compile Include="UtilitiesDatastructures.fs" />
+	<Compile Include="UtilitiesGUI.fs" />
+	<Compile Include="Svg.fs" />
+	<Compile Include="Shaders.fs" />
+	<Compile Include="TextInputApp.fs" />
+	<Compile Include="DropdownApp.fs" />
+	<Compile Include="Semantic.fs" />
+	<Compile Include="SemanticApp.fs" />
+	<Compile Include="Annotation.fs" />
+	<Compile Include="AnnotationApp.fs" />
+	<Compile Include="AnnotationPoint.fs" />
+	<Compile Include="Border.fs" />
+	<Compile Include="LogAxisSection.fs" />
+	<Compile Include="LogAxisApp.fs" />
+	<Compile Include="LogNodeSvg.fs" />
+	<Compile Include="LogNode.fs" />
+	<Compile Include="GeologicalLog.fs" />
+	<Compile Include="GeologicalLogApp.fs" />
+	<Compile Include="Correlation.fs" />
+	<Compile Include="CorrelationPlot.fs" />
+	<Compile Include="CorrelationPlotApp.fs" />
+	<Compile Include="CorrelationDrawing.fs" />
+	<Compile Include="CorrelationDrawingApp.fs" />
+	<Compile Include="PagesApp.fs" />
+	<None Include="paket.references" />
+	<Compile Include="Model.fs" />
+	<Compile Include="Model.g.fs" />
+	<Compile Include="App.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Properties\" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>

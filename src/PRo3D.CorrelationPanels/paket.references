@@ -1,0 +1,29 @@
+nuget FSharp.Core                          
+
+nuget Aardvark.Base                        
+nuget Aardvark.Base.Incremental            
+nuget Aardvark.Base.FSharp                 
+nuget Aardvark.Base.Essentials             
+nuget Aardvark.Service                     
+nuget Aardvark.UI                          
+nuget Aardvark.UI.Primitives               
+
+nuget Aardvark.Base.Rendering
+nuget Aardvark.SceneGraph                  
+nuget Aardvark.SceneGraph.IO               
+nuget Aardvark.Rendering.Text              
+nuget Aardvark.Rendering.Vulkan            
+nuget Aardvark.GPGPU                       
+
+nuget Aardvark.Compiler.DomainTypes        
+nuget Aardvark.Compiler.DomainTypes.MSBuild
+
+nuget FsPickler                            
+nuget FsPickler.Json                       
+
+nuget Suave                                
+
+nuget Aardium                              
+
+nuget Aardvark.SceneGraph.Opc 
+nuget Aardvark.Application.Slim

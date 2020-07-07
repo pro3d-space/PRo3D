@@ -1,0 +1,23 @@
+{
+  "fieldOfView": 5.47,
+  "resolution": "[1024, 1024]",
+  "snapshots": [
+    {
+      "filename": "MySnapshot_01",
+      "view": {
+        "forward": "[0.88, -0.16, -0.42]",
+        "location": "[-26657.72, 4862.62, 12890.12]",
+        "up": "[0.42, -0.07, 0.90]"
+      }
+    },
+    {
+      "filename": "MySnapshot_02",
+      "view": {
+        "forward": "[0.99, -0.08, 0.00]",
+        "location": "[-26770.92, 2327.97, -260.80]",
+        "up": "[0.42, -0.07, 0.90]"
+      }
+    }
+  ],
+  "version": 0
+}

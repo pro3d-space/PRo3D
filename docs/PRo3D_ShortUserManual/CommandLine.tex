@@ -1,0 +1,106 @@
+%----------------------------------------------------------------------------------------
+%	Section: PRo3D Command Line Interface
+%----------------------------------------------------------------------------------------
+\section{PRo3D Command Line Interface}
+
+PRo3D can produce rendered images in a batch process via the command line. For this process, \emph{snapshot files} are used. They are in the JSON format, and contain transformations for each rendered image. There are two types of snapshot files: One type that only transforms camera parameters, and another that can be used to transform surfaces as well. This section describes the format of these files, and how they can be used with PRo3D to render an arbitrary number of images.
+
+%----------------------------------------------------------------------------------------
+%	SubSection: Start Command Line
+%----------------------------------------------------------------------------------------
+\subsection{PRo3D Snapshot Files}
+\label{sec:snapshots}
+
+Snapshot files have the JSON format, and need to follow a distinct scheme to be usable with PRo3D. Examples can be found in section \ref{cl:examples}.
+
+Field of view and resolution of the resulting image are only specified once, at the beginning of the file. The parameter \textit{snapshots} contains one entry for each output image. Table  \ref{table:json} lists all available parameters of the format.
+
+ \begin{center}
+	\begin{table}
+		\begin{tabular}{p{0.2\linewidth} p{0.12\linewidth} p{0.6\linewidth}}
+		\textbf{Parameter}         & 		 & \textbf{Comment} \\
+		\midrule
+		fieldOfView 	  & required &\\ 
+		resolution 		  & required & resolution of the output image\\  
+		snapshots 		  & required & each entry in this list will result in one output image\\    
+		filename 		  & required & name of the output file\\ 
+		view 			  & required & camera parameters \\  
+		forward           & required & forward vector of the camera\\
+		location          & required & location of the camera\\
+		up                & required & up vector of the camera\\
+		surfaceUpdates    & optional & \\    		
+		opcname 		  & required & name of the surface to be transformed\\    		
+		trafo 			  & optional & transformation to be applied to the surface\\    		
+		visible 		  & optional & visibility of the surface \\  			
+		\specialrule{\lightrulewidth}{1.0pt}{4.0pt}				
+	\end{tabular} 
+	\label{table:json}
+	\caption{Available parameters for a PRo3D Snapshot file}
+	\end{table}
+\end{center}
+
+
+
+%----------------------------------------------------------------------------------------
+%	SubSection: Minerva Features
+%----------------------------------------------------------------------------------------
+\subsection{Arguments and Features}
+\label{sec:clArgs}
+
+The \texttt{--help} flag will provide you with a full list of possible command line arguments for PRo3D. Table \ref{table:args} lists all available arguments.
+
+\begin{lstlisting}
+PRo3D.Viewer.exe --help
+\end{lstlisting}
+
+The simplest way to start the rendering process is to start PRo3D from the command line with only the path to the OPC file(s) and the snapshot file:
+
+\begin{lstlisting}
+PRo3D.Viewer.exe --opcs MyOPCs\firstOpc\;MyOPCs\secondOpc\ --asnap snapshots.JSON
+\end{lstlisting}
+
+The \texttt{--opcs} flag is followed by multiple paths to folders containing OPC surfaces separated with a semi colon. The \texttt{--asnap} flag is followed by the path to a snapshot file in the format described above, and as the examples in section \ref{cl:examples}. Make sure you are in the same directory as the \emph{PRo3D.Viewer.exe} file or specify the path to that file in the command. Paths can be either absolute or relative. The root of relative paths is the directory in which PRo3D.Viewer.exe is located. The flag \texttt{--snap} is used for legacy files which do not contain surface updates, and do not group the view parameters under a \emph{view} entry.\\
+
+To specify an output folder use the \texttt{--out} flag:
+
+\begin{lstlisting}
+PRo3D.Viewer.exe --opcs MyOPCs\firstOpc\;MyOPCs\secondOpc\ --asnap snapshots.JSON --out MyImages\Renderd
+\end{lstlisting}
+
+If no output folder is specified, the images will be placed in the folder in which PRo3D.Viewer.exe is located. 
+
+ \begin{center}
+ 	\begin{table}
+		\begin{tabular}{p{0.3\linewidth} p{0.65\linewidth} }
+			\textbf{Argument}          		 & \textbf{Description} \\
+			\midrule
+			--help                            &  show help\\
+			--obj [path];[path];[path];[...]  &  load OBJ(s) from one or more paths\\
+			--opc [path];[path];[path];[...]  &  load OPC(s) from one or more paths\\
+			--asnap [path\textbackslash snapshot.json]      &  path to a snapshot file, refer to PRo3D User Manual for the correct format\\
+			--out [path]                      &  path to a folder where output images will be saved; if the folder does not exist it will be created\\
+			--renderDepth         &              render the depth map as well and save it as an additional image file\\
+			--exitOnFinish                    &  quit PRo3D once all screenshots have been saved\\
+			--verbose                         &  use verbose mode\\
+			--excentre                        &  show exploration centre\\
+			--refsystem                       &  show reference system\\
+			--noMagFilter                     &  turn off linear texture magnification filtering\\
+			--snap [path\textbackslash snapshot.json]       &  path to a snapshot file containing camera views (old format)\\
+			\specialrule{\lightrulewidth}{1.0pt}{4.0pt}
+		\end{tabular}    
+	
+	\caption{All arguments available for PRo3D's command line interface} 
+	
+	\label{table:args} 
+	\end{table}
+\end{center}
+
+\subsection{Examples} \label{cl:examples}
+ The examples listed below will result in two rendered images. By adding more blocks describing snapshots (beginning with curly brackets "filename", and ending with the corresponding closing curly bracket), any number of images can be produced. 
+
+\lstinputlisting[language=json, caption={Snapshot file example with camera- and surface transformations.}, label=lst:json1]{snapshot.JSON}
+
+\lstinputlisting[language=json, caption={Snapshot file example with camera transformations.}, label=lst:json2]{snapshot2.JSON}
+
+\lstinputlisting[language=json, caption={Snapshot file example with surface transformations and visibility of the surfaces.}, label=lst:json3]{snapshot3.JSON}
+

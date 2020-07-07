@@ -1,0 +1,122 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <OutputPath>..\..\bin\Debug\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <OutputPath>..\..\bin\Release\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup>
+    <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Remove="CorrelationPanels\Correlation\**" />
+    <EmbeddedResource Remove="Svg\ConnectionApp\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="DataStructures\Seq.fs" />
+    <Compile Include="DataStructures\List.fs" />
+    <Compile Include="DataStructures\PList.fs" />
+    <Compile Include="DataStructures\AList.fs" />
+    <Compile Include="DataStructures\HMap.fs" />
+    <Compile Include="DataStructures\AMap.fs" />
+    <Compile Include="DataStructures\PairList.fs" />
+    <Compile Include="Types.fs" />
+    <Compile Include="Flags.fs" />
+    <Compile Include="UIMapping.fs" />
+    <Compile Include="UIEvents.fs" />
+    <Compile Include="UI.CSS.fs" />
+    <Compile Include="NumericExt.fs" />
+    <Compile Include="UIPlus\UIPlus.fs" />
+    <Compile Include="UIPlus\UI.Tooltips.fs" />
+    <Compile Include="UIPlus\TextInputApp.fs" />
+    <Compile Include="UIPlus\UI.Menus.fs" />
+    <Compile Include="UIPlus\UI.Table.fs" />
+    <Compile Include="UIPlus\UI.Buttons.fs" />
+    <Compile Include="UIPlus\UI.Flags.fs" />
+    <Compile Include="UIPlus\UI.Labels.fs" />
+    <Compile Include="UIPlus\KeyboardApp\KeyboardTypes.fs" />
+    <Compile Include="UIPlus\KeyboardApp\Keyboard.fs" />
+    <Compile Include="UIPlus\ArrowButton\ArrowButtonApp.fs" />
+    <Compile Include="UIPlus\Table\TableTypes.fs" />
+    <Compile Include="UIPlus\Table\TableRow.fs" />
+    <Compile Include="UIPlus\Table\Table.fs" />
+    <Compile Include="UIPlus\ColourMapApp\ColourMapItem.fs" />
+    <Compile Include="UIPlus\ColourMapApp\ColourMapApp.fs" />
+    <Compile Include="UIPlus\DropDown\DropdownType.fs" />
+    <Compile Include="UIPlus\DropDown\DropdownApp.fs" />
+    <Compile Include="Svg\Svgplus.fs" />
+    <Compile Include="Svg\SvgTags.fs" />
+    <Compile Include="Svg\Svg.Attributes.fs" />
+    <Compile Include="Svg\Svg.Paths.fs" />
+    <Compile Include="Svg\Svg.Base.fs" />
+    <Compile Include="Svg\Svg.Incremental.fs" />
+    <EmbeddedResource Include="Svg\Axes\d3_axis.js" />
+    <Compile Include="Svg\Camera\SvgCameraTypes.fs" />
+    <Compile Include="Svg\Camera\SvgCamera.fs" />
+    <Compile Include="Svg\ArrowApp\ArrowType.fs" />
+    <Compile Include="Svg\ArrowApp\Arrow.fs" />
+    <Compile Include="Svg\Text\TextType.fs" />
+    <Compile Include="Svg\Text\Text.fs" />
+    <Compile Include="Svg\RoseDiagram\RoseDiagramModel.fs" />
+    <Compile Include="Svg\RoseDiagram\RoseDiagram.fs" />
+    <Compile Include="Svg\SvgButtonApp\Svg.ButtonApp.fs" />
+    <Compile Include="Svg\DiagramApp\RectangleApp\RectangleType.fs" />
+    <Compile Include="Svg\DiagramApp\RectangleApp\RectangleApp.fs" />
+    <Compile Include="Svg\DiagramApp\HeaderApp\HeaderType.fs" />
+    <Compile Include="Svg\DiagramApp\HeaderApp\HeaderApp.fs" />
+    <Compile Include="Svg\DiagramApp\RStack\RectangleStackModel.fs" />
+    <Compile Include="Svg\DiagramApp\RStack\RectangleStackApp.fs" />
+    <Compile Include="Svg\DiagramApp\DiagramElement\DiagramItemType.fs" />
+    <Compile Include="Svg\DiagramApp\DiagramElement\DiagramItem.fs" />
+    <Compile Include="Svg\DiagramApp\CorrelationsModel.fs" />
+    <Compile Include="Svg\DiagramApp\CorrelationsApp.fs" />
+    <Compile Include="Svg\DiagramApp\DiagramType.fs" />
+    <Compile Include="Svg\DiagramApp\DiagramApp.fs" />
+    <Content Include="docking.css">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="spectrum.css">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <None Include="spectrum.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <Content Include="semui-overrides.css">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Compile Include="Debug.fs" />
+    <Compile Include="Option.fs" />
+    <Compile Include="String.fs" />
+    <Compile Include="Rendering.fs" />
+    <Compile Include="Mars.fs" />
+    <Compile Include="CorrelationPanels\NodeTypes.fs" />
+    <Compile Include="CorrelationPanels\Utilities.fs" />
+    <Compile Include="CorrelationPanels\Semantics\SemanticTypes.fs" />
+    <Compile Include="CorrelationPanels\Semantics\Semantic.fs" />
+    <Compile Include="CorrelationPanels\Semantics\SemanticApp.fs" />
+    <Compile Include="CorrelationPanels\Annotations\AnnotationTypes.fs" />
+    <Compile Include="CorrelationPanels\Annotations\Annotation.fs" />
+    <Compile Include="CorrelationPanels\LogNodes\LogNodeTypes.fs" />
+    <Compile Include="CorrelationPanels\LogNodes\LogNodes.Init.fs" />
+    <Compile Include="CorrelationPanels\Log\LogTypes.fs" />
+    <Compile Include="CorrelationPanels\Log\GeologicalLogNuevo.fs" />
+    <Compile Include="CorrelationPanels\Log\GeologicalLogNuevoProperties.fs" />
+    <Compile Include="CorrelationPanels\Log\GeologicalLog.fs" />
+    <Compile Include="CorrelationPanels\CorrelationPlot\CorrelationPlotTypes.fs" />
+    <Compile Include="CorrelationPanels\CorrelationPlot\CorrelationPlot.fs" />
+    <Compile Include="CorrelationPanels\CorrelationDrawingTypes.fs" />
+    <Compile Include="CorrelationPanels\CorrelationDrawing.fs" />
+    <None Include="paket.references" />
+    <Compile Include="TestApp\Model.fs" />
+    <Compile Include="TestApp\App.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>

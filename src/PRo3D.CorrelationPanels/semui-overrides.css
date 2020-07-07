@@ -1,0 +1,29 @@
+
+
+input {
+    color: black;
+}
+
+.ui.vertical.menu {
+    width: 5rem
+}
+
+.ui.table td {
+    padding: .3em;
+    text-align: inherit;
+}
+
+.clickable {
+    stroke: #fff;
+    fill: #fff;
+    fill-opacity: 0;
+    stroke-opacity: 0;
+    z-index: 1;
+}
+
+html {
+    overflow: auto;
+}
+
+
+

@@ -1,0 +1,6 @@
+E:\20170330_ICL_Demos\MURFI MIssion\Aerial\Surface
+
+E:\20170330_ICL_Demos\MURFI NonMission\Dinosaur_Quarry_DTM\Surface
+
+shapefile export
+anaglyph rendering, contrast distortion live

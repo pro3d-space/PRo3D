@@ -1,0 +1,40 @@
+\contentsline {section}{\numberline {1}Introduction}{3}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Who uses PRo3D}{3}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}Features}{3}{subsection.1.2}%
+\contentsline {subsection}{\numberline {1.3}Data}{4}{subsection.1.3}%
+\contentsline {section}{\numberline {2}Start}{5}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Add Surface}{5}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Load Scene}{6}{subsection.2.2}%
+\contentsline {section}{\numberline {3}Viewer Actions}{9}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Pick Explore Center}{9}{subsection.3.1}%
+\contentsline {subsubsection}{\numberline {3.1.1}FreeFly}{9}{subsubsection.3.1.1}%
+\contentsline {subsubsection}{\numberline {3.1.2}ArcBall}{9}{subsubsection.3.1.2}%
+\contentsline {subsection}{\numberline {3.2}Place Coordinate System}{10}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Draw Annotation}{11}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Pick Annotation}{13}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}Pick Surface}{13}{subsection.3.5}%
+\contentsline {section}{\numberline {4}Viewer Features}{15}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Surfaces}{15}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Annotations}{18}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Bookmarks}{20}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Viewer Configuration}{20}{subsection.4.4}%
+\contentsline {subsubsection}{\numberline {4.4.1}ViewerConfig}{21}{subsubsection.4.4.1}%
+\contentsline {subsubsection}{\numberline {4.4.2}Coordinate System}{21}{subsubsection.4.4.2}%
+\contentsline {subsubsection}{\numberline {4.4.3}Camera}{21}{subsubsection.4.4.3}%
+\contentsline {subsection}{\numberline {4.5}Grouping}{21}{subsection.4.5}%
+\contentsline {subsubsection}{\numberline {4.5.1}Group Actions}{22}{subsubsection.4.5.1}%
+\contentsline {subsubsection}{\numberline {4.5.2}Leaf Actions}{22}{subsubsection.4.5.2}%
+\contentsline {subsection}{\numberline {4.6}View Planner}{23}{subsection.4.6}%
+\contentsline {section}{\numberline {5}Minerva}{26}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Start Minerva}{26}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Minerva Features}{26}{subsection.5.2}%
+\contentsline {subsubsection}{\numberline {5.2.1}Visplore}{26}{subsubsection.5.2.1}%
+\contentsline {subsubsection}{\numberline {5.2.2}QueryApp}{27}{subsubsection.5.2.2}%
+\contentsline {subsubsection}{\numberline {5.2.3}Product Listing and Selection}{28}{subsubsection.5.2.3}%
+\contentsline {subsubsection}{\numberline {5.2.4}Product Properties}{29}{subsubsection.5.2.4}%
+\contentsline {subsection}{\numberline {5.3}Picking Actions}{29}{subsection.5.3}%
+\contentsline {section}{\numberline {6}PRo3D Command Line Interface}{32}{section.6}%
+\contentsline {subsection}{\numberline {6.1}PRo3D Snapshot Files}{32}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Arguments and Features}{32}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Examples}{33}{subsection.6.3}%
+\contentsline {section}{\numberline {7}PRo3D Keyboard Shortcuts}{38}{section.7}%

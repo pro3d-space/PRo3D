@@ -1,0 +1,52 @@
+framework: netstandard2.0, net471, netcoreapp2.0, netcoreapp3.1
+
+source https://api.nuget.org/v3/index.json
+source https://vrvis.myget.org/F/aardvark/auth/11394d4d-4fe9-44ec-87c8-f3e98909f975/api/v3/index.json
+
+nuget FSharp.Core                           ~> 4.6.2
+nuget FSharp.Data                           ~> 3.1.1
+
+nuget Aardvark.Base                         ~> 4.5.29
+nuget Aardvark.Base.Incremental             ~> 4.5.29
+nuget Aardvark.Base.FSharp                  ~> 4.5.29
+nuget Aardvark.Geometry                     ~> 4.5.29
+
+nuget Aardvark.Base.Rendering               ~> 4.12.8
+nuget Aardvark.Application.Slim             ~> 4.12.8
+nuget Aardvark.Application.Slim.GL          ~> 4.12.8
+nuget Aardvark.SceneGraph                   ~> 4.12.8
+nuget Aardvark.SceneGraph.IO                ~> 4.12.8
+nuget Aardvark.SceneGraph.Opc               ~> 4.12.8
+nuget Aardvark.Rendering.Text               ~> 4.12.8
+nuget Aardvark.Rendering.Vulkan             ~> 4.12.8
+nuget Aardvark.Rendering.GL                 ~> 4.12.8
+
+nuget Aardvark.Geometry.Intersection        ~> 4.10.10
+nuget Aardvark.Geometry.PointTree           ~> 4.10.10
+
+nuget Aardvark.Service                      ~> 4.7.3
+nuget Aardvark.UI                           ~> 4.7.3
+nuget Aardvark.UI.Primitives                ~> 4.7.3
+
+nuget Aardvark.Compiler.DomainTypes.MSBuild ~> 4.3.0
+
+nuget Aardium                               = 1.0.21
+nuget Aardvark.GeoSpatial.Opc               ~> 0.1.11
+nuget Uncodium.Eigensystems                 ~> 1.0.1
+nuget OPCViewer.Base                        ~> 0.0.7
+
+nuget Chiron                                ~> 6.3.1
+nuget RestSharp                             ~> 106.6.9
+//nuget SKGL                                  ~> 2.0.5.3
+
+nuget WindowsAPICodePack-Core
+nuget WindowsAPICodePack-ShellExtensions
+
+group Build
+framework: net45
+
+content: none
+source https://api.nuget.org/v3/index.json
+github aardvark-platform/aardvark.fake:v5
+
+nuget FSharp.Core                           ~> 4.6.2

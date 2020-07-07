@@ -1,0 +1,13 @@
+12.02.2019: 
+	- Start Viewer
+	- Load OPCs (GardenCitySmall)
+	- Save Scene
+	- Load Scene gardenCity.scn
+	- Load Recent Scene ( Recent tab shows no recent scenes...)
+13.02.2019:
+	- Viewer Actions (GardenCitySmall)
+		+ PickExploreCenter
+		+ PlaceCoordinateSystem
+		+ DrawAnnotation (DnS planes and arrows are under the surface, tested with GardenCitySmall and CapeDesire)
+	- Surfaces (GardenCitySmall)	
+			
