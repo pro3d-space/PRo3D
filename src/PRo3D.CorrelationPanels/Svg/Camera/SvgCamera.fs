@@ -120,7 +120,7 @@ namespace Svgplus
                             zooming  = false
               }
 
-    let transformationAttributes (model : MSvgCamera) =
+    let transformationAttributes (model : AdaptiveSvgCamera) =
       let atts =
         amap {
           let! zfx = model.zoomFactorX

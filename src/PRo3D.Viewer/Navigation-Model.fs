@@ -1,6 +1,7 @@
 namespace PRo3D.Navigation2
 
 open FSharp.Data.Adaptive
+open Adaptify
 open Aardvark.UI.Primitives
 open PRo3D
 open PRo3D.ReferenceSystem

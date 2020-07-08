@@ -7,6 +7,8 @@ open FSharp.Data.Adaptive
 open CorrelationDrawing.SemanticTypes
 open PRo3D.Base.Annotation
 
+open Adaptify
+
 type ContactId = ContactId of Guid
 
 module ContactId = 
@@ -24,7 +26,7 @@ type ContactPoint = {
 
 [<ModelType>]
 type Contact = {     
-    [<NonIncremental;PrimaryKey>]
+    [<NonAdaptive>]
     id                    : ContactId
     
     [<NonAdaptive>]

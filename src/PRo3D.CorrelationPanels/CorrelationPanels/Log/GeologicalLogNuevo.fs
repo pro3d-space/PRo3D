@@ -23,6 +23,8 @@ open Svgplus.RectangleType
 open Chiron
 open UIPlus
 
+open Adaptify
+
 type FaciesBorder = {
     version   : int
     level     : int

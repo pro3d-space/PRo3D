@@ -17,7 +17,7 @@ module QueryApp =
                    
     let filterByDistance (location:V3d) (dist:float) (features:IndexList<Feature>) =
         features        
-        |> IndexList.filter(fun f -> V3d.Distance(location, f.geometry.positions.Head) < dist)                          
+        |> IndexList.filter(fun f -> Vec.Distance(location, f.geometry.positions.Head) < dist)                          
 
     let filterBySol (minsol:float) (maxsol:float) (features:IndexList<Feature>) =
         let range = Range1i([minsol |> int; maxsol |> int]) // int[] creates bounding range! Range1i(min,max) creates range from min to max!! [could also be negative]
@@ -129,7 +129,7 @@ module QueryApp =
             | None -> "(0)"
         )
 
-    let viewQueryInstruments (grouped : amap<Instrument, list<Feature>>) (model :MQueryModel) =
+    let viewQueryInstruments (grouped : amap<Instrument, list<Feature>>) (model : AdaptiveQueryModel) =
         let counts = 
             grouped 
             |> AMap.map(fun _ groups -> groups.Length)
@@ -179,7 +179,7 @@ module QueryApp =
             ]
         )
     
-    let viewQueryFilters (grouped : amap<Instrument, list<Feature>>) (model :MQueryModel) =
+    let viewQueryFilters (grouped : amap<Instrument, list<Feature>>) (model : AdaptiveQueryModel) =
       require Html.semui ( 
         Html.table [                 
             Html.row "min sol:"  [Numeric.view' [NumericInputType.InputBox] model.minSol |> UI.map (fun x -> SetMinSol x)]

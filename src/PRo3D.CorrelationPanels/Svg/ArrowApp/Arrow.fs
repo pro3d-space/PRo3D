@@ -75,7 +75,7 @@ module Arrow =
     
 
 
-  let view (model : MArrow) =
+  let view (model : AdaptiveArrow) =
     let actions = MouseActions.init ()
 
     let arrow = 

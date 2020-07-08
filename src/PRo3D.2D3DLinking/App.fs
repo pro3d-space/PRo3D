@@ -25,6 +25,9 @@ open PRo3D.Minerva
 open Aardvark.VRVis.Opc
 open PRo3D.Linking
 
+open Aether
+open Aether.Operators
+
 module App = 
     
     let updateFreeFlyConfig (incr : float) (cam : CameraControllerState) = 
@@ -134,7 +137,7 @@ module App =
     //---
 
     //---VIEW
-    let view (m : MModel) =
+    let view (m : AdaptiveModel) =
                                
         let opcs = 
             m.opcInfos
@@ -242,7 +245,7 @@ module App =
             patchHierarchies 
             |> List.map(fun x -> x.tree |> QTree.getRoot) 
             |> List.map(fun x -> x.info.GlobalBoundingBox)
-            |> List.fold (fun a b -> Box3d.Union(a, b)) Box3d.Invalid
+            |> List.fold (fun a b -> Box3d(a, b)) Box3d.Invalid
       
         let opcInfos = 
             [
@@ -284,7 +287,7 @@ module App =
         let planeState = restorePlane
 
         let setPlaneForPicking =
-            match planeState.IsEmpty() with
+            match planeState.IsEmpty with
             | true -> None
             | false -> Some planeState
 
@@ -293,7 +296,7 @@ module App =
 
 
         let ffConfig = { camState.freeFlyConfig with lookAtMouseSensitivity = 0.004; lookAtDamping = 50.0; moveSensitivity = 0.0}
-        let camState = camState |> Lenses.set (CameraControllerState.Lens.freeFlyConfig) ffConfig
+        let camState = camState |> Optic.set (CameraControllerState.freeFlyConfig_) ffConfig
 
         let initialDockConfig = 
             config {
@@ -382,7 +385,7 @@ module App =
             update = update
             view   = view          
             threads = fun m -> m.threads
-            unpersist = Unpersist.instance<Model, MModel>
+            unpersist = Unpersist.instance<Model, AdaptiveModel>
         }
 
 

@@ -3,9 +3,11 @@ namespace Svgplus.DiagramItemType
 open System
 open Aardvark.Base
 open FSharp.Data.Adaptive
+open Adaptify
 open Svgplus.RectangleStackTypes
 open Svgplus.RoseDiagramModel
 open Svgplus
+
 
 type DiagramItemId = private DiagramItemId of Guid
 

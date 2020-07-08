@@ -3,11 +3,12 @@ namespace CorrelationDrawing.SemanticTypes
 open System
 open Aardvark.Base
 open FSharp.Data.Adaptive
+open Adaptify
 open UIPlus
 open CorrelationDrawing.Types
-open Chiron
 open Aardvark.UI
 open PRo3D.Base
+open Chiron
 
 #nowarn "0686"
 
@@ -30,7 +31,7 @@ module CorrelationSemanticId =
 type CorrelationSemantic = {
     version : int
 
-    [<NonIncremental;PrimaryKey>]
+    [<NonAdaptive>]
     id                : CorrelationSemanticId
     
     [<NonAdaptive>]
@@ -152,9 +153,9 @@ module SemanticsModel =
 
     let initial : SemanticsModel = {
         version           = SemanticsModel.current
-        semantics         = hmap.Empty
+        semantics         = HashMap.Empty
         selectedSemantic  = CorrelationSemanticId.invalid
-        semanticsList     = plist.Empty
+        semanticsList     = IndexList.Empty
         sortBy            = SemanticsSortingOption.Level
         creatingNew       = false
     }    

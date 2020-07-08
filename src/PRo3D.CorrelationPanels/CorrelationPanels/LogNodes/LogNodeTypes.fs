@@ -4,6 +4,7 @@ open System
 
 open Aardvark.Base
 open FSharp.Data.Adaptive
+open Adaptify
 
 open Svgplus.RectangleStackTypes
 open Svgplus.RectangleType

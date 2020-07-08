@@ -1,11 +1,15 @@
 namespace PRo3D.ReferenceSystem
 
 open FSharp.Data.Adaptive
+open Adaptify
 open Aardvark.Base
 open Aardvark.UI
 open PRo3D
 open PRo3D.Base
 open Chiron
+
+open Aether
+open Aether.Operators
 
 #nowarn "0686"
 
@@ -117,9 +121,9 @@ module ReferenceSystem =
     }
 
     let initialConfig : ReferenceSystemConfig<ViewConfigModel> = {
-        arrowLength    = ViewConfigModel.Lens.arrowLength    |. NumericInput.Lens.value
-        arrowThickness = ViewConfigModel.Lens.arrowThickness |. NumericInput.Lens.value
-        nearPlane      = ViewConfigModel.Lens.nearPlane |. NumericInput.Lens.value
+        arrowLength    = ViewConfigModel.arrowLength_    >-> NumericInput.value_
+        arrowThickness = ViewConfigModel.arrowThickness_ >-> NumericInput.value_
+        nearPlane      = ViewConfigModel.nearPlane_ >-> NumericInput.value_
     }
 
 type ReferenceSystem with

@@ -135,7 +135,7 @@ module Rectangle =
             { model with isUncertain = b }  
         | Nope -> model
 
-    let view (model : MRectangle) =
+    let view (model : AdaptiveRectangle) =
         alist {
             let! dim  = model.dim
             let! optWidth = model.fixedWidth
@@ -175,7 +175,7 @@ module Rectangle =
             yield! AList.ofList borderedRect                                                         
         }
 
-    let viewBorder (border : MRectangleBorder) (rectangles : amap<RectangleId, MRectangle>) (selection : bool) (onClickAction  : _ -> 'msg) =
+    let viewBorder (border : AdaptiveRectangleBorder) (rectangles : amap<RectangleId, AdaptiveRectangle>) (selection : bool) (onClickAction  : _ -> 'msg) =
         adaptive {
             
             let! lower = 
@@ -186,9 +186,9 @@ module Rectangle =
                 rectangles 
                 |> AMap.tryFind border.upperRectangle         
          
-            let! pos, width =
-                upper 
-                |> Option.map2(fun a b -> a,b) lower
+            let pos,width =
+                (lower, upper) 
+                ||> Option.map2(fun a b -> a,b) 
                 |> Option.map(fun (l,u) -> 
                     let pos = 
                         l.pos 
@@ -200,6 +200,9 @@ module Rectangle =
                     (pos, w)
                 )
                 |> Option.defaultValue (~~V2d.Zero, ~~0.0)
+
+            let! pos = pos
+            let! width = width
 
             let! color = border.color
 

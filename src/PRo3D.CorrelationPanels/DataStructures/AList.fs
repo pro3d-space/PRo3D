@@ -134,12 +134,9 @@ namespace DS
 
 
     let zip (lst1 : alist<'a>) (lst2 : alist<'b>) =
-      alist {
-        let! plst1 = lst1.Content
-        let! plst2 = lst2.Content
-        let zipped = (IndexList.zip plst1 plst2)
-        for z in zipped do
-          yield z
-      }
-      
+        // TODO v5, better version?
+        AVal.map2 (fun l r -> 
+            Seq.zip l r
+        ) lst1.Content lst2.Content |> AList.ofAVal
+
       

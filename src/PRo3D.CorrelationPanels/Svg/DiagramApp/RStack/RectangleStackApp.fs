@@ -45,7 +45,7 @@ module RectangleStackApp =
     
     let calcStackDim rectangles = 
         rectangles 
-        |> HashMap.values 
+        |> HashMap.toSeq |> Seq.map snd 
         |> Seq.fold (fun (s:V2d) (e:Rectangle) -> V2d(max s.X e.maxWidth, s.Y + e.dim.height)) V2d.Zero
 
     //TODO TO pure magic happening here, mapPrev' irre
@@ -63,7 +63,7 @@ module RectangleStackApp =
                 Rectangle.Lens.posY.Set (curr, cposy)
             
             let rs = 
-                DS.IndexList.mapPrev' (model.order |> IndexList.ofList) clean None f
+                DS.PList.mapPrev' (model.order |> IndexList.ofList) clean None f
             
             {
                 model with  
@@ -165,7 +165,7 @@ module RectangleStackApp =
     let update' (action : RectangleStackAction) (model : RectangleStack) =
         update model action
 
-    let view (stacksMaxMinRanges : aval<Range1d>) (flattenHorizon: aval<option<FlattenHorizonData>>) (model : MRectangleStack) =
+    let view (stacksMaxMinRanges : aval<Range1d>) (flattenHorizon: aval<option<FlattenHorizonData>>) (model : AdaptiveRectangleStack) =
     
         let viewMap = 
             Svgplus.Rectangle.view >> UIMapping.mapAListId  
@@ -175,7 +175,7 @@ module RectangleStackApp =
             |> AMap.toASet
             |> ASet.collect(fun (_,x) ->
                 Rectangle.viewBorder x model.rectangles false (fun _ -> SelectBorder(x.id, false))
-                |> ASet.ofModSingle
+                |> ASet.ofAValSingle
             ) 
 
         let content =
@@ -183,7 +183,7 @@ module RectangleStackApp =
             let aOrder = 
                 model.order 
                 |> AVal.map(fun x -> x |> IndexList.ofList)
-                |> AList.ofMod
+                |> AList.ofAVal
 
             alist {
                 for id in aOrder do
@@ -194,7 +194,7 @@ module RectangleStackApp =
                 match selected with
                 | Some borderId ->
                     let! border = model.borders |> AMap.find borderId
-                    yield! Rectangle.viewBorder border model.rectangles true (fun _ -> Nop) |> AList.ofModSingle
+                    yield! Rectangle.viewBorder border model.rectangles true (fun _ -> Nop) |> AList.ofAValSingle
                 | None -> ()
 
                 yield! borders |> AList.ofASet
@@ -208,10 +208,11 @@ module RectangleStackApp =
         
         let calcMaxGrainSize = 
             model.rectangles 
-            |> AMap.toMod
+            |> AMap.toAVal
             |> AVal.bind (fun x ->
                 AVal.custom (fun t -> 
-                    x.Values 
+                    x
+                    |> HashMap.values
                     |> Seq.map (fun e -> e.grainSize.GetValue(t).middleSize) 
                     |> Seq.max))
 

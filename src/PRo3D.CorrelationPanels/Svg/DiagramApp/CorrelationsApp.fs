@@ -51,7 +51,7 @@ module CorrelationsApp =
         | CorrelationsAction.DefaultHorizon ->
            { model with alignedBy = None }    
 
-    let viewCorrelationsSVG (model: MCorrelationsModel) (bordersTable: amap<RectangleBorderId, MRectangleBorder>) (rectanglesTable: amap<RectangleId, MRectangle>) = 
+    let viewCorrelationsSVG (model: AdaptiveCorrelationsModel) (bordersTable: amap<RectangleBorderId, AdaptiveRectangleBorder>) (rectanglesTable: amap<RectangleId, AdaptiveRectangle>) = 
         let yMargin = 67.0 // MAGIC y-offset (incl. static lable width)
 
         let mod2Pair (a,b) = AVal.map2(fun x y -> x,y) a b
@@ -69,10 +69,10 @@ module CorrelationsApp =
                     )
 
                 correlation.contacts 
-                |> AMap.chooseM(fun rectBorderId borderContactId ->
+                |> AMap.chooseA(fun rectBorderId borderContactId ->
                     bordersTable |> AMap.tryFind rectBorderId
                 )
-                |> AMap.chooseM(fun rectBorderId rectBorder ->
+                |> AMap.chooseA(fun rectBorderId rectBorder ->
 
                     let lower = rectanglesTable |> AMap.tryFind rectBorder.lowerRectangle
                     let upper = rectanglesTable |> AMap.tryFind rectBorder.upperRectangle
@@ -80,12 +80,12 @@ module CorrelationsApp =
 
                     AVal.map2(fun (l,u) color -> Option.map2(fun a b -> (a, b, color)) l u) lowerUpper rectBorder.color                    
                 )
-                |> AMap.mapM(fun _ (l,u,color) ->
+                |> AMap.mapA(fun _ (l,u,color) ->
                     AVal.map2(fun pos dims -> pos, dims, color) l.pos ((l.dim, u.dim)|> mod2Pair))
                 |> AMap.toASet
                 |> ASet.toAList 
                 |> AList.sortBy(fun (_,(pos,_,_)) -> pos.X)
-                |> AList.toMod 
+                |> AList.toAVal 
                 |> AVal.map2(fun isSelected x -> 
                     x 
                     |> IndexList.toList 
@@ -100,7 +100,7 @@ module CorrelationsApp =
                     )
                     |> IndexList.ofList
                 ) isSelected 
-                |> AList.ofMod
+                |> AList.ofAVal
                 |> AList.toASet
             ) 
             |> ASet.map(fun (x, correlationId, color) -> 
@@ -110,7 +110,7 @@ module CorrelationsApp =
 
         Incremental.Svg.g AttributeMap.empty correlationLines
 
-    let viewCorrelations (model : MCorrelationsModel): DomNode<CorrelationsAction> =       
+    let viewCorrelations (model : AdaptiveCorrelationsModel): DomNode<CorrelationsAction> =       
         let toStyleColor color = (sprintf "color: %s;" (Html.ofC4b color))
         
         let getColor id isHeader = 
@@ -144,10 +144,10 @@ module CorrelationsApp =
 
         let listOfCorrelations =            
             alist {
-                let! corrs = model.correlations |> AMap.toMod
+                let! corrs = model.correlations |> AMap.toAVal
                 let nums = corrs |> HashMap.count |> string                
                 
-                for c in corrs.Values do
+                for c in corrs |> HashMap.values do
                     yield div [clazz "item"; style "margin: 0px 5px 0px 10px"][
                         Incremental.i (iconAttributes c.id) AList.empty
                         div [clazz "content"] [
@@ -166,7 +166,7 @@ module CorrelationsApp =
             ([clazz "ui list"] |> AttributeMap.ofList) 
             listOfCorrelations
 
-    let viewCorrelationActions (model : MCorrelationsModel) =
+    let viewCorrelationActions (model : AdaptiveCorrelationsModel) =
         
         let flattenAttr = 
             amap { 

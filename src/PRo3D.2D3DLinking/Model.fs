@@ -12,6 +12,8 @@ open Aardvark.Application
 open OpcViewer.Base.Picking
 open PRo3D.Minerva
 
+open Adaptify
+
 type Action =
   | Camera           of FreeFlyController.Message
   | KeyUp            of key : Keys

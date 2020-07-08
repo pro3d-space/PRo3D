@@ -3,6 +3,7 @@ namespace Test
 open System
 open Aardvark.Base
 open FSharp.Data.Adaptive
+open Adaptify
 open Aardvark.UI.Primitives
 open Svgplus.RoseDiagramModel
 open Svgplus.ArrowType

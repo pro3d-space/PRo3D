@@ -4,6 +4,8 @@ open Aardvark.Base
 open FSharp.Data.Adaptive
 open Svgplus
 
+open Adaptify
+
 type Zoom = 
   {
     factor  : float

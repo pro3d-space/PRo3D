@@ -20,7 +20,7 @@ module Numeric =
     // let numericField'<'msg> ( f : Action -> seq<'msg> ) ( atts : AttributeMap<'msg> ) ( model : MNumericInput ) inputType =         
     let numericField'<'msg> ( f : Action -> seq<'msg> )
                             ( atts : AttributeMap<'msg> ) 
-                            ( model : MNumericInput ) inputType =         
+                            ( model : AdaptiveNumericInput ) inputType =         
 
       let tryParseAndClamp min max fallback (s: string) =
           let parsed = 0.0
@@ -58,7 +58,7 @@ module Numeric =
 
 
     let view'' (inputType : NumericInputType)
-               (model : MNumericInput)
+               (model : AdaptiveNumericInput)
                (attributes : AttributeMap<Action>) :  DomNode<Action> =
         div [][(numericField' (Seq.singleton) attributes model inputType)] //(numericField (Seq.singleton) attributes model inputTypes )
 

@@ -182,7 +182,8 @@ module CorrelationPlotApp =
         match correlations with 
         | c :: cs -> 
             let result, table = 
-                c.contacts.Values 
+                c.contacts
+                |> HashMap.values
                 |> Seq.toList  
                 |> repairContacts pivotBordersTable
 
@@ -203,7 +204,8 @@ module CorrelationPlotApp =
             |> HashMap.map(fun _ v -> v.contactId)
             |> HashMap.pivot      
         
-        model.diagram.correlations.correlations.Values
+        model.diagram.correlations.correlations
+        |> HashMap.values
         |> Seq.toList
         |> repairCorrelations pivotTable           
     

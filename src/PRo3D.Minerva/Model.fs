@@ -4,6 +4,7 @@ open System
 open System.IO
 open Aardvark.Base
 open FSharp.Data.Adaptive
+open Adaptify
 open Aardvark.UI
 
 open FSharp.Data
@@ -370,8 +371,8 @@ with
     static member initial =
         {
             version = SelectionModel.current
-            selectedProducts     = hset.Empty
-            highlightedFrustra   = hset.Empty
+            selectedProducts     = HashSet.Empty
+            highlightedFrustra   = HashSet.Empty
             singleSelectProduct  = None
             kdTree               = Unchecked.defaultof<_>
             flatPos              = Array.empty

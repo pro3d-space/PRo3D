@@ -4,6 +4,8 @@ open Aardvark.Base
 open FSharp.Data.Adaptive
 open PRo3D.Minerva
 
+open Adaptify
+
 /// represents one product and the camera parametes from its selection
 type LinkingFeature =
     {
@@ -80,11 +82,11 @@ type LinkingModel =
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module LinkingModel = 
     let initial = {
-        frustums            = hmap.Empty
-        instrumentParameter = hmap.Empty
+        frustums            = HashMap.Empty
+        instrumentParameter = HashMap.Empty
         trafo               = Trafo3d.Identity
         pickingPos          = None
-        filterProducts      = hmap.Empty
+        filterProducts      = HashMap.Empty
         overlayFeature      = None
         frustumOpacity      = 0.5
     }

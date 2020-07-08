@@ -2,6 +2,7 @@ namespace UIPlus.DropdownType
 
 open Aardvark.Base
 open FSharp.Data.Adaptive
+open Adaptify
 
 [<ModelType>]
 type DropdownList<'a> = {

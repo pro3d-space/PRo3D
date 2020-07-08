@@ -3,6 +3,7 @@ namespace Svgplus.RectangleStackTypes
 open System
 open Aardvark.Base
 open FSharp.Data.Adaptive
+open Adaptify
 open Svgplus.RectangleType
 
 type RectangleStackId = RectangleStackId of Guid
@@ -41,7 +42,7 @@ type RectangleStack = {
     member this.maxWidth = 
         let maxRectangleWidth =
             this.rectangles 
-            |> DS.HashMap.values
+            |> DS.HMap.values
             |> List.map (fun r -> r.maxWidth)
             |> List.max
         maxRectangleWidth

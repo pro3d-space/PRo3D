@@ -69,7 +69,11 @@ with
 type Style = {
     color : C4b
     thickness : NumericInput
-}
+} with
+    static member color_ =
+        (fun b -> b.color), (fun c b -> { b with color = c })
+    static member thickness_ =
+        (fun b -> b.thickness), (fun value b -> { b with thickness = value })
 
 [<ModelType>]
 type Statistics = {
@@ -142,6 +146,7 @@ type DipAndStrikeResults = {
     strikeAzimuth   : float
     centerOfMass    : V3d
     error           : Statistics
+    x : int
 }
 with 
     static member current = 0
@@ -166,6 +171,7 @@ with
               strikeAzimuth   = strikeAzimuth
               centerOfMass    = centerOfMass |> V3d.Parse
               error           = error
+              x=0
           }
         }
     
@@ -189,10 +195,7 @@ with
             do! Json.write "error"            x.error
         }
 
-module DipAndStrikeResults =  
-    
-    //initial
-    let initial = 
+    static member initial =
         {
             version         = DipAndStrikeResults.current
             plane           = Plane3d.Invalid      
@@ -203,7 +206,10 @@ module DipAndStrikeResults =
             strikeAzimuth   = Double.NaN  
             centerOfMass    = V3d.NaN  
             error           = Statistics.initial
+            x= 0
         }  
+
+
         
 [<ModelType>]
 type AnnotationResults = {

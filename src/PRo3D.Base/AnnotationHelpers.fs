@@ -123,6 +123,7 @@ module DipAndStrike =
             Log.line "%A" distances2
     
             let dns = {
+                x = 0
                 version         = DipAndStrikeResults.current
                 plane           = plane
                 dipAngle        = Math.Acos(v.Dot(dip)).DegreesFromRadians()
@@ -177,6 +178,7 @@ module DipAndStrike =
         | _-> None
 
 module Calculations =
+
 
    //let getHeightDelta (p:V3d) (upVec:V3d) = (p * upVec).Length
 

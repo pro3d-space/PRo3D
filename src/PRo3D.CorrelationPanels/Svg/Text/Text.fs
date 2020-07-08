@@ -49,7 +49,7 @@ module Text =
             | MouseAction.OnMouseLeave -> model.onLeave model
             | _ -> model
     
-    let view (model : MText) =
+    let view (model : AdaptiveText) =
         let bold = 
             amap {
                 yield (Svgplus.Attributes.ats "text-anchor" "middle")

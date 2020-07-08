@@ -142,14 +142,15 @@ module DiagramApp =
             match model.order.Count > 0 with
             | true ->
                 let items = cleanItems model.items                
-                DS.IndexList.mapPrev' model.order items None f                 
+                DS.PList.mapPrev' model.order items None f                 
             | false -> model.items
         
         { model with items = items }
 
     let tryFindRectangle (model: DiagramAppModel) (id: RectangleId) =
 
-        model.items.Values 
+        model.items
+        |> HashMap.values
         |> Seq.collect(fun x -> 
             seq{
                 yield x.primaryStack
@@ -162,7 +163,8 @@ module DiagramApp =
         |> HashMap.tryFind id
 
     let tryGetIdPair (model: DiagramAppModel) (id: RectangleId) =
-        model.items.Values 
+        model.items 
+        |> HashMap.values
         |> Seq.collect(fun x -> 
             seq{
                 yield x.primaryStack
@@ -242,18 +244,20 @@ module DiagramApp =
 
     let updateBordersAndRectangles model =
         let bordersTable =
-            model.items.Values
+            model.items
+            |> HashMap.values
             |> Seq.collect(fun x -> 
-                let prim = x.primaryStack.borders.Values |> Seq.map(fun y -> y.id, y)
-                let sec = x.secondaryStack |> Option.map (fun s -> s.borders.Values |> Seq.map (fun y -> y.id, y)) |> Option.defaultValue Seq.empty
+                let prim = x.primaryStack.borders |> HashMap.values |> Seq.map(fun y -> y.id, y)
+                let sec = x.secondaryStack |> Option.map (fun s -> s.borders |> HashMap.values |> Seq.map (fun y -> y.id, y)) |> Option.defaultValue Seq.empty
                 Seq.append prim sec
             ) |> HashMap.ofSeq
 
         let rectanglesTable =
-            model.items.Values
+            model.items 
+            |> HashMap.values
             |> Seq.collect(fun x -> 
-                let prim = x.primaryStack.rectangles.Values |> Seq.map(fun y -> y.id, y)
-                let sec = x.secondaryStack |> Option.map (fun s -> s.rectangles.Values |> Seq.map (fun y -> y.id, y)) |> Option.defaultValue Seq.empty 
+                let prim = x.primaryStack.rectangles |> HashMap.values |> Seq.map(fun y -> y.id, y)
+                let sec = x.secondaryStack |> Option.map (fun s -> s.rectangles |> HashMap.values |> Seq.map (fun y -> y.id, y)) |> Option.defaultValue Seq.empty 
                 Seq.append prim sec
             ) |> HashMap.ofSeq
 
@@ -279,11 +283,11 @@ module DiagramApp =
                 (DiagramItem.tryFindStackFromId item sid)
                 |> Option.map (fun x -> (key, x))
             )
-            |> DS.HashMap.filterNone
+            |> DS.HMap.filterNone
 
         let rectangleStack =
             foundmany
-            |> DS.HashMap.values
+            |> DS.HMap.values
             |> List.tryHead
 
         rectangleStack
@@ -318,7 +322,7 @@ module DiagramApp =
         let model =
             match msg with
             | AddItem r ->
-                let order = model.order.Append r.id
+                let order = IndexList.add r.id model.order  // TODO v5: correct?
                 let newRange = Range1d(model.dataRange, r.itemDataRange)
 
                 let updatedItems =
@@ -392,7 +396,8 @@ module DiagramApp =
                 match a with
                 | RectangleStackMessage(_, SelectBorder _) ->
                     let selectedBorders =
-                        model.items.Values 
+                        model.items
+                        |> HashMap.values
                         |> Seq.choose(fun x -> x.primaryStack.selectedBorder)          
                         |> Seq.choose(fun x -> model.bordersTable |> HashMap.tryFind x)
                         |> Seq.map(fun x ->
@@ -408,7 +413,8 @@ module DiagramApp =
                     | Some rectId ->                         
                         //find the two rectangle borders
                         let borders = 
-                            model.bordersTable.Values 
+                            model.bordersTable
+                            |> HashMap.values
                             |> Seq.filter(fun x -> x.lowerRectangle = rectId || x.upperRectangle = rectId)            
                             |> Seq.map(fun x -> x.contactId)
                             |> Seq.pairwise                            
@@ -541,7 +547,8 @@ module DiagramApp =
                     | Some c ->
                         Log.line "[DiagramApp] selecting correlation %A" c
                         let updatedItems = 
-                            c.contacts.Keys 
+                            c.contacts
+                            |> HashMap.keys
                             |> HashSet.toList
                             |> List.choose(fun rectangleBorderId -> 
 
@@ -595,7 +602,7 @@ module DiagramApp =
             model |> update msg
         | None -> model
     
-    let view (model : MDiagramAppModel) =
+    let view (model : AdaptiveDiagramAppModel) =
 
         let stacks = 
             alist {
@@ -613,42 +620,45 @@ module DiagramApp =
             |> UI.map (fun x -> DiagramAppAction.CorrelationsMessage x)
             |> AList.single
                         
-        let distanceLabels = 
-            model.order
-            |> AList.map (fun x -> 
-                model.items 
-                |> AMap.find x 
-                |> AVal.map (fun item -> 
-                    let pos = 
-                        AVal.map2 (fun c (d:CorrelationDrawing.Size2D) -> 
-                            let offset = V2d(d.width / 2.0, 0.0)
-                            (c-offset, c+offset)
-                        ) item.header.centre item.header.dim
-                    let posAndPoint = AVal.map2 (fun p c -> p, c) pos item.contactPoint
-                    posAndPoint |> AVal.toAList)
-                |> AVal.toAList
-                |> AList.concat
-            )
-            |> AList.concat
-            |> PRo3D.Base.AList.pairwise
-            |> AList.map (fun (a, b) -> 
-                let (aLeft, aRight), aPoint = a
-                let (bLeft, bRight), bPoint = b
+        //let distanceLabels = 
+        //    model.order
+        //    |> AList.map (fun x -> 
+        //        model.items 
+        //        |> AMap.find x 
+        //        |> AVal.map (fun item -> 
+        //            let pos = 
+        //                AVal.map2 (fun c (d:CorrelationDrawing.Size2D) -> 
+        //                    let offset = V2d(d.width / 2.0, 0.0)
+        //                    (c-offset, c+offset)
+        //                ) item.header.centre item.header.dim
+        //            let posAndPoint = AVal.map2 (fun p c -> p, c) pos item.contactPoint
+        //            posAndPoint |> AVal.toAList)
+        //        |> AVal.toAList
+        //        |> AList.concat
+        //    )
+        //    |> AList.concat
+        //    |> PRo3D.Base.AList.pairwise
+        //    |> AList.map (fun (a, b) -> 
+        //        let (aLeft, aRight), aPoint = a
+        //        let (bLeft, bRight), bPoint = b
                 
-                let labelPos = (aRight + bLeft) / 2.0 + V2d(0.0, -2.0) 
-                let labelText = sprintf "%.2fm" (V3d.Distance (aPoint, bPoint))
-                let label = Svgplus.Base.drawText' labelPos labelText CorrelationDrawing.Orientation.Horizontal CorrelationDrawing.TextAnchor.Middle
+        //        let labelPos = (aRight + bLeft) / 2.0 + V2d(0.0, -2.0) 
+        //        let labelText = sprintf "%.2fm" (V3d.Distance (aPoint, bPoint))
+        //        let label = Svgplus.Base.drawText' labelPos labelText CorrelationDrawing.Orientation.Horizontal CorrelationDrawing.TextAnchor.Middle
                 
-                let lineStart = aRight + V2d(4.0, 0.0)
-                let lineEnd = bLeft + V2d(-4.0, 0.0)
-                let line = Svgplus.Base.drawLine lineStart lineEnd C4b.Black 2.0
+        //        let lineStart = aRight + V2d(4.0, 0.0)
+        //        let lineEnd = bLeft + V2d(-4.0, 0.0)
+        //        let line = Svgplus.Base.drawLine lineStart lineEnd C4b.Black 2.0
 
-                let tickOffset = V2d(0.0,3.0)
-                let lineEnd = Svgplus.Base.drawLine (lineEnd+tickOffset) (lineEnd-tickOffset) C4b.Black 1.5
-                let lineStart = Svgplus.Base.drawLine (lineStart+tickOffset) (lineStart-tickOffset) C4b.Black 1.5
+        //        let tickOffset = V2d(0.0,3.0)
+        //        let lineEnd = Svgplus.Base.drawLine (lineEnd+tickOffset) (lineEnd-tickOffset) C4b.Black 1.5
+        //        let lineStart = Svgplus.Base.drawLine (lineStart+tickOffset) (lineStart-tickOffset) C4b.Black 1.5
                 
-                Incremental.Svg.g AttributeMap.empty ([ line; lineEnd; lineStart; label] |> AList.ofList)
-            )
+        //        Incremental.Svg.g AttributeMap.empty ([ line; lineEnd; lineStart; label] |> AList.ofList)
+        //    )
+
+        // TODO v5: andi check above
+        let distanceLabels = failwith ""
 
         let lst =             
             correlationlines

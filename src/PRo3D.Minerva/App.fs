@@ -26,6 +26,8 @@ open Drawing.MissingInBase
 open PRo3D.Minerva.Communication.JsonNetworkCommand
 
 open Chiron
+open Aether
+open Aether.Operators
 
         
 module MinervaApp =  
@@ -174,12 +176,11 @@ module MinervaApp =
 
             }
 
-    let _queryModel = MinervaModel.Lens.session |. Session.Lens.queryFilter
+    let _queryModel = MinervaModel.session_ >-> Session.queryFilter_
 
     let adaptFiltersToFeatures' model = 
         let queryModel = adaptFiltersToFeatures model.session.filteredFeatures model.session.queryFilter
-
-        model |> Lenses.set _queryModel queryModel
+        Optic.set _queryModel queryModel model
 
     let private updateSolLabels (features:IndexList<Feature>) (position : V3d) = 
         if features |> IndexList.isEmpty then
@@ -307,7 +308,7 @@ module MinervaApp =
             }
 
     let rebuildKdTree' (model : MinervaModel) : MinervaModel =
-        if model.session.filteredFeatures.IsEmpty() then
+        if model.session.filteredFeatures.IsEmpty then
             model
         else
             let selectionModel = rebuildKdTree model.session.filteredFeatures model.session.selection  
@@ -394,8 +395,8 @@ module MinervaApp =
         Log.stop()
         model
             
-    let _selection = MinervaModel.Lens.session |. Session.Lens.selection
-    let _filtered = MinervaModel.Lens.session |. Session.Lens.filteredFeatures
+    let _selection = MinervaModel.session_ >-> Session.selection_
+    let _filtered = MinervaModel.session_ >-> Session.filteredFeatures_
 
     let mutable lastHit = String.Empty
     let update (view:CameraView) frustum (model : MinervaModel) (msg : MinervaAction) : MinervaModel =
@@ -468,7 +469,7 @@ module MinervaApp =
                         model.session.selection.selectedProducts |> HashSet.contains x.id)
 
             model 
-            |> Lenses.set _filtered filtered
+            |> Optic.set _filtered filtered
             |> adaptFiltersToFeatures'
             |> rebuildKdTree' 
             |> updateFeaturesForRendering
@@ -508,7 +509,7 @@ module MinervaApp =
             let selectionModel = 
                 { model.session.selection with highlightedFrustra = model.session.selection.selectedProducts }
             
-            model |> Lenses.set _selection selectionModel
+            model |> Optic.set _selection selectionModel
         | FilterByIds idList -> 
                     
             Log.line "[Minerva] filtering data to set of %d" idList.Length
@@ -698,7 +699,7 @@ module MinervaApp =
             let session = { model.session with featureProperties = { model.session.featureProperties with textSize = size }}   
             { model with session = session }
     
-    let selectionColor (model : MMinervaModel) (feature : Feature) =
+    let selectionColor (model : AdaptiveMinervaModel) (feature : Feature) =
         model.session.selection.selectedProducts 
         |> ASet.contains feature.id
         |> AVal.map (fun x -> if x then C4b.VRVisGreen else C4b.White)
@@ -738,7 +739,7 @@ module MinervaApp =
                 ]            
             ])
 
-    let viewFeaturesGui (model : MMinervaModel) =
+    let viewFeaturesGui (model : AdaptiveMinervaModel) =
         let propertiesGui =
             require Html.semui ( 
                 Html.table [ 
@@ -754,7 +755,8 @@ module MinervaApp =
                 | Some id ->
                     let feat = 
                         model.session.filteredFeatures
-                        |> AList.toList
+                        |> AList.force
+                        |> IndexList.toList
                         |> List.find(fun x -> x.id = id)
         
                     require Html.semui (
@@ -771,11 +773,11 @@ module MinervaApp =
 
         let featuresGroupedByInstrument features =
             adaptive {
-                let! features = features |> AList.toMod
+                let! features = features |> AList.toAVal
                 let a = features |> IndexList.toList |> List.groupBy(fun x -> x.instrument)
 
                 return a |> HashMap.ofList
-            } |> AMap.ofMod
+            } |> AMap.ofAVal
 
         let selected = model.session.selection.selectedProducts
         let groupedFeatures = 
@@ -785,7 +787,7 @@ module MinervaApp =
                                       
         let listOfFeatures =
             alist {           
-                let! groupedFeatures = groupedFeatures |> AMap.toMod
+                let! groupedFeatures = groupedFeatures |> AMap.toAVal
                 
                 let! pos = model.session.queryFilter.filterLocation
                 for (instr, group) in groupedFeatures do
@@ -857,14 +859,14 @@ module MinervaApp =
                        
          ]
     
-    let viewWrapped pos (model : MMinervaModel) =
+    let viewWrapped pos (model : AdaptiveMinervaModel) =
         require Html.semui (
             body [style "width: 100%; height:100%; background: #252525; overflow-x: hidden; overflow-y: scroll"] [
                 div [clazz "ui inverted segment"] (viewFeaturesGui model)
             ])
     
     // SG
-    let viewPortLabels (model : MMinervaModel) (view:aval<CameraView>) (frustum:aval<Frustum>) : ISg<MinervaAction> = 
+    let viewPortLabels (model : AdaptiveMinervaModel) (view:aval<CameraView>) (frustum:aval<Frustum>) : ISg<MinervaAction> = 
         
         let viewProjTrafo = AVal.map2 (fun (v:CameraView) f -> v.ViewTrafo * Frustum.projTrafo f) view frustum
         let near = frustum |> AVal.map (fun x -> x.near)
@@ -872,7 +874,7 @@ module MinervaApp =
         let featureArray = 
             model.session.filteredFeatures
             |> AList.map (fun x -> struct (x.sol |> string, x.geometry.positions.Head))
-            |> AList.toMod
+            |> AList.toAVal
             |> AVal.map (fun x -> x |> IndexList.toArray)
 
         let box = Box3d(V3d(-1.0, -1.0, 0.0),V3d(1.0,1.0,1.0))
@@ -923,7 +925,7 @@ module MinervaApp =
         sg
     
     // fix-size billboards (expensive!)
-    let getSolBillboards (model : MMinervaModel) (view:aval<CameraView>) (near:aval<float>) : ISg<MinervaAction> =        
+    let getSolBillboards (model : AdaptiveMinervaModel) (view:aval<CameraView>) (near:aval<float>) : ISg<MinervaAction> =        
         model.solLabels
             |> AMap.map(fun txt pos ->
                Sg.text view near 
@@ -937,7 +939,7 @@ module MinervaApp =
             |> ASet.map(fun x -> snd x)            
             |> Sg.set
             
-    let viewFilterLocation (model : MMinervaModel) =
+    let viewFilterLocation (model : AdaptiveMinervaModel) =
         let height = 5.0
         let coneTrafo = 
             model.session.queryFilter.filterLocation 
@@ -948,7 +950,7 @@ module MinervaApp =
 
         Drawing.coneISg (C4b.VRVisGreen |> AVal.constant) (0.5 |> AVal.constant) (height |> AVal.constant) coneTrafo
             
-    let viewFeaturesSg (model : MMinervaModel) =
+    let viewFeaturesSg (model : AdaptiveMinervaModel) =
         let pointSize = model.session.featureProperties.pointSize.value
         
         Sg.ofList [

@@ -5,7 +5,7 @@ namespace PRo3D
 open System
 open Aardvark.Base
 open FSharp.Data.Adaptive
-open Aardvark.UI.Mutable
+open Adaptify
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.Application

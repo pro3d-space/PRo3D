@@ -11,6 +11,8 @@ open Svgplus.RectangleStackTypes
 open Svgplus.DiagramItemType
 open System
 
+open Adaptify
+
 type LogId = LogId of Guid
 
 module LogId =

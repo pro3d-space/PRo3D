@@ -3,6 +3,7 @@ namespace Svgplus.Correlations2
 open System
 open Aardvark.Base
 open FSharp.Data.Adaptive
+open Adaptify
 open Svgplus
 open Svgplus.RectangleType
 open UIPlus

@@ -22,6 +22,8 @@ open PRo3D.Base.Annotation
 open System
 open Svgplus.Correlations2
 
+open Adaptify
+
 type CorrelationPlotAction =
     | Clear
     | SvgCameraMessage       of Svgplus.SvgCamera.Action

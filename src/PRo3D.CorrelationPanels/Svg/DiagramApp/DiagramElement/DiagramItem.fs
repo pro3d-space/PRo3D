@@ -14,6 +14,7 @@ open CorrelationDrawing
 open Svgplus.DiagramItemType
 open Svgplus.RoseDiagramModel
 open Aardvark.UI
+open Adaptify.FSharp.Core
 
 type DiagramItemAction =
     | RectangleStackMessage of RectangleStackId * RectangleStackAction
@@ -231,7 +232,7 @@ module DiagramItemApp =
         | _ -> 
             action |> sprintf "[DiagramItem] %A not implemented" |> failwith
         
-    let view (stacksMaxMinRange : aval<Range1d>) (model : MDiagramItem) =
+    let view (stacksMaxMinRange : aval<Range1d>) (model : AdaptiveDiagramItem) =
 
         let stacks = 
             alist {
@@ -240,7 +241,7 @@ module DiagramItemApp =
                     model.secondaryStack
                     |> AVal.map (fun sec -> 
                     sec
-                        |> Option.map (fun s -> 
+                        |> AdaptiveOption.toOption |> Option.map (fun s -> 
                             RectangleStackApp.view stacksMaxMinRange model.flattenHorizon s
                             |> UI.map (fun x -> DiagramItemAction.RectangleStackMessage(s.id, x)))
                     )

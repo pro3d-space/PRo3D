@@ -4,6 +4,8 @@ open Aardvark.Base
 open FSharp.Data.Adaptive
 open CorrelationDrawing
 
+open Adaptify
+
 [<ModelType>]
 type Arrow = {
   centre        : V2d

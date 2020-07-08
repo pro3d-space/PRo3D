@@ -1,5 +1,6 @@
 open System
 
+open FSharp.Data.Adaptive
 open Aardvark.Base
 open Aardvark.UI
 open Aardvark.Application.Slim
@@ -14,7 +15,6 @@ type EmbeddedRessource = EmbeddedRessource
 
 [<EntryPoint>]
 let main argv =
-    Ag.initialize()
     Aardvark.Init()
     Aardium.init()
 

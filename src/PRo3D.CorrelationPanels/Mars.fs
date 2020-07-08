@@ -20,7 +20,7 @@ module Shader =
         triangle {
             let a = tri.P1.wp.XYZ - tri.P0.wp.XYZ
             let b = tri.P2.wp.XYZ - tri.P0.wp.XYZ
-            let n = V3d.Cross(a,b)
+            let n = Vec.Cross(a,b)
             yield {tri.P0 with n = n}
             yield {tri.P1 with n = n}
             yield {tri.P2 with n = n}

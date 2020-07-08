@@ -15,13 +15,16 @@ open CorrelationDrawing.SemanticTypes
 open CorrelationDrawing.Types
 
 
+open Aether
+open Aether.Operators
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module CorrelationSemantic = 
 
   module Lens = 
-    let _color     : Lens<CorrelationSemantic,C4b>    = CorrelationSemantic.Lens.color     |. ColorInput.Lens.c
-    let _thickness : Lens<CorrelationSemantic,float>  = CorrelationSemantic.Lens.thickness |. NumericInput.Lens.value
-    let _labelText : Lens<CorrelationSemantic,string> = CorrelationSemantic.Lens.label     |. TextInput.Lens.text
+      let _color     : Lens<CorrelationSemantic,C4b>    = CorrelationSemantic.color_ >-> ColorInput.c_
+      let _thickness : Lens<CorrelationSemantic,float>  = CorrelationSemantic.thickness_ >-> NumericInput.value_
+      let _labelText : Lens<CorrelationSemantic,string> = CorrelationSemantic.label_ >-> TextInput.text_
 
   [<Literal>]
   let ThicknessDefault = 1.0
@@ -214,7 +217,7 @@ module CorrelationSemantic =
 ////////////////////////////////// VIEW NEW ///////////////////////////////////////     
 
   module View =
-    let miniView (model : MCorrelationSemantic) = 
+    let miniView (model : AdaptiveCorrelationSemantic) = 
       let domNodeLbl =
           Incremental.label 
             (AttributeMap.union 
@@ -228,7 +231,7 @@ module CorrelationSemantic =
          
       //labelNode |> UI.map Action.TextInputMessage
 
-    let viewNew (model : MCorrelationSemantic) =
+    let viewNew (model : AdaptiveCorrelationSemantic) =
       let thNode = Numeric.view'' 
                      NumericInputType.InputBox 
                      model.thickness
@@ -284,7 +287,7 @@ module CorrelationSemantic =
 
 
  ////////////////////////////////////// EDIT ////////////////////////////////////////////
-    let viewEdit (model : MCorrelationSemantic) =
+    let viewEdit (model : AdaptiveCorrelationSemantic) =
       
       let thNode = Numeric.view'' 
                      NumericInputType.InputBox 
@@ -343,7 +346,7 @@ module CorrelationSemantic =
       //[td [] [text "foobar"]|> UI.map TextInputMessage] // WORKS
       ]
        
-    let viewDisplay (model : MCorrelationSemantic) = 
+    let viewDisplay (model : AdaptiveCorrelationSemantic) = 
       //[text "foobar" |> intoTd |> UI.map Action.TextInputMessage]
         
       let domNodeLbl =
@@ -400,7 +403,7 @@ module CorrelationSemantic =
       ]
       
 
-    let view (model : MCorrelationSemantic) : aval<list<DomNode<Action>>> =
+    let view (model : AdaptiveCorrelationSemantic) : aval<list<DomNode<Action>>> =
         // AVal.constant [td [] [text "foobar"]|> UI.map TextInputMessage] //WORKS
         
         model.state 

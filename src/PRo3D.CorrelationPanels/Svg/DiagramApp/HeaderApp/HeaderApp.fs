@@ -139,7 +139,7 @@ module HeaderApp =
         | TextMessage m ->
             {model with label = Text.update model.label m} |> (layout false)
     
-    let view (model : MHeader) =
+    let view (model : AdaptiveHeader) =
         let left  = Arrow.view model.leftButton
         let label = Text.view model.label 
         let right = Arrow.view model.rightButton

@@ -8,6 +8,7 @@ Aardvark.SceneGraph.Opc
 Aardvark.Rendering.Text
 
 Adaptify.Core
+Adaptify.MSBuild
 
 Aardvark.UI
 Aardvark.UI.Primitives

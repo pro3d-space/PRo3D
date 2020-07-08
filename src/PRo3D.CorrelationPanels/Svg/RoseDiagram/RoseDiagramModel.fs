@@ -3,6 +3,7 @@ namespace Svgplus.RoseDiagramModel
 open System
 open Aardvark.Base
 open FSharp.Data.Adaptive
+open Adaptify
 
 type RoseDiagramId = RoseDiagramId of Guid
 

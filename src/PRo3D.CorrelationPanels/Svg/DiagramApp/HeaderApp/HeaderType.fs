@@ -2,6 +2,7 @@ namespace Svgplus.HeaderType
 
 open Aardvark.Base
 open FSharp.Data.Adaptive
+open Adaptify
 open CorrelationDrawing
 open Svgplus
 open Svgplus.TextType

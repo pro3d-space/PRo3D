@@ -9,10 +9,8 @@ module PList =
     input |> HashMap.toSeq |> IndexList.ofSeq |> IndexList.map snd 
 
   let contains (f : 'a -> bool) (lst : IndexList<'a>) =
-    let filtered = 
-      lst 
-        |> IndexList.filter f
-    not (filtered.IsEmpty ())  
+    IndexList.exists (fun _ v -> f v) lst
+
 
   let mapiInt (lst : IndexList<'a>) =
     let i = ref 0

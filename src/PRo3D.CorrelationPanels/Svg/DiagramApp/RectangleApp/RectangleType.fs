@@ -3,6 +3,7 @@ namespace Svgplus.RectangleType
 open System
 open Aardvark.Base
 open FSharp.Data.Adaptive
+open Adaptify
 open CorrelationDrawing
 
 type RectangleId = RectangleId of Guid

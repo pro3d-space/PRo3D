@@ -124,14 +124,14 @@ module Drawing =
             toEffect Shader.pointSpriteFragment
       ]
 
-    let stablePoints (sgfeatures : MSgFeatures) =
+    let stablePoints (sgfeatures : AdaptiveSgFeatures) =
       Sg.stablePoints sgfeatures.trafo sgfeatures.positions 
 
-    let drawSingleColoredFeaturePoints (sgfeatures : MSgFeatures) (pointSize:aval<float>) (color:C4f) = 
+    let drawSingleColoredFeaturePoints (sgfeatures : AdaptiveSgFeatures) (pointSize:aval<float>) (color:C4f) = 
         let pointsF = stablePoints sgfeatures
         drawSingleColorPoints pointsF (color.ToV4d()) pointSize |> Sg.trafo sgfeatures.trafo
 
-    let drawFeaturePoints (sgfeatures : MSgFeatures) (pointSize:aval<float>) = 
+    let drawFeaturePoints (sgfeatures : AdaptiveSgFeatures) (pointSize:aval<float>) = 
         let pointsF = stablePoints sgfeatures
         Sg.drawColoredPoints pointsF sgfeatures.colors pointSize |> Sg.trafo sgfeatures.trafo
 
@@ -147,7 +147,7 @@ module Drawing =
     let pass0 = RenderPass.main
     let pass1 = RenderPass.after "outline" RenderPassOrder.Arbitrary pass0
 
-    let drawSelectedFeaturePoints (sgfeatures : MSgFeatures) (pointSize:aval<float>) =
+    let drawSelectedFeaturePoints (sgfeatures : AdaptiveSgFeatures) (pointSize:aval<float>) =
 
         let outline =
           drawSingleColoredFeaturePoints sgfeatures (pointSize |> AVal.map(fun x -> x + 4.0)) C4f.VRVisGreen 
