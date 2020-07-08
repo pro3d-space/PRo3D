@@ -820,13 +820,13 @@ module ViewPlanApp =
                      Html.row "Name:"       [ Incremental.text r.id ]
                      Html.row "Instrument:" [ 
                         instrumentsDd r m 
-                        Incremental.div AttributeMap.empty (AList.ofModSingle (viewInstrumentProperties m))                    
+                        Incremental.div AttributeMap.empty (AList.ofAValSingle (viewInstrumentProperties m))                    
                      ]
                      Html.row "Axes:" [   
                         Incremental.div AttributeMap.empty (viewAxesList r m)
                      ]
                      Html.row "Footprint:" [   
-                        Incremental.div AttributeMap.empty (AList.ofModSingle ( viewFootprintProperties fpVisible m ))
+                        Incremental.div AttributeMap.empty (AList.ofAValSingle ( viewFootprintProperties fpVisible m ))
                      ]
                      ]
                 

@@ -20,6 +20,10 @@ open PRo3D.ReferenceSystem
 open PRo3D.Base
 open PRo3D.Base.Annotation
 
+open Aether
+open Aether.Operators
+open Aardvark.UI.Primitives
+
 module ReferenceSystemApp =
 
     //open Aardvark.UI.ChoiceModule
@@ -107,7 +111,7 @@ module ReferenceSystemApp =
     let updateCoordSystem (p:V3d) (planet:Planet) (model : ReferenceSystem) = 
         let up = upVector p planet
         let n  = match planet with | Planet.None -> V3d.IOO | _ -> northVector up
-        let no = Rot3d(up, model.noffset.value |> Double.radiansFromDegrees).TransformDir(n) //updateVectorInDegree up n model.origin model.noffset.value 
+        let no = Rot3d.Rotation(up, model.noffset.value |> Double.radiansFromDegrees).Transform(n) //updateVectorInDegree up n model.origin model.noffset.value 
         { model with north = ReferenceSystem.setV3d n; up = ReferenceSystem.setV3d up; northO = no }
 
    
@@ -130,15 +134,15 @@ module ReferenceSystemApp =
             | SetNOffset o ->
                 let noffset = Numeric.update model.noffset o
                 let no = 
-                  Rot3d(model.up.value, noffset.value |> Double.radiansFromDegrees)
-                    .TransformDir(model.north.value) |> Vec.normalize                
+                  Rot3d.Rotation(model.up.value, noffset.value |> Double.radiansFromDegrees)
+                    .Transform(model.north.value) |> Vec.normalize                
 
 
                 { model with noffset = noffset; northO = no }, bigConfig 
             | ToggleVisible   -> 
                 { model with isVisible = not model.isVisible}, bigConfig
             | SetArrowSize d  ->
-                let big' = config.arrowLength.Set(bigConfig, d) 
+                let big' = Optic.set config.arrowLength d bigConfig
                 model, big'          
             | SetScale s ->
                 { model with selectedScale = s }, bigConfig
@@ -236,7 +240,7 @@ module ReferenceSystemApp =
               | "0.1mm" ->      0.0001
               | _       ->      1.0
 
-        let getOrientationSystem (mbigConfig : 'ma) (minnerConfig : MInnerConfig<'ma>) (model:MReferenceSystem) (cam:aval<CameraView>) =
+        let getOrientationSystem (mbigConfig : 'ma) (minnerConfig : MInnerConfig<'ma>) (model:AdaptiveReferenceSystem) (cam:aval<CameraView>) =
             let thickness = AVal.constant 2.0
             let near      = minnerConfig.getNearDistance   mbigConfig
 
@@ -296,7 +300,7 @@ module ReferenceSystemApp =
                 label                     
             ]   |> Sg.onOff(model.isVisible)       
 
-        let view<'ma> (mbigConfig : 'ma) (minnerConfig : MInnerConfig<'ma>) (model:MReferenceSystem) (cam:aval<CameraView>)  : ISg<Action> =
+        let view<'ma> (mbigConfig : 'ma) (minnerConfig : MInnerConfig<'ma>) (model:AdaptiveReferenceSystem) (cam:aval<CameraView>)  : ISg<Action> =
                        
             let length    = minnerConfig.getArrowLength    mbigConfig
             let thickness = minnerConfig.getArrowThickness mbigConfig
@@ -439,9 +443,8 @@ module ReferenceSystemApp =
                 
 
     module UI =
-        open Aardvark.UI.Primitives.Mutable
 
-        let view (model:MReferenceSystem) (camera:MCameraControllerState) =
+        let view (model:AdaptiveReferenceSystem) (camera : AdaptiveCameraControllerState) =
             let bearing = 
                 adaptive {
                     let! up = model.up.value

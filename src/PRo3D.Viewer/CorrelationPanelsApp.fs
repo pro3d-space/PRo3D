@@ -522,7 +522,7 @@ module CorrelationPanelsApp =
                 
                 let modelTrafo =
                     points 
-                    |> AList.toMod 
+                    |> AList.toAVal 
                     |> AVal.map (fun x ->
                         x 
                         |> IndexList.tryHead 
@@ -548,7 +548,7 @@ module CorrelationPanelsApp =
         (near       : aval<float>)
         (primary    : aval<C4b>) 
         (secondary  : aval<C4b>) 
-        (dnsResults : aval<option<MDipAndStrikeResults>>) 
+        (dnsResults : aval<option<AdaptiveDipAndStrikeResults>>) 
         (modelTrafo : aval<Trafo3d>) 
         (pickable   : Option<LogTypes.LogId * aval<option<LogTypes.LogId>>>)
         (pickingAllowed: aval<bool>) 
@@ -681,7 +681,7 @@ module CorrelationPanelsApp =
         |> Sg.andAlso polyLine
         //|> Sg.andAlso labels2
     
-    let viewWorkingLog (planeSize : aval<float>) (cam : aval<CameraView>) near (m : MCorrelationPanelModel) (falseColors : MFalseColorsModel) =
+    let viewWorkingLog (planeSize : aval<float>) (cam : aval<CameraView>) near (m : MCorrelationPanelModel) (falseColors : AdaptiveFalseColorsModel) =
         
         let logSg =
             m.logBrush 
@@ -708,7 +708,7 @@ module CorrelationPanelsApp =
             
         logSg, planeSg
         
-    let viewFinishedLogs (planeSize : aval<float>) (cam : aval<CameraView>) near (falseColors : MFalseColorsModel) (m : MCorrelationPanelModel) (pickingAllowed: aval<bool>) =
+    let viewFinishedLogs (planeSize : aval<float>) (cam : aval<CameraView>) near (falseColors : AdaptiveFalseColorsModel) (m : MCorrelationPanelModel) (pickingAllowed: aval<bool>) =
         let logs = 
             m.correlationPlot.logsNuevo
             |> AMap.toASet
@@ -735,7 +735,7 @@ module CorrelationPanelsApp =
 
                 let trafo =            
                     points
-                    |> AList.toMod 
+                    |> AList.toAVal 
                     |> AVal.map(fun y -> 
                         match y |> IndexList.tryHead with
                         | Some head -> Trafo3d.Translation head

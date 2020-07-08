@@ -50,7 +50,7 @@ module DrawingApp =
                 let newSegment = { startPoint = firstP; endPoint = lastP; points = IndexList.ofList [firstP;lastP] }
 
                 if PRo3D.Config.useAsyncIntersections then
-                    { a with segments = IndexList.append newSegment a.segments }
+                    { a with segments = IndexList.add newSegment a.segments }
                 else
                     let dir = newSegment.endPoint - newSegment.startPoint
                     let points = [ 
@@ -58,8 +58,8 @@ module DrawingApp =
                                 yield newSegment.startPoint + dir * (float s / float PRo3D.Config.sampleCount) // world space
                         ]
                     let newSegment = { startPoint = firstP; endPoint = lastP; points = IndexList.ofList points }
-                    { a with segments = IndexList.append newSegment a.segments }
-            | _ -> { a with points = a.points |> IndexList.append firstP }
+                    { a with segments = IndexList.add newSegment a.segments }
+            | _ -> { a with points = a.points |> IndexList.add firstP }
 
     let getFinishedAnnotation up north planet (view:CameraView) (model : DrawingModel) =
       match model.working with
@@ -94,12 +94,12 @@ module DrawingApp =
       { model with  working = None; pendingIntersections = ThreadPool.empty; annotations = groups }
     
     //adds new point to working state, if certain conditions are met the annotation finishes itself
-    let addPoint up north planet samplePoint p view model surfaceName bc =
+    let addPoint up north planet samplePoint (p : V3d) view model surfaceName bc =
       
       let working, newSegment = 
         match model.working with
           | Some w ->     
-            let annotation = { w with points = w.points |> IndexList.append p }
+            let annotation = { w with points = w.points |> IndexList.add p }
             Log.line "working contains %d points" annotation.points.Count
             
             //fetch current drawing segment (projected, polyline or polygon)
@@ -114,7 +114,7 @@ module DrawingApp =
                       let newSegment = { startPoint = a; endPoint = p; points = IndexList.ofList [a;p] }
 
                       if PRo3D.Config.useAsyncIntersections then
-                        { annotation with segments = IndexList.append newSegment annotation.segments }, Some (newSegment,segmentIndex)
+                        { annotation with segments = IndexList.add newSegment annotation.segments }, Some (newSegment,segmentIndex)
                       else
                         let vec = newSegment.endPoint - newSegment.startPoint
                         let dir = vec.Normalized
@@ -127,7 +127,7 @@ module DrawingApp =
                               | Some projectedPoint -> yield projectedPoint
                         ]
                         let newSegment = { startPoint = a; endPoint = p; points = IndexList.ofList points }
-                        { annotation with segments = IndexList.append newSegment annotation.segments }, None
+                        { annotation with segments = IndexList.add newSegment annotation.segments }, None
                 | Projection.Linear ->
                     annotation, None
                 | _ -> failwith "case does not exist"            
@@ -150,7 +150,7 @@ module DrawingApp =
 
       match (working.geometry, (working.points |> IndexList.count)) with
           | Geometry.Point, 1 -> 
-              Log.line "Picked single point at: %A" (working.points |> IndexList.tryHead).Value
+              Log.line "Picked single point at: %A" (working.points |> IndexList.tryFirst).Value
               finishAndAppendAndSend up north planet view model bc, None
           | Geometry.Line, 2 -> 
               finishAndAppendAndSend up north planet view model bc, None
@@ -427,17 +427,17 @@ module DrawingApp =
                                     
     let threads (m : DrawingModel) = m.pendingIntersections
     
-    let tryToAnnotation = 
+    let tryToAnnotation : AdaptiveLeafCase -> Option<AdaptiveAnnotation> = 
         function
-        | MAnnotations ann -> Some ann
+        | AdaptiveAnnotations ann -> Some ann
         | _ -> None
        
-    let view<'ma> (mbigConfig : 'ma)(msmallConfig : MSmallConfig<'ma>) (view : aval<CameraView>) (pickingAllowed : aval<bool>) (model:MDrawingModel) : ISg<Drawing.Action> * ISg<Drawing.Action> =
+    let view<'ma> (mbigConfig : 'ma)(msmallConfig : MSmallConfig<'ma>) (view : aval<CameraView>) (pickingAllowed : aval<bool>) (model:AdaptiveDrawingModel) : ISg<Drawing.Action> * ISg<Drawing.Action> =
         // order is irrelevant for rendering. change list to set,
         // since set provides more degrees of freedom for the compiler           
         let annoSet = 
             model.annotations.flat 
-            |> AMap.chooseM(fun _ y -> y |> AVal.map tryToAnnotation) 
+            |> AMap.choose (fun _ y -> y |> tryToAnnotation) // TODO v5: here we collapsed some avals - check correctness
             |> AMap.toASet
 
         let config : Sg.innerViewConfig = 
@@ -470,7 +470,7 @@ module DrawingApp =
             Sg.ofList [
              // brush model.hoverPosition; 
               annotations
-              Sg.drawWorkingAnnotation config.offset model.working
+              Sg.drawWorkingAnnotation config.offset (AVal.map Adaptivy.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
             ]
 
         let depthTest = 

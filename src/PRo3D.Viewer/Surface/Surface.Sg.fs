@@ -193,7 +193,7 @@ module Sg =
         
         sgSurfaces
     
-    let viewHomePosition (model:MSurfaceModel) =
+    let viewHomePosition (model:AdaptiveSurfaceModel) =
         let point = 
             aset{
                 let! guid = model.surfaces.singleSelectLeaf
@@ -203,9 +203,9 @@ module Sg =
                     | Some i -> 
                         let! exists = (model.surfaces.flat |> AMap.keys) |> ASet.contains i
                         if exists then
-                          let leaf = model.surfaces.flat |> AMap.find i |> AVal.bind(id)
+                          let leaf = model.surfaces.flat |> AMap.find i 
                           let! surf = leaf 
-                          let x = match surf with | MSurfaces s -> s | _ -> surf |> sprintf "wrong type %A; expected MSurfaces" |> failwith
+                          let x = match surf with | AdaptiveSurfaces s -> s | _ -> surf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
                           let! hpos = x.homePosition
                           match hpos with
                               | Some p -> yield Sg.dot (AVal.constant C4b.Yellow) (AVal.constant 3.0) (AVal.constant p.Location)

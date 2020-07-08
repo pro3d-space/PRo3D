@@ -14,8 +14,6 @@ open Aardvark.VRVis.Opc
 open PRo3D.Base
 open PRo3D
 //open PRo3D.Versioned
-open Aardvark.Base.Geometry.BvhTree   
-open Aardvark.Base.HSet
 
 type GroupsAppAction =
     | ToggleExpand          of list<Index>
@@ -179,7 +177,7 @@ module GroupsApp =
     // add a list of children to children of active group
     let addLeaves path (cs : IndexList<Leaf>) model = 
         let f = (fun (x:Node) -> 
-            { x with leaves = x.leaves |> IndexList.append' (cs |> IndexList.map (fun x -> x.id)) })
+            { x with leaves = x.leaves |> IndexList.append (cs |> IndexList.map (fun x -> x.id)) })
 
         //add ids to group
         let root' = updateNodeAt path f model.rootGroup
@@ -202,7 +200,7 @@ module GroupsApp =
          //add child nodes to flat
         let cs' = cs |> IndexList.toList |> List.map(fun x -> (x.id,x))|> HashMap.ofList
 
-        let t = [{node with leaves = node.leaves |> IndexList.append' (cs |> IndexList.map (fun x -> x.id)) }] |> IndexList.ofList
+        let t = [{node with leaves = node.leaves |> IndexList.append (cs |> IndexList.map (fun x -> x.id)) }] |> IndexList.ofList
         let root' = {model.rootGroup with subNodes = t}
         
         { model with rootGroup = root'; flat = model.flat |> HashMap.union cs' }    
@@ -211,7 +209,7 @@ module GroupsApp =
         { model with selectedLeaves = model.selectedLeaves |> HashSet.remove( { id = id; path = path; name = "" } ) }
     
     let removeLeaf model (id:Guid) path removeFromFlat =
-        let func = (fun (x:Node) -> { x with leaves = x.leaves |> IndexList.remove' id })
+        let func = (fun (x:Node) -> { x with leaves = x.leaves |> IndexList.filter (fun id' -> id' <> id) }) // TODO v5: check
         let root' = updateNodeAt path func model.rootGroup
 
         let m = model |> removeFromSelection id path
@@ -244,7 +242,7 @@ module GroupsApp =
             |> removeSelected    (m.selectedLeaves |> HashSet.toList) false
             |> updateActiveGroup (fun (x:Node) -> 
                 let ids = (toMove |> IndexList.map(fun x -> x.id))
-                { x with leaves = x.leaves |> IndexList.append' ids })
+                { x with leaves = x.leaves |> IndexList.append ids })
          
         // update selection paths
         let sel = (m.selectedLeaves |> HashSet.map( fun x -> {x with path = m.activeGroup.path }))
@@ -258,7 +256,7 @@ module GroupsApp =
     let checkLastSelected model = 
         match model.singleSelectLeaf with
         | Some x -> 
-            if isEmpty (model.selectedLeaves |> HashSet.filter ( fun y -> y.id = x)) then 
+            if (model.selectedLeaves |> HashSet.filter ( fun y -> y.id = x)).IsEmpty then 
                 None
             else
                 Some x
@@ -283,17 +281,17 @@ module GroupsApp =
             version   = Node.current
             name      = "newGroup" 
             key       = Guid.NewGuid()
-            leaves    = plist.Empty
-            subNodes  = plist.Empty
+            leaves    = IndexList.Empty
+            subNodes  = IndexList.Empty
             visible   = true
             expanded  = true
         }    
 
-    let insertGroup path group model =         
+    let insertGroup path (group : Node) (model : GroupsModel) =         
 
         let func = 
             (fun (x:Node) -> 
-                { x with subNodes = IndexList.append group x.subNodes })
+                { x with subNodes = IndexList.add group x.subNodes })
 
         { model with rootGroup = updateNodeAt path func model.rootGroup }
 
@@ -393,7 +391,7 @@ module GroupsApp =
 
             //delet from hierarchy                                
             let func = 
-                fun (x:Node) -> { x with leaves = plist.Empty }
+                fun (x:Node) -> { x with leaves = IndexList.Empty }
 
             let root' = updateNodeAt p func model.rootGroup
             let m' = { model with rootGroup = root'; flat = flat' }
@@ -473,10 +471,12 @@ module GroupsApp =
                 { model with selectedLeaves = HashSet.union model.selectedLeaves leaves }
             else
                 { model with selectedLeaves = HashSet.difference model.selectedLeaves leaves }
-        | MoveLeaves  -> 
-            moveChildren model
+        // TODO v5: to check this - MoveLeaves not existent anymore
+        //| MoveLeaves  -> 
+        //    moveChildren model
+
         | ClearSelection ->
-            { model with selectedLeaves = hset.Empty; } //singleSelectLeaf = None
+            { model with selectedLeaves = HashSet.Empty; } //singleSelectLeaf = None
         | UpdateCam id -> model
         | AddAndSelectGroup (p,node) ->
             let t = insertGroup p node model   
@@ -502,7 +502,7 @@ module GroupsApp =
                 |> List.fold (fun rest k -> HashMap.remove k rest) model.flat
             
             
-            let t = [{node with leaves = plist.Empty}] |> IndexList.ofList
+            let t = [{node with leaves = IndexList.Empty}] |> IndexList.ofList
             //let newGroup = [{newGroup with name = "snapshots"}]|> IndexList.ofList
             let root' = {model.rootGroup with subNodes = t}
             
@@ -541,7 +541,7 @@ module GroupsApp =
                 ] 
             ]
 
-    let viewUI (model : MGroupsModel) =   
+    let viewUI (model : AdaptiveGroupsModel) =   
         let ts = model.activeGroup
         require GuiEx.semui (
             Html.table [                            
@@ -555,7 +555,7 @@ module GroupsApp =
             ]
         )
 
-    let viewSelected (view : MLeaf -> DomNode<'a>) (lifter : 'a -> 'b) (model : MGroupsModel) : aval<DomNode<'b>> = 
+    let viewSelected (view : AdaptiveLeafCase -> DomNode<'a>) (lifter : 'a -> 'b) (model : AdaptiveGroupsModel) : aval<DomNode<'b>> = 
         adaptive {
             let! selected = model.singleSelectLeaf
             match selected with
@@ -563,7 +563,7 @@ module GroupsApp =
                     let! exists = model.flat |> AMap.keys |> ASet.contains guid
                     if exists then
                       let item = 
-                        model.flat |> AMap.find guid |> AVal.bind(id) |> AVal.force
+                        model.flat |> AMap.find guid |> AVal.force // TODO v5: to - wrong adaptive, where was bind on id - why?
                       return view item |> UI.map lifter
                     else return div[][] |> UI.map lifter
                 | None ->

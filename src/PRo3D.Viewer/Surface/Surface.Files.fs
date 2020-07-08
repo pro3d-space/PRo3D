@@ -92,9 +92,9 @@ module DebugKdTreesX =
       Triangle3d(pl.[pi], pl.[pi+1], pl.[pi + 2])
 
     let isNotOversized (size) (triangle:Triangle3d) =      
-      ((V3d.Distance(triangle.P0, triangle.P1) < size) && 
-       (V3d.Distance(triangle.P0, triangle.P2) < size) &&
-       (V3d.Distance(triangle.P1, triangle.P2) < size))
+      ((Vec.Distance(triangle.P0, triangle.P1) < size) && 
+       (Vec.Distance(triangle.P0, triangle.P2) < size) &&
+       (Vec.Distance(triangle.P1, triangle.P2) < size))
 
     let intersectKdTrees bb (hitObject : PRo3D.Surfaces.Surface) (cache : HashMap<string, ConcreteKdIntersectionTree>) (ray : FastRay3d) (kdTreeMap: HashMap<Box3d, KdTrees.Level0KdTree>) = 
 

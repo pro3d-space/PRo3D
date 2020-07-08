@@ -1,5 +1,6 @@
 namespace PRo3D
 
+open Adaptify.FSharp.Core
 open Aardvark.Base
 open System
 open Aardvark.UI
@@ -57,12 +58,14 @@ module AnnotationProperties =
                 { model with color = ColorPicker.update model.color a }
             | PrintPosition ->
                 let p = match model.geometry with
-                          | Geometry.Point -> (model.points |> IndexList.tryHead).Value.ToString()
+                          | Geometry.Point -> 
+                            let a = model.points |> IndexList.tryFirst
+                            a.ToString()
                           | _-> ""
                 Log.line "Position: %A" p
                 model
 
-    let view (model : MAnnotation) = 
+    let view (model : AdaptiveAnnotation) = 
 
         require GuiEx.semui (
             Html.table [                                            
@@ -79,23 +82,31 @@ module AnnotationProperties =
 
         )
 
-    let viewResults (model : MAnnotation) (up:aval<V3d>) =   
+    // TODO v5: remove this duplicate
+    module AdaptiveOption =
+        let toOption (a : AdaptiveOptionCase<_,_,_>) =
+            match a with
+            | AdaptiveSome a -> Some a
+            | AdaptiveNone -> None
+
+    let viewResults (model : AdaptiveAnnotation) (up:aval<V3d>) =   
         
-        let height   = AVal.bindOption model.results Double.NaN (fun a -> a.height)
-        let heightD  = AVal.bindOption model.results Double.NaN (fun a -> a.heightDelta)
-        let alt      = AVal.bindOption model.results Double.NaN (fun a -> a.avgAltitude)
-        let length   = AVal.bindOption model.results Double.NaN (fun a -> a.length)
-        let wLength  = AVal.bindOption model.results Double.NaN (fun a -> a.wayLength)
-        let bearing  = AVal.bindOption model.results Double.NaN (fun a -> a.bearing)
-        let slope    = AVal.bindOption model.results Double.NaN (fun a -> a.slope)
+        let results = AVal.map AdaptiveOption.toOption model.results
+        let height   = AVal.bindOption results Double.NaN (fun a -> a.height)
+        let heightD  = AVal.bindOption results Double.NaN (fun a -> a.heightDelta)
+        let alt      = AVal.bindOption results Double.NaN (fun a -> a.avgAltitude)
+        let length   = AVal.bindOption results Double.NaN (fun a -> a.length)
+        let wLength  = AVal.bindOption results Double.NaN (fun a -> a.wayLength)
+        let bearing  = AVal.bindOption results Double.NaN (fun a -> a.bearing)
+        let slope    = AVal.bindOption results Double.NaN (fun a -> a.slope)
 
         let pos = AVal.map( fun x -> match x with 
-                                        | Geometry.Point -> let points = model.points |> AList.toList
+                                        | Geometry.Point -> let points = model.points |> AList.force |> IndexList.toArray
                                                             points.[0].ToString()
                                         | _-> "" ) model.geometry
         
-        let vertDist = AVal.map( fun u -> verticalDistance   (model.points |> AList.toList) u ) up
-        let horDist  = AVal.map( fun u -> horizontalDistance (model.points |> AList.toList) u ) up
+        let vertDist = AVal.map( fun u -> verticalDistance   (model.points |> AList.force |> IndexList.toList) u ) up // TODO refactor: why so complicated to list stuff?
+        let horDist  = AVal.map( fun u -> horizontalDistance (model.points |> AList.force |> IndexList.toList) u ) up
       
         require GuiEx.semui (
           Html.table [   

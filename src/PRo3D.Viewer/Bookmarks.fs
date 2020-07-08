@@ -75,7 +75,7 @@ module Bookmarks =
                 | _ -> outerModel, bookmarks
             | None ->  outerModel, bookmarks
                 
-    let mkColor (model : MGroupsModel) (b : MBookmark) =
+    let mkColor (model : AdaptiveGroupsModel) (b : MBookmark) =
         let id = b.key |> AVal.force
 
         let color =  
@@ -86,7 +86,7 @@ module Bookmarks =
         
         color
 
-    let lastSelected (model : MGroupsModel) (b : MBookmark) =
+    let lastSelected (model : AdaptiveGroupsModel) (b : MBookmark) =
         let id = b.key |> AVal.force
         model.singleSelectLeaf 
         |> AVal.map(function
@@ -94,7 +94,7 @@ module Bookmarks =
             | _ -> false 
         )
 
-    let isSingleSelect (model : MGroupsModel) (b : MBookmark) =
+    let isSingleSelect (model : AdaptiveGroupsModel) (b : MBookmark) =
         model.singleSelectLeaf 
         |> AVal.map(function
             | Some selected -> selected = (b.key |> AVal.force)
@@ -102,7 +102,7 @@ module Bookmarks =
 
     let viewBookmarks 
       (path         : list<Index>) 
-      (model        : MGroupsModel) 
+      (model        : AdaptiveGroupsModel) 
       (singleSelect : MBookmark*list<Index> -> 'outer) 
       (multiSelect  : MBookmark*list<Index> -> 'outer) 
       (lift         : GroupsAppAction -> 'outer) 
@@ -158,7 +158,7 @@ module Bookmarks =
         }     
                
 
-    let rec viewTree path (group : MNode) (model : MGroupsModel) : alist<DomNode<BookmarkAction>> =
+    let rec viewTree path (group : AdaptiveNode) (model : AdaptiveGroupsModel) : alist<DomNode<BookmarkAction>> =
 
         alist {
 
@@ -206,7 +206,7 @@ module Bookmarks =
                     else yield style "hidden"
                 }         
 
-            let leafDomNodes = AList.collecti (fun i v -> viewTree (i::path) v model) group.subNodes    
+            let leafDoAdaptiveNodes = AList.collecti (fun i v -> viewTree (i::path) v model) group.subNodes    
 
             let singleSelect = 
                 fun (a:MBookmark,path:list<Index>) -> 
@@ -226,7 +226,7 @@ module Bookmarks =
                         alist { 
                             let! isExpanded = group.expanded
                             if isExpanded then 
-                                yield! leafDomNodes
+                                yield! leafDoAdaptiveNodes
 
                             if isExpanded then 
                                 yield! viewBookmarks path model singleSelect multiSelect lift group.leaves
@@ -239,7 +239,7 @@ module Bookmarks =
         }
 
 
-    let viewBookmarksGroups (bookmarks : MGroupsModel) = 
+    let viewBookmarksGroups (bookmarks : AdaptiveGroupsModel) = 
         require GuiEx.semui (
             TreeView.view [] (viewTree [] bookmarks.rootGroup bookmarks)
         )                                    

@@ -4,7 +4,6 @@ open System
 open Aardvark.Base
 open FSharp.Data.Adaptive
 open Adaptify
-open Aardvark.UI.Mutable
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.Application

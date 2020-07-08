@@ -18,11 +18,19 @@ module MissingFunctionality =
         let ofAValSingle (v : aval<'a>) : aset<'a> = 
             v |> AVal.map Seq.singleton |> ASet.ofAVal
 
+        let union' (xs : seq<aset<'a>>) : aset<'a> = ASet.unionMany (ASet.ofSeq xs)
+
 
     module AList = 
         let ofAValSingle (v : aval<'a>) : alist<'a> = 
             v |> AVal.map Seq.singleton |> AList.ofAVal
 
+    module AVal = 
+        let bindOption (m : aval<Option<'a>>) (defaultValue : 'b) (project : 'a -> aval<'b>)  : aval<'b> =
+            m |> AVal.bind (function 
+                | None   -> AVal.constant defaultValue       
+                | Some v -> project v
+            )
 
 namespace Adaptivy.FSharp.Core
 

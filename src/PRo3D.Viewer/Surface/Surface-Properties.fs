@@ -85,7 +85,7 @@ module SurfaceProperties =
     let mapTolist (input : amap<_,'a>) : alist<'a> = 
         input |> AMap.toASet |> AList.ofASet |> AList.map snd    
     
-    let scalarLayerList (m:MSurface) = 
+    let scalarLayerList (m:AdaptiveSurface) = 
         (m.scalarLayers |> mapTolist)
 
     //let getSelectedScalar (layer:aval<Option<MScalarLayer>>) = //: Option<ScalarLayer> =
@@ -98,7 +98,7 @@ module SurfaceProperties =
     //        } |> AVal.force
 
           
-    let view (model : MSurface) =        
+    let view (model : AdaptiveSurface) =        
       require GuiEx.semui (
         Html.table [                                            
           // Html.row "Path:"        [Incremental.text (model.importPath |> AVal.map (fun x -> sprintf "%A" x ))]                
@@ -110,7 +110,7 @@ module SurfaceProperties =
           Html.row "TriangleFilter:" [Numeric.view' [NumericInputType.InputBox]   model.triangleSize  |> UI.map SetTriangleSize ]
           Html.row "Scale:"       [Numeric.view' [NumericInputType.InputBox]   model.scaling  |> UI.map SetScaling ]
           Html.row "Fillmode:"    [Html.SemUi.dropDown model.fillMode SetFillMode]                
-          Html.row "Scalars:"     [UI.dropDown'' (model |> scalarLayerList)  model.selectedScalar   (fun x -> SetScalarMap (x |> Option.map(fun y -> y.Current |> AVal.force)))   (fun x -> x.label |> AVal.force)]
+          Html.row "Scalars:"     [UI.dropDown'' (model |> scalarLayerList)  (AVal.map Adaptivy.FSharp.Core.Missing.AdaptiveOption.toOption model.selectedScalar)  (fun x -> SetScalarMap (x |> Option.map(fun y -> y.Current |> AVal.force)))   (fun x -> x.label |> AVal.force)]
           //Html.row "Scalars:"     [UI.dropDown'' (model |> scalarLayerList)  model.selectedScalar   (fun x -> SetScalarMap (x |> Option.map(fun y -> y.Current ))) (fun x -> x.label |> AVal.force)]
           Html.row "Textures:"    [UI.dropDown'' model.textureLayers model.selectedTexture  (fun x -> SetTexturesMap x) (fun x -> x.label)]
           Html.row "Cull Faces:"  [Html.SemUi.dropDown model.cullMode SetCullMode]
@@ -154,7 +154,7 @@ module ColorCorrectionProperties =
         | UseGrayScale  ->
             { model with useGrayscale = (not model.useGrayscale) }
 
-    let view (model : MColorCorrection) =        
+    let view (model : AdaptiveColorCorrection) =        
       require GuiEx.semui (
         Html.table [          
           Html.row "use contrast:"        [GuiEx.iconCheckBox model.useContrast UseContrast ] // group.visible (GroupsMessage(Groups.ToggleGroup path))

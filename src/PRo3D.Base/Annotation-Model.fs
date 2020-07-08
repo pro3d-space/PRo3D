@@ -146,7 +146,6 @@ type DipAndStrikeResults = {
     strikeAzimuth   : float
     centerOfMass    : V3d
     error           : Statistics
-    x : int
 }
 with 
     static member current = 0
@@ -171,7 +170,6 @@ with
               strikeAzimuth   = strikeAzimuth
               centerOfMass    = centerOfMass |> V3d.Parse
               error           = error
-              x=0
           }
         }
     
@@ -206,7 +204,6 @@ with
             strikeAzimuth   = Double.NaN  
             centerOfMass    = V3d.NaN  
             error           = Statistics.initial
-            x= 0
         }  
 
 

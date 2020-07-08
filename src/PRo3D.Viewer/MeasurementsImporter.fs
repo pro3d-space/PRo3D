@@ -9,6 +9,8 @@ open Aardvark.UI
 
 open PRo3D.Base.Annotation
 
+open FSharp.Data.Adaptive
+
 module MeasurementsImporter = 
     open Aardvark.UI.Primitives
    

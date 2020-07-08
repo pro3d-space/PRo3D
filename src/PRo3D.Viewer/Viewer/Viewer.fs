@@ -1009,8 +1009,8 @@ module ViewerApp =
             { m with trafoMode = d }
         | SetKind d,_,_ -> 
             { m with trafoKind = d }
-        | TransformSurface (guid, trafo),_,_ ->
-            //transformSurface m guid trafo //TODO moved function?
+        | TransforAdaptiveSurface (guid, trafo),_,_ ->
+            //transforAdaptiveSurface m guid trafo //TODO moved function?
             m
         //| TransformAllSurfaces surfaceUpdates,_,_ -> //TODO MarsDL Hera
         //    match surfaceUpdates.IsEmptyOrNull () with
@@ -1243,7 +1243,7 @@ module ViewerApp =
         |> Sg.trafo(trafo)
     
     let renderControlAttributes (m: MModel) = 
-        let renderControlAtts (model: MNavigationModel) =
+        let renderControlAtts (model: AdaptiveNavigationModel) =
             amap {
                 let! state = model.navigationMode
                 match state with
@@ -1330,7 +1330,7 @@ module ViewerApp =
         let icmds    = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed discsInst m // m.scene.surfacesModel.sgGrouped overlayed discs m
         let icam = 
             AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
-        DomNode.RenderControl((instrumentControlAttributes m), icam, icmds, None) //AttributeMap.Empty
+        DoAdaptiveNode.RenderControl((instrumentControlAttributes m), icam, icmds, None) //AttributeMap.Empty
 
     let viewRenderView (m: MModel) = 
         let annotations, discs = DrawingApp.view m.scene.config mdrawingConfig m.navigation.camera.view (allowAnnotationPicking m) m.drawing  
@@ -1440,12 +1440,12 @@ module ViewerApp =
         let selected = 
             m.minervaModel.session.selection.highlightedFrustra
             |> AList.ofASet
-            |> AList.toMod 
+            |> AList.toAVal 
             |> AVal.map (fun x ->
                 x
                 |> IndexList.take 500
             )
-            |> AList.ofMod
+            |> AList.ofAVal
             |> ASet.ofAList
         
         let linkingSg = 
@@ -1461,7 +1461,7 @@ module ViewerApp =
         let cmds    = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m
         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
         let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
-        DomNode.RenderControl((renderControlAttributes m), cam, cmds, None)
+        DoAdaptiveNode.RenderControl((renderControlAttributes m), cam, cmds, None)
 
     let view (m: MModel) = //(localhost: string)
        

@@ -74,7 +74,7 @@ type Leaf with
             | Annotations a -> do! Json.write "Annotations" a
         }
                 
-[<DomainType;ReferenceEquality>]
+[<ModelType;ReferenceEquality>]
 type Node = {
     version     : int
     key         : Guid
@@ -127,7 +127,6 @@ type Node with
         }
 
 type TreeSelection = {
-    [<PrimaryKey>]
     id : Guid
     path : list<Index>
     name : string
@@ -139,8 +138,8 @@ module Group =
         version  = Node.current
         name     = "root"
         key      =  Guid.NewGuid()
-        leaves   = plist.Empty
-        subNodes = plist.Empty 
+        leaves   = IndexList.Empty
+        subNodes = IndexList.Empty 
         visible  = true
         expanded = true
     }
@@ -180,7 +179,7 @@ module Group =
 type SelectedItem = Child = 0 | Group = 1
 
 
-[<DomainType; ReferenceEquality>]
+[<ModelType; ReferenceEquality>]
 type GroupsModel = {
     version              : int
     rootGroup            : Node
@@ -215,7 +214,7 @@ module GroupsModel =
                 flat                = flat
                 groupsLookup        = groupsLookup
                 lastSelectedItem    = SelectedItem.Child
-                selectedLeaves      = hset.Empty 
+                selectedLeaves      = HashSet.Empty 
                 singleSelectLeaf    = None
             }
         }
@@ -225,10 +224,10 @@ module GroupsModel =
         rootGroup        = Group.initRoot
         activeGroup      = Group.initGroupSelection
         activeChild      = Group.initChildSelection
-        flat             = hmap.Empty
-        groupsLookup     = hmap.Empty        
+        flat             = HashMap.Empty
+        groupsLookup     = HashMap.Empty        
         lastSelectedItem = SelectedItem.Child
-        selectedLeaves   = hset.Empty
+        selectedLeaves   = HashSet.Empty
         singleSelectLeaf = None
     }
 
@@ -404,10 +403,10 @@ module SurfaceModel =
         {
             version     = current
             surfaces    = surfaces
-            sgSurfaces  = hmap.Empty //sgs //
+            sgSurfaces  = HashMap.Empty //sgs //
             //sgSurfaceObjs = hmap.Empty
-            sgGrouped   = plist.Empty
-            kdTreeCache = hmap.Empty
+            sgGrouped   = IndexList.Empty
+            kdTreeCache = HashMap.Empty
         }
    
     //let surfaceModelPickler : Pickler<SurfaceModel> =
@@ -416,7 +415,7 @@ module SurfaceModel =
     //    ^+ Pickler.field (fun s -> s.surfaces.flat)                  Pickler.auto<HashMap<Guid,Leaf>>
     //    ^. Pickler.field (fun s -> s.surfaces.singleSelectLeaf)      Pickler.auto<option<Guid>>
 
-    let initial = initSurfaceModel Group.initRoot hmap.Empty None
+    let initial = initSurfaceModel Group.initRoot HashMap.Empty None
     
     let getSurface model guid =
         model.surfaces.flat |> HashMap.tryFind guid

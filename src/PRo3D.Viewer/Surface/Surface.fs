@@ -21,6 +21,8 @@ open PRo3D
 open PRo3D.Groups
 open System.Diagnostics
 
+open Adaptivy.FSharp.Core
+
 module SurfaceUtils =
     open Aardvark.SceneGraph.SgFSharp.Sg   
     open System.Diagnostics 
@@ -45,7 +47,7 @@ module SurfaceUtils =
             priority        = Init.priority
             scaling         = Init.scaling
             preTransform    = Trafo3d.Identity            
-            scalarLayers    = hmap.Empty //IndexList.empty
+            scalarLayers    = HashMap.Empty //IndexList.empty
             selectedScalar  = None
             textureLayers   = IndexList.empty
             selectedTexture = None            
@@ -339,7 +341,7 @@ module SurfaceApp =
       let surfaces' = 
         trafos 
           |> List.filter (fun x -> x.id |> surfaces.ContainsKey)
-          |> List.map(fun x -> surfaces.Find x.id,x)
+          |> List.map(fun x -> HashMap.find x.id surfaces, x) // TODO to: non total! can be?
           |> List.map(fun (a,b) -> { a with preTransform = b.trafo })
             
       let flat' = 
@@ -589,7 +591,7 @@ module SurfaceApp =
             m
         | _ -> model
 
-    let absRelIcons (m : MSurface)=
+    let absRelIcons (m : AdaptiveSurface)=
         adaptive {
             let! absRelIcons = 
                 m.relativePaths 
@@ -603,25 +605,25 @@ module SurfaceApp =
             return absRelIcons
         }    
 
-    let isSelected (model : MGroupsModel) (s : MSurface) =
+    let isSelected (model : AdaptiveGroupsModel) (s : AdaptiveSurface) =
         let id = s.guid |> AVal.force
             
         model.selectedLeaves
           |> ASet.map(fun x -> x.id = id)
           |> ASet.contains true
     
-    let mkColor (model : MGroupsModel) (s : MSurface) =
+    let mkColor (model : AdaptiveGroupsModel) (s : AdaptiveSurface) =
         isSelected model s 
           |> AVal.bind (fun x -> if x then AVal.constant C4b.VRVisGreen else AVal.constant C4b.White)
 
-    let lastSelected (model : MGroupsModel) (s : MSurface) =
+    let lastSelected (model : AdaptiveGroupsModel) (s : AdaptiveSurface) =
             let id = s.guid |> AVal.force
             model.singleSelectLeaf 
                 |> AVal.map( fun x -> match x with 
                                         | Some xx -> xx = id
                                         | _ -> false )
 
-    let isSingleSelect (model : MGroupsModel) (s : MSurface) =
+    let isSingleSelect (model : AdaptiveGroupsModel) (s : AdaptiveSurface) =
             model.singleSelectLeaf |> AVal.map( fun x -> 
                 match x with 
                   | Some selected -> selected = (s.guid |> AVal.force)
@@ -629,21 +631,20 @@ module SurfaceApp =
 
     let viewSurfacesInGroups 
        (path         : list<Index>) 
-       (model        : MGroupsModel) 
-       (singleSelect : MSurface*list<Index> -> 'outer) 
-       (multiSelect  : MSurface*list<Index> -> 'outer) 
+       (model        : AdaptiveGroupsModel) 
+       (singleSelect : AdaptiveSurface*list<Index> -> 'outer) 
+       (multiSelect  : AdaptiveSurface*list<Index> -> 'outer) 
        (lift         : GroupsAppAction -> 'outer) 
        (surfaceIds   : alist<Guid>) : alist<DomNode<'outer>> =
        alist {
 
          let surfaces = 
             surfaceIds 
-               |> AList.chooseM (fun x -> model.flat |> AMap.tryFind x)
+               |> AList.chooseA (fun x -> model.flat |> AMap.tryFind x)
 
          let surfaces = 
             surfaces
-               |> AList.map AVal.force
-               |> AList.choose(function | MSurfaces s -> Some s | _-> None )
+               |> AList.choose(function | AdaptiveSurfaces s -> Some s | _-> None )
 
          for s in surfaces do
 
@@ -738,7 +739,7 @@ module SurfaceApp =
              ]
        }
            
-    let rec viewTree path (group : MNode) (model : MGroupsModel) : alist<DomNode<Action>> =
+    let rec viewTree path (group : AdaptiveNode) (model : AdaptiveGroupsModel) : alist<DomNode<Action>> =
 
         alist {
 
@@ -793,11 +794,11 @@ module SurfaceApp =
                 }         
 
             let singleSelect = 
-                    fun (s:MSurface,path:list<Index>) -> 
+                    fun (s:AdaptiveSurface,path:list<Index>) -> 
                         Action.GroupsMessage(GroupsAppAction.SingleSelectLeaf (path, s.guid |> AVal.force, ""))
 
             let multiSelect = 
-                fun (s:MSurface,path:list<Index>) -> 
+                fun (s:AdaptiveSurface,path:list<Index>) -> 
                     Action.GroupsMessage(GroupsAppAction.AddLeafToSelection (path, s.guid |> AVal.force, ""))
 
             let lift = fun (a:GroupsAppAction) -> (GroupsMessage a)
@@ -822,7 +823,7 @@ module SurfaceApp =
         }
 
 
-    let viewSurfacesGroups (model:MSurfaceModel) = 
+    let viewSurfacesGroups (model:AdaptiveSurfaceModel) = 
         require GuiEx.semui (
             Incremental.div 
               (AttributeMap.ofList [clazz "ui celled list"]) 
@@ -830,7 +831,7 @@ module SurfaceApp =
         )    
         
 
-    //let viewSurfaceProperties (model:MSurfaceModel) =
+    //let viewSurfaceProperties (model:AdaptiveSurfaceModel) =
     //    adaptive {
     //        let! bla = model.surfaces.lastSelectedChild
     //        let opt = 
@@ -849,14 +850,14 @@ module SurfaceApp =
                 | Some b ->   
                     let! b' = b
                     match b' with 
-                        | MSurfaces bm -> return isSome bm
+                        | AdaptiveSurfaces bm -> return isSome bm
                         | _ -> return div[][]                                                             
                 | None   -> return div[][] 
         }
     
       //failwith ""
 
-    let viewSurfaceProperties (model:MSurfaceModel) =
+    let viewSurfaceProperties (model:AdaptiveSurfaceModel) =
         adaptive {
             let! guid = model.surfaces.singleSelectLeaf
             let flat = model.surfaces.flat
@@ -865,9 +866,9 @@ module SurfaceApp =
               | Some i ->
                 let! exists = flat |> AMap.keys |> ASet.contains i
                 if exists then
-                  let leaf = flat |> AMap.find i |> AVal.bind(id)
+                  let leaf = flat |> AMap.find i 
                   let! surf = leaf 
-                  let x = match surf with | MSurfaces s -> s | _ -> leaf |> sprintf "wrong type %A; expected MSurfaces" |> failwith                                     
+                  let x = match surf with | AdaptiveSurfaces s -> s | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith                                     
                   return SurfaceProperties.view x |> UI.map SurfacePropertiesMessage
                 else
                   return div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map SurfacePropertiesMessage 
@@ -876,12 +877,12 @@ module SurfaceApp =
               | None -> return div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map SurfacePropertiesMessage 
         }                          
         
-    let surfaceGroupProperties (model:MSurfaceModel) =
+    let surfaceGroupProperties (model:AdaptiveSurfaceModel) =
         adaptive {                                
             return (GroupsApp.viewUI model.surfaces|> UI.map GroupsMessage)
         } 
 
-    let viewTranslationTools (model:MSurfaceModel) =
+    let viewTranslationTools (model:AdaptiveSurfaceModel) =
         adaptive {
             let! guid = model.surfaces.singleSelectLeaf
             let empty = div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map TranslationMessage 
@@ -890,16 +891,16 @@ module SurfaceApp =
               | Some i -> 
                 let! exists = (model.surfaces.flat |> AMap.keys) |> ASet.contains i
                 if exists then
-                  let leaf = model.surfaces.flat |> AMap.find i |> AVal.bind(id)
+                  let leaf = model.surfaces.flat |> AMap.find i 
                   let! surf = leaf 
-                  let x = match surf with | MSurfaces s -> s | _ -> leaf |> sprintf "wrong type %A; expected MSurfaces" |> failwith
+                  let x = match surf with | AdaptiveSurfaces s -> s | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
                   return TranslationApp.UI.view x.transformation |> UI.map TranslationMessage
                 else
                   return empty
               | None -> return empty
         }                          
 
-    let viewColorCorrectionTools (model:MSurfaceModel) =
+    let viewColorCorrectionTools (model:AdaptiveSurfaceModel) =
         adaptive {
             let! guid = model.surfaces.singleSelectLeaf
             let empty = div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map ColorCorrectionMessage 
@@ -908,9 +909,9 @@ module SurfaceApp =
                 | Some i -> 
                   let! exists = (model.surfaces.flat |> AMap.keys) |> ASet.contains i
                   if exists then
-                    let leaf = model.surfaces.flat |> AMap.find i |> AVal.bind(id)
+                    let leaf = model.surfaces.flat |> AMap.find i // TODO to: common - make a map here!
                     let! surf = leaf 
-                    let colorCorrection = match surf with | MSurfaces s -> s.colorCorrection | _ -> leaf |> sprintf "wrong type %A; expected MSurfaces" |> failwith
+                    let colorCorrection = match surf with | AdaptiveSurfaces s -> s.colorCorrection | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
                     return ColorCorrectionProperties.view colorCorrection |> UI.map ColorCorrectionMessage
                   else 
                     return empty
@@ -919,7 +920,7 @@ module SurfaceApp =
 
     //TODO LF refactor and simplify, use option.map, bind, default value as described in
     //https://hackmd.io/C3putqB_QNCwpxWO_oKZJQ#Working-with-Optionmap-Optionbind-and-OptiondefaultValue
-    let viewColorLegendTools (model:MSurfaceModel) =
+    let viewColorLegendTools (model:AdaptiveSurfaceModel) =
         adaptive {
             let! guid = model.surfaces.singleSelectLeaf
             
@@ -927,17 +928,17 @@ module SurfaceApp =
                 | Some i -> 
                     let! exists = (model.surfaces.flat |> AMap.keys) |> ASet.contains i
                     if exists then
-                      let leaf = model.surfaces.flat |> AMap.find i |> AVal.bind(id)
+                      let leaf = model.surfaces.flat |> AMap.find i
                       let! surf = leaf 
                       let scalar = 
                         match surf with 
-                         | MSurfaces s -> s.selectedScalar 
-                         | _ -> leaf |> sprintf "wrong type %A; expected MSurfaces" |> failwith
+                         | AdaptiveSurfaces s -> s.selectedScalar 
+                         | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
                       
                       let! scalar = scalar
                       match scalar with
-                          | Some s -> return FalseColorLegendApp.UI.viewScalarMappingProperties s.colorLegend |> UI.map ScalarsColorLegendMessage
-                          | None -> return div[ style "font-style:italic"][ text "no scalar in properties selected" ] |> UI.map ScalarsColorLegendMessage 
+                          | AdaptiveSome s -> return FalseColorLegendApp.UI.viewScalarMappingProperties s.colorLegend |> UI.map ScalarsColorLegendMessage
+                          | AdaptiveNone -> return div[ style "font-style:italic"][ text "no scalar in properties selected" ] |> UI.map ScalarsColorLegendMessage 
                     else
                       return div[ style "font-style:italic"][ text "no scalar in properties selected" ] |> UI.map ScalarsColorLegendMessage 
                                   
@@ -946,7 +947,7 @@ module SurfaceApp =
 
     //TODO LF refactor and simplify, use option.map, bind, default value as described in
     //https://hackmd.io/C3putqB_QNCwpxWO_oKZJQ#Working-with-Optionmap-Optionbind-and-OptiondefaultValue
-    let showColorLegend (model:MSurfaceModel) = 
+    let showColorLegend (model:AdaptiveSurfaceModel) = 
         alist {
             let! guid = model.surfaces.singleSelectLeaf            
             match guid with
@@ -957,8 +958,8 @@ module SurfaceApp =
                     let! surf = leaf 
                     let scalar = 
                         match surf with 
-                        | MSurfaces s -> s.selectedScalar 
-                        | _ -> leaf |> sprintf "wrong type %A; expected MSurfaces" |> failwith
+                        | AdaptiveSurfaces s -> s.selectedScalar 
+                        | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
                     let! scalar = scalar
                     match scalar with
                     | Some s ->  
@@ -969,7 +970,7 @@ module SurfaceApp =
             | None -> yield div[][]
         } 
 
-    let surfacesLeafButtonns (model:MSurfaceModel) = 
+    let surfacesLeafButtonns (model:AdaptiveSurfaceModel) = 
         let ts = model.surfaces.activeChild
         let sel = model.surfaces.singleSelectLeaf
         adaptive {  
@@ -980,14 +981,14 @@ module SurfaceApp =
             | None -> return div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map GroupsMessage
         } 
 
-    let surfacesGroupButtons (model:MSurfaceModel) = 
+    let surfacesGroupButtons (model:AdaptiveSurfaceModel) = 
         let ts = model.surfaces.activeGroup
         adaptive {  
             let! ts = ts
             return (GroupsApp.viewGroupButtons ts |> UI.map GroupsMessage)
         } 
     
-    let surfaceUI (model:MSurfaceModel) =
+    let surfaceUI (model:AdaptiveSurfaceModel) =
         let item2 = 
             model.surfaces.lastSelectedItem 
                 |> AVal.bind (fun x -> 
@@ -1005,22 +1006,22 @@ module SurfaceApp =
         div[][                            
             yield GuiEx.accordion "Surfaces" "Cubes" true [ viewSurfacesGroups model ]
             yield GuiEx.accordion "Properties" "Content" false [
-              Incremental.div AttributeMap.empty (AList.ofModSingle item2)
+              Incremental.div AttributeMap.empty (AList.ofAValSingle item2)
                
             ]
             yield GuiEx.accordion "Actions" "Asterisk" false [
-                Incremental.div AttributeMap.empty (AList.ofModSingle (buttons))
+                Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
             ]  
             yield GuiEx.accordion "Transformation" "expand arrows alternate " false [
-                Incremental.div AttributeMap.empty (AList.ofModSingle(viewTranslationTools model))
+                Incremental.div AttributeMap.empty (AList.ofAValSingle(viewTranslationTools model))
             ]  
                 
             yield GuiEx.accordion "Color Adaptation" "file image outline" false [
-                Incremental.div AttributeMap.empty (AList.ofModSingle(viewColorCorrectionTools model))
+                Incremental.div AttributeMap.empty (AList.ofAValSingle(viewColorCorrectionTools model))
             ] 
 
             yield GuiEx.accordion "Scalars ColorLegend" "paint brush" true [
-                Incremental.div AttributeMap.empty (AList.ofModSingle(viewColorLegendTools model))
+                Incremental.div AttributeMap.empty (AList.ofAValSingle(viewColorLegendTools model))
             ] 
         ]
     

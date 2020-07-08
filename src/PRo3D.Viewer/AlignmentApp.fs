@@ -16,7 +16,7 @@ type AlignmentActions =
 module Alignment =
 
     let initModel = {
-        pickedPoints = plist.Empty 
+        pickedPoints = IndexList.Empty 
         alignment    = None
         resultTrafo  = None
     }
@@ -50,7 +50,7 @@ module AlignmentApp =
                 // reject picked point of surface names are not unique
                 { m with alignment = Some al; pickedPoints = points }
               | _ -> 
-                match (m.pickedPoints |> IndexList.tryHead, m.alignment) with
+                match (m.pickedPoints |> IndexList.tryFirst, m.alignment) with
                   | Some p, Some kk -> 
                     
                     let al' =
@@ -74,7 +74,7 @@ module AlignmentApp =
             //    { m with resultTrafo = Some t }
             //  | _ -> m
 
-    let view (m : MAlignmentModel) (view : aval<CameraView>) : ISg<AlignmentActions> =
+    let view (m : AdaptiveAlignmentModel) (view : aval<CameraView>) : ISg<AlignmentActions> =
                 
         //aset {
         //    //let! align = m.alignment

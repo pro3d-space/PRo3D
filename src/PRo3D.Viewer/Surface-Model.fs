@@ -19,6 +19,8 @@ open DevILSharp.ILU
 open Chiron
 open PRo3D.Base
 
+open Adaptify
+
 #nowarn "0686"
 
 [<ModelType>]
@@ -246,7 +248,6 @@ type Surface = {
     
     version       : int
 
-    [<PrimaryKey>]
     guid            : System.Guid
     
     name            : string

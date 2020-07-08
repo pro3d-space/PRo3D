@@ -225,8 +225,8 @@ module ViewerUtils =
          adaptive {
             let! c = leaf
             match c with 
-                | MSurfaces s -> return s
-                | _ -> return c |> sprintf "wrong type %A; expected MSurfaces" |> failwith
+                | AdaptiveSurfaces s -> return s
+                | _ -> return c |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
             }
 
     let lookUp guid (table:amap<Guid, aval<MLeaf>>) =
@@ -235,7 +235,7 @@ module ViewerUtils =
 
         entry |> AVal.bind(fun x -> x |> toModSurface)
     
-    let addImageCorrectionParameters (surf:aval<MSurface>)  (isg:ISg<'a>) =
+    let addImageCorrectionParameters (surf:aval<AdaptiveSurface>)  (isg:ISg<'a>) =
         
             //AVal.bind(fun x -> lookUp (x.surface) blarg )
         let contr    = surf |> AVal.bind( fun x -> x.colorCorrection.contrast.value )
@@ -260,10 +260,10 @@ module ViewerUtils =
             |> Sg.uniform "colorS"         color
 
 
-   // let viewSingleSurfaceSg (surface : MSgSurface) (surfaceTable : amap<Guid, aval<MLeaf>>) (frustum : aval<Frustum>) (selectedId : aval<Option<Guid>>) (isctrl:aval<bool>) (globalBB : aval<Box3d>) (refsys:MReferenceSystem) =
+   // let viewSingleSurfaceSg (surface : MSgSurface) (surfaceTable : amap<Guid, aval<MLeaf>>) (frustum : aval<Frustum>) (selectedId : aval<Option<Guid>>) (isctrl:aval<bool>) (globalBB : aval<Box3d>) (refsys:AdaptiveReferenceSystem) =
     
 
-    let addAttributeFalsecolorMappingParameters (surf:aval<MSurface>)  (isg:ISg<'a>) =
+    let addAttributeFalsecolorMappingParameters (surf:aval<AdaptiveSurface>)  (isg:ISg<'a>) =
             
         let selectedScalar =
             adaptive {
@@ -352,7 +352,7 @@ module ViewerUtils =
             |> Sg.uniform "MinMax"         rangeToMinMax
             |> Sg.texture (Sym.ofString "ColorMapTexture") (AVal.constant colormap)
 
-    let getLodParameters (surf:aval<MSurface>) (refsys:MReferenceSystem) (frustum : aval<Frustum>) =
+    let getLodParameters (surf:aval<AdaptiveSurface>) (refsys:AdaptiveReferenceSystem) (frustum : aval<Frustum>) =
         adaptive {
             let! s = surf
             let! frustum = frustum 
@@ -371,7 +371,7 @@ module ViewerUtils =
         { frustum = frustum; size = sizes; factor = Math.Pow(Math.E, quality); trafo = trafo }
         
     
-    let attributeParameters (surf:aval<MSurface>) =
+    let attributeParameters (surf:aval<AdaptiveSurface>) =
          adaptive {
             let! s = surf
             let! scalar = s.selectedScalar
@@ -415,7 +415,7 @@ module ViewerUtils =
         (selectedId : aval<Option<Guid>>)
         (isctrl:aval<bool>) 
         (globalBB : aval<Box3d>) 
-        (refsys:MReferenceSystem) 
+        (refsys:AdaptiveReferenceSystem) 
         (fp:MFootPrint) 
         (vp:aval<Option<MViewPlan>>) 
         (useHighlighting:aval<bool>) 

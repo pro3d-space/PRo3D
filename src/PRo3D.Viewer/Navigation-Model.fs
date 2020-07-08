@@ -17,7 +17,7 @@ type NavigationModel = {
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module NavigationModel =
     let initial = {
-        camera = CameraController.initial          
-        navigationMode =  NavigationMode.FreeFly        
-        exploreCenter = V3d.Zero // make option        
+            camera = CameraController.initial          
+            navigationMode =  NavigationMode.FreeFly        
+            exploreCenter = V3d.Zero // make option        
         }

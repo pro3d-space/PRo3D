@@ -12,7 +12,8 @@ open Aardvark.UI
 open Aardvark.UI.Primitives    
 open OpcViewer.Base
 open PRo3D.Base.Annotation
-open PRo3D.Base.Annotation.Mutable
+
+open Adaptivy.FSharp.Core
 
 module DipAndStrike =
     
@@ -100,7 +101,7 @@ module DipAndStrike =
             let height = horP.Height(plane.Normal)
             let planeNormal = 
                 match height.Sign() with
-                | -1 -> plane.Normal.Negated
+                | -1 -> -plane.Normal
                 | _  -> plane.Normal
 
             plane.Normal <- planeNormal
@@ -152,7 +153,7 @@ module DipAndStrike =
                         let height = horP.Height(plane.Normal)
                         let planeNormal = 
                           match height.Sign() with
-                          | -1 -> plane.Normal.Negated
+                          | -1 -> -plane.Normal
                           | _  -> plane.Normal
 
                         plane.Normal <- planeNormal
@@ -181,11 +182,12 @@ module DipAndStrike =
             return hsv.ToC3f().ToC4b()
         }
     
-    let viewUI (model : MAnnotation) =
+    let viewUI (model : AdaptiveAnnotation) =
 
-        let da   = AVal.bindOption model.dnsResults Double.NaN (fun a -> a.dipAngle)
-        let daz  = AVal.bindOption model.dnsResults Double.NaN (fun a -> a.dipAzimuth)
-        let staz = AVal.bindOption model.dnsResults Double.NaN (fun a -> a.strikeAzimuth)
+        let results = AVal.map AdaptiveOption.toOption model.dnsResults
+        let da   = AVal.bindOption results Double.NaN (fun a -> a.dipAngle)
+        let daz  = AVal.bindOption results Double.NaN (fun a -> a.dipAzimuth)
+        let staz = AVal.bindOption results Double.NaN (fun a -> a.strikeAzimuth)
         
         require GuiEx.semui (
             Html.table [ 

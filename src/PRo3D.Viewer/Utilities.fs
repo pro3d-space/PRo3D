@@ -142,7 +142,7 @@ module Mod =
 
     let bindOption (m : aval<Option<'a>>) (defaultValue : 'b) (project : 'a -> aval<'b>)  : aval<'b> =
         m |> AVal.bind (function | None   -> AVal.constant defaultValue       
-                                | Some v -> project v)
+                                 | Some v -> project v)
 
 module Copy =
     let rec copyAll' (source : DirectoryInfo) (target : DirectoryInfo) skipExisting =
@@ -217,7 +217,7 @@ module Sg =
           let hfov_rad = Conversion.RadiansFromDegrees(hfov)
          
           let wz = Fun.Tan(hfov_rad / 2.0) * near * size
-          let dist = V3d.Distance(p, v.Location)
+          let dist = Vec.Distance(p, v.Location)
       
           return ( wz / near ) * dist
       }
@@ -227,7 +227,7 @@ module Sg =
     let edgeLines (close : bool) (points : alist<V3d>) (trafo:aval<Trafo3d>) =
       points
         |> AList.map(fun d -> trafo.GetValue().Backward.TransformPos d)
-        |> AList.toMod 
+        |> AList.toAVal 
         |> AVal.map (fun l ->
             let list = IndexList.toList l
             let head = list |> List.tryHead
@@ -329,7 +329,7 @@ module Sg =
         ]
 
     let indexedGeometryDots (points : alist<V3d>) (size:aval<float>) (color : aval<C4b>) =       
-      let points' = points |> AList.toMod |> AVal.map(fun x -> x |> IndexList.toArray)
+      let points' = points |> AList.toAVal |> AVal.map(fun x -> x |> IndexList.toArray)
       let colors = points' |> AVal.map2(fun c x -> Array.create x.Length c) color
       
       Sg.draw IndexedGeometryMode.PointList
@@ -366,7 +366,7 @@ module Sg =
        secondary
        
     let drawPointList (positions : alist<V3d>) (color : aval<C4b>) (pointSize : aval<double>) (offset : aval<double>)= 
-        let positions = positions |> AList.toMod |> AVal.map IndexList.toArray
+        let positions = positions |> AList.toAVal |> AVal.map IndexList.toArray
         let (pointsF, trafo) = PRo3D.Base.Sg.stablePoints' positions
 
         PRo3D.Base.Sg.drawSingleColorPoints 
@@ -382,7 +382,7 @@ module Sg =
             let! geometry = geometry
             match geometry with
             | Geometry.Point -> 
-                match points|> AList.toList |> List.tryHead with
+                match points|> AList.force |> IndexList.toList |> List.tryHead with
                 | Some p -> 
                     yield dot (AVal.constant p) size color
                 | _ -> 
@@ -554,7 +554,7 @@ module PRo3DNumeric =
     let formatNumber (format : string) (value : float) =
         String.Format(Globalization.CultureInfo.InvariantCulture, format, value)
 
-    let numericField<'msg> ( f : Action -> seq<'msg> ) ( atts : AttributeMap<'msg> ) ( model : MNumericInput ) inputType =         
+    let numericField<'msg> ( f : Action -> seq<'msg> ) ( atts : AttributeMap<'msg> ) ( model : AdaptiveNumericInput ) inputType =         
 
         let tryParseAndClamp min max fallback (s: string) =
             let parsed = 0.0
@@ -600,13 +600,13 @@ module PRo3DNumeric =
 
     let numericField' = numericField (Seq.singleton) AttributeMap.empty
 
-    let view' (inputTypes : list<NumericInputType>) (model : MNumericInput) : DomNode<Action> =
+    let view' (inputTypes : list<NumericInputType>) (model : AdaptiveNumericInput) : DomNode<Action> =
         inputTypes 
             |> List.map (numericField' model) 
             |> List.intersperse (text " ") 
             |> div []
 
-    let view (model : MNumericInput) =
+    let view (model : AdaptiveNumericInput) =
         view' [InputBox] model
 
   module GenericFunctions =

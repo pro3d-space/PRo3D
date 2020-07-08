@@ -14,6 +14,7 @@ module Navigation =
     open PRo3D.Navigation2
    // open Navigation.Sg
 
+
     type Action =
         | ArcBallAction         of ArcBallController.Message
         //| FreeFlyAction         of CameraController.Message
@@ -88,7 +89,7 @@ module Navigation =
                 return (Frustum.perspective 90.0 near far 1.0)
                 }
 
-        let renderControlAttributes (model : MNavigationModel) near far =
+        let renderControlAttributes (model : AdaptiveNavigationModel) near far =
             amap {
                 let! state = model.navigationMode 
                 match state with
@@ -97,14 +98,14 @@ module Navigation =
                     | _ -> failwith "Invalid NavigationMode"
             } |> AttributeMap.ofAMap
 
-        let viewNavigationModes  (model : MNavigationModel) =
+        let viewNavigationModes  (model : AdaptiveNavigationModel) =
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large location arrow icon"][] ]
                 Html.Layout.boxH [ Html.SemUi.dropDown model.navigationMode SetNavigationMode ]                
             ]
 
     module Sg =
-        let view (model:MNavigationModel) =
+        let view (model:AdaptiveNavigationModel) =
             let point = PRo3D.Base.Sg.dot (AVal.constant C4b.Magenta) (AVal.constant 3.0) model.exploreCenter 
             Sg.ofList [point]
            

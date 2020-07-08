@@ -37,7 +37,7 @@ open PRo3D.Correlations
 
 module Gui =            
     
-    let pitchAndBearing (r:MReferenceSystem) (view:aval<CameraView>) =
+    let pitchAndBearing (r:AdaptiveReferenceSystem) (view:aval<CameraView>) =
         adaptive {
           let! up    = r.up.value
           let! north = r.northO//r.north.value   
@@ -110,7 +110,7 @@ module Gui =
 
         Svg.svg canvasAttributes [ selectionRectangle ]
 
-    let textOverlays (m : MReferenceSystem) (cv : aval<CameraView>) = 
+    let textOverlays (m : AdaptiveReferenceSystem) (cv : aval<CameraView>) = 
         div [js "oncontextmenu" "event.preventDefault();"] [ 
             let planet = m.planet |> AVal.map(fun x -> sprintf "%s" (x.ToString()))  
             
@@ -253,7 +253,7 @@ module Gui =
                 i [clazz "dropdown icon"][]
                 div [ clazz "menu"] [
                     //save scene
-                    Incremental.div AttributeMap.empty (AList.ofModSingle (saveSceneDialog m))
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle (saveSceneDialog m))
 
                     //save scene as
                     div [ 
@@ -466,7 +466,7 @@ module Gui =
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large wizard icon"][] ]
                 Html.Layout.boxH [ Html.SemUi.dropDown m.interaction SetInteraction ]                                         
-                Incremental.div  AttributeMap.empty (AList.ofModSingle (dynamicTop m))
+                Incremental.div  AttributeMap.empty (AList.ofAValSingle (dynamicTop m))
                 Html.Layout.boxH [ 
                     div[style "font-style:italic; width:100%; text-align:right"] [
                         Incremental.text (m.interaction |> AVal.map interactionText)
@@ -494,7 +494,7 @@ module Gui =
         let viewAnnotationProperties (model :MModel) =
             let view = (fun leaf ->
                 match leaf with
-                  | MAnnotations ann -> AnnotationProperties.view ann
+                  | AdaptiveAnnotations ann -> AnnotationProperties.view ann
                   | _ -> div[style "font-style:italic"][ text "no annotation selected" ])
             
             model.drawing.annotations |> GroupsApp.viewSelected view AnnotationMessage
@@ -502,7 +502,7 @@ module Gui =
         let viewAnnotationResults (model :MModel) =
             let view = (fun leaf ->
                 match leaf with
-                  | MAnnotations ann -> AnnotationProperties.viewResults ann model.scene.referenceSystem.up.value
+                  | AdaptiveAnnotations ann -> AnnotationProperties.viewResults ann model.scene.referenceSystem.up.value
                   | _ -> div[style "font-style:italic"][ text "no annotation selected" ])
             
             model.drawing.annotations |> GroupsApp.viewSelected view AnnotationMessage
@@ -510,7 +510,7 @@ module Gui =
         let viewDipAndStrike (model:MModel) = 
             let view = (fun leaf ->
                 match leaf with
-                  | MAnnotations ann -> DipAndStrike.viewUI ann
+                  | AdaptiveAnnotations ann -> DipAndStrike.viewUI ann
                   | _ -> div[style "font-style:italic"][ text "no annotation selected" ])
         
             model.drawing.annotations |> GroupsApp.viewSelected view DnSProperties    
@@ -576,22 +576,22 @@ module Gui =
                     DrawingApp.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage // CHECK-merge viewAnnotationGroups
                 ]
                 GuiEx.accordion "Properties" "Content" true [
-                    Incremental.div AttributeMap.empty (AList.ofModSingle prop)                                        
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle prop)                                        
                 ]
                
                 GuiEx.accordion "Actions" "Asterisk" true [
-                  Incremental.div AttributeMap.empty (AList.ofModSingle (buttons))
+                  Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
                 ]     
                 
                 GuiEx.accordion "Measurements" "Content" true [
-                    Incremental.div AttributeMap.empty (AList.ofModSingle results)                                        
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle results)                                        
                 ]
             
                 GuiEx.accordion "Dip&Strike" "Calculator" false [
-                    Incremental.div AttributeMap.empty (AList.ofModSingle(viewDipAndStrike m))] 
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDipAndStrike m))] 
                
                 GuiEx.accordion "Dip&Strike ColorLegend" "paint brush" false [
-                    Incremental.div AttributeMap.empty (AList.ofModSingle(viewDnSColorLegendUI m))] 
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDnSColorLegendUI m))] 
                 ]    
 
     module Config =
@@ -603,7 +603,7 @@ module Gui =
       let configUI (m:MModel) =
           div[][
               GuiEx.accordion "ViewerConfig" "Settings" true [
-                      Incremental.div AttributeMap.empty (AList.ofModSingle (config m))
+                      Incremental.div AttributeMap.empty (AList.ofAValSingle (config m))
               ]
               GuiEx.accordion "Coordinate System" "Map Signs" false [
                   ReferenceSystemApp.UI.view m.scene.referenceSystem m.navigation.camera |> UI.map ReferenceSystemMessage
@@ -624,7 +624,7 @@ module Gui =
                   ViewPlanApp.UI.viewViewPlans m.scene.viewPlans |> UI.map ViewPlanMessage
               ]
               GuiEx.accordion "Properties" "Content" true [
-                  Incremental.div AttributeMap.empty (viewPlanProperties m |> AList.ofModSingle)
+                  Incremental.div AttributeMap.empty (viewPlanProperties m |> AList.ofAValSingle)
               ]
           ]                
 
@@ -684,10 +684,10 @@ module Gui =
                   Bookmarks.viewBookmarksGroups m.scene.bookmarks |> UI.map BookmarkMessage
               ]                
               GuiEx.accordion "Properties" "Content" true [
-                  Incremental.div AttributeMap.empty ( item2 |> AList.ofModSingle)
+                  Incremental.div AttributeMap.empty ( item2 |> AList.ofAValSingle)
               ] 
               GuiEx.accordion "Actions" "Asterisk" true [
-                  Incremental.div AttributeMap.empty (AList.ofModSingle (buttons))
+                  Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
               ]
           ]
     

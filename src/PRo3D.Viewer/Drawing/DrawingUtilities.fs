@@ -14,11 +14,12 @@ open Chiron.Mapping
 open PRo3D.Base
 open PRo3D.Base.Annotation
 
+open FSharp.Data.Adaptive
+
 module DrawingUtilities =
       
     let semantics = ["unit boundary"; "bed set boundary"; "x beds"] |> List.map(fun x -> x.ToLower())
 
-    open Aardvark.Base
     open Aardvark.Application
     open Aardvark.UI
     open System
@@ -141,7 +142,7 @@ module DrawingUtilities =
         let getDistance (points:list<V3d>) = 
           points
             |> List.pairwise
-            |> List.map (fun (a,b) -> V3d.Distance(a,b))
+            |> List.map (fun (a,b) -> Vec.Distance(a,b))
             |> List.sum
 
         let getSegmentDistance (s:Segment) = 
@@ -161,9 +162,9 @@ module DrawingUtilities =
 
         let calcResultsLine (model:Annotation) (upVec:V3d) (northVec:V3d) (planet:Planet) : AnnotationResults =
             let count = model.points.Count
-            let dist = V3d.Distance(model.points.[0], model.points.[count-1])
+            let dist = Vec.Distance(model.points.[0], model.points.[count-1])
             let wayLength =
-                if model.segments.IsEmpty() then
+                if model.segments.IsEmpty then
                     computeWayLength model.segments
                 else
                     dist
@@ -252,7 +253,8 @@ module DrawingUtilities =
             //detect floating leaves and add to root group
             let flatGroupIds = annos.rootGroup |> Group.flatten
             let floatingLeaves = 
-                flat.Values 
+                flat
+                |> HashMap.values
                 |> Seq.toList
                 |> List.filter(fun x -> (HashSet.contains x.id flatGroupIds) |> not)
                         

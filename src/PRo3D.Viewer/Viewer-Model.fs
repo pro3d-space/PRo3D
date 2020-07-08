@@ -131,7 +131,7 @@ type ViewerAction =
 | SetKind                   of TrafoKind
 | SetInteraction            of Interactions        
 | SetMode                   of TrafoMode
-| TransformSurface          of System.Guid * Trafo3d
+| TransforAdaptiveSurface          of System.Guid * Trafo3d
 | ImportTrafo               of list<string>
 //| TransformAllSurfaces      of list<SnapshotSurfaceUpdate>
 | Translate                 of string * TrafoController.Action

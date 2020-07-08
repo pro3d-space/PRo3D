@@ -25,6 +25,8 @@ open PRo3D.Base.Annotation
 
 open FShade
 
+open Adaptify.FSharp.Core
+
 module Sg =                             
       //TODO TO refactor formatting
     //open PRo3D.Surfaces.Mutable.SgSurfaceModule
@@ -62,7 +64,7 @@ module Sg =
             offset          : aval<float>
         }
     
-    let drawTrueThicknessPlane (planeScale : aval<float>) (dnsResults : aval<option<MDipAndStrikeResults>>) (cl : MFalseColorsModel) =                         
+    let drawTrueThicknessPlane (planeScale : aval<float>) (dnsResults : aval<option<AdaptiveDipAndStrikeResults>>) (cl : AdaptiveFalseColorsModel) =                         
         aset {                            
             let! dns = dnsResults
             match dns with
@@ -86,18 +88,18 @@ module Sg =
             | None -> ()            
         } |> Sg.set
                                   
-    let drawDns' (points : alist<V3d>) (dnsResults : aval<option<MDipAndStrikeResults>>) (conf:innerViewConfig) (cl : MFalseColorsModel) =                         
+    let drawDns' (points : alist<V3d>) (dnsResults : aval<option<AdaptiveDipAndStrikeResults>>) (conf:innerViewConfig) (cl : AdaptiveFalseColorsModel) =                         
         aset {                            
             let! dns = dnsResults
             match dns with
             | Some x -> 
-                let center = points |> AList.toMod |> AVal.map (fun list -> list.[IndexList.count list / 2])
+                let center = points |> AList.toAVal |> AVal.map (fun list -> list.[IndexList.count list / 2])
                 
                 let color = FalseColorLegendApp.Draw.getColorDnS cl x.dipAngle
                      
                 let lengthFactor = 
                     points
-                    |> AList.toMod 
+                    |> AList.toAVal 
                     |> AVal.map(fun x -> (x.AsList |> Calculations.getDistance) / 3.0)
                           
                 let discRadius = conf.dnsPlaneSize |> AVal.map2 (*) lengthFactor
@@ -146,10 +148,10 @@ module Sg =
             | None -> ()            
         } |> Sg.set
         
-    let drawDns (anno : MAnnotation) (conf:innerViewConfig) (cl : MFalseColorsModel) (cam:aval<CameraView>) =   
-        drawDns' anno.points anno.dnsResults conf cl
+    let drawDns (anno : AdaptiveAnnotation) (conf:innerViewConfig) (cl : AdaptiveFalseColorsModel) (cam:aval<CameraView>) =   
+        drawDns' anno.points (AVal.map Adaptivy.FSharp.Core.Missing.AdaptiveOption.toOption anno.dnsResults) conf cl
 
-    let getPolylinePoints (a : MAnnotation) =
+    let getPolylinePoints (a : AdaptiveAnnotation) =
         alist {                          
             let! hasSegments = (a.segments |> AList.count) |> AVal.map(fun x -> x > 0)
             if hasSegments |> not then
@@ -210,7 +212,7 @@ module Sg =
                         true, Seq.empty
         )
 
-    let drawWorkingAnnotation (offset : aval<float>) (anno : aval<Option<MAnnotation>>)  = 
+    let drawWorkingAnnotation (offset : aval<float>) (anno : aval<Option<AdaptiveAnnotation>>)  = 
     
         let polyPoints =
             alist {
@@ -243,12 +245,12 @@ module Sg =
               (offset    |> AVal.map (fun x -> x * 1.1))
         ]                                                               
 
-    let drawText' (view : aval<CameraView>) (conf: innerViewConfig) (text:aval<string>)(anno : MAnnotation) = 
-        let points = anno.points |> AList.toMod
+    let drawText' (view : aval<CameraView>) (conf: innerViewConfig) (text:aval<string>)(anno : AdaptiveAnnotation) = 
+        let points = anno.points |> AList.toAVal
         let pos = points |> AVal.map(fun a -> a |> IndexList.toList |> List.head)
         Sg.text view conf.nearPlane conf.hfov pos anno.modelTrafo anno.textsize.value text
     
-    let drawText (view : aval<CameraView>) (conf: innerViewConfig) (anno : MAnnotation) = 
+    let drawText (view : aval<CameraView>) (conf: innerViewConfig) (anno : AdaptiveAnnotation) = 
         drawText' view conf anno.text anno
     
     let optional (sg : ISg<_>) (m : aval<bool>) : aset<ISg<_>> =
@@ -256,14 +258,14 @@ module Sg =
             let! m = m 
             if m then return sg
             else return Sg.empty
-        } |> ASet.ofModSingle
+        } |> ASet.ofAValSingle
     
     let getDotsIsg (points : alist<V3d>) (size:aval<float>) (color : aval<C4b>) (geometry: aval<Geometry>) (offset : aval<float>) =
         aset {
             let! geometry = geometry
             match geometry with
             | Geometry.Point -> 
-                match points|> AList.toList |> List.tryHead with
+                match points|> AList.force |> IndexList.toList |> List.tryHead with
                 | Some p -> 
                     yield Sg.dot color size  (AVal.constant p)
                 | _ -> 
@@ -275,7 +277,7 @@ module Sg =
         |> Sg.set  
 
     let finishedAnnotation 
-        (anno       : MAnnotation) 
+        (anno       : AdaptiveAnnotation) 
         (c          : aval<C4b>) 
         (conf       : innerViewConfig)
         (view       : aval<CameraView>) 
@@ -300,8 +302,8 @@ module Sg =
                 let! results = anno.dnsResults 
                 let! x = 
                     match results with
-                    | Some r -> r.dipAzimuth
-                    | None   -> AVal.constant Double.NaN
+                    | AdaptiveSome r -> r.dipAzimuth
+                    | AdaptiveNone   -> AVal.constant Double.NaN
                 
                 return x
             }
@@ -313,7 +315,7 @@ module Sg =
             |> AVal.map (String.IsNullOrEmpty >> not) 
             |> optional (drawText view conf anno)
     
-        let dotsAndText = ASet.unionMany' [dots; texts] |> Sg.set
+        let dotsAndText = ASet.union' [dots; texts] |> Sg.set
             
         //let selectionColor = AVal.map2(fun x color -> if x then C4b.VRVisGreen else color) picked c
         let pickingAllowed = // for this particular annotation // whether should fire pick actions
@@ -337,7 +339,7 @@ module Sg =
             dotsAndText
         ] |> Sg.onOff anno.visible
     
-    let finishedAnnotationDiscs (anno : MAnnotation) (conf:innerViewConfig) (cl : MFalseColorsModel) (cam:aval<CameraView>) =
+    let finishedAnnotationDiscs (anno : AdaptiveAnnotation) (conf:innerViewConfig) (cl : AdaptiveFalseColorsModel) (cam:aval<CameraView>) =
         anno.showDns 
         |> optional (drawDns anno conf cl cam) 
         |> Sg.set 

@@ -65,7 +65,7 @@ module Sg =
         |> Sg.adapter
         |> Sg.noEvents
     
-    let orthoOrientation (camView : aval<CameraView>) (refSys:MReferenceSystem) (model : ISg<'msg>) = // (model:ISg<obj>) = //
+    let orthoOrientation (camView : aval<CameraView>) (refSys:AdaptiveReferenceSystem) (model : ISg<'msg>) = // (model:ISg<obj>) = //
         let viewTrafo =
             camView
             |> AVal.map ( fun cv ->
@@ -86,9 +86,9 @@ module Sg =
                 let! cam = camView
                 let! n = refSys.north.value
                 let! offset = refSys.noffset.value
-                let Vn = (V3d.Cross(cam.Forward.Normalized, n.OYO)).Normalized
+                let Vn = (Vec.Cross(cam.Forward.Normalized, n.OYO)).Normalized
                 //((Va x Vb) . Vn) / (Va . Vb)
-                let angle = (V3d.Dot((V3d.Cross(cam.Forward.Normalized, n.OYO)), Vn)) / (V3d.Dot(cam.Forward.Normalized, n.OYO)) //.OYO
+                let angle = (Vec.Dot((Vec.Cross(cam.Forward.Normalized, n.OYO)), Vn)) / (Vec.Dot(cam.Forward.Normalized, n.OYO)) //.OYO
                 //return angle + offset
                 let nangle = (angle + offset) % 360.0
                 return nangle //(nangle + 360.0) % 360.0 
@@ -129,7 +129,7 @@ module Sg =
         }
         |> Sg.pass (RenderPass.after "cube" RenderPassOrder.Arbitrary RenderPass.main)
 
-    //let view (camView : aval<CameraView>) (config:MViewConfigModel) (refSys:MReferenceSystem) =
+    //let view (camView : aval<CameraView>) (config:MViewConfigModel) (refSys:AdaptiveReferenceSystem) =
     //    aset {
     //        let! draw = config.drawOrientationCube
     //        yield match draw with
