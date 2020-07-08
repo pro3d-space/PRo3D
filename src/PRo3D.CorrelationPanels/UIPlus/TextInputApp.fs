@@ -1,6 +1,6 @@
-﻿namespace UIPlus
+namespace UIPlus
 
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Base
 open Aardvark.UI
 open UIPlus
@@ -30,7 +30,7 @@ module TextInput =
       | Disable -> {model with disabled = true}
       | ChangeBgColor c -> {model with bgColor = c}
 
-  let view' (styleStr : IMod<string>) (model : MTextInput): DomNode<Action> = 
+  let view' (styleStr : aval<string>) (model : MTextInput): DomNode<Action> = 
     let attr1 =
       amap {
         yield attribute "type" "text"
@@ -66,7 +66,7 @@ module TextInput =
     div [clazz "ui icon input"] [(Incremental.input (AttributeMap.ofAMap (AMap.union attr1 attributes)))]
 
   let view (model : MTextInput) : DomNode<Action> =
-    view' (Mod.constant "") model  
+    view' (AVal.constant "") model  
      
   let app  = {
     unpersist = Unpersist.instance

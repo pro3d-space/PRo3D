@@ -1,10 +1,10 @@
-﻿namespace DS
+namespace DS
 
   module AList =
     open Aardvark.Base
-    open Aardvark.Base.Incremental
+    open FSharp.Data.Adaptive
 
-    let bindIMod (lst : alist<IMod<'a>>) =
+    let bindIAdaptiveValue (lst : alist<aval<'a>>) =
       alist {
         for a in lst do
           let! a = a
@@ -25,16 +25,16 @@
 
     let isEmpty (alst: alist<'a>) =
       alst.Content 
-        |> Mod.map (fun x -> (x.Count < 1))
+        |> AVal.map (fun x -> (x.Count < 1))
 
-    let exists (f : 'a -> IMod<bool>) (alst: alist<'a>) = //performance :(
+    let exists (f : 'a -> aval<bool>) (alst: alist<'a>) = //performance :(
       let res = 
         alist {
           for a in alst do 
             let! b = (f a)
             if b then yield true
         }
-      Mod.map (fun c -> (c > 0)) (AList.count res)
+      AVal.map (fun c -> (c > 0)) (AList.count res)
     
     let findAll (alst : alist<'a>) (f : 'a -> bool) =
       alist {
@@ -55,9 +55,9 @@
 
     let reduce (f : 'a -> 'a -> 'a) (alst: alist<'a>) = //TODO tryReduce
       alst.Content
-        |> Mod.map (fun (x : plist<'a>) -> 
+        |> AVal.map (fun (x : IndexList<'a>) -> 
                         let r =
-                          PList.toList x
+                          IndexList.toList x
                              |> List.reduce f
                         r
                     )
@@ -71,7 +71,7 @@
             let! cont = alst.Content
             let res = 
               cont 
-                |> PList.toList 
+                |> IndexList.toList 
                 |> List.reduce f
             return Some res
       }
@@ -95,7 +95,7 @@
     let average (alst : alist<float>) =
       let sum =
         alst |> reduce (fun x y -> x + y)
-      Mod.map2 (fun s c -> s / (float c)) sum (AList.count alst)
+      AVal.map2 (fun s c -> s / (float c)) sum (AList.count alst)
 
     let tryAverage (alst : alist<float>) =
       let sum =
@@ -110,14 +110,14 @@
       alst |> AList.sortWith (fun c d -> compare (f d) (f c))    
 
       //|> AList.map mapper
-      //     |> bindIMod
+      //     |> bindIAdaptiveValue
 
     let averageOf (f : 'a -> float) (alst : alist<'a>) = //TODO make dynamic
       alst
         |> AList.map f
         |> average
 
-    let filter' (f : 'a -> IMod<bool>) (alst : alist<'a>) =
+    let filter' (f : 'a -> aval<bool>) (alst : alist<'a>) =
       alist {
         for el in alst do
           let! fil = f el
@@ -137,7 +137,7 @@
       alist {
         let! plst1 = lst1.Content
         let! plst2 = lst2.Content
-        let zipped = (PList.zip plst1 plst2)
+        let zipped = (IndexList.zip plst1 plst2)
         for z in zipped do
           yield z
       }

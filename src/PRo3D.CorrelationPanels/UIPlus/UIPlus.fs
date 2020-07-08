@@ -1,7 +1,7 @@
-﻿namespace UIPlus
+namespace UIPlus
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI
 open CorrelationDrawing
 open Chiron
@@ -17,16 +17,16 @@ module ArrowButtonId =
     let id = System.Guid.NewGuid ()
     {id = id.ToString () }
 
-[<DomainType>]
+[<ModelType>]
 type ArrowButton = {
-    [<NonIncremental>]
+    [<NonAdaptive>]
     id            : ArrowButtonId
     
     direction     : Direction
     size          : Size
 }
 
-[<DomainType>]
+[<ModelType>]
 type TextInput = {
     version   : int
     text      : string
@@ -135,11 +135,11 @@ type GrainSizeInfo = {
     displayWidth : float
 }
 
-[<DomainType>]
+[<ModelType>]
 type ColourMapItem = {
-    [<NonIncremental>]
+    [<NonAdaptive>]
     id                  : GrainType
-    [<NonIncremental>]
+    [<NonAdaptive>]
     order               : int
                        
     upper               : float
@@ -150,9 +150,9 @@ type ColourMapItem = {
     label               : string
 }
 
-[<DomainType>]
+[<ModelType>]
 type ColourMap = {
-    mappings     : hmap<GrainType, ColourMapItem>
+    mappings     : HashMap<GrainType, ColourMapItem>
     defaultValue : GrainType
     selected     : option<GrainType>
 }

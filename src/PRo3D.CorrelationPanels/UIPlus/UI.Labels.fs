@@ -1,15 +1,15 @@
-﻿namespace UIPlus
+namespace UIPlus
 
   open Aardvark.Base
-  open Aardvark.Base.Incremental
+  open FSharp.Data.Adaptive
   open Aardvark.UI
 
   module Labels =
-    let textLabel (text : IMod<string>) =
+    let textLabel (text : aval<string>) =
       label [clazz "ui horizontal label"] [Incremental.text text]
 
     module Incremental = 
-      let label (text : IMod<string>) (bgColour : IMod<C4b>) =
+      let label (text : aval<string>) (bgColour : aval<C4b>) =
         let css =
           amap {
             yield clazz "ui horizontal label"
@@ -20,7 +20,7 @@
           css
           (AList.single (Incremental.text text))
 
-      let labelCi (text : IMod<string>) (bgColour : MColorInput) =
+      let labelCi (text : aval<string>) (bgColour : MColorInput) =
         let css =
           amap {
             yield clazz "ui horizontal label"

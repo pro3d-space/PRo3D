@@ -1,11 +1,11 @@
-﻿namespace PRo3D
+namespace PRo3D
 
 open System
 open Aardvark.Base
 open Aardvark.UI
 open PRo3D.Base
 open RemoteControlModel
-open Aardvark.Base.Incremental    
+open FSharp.Data.Adaptive    
 open MBrace
 open MBrace.FsPickler.Json
 open System.Diagnostics
@@ -59,24 +59,24 @@ module RemoteControlApp =
 
     let mkInstrumetnWps m = 
         let pShots = 
-            m.shots |> PList.choose(fun x -> PlatformShot.fromRoverModel m.Rover x)
+            m.shots |> IndexList.choose(fun x -> PlatformShot.fromRoverModel m.Rover x)
         { m with platformShots = pShots }
 
     let loadData m = 
         match Serialization.fileExists "./waypoints.wps" with
           | Some path -> 
-                let wp = Serialization.loadAs<plist<PRo3D.Viewer.WayPoint>> path
+                let wp = Serialization.loadAs<IndexList<PRo3D.Viewer.WayPoint>> path
 
                 let shots = 
                     wp 
-                      |> PList.map Shot.fromWp 
-                      |> PList.toList 
+                      |> IndexList.map Shot.fromWp 
+                      |> IndexList.toList 
                       |> Serialization.saveJson "./shots.json" 
-                      |> PList.ofList
+                      |> IndexList.ofList
 
                 let m = { m with shots = shots }  |> mkInstrumetnWps
 
-                m.platformShots |> PList.toList |> Serialization.saveJson "./platformshots.json" |> ignore
+                m.platformShots |> IndexList.toList |> Serialization.saveJson "./platformshots.json" |> ignore
                 m
           | None -> m
 
@@ -100,10 +100,10 @@ module RemoteControlApp =
             |> Array.map RoverProvider.initRover 
             |> List.ofArray 
 
-      let rovs = roverData|> List.map(fun (r,_) -> r.id, r) |> HMap.ofList
-      let plats = roverData|> List.map(fun (r,p) -> r.id, p) |> HMap.ofList
+      let rovs = roverData|> List.map(fun (r,_) -> r.id, r) |> HashMap.ofList
+      let plats = roverData|> List.map(fun (r,p) -> r.id, p) |> HashMap.ofList
 
-      printfn "found rover(s): %d" (rovs |> HMap.count)
+      printfn "found rover(s): %d" (rovs |> HashMap.count)
       
       { m with Rover = { m.Rover with rovers = rovs; platforms = plats } }
            
@@ -169,7 +169,7 @@ module RemoteControlApp =
                     | _ -> ()
                 m
 
-    let item (sh:Shot) (selected : IMod<Option<Shot>>) =
+    let item (sh:Shot) (selected : aval<Option<Shot>>) =
         let attr = 
             let background = "background-color:#636363"
             amap {
@@ -257,6 +257,6 @@ module RemoteControlApp =
             threads = threads
             view = view
             update = update baseAddress send
-            initial = { selectedShot = None; shots = PList.empty; Rover = RoverApp.initial; platformShots = PList.empty } 
+            initial = { selectedShot = None; shots = IndexList.empty; Rover = RoverApp.initial; platformShots = IndexList.empty } 
               |> loadData |> loadLast |> loadRoverData
         }

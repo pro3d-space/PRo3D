@@ -1,12 +1,12 @@
-﻿namespace PRo3D.Correlations
+namespace PRo3D.Correlations
 
 open System
 open System.Diagnostics
 
 open Aardvark.Base
 open Aardvark.Base.Rendering
-open Aardvark.Base.Incremental
-open Aardvark.Base.Incremental.Operators
+open FSharp.Data.Adaptive
+open FSharp.Data.Adaptive.Operators
 open Aardvark.Application
 open Aardvark.SceneGraph
 open Aardvark.UI
@@ -30,12 +30,12 @@ open Svgplus.DA
 open Svgplus
 
 module Conversion =
-    let selectedPoints (points : hmap<Guid, LogPoint>) : hmap<AnnotationTypes.ContactId, V3d> =
+    let selectedPoints (points : HashMap<Guid, LogPoint>) : HashMap<AnnotationTypes.ContactId, V3d> =
         points 
-        |> HMap.toList 
+        |> HashMap.toList 
         |> List.map (fun (k,v) ->
             ContactId k, v.position )
-        |> HMap.ofList
+        |> HashMap.ofList
     
     //let geometry (g : Geometry) : SemanticTypes.GeometryType = 
     //    match g with
@@ -89,7 +89,7 @@ module Conversion =
             selected      = false
             hovered       = false
                           
-            points        = inAnno.points |> PList.map(fun x -> { point = x; selected = false } )            
+            points        = inAnno.points |> IndexList.map(fun x -> { point = x; selected = false } )            
                           
             visible       = inAnno.visible
             text          = inAnno.text
@@ -99,19 +99,19 @@ module Conversion =
     
 
 module ContactsTable =
-    let create (annotations : hmap<Guid, PRo3D.Groups.Leaf>) : CorrelationDrawing.AnnotationTypes.ContactsTable =     
+    let create (annotations : HashMap<Guid, PRo3D.Groups.Leaf>) : CorrelationDrawing.AnnotationTypes.ContactsTable =     
         annotations 
         |> Groups.Leaf.toAnnotations
-        |> HMap.toList
+        |> HashMap.toList
         |> List.map(fun (_,v) -> 
             let a = v |> Conversion.toContact
             a.id, a
         )
-        |> HMap.ofList
+        |> HashMap.ofList
 
-    let add (contacts : ContactsTable) (annotations : hmap<Guid, PRo3D.Groups.Leaf>) : CorrelationDrawing.AnnotationTypes.ContactsTable =
+    let add (contacts : ContactsTable) (annotations : HashMap<Guid, PRo3D.Groups.Leaf>) : CorrelationDrawing.AnnotationTypes.ContactsTable =
         let k = annotations |> create
-        contacts |> HMap.union k
+        contacts |> HashMap.union k
 
 
 module CorrelationPanelsApp =        
@@ -170,9 +170,9 @@ module CorrelationPanelsApp =
                     | Some p ->                        
                         brush.pointsTable |> Conversion.selectedPoints, p, brush.planeScale 
                     | None -> 
-                        HMap.empty, DipAndStrikeResults.initial, Double.NaN
+                        HashMap.empty, DipAndStrikeResults.initial, Double.NaN
                 | None -> 
-                    HMap.empty, DipAndStrikeResults.initial, Double.NaN             
+                    HashMap.empty, DipAndStrikeResults.initial, Double.NaN             
                 
             let correlationPlot = 
                 { 
@@ -203,7 +203,7 @@ module CorrelationPanelsApp =
 
                 let cp = { cp with selectedFacies = None }
                 { m with 
-                    contactOfInterest = HSet.empty
+                    contactOfInterest = HashSet.empty
                     correlationPlot = cp
                 }
             | CorrelationPlotAction.DiagramMessage
@@ -216,7 +216,7 @@ module CorrelationPanelsApp =
                   
                 //let rectangleIsSelected = 
                 //    m.correlationPlot.diagram.rectanglesTable 
-                //    |> HMap.tryFind rid 
+                //    |> HashMap.tryFind rid 
                 //    |> Option.map (fun x -> x.isSelected)
                 //    |> Option.defaultValue false
 
@@ -227,7 +227,7 @@ module CorrelationPanelsApp =
                 //select log when rectangle/facies is selected
                 let selectedFaciesId = 
                     m.correlationPlot.diagram.rectanglesTable 
-                    |> HMap.tryFind rid 
+                    |> HashMap.tryFind rid 
                     |> Option.map(fun x ->
                         x.faciesId |> FaciesId)
 
@@ -241,13 +241,13 @@ module CorrelationPanelsApp =
                         dia.bordersTable.Values 
                             |> Seq.filter(fun x -> x.lowerRectangle = rectId || x.upperRectangle = rectId)            
                             |> Seq.map(fun x -> x.contactId |> LogToDiagram.toContactId)
-                            |> HSet.ofSeq
+                            |> HashSet.ofSeq
 
                         //match borders with
                         //| Some (left, right)->
-                        //    [left |> LogToDiagram.toContactId; right |> LogToDiagram.toContactId] |> HSet.ofList
-                        //| None -> HSet.empty
-                    | None -> HSet.empty                     
+                        //    [left |> LogToDiagram.toContactId; right |> LogToDiagram.toContactId] |> HashSet.ofList
+                        //| None -> HashSet.empty
+                    | None -> HashSet.empty                     
 
                 let cp = 
                     m.correlationPlot 
@@ -284,25 +284,25 @@ module CorrelationPanelsApp =
         | LogPickReferencePlane id when m.logginMode = LoggingMode.PickReferencePlane ->
             
             let contactId = ContactId id
-            let contact = m.contacts |> HMap.find contactId
+            let contact = m.contacts |> HashMap.find contactId
 
             let points = 
                 contact.points
-                |> PList.toList
+                |> IndexList.toList
                 |> List.map(fun x -> x.point)                                
                                            
             let planeScale = 
-                Calculations.getDistance (contact.points |> PList.map(fun x -> x.point) |> PList.toList) / 3.0
+                Calculations.getDistance (contact.points |> IndexList.map(fun x -> x.point) |> IndexList.toList) / 3.0
 
             let dns = 
                 contact.points
-                |> PList.map(fun x -> x.point) 
+                |> IndexList.map(fun x -> x.point) 
                 |> DipAndStrike.calculateDipAndStrikeResults reference.up.value reference.north.value      
             
             let logBrush =
                 {
-                    pointsTable    = HMap.empty
-                    localPoints    = PList.empty
+                    pointsTable    = HashMap.empty
+                    localPoints    = IndexList.empty
                     modelTrafo     = Trafo3d.Identity
                     referencePlane = dns
                     planeScale     = planeScale
@@ -312,7 +312,7 @@ module CorrelationPanelsApp =
             
         | LogAddSelectedPoint (id,p) when m.logginMode = LoggingMode.PickLoggingPoints ->
            let contactId = ContactId id
-           let contact = m.contacts |> HMap.find contactId                        
+           let contact = m.contacts |> HashMap.find contactId                        
 
            if (contact.semanticType <> SemanticType.Hierarchical) then
                Log.warn "[Correlations] can't pick non hierarchical annotation as log point"
@@ -332,11 +332,11 @@ module CorrelationPanelsApp =
                            else
                                b.modelTrafo
 
-                       let pointsTable = HMap.add id logPoint b.pointsTable
+                       let pointsTable = HashMap.add id logPoint b.pointsTable
                        { 
                            b with
                              pointsTable = pointsTable
-                             localPoints = pointsTable.Values |> PList.ofSeq
+                             localPoints = pointsTable.Values |> IndexList.ofSeq
                              modelTrafo  = modelTrafo
                        }
                    )
@@ -345,7 +345,7 @@ module CorrelationPanelsApp =
 
         | LogAddPointToSelected (id,p) ->
             let contactId = ContactId id
-            let contact = m.contacts |> HMap.find contactId                        
+            let contact = m.contacts |> HashMap.find contactId                        
 
             if (contact.semanticType <> SemanticType.Hierarchical) then
                 Log.warn "[Correlations] can't pick non hierarchical annotation as log point"
@@ -357,10 +357,10 @@ module CorrelationPanelsApp =
                 
                 match m.correlationPlot.selectedLogNuevo with
                 | Some selectedId ->                    
-                    let selectedLog = m.correlationPlot.logsNuevo |> HMap.find selectedId
+                    let selectedLog = m.correlationPlot.logsNuevo |> HashMap.find selectedId
                     
                     //let selectedLog = 
-                    //    { selectedLog with contactPoints = selectedLog.contactPoints |> HMap.alter contactId (fun _ -> Some p) }
+                    //    { selectedLog with contactPoints = selectedLog.contactPoints |> HashMap.alter contactId (fun _ -> Some p) }
 
                     let newLog = 
                         CorrelationDrawing.Nuevo.GeologicalLogNuevo.updateLogWithNewPoints 
@@ -372,7 +372,7 @@ module CorrelationPanelsApp =
 
                     let logs = 
                         m.correlationPlot.logsNuevo 
-                        |> HMap.alter selectedId (function
+                        |> HashMap.alter selectedId (function
                             | Some _ -> Some newLog
                             | None -> None
                         )                
@@ -400,11 +400,11 @@ module CorrelationPanelsApp =
             let logBrush = 
                 match m.logBrush with
                 | Some b ->
-                    match b.localPoints |> PList.toList with
+                    match b.localPoints |> IndexList.toList with
                     | [] -> failwith "[CorrelationPanel] empty brush shouldn't exist"
                     | _ :: [] -> None
                     | x :: xs -> 
-                        Some { b with pointsTable = HMap.remove x.annoId b.pointsTable; localPoints = xs |> PList.ofList }
+                        Some { b with pointsTable = HashMap.remove x.annoId b.pointsTable; localPoints = xs |> IndexList.ofList }
                 | None -> None      
             { m with logBrush = logBrush }
         | LogCancel -> 
@@ -427,16 +427,16 @@ module CorrelationPanelsApp =
 
             let log = 
                 m.correlationPlot.selectedLogNuevo 
-                |> Option.bind(fun x -> m.correlationPlot.logsNuevo |> HMap.tryFind x)
+                |> Option.bind(fun x -> m.correlationPlot.logsNuevo |> HashMap.tryFind x)
 
             let crossBeds =
                 selected 
-                |> HSet.choose (fun x -> 
+                |> HashSet.choose (fun x -> 
                     let id = x |> ContactId
-                    HMap.tryFind id m.contacts
+                    HashMap.tryFind id m.contacts
                 )
-                |> HSet.filter(fun x -> x.semanticType = SemanticType.Angular)
-                |> HSet.map(fun x -> x.id)
+                |> HashSet.filter(fun x -> x.semanticType = SemanticType.Angular)
+                |> HashSet.map(fun x -> x.id)
             
             match log, m.correlationPlot.selectedFacies with
             | Some l, Some faciesId ->
@@ -463,7 +463,7 @@ module CorrelationPanelsApp =
                         m.correlationPlot with 
                             logsNuevo =
                                 m.correlationPlot.logsNuevo 
-                                |> HMap.alter l.id (function | Some _ -> Some l | None -> None)
+                                |> HashMap.alter l.id (function | Some _ -> Some l | None -> None)
                     }                
                 
                 let plot = //completely redraw the whole panel to trigger change
@@ -489,7 +489,7 @@ module CorrelationPanelsApp =
             if m.contacts.IsEmpty = true then
                 m
             else
-                { m with contactOfInterest = m.contacts.Keys |> Seq.take 1 |> HSet.ofSeq }       
+                { m with contactOfInterest = m.contacts.Keys |> Seq.take 1 |> HashSet.ofSeq }       
         | _ ->
             Log.warn "[CorrelationPanelsApp] unhandled action %A" msg
             m
@@ -517,22 +517,22 @@ module CorrelationPanelsApp =
         |> ASet.map (fun x -> 
             m.contacts 
             |> AMap.find x
-            |> Mod.map (fun a -> 
+            |> AVal.map (fun a -> 
                 let points = a.points |> AList.map (fun p -> p.point) // global
                 
                 let modelTrafo =
                     points 
                     |> AList.toMod 
-                    |> Mod.map (fun x ->
+                    |> AVal.map (fun x ->
                         x 
-                        |> PList.tryHead 
+                        |> IndexList.tryHead 
                         |> Option.map (fun h -> Trafo3d.Translation h)
                         |> Option.defaultValue Trafo3d.Identity)                               
 
                 PRo3D.Base.OutlineEffect.createForLineOrPoint 
                     PRo3D.Base.OutlineEffect.PointOrLine.Line
-                    (Mod.constant C4b.VRVisGreen) 
-                    (Mod.constant 3.0)
+                    (AVal.constant C4b.VRVisGreen) 
+                    (AVal.constant 3.0)
                     5.0
                     RenderPass.main
                     modelTrafo 
@@ -543,15 +543,15 @@ module CorrelationPanelsApp =
         |> Sg.set                 
 
     let drawLogSg 
-        (cam        : IMod<CameraView>) 
-        (text       : IMod<string>)
-        (near       : IMod<float>)
-        (primary    : IMod<C4b>) 
-        (secondary  : IMod<C4b>) 
-        (dnsResults : IMod<option<MDipAndStrikeResults>>) 
-        (modelTrafo : IMod<Trafo3d>) 
-        (pickable   : Option<LogTypes.LogId * IMod<option<LogTypes.LogId>>>)
-        (pickingAllowed: IMod<bool>) 
+        (cam        : aval<CameraView>) 
+        (text       : aval<string>)
+        (near       : aval<float>)
+        (primary    : aval<C4b>) 
+        (secondary  : aval<C4b>) 
+        (dnsResults : aval<option<MDipAndStrikeResults>>) 
+        (modelTrafo : aval<Trafo3d>) 
+        (pickable   : Option<LogTypes.LogId * aval<option<LogTypes.LogId>>>)
+        (pickingAllowed: aval<bool>) 
         (points     : alist<V3d>) =
       
         let elevationPoints =
@@ -582,7 +582,7 @@ module CorrelationPanelsApp =
 
         //        (e0 - e1)
         //        |> abs |> Formatting.Len |> string
-        //        |> Mod.constant 
+        //        |> AVal.constant 
         //        |> billboardText cam midPoint
         //    ) 
         //    |> AList.toASet 
@@ -590,14 +590,14 @@ module CorrelationPanelsApp =
         
         let labels =
             elevationPoints.Content 
-            |> Mod.map (fun l ->        
+            |> AVal.map (fun l ->        
                     [ 
-                        for ((p0,e0),(p1,e1)) in l |> PList.toList |> List.pairwise do
+                        for ((p0,e0),(p1,e1)) in l |> IndexList.toList |> List.pairwise do
                             let midPoint = ~~((p0 + p1) / 2.0)
 
                             yield (e0 - e1)
                             |> abs |> Formatting.Len |> string
-                            |> Mod.constant 
+                            |> AVal.constant 
                             |> PRo3D.Base.Sg.billboardText cam midPoint
                     ] |> Sg.ofSeq
                )
@@ -606,7 +606,7 @@ module CorrelationPanelsApp =
         let labels2 =
             adaptive {
                 let! points = elevationPoints.Content 
-                let pairs = points |> PList.toList |> List.pairwise
+                let pairs = points |> IndexList.toList |> List.pairwise
                 
                 let labels =                    
                     pairs
@@ -615,8 +615,8 @@ module CorrelationPanelsApp =
                         
                         (e0 - e1)
                         |> abs |> Formatting.Len |> string
-                        |> Mod.constant 
-                        |> PRo3D.Base.Sg.text cam near ~~60.0 midPoint (midPoint |> Mod.map Trafo3d.Translation) ~~0.05
+                        |> AVal.constant 
+                        |> PRo3D.Base.Sg.text cam near ~~60.0 midPoint (midPoint |> AVal.map Trafo3d.Translation) ~~0.05
                     ) |> Sg.ofSeq
                     
                 return labels
@@ -633,7 +633,7 @@ module CorrelationPanelsApp =
 
                 let logIsSelected = 
                     selectedLogId
-                    |> Mod.map (function
+                    |> AVal.map (function
                         | Some selId when selId = logId -> 
                             true
                         | _ -> 
@@ -643,7 +643,7 @@ module CorrelationPanelsApp =
 
                 let event = 
                     SceneEventKind.Click, (fun _ -> 
-                        let allowed = pickingAllowed |> Mod.force
+                        let allowed = pickingAllowed |> AVal.force
                         match allowed with
                         | true ->  true, Seq.ofList[CorrPlotMessage(CorrelationPlotAction.SelectLogNuevo logId)]
                         | false -> true, Seq.empty)
@@ -652,12 +652,12 @@ module CorrelationPanelsApp =
   
                 let selectionSg = 
                     logIsSelected
-                    |> Mod.map (function
+                    |> AVal.map (function
                         | true ->
                             PRo3D.Base.OutlineEffect.createForLineOrPoint 
                                 PRo3D.Base.OutlineEffect.PointOrLine.Both
-                                (Mod.constant C4b.Yellow) 
-                                (Mod.constant 5.0) 
+                                (AVal.constant C4b.Yellow) 
+                                (AVal.constant 5.0) 
                                 3.0 
                                 RenderPass.main 
                                 modelTrafo points'
@@ -666,7 +666,7 @@ module CorrelationPanelsApp =
 
                 let labelSg = 
                     logIsSelected
-                    |> Mod.map (function
+                    |> AVal.map (function
                         | true -> labels2                            
                         | false -> Sg.empty
                     ) 
@@ -681,26 +681,26 @@ module CorrelationPanelsApp =
         |> Sg.andAlso polyLine
         //|> Sg.andAlso labels2
     
-    let viewWorkingLog (planeSize : IMod<float>) (cam : IMod<CameraView>) near (m : MCorrelationPanelModel) (falseColors : MFalseColorsModel) =
+    let viewWorkingLog (planeSize : aval<float>) (cam : aval<CameraView>) near (m : MCorrelationPanelModel) (falseColors : MFalseColorsModel) =
         
         let logSg =
             m.logBrush 
-            |> Mod.map(fun x ->
+            |> AVal.map(fun x ->
                 match x with
                 | Some brush -> 
                     brush.localPoints 
                     |> AList.map(fun x -> x.position)
-                    |> drawLogSg cam ~~"new log" near ~~C4b.Magenta ~~C4b.DarkMagenta brush.referencePlane brush.modelTrafo None (Mod.constant false) // cannot be selected
+                    |> drawLogSg cam ~~"new log" near ~~C4b.Magenta ~~C4b.DarkMagenta brush.referencePlane brush.modelTrafo None (AVal.constant false) // cannot be selected
                 | None -> Sg.empty           
             ) |> Sg.dynamic
 
         let planeSg = 
             m.logBrush 
-            |> Mod.map(fun x ->
+            |> AVal.map(fun x ->
                 match x with
                 | Some brush ->                     
                     Sg.drawTrueThicknessPlane 
-                        (brush.planeScale |> Mod.map2(fun a b -> a * b) planeSize) 
+                        (brush.planeScale |> AVal.map2(fun a b -> a * b) planeSize) 
                         brush.referencePlane 
                         falseColors
                 | None -> Sg.empty           
@@ -708,7 +708,7 @@ module CorrelationPanelsApp =
             
         logSg, planeSg
         
-    let viewFinishedLogs (planeSize : IMod<float>) (cam : IMod<CameraView>) near (falseColors : MFalseColorsModel) (m : MCorrelationPanelModel) (pickingAllowed: IMod<bool>) =
+    let viewFinishedLogs (planeSize : aval<float>) (cam : aval<CameraView>) near (falseColors : MFalseColorsModel) (m : MCorrelationPanelModel) (pickingAllowed: aval<bool>) =
         let logs = 
             m.correlationPlot.logsNuevo
             |> AMap.toASet
@@ -716,7 +716,7 @@ module CorrelationPanelsApp =
                     
         let colors id =
             m.correlationPlot.selectedLogNuevo 
-            |> Mod.map(function
+            |> AVal.map(function
                 | Some selected when selected = id -> C4b.VRVisGreen, C4b.DarkCyan
                 | _ -> C4b.Cyan, C4b.DarkCyan            
             )
@@ -736,14 +736,14 @@ module CorrelationPanelsApp =
                 let trafo =            
                     points
                     |> AList.toMod 
-                    |> Mod.map(fun y -> 
-                        match y |> PList.tryHead with
+                    |> AVal.map(fun y -> 
+                        match y |> IndexList.tryHead with
                         | Some head -> Trafo3d.Translation head
                         | None -> Trafo3d.Identity
                     )
 
-                let primary   = colors x.id |> Mod.map fst
-                let secondary = colors x.id |> Mod.map snd
+                let primary   = colors x.id |> AVal.map fst
+                let secondary = colors x.id |> AVal.map snd
 
                 points 
                 |> drawLogSg 
@@ -773,7 +773,7 @@ module CorrelationPanelsApp =
                     |> ASet.map(fun x ->
                         let referencePlane = ~~(Some x.referencePlane)
                         Sg.drawTrueThicknessPlane 
-                            ( x.planeScale |> Mod.map2(fun a b -> a * b) planeSize) 
+                            ( x.planeScale |> AVal.map2(fun a b -> a * b) planeSize) 
                             referencePlane 
                             falseColors
                     )
@@ -783,7 +783,7 @@ module CorrelationPanelsApp =
 
         logSg, planesSg
 
-    let viewExportLogButton (path : IMod<Option<string>>) =
+    let viewExportLogButton (path : aval<Option<string>>) =
         let blurg =
             adaptive{
                 let! path = path
@@ -792,6 +792,6 @@ module CorrelationPanelsApp =
                 | None -> return String.Empty
             }
 
-        div [ clazz "ui inverted item"; onMouseClick (fun _ -> ExportLogs (blurg |> Mod.force))][
+        div [ clazz "ui inverted item"; onMouseClick (fun _ -> ExportLogs (blurg |> AVal.force))][
             text "Export Logs(*.csv)"
         ]

@@ -1,8 +1,8 @@
-﻿namespace Svgplus
+namespace Svgplus
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
-open Aardvark.Base.Incremental.Operators
+open FSharp.Data.Adaptive
+open FSharp.Data.Adaptive.Operators
 open Aardvark.UI
 
 open Svgplus.Base
@@ -192,10 +192,10 @@ module Rectangle =
                 |> Option.map(fun (l,u) -> 
                     let pos = 
                         l.pos 
-                        |> Mod.map(fun y -> V2d(y.X + 67.0, y.Y)) // MAGIC label width
+                        |> AVal.map(fun y -> V2d(y.X + 67.0, y.Y)) // MAGIC label width
                     
                     let w = //length of wider bordering rectangle
-                        Mod.map2(fun a b -> max a.width b.width) u.dim l.dim
+                        AVal.map2(fun a b -> max a.width b.width) u.dim l.dim
 
                     (pos, w)
                 )

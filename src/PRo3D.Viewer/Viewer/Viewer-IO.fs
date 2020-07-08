@@ -1,4 +1,4 @@
-﻿namespace PRo3D
+namespace PRo3D
 
 open System
 open System.IO
@@ -90,22 +90,22 @@ module ViewerIO =
             None
     
     let colorBySemantic 
-        (semantics : hmap<SemanticTypes.CorrelationSemanticId, SemanticTypes.CorrelationSemantic>) 
+        (semantics : HashMap<SemanticTypes.CorrelationSemanticId, SemanticTypes.CorrelationSemantic>) 
         flat =
 
         flat
         |> Leaf.toAnnotations
-        |> HMap.map(fun k a ->
+        |> HashMap.map(fun k a ->
             let (Annotation.SemanticId semId) = a.semanticId 
             let semantic = 
                 semantics
-                |> HMap.tryFind (semId |> SemanticTypes.CorrelationSemanticId)
+                |> HashMap.tryFind (semId |> SemanticTypes.CorrelationSemanticId)
 
             match semantic with
             | Some s -> { a with color = s.color }
             | None -> a
         )
-        |> HMap.map(fun _ v -> Leaf.Annotations v)
+        |> HashMap.map(fun _ v -> Leaf.Annotations v)
 
     let colorBySemantic' (model : Model) =
         let flat = 
@@ -212,11 +212,11 @@ module ViewerIO =
         let whiteListFile = Path.ChangeExtension(dumpFile, "white")
         let whiteListIds =
             if whiteListFile |> File.Exists then
-                File.readAllLines whiteListFile |> HSet.ofArray
+                File.readAllLines whiteListFile |> HashSet.ofArray
             else 
-                data.features |> PList.map(fun x -> x.id) |> PList.toList |> HSet.ofList
+                data.features |> IndexList.map(fun x -> x.id) |> IndexList.toList |> HashSet.ofList
             
-        let validFeatures = data.features |> PList.filter (fun x -> whiteListIds |> HSet.contains x.id)
+        let validFeatures = data.features |> IndexList.filter (fun x -> whiteListIds |> HashSet.contains x.id)
         let data = { data with features = validFeatures }
 
         let minerva = 

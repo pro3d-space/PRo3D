@@ -1,8 +1,8 @@
-﻿namespace Svgplus
+namespace Svgplus
   open Svgplus.CameraType
   open Aardvark.Base
   open Aardvark.Application
-  open Aardvark.Base.Incremental
+  open FSharp.Data.Adaptive
   open Aardvark.UI
   
 

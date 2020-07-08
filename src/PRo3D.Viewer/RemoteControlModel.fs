@@ -1,11 +1,11 @@
-﻿namespace RemoteControlModel
+namespace RemoteControlModel
 
 open System
 open System.Runtime.Serialization
 
 open Aardvark.Base
 open Aardvark.Base.Rendering
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open PRo3D
 open PRo3D.Viewer
 open PRo3D.Viewplanner
@@ -272,8 +272,8 @@ module PlatformShot =
 
     let getCameraAnfFov (m : RoverModel) (p : PlatformShot)  =
         let trafo = trafoFromPlatformShot p
-        let r = m.rovers |> HMap.find p.rover
-        let inst = r.instruments |> HMap.find p.instrument
+        let r = m.rovers |> HashMap.find p.rover
+        let inst = r.instruments |> HashMap.find p.instrument
 
         let trans = inst.extrinsics |> Extrinsics.transformed trafo.Forward                                                    
                                                                       
@@ -285,8 +285,8 @@ module PlatformShot =
         cv, hfov
 
     let updateFocus (p : PlatformShot) (m : RoverModel) =
-        let r = m.rovers |> HMap.find p.rover
-        let inst = r.instruments |> HMap.find p.instrument
+        let r = m.rovers |> HashMap.find p.rover
+        let inst = r.instruments |> HashMap.find p.instrument
        
         if inst.calibratedFocalLengths.Length > 1 then
             let up = {
@@ -303,8 +303,8 @@ module PlatformShot =
         let m = m |> updateFocus p
 
         let trafo = trafoFromPlatformShot p
-        let r = m.rovers |> HMap.find p.rover
-        let inst = r.instruments |> HMap.find p.instrument
+        let r = m.rovers |> HashMap.find p.rover
+        let inst = r.instruments |> HashMap.find p.instrument
         
         let trans = inst.extrinsics |> Extrinsics.transformed trafo.Forward                         
                                                                       
@@ -326,13 +326,13 @@ module PlatformShot =
             far = p.far
         }
 
-[<DomainType>]
+[<ModelType>]
 type RemoteModel =
     {
-        //viewPoints : plist<WayPoint>
+        //viewPoints : IndexList<WayPoint>
         selectedShot : Option<Shot>
-        shots            : plist<Shot>
-        platformShots    : plist<PlatformShot>
+        shots            : IndexList<Shot>
+        platformShots    : IndexList<PlatformShot>
         Rover            : RoverModel
     }
 

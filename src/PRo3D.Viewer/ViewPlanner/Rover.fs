@@ -133,8 +133,8 @@ module RoverProvider =
             id              = platform.m_pcPlatformId.ToStrAnsi()
             platform2Ground = platform.m_oPlatform2Ground.m_oHelmertTransfMatrix.ToM44d()
             wheelPositions  = wheels |> List.ofSeq
-            instruments     = instruments |> List.map(fun x -> x.id, x) |> HMap.ofList
-            axes            = axes |> List.map(fun x -> x.id, x) |> HMap.ofList
+            instruments     = instruments |> List.map(fun x -> x.id, x) |> HashMap.ofList
+            axes            = axes |> List.map(fun x -> x.id, x) |> HashMap.ofList
             box             = platform.m_oBoundingBox.ToBox3d()
         }
         
@@ -173,7 +173,7 @@ module RoverProvider =
         rover, platform
         
 module RoverApp = 
-    open Aardvark.Base.Incremental
+    open FSharp.Data.Adaptive
 
     type Action =
         //| ChangeAngle      of string * Numeric.Action
@@ -187,9 +187,9 @@ module RoverApp =
         match error with
           | 0 ->
             let r'         = p |> RoverProvider.toRover
-            let r''        = { r' with axes = r'.axes |> HMap.map(fun x y -> RoverProvider.shiftOutput y shift) }
-            let rovers'    = m.rovers |> HMap.alter r''.id (Option.map(fun _ -> r''))
-            let platforms' = m.platforms |> HMap.alter r''.id (Option.map(fun _ -> p))
+            let r''        = { r' with axes = r'.axes |> HashMap.map(fun x y -> RoverProvider.shiftOutput y shift) }
+            let rovers'    = m.rovers |> HashMap.alter r''.id (Option.map(fun _ -> r''))
+            let platforms' = m.platforms |> HashMap.alter r''.id (Option.map(fun _ -> p))
 
             { m with rovers = rovers'; platforms = platforms' }
           | _ -> 
@@ -197,9 +197,9 @@ module RoverApp =
             m
 
     let updateFocusPlatform (up : InstrumentFocusUpdate) (m : RoverModel) = 
-        let r = m.rovers |> HMap.find up.roverId    
-        let mutable p = m.platforms |> HMap.find up.roverId       
-        let i = r.instruments|> HMap.find up.instrumentId
+        let r = m.rovers |> HashMap.find up.roverId    
+        let mutable p = m.platforms |> HashMap.find up.roverId       
+        let i = r.instruments|> HashMap.find up.instrumentId
         let mutable pInstruments = ViewPlanner.UnMarshalArray<ViewPlanner.SInstrument>(p.m_poPlatformInstruments)
 
         pInstruments.[i.index].m_dCurrentFocalLengthInMm <- up.focal
@@ -209,9 +209,9 @@ module RoverApp =
 
     let updateAnglePlatform (up : AxisAngleUpdate) (m : RoverModel) = 
         // use option map ?
-        let r = m.rovers |> HMap.find up.roverId    
-        let mutable p = m.platforms |> HMap.find up.roverId       
-        let a = r.axes |> HMap.find up.axisId
+        let r = m.rovers |> HashMap.find up.roverId    
+        let mutable p = m.platforms |> HashMap.find up.roverId       
+        let a = r.axes |> HashMap.find up.axisId
         let mutable pAxes = ViewPlanner.UnMarshalArray<ViewPlanner.SAxis>(p.m_poPlatformAxes)
 
         //let up = { up with angle = -up.angle}
@@ -231,7 +231,7 @@ module RoverApp =
     let updateRovers (r : Rover) (m : RoverModel) = 
         let rovers' = 
             m.rovers 
-                |> HMap.update r.id (fun x -> 
+                |> HashMap.update r.id (fun x -> 
                     match x with 
                         | Some _ -> r
                         | None   -> failwith "rover not found")
@@ -271,7 +271,7 @@ module RoverApp =
         adaptive {
             let! instr  = r.instruments |> mapTolist |> AList.count
             let! axes   = r.axes |> mapTolist |> AList.count
-            let! wheels = r.wheelPositions |> Mod.map(fun x -> x.Length)
+            let! wheels = r.wheelPositions |> AVal.map(fun x -> x.Length)
 
             return sprintf "instr: %d | axes: %d  | wheels: %d" instr axes wheels
         }

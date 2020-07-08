@@ -1,4 +1,4 @@
-﻿module ViewplannerMain
+module ViewplannerMain
 
 open System
 open System.Threading
@@ -10,7 +10,7 @@ open Suave
 
 open Aardvark
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardium
 open Aardvark.Application
 open Aardvark.Application.WinForms

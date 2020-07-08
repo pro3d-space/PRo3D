@@ -1,8 +1,8 @@
-﻿namespace Svgplus.RectangleType
+namespace Svgplus.RectangleType
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open CorrelationDrawing
 
 type RectangleId = RectangleId of Guid
@@ -15,9 +15,9 @@ module RectangleId =
     let getValue (RectangleId id) =
         id
 
-[<DomainType>]
+[<ModelType>]
 type Rectangle = {
-    [<NonIncremental>]
+    [<NonAdaptive>]
     id             : RectangleId
 
     pos           : V2d
@@ -56,31 +56,31 @@ module RectangleBorderId =
     let getValue (RectangleBorderId a) =
         a
 
-[<DomainType>]
+[<ModelType>]
 type RectangleBorder = {
-    [<NonIncremental>]
+    [<NonAdaptive>]
     id             : RectangleBorderId
-    [<NonIncremental>]
+    [<NonAdaptive>]
     contactId      : BorderContactId
 
     color          : C4b
     weight         : float
 
-    [<NonIncremental>]
+    [<NonAdaptive>]
     upperRectangle : RectangleId
-    [<NonIncremental>]
+    [<NonAdaptive>]
     lowerRectangle : RectangleId
 } with 
-    member this.width (rectangles : hmap<RectangleId,Rectangle>) =
-        let rectangleA = rectangles |> HMap.tryFind this.upperRectangle
-        let rectangleB = rectangles |> HMap.tryFind this.lowerRectangle
+    member this.width (rectangles : HashMap<RectangleId,Rectangle>) =
+        let rectangleA = rectangles |> HashMap.tryFind this.upperRectangle
+        let rectangleB = rectangles |> HashMap.tryFind this.lowerRectangle
 
         rectangleB
         |> Option.map2 (fun a b -> max a.dim.width b.dim.width) rectangleA  
         |> Option.defaultValue 10.0
 
-    member this.pos (rectangles : hmap<RectangleId,Rectangle>) =
+    member this.pos (rectangles : HashMap<RectangleId,Rectangle>) =
         rectangles 
-        |> HMap.tryFind this.lowerRectangle 
+        |> HashMap.tryFind this.lowerRectangle 
         |> Option.map(fun x -> x.pos) 
         |> Option.defaultValue V2d.Zero

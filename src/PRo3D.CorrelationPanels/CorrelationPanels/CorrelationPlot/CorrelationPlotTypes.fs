@@ -1,7 +1,7 @@
-﻿namespace CorrelationDrawing.Model
+namespace CorrelationDrawing.Model
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 
 open CorrelationDrawing.Types
 open CorrelationDrawing.AnnotationTypes
@@ -39,7 +39,7 @@ type CorrelationPlotAction =
     | GrainSizeTypeMessage   of (Svgplus.RectangleType.RectangleId * ColourMap.Action)
     | CorrelationMessage     of CorrelationsAction
 
-[<DomainType>]
+[<ModelType>]
 type CorrelationPlotModel = {
 
     version             : int
@@ -48,16 +48,16 @@ type CorrelationPlotModel = {
     
     svgCamera           : SvgCamera
     
-    logs                : hmap<DiagramItemId, GeologicalLog>
+    logs                : HashMap<DiagramItemId, GeologicalLog>
 
-    logsNuevo           : hmap<LogId, GeologicalLogNuevo>
+    logsNuevo           : HashMap<LogId, GeologicalLogNuevo>
     selectedLogNuevo    : option<LogId>
             
     selectedBorder      : option<Border>    
     
     editCorrelations    : bool
 
-    param_selectedPoints      : hmap<ContactId, V3d> //used for parameter exchange
+    param_selectedPoints      : HashMap<ContactId, V3d> //used for parameter exchange
     param_referencePlane      : DipAndStrikeResults  //used for parameter exchange .... TODO TO Refactor to message parameters
     param_referenceScale      : float  //used for parameter exchange .... TODO TO Refactor to message parameters
 
@@ -94,15 +94,15 @@ with
         {
             version              = CorrelationPlotModel.current
             diagram              = DiagramApp.init
-            logs                 = HMap.empty            
+            logs                 = HashMap.empty            
             
             editCorrelations     = false
             colorMap             = ColourMap.initial
-            param_selectedPoints = HMap.empty
+            param_selectedPoints = HashMap.empty
             param_referencePlane = DipAndStrikeResults.initial
             param_referenceScale = Double.NaN
 
-            logsNuevo            = HMap.empty            
+            logsNuevo            = HashMap.empty            
             selectedLogNuevo     = None
                                              
             selectedNode         = None
@@ -130,7 +130,7 @@ with
 
             let geologicalLogsNuevo =
                 geologicalLogsNuevo 
-                |> List.map(fun (guid, log) -> guid |> LogId, log) |> HMap.ofList            
+                |> List.map(fun (guid, log) -> guid |> LogId, log) |> HashMap.ofList            
             
             return { 
                 CorrelationPlotModel.initial with
@@ -149,7 +149,7 @@ with
     static member ToJson (x : CorrelationPlotModel) =
         json {
             do! Json.write "version" x.version
-            let logs = x.logsNuevo |> HMap.toList |> List.map(fun (a,b) -> a |> LogId.value, b)
+            let logs = x.logsNuevo |> HashMap.toList |> List.map(fun (a,b) -> a |> LogId.value, b)
             do! Json.write "geologicalLogs" logs
             do! Json.write "yScaleValue"    x.diagram.yScaleValue
             do! Json.write "correlations"   x.diagram.correlations

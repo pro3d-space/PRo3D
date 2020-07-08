@@ -1,9 +1,9 @@
-﻿namespace CorrelationDrawing
+namespace CorrelationDrawing
 
 open System
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI
 open Aardvark.Application
 open Svgplus.RectangleStackTypes
@@ -36,8 +36,8 @@ module GeologicalLog =
     let findNode (model : GeologicalLog) (f : LogNode -> bool) =
         let nodeList = 
             model.nodes
-            |> PList.map (LogNodes.Recursive.filterAndCollect f)
-            |> DS.PList.flattenLists
+            |> IndexList.map (LogNodes.Recursive.filterAndCollect f)
+            |> DS.IndexList.flattenLists
 
         let node = List.tryHead nodeList
         node

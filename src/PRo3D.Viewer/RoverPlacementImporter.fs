@@ -1,4 +1,4 @@
-﻿namespace PRo3D
+namespace PRo3D
 
 module RoverPlacementImporter = 
     open System
@@ -39,7 +39,7 @@ module RoverPlacementImporter =
             |> List.map ( fun x -> x.Split '=')
             |> List.map ( fun x -> if x.Length > 1 then Some (x.[0],x.[1]) else None)
             |> List.choose ( fun x -> x)
-            |> HMap.ofList
+            |> HashMap.ofList
 
                
     let startRPImporter (path:string) =
@@ -49,9 +49,9 @@ module RoverPlacementImporter =
         let data = attributes
                         |> Seq.toList
                         |> List.map( fun x -> (x.Attribute(xname "name").Value.ToString(),x.Attribute(xname "value").Value.ToString()) )
-                        |> HMap.ofList
+                        |> HashMap.ofList
                         
-        let th = data |> HMap.find ("Y")
+        let th = data |> HashMap.find ("Y")
         data
         
         

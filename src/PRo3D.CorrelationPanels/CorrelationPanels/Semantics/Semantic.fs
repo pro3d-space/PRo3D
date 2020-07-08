@@ -1,8 +1,8 @@
-﻿namespace CorrelationDrawing
+namespace CorrelationDrawing
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Base.Rendering
 open Aardvark.UI
 open UIPlus
@@ -244,7 +244,7 @@ module CorrelationSemantic =
       let domNodeSemanticType =  
         intoTd <|
           label [clazz "ui horizontal label"]
-                [Incremental.text (Mod.map(fun x -> x.ToString()) model.semanticType)]
+                [Incremental.text (AVal.map(fun x -> x.ToString()) model.semanticType)]
 
       let domNodeColor = 
         let iconAttr =
@@ -257,7 +257,7 @@ module CorrelationSemantic =
         intoTd <|
           div[] [
             Incremental.i (AttributeMap.ofAMap iconAttr) (AList.ofList [])
-            Incremental.text (Mod.map(fun (x : C4b) -> GUI.CSS.colorToHexStr x) model.color.c)
+            Incremental.text (AVal.map(fun (x : C4b) -> GUI.CSS.colorToHexStr x) model.color.c)
           ]//  |> intoTd
 
 
@@ -271,7 +271,7 @@ module CorrelationSemantic =
         ColorPicker.view model.color
           |> intoTd
           |> UI.map ColorPickerMessage
-        Html.SemUi.dropDown' NodeLevel.availableLevels (model.level |> Mod.map(fun l -> l.value)) SetLevel (fun x -> sprintf "%i" x)
+        Html.SemUi.dropDown' NodeLevel.availableLevels (model.level |> AVal.map(fun l -> l.value)) SetLevel (fun x -> sprintf "%i" x)
           |> intoTd
         Html.SemUi.dropDown model.semanticType SetSemanticType
           |> intoTd
@@ -301,15 +301,15 @@ module CorrelationSemantic =
       //let domNodeSemanticType =  
       //  intoTd <|
       //    label [clazz "ui horizontal label"]
-      //          [Incremental.text (Mod.map(fun x -> x.ToString()) model.semanticType)]
+      //          [Incremental.text (AVal.map(fun x -> x.ToString()) model.semanticType)]
 
       let domNodeSemanticType =  
         intoTd <|
-                Incremental.text (Mod.map(fun x -> x.ToString()) model.semanticType)
+                Incremental.text (AVal.map(fun x -> x.ToString()) model.semanticType)
 
       let domNodeGeometryType =  
         intoTd <|
-                Incremental.text (Mod.map(fun x -> x.ToString()) model.geometryType) 
+                Incremental.text (AVal.map(fun x -> x.ToString()) model.geometryType) 
 
       let domNodeColor = 
         let iconAttr =
@@ -322,7 +322,7 @@ module CorrelationSemantic =
         intoTd <|
           div[] [
             Incremental.i (AttributeMap.ofAMap iconAttr) (AList.ofList [])
-            Incremental.text (Mod.map(fun (x : C4b) -> GUI.CSS.colorToHexStr x) model.color.c)
+            Incremental.text (AVal.map(fun (x : C4b) -> GUI.CSS.colorToHexStr x) model.color.c)
           ]//  |> intoTd
 
 
@@ -336,7 +336,7 @@ module CorrelationSemantic =
         ColorPicker.view model.color
           |> intoTd
           |> UI.map ColorPickerMessage
-        Html.SemUi.dropDown' NodeLevel.availableLevels (model.level |> Mod.map(fun l -> l.value)) SetLevel (fun x -> sprintf "%i" x)
+        Html.SemUi.dropDown' NodeLevel.availableLevels (model.level |> AVal.map(fun l -> l.value)) SetLevel (fun x -> sprintf "%i" x)
           |> intoTd
         domNodeSemanticType
         domNodeGeometryType
@@ -358,7 +358,7 @@ module CorrelationSemantic =
       let domNodeThickness = 
         intoTd <|
           label [clazz "ui horizontal label"] [
-            Incremental.text (Mod.map(fun x -> sprintf "%.1f" x) model.thickness.value)
+            Incremental.text (AVal.map(fun x -> sprintf "%.1f" x) model.thickness.value)
           ]
         
 
@@ -372,23 +372,23 @@ module CorrelationSemantic =
         intoTd <|
           div[] [
             Incremental.i (AttributeMap.ofAMap iconAttr) (AList.ofList [])
-            Incremental.text (Mod.map(fun (x : C4b) -> GUI.CSS.colorToHexStr x) model.color.c)
+            Incremental.text (AVal.map(fun (x : C4b) -> GUI.CSS.colorToHexStr x) model.color.c)
           ]
            
 
       let domNodeLevel = 
         intoTd <| 
-                Incremental.text (Mod.map(fun (x : NodeLevel) -> sprintf "%i" x.value) model.level)
+                Incremental.text (AVal.map(fun (x : NodeLevel) -> sprintf "%i" x.value) model.level)
             
 
 
       let domNodeSemanticType =  
         intoTd <|
-                Incremental.text (Mod.map(fun x -> x.ToString()) model.semanticType)
+                Incremental.text (AVal.map(fun x -> x.ToString()) model.semanticType)
 
       let domNodeGeometryType =  
         intoTd <|
-                Incremental.text (Mod.map(fun x -> x.ToString()) model.geometryType)           
+                Incremental.text (AVal.map(fun x -> x.ToString()) model.geometryType)           
                  
       [
         domNodeLbl
@@ -400,11 +400,11 @@ module CorrelationSemantic =
       ]
       
 
-    let view (model : MCorrelationSemantic) : IMod<list<DomNode<Action>>> =
-        // Mod.constant [td [] [text "foobar"]|> UI.map TextInputMessage] //WORKS
+    let view (model : MCorrelationSemantic) : aval<list<DomNode<Action>>> =
+        // AVal.constant [td [] [text "foobar"]|> UI.map TextInputMessage] //WORKS
         
         model.state 
-          |> Mod.map (fun state -> 
+          |> AVal.map (fun state -> 
                         match state with
                         
                           | State.Display  -> viewDisplay model // [td [] [text "foobar"]|> UI.map TextInputMessage] WORKS

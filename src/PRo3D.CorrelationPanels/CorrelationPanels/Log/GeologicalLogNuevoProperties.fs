@@ -1,10 +1,10 @@
-﻿namespace CorrelationDrawing.Nuevo
+namespace CorrelationDrawing.Nuevo
 
 open Aardvark.Base
 open System
 open Aardvark.UI
 open Aardvark.UI.Static.Svg
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open PRo3D
 open PRo3D.Base
 

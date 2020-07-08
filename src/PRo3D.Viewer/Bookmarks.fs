@@ -1,7 +1,7 @@
-﻿namespace PRo3D.Bookmarkings
+namespace PRo3D.Bookmarkings
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Application
 open Aardvark.UI
 open Aardvark.UI.Primitives
@@ -14,7 +14,7 @@ open PRo3D.Viewer
 
 module Bookmarks = 
     
-    let tryGet (bookmarks : plist<Bookmark>) key =
+    let tryGet (bookmarks : IndexList<Bookmark>) key =
         bookmarks |> Seq.tryFind(fun x -> x.key = key)
 
     let getNewBookmark (camState : CameraView) (navigationMode : NavigationMode) (exploreCenter : V3d) (count:int) =
@@ -42,7 +42,7 @@ module Bookmarks =
         | GroupsMessage msg -> 
             match msg with
             | GroupsAppAction.UpdateCam id -> 
-                let bm = bookmarks.flat |> HMap.tryFind id
+                let bm = bookmarks.flat |> HashMap.tryFind id
                 match bm with
                 | Some b ->
                     match b with
@@ -62,7 +62,7 @@ module Bookmarks =
             | _ -> 
                 (outerModel, GroupsApp.update bookmarks msg)
         | PrintViewParameters key ->
-            let optLeaf = bookmarks.flat |> HMap.tryFind key
+            let optLeaf = bookmarks.flat |> HashMap.tryFind key
             match optLeaf with
             | Some leaf ->
                 match leaf with
@@ -76,28 +76,28 @@ module Bookmarks =
             | None ->  outerModel, bookmarks
                 
     let mkColor (model : MGroupsModel) (b : MBookmark) =
-        let id = b.key |> Mod.force
+        let id = b.key |> AVal.force
 
         let color =  
             model.selectedLeaves            
             |> ASet.map(fun x -> x.id = id)
             |> ASet.contains true
-            |> Mod.map (fun x -> if x then C4b.Blue else C4b.White)
+            |> AVal.map (fun x -> if x then C4b.Blue else C4b.White)
         
         color
 
     let lastSelected (model : MGroupsModel) (b : MBookmark) =
-        let id = b.key |> Mod.force
+        let id = b.key |> AVal.force
         model.singleSelectLeaf 
-        |> Mod.map(function
+        |> AVal.map(function
             | Some x -> x = id
             | _ -> false 
         )
 
     let isSingleSelect (model : MGroupsModel) (b : MBookmark) =
         model.singleSelectLeaf 
-        |> Mod.map(function
-            | Some selected -> selected = (b.key |> Mod.force)
+        |> AVal.map(function
+            | Some selected -> selected = (b.key |> AVal.force)
             | None -> false )
 
     let viewBookmarks 
@@ -111,7 +111,7 @@ module Bookmarks =
             let bookmarks = 
                 bookmarks
                 |> AList.filterM(fun x -> model.flat |> AMap.keys |> ASet.contains x)
-                |> AList.map (fun x -> model.flat |> AMap.find x |> Mod.bind(id) |> Mod.force)
+                |> AList.map (fun x -> model.flat |> AMap.find x |> AVal.bind(id) |> AVal.force)
                 |> AList.choose(fun x ->
                     match x with
                     | MBookmarks a -> Some a
@@ -130,7 +130,7 @@ module Bookmarks =
                 
                 let headerColor = 
                    (isSingleSelect model b) 
-                    |> Mod.map(fun x -> 
+                    |> AVal.map(fun x -> 
                     (if x then C4b.VRVisGreen else C4b.Gray) 
                         |> Html.ofC4b 
                         |> sprintf "color: %s"
@@ -175,7 +175,7 @@ module Bookmarks =
             let map = 
                 GroupsApp.clickIconAttributes 
                     icon 
-                    (BookmarkAction.GroupsMessage(GroupsAppAction.SetActiveGroup (group.key |> Mod.force, path, group.name |> Mod.force)))
+                    (BookmarkAction.GroupsMessage(GroupsAppAction.SetActiveGroup (group.key |> AVal.force, path, group.name |> AVal.force)))
                
             let desc =
                 div [style color] [       
@@ -210,11 +210,11 @@ module Bookmarks =
 
             let singleSelect = 
                 fun (a:MBookmark,path:list<Index>) -> 
-                    BookmarkAction.GroupsMessage(GroupsAppAction.SingleSelectLeaf (path, a.key |> Mod.force, ""))
+                    BookmarkAction.GroupsMessage(GroupsAppAction.SingleSelectLeaf (path, a.key |> AVal.force, ""))
 
             let multiSelect = 
                 fun (a:MBookmark,path:list<Index>) -> 
-                    BookmarkAction.GroupsMessage(GroupsAppAction.AddLeafToSelection (path, a.key |> Mod.force, ""))
+                    BookmarkAction.GroupsMessage(GroupsAppAction.AddLeafToSelection (path, a.key |> AVal.force, ""))
 
             let lift   = fun (a:GroupsAppAction) -> (BookmarkAction.GroupsMessage a)
 
@@ -250,10 +250,10 @@ module Bookmarks =
             require GuiEx.semui (
                 Html.table [  
                     Html.row "Change Name:"[Html.SemUi.textBox model.name GroupsAppAction.SetChildName ]
-                    Html.row "Pos:"     [Incremental.text (view |> Mod.map (fun x -> x.Location.ToString("0.00")))] 
-                    Html.row "LookAt:"  [Incremental.text (view |> Mod.map (fun x -> x.Forward.ToString("0.00")))]
-                    Html.row "Up:"      [Incremental.text (view |> Mod.map (fun x -> x.Up.ToString("0.00")))]
-                    Html.row "Sky:"     [Incremental.text (view |> Mod.map (fun x -> x.Sky.ToString("0.00")))]
+                    Html.row "Pos:"     [Incremental.text (view |> AVal.map (fun x -> x.Location.ToString("0.00")))] 
+                    Html.row "LookAt:"  [Incremental.text (view |> AVal.map (fun x -> x.Forward.ToString("0.00")))]
+                    Html.row "Up:"      [Incremental.text (view |> AVal.map (fun x -> x.Up.ToString("0.00")))]
+                    Html.row "Sky:"     [Incremental.text (view |> AVal.map (fun x -> x.Sky.ToString("0.00")))]
                 ]
             )
 

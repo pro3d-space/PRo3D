@@ -1,10 +1,10 @@
-﻿namespace PRo3D
+namespace PRo3D
 
 open Aardvark.Base
 open System
 open Aardvark.UI
 open Aardvark.UI.Static.Svg
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open PRo3D.Groups
 open PRo3D.Base.Annotation
 
@@ -57,7 +57,7 @@ module AnnotationProperties =
                 { model with color = ColorPicker.update model.color a }
             | PrintPosition ->
                 let p = match model.geometry with
-                          | Geometry.Point -> (model.points |> PList.tryHead).Value.ToString()
+                          | Geometry.Point -> (model.points |> IndexList.tryHead).Value.ToString()
                           | _-> ""
                 Log.line "Position: %A" p
                 model
@@ -66,8 +66,8 @@ module AnnotationProperties =
 
         require GuiEx.semui (
             Html.table [                                            
-                Html.row "Geometry:"    [Incremental.text (model.geometry |> Mod.map (fun x -> sprintf "%A" x ))]
-                Html.row "Projection:"  [Incremental.text (model.projection |> Mod.map (fun x -> sprintf "%A" x ))]
+                Html.row "Geometry:"    [Incremental.text (model.geometry |> AVal.map (fun x -> sprintf "%A" x ))]
+                Html.row "Projection:"  [Incremental.text (model.projection |> AVal.map (fun x -> sprintf "%A" x ))]
                 Html.row "Semantic:"    [Html.SemUi.dropDown model.semantic SetSemantic]      
                 Html.row "Thickness:"   [Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ]
                 Html.row "Color:"       [ColorPicker.view model.color |> UI.map ChangeColor ]
@@ -79,37 +79,37 @@ module AnnotationProperties =
 
         )
 
-    let viewResults (model : MAnnotation) (up:IMod<V3d>) =   
+    let viewResults (model : MAnnotation) (up:aval<V3d>) =   
         
-        let height   = Mod.bindOption model.results Double.NaN (fun a -> a.height)
-        let heightD  = Mod.bindOption model.results Double.NaN (fun a -> a.heightDelta)
-        let alt      = Mod.bindOption model.results Double.NaN (fun a -> a.avgAltitude)
-        let length   = Mod.bindOption model.results Double.NaN (fun a -> a.length)
-        let wLength  = Mod.bindOption model.results Double.NaN (fun a -> a.wayLength)
-        let bearing  = Mod.bindOption model.results Double.NaN (fun a -> a.bearing)
-        let slope    = Mod.bindOption model.results Double.NaN (fun a -> a.slope)
+        let height   = AVal.bindOption model.results Double.NaN (fun a -> a.height)
+        let heightD  = AVal.bindOption model.results Double.NaN (fun a -> a.heightDelta)
+        let alt      = AVal.bindOption model.results Double.NaN (fun a -> a.avgAltitude)
+        let length   = AVal.bindOption model.results Double.NaN (fun a -> a.length)
+        let wLength  = AVal.bindOption model.results Double.NaN (fun a -> a.wayLength)
+        let bearing  = AVal.bindOption model.results Double.NaN (fun a -> a.bearing)
+        let slope    = AVal.bindOption model.results Double.NaN (fun a -> a.slope)
 
-        let pos = Mod.map( fun x -> match x with 
+        let pos = AVal.map( fun x -> match x with 
                                         | Geometry.Point -> let points = model.points |> AList.toList
                                                             points.[0].ToString()
                                         | _-> "" ) model.geometry
         
-        let vertDist = Mod.map( fun u -> verticalDistance   (model.points |> AList.toList) u ) up
-        let horDist  = Mod.map( fun u -> horizontalDistance (model.points |> AList.toList) u ) up
+        let vertDist = AVal.map( fun u -> verticalDistance   (model.points |> AList.toList) u ) up
+        let horDist  = AVal.map( fun u -> horizontalDistance (model.points |> AList.toList) u ) up
       
         require GuiEx.semui (
           Html.table [   
-            Html.row "Position:"      [Incremental.text (pos   |> Mod.map  (fun d -> d))]
+            Html.row "Position:"      [Incremental.text (pos   |> AVal.map  (fun d -> d))]
             Html.row "PrintPosition:" [button [clazz "ui button tiny"; onClick (fun _ -> PrintPosition )][]]
-            Html.row "Height:"        [Incremental.text (height  |> Mod.map  (fun d -> sprintf "%.4f" (d)))]
-            Html.row "HeightDelta:"   [Incremental.text (heightD |> Mod.map  (fun d -> sprintf "%.4f" (d)))]
-            Html.row "Avg Altitude:"  [Incremental.text (alt     |> Mod.map  (fun d -> sprintf "%.4f" (d)))]
-            Html.row "Length:"        [Incremental.text (length  |> Mod.map  (fun d -> sprintf "%.4f" (d)))]
-            Html.row "WayLength:"     [Incremental.text (wLength |> Mod.map  (fun d -> sprintf "%.4f" (d)))]
-            Html.row "Bearing:"       [Incremental.text (bearing |> Mod.map  (fun d -> sprintf "%.4f" (d)))]
-            Html.row "Slope:"         [Incremental.text (slope   |> Mod.map  (fun d -> sprintf "%.4f" (d)))]
-            Html.row "Vertical Distance:"   [Incremental.text (vertDist  |> Mod.map  (fun d -> sprintf "%.4f" (d)))]
-            Html.row "Horizontal Distance:" [Incremental.text (horDist   |> Mod.map  (fun d -> sprintf "%.4f" (d)))]
+            Html.row "Height:"        [Incremental.text (height  |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
+            Html.row "HeightDelta:"   [Incremental.text (heightD |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
+            Html.row "Avg Altitude:"  [Incremental.text (alt     |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
+            Html.row "Length:"        [Incremental.text (length  |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
+            Html.row "WayLength:"     [Incremental.text (wLength |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
+            Html.row "Bearing:"       [Incremental.text (bearing |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
+            Html.row "Slope:"         [Incremental.text (slope   |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
+            Html.row "Vertical Distance:"   [Incremental.text (vertDist  |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
+            Html.row "Horizontal Distance:" [Incremental.text (horDist   |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
           ]
         )
        

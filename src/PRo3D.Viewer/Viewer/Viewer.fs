@@ -1,4 +1,4 @@
-﻿namespace PRo3D
+namespace PRo3D
 
 open Aardvark.Service
 
@@ -9,8 +9,8 @@ open System.Diagnostics
 
 open Aardvark.Base
 open Aardvark.Base.Geometry
-open Aardvark.Base.Incremental
-open Aardvark.Base.Incremental.Operators
+open FSharp.Data.Adaptive
+open FSharp.Data.Adaptive.Operators
 open Aardvark.Base.Rendering
 open Aardvark.SceneGraph
 open Aardvark.Rendering.Text
@@ -114,7 +114,7 @@ module ViewerApp =
     let _footprint = Model.Lens.footPrint
        
     let lookAtData (m: Model) =         
-        let bb = m |> Lenses.get _sgSurfaces |> HMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB) |> Box3d.ofSeq
+        let bb = m |> Lenses.get _sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB) |> Box3d.ofSeq
         let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value             
 
         _view.Set(m,view)
@@ -124,7 +124,7 @@ module ViewerApp =
         m |> Lenses.set _view view
     
     let lookAtSurface (m: Model) id =
-        let surf = m |> Lenses.get _sgSurfaces |> HMap.tryFind id
+        let surf = m |> Lenses.get _sgSurfaces |> HashMap.tryFind id
         match surf with
             | Some s ->
                 let bb = s.globalBB
@@ -168,11 +168,11 @@ module ViewerApp =
     let mdrawingConfig : DrawingApp.MSmallConfig<MViewConfigModel> =
         {            
             getNearPlane       = fun x -> x.nearPlane.value
-            getHfov            = fun (x:MViewConfigModel) -> ((Mod.init 60.0) :> IMod<float>)
+            getHfov            = fun (x:MViewConfigModel) -> ((AVal.init 60.0) :> aval<float>)
             getArrowThickness  = fun (x:MViewConfigModel) -> x.arrowThickness.value
             getArrowLength     = fun (x:MViewConfigModel) -> x.arrowLength.value
             getDnsPlaneSize    = fun (x:MViewConfigModel) -> x.dnsPlaneSize.value
-            getOffset          = fun (x:MViewConfigModel) -> Mod.constant(0.1)//x.offset.value
+            getOffset          = fun (x:MViewConfigModel) -> AVal.constant(0.1)//x.offset.value
         }
 
     let navConf : Navigation.smallConfig<ViewConfigModel, ReferenceSystem> =
@@ -192,7 +192,7 @@ module ViewerApp =
     let updateSceneWithNewSurface (m: Model) =
         let sgSurfaces = 
             m.scene.surfacesModel.sgSurfaces 
-            |> HMap.toList 
+            |> HashMap.toList 
             |> List.map snd
         
         match sgSurfaces |> List.tryHead with
@@ -366,7 +366,7 @@ module ViewerApp =
             { m with minervaModel = minerva }
         | Interactions.PickLinking, ViewerMode.Standard ->
             Log.startTimed "Pick Linking - filter"
-            let filtered = m.minervaModel.session.filteredFeatures |> PList.map (fun f -> f.id) |> PList.toList |> HSet.ofList
+            let filtered = m.minervaModel.session.filteredFeatures |> IndexList.map (fun f -> f.id) |> IndexList.toList |> HashSet.ofList
             Log.stop()
 
             Log.startTimed "Pick Linking - checkPoint"
@@ -434,10 +434,10 @@ module ViewerApp =
         | DrawingMessage msg,_,_-> //Interactions.DrawAnnotation
             match msg with
             | Drawing.FlyToAnnotation id ->
-                let _a = m |> Lenses.get _flat |> HMap.tryFind id |> Option.map Leaf.toAnnotation
+                let _a = m |> Lenses.get _flat |> HashMap.tryFind id |> Option.map Leaf.toAnnotation
                 match _a with 
                 | Some a ->                                                
-                    //m |> lookAtBoundingBox (Box3d(a.points |> PList.toList))
+                    //m |> lookAtBoundingBox (Box3d(a.points |> IndexList.toList))
                     let animationMessage = 
                         animateFowardAndLocation a.view.Location a.view.Forward 2.0 "ForwardAndLocation2s"
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
@@ -480,8 +480,8 @@ module ViewerApp =
             let animation = 
                 match msg with
                 | SurfaceApp.Action.FlyToSurface id -> 
-                    let surf = m |> Lenses.get _sgSurfaces |> HMap.tryFind id
-                    let surface = m.scene.surfacesModel.surfaces.flat |> HMap.find id |> Leaf.toSurface 
+                    let surf = m |> Lenses.get _sgSurfaces |> HashMap.tryFind id
+                    let surface = m.scene.surfacesModel.surfaces.flat |> HashMap.find id |> Leaf.toSurface 
                     let superTrafo = PRo3D.Transformations.fullTrafo' surface m.scene.referenceSystem
                     match (surface.homePosition) with
                     | Some hp ->
@@ -554,7 +554,7 @@ module ViewerApp =
                     paths 
                     |> List.filter (fun x -> Files.isSurfaceFolder x || Files.isZippedOpcFolder x)
                     |> List.map (SurfaceUtils.mk SurfaceType.SurfaceOPC m.scene.config.importTriangleSize.value)
-                    |> PList.ofList
+                    |> IndexList.ofList
 
                 let m = Scene.import' runtime signature surfaces m 
                 m
@@ -576,7 +576,7 @@ module ViewerApp =
                     surfacePaths 
                     |> List.filter (fun x -> Files.isSurfaceFolder x || Files.isZippedOpcFolder x)
                     |> List.map (SurfaceUtils.mk SurfaceType.SurfaceOPC m.scene.config.importTriangleSize.value)
-                    |> PList.ofList
+                    |> IndexList.ofList
 
                     
                 //gale crater hook
@@ -602,7 +602,7 @@ module ViewerApp =
                 let objects =                   
                     path 
                     |> SurfaceUtils.mk SurfaceType.SurfaceOBJ m.scene.config.importTriangleSize.value
-                    |> PList.single                                
+                    |> IndexList.single                                
                 m 
                 |> Scene.importObj runtime signature objects 
                 |> ViewerIO.loadLastFootPrint
@@ -616,17 +616,17 @@ module ViewerApp =
 
                 let newGroups = 
                     m.drawing.annotations.rootGroup.subNodes
-                    |> PList.append' imported
+                    |> IndexList.append' imported
 
                 let flat = 
                     flat 
-                    |> HMap.map(fun k v -> 
+                    |> HashMap.map(fun k v -> 
                         let a = v |> Leaf.toAnnotation
                         let a' = if a.geometry = Geometry.DnS then { a with showDns = true } else a
                         a'|> Leaf.Annotations
                     )    
                                       
-                let newflat = m.drawing.annotations.flat |> HMap.union flat
+                let newflat = m.drawing.annotations.flat |> HashMap.union flat
 
                 //let inline median input = 
                 //  let sorted = input |> Seq.toArray |> Array.sort
@@ -637,7 +637,7 @@ module ViewerApp =
 
                 //let stuff = 
                 //  flat 
-                //    |> HMap.toList 
+                //    |> HashMap.toList 
                 //    |> List.map snd 
                 //    |> List.map Leaf.toAnnotation
                 //    |> List.filter(fun x -> x.geometry = Geometry.DnS)
@@ -662,9 +662,9 @@ module ViewerApp =
         | ImportSurfaceTrafo sl,_,_ ->  
             match sl |> List.tryHead with
             | Some path ->
-                let imported = SurfaceTrafoImporter.startImporter path |> PList.toList                  
+                let imported = SurfaceTrafoImporter.startImporter path |> IndexList.toList                  
                 let s = Surfaces.SurfaceApp.updateSurfaceTrafos imported m.scene.surfacesModel
-                s.surfaces.flat |> HMap.toList |> List.iter(fun (_,v) -> Log.warn "%A" (v |> Leaf.toSurface).preTransform)
+                s.surfaces.flat |> HashMap.toList |> List.iter(fun (_,v) -> Log.warn "%A" (v |> Leaf.toSurface).preTransform)
                 m 
                 |> Lenses.set _surfaceModelLens s  
             | None -> m
@@ -865,7 +865,7 @@ module ViewerApp =
                         
                     let selected =
                         m.drawing.annotations.selectedLeaves 
-                        |> HSet.map (fun x -> x.id)
+                        |> HashSet.map (fun x -> x.id)
 
                     let correlationPlot = 
                         CorrelationPanelsApp.update
@@ -928,7 +928,7 @@ module ViewerApp =
 
                     Serialization.save "./logbrush" m.correlationPlot.logBrush |> ignore
 
-                    //let waypoints = PList.append wp m.waypoints
+                    //let waypoints = IndexList.append wp m.waypoints
                     //Log.line "saving waypoints %A" waypoints
                     //Serialization.save "./waypoints.wps" waypoints |> ignore
                     //{ m with waypoints = waypoints }                                                                                  
@@ -981,7 +981,7 @@ module ViewerApp =
             | ReferenceSystemApp.Action.SetNOffset _ -> //update annotation results
                 let flat = 
                     m'.drawing.annotations.flat
-                    |> HMap.map(fun _ v ->
+                    |> HashMap.map(fun _ v ->
                         let a = v |> Leaf.toAnnotation
                         let results    = Calculations.recalcBearing a refsystem'.up.value refsystem'.northO  
                         let dnsResults = DipAndStrike.recalculateDnSAzimuth a refsystem'.up.value refsystem'.northO
@@ -1035,12 +1035,12 @@ module ViewerApp =
             m
             //match _selectedSurface.Get(m) with
             //  | Some selected ->
-            //    let sgSurf = m |> Lenses.get _sgSurfaces |> HMap.find selected.id
+            //    let sgSurf = m |> Lenses.get _sgSurfaces |> HashMap.find selected.id
             //    let s' = { sgSurf with trafo = TranslateController.updateController sgSurf.trafo b }
                                         
             //    m 
             //    |> Lenses.get _sgSurfaces
-            //    |> HMap.update selected.id (fun x -> 
+            //    |> HashMap.update selected.id (fun x -> 
             //        match x with 
             //            | Some _ -> printfn "%A" s'.trafo.previewTrafo.Forward.C3.XYZ; s'
             //            | None   -> failwith "surface not found")
@@ -1050,12 +1050,12 @@ module ViewerApp =
         | Rotate (_,b),_,_ -> m
                 //match _selectedSurface.Get(m) with
                 //  | Some selected ->
-                //    let sgSurf = m |> Lenses.get _sgSurfaces |> HMap.find selected.id
+                //    let sgSurf = m |> Lenses.get _sgSurfaces |> HashMap.find selected.id
                 //    let s' = { sgSurf with trafo = RotationController.updateController sgSurf.trafo b }
 
                 //    m 
                 //    |> Lenses.get _sgSurfaces
-                //    |> HMap.update selected.id (fun x -> 
+                //    |> HashMap.update selected.id (fun x -> 
                 //         match x with 
                 //           | Some _ -> s'
                 //           | None   -> failwith "surface not found")
@@ -1183,7 +1183,7 @@ module ViewerApp =
                                 |> LogId.fromDiagramItemId
 
                             let log = 
-                                plot.logsNuevo |> HMap.find selectedLogId
+                                plot.logsNuevo |> HashMap.find selectedLogId
 
 
                             // find facies
@@ -1198,7 +1198,7 @@ module ViewerApp =
                                     
 
                                 facies.measurements 
-                                |> HSet.map(fun x -> 
+                                |> HashSet.map(fun x -> 
                                     {
                                         id = ContactId.value x
                                         path = []
@@ -1206,9 +1206,9 @@ module ViewerApp =
                                     }
                                 )
                             | None ->
-                                HSet.empty
+                                HashSet.empty
                         | None -> 
-                            HSet.empty
+                            HashSet.empty
 
                     // m.drawing.annotations.selectedLeaves
                     { 
@@ -1286,7 +1286,7 @@ module ViewerApp =
         // drawing app needs pickable stuff. however whether annotations are pickable depends on 
         // outer application state. we consider annotations to pickable if they are visible
         // and we are in "pick annotation" mode.
-        m.interaction |> Mod.map (function  
+        m.interaction |> AVal.map (function  
             | Interactions.PickAnnotation -> true
             | Interactions.DrawLog -> true
             | _ -> false
@@ -1296,7 +1296,7 @@ module ViewerApp =
         // drawing app needs pickable stuff. however whether logs are pickable depends on 
         // outer application state. we consider annotations to pickable if they are visible
         // and we are in "pick annotation" mode.
-        Mod.map2 (fun ctrlPressed interaction -> 
+        AVal.map2 (fun ctrlPressed interaction -> 
             match ctrlPressed, interaction with
             | true, Interactions.PickLog -> true
             | _ -> false
@@ -1315,21 +1315,21 @@ module ViewerApp =
             let annos = 
                 annotationsI
                 |> Sg.map DrawingMessage
-                |> Sg.fillMode (Mod.constant FillMode.Fill)
-                |> Sg.cullMode (Mod.constant CullMode.None)
+                |> Sg.fillMode (AVal.constant FillMode.Fill)
+                |> Sg.cullMode (AVal.constant CullMode.None)
 
             [annos] |> Sg.ofList
 
         let discsInst = 
            discsI
              |> Sg.map DrawingMessage
-             |> Sg.fillMode (Mod.constant FillMode.Fill)
-             |> Sg.cullMode (Mod.constant CullMode.None)
+             |> Sg.fillMode (AVal.constant FillMode.Fill)
+             |> Sg.cullMode (AVal.constant CullMode.None)
 
         // instrument view control
         let icmds    = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed discsInst m // m.scene.surfacesModel.sgGrouped overlayed discs m
         let icam = 
-            Mod.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
+            AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
         DomNode.RenderControl((instrumentControlAttributes m), icam, icmds, None) //AttributeMap.Empty
 
     let viewRenderView (m: MModel) = 
@@ -1339,14 +1339,14 @@ module ViewerApp =
             let ds =
                 discs
                 |> Sg.map DrawingMessage
-                |> Sg.fillMode (Mod.constant FillMode.Fill)
-                |> Sg.cullMode (Mod.constant CullMode.None)
+                |> Sg.fillMode (AVal.constant FillMode.Fill)
+                |> Sg.cullMode (AVal.constant CullMode.None)
 
             let annos = 
                 annotations
                 |> Sg.map DrawingMessage
-                |> Sg.fillMode (Mod.constant FillMode.Fill)
-                |> Sg.cullMode (Mod.constant CullMode.None)
+                |> Sg.fillMode (AVal.constant FillMode.Fill)
+                |> Sg.cullMode (AVal.constant CullMode.None)
 
             let _, correlationPlanes =
                 PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
@@ -1375,8 +1375,8 @@ module ViewerApp =
             //let alignment = 
             //    AlignmentApp.view m.alignment m.scene.navigation.camera.view
             //        |> Sg.map AlignmentActions
-            //        |> Sg.fillMode (Mod.constant FillMode.Fill)
-            //        |> Sg.cullMode (Mod.constant CullMode.None)
+            //        |> Sg.fillMode (AVal.constant FillMode.Fill)
+            //        |> Sg.cullMode (AVal.constant CullMode.None)
 
             let near = m.scene.config.nearPlane.value
 
@@ -1441,9 +1441,9 @@ module ViewerApp =
             m.minervaModel.session.selection.highlightedFrustra
             |> AList.ofASet
             |> AList.toMod 
-            |> Mod.map (fun x ->
+            |> AVal.map (fun x ->
                 x
-                |> PList.take 500
+                |> IndexList.take 500
             )
             |> AList.ofMod
             |> ASet.ofAList
@@ -1459,8 +1459,8 @@ module ViewerApp =
             [linkingSg; annotationSg; minervaSg] |> Sg.ofList
 
         let cmds    = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m
-        let frustum = Mod.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
-        let cam     = Mod.map2 Camera.create m.navigation.camera.view frustum
+        let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
+        let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
         DomNode.RenderControl((renderControlAttributes m), cam, cmds, None)
 
     let view (m: MModel) = //(localhost: string)
@@ -1546,7 +1546,7 @@ module ViewerApp =
             | Some "viewplanner" -> 
                 require (myCss) (body bodyAttributes [Gui.ViewPlanner.viewPlannerUI m])
             | Some "minerva" -> 
-               //let pos = m.scene.navigation.camera.view |> Mod.map(fun x -> x.Location)
+               //let pos = m.scene.navigation.camera.view |> AVal.map(fun x -> x.Location)
                 let minervaItems = 
                     PRo3D.Minerva.MinervaApp.viewFeaturesGui m.minervaModel |> List.map (UI.map MinervaActions)
 
@@ -1620,7 +1620,7 @@ module ViewerApp =
     let loadWaypoints m = 
         match Serialization.fileExists "./waypoints.wps" with
         | Some path -> 
-            let wp = Serialization.loadAs<plist<WayPoint>> path
+            let wp = Serialization.loadAs<IndexList<WayPoint>> path
             { m with waypoints = wp }
         | None -> m
     

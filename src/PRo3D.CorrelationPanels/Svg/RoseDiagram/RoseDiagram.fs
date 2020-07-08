@@ -1,10 +1,10 @@
-﻿namespace Svgplus
+namespace Svgplus
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module RoseDiagram =
     open Aardvark.Base
     open Aardvark.UI
-    open Aardvark.Base.Incremental
+    open FSharp.Data.Adaptive
     open Svgplus.Base
     open Svgplus.RoseDiagramModel
     open Svgplus
@@ -71,7 +71,7 @@ module RoseDiagram =
                         endAngle = { radians = endDegree * Constant.RadiansPerDegree }
                     }
             ]
-            |> PList.ofList
+            |> IndexList.ofList
 
         let maxItemsInBin = binMap |> Map.fold (fun state _ value -> if value > state then value else state) 0
         let totalItems = binMap |> Map.fold (fun state _ value -> state + value) 0
@@ -93,7 +93,7 @@ module RoseDiagram =
     let update (model : RoseDiagram) (action : RoseDiagramAction) =
         match action with
         | ChangeBin bin -> 
-            let _bins = PList.setAt bin.number bin model.countPerBin
+            let _bins = IndexList.setAt bin.number bin model.countPerBin
             { model with countPerBin = _bins}
         | UpdatePosition p -> { model with pos = p }
 
@@ -112,7 +112,7 @@ module RoseDiagram =
                     let innerArea = Constant.Pi * inner * inner
                     let maxArea = (outerArea - innerArea)
 
-                    let! maxElements = model.maxItemsInBin |> Mod.map float
+                    let! maxElements = model.maxItemsInBin |> AVal.map float
 
                     let calculateSubRadius x = 
                         let subArea = (maxArea / (maxElements/x)) + innerArea
@@ -153,7 +153,7 @@ module RoseDiagram =
                     //let angleList = model.countPerBin |> AList.map (fun x -> x.startAngle) |> AList.toList // CAUTION breaks incremental-evaluation!
                     //yield! AList.ofList (drawStarLines angleList centre outer inner C4b.Gray strokeWidth)
 
-                    let! textContent = model.totalItems |> Mod.map (fun x -> sprintf "N = %A" x)
+                    let! textContent = model.totalItems |> AVal.map (fun x -> sprintf "N = %A" x)
                     yield drawText (V2d(0.0, outer+10.0)) textContent CorrelationDrawing.Orientation.Horizontal
             }
 

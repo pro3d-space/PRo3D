@@ -1,7 +1,7 @@
-﻿namespace Utils
+namespace Utils
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Base.Rendering
 open Aardvark.SceneGraph
 open Aardvark.UI
@@ -15,7 +15,7 @@ module Debug =
 
 module Html =
     
-    let textInputColorable (str : IMod<string>) (textColor : C4b) changeAction =
+    let textInputColorable (str : aval<string>) (textColor : C4b) changeAction =
         Incremental.div
             (AttributeMap.ofList[])
                 (
@@ -34,7 +34,7 @@ module Html =
                     }
                 )
     
-    let toggleButton (switch : IMod<bool>) (offString : string) (onString : string) (action : 'msg) =
+    let toggleButton (switch : aval<bool>) (offString : string) (onString : string) (action : 'msg) =
         Incremental.div
             (AttributeMap.ofList[])
                 (
@@ -60,24 +60,24 @@ module Picking =
         
         let initial =
             {
-                points   = PList.empty
+                points   = IndexList.empty
                 preTrafo = None
             }
         
         let addPoint (pos : V3d) (m : PickPointsModel) =
             let p      = PickPoint.setup pos
-            let points = m.points |> PList.append p
+            let points = m.points |> IndexList.append p
             {m with points = points}
         
         let removePoint (id : string) (m : PickPointsModel) =
             let idx =
                 m.points
-                |> PList.toList
+                |> IndexList.toList
                 |> List.findIndex ( fun x -> x.id = id )
             
             let points =
                 m.points
-                |> PList.removeAt idx
+                |> IndexList.removeAt idx
 
             {m with points = points}
 
@@ -99,7 +99,7 @@ module Picking =
         | RemovePoint id  -> m |> PickPoints.removePoint id
         | Reset           -> PickPoints.initial
     
-    let mkSg (m : MPickPointsModel) (view : IMod<CameraView>) (liftMessage : Action -> 'msg) =
+    let mkSg (m : MPickPointsModel) (view : aval<CameraView>) (liftMessage : Action -> 'msg) =
         aset {
             for p in m.points |> AList.toASet do
                 
@@ -113,12 +113,12 @@ module Picking =
                             | _ -> return pos
                     }
 
-                let trans = pos |> Mod.map Trafo3d.Translation
+                let trans = pos |> AVal.map Trafo3d.Translation
 
                 printfn "%A" (trans.GetValue())
 
                 let scale =
-                    Mod.map2 ( fun (v : CameraView) (p : V3d) ->
+                    AVal.map2 ( fun (v : CameraView) (p : V3d) ->
                         let d = V3d.Distance(v.Location, p)
                         let s = 0.008 * d
                         Trafo3d.Scale(s)

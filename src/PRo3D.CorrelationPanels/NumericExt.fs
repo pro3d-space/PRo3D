@@ -1,8 +1,8 @@
-﻿namespace Aardvark.UI
+namespace Aardvark.UI
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Numeric
 open Combinators
 

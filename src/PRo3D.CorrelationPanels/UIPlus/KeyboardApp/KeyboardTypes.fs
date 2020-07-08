@@ -1,7 +1,7 @@
-﻿namespace UIPlus.KeyboardTypes
+namespace UIPlus.KeyboardTypes
 
   open Aardvark.Base
-  open Aardvark.Base.Incremental
+  open FSharp.Data.Adaptive
   open Aardvark.UI
   open Aardvark.Application
 
@@ -24,6 +24,6 @@
     {
       altPressed        : bool
       ctrlPressed       : bool
-      registeredKeyUp   : plist<KeyConfig<'a>>
-      registeredKeyDown : plist<KeyConfig<'a>>
+      registeredKeyUp   : IndexList<KeyConfig<'a>>
+      registeredKeyDown : IndexList<KeyConfig<'a>>
     } 

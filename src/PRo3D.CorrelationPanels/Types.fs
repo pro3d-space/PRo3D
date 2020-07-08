@@ -1,7 +1,7 @@
-﻿namespace CorrelationDrawing
+namespace CorrelationDrawing
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 
 type CorrelationPanelResources = CorrelationPanelResources
 

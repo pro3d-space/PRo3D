@@ -1,7 +1,7 @@
-﻿namespace PRo3D.Linking
+namespace PRo3D.Linking
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open PRo3D.Minerva
 
 /// represents one product and the camera parametes from its selection
@@ -23,14 +23,14 @@ type LinkingFeature =
 /// type used to enable switching between images (previous / next)
 type LinkingFeatureDisplay =
     {
-        before:   plist<LinkingFeature>
+        before:   IndexList<LinkingFeature>
         f:        LinkingFeature
-        after:    plist<LinkingFeature>
+        after:    IndexList<LinkingFeature>
     }
 
 type LinkingAction =
     | MinervaAction of MinervaAction
-    | UpdatePickingPoint of Option<V3d> * hmap<Instrument, bool>
+    | UpdatePickingPoint of Option<V3d> * HashMap<Instrument, bool>
     | ToggleView of Instrument
     | OpenFrustum of LinkingFeatureDisplay
     | ChangeFrustumOpacity of float
@@ -64,15 +64,15 @@ module InstrumentParameter =
         sensorSize = V2i.Zero
     }
 
-[<DomainType>]
+[<ModelType>]
 type LinkingModel =
     {
         [<TreatAsValue>]
-        frustums:               hmap<string,LinkingFeature>
-        instrumentParameter:    hmap<Instrument, InstrumentParameter>
+        frustums:               HashMap<string,LinkingFeature>
+        instrumentParameter:    HashMap<Instrument, InstrumentParameter>
         trafo:                  Trafo3d
         pickingPos:             Option<V3d>
-        filterProducts:         hmap<Instrument, bool>
+        filterProducts:         HashMap<Instrument, bool>
         overlayFeature:         Option<LinkingFeatureDisplay>
         frustumOpacity:         float
     }

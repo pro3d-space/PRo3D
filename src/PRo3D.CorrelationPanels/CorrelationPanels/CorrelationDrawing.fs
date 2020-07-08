@@ -1,11 +1,11 @@
-﻿namespace CorrelationDrawing
+namespace CorrelationDrawing
 
 open Aardvark.Base
 open Aardvark.Application
 open Aardvark.UI
 
 open System
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Base.Rendering
 open Aardvark.SceneGraph
 open Aardvark.UI
@@ -82,7 +82,7 @@ module CorrelationDrawing =
       let selSem = SemanticApp.getSelectedSemantic semApp
       match model.working with
         | Some w -> 
-          match (selSem.geometryType, (w.points |> PList.count)) with
+          match (selSem.geometryType, (w.points |> IndexList.count)) with
                                   | Geometry.Point, 0 ->  true
                                   | Geometry.Line,  1 ->  true
                                   | _                     ->  false
@@ -99,14 +99,14 @@ module CorrelationDrawing =
         | Some w ->
           {
             w with 
-              points   = w.points |> PList.append (newPoint point)
+              points   = w.points |> IndexList.append (newPoint point)
               geometry = geometryType
           } |> Some
           
         | None ->             
           {
             Contact.createNewContact geometryType with
-              points        = PList.single (newPoint point)
+              points        = IndexList.single (newPoint point)
               semanticId    = semanticApp.selectedSemantic                
               projection    = model.projection
           } |> Some //add annotation states
@@ -142,8 +142,8 @@ module CorrelationDrawing =
                     { model with exportPath = s }
             | Export, _               ->
                     //let path = Path.combine([model.exportPath; "drawing.json"])
-                    //printf "Writing %i annotations to %s" (model.annotations |> PList.count) path
-                    //let json = model.annotations |> PList.map JsonTypes.ofAnnotation |> JsonConvert.SerializeObject
+                    //printf "Writing %i annotations to %s" (model.annotations |> IndexList.count) path
+                    //let json = model.annotations |> IndexList.map JsonTypes.ofAnnotation |> JsonConvert.SerializeObject
                     //Serialization.writeToFile path json 
                     
                     model
@@ -161,7 +161,7 @@ module CorrelationDrawing =
     module Sg =        
 
         
-        let computeScale (view : IMod<CameraView>) (p:IMod<V3d>) (size:float) =
+        let computeScale (view : aval<CameraView>) (p:aval<V3d>) (size:float) =
             adaptive {
                 let! p = p
                 let! v = view
@@ -171,21 +171,21 @@ module CorrelationDrawing =
             }
 
             
-        let makeBrushSg (hovered : IMod<Trafo3d option>) (color : IMod<C4b>) = //(size : IMod<float>)= 
+        let makeBrushSg (hovered : aval<Trafo3d option>) (color : aval<C4b>) = //(size : aval<float>)= 
             let trafo =
-                hovered |> Mod.map (function o -> match o with 
+                hovered |> AVal.map (function o -> match o with 
                                                     | Some t-> t
                                                     | None -> Trafo3d.Scale(V3d.Zero))
-            Sg.sphereDyn (color) (Mod.constant 0.05) |> Sg.trafo(trafo) // TODO hardcoded stuff
+            Sg.sphereDyn (color) (AVal.constant 0.05) |> Sg.trafo(trafo) // TODO hardcoded stuff
        
         let view (model         : MCorrelationDrawingModel)
                  (semanticApp   : MSemanticsModel) 
-                 (cam           : IMod<CameraView>) 
-                 (sgFlags       : IMod<SgFlags>) =      
+                 (cam           : aval<CameraView>) 
+                 (sgFlags       : aval<SgFlags>) =      
 
           let marsSg =
             sgFlags 
-              |> Mod.map 
+              |> AVal.map 
                 (fun flags ->
                   let events = 
                     [
@@ -201,7 +201,7 @@ module CorrelationDrawing =
                 ) |> Sg.dynamic
           let sgWorking = 
             
-            model.working |> Mod.map (fun x ->
+            model.working |> AVal.map (fun x ->
               match x with
                 | Some a -> (Contact.Sg.view a cam semanticApp true) 
                               |> ASet.map (fun sg -> sg |> Sg.map AnnotationMessage)

@@ -1,8 +1,8 @@
-﻿namespace Svgplus.RectangleStackTypes
+namespace Svgplus.RectangleStackTypes
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Svgplus.RectangleType
 
 type RectangleStackId = RectangleStackId of Guid
@@ -21,16 +21,16 @@ type FlattenHorizonData =
         offsetFromStackTop : float
     }
 
-[<DomainType>]
+[<ModelType>]
 type RectangleStack = {
-    [<NonIncremental>]
+    [<NonAdaptive>]
     id              : RectangleStackId    
-    [<NonIncremental>]
+    [<NonAdaptive>]
     stackType       : StackType
 
-    rectangles      : hmap<RectangleId, Rectangle>
+    rectangles      : HashMap<RectangleId, Rectangle>
     order           : list<RectangleId>
-    borders         : hmap<RectangleBorderId, RectangleBorder>
+    borders         : HashMap<RectangleBorderId, RectangleBorder>
     selectedBorder  : option<RectangleBorderId>
     pos             : V2d
     yAxisMargin     : float
@@ -41,7 +41,7 @@ type RectangleStack = {
     member this.maxWidth = 
         let maxRectangleWidth =
             this.rectangles 
-            |> DS.HMap.values
+            |> DS.HashMap.values
             |> List.map (fun r -> r.maxWidth)
             |> List.max
         maxRectangleWidth

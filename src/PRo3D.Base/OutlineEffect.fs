@@ -1,9 +1,9 @@
-﻿namespace PRo3D.Base
+namespace PRo3D.Base
 
 module OutlineEffect =
 
     open Aardvark.Base
-    open Aardvark.Base.Incremental
+    open FSharp.Data.Adaptive
     open Aardvark.Base.Rendering
     open Aardvark.UI
     open Aardvark.GeoSpatial.Opc
@@ -37,16 +37,16 @@ module OutlineEffect =
 
     // NOTE: sg MUST only hold pure Sg without any modes or shaders!
     let createForSg (outlineGroup: int) (pass: RenderPass) (color: C4f) sg =
-        let sg = sg |> Sg.uniform "Color" (Mod.constant color)
+        let sg = sg |> Sg.uniform "Color" (AVal.constant color)
         
         let mask = 
             sg 
-            |> Sg.stencilMode (Mod.constant (write outlineGroup))
+            |> Sg.stencilMode (AVal.constant (write outlineGroup))
             |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Stencil])
-            |> Sg.depthTest (Mod.init DepthTestMode.None)
-            |> Sg.cullMode (Mod.init CullMode.None)
-            |> Sg.blendMode (Mod.init BlendMode.Blend)
-            |> Sg.fillMode (Mod.init FillMode.Fill)
+            |> Sg.depthTest (AVal.init DepthTestMode.None)
+            |> Sg.cullMode (AVal.init CullMode.None)
+            |> Sg.blendMode (AVal.init BlendMode.Blend)
+            |> Sg.fillMode (AVal.init FillMode.Fill)
             |> Sg.shader {
                 do! DefaultSurfaces.stableTrafo
                 do! DefaultSurfaces.sgColor
@@ -54,14 +54,14 @@ module OutlineEffect =
 
         let outline =
             sg 
-            |> Sg.stencilMode (Mod.constant (read outlineGroup))
+            |> Sg.stencilMode (AVal.constant (read outlineGroup))
             |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Colors])
-            |> Sg.depthTest (Mod.init DepthTestMode.None)
-            |> Sg.cullMode (Mod.init CullMode.None)
-            |> Sg.blendMode (Mod.init BlendMode.Blend)
-            |> Sg.fillMode (Mod.init FillMode.Fill)
+            |> Sg.depthTest (AVal.init DepthTestMode.None)
+            |> Sg.cullMode (AVal.init CullMode.None)
+            |> Sg.blendMode (AVal.init BlendMode.Blend)
+            |> Sg.fillMode (AVal.init FillMode.Fill)
             |> Sg.pass pass
-            |> Sg.uniform "LineWidth" (Mod.constant 5.0)
+            |> Sg.uniform "LineWidth" (AVal.constant 5.0)
             |> Sg.shader {
                 do! DefaultSurfaces.stableTrafo
                 do! Shader.lines
@@ -75,10 +75,10 @@ module OutlineEffect =
     let createForLine 
         (points: alist<V3d>) 
         (outlineGroup: int) 
-        (trafo: IMod<Trafo3d>) 
-        (color: IMod<C4b>) 
-        (lineWidth: IMod<float>)
-        (outlineWidth: IMod<float>)
+        (trafo: aval<Trafo3d>) 
+        (color: aval<C4b>) 
+        (lineWidth: aval<float>)
+        (outlineWidth: aval<float>)
         (pass: RenderPass)
         (outlinePass: RenderPass) =
               
@@ -91,7 +91,7 @@ module OutlineEffect =
         let mask = 
             sg
             |> Sg.uniform "LineWidth" lineWidth   
-            |> Sg.stencilMode (Mod.constant (write outlineGroup))
+            |> Sg.stencilMode (AVal.constant (write outlineGroup))
             |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Stencil])                              
             |> Sg.pass pass
             |> Sg.shader {
@@ -103,10 +103,10 @@ module OutlineEffect =
         let outline = 
             sg
             |> Sg.uniform "LineWidth" outlineWidth           
-            |> Sg.stencilMode (Mod.constant (read outlineGroup))
+            |> Sg.stencilMode (AVal.constant (read outlineGroup))
             |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Colors])
             |> Sg.pass outlinePass
-            |> Sg.depthTest (Mod.constant DepthTestMode.None)
+            |> Sg.depthTest (AVal.constant DepthTestMode.None)
             |> Sg.shader {
                 do! DefaultSurfaces.stableTrafo
                 do! DefaultSurfaces.thickLine
@@ -119,20 +119,20 @@ module OutlineEffect =
     let createForPoints
         (points : alist<V3d>) 
         (outlineGroup: int)
-        (color: IMod<C4b>) 
-        (pointWidth : IMod<float>)
-        (outlineWidth : IMod<float>)
+        (color: aval<C4b>) 
+        (pointWidth : aval<float>)
+        (outlineWidth : aval<float>)
         (pass: RenderPass)
         (outlinePass: RenderPass) =
         
         // TODO ...Points-Outline is broken! (?not stable with trafo / screenSpaceScaling)
 
         let sg = Sg.drawSpheres points pointWidth color
-        //let sgo = Sg.drawSpheres points outlineWidth (Mod.constant C4b.Red)   // using this instead -> visible broken visualization when point is on the edge of the view-frustrum
+        //let sgo = Sg.drawSpheres points outlineWidth (AVal.constant C4b.Red)   // using this instead -> visible broken visualization when point is on the edge of the view-frustrum
 
         let mask = 
             sg
-            |> Sg.stencilMode (Mod.constant (write outlineGroup))
+            |> Sg.stencilMode (AVal.constant (write outlineGroup))
             |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Stencil])
             |> Sg.pass pass
             |> Sg.shader {
@@ -143,10 +143,10 @@ module OutlineEffect =
             
         let outline = 
             sg //sgo
-            |> Sg.stencilMode (Mod.constant (read outlineGroup))
+            |> Sg.stencilMode (AVal.constant (read outlineGroup))
             |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Colors])
             |> Sg.pass outlinePass
-            |> Sg.depthTest (Mod.constant DepthTestMode.None)
+            |> Sg.depthTest (AVal.constant DepthTestMode.None)
             |> Sg.uniform "LineWidth" outlineWidth
             |> Sg.shader {
                     do! Shader.screenSpaceScale
@@ -164,10 +164,10 @@ module OutlineEffect =
         | Line
         | Both
 
-    let createForLineOrPoint (mode: PointOrLine) (color: IMod<C4b>) (width: IMod<float>) (outlineWidth: float) (pass: RenderPass) (trafo: IMod<Trafo3d>) (points: alist<V3d>) =
+    let createForLineOrPoint (mode: PointOrLine) (color: aval<C4b>) (width: aval<float>) (outlineWidth: float) (pass: RenderPass) (trafo: aval<Trafo3d>) (points: alist<V3d>) =
             
         let outlinePass = RenderPass.after "outline" RenderPassOrder.Arbitrary pass
-        let outlineWidth = width |> Mod.map (fun x -> x + outlineWidth) // 3.0
+        let outlineWidth = width |> AVal.map (fun x -> x + outlineWidth) // 3.0
         let outlineGroup = 1
 
         aset {

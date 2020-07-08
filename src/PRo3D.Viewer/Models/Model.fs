@@ -1,10 +1,10 @@
-﻿namespace PRo3D
+namespace PRo3D
 
 
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI.Mutable
 open Aardvark.UI
 open Aardvark.UI.Primitives
@@ -38,24 +38,24 @@ module List =
         | false -> e :: list
 
 module PList =
-    let append' (a : plist<_>) (b : plist<_>) =
+    let append' (a : IndexList<_>) (b : IndexList<_>) =
         let rec doIt xs =
             match xs with
-            | x::xs -> PList.prepend x (doIt xs)
+            | x::xs -> IndexList.prepend x (doIt xs)
             | [] -> b
-        doIt (PList.toList a)
+        doIt (IndexList.toList a)
 
-    let tryHead (a: plist<_>) =
-        a |> PList.tryAt 0
+    let tryHead (a: IndexList<_>) =
+        a |> IndexList.tryAt 0
 
-    let rev (a: plist<_>) =
-        a |> PList.toList |> List.rev |> PList.ofList
+    let rev (a: IndexList<_>) =
+        a |> IndexList.toList |> List.rev |> IndexList.ofList
 
-    let applyNonEmpty (func : plist<_> -> plist<_>) (a : plist<_>) =
-        if PList.count a > 0 then (a |> func) else a
+    let applyNonEmpty (func : IndexList<_> -> IndexList<_>) (a : IndexList<_>) =
+        if IndexList.count a > 0 then (a |> func) else a
 
-    let remove' (v : 'a) (list: plist<'a>) : plist<'a> =
-        list |> PList.filter(fun x -> x <> v)
+    let remove' (v : 'a) (list: IndexList<'a>) : IndexList<'a> =
+        list |> IndexList.filter(fun x -> x <> v)
 
 module Option = 
     let fromBool v b =
@@ -141,7 +141,7 @@ type StartupArgs = {
       }
 
 
-[<DomainType>]
+[<ModelType>]
 type Statistics = {
   average      : float
   min          : float
@@ -159,7 +159,7 @@ module Statistics =
     sumOfSquares = Double.NaN
   }
 
-[<DomainType>]
+[<ModelType>]
 type FalseColorsModel = {
     version         : int
     useFalseColors  : bool
@@ -313,13 +313,13 @@ type FalseColorsModel with
     
         }    
 
-[<DomainType>]
+[<ModelType>]
 type OrientationCubeModel =
   {
     camera  : CameraControllerState
   }
 
-//[<DomainType>]
+//[<ModelType>]
 //type DipAndStrikeResults = {
 //    plane           : Plane3d
 //    dipAngle        : float
@@ -331,7 +331,7 @@ type OrientationCubeModel =
 //    error           : Statistics
 //}
 
-//[<DomainType>]
+//[<ModelType>]
 //type AnnotationResults = {
 //    height      : float
 //    heightDelta : float
@@ -342,12 +342,12 @@ type OrientationCubeModel =
 //    slope       : float
 //}
 
-//[<DomainType>]
+//[<ModelType>]
 //type Segment = {
 //    startPoint : V3d
 //    endPoint   : V3d
     
-//    points : plist<V3d> 
+//    points : IndexList<V3d> 
 //}
 
 //[<DomainType; Obsolete("use Annotation' instead")>]
@@ -361,8 +361,8 @@ type OrientationCubeModel =
 //    projection  : Projection
 //    semantic    : Semantic
 
-//    points      : plist<V3d>
-//    segments    : plist<Segment> 
+//    points      : IndexList<V3d>
+//    segments    : IndexList<Segment> 
 //    color       : ColorInput
 //    thickness   : NumericInput
 //    results     : Option<AnnotationResults>
@@ -418,11 +418,11 @@ module JsonTypes =
 
     let ofPolygon (p:Points) : _Points = p  |> List.map ofV3d
 
-    let ofSegment (s:Segment) : _Segment = s.points  |> PList.map ofV3d 
-                                                     |> PList.toList
+    let ofSegment (s:Segment) : _Segment = s.points  |> IndexList.map ofV3d 
+                                                     |> IndexList.toList
 
-    let ofSegment1 (s:plist<V3d>) : _Segment = s  |> PList.map ofV3d
-                                                  |> PList.toList
+    let ofSegment1 (s:IndexList<V3d>) : _Segment = s  |> IndexList.map ofV3d
+                                                  |> IndexList.toList
 
 
     let rec fold f s xs =
@@ -438,9 +438,9 @@ module JsonTypes =
         polyline  |> List.pairwise |> List.fold (fun s (a,b) -> s + (b - a).LengthSquared) 0.0 |> Math.Sqrt
 
     //let ofAnnotation (a:Annotation) : _Annotation =
-    //    let polygon = ofPolygon (a.points |> PList.toList)
+    //    let polygon = ofPolygon (a.points |> IndexList.toList)
     //    let avgHeight = (polygon |> List.map (fun v -> v.Z ) |> List.sum) / double polygon.Length
-    //    let distance = sumDistance (a.points |> PList.toList)
+    //    let distance = sumDistance (a.points |> IndexList.toList)
     //    let angle, azimuth =
     //        match a.dnsResults with
     //            | Some dns -> 
@@ -450,7 +450,7 @@ module JsonTypes =
     //    {            
     //        semantic = a.semantic.ToString()
     //        geometry = polygon
-    //        segments = a.segments |> PList.map (fun x -> ofSegment1 x.points) |> PList.toList //|> List.map (fun x -> ofSegment x)
+    //        segments = a.segments |> IndexList.map (fun x -> ofSegment1 x.points) |> IndexList.toList //|> List.map (fun x -> ofSegment x)
     //        color = a.color.ToString()
     //        thickness = a.thickness.value
             
@@ -466,15 +466,15 @@ module JsonTypes =
     //let ofDrawing (m : Drawing) : list<_Annotation> =
     //    m.finished.AsList |> List.map ofAnnotation
 
-[<DomainType>]
+[<ModelType>]
 type PathProxy = {
     absolutePath : option<string>
     relativePath : option<string>
 }
 
-[<DomainType>]
+[<ModelType>]
 type MeasurementsImporterModel = {
-    annotations : plist<Annotation>
+    annotations : IndexList<Annotation>
 }
 
 type SurfaceTrafo = {
@@ -487,14 +487,14 @@ type SurfaceShift = {
     shift: float
 }
 
-[<DomainType>]
+[<ModelType>]
 type SurfaceTrafoImporterModel = {
-    trafos : plist<SurfaceTrafo>
+    trafos : IndexList<SurfaceTrafo>
 }
 
-[<DomainType>]
+[<ModelType>]
 type ViewConfigModel = {
-    [<NonIncremental>]
+    [<NonAdaptive>]
     version                 : int
     nearPlane               : NumericInput
     farPlane                : NumericInput

@@ -1,8 +1,8 @@
-﻿namespace PRo3D.Viewer
+namespace PRo3D.Viewer
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI.Mutable
 open Aardvark.UI
 open Aardvark.UI.Primitives
@@ -81,11 +81,11 @@ type CorrelationPanelsMessage =
 | LogAddPointToSelected         of Guid * V3d
 | LogCancel
 | LogConfirm
-| LogAssignCrossbeds            of hset<Guid>
-| UpdateAnnotations             of hmap<Guid, PRo3D.Groups.Leaf>
+| LogAssignCrossbeds            of HashSet<Guid>
+| UpdateAnnotations             of HashMap<Guid, PRo3D.Groups.Leaf>
 | ExportLogs                    of string
 | RemoveLastPoint
-| SetContactOfInterest          of hset<CorrelationDrawing.AnnotationTypes.ContactId>
+| SetContactOfInterest          of HashSet<CorrelationDrawing.AnnotationTypes.ContactId>
 | Nop
 //type ScaleToolAction = 
 //    | PlaneExtrudeAction of PlaneExtrude.App.Action
@@ -173,7 +173,7 @@ and MailboxAction =
 | InitMailboxState of MailboxState  
 | DrawingAction of PRo3D.Drawing.Action 
 
-[<DomainType>] 
+[<ModelType>] 
 type Scene = {
     version           : int
 
@@ -266,16 +266,16 @@ type Scene with
             do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString)                   
         }
 
-[<DomainType>] 
+[<ModelType>] 
 type SceneHandle = {
     path        : string
     name        : string
     writeDate   : DateTime
 }
 
-[<DomainType>] 
+[<ModelType>] 
 type Recent = {
-    recentScenes : list<SceneHandle> //hmap<string,SceneHandle>
+    recentScenes : list<SceneHandle> //HashMap<string,SceneHandle>
 }
 
 type Properties = 
@@ -305,14 +305,14 @@ type MultiSelectionBox =
         selectionBox: Box3d
     }
 
-[<DomainType>]
+[<ModelType>]
 type Model = { 
     startupArgs          : StartupArgs
     scene                : Scene
     drawing              : Drawing.DrawingModel    
     interaction          : Interactions
     recent               : Recent
-    waypoints            : plist<WayPoint>
+    waypoints            : IndexList<WayPoint>
 
     aspect               : double    
                          
@@ -504,7 +504,7 @@ module Viewer =
             aspect          = 1.6   // CHECK-merge
 
             recent          = { recentScenes = List.empty }
-            waypoints       = PList.empty
+            waypoints       = IndexList.empty
 
             trafoKind       = TrafoKind.Rotate
             trafoMode       = TrafoMode.Local
@@ -518,7 +518,7 @@ module Viewer =
 
             animations = 
                 { 
-                    animations = PList.empty
+                    animations = IndexList.empty
                     animation  = Animate.On
                     cam        = CameraController.initial.view
                 }

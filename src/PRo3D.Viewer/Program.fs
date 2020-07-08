@@ -1,4 +1,4 @@
-﻿open System
+open System
 
 //open System.Windows.Forms
 
@@ -141,24 +141,24 @@ let main argv =
         |> Array.map(fun x -> 
               let kv = x.Split [|'='|]
               kv.[0],kv.[1])
-        |> HMap.ofArray
+        |> HashMap.ofArray
 
     let dumpFile =
-        match argsKv |> HMap.tryFind "dump" with
+        match argsKv |> HashMap.tryFind "dump" with
         | Some file -> file
         | None -> 
             Log.warn "need dump file ... dump=\"[dumpfilepath]\" -> using defaultPath '.\MinervaData\dump.csv'"
             @".\MinervaData\dump.csv"
 
     let cacheFile =
-        match argsKv |> HMap.tryFind "cache" with
+        match argsKv |> HashMap.tryFind "cache" with
         | Some file -> file
         | None -> 
             Log.warn "need cache file ... cache=\"[cachefilepath]\" -> using defaultPath '.\MinervaData\dump.cache'"
             @".\MinervaData\dump.cache"
 
     //let access =
-    //    match argsKv |> HMap.tryFind "access" with
+    //    match argsKv |> HashMap.tryFind "access" with
     //    | Some file -> file
     //    | None -> failwith "need minerva access ... access=\"minervaaccount:pw\" "
 

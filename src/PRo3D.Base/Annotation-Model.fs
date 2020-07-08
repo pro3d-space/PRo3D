@@ -1,8 +1,8 @@
-﻿namespace PRo3D.Base.Annotation
+namespace PRo3D.Base.Annotation
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI
 
 open Chiron
@@ -34,12 +34,12 @@ type Semantic =
 | GrainSize = 6 
 | None = 7
 
-[<DomainType>]
+[<ModelType>]
 type Segment = {
     startPoint : V3d
     endPoint   : V3d
     
-    points : plist<V3d> 
+    points : IndexList<V3d> 
 }
 with
     static member FromJson ( _ : Segment) =
@@ -53,7 +53,7 @@ with
             return {
                 startPoint = startPoint |> V3d.Parse
                 endPoint   = endPoint |> V3d.Parse
-                points     = points |> PList.ofList
+                points     = points |> IndexList.ofList
             }
         }
 
@@ -61,7 +61,7 @@ with
         json {
             do! Json.write "startPoint" (x.startPoint.ToString())
             do! Json.write "endPoint" (x.endPoint.ToString())
-            do! Json.writeWith (Ext.toJson<list<V3d>,Ext>) "points" (x.points |> PList.toList)
+            do! Json.writeWith (Ext.toJson<list<V3d>,Ext>) "points" (x.points |> IndexList.toList)
         }
 
 type Style = {
@@ -69,7 +69,7 @@ type Style = {
     thickness : NumericInput
 }
 
-[<DomainType>]
+[<ModelType>]
 type Statistics = {
     version      : int
     average      : float
@@ -129,7 +129,7 @@ module Statistics =
             sumOfSquares = Double.NaN
         }
     
-[<DomainType>]
+[<ModelType>]
 type DipAndStrikeResults = {
     version         : int
     plane           : Plane3d
@@ -203,7 +203,7 @@ module DipAndStrikeResults =
             error           = Statistics.initial
         }  
         
-[<DomainType>]
+[<ModelType>]
 type AnnotationResults = {
     version     : int
     height      : float
@@ -276,7 +276,7 @@ module AnnotationResults =
 type SemanticId = SemanticId of string
 type SemanticType = Metric = 0 | Angular = 1 | Hierarchical = 2 | Undefined = 3
 
-[<DomainType>]
+[<ModelType>]
 type Annotation = {
     version      : int
     
@@ -290,8 +290,8 @@ type Annotation = {
 
     semantic     : Semantic
                  
-    points       : plist<V3d>
-    segments     : plist<Segment>
+    points       : IndexList<V3d>
+    segments     : IndexList<Segment>
                  
     color        : ColorInput
     thickness    : NumericInput
@@ -458,8 +458,8 @@ with
                 geometry     = geometry      |> enum<Geometry>
                 projection   = projection    |> enum<Projection>
                 semantic     = semantic      |> enum<Semantic>
-                points       = points        |> PList.ofList
-                segments     = segments      |> PList.ofList
+                points       = points        |> IndexList.ofList
+                segments     = segments      |> IndexList.ofList
                 color        = color
                 thickness    = thickness
                 results      = results
@@ -492,8 +492,8 @@ with
             do! Json.write "geometry"   (x.geometry |> int)
             do! Json.write "projection" (x.projection |> int)
             do! Json.write "semantic"   (x.semantic |> int)
-            do! Json.writeWith (Ext.toJson<list<V3d>,Ext>) "points" (x.points |> PList.toList)        
-            do! Json.write "segments"   (x.segments |> PList.toList)
+            do! Json.writeWith (Ext.toJson<list<V3d>,Ext>) "points" (x.points |> IndexList.toList)        
+            do! Json.write "segments"   (x.segments |> IndexList.toList)
             do! Json.writeWith (Ext.toJson<ColorInput,Ext>) "color" x.color
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "thickness" x.thickness
             do! Json.write "results"       x.results

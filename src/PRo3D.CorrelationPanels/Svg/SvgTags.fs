@@ -1,7 +1,7 @@
-﻿namespace Aardvark.UI
+namespace Aardvark.UI
 
   module Incremental =
-    open Aardvark.Base.Incremental
+    open FSharp.Data.Adaptive
     open Aardvark.Base
     open Incremental.Svg
 

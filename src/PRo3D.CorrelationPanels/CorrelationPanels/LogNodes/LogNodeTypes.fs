@@ -1,9 +1,9 @@
-﻿namespace CorrelationDrawing.LogNodeTypes
+namespace CorrelationDrawing.LogNodeTypes
 
 open System
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 
 open Svgplus.RectangleStackTypes
 open Svgplus.RectangleType
@@ -25,9 +25,9 @@ type BorderId  = BorderId  of Guid
 
 type BorderType  = PositiveInfinity | NegativeInfinity | Normal | Invalid
 
-[<DomainType>]
+[<ModelType>]
 type Border = {
-    [<NonIncremental>]
+    [<NonAdaptive>]
     id            : BorderId
     nodeId        : LogNodeId
     logId         : RectangleStackId
@@ -39,20 +39,20 @@ type Border = {
     weight        : double
     svgPosition   : V2d
 
-    [<NonIncremental>]
+    [<NonAdaptive>]
     borderType  : BorderType
 }
 
-[<DomainType>]
+[<ModelType>]
 type LogNode = {
-    [<NonIncremental>]
+    [<NonAdaptive>]
     id            : LogNodeId
-    [<NonIncremental>]
+    [<NonAdaptive>]
     rectangleId   : RectangleId
   
     logId         : RectangleStackId
 
-    //[<NonIncremental>]
+    //[<NonAdaptive>]
     nodeType           : LogNodeType
 
     level              : NodeLevel //TODO think about this; performance vs interaction
@@ -60,7 +60,7 @@ type LogNode = {
     uBorder            : option<Border>
     annotation         : option<ContactId>
 
-    children           : plist<LogNode>
+    children           : IndexList<LogNode>
   
     mainBody           : Rectangle
     //roseDiagram        : RoseDiagram

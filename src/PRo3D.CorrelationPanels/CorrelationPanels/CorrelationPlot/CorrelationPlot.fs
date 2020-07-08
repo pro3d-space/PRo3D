@@ -1,7 +1,7 @@
-﻿namespace CorrelationDrawing
+namespace CorrelationDrawing
 
 open System
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Base
 open Aardvark.Application
 open Aardvark.UI
@@ -31,7 +31,7 @@ open DS
 module LegacyLogHelpers =
 
     let tryFindLog (model : CorrelationPlotModel) (logId : DiagramItemId) =
-        HMap.tryFind logId model.logs
+        HashMap.tryFind logId model.logs
     
     let tryFindNodeFromRectangleId (model : CorrelationPlotModel) (rid : RectangleId) =                    
         DiagramApp.tryGetIdPair model.diagram rid
@@ -52,10 +52,10 @@ module LegacyLogHelpers =
             GeologicalLog.findNode log (fun n -> n.rectangleId = rectId)) optLog
         
     let getPointsOfLog (model : CorrelationPlotModel) (logId : DiagramItemId) =
-        let opt = HMap.tryFind logId model.logs
+        let opt = HashMap.tryFind logId model.logs
         match opt with
         | Some log -> log.annoPoints
-        | None     -> HMap.empty
+        | None     -> HashMap.empty
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module CorrelationPlotApp =
@@ -76,8 +76,8 @@ module CorrelationPlotApp =
 
         { model with 
             diagram   = diagram
-            logsNuevo = model.logsNuevo |> HMap.add log.id log 
-            logs      = model.logs |> HMap.add log2.diagramRef.itemId log2
+            logsNuevo = model.logsNuevo |> HashMap.add log.id log 
+            logs      = model.logs |> HashMap.add log2.diagramRef.itemId log2
         }
 
     let updateLogDiagram
@@ -100,10 +100,10 @@ module CorrelationPlotApp =
                 diagram = diagram
                 logsNuevo = 
                     model.logsNuevo 
-                    |> HMap.alter log.id (function | Some _ -> Some log | None -> None)
+                    |> HashMap.alter log.id (function | Some _ -> Some log | None -> None)
                 logs = 
                     model.logs 
-                    |> HMap.alter log2.diagramRef.itemId (function | Some _ -> Some log2 | None -> None)
+                    |> HashMap.alter log2.diagramRef.itemId (function | Some _ -> Some log2 | None -> None)
         }
 
     let createNewLog 
@@ -113,7 +113,7 @@ module CorrelationPlotApp =
         (colourMap   : ColourMap)        
         (model       : CorrelationPlotModel) =          
 
-        if contacts |> HMap.isEmpty then        
+        if contacts |> HashMap.isEmpty then        
             Log.error "[CorrelationPlot] Creating log failed. There are no annotations."
             model
         else
@@ -144,18 +144,18 @@ module CorrelationPlotApp =
             log |> addLogToDiagram contacts semanticApp config colourMap model            
     
     let rec repairContacts 
-        (pivotBordersTable : hmap<BorderContactId, list<RectangleBorderId>>)
+        (pivotBordersTable : HashMap<BorderContactId, list<RectangleBorderId>>)
         (contacts          : list<BorderContactId>)
-        : list<RectangleBorderId * BorderContactId> * hmap<BorderContactId, list<RectangleBorderId>> =
+        : list<RectangleBorderId * BorderContactId> * HashMap<BorderContactId, list<RectangleBorderId>> =
 
         match contacts with            
         | contact :: restOfContacts ->
-            match pivotBordersTable |> HMap.tryFind contact with
+            match pivotBordersTable |> HashMap.tryFind contact with
             | Some (rect :: restOfBorders) ->
 
                 let updatedBordersTable =
                     pivotBordersTable 
-                    |> HMap.update contact (
+                    |> HashMap.update contact (
                         function
                         | Some _ -> restOfBorders
                         | None -> []                    
@@ -171,13 +171,13 @@ module CorrelationPlotApp =
         {
             version  = Correlation.current
             id       = id
-            contacts = input |> HMap.ofList
+            contacts = input |> HashMap.ofList
         }
 
     let rec repairCorrelations 
-        (pivotBordersTable : hmap<BorderContactId, list<RectangleBorderId>>)
+        (pivotBordersTable : HashMap<BorderContactId, list<RectangleBorderId>>)
         (correlations      : list<Correlation>)
-        : list<Correlation> * hmap<BorderContactId, list<RectangleBorderId>> =
+        : list<Correlation> * HashMap<BorderContactId, list<RectangleBorderId>> =
 
         match correlations with 
         | c :: cs -> 
@@ -200,8 +200,8 @@ module CorrelationPlotApp =
 
         let pivotTable = 
             model.diagram.bordersTable        
-            |> HMap.map(fun _ v -> v.contactId)
-            |> HMap.pivot      
+            |> HashMap.map(fun _ v -> v.contactId)
+            |> HashMap.pivot      
         
         model.diagram.correlations.correlations.Values
         |> Seq.toList
@@ -218,11 +218,11 @@ module CorrelationPlotApp =
             north               = model.northVector
         }        
 
-    let updateLog  index (message : GeologicalLogAction) (logs : hmap<DiagramItemId, GeologicalLog>) =
-        HMap.update index (fun (x : option<GeologicalLog>) -> GeologicalLog.update x.Value message) logs//hack   
+    let updateLog  index (message : GeologicalLogAction) (logs : HashMap<DiagramItemId, GeologicalLog>) =
+        HashMap.update index (fun (x : option<GeologicalLog>) -> GeologicalLog.update x.Value message) logs//hack   
     
     let updateColoursFromCMap model rectangle =
-       match model.colorMap.mappings |> HMap.tryFind rectangle.grainSize.grainType with
+       match model.colorMap.mappings |> HashMap.tryFind rectangle.grainSize.grainType with
        | Some c -> { rectangle with colour = c.colour }
        | None   -> rectangle
 
@@ -266,12 +266,12 @@ module CorrelationPlotApp =
 
         Log.line "[CorrelationPlot] found %d logs" model.logsNuevo.Count
         
-        let model = { model with logs = HMap.empty }
+        let model = { model with logs = HashMap.empty }
         let config = model |> diagramConfigFrom
         
         let model =
             model.logsNuevo 
-            |> HMap.values
+            |> HashMap.values
             |> Seq.fold(fun acc log ->
                 log |> addLogToDiagram contacts semanticApp config colourMap acc
             ) model                            
@@ -281,7 +281,7 @@ module CorrelationPlotApp =
             |> reconstructCorrelations
 
         let correlations =
-            correlations |> List.map(fun x -> x.id, x) |> HMap.ofList
+            correlations |> List.map(fun x -> x.id, x) |> HashMap.ofList
 
         let diagram = 
             { model.diagram with correlations = { model.diagram.correlations with correlations = correlations } }
@@ -303,7 +303,7 @@ module CorrelationPlotApp =
             model.selectedLogNuevo 
             |> Option.bind(fun x ->
                 model.logsNuevo 
-                |> HMap.tryFind x
+                |> HashMap.tryFind x
             )
 
         match log, model.selectedFacies with
@@ -318,7 +318,7 @@ module CorrelationPlotApp =
                 model with 
                     logsNuevo =
                         model.logsNuevo 
-                        |> HMap.alter l.id (function 
+                        |> HashMap.alter l.id (function 
                             | Some _ -> Some { l with facies = facies } 
                             | None   -> None
                         )
@@ -329,7 +329,7 @@ module CorrelationPlotApp =
     let updateFacies (logId : LogId) (faciesId : FaciesId) (updateFun : Facies -> Facies) (model : CorrelationPlotModel) =
         let log = 
             model.logsNuevo 
-            |> HMap.tryFind logId
+            |> HashMap.tryFind logId
     
         match log with
         | Some l ->
@@ -343,7 +343,7 @@ module CorrelationPlotApp =
                 model with 
                     logsNuevo =
                         model.logsNuevo 
-                        |> HMap.alter l.id (function 
+                        |> HashMap.alter l.id (function 
                             | Some _ -> Some { l with facies = facies } 
                             | None   -> None
                         )
@@ -396,15 +396,15 @@ module CorrelationPlotApp =
         | Clear ->
             let diagram =  { 
                 model.diagram with  
-                    items             = HMap.empty
-                    order             = PList.empty
+                    items             = HashMap.empty
+                    order             = IndexList.empty
                     selectedRectangle = None
             }                        
 
             { 
                 model with 
-                    logs                  = HMap.empty
-                    param_selectedPoints  = hmap<ContactId, V3d>.Empty                                
+                    logs                  = HashMap.empty
+                    param_selectedPoints  = HashMap<ContactId, V3d>.Empty                                
                     currrentYMapping      = None
                     selectedBorder        = None
                     diagram               = diagram
@@ -439,7 +439,7 @@ module CorrelationPlotApp =
             
                 let logs =
                     model.logsNuevo 
-                    |> HMap.update logId (function
+                    |> HashMap.update logId (function
                         | Some log -> 
                             log 
                             |> GeologicalLogNuevoProperties.update msg
@@ -454,7 +454,7 @@ module CorrelationPlotApp =
                         let diagramItemId = logId |> toDiagramItemId
                         let items =
                             model.diagram.items
-                            |> HMap.update diagramItemId (function
+                            |> HashMap.update diagramItemId (function
                                 | Some item -> 
                                     item |> LogToDiagram.setItemHeader name
                                 | None -> failwith ""
@@ -465,7 +465,7 @@ module CorrelationPlotApp =
                 { model with logsNuevo = logs; diagram = diagram }
             | None -> model            
         | FinishLog ->            
-            if (model.param_selectedPoints |> HMap.isEmpty) then
+            if (model.param_selectedPoints |> HashMap.isEmpty) then
                 Log.line "no points in list for creating log"
                 model
             else                                
@@ -473,8 +473,8 @@ module CorrelationPlotApp =
                 |> createNewLog annotations semApp planet model.colorMap 
         | DeleteLog id -> 
             let logId = id |> toLogId
-            let logs = (HMap.remove id model.logs)
-            let logsNuevo = (HMap.remove logId model.logsNuevo)
+            let logs = (HashMap.remove id model.logs)
+            let logsNuevo = (HashMap.remove logId model.logsNuevo)
 
             let diagram = 
                 model.diagram 
@@ -506,7 +506,7 @@ module CorrelationPlotApp =
 
                         let faciesId = 
                             model.diagram.rectanglesTable 
-                            |> HMap.tryFind rid 
+                            |> HashMap.tryFind rid 
                             |> Option.map(fun x ->
                                 x.faciesId |> FaciesId)
 
@@ -637,7 +637,7 @@ module CorrelationPlotApp =
         
         let getColor id isHeader = 
             model.selectedLogNuevo
-            |> Mod.map(fun x ->
+            |> AVal.map(fun x ->
                 match x with
                 | Some y when y = id ->
                     C4b.VRVisGreen |> toStyleColor
@@ -740,7 +740,7 @@ module CorrelationPlotApp =
                 match selected with
                 | Some logId ->
                     let! logs = model.logsNuevo |> AMap.toMod
-                    match (logs |> HMap.tryFind logId) with
+                    match (logs |> HashMap.tryFind logId) with
                     | Some log -> 
                         yield GeologicalLogNuevoProperties.view log 
                     | None -> ()

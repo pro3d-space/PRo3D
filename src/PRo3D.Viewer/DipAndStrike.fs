@@ -1,4 +1,4 @@
-﻿namespace PRo3D
+namespace PRo3D
 
 open Aardvark.Base
 open Aardvark.Application
@@ -6,7 +6,7 @@ open Aardvark.UI
 
 open System
 
-open Aardvark.Base.Incremental    
+open FSharp.Data.Adaptive    
 
 open Aardvark.UI
 open Aardvark.UI.Primitives    
@@ -56,8 +56,8 @@ module DipAndStrike =
 
       Math.Sqrt (sosq / float (input.Length - 1))          
 
-    let calculateDnsErrors (points:plist<V3d>) =
-      let points = points |> PList.filter(fun x -> not x.IsNaN)
+    let calculateDnsErrors (points:IndexList<V3d>) =
+      let points = points |> IndexList.filter(fun x -> not x.IsNaN)
 
       if points.Count < 3 then []
       else
@@ -66,7 +66,7 @@ module DipAndStrike =
                 
         let distances = 
           points 
-            |> PList.toList
+            |> IndexList.toList
             |> List.map(fun x -> (plane.Height x))
 
         distances
@@ -138,7 +138,7 @@ module DipAndStrike =
         
     let recalculateDnSAzimuth (anno:Annotation) (up:V3d) (north : V3d) = // CHECK-merge Annotation'
 
-        let points = anno.points |> PList.filter(fun x -> not x.IsNaN)
+        let points = anno.points |> IndexList.filter(fun x -> not x.IsNaN)
         match anno.dnsResults with
             | Some dns ->
                 match points.Count with 
@@ -168,7 +168,7 @@ module DipAndStrike =
             | _-> None
 
 
-    let dipColor (dipAngle:IMod<float>) (min:IMod<float>) (max:IMod<float>) =
+    let dipColor (dipAngle:aval<float>) (min:aval<float>) (max:aval<float>) =
         adaptive {
             let! dipAngle = dipAngle
             let! min = min
@@ -183,15 +183,15 @@ module DipAndStrike =
     
     let viewUI (model : MAnnotation) =
 
-        let da   = Mod.bindOption model.dnsResults Double.NaN (fun a -> a.dipAngle)
-        let daz  = Mod.bindOption model.dnsResults Double.NaN (fun a -> a.dipAzimuth)
-        let staz = Mod.bindOption model.dnsResults Double.NaN (fun a -> a.strikeAzimuth)
+        let da   = AVal.bindOption model.dnsResults Double.NaN (fun a -> a.dipAngle)
+        let daz  = AVal.bindOption model.dnsResults Double.NaN (fun a -> a.dipAzimuth)
+        let staz = AVal.bindOption model.dnsResults Double.NaN (fun a -> a.strikeAzimuth)
         
         require GuiEx.semui (
             Html.table [ 
-                Html.row "Dipping Angle:"       [Incremental.text (da   |> Mod.map  (fun d -> sprintf "%.2f°" (d)))]
-                Html.row "Dipping Orientation:" [Incremental.text (daz  |> Mod.map  (fun d -> sprintf "%.2f°" (d)))]
-                Html.row "Strike Orientation:"  [Incremental.text (staz |> Mod.map  (fun d -> sprintf "%.2f°" (d)))]
+                Html.row "Dipping Angle:"       [Incremental.text (da   |> AVal.map  (fun d -> sprintf "%.2f°" (d)))]
+                Html.row "Dipping Orientation:" [Incremental.text (daz  |> AVal.map  (fun d -> sprintf "%.2f°" (d)))]
+                Html.row "Strike Orientation:"  [Incremental.text (staz |> AVal.map  (fun d -> sprintf "%.2f°" (d)))]
             ]
 
         )

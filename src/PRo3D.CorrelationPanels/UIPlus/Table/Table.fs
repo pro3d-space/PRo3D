@@ -1,7 +1,7 @@
-﻿namespace UIPlus
+namespace UIPlus
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI
 open UIPlus
 open UIPlus.TableTypes

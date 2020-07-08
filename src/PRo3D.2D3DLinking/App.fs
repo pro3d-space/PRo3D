@@ -1,10 +1,10 @@
-﻿namespace LinkingTestApp
+namespace LinkingTestApp
 
 open System
 open System.IO
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Base.Rendering
 
 open Aardvark.Rendering.Text
@@ -55,12 +55,12 @@ module App =
 
 
     //---saving and restoring plane state
-    let toPlaneCoords (coords : plist<V3d>): PlaneCoordinates =
+    let toPlaneCoords (coords : IndexList<V3d>): PlaneCoordinates =
         {
         points = coords
         }
 
-    let fromPlaneCoords (c : PlaneCoordinates) : plist<V3d> =
+    let fromPlaneCoords (c : PlaneCoordinates) : IndexList<V3d> =
         c.points
     //---
 
@@ -96,12 +96,12 @@ module App =
               match msg with
               | HitSurface (a,b) -> //,_) -> 
                 let updatePickM = PickingApp.update model.pickingModel (HitSurface (a,b))
-                let lastPick = updatePickM.intersectionPoints |> PList.tryFirst
+                let lastPick = updatePickM.intersectionPoints |> IndexList.tryFirst
 
                 let updatedLinkingM, updatedMinervaM = 
                     match lastPick with
                     | Some p -> 
-                        let filtered = model.minervaModel.session.filteredFeatures |> PList.map (fun f -> f.id) |> PList.toList |> HSet.ofList
+                        let filtered = model.minervaModel.session.filteredFeatures |> IndexList.map (fun f -> f.id) |> IndexList.toList |> HashSet.ofList
                         let linkingAction, minervaAction = PRo3D.Linking.LinkingApp.checkPoint p filtered model.linkingModel
                         let minerva' = MinervaApp.update model.cameraState.view model.mainFrustum model.minervaModel minervaAction
                         let linking' = LinkingApp.update model.linkingModel linkingAction
@@ -139,15 +139,15 @@ module App =
         let opcs = 
             m.opcInfos
                 |> AMap.toASet
-                |> ASet.map(fun info -> Sg.createSingleOpcSg (Mod.constant None) m.pickingActive m.cameraState.view info)
+                |> ASet.map(fun info -> Sg.createSingleOpcSg (AVal.constant None) m.pickingActive m.cameraState.view info)
                 |> Sg.set
                 |> Sg.effect [ 
                     toEffect Shader.stableTrafo
                     Shader.OPCFilter.EffectOPCFilter
                 ]
 
-        let near = m.mainFrustum |> Mod.map(fun x -> x.near)
-        let far = m.mainFrustum |> Mod.map(fun x -> x.far)
+        let near = m.mainFrustum |> AVal.map(fun x -> x.near)
+        let far = m.mainFrustum |> AVal.map(fun x -> x.far)
 
         let scene = 
             [
@@ -157,14 +157,14 @@ module App =
             ]
             |> Sg.ofList
 
-        let textOverlays (cv : IMod<CameraView>) = 
+        let textOverlays (cv : aval<CameraView>) = 
             div [js "oncontextmenu" "event.preventDefault();"] [ 
                 let style' = "color: white; font-family:Consolas;"
 
                 yield div [clazz "ui"; style "position: absolute; top: 15px; left: 15px; float:left; z-index: 20" ] [          
                     yield table [] [
                         tr[][
-                            td[style style'][Incremental.text(cv |> Mod.map(fun x -> x.Location.ToString("0.00")))]
+                            td[style style'][Incremental.text(cv |> AVal.map(fun x -> x.Location.ToString("0.00")))]
                         ]
                     ]
                 ]
@@ -172,7 +172,7 @@ module App =
 
         let renderControl =
             FreeFlyController.controlledControl m.cameraState Camera 
-                (Mod.map2(fun o m -> o |> Option.defaultValue m) m.overlayFrustum m.mainFrustum)
+                (AVal.map2(fun o m -> o |> Option.defaultValue m) m.overlayFrustum m.mainFrustum)
                 (AttributeMap.ofList [ 
                     style "width: 100%; height:100%"; 
                     attribute "showFPS" "true";       // optional, default is false
@@ -255,11 +255,11 @@ module App =
                         kdTree         = Aardvark.VRVis.Opc.KdTrees.expandKdTreePaths h.opcPaths.Opc_DirAbsPath (KdTrees.loadKdTrees' h Trafo3d.Identity true ViewerModality.XYZ Serialization.binarySerializer)
                         localBB        = rootTree.info.LocalBoundingBox 
                         globalBB       = rootTree.info.GlobalBoundingBox
-                        neighborMap    = HMap.empty
+                        neighborMap    = HashMap.empty
                     }
             ]
             |> List.map (fun info -> info.globalBB, info)
-            |> HMap.ofList      
+            |> HashMap.ofList      
                       
         let up = if rotate then (box.Center.Normalized) else V3d.OOI
 
@@ -279,7 +279,7 @@ module App =
                 let p : PlaneCoordinates = Serialization.loadAs ".\planestate"
                 p |> fromPlaneCoords
             else
-                PList.empty
+                IndexList.empty
 
         let planeState = restorePlane
 
@@ -326,11 +326,11 @@ module App =
             let whiteListFile = Path.ChangeExtension(dumpFile, "white")
             let whiteListIds =
                 if whiteListFile |> File.Exists then
-                    File.readAllLines whiteListFile |> HSet.ofArray
+                    File.readAllLines whiteListFile |> HashSet.ofArray
                 else 
-                    data.features |> PList.map(fun x -> x.id) |> PList.toList |> HSet.ofList
+                    data.features |> IndexList.map(fun x -> x.id) |> IndexList.toList |> HashSet.ofList
                 
-            let validFeatures = data.features |> PList.filter (fun x -> whiteListIds |> HSet.contains x.id)
+            let validFeatures = data.features |> IndexList.filter (fun x -> whiteListIds |> HashSet.contains x.id)
             let data = { data with features = validFeatures }
 
             let minerva = 

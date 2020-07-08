@@ -1,4 +1,4 @@
-﻿namespace PRo3D
+namespace PRo3D
 
 open Aardvark.Base
 open Aardvark.UI.Animation
@@ -6,7 +6,7 @@ open Aardvark.UI.Primitives
 open Aardvark.Application
 open Aardvark.UI
 open Aardvark.VRVis
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.SceneGraph.SgPrimitives
 open Aardvark.Base.Rendering
 

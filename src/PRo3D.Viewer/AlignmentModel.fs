@@ -3,7 +3,7 @@ namespace PRo3D.Align
 open System
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI.Primitives
 open Aardvark.UI
 open IPWrappers
@@ -14,17 +14,17 @@ type PickSurfacePair = {
     surfaceName : Guid
     }
 
-[<DomainType>]
+[<ModelType>]
 type Alignment = {    
     red         : Guid
     blue        : Guid
-    redPoints   : plist<V3d>
-    bluePoints  : plist<V3d>    
+    redPoints   : IndexList<V3d>
+    bluePoints  : IndexList<V3d>    
 }
 
-[<DomainType>]
+[<ModelType>]
 type AlignmentModel = {
-    pickedPoints : plist<PickSurfacePair>
+    pickedPoints : IndexList<PickSurfacePair>
     alignment    : option<Alignment>
     resultTrafo  : option<Trafo3d>
 }

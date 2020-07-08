@@ -1,6 +1,6 @@
-﻿namespace PRo3D
+namespace PRo3D
 
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI
 
 module GuiEx =
@@ -37,8 +37,8 @@ module GuiEx =
                 ]
             )
 
-    let iconToggle (dings : IMod<bool>) onIcon offIcon action =
-      let toggleIcon = dings |> Mod.map(fun isOn -> if isOn then onIcon else offIcon)
+    let iconToggle (dings : aval<bool>) onIcon offIcon action =
+      let toggleIcon = dings |> AVal.map(fun isOn -> if isOn then onIcon else offIcon)
 
       let attributes = 
         amap {
@@ -49,5 +49,5 @@ module GuiEx =
 
       Incremental.i attributes AList.empty
 
-    let iconCheckBox (dings : IMod<bool>) action =
+    let iconCheckBox (dings : aval<bool>) action =
       iconToggle dings "check square outline icon" "square icon" action

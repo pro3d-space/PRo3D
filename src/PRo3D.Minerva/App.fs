@@ -1,11 +1,11 @@
-﻿namespace PRo3D.Minerva
+namespace PRo3D.Minerva
 
 open System
 open System.Net.Sockets
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
-open Aardvark.Base.Incremental.Operators
+open FSharp.Data.Adaptive
+open FSharp.Data.Adaptive.Operators
 open Aardvark.Base.Rendering
 open Aardvark.Rendering.Text 
 open Aardvark.Geometry
@@ -75,11 +75,11 @@ module MinervaApp =
     
     let constructFilterById (filter:QueryModel) (ids:list<string>)  = 
         let groupString = ids |> String.concat("','")
-        //let cql1 = [("cql", @"(identifier IN ('" + groupString + "'))")] |> HMap.ofList
+        //let cql1 = [("cql", @"(identifier IN ('" + groupString + "'))")] |> HashMap.ofList
         let cqlStringSol = sprintf @"(planetDayNumber >= %f AND planetDayNumber <= %f)"  filter.minSol.value filter.maxSol.value
         let cqlStringInst = constructFilterByInstrument filter
         let cqlStringAll = sprintf @"(" + cqlStringSol + " AND " + cqlStringInst + ")"
-        let cql = [("cql", cqlStringSol)] |> HMap.ofList
+        let cql = [("cql", cqlStringSol)] |> HashMap.ofList
         (@"https://minerva.eox.at/opensearch/collections/all/json/", cql)   
     
     let sendReplaceSelectionRequest (idList : list<string>) (comm : Communicator.Communicator) =         
@@ -125,13 +125,13 @@ module MinervaApp =
             |> List.mapi (fun i e -> if i % n = n - 1 then Some(e) else None)
             |> List.choose id
 
-    let adaptFiltersToFeatures (features : plist<Feature>) (model : QueryModel) : QueryModel =
-        if features |> PList.isEmpty then
+    let adaptFiltersToFeatures (features : IndexList<Feature>) (model : QueryModel) : QueryModel =
+        if features |> IndexList.isEmpty then
             Log.warn "[Minerva] Mapping filter failed. feature list is empty"
             model
         else        
             Log.startTimed "[Minerva] Mapping filter to features"
-            let features = features |> PList.toList
+            let features = features |> IndexList.toList
             
             let minSol = features |> List.map(fun x -> x.sol) |> List.min
             let maxSol = features |> List.map(fun x -> x.sol) |> List.max
@@ -141,7 +141,7 @@ module MinervaApp =
             let distance = box.Size.Length
 
 
-            let instruments = features |> List.groupBy(fun x -> x.instrument) |> HMap.ofList
+            let instruments = features |> List.groupBy(fun x -> x.instrument) |> HashMap.ofList
 
             let mahli = instruments.TryFind Instrument.MAHLI |> Option.isSome
             let apxs = instruments.TryFind Instrument.APXS |> Option.isSome
@@ -181,11 +181,11 @@ module MinervaApp =
 
         model |> Lenses.set _queryModel queryModel
 
-    let private updateSolLabels (features:plist<Feature>) (position : V3d) = 
-        if features |> PList.isEmpty then
-            HMap.empty
+    let private updateSolLabels (features:IndexList<Feature>) (position : V3d) = 
+        if features |> IndexList.isEmpty then
+            HashMap.empty
         else
-            let features = features |> PList.toList
+            let features = features |> IndexList.toList
 
             let minimum = features|> List.map(fun x -> x.sol) |> List.min
             let maximum = features|> List.map(fun x -> x.sol) |> List.max
@@ -193,22 +193,22 @@ module MinervaApp =
             let nth = max 1 (Range1i(minimum, maximum).Size / 10)
             
             if nth = 0 then
-                HMap.empty
+                HashMap.empty
             else
                 features
                 |> List.map(fun x -> x.sol |> string, x.geometry.positions.Head) 
                 //|> List.sortBy(fun (_,p) -> V3d.DistanceSquared(position, p))
-                |> HMap.ofList //kill duplicates
-                |> HMap.toList
+                |> HashMap.ofList //kill duplicates
+                |> HashMap.toList
                 //|> shuffleR (Random())
                 //|> ... sortby bla
                 |> everyNth nth
                 |> List.take' numberOfLabels
-                |> HMap.ofList
+                |> HashMap.ofList
     
-    let private updateSgFeatures (features:plist<Feature>) =
+    let private updateSgFeatures (features:IndexList<Feature>) =
       
-        let array = features |> PList.toArray
+        let array = features |> IndexList.toArray
         
         let names     = array |> Array.map(fun f -> f.id)            
         let positions = array |> Array.map(fun f -> f.geometry.positions.Head)            
@@ -226,28 +226,28 @@ module MinervaApp =
             trafo = trafo
         }
     
-    let private updateSelectedSgFeature (features:plist<Feature>) (selected:hset<string>) : SgFeatures =
+    let private updateSelectedSgFeature (features:IndexList<Feature>) (selected:HashSet<string>) : SgFeatures =
         features
-        |> PList.filter( fun x -> HSet.contains x.id selected)
+        |> IndexList.filter( fun x -> HashSet.contains x.id selected)
         |> updateSgFeatures
        
-    let private setSelection (newSelection: hset<string>) (model: MinervaModel) =
+    let private setSelection (newSelection: HashSet<string>) (model: MinervaModel) =
         let selectedSgs = updateSelectedSgFeature model.session.filteredFeatures newSelection
         let session = { model.session with selection = { model.session.selection with selectedProducts = newSelection}}
-        Log.line "[MinervaApp] currently %d %d features selected" (newSelection |> HSet.count) (selectedSgs.names.Length)
+        Log.line "[MinervaApp] currently %d %d features selected" (newSelection |> HashSet.count) (selectedSgs.names.Length)
         { model with session = session; selectedSgFeatures = selectedSgs}
 
     //let overwriteSelection (selectionIds: list<string>) (model:MinervaModel) =
-    //    let newSelection  = selectionIds |> HSet.ofList
+    //    let newSelection  = selectionIds |> HashSet.ofList
     //    setSelection newSelection
 
     let updateSelectionToggle (names:list<string>) (model:MinervaModel) =
         let newSelection = 
             names
             |> List.fold(fun set name -> 
-                match set |> HSet.contains name with
-                | true ->  set |> HSet.remove name
-                | false -> set |> HSet.add name) model.session.selection.selectedProducts
+                match set |> HashSet.contains name with
+                | true ->  set |> HashSet.remove name
+                | false -> set |> HashSet.add name) model.session.selection.selectedProducts
 
         model |> setSelection newSelection 
     
@@ -283,14 +283,14 @@ module MinervaApp =
             
             closestPoints
     
-    let rebuildKdTree (features : plist<Feature>) (m : SelectionModel): SelectionModel =
-        if features |> PList.isEmpty then
+    let rebuildKdTree (features : IndexList<Feature>) (m : SelectionModel): SelectionModel =
+        if features |> IndexList.isEmpty then
             m
         else
             let flatList =
                 features 
-                |> PList.map(fun x -> x.geometry.positions |> List.head, x.id) 
-                |> PList.toArray
+                |> IndexList.map(fun x -> x.geometry.positions |> List.head, x.id) 
+                |> IndexList.toArray
             
             let input = flatList |> Array.map fst
             let flatId = flatList |> Array.map snd
@@ -325,7 +325,7 @@ module MinervaApp =
         
     let updateProducts data (model : MinervaModel) =
         Log.line "[Minerva] found %d entries" data.features.Count   
-        if data.features |> PList.isEmpty then
+        if data.features |> IndexList.isEmpty then
             model
         else
             let selectionModel = rebuildKdTree data.features model.session.selection  
@@ -351,8 +351,8 @@ module MinervaApp =
         
         updateProducts data model
 
-    let loadTifs (features: plist<Feature>) =
-        let numOfFeatures = (features |> PList.count)
+    let loadTifs (features: IndexList<Feature>) =
+        let numOfFeatures = (features |> IndexList.count)
         Log.startTimed "[Minerva] Fetching TIFs %d selected products" numOfFeatures
         let credentials = "minerva:tai8Ies7" 
 
@@ -362,7 +362,7 @@ module MinervaApp =
         client.Headers.[System.Net.HttpRequestHeader.Authorization] <- "Basic " + credentials  
 
         features
-        |> PList.toList
+        |> IndexList.toList
         |> List.iteri(fun i feature -> 
             Report.Progress(float i / float numOfFeatures)
             Files.loadTifAndConvert client feature.id)
@@ -375,7 +375,7 @@ module MinervaApp =
         let credentials = "minerva:tai8Ies7" 
         let features1087 = 
             model.data.features 
-            |> PList.filter(fun (x :Feature) -> x.sol = 1087)
+            |> IndexList.filter(fun (x :Feature) -> x.sol = 1087)
 
         let numOfFeatures = features1087.Count
         Log.startTimed "[Minerva] Fetching %d TIFs from data file" numOfFeatures
@@ -386,7 +386,7 @@ module MinervaApp =
         client.Headers.[System.Net.HttpRequestHeader.Authorization] <- "Basic " + credentials  
 
         features1087
-        |> PList.toList
+        |> IndexList.toList
         |> List.iteri(fun i feature -> 
             Report.Progress(float i / float numOfFeatures)
             Files.loadTifAndConvert client feature.id)
@@ -415,7 +415,7 @@ module MinervaApp =
 
             let coords = 
                 model.session.filteredFeatures
-                |> PList.toList 
+                |> IndexList.toList 
                 |> List.map(fun feat  -> (feat.id, feat.geometry.positions.Head))
                 |> List.map(fun (id,p) -> (id,viewProj.Forward.TransformPosProj p))
                 |> List.filter(fun (_,p) -> Box3d(V3d(-1.0, -1.0, 0.0),V3d(1.0,1.0,1.0)).Contains p)
@@ -452,7 +452,7 @@ module MinervaApp =
           //  //let data = model.queries |> MinervaGeoJSON.loadMultiple        
           //  Log.startTimed "[Minerva] Fetching full dataset from Server"
           //  let data = idTestList |> (getIdQuerySite model.queryFilter) |> fun (a,b) -> MinervaGeoJSON.loadPaged a b
-          //  //let features = data.features |> PList.sortBy(fun x -> x.sol)    
+          //  //let features = data.features |> IndexList.sortBy(fun x -> x.sol)    
           //  Log.stop()
     
           //  let queryM = QueryApp.updateFeaturesForRendering model.queryFilter data.features
@@ -464,8 +464,8 @@ module MinervaApp =
         | FilterFromSelection ->
             let filtered = 
                 model.session.filteredFeatures 
-                    |> PList.filter(fun x ->
-                        model.session.selection.selectedProducts |> HSet.contains x.id)
+                    |> IndexList.filter(fun x ->
+                        model.session.selection.selectedProducts |> HashSet.contains x.id)
 
             model 
             |> Lenses.set _filtered filtered
@@ -473,7 +473,7 @@ module MinervaApp =
             |> rebuildKdTree' 
             |> updateFeaturesForRendering
         | SelectByIds selectionIds -> // Set SelectByIds
-            let newSelection  = selectionIds |> HSet.ofList
+            let newSelection  = selectionIds |> HashSet.ofList
             model |> setSelection newSelection
         | RectangleSelect box ->
             let viewProjTrafo = view.ViewTrafo * Frustum.projTrafo frustum
@@ -482,8 +482,8 @@ module MinervaApp =
 
             let featureArray = 
                 model.session.filteredFeatures
-                |> PList.map (fun x -> struct (x.id |> string, x.geometry.positions.Head))
-                |> PList.toArray
+                |> IndexList.map (fun x -> struct (x.id |> string, x.geometry.positions.Head))
+                |> IndexList.toArray
 
             let newSelection = 
                 let worstCase = System.Collections.Generic.List(featureArray.Length)
@@ -492,7 +492,7 @@ module MinervaApp =
                     if box.Contains (viewProjTrafo.Forward.TransformPosProj pos) then
                         worstCase.Add id
                 worstCase 
-                |> HSet.ofSeq
+                |> HashSet.ofSeq
 
             Log.stop()
             Log.line "[Minerva] Selected %d" newSelection.Count
@@ -513,10 +513,10 @@ module MinervaApp =
                     
             Log.line "[Minerva] filtering data to set of %d" idList.Length
             
-            let filterSet = idList |> HSet.ofList
+            let filterSet = idList |> HashSet.ofList
             let filtered = 
                 model.data.features 
-                    |> PList.filter(fun x -> x.id |> filterSet.Contains)
+                    |> IndexList.filter(fun x -> x.id |> filterSet.Contains)
 
             let queries = 
                 adaptFiltersToFeatures filtered model.session.queryFilter
@@ -570,7 +570,7 @@ module MinervaApp =
         | LoadTifs access ->
             loadTifs (
                 model.session.filteredFeatures 
-                    |> PList.filter(fun x -> model.session.selection.selectedProducts |> HSet.contains x.id)
+                    |> IndexList.filter(fun x -> model.session.selection.selectedProducts |> HashSet.contains x.id)
                 )
             model
         | LoadProducts (dumpFile, cacheFile) -> 
@@ -608,10 +608,10 @@ module MinervaApp =
                 model.session with 
                     selection = { 
                         model.session.selection with 
-                            singleSelectProduct = None; selectedProducts = HSet.empty; highlightedFrustra = HSet.empty
+                            singleSelectProduct = None; selectedProducts = HashSet.empty; highlightedFrustra = HashSet.empty
                     }
             }
-            { model with session = session; selectedSgFeatures = updateSgFeatures PList.empty }
+            { model with session = session; selectedSgFeatures = updateSgFeatures IndexList.empty }
         | AddProductToSelection name ->
             let m' = updateSelectionToggle [name] model
             let session = { m'.session with selection = { m'.session.selection with singleSelectProduct = Some name } }
@@ -701,7 +701,7 @@ module MinervaApp =
     let selectionColor (model : MMinervaModel) (feature : Feature) =
         model.session.selection.selectedProducts 
         |> ASet.contains feature.id
-        |> Mod.map (fun x -> if x then C4b.VRVisGreen else C4b.White)
+        |> AVal.map (fun x -> if x then C4b.VRVisGreen else C4b.White)
 
     let viewFeatures (instr : Instrument) model (features : list<Feature>) =
         
@@ -749,7 +749,7 @@ module MinervaApp =
             
         let viewFeatureProperties = 
             model.session.selection.singleSelectProduct
-            |> Mod.map( fun selected ->
+            |> AVal.map( fun selected ->
                 match selected with
                 | Some id ->
                     let feat = 
@@ -759,8 +759,8 @@ module MinervaApp =
         
                     require Html.semui (
                         Html.table [   
-                            Html.row "Instrument:"    [Incremental.text (feat.instrument |> instrumentText |> Mod.constant)] 
-                            Html.row "Sol:"           [Incremental.text (feat.sol.ToString() |> Mod.constant)]   
+                            Html.row "Instrument:"    [Incremental.text (feat.instrument |> instrumentText |> AVal.constant)] 
+                            Html.row "Sol:"           [Incremental.text (feat.sol.ToString() |> AVal.constant)]   
                             Html.row "FlyTo:"         [button [clazz "ui button tiny"; onClick (fun _ -> FlyToProduct feat.geometry.positions.Head )][]]
                             Html.row "Open Img:"      [button [clazz "ui button tiny"; onClick (fun _ -> OpenTif feat.id )][text "img"]]
                             Html.row "Folder"         [i [clazz "folder icon"; onClick (fun _ -> OpenFolder feat.id)][]]
@@ -772,9 +772,9 @@ module MinervaApp =
         let featuresGroupedByInstrument features =
             adaptive {
                 let! features = features |> AList.toMod
-                let a = features |> PList.toList |> List.groupBy(fun x -> x.instrument)
+                let a = features |> IndexList.toList |> List.groupBy(fun x -> x.instrument)
 
-                return a |> HMap.ofList
+                return a |> HashMap.ofList
             } |> AMap.ofMod
 
         let selected = model.session.selection.selectedProducts
@@ -864,22 +864,22 @@ module MinervaApp =
             ])
     
     // SG
-    let viewPortLabels (model : MMinervaModel) (view:IMod<CameraView>) (frustum:IMod<Frustum>) : ISg<MinervaAction> = 
+    let viewPortLabels (model : MMinervaModel) (view:aval<CameraView>) (frustum:aval<Frustum>) : ISg<MinervaAction> = 
         
-        let viewProjTrafo = Mod.map2 (fun (v:CameraView) f -> v.ViewTrafo * Frustum.projTrafo f) view frustum
-        let near = frustum |> Mod.map (fun x -> x.near)
+        let viewProjTrafo = AVal.map2 (fun (v:CameraView) f -> v.ViewTrafo * Frustum.projTrafo f) view frustum
+        let near = frustum |> AVal.map (fun x -> x.near)
 
         let featureArray = 
             model.session.filteredFeatures
             |> AList.map (fun x -> struct (x.sol |> string, x.geometry.positions.Head))
             |> AList.toMod
-            |> Mod.map (fun x -> x |> PList.toArray)
+            |> AVal.map (fun x -> x |> IndexList.toArray)
 
         let box = Box3d(V3d(-1.0, -1.0, 0.0),V3d(1.0,1.0,1.0))
 
         let visibleFeatures = 
             featureArray 
-            |> Mod.map2 (fun (viewProj:Trafo3d) array -> 
+            |> AVal.map2 (fun (viewProj:Trafo3d) array -> 
 
                 //Log.startTimed "filterStart"
 
@@ -900,7 +900,7 @@ module MinervaApp =
 
         let topFeatures =
             visibleFeatures
-            |> Mod.map (fun x -> 
+            |> AVal.map (fun x -> 
                 let count = float x.Count
                 if count < maxCount then
                     x.ToArray()
@@ -923,7 +923,7 @@ module MinervaApp =
         sg
     
     // fix-size billboards (expensive!)
-    let getSolBillboards (model : MMinervaModel) (view:IMod<CameraView>) (near:IMod<float>) : ISg<MinervaAction> =        
+    let getSolBillboards (model : MMinervaModel) (view:aval<CameraView>) (near:aval<float>) : ISg<MinervaAction> =        
         model.solLabels
             |> AMap.map(fun txt pos ->
                Sg.text view near 
@@ -941,12 +941,12 @@ module MinervaApp =
         let height = 5.0
         let coneTrafo = 
             model.session.queryFilter.filterLocation 
-            |> Mod.map(fun x -> 
+            |> AVal.map(fun x -> 
                 Trafo3d.RotateInto(V3d.ZAxis, -x.Normalized) * Trafo3d.Translation (x + (x.Normalized * height)))
             //lineLength |>
-            //  Mod.map(fun s -> Trafo3d.RotateInto(V3d.ZAxis, dip) * Trafo3d.Translation(center' + dip.Normalized * s))
+            //  AVal.map(fun s -> Trafo3d.RotateInto(V3d.ZAxis, dip) * Trafo3d.Translation(center' + dip.Normalized * s))
 
-        Drawing.coneISg (C4b.VRVisGreen |> Mod.constant) (0.5 |> Mod.constant) (height |> Mod.constant) coneTrafo
+        Drawing.coneISg (C4b.VRVisGreen |> AVal.constant) (0.5 |> AVal.constant) (height |> AVal.constant) coneTrafo
             
     let viewFeaturesSg (model : MMinervaModel) =
         let pointSize = model.session.featureProperties.pointSize.value
@@ -965,7 +965,7 @@ module MinervaApp =
       App.start {
           unpersist = Unpersist.instance
           threads   = fun m -> m.vplMessages
-          view      = viewWrapped (Mod.constant V3d.Zero) //localhost
+          view      = viewWrapped (AVal.constant V3d.Zero) //localhost
           update    = update (CameraView.lookAt V3d.Zero V3d.One V3d.OOI) (Frustum.perspective 90.0 0.001 100000.0 1.0)
           initial   = MinervaModel.initial
       }

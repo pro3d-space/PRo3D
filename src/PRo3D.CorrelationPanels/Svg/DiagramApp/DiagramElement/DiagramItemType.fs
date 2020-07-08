@@ -1,8 +1,8 @@
-﻿namespace Svgplus.DiagramItemType
+namespace Svgplus.DiagramItemType
   
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Svgplus.RectangleStackTypes
 open Svgplus.RoseDiagramModel
 open Svgplus
@@ -15,14 +15,14 @@ module DiagramItemId =
     let getValue (DiagramItemId guid) =
         guid
 
-[<DomainType>]
+[<ModelType>]
 type RoseDiagramRelated = 
     {
         relatedRectangle : Svgplus.RectangleType.RectangleId
         roseDiagram : RoseDiagram
     }
 
-[<DomainType>]
+[<ModelType>]
 type DiagramItem = {
     id                  : DiagramItemId
                         
@@ -42,5 +42,5 @@ type DiagramItem = {
     flattenHorizon      : option<FlattenHorizonData> // in units - alternative mode with offset in regard to a reference correlation
     
     yToSvg              : float         // scale for elevationDifference and flattenOffset
-    roseDiagrams        : hmap<RoseDiagramId, RoseDiagramRelated>
+    roseDiagrams        : HashMap<RoseDiagramId, RoseDiagramRelated>
 }

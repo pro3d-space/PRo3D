@@ -1,6 +1,6 @@
-﻿namespace CorrelationDrawing
+namespace CorrelationDrawing
   open Aardvark.Base
-  open Aardvark.Base.Incremental
+  open FSharp.Data.Adaptive
   open Aardvark.Base.Rendering
   open Aardvark.UI
   open Aardvark.SceneGraph
@@ -10,7 +10,7 @@
       let path (close : bool) (points : alist<V3d>) = 
         adaptive {
           let! points = points.Content
-          let points = points |> PList.toList
+          let points = points |> IndexList.toList
           let head = points  |> List.tryHead
           return 
             match head with
@@ -22,7 +22,7 @@
               | None -> [||]     
         }
 
-      let polyline (points : alist<V3d>) (color : IMod<C4b>) (weight : IMod<float>) =
+      let polyline (points : alist<V3d>) (color : aval<C4b>) (weight : aval<float>) =
         (path false points)
           |> Sg.lines color
           |> Sg.effect [
@@ -33,10 +33,10 @@
           |> Sg.noEvents
           |> Sg.uniform "LineWidth" weight
           |> Sg.pass (RenderPass.after "lines" RenderPassOrder.Arbitrary RenderPass.main)
-          |> Sg.depthTest (Mod.constant DepthTestMode.None)  
+          |> Sg.depthTest (AVal.constant DepthTestMode.None)  
 
 
-    let sphereDyn (color : IMod<C4b>) (size : IMod<float>) =
+    let sphereDyn (color : aval<C4b>) (size : aval<float>) =
       Sg.sphere 3 color size 
         |> Sg.shader {
             do! DefaultSurfaces.trafo
@@ -62,7 +62,7 @@
         | Some h -> 
             if close then points @ [h] else points
               |> List.pairwise
-              |> List.map (fun (a,b) -> new Line3d(a, b)) //Mod.map2 (fun a b -> new Line3d(a, b)) a b)
+              |> List.map (fun (a,b) -> new Line3d(a, b)) //AVal.map2 (fun a b -> new Line3d(a, b)) a b)
               |> List.toArray
         | None -> [||]     
       

@@ -1,9 +1,9 @@
-﻿namespace PRo3D
+namespace PRo3D
 
 open System
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Application
 open Aardvark.SceneGraph
 open Aardvark.UI
@@ -23,8 +23,8 @@ module FalseColorLegendApp =
         | SetLowerColor     of ColorPicker.Action //C4b
         | SetUpperColor     of ColorPicker.Action //C4b  
 
-    let bindOption (m : IMod<Option<'a>>) (defaultValue : 'b) (project : 'a -> IMod<'b>)  : IMod<'b> =
-        m |> Mod.bind (function | None   -> Mod.constant defaultValue       
+    let bindOption (m : aval<Option<'a>>) (defaultValue : 'b) (project : 'a -> aval<'b>)  : aval<'b> =
+        m |> AVal.bind (function | None   -> AVal.constant defaultValue       
                                 | Some v -> project v)
     
    
@@ -69,7 +69,7 @@ module FalseColorLegendApp =
             let currHSV     = HSVf(hue, 1.0f, 1.0f)
             currHSV.ToC3f().ToC3b()
 
-        let getColorDnS (model : MFalseColorsModel) (angle: IMod<float>) =
+        let getColorDnS (model : MFalseColorsModel) (angle: aval<float>) =
             adaptive {
                 let! dipAngle = angle
                 let! fcInterval     = model.interval.value
@@ -110,7 +110,7 @@ module FalseColorLegendApp =
                 return currColor.ToC3f().ToC4b()
             }
 
-        let getShaderParams (model : MFalseColorsModel) : IMod<FalseColorsShaderParams> = 
+        let getShaderParams (model : MFalseColorsModel) : aval<FalseColorsShaderParams> = 
             adaptive {
                 let! fcInterval     = model.interval.value
                 let! startColor     = model.lowerColor.c

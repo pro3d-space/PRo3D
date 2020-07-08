@@ -1,5 +1,5 @@
-﻿namespace CorrelationDrawing
-  open Aardvark.Base.Incremental
+namespace CorrelationDrawing
+  open FSharp.Data.Adaptive
 
   module Option =
     open Aardvark.Base.MultimethodTest
@@ -14,7 +14,7 @@
         | None   -> def
     
 
-    let flattenModOpt (a : option<IMod<option<'a>>>) =
+    let flattenModOpt (a : option<aval<option<'a>>>) =
       adaptive {
         match a with
           | None -> return None
@@ -23,23 +23,23 @@
               return c
       }
 
-    let modMap (a : IMod<Option<'a>>) (f : 'a -> IMod<Option<'b>>) =
+    let modMap (a : aval<Option<'a>>) (f : 'a -> aval<Option<'b>>) =
       adaptive {
         let! a = a
         return! match a with
-                  | None -> Mod.constant None
+                  | None -> AVal.constant None
                   | Some a -> (f a)
       }
 
-    let extractOrDefault (a : IMod<Option<'a>>) (f : 'a -> IMod<'b>) (def : 'b) =
+    let extractOrDefault (a : aval<Option<'a>>) (f : 'a -> aval<'b>) (def : 'b) =
       adaptive {
         let! a = a
         return! match a with
-                  | None -> Mod.constant def
+                  | None -> AVal.constant def
                   | Some a -> f a
       }
 
-    let modIsSome (a : IMod<Option<'a>>) =
+    let modIsSome (a : aval<Option<'a>>) =
       adaptive {
         let! a = a
         return a.IsSome

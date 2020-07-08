@@ -1,4 +1,4 @@
-﻿namespace PRo3D
+namespace PRo3D
 
 open System
 open System.Xml.Linq
@@ -64,7 +64,7 @@ module MeasurementsImporter =
     let segmentOfArray (points : array<_>) = 
       if points.IsEmpty() then None
       else
-        Some { startPoint = points.[0]; endPoint = points.[points.Length - 1]; points = PList.ofArray points }
+        Some { startPoint = points.[0]; endPoint = points.[points.Length - 1]; points = IndexList.ofArray points }
                         
     let parseSegments (segments:XElement) = 
       segments.Elements(xname "V3d_Array")
@@ -118,15 +118,15 @@ module MeasurementsImporter =
 
         let points = 
           getPoints (m.Element(xname "Points")) anType 
-            |> PList.ofArray 
-            |> PList.map trafo.Forward.TransformPos
+            |> IndexList.ofArray 
+            |> IndexList.map trafo.Forward.TransformPos
 
         let segments = 
           getSegments(m, anType)
-            |> PList.ofList 
-            |> PList.map (
+            |> IndexList.ofList 
+            |> IndexList.map (
                 fun s -> 
-                    let points     = s.points     |> PList.map trafo.Forward.TransformPos
+                    let points     = s.points     |> IndexList.map trafo.Forward.TransformPos
                     let startPoint = s.startPoint |> trafo.Forward.TransformPos
                     let endPoint   = s.endPoint   |> trafo.Forward.TransformPos
                     {s with startPoint = startPoint; endPoint = endPoint; points = points}
@@ -173,13 +173,13 @@ module MeasurementsImporter =
                     | _ -> ()
             }
 
-    let startImporter (path:string) : plist<Annotation> =
+    let startImporter (path:string) : IndexList<Annotation> =
         let reader = XmlReader.Create path
         let measurements = reader.StreamElements("Measurements").Elements(xname "object")
         let annotations = 
             measurements 
             |> Seq.map (fun x -> getAnnotation Trafo3d.Identity x)
-            |> PList.ofSeq  
+            |> IndexList.ofSeq  
         annotations
 
 

@@ -1,18 +1,18 @@
-﻿namespace Svgplus
+namespace Svgplus
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Button =
     open Aardvark.Base
-    open Aardvark.Base.Incremental
+    open FSharp.Data.Adaptive
     open Aardvark.UI
     open Svgplus.Base
     
     
     type Action =
-    | OnLeftClick       of IMod<V2d>
-    | OnRightClick      of IMod<V2d>
-    | OnMouseDown       of (Aardvark.Application.MouseButtons * IMod<V2d>)
-    | OnMouseUp         of (Aardvark.Application.MouseButtons * IMod<V2d>)
+    | OnLeftClick       of aval<V2d>
+    | OnRightClick      of aval<V2d>
+    | OnMouseDown       of (Aardvark.Application.MouseButtons * aval<V2d>)
+    | OnMouseUp         of (Aardvark.Application.MouseButtons * aval<V2d>)
     | OnMouseEnter
     | OnMouseLeave
     | SetVisible        of bool

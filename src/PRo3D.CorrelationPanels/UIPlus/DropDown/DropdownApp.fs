@@ -1,8 +1,8 @@
-﻿namespace UIPlus
+namespace UIPlus
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 
 open Aardvark.UI
 open UIPlus
@@ -16,7 +16,7 @@ module DropdownList =
   type Action<'a> =
     | SetSelected of option<'a>
     | SetColor of C4b
-    | SetList of plist<'a>
+    | SetList of IndexList<'a>
 
   let init<'a> : DropdownList<'a> = {
     valueList = plist.Empty
@@ -34,13 +34,13 @@ module DropdownList =
 
   let view' (mDropdown      : MDropdownList<'a, _>)  
             (changeFunction : (option<'a> -> 'msg))
-            (labelFunction  : ('a -> IMod<string>))
-            (getIsSelected  : ('a -> IMod<bool>))  =
+            (labelFunction  : ('a -> aval<string>))
+            (getIsSelected  : ('a -> aval<bool>))  =
            
 
     let attributes (value : 'a) (name : string) =
       let notSelected = 
-        (attribute "value" (Mod.force (labelFunction value)))
+        (attribute "value" (AVal.force (labelFunction value)))
         
       let selAttr = (attribute "selected" "selected")
       let attrMap = 
@@ -58,7 +58,7 @@ module DropdownList =
         yield attr
         let! lst = (mDropdown.valueList.Content) 
         let callback (i : int) = lst
-                              |> PList.tryAt(i) 
+                              |> IndexList.tryAt(i) 
                               |> changeFunction
          
         yield (onEvent "onchange" 
@@ -77,7 +77,7 @@ module DropdownList =
               mDropdown.valueList
                 |> AList.mapi(fun i x ->
                     Incremental.option 
-                      (attributes x (Mod.force (labelFunction x))) 
+                      (attributes x (AVal.force (labelFunction x))) 
                       (AList.ofList [Incremental.text (labelFunction x)]))
           yield! domNode
         }

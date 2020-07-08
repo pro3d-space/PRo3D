@@ -1,12 +1,12 @@
 namespace PRo3D.Navigation2
 
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI.Primitives
 open PRo3D
 open PRo3D.ReferenceSystem
 open Aardvark.Base
 
-[<DomainType>]
+[<ModelType>]
 type NavigationModel = {
     camera         : CameraControllerState    
     navigationMode : NavigationMode      

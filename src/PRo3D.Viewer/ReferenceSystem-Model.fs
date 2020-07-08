@@ -1,6 +1,6 @@
 namespace PRo3D.ReferenceSystem
 
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Base
 open Aardvark.UI
 open PRo3D
@@ -9,7 +9,7 @@ open Chiron
 
 #nowarn "0686"
 
-[<DomainType>]
+[<ModelType>]
 type ReferenceSystem = {
     version       : int
     origin        : V3d
@@ -19,7 +19,7 @@ type ReferenceSystem = {
     up            : V3dInput
     isVisible     : bool
     size          : NumericInput
-    scaleChart    : plist<string>
+    scaleChart    : IndexList<string>
     selectedScale : string
     planet        : PRo3D.Base.Planet
 }
@@ -57,7 +57,7 @@ module ReferenceSystem =
                     up            = up
                     isVisible     = isVisible
                     size          = size
-                    scaleChart    = scaleChart |> PList.ofList
+                    scaleChart    = scaleChart |> IndexList.ofList
                     selectedScale = selectedScale
                     planet        = planet |> enum<Planet>
                 }
@@ -111,7 +111,7 @@ module ReferenceSystem =
         up            = setV3d V3d.OOI
         isVisible     = true              
         size          = initNum2
-        scaleChart = ["100km"; "10km"; "1km";"100m";"10m";"2m";"1m";"10cm";"1cm";"1mm";"0.1mm"] |> PList.ofList
+        scaleChart = ["100km"; "10km"; "1km";"100m";"10m";"2m";"1m";"10cm";"1cm";"1mm";"0.1mm"] |> IndexList.ofList
         selectedScale = "2m"
         planet = Planet.Mars
     }
@@ -144,7 +144,7 @@ type ReferenceSystem with
             do! Json.writeWith Ext.toJson<V3dInput,Ext> "up" x.up
             do! Json.write "isVisible" x.isVisible    
             do! Json.writeWith Ext.toJson<NumericInput,Ext> "size" x.size
-            do! Json.write "scaleChart" (x.scaleChart |> PList.toList)
+            do! Json.write "scaleChart" (x.scaleChart |> IndexList.toList)
             do! Json.write "selectedScale" x.selectedScale
             do! Json.write "planet" (x.planet |> int)
         }

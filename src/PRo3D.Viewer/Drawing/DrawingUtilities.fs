@@ -1,4 +1,4 @@
-﻿namespace PRo3D
+namespace PRo3D
 
 open System
 open Aardvark.Base
@@ -29,7 +29,7 @@ module DrawingUtilities =
 
     module CorrelationHelpers =        
 
-        let tryReadGroupMappingsFile() : option<hmap<string,SemanticId>> =
+        let tryReadGroupMappingsFile() : option<HashMap<string,SemanticId>> =
             if System.IO.File.Exists "groupmappings" then
                 let lines = 
                     File.readAllLines "groupmappings"
@@ -45,14 +45,14 @@ module DrawingUtilities =
                         for g in groups do
                             yield (g.ToLower(), sem |> SemanticId)
                 ]
-                |> HMap.ofList |> Some
+                |> HashMap.ofList |> Some
             else
                 Log.error "[Correlations] Can't find groupmappings file"
                 None
             
-        let performMapping (mappings : hmap<string,SemanticId>)(groupName : string) =
+        let performMapping (mappings : HashMap<string,SemanticId>)(groupName : string) =
             
-            match mappings |> HMap.tryFind (groupName.ToLower()) with
+            match mappings |> HashMap.tryFind (groupName.ToLower()) with
             | Some sem ->                
                 match sem with 
                 | SemanticId "Horizon0" -> sem, SemanticType.Hierarchical
@@ -75,12 +75,12 @@ module DrawingUtilities =
             
             let annosFlat =
                 annotationGroups.flat 
-                |> HMap.map(fun _ x -> Leaf.toAnnotation x)
+                |> HashMap.map(fun _ x -> Leaf.toAnnotation x)
 
             //pairing annotation ids and groupnames
             let annoGroupPairs =
                 groups                  
-                |> List.map(fun x -> x.name, x.leaves |> PList.toList)
+                |> List.map(fun x -> x.name, x.leaves |> IndexList.toList)
                 |> List.map(fun (groupName, leaves) ->
                     leaves |> List.map(fun l -> l,groupName)
                 )
@@ -101,16 +101,16 @@ module DrawingUtilities =
                                                 
                         let anno = 
                             annosFlat 
-                            |> HMap.tryFind annoId
+                            |> HashMap.tryFind annoId
 
                         anno |> Option.map(fun a -> a, semId, semType)
                     )
                     |> List.map(fun (anno, semId, semType) -> 
                         { anno with semanticId = semId; semanticType = semType }
                         |> Leaf.Annotations 
-                        |> HMap.single anno.key                    
+                        |> HashMap.single anno.key                    
                     ) 
-                    |> List.fold(fun a b -> HMap.union a b) annotationGroups.flat
+                    |> List.fold(fun a b -> HashMap.union a b) annotationGroups.flat
     
                 { annotationGroups with flat = annotations}
             | None -> 
@@ -153,7 +153,7 @@ module DrawingUtilities =
               yield s.endPoint 
             ] 
    
-        let computeWayLength (segments:plist<Segment>) = 
+        let computeWayLength (segments:IndexList<Segment>) = 
           [ for s in segments do
                yield getSegmentDistance s
           ] |> List.sum
@@ -170,9 +170,9 @@ module DrawingUtilities =
 
             let heights = 
                 model.points 
-                // |> PList.map(fun x -> model.modelTrafo.Forward.TransformPos(x))
-                |> PList.map(fun p -> getHeightDelta2 p upVec planet ) 
-                |> PList.toList
+                // |> IndexList.map(fun x -> model.modelTrafo.Forward.TransformPos(x))
+                |> IndexList.map(fun p -> getHeightDelta2 p upVec planet ) 
+                |> IndexList.toList
 
             let hcount = heights.Length
 
@@ -254,13 +254,13 @@ module DrawingUtilities =
             let floatingLeaves = 
                 flat.Values 
                 |> Seq.toList
-                |> List.filter(fun x -> (HSet.contains x.id flatGroupIds) |> not)
+                |> List.filter(fun x -> (HashSet.contains x.id flatGroupIds) |> not)
                         
             Log.error "[ViewerIO] found %d floating leaves" (floatingLeaves.Length)
             
             let annoModel = 
                 annos
-                |> GroupsApp.addLeaves List.empty (floatingLeaves |> PList.ofList)
+                |> GroupsApp.addLeaves List.empty (floatingLeaves |> IndexList.ofList)
                 |> CorrelationHelpers.inferSemanticsFromGrouping 
                     
             { annotations with annotations = annoModel} 

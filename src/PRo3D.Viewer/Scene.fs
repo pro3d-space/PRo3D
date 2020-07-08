@@ -1,9 +1,9 @@
-﻿namespace PRo3D
+namespace PRo3D
 
 open System
 open System.IO
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.SceneGraph.Opc
 open Aardvark.UI.Primitives
 
@@ -66,13 +66,13 @@ module Scene =
             let p' = Path.Combine((Path.GetDirectoryName p), "Surfaces")
             let flat' = 
                 (m.surfacesModel.surfaces.flat |> Leaf.toSurfaces)
-                    |> HMap.map(fun _ x ->                            
+                    |> HashMap.map(fun _ x ->                            
                         if x.relativePaths then
                             let p'' = Path.Combine(p', x.name)
                             { x with opcPaths = Files.expandNamesToPaths p'' x.opcNames }
                         else x
                     )
-                    |> HMap.map(fun _ x -> Leaf.Surfaces x)
+                    |> HashMap.map(fun _ x -> Leaf.Surfaces x)
             
             let sm = { m.surfacesModel.surfaces with flat = flat' }                
             
@@ -85,8 +85,8 @@ module Scene =
 
     let addLegacyTrafos surfaces = 
         surfaces 
-            |> PList.map(fun s -> s,Path.ChangeExtension(s.importPath, ".trafo"))
-            |> PList.map(fun(s,p) ->                     
+            |> IndexList.map(fun s -> s,Path.ChangeExtension(s.importPath, ".trafo"))
+            |> IndexList.map(fun(s,p) ->                     
                match (Serialization.fileExists p) with
                  | Some path->
                      let t = readLine path
@@ -101,8 +101,8 @@ module Scene =
 
     let addSurfaceAttributes surfaces = 
         surfaces 
-        |> PList.map(fun s -> s, s.importPath |> getOPCxPath)
-        |> PList.map(fun(s,p) -> 
+        |> IndexList.map(fun s -> s, s.importPath |> getOPCxPath)
+        |> IndexList.map(fun(s,p) -> 
            match (Serialization.fileExists p) with
            | Some path->        
                let layers = SurfaceUtils.SurfaceAttributes.read path
@@ -111,32 +111,32 @@ module Scene =
                { s with 
                    scalarLayers  = layers |> SurfaceProperties.getScalarsHmap //SurfaceProperties.getScalars
                    textureLayers = textures
-                   selectedTexture = textures |> PList.tryHead
+                   selectedTexture = textures |> IndexList.tryHead
                }
            | None ->
                s
         )
 
     /// appends surfaces to existing surfaces
-    let import' (runtime : IRuntime) (signature: IFramebufferSignature)(surfaces : plist<Surface>) (m : Model) =
+    let import' (runtime : IRuntime) (signature: IFramebufferSignature)(surfaces : IndexList<Surface>) (m : Model) =
             
         //handle semantic surfaces
         let surfaces = 
             surfaces 
             |> addLegacyTrafos
             |> addSurfaceAttributes
-            |> PList.map( fun x -> { x with colorCorrection = PRo3D.Surfaces.Init.initColorCorrection}) 
+            |> IndexList.map( fun x -> { x with colorCorrection = PRo3D.Surfaces.Init.initColorCorrection}) 
               
         let existingSurfaces = 
             m.scene.surfacesModel.surfaces.flat
             |> Leaf.toSurfaces
-            |> HMap.toList 
+            |> HashMap.toList 
             |> List.map snd 
-            |> PList.ofList
+            |> IndexList.ofList
 
         let sChildren = 
             surfaces 
-            |> PList.map Leaf.Surfaces
+            |> IndexList.map Leaf.Surfaces
 
         let m = 
             m.scene.surfacesModel.surfaces
@@ -146,13 +146,13 @@ module Scene =
         let surfaceMap = 
             (m.scene.surfacesModel.surfaces.flat |> Leaf.toSurfaces)
 
-        let allSurfaces = existingSurfaces |> PList.append' surfaces //????
+        let allSurfaces = existingSurfaces |> IndexList.append' surfaces //????
         //handle sg surfaces
         let m = 
             allSurfaces
-            |> PList.filter (fun s -> s.surfaceType = SurfaceType.SurfaceOPC)
+            |> IndexList.filter (fun s -> s.surfaceType = SurfaceType.SurfaceOPC)
             |> Sg.createSgSurfaces runtime signature
-            |> HMap.union m.scene.surfacesModel.sgSurfaces
+            |> HashMap.union m.scene.surfacesModel.sgSurfaces
             |> Files.expandLazyKdTreePaths m.scene.scenePath surfaceMap
             |> Lenses.set' (_surfaceModelLens |. SurfaceModel.Lens.sgSurfaces) m                                               
          
@@ -160,17 +160,17 @@ module Scene =
         |> SurfaceModel.triggerSgGrouping 
         |> Lenses.set' _surfaceModelLens m
 
-    let importObj (runtime : IRuntime) (signature: IFramebufferSignature)(surfaces : plist<Surface>) (m : Model) =
+    let importObj (runtime : IRuntime) (signature: IFramebufferSignature)(surfaces : IndexList<Surface>) (m : Model) =
       
         let existingSurfaces = 
             m.scene.surfacesModel.surfaces.flat
             |> Leaf.toSurfaces
-            |> HMap.toList 
+            |> HashMap.toList 
             |> List.map snd 
-            |> PList.ofList
+            |> IndexList.ofList
 
-        let allSurfaces = existingSurfaces |> PList.append' surfaces //????
-        let sChildren = surfaces |> PList.map Leaf.Surfaces
+        let allSurfaces = existingSurfaces |> IndexList.append' surfaces //????
+        let sChildren = surfaces |> IndexList.map Leaf.Surfaces
 
         let m = 
             m.scene.surfacesModel.surfaces 
@@ -180,9 +180,9 @@ module Scene =
         //handle sg surfaces
         let m = 
             allSurfaces
-            |> PList.filter (fun s -> s.surfaceType = SurfaceType.SurfaceOBJ)
+            |> IndexList.filter (fun s -> s.surfaceType = SurfaceType.SurfaceOBJ)
             |> SurfaceUtils.ObjectFiles.createSgObjects runtime signature
-            |> HMap.union m.scene.surfacesModel.sgSurfaces
+            |> HashMap.union m.scene.surfacesModel.sgSurfaces
             |> Lenses.set' (_surfaceModelLens |. SurfaceModel.Lens.sgSurfaces) m
                     
         m.scene.surfacesModel 
@@ -194,25 +194,25 @@ module Scene =
 
         let surfacesList =
             surfaces
-            |> HMap.toList 
+            |> HashMap.toList 
             |> List.map snd 
-            |> PList.ofList
+            |> IndexList.ofList
 
         let opcSurfs = 
             surfacesList 
-            |> PList.filter ( fun x -> x.surfaceType = SurfaceType.SurfaceOPC)
+            |> IndexList.filter ( fun x -> x.surfaceType = SurfaceType.SurfaceOPC)
 
         let sgSurfaces = 
           Sg.createSgSurfaces runtime signature opcSurfs |> Files.expandLazyKdTreePaths scenePath surfaces        
 
         let objSurfs = 
             surfacesList 
-            |> PList.filter ( fun x -> x.surfaceType = SurfaceType.SurfaceOBJ)
+            |> IndexList.filter ( fun x -> x.surfaceType = SurfaceType.SurfaceOBJ)
 
         let sgSurfaceObj = 
             SurfaceUtils.ObjectFiles.createSgObjects runtime signature objSurfs //|> Files.expandLazyKdTreePaths scenePath surfaces      
             
-        let sgs = sgSurfaces |> HMap.union sgSurfaceObj
+        let sgs = sgSurfaces |> HashMap.union sgSurfaceObj
 
         model           
         |> SurfaceModel.withSgSurfaces sgs

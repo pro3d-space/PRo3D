@@ -1,8 +1,8 @@
-﻿namespace UIPlus
+namespace UIPlus
 
 open Aardvark.UI
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open UIPlus
 open UIPlus.Tables
 
@@ -76,7 +76,7 @@ module ColourMap =
             |> List.mapi (fun index x -> 
                 let orderedItem = x index
                 orderedItem.id, orderedItem)
-            |> HMap.ofList
+            |> HashMap.ofList
 
         {
             mappings     = mappings
@@ -89,7 +89,7 @@ module ColourMap =
         | ItemMessage (id, colorAction) ->
             let updatedMap = 
                 model.mappings
-                |> HMap.alter id (Option.map (fun x -> ColourMapItem.update x colorAction))
+                |> HashMap.alter id (Option.map (fun x -> ColourMapItem.update x colorAction))
             {model with mappings = updatedMap}
         | SelectItem id ->
             {model with selected = Some id}

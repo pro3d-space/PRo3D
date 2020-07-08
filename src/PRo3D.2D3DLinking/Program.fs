@@ -1,4 +1,4 @@
-﻿open System
+open System
 
 open Aardvark.Base
 open Aardvark.UI
@@ -28,27 +28,27 @@ let main argv =
         |> Array.map(fun x -> 
               let kv = x.Split [|'='|]
               kv.[0],kv.[1])
-        |> HMap.ofArray
+        |> HashMap.ofArray
 
     let opcDir =
-      match argsKv |> HMap.tryFind "opc" with
+      match argsKv |> HashMap.tryFind "opc" with
       | Some dir -> dir
       | None -> failwith "need opc directory ... opc=\"[opcfilepath]\" "
 
     Serialization.init()
     // loading dump file, later replace with database connection
     let dumpFile =
-        match argsKv |> HMap.tryFind "dump" with
+        match argsKv |> HashMap.tryFind "dump" with
         | Some file -> file
         | None -> failwith "need dump file ... dump=\"[dumpfilepath]\" "
 
     let cacheFile =
-        match argsKv |> HMap.tryFind "cache" with
+        match argsKv |> HashMap.tryFind "cache" with
         | Some file -> file
         | None -> failwith "need cache file ... cache=\"[cachefilepath]\" "
 
     let access =
-        match argsKv |> HMap.tryFind "access" with
+        match argsKv |> HashMap.tryFind "access" with
         | Some file -> file
         | None -> failwith "need minerva access ... access=\"minervaaccount:pw\" "
 

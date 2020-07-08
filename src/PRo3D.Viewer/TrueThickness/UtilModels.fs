@@ -1,22 +1,22 @@
-﻿namespace Utils
+namespace Utils
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI
 
-[<DomainType>]
+[<ModelType>]
 type PickPointModel =
     {
         pos : V3d
 
-        [<NonIncremental>]
+        [<NonAdaptive>]
         id  : string
     }
 
-[<DomainType>]
+[<ModelType>]
 type PickPointsModel =
     {
-        points : plist<PickPointModel>
+        points : IndexList<PickPointModel>
          // for precision, we need to a stable anchor to be used in as modeltrafo. 
          // so we compute pretrafo given the first point and all further points get pretransformed
         preTrafo : Option<Trafo3d>

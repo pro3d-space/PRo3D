@@ -1,4 +1,4 @@
-﻿namespace PRo3D.DrawingApp
+namespace PRo3D.DrawingApp
 
 open System
 
@@ -6,7 +6,7 @@ open Aardvark.Base
 open Aardvark.Application
 open Aardvark.UI
 
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Base.Rendering
 open Aardvark.Application
 open Aardvark.SceneGraph
@@ -37,29 +37,29 @@ module UI =
     let mkColor (model : MGroupsModel) (a : MAnnotation) =
         let color =  
             model.selectedLeaves.Content
-            |> Mod.bind (fun selected -> 
-                if HRefSet.exists (fun x -> x.id = a.key) selected then 
-                    Mod.constant C4b.VRVisGreen
+            |> AVal.bind (fun selected -> 
+                if CountingHashSet.exists (fun x -> x.id = a.key) selected then 
+                    AVal.constant C4b.VRVisGreen
                 else a.color.c
             )
             //|> ASet.map(fun x -> x.id = a.key)
             //|> ASet.contains true
-            //|> Mod.bind (function x -> if x then Mod.constant C4b.VRVisGreen else a.color.c)
+            //|> AVal.bind (function x -> if x then AVal.constant C4b.VRVisGreen else a.color.c)
         color              
       
     let mkCubeColor (model : MGroupsModel) (a : MAnnotation) =
         model.selectedLeaves.Content
-        |> Mod.bind (fun selected -> 
-            if HRefSet.exists (fun x -> x.id = a.key) selected then
-                Mod.constant C4b.VRVisGreen
+        |> AVal.bind (fun selected -> 
+            if CountingHashSet.exists (fun x -> x.id = a.key) selected then
+                AVal.constant C4b.VRVisGreen
             else a.color.c
            )
         //|> ASet.map(fun x -> x.id = a.key)
         //|> ASet.contains true
-        //|> Mod.bind (function x -> if x then Mod.constant C4b.VRVisGreen else a.color.c)
+        //|> AVal.bind (function x -> if x then AVal.constant C4b.VRVisGreen else a.color.c)
     
     let isSingleSelect (model : MGroupsModel) (a : MAnnotation) =
-        model.singleSelectLeaf |> Mod.map( fun x -> 
+        model.singleSelectLeaf |> AVal.map( fun x -> 
             match x with 
             | Some selected -> selected = a.key
             | None -> false )
@@ -104,8 +104,8 @@ module UI =
             div [clazz "item"] [
                 i [clazz "large Sticky Note middle aligned icon"][]
                 div [clazz "content"] [
-                    div [clazz "header"][Incremental.text (a.geometry |> Mod.map(string))]
-                    div [clazz "description"][Incremental.text (a.points |> AList.count |> Mod.map(string))]
+                    div [clazz "header"][Incremental.text (a.geometry |> AVal.map(string))]
+                    div [clazz "description"][Incremental.text (a.points |> AList.count |> AVal.map(string))]
                 ]
             ]
         )
@@ -148,7 +148,7 @@ module UI =
             
             let headerColor = 
                 (isSingleSelect model a) 
-                |> Mod.map(fun x -> 
+                |> AVal.map(fun x -> 
                     if x then 
                         C4b.VRVisGreen
                     else
@@ -198,7 +198,7 @@ module UI =
                     )
 
                     //description
-                    let desc = Mod.map2 (fun x y -> sprintf "#Points: %A | taken on: %A" x y) (a.points |> AList.count) a.surfaceName
+                    let desc = AVal.map2 (fun x y -> sprintf "#Points: %A | taken on: %A" x y) (a.points |> AList.count) a.surfaceName
                     yield div [clazz "description";style ac ] [Incremental.text desc]
                 ]
             ]                            
@@ -222,7 +222,7 @@ module UI =
             }
                                       
         let setActiveAction = 
-            GroupsAppAction.SetActiveGroup (group.key |> Mod.force, path, group.name |> Mod.force)
+            GroupsAppAction.SetActiveGroup (group.key |> AVal.force, path, group.name |> AVal.force)
             |> GroupsMessage
 
         let setActiveAttributes = GroupsApp.clickIconAttributes activeIcon setActiveAction
@@ -280,7 +280,7 @@ module UI =
         let annos = 
             group.leaves 
             |> AList.filterM(fun x -> lookup |> AMap.keys |> ASet.contains x)
-            |> AList.map(fun x -> lookup |> AMap.find x |> Mod.force) 
+            |> AList.map(fun x -> lookup |> AMap.find x |> AVal.force) 
             |> viewAnnotationsInGroup path model singleSelect multiSelect lift
 
         let nodes = annos |> AList.append subNodes
@@ -306,7 +306,7 @@ module UI =
     let viewAnnotationGroups (model:MDrawingModel) = 
         let a = 
           model.annotations.flat 
-            |> AMap.map(fun _ v -> (v |> Mod.force) |> toMAnnotation)              
+            |> AMap.map(fun _ v -> (v |> AVal.force) |> toMAnnotation)              
          
         require GuiEx.semui (
             let tree = viewTree [] model.annotations.rootGroup model.annotations a

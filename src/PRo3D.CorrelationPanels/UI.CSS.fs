@@ -1,10 +1,10 @@
-﻿namespace GUI
+namespace GUI
 
 
     module CSS =
       open System
       open Aardvark.Base
-      open Aardvark.Base.Incremental
+      open FSharp.Data.Adaptive
       open Aardvark.UI
       open CorrelationDrawing
 
@@ -43,49 +43,49 @@
       let bgColorStr (color : C4b) =
         (sprintf "background: %s" (colorToHexStr color))
 
-      let incrBgColorAMap (colorMod : IMod<C4b>) =      
+      let incrBgColorAMap (colorMod : aval<C4b>) =      
         amap { 
           let! col =  colorMod
           let str = (sprintf "background: %s" (colorToHexStr col))
           yield style str
         }
 
-      let incrBgColorAttr (colorMod : IMod<C4b>) =
+      let incrBgColorAttr (colorMod : aval<C4b>) =
         colorMod 
-          |> Mod.map (fun x -> 
+          |> AVal.map (fun x -> 
                         style (sprintf "background-color: %s" (colorToHexStr x)))      
 
        
-      let modColorToColorAttr (c : IMod<C4b>) =
-        let styleStr = Mod.map (fun x -> (sprintf "color:%s" (colorToHexStr x))) c
-        Mod.map (fun x -> style x) styleStr  
+      let modColorToColorAttr (c : aval<C4b>) =
+        let styleStr = AVal.map (fun x -> (sprintf "color:%s" (colorToHexStr x))) c
+        AVal.map (fun x -> style x) styleStr  
 
       let noPadding  = "padding: 0px 0px 0px 0px"
       let tinyPadding  = "padding: 1px 1px 1px 1px"
       let lrPadding = "padding: 1px 4px 1px 4px"
 
       module Incremental =
-        open Aardvark.Base.Incremental
+        open FSharp.Data.Adaptive
 
-        let style (lst : list<IMod<String>>) = 
+        let style (lst : list<aval<String>>) = 
           let res = 
             List.fold (fun s1 s2 -> 
-                        Mod.map2 (fun a b -> 
+                        AVal.map2 (fun a b -> 
                                     sprintf ("%s%s") a b) s1 s2
-                      ) (Mod.constant "") lst
+                      ) (AVal.constant "") lst
           amap {
             let! r = res
             yield style r
           }
           
 
-      //  let saturation (sat : IMod<int>) =
-          //FIREFOX: Mod.map (fun s -> sprintf "filter: saturate(%i%%);" s) sat
+      //  let saturation (sat : aval<int>) =
+          //FIREFOX: AVal.map (fun s -> sprintf "filter: saturate(%i%%);" s) sat
          
             
           
-        let transition (sec : IMod<float>) =
-           Mod.map (fun s -> (sprintf "transition: all %.2fs ease;" s)) sec
+        let transition (sec : aval<float>) =
+           AVal.map (fun s -> (sprintf "transition: all %.2fs ease;" s)) sec
            
           
 

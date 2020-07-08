@@ -1,4 +1,4 @@
-﻿namespace PRo3D
+namespace PRo3D
 
 module SurfaceTrafoImporter = 
     open System
@@ -47,7 +47,7 @@ module SurfaceTrafoImporter =
         let surfaces = reader.StreamElements("Surfaces").Elements(xname "Surface")
         surfaces 
             |> Seq.map getData
-            |> PList.ofSeq  
+            |> IndexList.ofSeq  
         
 
 

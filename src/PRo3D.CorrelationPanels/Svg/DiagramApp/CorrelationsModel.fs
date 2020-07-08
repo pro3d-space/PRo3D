@@ -1,8 +1,8 @@
-﻿namespace Svgplus.Correlations2
+namespace Svgplus.Correlations2
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Svgplus
 open Svgplus.RectangleType
 open UIPlus
@@ -18,21 +18,21 @@ module CorrelationId =
         a
         
 type CorrelationsAction =
-    | Create  of hmap<RectangleBorderId, BorderContactId>
-    | Edit    of (CorrelationId * hmap<RectangleBorderId, BorderContactId>)
+    | Create  of HashMap<RectangleBorderId, BorderContactId>
+    | Edit    of (CorrelationId * HashMap<RectangleBorderId, BorderContactId>)
     | Delete  of CorrelationId
     | Select  of CorrelationId
     | FlattenHorizon of CorrelationId 
     | DefaultHorizon
     //| SetName of string
 
-[<DomainType>]
+[<ModelType>]
 type Correlation =  {
-    [<NonIncremental>]
+    [<NonAdaptive>]
     version  : int
-    [<NonIncremental>]
+    [<NonAdaptive>]
     id       : CorrelationId
-    contacts : hmap<RectangleBorderId, BorderContactId>
+    contacts : HashMap<RectangleBorderId, BorderContactId>
 }
 with
     static member current = 0
@@ -46,7 +46,7 @@ with
                 |> List.map(fun (a,b) ->
                     (RectangleBorderId a), (BorderContactId b)
                 )
-                |> HMap.ofList
+                |> HashMap.ofList
 
             return {
                 version  = Correlation.current
@@ -64,7 +64,7 @@ with
     static member ToJson (x : Correlation) =
         let contacts =
             x.contacts 
-            |> HMap.toList 
+            |> HashMap.toList 
             |> List.map(fun (a,b) -> 
                 a |> RectangleBorderId.getValue, b |> BorderContactId.getValue
             )
@@ -76,19 +76,19 @@ with
         }
 
 
-[<DomainType>]
+[<ModelType>]
 type CorrelationsModel =  {
     version             : int
 
     selectedCorrelation : option<CorrelationId>
-    correlations        : hmap<CorrelationId, Correlation>
+    correlations        : HashMap<CorrelationId, Correlation>
     alignedBy           : option<CorrelationId>
 }
 with
     static member init =
         {
             version      = CorrelationsModel.current
-            correlations = HMap.empty
+            correlations = HashMap.empty
             selectedCorrelation = None
             alignedBy = None
         }
@@ -99,7 +99,7 @@ with
 
             return {
                 version             = CorrelationsModel.current
-                correlations        = correlations |> List.map(fun x -> x.id, x) |> HMap.ofList
+                correlations        = correlations |> List.map(fun x -> x.id, x) |> HashMap.ofList
                 selectedCorrelation = None
                 alignedBy           = None
             }        
@@ -114,5 +114,5 @@ with
     static member ToJson (x : CorrelationsModel) =
         json {
              do! Json.write "version"        x.version
-             do! Json.write "correlations"   (x.correlations |> HMap.toList |> List.map snd)
+             do! Json.write "correlations"   (x.correlations |> HashMap.toList |> List.map snd)
         }

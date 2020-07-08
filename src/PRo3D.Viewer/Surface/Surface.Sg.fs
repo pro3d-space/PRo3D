@@ -1,9 +1,9 @@
-﻿namespace PRo3D.Surfaces
+namespace PRo3D.Surfaces
 
 open System
 open System.IO
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.Base.Rendering
@@ -28,7 +28,7 @@ module Sg =
         surf   : PRo3D.Surfaces.Surface
         bb     : Box3d
         sg     : ISg        
-        kdtree : hmap<Box3d,KdTrees.Level0KdTree>
+        kdtree : HashMap<Box3d,KdTrees.Level0KdTree>
     }
 
     let mutable hackRunner = None
@@ -36,10 +36,10 @@ module Sg =
     let mars 
         (preTrafo    : Trafo3d)
         (self        : AdaptiveToken) 
-        (viewTrafo   : IMod<Trafo3d>)
-        (_projection : IMod<Trafo3d>) 
+        (viewTrafo   : aval<Trafo3d>)
+        (_projection : aval<Trafo3d>) 
         (p           : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) 
-        (lodParams   : IMod<LodParameters>)
+        (lodParams   : aval<LodParameters>)
         =
 
         let lodParams = lodParams.GetValue self
@@ -56,7 +56,7 @@ module Sg =
         px > unitPxSize * (exp lodParams.factor)
 
     let createPlainSceneGraph (runtime : IRuntime) (signature : IFramebufferSignature) (scene : OpcScene) (createKdTrees)
-        : (ISg * list<PatchHierarchy> * hmap<Box3d, KdTrees.Level0KdTree>) =
+        : (ISg * list<PatchHierarchy> * HashMap<Box3d, KdTrees.Level0KdTree>) =
 
         let runner = 
             match hackRunner with
@@ -82,7 +82,7 @@ module Sg =
                     if createKdTrees then   
                         yield KdTrees.loadKdTrees h Trafo3d.Identity ViewerModality.XYZ Serialization.binarySerializer                    
                     else 
-                        yield HMap.empty
+                        yield HashMap.empty
             |]
 
         let totalKdTrees = kdTreesPerHierarchy.Length
@@ -96,7 +96,7 @@ module Sg =
                 Log.stop()
                 r
             )
-            |> Array.fold (fun a b -> HMap.union a b) HMap.empty
+            |> Array.fold (fun a b -> HashMap.union a b) HashMap.empty
         
         let mars = mars (scene.preTransform)
 
@@ -135,7 +135,7 @@ module Sg =
         |> Seq.map (fun p -> assertInvalidBB p.info.GlobalBoundingBox)
         |> Box3d.ofSeq
        
-    let createSgSurface (s:PRo3D.Surfaces.Surface) sg (bb:Box3d) (kd:hmap<Box3d,KdTrees.Level0KdTree>) = 
+    let createSgSurface (s:PRo3D.Surfaces.Surface) sg (bb:Box3d) (kd:HashMap<Box3d,KdTrees.Level0KdTree>) = 
     
         let pose = Pose.translate V3d.Zero // bb.Center
         let trafo = { TrafoController.initial with pose = pose; previewTrafo = Pose.toTrafo pose; mode = TrafoMode.Local }
@@ -152,11 +152,11 @@ module Sg =
     
     let transformBox (trafo:Trafo3d) (bb:Box3d) = bb.Transformed(trafo)
               
-    let createSgSurfaces runtime signature (surfaces:plist<PRo3D.Surfaces.Surface>) =
+    let createSgSurfaces runtime signature (surfaces:IndexList<PRo3D.Surfaces.Surface>) =
       
         let surfaces = 
           surfaces
-            |> PList.toList
+            |> IndexList.toList
             |> List.filter(fun s ->
                 let dirExists = Directory.Exists s.importPath
                 if dirExists |> not then 
@@ -189,7 +189,7 @@ module Sg =
           sghs 
           |> List.map (fun d -> createSgSurface d.surf d.sg d.bb d.kdtree)
           |> List.map (fun d -> (d.surface, d))
-          |> HMap.ofList       
+          |> HashMap.ofList       
         
         sgSurfaces
     
@@ -203,12 +203,12 @@ module Sg =
                     | Some i -> 
                         let! exists = (model.surfaces.flat |> AMap.keys) |> ASet.contains i
                         if exists then
-                          let leaf = model.surfaces.flat |> AMap.find i |> Mod.bind(id)
+                          let leaf = model.surfaces.flat |> AMap.find i |> AVal.bind(id)
                           let! surf = leaf 
                           let x = match surf with | MSurfaces s -> s | _ -> surf |> sprintf "wrong type %A; expected MSurfaces" |> failwith
                           let! hpos = x.homePosition
                           match hpos with
-                              | Some p -> yield Sg.dot (Mod.constant C4b.Yellow) (Mod.constant 3.0) (Mod.constant p.Location)
+                              | Some p -> yield Sg.dot (AVal.constant C4b.Yellow) (AVal.constant 3.0) (AVal.constant p.Location)
                               | None -> yield fail
                         else
                           yield fail

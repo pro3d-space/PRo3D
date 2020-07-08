@@ -1,4 +1,4 @@
-﻿namespace PRo3D
+namespace PRo3D
 
 open Aardvark.Base
 open Aardvark.Application
@@ -6,7 +6,7 @@ open Aardvark.UI
 
 open System
 
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Base.Rendering    
 
 open Aardvark.Base.Rendering   
@@ -40,7 +40,7 @@ module Transformations =
 
     originTrafo * rot * originTrafo.Inverse * refSysRotation.Inverse * trans * refSysRotation    
 
-  let fullTrafo (surf : IMod<MSurface>) (refsys : MReferenceSystem) = 
+  let fullTrafo (surf : aval<MSurface>) (refsys : MReferenceSystem) = 
     adaptive {
       let! s = surf
       let! s = s.Current

@@ -1,7 +1,7 @@
-﻿namespace DS
+namespace DS
 
 module AMap =
-    open Aardvark.Base.Incremental
+    open FSharp.Data.Adaptive
     
     open Aardvark.Base
     

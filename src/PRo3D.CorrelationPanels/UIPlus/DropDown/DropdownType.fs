@@ -1,15 +1,15 @@
-﻿namespace UIPlus.DropdownType
+namespace UIPlus.DropdownType
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 
-[<DomainType>]
+[<ModelType>]
 type DropdownList<'a> = {
-   valueList          : plist<'a>
+   valueList          : IndexList<'a>
    selected           : option<'a>
    color              : C4b
    searchable         : bool
    //changeFunction     : (option<'a> -> 'msg) @Thomas proper way?
-   //labelFunction      : ('a -> IMod<string>)
-   //getIsSelected      : ('a -> IMod<bool>) 
+   //labelFunction      : ('a -> aval<string>)
+   //getIsSelected      : ('a -> aval<bool>) 
  } 

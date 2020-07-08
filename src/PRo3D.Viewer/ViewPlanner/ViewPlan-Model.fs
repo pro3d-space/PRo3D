@@ -1,9 +1,9 @@
-﻿namespace PRo3D.ViewPlan
+namespace PRo3D.ViewPlan
 
 open System
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI.Primitives
 open Aardvark.UI
 open ViewPlanner
@@ -14,7 +14,7 @@ open Chiron
 open PRo3D.Rover
 
 
-[<DomainType>]
+[<ModelType>]
 type ViewPlan = {
     [<PrimaryKey>]
     id                  : Guid
@@ -31,9 +31,9 @@ type ViewPlan = {
     currentAngle        : NumericInput
 }
 
-[<DomainType>]
+[<ModelType>]
 type ViewPlanModel = {
-    viewPlans           : hset<ViewPlan>
+    viewPlans           : HashSet<ViewPlan>
     selectedViewPlan    : Option<ViewPlan>
     working             : list<V3d> // pos + lookAt
     roverModel          : RoverModel

@@ -9,8 +9,8 @@ open System.IO
 open Aardvark.Base
 open Aardvark.Base.Geometry
 open Aardvark.Service
-open Aardvark.Base.Incremental
-open Aardvark.Base.Incremental.Operators
+open FSharp.Data.Adaptive
+open FSharp.Data.Adaptive.Operators
 open Aardvark.Base.Rendering
 open Aardvark.SceneGraph
 open Aardvark.UI
@@ -37,7 +37,7 @@ open PRo3D.Correlations
 
 module Gui =            
     
-    let pitchAndBearing (r:MReferenceSystem) (view:IMod<CameraView>) =
+    let pitchAndBearing (r:MReferenceSystem) (view:aval<CameraView>) =
         adaptive {
           let! up    = r.up.value
           let! north = r.northO//r.north.value   
@@ -82,7 +82,7 @@ module Gui =
         
         let box = 
             m.multiSelectBox 
-            |> Mod.map(fun x -> 
+            |> AVal.map(fun x -> 
                 x 
                 |> Option.map(fun x -> x.renderBox) 
                 |> Option.defaultValue Box2i.Invalid
@@ -110,28 +110,28 @@ module Gui =
 
         Svg.svg canvasAttributes [ selectionRectangle ]
 
-    let textOverlays (m : MReferenceSystem) (cv : IMod<CameraView>) = 
+    let textOverlays (m : MReferenceSystem) (cv : aval<CameraView>) = 
         div [js "oncontextmenu" "event.preventDefault();"] [ 
-            let planet = m.planet |> Mod.map(fun x -> sprintf "%s" (x.ToString()))  
+            let planet = m.planet |> AVal.map(fun x -> sprintf "%s" (x.ToString()))  
             
             let pnb = pitchAndBearing m cv
             
-            let pitch    = pnb |> Mod.map(fun (p,_) -> sprintf "%s deg" (p.ToString("0.00")))
-            let bearing  = pnb |> Mod.map(fun (_,b) -> sprintf "%s deg" (b.ToString("0.00")))
+            let pitch    = pnb |> AVal.map(fun (p,_) -> sprintf "%s deg" (p.ToString("0.00")))
+            let bearing  = pnb |> AVal.map(fun (_,b) -> sprintf "%s deg" (b.ToString("0.00")))
             
-            let position = cv |> Mod.map(fun x -> x.Location.ToString("0.00"))
+            let position = cv |> AVal.map(fun x -> x.Location.ToString("0.00"))
             
             let spericalc = 
-                Mod.map2 (fun (a : CameraView) b -> 
+                AVal.map2 (fun (a : CameraView) b -> 
                     CooTransformation.getLatLonAlt(a.Location) b ) cv m.planet
             
             let alt2 = 
-                Mod.map2 (fun (a : CameraView) b -> 
+                AVal.map2 (fun (a : CameraView) b -> 
                     CooTransformation.getAltitude a.Location a.Up b ) cv m.planet
             
-            let lon = spericalc |> Mod.map(fun x -> sprintf "%s deg" ((x.longitude).ToString("0.00")))
-            let lat = spericalc |> Mod.map(fun x -> sprintf "%s deg" ((x.latitude).ToString("0.00")))            
-            let alt2 = alt2 |> Mod.map(fun x -> sprintf "%s m" ((x).ToString("0.00")))            
+            let lon = spericalc |> AVal.map(fun x -> sprintf "%s deg" ((x.longitude).ToString("0.00")))
+            let lat = spericalc |> AVal.map(fun x -> sprintf "%s deg" ((x.latitude).ToString("0.00")))            
+            let alt2 = alt2 |> AVal.map(fun x -> sprintf "%s m" ((x).ToString("0.00")))            
                                                    
             let style' = "color: white; font-family:Consolas;"
             
@@ -181,8 +181,8 @@ module Gui =
                 let! vp = m.selectedViewPlan
                 let! inst = 
                     match vp with
-                    | Some v -> Mod.bindOption v.selectedInstrument "No instrument selected" (fun a -> a.id)
-                    | None -> Mod.constant("")
+                    | Some v -> AVal.bindOption v.selectedInstrument "No instrument selected" (fun a -> a.id)
+                    | None -> AVal.constant("")
         
                 return inst
             }
@@ -298,7 +298,7 @@ module Gui =
         
                                     for s in last10Scenes do
                                         yield a [clazz "item inverted"; onClick (fun _ -> LoadScene s.path)] [
-                                             span [style "color:black"] [Incremental.text (Mod.constant s.name)]
+                                             span [style "color:black"] [Incremental.text (AVal.constant s.name)]
                                         ]                                    
                                 } 
                             )
@@ -432,13 +432,13 @@ module Gui =
                             |> UI.wrapToolTip "open folder" TTAlignment.Bottom
                         | None -> div[][]  
                           
-                    let scenePath = Mod.bindOption m.scene.scenePath "" (fun sp -> Mod.constant sp)
+                    let scenePath = AVal.bindOption m.scene.scenePath "" (fun sp -> AVal.constant sp)
                     yield  div [] [                     
                         Html.Layout.boxH [ icon ]
                         Html.Layout.boxH [ 
                             Incremental.text (
                                 scenePath 
-                                |> Mod.map(fun x -> 
+                                |> AVal.map(fun x -> 
                                     if x.IsEmpty() then "*new scene" else Path.GetFileName x)
                             )                                     
                         ]
@@ -469,7 +469,7 @@ module Gui =
                 Incremental.div  AttributeMap.empty (AList.ofModSingle (dynamicTop m))
                 Html.Layout.boxH [ 
                     div[style "font-style:italic; width:100%; text-align:right"] [
-                        Incremental.text (m.interaction |> Mod.map interactionText)
+                        Incremental.text (m.interaction |> AVal.map interactionText)
                     ]]
             ]
               
@@ -518,7 +518,7 @@ module Gui =
         let viewDnSColorLegendUI (model:MModel) = 
             model.drawing.dnsColorLegend 
             |> FalseColorLegendApp.viewDnSLegendProperties DnSColorLegendMessage 
-            |> Mod.constant
+            |> AVal.constant
           
         let annotationLeafButtonns' (model:MModel) = 
             let ts = model.drawing.annotations.activeChild
@@ -532,7 +532,7 @@ module Gui =
             }      
             
         let annotationLeafButtonns (model:MModel) =           
-            Mod.map2(fun ts sel -> 
+            AVal.map2(fun ts sel -> 
                 match sel with
                 | Some _ -> (GroupsApp.viewLeafButtons ts |> UI.map AnnotationGroupsMessageViewer)
                 | None -> div[style "font-style:italic"][ text "no annotation group selected" ]
@@ -541,30 +541,30 @@ module Gui =
         let annotationGroupProperties (model:MModel) =                            
             GroupsApp.viewUI model.drawing.annotations 
             |> UI.map AnnotationGroupsMessageViewer 
-            |> Mod.constant
+            |> AVal.constant
         
         let annotationGroupButtons (model:MModel) = 
             model.drawing.annotations.activeGroup 
-            |> Mod.map (fun x -> GroupsApp.viewGroupButtons x |> UI.map AnnotationGroupsMessageViewer)            
+            |> AVal.map (fun x -> GroupsApp.viewGroupButtons x |> UI.map AnnotationGroupsMessageViewer)            
             
         let annotationUI (m : MModel) = 
             let prop = 
                 m.drawing.annotations.lastSelectedItem
-                |> Mod.bind (fun x -> 
+                |> AVal.bind (fun x -> 
                     match x with 
                     | SelectedItem.Group -> annotationGroupProperties m
                     | _ -> viewAnnotationProperties m
                 )
             let results = 
                 m.drawing.annotations.lastSelectedItem
-                |> Mod.bind (fun x -> 
+                |> AVal.bind (fun x -> 
                     match x with 
                     | SelectedItem.Group -> annotationGroupProperties m
                     | _ -> viewAnnotationResults m 
                 )
             let buttons = 
                 m.drawing.annotations.lastSelectedItem
-                |> Mod.bind (fun x -> 
+                |> AVal.bind (fun x -> 
                     match x with 
                     | SelectedItem.Group -> annotationGroupButtons m
                     | _ -> annotationLeafButtonns m 
@@ -598,7 +598,7 @@ module Gui =
       let config (model:MModel) = 
             ConfigProperties.view model.scene.config 
               |> UI.map ConfigPropertiesMessage 
-              |> Mod.constant
+              |> AVal.constant
             
       let configUI (m:MModel) =
           div[][
@@ -632,7 +632,7 @@ module Gui =
       let bookmarkGroupProperties (model:MModel) =                                       
             GroupsApp.viewUI model.scene.bookmarks 
               |> UI.map BookmarkUIMessage 
-              |> Mod.constant
+              |> AVal.constant
               
       let viewBookmarkProperties (model:MModel) = 
           let view = (fun leaf ->
@@ -663,14 +663,14 @@ module Gui =
       let bookmarkUI (m:MModel) = 
           let item2 = 
               m.scene.bookmarks.lastSelectedItem 
-                  |> Mod.bind (fun x -> 
+                  |> AVal.bind (fun x -> 
                       match x with 
                         | SelectedItem.Group -> bookmarkGroupProperties m
                         | _ -> viewBookmarkProperties m 
                   )
           let buttons =
               m.scene.bookmarks.lastSelectedItem 
-                  |> Mod.bind (fun x -> 
+                  |> AVal.bind (fun x -> 
                       match x with 
                         | SelectedItem.Group -> bookmarksGroupButtons m
                         | _ -> bookmarksLeafButtonns m 

@@ -1,9 +1,9 @@
-﻿namespace PRo3D.FootPrint
+namespace PRo3D.FootPrint
 
 open System
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI.Primitives
 open Aardvark.UI
 open ViewPlanner
@@ -132,7 +132,7 @@ with
       do! Json.write      "instrumentInfo"  x.instrumentInfo
     }
 
-[<DomainType>]
+[<ModelType>]
 type SimulatedViewData = {
     //xmlScheme   : XMLScheme
     fileInfo    : FileInfo
@@ -149,7 +149,7 @@ with
       do! Json.write      "acquisition"  x.acquisition
     }
 
-[<DomainType>]
+[<ModelType>]
 type FootPrint = {
     vpId                : option<Guid>
     isVisible           : bool
