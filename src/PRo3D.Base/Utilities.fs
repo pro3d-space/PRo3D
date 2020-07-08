@@ -176,7 +176,7 @@ module Sg =
     let edgeLines (close: bool) (points: alist<V3d>) (trafo: aval<Trafo3d>) : aval<Line3d[]>  =
       points
         |> AList.map(fun d -> trafo.GetValue().Backward.TransformPos d)
-        |> AList.toMod 
+        |> AList.toAVal 
         |> AVal.map (fun l ->
             let list = IndexList.toList l   
             match list |> List.tryHead with
@@ -287,7 +287,7 @@ module Sg =
         ]
 
     let indexedGeometryDots (points: alist<V3d>) (size: aval<float>) (color: aval<C4b>) =       
-        let points' = points |> AList.toMod |> AVal.map (fun x -> x |> IndexList.toArray)
+        let points' = points |> AList.toAVal |> AVal.map (fun x -> x |> IndexList.toArray)
         let colors = points' |> AVal.map2 (fun c x -> Array.create x.Length c) color
       
         Sg.draw IndexedGeometryMode.PointList
@@ -343,7 +343,7 @@ module Sg =
 
             let! p = pos
             let! v = view
-            let dist = V3d.Distance(p, v.Location)
+            let dist = Vec.Distance(p, v.Location)
             let scale = ( wz / near ) * dist
 
             return Trafo3d.Scale scale
@@ -458,11 +458,11 @@ module Formatting =
 module AList =
     let pairwise (input : alist<'a>) = 
         input 
-        |> AList.toMod
+        |> AList.toAVal
         |> AVal.map(fun x -> 
             x |> IndexList.toList |> List.pairwise |> IndexList.ofList
         )
-        |> AList.ofMod
+        |> AList.ofAVal
 
 [<AutoOpen>]
 module ScreenshotUtilities = 

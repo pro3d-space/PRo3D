@@ -5,10 +5,12 @@ open Aardvark.Base
 open FSharp.Data.Adaptive
 open Aardvark.UI
 
-open Chiron
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open PRo3D.Base
+open Chiron
+
+open Adaptify
 
 #nowarn "0686"
 
@@ -280,7 +282,7 @@ type SemanticType = Metric = 0 | Angular = 1 | Hierarchical = 2 | Undefined = 3
 type Annotation = {
     version      : int
     
-    [<PrimaryKey; NonIncremental>]
+    [<NonAdaptive>]
     key          : Guid
                  
     modelTrafo   : Trafo3d
@@ -536,8 +538,8 @@ module Annotation =
              key         = Guid.NewGuid()
              geometry    = geometry
              semantic    = Semantic.None
-             points      = plist.Empty
-             segments    = plist.Empty //[]
+             points      = IndexList.Empty
+             segments    = IndexList.Empty //[]
              color       = color
              thickness   = thickness
              results     = None
@@ -569,8 +571,8 @@ module Annotation =
             key         = Guid.NewGuid()
             geometry    = geometry
             semantic    = Semantic.None
-            points      = plist.Empty
-            segments    = plist.Empty //[]
+            points      = IndexList.Empty
+            segments    = IndexList.Empty //[]
             color       = color
             thickness   = thickness
             results     = None

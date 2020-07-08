@@ -100,9 +100,9 @@ namespace CSharpUtils
             V3f point1 = points[index1];
             V3f point2 = points[index2];
 
-            double dist_p0p1 = V3f.Distance(point0, point1);
-            double dist_p0p2 = V3f.Distance(point0, point2);
-            double dist_p1p2 = V3f.Distance(point1, point2);
+            double dist_p0p1 = Vec.Distance(point0, point1);
+            double dist_p0p2 = Vec.Distance(point0, point2);
+            double dist_p1p2 = Vec.Distance(point1, point2);
 
             if ((dist_p0p1 > maxTriangleSize) || (dist_p0p2 > maxTriangleSize) || (dist_p1p2 > maxTriangleSize))
             {

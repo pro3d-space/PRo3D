@@ -5,6 +5,8 @@ open Aardvark.Base
 open OpcViewer.Base
 open PRo3D.Base
 
+open FSharp.Data.Adaptive
+
 module DipAndStrike =   
       
     let projectOntoPlane (x:V3d) (n:V3d) = (x - (x * n)).Normalized
@@ -99,7 +101,7 @@ module DipAndStrike =
             //correct plane orientation - check if normals point in same direction           
             let planeNormal = 
                 match signedOrientation up plane with
-                | -1 -> plane.Normal.Negated
+                | -1 -> -plane.Normal
                 | _  -> plane.Normal
     
             //let plane = Plane3d(planeNormal, plane.Distance)
@@ -156,7 +158,7 @@ module DipAndStrike =
                 let height = Plane3d(up, V3d.Zero).Height(plane.Normal)
                 plane.Normal <-
                     match height.Sign() with
-                    | -1 -> plane.Normal.Negated
+                    | -1 -> -plane.Normal
                     | _  -> plane.Normal                
     
                 //strike
@@ -196,7 +198,7 @@ module Calculations =
    let getDistance (points:list<V3d>) = 
        points
        |> List.pairwise
-       |> List.map (fun (a,b) -> V3d.Distance(a,b))
+       |> List.map (fun (a,b) -> Vec.Distance(a,b))
        |> List.sum
 
    let getSegmentDistance (s:Segment) = 
@@ -218,9 +220,9 @@ module Calculations =
 
    let calcResultsLine (model:Annotation) (upVec:V3d) (northVec:V3d) (planet:Planet) : AnnotationResults =
        let count = model.points.Count
-       let dist = V3d.Distance(model.points.[0], model.points.[count-1])
+       let dist = Vec.Distance(model.points.[0], model.points.[count-1])
        let wayLength =
-           if model.segments.IsEmpty() then
+           if model.segments.IsEmpty then
                computeWayLength model.segments
            else
                dist
