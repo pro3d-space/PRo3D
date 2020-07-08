@@ -15,8 +15,9 @@ nuget Aardvark.Rendering.Text
 nuget Aardvark.Rendering.Vulkan            
 nuget Aardvark.GPGPU                       
 
-nuget Aardvark.Compiler.DomainTypes        
-nuget Aardvark.Compiler.DomainTypes.MSBuild
+Adaptify.MSBuild
+Adaptify.Core
+
 
 nuget FsPickler                            
 nuget FsPickler.Json                       
