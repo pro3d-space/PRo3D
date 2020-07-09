@@ -99,6 +99,8 @@ let main argv =
     Aardvark.Rendering.GL.RuntimeConfig.SupressSparseBuffers <- true
     app.ShaderCachePath <- None
 
+    PRo3D.Surfaces.Sg.hackRunner <- runtime.CreateLoadRunner 2 |> Some
+
     Serialization.init()
     
     Serialization.registry.RegisterFactory (fun _ -> KdTrees.level0KdTreePickler)

@@ -31,7 +31,7 @@ module Sg =
         kdtree : HashMap<Box3d,KdTrees.Level0KdTree>
     }
 
-    let mutable hackRunner = None
+    let mutable hackRunner : Option<Load.Runner> = None
 
     let mars 
         (preTrafo    : Trafo3d)
@@ -62,9 +62,9 @@ module Sg =
             match hackRunner with
             | None -> 
                 printfn "create runner"
-                let  r = runtime.CreateLoadRunner 2
-                hackRunner <- Some (r)
-                r
+                //let  r = runtime.CreateLoadRunner 2
+                //hackRunner <- Some (r)
+                failwith ""
             | Some h -> h
         let preTransform = scene.preTransform
     

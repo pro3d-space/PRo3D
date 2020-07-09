@@ -273,7 +273,9 @@ module Gui =
                             | Some y -> LoadScene y 
                             | None -> NoAction "no scene selected")
 
-                        clientEvent "onclick" ("top.aardvark.processEvent('__ID__', 'onchoose', top.aardvark.dialog.showOpenDialog({ filters: [{ name: 'Scene', extensions: ['pro3d','scn']},], properties: ['openFile']}));")][                                       
+                        clientEvent "onclick" (
+                            "top.aardvark.dialog.showOpenDialog({ filters: [{ name: 'Scene', extensions: ['pro3d','scn']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+                           )][                                       
                         text "Open"
                     ]
 
