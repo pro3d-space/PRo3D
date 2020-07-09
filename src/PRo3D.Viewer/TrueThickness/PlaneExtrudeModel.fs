@@ -3,10 +3,10 @@
 namespace PlaneExtrude
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI.Trafos
 
-[<DomainType>]
+[<ModelType>]
 type PlaneModel =
     {
         v0    : V3d
@@ -17,7 +17,7 @@ type PlaneModel =
         above : int
         below : int
 
-        [<NonIncremental>]
+        [<NonAdaptive>]
         id : string
 
         local2Global : Trafo3d
@@ -27,7 +27,7 @@ type LineSide =
     | LEFT
     | RIGHT
 
-[<DomainType>]
+[<ModelType>]
 type LineModel =
     {
         startPlane : PlaneModel
@@ -38,12 +38,12 @@ type LineModel =
         local2Global : Trafo3d
     }
     
-[<DomainType>]
+[<ModelType>]
 type Model =
     {
         pointsModel : Utils.PickPointsModel
-        planeModels : plist<PlaneModel>
-        lineModels  : plist<LineModel>
+        planeModels : IndexList<PlaneModel>
+        lineModels  : IndexList<LineModel>
 
         addMode     : bool
         extrudeMode : bool
@@ -51,6 +51,6 @@ type Model =
         trafo       : Transformation
         maxGroupId  : int
 
-        [<NonIncremental>]
+        [<NonAdaptive>]
         id : string
     }

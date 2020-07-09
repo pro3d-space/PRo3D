@@ -1,13 +1,14 @@
-﻿namespace Svgplus.HeaderType
+namespace Svgplus.HeaderType
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
+open Adaptify
 open CorrelationDrawing
 open Svgplus
 open Svgplus.TextType
 open UIPlus
 
-[<DomainType>]
+[<ModelType>]
 type Header = {
     centre      : V2d
     dim         : Size2D

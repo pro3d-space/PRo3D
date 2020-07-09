@@ -1,9 +1,9 @@
-﻿namespace PRo3D
+namespace PRo3D
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
-open Aardvark.Base.Incremental.Operators
+open FSharp.Data.Adaptive
+open FSharp.Data.Adaptive.Operators
 open Aardvark.Base.Rendering    
 
 open Aardvark.Application
@@ -19,6 +19,10 @@ open Aardvark.VRVis.Opc
 open PRo3D.ReferenceSystem    
 open PRo3D.Base
 open PRo3D.Base.Annotation
+
+open Aether
+open Aether.Operators
+open Aardvark.UI.Primitives
 
 module ReferenceSystemApp =
 
@@ -43,9 +47,9 @@ module ReferenceSystemApp =
 
     type MInnerConfig<'ma> =
         {
-            getArrowLength    : 'ma -> IMod<float>
-            getArrowThickness : 'ma -> IMod<float>
-            getNearDistance   : 'ma -> IMod<float>
+            getArrowLength    : 'ma -> aval<float>
+            getArrowThickness : 'ma -> aval<float>
+            getNearDistance   : 'ma -> aval<float>
         }
 
     let updateVectorInDegree (up:V3d) (point:V3d) (origin:V3d) (theta:float) =
@@ -107,7 +111,7 @@ module ReferenceSystemApp =
     let updateCoordSystem (p:V3d) (planet:Planet) (model : ReferenceSystem) = 
         let up = upVector p planet
         let n  = match planet with | Planet.None -> V3d.IOO | _ -> northVector up
-        let no = Rot3d(up, model.noffset.value |> Double.radiansFromDegrees).TransformDir(n) //updateVectorInDegree up n model.origin model.noffset.value 
+        let no = Rot3d.Rotation(up, model.noffset.value |> Double.radiansFromDegrees).Transform(n) //updateVectorInDegree up n model.origin model.noffset.value 
         { model with north = ReferenceSystem.setV3d n; up = ReferenceSystem.setV3d up; northO = no }
 
    
@@ -130,15 +134,15 @@ module ReferenceSystemApp =
             | SetNOffset o ->
                 let noffset = Numeric.update model.noffset o
                 let no = 
-                  Rot3d(model.up.value, noffset.value |> Double.radiansFromDegrees)
-                    .TransformDir(model.north.value) |> Vec.normalize                
+                  Rot3d.Rotation(model.up.value, noffset.value |> Double.radiansFromDegrees)
+                    .Transform(model.north.value) |> Vec.normalize                
 
 
                 { model with noffset = noffset; northO = no }, bigConfig 
             | ToggleVisible   -> 
                 { model with isVisible = not model.isVisible}, bigConfig
             | SetArrowSize d  ->
-                let big' = config.arrowLength.Set(bigConfig, d) 
+                let big' = Optic.set config.arrowLength d bigConfig
                 model, big'          
             | SetScale s ->
                 { model with selectedScale = s }, bigConfig
@@ -150,14 +154,14 @@ module ReferenceSystemApp =
         open PRo3D.Base.Sg
 
         type MarkerStyle = {
-                position  : IMod<V3d>
-                direction : IMod<V3d>
-                color     : IMod<C4b>
-                size      : IMod<float>
-                thickness : IMod<float>
-                hasArrow  : IMod<bool>
-                text      : IMod<option<string>>
-                fix       : IMod<bool>
+                position  : aval<V3d>
+                direction : aval<V3d>
+                color     : aval<C4b>
+                size      : aval<float>
+                thickness : aval<float>
+                hasArrow  : aval<bool>
+                text      : aval<option<string>>
+                fix       : aval<bool>
             }
 
         //let coneISg color radius size trafo =  
@@ -170,14 +174,14 @@ module ReferenceSystemApp =
         //            }
         //            |> Sg.trafo(trafo)
 
-        let directionMarker (near:IMod<float>) (cam:IMod<CameraView>) (style : MarkerStyle) =
+        let directionMarker (near:aval<float>) (cam:aval<CameraView>) (style : MarkerStyle) =
             aset{
                
                 //let! dirs = style.direction
                 
                 let lineLengthScale = style.size                    
                 let scaledLength = 
-                    Mod.map2(fun (str:V3d) s -> str.Normalized * s) style.direction lineLengthScale
+                    AVal.map2(fun (str:V3d) s -> str.Normalized * s) style.direction lineLengthScale
 
                 //let scaledLength = dir * length
                 let al = 
@@ -189,36 +193,36 @@ module ReferenceSystemApp =
                     }
 
                 let posTrafo =
-                    style.position |> Mod.map(fun d -> Trafo3d.Translation(d))
+                    style.position |> AVal.map(fun d -> Trafo3d.Translation(d))
 
                 //let coneTrafo = 
-                //    Mod.map2(fun p s -> Trafo3d.RotateInto(V3d.ZAxis, dirs.Normalized) * Trafo3d.Translation(p + s)) style.position scaledLength
+                //    AVal.map2(fun p s -> Trafo3d.RotateInto(V3d.ZAxis, dirs.Normalized) * Trafo3d.Translation(p + s)) style.position scaledLength
 
                 //let radius = length * 0.1
                 //let scale =  DrawingApp.Sg.computeInvariantScale cam p 5.0
-                //let radius = lineLengthScale |> Mod.map(fun d -> d * 0.04)
-                //let coneSize = lineLengthScale |> Mod.map(fun d -> d * 0.3)
+                //let radius = lineLengthScale |> AVal.map(fun d -> d * 0.04)
+                //let coneSize = lineLengthScale |> AVal.map(fun d -> d * 0.3)
 
-                let nLabelPos = Mod.map2(fun l r -> l + r) style.position scaledLength
+                let nLabelPos = AVal.map2(fun l r -> l + r) style.position scaledLength
                 let nPosTrafo =
-                    nLabelPos |> Mod.map(fun d -> Trafo3d.Translation(d))
+                    nLabelPos |> AVal.map(fun d -> Trafo3d.Translation(d))
 
                 
                 let label = 
                     style.text 
-                      |> Mod.map(fun x ->
+                      |> AVal.map(fun x ->
                         match x with 
                           | Some text -> Sg.text cam near ~~60.0 nLabelPos nPosTrafo ~~0.05 ~~text
                           | None -> Sg.empty)
 
-                yield Sg.drawLines al (Mod.constant 0.0)style.color style.thickness posTrafo
+                yield Sg.drawLines al (AVal.constant 0.0)style.color style.thickness posTrafo
                 yield label |> Sg.dynamic                                   
                  
             } |> Sg.set 
 
            
-        let point (pos:IMod<V3d>) (color:IMod<C4b>) (cam:IMod<CameraView>) = 
-            Sg.dot color (Mod.constant 3.0)  pos
+        let point (pos:aval<V3d>) (color:aval<C4b>) (cam:aval<CameraView>) = 
+            Sg.dot color (AVal.constant 3.0)  pos
 
 //["1km";"100m";"10m";"1m";"10cm";"1cm";"1mm";"0.1mm"] 
         let scaleToSize (a:string) =
@@ -236,25 +240,25 @@ module ReferenceSystemApp =
               | "0.1mm" ->      0.0001
               | _       ->      1.0
 
-        let getOrientationSystem (mbigConfig : 'ma) (minnerConfig : MInnerConfig<'ma>) (model:MReferenceSystem) (cam:IMod<CameraView>) =
-            let thickness = Mod.constant 2.0
+        let getOrientationSystem (mbigConfig : 'ma) (minnerConfig : MInnerConfig<'ma>) (model:AdaptiveReferenceSystem) (cam:aval<CameraView>) =
+            let thickness = AVal.constant 2.0
             let near      = minnerConfig.getNearDistance   mbigConfig
 
-            let east = Mod.map2(fun (l:V3d) (r:V3d) -> r.Cross(l) ) model.up.value model.north.value
+            let east = AVal.map2(fun (l:V3d) (r:V3d) -> r.Cross(l) ) model.up.value model.north.value
 
-            let size = Mod.constant 2.0
-            let posTrafo = Mod.constant (Trafo3d.Translation(V3d.OOO))
-            let position = Mod.constant V3d.OIO
+            let size = AVal.constant 2.0
+            let posTrafo = AVal.constant (Trafo3d.Translation(V3d.OOO))
+            let position = AVal.constant V3d.OIO
 
             let styleUp : MarkerStyle = {
                 position  = position
                 direction = model.up.value
-                color     = Mod.constant C4b.Magenta
+                color     = AVal.constant C4b.Magenta
                 size      = size
                 thickness = thickness
-                hasArrow  = Mod.constant false
-                text      = Mod.constant None
-                fix       = Mod.constant false
+                hasArrow  = AVal.constant false
+                text      = AVal.constant None
+                fix       = AVal.constant false
             }
 
 
@@ -282,94 +286,94 @@ module ReferenceSystemApp =
                     yield position + edir.Normalized
                     }
 
-            let nLabelPos = Mod.map2(fun l r -> l + r) position model.north.value
-            let nPosTrafo =nLabelPos |> Mod.map(fun d -> Trafo3d.Translation(d))
-            let label = Sg.text cam near (Mod.constant 60.0) nLabelPos nPosTrafo (Mod.constant 0.05) (Mod.constant "N")
+            let nLabelPos = AVal.map2(fun l r -> l + r) position model.north.value
+            let nPosTrafo =nLabelPos |> AVal.map(fun d -> Trafo3d.Translation(d))
+            let label = Sg.text cam near (AVal.constant 60.0) nLabelPos nPosTrafo (AVal.constant 0.05) (AVal.constant "N")
 
             Sg.ofList [
-                point model.origin (Mod.constant C4b.Red) cam
+                point model.origin (AVal.constant C4b.Red) cam
                 //sizeText
-                Sg.drawLines upV (Mod.constant 0.0)(Mod.constant C4b.Blue) thickness posTrafo 
+                Sg.drawLines upV (AVal.constant 0.0)(AVal.constant C4b.Blue) thickness posTrafo 
                 styleUp |> directionMarker near cam 
-                Sg.drawLines northV (Mod.constant 0.0)(Mod.constant C4b.Red) thickness posTrafo 
-                Sg.drawLines eastV (Mod.constant 0.0)(Mod.constant C4b.Green) thickness posTrafo
+                Sg.drawLines northV (AVal.constant 0.0)(AVal.constant C4b.Red) thickness posTrafo 
+                Sg.drawLines eastV (AVal.constant 0.0)(AVal.constant C4b.Green) thickness posTrafo
                 label                     
             ]   |> Sg.onOff(model.isVisible)       
 
-        let view<'ma> (mbigConfig : 'ma) (minnerConfig : MInnerConfig<'ma>) (model:MReferenceSystem) (cam:IMod<CameraView>)  : ISg<Action> =
+        let view<'ma> (mbigConfig : 'ma) (minnerConfig : MInnerConfig<'ma>) (model:AdaptiveReferenceSystem) (cam:aval<CameraView>)  : ISg<Action> =
                        
             let length    = minnerConfig.getArrowLength    mbigConfig
             let thickness = minnerConfig.getArrowThickness mbigConfig
             let near      = minnerConfig.getNearDistance   mbigConfig
 
-            let east = Mod.map2(fun (l:V3d) (r:V3d) -> r.Cross(l) ) model.up.value model.northO // model.north.value
+            let east = AVal.map2(fun (l:V3d) (r:V3d) -> r.Cross(l) ) model.up.value model.northO // model.north.value
 
-            let size = model.selectedScale |> Mod.map scaleToSize
+            let size = model.selectedScale |> AVal.map scaleToSize
 
             let styleUp : MarkerStyle = {
                 position  = model.origin
                 direction = model.up.value
-                color     = Mod.constant C4b.Blue
+                color     = AVal.constant C4b.Blue
                 size      = size
                 thickness = thickness
-                hasArrow  = Mod.constant false
-                text      = Mod.constant None
-                fix       = Mod.constant false
+                hasArrow  = AVal.constant false
+                text      = AVal.constant None
+                fix       = AVal.constant false
             }
 
             let styleNorth : MarkerStyle = {
                 position  = model.origin
                 direction = model.northO //model.north.value
-                color     = Mod.constant C4b.Red
+                color     = AVal.constant C4b.Red
                 size      = size
                 thickness = thickness
-                hasArrow  = Mod.constant true
-                text      = Mod.constant (Some "N")
-                fix       = Mod.constant false
+                hasArrow  = AVal.constant true
+                text      = AVal.constant (Some "N")
+                fix       = AVal.constant false
             }
 
             let styleEast : MarkerStyle = {
                 position  = model.origin
                 direction = east
-                color     = Mod.constant C4b.Green
+                color     = AVal.constant C4b.Green
                 size      = size
                 thickness = thickness
-                hasArrow  = Mod.constant false
-                text      = Mod.constant None
-                fix       = Mod.constant false
+                hasArrow  = AVal.constant false
+                text      = AVal.constant None
+                fix       = AVal.constant false
             }
 
             let styleX : MarkerStyle = {
                 position  = model.origin
-                direction = Mod.constant V3d.IOO
-                color     = Mod.constant C4b.Magenta
+                direction = AVal.constant V3d.IOO
+                color     = AVal.constant C4b.Magenta
                 size      = size
                 thickness = thickness
-                hasArrow  = Mod.constant false
-                text      = Mod.constant (Some "X")
-                fix       = Mod.constant false
+                hasArrow  = AVal.constant false
+                text      = AVal.constant (Some "X")
+                fix       = AVal.constant false
             }
 
             let styleY : MarkerStyle = {
                 position  = model.origin
-                direction = Mod.constant V3d.OIO
-                color     = Mod.constant C4b.Cyan
+                direction = AVal.constant V3d.OIO
+                color     = AVal.constant C4b.Cyan
                 size      = size
                 thickness = thickness
-                hasArrow  = Mod.constant false
-                text      = Mod.constant (Some "Y")
-                fix       = Mod.constant false
+                hasArrow  = AVal.constant false
+                text      = AVal.constant (Some "Y")
+                fix       = AVal.constant false
             }
 
             let styleZ : MarkerStyle = {
                 position  = model.origin
-                direction = Mod.constant V3d.OOI
-                color     = Mod.constant C4b.Yellow
+                direction = AVal.constant V3d.OOI
+                color     = AVal.constant C4b.Yellow
                 size      = size
                 thickness = thickness
-                hasArrow  = Mod.constant false
-                text      = Mod.constant (Some "Z")
-                fix       = Mod.constant false
+                hasArrow  = AVal.constant false
+                text      = AVal.constant (Some "Z")
+                fix       = AVal.constant false
             }
 
             //test
@@ -383,13 +387,13 @@ module ReferenceSystemApp =
                      
             //let styleNorth90 : MarkerStyle = {
             //    position  = model.origin
-            //    direction =  n90 //Mod.constant(V3d(19417.0692,323595.2722,-323129.0951))//
-            //    color     = Mod.constant C4b.Yellow
+            //    direction =  n90 //AVal.constant(V3d(19417.0692,323595.2722,-323129.0951))//
+            //    color     = AVal.constant C4b.Yellow
             //    size      = size
             //    thickness = thickness
-            //    hasArrow  = Mod.constant true
-            //    text      = Mod.constant (Some "90°")
-            //    fix       = Mod.constant false
+            //    hasArrow  = AVal.constant true
+            //    text      = AVal.constant (Some "90°")
+            //    fix       = AVal.constant false
             //}
 
             let refSysTrafo2 =
@@ -406,15 +410,15 @@ module ReferenceSystemApp =
                 Sg.text 
                     cam 
                     near 
-                    (Mod.constant 60.0) 
+                    (AVal.constant 60.0) 
                     model.origin 
-                    (model.origin |> Mod.map Trafo3d.Translation) 
-                    (Mod.constant 0.05)
+                    (model.origin |> AVal.map Trafo3d.Translation) 
+                    (AVal.constant 0.05)
                     model.selectedScale 
 
             let refsystem = 
               Sg.ofList [
-                  point model.origin (Mod.constant C4b.Red) cam
+                  point model.origin (AVal.constant C4b.Red) cam
                   sizeText
                   styleUp    |> directionMarker near cam  
                   styleNorth |> directionMarker near cam
@@ -422,8 +426,8 @@ module ReferenceSystemApp =
                   styleEast  |> directionMarker near cam
               ]
             
-            let translation = styleX.position |> Mod.map Trafo3d.Translation
-            let inv (t:IMod<Trafo3d>) = t |> Mod.map(fun x -> x.Inverse)
+            let translation = styleX.position |> AVal.map Trafo3d.Translation
+            let inv (t:aval<Trafo3d>) = t |> AVal.map(fun x -> x.Inverse)
 
             let xyzSystem = 
               Sg.ofList [                
@@ -439,9 +443,8 @@ module ReferenceSystemApp =
                 
 
     module UI =
-        open Aardvark.UI.Primitives.Mutable
 
-        let view (model:MReferenceSystem) (camera:MCameraControllerState) =
+        let view (model:AdaptiveReferenceSystem) (camera : AdaptiveCameraControllerState) =
             let bearing = 
                 adaptive {
                     let! up = model.up.value
@@ -467,14 +470,14 @@ module ReferenceSystemApp =
 
             require GuiEx.semui (
                 Html.table [                                                
-                    Html.row "Pos:"     [Incremental.text (model.origin     |> Mod.map (fun x -> x.ToString("0.00")))]
+                    Html.row "Pos:"     [Incremental.text (model.origin     |> AVal.map (fun x -> x.ToString("0.00")))]
                     Html.row "Up:"      [Vector3d.view model.up |> UI.map SetUp ]
-                    Html.row "North:"   [Incremental.text (model.north.value |> Mod.map (fun x -> x.ToString("0.00")))]
-                    Html.row "NorthO:"  [Incremental.text (model.northO |> Mod.map (fun x -> x.ToString("0.00")))]
+                    Html.row "North:"   [Incremental.text (model.north.value |> AVal.map (fun x -> x.ToString("0.00")))]
+                    Html.row "NorthO:"  [Incremental.text (model.northO |> AVal.map (fun x -> x.ToString("0.00")))]
                     Html.row "N-Offset:"[Numeric.view' [InputBox] model.noffset |> UI.map SetNOffset ] 
-                    Html.row "Bearing:" [Incremental.text (bearing |> Mod.map (fun x -> x.ToString("0.00")))] // compute azimuth with view dir, north vector and up vector
-                    Html.row "Pitch:"   [Incremental.text (pitch |> Mod.map (fun x -> x.ToString("0.00")))]  // same for pitch which relates to dip angle
-                    Html.row "Altitude:"  [Incremental.text (altitude |> Mod.map (fun x -> x.ToString("0.00")))]
+                    Html.row "Bearing:" [Incremental.text (bearing |> AVal.map (fun x -> x.ToString("0.00")))] // compute azimuth with view dir, north vector and up vector
+                    Html.row "Pitch:"   [Incremental.text (pitch |> AVal.map (fun x -> x.ToString("0.00")))]  // same for pitch which relates to dip angle
+                    Html.row "Altitude:"  [Incremental.text (altitude |> AVal.map (fun x -> x.ToString("0.00")))]
                     Html.row "Visible:" [GuiEx.iconCheckBox model.isVisible ToggleVisible ]
                       
                 ]

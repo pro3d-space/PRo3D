@@ -1,8 +1,8 @@
-﻿namespace Svgplus
+namespace Svgplus
   open Svgplus.CameraType
   open Aardvark.Base
   open Aardvark.Application
-  open Aardvark.Base.Incremental
+  open FSharp.Data.Adaptive
   open Aardvark.UI
   
 
@@ -120,7 +120,7 @@
                             zooming  = false
               }
 
-    let transformationAttributes (model : MSvgCamera) =
+    let transformationAttributes (model : AdaptiveSvgCamera) =
       let atts =
         amap {
           let! zfx = model.zoomFactorX

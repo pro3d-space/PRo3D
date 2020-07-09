@@ -9,7 +9,9 @@ Aardvark.UI.Primitives
 Aardvark.SceneGraph
 Aardvark.SceneGraph.IO
 Aardvark.SceneGraph.Opc
-Aardvark.Compiler.DomainTypes.MSBuild
+
+Adaptify.MSBuild
+Adaptify.Core
 
 Aardvark.Geometry
 Aardvark.Geometry.Intersection

@@ -1,9 +1,9 @@
-﻿namespace PRo3D.Drawing
+namespace PRo3D.Drawing
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
-open Aardvark.UI.Mutable
+open FSharp.Data.Adaptive
+open Adaptify
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.Application
@@ -54,7 +54,7 @@ type Action =
   | PickAnnotation         of SceneHit * Guid
   | SaveCSV of string
 
-[<DomainType>]
+[<ModelType>]
 type DrawingModel = {
 
     draw          : bool
@@ -88,16 +88,16 @@ type DrawingModel = {
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]    
 module DrawingModel =
     
-    let tryGet (ans:plist<Annotation>) key = 
+    let tryGet (ans:IndexList<Annotation>) key = 
             ans |> Seq.tryFind(fun x -> x.key = key)
 
-    let tryGet' (ans:hset<Annotation>) key = 
+    let tryGet' (ans:HashSet<Annotation>) key = 
             ans |> Seq.tryFind(fun x -> x.key = key)
 
-    let update (ans:plist<Annotation>) (ann : Annotation) =
+    let update (ans:IndexList<Annotation>) (ann : Annotation) =
         ans.AsList 
             |> List.updateIf (fun x -> x.key = ann.key) (fun x -> ann) 
-            |> PList.ofList
+            |> IndexList.ofList
 
     let initialdrawing : DrawingModel = {
         hoverPosition = None

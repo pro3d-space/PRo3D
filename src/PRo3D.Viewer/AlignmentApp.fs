@@ -3,7 +3,7 @@ namespace PRo3D.Align
 open System
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Application
 open Aardvark.UI
 open Aardvark.UI.Primitives
@@ -16,7 +16,7 @@ type AlignmentActions =
 module Alignment =
 
     let initModel = {
-        pickedPoints = plist.Empty 
+        pickedPoints = IndexList.Empty 
         alignment    = None
         resultTrafo  = None
     }
@@ -30,7 +30,7 @@ module AlignmentApp =
     let update (m : AlignmentModel) (a : AlignmentActions) : AlignmentModel =
         match a with
           | AddPoint k ->
-            let points = m.pickedPoints |> PList.prepend k
+            let points = m.pickedPoints |> IndexList.prepend k
             Log.line "%A" points
             
             match points.Count with
@@ -43,21 +43,21 @@ module AlignmentApp =
                 let al = {    
                     red        = red.surfaceName
                     blue       = blue.surfaceName
-                    redPoints  = [red.point]  |> PList.ofList
-                    bluePoints = [blue.point] |> PList.ofList
+                    redPoints  = [red.point]  |> IndexList.ofList
+                    bluePoints = [blue.point] |> IndexList.ofList
                 }
 
                 // reject picked point of surface names are not unique
                 { m with alignment = Some al; pickedPoints = points }
               | _ -> 
-                match (m.pickedPoints |> PList.tryHead, m.alignment) with
+                match (m.pickedPoints |> IndexList.tryFirst, m.alignment) with
                   | Some p, Some kk -> 
                     
                     let al' =
                         if p.surfaceName = kk.red then
-                            { kk with redPoints = kk.redPoints |> PList.prepend p.point }
+                            { kk with redPoints = kk.redPoints |> IndexList.prepend p.point }
                         else
-                            { kk with bluePoints = kk.bluePoints |> PList.prepend p.point }
+                            { kk with bluePoints = kk.bluePoints |> IndexList.prepend p.point }
 
                     { m with alignment = Some al'; pickedPoints = points }
                   | _ -> m                                
@@ -65,8 +65,8 @@ module AlignmentApp =
           | Finish -> m
             //match m.alignment with
             //  | Some al when al.bluePoints.Count = al.redPoints.Count ->
-            //    let source = al.redPoints |> PList.toArray
-            //    let dest   = al.bluePoints |> PList.toArray
+            //    let source = al.redPoints |> IndexList.toArray
+            //    let dest   = al.bluePoints |> IndexList.toArray
                 
             //    let c = Aardvark.VRVis.Approx.PoseTrafoEstimation.Config.SimilarityTrafoDefault
 
@@ -74,7 +74,7 @@ module AlignmentApp =
             //    { m with resultTrafo = Some t }
             //  | _ -> m
 
-    let view (m : MAlignmentModel) (view : IMod<CameraView>) : ISg<AlignmentActions> =
+    let view (m : AdaptiveAlignmentModel) (view : aval<CameraView>) : ISg<AlignmentActions> =
                 
         //aset {
         //    //let! align = m.alignment
@@ -85,11 +85,11 @@ module AlignmentApp =
         //    //    let! countB = a.bluePoints |> AList.count
         //    //    let! countR = a.redPoints |> AList.count
 
-        //    //    yield Sg.dots a.redPoints  (Mod.constant C4b.Red)  view
-        //    //    yield Sg.dots a.bluePoints (Mod.constant C4b.Blue) view
+        //    //    yield Sg.dots a.redPoints  (AVal.constant C4b.Red)  view
+        //    //    yield Sg.dots a.bluePoints (AVal.constant C4b.Blue) view
         //    //  | None ->
         //    let points = m.pickedPoints |> AList.map(fun x -> x.point)
-        //    yield Sg.dots points (Mod.constant 1.0) (Mod.constant C4b.VRVisGreen)      // TODO THOMAS: maybe use Sg.indexedGeometryDots instead of Sg.dots?
+        //    yield Sg.dots points (AVal.constant 1.0) (AVal.constant C4b.VRVisGreen)      // TODO THOMAS: maybe use Sg.indexedGeometryDots instead of Sg.dots?
         //} |> Sg.set                                 
 
         failwith ""

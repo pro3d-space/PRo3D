@@ -1,9 +1,8 @@
-﻿namespace PRo3D.Viewer
+namespace PRo3D.Viewer
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
-open Aardvark.UI.Mutable
+open FSharp.Data.Adaptive
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.Application
@@ -25,13 +24,18 @@ open PRo3D.Align
 open PRo3D.Base.Annotation
 open PRo3D.Viewplanner
 open PRo3D.Correlations
-
 open CorrelationDrawing
 open CorrelationDrawing.Model
 open UIPlus
 
 open Chiron
 open PRo3D.Minerva
+
+open Adaptify
+
+open Aether
+open Aether.Operators
+
 
 #nowarn "0686"
 
@@ -81,11 +85,11 @@ type CorrelationPanelsMessage =
 | LogAddPointToSelected         of Guid * V3d
 | LogCancel
 | LogConfirm
-| LogAssignCrossbeds            of hset<Guid>
-| UpdateAnnotations             of hmap<Guid, PRo3D.Groups.Leaf>
+| LogAssignCrossbeds            of HashSet<Guid>
+| UpdateAnnotations             of HashMap<Guid, PRo3D.Groups.Leaf>
 | ExportLogs                    of string
 | RemoveLastPoint
-| SetContactOfInterest          of hset<CorrelationDrawing.AnnotationTypes.ContactId>
+| SetContactOfInterest          of HashSet<CorrelationDrawing.AnnotationTypes.ContactId>
 | Nop
 //type ScaleToolAction = 
 //    | PlaneExtrudeAction of PlaneExtrude.App.Action
@@ -131,7 +135,7 @@ type ViewerAction =
 | SetKind                   of TrafoKind
 | SetInteraction            of Interactions        
 | SetMode                   of TrafoMode
-| TransformSurface          of System.Guid * Trafo3d
+| TransforAdaptiveSurface          of System.Guid * Trafo3d
 | ImportTrafo               of list<string>
 //| TransformAllSurfaces      of list<SnapshotSurfaceUpdate>
 | Translate                 of string * TrafoController.Action
@@ -173,7 +177,7 @@ and MailboxAction =
 | InitMailboxState of MailboxState  
 | DrawingAction of PRo3D.Drawing.Action 
 
-[<DomainType>] 
+[<ModelType>] 
 type Scene = {
     version           : int
 
@@ -266,16 +270,16 @@ type Scene with
             do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString)                   
         }
 
-[<DomainType>] 
+[<ModelType>] 
 type SceneHandle = {
     path        : string
     name        : string
     writeDate   : DateTime
 }
 
-[<DomainType>] 
+[<ModelType>] 
 type Recent = {
-    recentScenes : list<SceneHandle> //hmap<string,SceneHandle>
+    recentScenes : list<SceneHandle> //HashMap<string,SceneHandle>
 }
 
 type Properties = 
@@ -305,14 +309,14 @@ type MultiSelectionBox =
         selectionBox: Box3d
     }
 
-[<DomainType>]
+[<ModelType>]
 type Model = { 
     startupArgs          : StartupArgs
     scene                : Scene
     drawing              : Drawing.DrawingModel    
     interaction          : Interactions
     recent               : Recent
-    waypoints            : plist<WayPoint>
+    waypoints            : IndexList<WayPoint>
 
     aspect               : double    
                          
@@ -395,9 +399,9 @@ module Viewer =
 
     let navInit = 
         let init = NavigationModel.initial
-        let init = (NavigationModel.Lens.camera |. CameraControllerState.Lens.sensitivity).Set(init, 3.0)
-        let init = (NavigationModel.Lens.camera |. CameraControllerState.Lens.panFactor).Set(init, 0.0008)
-        let init = (NavigationModel.Lens.camera |. CameraControllerState.Lens.zoomFactor).Set(init, 0.0008)
+        let init = Optic.set (NavigationModel.camera_ >-> CameraControllerState.sensitivity_) 3.0 init
+        let init = Optic.set (NavigationModel.camera_ >-> CameraControllerState.panFactor_) 0.0008 init
+        let init = Optic.set (NavigationModel.camera_ >-> CameraControllerState.zoomFactor_) 0.0008 init
         init        
 
     let sceneElm = {id = "scene"; title = (Some "Scene"); weight = 0.4; deleteInvisible = None; isCloseable = None }
@@ -504,7 +508,7 @@ module Viewer =
             aspect          = 1.6   // CHECK-merge
 
             recent          = { recentScenes = List.empty }
-            waypoints       = PList.empty
+            waypoints       = IndexList.empty
 
             trafoKind       = TrafoKind.Rotate
             trafoMode       = TrafoMode.Local
@@ -518,7 +522,7 @@ module Viewer =
 
             animations = 
                 { 
-                    animations = PList.empty
+                    animations = IndexList.empty
                     animation  = Animate.On
                     cam        = CameraController.initial.view
                 }

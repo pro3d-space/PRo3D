@@ -1,8 +1,10 @@
-﻿namespace Svgplus.CameraType
+namespace Svgplus.CameraType
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Svgplus
+
+open Adaptify
 
 type Zoom = 
   {
@@ -60,7 +62,7 @@ module Zoom =
 
     
 
-[<DomainType>]
+[<ModelType>]
 type SvgCamera = {
   zoomFactorX          : Zoom
   zoomFactorY          : Zoom

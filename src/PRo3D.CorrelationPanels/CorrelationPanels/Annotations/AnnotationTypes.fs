@@ -1,11 +1,13 @@
-﻿namespace CorrelationDrawing.AnnotationTypes
+namespace CorrelationDrawing.AnnotationTypes
 
 open System
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open CorrelationDrawing.SemanticTypes
 open PRo3D.Base.Annotation
+
+open Adaptify
 
 type ContactId = ContactId of Guid
 
@@ -15,39 +17,39 @@ module ContactId =
         let (ContactId v) = id
         v
 
-[<DomainType>]
+[<ModelType>]
 type ContactPoint = {
-    [<NonIncremental>]
+    [<NonAdaptive>]
     point     : V3d
     selected  : bool
 }
 
-[<DomainType>]
+[<ModelType>]
 type Contact = {     
-    [<NonIncremental;PrimaryKey>]
+    [<NonAdaptive>]
     id                    : ContactId
     
-    [<NonIncremental>]
+    [<NonAdaptive>]
     geometry              : Geometry
 
-    [<NonIncremental>]
+    [<NonAdaptive>]
     projection            : Projection
 
-    [<NonIncremental>]
+    [<NonAdaptive>]
     semanticType          : SemanticType
 
-    [<NonIncremental>]
+    [<NonAdaptive>]
     elevation             : V3d -> float
 
     selected              : bool //TODO TO move to outer model id list
     hovered               : bool
 
     semanticId            : CorrelationSemanticId
-    points                : plist<ContactPoint>    
+    points                : IndexList<ContactPoint>    
     visible               : bool
     text                  : string
 //    overrideStyle         : option<int>
     //overrideLevel         : option<int>
 }
 
-type ContactsTable  = hmap<ContactId, Contact>
+type ContactsTable  = HashMap<ContactId, Contact>

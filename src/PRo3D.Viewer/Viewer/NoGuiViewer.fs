@@ -1,10 +1,10 @@
-﻿namespace PRo3D
+namespace PRo3D
 
 open Aardvark.Service
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Base.Rendering
 open Aardvark.SceneGraph
 open Aardvark.UI
@@ -114,7 +114,7 @@ module NoGuiViewer =
     
 
     let executeAnimation (mApp        : MutableApp<Model, ViewerAction>)
-                         (mModel      : MModel) 
+                         (mModel      : AdaptiveModel) 
                          (renderDepth : bool)
                          (verbose     : bool)
                          (outPath     : string)
@@ -146,7 +146,7 @@ module NoGuiViewer =
         //    | false -> [animation.snapshots.Head]@animation.snapshots
         
         let sg = ViewerUtils.getSurfacesSgWithCamera mModel
-        let taskclear = runtime.CompileClear(signature,Mod.constant C4f.Black,Mod.constant 1.0)
+        let taskclear = runtime.CompileClear(signature,AVal.constant C4f.Black,AVal.constant 1.0)
         let task = runtime.CompileRender(signature, sg)
         let (size, depth) = 
             match renderDepth with 
@@ -171,7 +171,7 @@ module NoGuiViewer =
             renderAndSave (sprintf "%s.png" fullPathName) verbose parameters
            
     let animate   (runtime      : IRuntime) 
-                  (mModel       : MModel)
+                  (mModel       : AdaptiveModel)
                   (mApp         : MutableApp<Model, ViewerAction>) 
                   (startupArgs  : StartupArgs) =
         let args = startupArgs

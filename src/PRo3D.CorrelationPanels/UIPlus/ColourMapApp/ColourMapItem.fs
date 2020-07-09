@@ -22,7 +22,7 @@ module ColourMapItem =
         //  let _n = Numeric.update model.upper m
         //  {model with upper = _n}
 
-    let view (model : MColourMapItem)  = 
+    let view (model : AdaptiveColourMapItem)  = 
        [
            (div [] [Incremental.text model.label]) |> intoLeftAlignedTd
            ColorPicker.view model.colour |> intoTd |> UI.map ColourMessage

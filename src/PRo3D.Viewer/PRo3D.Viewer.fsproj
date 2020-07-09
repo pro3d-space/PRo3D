@@ -3,6 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp3.1</TargetFramework>
+    <GenerateLenses>True</GenerateLenses>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>..\..\bin\Debug\</OutputPath>
@@ -17,7 +18,6 @@
     <None Include="paket.references" />
     <Compile Include="Config.fs" />
     <Compile Include="Serialization.fs" />
-    <Compile Include="Models\Annotation-Model.fs" />
     <Compile Include="Models\Model.fs" />
     <Compile Include="Models\VersionedModel.fs" />
     <Compile Include="Utilities.fs" />

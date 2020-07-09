@@ -1,11 +1,11 @@
-﻿namespace PRo3D.Minerva
+namespace PRo3D.Minerva
 
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.UI.Events
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Base.Rendering
 open Aardvark.Rendering.Text 
 
@@ -15,18 +15,18 @@ open Aardvark.GeoSpatial.Opc
 
 module QueryApp =
                    
-    let filterByDistance (location:V3d) (dist:float) (features:plist<Feature>) =
+    let filterByDistance (location:V3d) (dist:float) (features:IndexList<Feature>) =
         features        
-        |> PList.filter(fun f -> V3d.Distance(location, f.geometry.positions.Head) < dist)                          
+        |> IndexList.filter(fun f -> Vec.Distance(location, f.geometry.positions.Head) < dist)                          
 
-    let filterBySol (minsol:float) (maxsol:float) (features:plist<Feature>) =
+    let filterBySol (minsol:float) (maxsol:float) (features:IndexList<Feature>) =
         let range = Range1i([minsol |> int; maxsol |> int]) // int[] creates bounding range! Range1i(min,max) creates range from min to max!! [could also be negative]
-        features |> PList.filter (fun x -> range.Contains(x.sol))
+        features |> IndexList.filter (fun x -> range.Contains(x.sol))
        
-    let filterByInstrument (model : QueryModel) (features:plist<Feature>) =
+    let filterByInstrument (model : QueryModel) (features:IndexList<Feature>) =
         let fl = 
             features
-            |> PList.choose(fun f -> 
+            |> IndexList.choose(fun f -> 
                 match f.instrument with
                 | Instrument.MAHLI -> if model.checkMAHLI then Some f else None        
                 | Instrument.FrontHazcam -> if model.checkFrontHazcam then Some f else None     
@@ -42,7 +42,7 @@ module QueryApp =
             )
         fl
                     
-    let applyFilterQueries (features:plist<Feature>) (qModel : QueryModel) : plist<Feature> =        
+    let applyFilterQueries (features:IndexList<Feature>) (qModel : QueryModel) : IndexList<Feature> =        
         let filtered = 
             features
             |> filterByDistance qModel.filterLocation qModel.distance.value
@@ -92,8 +92,8 @@ module QueryApp =
         | CheckChemRmi -> 
             { model with checkChemRmi = not model.checkChemRmi }        
 
-    let iconToggle (dings : IMod<bool>) onIcon offIcon action =
-        let toggleIcon = dings |> Mod.map(fun isOn -> if isOn then onIcon else offIcon)
+    let iconToggle (dings : aval<bool>) onIcon offIcon action =
+        let toggleIcon = dings |> AVal.map(fun isOn -> if isOn then onIcon else offIcon)
 
         let attributes = 
             amap {
@@ -118,18 +118,18 @@ module QueryApp =
             (mkColAttributeMap "circle icon" instrument)
             AList.empty
 
-    let iconCheckBox (dings : IMod<bool>) action =
+    let iconCheckBox (dings : aval<bool>) action =
         iconToggle dings "check square outline icon" "square icon" action
         
     let instrumentCountText (instrumentCounts : amap<Instrument,int>) (instrument : Instrument) =
         instrumentCounts 
         |> AMap.tryFind instrument 
-        |> Mod.map(function
+        |> AVal.map(function
             | Some a -> "(" + a.ToString() + ")"
             | None -> "(0)"
         )
 
-    let viewQueryInstruments (grouped : amap<Instrument, list<Feature>>) (model :MQueryModel) =
+    let viewQueryInstruments (grouped : amap<Instrument, list<Feature>>) (model : AdaptiveQueryModel) =
         let counts = 
             grouped 
             |> AMap.map(fun _ groups -> groups.Length)
@@ -179,7 +179,7 @@ module QueryApp =
             ]
         )
     
-    let viewQueryFilters (grouped : amap<Instrument, list<Feature>>) (model :MQueryModel) =
+    let viewQueryFilters (grouped : amap<Instrument, list<Feature>>) (model : AdaptiveQueryModel) =
       require Html.semui ( 
         Html.table [                 
             Html.row "min sol:"  [Numeric.view' [NumericInputType.InputBox] model.minSol |> UI.map (fun x -> SetMinSol x)]

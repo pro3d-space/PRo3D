@@ -1,7 +1,8 @@
-﻿namespace Svgplus
+namespace Svgplus
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
+open Adaptify
 open CorrelationDrawing
 open Aardvark.UI
 
@@ -69,9 +70,9 @@ type ConnectionStatus =
     | InProgress
     | Connected
 
-[<DomainType>]
+[<ModelType>]
 type Button = {
-    [<NonIncremental>]
+    [<NonAdaptive>]
     id              : ButtonId
 
     pos             : V2d

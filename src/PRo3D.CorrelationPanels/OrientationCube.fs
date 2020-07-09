@@ -1,7 +1,7 @@
 namespace OrientationCube
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Base.Rendering
 open Aardvark.SceneGraph
 open Aardvark.Rendering
@@ -40,11 +40,11 @@ module Sg =
         |> Sg.adapter
         |> Sg.noEvents
     
-    let orthoOrientation (camView : IMod<CameraView>) (model : ISg<'msg>)  =
-        //camView |> Mod.map (fun x -> x.)
+    let orthoOrientation (camView : aval<CameraView>) (model : ISg<'msg>)  =
+        //camView |> AVal.map (fun x -> x.)
         let viewTrafo =
             camView
-            |> Mod.map ( fun cv ->
+            |> AVal.map ( fun cv ->
                 let view = CameraView.look V3d.OOO (V3d.OIO * -1.0) Mars.Terrain.up
                 view.ViewTrafo
             )
@@ -55,12 +55,12 @@ module Sg =
             let min = V3d(-d, -d, -d*2.0)
             let max = V3d(d, d, d*2.0)
             let fr = Frustum.ortho (Box3d(min, max))
-            Mod.constant (Frustum.orthoTrafo fr)
+            AVal.constant (Frustum.orthoTrafo fr)
         
         model
-        |> Sg.trafo (Mod.constant (Trafo3d.Scale(1.0,1.0,-1.0)))
-        |> Sg.trafo (Mod.constant (Trafo3d.RotationXInDegrees(90.0)))
-        |> Sg.trafo ( camView |> Mod.map ( fun v ->  Trafo3d.RotateInto(V3d.OOI, v.Sky) ) )
+        |> Sg.trafo (AVal.constant (Trafo3d.Scale(1.0,1.0,-1.0)))
+        |> Sg.trafo (AVal.constant (Trafo3d.RotationXInDegrees(90.0)))
+        |> Sg.trafo ( camView |> AVal.map ( fun v ->  Trafo3d.RotateInto(V3d.OOI, v.Sky) ) )
         |> Sg.viewTrafo viewTrafo
         |> Sg.projTrafo orthoTrafo
         |> Sg.shader {
@@ -70,18 +70,18 @@ module Sg =
         }
         |> Sg.pass (RenderPass.after "cube" RenderPassOrder.Arbitrary RenderPass.main)
     
-//    let insideOrientation (camView : IMod<CameraView>) (frustum : IMod<Frustum>) (model : ISg<'msg>) =
+//    let insideOrientation (camView : aval<CameraView>) (frustum : aval<Frustum>) (model : ISg<'msg>) =
 //        let viewTrafo =
 //            camView
-//            |> Mod.map ( fun cv ->
+//            |> AVal.map ( fun cv ->
 //                let view = CameraView.look V3d.OOO cv.Forward V3d.OOI
 //                view.ViewTrafo
 //            )
 //        
-//        let perspTrafo = frustum |> Mod.map ( fun f -> Frustum.projTrafo f)
+//        let perspTrafo = frustum |> AVal.map ( fun f -> Frustum.projTrafo f)
 //        
 //        model
-//        |> Sg.trafo (Mod.constant (Trafo3d.Scale(100.0, 100.0, 100.0)))
+//        |> Sg.trafo (AVal.constant (Trafo3d.Scale(100.0, 100.0, 100.0)))
 //        |> Sg.viewTrafo viewTrafo
 //        |> Sg.projTrafo perspTrafo
 //        |> Sg.shader {

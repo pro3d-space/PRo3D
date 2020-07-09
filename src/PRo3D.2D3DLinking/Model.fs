@@ -1,16 +1,18 @@
-﻿namespace LinkingTestApp
+namespace LinkingTestApp
 
 open PRo3D.Linking
 
 open Aardvark.Base
 open Aardvark.Base.Rendering
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.SceneGraph.Opc
 open Aardvark.UI.Primitives
 open Aardvark.Application
 
 open OpcViewer.Base.Picking
 open PRo3D.Minerva
+
+open Adaptify
 
 type Action =
   | Camera           of FreeFlyController.Message
@@ -43,25 +45,25 @@ type CameraStateLean =
 
   type PlaneCoordinates =
     {
-    points : plist<V3d>
+    points : IndexList<V3d>
     }
 
-[<DomainType>]
+[<ModelType>]
 type Model =
     {
         cameraState          : CameraControllerState     
         mainFrustum          : Frustum
         overlayFrustum       : Option<Frustum>
         fillMode             : FillMode                                
-        [<NonIncremental>]
+        [<NonAdaptive>]
         patchHierarchies     : list<PatchHierarchy>        
         boxes                : list<Box3d>        
-        opcInfos             : hmap<Box3d, OpcData>
+        opcInfos             : HashMap<Box3d, OpcData>
         threads              : ThreadPool<Action>
         dockConfig           : DockConfig
         pickingModel         : PickingModel
         pickedPoint          : Option<V3d>
-        planePoints          : Option<plist<V3d>>
+        planePoints          : Option<IndexList<V3d>>
         pickingActive        : bool
         linkingModel         : LinkingModel
         minervaModel         : MinervaModel

@@ -1,9 +1,9 @@
-﻿namespace Mars
+namespace Mars
 
 //Author: Martin Riegelnegg
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Base.Rendering
 open Aardvark.SceneGraph
 open Aardvark.UI
@@ -20,7 +20,7 @@ module Shader =
         triangle {
             let a = tri.P1.wp.XYZ - tri.P0.wp.XYZ
             let b = tri.P2.wp.XYZ - tri.P0.wp.XYZ
-            let n = V3d.Cross(a,b)
+            let n = Vec.Cross(a,b)
             yield {tri.P0 with n = n}
             yield {tri.P1 with n = n}
             yield {tri.P2 with n = n}
@@ -38,7 +38,7 @@ module Terrain =
                                     upDummy}
 
     let dummyMars events =
-        Sg.sphere 5 (Mod.constant (new C4b(254,178,76))) (Mod.constant 10.0) 
+        Sg.sphere 5 (AVal.constant (new C4b(254,178,76))) (AVal.constant 10.0) 
             |> Sg.shader {
                 do! DefaultSurfaces.trafo
                 do! DefaultSurfaces.vertexColor
@@ -214,7 +214,7 @@ module Terrain =
             let pckShp = t |> PickShape.Triangles
             Sg.ofIndexedGeometry g
             |> Sg.pickable pckShp
-            |> Sg.trafo (Mod.constant info.Local2Global)
+            |> Sg.trafo (AVal.constant info.Local2Global)
         ) kdTrees
         |> Sg.ofList
         |> Sg.requirePicking
@@ -225,7 +225,7 @@ module Terrain =
             do! DefaultSurfaces.trafo
             do! DefaultSurfaces.constantColor C4f.DarkRed
         }
-      |> Sg.depthTest (Mod.constant DepthTestMode.Never)
+      |> Sg.depthTest (AVal.constant DepthTestMode.Never)
 
 
     let getRealMars events =
@@ -325,7 +325,7 @@ module Terrain =
 //            let pckShp = t |> PickShape.Triangles
 //            Sg.ofIndexedGeometry g
 //            |> Sg.pickable pckShp
-//            |> Sg.trafo (Mod.constant info.Local2Global)
+//            |> Sg.trafo (AVal.constant info.Local2Global)
 //        ) kdTrees
 //        |> Sg.ofList
 //        |> Sg.requirePicking
@@ -336,4 +336,4 @@ module Terrain =
 //            do! DefaultSurfaces.trafo
 //            do! DefaultSurfaces.constantColor C4f.DarkRed
 //        }
-//        |> Sg.depthTest (Mod.constant DepthTestMode.Never)
+//        |> Sg.depthTest (AVal.constant DepthTestMode.Never)

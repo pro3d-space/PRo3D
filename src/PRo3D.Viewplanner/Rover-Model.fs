@@ -3,7 +3,7 @@ namespace PRo3d
 open System
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI.Primitives
 open Aardvark.UI
 open IPWrappers
@@ -28,7 +28,7 @@ type Intrinsics = {
     vignettingMap                   : string    
 }
 
-[<DomainType>]
+[<ModelType>]
 type Extrinsics = {
     position    : V3d
     camUp       : V3d
@@ -56,7 +56,7 @@ type InstrumentType =
     | RIM        // Rover Inspection Mirror
     | Undefined
 
-[<DomainType>]
+[<ModelType>]
 type Instrument = {
     id                      : string
     iType                   : InstrumentType
@@ -80,7 +80,7 @@ type InstrumentFocusUpdate = {
     focal         : double
 }
 
-[<DomainType>]
+[<ModelType>]
 type Axis = {
     id           : string
     description  : string
@@ -94,20 +94,20 @@ type Axis = {
     angle        : NumericInput
 }
 
-[<DomainType>]
+[<ModelType>]
 type Rover = {
     id               : string
     platform2Ground  : M44d
     wheelPositions   : list<V3d>
-    instruments      : hmap<string, Instrument>
-    axes             : hmap<string, Axis>
+    instruments      : HashMap<string, Instrument>
+    axes             : HashMap<string, Axis>
     box              : Box3d   
 }
 
-[<DomainType>]
+[<ModelType>]
 type RoverModel = {
-    rovers             : hmap<string, Rover>
-    platforms          : hmap<string, ViewPlanner.SPlatform>
+    rovers             : HashMap<string, Rover>
+    platforms          : HashMap<string, ViewPlanner.SPlatform>
     selectedRover      : option<Rover>
     //selectedInstrument : option<Instrument>
     //selectedAxis       : option<Axis>
@@ -233,7 +233,7 @@ with
       do! Json.write      "instrumentInfo"  x.instrumentInfo
     }
 
-[<DomainType>]
+[<ModelType>]
 type SimulatedViewData = {
     //xmlScheme   : XMLScheme
     fileInfo    : FileInfo
@@ -250,7 +250,7 @@ with
       do! Json.write      "acquisition"  x.acquisition
     }
 
-[<DomainType>]
+[<ModelType>]
 type FootPrint = {
     vpId                : option<Guid>
     isVisible           : bool
@@ -260,7 +260,7 @@ type FootPrint = {
     globalToLocalPos    : V3d
 }
 
-[<DomainType>]
+[<ModelType>]
 type ViewPlan = {
     [<PrimaryKey>]
     id                  : Guid
@@ -277,9 +277,9 @@ type ViewPlan = {
     currentAngle        : NumericInput
 }
 
-[<DomainType>]
+[<ModelType>]
 type ViewPlanModel = {
-    viewPlans           : hset<ViewPlan>
+    viewPlans           : HashSet<ViewPlan>
     selectedViewPlan    : Option<ViewPlan>
     working             : list<V3d> // pos + lookAt
     roverModel          : RoverModel

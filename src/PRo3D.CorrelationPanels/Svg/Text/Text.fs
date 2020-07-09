@@ -1,7 +1,7 @@
-﻿namespace Svgplus
+namespace Svgplus
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI
 open UIPlus
 open Svgplus
@@ -49,7 +49,7 @@ module Text =
             | MouseAction.OnMouseLeave -> model.onLeave model
             | _ -> model
     
-    let view (model : MText) =
+    let view (model : AdaptiveText) =
         let bold = 
             amap {
                 yield (Svgplus.Attributes.ats "text-anchor" "middle")

@@ -1,10 +1,10 @@
-﻿namespace UIPlus    
+namespace UIPlus    
     
     module Buttons = 
       open Aardvark.UI
       open System
       open Aardvark.Base
-      open Aardvark.Base.Incremental
+      open FSharp.Data.Adaptive
 
       let iconButton (iconStr : string) (tooltip : string) (onClick : V2i -> 'msg) = 
         div [clazz "item"]
@@ -43,10 +43,10 @@
             button [clazz "ui small icon button"; onMouseClick onClick] 
                     [i [clazz iconStr] [] ] //TODO |> wrapToolTip tooltip 
 
-          let toggleButton (str : IMod<string>) (onClick : V2i -> 'msg) = 
+          let toggleButton (str : aval<string>) (onClick : V2i -> 'msg) = 
             button [clazz "ui toggle button"; onMouseClick onClick] [Incremental.text str]
       
-          let getColourIconButton (color : IMod<C4b>) (label : IMod<string>) (onClick : V2i -> 'msg) =
+          let getColourIconButton (color : aval<C4b>) (label : aval<string>) (onClick : V2i -> 'msg) =
             let icon = 
               let iconAttr =
                 amap {
@@ -60,7 +60,7 @@
 
 
 
-          let getColourIconButton' (color : IMod<C4b>) (onClick : V2i -> 'msg) =
+          let getColourIconButton' (color : aval<C4b>) (onClick : V2i -> 'msg) =
             let icon = 
               let iconAttr =
                 amap {

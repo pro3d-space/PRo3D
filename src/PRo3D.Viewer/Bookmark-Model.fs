@@ -1,8 +1,9 @@
-﻿namespace PRo3D.Bookmarkings
+namespace PRo3D.Bookmarkings
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
+open Adaptify
 open Aardvark.UI.Primitives
 open PRo3D
 open PRo3D.Base
@@ -11,7 +12,7 @@ open Chiron
 
 #nowarn "0686"
 
-[<DomainType>]
+[<ModelType>]
 type Bookmark = {
     version         : int
     key             : Guid

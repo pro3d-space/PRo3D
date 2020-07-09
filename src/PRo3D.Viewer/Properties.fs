@@ -1,9 +1,9 @@
-﻿namespace PRo3D
+namespace PRo3D
 
 open System
 open Aardvark.UI
 open Aardvark.UI.Primitives
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.SceneGraph.AirState
 open PRo3D.Surfaces
 
@@ -52,7 +52,7 @@ module ConfigProperties =
             //| ToggleExplorationPoint -> {model with showExplorationPoint = not model.showExplorationPoint}
            
 
-    let view (model : MViewConfigModel) =    
+    let view (model : AdaptiveViewConfigModel) =    
         require GuiEx.semui (
             Html.table [      
                 Html.row "Near Plane:"              [Numeric.view' [InputBox] model.nearPlane             |> UI.map SetNearPlane ]               
@@ -71,12 +71,12 @@ module ConfigProperties =
         )
 
 module CameraProperties =
-    let view (model : MCameraControllerState) =    
+    let view (model : AdaptiveCameraControllerState) =    
         require GuiEx.semui (
             Html.table [      
-                Html.row "Location:"    [Incremental.text (model.view |> Mod.map(fun x -> x.Location.ToString("0.00")))]
-                Html.row "Forward:"     [Incremental.text (model.view |> Mod.map(fun x -> x.Forward.ToString("0.000")))]
-                Html.row "Sky:"         [Incremental.text (model.view |> Mod.map(fun x -> x.Sky.ToString("0.000")))]
+                Html.row "Location:"    [Incremental.text (model.view |> AVal.map(fun x -> x.Location.ToString("0.00")))]
+                Html.row "Forward:"     [Incremental.text (model.view |> AVal.map(fun x -> x.Forward.ToString("0.000")))]
+                Html.row "Sky:"         [Incremental.text (model.view |> AVal.map(fun x -> x.Sky.ToString("0.000")))]
             ]
         )
     

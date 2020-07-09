@@ -25,7 +25,7 @@ module private Process =
             Log.line "[%s] %s" filename args.Data
 
         let errorHandler (_sender:obj) (args:DataReceivedEventArgs) = 
-            Log.error "[%s] %s" filename args.Data
+            if args.Data <> null then Log.error "[%s] %s" filename args.Data
 
         let p = new Process(StartInfo = procStartInfo)
         p.OutputDataReceived.AddHandler(DataReceivedEventHandler outputHandler)
@@ -62,12 +62,39 @@ module SceneLoading =
         | Error of userMessage : string * exn : Option<exn>
         | Loaded of loadedModel : Model * converted : bool * path : string 
 
-    let mutable ConverterExe = @".\Converter\PRo3D.Converter.exe"
+    module Converter =
+        open System.Net
+        open System.IO.Compression
+
+        let mutable ConverterPath = @".\Converter\"
+        let mutable ConverterExe = "PRo3D.Converter.exe"
+
+        let mutable DownloadPath = "http://download.vrvis.at/acquisition/pro3d/49a0d346a7ecd7f8eca596a7d895da7cb38ed8c0.zip"
+
+        let downloadConverter () = 
+            use wc = new WebClient()
+            let temp = Path.GetTempFileName()
+            Log.line "Downloading converter from: %s" DownloadPath
+            wc.DownloadFile(DownloadPath, temp)
+            if Directory.Exists ConverterPath then Directory.Delete(ConverterPath, true)
+            Directory.CreateDirectory ConverterPath |> ignore
+            Log.line "unpacking to: %s" ConverterPath
+            ZipFile.ExtractToDirectory(temp, ConverterPath)
+            let path = (Path.combine [ConverterPath; ConverterExe])
+            if File.Exists path then
+                Log.line "downloaded converter: %s" path
+            else failwith "downloaded and extracted converter but %s was not found (wrong converter deployment?)"
 
     // convertes *.scn file to *.pro3d file using the converter tool
     let convertSceneTo (scnFile : string) = 
-        Process.runProc ConverterExe scnFile None
-
+        let converter = Path.combine [Converter.ConverterPath; Converter.ConverterExe]
+        if File.Exists converter then ()
+        else 
+            let err = sprintf "converter on path: %s not found, trying to download..." converter
+            Log.line "%s" err
+            Converter.downloadConverter ()
+        Log.line "using converter: %s" converter
+        Process.runProc converter scnFile None
     
     let private changeExtension (ext:string) (scenePath:string) = 
         Path.ChangeExtension(scenePath, ext)

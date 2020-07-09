@@ -1,9 +1,9 @@
-﻿namespace PRo3D.Surfaces
+namespace PRo3D.Surfaces
 
 open System
 open System.IO
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.Base.Rendering
@@ -62,7 +62,7 @@ module DebugKdTreesX =
           |> Array.map (fun x ->  x.ToV3d() |> kd.affine.Forward.TransformPos) 
           |> getTriangleSet indices
 
-    let loadObjectSet (cache : hmap<string, ConcreteKdIntersectionTree>) (lvl0Tree : Level0KdTree) =             
+    let loadObjectSet (cache : HashMap<string, ConcreteKdIntersectionTree>) (lvl0Tree : Level0KdTree) =             
       match lvl0Tree with
         | InCoreKdTree kd -> 
           kd.kdTree, cache
@@ -72,7 +72,7 @@ module DebugKdTreesX =
             | Some k -> k, cache
             | None -> 
               let key = (kd.boundingBox.ToString())
-              let tree = cache |> HMap.tryFind key
+              let tree = cache |> HashMap.tryFind key
               match tree with
               | Some t ->                 
                 t, cache
@@ -83,7 +83,7 @@ module DebugKdTreesX =
                 let triangles = kd |> loadTriangles
                 
                 tree.KdIntersectionTree.ObjectSet <- triangles                                                            
-                tree, (HMap.add key tree cache)
+                tree, (HashMap.add key tree cache)
           kdTree, cache
 
     let getTriangle (set : TriangleSet) (index : int) : Triangle3d =
@@ -92,13 +92,13 @@ module DebugKdTreesX =
       Triangle3d(pl.[pi], pl.[pi+1], pl.[pi + 2])
 
     let isNotOversized (size) (triangle:Triangle3d) =      
-      ((V3d.Distance(triangle.P0, triangle.P1) < size) && 
-       (V3d.Distance(triangle.P0, triangle.P2) < size) &&
-       (V3d.Distance(triangle.P1, triangle.P2) < size))
+      ((Vec.Distance(triangle.P0, triangle.P1) < size) && 
+       (Vec.Distance(triangle.P0, triangle.P2) < size) &&
+       (Vec.Distance(triangle.P1, triangle.P2) < size))
 
-    let intersectKdTrees bb (hitObject : PRo3D.Surfaces.Surface) (cache : hmap<string, ConcreteKdIntersectionTree>) (ray : FastRay3d) (kdTreeMap: hmap<Box3d, KdTrees.Level0KdTree>) = 
+    let intersectKdTrees bb (hitObject : PRo3D.Surfaces.Surface) (cache : HashMap<string, ConcreteKdIntersectionTree>) (ray : FastRay3d) (kdTreeMap: HashMap<Box3d, KdTrees.Level0KdTree>) = 
 
-        let kdtree, c = kdTreeMap |> HMap.find bb |> loadObjectSet cache
+        let kdtree, c = kdTreeMap |> HashMap.find bb |> loadObjectSet cache
 
         let kdi = kdtree.KdIntersectionTree 
         let mutable hit = ObjectRayHit.MaxRange
@@ -292,7 +292,7 @@ module Files =
        let surfaceRelativePath (path : string) =
            relativePath path 4
 
-       let expandLazyKdTreePaths (scenePath : option<string>) (surfaces : hmap<Guid, PRo3D.Surfaces.Surface>) (sgSurfaces : hmap<Guid, SgSurface>) =
+       let expandLazyKdTreePaths (scenePath : option<string>) (surfaces : HashMap<Guid, PRo3D.Surfaces.Surface>) (sgSurfaces : HashMap<Guid, SgSurface>) =
          let expand surf tree =
              match tree with 
              | KdTrees.Level0KdTree.LazyKdTree lk when surf.relativePaths && scenePath.IsSome -> // scene is portable                                        
@@ -317,15 +317,15 @@ module Files =
              | KdTrees.Level0KdTree.InCoreKdTree ik -> KdTrees.InCoreKdTree ik // kdtrees can be loaded as is
          
          sgSurfaces 
-          |> HMap.map (fun _ s -> 
+          |> HashMap.map (fun _ s -> 
             match s.picking with
               | Picking.KdTree ks ->
-                let surf = surfaces |> HMap.find s.surface
+                let surf = surfaces |> HashMap.find s.surface
                 match surf.surfaceType with 
                 | SurfaceType.SurfaceOBJ -> s
                 | _ -> 
                     let kd = 
-                        ks |> HMap.map (fun _ k -> expand surf k)
+                        ks |> HashMap.map (fun _ k -> expand surf k)
                     { s with picking = Picking.KdTree kd }
               | Picking.PickMesh ms -> s
           )                

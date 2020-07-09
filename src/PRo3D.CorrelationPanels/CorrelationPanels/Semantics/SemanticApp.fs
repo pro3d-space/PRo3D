@@ -1,7 +1,7 @@
-﻿namespace CorrelationDrawing
+namespace CorrelationDrawing
 
 open Aardvark.Base.Rendering
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Base
 open Aardvark.Application
 open Aardvark.UI
@@ -30,52 +30,52 @@ module SemanticApp =
     ///// convenience functions Semantics
     
     let getSelectedSemantic (app : SemanticsModel) =
-        HMap.find app.selectedSemantic app.semantics
+        HashMap.find app.selectedSemantic app.semantics
     
     let getSemantic (app : SemanticsModel) (semanticId : CorrelationSemanticId) =
-        HMap.tryFind semanticId app.semantics
+        HashMap.tryFind semanticId app.semantics
     
     let getSemanticOrDefault  (app : SemanticsModel) (semanticId : CorrelationSemanticId) =
-        HMap.tryFind semanticId app.semantics
+        HashMap.tryFind semanticId app.semantics
         |> Option.defaultValue CorrelationSemantic.initInvalid
     
-    let getSemantic' (app : MSemanticsModel) (semanticId : CorrelationSemanticId) =
+    let getSemantic' (app : AdaptiveSemanticsModel) (semanticId : CorrelationSemanticId) =
         AMap.tryFind semanticId app.semantics
     
     
     //let getSemanticOrDefault'  (app : MSemanticApp) (semanticId : SemanticId) =
     //  AMap.tryFind semanticId app.semantics
     
-    let getColor (model : MSemanticsModel) (semanticId : IMod<CorrelationSemanticId>) =
-        let sem = Mod.bind (fun id -> AMap.tryFind id model.semantics) semanticId
-        Mod.bind (fun (se : option<MCorrelationSemantic>) ->
+    let getColor (model : AdaptiveSemanticsModel) (semanticId : aval<CorrelationSemanticId>) =
+        let sem = AVal.bind (fun id -> AMap.tryFind id model.semantics) semanticId
+        AVal.bind (fun (se : option<AdaptiveCorrelationSemantic>) ->
             match se with
             | Some s -> s.color.c
-            | None -> Mod.constant C4b.Red) sem
+            | None -> AVal.constant C4b.Red) sem
     
     
-    let getThickness (model : MSemanticsModel) (semanticId : IMod<CorrelationSemanticId>) =
-        let sem = Mod.bind (fun id -> AMap.tryFind id model.semantics) semanticId
-        Mod.bind (fun (se : option<MCorrelationSemantic>) ->
+    let getThickness (model : AdaptiveSemanticsModel) (semanticId : aval<CorrelationSemanticId>) =
+        let sem = AVal.bind (fun id -> AMap.tryFind id model.semantics) semanticId
+        AVal.bind (fun (se : option<AdaptiveCorrelationSemantic>) ->
             match se with
             | Some s -> s.thickness.value
-            | None -> Mod.constant 1.0) sem
+            | None -> AVal.constant 1.0) sem
     
-    let getLabel (model : MSemanticsModel) (semanticId : IMod<CorrelationSemanticId>) = 
-        let sem = Mod.bind (fun id -> AMap.tryFind id model.semantics) semanticId
+    let getLabel (model : AdaptiveSemanticsModel) (semanticId : aval<CorrelationSemanticId>) = 
+        let sem = AVal.bind (fun id -> AMap.tryFind id model.semantics) semanticId
         sem
-        |> Mod.bind (fun x ->
+        |> AVal.bind (fun x ->
             match x with 
             | Some s -> s.label.text
-            | None -> Mod.constant "-NONE-")
+            | None -> AVal.constant "-NONE-")
      
     let getMetricSemantics (model : SemanticsModel) =
-        model.semanticsList |> PList.filter (fun s -> s.semanticType = SemanticType.Metric)
+        model.semanticsList |> IndexList.filter (fun s -> s.semanticType = SemanticType.Metric)
     
     let getMetricId (model : SemanticsModel) =
         model 
         |> getMetricSemantics
-        |> PList.tryAt 0
+        |> IndexList.tryAt 0
         |> Option.map (fun x -> x.id)
     
     
@@ -109,22 +109,22 @@ module SemanticApp =
         | _                                   -> fun (x : CorrelationSemantic) -> x.timestamp
     
     let getSortedList 
-        (list    : hmap<CorrelationSemanticId, CorrelationSemantic>) 
+        (list    : HashMap<CorrelationSemanticId, CorrelationSemantic>) 
         (sortBy  : SemanticsSortingOption) =
 
         DS.HMap.toSortedPlist list (sortFunction sortBy)
     
     let deleteSemantic (model : SemanticsModel)=
-        let getAKey (m : hmap<CorrelationSemanticId, 'a>) =
-            m |> HMap.toSeq |> Seq.map fst |> Seq.tryHead
+        let getAKey (m : HashMap<CorrelationSemanticId, 'a>) =
+            m |> HashMap.toSeq |> Seq.map fst |> Seq.tryHead
     
         let rem =
             model.semantics
-            |> HMap.remove model.selectedSemantic
+            |> HashMap.remove model.selectedSemantic
     
         match getAKey rem with
         | Some k  -> 
-          let updatedSemantics = (rem |> HMap.alter k enableSemantic)
+          let updatedSemantics = (rem |> HashMap.alter k enableSemantic)
           {model with 
             semantics = updatedSemantics 
             semanticsList = getSortedList updatedSemantics model.sortBy
@@ -135,8 +135,8 @@ module SemanticApp =
     let insertSemantic (s : CorrelationSemantic) (state : State) (model : SemanticsModel) = 
         let newSemantics = 
             (model.semantics.Add(s.id, s)
-            |> HMap.alter model.selectedSemantic disableSemantic
-            |> HMap.alter s.id (setState state))
+            |> HashMap.alter model.selectedSemantic disableSemantic
+            |> HashMap.alter s.id (setState state))
     
         {
             model with 
@@ -149,7 +149,7 @@ module SemanticApp =
     let insertSampleSemantic (model : SemanticsModel) = 
         let id = System.Guid.NewGuid().ToString()
         let newSemantic = 
-            CorrelationSemantic.Lens._labelText.Set((CorrelationSemantic.initial id),"NewSemantic")
+            Aether.Optic.set CorrelationSemantic.Lens._labelText "NewSemantic" (CorrelationSemantic.initial id)
         insertSemantic newSemantic State.New model
     
     let getInitialWithSamples =
@@ -163,8 +163,8 @@ module SemanticApp =
         |> insertSemantic (CorrelationSemantic.impactBreccia     ("Impact")) State.Display
         |> insertSemantic (CorrelationSemantic.initialGrainSize2 ("GrainSize")) State.Display
     
-    let deselectAllSemantics (semantics : hmap<CorrelationSemanticId, CorrelationSemantic>) =
-        semantics |> HMap.map (fun k s -> disableSemantic' s)
+    let deselectAllSemantics (semantics : HashMap<CorrelationSemanticId, CorrelationSemantic>) =
+        semantics |> HashMap.map (fun k s -> disableSemantic' s)
               
     ////// UPDATE 
     let update (model : SemanticsModel) (action : SemanticAction) =
@@ -174,8 +174,8 @@ module SemanticApp =
             | Some s  ->
                 let updatedSemantics = 
                     model.semantics
-                    |> HMap.alter model.selectedSemantic disableSemantic
-                    |> HMap.alter s enableSemantic
+                    |> HashMap.alter model.selectedSemantic disableSemantic
+                    |> HashMap.alter s enableSemantic
                         
                 {
                     model with 
@@ -191,7 +191,7 @@ module SemanticApp =
                 | Some s  -> Some(CorrelationSemantic.update s sem)
                 | None    -> None
 
-            let updatedSemantics = HMap.alter model.selectedSemantic fUpdate model.semantics
+            let updatedSemantics = HashMap.alter model.selectedSemantic fUpdate model.semantics
 
             {
               model with 
@@ -210,14 +210,14 @@ module SemanticApp =
                     sortBy = newSort
                     semanticsList = 
                         model.semanticsList
-                        |> PList.toSeq
+                        |> IndexList.toSeq
                         |> Seq.sortBy (sortFunction newSort)
-                        |> PList.ofSeq
+                        |> IndexList.ofSeq
             }                   
         | SaveNew, true   -> 
             let updatedSemantics = 
                 model.semantics
-                |> HMap.alter model.selectedSemantic enableSemantic
+                |> HashMap.alter model.selectedSemantic enableSemantic
 
             {
                 model with 
@@ -241,7 +241,7 @@ module SemanticApp =
         
         Log.line "[Semantics] loading semantics" 
         let newModel =
-            match HMap.isEmpty semantics with
+            match HashMap.isEmpty semantics with
             | true  -> getInitialWithSamples
             | _     ->
                 let deselected = deselectAllSemantics semantics
@@ -256,7 +256,7 @@ module SemanticApp =
         
                     
   ///////////////////////////////// VIEW ///////////////////  
-    let simpleView (model : MSemanticsModel) =
+    let simpleView (model : AdaptiveSemanticsModel) =
         let domList = 
             alist {                 
                 for mSem in model.semanticsList do
@@ -281,7 +281,7 @@ module SemanticApp =
           
         Tables.toTableView (div[][]) domList ["Annotation Type"]
 
-    let expertGUI (model : MSemanticsModel) = 
+    let expertGUI (model : AdaptiveSemanticsModel) = 
       let menu = 
         div [clazz "ui horizontal inverted menu";
              style "width:100%; height: 10%; float:middle; vertical-align: middle"][
@@ -294,7 +294,7 @@ module SemanticApp =
           div [clazz "item"] [
             button 
               [clazz "ui small icon button"; style "width: 20ch; text-align: left"; onMouseClick (fun _ -> SortBy;)]
-              [Incremental.text (Mod.map (fun x -> sprintf "sort: %s" (string x)) model.sortBy)]
+              [Incremental.text (AVal.map (fun x -> sprintf "sort: %s" (string x)) model.sortBy)]
           ]  
         ]
     
@@ -332,7 +332,7 @@ module SemanticApp =
     let threads _ =
       ThreadPool.empty
     
-    let app : App<SemanticsModel, MSemanticsModel, SemanticAction> =
+    let app : App<SemanticsModel, AdaptiveSemanticsModel, SemanticAction> =
         {
             unpersist = Unpersist.instance
             threads   = threads

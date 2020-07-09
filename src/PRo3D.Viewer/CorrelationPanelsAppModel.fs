@@ -1,9 +1,10 @@
-﻿namespace PRo3D.Correlations
+namespace PRo3D.Correlations
 
 open System
 open Aardvark.Base
 
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
+open Adaptify
 open CorrelationDrawing
 open CorrelationDrawing.AnnotationTypes
 open CorrelationDrawing.Model
@@ -18,10 +19,10 @@ type LogPoint = {
     position : V3d
 }
 
-[<DomainType>]
+[<ModelType>]
 type LogDrawingBrush = {
-    pointsTable    : hmap<Guid, LogPoint>
-    localPoints    : plist<LogPoint>
+    pointsTable    : HashMap<Guid, LogPoint>
+    localPoints    : IndexList<LogPoint>
     modelTrafo     : Trafo3d
     referencePlane : option<DipAndStrikeResults>
     planeScale     : float
@@ -30,8 +31,8 @@ type LogDrawingBrush = {
 module LogDrawingBrush =
     let clearLogPoints brush =
         {
-            pointsTable    = HMap.empty
-            localPoints    = PList.empty
+            pointsTable    = HashMap.empty
+            localPoints    = IndexList.empty
             modelTrafo     = Trafo3d.Identity
             referencePlane = brush.referencePlane
             planeScale     = brush.planeScale
@@ -42,7 +43,7 @@ type LoggingMode =
 | PickLoggingPoints
 | EditLog
 
-[<DomainType>]
+[<ModelType>]
 type CorrelationPanelModel = {  
     version                : int
     logginMode             : LoggingMode
@@ -50,7 +51,7 @@ type CorrelationPanelModel = {
     contacts               : ContactsTable   
     correlationPlot        : CorrelationPlotModel
     semanticApp            : SemanticTypes.SemanticsModel
-    contactOfInterest      : hset<ContactId>    
+    contactOfInterest      : HashSet<ContactId>    
 }
 with 
     static member current = 0
@@ -62,11 +63,11 @@ with
             return {
                 version                = CorrelationPanelModel.current
                 logBrush               = None
-                contacts               = HMap.empty                
+                contacts               = HashMap.empty                
                 correlationPlot        = correlationPlot
                 semanticApp            = semanticApp
                 logginMode             = PickReferencePlane
-                contactOfInterest      = HSet.empty
+                contactOfInterest      = HashSet.empty
             }
         }
     static member FromJson(_:CorrelationPanelModel) = 
@@ -87,11 +88,11 @@ module CorrelationPanelModel =
     let initial = {
         version                = CorrelationPanelModel.current
         logBrush               = None
-        contacts               = HMap.empty        
+        contacts               = HashMap.empty        
         correlationPlot        = CorrelationPlotModel.initial
         semanticApp            = SemanticApp.getInitialWithSamples    
         logginMode             = PickReferencePlane
-        contactOfInterest      = HSet.empty
+        contactOfInterest      = HashSet.empty
     }
 
 

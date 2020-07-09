@@ -1,29 +1,27 @@
-﻿namespace DS
+namespace DS
 
 module PList =
-  open Aardvark.Base.Incremental
+  open FSharp.Data.Adaptive
   open Aardvark.Base
 
 
-  let fromHMap (input : hmap<_,'a>) : plist<'a> = 
-    input |> HMap.toSeq |> PList.ofSeq |> PList.map snd 
+  let fromHMap (input : HashMap<_,'a>) : IndexList<'a> = 
+    input |> HashMap.toSeq |> IndexList.ofSeq |> IndexList.map snd 
 
-  let contains (f : 'a -> bool) (lst : plist<'a>) =
-    let filtered = 
-      lst 
-        |> PList.filter f
-    not (filtered.IsEmpty ())  
+  let contains (f : 'a -> bool) (lst : IndexList<'a>) =
+    IndexList.exists (fun _ v -> f v) lst
 
-  let mapiInt (lst : plist<'a>) =
+
+  let mapiInt (lst : IndexList<'a>) =
     let i = ref 0
     seq {
       for item in lst do
         yield (item, i.Value)
         i := !i + 1
     }
-    |> PList.ofSeq
+    |> IndexList.ofSeq
 
-  let deleteFirst (lst : plist<'a>) (f : 'a -> bool) =
+  let deleteFirst (lst : IndexList<'a>) (f : 'a -> bool) =
     match lst.FirstIndexOf f with
       | ind when ind = -1 -> (false, lst)
       | ind -> (true, lst.RemoveAt ind)
@@ -33,35 +31,35 @@ module PList =
   
 
 
-  let rec deleteAll (f : 'a -> bool) (lst : plist<'a>) =
+  let rec deleteAll (f : 'a -> bool) (lst : IndexList<'a>) =
     match deleteFirst lst f with
       | (true, li)  -> deleteAll f li
       | (false, li) -> li
 
-  let filterNone (lst : plist<option<'a>>) =
+  let filterNone (lst : IndexList<option<'a>>) =
     lst
-      |> PList.filter (fun (el : option<'a>) -> el.IsSome)
-      |> PList.map (fun el -> el.Value)
+      |> IndexList.filter (fun (el : option<'a>) -> el.IsSome)
+      |> IndexList.map (fun el -> el.Value)
 
-  let filterEmptyLists (lst : plist<list<'a>>) =
+  let filterEmptyLists (lst : IndexList<list<'a>>) =
     lst
-      |> PList.filter (fun a -> List.isEmpty a)
+      |> IndexList.filter (fun a -> List.isEmpty a)
 
 
 
 
-  let min (lst : plist<'a>) : 'a =
+  let min (lst : IndexList<'a>) : 'a =
     lst
-      |> PList.toList
+      |> IndexList.toList
       |> List.min
 
-  let mapMin (f : 'a -> 'b) (lst : plist<'a>) : 'b =
-    lst |> PList.toList
+  let mapMin (f : 'a -> 'b) (lst : IndexList<'a>) : 'b =
+    lst |> IndexList.toList
         |> List.map f
         |> List.min
 
 
-  //let moveLeft (shiftLeft : 'a) (lst : plist<'a>)  =
+  //let moveLeft (shiftLeft : 'a) (lst : IndexList<'a>)  =
   //  let f (ind : Index) (current : 'a) =
   //    match lst.TryGet (ind.After ()), lst.TryGet (ind.Before ()) with
   //      | Some next, None -> 
@@ -82,9 +80,9 @@ module PList =
   //        else
   //          current
   //      | None, None   -> current
-  //  PList.mapi f lst
+  //  IndexList.mapi f lst
 
-  //let moveRight (shiftRight : 'a) (lst : plist<'a>)  =
+  //let moveRight (shiftRight : 'a) (lst : IndexList<'a>)  =
   //  let f (ind : Index) (current : 'a) =
   //    match lst.TryGet (ind.After ()), lst.TryGet (ind.Before ()) with
   //      | Some next, None -> 
@@ -105,72 +103,72 @@ module PList =
   //        else
   //          current
   //      | None, None   -> current
-  //  PList.mapi f lst
+  //  IndexList.mapi f lst
 
 
-  let minBy (f : 'a -> 'b) (lst : plist<'a>) : 'a =
+  let minBy (f : 'a -> 'b) (lst : IndexList<'a>) : 'a =
     lst
-      |> PList.toList
+      |> IndexList.toList
       |> List.reduce (fun x y -> if (f x) < (f y) then x else y)
 
-  let maxBy (f : 'a -> 'b) (lst : plist<'a>) : 'a =
+  let maxBy (f : 'a -> 'b) (lst : IndexList<'a>) : 'a =
     lst
-      |> PList.toList
+      |> IndexList.toList
       |> List.reduce (fun x y -> if (f x) > (f y) then x else y)
 
-  let tryMinBy (f : 'a -> 'b) (lst : plist<'a>) : option<'a> =
+  let tryMinBy (f : 'a -> 'b) (lst : IndexList<'a>) : option<'a> =
     match lst.IsEmptyOrNull() with
       | true  -> None
       | false -> Some (minBy f lst)
 
-  let tryMaxBy (f : 'a -> 'b) (lst : plist<'a>) : option<'a> =
+  let tryMaxBy (f : 'a -> 'b) (lst : IndexList<'a>) : option<'a> =
     match lst.IsEmptyOrNull() with
       | true  -> None
       | false -> Some (maxBy f lst)
 
-  let minMapBy (mapTo: 'a -> 'c) (minBy : 'a -> 'b) (lst : plist<'a>) : 'c =
+  let minMapBy (mapTo: 'a -> 'c) (minBy : 'a -> 'b) (lst : IndexList<'a>) : 'c =
     lst
-      |> PList.toList
+      |> IndexList.toList
       |> List.reduce (fun x y -> if (minBy x) < (minBy y) then x else y)
       |> mapTo 
 
-  let maxMapBy (mapTo: 'a -> 'c) (maxBy : 'a -> 'b) (lst : plist<'a>) : 'c =
+  let maxMapBy (mapTo: 'a -> 'c) (maxBy : 'a -> 'b) (lst : IndexList<'a>) : 'c =
     lst
-      |> PList.toList
+      |> IndexList.toList
       |> List.reduce (fun x y -> if (maxBy x) < (maxBy y) then x else y)
       |> mapTo 
 
-  let average (lst : plist<float>) : float =
+  let average (lst : IndexList<float>) : float =
     lst
-      |> PList.toList
+      |> IndexList.toList
       |> List.average
 
-  let tail (lst : plist<'a>) =
+  let tail (lst : IndexList<'a>) =
     match lst.IsEmptyOrNull () with
-      | true  -> PList.empty
-      | false -> PList.removeAt 0 lst
+      | true  -> IndexList.empty
+      | false -> IndexList.removeAt 0 lst
 
-  let tryHead (lst : plist<'a>) =
+  let tryHead (lst : IndexList<'a>) =
     match lst.IsEmptyOrNull () with
       | true  -> None
       | false -> Some (lst.Item 0)
 
   let rec reduce (f : 'a -> 'a -> 'a) 
                  (acc : 'a) 
-                 (lst : plist<'a>) =
+                 (lst : IndexList<'a>) =
     match (tryHead lst) with
       | None           -> acc
       | Some h         -> 
         reduce f (f acc h) (tail lst)
 
-  let rec flattenLists (plst : plist<list<'a>>) =
+  let rec flattenLists (plst : IndexList<list<'a>>) =
     let head = tryHead plst
     match head with
       | None  -> []
       | Some lst -> 
         lst @ (flattenLists (tail plst))
 
-  let rec allTrueOrEmpty (f : 'a -> bool) (lst : plist<'a>) =
+  let rec allTrueOrEmpty (f : 'a -> bool) (lst : IndexList<'a>) =
     match lst.IsEmptyOrNull () with
       | true  -> true
       | false -> 
@@ -178,7 +176,7 @@ module PList =
           | true  -> allTrueOrEmpty f (tail lst)
           | false -> false
 
-  let rec anyTrue (f : 'a -> bool) (lst : plist<'a>) =
+  let rec anyTrue (f : 'a -> bool) (lst : IndexList<'a>) =
     match lst.IsEmptyOrNull () with
       | true -> false
       | false -> 
@@ -186,74 +184,74 @@ module PList =
           | true  -> true
           | false -> anyTrue f (tail lst)
         
-  let averageOrZero (lst : plist<float>) =
+  let averageOrZero (lst : IndexList<float>) =
     match lst.IsEmptyOrNull () with
       | true -> 0.0
       | false -> average lst
 
-  let rec mapPrev (lst  : plist<'a>) 
+  let rec mapPrev (lst  : IndexList<'a>) 
                   (prev : option<'a>)
                   (f    : 'a -> 'a -> 'a) =
     let current = tryHead lst
     match prev, current with
-      | None, None     -> PList.empty
+      | None, None     -> IndexList.empty
       | None, Some c   -> 
-        PList.append c (mapPrev (tail lst) current f)
-      | Some p, None   -> PList.empty
+        IndexList.add c (mapPrev (tail lst) current f)
+      | Some p, None   -> IndexList.empty
       | Some p, Some c -> 
         let foo = 
           mapPrev (tail lst) current f
         let bar =
-          PList.append (f p c) foo
+          IndexList.add (f p c) foo
         bar   
 
   let rec mapPrev' 
-    (keys  : plist<'key>) 
-    (items : hmap<'key, 'b>)
+    (keys  : IndexList<'key>) 
+    (items : HashMap<'key, 'b>)
     (prev  : option<'key>)
-    (f     : 'b -> 'b -> 'b) : hmap<'key, 'b> =
+    (f     : 'b -> 'b -> 'b) : HashMap<'key, 'b> =
 
     let current = tryHead keys
     let result = 
       match prev, current with
-        | None, None     -> HMap.empty
+        | None, None     -> HashMap.empty
         | None, Some c   -> 
-          HMap.add c (items.Item c) (mapPrev' (tail keys) items current f)
-        | Some p, None   -> HMap.empty
+          HashMap.add c (items.Item c) (mapPrev' (tail keys) items current f)
+        | Some p, None   -> HashMap.empty
         | Some p, Some c -> 
           let prev = items.Item p
           let curr = items.Item c
           let _current = (f prev curr)
-          let _items   = HMap.update c (fun optv -> _current) items
+          let _items   = HashMap.update c (fun optv -> _current) items
           let rest = 
             mapPrev' (tail keys) _items current f
           let bar =
-            HMap.add c _current rest
+            HashMap.add c _current rest
           bar   
     result
 
-  let removeLast (plst : plist<'a>) =
-    PList.remove (PList.lastIndex plst) plst
+  let removeLast (plst : IndexList<'a>) =
+    IndexList.remove (IndexList.lastIndex plst) plst
 
-  let reverse (plst : plist<'a>) =
+  let reverse (plst : IndexList<'a>) =
     plst
-      |> PList.toListBack 
-      |> PList.ofList
+      |> IndexList.toListBack 
+      |> IndexList.ofList
 
 
-  let zip (plst1 : plist<'a>) (plst2 : plist<'b>) =
-    let rec _zip (res : plist<'a*'b>) (lst1 : plist<'a>) (lst2 : plist<'b>) =
+  let zip (plst1 : IndexList<'a>) (plst2 : IndexList<'b>) =
+    let rec _zip (res : IndexList<'a*'b>) (lst1 : IndexList<'a>) (lst2 : IndexList<'b>) =
       match lst1.IsEmptyOrNull (), lst2.IsEmptyOrNull () with
       | true, true -> res
       | false, false ->
-        let last1 =  PList.last lst1
-        let last2 =  PList.last lst2
-        let result = PList.prepend (last1, last2) res
+        let last1 =  IndexList.last lst1
+        let last2 =  IndexList.last lst2
+        let result = IndexList.prepend (last1, last2) res
         let rest1 = removeLast lst1
         let rest2 = removeLast lst2
         (_zip result rest1 rest2)
       | _,_ -> failwith "lists must have the same size"
-    _zip PList.empty plst1 plst2
+    _zip IndexList.empty plst1 plst2
 
     
 

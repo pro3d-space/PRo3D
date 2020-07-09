@@ -1,6 +1,8 @@
-﻿namespace PRo3D
+namespace PRo3D
 
 open PRo3D.Base.Annotation
+
+open FSharp.Data.Adaptive
 
 open System.IO
 open Microsoft.FSharp.Reflection
@@ -101,8 +103,8 @@ module Csv =
 
       let points = 
         a.points 
-          //|> PList.map a.modelTrafo.Forward.TransformPos 
-          |> PList.toArray
+          //|> IndexList.map a.modelTrafo.Forward.TransformPos 
+          |> IndexList.toArray
 
       let c = Box3d(points).Center
 
@@ -131,7 +133,7 @@ module Csv =
         sumOfSquares = dnsResults.errorSos
 
         text          = a.text;
-        groupName     = lookUp |> HMap.tryFind a.key |> Option.defaultValue("")
+        groupName     = lookUp |> HashMap.tryFind a.key |> Option.defaultValue("")
         surfaceName   = a.surfaceName
 
         x             = c.X;

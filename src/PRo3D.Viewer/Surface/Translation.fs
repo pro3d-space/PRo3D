@@ -1,4 +1,4 @@
-﻿namespace PRo3D
+namespace PRo3D
 
 open Aardvark.Base
 open Aardvark.Application
@@ -6,7 +6,7 @@ open Aardvark.UI
 
 open System
 
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Base.Rendering    
 
 open Aardvark.Base.Rendering   
@@ -40,7 +40,7 @@ module Transformations =
 
     originTrafo * rot * originTrafo.Inverse * refSysRotation.Inverse * trans * refSysRotation    
 
-  let fullTrafo (surf : IMod<MSurface>) (refsys : MReferenceSystem) = 
+  let fullTrafo (surf : aval<AdaptiveSurface>) (refsys : AdaptiveReferenceSystem) = 
     adaptive {
       let! s = surf
       let! s = s.Current
@@ -74,14 +74,14 @@ module TranslationApp =
    
     module UI =
         
-        let viewV3dInput (model : MV3dInput) =  
+        let viewV3dInput (model : AdaptiveV3dInput) =  
             Html.table [                            
                 Html.row "north" [Numeric.view' [InputBox] model.x |> UI.map Vector3d.Action.SetX]
                 Html.row "east"  [Numeric.view' [InputBox] model.y |> UI.map Vector3d.Action.SetY]
                 Html.row "up"    [Numeric.view' [InputBox] model.z |> UI.map Vector3d.Action.SetZ]
             ]       
 
-        let view (model:MTransformations) =
+        let view (model:AdaptiveTransformations) =
             
             require GuiEx.semui (
                 Html.table [  

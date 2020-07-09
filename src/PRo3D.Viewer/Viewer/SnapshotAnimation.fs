@@ -6,8 +6,8 @@ open System
 open PRo3D.Base
 open MBrace.FsPickler.Json   
 open PRo3D.Viewer
-open Chiron
 open Aardvark.UI
+open Chiron
 
 /////////////////////
 type Snapshot = {
@@ -429,11 +429,11 @@ module SnapshotAnimation =
                
               //try Utilities.takeScreenshot "http://localhost:54321" width height pngName fpPath with e -> printfn "error: %A" e
 
-              let rot      = Rot3d(state.Forward, ex.camLookAt) * localTime / duration
-              let forward' = rot.TransformDir(state.Forward)
+              let rot      = Rot3d.RotateInto(state.Forward, ex.camLookAt) * localTime / duration
+              let forward' = (Rot3d rot).Transform(state.Forward)
 
-              let uprot     = Rot3d(state.Up, ex.camUp) * localTime / duration
-              let up'       = uprot.TransformDir(state.Up)
+              let uprot     = Rot3d.RotateInto(state.Up, ex.camUp) * localTime / duration
+              let up'       = (Rot3d uprot).Transform(state.Up)
               
               let vec       = ex.position - state.Location
               let velocity  = vec.Length / duration                  

@@ -1,9 +1,11 @@
-﻿namespace PRo3D.Base.Annotation
+namespace PRo3D.Base.Annotation
 
 open System
 open Aardvark.Base
 open OpcViewer.Base
 open PRo3D.Base
+
+open FSharp.Data.Adaptive
 
 module DipAndStrike =   
       
@@ -48,8 +50,8 @@ module DipAndStrike =
         
         Math.Sqrt (sosq / float (input.Length - 1))          
     
-    let calculateDnsErrors (points:plist<V3d>) =
-        let points = points |> PList.filter(fun x -> not x.IsNaN)
+    let calculateDnsErrors (points:IndexList<V3d>) =
+        let points = points |> IndexList.filter(fun x -> not x.IsNaN)
     
         if points.Count < 3 then []
         else
@@ -58,7 +60,7 @@ module DipAndStrike =
                     
             let distances = 
               points 
-                |> PList.toList
+                |> IndexList.toList
                 |> List.map(fun x -> (plane.Height x))
     
             distances
@@ -67,9 +69,9 @@ module DipAndStrike =
          let horP = new Plane3d(up, V3d.Zero)                
          horP.Height(plane.Normal).Sign()                 
     
-    let calculateDipAndStrikeResults (up:V3d) (north : V3d) (points:plist<V3d>) =
+    let calculateDipAndStrikeResults (up:V3d) (north : V3d) (points:IndexList<V3d>) =
     
-        let points = points |> PList.filter(fun x -> not x.IsNaN)
+        let points = points |> IndexList.filter(fun x -> not x.IsNaN)
     
         match points.Count with 
         | x when x > 2 ->
@@ -83,7 +85,7 @@ module DipAndStrike =
     
             let distances = 
                 points 
-                |> PList.toList
+                |> IndexList.toList
                 |> List.map(fun x -> (plane.Height x).Abs())
     
             let sos = distances |> List.map(fun x -> x * x) |> List.sum /// (float distances.Length)
@@ -99,7 +101,7 @@ module DipAndStrike =
             //correct plane orientation - check if normals point in same direction           
             let planeNormal = 
                 match signedOrientation up plane with
-                | -1 -> plane.Normal.Negated
+                | -1 -> -plane.Normal
                 | _  -> plane.Normal
     
             //let plane = Plane3d(planeNormal, plane.Distance)
@@ -115,7 +117,7 @@ module DipAndStrike =
     
             let distances2 = 
                 points
-                |> PList.toList
+                |> IndexList.toList
                 |> List.map(fun x -> (plane.Height x).Abs())
     
             Log.line "%A" distances2
@@ -144,7 +146,7 @@ module DipAndStrike =
         
     let recalculateDnSAzimuth (anno:Annotation) (up:V3d) (north : V3d) =
     
-        let points = anno.points |> PList.filter(fun x -> not x.IsNaN)
+        let points = anno.points |> IndexList.filter(fun x -> not x.IsNaN)
         match anno.dnsResults with
         | Some dns ->
             match points.Count with 
@@ -156,7 +158,7 @@ module DipAndStrike =
                 let height = Plane3d(up, V3d.Zero).Height(plane.Normal)
                 plane.Normal <-
                     match height.Sign() with
-                    | -1 -> plane.Normal.Negated
+                    | -1 -> -plane.Normal
                     | _  -> plane.Normal                
     
                 //strike
@@ -175,6 +177,7 @@ module DipAndStrike =
         | _-> None
 
 module Calculations =
+
 
    //let getHeightDelta (p:V3d) (upVec:V3d) = (p * upVec).Length
 
@@ -196,7 +199,7 @@ module Calculations =
    let getDistance (points:list<V3d>) = 
        points
        |> List.pairwise
-       |> List.map (fun (a,b) -> V3d.Distance(a,b))
+       |> List.map (fun (a,b) -> Vec.Distance(a,b))
        |> List.sum
 
    let getSegmentDistance (s:Segment) = 
@@ -208,7 +211,7 @@ module Calculations =
              yield s.endPoint 
            ] 
 
-   let computeWayLength (segments:plist<Segment>) = 
+   let computeWayLength (segments:IndexList<Segment>) = 
        [ 
            for s in segments do
                yield getSegmentDistance s
@@ -218,18 +221,18 @@ module Calculations =
 
    let calcResultsLine (model:Annotation) (upVec:V3d) (northVec:V3d) (planet:Planet) : AnnotationResults =
        let count = model.points.Count
-       let dist = V3d.Distance(model.points.[0], model.points.[count-1])
+       let dist = Vec.Distance(model.points.[0], model.points.[count-1])
        let wayLength =
-           if model.segments.IsEmpty() then
+           if model.segments.IsEmpty then
                computeWayLength model.segments
            else
                dist
 
        let heights = 
            model.points 
-           // |> PList.map(fun x -> model.modelTrafo.Forward.TransformPos(x))
-           |> PList.map(fun p -> getHeightDelta2 p upVec planet ) 
-           |> PList.toList
+           // |> IndexList.map(fun x -> model.modelTrafo.Forward.TransformPos(x))
+           |> IndexList.map(fun p -> getHeightDelta2 p upVec planet ) 
+           |> IndexList.toList
 
        let hcount = heights.Length
 

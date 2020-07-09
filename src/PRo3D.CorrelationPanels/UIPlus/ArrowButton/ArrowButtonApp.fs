@@ -1,7 +1,7 @@
-﻿namespace UIPlus
+namespace UIPlus
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI
 
 open CorrelationDrawing
@@ -23,7 +23,7 @@ module ArrowButtonApp =
     match action with
       | OnClick id -> model
 
-  let view (model : MArrowButton) = 
+  let view (model : AdaptiveArrowButton) = 
     let content = 
       alist {
         let! size = model.size

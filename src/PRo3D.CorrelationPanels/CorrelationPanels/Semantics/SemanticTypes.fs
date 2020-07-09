@@ -1,13 +1,14 @@
-﻿namespace CorrelationDrawing.SemanticTypes
+namespace CorrelationDrawing.SemanticTypes
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
+open Adaptify
 open UIPlus
 open CorrelationDrawing.Types
-open Chiron
 open Aardvark.UI
 open PRo3D.Base
+open Chiron
 
 #nowarn "0686"
 
@@ -26,14 +27,14 @@ module CorrelationSemanticId =
         let (CorrelationSemanticId name) = semanticId
         name
 
-[<DomainType>]
+[<ModelType>]
 type CorrelationSemantic = {
     version : int
 
-    [<NonIncremental;PrimaryKey>]
+    [<NonAdaptive>]
     id                : CorrelationSemanticId
     
-    [<NonIncremental>]
+    [<NonAdaptive>]
     timestamp         : string
     
     state             : State
@@ -105,11 +106,11 @@ type SemanticsSortingOption =
     | SemanticId   = 4 
     | Timestamp    = 5
 
-[<DomainType>]
+[<ModelType>]
 type SemanticsModel = {
     version             : int
-    semantics           : hmap<CorrelationSemanticId, CorrelationSemantic>
-    semanticsList       : plist<CorrelationSemantic>
+    semantics           : HashMap<CorrelationSemanticId, CorrelationSemantic>
+    semanticsList       : IndexList<CorrelationSemantic>
     selectedSemantic    : CorrelationSemanticId
     sortBy              : SemanticsSortingOption
     creatingNew         : bool
@@ -126,8 +127,8 @@ with
 
             return { 
                 version          = SemanticsModel.current    
-                semantics        = semantics |> HMap.ofList
-                semanticsList    = semanticsList |> PList.ofList
+                semantics        = semantics |> HashMap.ofList
+                semanticsList    = semanticsList |> IndexList.ofList
                 selectedSemantic = CorrelationSemanticId.invalid
                 sortBy           = sortBy |> enum<SemanticsSortingOption>
                 creatingNew      = false
@@ -143,8 +144,8 @@ with
     static member ToJson (x : SemanticsModel) =
         json {
             do! Json.write "version"        x.version
-            do! Json.write "semantics"     (x.semantics |> HMap.values |> Seq.toList)
-            do! Json.write "semanticsList" (x.semanticsList |> PList.toList)
+            do! Json.write "semantics"     (x.semantics |> HashMap.values |> Seq.toList)
+            do! Json.write "semanticsList" (x.semanticsList |> IndexList.toList)
             do! Json.write "sortBy"        (x.sortBy |> int)                     
         }
 
@@ -152,9 +153,9 @@ module SemanticsModel =
 
     let initial : SemanticsModel = {
         version           = SemanticsModel.current
-        semantics         = hmap.Empty
+        semantics         = HashMap.Empty
         selectedSemantic  = CorrelationSemanticId.invalid
-        semanticsList     = plist.Empty
+        semanticsList     = IndexList.Empty
         sortBy            = SemanticsSortingOption.Level
         creatingNew       = false
     }    

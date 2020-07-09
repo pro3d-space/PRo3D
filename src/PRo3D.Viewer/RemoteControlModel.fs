@@ -1,14 +1,16 @@
-﻿namespace RemoteControlModel
+namespace RemoteControlModel
 
 open System
 open System.Runtime.Serialization
 
 open Aardvark.Base
 open Aardvark.Base.Rendering
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open PRo3D
 open PRo3D.Viewer
 open PRo3D.Viewplanner
+
+open Adaptify
 
 
 //PTU values sequence
@@ -206,7 +208,7 @@ module PlatformShot =
             folder = sh.folder
         }
 
-    let trafoFromRoverBase (forw:V3d) (up:V3d) (pos:V3d) =        
+    let trafoFroAdaptiveRoverBase (forw:V3d) (up:V3d) (pos:V3d) =        
         let right = forw.Cross up
         let right = -right
 
@@ -233,9 +235,9 @@ module PlatformShot =
         let pos = psh.pos |> Xyz.toV3d
         let up = psh.up |> Xyz.toV3d
 
-        trafoFromRoverBase forw up pos
+        trafoFroAdaptiveRoverBase forw up pos
     
-    let fromRoverModel (rm : RoverModel) (sh : Shot): option<PlatformShot> =
+    let froAdaptiveRoverModel (rm : RoverModel) (sh : Shot): option<PlatformShot> =
         
         let getRover (rover : option<Rover>) (result : PlatformShot)  : option<PlatformShot> =
             rover |> Option.map (fun r -> { result with rover = r.id })
@@ -272,8 +274,8 @@ module PlatformShot =
 
     let getCameraAnfFov (m : RoverModel) (p : PlatformShot)  =
         let trafo = trafoFromPlatformShot p
-        let r = m.rovers |> HMap.find p.rover
-        let inst = r.instruments |> HMap.find p.instrument
+        let r = m.rovers |> HashMap.find p.rover
+        let inst = r.instruments |> HashMap.find p.instrument
 
         let trans = inst.extrinsics |> Extrinsics.transformed trafo.Forward                                                    
                                                                       
@@ -285,8 +287,8 @@ module PlatformShot =
         cv, hfov
 
     let updateFocus (p : PlatformShot) (m : RoverModel) =
-        let r = m.rovers |> HMap.find p.rover
-        let inst = r.instruments |> HMap.find p.instrument
+        let r = m.rovers |> HashMap.find p.rover
+        let inst = r.instruments |> HashMap.find p.instrument
        
         if inst.calibratedFocalLengths.Length > 1 then
             let up = {
@@ -303,8 +305,8 @@ module PlatformShot =
         let m = m |> updateFocus p
 
         let trafo = trafoFromPlatformShot p
-        let r = m.rovers |> HMap.find p.rover
-        let inst = r.instruments |> HMap.find p.instrument
+        let r = m.rovers |> HashMap.find p.rover
+        let inst = r.instruments |> HashMap.find p.instrument
         
         let trans = inst.extrinsics |> Extrinsics.transformed trafo.Forward                         
                                                                       
@@ -326,13 +328,13 @@ module PlatformShot =
             far = p.far
         }
 
-[<DomainType>]
+[<ModelType>]
 type RemoteModel =
     {
-        //viewPoints : plist<WayPoint>
+        //viewPoints : IndexList<WayPoint>
         selectedShot : Option<Shot>
-        shots            : plist<Shot>
-        platformShots    : plist<PlatformShot>
+        shots            : IndexList<Shot>
+        platformShots    : IndexList<PlatformShot>
         Rover            : RoverModel
     }
 

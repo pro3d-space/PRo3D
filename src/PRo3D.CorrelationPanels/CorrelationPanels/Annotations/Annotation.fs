@@ -1,9 +1,9 @@
-﻿namespace CorrelationDrawing
+namespace CorrelationDrawing
 
 open System
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Base.Rendering
 open Aardvark.Rendering.Text
 open Aardvark.UI
@@ -18,9 +18,9 @@ open CorrelationDrawing.Types
 open CorrelationDrawing.SemanticTypes
 open CorrelationDrawing.AnnotationTypes
 
-type MContactsTable  = amap<ContactId, MContact>
+type MContactsTable  = amap<ContactId, AdaptiveContact>
 
-type MAnnotationsTable = hmap<ContactId, MContact>
+type MAnnotationsTable = HashMap<ContactId, AdaptiveContact>
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Contact =
@@ -35,7 +35,7 @@ module Contact =
           geometry        = t
           semanticId      = CorrelationSemanticId.invalid
           elevation       = getElevation
-          points          = PList.empty
+          points          = IndexList.empty
           
           projection      = Projection.Viewpoint
           visible         = true
@@ -53,27 +53,27 @@ module Contact =
       | HoverOut        of ContactId
       | Deselect
 
-  let getColor (anno : option<MContact>) (semanticApp : MSemanticsModel) = 
+  let getColor (anno : option<AdaptiveContact>) (semanticApp : AdaptiveSemanticsModel) = 
         match anno with //TODO refactor
-          | Some (a : MContact) -> SemanticApp.getColor semanticApp a.semanticId                            
-          | None -> Mod.constant C4b.Black
+          | Some (a : AdaptiveContact) -> SemanticApp.getColor semanticApp a.semanticId                            
+          | None -> AVal.constant C4b.Black
     
-  let getColor' (anno : MContact) (semanticApp : MSemanticsModel) =          
-    let rval = 
+  let getColor' (anno : AdaptiveContact) (semanticApp : AdaptiveSemanticsModel) =          
+    let rval =
       adaptive {
         return! SemanticApp.getColor semanticApp anno.semanticId
       }
     rval
 
-  let getColor'' (imAnno : IMod<Option<MContact>>) (semanticApp : MSemanticsModel) =
+  let getColor'' (imAnno : aval<Option<AdaptiveContact>>) (semanticApp : AdaptiveSemanticsModel) =
     adaptive {
       let! optAnno = imAnno
-      let (a : IMod<C4b>, b : IMod<bool>) = 
+      let (a : aval<C4b>, b : aval<bool>) = 
           match optAnno with
             | Some an -> 
               let col = SemanticApp.getColor semanticApp an.semanticId                
               (col, an.hovered)
-            | None -> ((Mod.constant C4b.Red), (Mod.constant false))
+            | None -> ((AVal.constant C4b.Red), (AVal.constant false))
 
       // let! hover = b
       let! col = a
@@ -90,20 +90,20 @@ module Contact =
                               | None -> anno
         | ToggleSelected (point) -> 
           let ind =       
-            anno.points.FirstIndexOf(fun (p : ContactPoint) -> V3d.AllEqual(p.point,point)) 
+            anno.points.FirstIndexOf(fun (p : ContactPoint) -> Vec.AllEqual(p.point,point)) 
           match ind with
             | -1 -> anno
             | _  ->
               let setTo = not (anno.points.Item ind).selected
               let deselected =
-                anno.points |> PList.map (fun p -> {p with selected = false})
+                anno.points |> IndexList.map (fun p -> {p with selected = false})
               let upd = 
                 deselected.Update  
                   (ind, (fun (p : ContactPoint) -> {p with selected = setTo}))
               {anno with points = upd}
         | Select (point) ->
           let ind =       
-            anno.points.FirstIndexOf(fun (p : ContactPoint) -> V3d.AllEqual(p.point,point)) 
+            anno.points.FirstIndexOf(fun (p : ContactPoint) -> Vec.AllEqual(p.point,point)) 
           let upd = anno.points.Update (ind, (fun (p : ContactPoint) -> {p with selected = true}))
           {anno with points         = upd}
         | HoverIn    id  -> 
@@ -115,13 +115,13 @@ module Contact =
           match (id = anno.id) with
             | true -> {anno with hovered = false }
             | false -> anno
-        | Deselect -> {anno with points = anno.points |> PList.map (fun p -> {p with selected = false})}
+        | Deselect -> {anno with points = anno.points |> IndexList.map (fun p -> {p with selected = false})}
 
 
   let getSelected (anno : Contact) =
     let sel = 
       anno.points.Filter (fun i p -> p.selected)
-        |> PList.tryAt 0
+        |> IndexList.tryAt 0
     sel |> Option.map (fun s -> (s, anno))
 
   let isSelected (anno : Contact) =
@@ -129,7 +129,7 @@ module Contact =
 
 
   module View = 
-      let viewSelected (model : MContact)  (semanticApp : MSemanticsModel) = 
+      let viewSelected (model : AdaptiveContact)  (semanticApp : AdaptiveSemanticsModel) = 
           let semanticsNode = 
               let iconAttr =
                   amap {
@@ -159,7 +159,7 @@ module Contact =
           
           [semanticsNode;geometryTypeNode;projectionNode;annotationTextNode]
       
-      let viewDeselected (model : MContact)  (semanticApp : MSemanticsModel) = 
+      let viewDeselected (model : AdaptiveContact)  (semanticApp : AdaptiveSemanticsModel) = 
           let semanticsNode = 
             let iconAttr =
               amap {
@@ -193,34 +193,34 @@ module Contact =
           [semanticsNode;geometryTypeNode;projectionNode;annotationTextNode]
       
       
-      let view  (model : MContact)  (semanticApp : MSemanticsModel) = 
+      let view  (model : AdaptiveContact)  (semanticApp : AdaptiveSemanticsModel) = 
         model.selected
-          |> Mod.map (fun d -> 
+          |> AVal.map (fun d -> 
               match d with
                 | true  -> viewSelected model semanticApp
                 | false -> viewDeselected model semanticApp)
  
   module Sg =
-    let view (model : MContact) (cam : IMod<CameraView>) (semApp : MSemanticsModel) (working : bool) =
+    let view (model : AdaptiveContact) (cam : aval<CameraView>) (semApp : AdaptiveSemanticsModel) (working : bool) =
 
-      let annoPointToSg (point : MContactPoint) (color : IMod<C4b>) (weight : IMod<float>) =  
-        let weight = weight |> Mod.map (fun w -> w * 0.2)
-        let trafo = (Mod.constant (Trafo3d.Translation(point.point))) //TODO dynamic
+      let annoPointToSg (point : AdaptiveContactPoint) (color : aval<C4b>) (weight : aval<float>) =  
+        let weight = weight |> AVal.map (fun w -> w * 0.2)
+        let trafo = (AVal.constant (Trafo3d.Translation(point.point))) //TODO dynamic
         let pickSg = 
-           Sg.sphereWithEvents (Mod.constant C4b.White) weight 
+           Sg.sphereWithEvents (AVal.constant C4b.White) weight 
                 [
                   Sg.onClick (fun p -> ToggleSelected (point.point))
                   Sg.onEnter (fun _ -> HoverIn model.id)
                   Sg.onLeave (fun _ -> HoverOut model.id)
                 ]
               |> (Sg.trafo trafo)
-              |> Sg.depthTest (Mod.constant DepthTestMode.Never)
+              |> Sg.depthTest (AVal.constant DepthTestMode.Never)
           
         point.selected 
-          |> Mod.map (fun sel -> 
+          |> AVal.map (fun sel -> 
                         let col =
                           match sel with
-                            | true -> (Mod.constant C4b.Yellow)   
+                            | true -> (AVal.constant C4b.Yellow)   
                             | false -> color
                         Sg.sphereDyn col weight  
                                 |> Sg.trafo(trafo))
@@ -232,12 +232,12 @@ module Contact =
       let thickness = SemanticApp.getThickness semApp model.semanticId
       let lines = 
           Sg.Incremental.polyline 
-            (AList.map (fun (ap : MContactPoint) -> ap.point) model.points)
+            (AList.map (fun (ap : AdaptiveContactPoint) -> ap.point) model.points)
             color
             thickness
 
       let dots =      
-        let weight = (thickness |> Mod.map  (fun x -> x * 0.1))
+        let weight = (thickness |> AVal.map  (fun x -> x * 0.1))
         alist {
           let! count = (AList.count model.points)
           let last = count - 1
@@ -247,8 +247,8 @@ module Contact =
               let (col, weight) = 
                 match  (i = last) with
                   | true -> 
-                    let c = (Mod.constant C4b.Yellow )
-                    let w = (thickness |> Mod.map  (fun x -> x * 0.2))
+                    let c = (AVal.constant C4b.Yellow )
+                    let w = (thickness |> AVal.map  (fun x -> x * 0.2))
                     (c,w)
                   | false -> 
                     (color, weight)
@@ -265,13 +265,13 @@ module Contact =
        Sg.noEvents <| dots
       ] |> ASet.ofList
 
-  let getThickness (anno : IMod<Option<MContact>>) (semanticApp : MSemanticsModel) = 
-    Mod.bind (fun (a : Option<MContact>)
+  let getThickness (anno : aval<Option<AdaptiveContact>>) (semanticApp : AdaptiveSemanticsModel) = 
+    AVal.bind (fun (a : Option<AdaptiveContact>)
                   -> match a with
                       | Some a -> SemanticApp.getThickness semanticApp a.semanticId
-                      | None -> Mod.constant CorrelationSemantic.ThicknessDefault) anno   
+                      | None -> AVal.constant CorrelationSemantic.ThicknessDefault) anno   
 
-  let getThickness' (anno : MContact) (semanticApp : MSemanticsModel) = 
+  let getThickness' (anno : AdaptiveContact) (semanticApp : AdaptiveSemanticsModel) = 
     SemanticApp.getThickness semanticApp anno.semanticId
 
 //  let calcElevation (v : V3d) =
@@ -286,7 +286,7 @@ module Contact =
 
   let elevation (anno : Contact) =
     anno.points 
-      |> PList.toList
+      |> IndexList.toList
       |> List.map (fun x -> anno.elevation x.point)
       |> List.average
 
@@ -311,8 +311,8 @@ module Contact =
   //  adaptive {
   //    let! lst = anno.points.Content
   //    return lst
-  //            |> PList.map (fun x -> anno.elevation x.point)
-  //            |> PList.toList
+  //            |> IndexList.map (fun x -> anno.elevation x.point)
+  //            |> IndexList.toList
   //            |> List.average
   //  }
 
@@ -343,7 +343,7 @@ module Contact =
   let getLevelById  (id : AnnotationTypes.ContactId) (contacts : ContactsTable) (semanticApp : SemanticsModel) =        
       let semantic = 
           contacts
-          |> HMap.tryFind id 
+          |> HashMap.tryFind id 
           |> Option.bind (fun a ->
               (SemanticApp.getSemantic semanticApp a.semanticId)
           )

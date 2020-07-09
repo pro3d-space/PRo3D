@@ -1,7 +1,7 @@
-﻿namespace Svgplus
+namespace Svgplus
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI
 open CorrelationDrawing
 open Svgplus.ArrowType
@@ -75,7 +75,7 @@ module Arrow =
     
 
 
-  let view (model : MArrow) =
+  let view (model : AdaptiveArrow) =
     let actions = MouseActions.init ()
 
     let arrow = 

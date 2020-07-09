@@ -1,8 +1,9 @@
-﻿namespace PRo3D.Groups
+namespace PRo3D.Groups
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
+open Adaptify
 
 open Aardvark.VRVis
 open Aardvark.Geometry
@@ -17,7 +18,7 @@ open Chiron
 
 #nowarn "0044"
 
-[<DomainType>]
+[<ModelType>]
 type Leaf =     
     | Surfaces     of value : Surface
     | Bookmarks    of value : Bookmark
@@ -73,13 +74,13 @@ type Leaf with
             | Annotations a -> do! Json.write "Annotations" a
         }
                 
-[<DomainType;ReferenceEquality>]
+[<ModelType;ReferenceEquality>]
 type Node = {
     version     : int
     key         : Guid
     name        : string
-    leaves      : plist<Guid>
-    subNodes    : plist<Node>
+    leaves      : IndexList<Guid>
+    subNodes    : IndexList<Node>
     visible     : bool
     expanded    : bool
 }
@@ -100,8 +101,8 @@ type Node with
                     version  = Node.current
                     key      = key     
                     name     = name    
-                    leaves   = leaves   |> PList.ofList
-                    subNodes = subNodes |> PList.ofList
+                    leaves   = leaves   |> IndexList.ofList
+                    subNodes = subNodes |> IndexList.ofList
                     visible  = visible 
                     expanded = expanded
                 }
@@ -119,14 +120,13 @@ type Node with
             do! Json.write "version"  x.version
             do! Json.write "key"      x.key     
             do! Json.write "name"     x.name    
-            do! Json.write "leaves"   (x.leaves   |> PList.toList)
-            do! Json.write "subNodes" (x.subNodes |> PList.toList)
+            do! Json.write "leaves"   (x.leaves   |> IndexList.toList)
+            do! Json.write "subNodes" (x.subNodes |> IndexList.toList)
             do! Json.write "visible"  x.visible 
             do! Json.write "expanded" x.expanded
         }
 
 type TreeSelection = {
-    [<PrimaryKey>]
     id : Guid
     path : list<Index>
     name : string
@@ -138,8 +138,8 @@ module Group =
         version  = Node.current
         name     = "root"
         key      =  Guid.NewGuid()
-        leaves   = plist.Empty
-        subNodes = plist.Empty 
+        leaves   = IndexList.Empty
+        subNodes = IndexList.Empty 
         visible  = true
         expanded = true
     }
@@ -156,39 +156,39 @@ module Group =
         name = initRoot.name 
     }
 
-    let tryGet' (ans:hset<Leaf>) id = 
+    let tryGet' (ans:HashSet<Leaf>) id = 
         ans |> Seq.tryFind(fun x -> x.id = id)
 
-    let rec flatten (g:Node) : hset<Guid> =
-        match ((PList.toList g.leaves), (PList.toList g.subNodes)) with
-        | ([]    , []) -> HSet.empty
-        | (leaves, []) -> leaves |> HSet.ofList
-        | ([]    , subNodes) -> subNodes |> HSet.ofList |> HSet.collect flatten
+    let rec flatten (g:Node) : HashSet<Guid> =
+        match ((IndexList.toList g.leaves), (IndexList.toList g.subNodes)) with
+        | ([]    , []) -> HashSet.empty
+        | (leaves, []) -> leaves |> HashSet.ofList
+        | ([]    , subNodes) -> subNodes |> HashSet.ofList |> HashSet.collect flatten
         | (leaves, subNodes) ->
-            let sga = subNodes |> HSet.ofList |> HSet.collect flatten
-            HSet.union (leaves |> HSet.ofList) sga
+            let sga = subNodes |> HashSet.ofList |> HashSet.collect flatten
+            HashSet.union (leaves |> HashSet.ofList) sga
 
     let rec flatNodes (g:Node) : list<Node> =
-        match (PList.toList g.subNodes) with
+        match (IndexList.toList g.subNodes) with
         | [] -> [g]
         | subNodes -> subNodes |> List.collect(flatNodes)
         //| (leaves, subNodes) ->
-        //    let sga = subNodes |> HSet.ofList |> HSet.collect flatten
-        //    HSet.union (leaves |> HSet.ofList) sga
+        //    let sga = subNodes |> HashSet.ofList |> HashSet.collect flatten
+        //    HashSet.union (leaves |> HashSet.ofList) sga
 
 type SelectedItem = Child = 0 | Group = 1
 
 
-[<DomainType; ReferenceEquality>]
+[<ModelType; ReferenceEquality>]
 type GroupsModel = {
     version              : int
     rootGroup            : Node
     activeGroup          : TreeSelection
     activeChild          : TreeSelection
-    flat                 : hmap<Guid,Leaf>
-    groupsLookup         : hmap<Guid,string>
+    flat                 : HashMap<Guid,Leaf>
+    groupsLookup         : HashMap<Guid,string>
     lastSelectedItem     : SelectedItem
-    selectedLeaves       : hset<TreeSelection> 
+    selectedLeaves       : HashSet<TreeSelection> 
     singleSelectLeaf     : option<Guid>
 }
 
@@ -201,10 +201,10 @@ module GroupsModel =
             let! rootGroup = Json.read "rootGroup"
 
             let! flat = Json.read "flat"            
-            let flat = flat |> List.map(fun (a : Leaf) -> (a.id, a)) |> HMap.ofList
+            let flat = flat |> List.map(fun (a : Leaf) -> (a.id, a)) |> HashMap.ofList
             
             let! groupsLookup = Json.read "groupsLookup"
-            let groupsLookup  = groupsLookup |> HMap.ofList //TODO TO: check if it is possible to create generic hmap from/to json            
+            let groupsLookup  = groupsLookup |> HashMap.ofList //TODO TO: check if it is possible to create generic hmap from/to json            
                                     
             return {
                 version             = current         
@@ -214,7 +214,7 @@ module GroupsModel =
                 flat                = flat
                 groupsLookup        = groupsLookup
                 lastSelectedItem    = SelectedItem.Child
-                selectedLeaves      = hset.Empty 
+                selectedLeaves      = HashSet.Empty 
                 singleSelectLeaf    = None
             }
         }
@@ -224,10 +224,10 @@ module GroupsModel =
         rootGroup        = Group.initRoot
         activeGroup      = Group.initGroupSelection
         activeChild      = Group.initChildSelection
-        flat             = hmap.Empty
-        groupsLookup     = hmap.Empty        
+        flat             = HashMap.Empty
+        groupsLookup     = HashMap.Empty        
         lastSelectedItem = SelectedItem.Child
-        selectedLeaves   = hset.Empty
+        selectedLeaves   = HashSet.Empty
         singleSelectLeaf = None
     }
 
@@ -247,8 +247,8 @@ type GroupsModel with
         json {            
             do! Json.write "version"      x.version
             do! Json.write "rootGroup"    x.rootGroup
-            do! Json.write "flat"         (x.flat |> HMap.toList |> List.map snd)
-            do! Json.write "groupsLookup" (x.groupsLookup |> HMap.toList)
+            do! Json.write "flat"         (x.flat |> HashMap.toList |> List.map snd)
+            do! Json.write "groupsLookup" (x.groupsLookup |> HashMap.toList)
         }
 
 module Leaf =
@@ -268,7 +268,7 @@ module Leaf =
 
     let toSurfaces surfaces =
         surfaces
-        |> HMap.choose(fun _ x -> 
+        |> HashMap.choose(fun _ x -> 
             match x with
             | Leaf.Surfaces s -> Some s
             | _ -> None )
@@ -279,7 +279,7 @@ module Leaf =
         | _ -> leaf |> sprintf "wrong type %A" |> failwith
 
     let toSurfaces' surfaces =
-        surfaces |> PList.choose(fun x -> match x with | Leaf.Surfaces s -> Some s| _-> None)
+        surfaces |> IndexList.choose(fun x -> match x with | Leaf.Surfaces s -> Some s| _-> None)
 
     let toAnnotation leaf =
         match leaf with 
@@ -288,21 +288,21 @@ module Leaf =
 
     let toAnnotations annotations =
         annotations
-        |> HMap.choose(fun _ x ->
+        |> HashMap.choose(fun _ x ->
             match x with
             | Leaf.Annotations s -> Some s                
             | _ -> None)
 
     let childrenToAnnotations annos =
         annos
-        |> HSet.choose(fun x -> 
+        |> HashSet.choose(fun x -> 
             match x with
             | Leaf.Annotations a -> Some a            
             | _ -> None)
 
     let childrenToBookmarks bms =
         bms
-        |> HSet.choose(fun x -> 
+        |> HashSet.choose(fun x -> 
             match x with
             | Leaf.Bookmarks b -> Some b
             | _ -> None)
@@ -315,7 +315,7 @@ module Groups =
                 | Some k -> Some (f k)
                 | None   -> None )
           
-        HMap.alter id update model.flat    
+        HashMap.alter id update model.flat    
         
     let updateLeaf id f model =
         let flat' = updateLeaf' id f model
@@ -325,10 +325,10 @@ module Groups =
         let f = (fun _ -> l)
         updateLeaf l.id f m
 
-[<DomainType>]
+[<ModelType>]
 type AnnotationGroupsImporterModel = {
-    rootGroupI : plist<Node>
-    flatI      : hmap<Guid,Leaf>
+    rootGroupI : IndexList<Node>
+    flatI      : HashMap<Guid,Leaf>
 }
 
 type Annotations = {
@@ -366,13 +366,13 @@ type Annotations with
             do! Json.write "dnsColorLegend" x.dnsColorLegend
         }
 
-[<DomainType>]
+[<ModelType>]
 type SurfaceModel = {
     version         : int
     surfaces        : GroupsModel
-    sgSurfaces      : hmap<Guid,SgSurface>
-    sgGrouped       : plist<hmap<Guid,SgSurface>>
-    kdTreeCache     : hmap<string, ConcreteKdIntersectionTree>
+    sgSurfaces      : HashMap<Guid,SgSurface>
+    sgGrouped       : IndexList<HashMap<Guid,SgSurface>>
+    kdTreeCache     : HashMap<string, ConcreteKdIntersectionTree>
 }
 
 module SurfaceModel =
@@ -385,9 +385,9 @@ module SurfaceModel =
                 {
                     version     = current
                     surfaces    = surfaces
-                    sgSurfaces  = HMap.empty
-                    sgGrouped   = PList.empty
-                    kdTreeCache = HMap.empty
+                    sgSurfaces  = HashMap.empty
+                    sgGrouped   = IndexList.empty
+                    kdTreeCache = HashMap.empty
                 }
         }    
  
@@ -403,33 +403,33 @@ module SurfaceModel =
         {
             version     = current
             surfaces    = surfaces
-            sgSurfaces  = hmap.Empty //sgs //
+            sgSurfaces  = HashMap.Empty //sgs //
             //sgSurfaceObjs = hmap.Empty
-            sgGrouped   = plist.Empty
-            kdTreeCache = hmap.Empty
+            sgGrouped   = IndexList.Empty
+            kdTreeCache = HashMap.Empty
         }
    
     //let surfaceModelPickler : Pickler<SurfaceModel> =
     //    Pickler.product initSurfaceModel
     //    ^+ Pickler.field (fun s -> s.surfaces.rootGroup)             Pickler.auto<Node>
-    //    ^+ Pickler.field (fun s -> s.surfaces.flat)                  Pickler.auto<hmap<Guid,Leaf>>
+    //    ^+ Pickler.field (fun s -> s.surfaces.flat)                  Pickler.auto<HashMap<Guid,Leaf>>
     //    ^. Pickler.field (fun s -> s.surfaces.singleSelectLeaf)      Pickler.auto<option<Guid>>
 
-    let initial = initSurfaceModel Group.initRoot hmap.Empty None
+    let initial = initSurfaceModel Group.initRoot HashMap.Empty None
     
     let getSurface model guid =
-        model.surfaces.flat |> HMap.tryFind guid
+        model.surfaces.flat |> HashMap.tryFind guid
 
-    let groupSurfaces (sgSurfaces : hmap<Guid, SgSurface>) (surfaces : hmap<Guid, Surface>) =
+    let groupSurfaces (sgSurfaces : HashMap<Guid, SgSurface>) (surfaces : HashMap<Guid, Surface>) =
       sgSurfaces
-        |> HMap.toList
+        |> HashMap.toList
         |> List.groupBy(fun (_,x) -> 
-            let surf = HMap.find x.surface surfaces 
+            let surf = HashMap.find x.surface surfaces 
             surf.priority.value)
-        |> List.map(fun (p,k) -> (p, k |> HMap.ofList))
+        |> List.map(fun (p,k) -> (p, k |> HashMap.ofList))
         |> List.sortBy fst
         |> List.map snd
-        |> PList.ofList
+        |> IndexList.ofList
 
     let triggerSgGrouping (model:SurfaceModel) =
         { model with sgGrouped = (groupSurfaces model.sgSurfaces (model.surfaces.flat |> Leaf.toSurfaces))}
@@ -461,15 +461,15 @@ type SurfaceModel with
             do! Json.write "surfaces" x.surfaces
         }
 
-//[<DomainType>]
+//[<ModelType>]
 //type Grouping<'a> = {
 //  root                 : Node
-//  flat                 : hmap<Guid,'a>
+//  flat                 : HashMap<Guid,'a>
 //  activeGroup          : TreeSelection
 //  activeChild          : TreeSelection  
-//  groupsLookup         : hmap<Guid,string>
+//  groupsLookup         : HashMap<Guid,string>
 //  lastSelectedItem     : SelectedItem
-//  selectedLeaves       : hset<TreeSelection> 
+//  selectedLeaves       : HashSet<TreeSelection> 
 //  singleSelectLeaf     : option<Guid>
 //}
 

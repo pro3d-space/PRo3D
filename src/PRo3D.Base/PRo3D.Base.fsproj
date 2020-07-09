@@ -1,8 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <OutputType>Library</OutputType>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <GenerateLenses>True</GenerateLenses>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>..\..\bin\Debug\</OutputPath>
@@ -14,6 +15,7 @@
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="MissingHelpers.fs" />
     <None Include="paket.references" />
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="ChironExt.fs" />

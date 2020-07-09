@@ -1,9 +1,10 @@
-﻿namespace PRo3D.Minerva
+namespace PRo3D.Minerva
 
 open System
 open System.IO
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
+open Adaptify
 open Aardvark.UI
 
 open FSharp.Data
@@ -110,14 +111,14 @@ type RootProperties =
         published    : DateTime
     }
 
-[<DomainType>]
+[<ModelType>]
 type FeatureCollection = 
     {
         version     : int
         name        : string
         typus       : Typus
         boundingBox : Box2d    
-        features    : plist<Feature>
+        features    : IndexList<Feature>
     }
 with
     static member current = 0
@@ -127,7 +128,7 @@ with
             name        = "initial"
             boundingBox = Box2d.Invalid
             typus       = Typus.Feature
-            features    = PList.empty
+            features    = IndexList.empty
         }
     static member private readV0 =
       json {
@@ -213,7 +214,7 @@ type MinervaAction =
     | ShowFrustraForSelected
   //| ChangeInstrumentColor of ColorPicker.Action * Instrument
 
-[<DomainType>]
+[<ModelType>]
 type SgFeatures = {
     names       : string[]
     positions   : V3d[]
@@ -221,8 +222,8 @@ type SgFeatures = {
     trafo       : Trafo3d
 }
 
-//TODO Lf model with hmap<instrumentType, color>
-[<DomainType>]
+//TODO Lf model with HashMap<instrumentType, color>
+[<ModelType>]
 type InstrumentColor = {
     mahli        : C4b    
     frontHazcam  : C4b 
@@ -237,7 +238,7 @@ type InstrumentColor = {
     color        : ColorInput
 }
 
-[<DomainType>]
+[<ModelType>]
 type FeatureProperties = {
     pointSize   : NumericInput
     textSize    : NumericInput
@@ -272,7 +273,7 @@ module QueryModelInitial =
             format = "{0:0}"
         }
 
-[<DomainType>]
+[<ModelType>]
 type QueryModel = {
     version              : int
     minSol               : NumericInput
@@ -349,20 +350,20 @@ with
             //do! Json.write "maxSol"  x.maxSol
         }
 
-[<DomainType>]
+[<ModelType>]
 type SelectionModel = {
     version              : int
-    selectedProducts     : hset<string> 
-    highlightedFrustra   : hset<string>
+    selectedProducts     : HashSet<string> 
+    highlightedFrustra   : HashSet<string>
 
     singleSelectProduct  : option<string>
     selectionMinDist     : float
 
-    [<NonIncremental>]
+    [<NonAdaptive>]
     kdTree               : PointKdTreeD<V3d[],V3d>
-    [<NonIncremental>]
+    [<NonAdaptive>]
     flatPos              : array<V3d>
-    [<NonIncremental>]
+    [<NonAdaptive>]
     flatID               : array<string>
 }
 with 
@@ -370,8 +371,8 @@ with
     static member initial =
         {
             version = SelectionModel.current
-            selectedProducts     = hset.Empty
-            highlightedFrustra   = hset.Empty
+            selectedProducts     = HashSet.Empty
+            highlightedFrustra   = HashSet.Empty
             singleSelectProduct  = None
             kdTree               = Unchecked.defaultof<_>
             flatPos              = Array.empty
@@ -380,7 +381,7 @@ with
         }
 
 //type Selection = {
-//    selectedProducts        : hset<string> 
+//    selectedProducts        : HashSet<string> 
 //    singleSelectProduct     : option<string>
 //}
 
@@ -580,7 +581,7 @@ module MinervaModel =
                   name        = "dump"
                   typus       = Typus.FeatureCollection    
                   boundingBox = Box2d.Invalid
-                  features    = features |> PList.ofList
+                  features    = features |> IndexList.ofList
                 } |> Serialization.save cachePath
              | (_, true) -> Serialization.loadAs cachePath
              | _ -> 
@@ -589,7 +590,7 @@ module MinervaModel =
         Log.stop()
         featureCollection
    
-[<DomainType>]
+[<ModelType>]
 type Session =
     {
         version            : int
@@ -598,7 +599,7 @@ type Session =
         selection          : SelectionModel
 
         queries            : list<string>
-        filteredFeatures   : plist<Feature> //TODO TO make to ids
+        filteredFeatures   : IndexList<Feature> //TODO TO make to ids
         dataFilePath       : string
     }
 with
@@ -608,7 +609,7 @@ with
             version           = Session.current
             queryFilter       = QueryModel.initial
             queries           = List.empty
-            filteredFeatures  = PList.empty
+            filteredFeatures  = IndexList.empty
             selection         = SelectionModel.initial
             featureProperties = MinervaModel.Initial.featureProperties        
             dataFilePath      = ""
@@ -623,7 +624,7 @@ with
                     Session.initial with                      
                       queryFilter = queryFilter
                       //queries          = List.empty
-                      //filteredFeatures = PList.empty
+                      //filteredFeatures = IndexList.empty
 
                       //featureProperties = Model.Initial.featureProperties
                       //selection         = Model.Initial.selectionModel
@@ -644,21 +645,21 @@ with
             do! Json.write "queryFilter"   x.queryFilter
         }
 
-[<DomainType>]
+[<ModelType>]
 type MinervaModel = 
     {        
         session            : Session        
         data               : FeatureCollection
 
-        [<NonIncremental>]
+        [<NonAdaptive>]
         comm        : option<Communicator.Communicator>
 
-        [<NonIncremental>]
+        [<NonAdaptive>]
         vplMessages : ThreadPool<MinervaAction>
         
         kdTreeBounds         : Box3d
         hoveredProduct       : Option<SelectedProduct>
-        solLabels            : hmap<string, V3d>
+        solLabels            : HashMap<string, V3d>
         sgFeatures           : SgFeatures
         selectedSgFeatures   : SgFeatures
         picking              : bool        
@@ -676,7 +677,7 @@ with
 
             kdTreeBounds = Box3d.Invalid
             hoveredProduct = None
-            solLabels = HMap.empty
+            solLabels = HashMap.empty
             sgFeatures = MinervaModel.Initial.sgFeatures
             selectedSgFeatures = MinervaModel.Initial.selectedSgFeatures
             picking = false

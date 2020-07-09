@@ -1,4 +1,4 @@
-﻿namespace PRo3D
+namespace PRo3D
 
 open System
 open System.Xml.Linq
@@ -11,11 +11,14 @@ open PRo3D.ReferenceSystem
 open PRo3D.Base
 open PRo3D.Base.Annotation
 
+
+open FSharp.Data.Adaptive
+
 module AnnotationGroupsImporter = 
 
     let xname s = XName.Get(s)    
 
-    let rec getGroups (trafo:Trafo3d) (fileName : string) up north (m:XElement) : (Node * hmap<Guid,Leaf> * hmap<Guid,string>) = 
+    let rec getGroups (trafo:Trafo3d) (fileName : string) up north (m:XElement) : (Node * HashMap<Guid,Leaf> * HashMap<Guid,string>) = 
         let name    = (m.Element(xname "Name")).Value.ToString()
         let visible = (m.Element(xname "IsVisible")).Value.ToBool()
                            
@@ -37,7 +40,7 @@ module AnnotationGroupsImporter =
         let flat' = 
             annotations 
             |> List.map(fun x -> x.id, x) 
-            |> HMap.ofList
+            |> HashMap.ofList
         
         let subGroupsNFlatNLookup = 
             (m.Elements(xname "SubGroups")).Elements(xname "MeasurementGroup") 
@@ -47,31 +50,31 @@ module AnnotationGroupsImporter =
         let flat' = 
             subGroupsNFlatNLookup 
             |> List.map (fun (_,x,_) -> x)             
-            |> List.fold (fun acc x -> HMap.union acc x) flat'
+            |> List.fold (fun acc x -> HashMap.union acc x) flat'
         
         let nodes = 
             subGroupsNFlatNLookup 
             |> List.map (fun (x,_,_) -> x)             
-            |> PList.ofList
+            |> IndexList.ofList
         
         // collect lookups from subnodes
         let lookUp = 
             subGroupsNFlatNLookup 
             |> List.map (fun (_,_,x) -> x)             
-            |> List.fold (fun acc x -> HMap.union acc x) HMap.empty
+            |> List.fold (fun acc x -> HashMap.union acc x) HashMap.empty
         
         // add current annotations to lookup
         let lookUp' =
             annotations 
-            |> List.map(fun x -> HMap.add x.id name HMap.empty)
-            |> List.fold(fun a b -> HMap.union a b ) lookUp
+            |> List.map(fun x -> HashMap.add x.id name HashMap.empty)
+            |> List.fold(fun a b -> HashMap.union a b ) lookUp
         
         let g = 
             {
                 version  = Node.current
                 key      = Guid.NewGuid()
                 name     = if name = "Measurements" then fileName + "_" + name else name
-                leaves   = annotations |> List.map(fun x -> x.id) |> PList.ofList
+                leaves   = annotations |> List.map(fun x -> x.id) |> IndexList.ofList
                 subNodes = nodes
                 visible  = visible
                 expanded = true
@@ -119,14 +122,14 @@ module AnnotationGroupsImporter =
         let flat = 
           groupsNFlat 
             |> List.map (fun (_,x,_) -> x)
-            |> List.fold (fun acc x -> HMap.union acc x) HMap.empty
+            |> List.fold (fun acc x -> HashMap.union acc x) HashMap.empty
 
         let groups = 
-          groupsNFlat |> List.map (fun (x,_,_) -> x) |> PList.ofList
+          groupsNFlat |> List.map (fun (x,_,_) -> x) |> IndexList.ofList
         
         let lookup = 
           groupsNFlat 
             |> List.map (fun (_,_,x) -> x)
-            |> List.fold (fun acc x -> HMap.union acc x) HMap.empty        
+            |> List.fold (fun acc x -> HashMap.union acc x) HashMap.empty        
 
         groups, flat, lookup    

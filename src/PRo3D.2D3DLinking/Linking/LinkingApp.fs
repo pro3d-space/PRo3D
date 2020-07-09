@@ -1,4 +1,4 @@
-﻿namespace PRo3D.Linking
+namespace PRo3D.Linking
 
 open Aardvark.Base
 
@@ -7,7 +7,7 @@ open Aardvark.UI
 open Aardvark.Base
 open Aardvark.Base.Rendering
 open Aardvark.Rendering.Text 
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.SceneGraph
 open Aardvark.Application
 
@@ -40,12 +40,12 @@ module LinkingApp =
 
     /// called once at initialization time, takes minerva features
     /// and populates the linking model with used feature representations
-    let initFeatures (features: plist<Feature>) (m: LinkingModel) : LinkingModel =
+    let initFeatures (features: IndexList<Feature>) (m: LinkingModel) : LinkingModel =
 
         // sensor sizes
         let mastcamRLSensor = V2i(1600, 1200)
 
-        let instrumentParameter = hmap.OfList [
+        let instrumentParameter = HashMap.ofList [
             // https://msl-scicorner.jpl.nasa.gov/Instruments/Mastcam/
             (Instrument.MastcamL, { horizontalFoV = 15.0; sensorSize = mastcamRLSensor }) //34 mm
             (Instrument.MastcamR, { horizontalFoV = 5.1; sensorSize = mastcamRLSensor }) // 100 mm
@@ -82,7 +82,7 @@ module LinkingApp =
 
         let frustumData =
             instrumentParameter
-            |> HMap.map (fun _ v ->
+            |> HashMap.map (fun _ v ->
                 createFrustumProj(v)
             )
 
@@ -96,7 +96,7 @@ module LinkingApp =
         let originTrafoInv = originTrafo.Backward
 
         // map minerva features to linking features
-        let linkingFeatures : hmap<string, LinkingFeature> = 
+        let linkingFeatures : HashMap<string, LinkingFeature> = 
             reducedFeatures.Map (fun _ f ->
 
                 let position = originTrafoInv.TransformPos(f.geometry.positions.Head)
@@ -104,7 +104,7 @@ module LinkingApp =
 
                 let frustumTrafo, frustumTrafoInv, fullFrustum, sensorSize = 
                     frustumData
-                    |> HMap.tryFind f.instrument
+                    |> HashMap.tryFind f.instrument
                     |> Option.defaultValue (Trafo3d.Scale 0.0, Trafo3d.Scale 0.0, Frustum.ofTrafo Trafo3d.Identity, V2i.One) // ignored
              
                 let rotation = Rot3d.FromAngleAxis(angles * angleToRad)
@@ -137,40 +137,45 @@ module LinkingApp =
                     imageOffset = imageOffset
                 })
             )
-            |> PList.toList
-            |> HMap.ofList
+            |> IndexList.toList
+            |> HashMap.ofList
 
         let filterProducts =
             instrumentParameter
-            |> HMap.keys
-            |> HSet.mapHMap (fun _ -> true)
+            |> HashMap.keys
+            |> HashSet.toSeq
+            |> Seq.map (fun k -> k,true)
+            |> HashMap.ofSeq 
 
         { m with frustums = linkingFeatures; trafo = originTrafo; instrumentParameter = instrumentParameter; filterProducts = filterProducts }
 
     /// intersects given point (p) with all frustums specified by their id from "filtered"
     /// emits linking action and minerva action which have to be delivered to their respective models
     /// by upper level app
-    let checkPoint (p: V3d) (filtered: hset<string>) (m: LinkingModel) : (LinkingAction * MinervaAction) =
+    let checkPoint (p: V3d) (filtered: HashSet<string>) (m: LinkingModel) : (LinkingAction * MinervaAction) =
 
         let originP = m.trafo.Backward.TransformPos p
 
         let intersected =
             filtered
-            |> HSet.chooseHMap (fun s -> HMap.tryFind s m.frustums)
-            |> HMap.filter (fun _ v -> v.hull.Contains originP) 
+            |> HashSet.toSeq
+            |> Seq.map (fun s -> s, HashMap.tryFind s m.frustums)
+            |> HashMap.ofSeq
+            // TODO v5: rebecca: review this
+            |> HashMap.choose (fun _ v -> match v with | None -> None | Some v -> if v.hull.Contains originP then Some v else None) 
 
         let currentInstruments =
             intersected
-            |> HMap.values
-            |> HSet.ofSeq
-            |> HSet.map (fun p -> p.instrument)
+            |> HashMap.values
+            |> HashSet.ofSeq
+            |> HashSet.map (fun p -> p.instrument)
 
         let filterProducts =
             m.filterProducts
-            |> HMap.map (fun k v -> if HSet.contains k currentInstruments then true else v)
+            |> HashMap.map (fun k v -> if HashSet.contains k currentInstruments then true else v)
 
         let linkingAction = LinkingAction.UpdatePickingPoint (Some(originP), filterProducts)
-        let minervaAction = MinervaAction.SelectByIds (intersected.Keys |> HSet.toList)
+        let minervaAction = MinervaAction.SelectByIds (intersected |> HashMap.keys |> HashSet.toList)
         (linkingAction, minervaAction)
 
 
@@ -234,7 +239,7 @@ module LinkingApp =
     /// main view function (3d view) 
     /// hoveredFrustum: if Some, visualizes hovered frustum in a thicker line style
     /// selectedFrustums: set of frustum ids that will be rendered in the 3d view
-    let view (hoveredFrustum: IMod<Option<SelectedProduct>>) (selectedFrustums: aset<string>) (m: MLinkingModel) =
+    let view (hoveredFrustum: aval<Option<SelectedProduct>>) (selectedFrustums: aset<string>) (m: AdaptiveLinkingModel) =
 
         /// helper function creating frustum box for given LinkingFeature
         let sgFrustum (f: LinkingFeature) =
@@ -245,13 +250,13 @@ module LinkingApp =
         // frustum that is currently hovered
         let hoverFrustum =
             hoveredFrustum
-            |> Mod.bind (fun f -> 
+            |> AVal.bind (fun f -> 
                 f
-                |> Option.map (fun x -> m.frustums |> Mod.map (fun f -> f |> HMap.tryFind x.id))
-                |> Option.defaultValue (Mod.constant None)
+                |> Option.map (fun x -> m.frustums |> AVal.map (fun f -> f |> HashMap.tryFind x.id))
+                |> Option.defaultValue (AVal.constant None)
             )
-            |> Mod.map (fun f -> f |> Option.defaultValue { LinkingFeature.initial with trafo = Trafo3d.Scale 0.0 })  
-            |> Mod.map (fun x -> 
+            |> AVal.map (fun f -> f |> Option.defaultValue { LinkingFeature.initial with trafo = Trafo3d.Scale 0.0 })  
+            |> AVal.map (fun x -> 
                 x 
                 |> sgFrustum
                 |> Sg.shader {
@@ -260,14 +265,14 @@ module LinkingApp =
                     do! DefaultSurfaces.thickLine
                     do! DefaultSurfaces.thickLineRoundCaps
                 }
-                |> Sg.uniform "LineWidth" (Mod.constant 5.0)
+                |> Sg.uniform "LineWidth" (AVal.constant 5.0)
             )
             |> Sg.dynamic
 
         // selected frustums
         let frustra =
             selectedFrustums
-            |> ASet.chooseM (fun s -> m.frustums |> Mod.map (fun f -> f |> HMap.tryFind s))
+            |> ASet.chooseA (fun s -> m.frustums |> AVal.map (fun f -> f |> HashMap.tryFind s))
             |> ASet.map sgFrustum 
             |> Sg.set
             |> Sg.shader {
@@ -277,7 +282,7 @@ module LinkingApp =
 
         // point on the opc that was picked
         let pickingIndicator =
-            Sg.sphere 3 (Mod.constant C4b.VRVisGreen) (Mod.constant 0.05)
+            Sg.sphere 3 (AVal.constant C4b.VRVisGreen) (AVal.constant 0.05)
             |> Sg.noEvents
             |> Sg.shader {
                 do! DefaultSurfaces.stableTrafo
@@ -285,7 +290,7 @@ module LinkingApp =
             }
             |> Sg.trafo (
                 m.pickingPos 
-                |> Mod.map (fun p -> 
+                |> AVal.map (fun p -> 
                     p 
                     |> Option.map Trafo3d.Translation 
                     |> Option.defaultValue (Trafo3d.Scale 0.0)
@@ -311,7 +316,7 @@ module LinkingApp =
             [|
                 (
                     m.overlayFeature 
-                    |> Mod.map(fun o ->
+                    |> AVal.map(fun o ->
                         match o with
                         | None -> defaultScene
                         | Some _ -> Sg.empty) // featureScene
@@ -325,11 +330,11 @@ module LinkingApp =
         scene
 
     /// side bar view containing controls for overlay mode
-    let viewSideBar (m: MLinkingModel) =
+    let viewSideBar (m: AdaptiveLinkingModel) =
 
         let modD = 
             m.overlayFeature
-            |> Mod.map (fun od -> 
+            |> AVal.map (fun od -> 
                 match od with
                 | None -> (None, None)
                 | Some(d) -> 
@@ -347,7 +352,7 @@ module LinkingApp =
                         d.after.TryGet 0 // get first element of after list (after f)
                         |> Option.map (fun f -> 
                             {
-                                before = d.before.Append d.f
+                                before = IndexList.add d.f d.before // TODO v5: rebecca - check this
                                 f = f
                                 after = d.after.Remove f
                             }
@@ -435,7 +440,7 @@ module LinkingApp =
         )
 
     /// html scene overlay for the 3d scene, showing the selected product
-    let sceneOverlay (m: MLinkingModel) : DomNode<LinkingAction> =
+    let sceneOverlay (m: AdaptiveLinkingModel) : DomNode<LinkingAction> =
 
         let overlayDom (f: LinkingFeature, dim: V2i) : DomNode<LinkingAction> =
 
@@ -443,7 +448,7 @@ module LinkingApp =
             let sensor = 
                 m.instrumentParameter
                 |> AMap.tryFind f.instrument 
-                |> Mod.map (fun i -> 
+                |> AVal.map (fun i -> 
                     i 
                     |> Option.map (fun o -> o.sensorSize) 
                     |> Option.defaultValue V2i.One
@@ -486,56 +491,56 @@ module LinkingApp =
 
         let dom =
             m.overlayFeature
-            |> Mod.bind (fun op -> 
+            |> AVal.bind (fun op -> 
                 op 
                 |> Option.map (fun d -> 
                     m.instrumentParameter 
                     |> AMap.tryFind d.f.instrument
-                    |> Mod.map (fun ip -> (d.f, ip))
+                    |> AVal.map (fun ip -> (d.f, ip))
                 )
-                |> Option.defaultValue (Mod.constant (LinkingFeature.initial, None))
+                |> Option.defaultValue (AVal.constant (LinkingFeature.initial, None))
             )
-            |> Mod.map(fun (f: LinkingFeature, s: Option<InstrumentParameter>) ->
+            |> AVal.map(fun (f: LinkingFeature, s: Option<InstrumentParameter>) ->
                 match s with
                 | None -> div[][] // DomNode.empty requires unit?
                 | Some(o) -> overlayDom (f, o.sensorSize)
             )
-            |> AList.ofModSingle
+            |> AList.ofAValSingle
             |> Incremental.div AttributeMap.empty
             
         require dependencies dom
 
     /// horizontal "film strip" showing the images of the products given in selectedFrustums
-    let viewHorizontalBar (selectedFrustums: aset<string>) (m: MLinkingModel) =
+    let viewHorizontalBar (selectedFrustums: aset<string>) (m: AdaptiveLinkingModel) =
         
         // getting LinkingFeature from given ids
         let products =
             selectedFrustums
-            |> ASet.chooseM (fun s -> m.frustums |> Mod.map (fun f -> f |> HMap.tryFind s))
+            |> ASet.chooseA (fun s -> m.frustums |> AVal.map (fun f -> f |> HashMap.tryFind s))
 
         // applying filter from checkbox-labels in film strip (single insrtument toggles)
         let filteredProducts =
             products
-            |> ASet.filterM (fun p -> 
+            |> ASet.filterA (fun p -> 
                 m.filterProducts
                 |> AMap.tryFind p.instrument
-                |> Mod.map (fun m -> m |> Option.defaultValue false))
+                |> AVal.map (fun m -> m |> Option.defaultValue false))
 
         // getting the projected picking point position in image space for every product
         let productsAndPoints =
             filteredProducts
             |> ASet.map(fun prod ->
                 m.pickingPos 
-                |> Mod.map(fun f -> 
+                |> AVal.map(fun f -> 
                     f 
                     |> Option.defaultValue V3d.Zero
                     |> fun p -> V4d(p, 1.0)
                     |> prod.trafoInv.Forward.Transform
                     |> fun p -> V3d((p.XY / p.W), p.Z)
                 )
-                |> Mod.map(fun pp -> (prod, pp))
+                |> AVal.map(fun pp -> (prod, pp))
             )
-            |> ASet.mapM id
+            |> ASet.mapA id
 
         // counts per instrument for display in the toggle buttons
         let countStringPerInstrument =
@@ -547,13 +552,13 @@ module LinkingApp =
             |> AList.sortBy (fun (i, _) -> i)
             |> AList.map (fun (i, c) -> 
                 let s = sprintf "%A: %d" i c
-                (i, Mod.constant s)
+                (i, AVal.constant s)
             )
 
         let fullCount = products |> ASet.count 
         let filteredCount = filteredProducts |> ASet.count
         let countString =
-            Mod.map2 (fun full filtered -> 
+            AVal.map2 (fun full filtered -> 
                 if full = filtered then
                     full |> string
                 else 
@@ -571,7 +576,7 @@ module LinkingApp =
                         Incremental.span AttributeMap.Empty (
                             countStringPerInstrument
                             |> AList.map (fun (i, s) ->
-                                let o = AMap.tryFind i m.filterProducts |> Mod.map (fun b -> b |> Option.defaultValue false)
+                                let o = AMap.tryFind i m.filterProducts |> AVal.map (fun b -> b |> Option.defaultValue false)
                                 a[clazz "instrument-toggle"; onClick (fun _ -> ToggleView i)][
                                     span[clazz "ui inverted label";
                                         style (sprintf "background-color: %s;" (instrumentColor i))][
@@ -592,7 +597,7 @@ module LinkingApp =
                                 // check if inside image!
                                 m.instrumentParameter 
                                 |> AMap.tryFind f.instrument 
-                                |> Mod.map (Option.map (fun par ->
+                                |> AVal.map (Option.map (fun par ->
 
                                     let sensor = V2d(par.sensorSize)
                                     let image = V2d(f.imageDimensions)
@@ -602,10 +607,10 @@ module LinkingApp =
                                     f, p, (image, sensor, max)
                                 ))
                             )
-                            |> AList.chooseM id
+                            |> AList.chooseA id
                             |> AList.sortBy (fun (f, p, (image, sensor, max)) ->
                                 let ratioP = p.XY * V2d(1.0, sensor.Y / sensor.X)
-                                let dist = V2d.Dot(ratioP, ratioP) // euclidean peseudo distance (w/o root)
+                                let dist = Vec.Dot(ratioP, ratioP) // euclidean peseudo distance (w/o root)
 
                                 if abs(p.X) > max.X || abs(p.Y) > max.Y
                                 then infinity
@@ -615,19 +620,19 @@ module LinkingApp =
                         // if you have a cleaner way of doing this I would be so happy to know it
                         let neighborList =
                             sortedProducts 
-                            |> AList.toMod
-                            |> Mod.map (fun l -> 
+                            |> AList.toAVal
+                            |> AVal.map (fun l -> 
                                 l
-                                |> PList.mapi (fun i e -> 
-                                    let onlyFrustra = l |> PList.map(fun a -> 
+                                |> IndexList.mapi (fun i e -> 
+                                    let onlyFrustra = l |> IndexList.map(fun a -> 
                                         let (f, _, _) = a
                                         f
                                     )
-                                    let before, w, after = PList.split i onlyFrustra // TODO find out what is w
+                                    let before, w, after = IndexList.split i onlyFrustra // TODO find out what is w
                                     (before, e, after)                             
                                 )
                             )
-                            |> AList.ofMod
+                            |> AList.ofAVal
                             
                         neighborList
                         |> AList.map (fun (before, (f, p, (image, sensor, max)), after) -> 

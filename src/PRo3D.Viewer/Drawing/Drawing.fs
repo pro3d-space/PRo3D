@@ -1,4 +1,4 @@
-﻿namespace PRo3D.Drawing
+namespace PRo3D.Drawing
 
 open System
 open System.IO
@@ -13,7 +13,7 @@ open Aardvark.Base
 open Aardvark.Application
 open Aardvark.UI
 
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Base.Rendering
 open Aardvark.Application
 open Aardvark.SceneGraph
@@ -47,19 +47,19 @@ module DrawingApp =
         let lastP = a.points.[(a.points.Count-1)]
         match a.projection with
             | Projection.Viewpoint | Projection.Sky ->     
-                let newSegment = { startPoint = firstP; endPoint = lastP; points = PList.ofList [firstP;lastP] }
+                let newSegment = { startPoint = firstP; endPoint = lastP; points = IndexList.ofList [firstP;lastP] }
 
                 if PRo3D.Config.useAsyncIntersections then
-                    { a with segments = PList.append newSegment a.segments }
+                    { a with segments = IndexList.add newSegment a.segments }
                 else
                     let dir = newSegment.endPoint - newSegment.startPoint
                     let points = [ 
                             for s in 0 .. PRo3D.Config.sampleCount do
                                 yield newSegment.startPoint + dir * (float s / float PRo3D.Config.sampleCount) // world space
                         ]
-                    let newSegment = { startPoint = firstP; endPoint = lastP; points = PList.ofList points }
-                    { a with segments = PList.append newSegment a.segments }
-            | _ -> { a with points = a.points |> PList.append firstP }
+                    let newSegment = { startPoint = firstP; endPoint = lastP; points = IndexList.ofList points }
+                    { a with segments = IndexList.add newSegment a.segments }
+            | _ -> { a with points = a.points |> IndexList.add firstP }
 
     let getFinishedAnnotation up north planet (view:CameraView) (model : DrawingModel) =
       match model.working with
@@ -94,27 +94,27 @@ module DrawingApp =
       { model with  working = None; pendingIntersections = ThreadPool.empty; annotations = groups }
     
     //adds new point to working state, if certain conditions are met the annotation finishes itself
-    let addPoint up north planet samplePoint p view model surfaceName bc =
+    let addPoint up north planet samplePoint (p : V3d) view model surfaceName bc =
       
       let working, newSegment = 
         match model.working with
           | Some w ->     
-            let annotation = { w with points = w.points |> PList.append p }
+            let annotation = { w with points = w.points |> IndexList.add p }
             Log.line "working contains %d points" annotation.points.Count
             
             //fetch current drawing segment (projected, polyline or polygon)
             let result = 
               match w.projection with
                 | Projection.Viewpoint | Projection.Sky ->                     
-                  match PList.tryAt (PList.count w.points-1) w.points with
+                  match IndexList.tryAt (IndexList.count w.points-1) w.points with
                     | None -> 
                       annotation, None
                     | Some a -> 
-                      let segmentIndex = PList.count annotation.segments
-                      let newSegment = { startPoint = a; endPoint = p; points = PList.ofList [a;p] }
+                      let segmentIndex = IndexList.count annotation.segments
+                      let newSegment = { startPoint = a; endPoint = p; points = IndexList.ofList [a;p] }
 
                       if PRo3D.Config.useAsyncIntersections then
-                        { annotation with segments = PList.append newSegment annotation.segments }, Some (newSegment,segmentIndex)
+                        { annotation with segments = IndexList.add newSegment annotation.segments }, Some (newSegment,segmentIndex)
                       else
                         let vec = newSegment.endPoint - newSegment.startPoint
                         let dir = vec.Normalized
@@ -126,8 +126,8 @@ module DrawingApp =
                               | None -> ()
                               | Some projectedPoint -> yield projectedPoint
                         ]
-                        let newSegment = { startPoint = a; endPoint = p; points = PList.ofList points }
-                        { annotation with segments = PList.append newSegment annotation.segments }, None
+                        let newSegment = { startPoint = a; endPoint = p; points = IndexList.ofList points }
+                        { annotation with segments = IndexList.add newSegment annotation.segments }, None
                 | Projection.Linear ->
                     annotation, None
                 | _ -> failwith "case does not exist"            
@@ -136,9 +136,9 @@ module DrawingApp =
             { 
                 //annotation states should be immutable after creation
                 //(Annotation.make model.projection model.geometry model.semantic surfaceName)  
-                //    with points = PList.ofList [p]; modelTrafo = Trafo3d.Translation p
+                //    with points = IndexList.ofList [p]; modelTrafo = Trafo3d.Translation p
                 (Annotation.make model.projection model.geometry model.color model.thickness surfaceName)
-                    with points = PList.ofList [p]; modelTrafo = Trafo3d.Translation p
+                    with points = IndexList.ofList [p]; modelTrafo = Trafo3d.Translation p
             }, None
       
       //let text = 
@@ -148,9 +148,9 @@ module DrawingApp =
       //let working' = { working with text = text }
       let model = { model with working = Some working }
 
-      match (working.geometry, (working.points |> PList.count)) with
+      match (working.geometry, (working.points |> IndexList.count)) with
           | Geometry.Point, 1 -> 
-              Log.line "Picked single point at: %A" (working.points |> PList.tryHead).Value
+              Log.line "Picked single point at: %A" (working.points |> IndexList.tryFirst).Value
               finishAndAppendAndSend up north planet view model bc, None
           | Geometry.Line, 2 -> 
               finishAndAppendAndSend up north planet view model bc, None
@@ -187,7 +187,7 @@ module DrawingApp =
                      match r with
                         | Choice1Of2 r -> 
                             printfn "mked it: %A" r
-                            let segment = { newSegment with points = PList.ofList r}
+                            let segment = { newSegment with points = IndexList.ofList r}
                             yield SetSegment(segmentIndex,segment)
                             yield! doIt()
                         | Choice2Of2 _ -> ()
@@ -217,12 +217,12 @@ module DrawingApp =
 
     type MSmallConfig<'ma> =
         {            
-            getNearPlane       : 'ma -> IMod<float>
-            getHfov            : 'ma -> IMod<float>            
-            getArrowThickness  : 'ma -> IMod<float>
-            getArrowLength     : 'ma -> IMod<float>
-            getDnsPlaneSize    : 'ma -> IMod<float>
-            getOffset          : 'ma -> IMod<float>
+            getNearPlane       : 'ma -> aval<float>
+            getHfov            : 'ma -> aval<float>            
+            getArrowThickness  : 'ma -> aval<float>
+            getArrowLength     : 'ma -> aval<float>
+            getDnsPlaneSize    : 'ma -> aval<float>
+            getOffset          : 'ma -> aval<float>
         }
    
     let cylinders width positions = 
@@ -232,14 +232,14 @@ module DrawingApp =
             Line3d(a,b)) 
             |> Array.map (fun x -> Cylinder3d(x, width))
 
-    let intersectAnnotation (hit : SceneHit) id (flat : hmap<Guid,Leaf>) =
+    let intersectAnnotation (hit : SceneHit) id (flat : HashMap<Guid,Leaf>) =
         match (flat.TryFind id) with
         | Some (Leaf.Annotations ann) ->                            
             let mutable hit2 = RayHit3d.MaxRange
             let r = hit.globalRay.Ray.Ray
             
             ann.points 
-            |> PList.toArray 
+            |> IndexList.toArray 
             |> cylinders 0.05
             |> Array.tryFind(fun x -> 
                 r.HitsCylinder(x, 0.0, 100.0, &hit2))
@@ -276,19 +276,19 @@ module DrawingApp =
                 | Some segment -> addNewSegment hitFunction model segment
             |> stash
         | RemoveLastPoint, _, _ -> 
-          //let annotation = { w with points = w.points |> PList.append p }
-          // { annotation with segments = PList.append newSegment annotation.segments }
+          //let annotation = { w with points = w.points |> IndexList.append p }
+          // { annotation with segments = IndexList.append newSegment annotation.segments }
           
             match model.working with
             | Some w when w.points.Count > 0->
-              { model with working = Some { w with points = w.points |> PList.removeAt (w.points.Count - 1) }}
+              { model with working = Some { w with points = w.points |> IndexList.removeAt (w.points.Count - 1) }}
             | Some _ -> { model with working = None }
             | None -> model
         | SetSegment(segmentIndex,segment), _, _ ->
             match model.working with
             | None -> model
             | Some w ->                         
-                { model with working = Some { w with segments = PList.setAt segmentIndex segment w.segments } }
+                { model with working = Some { w with segments = IndexList.setAt segmentIndex segment w.segments } }
 
         | Finish, _, _ -> 
             let up     = smallConfig.up.Get(bigConfig)
@@ -317,8 +317,8 @@ module DrawingApp =
             { model with exportPath = Some s }
         | Export, _, _ ->
             //let path = Path.combine([model.exportPath; "drawing.json"])
-            //printf "Writing %i annotations to %s" (model.annotations |> PList.count) path
-            //let json = model.annotations |> PList.map JsonTypes.ofAnnotation |> JsonConvert.SerializeObject
+            //printf "Writing %i annotations to %s" (model.annotations |> IndexList.count) path
+            //let json = model.annotations |> IndexList.map JsonTypes.ofAnnotation |> JsonConvert.SerializeObject
             //Serialization.writeToFile path json 
             failwith "export not implemented"
             model
@@ -350,7 +350,7 @@ module DrawingApp =
             let annotations =
                 model.annotations.flat
                 |> Leaf.toAnnotations
-                |> HMap.toList 
+                |> HashMap.toList 
                 |> List.map snd
                 |> List.map (Csv.exportAnnotation lookups)                  
             
@@ -359,7 +359,7 @@ module DrawingApp =
             model
         //| ExportAsAnnotations p, _,_ ->
             
-        //    let flat' = model.annotations.flat |> HMap.filter(fun a b -> b.visible)
+        //    let flat' = model.annotations.flat |> HashMap.filter(fun a b -> b.visible)
 
         //    let filtered = { model.annotations with flat = flat'}
 
@@ -393,13 +393,13 @@ module DrawingApp =
             
             Log.line "[Drawing] Writing annotations"
             model.annotations.flat 
-                |> HMap.toList 
+                |> HashMap.toList 
                 |> List.map(fun (_,b) -> b |> Leaf.toAnnotation) // |> Annotation'.convert)
                 |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine |> Serialization.writeToFile path // CHECK-merge IO.
             
             Log.line "[Drawing] Writing grouping"
             let annotations' = 
-                { model.annotations with flat = HMap.empty } 
+                { model.annotations with flat = HashMap.empty } 
                 |> Serialization.save pathgGrouping
 
             { model with annotations = annotations' }
@@ -410,7 +410,7 @@ module DrawingApp =
 
             Log.line "[Drawing] Reading annotations"
             let (annos : list<Annotation>) = path |> Serialization.readFromFile |> Json.parse |> Json.deserialize // CHECK-merge IO.
-            let annos = annos |> List.map(fun x -> (x.key,x |> Leaf.Annotations)) |> HMap.ofList
+            let annos = annos |> List.map(fun x -> (x.key,x |> Leaf.Annotations)) |> HashMap.ofList
             
             Log.line "[Drawing] Reading grouping"
             let grouping = Serialization.loadAs<GroupsModel> pathgGrouping
@@ -427,17 +427,17 @@ module DrawingApp =
                                     
     let threads (m : DrawingModel) = m.pendingIntersections
     
-    let tryToAnnotation = 
+    let tryToAnnotation : AdaptiveLeafCase -> Option<AdaptiveAnnotation> = 
         function
-        | MAnnotations ann -> Some ann
+        | AdaptiveAnnotations ann -> Some ann
         | _ -> None
        
-    let view<'ma> (mbigConfig : 'ma)(msmallConfig : MSmallConfig<'ma>) (view : IMod<CameraView>) (pickingAllowed : IMod<bool>) (model:MDrawingModel) : ISg<Drawing.Action> * ISg<Drawing.Action> =
+    let view<'ma> (mbigConfig : 'ma)(msmallConfig : MSmallConfig<'ma>) (view : aval<CameraView>) (pickingAllowed : aval<bool>) (model:AdaptiveDrawingModel) : ISg<Drawing.Action> * ISg<Drawing.Action> =
         // order is irrelevant for rendering. change list to set,
         // since set provides more degrees of freedom for the compiler           
         let annoSet = 
             model.annotations.flat 
-            |> AMap.chooseM(fun _ y -> y |> Mod.map tryToAnnotation) 
+            |> AMap.choose (fun _ y -> y |> tryToAnnotation) // TODO v5: here we collapsed some avals - check correctness
             |> AMap.toASet
 
         let config : Sg.innerViewConfig = 
@@ -458,7 +458,7 @@ module DrawingApp =
                 let picked = UI.isSingleSelect model.annotations a
                 let showPoints = 
                   a.geometry 
-                    |> Mod.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
+                    |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
                 
                 let sg = Sg.finishedAnnotation a c config view showPoints picked pickingAllowed
                 sg
@@ -470,7 +470,7 @@ module DrawingApp =
             Sg.ofList [
              // brush model.hoverPosition; 
               annotations
-              Sg.drawWorkingAnnotation config.offset model.working
+              Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
             ]
 
         let depthTest = 

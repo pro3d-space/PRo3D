@@ -1,8 +1,8 @@
-﻿namespace PRo3D.Scene.Versioned
+namespace PRo3D.Scene.Versioned
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI
 open Aardvark.UI.Primitives
 
@@ -12,7 +12,7 @@ open PRo3D.Versioned
 open Chiron
 
 #nowarn "0686"
-[<DomainType>]
+[<ModelType>]
 type NavigationModel' = {
     version        : int
     view           : CameraView
@@ -69,9 +69,9 @@ module NavigationModel' =
                 do! Json.write "exploreCenter " (x.exploreCenter.ToString())
             }
 
-[<DomainType>]
+[<ModelType>]
 type ViewConfigModel' = {
-    [<NonIncremental>]
+    [<NonAdaptive>]
     version                 : int
     nearPlane               : NumericInput
     farPlane                : NumericInput

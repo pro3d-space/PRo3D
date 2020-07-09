@@ -2,7 +2,8 @@ namespace Test
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
+open Adaptify
 open Aardvark.UI.Primitives
 open Svgplus.RoseDiagramModel
 open Svgplus.ArrowType
@@ -12,7 +13,7 @@ type Primitive =
     | Sphere
 
 
-[<DomainType>]
+[<ModelType>]
 type TestModel =
     {
         currentModel    : Primitive

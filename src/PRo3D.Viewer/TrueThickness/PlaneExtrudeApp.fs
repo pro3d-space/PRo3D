@@ -1,7 +1,7 @@
 namespace PlaneExtrude
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Base.Rendering
 open Aardvark.Base.Geometry
 open Aardvark.SceneGraph
@@ -18,14 +18,14 @@ open PRo3D.ReferenceSystem
 open CSharpUtils
 
 module TranslatePlaneTrafoCtrl =
-    let viewController (liftMessage : TrafoController.Action -> 'msg) (v : IMod<CameraView>) (m : MTransformation) =
+    let viewController (liftMessage : TrafoController.Action -> 'msg) (v : aval<CameraView>) (m : MTransformation) =
         let arrow rot axis =
             let col =
-                let g : IMod<Option<PickPoint>> = m.grabbed
-                let p : IMod<Option<Axis>> =  (g |> Mod.map (Option.map ( fun (p:PickPoint) -> p.axis )))
-                m.hovered |> Mod.map2 (colorMatch axis) p
+                let g : aval<Option<PickPoint>> = m.grabbed
+                let p : aval<Option<Axis>> =  (g |> AVal.map (Option.map ( fun (p:PickPoint) -> p.axis )))
+                m.hovered |> AVal.map2 (colorMatch axis) p
 
-            Sg.cylinder tessellation col (Mod.constant cylinderRadius) (Mod.constant 1.0) 
+            Sg.cylinder tessellation col (AVal.constant cylinderRadius) (AVal.constant 1.0) 
             |> Sg.noEvents
             |> Sg.andAlso (                
                 IndexedGeometryPrimitives.solidCone V3d.OOI V3d.OOI coneHeight coneRadius tessellation C4b.Red 
@@ -42,7 +42,7 @@ module TranslatePlaneTrafoCtrl =
                ]
                
         let scaleTrafo pos =            
-            Sg.computeInvariantScale' v (Mod.constant 0.1) pos (Mod.constant 0.3) (Mod.constant 60.0) |> Mod.map Trafo3d.Scale
+            Sg.computeInvariantScale' v (AVal.constant 0.1) pos (AVal.constant 0.3) (AVal.constant 60.0) |> AVal.map Trafo3d.Scale
 
         let pickGraph =
             Sg.empty 
@@ -60,7 +60,7 @@ module TranslatePlaneTrafoCtrl =
         
         let arrowZ = arrow (Trafo3d.RotationY 0.0)              Axis.Z
           
-        let currentTrafo : IMod<Trafo3d> =
+        let currentTrafo : aval<Trafo3d> =
             adaptive {
                 let! mode = m.mode
                 match mode with
@@ -113,7 +113,7 @@ module Plane =
             let kdTree = Geometry.KdTree.build Geometry.Spatial.triangle Geometry.KdBuildInfo.Default triangles
             
             return
-                Sg.triangles (C4b(100, 100, 160, 90) |> Mod.constant) (Mod.constant localTriangles)
+                Sg.triangles (C4b(100, 100, 160, 90) |> AVal.constant) (AVal.constant localTriangles)
                 |> Sg.noEvents
                 |> Sg.trafo m.local2Global
                 |> Sg.pickable (kdTree |> PickShape.Triangles)
@@ -164,7 +164,7 @@ module PELine =
             local2Global = match preTrafo with | None -> Trafo3d.Identity | Some t -> t
         }
 
-    let mkSg (m : MLineModel) (view : IMod<CameraView>) =
+    let mkSg (m : MLineModel) (view : aval<CameraView>) =
         adaptive {
             let! side = m.side
             let! (sv1 : V3d) =
@@ -200,7 +200,7 @@ module PELine =
 
             let d = (e - s).Length
             let font = Font.create "arial" FontStyle.Regular
-            let content = d |> sprintf "%.2fm" |> Mod.constant
+            let content = d |> sprintf "%.2fm" |> AVal.constant
             let labelTrafo = 
                 adaptive {
                     let! v = view
@@ -220,10 +220,10 @@ module PELine =
 
             let! local2Global = m.local2Global
             let l = Line3d(local2Global.Backward.TransformPos s,local2Global.Backward.TransformPos e)
-            let lines = [|l|] |> Mod.constant
+            let lines = [|l|] |> AVal.constant
             
             return
-                Sg.lines (color |> Mod.constant) lines
+                Sg.lines (color |> AVal.constant) lines
                 |> Sg.noEvents
                 |> Sg.shader {
                     do! DefaultSurfaces.stableTrafo
@@ -233,7 +233,7 @@ module PELine =
                 |> Sg.andAlso labelSg
         }
         |> Sg.dynamic
-        |> Sg.depthTest (DepthTestMode.Always |> Mod.constant)
+        |> Sg.depthTest (DepthTestMode.Always |> AVal.constant)
     
 module App =
 
@@ -312,7 +312,7 @@ module App =
                         | None -> id
                         | Some t -> fun p -> t.Forward.TransformPos p
 
-                let globalPts = pts |> PList.toList |> List.map (fun x -> local2Global x.pos)
+                let globalPts = pts |> IndexList.toList |> List.map (fun x -> local2Global x.pos)
                 //let cm = globalPts |> Boxes.PCA.cov
                 //let (vals, vecs) = Boxes.PCA.eig cm
                 //let eig0 = vecs.[0]
@@ -355,7 +355,7 @@ module App =
 
                     let planeModels =
                         m.planeModels
-                        |> PList.append plane
+                        |> IndexList.append plane
                 
                     update reference 
                         { m with 
@@ -373,38 +373,38 @@ module App =
         | AddPlane -> //adds a new plane to the selected group
             match m.selected with
             | Some id ->
-                let planes = m.planeModels |> PList.toList
+                let planes = m.planeModels |> IndexList.toList
                 let p = planes |> List.find (fun x -> x.id = id)
                 let offset = (p |> Plane.normal).Normalized * 0.001
                 let newPlane = Plane.setup (p.v0 + offset) (p.v1 + offset) (p.v2 + offset) (p.v3 + offset) p.group 0 0 (Some p.local2Global)
-                let planeModels = m.planeModels |> PList.append newPlane
+                let planeModels = m.planeModels |> IndexList.append newPlane
                 let trafo = m.trafo
 
-                let group = planeModels |> PList.toList |> List.filter ( fun x -> p.group = x.group )
+                let group = planeModels |> IndexList.toList |> List.filter ( fun x -> p.group = x.group )
                 let order = group |> orderPlanes
                 
                 let planeModels =
                     planeModels
-                    |> PList.toList
+                    |> IndexList.toList
                     |> List.except group
                     |> List.append order
-                    |> PList.ofList
+                    |> IndexList.ofList
                 
                 let lineGroup =
                     m.lineModels
-                    |> PList.toList
+                    |> IndexList.toList
                     |> List.filter ( fun x ->
                         x.group = p.group
                     )
 
                 let lineModels =
                     m.lineModels
-                    |> PList.toList
+                    |> IndexList.toList
                     |> List.except lineGroup
                     |> List.append (
                         order |> setupLines (Some p.local2Global)
                     )
-                    |> PList.ofList
+                    |> IndexList.ofList
                 
                 {m with planeModels = planeModels; lineModels = lineModels; selected = Some newPlane.id; trafo = trafo}  
             | None -> m
@@ -413,39 +413,39 @@ module App =
             //TODO: new ordering and setup of lines
             match m.selected with
             | Some id ->
-                let planes = m.planeModels |> PList.toList
+                let planes = m.planeModels |> IndexList.toList
                 let p = planes |> List.find (fun x -> x.id = id)
                 let planeModels =
                     m.planeModels
-                    |> PList.toList
+                    |> IndexList.toList
                     |> List.except [p]
-                    |> PList.ofList
+                    |> IndexList.ofList
                 
-                let group = planeModels |> PList.toList |> List.filter ( fun x -> p.group = x.group )
+                let group = planeModels |> IndexList.toList |> List.filter ( fun x -> p.group = x.group )
                 let order = group |> orderPlanes
                 
                 let planeModels =
                     planeModels
-                    |> PList.toList
+                    |> IndexList.toList
                     |> List.except group
                     |> List.append order
-                    |> PList.ofList
+                    |> IndexList.ofList
                 
                 let lineGroup =
                     m.lineModels
-                    |> PList.toList
+                    |> IndexList.toList
                     |> List.filter ( fun x ->
                         x.group = p.group
                     )
 
                 let lineModels =
                     m.lineModels
-                    |> PList.toList
+                    |> IndexList.toList
                     |> List.except lineGroup
                     |> List.append (
                         order |> setupLines (Some p.local2Global)
                     )
-                    |> PList.ofList
+                    |> IndexList.ofList
                 
                 {m with planeModels = planeModels; lineModels = lineModels; selected = None}
             | None -> m
@@ -455,7 +455,7 @@ module App =
             | Some id ->
                 let planeModels =
                     m.planeModels
-                    |> PList.map (fun x ->
+                    |> IndexList.map (fun x ->
                         match x.id = id with
                         | true  ->
                             let pc = x |> Plane.center
@@ -466,33 +466,33 @@ module App =
                         | false -> x
                     )
                 
-                let planes = planeModels |> PList.toList
+                let planes = planeModels |> IndexList.toList
                 let p = planes |> List.find (fun x -> x.id = id)
-                let group = planeModels |> PList.toList |> List.filter ( fun x -> p.group = x.group )
+                let group = planeModels |> IndexList.toList |> List.filter ( fun x -> p.group = x.group )
                 let order = group |> orderPlanes
                 
                 let planeModels =
                     planeModels
-                    |> PList.toList
+                    |> IndexList.toList
                     |> List.except group
                     |> List.append order
-                    |> PList.ofList
+                    |> IndexList.ofList
                 
                 let lineGroup =
                     m.lineModels
-                    |> PList.toList
+                    |> IndexList.toList
                     |> List.filter ( fun x ->
                         x.group = p.group
                     )
 
                 let lineModels =
                     m.lineModels
-                    |> PList.toList
+                    |> IndexList.toList
                     |> List.except lineGroup
                     |> List.append (
                         order |> setupLines (Some p.local2Global)
                     )
-                    |> PList.ofList
+                    |> IndexList.ofList
                 
                 {m with trafo = TranslateController.updateController m.trafo msg; planeModels = planeModels; lineModels = lineModels}
             | None -> m
@@ -515,7 +515,7 @@ module App =
                 else m
             | _ -> m
     
-    let viewScene' (m : MModel) (view : IMod<CameraView>) (pickSg) (liftMessage : Action -> 'msg) =
+    let viewScene' (m : MModel) (view : aval<CameraView>) (pickSg) (liftMessage : Action -> 'msg) =
         let sg =
             aset {
                 for pm in m.planeModels |> AList.toASet do
@@ -533,14 +533,14 @@ module App =
         
         let trafoctrl =
             m.selected
-            |> Mod.map ( fun s ->
+            |> AVal.map ( fun s ->
                 match s with
                 | None -> Sg.empty
                 | Some id -> 
                     TranslatePlaneTrafoCtrl.viewController (fun x -> x |> TranslateCtrlMsg |> liftMessage) view m.trafo 
             )
             |> Sg.dynamic
-            |> Sg.depthTest (DepthTestMode.Always |> Mod.constant)
+            |> Sg.depthTest (DepthTestMode.Always |> AVal.constant)
 
         let points = Utils.Picking.mkSg m.pointsModel view (fun x -> x |> PointsMsg |> liftMessage)
         
@@ -548,7 +548,7 @@ module App =
         let pickSg = pickSg events
         let pointsSg =
             m.addMode
-            |> Mod.map ( fun am ->
+            |> AVal.map ( fun am ->
                 if am
                 then pickSg |> Sg.andAlso points
                 else Sg.empty
@@ -574,8 +574,8 @@ module App =
             addMode     = true
             extrudeMode = false
             pointsModel = Utils.Picking.initial
-            planeModels = PList.empty
-            lineModels  = PList.empty
+            planeModels = IndexList.empty
+            lineModels  = IndexList.empty
             selected    = None
             trafo       = TrafoController.initial
             maxGroupId  = 0

@@ -1,7 +1,7 @@
-﻿namespace CorrelationDrawing.XXX
+namespace CorrelationDrawing.XXX
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Base.Rendering
 open Aardvark.UI
 open Aardvark.UI.Primitives
@@ -21,6 +21,8 @@ open CorrelationDrawing.Types
 open CorrelationDrawing.AnnotationTypes
 open CorrelationDrawing.SemanticTypes
 open CorrelationDrawing.Model
+
+open Adaptify
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //FLAGS
@@ -53,14 +55,14 @@ type CorrelationPlotViewType = LineView | LogView | CorrelationView
 
 type XAxisFunction           = Average | Minimum | Maximum
 
-[<DomainType>]
+[<ModelType>]
 type RenderingParameters = {
     fillMode : FillMode
     cullMode : CullMode
 }   
 
 
-[<DomainType>]
+[<ModelType>]
 type SvgOptions = {
   logPadding       : float
   logHeight        : float
@@ -81,7 +83,7 @@ type SvgOptions = {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-[<DomainType>]
+[<ModelType>]
 type CorrelationDrawingModel = {
     keyboard          : Keyboard<CorrelationDrawingModel>
     hoverPosition     : option<Trafo3d>
@@ -137,17 +139,17 @@ module SaveIndex =
         {ind = max}.next
       
 
-[<DomainType>]
+[<ModelType>]
 type Pages = 
     {
-        [<NonIncremental>]
+        [<NonAdaptive>]
         past          : Option<Pages>
 
         saveIndices   : list<SaveIndex>
 
         keyboard      : Keyboard<Pages>
         
-        [<NonIncremental>]
+        [<NonAdaptive>]
         future        : Option<Pages>
 
         appFlags      : AppFlags

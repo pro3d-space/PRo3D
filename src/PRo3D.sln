@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28307.960
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29806.167
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PRo3D.Linking", "PRo3D.2D3DLinking\PRo3D.Linking.fsproj", "{674F1D0F-54AB-4880-8A9F-4AFB61F00999}"
 EndProject
@@ -12,7 +12,7 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PRo3D.Minerva", "PRo3D.Mine
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PRo3D.Viewer", "PRo3D.Viewer\PRo3D.Viewer.fsproj", "{A375E5FD-ABB2-48CF-AF27-CC3E4B650D04}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PRo3D.CorrelationPanels", "PRo3D.CorrelationPanels\PRo3D.CorrelationPanels.fsproj", "{9AD83F23-FACB-4C37-AA2F-D2B1EE877341}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PRo3D.CorrelationPanels", "PRo3D.CorrelationPanels\PRo3D.CorrelationPanels.fsproj", "{BE10461E-3B5A-4904-9391-1D3A5F1FF582}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -40,10 +40,10 @@ Global
 		{A375E5FD-ABB2-48CF-AF27-CC3E4B650D04}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A375E5FD-ABB2-48CF-AF27-CC3E4B650D04}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A375E5FD-ABB2-48CF-AF27-CC3E4B650D04}.Release|Any CPU.Build.0 = Release|Any CPU
-		{9AD83F23-FACB-4C37-AA2F-D2B1EE877341}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{9AD83F23-FACB-4C37-AA2F-D2B1EE877341}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{9AD83F23-FACB-4C37-AA2F-D2B1EE877341}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{9AD83F23-FACB-4C37-AA2F-D2B1EE877341}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BE10461E-3B5A-4904-9391-1D3A5F1FF582}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BE10461E-3B5A-4904-9391-1D3A5F1FF582}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BE10461E-3B5A-4904-9391-1D3A5F1FF582}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BE10461E-3B5A-4904-9391-1D3A5F1FF582}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

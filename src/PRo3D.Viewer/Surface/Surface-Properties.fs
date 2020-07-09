@@ -2,7 +2,7 @@ namespace PRo3D.Surfaces
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.Base.Rendering
@@ -55,7 +55,7 @@ module SurfaceProperties =
             | SetScalarMap a -> 
                 match a with
                   | Some s -> 
-                    let scs = model.scalarLayers |> HMap.alter s.index (Option.map(fun _ -> s))
+                    let scs = model.scalarLayers |> HashMap.alter s.index (Option.map(fun _ -> s))
                     { model with selectedScalar = Some s} |> Console.print //; scalarLayers = scs 
                   | None -> { model with selectedScalar = None }
             | SetTexturesMap a ->                
@@ -67,41 +67,41 @@ module SurfaceProperties =
         layers 
           |> Seq.choose (fun x -> match x with | TextureLayer l -> Some l | _ -> None) 
           |> Seq.mapi(fun i x -> { x with index = i}) 
-          |> PList.ofSeq
+          |> IndexList.ofSeq
 
     let getScalars (layers : seq<AttributeLayer>) =
         layers 
           |> Seq.choose (fun x -> match x with | ScalarLayer l -> Some l | _ -> None) 
           |> Seq.mapi(fun i x -> { x with index = i}) 
-          |> PList.ofSeq
+          |> IndexList.ofSeq
 
     let getScalarsHmap (layers : seq<AttributeLayer>) =
         layers 
           |> Seq.choose (fun x -> match x with | ScalarLayer l -> Some l | _ -> None) 
           |> Seq.mapi(fun i x -> { x with index = i}) 
           |> Seq.map(fun x -> x.index, x)
-          |> HMap.ofSeq
+          |> HashMap.ofSeq
 
     let mapTolist (input : amap<_,'a>) : alist<'a> = 
         input |> AMap.toASet |> AList.ofASet |> AList.map snd    
     
-    let scalarLayerList (m:MSurface) = 
+    let scalarLayerList (m:AdaptiveSurface) = 
         (m.scalarLayers |> mapTolist)
 
-    //let getSelectedScalar (layer:IMod<Option<MScalarLayer>>) = //: Option<ScalarLayer> =
+    //let getSelectedScalar (layer:aval<Option<MScalarLayer>>) = //: Option<ScalarLayer> =
     //    adaptive {
     //            let! layer = layer
     //            match layer with
     //             | Some l ->  let! current = l.Current
     //                          return SetScalarMap (Some current)
     //             | _-> return SetScalarMap None
-    //        } |> Mod.force
+    //        } |> AVal.force
 
           
-    let view (model : MSurface) =        
+    let view (model : AdaptiveSurface) =        
       require GuiEx.semui (
         Html.table [                                            
-          // Html.row "Path:"        [Incremental.text (model.importPath |> Mod.map (fun x -> sprintf "%A" x ))]                
+          // Html.row "Path:"        [Incremental.text (model.importPath |> AVal.map (fun x -> sprintf "%A" x ))]                
           Html.row "Name:"        [Html.SemUi.textBox model.name SetName ]
           Html.row "Visible:"     [GuiEx.iconCheckBox model.isVisible ToggleVisible ]
           Html.row "Active:"      [GuiEx.iconCheckBox model.isActive ToggleIsActive ]
@@ -110,8 +110,8 @@ module SurfaceProperties =
           Html.row "TriangleFilter:" [Numeric.view' [NumericInputType.InputBox]   model.triangleSize  |> UI.map SetTriangleSize ]
           Html.row "Scale:"       [Numeric.view' [NumericInputType.InputBox]   model.scaling  |> UI.map SetScaling ]
           Html.row "Fillmode:"    [Html.SemUi.dropDown model.fillMode SetFillMode]                
-          Html.row "Scalars:"     [UI.dropDown'' (model |> scalarLayerList)  model.selectedScalar   (fun x -> SetScalarMap (x |> Option.map(fun y -> y.Current |> Mod.force)))   (fun x -> x.label |> Mod.force)]
-          //Html.row "Scalars:"     [UI.dropDown'' (model |> scalarLayerList)  model.selectedScalar   (fun x -> SetScalarMap (x |> Option.map(fun y -> y.Current ))) (fun x -> x.label |> Mod.force)]
+          Html.row "Scalars:"     [UI.dropDown'' (model |> scalarLayerList)  (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.selectedScalar)  (fun x -> SetScalarMap (x |> Option.map(fun y -> y.Current |> AVal.force)))   (fun x -> x.label |> AVal.force)]
+          //Html.row "Scalars:"     [UI.dropDown'' (model |> scalarLayerList)  model.selectedScalar   (fun x -> SetScalarMap (x |> Option.map(fun y -> y.Current ))) (fun x -> x.label |> AVal.force)]
           Html.row "Textures:"    [UI.dropDown'' model.textureLayers model.selectedTexture  (fun x -> SetTexturesMap x) (fun x -> x.label)]
           Html.row "Cull Faces:"  [Html.SemUi.dropDown model.cullMode SetCullMode]
           Html.row "Set Homeposition:"  [button [clazz "ui button tiny"; onClick (fun _ -> SetHomePosition )][]] //[text "DiscoverOpcs" ]  
@@ -154,7 +154,7 @@ module ColorCorrectionProperties =
         | UseGrayScale  ->
             { model with useGrayscale = (not model.useGrayscale) }
 
-    let view (model : MColorCorrection) =        
+    let view (model : AdaptiveColorCorrection) =        
       require GuiEx.semui (
         Html.table [          
           Html.row "use contrast:"        [GuiEx.iconCheckBox model.useContrast UseContrast ] // group.visible (GroupsMessage(Groups.ToggleGroup path))

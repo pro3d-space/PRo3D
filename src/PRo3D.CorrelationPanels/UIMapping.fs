@@ -1,7 +1,7 @@
-﻿module UIMapping
+module UIMapping
     open Aardvark.Base
     open Aardvark.UI
-    open Aardvark.Base.Incremental
+    open FSharp.Data.Adaptive
         
     let mapAListId 
         (lst      : alist<DomNode<'a>>) 

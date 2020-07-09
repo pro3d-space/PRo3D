@@ -1,6 +1,6 @@
-﻿namespace CorrelationDrawing.Types
+namespace CorrelationDrawing.Types
 
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 
 type State = New | Edit | Display
 

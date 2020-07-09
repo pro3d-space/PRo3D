@@ -1,8 +1,9 @@
-﻿namespace Svgplus.RoseDiagramModel
+namespace Svgplus.RoseDiagramModel
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
+open Adaptify
 
 type RoseDiagramId = RoseDiagramId of Guid
 
@@ -21,13 +22,13 @@ type Bin =
        endAngle : CorrelationDrawing.Math.Angle
    }
 
-[<DomainType>]
+[<ModelType>]
 type RoseDiagram = {
-    [<NonIncremental>]
+    [<NonAdaptive>]
     id            : RoseDiagramId
     outerRadius   : float
     innerRadius   : float
-    countPerBin   : plist<Bin>
+    countPerBin   : IndexList<Bin>
     averageAngle  : CorrelationDrawing.Math.Angle
     pos           : V2d // left-center
     maxItemsInBin : int

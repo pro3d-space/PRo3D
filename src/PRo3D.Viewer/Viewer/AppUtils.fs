@@ -1,10 +1,10 @@
-﻿namespace Aardvark.UI
+namespace Aardvark.UI
 
 open System
 open System.Threading
 open System.Collections.Generic
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open System.Reactive.Subjects
 
 type private Message<'msg> = { msgs : seq<'msg>; processed : Option<System.Threading.ManualResetEventSlim> }
@@ -15,7 +15,7 @@ module AppExtension =
         with member app.start'() =
                 let l = obj()
                 let initial = app.initial
-                let state = Mod.init initial
+                let state = AVal.init initial
                 let mstate = app.unpersist.create initial
                 let initialThreads = app.threads initial
                 let node = app.view mstate
@@ -52,7 +52,7 @@ module AppExtension =
                             | None, None -> 
                                 None
             
-                    currentThreads <- ThreadPool<'msg>(HMap.choose2 merge currentThreads.store newThreads.store)
+                    currentThreads <- ThreadPool<'msg>(HashMap.choose2 merge currentThreads.store newThreads.store)
 
 
                 and doit(msgs : list<Message<'msg>>) =

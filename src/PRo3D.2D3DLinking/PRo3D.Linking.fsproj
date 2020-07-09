@@ -5,6 +5,7 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <RootNamespace>_2D3DLinking</RootNamespace>
     <AssemblyName>PRo3D.Linking</AssemblyName>
+    <GenerateLenses>True</GenerateLenses>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>..\..\bin\Debug</OutputPath>

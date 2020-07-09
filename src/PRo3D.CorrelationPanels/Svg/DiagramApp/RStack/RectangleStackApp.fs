@@ -1,8 +1,8 @@
-﻿namespace Svgplus
+namespace Svgplus
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI
 open Svgplus.RectangleType // always import this before importing Svgplus, so correct Lenses are used //TODO
 open Svgplus.RectangleStackTypes
@@ -33,7 +33,7 @@ module RectangleStackApp =
                 override x.Set(s,v) =
                     let _rectangles = 
                       s.rectangles 
-                        |> HMap.map (fun id r -> 
+                        |> HashMap.map (fun id r -> 
                             let _x = v.X
                             let _y = v.Y + r.pos.Y
                             let _v = V2d (_x, _y)
@@ -45,7 +45,7 @@ module RectangleStackApp =
     
     let calcStackDim rectangles = 
         rectangles 
-        |> HMap.values 
+        |> HashMap.toSeq |> Seq.map snd 
         |> Seq.fold (fun (s:V2d) (e:Rectangle) -> V2d(max s.X e.maxWidth, s.Y + e.dim.height)) V2d.Zero
 
     //TODO TO pure magic happening here, mapPrev' irre
@@ -55,7 +55,7 @@ module RectangleStackApp =
         | _ ->
             let clean = 
                 model.rectangles
-                |> HMap.map (fun _ r -> Rectangle.Lens.pos.Set (r, V2d 0.0))
+                |> HashMap.map (fun _ r -> Rectangle.Lens.pos.Set (r, V2d 0.0))
               
             //compute rectangle positions according to order and height
             let f (prev : Rectangle) (curr : Rectangle) =
@@ -63,7 +63,7 @@ module RectangleStackApp =
                 Rectangle.Lens.posY.Set (curr, cposy)
             
             let rs = 
-                DS.PList.mapPrev' (model.order |> PList.ofList) clean None f
+                DS.PList.mapPrev' (model.order |> IndexList.ofList) clean None f
             
             {
                 model with  
@@ -93,7 +93,7 @@ module RectangleStackApp =
     let resetPosition (model : RectangleStack) (v : V2d) =
         let _rectangles = 
              model.rectangles 
-            |> HMap.map (fun id r -> Rectangle.Lens.pos.Set (r, v))
+            |> HashMap.map (fun id r -> Rectangle.Lens.pos.Set (r, v))
         {
             model with  
                 rectangles     = _rectangles
@@ -116,7 +116,7 @@ module RectangleStackApp =
             let (id, m) = msg
             let _rects = 
                 model.rectangles 
-                |> HMap.update id (fun x -> updateRect x m)
+                |> HashMap.update id (fun x -> updateRect x m)
             { 
                 model with 
                     rectangles = _rects
@@ -124,13 +124,13 @@ module RectangleStackApp =
         | UpdateColour cmap ->
             let _rects =
                 model.rectangles
-                |> HMap.map (fun id r -> 
+                |> HashMap.map (fun id r -> 
                     Rectangle.update r (RectangleAction.UpdateColour cmap))
             { model with rectangles = _rects}
         | SetYScaling scale ->
             let _rects =
                 model.rectangles
-                |> HMap.map (fun id r -> 
+                |> HashMap.map (fun id r -> 
                     let newHeight = 
                         match r.fixedInfinityHeight with
                         | Some fixedHeight -> r.worldHeight * scale + fixedHeight
@@ -140,13 +140,13 @@ module RectangleStackApp =
         | UpdateXSizes f ->
             let _rects =
                 model.rectangles
-                |> HMap.map (fun id r -> Rectangle.Lens.width.Update (r,f))
+                |> HashMap.map (fun id r -> Rectangle.Lens.width.Update (r,f))
             
             { model with rectangles = _rects; stackDimensions = calcStackDim _rects }
         | FixWidthTo d ->
             let _rects =
                 model.rectangles
-                |> HMap.map (fun id r -> {r with fixedWidth = Some d})
+                |> HashMap.map (fun id r -> {r with fixedWidth = Some d})
             {model with rectangles = _rects; stackDimensions = calcStackDim _rects}
         | SelectBorder (rectangleBorderId, overwrite) ->
             match model.selectedBorder with
@@ -165,7 +165,7 @@ module RectangleStackApp =
     let update' (action : RectangleStackAction) (model : RectangleStack) =
         update model action
 
-    let view (stacksMaxMinRanges : IMod<Range1d>) (flattenHorizon: IMod<option<FlattenHorizonData>>) (model : MRectangleStack) =
+    let view (stacksMaxMinRanges : aval<Range1d>) (flattenHorizon: aval<option<FlattenHorizonData>>) (model : AdaptiveRectangleStack) =
     
         let viewMap = 
             Svgplus.Rectangle.view >> UIMapping.mapAListId  
@@ -175,15 +175,15 @@ module RectangleStackApp =
             |> AMap.toASet
             |> ASet.collect(fun (_,x) ->
                 Rectangle.viewBorder x model.rectangles false (fun _ -> SelectBorder(x.id, false))
-                |> ASet.ofModSingle
+                |> ASet.ofAValSingle
             ) 
 
         let content =
             
             let aOrder = 
                 model.order 
-                |> Mod.map(fun x -> x |> PList.ofList)
-                |> AList.ofMod
+                |> AVal.map(fun x -> x |> IndexList.ofList)
+                |> AList.ofAVal
 
             alist {
                 for id in aOrder do
@@ -194,7 +194,7 @@ module RectangleStackApp =
                 match selected with
                 | Some borderId ->
                     let! border = model.borders |> AMap.find borderId
-                    yield! Rectangle.viewBorder border model.rectangles true (fun _ -> Nop) |> AList.ofModSingle
+                    yield! Rectangle.viewBorder border model.rectangles true (fun _ -> Nop) |> AList.ofAValSingle
                 | None -> ()
 
                 yield! borders |> AList.ofASet
@@ -208,10 +208,11 @@ module RectangleStackApp =
         
         let calcMaxGrainSize = 
             model.rectangles 
-            |> AMap.toMod
-            |> Mod.bind (fun x ->
-                Mod.custom (fun t -> 
-                    x.Values 
+            |> AMap.toAVal
+            |> AVal.bind (fun x ->
+                AVal.custom (fun t -> 
+                    x
+                    |> HashMap.values
                     |> Seq.map (fun e -> e.grainSize.GetValue(t).middleSize) 
                     |> Seq.max))
 
@@ -241,7 +242,7 @@ module RectangleStackApp =
                 }
 
             require dependencies (
-                onBoot' ["data", xAxisPosition |> Mod.channel] updateChart (Incremental.Svg.g AttributeMap.empty AList.empty))
+                onBoot' ["data", xAxisPosition |> AVal.channel] updateChart (Incremental.Svg.g AttributeMap.empty AList.empty))
             |> AList.single
 
         let yAxis = 
@@ -272,7 +273,7 @@ module RectangleStackApp =
                 }
 
             require dependencies (
-                onBoot' ["data2", yAxisPosition |> Mod.channel] updateChart (Incremental.Svg.g AttributeMap.empty AList.empty))
+                onBoot' ["data2", yAxisPosition |> AVal.channel] updateChart (Incremental.Svg.g AttributeMap.empty AList.empty))
             |> AList.single
 
         let lst = 

@@ -1,8 +1,8 @@
-﻿namespace UIPlus
+namespace UIPlus
 
 open Aardvark.UI
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open UIPlus
 open UIPlus.Tables
 
@@ -76,7 +76,7 @@ module ColourMap =
             |> List.mapi (fun index x -> 
                 let orderedItem = x index
                 orderedItem.id, orderedItem)
-            |> HMap.ofList
+            |> HashMap.ofList
 
         {
             mappings     = mappings
@@ -89,18 +89,18 @@ module ColourMap =
         | ItemMessage (id, colorAction) ->
             let updatedMap = 
                 model.mappings
-                |> HMap.alter id (Option.map (fun x -> ColourMapItem.update x colorAction))
+                |> HashMap.alter id (Option.map (fun x -> ColourMapItem.update x colorAction))
             {model with mappings = updatedMap}
         | SelectItem id ->
             {model with selected = Some id}
 
-    let view (model : MColourMap) =
+    let view (model : AdaptiveColourMap) =
         let tableview = 
             let domList =
                 model.mappings
                 |> AMap.toASet
                 |> ASet.sortBy (fun (k,i) -> i.order)
-                |> AList.map (fun (k, m) -> 
+                |> AList.collect (fun (k, m) -> 
                     let mapper = UI.map (fun a -> Action.ItemMessage (m.id, a) ) 
                     let nodes = (ColourMapItem.view m) |> List.map mapper
                     model.selected
@@ -109,7 +109,7 @@ module ColourMap =
                         | Some id when id = m.id -> intoActiveTr (Action.SelectItem m.id) nodes |> AList.single
                         | _ -> intoTrOnClick (Action.SelectItem m.id) nodes |> AList.single)
                 )
-                |> AList.concat
+                //|> AList.concat
 
             toTableView (div[][]) domList ["Grain size";"Colour";"φ-scale"]
 

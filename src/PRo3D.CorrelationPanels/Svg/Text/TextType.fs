@@ -1,12 +1,13 @@
-﻿namespace Svgplus.TextType
+namespace Svgplus.TextType
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
+open Adaptify
 open CorrelationDrawing
 open Svgplus
 open UIPlus
 
-[<DomainType>]
+[<ModelType>]
 type Text = {
   centre      : V2d
   dim         : Size2D

@@ -1,9 +1,9 @@
-﻿namespace UIPlus
+namespace UIPlus
     module Tables =
       open Aardvark.UI
       open System
       open Aardvark.Base
-      open Aardvark.Base.Incremental
+      open FSharp.Data.Adaptive
 
       let textColorFromBackground (col  : C4b) =
          match  (int col.R + int col.B + int col.G) with
@@ -62,12 +62,12 @@
         )
 
 
-      let toDisplayLabel (str : IMod<string>) =
+      let toDisplayLabel (str : aval<string>) =
         Incremental.label 
           (AttributeMap.ofList [clazz "ui horizontal label"]) 
           (AList.ofList [Incremental.text str])
 
-      let toDisplayLabelCol (str : string) (bgColour : IMod<C4b>) =
+      let toDisplayLabelCol (str : string) (bgColour : aval<C4b>) =
         Incremental.label 
           (AttributeMap.union 
               (AttributeMap.ofList [clazz "ui horizontal label"]) 

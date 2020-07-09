@@ -1,6 +1,6 @@
-﻿namespace UIPlus
+namespace UIPlus
   open Aardvark.Base
-  open Aardvark.Base.Incremental
+  open FSharp.Data.Adaptive
   open Aardvark.UI
   open Aardvark.Application
   open UIPlus.KeyboardTypes
@@ -14,8 +14,8 @@
       {
         altPressed        = false
         ctrlPressed       = false
-        registeredKeyUp   = PList.empty
-        registeredKeyDown = PList.empty
+        registeredKeyUp   = IndexList.empty
+        registeredKeyDown = IndexList.empty
       }
 
     let registerKeyUp  (k : KeyConfig<'a>) 
@@ -67,14 +67,14 @@
           | KeyUp _ -> app
           | KeyDown k ->
             //Log.line "Key Pressed: %s" (k.ToString ())
-            let _filtered = PList.filter (fun (c : KeyConfig<'a>) -> 
+            let _filtered = IndexList.filter (fun (c : KeyConfig<'a>) -> 
                                             c.check
                                                 _model.ctrlPressed
                                                 _model.altPressed
                                                 k
                                          )
                                           _model.registeredKeyDown
-            match _filtered.IsEmpty () with
+            match _filtered.IsEmpty with
              | true  -> app
              | false ->
                let config = _filtered.Item 0 //TODO: only taking first, could execute list

@@ -1,8 +1,10 @@
-﻿namespace PRo3D.Minerva
+namespace PRo3D.Minerva
 
 open Aardvark.Base
 open FSharp.Data
 open FSharp.Data.JsonExtensions
+
+open FSharp.Data.Adaptive
 
 module MinervaGeoJSON =
   open FSharp.Data.Runtime
@@ -132,7 +134,7 @@ module MinervaGeoJSON =
       name        = (root?id).AsString()
       typus       = root.GetProperty("type") |> parseTypus    
       boundingBox = Box2d.Invalid//(root?bbox) |> parseBoundingBox
-      features    = (root?features) |> parseFeatures |> PList.ofList
+      features    = (root?features) |> parseFeatures |> IndexList.ofList
     }
 
   let load (siteUrl:string) : FeatureCollection =     
@@ -144,7 +146,7 @@ module MinervaGeoJSON =
           name        = "layers"
           typus       = Typus.FeatureCollection
           boundingBox = collections |> Seq.fold (fun (a:Box2d) (fc:FeatureCollection) -> a.ExtendedBy(fc.boundingBox)) Box2d.Invalid
-          features    = collections |> Seq.map(fun x -> x.features) |> PList.concat
+          features    = collections |> Seq.map(fun x -> x.features) |> IndexList.concat
       }
 
   let parseRootProperties (props : JsonValue) =         
@@ -155,7 +157,7 @@ module MinervaGeoJSON =
       published    = (props?published).AsDateTime()
     }
 
-  type QueryDict = hmap<string,string>
+  type QueryDict = HashMap<string,string>
 
   let toNameValue (nvPairs : QueryDict) =
     let mutable nv = new NameValueCollection()
@@ -209,8 +211,8 @@ module MinervaGeoJSON =
       [0 .. probs.itemsPerPage .. probs.totalCount]
         |> List.map(fun index -> 
           //sprintf "%s?startIndex=%d&count=%d&%s" site index probs.itemsPerPage cql            
-            let nv = [("startIndex",index.ToString()); ("count",probs.itemsPerPage.ToString())] |> HMap.ofList
-            site, (HMap.union nv cql)
+            let nv = [("startIndex",index.ToString()); ("count",probs.itemsPerPage.ToString())] |> HashMap.ofList
+            site, (HashMap.union nv cql)
           )
 
     pages |> loadFromUrls

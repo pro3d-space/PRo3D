@@ -1,4 +1,6 @@
-﻿namespace CorrelationDrawing.LogNodes
+namespace CorrelationDrawing.LogNodes
+
+open FSharp.Data.Adaptive
 
 type LogNodeAction =
     | RectangleMessage    of Svgplus.RectangleAction  // TODO refactore
@@ -21,26 +23,26 @@ module Recursive =
     open CorrelationDrawing.LogNodeTypes
 
     let rec apply (n : LogNode) (f : LogNode -> LogNode) =
-        match PList.count n.children with
+        match IndexList.count n.children with
         | 0     -> f n 
         | other -> 
-            let c = n.children |> PList.map (fun (n : LogNode) -> apply n f)
+            let c = n.children |> IndexList.map (fun (n : LogNode) -> apply n f)
             f {n with children = c}
     
-    let applyAll (f : LogNode -> LogNode) (lst : plist<LogNode>) = 
-        lst |> PList.map (fun n -> apply n f)
+    let applyAll (f : LogNode -> LogNode) (lst : IndexList<LogNode>) = 
+        lst |> IndexList.map (fun n -> apply n f)
 
     let rec filterAndCollect (f : LogNode -> bool) (n : LogNode) =
-        match PList.count n.children, f n with
+        match IndexList.count n.children, f n with
         | a, true when a = 0 -> [n]
         | a, false when a = 0 -> []
         | other, true  -> 
             [n] @ 
             (n.children 
-                |> PList.toList
+                |> IndexList.toList
                 |> List.collect (fun (x : LogNode) -> filterAndCollect f x))
         | other, false -> 
             [] @  
             (n.children 
-                |> PList.toList
+                |> IndexList.toList
                 |> List.collect (fun (x : LogNode) -> filterAndCollect f x))

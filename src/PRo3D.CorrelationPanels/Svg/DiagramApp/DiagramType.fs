@@ -1,7 +1,8 @@
-﻿namespace Svgplus.DA
+namespace Svgplus.DA
   
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
+open Adaptify
 open Svgplus
 open Svgplus.RectangleType
 open UIPlus
@@ -23,17 +24,17 @@ type DiagramAppAction =
     | UpdateXSizes          of (float -> float)
     | KeyboardMessage       of Keyboard.Action
 
-[<DomainType>]
+[<ModelType>]
 type DiagramAppModel = {
-    items             : hmap<DiagramItemId, DiagramItem>
-    order             : plist<DiagramItemId>
+    items             : HashMap<DiagramItemId, DiagramItem>
+    order             : IndexList<DiagramItemId>
     correlations      : CorrelationsModel
     selectedRectangle : option<RectangleId>
     dataRange         : Range1d
     keyboard          : KeyboardTypes.Keyboard<DiagramAppModel>
-    selectedBorders   : hmap<RectangleBorderId, BorderContactId>
-    bordersTable      : hmap<RectangleBorderId, RectangleBorder>
-    rectanglesTable   : hmap<RectangleId, Rectangle>
+    selectedBorders   : HashMap<RectangleBorderId, BorderContactId>
+    bordersTable      : HashMap<RectangleBorderId, RectangleBorder>
+    rectanglesTable   : HashMap<RectangleId, Rectangle>
     yToSvg            : float
     yScaleValue       : float
 }

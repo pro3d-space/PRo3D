@@ -1,9 +1,9 @@
-﻿namespace CorrelationDrawing.Nuevo
+namespace CorrelationDrawing.Nuevo
 
 open System
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Base.Monads
 open Aardvark.UI
 open Aardvark.Application
@@ -22,6 +22,8 @@ open Svgplus.DiagramItemType
 open Svgplus.RectangleType
 open Chiron
 open UIPlus
+
+open Adaptify
 
 type FaciesBorder = {
     version   : int
@@ -89,7 +91,7 @@ type Facies = {
     range        : Range1d
     levels       : Range1i
     subFacies    : list<Facies>
-    measurements : hset<ContactId>
+    measurements : HashSet<ContactId>
     grainType    : GrainType
     isUncertain  : bool
 }
@@ -115,7 +117,7 @@ with
                 range        = range  |> Range1d.Parse
                 levels       = levels |> Range1i.Parse
                 subFacies    = subFacies
-                measurements = measurements |> List.map ContactId  |> HSet.ofList
+                measurements = measurements |> List.map ContactId  |> HashSet.ofList
                 grainType    = GrainType.fromString grainType
                 isUncertain  = isUncertain
             }
@@ -138,7 +140,7 @@ with
                 range        = range  |> Range1d.Parse
                 levels       = levels |> Range1i.Parse
                 subFacies    = subFacies
-                measurements = measurements |> List.map ContactId  |> HSet.ofList
+                measurements = measurements |> List.map ContactId  |> HashSet.ofList
                 grainType    = GrainType.Unknown
                 isUncertain  = true
             }
@@ -159,7 +161,7 @@ with
                 range        = range  |> Range1d.Parse
                 levels       = levels |> Range1i.Parse
                 subFacies    = subFacies
-                measurements = HSet.empty
+                measurements = HashSet.empty
                 grainType    = GrainType.Unknown
                 isUncertain  = true
             }
@@ -182,22 +184,22 @@ with
             do! Json.write "range"    (x.range  |> string)
             do! Json.write "levels"   (x.levels |> string)
             do! Json.write "subFacies" x.subFacies
-            do! Json.write "measurements" (x.measurements |> HSet.toList |> List.map ContactId.value)
+            do! Json.write "measurements" (x.measurements |> HashSet.toList |> List.map ContactId.value)
             do! Json.write "grainType"   x.grainType.toString
             do! Json.write "isUncertain" x.isUncertain
         }
 
-[<DomainType>]
+[<ModelType>]
 type GeologicalLogNuevo = {
-    [<NonIncremental>]
+    [<NonAdaptive>]
     version            : int
-    [<NonIncremental>]
+    [<NonAdaptive>]
     id                 : LogId
 
     name               : string
 
     facies             : Facies
-    contactPoints      : hmap<ContactId, V3d>
+    contactPoints      : HashMap<ContactId, V3d>
     referencePlane     : DipAndStrikeResults
     planeScale         : float
     referenceElevation : float
@@ -221,7 +223,7 @@ with
                 version            = GeologicalLogNuevo.current
                 id                 = id |> LogId
                 facies             = facies
-                contactPoints      = contactPoints |> HMap.ofList
+                contactPoints      = contactPoints |> HashMap.ofList
                 referencePlane     = referencePlane
                 referenceElevation = Double.NaN
                 planeScale         = planeScale
@@ -244,7 +246,7 @@ with
            
             let contactPoints = 
                 x.contactPoints 
-                |> HMap.toList 
+                |> HashMap.toList 
                 |> List.map(fun (a,b) -> 
                     let (ContactId guid) = a
                     (guid, b.ToString())
@@ -272,7 +274,7 @@ module Facies =
             range        = Range1d(lower.elevation, upper.elevation)
             levels       = Range1i(minLevel, maxLevel)
             subFacies    = subNodes
-            measurements = HSet.empty
+            measurements = HashSet.empty
             grainType    = GrainType.Unknown
             isUncertain  = true
         }
@@ -296,7 +298,7 @@ module Facies =
             range        = Range1d(lower.elevation, upper.elevation)
             levels       = Range1i(lower.level, upper.level)
             subFacies    = []           
-            measurements = HSet.empty
+            measurements = HashSet.empty
             grainType    = GrainType.Unknown
             isUncertain  = true
         }        
@@ -348,7 +350,7 @@ module GeologicalLogNuevo =
             id                 = id |> LogId
             name               = id |> string
             facies             = Facies.createRoot
-            contactPoints      = HMap.empty
+            contactPoints      = HashMap.empty
             referencePlane     = DipAndStrikeResults.initial
             referenceElevation = Double.NaN
             planeScale         = Double.NaN
@@ -367,9 +369,9 @@ module GeologicalLogNuevo =
 
         //get contact
         let border   = 
-            match contactsLookup |> HMap.tryFind id with
+            match contactsLookup |> HashMap.tryFind id with
             | Some (c : Contact) ->
-                let semantic = semApp.semantics |> HMap.tryFind c.semanticId
+                let semantic = semApp.semantics |> HashMap.tryFind c.semanticId
                 match semantic with
                 | Some s -> 
                     Some { version = FaciesBorder.current; level = s.level.value; elevation = elevation; contactId = c.id }
@@ -459,7 +461,7 @@ module GeologicalLogNuevo =
         (contactId,p)
         (log : GeologicalLogNuevo) =
 
-        let log = { log with contactPoints = log.contactPoints |> HMap.alter contactId (fun _ -> Some p) }
+        let log = { log with contactPoints = log.contactPoints |> HashMap.alter contactId (fun _ -> Some p) }
 
         let referenceElevation = 
             CooTransformation.getElevation' planet log.referencePlane.centerOfMass
@@ -470,7 +472,7 @@ module GeologicalLogNuevo =
 
         let contacts =
             log.contactPoints
-            |> HMap.toList
+            |> HashMap.toList
             |> List.choose(fun (id, point) -> 
                 tryCreateFaciesBorder 
                     contactsLookup 
@@ -507,7 +509,7 @@ module GeologicalLogNuevo =
 
     let createLog
         (logId          : LogId)
-        (selectedPoints : hmap<ContactId, V3d>)
+        (selectedPoints : HashMap<ContactId, V3d>)
         (referencePlane : DipAndStrikeResults)
         (planeScale     : float)
         (contactsLookup : ContactsTable)
@@ -522,7 +524,7 @@ module GeologicalLogNuevo =
 
         let contacts =
             selectedPoints
-            |> HMap.toList
+            |> HashMap.toList
             |> List.choose(fun (id, point) -> 
                 tryCreateFaciesBorder contactsLookup semApp referencePlane referenceElevation up point id
             )
@@ -589,8 +591,8 @@ module LogToDiagram =
         (border : FaciesBorder) =
 
         annos 
-        |> HMap.tryFind border.contactId
-        |> Option.bind (fun a -> semApp.semantics |> HMap.tryFind a.semanticId )
+        |> HashMap.tryFind border.contactId
+        |> Option.bind (fun a -> semApp.semantics |> HashMap.tryFind a.semanticId )
         |> Option.map (fun s -> f s)
 
     let tryGetBorderColor (border : FaciesBorder) (annotations : ContactsTable) (semApp : SemanticsModel) =
@@ -734,7 +736,7 @@ module LogToDiagram =
                 }
                 b1.id, b1
             )
-            |> HMap.ofList
+            |> HashMap.ofList
 
         let upmost = orderedFacies |> List.tryHead
         let lowest = orderedFacies |> List.tryLast
@@ -750,7 +752,7 @@ module LogToDiagram =
         let rectangleStack =
             (RectangleStackApp.create 
                 stackId 
-                (rectangles |> HMap.ofList) 
+                (rectangles |> HashMap.ofList) 
                 (rectangles |> List.map fst)
                 borders
                 dataRange
@@ -774,10 +776,10 @@ module LogToDiagram =
 
         faciesToRectangleStack id config faciesLeafCut colourMap semantics contacts Primary
     
-    //let aggregateMeasurements (faciess : list<Facies>) : hset<ContactId> = 
-    //    faciess |> List.fold (fun acc x -> acc |> HSet.union x.measurements) HSet.empty
+    //let aggregateMeasurements (faciess : list<Facies>) : HashSet<ContactId> = 
+    //    faciess |> List.fold (fun acc x -> acc |> HashSet.union x.measurements) HashSet.empty
 
-    let rec fetchMeasurements (facies : Facies) : hset<ContactId> =        
+    let rec fetchMeasurements (facies : Facies) : HashSet<ContactId> =        
         if ((facies.id |> FaciesId.getValue).ToString() = "5c4e3ad8-259b-4370-9bac-a7014895f042") then
             Log.line "not emptz !!!"
 
@@ -789,7 +791,7 @@ module LogToDiagram =
             facies.measurements
         | xs ->                         
             xs 
-            |> List.fold(fun acc x -> acc |> HSet.union (fetchMeasurements x)) HSet.empty
+            |> List.fold(fun acc x -> acc |> HashSet.union (fetchMeasurements x)) HashSet.empty
 
     let aggregateMeasurements (facies : list<Facies>) : list<Facies> = 
         facies 
@@ -804,11 +806,11 @@ module LogToDiagram =
 
             let angles =
                 facies.measurements 
-                |> HSet.toList
-                |> List.choose(fun x -> contacts |> HMap.tryFind x )
+                |> HashSet.toList
+                |> List.choose(fun x -> contacts |> HashMap.tryFind x )
                 |> List.choose(fun (x : Contact) ->
                     x.points 
-                    |> PList.map(fun y -> y.point)                         
+                    |> IndexList.map(fun y -> y.point)                         
                     |> DipAndStrike.calculateDipAndStrikeResults up north
                 )
                 |> List.map(fun x -> x.dipAzimuth)
@@ -820,7 +822,7 @@ module LogToDiagram =
                 }
             (rose.roseDiagram.id, rose)
         ) facies rectangleIds
-        |> HMap.ofList 
+        |> HashMap.ofList 
 
     let private readLine (filePath:string) =
          use sr = new System.IO.StreamReader (filePath)
@@ -860,7 +862,7 @@ module LogToDiagram =
         
         let rectangles = 
             rectangleStack.order 
-            |> List.map (fun x -> rectangleStack.rectangles.Find x)
+            |> List.map (fun x -> HashMap.find x rectangleStack.rectangles)
 
         let zipped = 
             facies 
@@ -879,7 +881,7 @@ module LogToDiagram =
                     uBorder = None
                     annotation = None
                     mainBody = r
-                    children = PList.empty
+                    children = IndexList.empty
                 }
             )
 
@@ -914,7 +916,7 @@ module LogToDiagram =
         //let rmap = 
         //    rectangles 
         //    |> List.map (fun (r,h) -> (r.id, r))
-        //    |> HMap.ofList          
+        //    |> HashMap.ofList          
 
         let primaryStack, primaryFacies = 
             primaryLog (RectangleStackId.createNew()) config facies colourMap semantics contacts 
@@ -928,7 +930,7 @@ module LogToDiagram =
 
         let contactPoint= 
             log.contactPoints
-            |> HMap.values
+            |> HashMap.values
             |> Box3d
             |> fun x -> 
                 Log.line "\n\nFOUND CONTACT POINT AT: %A \n\n" x.Center
@@ -957,8 +959,8 @@ module LogToDiagram =
                 diagramRef     = ref
                 state          = State.Display
                 defaultWidth   = config.defaultWidth
-                nodes          = primaryNodes |> PList.ofList
-                annoPoints     = HMap.empty
+                nodes          = primaryNodes |> IndexList.ofList
+                annoPoints     = HashMap.empty
             }
         
         (item, log) 

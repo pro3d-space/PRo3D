@@ -1,7 +1,7 @@
-﻿namespace Svgplus
+namespace Svgplus
   
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Svgplus
 
 open Svgplus.RectangleType
@@ -14,6 +14,7 @@ open CorrelationDrawing
 open Svgplus.DiagramItemType
 open Svgplus.RoseDiagramModel
 open Aardvark.UI
+open Adaptify.FSharp.Core
 
 type DiagramItemAction =
     | RectangleStackMessage of RectangleStackId * RectangleStackAction
@@ -47,7 +48,7 @@ module DiagramItem =
             // all same size
             let roseWidth = 
                 model.roseDiagrams
-                |> HMap.values 
+                |> HashMap.values 
                 |> Seq.first
                 |> Option.map (fun x -> x.roseDiagram.outerRadius * 2.0)
                 |> Option.defaultValue 0.0
@@ -107,10 +108,10 @@ module DiagramItem =
                     let rosePosX = _pri.pos.X + _pri.maxWidth
                     let _roses = 
                         item.roseDiagrams
-                        |> HMap.map (fun k d ->
+                        |> HashMap.map (fun k d ->
                             let rosePosY = 
                                 _sec
-                                |> Option.bind (fun x -> x.rectangles |> HMap.tryFind d.relatedRectangle)
+                                |> Option.bind (fun x -> x.rectangles |> HashMap.tryFind d.relatedRectangle)
                                 |> Option.map (fun r -> r.pos.Y + (r.dim.height / 2.0)) // centered
                                 |> Option.defaultValue 0.0
 
@@ -186,12 +187,12 @@ module DiagramItemApp =
             let stackMessage = RectangleStackAction.RectangleMessage (id, a)
 
             let model = 
-                match model.primaryStack.rectangles |> HMap.tryFind(id) with
+                match model.primaryStack.rectangles |> HashMap.tryFind(id) with
                 | Some _ -> { model with primaryStack = RectangleStackApp.update model.primaryStack stackMessage }
                 | None -> model
 
             let model =
-                match model.secondaryStack |> Option.bind (fun s -> s.rectangles |> HMap.tryFind(id)) with
+                match model.secondaryStack |> Option.bind (fun s -> s.rectangles |> HashMap.tryFind(id)) with
                 | Some _ -> { model with secondaryStack = Some (RectangleStackApp.update model.secondaryStack.Value stackMessage) }
                 | None -> model
             model
@@ -221,7 +222,7 @@ module DiagramItemApp =
         | RoseDiagramMessage (roseID, msg) -> 
             let updatedRoses = 
                 model.roseDiagrams 
-                |> HMap.alter roseID (Option.map (fun r -> { r with roseDiagram = RoseDiagram.update r.roseDiagram msg }))   
+                |> HashMap.alter roseID (Option.map (fun r -> { r with roseDiagram = RoseDiagram.update r.roseDiagram msg }))   
 
             { model with roseDiagrams = updatedRoses }
         | SetItemSelected selectionState -> 
@@ -231,16 +232,16 @@ module DiagramItemApp =
         | _ -> 
             action |> sprintf "[DiagramItem] %A not implemented" |> failwith
         
-    let view (stacksMaxMinRange : IMod<Range1d>) (model : MDiagramItem) =
+    let view (stacksMaxMinRange : aval<Range1d>) (model : AdaptiveDiagramItem) =
 
         let stacks = 
             alist {
                 // drawing order in svg is relevant! (draw first secondary than primary)
                 let! se = 
                     model.secondaryStack
-                    |> Mod.map (fun sec -> 
+                    |> AVal.map (fun sec -> 
                     sec
-                        |> Option.map (fun s -> 
+                        |> Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption |> Option.map (fun s -> 
                             RectangleStackApp.view stacksMaxMinRange model.flattenHorizon s
                             |> UI.map (fun x -> DiagramItemAction.RectangleStackMessage(s.id, x)))
                     )

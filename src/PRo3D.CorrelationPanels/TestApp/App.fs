@@ -2,7 +2,7 @@ namespace Test
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Svgplus
@@ -20,7 +20,6 @@ type Action =
     | HeaderMessage   of HeaderAction
 
 module App =
-    open Svgplus.Mutable
     open Svgplus
     open Aardvark.Base.IL.Frontend
     
@@ -62,7 +61,7 @@ module App =
             {model with header = HeaderApp.update model.header m}
         | _ -> failwith "[Appfs] unknown case"
 
-    let view (model : MTestModel) =
+    let view (model : AdaptiveTestModel) =
         let svgAtts = 
             [
                 clazz "svgRoot"

@@ -1,11 +1,11 @@
-﻿namespace CorrelationDrawing
+namespace CorrelationDrawing
 
   module Log =
 
     open Aardvark.Base
     open Aardvark.Base.Rendering
     open Aardvark.Rendering.Text
-    open Aardvark.Base.Incremental
+    open FSharp.Data.Adaptive
     open Aardvark.SceneGraph.SgPrimitives
     open Aardvark.SceneGraph.FShadeSceneGraph
     open Aardvark.UI

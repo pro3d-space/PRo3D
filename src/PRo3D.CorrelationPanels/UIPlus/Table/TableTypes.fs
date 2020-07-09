@@ -1,8 +1,8 @@
-﻿namespace UIPlus.TableTypes
+namespace UIPlus.TableTypes
 
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.UI
 open CorrelationDrawing
 
@@ -29,7 +29,7 @@ module TableRowId =
 
 type TableRow<'dtype, 'mtype, 'arg, 'action, 'parentaction> =
     {
-        isSelected    : 'mtype -> IMod<bool>
+        isSelected    : 'mtype -> aval<bool>
         update        : 'dtype -> 'action -> 'dtype
         displayView   : 'arg   -> 'mtype -> list<DomNode<'action>>
         editView      : 'arg   -> 'mtype -> list<DomNode<'action>>

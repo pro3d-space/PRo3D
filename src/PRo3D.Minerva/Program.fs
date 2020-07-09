@@ -1,11 +1,11 @@
-﻿module superduperHarri
+module superduperHarri
 
 open System
 open Suave
 
 open Aardvark
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardium
 open Aardvark.Application.Slim
 open Aardvark.UI
@@ -18,7 +18,6 @@ open System.Threading
 
 [<EntryPoint;STAThread>]
 let main argv = 
-  Ag.initialize()
   Aardvark.Init()
   Aardium.init() 
 

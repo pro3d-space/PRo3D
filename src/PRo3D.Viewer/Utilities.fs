@@ -1,4 +1,4 @@
-﻿namespace PRo3D
+namespace PRo3D
 
 open System
 open System.IO
@@ -138,11 +138,11 @@ module Box3d =
         box
 
 module Mod =
-    open Aardvark.Base.Incremental
+    open FSharp.Data.Adaptive
 
-    let bindOption (m : IMod<Option<'a>>) (defaultValue : 'b) (project : 'a -> IMod<'b>)  : IMod<'b> =
-        m |> Mod.bind (function | None   -> Mod.constant defaultValue       
-                                | Some v -> project v)
+    let bindOption (m : aval<Option<'a>>) (defaultValue : 'b) (project : 'a -> aval<'b>)  : aval<'b> =
+        m |> AVal.bind (function | None   -> AVal.constant defaultValue       
+                                 | Some v -> project v)
 
 module Copy =
     let rec copyAll' (source : DirectoryInfo) (target : DirectoryInfo) skipExisting =
@@ -175,7 +175,7 @@ module Copy =
         copyAll' s t skipExisting
 
 module Sg =
-    open Aardvark.Base.Incremental
+    open FSharp.Data.Adaptive
     open Aardvark.Base.Rendering
     open Aardvark.Rendering.Text    
     open Aardvark.SceneGraph
@@ -207,7 +207,7 @@ module Sg =
             }
         }
            
-    let computeInvariantScale (view : IMod<CameraView>) (near : IMod<float>) (p:IMod<V3d>) (size:IMod<float>) (hfov:IMod<float>) =
+    let computeInvariantScale (view : aval<CameraView>) (near : aval<float>) (p:aval<V3d>) (size:aval<float>) (hfov:aval<float>) =
       adaptive {
           let! p = p
           let! v = view
@@ -217,19 +217,19 @@ module Sg =
           let hfov_rad = Conversion.RadiansFromDegrees(hfov)
          
           let wz = Fun.Tan(hfov_rad / 2.0) * near * size
-          let dist = V3d.Distance(p, v.Location)
+          let dist = Vec.Distance(p, v.Location)
       
           return ( wz / near ) * dist
       }
 
     //## LINES ##
 
-    let edgeLines (close : bool) (points : alist<V3d>) (trafo:IMod<Trafo3d>) =
+    let edgeLines (close : bool) (points : alist<V3d>) (trafo:aval<Trafo3d>) =
       points
         |> AList.map(fun d -> trafo.GetValue().Backward.TransformPos d)
-        |> AList.toMod 
-        |> Mod.map (fun l ->
-            let list = PList.toList l
+        |> AList.toAVal 
+        |> AVal.map (fun l ->
+            let list = IndexList.toList l
             let head = list |> List.tryHead
                 
             match head with
@@ -246,7 +246,7 @@ module Sg =
             toEffect Shader.Shaders.thickLine
         ]
 
-    let lines (points : alist<V3d>) (offset : IMod<float>) (color : IMod<C4b>) (width : IMod<float>) (trafo : IMod<Trafo3d>) = 
+    let lines (points : alist<V3d>) (offset : aval<float>) (color : aval<C4b>) (width : aval<float>) (trafo : aval<Trafo3d>) = 
       let edges = edgeLines false points trafo
       edges
         |> Sg.lines color
@@ -255,7 +255,7 @@ module Sg =
         |> Sg.trafo trafo
         |> Sg.uniform "LineWidth" width
         |> Sg.uniform "DepthOffset" (
-                offset |> Mod.map (fun depthWorld -> depthWorld / (100.0 - 0.1))
+                offset |> AVal.map (fun depthWorld -> depthWorld / (100.0 - 0.1))
            ) 
 
     let scaledLinesEffect = 
@@ -265,7 +265,7 @@ module Sg =
             toEffect Shader.Shaders.thickLine
         ]
                                
-    let scaledLines (points : alist<V3d>) (color : IMod<C4b>) (width : IMod<float>) (trafo : IMod<Trafo3d>) = 
+    let scaledLines (points : alist<V3d>) (color : aval<C4b>) (width : aval<float>) (trafo : aval<Trafo3d>) = 
         let edges = edgeLines false points trafo     
         let size =
             adaptive {
@@ -276,7 +276,7 @@ module Sg =
         edges
             |> Sg.lines color
             |> Sg.noEvents
-            |> Sg.uniform "WorldPos" (trafo |> Mod.map(fun (x : Trafo3d) -> x.Forward.C3.XYZ))
+            |> Sg.uniform "WorldPos" (trafo |> AVal.map(fun (x : Trafo3d) -> x.Forward.C3.XYZ))
             |> Sg.uniform "Size" size
             |> Sg.effect [scaledLinesEffect]                             
             |> Sg.trafo trafo
@@ -287,8 +287,8 @@ module Sg =
     let cylinders width positions = 
         positions |> Array.pairwise |> Array.map(fun (a,b) -> Line3d(a,b)) |> Array.map (fun x -> Cylinder3d(x, width))
 
-    let pickable' (pick :IMod<Pickable>) (sg: ISg) =
-        Sg.PickableApplicator (pick, Mod.constant sg)
+    let pickable' (pick :aval<Pickable>) (sg: ISg) =
+        Sg.PickableApplicator (pick, AVal.constant sg)
 
     let getTriangles (pos : V3d[]) : array<Triangle3d> =
         let get (ti : int) =
@@ -300,10 +300,10 @@ module Sg =
     
     //## POINTS ##
 
-    let drawSphere color (size : IMod<float>) (pos : IMod<V3d>) = 
-        Sg.sphere 2 color (Mod.constant 1.0)
+    let drawSphere color (size : aval<float>) (pos : aval<V3d>) = 
+        Sg.sphere 2 color (AVal.constant 1.0)
             |> Sg.noEvents
-            |> Sg.trafo(pos |> Mod.map Trafo3d.Translation)
+            |> Sg.trafo(pos |> AVal.map Trafo3d.Translation)
             |> Sg.uniform "Size" size
             |> Sg.uniform "WorldPos" pos
 
@@ -315,7 +315,7 @@ module Sg =
             toEffect <| DefaultSurfaces.vertexColor  
         ]
 
-    let dot (point : IMod<V3d>) (size:IMod<float>) (color : IMod<C4b>) =
+    let dot (point : aval<V3d>) (size:aval<float>) (color : aval<C4b>) =
         let isgDot = drawSphere color size point
         isgDot
         |> Sg.effect [dotEffect]
@@ -328,9 +328,9 @@ module Sg =
             toEffect DefaultSurfaces.pointSprite
         ]
 
-    let indexedGeometryDots (points : alist<V3d>) (size:IMod<float>) (color : IMod<C4b>) =       
-      let points' = points |> AList.toMod |> Mod.map(fun x -> x |> PList.toArray)
-      let colors = points' |> Mod.map2(fun c x -> Array.create x.Length c) color
+    let indexedGeometryDots (points : alist<V3d>) (size:aval<float>) (color : aval<C4b>) =       
+      let points' = points |> AList.toAVal |> AVal.map(fun x -> x |> IndexList.toArray)
+      let colors = points' |> AVal.map2(fun c x -> Array.create x.Length c) color
       
       Sg.draw IndexedGeometryMode.PointList
        |> Sg.vertexAttribute DefaultSemantic.Positions points'         
@@ -345,10 +345,10 @@ module Sg =
             toEffect <| DefaultSurfaces.vertexColor 
         ]
     
-    let drawSpheres (points : alist<V3d>) (size:IMod<float>) (color : IMod<C4b>) =
+    let drawSpheres (points : alist<V3d>) (size:aval<float>) (color : aval<C4b>) =
         aset {
             for p in points |> ASet.ofAList do                        
-                yield drawSphere color (size) (Mod.constant p)
+                yield drawSphere color (size) (AVal.constant p)
         } 
         |> Sg.set
         |> Sg.effect [spheresEffect]
@@ -365,31 +365,31 @@ module Sg =
        Log.line "primary: %A secondary: %A" c secondary
        secondary
        
-    let drawPointList (positions : alist<V3d>) (color : IMod<C4b>) (pointSize : IMod<double>) (offset : IMod<double>)= 
-        let positions = positions |> AList.toMod |> Mod.map PList.toArray
+    let drawPointList (positions : alist<V3d>) (color : aval<C4b>) (pointSize : aval<double>) (offset : aval<double>)= 
+        let positions = positions |> AList.toAVal |> AVal.map IndexList.toArray
         let (pointsF, trafo) = PRo3D.Base.Sg.stablePoints' positions
 
         PRo3D.Base.Sg.drawSingleColorPoints 
             pointsF 
-            (color |> Mod.map(fun x -> x.ToC4f().ToV4d()))
+            (color |> AVal.map(fun x -> x.ToC4f().ToV4d()))
             pointSize 
             offset
         |> Sg.trafo trafo
         //failwith ""
                    
-    let getDotsIsg (points : alist<V3d>) (size:IMod<float>) (color : IMod<C4b>) (geometry: IMod<Geometry>) (offset : IMod<float>) =
+    let getDotsIsg (points : alist<V3d>) (size:aval<float>) (color : aval<C4b>) (geometry: aval<Geometry>) (offset : aval<float>) =
         aset {
             let! geometry = geometry
             match geometry with
             | Geometry.Point -> 
-                match points|> AList.toList |> List.tryHead with
+                match points|> AList.force |> IndexList.toList |> List.tryHead with
                 | Some p -> 
-                    yield dot (Mod.constant p) size color
+                    yield dot (AVal.constant p) size color
                 | _ -> 
                     yield Sg.empty
             | _ -> 
-                //let color = color |> Mod.map(fun x -> (x |> createSecondaryColor))
-                yield drawPointList points (C4b.VRVisGreen |> Mod.constant) size (offset |> Mod.map(fun x -> x * 1.1))
+                //let color = color |> AVal.map(fun x -> (x |> createSecondaryColor))
+                yield drawPointList points (C4b.VRVisGreen |> AVal.constant) size (offset |> AVal.map(fun x -> x * 1.1))
         } |> Sg.set   
 
     //## TEXT ##
@@ -416,9 +416,9 @@ module Sg =
 
     let stableTextShader = Effect.compose [Shader.stableTrafo |> toEffect]
     
-    let text (view : IMod<CameraView>) near hfov pos modelTrafo text (size : IMod<double>) =
+    let text (view : aval<CameraView>) near hfov pos modelTrafo text (size : aval<double>) =
          
-      let invScaleTrafo = computeInvariantScale view near pos size hfov |> Mod.map Trafo3d.Scale           
+      let invScaleTrafo = computeInvariantScale view near pos size hfov |> AVal.map Trafo3d.Scale           
       
       let billboardTrafo = 
           adaptive {
@@ -435,7 +435,7 @@ module Sg =
       |> Sg.trafo billboardTrafo      
 module UI =
     open Aardvark.UI
-    open Aardvark.Base.Incremental
+    open FSharp.Data.Adaptive
 
     let toAlignmentString (alignment : TTAlignment) =
         match alignment with
@@ -485,14 +485,14 @@ module UI =
         )
 
 
-    let dropDown'' (values : alist<'a>)(selected : IMod<Option<'a>>) (change : Option<'a> -> 'msg) (f : 'a ->string)  =
+    let dropDown'' (values : alist<'a>)(selected : aval<Option<'a>>) (change : Option<'a> -> 'msg) (f : 'a ->string)  =
 
         let attributes (name : string) =
             AttributeMap.ofListCond [
                 always (attribute "value" (name))
                 onlyWhen (
                         selected 
-                            |> Mod.map (
+                            |> AVal.map (
                                 fun x -> 
                                     match x with
                                         | Some s -> name = f s
@@ -502,8 +502,8 @@ module UI =
 
         let ortisOnChange  = 
             let cb (i : int) =
-                let currentState = values.Content |> Mod.force
-                change (PList.tryAt (i-1) currentState)
+                let currentState = values.Content |> AVal.force
+                change (IndexList.tryAt (i-1) currentState)
                     
             onEvent "onchange" ["event.target.selectedIndex"] (fun x -> x |> List.head |> Int32.Parse |> cb)
 
@@ -531,7 +531,7 @@ module Lenses =
 
   
 module PRo3DNumeric = 
-    open Aardvark.Base.Incremental
+    open FSharp.Data.Adaptive
     open Aardvark.UI
 
     let inline (=>) a b = Attributes.attribute a b
@@ -554,7 +554,7 @@ module PRo3DNumeric =
     let formatNumber (format : string) (value : float) =
         String.Format(Globalization.CultureInfo.InvariantCulture, format, value)
 
-    let numericField<'msg> ( f : Action -> seq<'msg> ) ( atts : AttributeMap<'msg> ) ( model : MNumericInput ) inputType =         
+    let numericField<'msg> ( f : Action -> seq<'msg> ) ( atts : AttributeMap<'msg> ) ( model : AdaptiveNumericInput ) inputType =         
 
         let tryParseAndClamp min max fallback (s: string) =
             let parsed = 0.0
@@ -600,13 +600,13 @@ module PRo3DNumeric =
 
     let numericField' = numericField (Seq.singleton) AttributeMap.empty
 
-    let view' (inputTypes : list<NumericInputType>) (model : MNumericInput) : DomNode<Action> =
+    let view' (inputTypes : list<NumericInputType>) (model : AdaptiveNumericInput) : DomNode<Action> =
         inputTypes 
             |> List.map (numericField' model) 
             |> List.intersperse (text " ") 
             |> div []
 
-    let view (model : MNumericInput) =
+    let view (model : AdaptiveNumericInput) =
         view' [InputBox] model
 
   module GenericFunctions =

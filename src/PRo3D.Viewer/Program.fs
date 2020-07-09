@@ -1,4 +1,4 @@
-﻿open System
+open System
 
 //open System.Windows.Forms
 
@@ -18,7 +18,6 @@ open Suave.Successful
 open System.Collections.Concurrent
 open System.Diagnostics
 open System.Xml
-open PRo3D.Surfaces.Mutable
 open PRo3D.Surfaces
 open RemoteControlModel
 open PRo3D
@@ -38,6 +37,8 @@ open Aardium
 open System.Threading
 open PRo3D.Base
 open Chiron
+
+open FSharp.Data.Adaptive
 
 [<DataContract>]
 type Calc =
@@ -87,7 +88,7 @@ let main argv =
     //match startupArgs.areValid with
     //| true ->
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
-    Ag.initialize()
+
     Aardvark.Init()
     Aardium.init()        
 
@@ -97,6 +98,8 @@ let main argv =
 
     Aardvark.Rendering.GL.RuntimeConfig.SupressSparseBuffers <- true
     app.ShaderCachePath <- None
+
+    PRo3D.Surfaces.Sg.hackRunner <- runtime.CreateLoadRunner 2 |> Some
 
     Serialization.init()
     
@@ -141,24 +144,24 @@ let main argv =
         |> Array.map(fun x -> 
               let kv = x.Split [|'='|]
               kv.[0],kv.[1])
-        |> HMap.ofArray
+        |> HashMap.ofArray
 
     let dumpFile =
-        match argsKv |> HMap.tryFind "dump" with
+        match argsKv |> HashMap.tryFind "dump" with
         | Some file -> file
         | None -> 
             Log.warn "need dump file ... dump=\"[dumpfilepath]\" -> using defaultPath '.\MinervaData\dump.csv'"
             @".\MinervaData\dump.csv"
 
     let cacheFile =
-        match argsKv |> HMap.tryFind "cache" with
+        match argsKv |> HashMap.tryFind "cache" with
         | Some file -> file
         | None -> 
             Log.warn "need cache file ... cache=\"[cachefilepath]\" -> using defaultPath '.\MinervaData\dump.cache'"
             @".\MinervaData\dump.cache"
 
     //let access =
-    //    match argsKv |> HMap.tryFind "access" with
+    //    match argsKv |> HashMap.tryFind "access" with
     //    | Some file -> file
     //    | None -> failwith "need minerva access ... access=\"minervaaccount:pw\" "
 
@@ -252,7 +255,7 @@ let main argv =
 
     
 
-    let titlestr = "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH" + licenseText
+    let titlestr = "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH"
 
     match startupArgs.hasValidAnimationArgs with
     | true ->

@@ -1,7 +1,7 @@
-﻿namespace CorrelationDrawing.LogTypes
+namespace CorrelationDrawing.LogTypes
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 
 open CorrelationDrawing.Types
 open CorrelationDrawing.AnnotationTypes
@@ -10,6 +10,8 @@ open CorrelationDrawing.LogNodeTypes
 open Svgplus.RectangleStackTypes
 open Svgplus.DiagramItemType
 open System
+
+open Adaptify
 
 type LogId = LogId of Guid
 
@@ -28,17 +30,17 @@ type LogDiagramReferences = {
     secondaryLog   : option<RectangleStackId>
 }
 
-[<DomainType>]
+[<ModelType>]
 type GeologicalLog = {
 
-    [<NonIncremental;PrimaryKey>]
+    [<NonAdaptive>]
     id              : Svgplus.RectangleStackTypes.RectangleStackId
 
-    [<NonIncremental>]
+    [<NonAdaptive>]
     diagramRef      : LogDiagramReferences
     state           : State      
     defaultWidth    : float
-    nodes           : plist<LogNode>
-    annoPoints      : hmap<ContactId, V3d>
+    nodes           : IndexList<LogNode>
+    annoPoints      : HashMap<ContactId, V3d>
 }
 

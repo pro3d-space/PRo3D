@@ -15,10 +15,10 @@ Aardvark.Geometry.PointTree
 Aardvark.GeoSpatial.Opc
 
 Aardvark.UI.Primitives
-Aardvark.Service      
-
-Aardvark.Compiler.DomainTypes        
-Aardvark.Compiler.DomainTypes.MSBuild
+Aardvark.Service
+      
+Adaptify.MSBuild
+Adaptify.Core
 
 FSharp.Core
 FsPickler
@@ -27,7 +27,6 @@ FSharp.Data
 Uncodium.Eigensystems
 
 Newtonsoft.Json
-// SKGL
 
 Aardium
 OPCViewer.Base

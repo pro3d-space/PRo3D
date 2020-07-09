@@ -1,4 +1,4 @@
-﻿namespace PRo3D.Groups
+namespace PRo3D.Groups
 
 open System
 
@@ -7,21 +7,19 @@ open Aardvark.Application
 open Aardvark.Geometry
 open Aardvark.UI
 open Aardvark.UI.Trafos
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.SceneGraph
 open Aardvark.VRVis.Opc
 
 open PRo3D.Base
 open PRo3D
 //open PRo3D.Versioned
-open Aardvark.Base.Geometry.BvhTree   
-open Aardvark.Base.HSet
 
 type GroupsAppAction =
     | ToggleExpand          of list<Index>
     | SetActiveGroup        of Guid*list<Index>*string
     | AddGroup              of list<Index>
-    | AddLeaves             of list<Index>*plist<Leaf>    
+    | AddLeaves             of list<Index>*IndexList<Leaf>    
     | RemoveGroup           of list<Index>
     | RemoveLeaf            of Guid*list<Index> 
     | ToggleChildVisibility of Guid*list<Index> 
@@ -52,7 +50,7 @@ module GroupsApp =
               node
           | x :: rest ->
               Log.warn "visiting %A" x
-              match PList.tryGet x node.subNodes with
+              match IndexList.tryGet x node.subNodes with
               | Some n -> goDeeper rest n
               | None   -> Log.error "Index list does not match tree"; node
 
@@ -60,16 +58,16 @@ module GroupsApp =
 
     let collectLeaves (target : Node) =
         let rec loop (target : Node) =
-            let leafIds = target.leaves |> PList.toList
+            let leafIds = target.leaves |> IndexList.toList
             
             let subs = 
                 target.subNodes 
-                |> PList.toList 
+                |> IndexList.toList 
                 |> List.collect(fun x -> loop x)
 
             List.concat [leafIds; subs]
 
-        loop target |> PList.ofList
+        loop target |> IndexList.ofList
 
     let updateLeaf' id f model =
         let update = 
@@ -78,7 +76,7 @@ module GroupsApp =
                 | Some k -> Some (f k)
                 | None   -> None )
           
-        HMap.alter id update model.flat    
+        HashMap.alter id update model.flat    
         
     let updateLeaf id f model =
         let flat' = updateLeaf' id f model
@@ -89,16 +87,16 @@ module GroupsApp =
         updateLeaf l.id f m        
    
     let createUpdate f (m:GroupsModel) id =
-        match (m.flat |> HMap.tryFind id) with
-        | Some leaf -> HMap.single leaf.id (f leaf)
-        | None      -> HMap.empty
+        match (m.flat |> HashMap.tryFind id) with
+        | Some leaf -> HashMap.single leaf.id (f leaf)
+        | None      -> HashMap.empty
 
     let updateLeaves leaves f model =
         let flat =
           leaves
-            |> PList.toList
+            |> IndexList.toList
             |> List.map  (createUpdate f model)
-            |> List.fold (fun a b -> HMap.union a b) model.flat
+            |> List.fold (fun a b -> HashMap.union a b) model.flat
 
         { model with flat = flat }
 
@@ -108,21 +106,21 @@ module GroupsApp =
             match p with
             | [] -> f t
             | x::rest ->
-                match PList.tryGet x t.subNodes with
-                | Some c -> { t with subNodes = PList.set x (go rest c) t.subNodes } //potentially slow                              
+                match IndexList.tryGet x t.subNodes with
+                | Some c -> { t with subNodes = IndexList.set x (go rest c) t.subNodes } //potentially slow                              
                 | None   -> t
         go (List.rev p) t 
     
     let updateGroupsLookup (m:GroupsModel) =
         let rec go (n:Node) =
-            let looks = n.leaves |> PList.map( fun x -> (x, n.name))
+            let looks = n.leaves |> IndexList.map( fun x -> (x, n.name))
             let subs = 
-                n.subNodes |> PList.collect(fun x -> go x)
-            PList.concat [looks; subs]
+                n.subNodes |> IndexList.collect(fun x -> go x)
+            IndexList.concat [looks; subs]
 
         (go m.rootGroup)
-          |> PList.toList
-          |> HMap.ofList                 
+          |> IndexList.toList
+          |> HashMap.ofList                 
     
     let updateActiveGroup (f : Node -> Node) (m : GroupsModel) =
         let root = updateNodeAt m.activeGroup.path f m.rootGroup        
@@ -135,24 +133,24 @@ module GroupsApp =
               | x::rest -> 
                 match rest with
                   | [] -> 
-                    match PList.tryGet x t.subNodes with
+                    match IndexList.tryGet x t.subNodes with
                       | Some c -> f t c.key
                       | None -> t
                   | _ -> 
-                    match PList.tryGet x t.subNodes with
-                      | Some c -> { t with subNodes = PList.set x (go rest c) t.subNodes }
+                    match IndexList.tryGet x t.subNodes with
+                      | Some c -> { t with subNodes = IndexList.set x (go rest c) t.subNodes }
                       | None   -> t
               | _ -> t
         go (List.rev p) t 
         
     let removeGroup (ag:Node) (id:Guid) =
-        ag.subNodes |> PList.filter (fun x -> x.key <> id)           
+        ag.subNodes |> IndexList.filter (fun x -> x.key <> id)           
 
     let rec repairGroupNodesGuid (tree : Node) : Node =
 
         let subNodes = 
             tree.subNodes
-            |> PList.map repairGroupNodesGuid
+            |> IndexList.map repairGroupNodesGuid
 
         { tree with key = Guid.NewGuid(); subNodes = subNodes }
 
@@ -168,56 +166,56 @@ module GroupsApp =
 
         let model = 
             { model with 
-                flat = model.flat |> HMap.add leaf.id leaf; 
+                flat = model.flat |> HashMap.add leaf.id leaf; 
                 singleSelectLeaf = if select then Some leaf.id else None
-                //selectedLeaves = model.selectedLeaves |> HSet.add treeSelection
+                //selectedLeaves = model.selectedLeaves |> HashSet.add treeSelection
             }
 
-        let func = (fun (x : Node) -> { x with leaves = x.leaves |> PList.prepend leaf.id })
+        let func = (fun (x : Node) -> { x with leaves = x.leaves |> IndexList.prepend leaf.id })
         model |> updateActiveGroup func
 
     // add a list of children to children of active group
-    let addLeaves path (cs : plist<Leaf>) model = 
+    let addLeaves path (cs : IndexList<Leaf>) model = 
         let f = (fun (x:Node) -> 
-            { x with leaves = x.leaves |> PList.append' (cs |> PList.map (fun x -> x.id)) })
+            { x with leaves = x.leaves |> IndexList.append (cs |> IndexList.map (fun x -> x.id)) })
 
         //add ids to group
         let root' = updateNodeAt path f model.rootGroup
 
         //add child nodes to flat
         let cs = 
-            cs |> PList.toList |> List.map(fun x -> (x.id,x))|> HMap.ofList
+            cs |> IndexList.toList |> List.map(fun x -> (x.id,x))|> HashMap.ofList
         
-        { model with rootGroup = root'; flat = model.flat |> HMap.union cs }    
+        { model with rootGroup = root'; flat = model.flat |> HashMap.union cs }    
         
     // add a list of children to the "snapshots" group
-    let addLeavesToSnapshots (cs : plist<Leaf>) model = 
+    let addLeavesToSnapshots (cs : IndexList<Leaf>) model = 
 
         //add ids to group
         let node = 
             model.rootGroup.subNodes 
-            |> PList.toList
+            |> IndexList.toList
             |> List.find(fun x -> x.name = "snapshots")
 
          //add child nodes to flat
-        let cs' = cs |> PList.toList |> List.map(fun x -> (x.id,x))|> HMap.ofList
+        let cs' = cs |> IndexList.toList |> List.map(fun x -> (x.id,x))|> HashMap.ofList
 
-        let t = [{node with leaves = node.leaves |> PList.append' (cs |> PList.map (fun x -> x.id)) }] |> PList.ofList
+        let t = [{node with leaves = node.leaves |> IndexList.append (cs |> IndexList.map (fun x -> x.id)) }] |> IndexList.ofList
         let root' = {model.rootGroup with subNodes = t}
         
-        { model with rootGroup = root'; flat = model.flat |> HMap.union cs' }    
+        { model with rootGroup = root'; flat = model.flat |> HashMap.union cs' }    
                
     let removeFromSelection id path model =
-        { model with selectedLeaves = model.selectedLeaves |> HSet.remove( { id = id; path = path; name = "" } ) }
+        { model with selectedLeaves = model.selectedLeaves |> HashSet.remove( { id = id; path = path; name = "" } ) }
     
     let removeLeaf model (id:Guid) path removeFromFlat =
-        let func = (fun (x:Node) -> { x with leaves = x.leaves |> PList.remove' id })
+        let func = (fun (x:Node) -> { x with leaves = x.leaves |> IndexList.filter (fun id' -> id' <> id) }) // TODO v5: check
         let root' = updateNodeAt path func model.rootGroup
 
         let m = model |> removeFromSelection id path
 
         if removeFromFlat then
-            let flat' = m.flat |> HMap.remove id
+            let flat' = m.flat |> HashMap.remove id
             { m with rootGroup = root'; flat = flat'; singleSelectLeaf = None }
         else
             { m with rootGroup = root'; singleSelectLeaf = None } 
@@ -233,32 +231,32 @@ module GroupsApp =
        
         let toMove = 
             m.selectedLeaves
-            |> HSet.choose (fun x -> m.flat |> HMap.tryFind x.id)
-            |> HSet.toSeq
-            |> PList.ofSeq
+            |> HashSet.choose (fun x -> m.flat |> HashMap.tryFind x.id)
+            |> HashSet.toSeq
+            |> IndexList.ofSeq
                 
         // * delete leaves in source group
         // * add leaves to destination group
         let m = 
             m
-            |> removeSelected    (m.selectedLeaves |> HSet.toList) false
+            |> removeSelected    (m.selectedLeaves |> HashSet.toList) false
             |> updateActiveGroup (fun (x:Node) -> 
-                let ids = (toMove |> PList.map(fun x -> x.id))
-                { x with leaves = x.leaves |> PList.append' ids })
+                let ids = (toMove |> IndexList.map(fun x -> x.id))
+                { x with leaves = x.leaves |> IndexList.append ids })
          
         // update selection paths
-        let sel = (m.selectedLeaves |> HSet.map( fun x -> {x with path = m.activeGroup.path }))
+        let sel = (m.selectedLeaves |> HashSet.map( fun x -> {x with path = m.activeGroup.path }))
         { m with selectedLeaves = sel}        
 
     let checkSelection model =
         model.selectedLeaves 
-        |> HSet.map(fun x -> if model.flat.ContainsKey x.id then Some x else None)
-        |> HSet.choose(fun x -> x)   
+        |> HashSet.map(fun x -> if model.flat.ContainsKey x.id then Some x else None)
+        |> HashSet.choose(fun x -> x)   
 
     let checkLastSelected model = 
         match model.singleSelectLeaf with
         | Some x -> 
-            if isEmpty (model.selectedLeaves |> HSet.filter ( fun y -> y.id = x)) then 
+            if (model.selectedLeaves |> HashSet.filter ( fun y -> y.id = x)).IsEmpty then 
                 None
             else
                 Some x
@@ -283,17 +281,17 @@ module GroupsApp =
             version   = Node.current
             name      = "newGroup" 
             key       = Guid.NewGuid()
-            leaves    = plist.Empty
-            subNodes  = plist.Empty
+            leaves    = IndexList.Empty
+            subNodes  = IndexList.Empty
             visible   = true
             expanded  = true
         }    
 
-    let insertGroup path group model =         
+    let insertGroup path (group : Node) (model : GroupsModel) =         
 
         let func = 
             (fun (x:Node) -> 
-                { x with subNodes = PList.append group x.subNodes })
+                { x with subNodes = IndexList.add group x.subNodes })
 
         { model with rootGroup = updateNodeAt path func model.rootGroup }
 
@@ -307,8 +305,8 @@ module GroupsApp =
                 |> insertGroup List.empty right.rootGroup
             
             { merged with
-                flat = left.flat |> HMap.union right.flat
-                groupsLookup = left.groupsLookup |> HMap.union right.groupsLookup
+                flat = left.flat |> HashMap.union right.flat
+                groupsLookup = left.groupsLookup |> HashMap.union right.groupsLookup
             }    
 
     let update (model : GroupsModel) (action : GroupsAppAction) =
@@ -337,8 +335,8 @@ module GroupsApp =
                 model.rootGroup 
                   |> getNode p
                   |> collectLeaves                
-                  |> PList.toList 
-                  |> List.fold (fun rest k -> HMap.remove k rest) model.flat
+                  |> IndexList.toList 
+                  |> List.fold (fun rest k -> HashMap.remove k rest) model.flat
 
             //delet from hierarchy                                
             let func = 
@@ -388,12 +386,12 @@ module GroupsApp =
                 model.rootGroup 
                   |> getNode p
                   |> collectLeaves                
-                  |> PList.toList 
-                  |> List.fold (fun rest k -> HMap.remove k rest) model.flat
+                  |> IndexList.toList 
+                  |> List.fold (fun rest k -> HashMap.remove k rest) model.flat
 
             //delet from hierarchy                                
             let func = 
-                fun (x:Node) -> { x with leaves = plist.Empty }
+                fun (x:Node) -> { x with leaves = IndexList.Empty }
 
             let root' = updateNodeAt p func model.rootGroup
             let m' = { model with rootGroup = root'; flat = flat' }
@@ -411,9 +409,9 @@ module GroupsApp =
                 name = s
             }
             
-            if HSet.contains incomingSelection model.selectedLeaves
+            if HashSet.contains incomingSelection model.selectedLeaves
             then 
-                let a = HSet.remove incomingSelection model.selectedLeaves
+                let a = HashSet.remove incomingSelection model.selectedLeaves
                                             
                 let singleSelect = 
                     match model.singleSelectLeaf with
@@ -428,7 +426,7 @@ module GroupsApp =
                         selectedLeaves = a
                 }                    
             else
-                let b = HSet.add incomingSelection model.selectedLeaves //HSet.empty
+                let b = HashSet.add incomingSelection model.selectedLeaves //HashSet.empty
 
                 { 
                     model with 
@@ -460,23 +458,25 @@ module GroupsApp =
             let leaves = 
                 getNode p model.rootGroup 
                 |> collectLeaves
-                |> PList.toList
+                |> IndexList.toList
                 |> List.map(fun x -> 
                     {
                         id = x
                         path = []
                         name = ""
                     }
-                ) |> HSet.ofList
+                ) |> HashSet.ofList
 
             if isSelected then
-                { model with selectedLeaves = HSet.union model.selectedLeaves leaves }
+                { model with selectedLeaves = HashSet.union model.selectedLeaves leaves }
             else
-                { model with selectedLeaves = HSet.difference model.selectedLeaves leaves }
-        | MoveLeaves  -> 
-            moveChildren model
+                { model with selectedLeaves = HashSet.difference model.selectedLeaves leaves }
+        // TODO v5: to check this - MoveLeaves not existent anymore
+        //| MoveLeaves  -> 
+        //    moveChildren model
+
         | ClearSelection ->
-            { model with selectedLeaves = hset.Empty; } //singleSelectLeaf = None
+            { model with selectedLeaves = HashSet.Empty; } //singleSelectLeaf = None
         | UpdateCam id -> model
         | AddAndSelectGroup (p,node) ->
             let t = insertGroup p node model   
@@ -489,7 +489,7 @@ module GroupsApp =
 
             let node = 
                 model.rootGroup.subNodes 
-                |> PList.toList
+                |> IndexList.toList
                 |> List.find(fun x -> x.name = "snapshots")
 
             let leaves =
@@ -498,12 +498,12 @@ module GroupsApp =
                 
             let flat'=
                 leaves
-                |> PList.toList 
-                |> List.fold (fun rest k -> HMap.remove k rest) model.flat
+                |> IndexList.toList 
+                |> List.fold (fun rest k -> HashMap.remove k rest) model.flat
             
             
-            let t = [{node with leaves = plist.Empty}] |> PList.ofList
-            //let newGroup = [{newGroup with name = "snapshots"}]|> PList.ofList
+            let t = [{node with leaves = IndexList.Empty}] |> IndexList.ofList
+            //let newGroup = [{newGroup with name = "snapshots"}]|> IndexList.ofList
             let root' = {model.rootGroup with subNodes = t}
             
             let m' = { model with rootGroup = root'; flat = flat' }
@@ -515,7 +515,7 @@ module GroupsApp =
             model
     
     let mkColor (activeId : Guid) (groupId : Guid) = 
-        if activeId = groupId then Mod.constant C4b.VRVisGreen else Mod.constant C4b.White
+        if activeId = groupId then AVal.constant C4b.VRVisGreen else AVal.constant C4b.White
     
     let clickIconAttributes icon action =
         amap {
@@ -541,21 +541,21 @@ module GroupsApp =
                 ] 
             ]
 
-    let viewUI (model : MGroupsModel) =   
+    let viewUI (model : AdaptiveGroupsModel) =   
         let ts = model.activeGroup
         require GuiEx.semui (
             Html.table [                            
-                Html.row "Change Groupname:"[Html.SemUi.textBox (ts |> Mod.map (fun x -> x.name)) SetGroupName ]
+                Html.row "Change Groupname:"[Html.SemUi.textBox (ts |> AVal.map (fun x -> x.name)) SetGroupName ]
                 //div [clazz "ui buttons inverted"] [
                 //    onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
-                //        button [clazz "ui icon button"; attribute "data-content" "Remove Group"; onMouseClick (fun _ -> RemoveGroup (ts |> Mod.map (fun x -> x.path) |> Mod.force))] [ //
+                //        button [clazz "ui icon button"; attribute "data-content" "Remove Group"; onMouseClick (fun _ -> RemoveGroup (ts |> AVal.map (fun x -> x.path) |> AVal.force))] [ //
                 //                i [clazz "remove icon red"] [] ] 
                 //    )
                 //] 
             ]
         )
 
-    let viewSelected (view : MLeaf -> DomNode<'a>) (lifter : 'a -> 'b) (model : MGroupsModel) : IMod<DomNode<'b>> = 
+    let viewSelected (view : AdaptiveLeafCase -> DomNode<'a>) (lifter : 'a -> 'b) (model : AdaptiveGroupsModel) : aval<DomNode<'b>> = 
         adaptive {
             let! selected = model.singleSelectLeaf
             match selected with
@@ -563,7 +563,7 @@ module GroupsApp =
                     let! exists = model.flat |> AMap.keys |> ASet.contains guid
                     if exists then
                       let item = 
-                        model.flat |> AMap.find guid |> Mod.bind(id) |> Mod.force
+                        model.flat |> AMap.find guid |> AVal.force // TODO v5: to - wrong adaptive, where was bind on id - why?
                       return view item |> UI.map lifter
                     else return div[][] |> UI.map lifter
                 | None ->

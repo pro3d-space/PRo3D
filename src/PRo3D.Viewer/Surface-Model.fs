@@ -1,8 +1,8 @@
-﻿namespace PRo3D.Surfaces
+namespace PRo3D.Surfaces
 
 open System
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Aardvark.Base.Rendering
 open Aardvark.SceneGraph
 open Aardvark.SceneGraph.Opc
@@ -19,9 +19,11 @@ open DevILSharp.ILU
 open Chiron
 open PRo3D.Base
 
+open Adaptify
+
 #nowarn "0686"
 
-[<DomainType>]
+[<ModelType>]
 type ScalarLayer = {
     version      : int
     label        : string
@@ -73,7 +75,7 @@ type ScalarLayer with
             do! Json.write "colorLegend"    x.colorLegend
         }
 
-[<DomainType>]
+[<ModelType>]
 type ColorCorrection = {
     version     : int
     contrast    : NumericInput
@@ -184,7 +186,7 @@ type AttributeLayer =
 | ScalarLayer  of ScalarLayer
 | TextureLayer of TextureLayer
 
-[<DomainType>]
+[<ModelType>]
 type Transformations = { 
     version               : int
     useTranslationArrows  : bool
@@ -241,12 +243,11 @@ type SurfaceType =
 | SurfaceOPC = 0
 | SurfaceOBJ = 1
 
-[<DomainType>]
+[<ModelType>]
 type Surface = {
     
     version       : int
 
-    [<PrimaryKey>]
     guid            : System.Guid
     
     name            : string
@@ -267,10 +268,10 @@ type Surface = {
                     
     preTransform    : Trafo3d
     
-    scalarLayers    : hmap<int, ScalarLayer> //plist<ScalarLayer>
+    scalarLayers    : HashMap<int, ScalarLayer> //IndexList<ScalarLayer>
     selectedScalar  : option<ScalarLayer>
 
-    textureLayers   : plist<TextureLayer>
+    textureLayers   : IndexList<TextureLayer>
     selectedTexture : option<TextureLayer>
 
     surfaceType     : SurfaceType     
@@ -321,8 +322,8 @@ module Surface =
                     ) |> Some
                 | _ -> None
 
-            let scalarLayers  = scalarLayers  |> HMap.ofList
-            let textureLayers = textureLayers |> PList.ofList
+            let scalarLayers  = scalarLayers  |> HashMap.ofList
+            let textureLayers = textureLayers |> IndexList.ofList
 
             return 
                 {
@@ -385,9 +386,9 @@ type Surface with
             do! Json.writeWith Ext.toJson<NumericInput,Ext> "triangleSize" x.triangleSize
             do! Json.writeWith Ext.toJson<NumericInput,Ext> "scaling" x.scaling
             do! Json.write "preTransform" (x.preTransform.ToString())
-            do! Json.write "scalarLayers" (x.scalarLayers |> HMap.toList)
+            do! Json.write "scalarLayers" (x.scalarLayers |> HashMap.toList)
             do! Json.write "selectedScalar" x.selectedScalar
-            do! Json.write "textureLayers" (x.textureLayers |> PList.toList)
+            do! Json.write "textureLayers" (x.textureLayers |> IndexList.toList)
             do! Json.write "selectedTexture" x.selectedTexture
             do! Json.write "surfaceType" (x.surfaceType |> int)
             do! Json.write "colorCorrection" x.colorCorrection
@@ -410,11 +411,11 @@ type Surface with
 
 type Picking =
 | PickMesh of ISg
-| KdTree   of hmap<Box3d,KdTrees.Level0KdTree>
+| KdTree   of HashMap<Box3d,KdTrees.Level0KdTree>
 
-[<DomainType>]
+[<ModelType>]
 type SgSurface = {    
-    [<NonIncremental>]
+    [<NonAdaptive>]
     surface     : Guid    
     trafo       : Transformation
     globalBB    : Box3d

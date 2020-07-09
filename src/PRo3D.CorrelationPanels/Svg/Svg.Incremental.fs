@@ -1,18 +1,18 @@
-﻿namespace Svgplus
+namespace Svgplus
 
 open Aardvark.UI
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open Svgplus.Attributes
 open CorrelationDrawing
 
 module Incremental =
     
     let lineAtts 
-        (a : IMod<V2d>) 
-        (b : IMod<V2d>) 
-        (color : IMod<C4b>) 
-        (strokeWidth : IMod<float>) 
+        (a : aval<V2d>) 
+        (b : aval<V2d>) 
+        (color : aval<C4b>) 
+        (strokeWidth : aval<float>) 
         (actions : amap<string,AttributeValue<'a>>) =
 
         amap {
@@ -31,22 +31,22 @@ module Incremental =
         |> AttributeMap.union (actions |> AttributeMap.ofAMap)
 
     let drawLine 
-        (a : IMod<V2d>) 
-        (b : IMod<V2d>) 
-        (color : IMod<C4b>) 
-        (strokeWidth : IMod<float>) 
+        (a : aval<V2d>) 
+        (b : aval<V2d>) 
+        (color : aval<C4b>) 
+        (strokeWidth : aval<float>) 
         (actions : amap<string,AttributeValue<'a>>) =
 
         let atts = lineAtts a b color strokeWidth actions
         Incremental.elemNS' "line" Incremental.Svg.svgNS atts (AList.empty)
     
     let drawDottedLine 
-        (a : IMod<V2d>) 
-        (b : IMod<V2d>) 
-        (color : IMod<C4b>) 
-        (strokeWidth : IMod<float>) 
-        (dashLength : IMod<float>)
-        (dashDist : IMod<float>)
+        (a : aval<V2d>) 
+        (b : aval<V2d>) 
+        (color : aval<C4b>) 
+        (strokeWidth : aval<float>) 
+        (dashLength : aval<float>)
+        (dashDist : aval<float>)
         (actions : amap<string,AttributeValue<'a>>) =
 
         let lineAtts = lineAtts a b color strokeWidth actions
@@ -64,11 +64,11 @@ module Incremental =
         Incremental.elemNS' "line" Incremental.Svg.svgNS atts (AList.empty)
     
     let circle 
-        (upperLeft : IMod<V2d>) 
-        (radius    : IMod<float>) 
-        (color     : IMod<C4b>)
-        (stroke    : IMod<float>) 
-        (fill      : IMod<bool>) = 
+        (upperLeft : aval<V2d>) 
+        (radius    : aval<float>) 
+        (color     : aval<C4b>)
+        (stroke    : aval<float>) 
+        (fill      : aval<bool>) = 
 
         let atts = 
             (Incremental.circle upperLeft color stroke radius fill)
@@ -81,9 +81,9 @@ module Incremental =
         Incremental.elemNS' "circle" Incremental.Svg.svgNS a (AList.empty)
     
     let clickableRectangle 
-        (centre: IMod<V2d>) 
-        (width : IMod<float>) 
-        (height : IMod<float>) 
+        (centre: aval<V2d>) 
+        (width : aval<float>) 
+        (height : aval<float>) 
         actions 
         children =
         
@@ -109,22 +109,22 @@ module Incremental =
         Incremental.elemNS' "rect" Incremental.Svg.svgNS atts children
     
     let clickableRectangle' 
-        (centre: IMod<V2d>) 
-        (dim   : IMod<Size2D>) 
+        (centre: aval<V2d>) 
+        (dim   : aval<Size2D>) 
         actions  =
 
-        let width  = Mod.map (fun x -> x.width) dim
-        let height = Mod.map (fun x -> x.height) dim
+        let width  = AVal.map (fun x -> x.width) dim
+        let height = AVal.map (fun x -> x.height) dim
         clickableRectangle centre width height actions AList.empty
     
-    //let drawBorderedRectangle (leftUpper         : IMod<V2d>) 
-    //                          (size              : IMod<Size2D>)
-    //                          (fill              : IMod<C4b>) 
-    //                          (borderColors      : IMod<BorderColors>)
-    //                          (bWeight           : IMod<SvgWeight>)
+    //let drawBorderedRectangle (leftUpper         : aval<V2d>) 
+    //                          (size              : aval<Size2D>)
+    //                          (fill              : aval<C4b>) 
+    //                          (borderColors      : aval<BorderColors>)
+    //                          (bWeight           : aval<SvgWeight>)
     //                          (selectionCallback : _ -> 'msg)
-    //                          (selected          : IMod<bool>)
-    //                          (dottedBorder      : IMod<bool>) =
+    //                          (selected          : aval<bool>)
+    //                          (dottedBorder      : aval<bool>) =
     //  adaptive {
     //    let! size = size
     //    let! leftUpper = leftUpper

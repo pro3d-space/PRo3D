@@ -1,10 +1,12 @@
-﻿namespace Svgplus.ArrowType
+namespace Svgplus.ArrowType
 
 open Aardvark.Base
-open Aardvark.Base.Incremental
+open FSharp.Data.Adaptive
 open CorrelationDrawing
 
-[<DomainType>]
+open Adaptify
+
+[<ModelType>]
 type Arrow = {
   centre        : V2d
   direction     : Direction

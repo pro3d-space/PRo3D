@@ -5,8 +5,8 @@ open System.IO
 
 open Aardvark.Base
 open Aardvark.Base.Geometry
-open Aardvark.Base.Incremental
-open Aardvark.Base.Incremental.Operators
+open FSharp.Data.Adaptive
+open FSharp.Data.Adaptive.Operators
 open Aardvark.Base.Rendering
 open Aardvark.SceneGraph
 open Aardvark.UI
@@ -26,7 +26,8 @@ open PRo3D.Surfaces
 open PRo3D.Viewer
 open PRo3D.Groups
 open PRo3D.Viewplanner
-open PRo3D.Viewplanner.Mutable
+
+open Adaptify.FSharp.Core
 
 
 module ViewerUtils =    
@@ -68,7 +69,7 @@ module ViewerUtils =
     let mutable lastHash = -1  
 
     let getSinglePointOnSurface (m : Model) (ray : Ray3d) (cameraLocation : V3d ) = 
-        let mutable cache = hmap.Empty
+        let mutable cache = HashMap.Empty
         let rayHash = ray.GetHashCode()
 
         if rayHash = lastHash then
@@ -87,7 +88,7 @@ module ViewerUtils =
                 let ray =
                     let dir = (p-camLocation).Normalized
                     FastRay3d(camLocation, dir) 
-                //let doKdTreeIntersection (m : SurfaceModel) (refSys : PRo3D.ReferenceSystem.ReferenceSystem) (r : FastRay3d) (cache : option<float * PRo3D.Surfaces.Surface> * hmap<_,_>)  = 
+                //let doKdTreeIntersection (m : SurfaceModel) (refSys : PRo3D.ReferenceSystem.ReferenceSystem) (r : FastRay3d) (cache : option<float * PRo3D.Surfaces.Surface> * HashMap<_,_>)  = 
                 match SurfaceApp.doKdTreeIntersection m.scene.surfacesModel m.scene.referenceSystem ray surfaceFilter cache with
                     | Some (t,surf), c ->                             
                         cache <- c; ray.Ray.GetPointOnRay t |> Some
@@ -158,21 +159,21 @@ module ViewerUtils =
         points, trafos //points |> List.map( fun p -> Trafo3d.Scale(0.03) * Trafo3d.Translation(p) )
         
 
-    let viewHaltonSeries (points : IMod<list<V3d>>) =
+    let viewHaltonSeries (points : aval<list<V3d>>) =
         let points =
             aset{
                 let! points = points
                 let pnts = 
                     points 
-                    |> List.map( fun p -> PRo3D.Sg.dot (Mod.constant p) (Mod.constant 5.0) (Mod.constant C4b.Cyan) )
+                    |> List.map( fun p -> PRo3D.Sg.dot (AVal.constant p) (AVal.constant 5.0) (AVal.constant C4b.Cyan) )
                     |> Sg.ofList
                 yield pnts
                 } |> Sg.set
         points
         
             
-    //let getSgSurfacesWithBBIntersection (surfaces : plist<Surface>) (trafos : list<Trafo3d>) (sgs : SgSurface) = 
-    let getSgSurfacesWithBBIntersection (newSurfaces : plist<Surface>) (sgSurfaces : list<Guid*SgSurface>) (newSg : SgSurface) = 
+    //let getSgSurfacesWithBBIntersection (surfaces : IndexList<Surface>) (trafos : list<Trafo3d>) (sgs : SgSurface) = 
+    let getSgSurfacesWithBBIntersection (newSurfaces : IndexList<Surface>) (sgSurfaces : list<Guid*SgSurface>) (newSg : SgSurface) = 
         let mutable sgsurfs = sgSurfaces //[]
         let mutable sgsurfsout = []
         let mutable testSfs = newSurfaces
@@ -190,27 +191,30 @@ module ViewerUtils =
                     let addSurf = 
                         [
                         for x in 0..sgsurfs.Length-1 do
-                            let surf2 = newSurfaces |> PList.toList |> List.find(fun s -> (fst sgsurfs.[x]) = s.guid)
+                            let surf2 = newSurfaces |> IndexList.toList |> List.find(fun s -> (fst sgsurfs.[x]) = s.guid)
                             let obj2 = (snd sgsurfs.[x]).globalBB.Transformed(surf2.preTransform)
                             yield (obj1).Intersects(obj2)
                             ]
                     if addSurf |> List.contains true then
                         // TEST: this surface bb intersects with another one and would be discarded 
                         sgsurfsout <- sgsurfsout @ [(newSgSurf.surface, newSgSurf)]
-                        let sfs = {newSurfaces.[i] with colorCorrection = 
-                                        {newSurfaces.[i].colorCorrection with color = {c = C4b.Red}; useColor = true}}
-                        let testSurfs = testSfs |> PList.map(fun x -> if x.guid = newSgSurf.surface then sfs else x)
+                        let sfs = 
+                            { newSurfaces.[i] with 
+                                colorCorrection = 
+                                        { newSurfaces.[i].colorCorrection with color = {c = C4b.Red}; useColor = true } 
+                            }
+                        let testSurfs = testSfs |> IndexList.map(fun x -> if x.guid = newSgSurf.surface then sfs else x)
                         testSfs <- testSurfs
                     else
                         sgsurfs <- sgsurfs @ [(newSgSurf.surface, newSgSurf)]
                
                 
         // keep only the remaining surfaces
-        let sfs = sgsurfs |> List.map(fun sg -> newSurfaces |> PList.toList |> List.find(fun s -> (fst sg) = s.guid))
+        let sfs = sgsurfs |> List.map(fun sg -> newSurfaces |> IndexList.toList |> List.find(fun s -> (fst sg) = s.guid))
         sfs, sgsurfs
 
         //TEST: add the discarded
-        //testSfs |> PList.toList, sgsurfs @ sgsurfsout
+        //testSfs |> IndexList.toList, sgsurfs @ sgsurfsout
 
     
                           
@@ -218,35 +222,35 @@ module ViewerUtils =
         let config = { wantMipMaps = false; wantSrgb = false; wantCompressed = false }
         FileTexture("resources/HueColorMap.png",config) :> ITexture
 
-    let pickable' (pick :IMod<Pickable>) (sg: ISg) =
-        Sg.PickableApplicator (pick, Mod.constant sg)
+    let pickable' (pick :aval<Pickable>) (sg: ISg) =
+        Sg.PickableApplicator (pick, AVal.constant sg)
     
-    let toModSurface (leaf : IMod<MLeaf>) = 
+    let toModSurface (leaf : AdaptiveLeafCase) = 
          adaptive {
-            let! c = leaf
+            let c = leaf
             match c with 
-                | MSurfaces s -> return s
-                | _ -> return c |> sprintf "wrong type %A; expected MSurfaces" |> failwith
+                | AdaptiveSurfaces s -> return s
+                | _ -> return c |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
             }
-
-    let lookUp guid (table:amap<Guid, IMod<MLeaf>>) =
+             
+    let lookUp guid (table:amap<Guid, AdaptiveLeafCase>) =
         
         let entry = table |> AMap.find guid
 
-        entry |> Mod.bind(fun x -> x |> toModSurface)
+        entry |> AVal.bind(fun x -> x |> toModSurface)
     
-    let addImageCorrectionParameters (surf:IMod<MSurface>)  (isg:ISg<'a>) =
+    let addImageCorrectionParameters (surf:aval<AdaptiveSurface>)  (isg:ISg<'a>) =
         
-            //Mod.bind(fun x -> lookUp (x.surface) blarg )
-        let contr    = surf |> Mod.bind( fun x -> x.colorCorrection.contrast.value )
-        let useContr = surf |> Mod.bind( fun x -> x.colorCorrection.useContrast )
-        let bright   = surf |> Mod.bind( fun x -> x.colorCorrection.brightness.value )
-        let useB     = surf |> Mod.bind( fun x -> x.colorCorrection.useBrightn) 
-        let gamma    = surf |> Mod.bind( fun x -> x.colorCorrection.gamma.value )
-        let useG     = surf |> Mod.bind( fun x -> x.colorCorrection.useGamma )
-        let useGray  = surf |> Mod.bind( fun x -> x.colorCorrection.useGrayscale )
-        let useColor = surf |> Mod.bind( fun x -> x.colorCorrection.useColor )
-        let color    = surf |> Mod.bind( fun x -> x.colorCorrection.color.c )
+            //AVal.bind(fun x -> lookUp (x.surface) blarg )
+        let contr    = surf |> AVal.bind( fun x -> x.colorCorrection.contrast.value )
+        let useContr = surf |> AVal.bind( fun x -> x.colorCorrection.useContrast )
+        let bright   = surf |> AVal.bind( fun x -> x.colorCorrection.brightness.value )
+        let useB     = surf |> AVal.bind( fun x -> x.colorCorrection.useBrightn) 
+        let gamma    = surf |> AVal.bind( fun x -> x.colorCorrection.gamma.value )
+        let useG     = surf |> AVal.bind( fun x -> x.colorCorrection.useGamma )
+        let useGray  = surf |> AVal.bind( fun x -> x.colorCorrection.useGrayscale )
+        let useColor = surf |> AVal.bind( fun x -> x.colorCorrection.useColor )
+        let color    = surf |> AVal.bind( fun x -> x.colorCorrection.color.c )
 
         isg
             |> Sg.uniform "useContrastS"   useContr  //image correction
@@ -260,19 +264,21 @@ module ViewerUtils =
             |> Sg.uniform "colorS"         color
 
 
-   // let viewSingleSurfaceSg (surface : MSgSurface) (surfaceTable : amap<Guid, IMod<MLeaf>>) (frustum : IMod<Frustum>) (selectedId : IMod<Option<Guid>>) (isctrl:IMod<bool>) (globalBB : IMod<Box3d>) (refsys:MReferenceSystem) =
+   // let viewSingleSurfaceSg (surface : AdaptiveSgSurface) (surfaceTable : amap<Guid, aval<MLeaf>>) (frustum : aval<Frustum>) (selectedId : aval<Option<Guid>>) (isctrl:aval<bool>) (globalBB : aval<Box3d>) (refsys:AdaptiveReferenceSystem) =
     
 
-    let addAttributeFalsecolorMappingParameters (surf:IMod<MSurface>)  (isg:ISg<'a>) =
+    let addAttributeFalsecolorMappingParameters (surf:aval<AdaptiveSurface>)  (isg:ISg<'a>) =
             
         let selectedScalar =
             adaptive {
                 let! s = surf
                 let! scalar = s.selectedScalar
-                return scalar.IsSome
+                match scalar with
+                | AdaptiveSome _ -> return true
+                | _ -> return false
             }  
       
-        let scalar = surf |> Mod.bind( fun x -> x.selectedScalar )
+        let scalar = surf |> AVal.bind( fun x -> x.selectedScalar )
 
         //let texturLayer =  
         //    adaptive {
@@ -281,65 +287,65 @@ module ViewerUtils =
         //        match scalar with
         //         | Some sc -> 
         //            return s.textureLayers |> AList.toList
-        //                                   |> List.find( fun (tl:TextureLayer) -> tl.label = (Mod.force sc.label ))
+        //                                   |> List.find( fun (tl:TextureLayer) -> tl.label = (AVal.force sc.label ))
         //         | None -> return list.Empty
                
         //    }  
       
 
-        let interval = scalar |> Mod.bind ( fun x ->
+        let interval = scalar |> AVal.bind ( fun x ->
                         match x with 
-                            | Some s -> s.colorLegend.interval.value
-                            | None   -> Mod.constant(1.0)
+                            | AdaptiveSome s -> s.colorLegend.interval.value
+                            | AdaptiveNone   -> AVal.constant(1.0)
                         )
 
-        let inverted = scalar |> Mod.bind ( fun x ->
+        let inverted = scalar |> AVal.bind ( fun x ->
                         match x with 
-                            | Some s -> s.colorLegend.invertMapping
-                            | None   -> Mod.constant(false)
+                            | AdaptiveSome s -> s.colorLegend.invertMapping
+                            | AdaptiveNone   -> AVal.constant(false)
                         )     
         
-        let upperB = scalar |> Mod.bind ( fun x ->
+        let upperB = scalar |> AVal.bind ( fun x ->
                         match x with 
-                            | Some s -> s.colorLegend.upperBound.value
-                            | None   -> Mod.constant(1.0)
+                            | AdaptiveSome s -> s.colorLegend.upperBound.value
+                            | AdaptiveNone   -> AVal.constant(1.0)
                         )
 
-        let lowerB = scalar |> Mod.bind ( fun x ->
+        let lowerB = scalar |> AVal.bind ( fun x ->
                         match x with 
-                            | Some s -> s.colorLegend.lowerBound.value
-                            | None   -> Mod.constant(1.0)
+                            | AdaptiveSome s -> s.colorLegend.lowerBound.value
+                            | AdaptiveNone   -> AVal.constant(1.0)
                         )
 
         let upperC = 
           scalar 
-            |> Mod.bind (fun x ->
+            |> AVal.bind (fun x ->
                match x with 
-                 | Some s -> 
+                 | AdaptiveSome s -> 
                    s.colorLegend.upperColor.c 
-                     |> Mod.map(fun x -> 
+                     |> AVal.map(fun x -> 
                        let t = x.ToC3f()
                        let t1 = HSVf.FromC3f(t)
                        let t2 = (float)t1.H
                        t2)
-                 | None -> Mod.constant(1.0)
+                 | AdaptiveNone -> AVal.constant(1.0)
                )
         let lowerC = 
           scalar 
-            |> Mod.bind ( fun x ->
+            |> AVal.bind ( fun x ->
               match x with 
-                | Some s -> 
+                | AdaptiveSome s -> 
                   s.colorLegend.lowerColor.c 
-                    |> Mod.map(fun x -> ((float)(HSVf.FromC3f (x.ToC3f())).H))
-                | None   -> Mod.constant(0.0)
+                    |> AVal.map(fun x -> ((float)(HSVf.FromC3f (x.ToC3f())).H))
+                | AdaptiveNone   -> AVal.constant(0.0)
               )
 
         let rangeToMinMax = 
           scalar 
-            |> Mod.bind (fun x ->
+            |> AVal.bind (fun x ->
               match x with 
-                  | Some s -> s.definedRange |> Mod.map(fun y -> V2d(y.Min, y.Max))
-                  | None   -> Mod.constant(V2d(0.0,1.0))
+                  | AdaptiveSome s -> s.definedRange |> AVal.map(fun y -> V2d(y.Min, y.Max))
+                  | AdaptiveNone   -> AVal.constant(V2d(0.0,1.0))
               )
         isg
             |> Sg.uniform "falseColors"    selectedScalar
@@ -350,15 +356,15 @@ module ViewerUtils =
             |> Sg.uniform "lowerBound"     lowerB
             |> Sg.uniform "upperBound"     upperB
             |> Sg.uniform "MinMax"         rangeToMinMax
-            |> Sg.texture (Sym.ofString "ColorMapTexture") (Mod.constant colormap)
+            |> Sg.texture (Sym.ofString "ColorMapTexture") (AVal.constant colormap)
 
-    let getLodParameters (surf:IMod<MSurface>) (refsys:MReferenceSystem) (frustum : IMod<Frustum>) =
+    let getLodParameters (surf:aval<AdaptiveSurface>) (refsys:AdaptiveReferenceSystem) (frustum : aval<Frustum>) =
         adaptive {
             let! s = surf
             let! frustum = frustum 
             let sizes = V2i(1024,768)
             let! quality = s.quality.value
-            //let! trafo = Mod.map2(fun a b -> a * b) s.preTransform s.transformation.trafo //combine pre and current transform
+            //let! trafo = AVal.map2(fun a b -> a * b) s.preTransform s.transformation.trafo //combine pre and current transform
             let! trafo = PRo3D.Transformations.fullTrafo surf refsys
             
             return { frustum = frustum; size = sizes; factor = Math.Pow(Math.E, quality); trafo = trafo }
@@ -371,20 +377,20 @@ module ViewerUtils =
         { frustum = frustum; size = sizes; factor = Math.Pow(Math.E, quality); trafo = trafo }
         
     
-    let attributeParameters (surf:IMod<MSurface>) =
+    let attributeParameters (surf:aval<AdaptiveSurface>) =
          adaptive {
             let! s = surf
             let! scalar = s.selectedScalar
             let! scalar' = 
                 match scalar with
-                | Some m -> m.label |> Mod.map Some
-                | None -> Mod.constant None //scalar |> Option.map(fun x -> x.index) //option<IMod<int>>
+                | AdaptiveSome m -> m.label |> AVal.map Some
+                | AdaptiveNone -> AVal.constant None //scalar |> Option.map(fun x -> x.index) //option<aval<int>>
             
             let! texture = s.selectedTexture 
             let attr : AttributeParameters = 
                 {
                     selectedTexture = texture |> Option.map(fun x -> x.index)
-                    selectedScalar  = scalar'//scalar  |> Option.map(fun x -> x.index |> Mod.force)
+                    selectedScalar  = scalar'//scalar  |> Option.map(fun x -> x.index |> AVal.force)
                 }
 
             return attr
@@ -396,39 +402,39 @@ module ViewerUtils =
             let scalar' = 
                 match scalar with
                 | Some m -> m.label |> Some
-                | None -> None //scalar |> Option.map(fun x -> x.index) //option<IMod<int>>
+                | None -> None //scalar |> Option.map(fun x -> x.index) //option<aval<int>>
             
             let texture = s.selectedTexture 
             let attr : AttributeParameters = 
                 {
                     selectedTexture = texture |> Option.map(fun x -> x.index)
-                    selectedScalar  = scalar'//scalar  |> Option.map(fun x -> x.index |> Mod.force)
+                    selectedScalar  = scalar'//scalar  |> Option.map(fun x -> x.index |> AVal.force)
                 }
 
             attr
         
 
     let viewSingleSurfaceSg 
-        (surface : MSgSurface) 
-        (blarg : amap<Guid, IMod<MLeaf>>) 
-        (frustum : IMod<Frustum>) 
-        (selectedId : IMod<Option<Guid>>)
-        (isctrl:IMod<bool>) 
-        (globalBB : IMod<Box3d>) 
-        (refsys:MReferenceSystem) 
-        (fp:MFootPrint) 
-        (vp:IMod<Option<MViewPlan>>) 
-        (useHighlighting:IMod<bool>) 
-        (filterTexture : IMod<bool>) =
+        (surface : AdaptiveSgSurface) 
+        (blarg : amap<Guid, AdaptiveLeafCase>) // TODO v5: to get your naming right!!
+        (frustum : aval<Frustum>) 
+        (selectedId : aval<Option<Guid>>)
+        (isctrl:aval<bool>) 
+        (globalBB : aval<Box3d>) 
+        (refsys:AdaptiveReferenceSystem) 
+        (fp:AdaptiveFootPrint) 
+        (vp:aval<Option<AdaptiveViewPlan>>) 
+        (useHighlighting:aval<bool>) 
+        (filterTexture : aval<bool>) =
 
         adaptive {
           let! exists = (blarg |> AMap.keys) |> ASet.contains surface.surface
           if exists then
             
             let surf = lookUp (surface.surface) blarg
-                //Mod.bind(fun x -> lookUp (x.surface) blarg )
+                //AVal.bind(fun x -> lookUp (x.surface) blarg )
             
-            let isSelected = Mod.map2(fun x y ->
+            let isSelected = AVal.map2(fun x y ->
               match x with
                 | Some id -> (id = surface.surface) && y
                 | None -> false) selectedId useHighlighting
@@ -436,21 +442,21 @@ module ViewerUtils =
             let createSg (sg : ISg) =
                 sg 
                 |> Sg.noEvents 
-                |> Sg.cullMode(surf |> Mod.bind(fun x -> x.cullMode))
-                |> Sg.fillMode(surf |> Mod.bind(fun x -> x.fillMode))
+                |> Sg.cullMode(surf |> AVal.bind(fun x -> x.cullMode))
+                |> Sg.fillMode(surf |> AVal.bind(fun x -> x.fillMode))
             
             let pickable = 
-              Mod.map2( fun (a:Box3d) (b:Trafo3d) -> 
+              AVal.map2( fun (a:Box3d) (b:Trafo3d) -> 
                 { shape = PickShape.Box (a.Transformed(b)); trafo = Trafo3d.Identity }) globalBB (Transformations.fullTrafo surf refsys)
             
             let pickBox = 
               pickable 
-                |> Mod.map(fun k ->
+                |> AVal.map(fun k ->
                   match k.shape with
                     | PickShape.Box bb -> bb
                     | _ -> Box3d.Invalid)
             
-            let triangleFilter = surf |> Mod.bind(fun s -> s.triangleSize.value)
+            let triangleFilter = surf |> AVal.bind(fun s -> s.triangleSize.value)
             
             let trafo =
                adaptive {
@@ -479,7 +485,7 @@ module ViewerUtils =
                 (fun x -> 
                     x.Filter <- new TextureFilter(TextureFilterMode.Linear, magnificationFilter, TextureFilterMode.Linear, true ); 
                     x)           
-            let footprintVisible = //Mod.map2 (fun (vp:Option<MViewPlan>) vis -> (vp.IsSome && vis)) vp, fp.isVisible
+            let footprintVisible = //AVal.map2 (fun (vp:Option<AdaptiveViewPlan>) vis -> (vp.IsSome && vis)) vp, fp.isVisible
                 adaptive {
                     let! vp = vp
                     let! visible = fp.isVisible
@@ -497,20 +503,20 @@ module ViewerUtils =
                     //return (t.Forward * fpvm * fppm) //* t.Forward 
                     return (fppm * fpvm) // * ts.Forward
                 } 
-            let structuralOnOff (visible : IMod<bool>) (sg : ISg<_>) : ISg<_> = 
+            let structuralOnOff (visible : aval<bool>) (sg : ISg<_>) : ISg<_> = 
                 visible 
-                |> Mod.map (fun visible -> 
+                |> AVal.map (fun visible -> 
                     if visible then sg else Sg.empty
                 )
                 |> Sg.dynamic
             let test =             
               surface.sceneGraph
-                |> Mod.map createSg
+                |> AVal.map createSg
                 |> Sg.dynamic
                 |> Sg.trafo trafo //(Transformations.fullTrafo surf refsys)
-                |> Sg.modifySamplerState (DefaultSemantic.DiffuseColorTexture)(Mod.constant(samplerDescription))
+                |> Sg.modifySamplerState (DefaultSemantic.DiffuseColorTexture)(AVal.constant(samplerDescription))
                 |> Sg.uniform "selected"      (isSelected) // isSelected
-                |> Sg.uniform "selectionColor" (Mod.constant (C4b (200uy,200uy,255uy,255uy)))
+                |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
                 |> addAttributeFalsecolorMappingParameters surf
                 |> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
                 |> addImageCorrectionParameters surf
@@ -527,16 +533,16 @@ module ViewerUtils =
                 |> Sg.withEvents [
                      SceneEventKind.Click, (
                        fun sceneHit -> 
-                         let surfM = surf       |> Mod.force
-                         let name  = surfM.name |> Mod.force                                                  
+                         let surfM = surf       |> AVal.force
+                         let name  = surfM.name |> AVal.force                                                  
                          Log.warn "spawning picksurface %s" name
                          true, Seq.ofList [PickSurface (sceneHit,name)])                         
                    ]  
                 // handle surface visibility
-                //|> Sg.onOff (surf |> Mod.bind(fun x -> x.isVisible)) // on off variant
-                |> structuralOnOff  (surf |> Mod.bind(fun x -> x.isVisible)) // structural variant
+                //|> Sg.onOff (surf |> AVal.bind(fun x -> x.isVisible)) // on off variant
+                |> structuralOnOff  (surf |> AVal.bind(fun x -> x.isVisible)) // structural variant
               |> Sg.andAlso (
-                (Sg.wireBox (C4b.VRVisGreen |> Mod.constant) pickBox) 
+                (Sg.wireBox (C4b.VRVisGreen |> AVal.constant) pickBox) 
                   |> Sg.noEvents
                   |> Sg.effect [              
                       Shader.stableTrafo |> toEffect 
@@ -549,7 +555,7 @@ module ViewerUtils =
             return Sg.empty
         } |> Sg.dynamic
         
-    let frustum (m:MModel) =
+    let frustum (m:AdaptiveModel) =
         let near = m.scene.config.nearPlane.value
         let far = m.scene.config.farPlane.value
         (Navigation.UI.frustum near far)
@@ -601,13 +607,13 @@ module ViewerUtils =
             //PRo3D.Base.OtherShader.Shader.footPrintF        |> toEffect
         ]
 
-    let getSurfacesScenegraphs (m:MModel) =
+    let getSurfacesScenegraphs (m:AdaptiveModel) =
         let sgGrouped = m.scene.surfacesModel.sgGrouped
 
         
 
-      //  let renderCommands (sgGrouped:alist<amap<Guid,MSgSurface>>) overlayed depthTested (m:MModel) =
-        let usehighlighting = true |> Mod.constant //m.scene.config.useSurfaceHighlighting
+      //  let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
+        let usehighlighting = true |> AVal.constant //m.scene.config.useSurfaceHighlighting
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
         let grouped = 
@@ -615,7 +621,9 @@ module ViewerUtils =
                 fun x -> ( x 
                     |> AMap.map(fun _ sf -> 
                         let bla = m.scene.surfacesModel.surfaces.flat
-                        viewSingleSurfaceSg sf bla m.frustum selected m.ctrlFlag sf.globalBB refSystem m.footPrint m.scene.viewPlans.selectedViewPlan usehighlighting m.filterTexture)
+                        viewSingleSurfaceSg sf bla m.frustum selected m.ctrlFlag 
+                                            sf.globalBB refSystem m.footPrint 
+                                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting m.filterTexture)
                     |> AMap.toASet 
                     |> ASet.map snd                     
                 )                
@@ -630,7 +638,7 @@ module ViewerUtils =
                         set 
                         |> Sg.set
                         |> Sg.effect [surfaceEffect]
-                        |> Sg.uniform "LoDColor" (Mod.constant C4b.Gray)
+                        |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
                         |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()                        
 
                     yield  sg
@@ -641,17 +649,17 @@ module ViewerUtils =
             }                              
         sgs
   
-    let getSurfacesSgWithCamera (m : MModel) =
+    let getSurfacesSgWithCamera (m : AdaptiveModel) =
         let sgs = getSurfacesScenegraphs m
         let camera =
-            Mod.map2 (fun v f -> Camera.create v f) m.scene.cameraView m.frustum 
+            AVal.map2 (fun v f -> Camera.create v f) m.scene.cameraView m.frustum 
         sgs 
             |> ASet.ofAList
             |> Sg.set
             |> (camera |> Sg.camera)
 
-    let renderCommands (sgGrouped:alist<amap<Guid,MSgSurface>>) overlayed depthTested (m:MModel) =
-        let usehighlighting = true |> Mod.constant //m.scene.config.useSurfaceHighlighting
+    let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
+        let usehighlighting = true |> AVal.constant //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true
 
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
@@ -661,7 +669,10 @@ module ViewerUtils =
                 fun x -> ( x 
                     |> AMap.map(fun _ sf -> 
                         let bla = m.scene.surfacesModel.surfaces.flat
-                        viewSingleSurfaceSg sf bla m.frustum selected m.ctrlFlag sf.globalBB refSystem m.footPrint m.scene.viewPlans.selectedViewPlan usehighlighting filterTexture)
+                        viewSingleSurfaceSg sf bla m.frustum selected m.ctrlFlag sf.globalBB 
+                                            refSystem m.footPrint 
+                                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting filterTexture
+                       )
                     |> AMap.toASet 
                     |> ASet.map snd                     
                 )                
@@ -675,7 +686,7 @@ module ViewerUtils =
                     set 
                     |> Sg.set
                     |> Sg.effect [surfaceEffect]
-                    |> Sg.uniform "LoDColor" (Mod.constant C4b.Gray)
+                    |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
                     |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()                        
 
                 yield RenderCommand.SceneGraph sg
@@ -684,7 +695,7 @@ module ViewerUtils =
                  // assign priorities globally, or for each anno and make sets
                 yield RenderCommand.SceneGraph depthTested
 
-                yield Aardvark.UI.RenderCommand.Clear(None,Some (Mod.constant 1.0))
+                yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0))
             
             yield RenderCommand.SceneGraph overlayed
             
@@ -705,7 +716,7 @@ module ViewerUtils =
                 ]
             )
 
-        let taskclear = runtime.CompileClear(signature,Mod.constant C4f.Black,Mod.constant 1.0)
+        let taskclear = runtime.CompileClear(signature,AVal.constant C4f.Black,AVal.constant 1.0)
         
         let task = runtime.CompileRender(signature, sg)
 
@@ -715,18 +726,21 @@ module ViewerUtils =
         colorImage
 module GaleCrater =
     open PRo3D.Base
+
+    open Aether
+    open Aether.Operators
     
     let galeBounds = Box2i(V2i(3,9), V2i(19,16))
     let isGale x = x.importPath |> String.contains "MslGaleDem"
     let galeTrafo = V3d(0.0,0.0,-560.92)
 
-    let _translation = Surface.Lens.transformation |. Transformations.Lens.translation |. V3dInput.Lens.value
+    let _translation = Surface.transformation_ >-> Transformations.translation_ >-> V3dInput.value_
 
     let hack surfaces =
 
         let surfaces =
             surfaces                         
-            |> PList.filter(fun x -> 
+            |> IndexList.filter(fun x -> 
                 if isGale x then
                     let parsedPath = 
                         x.importPath 
@@ -738,9 +752,9 @@ module GaleCrater =
                 else
                     true
             )
-            |> PList.map(fun x ->
+            |> IndexList.map(fun x ->
                 if isGale x then
-                    x |> Lenses.set _translation galeTrafo
+                    x |> Optic.set _translation galeTrafo
                 else    
                     x
             )
