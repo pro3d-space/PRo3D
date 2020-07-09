@@ -127,8 +127,8 @@ module RoverProvider =
 
         let instruments = 
             ViewPlanner.UnMarshalArray<ViewPlanner.SInstrument>(
-                platform.m_poPlatforAdaptiveInstruments, 
-                (int)platform.m_nNrOfPlatforAdaptiveInstruments) 
+                platform.m_poPlatformInstruments, 
+                (int)platform.m_nNrOfPlatformInstruments) 
             |> toInstruments
                 
         {
@@ -152,7 +152,7 @@ module RoverProvider =
     let initRover platformId =
         //Get various counts to initialize respective arrays
         let numWheelPoints = uint32 6 // IPWrapper.GetNrOfPlatformPointsOnGround(platformId)
-        let nuAdaptiveInstruments = ViewPlanner.GetNrOfPlatforAdaptiveInstruments(platformId)
+        let nuAdaptiveInstruments = ViewPlanner.GetNrOfPlatformInstruments(platformId)
         let nuAdaptiveAxis =        ViewPlanner.GetNrOfPlatformAxes(platformId)
 
         Log.line "Initialising %A" platformId
@@ -202,10 +202,10 @@ module RoverApp =
         let r = m.rovers |> HashMap.find up.roverId    
         let mutable p = m.platforms |> HashMap.find up.roverId       
         let i = r.instruments|> HashMap.find up.instrumentId
-        let mutable pInstruments = ViewPlanner.UnMarshalArray<ViewPlanner.SInstrument>(p.m_poPlatforAdaptiveInstruments)
+        let mutable pInstruments = ViewPlanner.UnMarshalArray<ViewPlanner.SInstrument>(p.m_poPlatformInstruments)
 
         pInstruments.[i.index].m_dCurrentFocalLengthInMm <- up.focal
-        ViewPlanner.MarshalArray(pInstruments, p.m_poPlatforAdaptiveInstruments)
+        ViewPlanner.MarshalArray(pInstruments, p.m_poPlatformInstruments)
 
         updateRoversAndPlatforms p m false    
 

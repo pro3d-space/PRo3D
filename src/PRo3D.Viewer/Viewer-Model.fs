@@ -23,15 +23,19 @@ open PRo3D.ReferenceSystem
 open PRo3D.Align
 open PRo3D.Base.Annotation
 open PRo3D.Viewplanner
-//open PRo3D.Correlations // TODO v5: reactivate
-//open CorrelationDrawing
-//open CorrelationDrawing.Model
-//open UIPlus
+open PRo3D.Correlations
+open CorrelationDrawing
+open CorrelationDrawing.Model
+open UIPlus
 
 open Chiron
 open PRo3D.Minerva
 
 open Adaptify
+
+open Aether
+open Aether.Operators
+
 
 #nowarn "0686"
 
@@ -395,9 +399,9 @@ module Viewer =
 
     let navInit = 
         let init = NavigationModel.initial
-        let init = (NavigationModel.Lens.camera |. CameraControllerState.Lens.sensitivity).Set(init, 3.0)
-        let init = (NavigationModel.Lens.camera |. CameraControllerState.Lens.panFactor).Set(init, 0.0008)
-        let init = (NavigationModel.Lens.camera |. CameraControllerState.Lens.zoomFactor).Set(init, 0.0008)
+        let init = Optic.set (NavigationModel.camera_ >-> CameraControllerState.sensitivity_) 3.0 init
+        let init = Optic.set (NavigationModel.camera_ >-> CameraControllerState.panFactor_) 0.0008 init
+        let init = Optic.set (NavigationModel.camera_ >-> CameraControllerState.zoomFactor_) 0.0008 init
         init        
 
     let sceneElm = {id = "scene"; title = (Some "Scene"); weight = 0.4; deleteInvisible = None; isCloseable = None }

@@ -11,6 +11,9 @@ open PRo3D.ReferenceSystem
 open PRo3D.Base
 open PRo3D.Base.Annotation
 
+
+open FSharp.Data.Adaptive
+
 module AnnotationGroupsImporter = 
 
     let xname s = XName.Get(s)    

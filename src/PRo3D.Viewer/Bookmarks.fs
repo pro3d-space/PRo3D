@@ -12,6 +12,9 @@ open PRo3D.Navigation2
 
 open PRo3D.Viewer
 
+open Aether
+open Aether.Operators
+
 module Bookmarks = 
     
     let tryGet (bookmarks : IndexList<Bookmark>) key =
@@ -31,7 +34,7 @@ module Bookmarks =
     let update (bookmarks : GroupsModel) (act : BookmarkAction) (navigationModel : Lens<'a,NavigationModel>) (outerModel:'a) : ('a * GroupsModel) =
         match act with
         | AddBookmark ->
-            let nav = navigationModel.Get outerModel
+            let nav = Optic.get navigationModel outerModel
             let newBm = 
                 getNewBookmark nav.camera.view nav.navigationMode nav.exploreCenter bookmarks.flat.Count
             
@@ -55,7 +58,7 @@ module Bookmarks =
                                 exploreCenter = bkm.exploreCenter
                                 navigationMode = bkm.navigationMode
                             }
-                        let newOuterModel = navigationModel.Set(outerModel, nav')
+                        let newOuterModel = Optic.set navigationModel nav' outerModel
                         newOuterModel, bookmarks
                     | _ -> outerModel, bookmarks
                 | None -> outerModel, bookmarks

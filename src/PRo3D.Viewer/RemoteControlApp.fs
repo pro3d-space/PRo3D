@@ -201,7 +201,7 @@ module RemoteControlApp =
             )
 
     //#bdbdbd
-    let viewShots (m:MRemoteModel) = 
+    let viewShots (m:AdaptiveRemoteModel) = 
         Incremental.div 
             (AttributeMap.ofList [clazz "ui divided list inverted segment"; style "overflow-y : auto; width: 300px; overflow : visible"]) 
             (                
@@ -211,7 +211,7 @@ module RemoteControlApp =
                 }
             )
     
-    let view (m : MRemoteModel) : DomNode<RemoteControlModel.Action> =          
+    let view (m : AdaptiveRemoteModel) : DomNode<RemoteControlModel.Action> =          
         require GuiEx.semui (
             div[clazz "ui two column grid"] [
                 div[clazz "ui segment"] [

@@ -241,7 +241,7 @@ module DiagramItemApp =
                     model.secondaryStack
                     |> AVal.map (fun sec -> 
                     sec
-                        |> Adaptivy.FSharp.Core.Missing.AdaptiveOption.toOption |> Option.map (fun s -> 
+                        |> Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption |> Option.map (fun s -> 
                             RectangleStackApp.view stacksMaxMinRange model.flattenHorizon s
                             |> UI.map (fun x -> DiagramItemAction.RectangleStackMessage(s.id, x)))
                     )

@@ -196,13 +196,13 @@ module PList =
     match prev, current with
       | None, None     -> IndexList.empty
       | None, Some c   -> 
-        IndexList.append c (mapPrev (tail lst) current f)
+        IndexList.add c (mapPrev (tail lst) current f)
       | Some p, None   -> IndexList.empty
       | Some p, Some c -> 
         let foo = 
           mapPrev (tail lst) current f
         let bar =
-          IndexList.append (f p c) foo
+          IndexList.add (f p c) foo
         bar   
 
   let rec mapPrev' 

@@ -23,7 +23,11 @@ open Aardvark.Geometry
 
 open IPWrappers
 
+open FSharp.Data.Adaptive
 open Adaptify.FSharp.Core
+
+open Aether
+open Aether.Operators
 
 module ViewPlanApp = 
         
@@ -72,14 +76,15 @@ module ViewPlanApp =
     let updateViewPlans (vp:ViewPlan) (vps:HashSet<ViewPlan>) =
       vps |> HashSet.alter vp (fun x -> x)
     
-    let updateViewPlanFromRover (roverModel:RoverModel) (vp:ViewPlanModel) =
+    let updateViewPlanFroAdaptiveRover (roverModel:RoverModel) (vp:ViewPlanModel) =
       // update rover model
       let m = {vp with roverModel = roverModel}
       // update selected view plan and viewplans
       match vp.selectedViewPlan with
       | Some v -> 
-        let viewPlans = updateViewPlans v vp.viewPlans
-        let m = { m with viewPlans = viewPlans }
+        // TODO v5: refactor
+        let viewPlans = updateViewPlans v (vp.viewPlans |> HashMap.values |> HashSet.ofSeq)
+        let m = { m with viewPlans = viewPlans |> Seq.map (fun v -> v.id, v) |> HashMap.ofSeq }
 
         match roverModel.selectedRover with
         | Some r -> { m with selectedViewPlan = Some { v with rover = r }}
@@ -249,12 +254,12 @@ module ViewPlanApp =
         }
 
         { model with 
-            viewPlans = HashSet.add newViewPlan model.viewPlans
+            viewPlans = HashMap.add newViewPlan.id newViewPlan model.viewPlans
             working = List.Empty
             selectedViewPlan = Some newViewPlan }
 
-    let removeViewPlan (vps:HashSet<ViewPlan>) (id:Guid) = 
-        vps |> HashSet.filter (fun x -> x.id <> id)   
+    let removeViewPlan (vps:HashMap<_,ViewPlan>) (id:Guid) = 
+        HashMap.remove id vps //vps |> HashSet.filter (fun x -> x.id <> id)   
     
     let transformExtrinsics (vp:ViewPlan) (ex:Extrinsics) =
       { 
@@ -303,7 +308,7 @@ module ViewPlanApp =
         let m  = {
           model with 
             selectedViewPlan = Some vp
-            viewPlans        = model.viewPlans |> HashSet.alter vp id
+            viewPlans        = model.viewPlans |> HashMap.alter vp.id id
         }
 
         let fp, m = updateInstrumentCam vp m fp
@@ -322,14 +327,14 @@ module ViewPlanApp =
             outerModel, {model with working = [p]} // first point (position)
           | false -> // second point (lookAt)
             let w = List.append model.working [p]
-            let navigation = (navigation.Get outerModel)
+            let navigation = Optic.get navigation outerModel
             let wp = createViewPlan w r ref navigation.camera kdTree surfaceModel
-            outerModel, { model with viewPlans = HashSet.add wp model.viewPlans; working = List.Empty; selectedViewPlan = Some wp }
+            outerModel, { model with viewPlans = HashMap.add wp.id wp model.viewPlans; working = List.Empty; selectedViewPlan = Some wp }
         | None -> outerModel, model
 
       | SelectViewPlan id ->
-          let vp = model.viewPlans |> Seq.tryFind(fun x -> x.id = id)
-          let fp = (footprint.Get outerModel)
+          let vp = model.viewPlans |> HashMap.tryFind id
+          let fp = Optic.get footprint outerModel
           let vp', m , om =
             match vp, model.selectedViewPlan with
             | Some a, Some b -> 
@@ -337,11 +342,11 @@ module ViewPlanApp =
                 None, model, outerModel
               else 
                 let fp', m' = updateInstrumentCam a model fp
-                let newOuterModel = footprint.Set(outerModel, fp')
+                let newOuterModel = Optic.set footprint fp' outerModel
                 Some a, m', newOuterModel
             | Some a, None -> 
               let fp', m' = updateInstrumentCam a model fp
-              let newOuterModel = footprint.Set(outerModel, fp')
+              let newOuterModel = Optic.set footprint fp' outerModel
               Some a, m', newOuterModel
             | None, _ -> 
               None, model, outerModel
@@ -349,18 +354,18 @@ module ViewPlanApp =
           om, { m with selectedViewPlan = vp' }
 
       | FlyToViewPlan id -> 
-        let vp = model.viewPlans |> Seq.tryFind(fun x -> x.id = id)
+        let vp = model.viewPlans |> HashMap.tryFind id
         match vp with
         | Some v-> 
-          let nav = (navigation.Get outerModel)
+          let nav = Optic.get navigation outerModel
           let nav' = { nav with camera = v.viewerState }
-          let newOuterModel = navigation.Set(outerModel, nav')
+          let newOuterModel = Optic.set navigation nav' outerModel
           (newOuterModel, model)
         | _ -> 
           (outerModel, model)
 
       | IsVisible id ->         
-        let viewPlans =  model.viewPlans |> HashSet.map(fun x -> if x.id = id then { x with isVisible = not x.isVisible } else x)
+        let viewPlans =  model.viewPlans |> HashMap.alter id (function None -> None | Some o -> Some { o with isVisible = not o.isVisible }) //.map(fun x -> if x.id = id then { x with isVisible = not x.isVisible } else x)
         outerModel, { model with viewPlans = viewPlans }
 
       | RemoveViewPlan id ->
@@ -376,11 +381,11 @@ module ViewPlanApp =
         match model.selectedViewPlan with
         | Some vp -> 
           let newVp         = { vp with selectedInstrument = i }
-          let fp            = (footprint.Get outerModel)
+          let fp            = Optic.get footprint outerModel
           let fp', m'       = updateInstrumentCam newVp model fp
-          let newOuterModel = footprint.Set(outerModel, fp')
+          let newOuterModel = Optic.set footprint fp' outerModel
 
-          let viewPlans = model.viewPlans |> HashSet.alter newVp id
+          let viewPlans = model.viewPlans |> HashMap.add newVp.id newVp 
 
           newOuterModel, { m' with selectedViewPlan = Some newVp; viewPlans = viewPlans }
         | None -> outerModel, model                                                     
@@ -389,7 +394,7 @@ module ViewPlanApp =
         match model.selectedViewPlan with
         | Some vp -> 
           let newVp = { vp with selectedAxis = a }
-          let viewPlans = model.viewPlans |> HashSet.alter newVp id
+          let viewPlans = model.viewPlans |> HashMap.add newVp.id newVp 
 
           outerModel, { model with selectedViewPlan = Some newVp; viewPlans = viewPlans }
         | None -> outerModel, model    
@@ -412,9 +417,9 @@ module ViewPlanApp =
             }
 
             let roverModel' = RoverApp.updateAnglePlatform angleUpdate model.roverModel
-            let fp = (footprint.Get outerModel)
+            let fp = Optic.get footprint outerModel
             let fp', m' = updateRovers model roverModel' vp' fp
-            let newOuterModel = footprint.Set(outerModel, fp')
+            let newOuterModel = Optic.set footprint fp' outerModel
                                         
             newOuterModel, m'
           | None -> outerModel, model                                
@@ -445,9 +450,9 @@ module ViewPlanApp =
             }
 
             let roverModel' = RoverApp.updateFocusPlatform focusUpdate model.roverModel
-            let fp = (footprint.Get outerModel)
+            let fp = Optic.get footprint outerModel
             let fp', m' = updateRovers model roverModel' vp' fp
-            let newOuterModel = footprint.Set(outerModel, fp')
+            let newOuterModel = Optic.set footprint fp' outerModel
             
             newOuterModel, m'
           | None -> outerModel, model                                       
@@ -457,14 +462,14 @@ module ViewPlanApp =
         match model.selectedViewPlan with
         | Some vp -> 
           let vp' = {vp with name = t}
-          let viewPlans = model.viewPlans |> HashSet.alter vp' id
+          let viewPlans = model.viewPlans |> HashMap.add vp'.id vp'
           outerModel, {model with selectedViewPlan = Some vp'; viewPlans = viewPlans }              
         | None -> outerModel, model
 
       | ToggleFootprint ->   
-        let fp = (footprint.Get outerModel)
+        let fp = Optic.get footprint outerModel
         let fp' = { fp with isVisible = not fp.isVisible }
-        let newOuterModel = footprint.Set(outerModel, fp')
+        let newOuterModel = Optic.set footprint fp' outerModel
         newOuterModel, model
 
       | SaveFootPrint -> 
@@ -646,19 +651,19 @@ module ViewPlanApp =
 
             let viewPlans =
               aset {
-                for vp in model.viewPlans do 
+                for _,vp in model.viewPlans do 
                  yield drawInitPositions vp cam
                  let! showVectors = vp.isVisible
                  if showVectors then
                    yield drawVectors vp near length thickness cam
                    let! selected = model.selectedViewPlan
-                   let! id = vp.id
+                   let id = vp.id
                    let! selDrawing = 
                      match selected with
-                       | Some s -> 
+                       | AdaptiveSome s -> 
                          let sg = (drawSelectionGeometry vp near length thickness cam model.roverModel) 
-                         s.id |> AVal.map (fun g -> if g = id then sg else Sg.empty)
-                       | None -> AVal.constant Sg.empty
+                         if s.id = id then AVal.constant sg else AVal.constant Sg.empty
+                       | AdaptiveNone -> AVal.constant Sg.empty
                    yield selDrawing
                  else ()
               } |> Sg.set
@@ -698,14 +703,14 @@ module ViewPlanApp =
             alist { 
               yield Incremental.i itemAttributes AList.empty
               let! selected = m.selectedViewPlan
-              let viewPlans = m.viewPlans |> ASet.toAList
+              let viewPlans = m.viewPlans |> AMap.toASetValues |> ASet.sortBy (fun a -> a.id)
               for vp in viewPlans do
-                let! vpid = vp.id
+                let vpid = vp.id
                 let! color =
                     match selected with
-                      | Some sel -> 
-                        sel.id |> AVal.map (fun g -> if g = vpid then C4b.VRVisGreen else C4b.White)
-                      | None -> AVal.constant C4b.White
+                      | AdaptiveSome sel -> 
+                        AVal.constant (if sel.id = vpid then C4b.VRVisGreen else C4b.White)
+                      | AdaptiveNone -> AVal.constant C4b.White
                                                          
                 let bgc = color |> Html.ofC4b |> sprintf "color: %s"
 
@@ -763,14 +768,14 @@ module ViewPlanApp =
           m.selectedInstrument 
             |> AVal.map(fun x ->
                 match x with 
-                  | Some i -> instrumentProperties i
-                  | None ->   div[][])
+                  | AdaptiveSome i -> instrumentProperties i
+                  | AdaptiveNone ->   div[][])
 
         let viewFootprintProperties (fpVisible:aval<bool>) (m : AdaptiveViewPlan) = 
           m.selectedInstrument 
             |> AVal.map(fun x ->
               match x with 
-              | Some _ -> 
+              | AdaptiveSome _ -> 
                 require GuiEx.semui (
                     Html.table [  
                         Html.row "show footprint:"  [GuiEx.iconCheckBox fpVisible ToggleFootprint]
@@ -778,22 +783,22 @@ module ViewPlanApp =
                         Html.row "open footprint folder:"  [button [clazz "ui button tiny"; onClick (fun _ -> OpenFootprintFolder )][]]
                     ]
                 )
-              | None -> div[][])
+              | AdaptiveNone -> div[][])
 
 
-        //let instrumentsDd (r:MRover) (m : AdaptiveViewPlan) = 
+        //let instrumentsDd (r:AdaptiveRover) (m : AdaptiveViewPlan) = 
         //    UI.dropDown'' (r.instruments |> RoverApp.mapTolist) m.selectedInstrument (fun x -> SelectInstrument (x |> Option.map(fun y -> y.Current |> AVal.force))) (fun x -> (x.id |> AVal.force) )   
         
-        let instrumentsDd (r:MRover) (m : AdaptiveViewPlan) = 
+        let instrumentsDd (r:AdaptiveRover) (m : AdaptiveViewPlan) = 
             UI.dropDown'' (r.instruments |> RoverApp.mapTolist) 
-                           m.selectedInstrument (fun x -> SelectInstrument (x |> Option.map(fun y -> y.Current |> AVal.force))) 
+                           (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption m.selectedInstrument) (fun x -> SelectInstrument (x |> Option.map(fun y -> y.Current |> AVal.force))) 
                                                 (fun x -> (x.id |> AVal.force) )   
 
-        let viewAxesList (r : MRover) (m : AdaptiveViewPlan) =
+        let viewAxesList (r : AdaptiveRover) (m : AdaptiveViewPlan) =
             alist {
                 let! selectedI = m.selectedInstrument
                 match selectedI with
-                    | Some i ->
+                    | AdaptiveSome i ->
                         for axis in (r.axes |> RoverApp.mapTolist) do
                             yield div[][Incremental.text axis.id; text "(deg)"]
                             //yield Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox] axis.angle |> UI.map (fun x -> ChangeAngle (axis.id |> AVal.force,x))
@@ -811,11 +816,11 @@ module ViewPlanApp =
                             //yield Incremental.text (axis.startPoint |> AVal.map (sprintf "%A"))
                             yield div[][text "["; Incremental.text (axis.angle.min |> AVal.map string); text ";"; Incremental.text (axis.angle.max |> AVal.map string); text "]"]
                             yield br[]
-                    | None -> yield div[][]
+                    | AdaptiveNone -> yield div[][]
 
             }
 
-        let viewRoverProperties' (r : MRover) (m : AdaptiveViewPlan) (fpVisible:aval<bool>) =
+        let viewRoverProperties' (r : AdaptiveRover) (m : AdaptiveViewPlan) (fpVisible:aval<bool>) =
             require GuiEx.semui (
                 Html.table [
                      Html.row "Change VPName:"[ Html.SemUi.textBox m.name SetVPName ]
@@ -838,7 +843,7 @@ module ViewPlanApp =
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large Rocket icon"][] ]
                 Html.Layout.boxH [ UI.dropDown'' (RoverApp.roversList m)  
-                                                  m.selectedRover
+                                                  (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption m.selectedRover)
                                                   (fun x -> RoverApp.Action.SelectRover (x |> Option.map(fun y -> y.Current |> AVal.force))) 
                                                   (fun x -> (x.id |> AVal.force) ) ]                
             ]
@@ -848,7 +853,7 @@ module ViewPlanApp =
             model.selectedViewPlan 
                 |> AVal.map(fun x ->
                     match x with 
-                      | Some x -> viewRoverProperties' x.rover x fpVisible |> UI.map lifter
-                      | None ->   div[][] |> UI.map lifter)        
+                      | AdaptiveSome x -> viewRoverProperties' x.rover x fpVisible |> UI.map lifter
+                      | AdaptiveNone ->   div[][] |> UI.map lifter)        
 
        

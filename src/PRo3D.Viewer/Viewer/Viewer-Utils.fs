@@ -225,15 +225,15 @@ module ViewerUtils =
     let pickable' (pick :aval<Pickable>) (sg: ISg) =
         Sg.PickableApplicator (pick, AVal.constant sg)
     
-    let toModSurface (leaf : aval<AdaptiveLeafCase>) = 
+    let toModSurface (leaf : AdaptiveLeafCase) = 
          adaptive {
-            let! c = leaf
+            let c = leaf
             match c with 
                 | AdaptiveSurfaces s -> return s
                 | _ -> return c |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
             }
-
-    let lookUp guid (table:amap<Guid, aval<AdaptiveLeafCase>>) =
+             
+    let lookUp guid (table:amap<Guid, AdaptiveLeafCase>) =
         
         let entry = table |> AMap.find guid
 
@@ -264,7 +264,7 @@ module ViewerUtils =
             |> Sg.uniform "colorS"         color
 
 
-   // let viewSingleSurfaceSg (surface : MSgSurface) (surfaceTable : amap<Guid, aval<MLeaf>>) (frustum : aval<Frustum>) (selectedId : aval<Option<Guid>>) (isctrl:aval<bool>) (globalBB : aval<Box3d>) (refsys:AdaptiveReferenceSystem) =
+   // let viewSingleSurfaceSg (surface : AdaptiveSgSurface) (surfaceTable : amap<Guid, aval<MLeaf>>) (frustum : aval<Frustum>) (selectedId : aval<Option<Guid>>) (isctrl:aval<bool>) (globalBB : aval<Box3d>) (refsys:AdaptiveReferenceSystem) =
     
 
     let addAttributeFalsecolorMappingParameters (surf:aval<AdaptiveSurface>)  (isg:ISg<'a>) =
@@ -416,14 +416,14 @@ module ViewerUtils =
 
     let viewSingleSurfaceSg 
         (surface : AdaptiveSgSurface) 
-        (blarg : amap<Guid, aval<AdaptiveLeafCase>>) 
+        (blarg : amap<Guid, AdaptiveLeafCase>) // TODO v5: to get your naming right!!
         (frustum : aval<Frustum>) 
         (selectedId : aval<Option<Guid>>)
         (isctrl:aval<bool>) 
         (globalBB : aval<Box3d>) 
         (refsys:AdaptiveReferenceSystem) 
         (fp:AdaptiveFootPrint) 
-        (vp:aval<Option<ViewPlan>>) 
+        (vp:aval<Option<AdaptiveViewPlan>>) 
         (useHighlighting:aval<bool>) 
         (filterTexture : aval<bool>) =
 
@@ -555,7 +555,7 @@ module ViewerUtils =
             return Sg.empty
         } |> Sg.dynamic
         
-    let frustum (m:Model) =
+    let frustum (m:AdaptiveModel) =
         let near = m.scene.config.nearPlane.value
         let far = m.scene.config.farPlane.value
         (Navigation.UI.frustum near far)
@@ -607,12 +607,12 @@ module ViewerUtils =
             //PRo3D.Base.OtherShader.Shader.footPrintF        |> toEffect
         ]
 
-    let getSurfacesScenegraphs (m:MModel) =
+    let getSurfacesScenegraphs (m:AdaptiveModel) =
         let sgGrouped = m.scene.surfacesModel.sgGrouped
 
         
 
-      //  let renderCommands (sgGrouped:alist<amap<Guid,MSgSurface>>) overlayed depthTested (m:MModel) =
+      //  let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
         let usehighlighting = true |> AVal.constant //m.scene.config.useSurfaceHighlighting
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
@@ -621,7 +621,9 @@ module ViewerUtils =
                 fun x -> ( x 
                     |> AMap.map(fun _ sf -> 
                         let bla = m.scene.surfacesModel.surfaces.flat
-                        viewSingleSurfaceSg sf bla m.frustum selected m.ctrlFlag sf.globalBB refSystem m.footPrint m.scene.viewPlans.selectedViewPlan usehighlighting m.filterTexture)
+                        viewSingleSurfaceSg sf bla m.frustum selected m.ctrlFlag 
+                                            sf.globalBB refSystem m.footPrint 
+                                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting m.filterTexture)
                     |> AMap.toASet 
                     |> ASet.map snd                     
                 )                
@@ -647,7 +649,7 @@ module ViewerUtils =
             }                              
         sgs
   
-    let getSurfacesSgWithCamera (m : MModel) =
+    let getSurfacesSgWithCamera (m : AdaptiveModel) =
         let sgs = getSurfacesScenegraphs m
         let camera =
             AVal.map2 (fun v f -> Camera.create v f) m.scene.cameraView m.frustum 
@@ -656,7 +658,7 @@ module ViewerUtils =
             |> Sg.set
             |> (camera |> Sg.camera)
 
-    let renderCommands (sgGrouped:alist<amap<Guid,MSgSurface>>) overlayed depthTested (m:MModel) =
+    let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
         let usehighlighting = true |> AVal.constant //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true
 
@@ -667,7 +669,10 @@ module ViewerUtils =
                 fun x -> ( x 
                     |> AMap.map(fun _ sf -> 
                         let bla = m.scene.surfacesModel.surfaces.flat
-                        viewSingleSurfaceSg sf bla m.frustum selected m.ctrlFlag sf.globalBB refSystem m.footPrint m.scene.viewPlans.selectedViewPlan usehighlighting filterTexture)
+                        viewSingleSurfaceSg sf bla m.frustum selected m.ctrlFlag sf.globalBB 
+                                            refSystem m.footPrint 
+                                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting filterTexture
+                       )
                     |> AMap.toASet 
                     |> ASet.map snd                     
                 )                
@@ -721,12 +726,15 @@ module ViewerUtils =
         colorImage
 module GaleCrater =
     open PRo3D.Base
+
+    open Aether
+    open Aether.Operators
     
     let galeBounds = Box2i(V2i(3,9), V2i(19,16))
     let isGale x = x.importPath |> String.contains "MslGaleDem"
     let galeTrafo = V3d(0.0,0.0,-560.92)
 
-    let _translation = Surface.Lens.transformation |. Transformations.Lens.translation |. V3dInput.Lens.value
+    let _translation = Surface.transformation_ >-> Transformations.translation_ >-> V3dInput.value_
 
     let hack surfaces =
 
@@ -746,7 +754,7 @@ module GaleCrater =
             )
             |> IndexList.map(fun x ->
                 if isGale x then
-                    x |> Lenses.set _translation galeTrafo
+                    x |> Optic.set _translation galeTrafo
                 else    
                     x
             )

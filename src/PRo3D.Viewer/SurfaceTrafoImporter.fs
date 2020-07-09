@@ -1,5 +1,7 @@
 namespace PRo3D
 
+open FSharp.Data.Adaptive
+
 module SurfaceTrafoImporter = 
     open System
     open System.Xml.Linq

@@ -2,6 +2,8 @@ namespace PRo3D
 
 open PRo3D.Base.Annotation
 
+open FSharp.Data.Adaptive
+
 open System.IO
 open Microsoft.FSharp.Reflection
 open Aardvark.UI

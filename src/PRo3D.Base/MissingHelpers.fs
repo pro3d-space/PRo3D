@@ -6,6 +6,7 @@ module MissingFunctionality =
 
 
     open FSharp.Data.Adaptive
+    open Adaptify.FSharp.Core
 
 
     module HashMap =
@@ -31,8 +32,30 @@ module MissingFunctionality =
                 | None   -> AVal.constant defaultValue       
                 | Some v -> project v
             )
+        let bindAdaptiveOption (m : aval<AdaptiveOptionCase<_,_,_>>) (defaultValue : 'b) (project : 'a -> aval<'b>)  : aval<'b> =
+            m |> AVal.bind (function 
+                | AdaptiveNone   -> AVal.constant defaultValue       
+                | AdaptiveSome v -> project v
+            )
 
-namespace Adaptivy.FSharp.Core
+
+namespace Aether
+
+[<AutoOpen>]
+module Conversion = 
+    open Aether
+    open Aether.Operators
+    module Aether = 
+        let toBase (l : Lens<'a,'c>) =
+            { new Aardvark.Base.Lens<_,_>() with
+                override x.Get s = Optic.get l s
+                override x.Set(s,v) = Optic.set l v s
+            }
+        let ofBase (l : Aardvark.Base.Lens<'s,'a>) : Lens<_,_> = 
+            l.Get, (flip << curry) l.Set
+            
+
+namespace Adaptify.FSharp.Core
 
 
 [<AutoOpen>]

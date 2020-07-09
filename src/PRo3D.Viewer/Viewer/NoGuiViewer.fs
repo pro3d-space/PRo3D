@@ -114,7 +114,7 @@ module NoGuiViewer =
     
 
     let executeAnimation (mApp        : MutableApp<Model, ViewerAction>)
-                         (mModel      : MModel) 
+                         (mModel      : AdaptiveModel) 
                          (renderDepth : bool)
                          (verbose     : bool)
                          (outPath     : string)
@@ -171,7 +171,7 @@ module NoGuiViewer =
             renderAndSave (sprintf "%s.png" fullPathName) verbose parameters
            
     let animate   (runtime      : IRuntime) 
-                  (mModel       : MModel)
+                  (mModel       : AdaptiveModel)
                   (mApp         : MutableApp<Model, ViewerAction>) 
                   (startupArgs  : StartupArgs) =
         let args = startupArgs

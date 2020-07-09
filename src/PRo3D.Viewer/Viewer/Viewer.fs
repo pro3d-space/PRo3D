@@ -7,6 +7,8 @@ open System.Collections.Concurrent
 open System.IO
 open System.Diagnostics
 
+open Adaptify.FSharp.Core
+
 open Aardvark.Base
 open Aardvark.Base.Geometry
 open FSharp.Data.Adaptive
@@ -56,6 +58,9 @@ open CorrelationDrawing.LogTypes
 open CorrelationDrawing.Nuevo
 open CorrelationDrawing.AnnotationTypes
  
+open Aether
+open Aether.Operators
+
 type UserFeedback<'a> = {
     id      : string
     text    : string
@@ -89,42 +94,42 @@ module UserFeedback =
 module ViewerApp =         
                      
     // surfaces
-    let _surfacesModel   = Model.Lens.scene |. Scene.Lens.surfacesModel        
-    let _sgSurfaces      = _surfacesModel   |. SurfaceModel.Lens.sgSurfaces
-    let _selectedSurface = _surfacesModel   |. SurfaceModel.Lens.surfaces  |. GroupsModel.Lens.singleSelectLeaf
+    let _surfacesModel   = Model.scene_  >-> Scene.surfacesModel_        
+    let _sgSurfaces      = _surfacesModel  >-> SurfaceModel.sgSurfaces_
+    let _selectedSurface = _surfacesModel  >-> SurfaceModel.surfaces_  >-> GroupsModel.singleSelectLeaf_
        
     // navigation
-    let _navigation = Model.Lens.navigation
-    let _camera     = _navigation |. NavigationModel.Lens.camera
-    let _view       = _camera |. CameraControllerState.Lens.view
+    let _navigation = Model.navigation_
+    let _camera     = _navigation >-> NavigationModel.camera_
+    let _view       = _camera >-> CameraControllerState.view_
 
     // drawing
-    let _drawing         = Model.Lens.drawing
-    let _annotations     = _drawing |. DrawingModel.Lens.annotations
-    let _dnsColorLegend  = _drawing |. DrawingModel.Lens.dnsColorLegend
-    let _flat            = _annotations  |. GroupsModel.Lens.flat    
-    let _lookUp          = _annotations  |. GroupsModel.Lens.groupsLookup
-    let _groups          = _annotations  |. GroupsModel.Lens.rootGroup |. Node.Lens.subNodes
+    let _drawing         = Model.drawing_
+    let _annotations     = _drawing >-> DrawingModel.annotations_
+    let _dnsColorLegend  = _drawing >-> DrawingModel.dnsColorLegend_
+    let _flat            = _annotations  >-> GroupsModel.flat_
+    let _lookUp          = _annotations  >-> GroupsModel.groupsLookup_
+    let _groups          = _annotations  >-> GroupsModel.rootGroup_ >-> Node.subNodes_
 
     // animation  
-    let _animation = Model.Lens.animations
-    let _animationView = _animation |. AnimationModel.Lens.cam
+    let _animation = Model.animations_
+    let _animationView = _animation >-> AnimationModel.cam_
 
     //footprint
-    let _footprint = Model.Lens.footPrint
+    let _footprint = Model.footPrint_
        
     let lookAtData (m: Model) =         
-        let bb = m |> Lenses.get _sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB) |> Box3d.ofSeq
+        let bb = m |> Optic.get _sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB) |> Box3d.ofSeq
         let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value             
 
-        _view.Set(m,view)
+        Optic.set _view view m
 
     let lookAtBoundingBox (bb: Box3d) (m: Model) =
         let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value                
-        m |> Lenses.set _view view
+        m |> Optic.set _view view
     
     let lookAtSurface (m: Model) id =
-        let surf = m |> Lenses.get _sgSurfaces |> HashMap.tryFind id
+        let surf = m |> Optic.get _sgSurfaces |> HashMap.tryFind id
         match surf with
             | Some s ->
                 let bb = s.globalBB
@@ -146,48 +151,48 @@ module ViewerApp =
        
     let refConfig : ReferenceSystemConfig<ViewConfigModel> =
         { 
-            arrowLength    = ViewConfigModel.Lens.arrowLength    |. NumericInput.Lens.value
-            arrowThickness = ViewConfigModel.Lens.arrowThickness |. NumericInput.Lens.value
-            nearPlane      = ViewConfigModel.Lens.nearPlane      |. NumericInput.Lens.value
+            arrowLength    = ViewConfigModel.arrowLength_    >-> NumericInput.value_
+            arrowThickness = ViewConfigModel.arrowThickness_ >-> NumericInput.value_
+            nearPlane      = ViewConfigModel.nearPlane_      >-> NumericInput.value_
         }
 
-    let mrefConfig : ReferenceSystemApp.MInnerConfig<MViewConfigModel> =
+    let mrefConfig : ReferenceSystemApp.MInnerConfig<AdaptiveViewConfigModel> =
         {
-            getArrowLength    = fun (x:MViewConfigModel) -> x.arrowLength.value
-            getArrowThickness = fun (x:MViewConfigModel) -> x.arrowThickness.value
-            getNearDistance   = fun (x:MViewConfigModel) -> x.nearPlane.value
+            getArrowLength    = fun (x:AdaptiveViewConfigModel) -> x.arrowLength.value
+            getArrowThickness = fun (x:AdaptiveViewConfigModel) -> x.arrowThickness.value
+            getNearDistance   = fun (x:AdaptiveViewConfigModel) -> x.nearPlane.value
         }
     
     let drawingConfig : DrawingApp.SmallConfig<ReferenceSystem> =
         { 
-            up     = (ReferenceSystem.Lens.up     |. V3dInput.Lens.value)
-            north  = (ReferenceSystem.Lens.northO) //  |. V3dInput.Lens.value)
-            planet = (ReferenceSystem.Lens.planet)
+            up     = (ReferenceSystem.up_     >-> V3dInput.value_) |> Aether.toBase
+            north  = (ReferenceSystem.northO_ |> Aether.toBase) //  |. V3dInput.Lens.value)
+            planet = (ReferenceSystem.planet_ |> Aether.toBase)
         }
 
-    let mdrawingConfig : DrawingApp.MSmallConfig<MViewConfigModel> =
+    let mdrawingConfig : DrawingApp.MSmallConfig<AdaptiveViewConfigModel> =
         {            
             getNearPlane       = fun x -> x.nearPlane.value
-            getHfov            = fun (x:MViewConfigModel) -> ((AVal.init 60.0) :> aval<float>)
-            getArrowThickness  = fun (x:MViewConfigModel) -> x.arrowThickness.value
-            getArrowLength     = fun (x:MViewConfigModel) -> x.arrowLength.value
-            getDnsPlaneSize    = fun (x:MViewConfigModel) -> x.dnsPlaneSize.value
-            getOffset          = fun (x:MViewConfigModel) -> AVal.constant(0.1)//x.offset.value
+            getHfov            = fun (x:AdaptiveViewConfigModel) -> ((AVal.init 60.0) :> aval<float>)
+            getArrowThickness  = fun (x:AdaptiveViewConfigModel) -> x.arrowThickness.value
+            getArrowLength     = fun (x:AdaptiveViewConfigModel) -> x.arrowLength.value
+            getDnsPlaneSize    = fun (x:AdaptiveViewConfigModel) -> x.dnsPlaneSize.value
+            getOffset          = fun (x:AdaptiveViewConfigModel) -> AVal.constant(0.1)//x.offset.value
         }
 
     let navConf : Navigation.smallConfig<ViewConfigModel, ReferenceSystem> =
         {
-            navigationSensitivity = ViewConfigModel.Lens.navigationSensitivity |. NumericInput.Lens.value
-            up                    = ReferenceSystem.Lens.up |. V3dInput.Lens.value
+            navigationSensitivity = ViewConfigModel.navigationSensitivity_ >-> NumericInput.value_ |> Aether.toBase
+            up                    = ReferenceSystem.up_ >-> V3dInput.value_  |> Aether.toBase
         }
 
     let updateCameraUp (m: Model) =
         let cam = m.navigation.camera
         let view' = CameraView.lookAt cam.view.Location (cam.view.Location + cam.view.Forward) m.scene.referenceSystem.up.value
         let cam' = { cam with view = view' }
-        _camera.Set(m,cam')    
+        Optic.set _camera cam' m    
     
-    let mutable cache = hmap.Empty
+    let mutable cache = HashMap.Empty
 
     let updateSceneWithNewSurface (m: Model) =
         let sgSurfaces = 
@@ -217,7 +222,7 @@ module ViewerApp =
         | None -> m
 
     let isGrabbed (model: Model) =
-        let sel = _selectedSurface.Get(model) |> Option.bind(fun x -> _sgSurfaces.Get(model).TryFind x)
+        let sel = Optic.get _selectedSurface model |> Option.bind(fun x -> Optic.get _sgSurfaces model |> HashMap.tryFind x)
         match sel with
         | Some s -> s.trafo.grabbed.IsSome
         | None -> false    
@@ -227,8 +232,8 @@ module ViewerApp =
             (CameraAnimations.initial name) with 
                 sample = fun (localTime, globalTime) (state : CameraView) -> // given the state and t since start of the animation, compute a state and the cameraview
                 if localTime < duration then                  
-                    let rot      = Rot3d(state.Forward, dir) * localTime / duration
-                    let forward' = rot.TransformDir(state.Forward)
+                    let rot      = Rot3d.RotateInto(state.Forward, dir) * localTime / duration
+                    let forward' = (Rot3d rot).Transform(state.Forward)
                   
                     let vec       = pos - state.Location
                     let velocity  = vec.Length / duration                  
@@ -335,7 +340,7 @@ module ViewerApp =
         | Interactions.PlaceRover, ViewerMode.Standard ->
             let ref = m.scene.referenceSystem 
 
-            let addPointMsg = ViewPlanApp.Action.AddPoint(p,ref,cache,(_surfacesModel.Get(m)))
+            let addPointMsg = ViewPlanApp.Action.AddPoint(p,ref,cache,(Optic.get _surfacesModel m))
 
             let outerModel, viewPlans' = 
               ViewPlanApp.update m.scene.viewPlans addPointMsg _navigation _footprint m.scene.scenePath m 
@@ -417,15 +422,15 @@ module ViewerApp =
             //m.scene.navigation.camera.view.Location.ToString() |> NoAction |> ViewerAction |> mailbox.Post
              
             m 
-            |> Lenses.set _navigation nav
-            |> Lenses.set _animationView nav.camera.view
+            |> Optic.set _navigation nav
+            |> Optic.set _animationView nav.camera.view
         | AnimationMessage msg,_,_ ->
             let a = AnimationApp.update m.animations msg
-            { m with animations = a } |> Lenses.set _view a.cam
-        | SetCamera cv,_,false -> _view.Set(m, cv)
+            { m with animations = a } |> Optic.set _view a.cam
+        | SetCamera cv,_,false -> Optic.set _view cv m
         | SetCameraAndFrustum (cv, hfov, _),_,false -> m
         | SetCameraAndFrustum2 (cv,frustum),_,false ->
-            let m = _view.Set(m, cv)
+            let m = Optic.set _view cv m
             { m with frustum = frustum }
         | AnnotationGroupsMessageViewer msg,_,_ ->
             let ag = m.drawing.annotations 
@@ -434,7 +439,7 @@ module ViewerApp =
         | DrawingMessage msg,_,_-> //Interactions.DrawAnnotation
             match msg with
             | Drawing.FlyToAnnotation id ->
-                let _a = m |> Lenses.get _flat |> HashMap.tryFind id |> Option.map Leaf.toAnnotation
+                let _a = m |> Optic.get _flat |> HashMap.tryFind id |> Option.map Leaf.toAnnotation
                 match _a with 
                 | Some a ->                                                
                     //m |> lookAtBoundingBox (Box3d(a.points |> IndexList.toList))
@@ -480,7 +485,7 @@ module ViewerApp =
             let animation = 
                 match msg with
                 | SurfaceApp.Action.FlyToSurface id -> 
-                    let surf = m |> Lenses.get _sgSurfaces |> HashMap.tryFind id
+                    let surf = m |> Optic.get _sgSurfaces |> HashMap.tryFind id
                     let surface = m.scene.surfacesModel.surfaces.flat |> HashMap.find id |> Leaf.toSurface 
                     let superTrafo = PRo3D.Transformations.fullTrafo' surface m.scene.referenceSystem
                     match (surface.homePosition) with
@@ -511,9 +516,8 @@ module ViewerApp =
                     let a = x |> Leaf.toAnnotation
                     AnnotationProperties.update a msg |> Leaf.Annotations)
                       
-                m.drawing.annotations
-                |> Groups.updateLeaf selected f
-                |> Lenses.set' _annotations m
+                let a = m.drawing.annotations |> Groups.updateLeaf selected f
+                Optic.set _annotations a m
             | None -> m       
         | BookmarkMessage msg,_,_ ->  
             let m', bm = Bookmarks.update m.scene.bookmarks msg _navigation m
@@ -535,7 +539,7 @@ module ViewerApp =
             { m with scene = { m.scene with bookmarks = bm }} 
         | RoverMessage msg,_,_ ->
             let roverModel = RoverApp.update m.scene.viewPlans.roverModel msg
-            let viewPlanModel = ViewPlanApp.updateViewPlanFromRover roverModel m.scene.viewPlans
+            let viewPlanModel = ViewPlanApp.updateViewPlanFroAdaptiveRover roverModel m.scene.viewPlans
             { m with scene = { m.scene with viewPlans = viewPlanModel }}
         | ViewPlanMessage msg,_,_ ->
             let model, viewPlanModel = ViewPlanApp.update m.scene.viewPlans msg _navigation _footprint m.scene.scenePath m
@@ -616,7 +620,7 @@ module ViewerApp =
 
                 let newGroups = 
                     m.drawing.annotations.rootGroup.subNodes
-                    |> IndexList.append' imported
+                    |> IndexList.append imported
 
                 let flat = 
                     flat 
@@ -655,9 +659,9 @@ module ViewerApp =
                 //Csv.Seq.write ("./error.csv") csvTable |> ignore
 
                 m 
-                |> Lenses.set _groups newGroups
-                |> Lenses.set _lookUp lookup
-                |> Lenses.set _flat newflat          
+                |> Optic.set _groups newGroups
+                |> Optic.set _lookUp lookup
+                |> Optic.set _flat newflat          
             | None -> m
         | ImportSurfaceTrafo sl,_,_ ->  
             match sl |> List.tryHead with
@@ -666,7 +670,7 @@ module ViewerApp =
                 let s = Surfaces.SurfaceApp.updateSurfaceTrafos imported m.scene.surfacesModel
                 s.surfaces.flat |> HashMap.toList |> List.iter(fun (_,v) -> Log.warn "%A" (v |> Leaf.toSurface).preTransform)
                 m 
-                |> Lenses.set _surfaceModelLens s  
+                |> Optic.set _surfaceModelLens s  
             | None -> m
         | ImportRoverPlacement sl,_,_ ->  
             match sl |> List.tryHead with
@@ -727,14 +731,14 @@ module ViewerApp =
                                 FastRay3d(p + (up * 5000.0), -up)  
                             | _ -> Log.error "projection started without proj mode"; FastRay3d()
                    
-                        match SurfaceApp.doKdTreeIntersection (_surfacesModel.Get(m)) m.scene.referenceSystem ray surfaceFilter cache with
+                        match SurfaceApp.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem ray surfaceFilter cache with
                         | Some (t,surf), c ->                             
                             cache <- c; ray.Ray.GetPointOnRay t |> Some
                         | None, c ->
                             cache <- c; None
                                    
                     let result = 
-                        match SurfaceApp.doKdTreeIntersection (_surfacesModel.Get(m)) m.scene.referenceSystem fray surfaceFilter cache with
+                        match SurfaceApp.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem fray surfaceFilter cache with
                         | Some (t,surf), c ->                         
                             cache <- c
                             let hit = r.GetPointOnRay(t)
@@ -973,8 +977,8 @@ module ViewerApp =
             { m with interaction = t } //|> UserFeedback.queueFeedback feedback
         | ReferenceSystemMessage a,_,_ ->                                
             let refsystem',_ = ReferenceSystemApp.update m.scene.config refConfig m.scene.referenceSystem a                
-            let _refSystem = (Model.Lens.scene |. Scene.Lens.referenceSystem)
-            let m' = m |> Lenses.set _refSystem refsystem'                        
+            let _refSystem = (Model.scene_ >-> Scene.referenceSystem_)
+            let m' = m |> Optic.set _refSystem refsystem'                        
             match a with 
             | ReferenceSystemApp.Action.SetUp _ | ReferenceSystemApp.Action.SetPlanet _ ->
                 m' |> updateCameraUp
@@ -989,13 +993,13 @@ module ViewerApp =
                         |> Leaf.Annotations
                     )
                 m' 
-                |> Lenses.set _flat flat                     
+                |> Optic.set _flat flat                     
             | _ -> 
                 m'
         | ConfigPropertiesMessage a,_,_ -> 
             //Log.line "config message %A" a
             let c' = ConfigProperties.update m.scene.config a
-            let m = (Model.Lens.scene |. Scene.Lens.config).Set(m,c')
+            let m = Optic.set (Model.scene_ >-> Scene.config_) c' m
             
             match a with                   
             | ConfigProperties.Action.SetNearPlane _ | ConfigProperties.Action.SetFarPlane _ ->
@@ -1242,7 +1246,7 @@ module ViewerApp =
         |> Sg.noEvents
         |> Sg.trafo(trafo)
     
-    let renderControlAttributes (m: MModel) = 
+    let renderControlAttributes (m: AdaptiveModel) = 
         let renderControlAtts (model: AdaptiveNavigationModel) =
             amap {
                 let! state = model.navigationMode
@@ -1271,7 +1275,7 @@ module ViewerApp =
             ] 
         ]            
 
-    let instrumentControlAttributes (m: MModel) = 
+    let instrumentControlAttributes (m: AdaptiveModel) = 
         AttributeMap.unionMany [
             AttributeMap.ofList [
                 attribute "style" "width:100%; height: 100%; float:left; background-color: #222222"
@@ -1282,7 +1286,7 @@ module ViewerApp =
             ] 
         ]     
         
-    let allowAnnotationPicking (m : MModel) =       
+    let allowAnnotationPicking (m : AdaptiveModel) =       
         // drawing app needs pickable stuff. however whether annotations are pickable depends on 
         // outer application state. we consider annotations to pickable if they are visible
         // and we are in "pick annotation" mode.
@@ -1292,7 +1296,7 @@ module ViewerApp =
             | _ -> false
         )
 
-    let allowLogPicking (m : MModel) =       
+    let allowLogPicking (m : AdaptiveModel) =       
         // drawing app needs pickable stuff. however whether logs are pickable depends on 
         // outer application state. we consider annotations to pickable if they are visible
         // and we are in "pick annotation" mode.
@@ -1302,7 +1306,7 @@ module ViewerApp =
             | _ -> false
         ) m.ctrlFlag m.interaction
 
-    let viewInstrumentView (m: MModel) = 
+    let viewInstrumentView (m: AdaptiveModel) = 
         let annotationsI, discsI = 
             DrawingApp.view 
                 m.scene.config 
@@ -1330,9 +1334,9 @@ module ViewerApp =
         let icmds    = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed discsInst m // m.scene.surfacesModel.sgGrouped overlayed discs m
         let icam = 
             AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
-        DoAdaptiveNode.RenderControl((instrumentControlAttributes m), icam, icmds, None) //AttributeMap.Empty
+        DomNode.RenderControl((instrumentControlAttributes m), icam, icmds, None) //AttributeMap.Empty
 
-    let viewRenderView (m: MModel) = 
+    let viewRenderView (m: AdaptiveModel) = 
         let annotations, discs = DrawingApp.view m.scene.config mdrawingConfig m.navigation.camera.view (allowAnnotationPicking m) m.drawing  
             
         let annotationSg = 
@@ -1461,9 +1465,9 @@ module ViewerApp =
         let cmds    = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m
         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
         let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
-        DoAdaptiveNode.RenderControl((renderControlAttributes m), cam, cmds, None)
+        DomNode.RenderControl((renderControlAttributes m), cam, cmds, None)
 
-    let view (m: MModel) = //(localhost: string)
+    let view (m: AdaptiveModel) = //(localhost: string)
        
         let myCss = [
             { kind = Stylesheet;  name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.css" }

@@ -16,6 +16,9 @@ open PRo3D.Navigation2
 
 open Chiron
 
+open Aether
+open Aether.Operators
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Model =
     open PRo3D.Base
@@ -54,10 +57,10 @@ module Scene =
         let defaultCacheFile = @".\MinervaData\dump.cache"
 
         
-    let _surfaceModelLens = Model.Lens.scene |. Scene.Lens.surfacesModel
-    let _flatSurfaces     = Scene.Lens.surfacesModel |. SurfaceModel.Lens.surfaces |. GroupsModel.Lens.flat
-    let _camera           = Model.Lens.navigation |. NavigationModel.Lens.camera
-    let _cameraView       = _camera |. CameraControllerState.Lens.view
+    let _surfaceModelLens = Model.scene_ >-> Scene.surfacesModel_
+    let _flatSurfaces     = Scene.surfacesModel_ >-> SurfaceModel.surfaces_ >-> GroupsModel.flat_
+    let _camera           = Model.navigation_ >-> NavigationModel.camera_
+    let _cameraView       = _camera >-> CameraControllerState.view_
 
 
     let expandRelativePaths (m:Scene) =               
@@ -111,14 +114,14 @@ module Scene =
                { s with 
                    scalarLayers  = layers |> SurfaceProperties.getScalarsHmap //SurfaceProperties.getScalars
                    textureLayers = textures
-                   selectedTexture = textures |> IndexList.tryHead
+                   selectedTexture = textures |> IndexList.tryFirst
                }
            | None ->
                s
         )
 
     /// appends surfaces to existing surfaces
-    let import' (runtime : IRuntime) (signature: IFramebufferSignature)(surfaces : IndexList<Surface>) (m : Model) =
+    let import' (runtime : IRuntime) (signature: IFramebufferSignature)(surfaces : IndexList<Surface>) (model : Model) =
             
         //handle semantic surfaces
         let surfaces = 
@@ -128,7 +131,7 @@ module Scene =
             |> IndexList.map( fun x -> { x with colorCorrection = PRo3D.Surfaces.Init.initColorCorrection}) 
               
         let existingSurfaces = 
-            m.scene.surfacesModel.surfaces.flat
+            model.scene.surfacesModel.surfaces.flat
             |> Leaf.toSurfaces
             |> HashMap.toList 
             |> List.map snd 
@@ -139,14 +142,14 @@ module Scene =
             |> IndexList.map Leaf.Surfaces
 
         let m = 
-            m.scene.surfacesModel.surfaces
-            |> GroupsApp.addLeaves m.scene.surfacesModel.surfaces.activeGroup.path sChildren 
-            |> Lenses.set' (_surfaceModelLens |. SurfaceModel.Lens.surfaces) m
+            model.scene.surfacesModel.surfaces
+            |> GroupsApp.addLeaves model.scene.surfacesModel.surfaces.activeGroup.path sChildren 
+            |> (flip <| Optic.set (_surfaceModelLens >-> SurfaceModel.surfaces_)) model
         
         let surfaceMap = 
             (m.scene.surfacesModel.surfaces.flat |> Leaf.toSurfaces)
 
-        let allSurfaces = existingSurfaces |> IndexList.append' surfaces //????
+        let allSurfaces = existingSurfaces |> IndexList.append surfaces //????
         //handle sg surfaces
         let m = 
             allSurfaces
@@ -154,11 +157,11 @@ module Scene =
             |> Sg.createSgSurfaces runtime signature
             |> HashMap.union m.scene.surfacesModel.sgSurfaces
             |> Files.expandLazyKdTreePaths m.scene.scenePath surfaceMap
-            |> Lenses.set' (_surfaceModelLens |. SurfaceModel.Lens.sgSurfaces) m                                               
+            |> (flip <| Optic.set (_surfaceModelLens >-> SurfaceModel.sgSurfaces_)) m                                               
          
         m.scene.surfacesModel 
         |> SurfaceModel.triggerSgGrouping 
-        |> Lenses.set' _surfaceModelLens m
+        |> (flip <| Optic.set _surfaceModelLens) m
 
     let importObj (runtime : IRuntime) (signature: IFramebufferSignature)(surfaces : IndexList<Surface>) (m : Model) =
       
@@ -169,13 +172,13 @@ module Scene =
             |> List.map snd 
             |> IndexList.ofList
 
-        let allSurfaces = existingSurfaces |> IndexList.append' surfaces //????
+        let allSurfaces = existingSurfaces |> IndexList.append surfaces //????
         let sChildren = surfaces |> IndexList.map Leaf.Surfaces
 
         let m = 
             m.scene.surfacesModel.surfaces 
             |> GroupsApp.addLeaves m.scene.surfacesModel.surfaces.activeGroup.path sChildren 
-            |> Lenses.set' (_surfaceModelLens |. SurfaceModel.Lens.surfaces) m
+            |> (flip <| Optic.set (_surfaceModelLens >-> SurfaceModel.surfaces_)) m
 
         //handle sg surfaces
         let m = 
@@ -183,11 +186,11 @@ module Scene =
             |> IndexList.filter (fun s -> s.surfaceType = SurfaceType.SurfaceOBJ)
             |> SurfaceUtils.ObjectFiles.createSgObjects runtime signature
             |> HashMap.union m.scene.surfacesModel.sgSurfaces
-            |> Lenses.set' (_surfaceModelLens |. SurfaceModel.Lens.sgSurfaces) m
+            |> (flip <| Optic.set (_surfaceModelLens >-> SurfaceModel.sgSurfaces_)) m
                     
         m.scene.surfacesModel 
           |> SurfaceModel.triggerSgGrouping 
-          |> Lenses.set' _surfaceModelLens m
+          |> (flip <| Optic.set _surfaceModelLens) m
              
     let prepareSurfaceModel (runtime : IRuntime) (signature: IFramebufferSignature) (scenePath : option<string>) (model : SurfaceModel) : SurfaceModel =
         let surfaces = model.surfaces.flat |> Leaf.toSurfaces 
@@ -238,7 +241,7 @@ module Scene =
               look     = false
               moveVec  = V3d.Zero
         }
-        |> Lenses.set' _camera m
+        |> (flip <| Optic.set _camera) m
 
     let loadScene path m runtime signature =
         //try            
@@ -261,13 +264,13 @@ module Scene =
 
             let cameraView = m.scene.cameraView
 
-            let m = { m with frustum = setFrustum m } |> Lenses.set _cameraView cameraView
+            let m = { m with frustum = setFrustum m } |> Optic.set _cameraView cameraView
 
             let sModel = 
                 m.scene.surfacesModel 
                   |> prepareSurfaceModel runtime signature scene.scenePath
 
-            _surfaceModelLens.Set(m, sModel)        
+            Optic.set _surfaceModelLens sModel m  
         //with e ->            
         //    Log.error "Could not load selected scenefile %A. It is either outdated or not a valid scene" path
         //    Log.error "exact error %A" e

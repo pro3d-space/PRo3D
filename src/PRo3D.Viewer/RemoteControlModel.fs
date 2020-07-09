@@ -10,6 +10,8 @@ open PRo3D
 open PRo3D.Viewer
 open PRo3D.Viewplanner
 
+open Adaptify
+
 
 //PTU values sequence
 //isntrument model
@@ -206,7 +208,7 @@ module PlatformShot =
             folder = sh.folder
         }
 
-    let trafoFromRoverBase (forw:V3d) (up:V3d) (pos:V3d) =        
+    let trafoFroAdaptiveRoverBase (forw:V3d) (up:V3d) (pos:V3d) =        
         let right = forw.Cross up
         let right = -right
 
@@ -233,7 +235,7 @@ module PlatformShot =
         let pos = psh.pos |> Xyz.toV3d
         let up = psh.up |> Xyz.toV3d
 
-        trafoFromRoverBase forw up pos
+        trafoFroAdaptiveRoverBase forw up pos
     
     let froAdaptiveRoverModel (rm : RoverModel) (sh : Shot): option<PlatformShot> =
         

@@ -23,7 +23,7 @@ open CorrelationDrawing.XXX
 
 
 open FSharp.Data.Adaptive
-open Adaptivy.FSharp.Core
+open Adaptify.FSharp.Core
 
 module CorrelationDrawing =    
 
@@ -165,7 +165,7 @@ module CorrelationDrawing =
     module Sg =        
 
         open FSharp.Data.Adaptive
-        open Adaptivy.FSharp.Core
+        open Adaptify.FSharp.Core
 
         
         let computeScale (view : aval<CameraView>) (p:aval<V3d>) (size:float) =

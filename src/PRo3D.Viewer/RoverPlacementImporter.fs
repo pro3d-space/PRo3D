@@ -10,6 +10,8 @@ module RoverPlacementImporter =
     open PRo3D.Groups
     open PRo3D.ReferenceSystem
 
+    open FSharp.Data.Adaptive
+
     let xname s = XName.Get(s)
 
    

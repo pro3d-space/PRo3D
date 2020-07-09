@@ -15,6 +15,8 @@ open PRo3D.Drawing
 open PRo3D.Viewer
 open PRo3D.Viewplanner
 
+open FSharp.Data.Adaptive
+
 open Chiron
 
 #nowarn "0044"

@@ -129,7 +129,7 @@ module Sg =
         }
         |> Sg.pass (RenderPass.after "cube" RenderPassOrder.Arbitrary RenderPass.main)
 
-    //let view (camView : aval<CameraView>) (config:MViewConfigModel) (refSys:AdaptiveReferenceSystem) =
+    //let view (camView : aval<CameraView>) (config:AdaptiveViewConfigModel) (refSys:AdaptiveReferenceSystem) =
     //    aset {
     //        let! draw = config.drawOrientationCube
     //        yield match draw with

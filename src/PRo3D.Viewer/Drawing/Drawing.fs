@@ -470,7 +470,7 @@ module DrawingApp =
             Sg.ofList [
              // brush model.hoverPosition; 
               annotations
-              Sg.drawWorkingAnnotation config.offset (AVal.map Adaptivy.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
+              Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
             ]
 
         let depthTest = 

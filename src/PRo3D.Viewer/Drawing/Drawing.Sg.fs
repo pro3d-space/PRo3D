@@ -149,7 +149,7 @@ module Sg =
         } |> Sg.set
         
     let drawDns (anno : AdaptiveAnnotation) (conf:innerViewConfig) (cl : AdaptiveFalseColorsModel) (cam:aval<CameraView>) =   
-        drawDns' anno.points (AVal.map Adaptivy.FSharp.Core.Missing.AdaptiveOption.toOption anno.dnsResults) conf cl
+        drawDns' anno.points (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption anno.dnsResults) conf cl
 
     let getPolylinePoints (a : AdaptiveAnnotation) =
         alist {                          

@@ -29,6 +29,9 @@ open Aardvark.Rendering.Text
 open Svgplus.DA
 open Svgplus
 
+open Adaptify.FSharp.Core
+open FSharp.Data.Adaptive
+
 module Conversion =
     let selectedPoints (points : HashMap<Guid, LogPoint>) : HashMap<AnnotationTypes.ContactId, V3d> =
         points 
@@ -129,13 +132,15 @@ module CorrelationPanelsApp =
         | ExportLogs path ->
             
             let rows =
-                m.correlationPlot.logsNuevo.Values 
+                m.correlationPlot.logsNuevo 
+                |> HashMap.values
                 |> Seq.toList
                 |> List.map(fun x -> 
                     let plane = x.referencePlane.plane
 
                     let sorted =
-                        x.contactPoints.Values
+                        x.contactPoints
+                        |> HashMap.values
                         |> Seq.toList
                         |> List.map (fun x -> plane.Height(x))
                         |> List.sort
@@ -238,7 +243,8 @@ module CorrelationPanelsApp =
                     | Some rectId ->                         
                         //find the two rectangle borders
                         //let borders = 
-                        dia.bordersTable.Values 
+                        dia.bordersTable
+                            |> HashMap.values
                             |> Seq.filter(fun x -> x.lowerRectangle = rectId || x.upperRectangle = rectId)            
                             |> Seq.map(fun x -> x.contactId |> LogToDiagram.toContactId)
                             |> HashSet.ofSeq
@@ -336,7 +342,7 @@ module CorrelationPanelsApp =
                        { 
                            b with
                              pointsTable = pointsTable
-                             localPoints = pointsTable.Values |> IndexList.ofSeq
+                             localPoints = pointsTable |> HashMap.values |> IndexList.ofSeq
                              modelTrafo  = modelTrafo
                        }
                    )
@@ -489,30 +495,30 @@ module CorrelationPanelsApp =
             if m.contacts.IsEmpty = true then
                 m
             else
-                { m with contactOfInterest = m.contacts.Keys |> Seq.take 1 |> HashSet.ofSeq }       
+                { m with contactOfInterest = m.contacts |> HashMap.keys |> Seq.take 1 |> HashSet.ofSeq }       
         | _ ->
             Log.warn "[CorrelationPanelsApp] unhandled action %A" msg
             m
      
-    let view (m : MCorrelationDrawingModel) : DomNode<CorrelationPanelsMessage> = div [] []
+    let view (m : AdaptiveCorrelationDrawingModel) : DomNode<CorrelationPanelsMessage> = div [] []
     
-    let viewMappings (m : MCorrelationPanelModel) : DomNode<CorrelationPanelsMessage> =
+    let viewMappings (m : AdaptiveCorrelationPanelModel) : DomNode<CorrelationPanelsMessage> =
         ColourMap.view m.correlationPlot.colorMap
         |> UI.map CorrelationPanelsMessage.ColourMapMessage  
               
-    let viewSemantics (m : MCorrelationPanelModel) : DomNode<CorrelationPanelsMessage> =
+    let viewSemantics (m : AdaptiveCorrelationPanelModel) : DomNode<CorrelationPanelsMessage> =
         SemanticApp.expertGUI m.semanticApp 
         |> UI.map CorrelationPanelsMessage.SemanticAppMessage
     
-    let viewLogs (m : MCorrelationPanelModel) : DomNode<CorrelationPanelsMessage> =
+    let viewLogs (m : AdaptiveCorrelationPanelModel) : DomNode<CorrelationPanelsMessage> =
         CorrelationPlotApp.listView m.correlationPlot
         |> UI.map CorrelationPanelsMessage.CorrPlotMessage
     
-    let viewSvg (m : MCorrelationPanelModel) =      
+    let viewSvg (m : AdaptiveCorrelationPanelModel) =      
         CorrelationPlotApp.viewSvg m.contacts m.correlationPlot 
         |> (UI.map CorrPlotMessage)
 
-    let viewContactOfInterest (m : MCorrelationPanelModel) =
+    let viewContactOfInterest (m : AdaptiveCorrelationPanelModel) =
         m.contactOfInterest
         |> ASet.map (fun x -> 
             m.contacts 
@@ -525,7 +531,7 @@ module CorrelationPanelsApp =
                     |> AList.toAVal 
                     |> AVal.map (fun x ->
                         x 
-                        |> IndexList.tryHead 
+                        |> IndexList.tryFirst 
                         |> Option.map (fun h -> Trafo3d.Translation h)
                         |> Option.defaultValue Trafo3d.Identity)                               
 
@@ -681,34 +687,34 @@ module CorrelationPanelsApp =
         |> Sg.andAlso polyLine
         //|> Sg.andAlso labels2
     
-    let viewWorkingLog (planeSize : aval<float>) (cam : aval<CameraView>) near (m : MCorrelationPanelModel) (falseColors : AdaptiveFalseColorsModel) =
+    let viewWorkingLog (planeSize : aval<float>) (cam : aval<CameraView>) near (m : AdaptiveCorrelationPanelModel) (falseColors : AdaptiveFalseColorsModel) =
         
         let logSg =
             m.logBrush 
             |> AVal.map(fun x ->
                 match x with
-                | Some brush -> 
+                | AdaptiveSome brush -> 
                     brush.localPoints 
                     |> AList.map(fun x -> x.position)
-                    |> drawLogSg cam ~~"new log" near ~~C4b.Magenta ~~C4b.DarkMagenta brush.referencePlane brush.modelTrafo None (AVal.constant false) // cannot be selected
-                | None -> Sg.empty           
+                    |> drawLogSg cam ~~"new log" near ~~C4b.Magenta ~~C4b.DarkMagenta (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption brush.referencePlane) brush.modelTrafo None (AVal.constant false) // cannot be selected
+                | AdaptiveNone -> Sg.empty           
             ) |> Sg.dynamic
 
         let planeSg = 
             m.logBrush 
             |> AVal.map(fun x ->
                 match x with
-                | Some brush ->                     
+                | AdaptiveSome brush ->                     
                     Sg.drawTrueThicknessPlane 
                         (brush.planeScale |> AVal.map2(fun a b -> a * b) planeSize) 
-                        brush.referencePlane 
+                        (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption brush.referencePlane)
                         falseColors
-                | None -> Sg.empty           
+                | AdaptiveNone -> Sg.empty           
             ) |> Sg.dynamic
             
         logSg, planeSg
         
-    let viewFinishedLogs (planeSize : aval<float>) (cam : aval<CameraView>) near (falseColors : AdaptiveFalseColorsModel) (m : MCorrelationPanelModel) (pickingAllowed: aval<bool>) =
+    let viewFinishedLogs (planeSize : aval<float>) (cam : aval<CameraView>) near (falseColors : AdaptiveFalseColorsModel) (m : AdaptiveCorrelationPanelModel) (pickingAllowed: aval<bool>) =
         let logs = 
             m.correlationPlot.logsNuevo
             |> AMap.toASet
@@ -737,7 +743,7 @@ module CorrelationPanelsApp =
                     points
                     |> AList.toAVal 
                     |> AVal.map(fun y -> 
-                        match y |> IndexList.tryHead with
+                        match y |> IndexList.tryFirst with
                         | Some head -> Trafo3d.Translation head
                         | None -> Trafo3d.Identity
                     )

@@ -341,6 +341,7 @@ type FootPrint = {
 
 [<ModelType>]
 type ViewPlan = {
+    [<NonAdaptive>]
     id                  : Guid
     name                : string
     position            : V3d

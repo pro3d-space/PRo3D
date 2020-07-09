@@ -21,7 +21,10 @@ open PRo3D
 open PRo3D.Groups
 open System.Diagnostics
 
-open Adaptivy.FSharp.Core
+open Adaptify.FSharp.Core
+open FSharp.Data.Adaptive
+
+open Adaptify
 
 module SurfaceUtils =
     open Aardvark.SceneGraph.SgFSharp.Sg   
@@ -936,9 +939,9 @@ module SurfaceApp =
                          | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
                       
                       let! scalar = scalar
-                      match scalar with
-                          | AdaptiveSome s -> return FalseColorLegendApp.UI.viewScalarMappingProperties s.colorLegend |> UI.map ScalarsColorLegendMessage
-                          | AdaptiveNone -> return div[ style "font-style:italic"][ text "no scalar in properties selected" ] |> UI.map ScalarsColorLegendMessage 
+                      match AdaptiveOption.toOption scalar with // why is AdaptiveSome here not available
+                          | Some s -> return FalseColorLegendApp.UI.viewScalarMappingProperties s.colorLegend |> UI.map ScalarsColorLegendMessage
+                          | None -> return div[ style "font-style:italic"][ text "no scalar in properties selected" ] |> UI.map ScalarsColorLegendMessage 
                     else
                       return div[ style "font-style:italic"][ text "no scalar in properties selected" ] |> UI.map ScalarsColorLegendMessage 
                                   
@@ -954,14 +957,14 @@ module SurfaceApp =
             | Some i -> 
                 let! exists = (model.surfaces.flat |> AMap.keys) |> ASet.contains i
                 if exists then
-                    let leaf = model.surfaces.flat |> AMap.find i |> AVal.bind(id)
+                    let leaf = model.surfaces.flat |> AMap.find i // TODO v5: common be total
                     let! surf = leaf 
                     let scalar = 
                         match surf with 
                         | AdaptiveSurfaces s -> s.selectedScalar 
                         | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
                     let! scalar = scalar
-                    match scalar with
+                    match AdaptiveOption.toOption scalar with
                     | Some s ->  
                         yield Incremental.Svg.svg AttributeMap.empty (FalseColorLegendApp.Draw.createFalseColorLegendBasics "ScalarLegend" s.colorLegend)
                     | None -> yield div[][]
