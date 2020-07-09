@@ -235,7 +235,7 @@ module PlatformShot =
 
         trafoFromRoverBase forw up pos
     
-    let fromRoverModel (rm : RoverModel) (sh : Shot): option<PlatformShot> =
+    let froAdaptiveRoverModel (rm : RoverModel) (sh : Shot): option<PlatformShot> =
         
         let getRover (rover : option<Rover>) (result : PlatformShot)  : option<PlatformShot> =
             rover |> Option.map (fun r -> { result with rover = r.id })

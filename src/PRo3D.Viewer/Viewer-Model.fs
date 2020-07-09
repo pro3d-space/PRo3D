@@ -3,7 +3,6 @@ namespace PRo3D.Viewer
 open System
 open Aardvark.Base
 open FSharp.Data.Adaptive
-open Aardvark.UI.Mutable
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.Application
@@ -24,14 +23,15 @@ open PRo3D.ReferenceSystem
 open PRo3D.Align
 open PRo3D.Base.Annotation
 open PRo3D.Viewplanner
-open PRo3D.Correlations
-
-open CorrelationDrawing
-open CorrelationDrawing.Model
-open UIPlus
+//open PRo3D.Correlations // TODO v5: reactivate
+//open CorrelationDrawing
+//open CorrelationDrawing.Model
+//open UIPlus
 
 open Chiron
 open PRo3D.Minerva
+
+open Adaptify
 
 #nowarn "0686"
 

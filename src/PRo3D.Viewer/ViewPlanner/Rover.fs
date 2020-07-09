@@ -3,6 +3,8 @@ namespace PRo3D
 open System
 open System.Runtime.InteropServices
 
+open FSharp.Data.Adaptive
+
 open Aardvark.Base
 open Aardvark.UI
 open IPWrappers
@@ -125,8 +127,8 @@ module RoverProvider =
 
         let instruments = 
             ViewPlanner.UnMarshalArray<ViewPlanner.SInstrument>(
-                platform.m_poPlatformInstruments, 
-                (int)platform.m_nNrOfPlatformInstruments) 
+                platform.m_poPlatforAdaptiveInstruments, 
+                (int)platform.m_nNrOfPlatforAdaptiveInstruments) 
             |> toInstruments
                 
         {
@@ -150,21 +152,21 @@ module RoverProvider =
     let initRover platformId =
         //Get various counts to initialize respective arrays
         let numWheelPoints = uint32 6 // IPWrapper.GetNrOfPlatformPointsOnGround(platformId)
-        let numInstruments = ViewPlanner.GetNrOfPlatformInstruments(platformId)
-        let numAxis =        ViewPlanner.GetNrOfPlatformAxes(platformId)
+        let nuAdaptiveInstruments = ViewPlanner.GetNrOfPlatforAdaptiveInstruments(platformId)
+        let nuAdaptiveAxis =        ViewPlanner.GetNrOfPlatformAxes(platformId)
 
         Log.line "Initialising %A" platformId
-        Log.line "Wheels: %d, Instruments: %d, Axes: %d" numWheelPoints numInstruments numAxis
+        Log.line "Wheels: %d, Instruments: %d, Axes: %d" numWheelPoints nuAdaptiveInstruments nuAdaptiveAxis
 
         //create and empty platform struct to be filled by the backend
         let mutable platform = 
-            ViewPlanner.SPlatform.CreateEmpty(numWheelPoints, numInstruments, numAxis)
+            ViewPlanner.SPlatform.CreateEmpty(numWheelPoints, nuAdaptiveInstruments, nuAdaptiveAxis)
 
         //crucial for backend to know which platform / rover to take
         platform.m_pcPlatformId <- platformId.ToPtr();
 
         //init platform writes values into platform reference
-        let errorCode = ViewPlanner.InitPlatform(ref platform, numWheelPoints, numInstruments, numAxis)
+        let errorCode = ViewPlanner.InitPlatform(ref platform, numWheelPoints, nuAdaptiveInstruments, nuAdaptiveAxis)
         if (errorCode <> 0) then failwith "init platform failed" else ()
 
         //convert initialised platform to rover and add to database
@@ -200,10 +202,10 @@ module RoverApp =
         let r = m.rovers |> HashMap.find up.roverId    
         let mutable p = m.platforms |> HashMap.find up.roverId       
         let i = r.instruments|> HashMap.find up.instrumentId
-        let mutable pInstruments = ViewPlanner.UnMarshalArray<ViewPlanner.SInstrument>(p.m_poPlatformInstruments)
+        let mutable pInstruments = ViewPlanner.UnMarshalArray<ViewPlanner.SInstrument>(p.m_poPlatforAdaptiveInstruments)
 
         pInstruments.[i.index].m_dCurrentFocalLengthInMm <- up.focal
-        ViewPlanner.MarshalArray(pInstruments, p.m_poPlatformInstruments)
+        ViewPlanner.MarshalArray(pInstruments, p.m_poPlatforAdaptiveInstruments)
 
         updateRoversAndPlatforms p m false    
 
@@ -253,8 +255,8 @@ module RoverApp =
 
     let initial =
         {
-            rovers = hmap.Empty
-            platforms = hmap.Empty
+            rovers = HashMap.Empty
+            platforms = HashMap.Empty
             //selectedInstrument = None
             selectedRover = None
             //selectedAxis = None
@@ -264,10 +266,10 @@ module RoverApp =
     let mapTolist (input : amap<_,'a>) : alist<'a> = 
         input |> AMap.toASet |> AList.ofASet |> AList.map snd    
     
-    let roversList (m:MRoverModel) = 
+    let roversList (m:AdaptiveRoverModel) = 
         (m.rovers |> mapTolist)
 
-    let toText (r : MRover) =
+    let toText (r : AdaptiveRover) =
         adaptive {
             let! instr  = r.instruments |> mapTolist |> AList.count
             let! axes   = r.axes |> mapTolist |> AList.count
@@ -276,7 +278,7 @@ module RoverApp =
             return sprintf "instr: %d | axes: %d  | wheels: %d" instr axes wheels
         }
 
-    let viewRovers (m:MRoverModel) = 
+    let viewRovers (m:AdaptiveRoverModel) = 
         Incremental.div 
             (AttributeMap.ofList [clazz "ui divided list inverted segment"; style "overflow-y : auto; width: 300px"]) 
             (                  

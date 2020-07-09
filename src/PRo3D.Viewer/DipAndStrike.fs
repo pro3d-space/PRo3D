@@ -6,14 +6,13 @@ open Aardvark.UI
 
 open System
 
-open FSharp.Data.Adaptive    
-
 open Aardvark.UI
 open Aardvark.UI.Primitives    
 open OpcViewer.Base
 open PRo3D.Base.Annotation
 
 open Adaptivy.FSharp.Core
+open FSharp.Data.Adaptive    
 
 module DipAndStrike =
     

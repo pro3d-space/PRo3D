@@ -237,14 +237,17 @@ module CorrelationPlotApp =
                                                       
                 let setGrainSize = RectangleAction.SetGrainSize rect.grainSize // fixes also width!
                 let changeColor = RectangleAction.UpdateColour (updateColoursFromCMap model)
-                let setUncertainty = RectangleAction.SetUncertainty (rect.isUncertain)                
+                let setUncertainty = RectangleAction.SetUncertainty (rect.isUncertain)         
+                
+                // TODO v5: correlations
+                let id = failwith "" // n.id
 
                 // TODO..why is this stuff duplicated in logs and diagram?
                 let logs  =
                     model.logs
-                    |> updateLog log.diagramRef.itemId (GeologicalLogAction.LogNodeMessage (n.id, LogNodes.RectangleMessage changeColor))
-                    |> updateLog log.diagramRef.itemId (GeologicalLogAction.LogNodeMessage (n.id, LogNodes.RectangleMessage setGrainSize))
-                    |> updateLog log.diagramRef.itemId (GeologicalLogAction.LogNodeMessage (n.id, LogNodes.RectangleMessage setUncertainty))
+                    |> updateLog log.diagramRef.itemId (GeologicalLogAction.LogNodeMessage (id, LogNodes.RectangleMessage changeColor))
+                    |> updateLog log.diagramRef.itemId (GeologicalLogAction.LogNodeMessage (id, LogNodes.RectangleMessage setGrainSize))
+                    |> updateLog log.diagramRef.itemId (GeologicalLogAction.LogNodeMessage (id, LogNodes.RectangleMessage setUncertainty))
 
                 let diagram =
                     model.diagram
@@ -290,7 +293,8 @@ module CorrelationPlotApp =
             |> DiagramApp.layoutDiagramItems 
             |> DiagramApp.updateBordersAndRectangles     
                     
-        diagram.rectanglesTable.Keys 
+        diagram.rectanglesTable
+        |> HashMap.keys
         |> Seq.toList 
         |> List.fold magicRectangleFunction model                    
                
@@ -598,11 +602,13 @@ module CorrelationPlotApp =
                             let setGrainSize = RectangleAction.SetGrainSize grainInfo // fixes also width!
                             let changeColor = RectangleAction.UpdateColour (updateColoursFromCMap model)
 
+                            let id = failwith "" // n.id TODO v5 correlations
+
                             // TODO..why is this stuff duplicated in logs and diagram?
                             let logs  =
                                 model.logs
-                                |> updateLog log.diagramRef.itemId (GeologicalLogAction.LogNodeMessage (n.id, LogNodes.RectangleMessage changeColor))
-                                |> updateLog log.diagramRef.itemId (GeologicalLogAction.LogNodeMessage (n.id, LogNodes.RectangleMessage setGrainSize))
+                                |> updateLog log.diagramRef.itemId (GeologicalLogAction.LogNodeMessage (id, LogNodes.RectangleMessage changeColor))
+                                |> updateLog log.diagramRef.itemId (GeologicalLogAction.LogNodeMessage (id, LogNodes.RectangleMessage setGrainSize))
 
                             let diagram =
                                 model.diagram
@@ -633,7 +639,7 @@ module CorrelationPlotApp =
             model
        
 
-    let viewLogs (model : MCorrelationPlotModel): DomNode<CorrelationPlotAction> =
+    let viewLogs (model : AdaptiveCorrelationPlotModel): DomNode<CorrelationPlotAction> =
 
         let toStyleColor color = (sprintf "color: %s;" (Html.ofC4b color))
         
@@ -691,7 +697,7 @@ module CorrelationPlotApp =
             ([clazz "ui list"] |> AttributeMap.ofList) 
             listOfLogs
 
-    let viewSvg (contacts : MContactsTable) (model : MCorrelationPlotModel)  = //TODO refactor
+    let viewSvg (contacts : MContactsTable) (model : AdaptiveCorrelationPlotModel)  = //TODO refactor
         let svgNode =
             let attsRoot = [
                 clazz "svgRoot"
@@ -728,7 +734,7 @@ module CorrelationPlotApp =
                 div [attribute "overflow-x" "auto";attribute "overflow-y" "auto"] [svgNode]
             ])
                                        
-    let listView (model : MCorrelationPlotModel) =        
+    let listView (model : AdaptiveCorrelationPlotModel) =        
         
         let attsBody = [
             style "background: #1B1C1E; height:100%; overflow-y:scroll; overflow-x:hidden; color:white"
@@ -741,7 +747,7 @@ module CorrelationPlotApp =
 
                 match selected with
                 | Some logId ->
-                    let! logs = model.logsNuevo |> AMap.toMod
+                    let! logs = model.logsNuevo |> AMap.toAVal
                     match (logs |> HashMap.tryFind logId) with
                     | Some log -> 
                         yield GeologicalLogNuevoProperties.view log 
@@ -793,7 +799,7 @@ module CorrelationPlotApp =
         ThreadPool.empty
     
     let app (annotations) (semApp  : SemanticsModel) (planet) (mAnnotations) 
-        : App<CorrelationPlotModel,MCorrelationPlotModel,CorrelationPlotAction> =
+        : App<CorrelationPlotModel,AdaptiveCorrelationPlotModel,CorrelationPlotAction> =
 
         {
             unpersist = Unpersist.instance

@@ -3,7 +3,7 @@ framework: netstandard2.0, net471, netcoreapp2.0, netcoreapp3.1
 source https://api.nuget.org/v3/index.json
 source https://vrvis.myget.org/F/aardvark/auth/11394d4d-4fe9-44ec-87c8-f3e98909f975/api/v3/index.json
 
-#nuget FSharp.Core                           ~> 4.6.2
+nuget FSharp.Core                           ~> 4.6.2
 nuget FSharp.Data                           ~> 3.1.1
 
 nuget Aardvark.Base                         ~> 5.0.14
@@ -31,7 +31,7 @@ nuget Aardvark.UI.Primitives                ~> 5.0.5
 nuget Adaptify.MSBuild                      ~> 1.0.0
 nuget Adaptify.Core                         ~> 1.0.0
 
-nuget Aardvark.GeoSpatial.Opc               ~> 5.0.4
+nuget Aardvark.GeoSpatial.Opc               ~> 5.0.5
 
 nuget Aardium                               ~> 1.1.0
 

@@ -26,7 +26,8 @@ open PRo3D.Surfaces
 open PRo3D.Viewer
 open PRo3D.Groups
 open PRo3D.Viewplanner
-open PRo3D.Viewplanner.Mutable
+
+open Adaptify.FSharp.Core
 
 
 module ViewerUtils =    
@@ -68,7 +69,7 @@ module ViewerUtils =
     let mutable lastHash = -1  
 
     let getSinglePointOnSurface (m : Model) (ray : Ray3d) (cameraLocation : V3d ) = 
-        let mutable cache = hmap.Empty
+        let mutable cache = HashMap.Empty
         let rayHash = ray.GetHashCode()
 
         if rayHash = lastHash then
@@ -197,8 +198,11 @@ module ViewerUtils =
                     if addSurf |> List.contains true then
                         // TEST: this surface bb intersects with another one and would be discarded 
                         sgsurfsout <- sgsurfsout @ [(newSgSurf.surface, newSgSurf)]
-                        let sfs = {newSurfaces.[i] with colorCorrection = 
-                                        {newSurfaces.[i].colorCorrection with color = {c = C4b.Red}; useColor = true}}
+                        let sfs = 
+                            { newSurfaces.[i] with 
+                                colorCorrection = 
+                                        { newSurfaces.[i].colorCorrection with color = {c = C4b.Red}; useColor = true } 
+                            }
                         let testSurfs = testSfs |> IndexList.map(fun x -> if x.guid = newSgSurf.surface then sfs else x)
                         testSfs <- testSurfs
                     else
@@ -221,7 +225,7 @@ module ViewerUtils =
     let pickable' (pick :aval<Pickable>) (sg: ISg) =
         Sg.PickableApplicator (pick, AVal.constant sg)
     
-    let toModSurface (leaf : aval<MLeaf>) = 
+    let toModSurface (leaf : aval<AdaptiveLeafCase>) = 
          adaptive {
             let! c = leaf
             match c with 
@@ -229,7 +233,7 @@ module ViewerUtils =
                 | _ -> return c |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
             }
 
-    let lookUp guid (table:amap<Guid, aval<MLeaf>>) =
+    let lookUp guid (table:amap<Guid, aval<AdaptiveLeafCase>>) =
         
         let entry = table |> AMap.find guid
 
@@ -269,7 +273,9 @@ module ViewerUtils =
             adaptive {
                 let! s = surf
                 let! scalar = s.selectedScalar
-                return scalar.IsSome
+                match scalar with
+                | AdaptiveSome _ -> return true
+                | _ -> return false
             }  
       
         let scalar = surf |> AVal.bind( fun x -> x.selectedScalar )
@@ -289,57 +295,57 @@ module ViewerUtils =
 
         let interval = scalar |> AVal.bind ( fun x ->
                         match x with 
-                            | Some s -> s.colorLegend.interval.value
-                            | None   -> AVal.constant(1.0)
+                            | AdaptiveSome s -> s.colorLegend.interval.value
+                            | AdaptiveNone   -> AVal.constant(1.0)
                         )
 
         let inverted = scalar |> AVal.bind ( fun x ->
                         match x with 
-                            | Some s -> s.colorLegend.invertMapping
-                            | None   -> AVal.constant(false)
+                            | AdaptiveSome s -> s.colorLegend.invertMapping
+                            | AdaptiveNone   -> AVal.constant(false)
                         )     
         
         let upperB = scalar |> AVal.bind ( fun x ->
                         match x with 
-                            | Some s -> s.colorLegend.upperBound.value
-                            | None   -> AVal.constant(1.0)
+                            | AdaptiveSome s -> s.colorLegend.upperBound.value
+                            | AdaptiveNone   -> AVal.constant(1.0)
                         )
 
         let lowerB = scalar |> AVal.bind ( fun x ->
                         match x with 
-                            | Some s -> s.colorLegend.lowerBound.value
-                            | None   -> AVal.constant(1.0)
+                            | AdaptiveSome s -> s.colorLegend.lowerBound.value
+                            | AdaptiveNone   -> AVal.constant(1.0)
                         )
 
         let upperC = 
           scalar 
             |> AVal.bind (fun x ->
                match x with 
-                 | Some s -> 
+                 | AdaptiveSome s -> 
                    s.colorLegend.upperColor.c 
                      |> AVal.map(fun x -> 
                        let t = x.ToC3f()
                        let t1 = HSVf.FromC3f(t)
                        let t2 = (float)t1.H
                        t2)
-                 | None -> AVal.constant(1.0)
+                 | AdaptiveNone -> AVal.constant(1.0)
                )
         let lowerC = 
           scalar 
             |> AVal.bind ( fun x ->
               match x with 
-                | Some s -> 
+                | AdaptiveSome s -> 
                   s.colorLegend.lowerColor.c 
                     |> AVal.map(fun x -> ((float)(HSVf.FromC3f (x.ToC3f())).H))
-                | None   -> AVal.constant(0.0)
+                | AdaptiveNone   -> AVal.constant(0.0)
               )
 
         let rangeToMinMax = 
           scalar 
             |> AVal.bind (fun x ->
               match x with 
-                  | Some s -> s.definedRange |> AVal.map(fun y -> V2d(y.Min, y.Max))
-                  | None   -> AVal.constant(V2d(0.0,1.0))
+                  | AdaptiveSome s -> s.definedRange |> AVal.map(fun y -> V2d(y.Min, y.Max))
+                  | AdaptiveNone   -> AVal.constant(V2d(0.0,1.0))
               )
         isg
             |> Sg.uniform "falseColors"    selectedScalar
@@ -377,8 +383,8 @@ module ViewerUtils =
             let! scalar = s.selectedScalar
             let! scalar' = 
                 match scalar with
-                | Some m -> m.label |> AVal.map Some
-                | None -> AVal.constant None //scalar |> Option.map(fun x -> x.index) //option<aval<int>>
+                | AdaptiveSome m -> m.label |> AVal.map Some
+                | AdaptiveNone -> AVal.constant None //scalar |> Option.map(fun x -> x.index) //option<aval<int>>
             
             let! texture = s.selectedTexture 
             let attr : AttributeParameters = 
@@ -409,15 +415,15 @@ module ViewerUtils =
         
 
     let viewSingleSurfaceSg 
-        (surface : MSgSurface) 
-        (blarg : amap<Guid, aval<MLeaf>>) 
+        (surface : AdaptiveSgSurface) 
+        (blarg : amap<Guid, aval<AdaptiveLeafCase>>) 
         (frustum : aval<Frustum>) 
         (selectedId : aval<Option<Guid>>)
         (isctrl:aval<bool>) 
         (globalBB : aval<Box3d>) 
         (refsys:AdaptiveReferenceSystem) 
-        (fp:MFootPrint) 
-        (vp:aval<Option<MViewPlan>>) 
+        (fp:AdaptiveFootPrint) 
+        (vp:aval<Option<ViewPlan>>) 
         (useHighlighting:aval<bool>) 
         (filterTexture : aval<bool>) =
 
@@ -479,7 +485,7 @@ module ViewerUtils =
                 (fun x -> 
                     x.Filter <- new TextureFilter(TextureFilterMode.Linear, magnificationFilter, TextureFilterMode.Linear, true ); 
                     x)           
-            let footprintVisible = //AVal.map2 (fun (vp:Option<MViewPlan>) vis -> (vp.IsSome && vis)) vp, fp.isVisible
+            let footprintVisible = //AVal.map2 (fun (vp:Option<AdaptiveViewPlan>) vis -> (vp.IsSome && vis)) vp, fp.isVisible
                 adaptive {
                     let! vp = vp
                     let! visible = fp.isVisible
@@ -549,7 +555,7 @@ module ViewerUtils =
             return Sg.empty
         } |> Sg.dynamic
         
-    let frustum (m:MModel) =
+    let frustum (m:Model) =
         let near = m.scene.config.nearPlane.value
         let far = m.scene.config.farPlane.value
         (Navigation.UI.frustum near far)

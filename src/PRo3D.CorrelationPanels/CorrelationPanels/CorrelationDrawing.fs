@@ -21,6 +21,10 @@ open CorrelationDrawing.AnnotationTypes
 open CorrelationDrawing.SemanticTypes
 open CorrelationDrawing.XXX
 
+
+open FSharp.Data.Adaptive
+open Adaptivy.FSharp.Core
+
 module CorrelationDrawing =    
 
     let initial : CorrelationDrawingModel = 
@@ -99,7 +103,7 @@ module CorrelationDrawing =
         | Some w ->
           {
             w with 
-              points   = w.points |> IndexList.append (newPoint point)
+              points   = w.points |> IndexList.add (newPoint point)
               geometry = geometryType
           } |> Some
           
@@ -160,13 +164,16 @@ module CorrelationDrawing =
  //////////////////
     module Sg =        
 
+        open FSharp.Data.Adaptive
+        open Adaptivy.FSharp.Core
+
         
         let computeScale (view : aval<CameraView>) (p:aval<V3d>) (size:float) =
             adaptive {
                 let! p = p
                 let! v = view
                 let distV = p - v.Location
-                let distF = V3d.Dot(v.Forward, distV)
+                let distF = Vec.Dot(v.Forward, distV)
                 return distF * size / 800.0 //needs hfov at this point
             }
 
@@ -178,8 +185,8 @@ module CorrelationDrawing =
                                                     | None -> Trafo3d.Scale(V3d.Zero))
             Sg.sphereDyn (color) (AVal.constant 0.05) |> Sg.trafo(trafo) // TODO hardcoded stuff
        
-        let view (model         : MCorrelationDrawingModel)
-                 (semanticApp   : MSemanticsModel) 
+        let view (model         : AdaptiveCorrelationDrawingModel)
+                 (semanticApp   : AdaptiveSemanticsModel) 
                  (cam           : aval<CameraView>) 
                  (sgFlags       : aval<SgFlags>) =      
 
@@ -202,10 +209,11 @@ module CorrelationDrawing =
           let sgWorking = 
             
             model.working |> AVal.map (fun x ->
-              match x with
-                | Some a -> (Contact.Sg.view a cam semanticApp true) 
-                              |> ASet.map (fun sg -> sg |> Sg.map AnnotationMessage)
-                              |> Sg.set
+              match AdaptiveOption.toOption x with
+                | Some a -> 
+                    (Contact.Sg.view a cam semanticApp true) 
+                        |> ASet.map (fun sg -> sg |> Sg.map AnnotationMessage)
+                        |> Sg.set
                 | None   -> Sg.ofList [])
               |> Sg.dynamic
           [

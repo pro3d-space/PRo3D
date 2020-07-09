@@ -20,7 +20,7 @@ namespace UIPlus
           css
           (AList.single (Incremental.text text))
 
-      let labelCi (text : aval<string>) (bgColour : MColorInput) =
+      let labelCi (text : aval<string>) (bgColour : AdaptiveColorInput) =
         let css =
           amap {
             yield clazz "ui horizontal label"

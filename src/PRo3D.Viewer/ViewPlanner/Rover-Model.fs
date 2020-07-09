@@ -15,6 +15,8 @@ open Aardvark.Base.CameraView
 open PRo3D.Base
 open Chiron
 
+open Adaptify
+
 
 type Intrinsics = {
     horizontalFieldOfView           : double
@@ -339,7 +341,6 @@ type FootPrint = {
 
 [<ModelType>]
 type ViewPlan = {
-    [<PrimaryKey>]
     id                  : Guid
     name                : string
     position            : V3d
@@ -356,7 +357,7 @@ type ViewPlan = {
 
 [<ModelType>]
 type ViewPlanModel = {
-    viewPlans           : HashSet<ViewPlan>
+    viewPlans           : HashMap<Guid,ViewPlan>
     selectedViewPlan    : Option<ViewPlan>
     working             : list<V3d> // pos + lookAt
     roverModel          : RoverModel
@@ -497,8 +498,8 @@ module ViewPlanModel =
         }
 
     let initRoverModel = {
-        rovers = hmap.Empty
-        platforms = hmap.Empty
+        rovers = HashMap.Empty
+        platforms = HashMap.Empty
         selectedRover = None
         //selectedInstrument = None
         //selectedAxis = None
@@ -521,7 +522,7 @@ module ViewPlanModel =
     }
 
     let initial = {
-        viewPlans         = hset.Empty
+        viewPlans         = HashMap.Empty
         selectedViewPlan  = None
         working           = list.Empty
         roverModel        = initRoverModel

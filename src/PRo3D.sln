@@ -12,6 +12,8 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PRo3D.Minerva", "PRo3D.Mine
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PRo3D.Viewer", "PRo3D.Viewer\PRo3D.Viewer.fsproj", "{A375E5FD-ABB2-48CF-AF27-CC3E4B650D04}"
 EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PRo3D.CorrelationPanels", "PRo3D.CorrelationPanels\PRo3D.CorrelationPanels.fsproj", "{BE10461E-3B5A-4904-9391-1D3A5F1FF582}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -38,6 +40,10 @@ Global
 		{A375E5FD-ABB2-48CF-AF27-CC3E4B650D04}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A375E5FD-ABB2-48CF-AF27-CC3E4B650D04}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A375E5FD-ABB2-48CF-AF27-CC3E4B650D04}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BE10461E-3B5A-4904-9391-1D3A5F1FF582}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BE10461E-3B5A-4904-9391-1D3A5F1FF582}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BE10461E-3B5A-4904-9391-1D3A5F1FF582}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BE10461E-3B5A-4904-9391-1D3A5F1FF582}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

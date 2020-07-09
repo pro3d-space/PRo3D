@@ -97,7 +97,7 @@ module RoseDiagram =
             { model with countPerBin = _bins}
         | UpdatePosition p -> { model with pos = p }
 
-    let view (model : MRoseDiagram) = 
+    let view (model : AdaptiveRoseDiagram) = 
         let lst = 
             alist {
                 let centre = V2d.Zero

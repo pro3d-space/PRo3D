@@ -74,7 +74,7 @@ namespace UIPlus
                                                 k
                                          )
                                           _model.registeredKeyDown
-            match _filtered.IsEmpty () with
+            match _filtered.IsEmpty with
              | true  -> app
              | false ->
                let config = _filtered.Item 0 //TODO: only taking first, could execute list

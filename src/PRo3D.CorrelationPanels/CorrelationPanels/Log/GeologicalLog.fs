@@ -37,7 +37,7 @@ module GeologicalLog =
         let nodeList = 
             model.nodes
             |> IndexList.map (LogNodes.Recursive.filterAndCollect f)
-            |> DS.IndexList.flattenLists
+            |> DS.PList.flattenLists
 
         let node = List.tryHead nodeList
         node

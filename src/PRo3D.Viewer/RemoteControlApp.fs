@@ -59,7 +59,7 @@ module RemoteControlApp =
 
     let mkInstrumetnWps m = 
         let pShots = 
-            m.shots |> IndexList.choose(fun x -> PlatformShot.fromRoverModel m.Rover x)
+            m.shots |> IndexList.choose(fun x -> PlatformShot.froAdaptiveRoverModel m.Rover x)
         { m with platformShots = pShots }
 
     let loadData m = 
@@ -125,7 +125,7 @@ module RemoteControlApp =
                 send <| RemoteAction.SetCameraView (sh |> Shot.getCamera)
                 m
             | UpdatePlatformTest sh ->
-                let platform = RemoteControlModel.PlatformShot.fromRoverModel m.Rover sh
+                let platform = RemoteControlModel.PlatformShot.froAdaptiveRoverModel m.Rover sh
                 match platform with 
                    | Some p ->
                         
@@ -159,7 +159,7 @@ module RemoteControlApp =
                 let m = { m with Rover = RoverApp.update m.Rover a }                                
                 match m.selectedShot with
                     | Some sh ->                
-                        let psh = PlatformShot.fromRoverModel m.Rover sh
+                        let psh = PlatformShot.froAdaptiveRoverModel m.Rover sh
                         match psh with
                           | Some p ->                                                                                                         
                             PlatformShot.getViewSpec m.Rover p 

@@ -19,7 +19,7 @@ module DropdownList =
     | SetList of IndexList<'a>
 
   let init<'a> : DropdownList<'a> = {
-    valueList = plist.Empty
+    valueList = IndexList.Empty
     selected = None
     color = C4b.Black
     searchable = true
@@ -32,7 +32,7 @@ module DropdownList =
       | SetList lst -> {model with valueList = lst}
     
 
-  let view' (mDropdown      : MDropdownList<'a, _>)  
+  let view' (mDropdown      : AdaptiveDropdownList<'a, _,_>)  
             (changeFunction : (option<'a> -> 'msg))
             (labelFunction  : ('a -> aval<string>))
             (getIsSelected  : ('a -> aval<bool>))  =

@@ -120,6 +120,9 @@ module ReferenceSystem =
         planet = Planet.Mars
     }
 
+    open ViewConfigModelLenses
+
+    
     let initialConfig : ReferenceSystemConfig<ViewConfigModel> = {
         arrowLength    = ViewConfigModel.arrowLength_    >-> NumericInput.value_
         arrowThickness = ViewConfigModel.arrowThickness_ >-> NumericInput.value_
@@ -131,7 +134,7 @@ type ReferenceSystem with
         json {
             let! v = Json.read "version"
             match v with 
-            | 0 -> return! ReferenceSystem.read0
+            | 0 -> return! ReferenceSystemH.read0
             | _ -> 
                 return! v 
                 |> sprintf "don't know version %A  of ReferenceSystem"

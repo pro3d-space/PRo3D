@@ -862,7 +862,7 @@ module LogToDiagram =
         
         let rectangles = 
             rectangleStack.order 
-            |> List.map (fun x -> rectangleStack.rectangles.Find x)
+            |> List.map (fun x -> HashMap.find x rectangleStack.rectangles)
 
         let zipped = 
             facies 

@@ -75,7 +75,7 @@ module Bookmarks =
                 | _ -> outerModel, bookmarks
             | None ->  outerModel, bookmarks
                 
-    let mkColor (model : AdaptiveGroupsModel) (b : MBookmark) =
+    let mkColor (model : AdaptiveGroupsModel) (b : AdaptiveBookmark) =
         let id = b.key |> AVal.force
 
         let color =  
@@ -86,7 +86,7 @@ module Bookmarks =
         
         color
 
-    let lastSelected (model : AdaptiveGroupsModel) (b : MBookmark) =
+    let lastSelected (model : AdaptiveGroupsModel) (b : AdaptiveBookmark) =
         let id = b.key |> AVal.force
         model.singleSelectLeaf 
         |> AVal.map(function
@@ -94,7 +94,7 @@ module Bookmarks =
             | _ -> false 
         )
 
-    let isSingleSelect (model : AdaptiveGroupsModel) (b : MBookmark) =
+    let isSingleSelect (model : AdaptiveGroupsModel) (b : AdaptiveBookmark) =
         model.singleSelectLeaf 
         |> AVal.map(function
             | Some selected -> selected = (b.key |> AVal.force)
@@ -103,18 +103,18 @@ module Bookmarks =
     let viewBookmarks 
       (path         : list<Index>) 
       (model        : AdaptiveGroupsModel) 
-      (singleSelect : MBookmark*list<Index> -> 'outer) 
-      (multiSelect  : MBookmark*list<Index> -> 'outer) 
+      (singleSelect : AdaptiveBookmark*list<Index> -> 'outer) 
+      (multiSelect  : AdaptiveBookmark*list<Index> -> 'outer) 
       (lift         : GroupsAppAction -> 'outer) 
       (bookmarks    : alist<System.Guid>) : alist<DomNode<'outer>> =
         alist {
             let bookmarks = 
                 bookmarks
-                |> AList.filterM(fun x -> model.flat |> AMap.keys |> ASet.contains x)
-                |> AList.map (fun x -> model.flat |> AMap.find x |> AVal.bind(id) |> AVal.force)
+                |> AList.filterA(fun x -> model.flat |> AMap.keys |> ASet.contains x)
+                |> AList.map (fun x -> model.flat |> AMap.find x |> AVal.force)
                 |> AList.choose(fun x ->
                     match x with
-                    | MBookmarks a -> Some a
+                    | AdaptiveBookmarks a -> Some a
                     | _ -> None )
             
             for b in bookmarks do
@@ -209,11 +209,11 @@ module Bookmarks =
             let leafDoAdaptiveNodes = AList.collecti (fun i v -> viewTree (i::path) v model) group.subNodes    
 
             let singleSelect = 
-                fun (a:MBookmark,path:list<Index>) -> 
+                fun (a:AdaptiveBookmark,path:list<Index>) -> 
                     BookmarkAction.GroupsMessage(GroupsAppAction.SingleSelectLeaf (path, a.key |> AVal.force, ""))
 
             let multiSelect = 
-                fun (a:MBookmark,path:list<Index>) -> 
+                fun (a:AdaptiveBookmark,path:list<Index>) -> 
                     BookmarkAction.GroupsMessage(GroupsAppAction.AddLeafToSelection (path, a.key |> AVal.force, ""))
 
             let lift   = fun (a:GroupsAppAction) -> (BookmarkAction.GroupsMessage a)
@@ -245,7 +245,7 @@ module Bookmarks =
         )                                    
  
     module UI =
-        let view (model:MBookmark) =
+        let view (model:AdaptiveBookmark) =
             let view = model.cameraView
             require GuiEx.semui (
                 Html.table [  

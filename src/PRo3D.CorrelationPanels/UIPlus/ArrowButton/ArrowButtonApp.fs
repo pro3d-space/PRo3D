@@ -23,7 +23,7 @@ module ArrowButtonApp =
     match action with
       | OnClick id -> model
 
-  let view (model : MArrowButton) = 
+  let view (model : AdaptiveArrowButton) = 
     let content = 
       alist {
         let! size = model.size

@@ -1,5 +1,7 @@
 namespace CorrelationDrawing.LogNodes
 
+open FSharp.Data.Adaptive
+
 type LogNodeAction =
     | RectangleMessage    of Svgplus.RectangleAction  // TODO refactore
 

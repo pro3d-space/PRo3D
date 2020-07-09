@@ -33,7 +33,7 @@ type LogDiagramReferences = {
 [<ModelType>]
 type GeologicalLog = {
 
-    [<NonIncremental;PrimaryKey>]
+    [<NonAdaptive>]
     id              : Svgplus.RectangleStackTypes.RectangleStackId
 
     [<NonAdaptive>]

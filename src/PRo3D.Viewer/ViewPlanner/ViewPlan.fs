@@ -23,6 +23,8 @@ open Aardvark.Geometry
 
 open IPWrappers
 
+open Adaptify.FSharp.Core
+
 module ViewPlanApp = 
         
     type Action =
@@ -84,22 +86,22 @@ module ViewPlanApp =
         | None -> m
       | None -> m 
 
-    let getInstrumentResolution (vp:MViewPlanModel) =
+    let getInstrumentResolution (vp:AdaptiveViewPlanModel) =
       adaptive {
         let! selected = vp.selectedViewPlan
         let fail = (uint32(1024), uint32(1024))
 
         match selected with
-        | Some v -> 
+        | AdaptiveSome v -> 
           let! selectedI = v.selectedInstrument
           match selectedI with
-          | Some i -> 
+          | AdaptiveSome i -> 
             let! intrinsics = i.intrinsics
             let horRes  = intrinsics.horizontalResolution
             let vertRes = intrinsics.verticalResolution
             return (horRes, vertRes)
-          | None -> return fail
-        | None -> return fail
+          | AdaptiveNone -> return fail
+        | AdaptiveNone -> return fail
       } 
         
     let trafoFromTranslatedBase (position:V3d) (tilt:V3d) (forward:V3d) (right:V3d) : Trafo3d =  
@@ -107,7 +109,7 @@ module ViewPlanApp =
       (rotTrafo * Trafo3d.Translation(position)) 
 
     let getPlaneNormalSign (v1:V3d) (v2:V3d) =
-      let sign = V3d.Dot(v2, v1)
+      let sign = Vec.Dot(v2, v1)
       (sign <= 0.0)
 
     let hitF (p : V3d) (dir:V3d) (refSystem : ReferenceSystem.ReferenceSystem) 
@@ -122,9 +124,9 @@ module ViewPlanApp =
        
     let initialPlacementTrafo (position:V3d) (lookAt:V3d) (up:V3d) : Trafo3d =
       let forward = (lookAt - position).Normalized
-      let n = V3d.Cross(forward, up.Normalized).Normalized
-      let tilt = V3d.Cross(n, forward).Normalized
-      let right = V3d.Cross(tilt, forward).Normalized
+      let n = Vec.Cross(forward, up.Normalized).Normalized
+      let tilt = Vec.Cross(n, forward).Normalized
+      let right = Vec.Cross(tilt, forward).Normalized
 
       trafoFromTranslatedBase position tilt forward right
         
@@ -150,12 +152,12 @@ module ViewPlanApp =
       let rightVecLine = PlaneFitting.Line planeIntersectionPoints //fitLineLeastSquares planeIntersectionPoints
 
       let newRightVec = rightVecLine.Direction.Normalized
-      let newTiltVec = V3d.Cross(forward, newRightVec).Normalized
+      let newTiltVec = Vec.Cross(forward, newRightVec).Normalized
 
       match getPlaneNormalSign up newTiltVec with
       | true -> 
-        let newTilt = newTiltVec.Negated
-        let newRight = newRightVec.Negated
+        let newTilt = -newTiltVec
+        let newRight = -newRightVec
         trafoFromTranslatedBase working.[0] newTilt forward newRight
       | false -> 
         trafoFromTranslatedBase working.[0] newTiltVec forward newRightVec
@@ -220,7 +222,7 @@ module ViewPlanApp =
               (data |> HashMap.find "qW").ToFloat())
 
         let rot = Rot3d(posQ.W,posQ.X, posQ.Y,posQ.Z)
-        let forward = rot.TransformDir(ref.north.value) //ref.north.value
+        let forward = rot.Transform(ref.north.value) //ref.north.value
         let forward' = pos + forward
         let trafo = initialPlacementTrafo pos forward' ref.up.value
         let angle = {
@@ -479,29 +481,29 @@ module ViewPlanApp =
         | None -> outerModel, model        
 
     module Sg =     
-        let drawWorking (model:MViewPlanModel) =
+        let drawWorking (model:AdaptiveViewPlanModel) =
             let point0 =
                 AVal.map( fun w -> match w |> List.tryHead with
                                             | Some p -> 
                                                 PRo3D.Sg.dot (AVal.constant p) (AVal.constant 3.0) (AVal.constant C4b.Green)
                                             | None -> Sg.empty
-                        ) model.working |> AVal.toASet |> Sg.set
+                        ) model.working |> ASet.ofAValSingle |> Sg.set
               
             let point1 =
                 AVal.map( fun w -> match w |> List.tryLast with
                                             | Some p -> 
                                                 PRo3D.Sg.dot (AVal.constant p) (AVal.constant 3.0) (AVal.constant C4b.Green)
                                             | None -> Sg.empty
-                        ) model.working |> AVal.toASet |> Sg.set
+                        ) model.working |> ASet.ofAValSingle |> Sg.set
             Sg.ofList [point0;point1]
         
-        let drawInitPositions (viewPlan : MViewPlan) (cam:aval<CameraView>)=
+        let drawInitPositions (viewPlan : AdaptiveViewPlan) (cam:aval<CameraView>)=
             Sg.ofList [
                     ReferenceSystemApp.Sg.point viewPlan.position (AVal.constant C4b.Green) cam // position
                     ReferenceSystemApp.Sg.point viewPlan.lookAt (AVal.constant C4b.Yellow) cam // lookAt pos
                     ]
 
-        let drawVectors (viewPlan : MViewPlan)(near:aval<float>) (length:aval<float>) 
+        let drawVectors (viewPlan : AdaptiveViewPlan)(near:aval<float>) (length:aval<float>) 
                         (thickness:aval<float>) (cam:aval<CameraView>) =
 
             let lookAtVec =  AVal.map(fun (t:Trafo3d) -> t.Forward.UpperLeftM33().C0) viewPlan.roverTrafo
@@ -531,7 +533,7 @@ module ViewPlanApp =
                     tilt   |> ReferenceSystemApp.Sg.directionMarker near cam                    
                 ] |> Sg.onOff viewPlan.isVisible
         
-        let drawAxis (axis:MAxis) (cam:aval<CameraView>) (thickness:aval<float>) (trafo:aval<Trafo3d>) =
+        let drawAxis (axis:AdaptiveAxis) (cam:aval<CameraView>) (thickness:aval<float>) (trafo:aval<Trafo3d>) =
             let start = AVal.map2( fun (t:Trafo3d) p -> t.Forward.TransformPos p) trafo axis.startPoint
             let endp = AVal.map2( fun (t:Trafo3d) p -> t.Forward.TransformPos p) trafo axis.endPoint
             let axisLine = 
@@ -549,7 +551,7 @@ module ViewPlanApp =
                     PRo3D.Sg.lines axisLine (AVal.constant 0.0) color thickness trafo
                 ] 
         
-        let drawInstruments (instruments:alist<MInstrument>) (viewPlan:MViewPlan) (near:aval<float>)
+        let drawInstruments (instruments:alist<AdaptiveInstrument>) (viewPlan:AdaptiveViewPlan) (near:aval<float>)
                             (length:aval<float>) (thickness:aval<float>) (cam:aval<CameraView>) =
             alist {
                 let! trafo = viewPlan.roverTrafo
@@ -562,7 +564,7 @@ module ViewPlanApp =
                     let camUpTrans = AVal.map(fun p -> trafo.Forward.TransformDir p) i.extrinsics.camUp
 
                     match selInst with
-                        | Some s -> 
+                        | AdaptiveSome s -> 
                             let! sid = s.id
                             let! id = i.id
                             //let size = Sg.computeInvariantScale cam near viewPlan.position length (AVal.constant 60.0)
@@ -594,10 +596,10 @@ module ViewPlanApp =
                                         lookAt |> ReferenceSystemApp.Sg.directionMarker near cam 
                                         up     |> ReferenceSystemApp.Sg.directionMarker near cam
                                     ] 
-                        | None -> yield Sg.ofList []
+                        | AdaptiveNone -> yield Sg.ofList []
                 }
                           
-        let drawWheels (vp:MViewPlan) (cam:aval<CameraView>) =
+        let drawWheels (vp:AdaptiveViewPlan) (cam:aval<CameraView>) =
           alist {
             let! wheels = vp.rover.wheelPositions
             let! trafo = vp.roverTrafo
@@ -606,8 +608,8 @@ module ViewPlanApp =
                 yield ReferenceSystemApp.Sg.point wheelPos (AVal.constant C4b.White) cam
             }
                 
-        let drawSelectionGeometry (vp:MViewPlan) (near:aval<float>) (length:aval<float>) 
-          (thickness:aval<float>) (cam:aval<CameraView>) (roverM:MRoverModel)= 
+        let drawSelectionGeometry (vp:AdaptiveViewPlan) (near:aval<float>) (length:aval<float>) 
+          (thickness:aval<float>) (cam:aval<CameraView>) (roverM:AdaptiveRoverModel)= 
 
             let wheels = 
               drawWheels vp cam
@@ -636,7 +638,7 @@ module ViewPlanApp =
             ]         
 
         let view<'ma> (mbigConfig : 'ma) (minnerConfig : ReferenceSystemApp.MInnerConfig<'ma>)
-          (model:MViewPlanModel) (cam:aval<CameraView>) : ISg<Action> =
+          (model:AdaptiveViewPlanModel) (cam:aval<CameraView>) : ISg<Action> =
                        
             let length    = minnerConfig.getArrowLength    mbigConfig
             let thickness = minnerConfig.getArrowThickness mbigConfig
@@ -670,7 +672,7 @@ module ViewPlanApp =
 
     module UI =
 
-        let viewHeader (m:MViewPlan) (id:Guid) toggleMap = 
+        let viewHeader (m:AdaptiveViewPlan) (id:Guid) toggleMap = 
             [
                 Incremental.text m.name; text " "
 
@@ -685,7 +687,7 @@ module ViewPlanApp =
                 ][] |> UI.wrapToolTipBottom "Remove"                                         
             ]    
 
-        let viewViewPlans (m:MViewPlanModel) = 
+        let viewViewPlans (m:AdaptiveViewPlanModel) = 
           let itemAttributes =
               amap {
                   yield clazz "ui divided list inverted segment"
@@ -735,7 +737,7 @@ module ViewPlanApp =
             }
           )
         
-        let focalGui (i : MInstrument) =
+        let focalGui (i : AdaptiveInstrument) =
             let nodes =
               alist {
                 let! id = i.id
@@ -747,7 +749,7 @@ module ViewPlanApp =
               }
             Incremental.div AttributeMap.Empty nodes
 
-        let instrumentProperties(i : MInstrument) =
+        let instrumentProperties(i : AdaptiveInstrument) =
             let sensor = i.intrinsics |> AVal.map(fun x -> sprintf "%d X %d" x.horizontalResolution x.verticalResolution)
 
             require GuiEx.semui (
@@ -757,14 +759,14 @@ module ViewPlanApp =
                 ]
             )
 
-        let viewInstrumentProperties (m : MViewPlan) = 
+        let viewInstrumentProperties (m : AdaptiveViewPlan) = 
           m.selectedInstrument 
             |> AVal.map(fun x ->
                 match x with 
                   | Some i -> instrumentProperties i
                   | None ->   div[][])
 
-        let viewFootprintProperties (fpVisible:aval<bool>) (m : MViewPlan) = 
+        let viewFootprintProperties (fpVisible:aval<bool>) (m : AdaptiveViewPlan) = 
           m.selectedInstrument 
             |> AVal.map(fun x ->
               match x with 
@@ -779,15 +781,15 @@ module ViewPlanApp =
               | None -> div[][])
 
 
-        //let instrumentsDd (r:MRover) (m : MViewPlan) = 
+        //let instrumentsDd (r:MRover) (m : AdaptiveViewPlan) = 
         //    UI.dropDown'' (r.instruments |> RoverApp.mapTolist) m.selectedInstrument (fun x -> SelectInstrument (x |> Option.map(fun y -> y.Current |> AVal.force))) (fun x -> (x.id |> AVal.force) )   
         
-        let instrumentsDd (r:MRover) (m : MViewPlan) = 
+        let instrumentsDd (r:MRover) (m : AdaptiveViewPlan) = 
             UI.dropDown'' (r.instruments |> RoverApp.mapTolist) 
                            m.selectedInstrument (fun x -> SelectInstrument (x |> Option.map(fun y -> y.Current |> AVal.force))) 
                                                 (fun x -> (x.id |> AVal.force) )   
 
-        let viewAxesList (r : MRover) (m : MViewPlan) =
+        let viewAxesList (r : MRover) (m : AdaptiveViewPlan) =
             alist {
                 let! selectedI = m.selectedInstrument
                 match selectedI with
@@ -813,7 +815,7 @@ module ViewPlanApp =
 
             }
 
-        let viewRoverProperties' (r : MRover) (m : MViewPlan) (fpVisible:aval<bool>) =
+        let viewRoverProperties' (r : MRover) (m : AdaptiveViewPlan) (fpVisible:aval<bool>) =
             require GuiEx.semui (
                 Html.table [
                      Html.row "Change VPName:"[ Html.SemUi.textBox m.name SetVPName ]
@@ -832,7 +834,7 @@ module ViewPlanApp =
                 
             )
 
-        let viewSelectRover (m : MRoverModel) : DomNode<RoverApp.Action> =
+        let viewSelectRover (m : AdaptiveRoverModel) : DomNode<RoverApp.Action> =
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large Rocket icon"][] ]
                 Html.Layout.boxH [ UI.dropDown'' (RoverApp.roversList m)  
@@ -842,7 +844,7 @@ module ViewPlanApp =
             ]
 
 
-        let viewRoverProperties lifter (fpVisible:aval<bool>) (model : MViewPlanModel) = 
+        let viewRoverProperties lifter (fpVisible:aval<bool>) (model : AdaptiveViewPlanModel) = 
             model.selectedViewPlan 
                 |> AVal.map(fun x ->
                     match x with 

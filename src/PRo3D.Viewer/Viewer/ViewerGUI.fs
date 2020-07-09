@@ -175,7 +175,7 @@ module Gui =
             ]                     
         ]
     
-    let textOverlaysInstrumentView (m : MViewPlanModel)  = 
+    let textOverlaysInstrumentView (m : AdaptiveViewPlanModel)  = 
         let instrument =
             adaptive {
                 let! vp = m.selectedViewPlan
@@ -637,7 +637,7 @@ module Gui =
       let viewBookmarkProperties (model:MModel) = 
           let view = (fun leaf ->
               match leaf with
-                | MBookmarks bm -> Bookmarks.UI.view bm
+                | AdaptiveBookmarks bm -> Bookmarks.UI.view bm
                 | _ -> div[style "font-style:italic"][ text "no bookmark selected" ])
     
           model.scene.bookmarks |> GroupsApp.viewSelected view BookmarkUIMessage

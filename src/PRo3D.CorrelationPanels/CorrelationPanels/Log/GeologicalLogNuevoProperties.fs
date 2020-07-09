@@ -18,7 +18,7 @@ module GeologicalLogNuevoProperties =
         | SetName name ->
             { log with name = name }
 
-    let view (log : MGeologicalLogNuevo) =
+    let view (log : AdaptiveGeologicalLogNuevo) =
 
         require GuiEx.semui (
             Html.table [                            

@@ -93,7 +93,7 @@ module Button =
         | OnMouseUp   (b,v) -> model
         | SetVisible b -> model
 
-    let view (model : MButton) = 
+    let view (model : AdaptiveButton) = 
         let atts = 
             Attributes.Incremental.circle 
                 model.pos model.color model.stroke model.radius model.fill

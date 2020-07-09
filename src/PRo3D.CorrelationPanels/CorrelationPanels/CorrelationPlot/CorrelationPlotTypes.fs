@@ -15,7 +15,6 @@ open Svgplus.CameraType
 
 open Svgplus.DiagramItemType
 open UIPlus
-open Chiron
 open Aardvark.UI
 open Svgplus
 open PRo3D.Base.Annotation
@@ -23,6 +22,7 @@ open System
 open Svgplus.Correlations2
 
 open Adaptify
+open Chiron
 
 type CorrelationPlotAction =
     | Clear
@@ -88,7 +88,7 @@ with
     static member initial : CorrelationPlotModel  =
         let defaultWidth = 126.0 // approx. width of vfGravel
         let actionMapping 
-            (log     : MGeologicalLog)
+            (log     : AdaptiveGeologicalLog)
             (domNode : DomNode<GeologicalLogAction>) = 
 
             UI.map (fun a -> CorrelationPlotAction.LogMessage (log.diagramRef.itemId, a)) domNode                           
