@@ -11,8 +11,6 @@ open Aardvark.Application
 open Aardvark.SceneGraph
 open Aardvark.UI
 
-open Aardvark.GeoSpatial.Opc
-
 open UIPlus
 open PRo3D
 open PRo3D.Base.Annotation

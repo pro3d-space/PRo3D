@@ -11,7 +11,7 @@ open Aardvark.Rendering.Text
 
 open PRo3D.Base
 open PRo3D.Minerva.Communication
-open Aardvark.GeoSpatial.Opc
+open OpcViewer.Base
 
 module QueryApp =
                    

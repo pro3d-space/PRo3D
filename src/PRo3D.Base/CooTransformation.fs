@@ -29,7 +29,7 @@ module CooTransformation =
     let deInitCooTrafo () = 
         CooTrafo.DeInit()
 
-    let getLatLonAlt (p:V3d) (planet:Planet): SphericalCoo = 
+    let getLatLonAlt (p:V3d) (planet:Planet) : SphericalCoo = 
       match planet with
       | Planet.None ->
         { latitude = nan; longitude = nan; altitude = nan; radian = 0.0 }

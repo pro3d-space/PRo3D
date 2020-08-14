@@ -14,7 +14,8 @@ Aardvark.UI
 Aardvark.UI.Primitives
 
 Aardvark.Geometry.Intersection
-Aardvark.GeoSpatial.Opc
+
+Aardvark.Geospatial.Opc
 
 OpcViewer.Base
 

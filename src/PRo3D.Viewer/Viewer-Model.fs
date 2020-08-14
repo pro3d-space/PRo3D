@@ -23,10 +23,10 @@ open PRo3D.ReferenceSystem
 open PRo3D.Align
 open PRo3D.Base.Annotation
 open PRo3D.Viewplanner
-open PRo3D.Correlations
-open CorrelationDrawing
-open CorrelationDrawing.Model
-open UIPlus
+//open PRo3D.Correlations
+//open CorrelationDrawing
+//open CorrelationDrawing.Model
+//open UIPlus
 
 open Chiron
 open PRo3D.Minerva
@@ -76,21 +76,21 @@ type PropertyActions =
 | DrawingMessage    of Drawing.Action
 | AnnotationMessage of AnnotationProperties.Action
 
-type CorrelationPanelsMessage = 
-| CorrPlotMessage               of CorrelationPlotAction
-| SemanticAppMessage            of SemanticAction
-| ColourMapMessage              of ColourMap.Action
-| LogPickReferencePlane         of Guid
-| LogAddSelectedPoint           of Guid * V3d
-| LogAddPointToSelected         of Guid * V3d
-| LogCancel
-| LogConfirm
-| LogAssignCrossbeds            of HashSet<Guid>
-| UpdateAnnotations             of HashMap<Guid, PRo3D.Groups.Leaf>
-| ExportLogs                    of string
-| RemoveLastPoint
-| SetContactOfInterest          of HashSet<CorrelationDrawing.AnnotationTypes.ContactId>
-| Nop
+//type CorrelationPanelsMessage = 
+//| CorrPlotMessage               of CorrelationPlotAction
+//| SemanticAppMessage            of SemanticAction
+//| ColourMapMessage              of ColourMap.Action
+//| LogPickReferencePlane         of Guid
+//| LogAddSelectedPoint           of Guid * V3d
+//| LogAddPointToSelected         of Guid * V3d
+//| LogCancel
+//| LogConfirm
+//| LogAssignCrossbeds            of HashSet<Guid>
+//| UpdateAnnotations             of HashMap<Guid, PRo3D.Groups.Leaf>
+//| ExportLogs                    of string
+//| RemoveLastPoint
+//| SetContactOfInterest          of HashSet<CorrelationDrawing.AnnotationTypes.ContactId>
+//| Nop
 //type ScaleToolAction = 
 //    | PlaneExtrudeAction of PlaneExtrude.App.Action
 
@@ -349,8 +349,8 @@ type Model = {
     minervaModel     : PRo3D.Minerva.MinervaModel
     linkingModel     : PRo3D.Linking.LinkingModel
 
-    correlationPlot : CorrelationPanelModel
-    pastCorrelation : Option<CorrelationPanelModel>
+    //correlationPlot : CorrelationPanelModel
+    //pastCorrelation : Option<CorrelationPanelModel>
             
     [<TreatAsValue>]
     past : Option<Drawing.DrawingModel> 

@@ -32,6 +32,7 @@ open System.Text
 open Aardvark.SceneGraph.Opc
 open Aardvark.VRVis.Opc
 open Aardvark.GeoSpatial.Opc
+open OpcViewer.Base
 
 open Aardium
 open System.Threading

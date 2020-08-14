@@ -1,12 +1,14 @@
 namespace PRo3D.Base
 
+open Aardvark.Base
+open FSharp.Data.Adaptive
+open Aardvark.Base.Rendering
+open Aardvark.UI    
+open OpcViewer.Base
+
+
 module OutlineEffect =
 
-    open Aardvark.Base
-    open FSharp.Data.Adaptive
-    open Aardvark.Base.Rendering
-    open Aardvark.UI
-    open Aardvark.GeoSpatial.Opc
 
     //module Shader =
     //    open FShade
@@ -136,7 +138,7 @@ module OutlineEffect =
             |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Stencil])
             |> Sg.pass pass
             |> Sg.shader {
-                    do! Shader.screenSpaceScale
+                    do! Shader.ScreenSpaceScale.screenSpaceScale
                     do! DefaultSurfaces.stableTrafo
                     do! DefaultSurfaces.vertexColor
             }
@@ -149,7 +151,7 @@ module OutlineEffect =
             |> Sg.depthTest (AVal.constant DepthTestMode.None)
             |> Sg.uniform "LineWidth" outlineWidth
             |> Sg.shader {
-                    do! Shader.screenSpaceScale
+                    do! Shader.ScreenSpaceScale.screenSpaceScale
                     do! DefaultSurfaces.stableTrafo
                     do! Shader.lines
                     do! DefaultSurfaces.thickLine

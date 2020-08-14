@@ -8,6 +8,7 @@ open Aardvark.Base.Geometry
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
 open Aardvark.Base.Rendering
+open Aardvark.Base.Rendering.Effects
 open Aardvark.SceneGraph
 open Aardvark.UI
 open Aardvark.UI.Primitives
@@ -17,10 +18,11 @@ open Aardvark.Rendering.Text
 
 open Aardvark.SceneGraph.Opc
 open Aardvark.SceneGraph.SgPrimitives.Sg
-open Aardvark.GeoSpatial.Opc.Shader
 open Aardvark.GeoSpatial.Opc
-open FShade
+open OpcViewer.Base
 
+open FShade
+open PRo3D
 open PRo3D.ReferenceSystem
 open PRo3D.Surfaces
 open PRo3D.Viewer
@@ -29,11 +31,7 @@ open PRo3D.Viewplanner
 
 open Adaptify.FSharp.Core
 
-
 module ViewerUtils =    
-    open Aardvark.GeoSpatial.Opc.Shader
-    open FShade
-    open PRo3D
 
     //let _surfaceModelLens = Model.Lens.scene |. Scene.Lens.surfacesModel
     //let _flatSurfaces = Scene.Lens.surfacesModel |. SurfaceModel.Lens.surfaces |. GroupsModel.Lens.flat
@@ -592,17 +590,17 @@ module ViewerUtils =
         Effect.compose [
             Shader.stableTrafo             |> toEffect
             triangleFilterX                |> toEffect
-            PRo3D.Base.OtherShader.Shader.improvedDiffuseTexture |> toEffect
+            Shader.OPCFilter.improvedDiffuseTexture |> toEffect
             fixAlpha |> toEffect
             
             // selection coloring makes gamma correction pointless. remove if we are happy withmark PatchBorders
             // Shader.selectionColor          |> toEffect       
-            PRo3D.Base.OtherShader.Shader.markPatchBorders |> toEffect
+            PRo3D.Base.Shader.differentColor |> toEffect
             
             
             Shader.LoDColor                |> toEffect                             
-            PRo3D.Base.OtherShader.Shader.falseColorLegend2 |> toEffect
-            PRo3D.Base.OtherShader.Shader.mapColorAdaption  |> toEffect            
+            PRo3D.Base.Shader.falseColorLegend2 |> toEffect
+            PRo3D.Base.Shader.mapColorAdaption  |> toEffect            
             //PRo3D.Base.OtherShader.Shader.footprintV        |> toEffect //TODO reactivate viewplanner
             //PRo3D.Base.OtherShader.Shader.footPrintF        |> toEffect
         ]

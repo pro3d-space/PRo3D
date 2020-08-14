@@ -5,10 +5,11 @@ open Aardvark.SceneGraph
 open Aardvark.UI
 open FSharp.Data.Adaptive
 open Aardvark.Base.Rendering
-open Aardvark.GeoSpatial.Opc
+open Aardvark.Rendering.Text
+open OpcViewer.Base
 open Aardvark.SceneGraph.SgPrimitives
 open Aardvark.SceneGraph.``Sg Picking Extensions``
-open Aardvark.Rendering.Text
+open Aardvark.Base.Rendering.Effects
 
 module Fail =
     let with1 formatString value =
@@ -133,6 +134,204 @@ module Shader =
             restartStrip()
         }
 
+    let markPatchBorders (v : Vertex) =
+        fragment {    
+            if uniform?selected then
+                if   (v.tc.X >= 0.99) && (v.tc.X <= 1.0) || (v.tc.X >= 0.0) && (v.tc.X <= 0.01) then
+                    return V4d(0.69, 0.85, 0.0, 1.0)
+                elif (v.tc.Y >= 0.99) && (v.tc.Y <= 1.0) || (v.tc.Y >= 0.0) && (v.tc.Y <= 0.01) then
+                    return V4d(0.69, 0.85, 0.0, 1.0)
+                else
+                    return v.c
+            else return v.c
+        }
+    
+    [<ReflectedDefinition>]
+    let hsv2rgb (h : float) (s : float) (v : float) =
+        let h = Fun.Frac(h)
+        let chr = v * s
+        let x = chr * (1.0 - Fun.Abs(Fun.Frac(h * 3.0) * 2.0 - 1.0))
+        let m = v - chr
+        let t = (int)(h * 6.0)
+        match t with
+            | 0 -> V3d(chr + m, x + m, m)
+            | 1 -> V3d(x + m, chr + m, m)
+            | 2 -> V3d(m, chr + m, x + m)
+            | 3 -> V3d(m, x + m, chr + m)
+            | 4 -> V3d(x + m, m, chr + m)
+            | 5 -> V3d(chr + m, m, x + m)
+            | _ -> V3d(chr + m, x + m, m)
+    
+    [<ReflectedDefinition>]
+    let mapFalseColors value : float =         
+        let invert           = uniform?inverted
+        let fcUpperBound     = uniform?upperBound
+        let fcLowerBound     = uniform?lowerBound
+        let fcInterval       = uniform?interval
+        let fcUpperHueBound  = uniform?endC
+        let fcLowerHueBound  = uniform?startC
+    
+        let low         = if (invert = false) then fcLowerBound else fcUpperBound
+        let up          = if (invert = false) then fcUpperBound else fcLowerBound
+        let interval    = if (invert = false) then fcInterval   else -1.0 * fcInterval        
+    
+        let rangeValue = up - low + interval
+        let normInterv = (interval / rangeValue)
+    
+        //map range to 0..1 according to lower/upperbound
+        let k = (value - low + interval) / rangeValue
+    
+        //discretize lookup
+        let bucket = floor (k / normInterv)
+        let k = ((float) bucket) * normInterv |> clamp 0.0 1.0
+    
+        let uH = fcUpperHueBound * 255.0
+        let lH = fcLowerHueBound * 255.0
+        //map values to hue range
+        let fcHueUpperBound = if (uH < lH) then uH + 1.0 else uH
+        let rangeHue = uH - lH // fcHueUpperBound - lH
+        (k * rangeHue) + lH
+    
+    [<ReflectedDefinition>]
+    let mapFalseColors2 value : float =
+        let fcInterval     = uniform?interval
+        let startColorHue  = uniform?startC
+        let endColorHue    = uniform?endC
+        let invertMapping  = uniform?inverted
+        let fcUpperBound   = uniform?upperBound
+        let fcLowerBound   = uniform?lowerBound
+    
+        let range          = fcUpperBound - fcLowerBound
+        let numOfRangeGaps = int(round (range / fcInterval)) //round
+        let numOfStops     = if (numOfRangeGaps + 2) > 100 then 100 else (numOfRangeGaps + 2)
+        //let numOfStops = if (numOfRangeGaps + 2) > 200 then 200 else (numOfRangeGaps + 2)
+    
+        let startColor = startColorHue *255.0
+        let endColor   = endColorHue *255.0
+        let hStepSize  =
+            if startColor < endColor then 
+                (endColor - startColor) / ((float)(numOfStops-1))
+            else 
+                ((endColor + 1.0) - startColor) / ((float)(numOfStops-1))
+                
+        let pos = 
+            match fcLowerBound < value with
+            | true -> (int ( round(value - fcLowerBound) / fcInterval )) //+1//round
+            | _ -> 0
+    
+        let pos1 = 
+            match fcUpperBound < value with
+            | true -> numOfRangeGaps
+            | _ -> pos
+                     
+        let currColorH = 
+            if invertMapping then
+                (endColor - (hStepSize * ((float)(pos1))))
+            else 
+                (startColor + (hStepSize * ((float)(pos1))))
+        currColorH
+
+    let falseColorLegend2 (v : Aardvark.GeoSpatial.Opc.Shader.Vertex) =
+        fragment {    
+    
+            if (uniform?falseColors) 
+            then
+                let hue = mapFalseColors v.scalar //mapFalseColors2 v.scalar
+                let c = hsv2rgb ((clamp 0.0 255.0 hue)/ 255.0 ) 1.0 1.0 // 
+                return v.c * V4d(c.X, c.Y, c.Z, 1.0)
+            else
+                return v.c
+        }
+
+    [<ReflectedDefinition>]
+    let myTrunc (value : float) =
+        clamp 0.0 255.0 value
+
+
+    //TODO LF ... put all color adaptation mechanisms into 1 shader. Shader code produced by FShade has a ridiculous size ~6500 lines of code
+
+    [<ReflectedDefinition>]
+    let mapContrast (col : V4d) =
+    //let mapContrast (v : Vertex) =
+        //fragment { 
+            if (uniform?useContrastS) then
+                let c = uniform?contrastS
+                let nc = V4d(col.X*255.0, col.Y*255.0, col.Z*255.0, 255.0)
+        
+                let factor = (259.0 * (c + 255.0)) / (255.0 * (259.0 - c))
+                let red    = (myTrunc (factor * (nc.X   - 128.0) + 128.0)) / 255.0
+                let green  = (myTrunc (factor * (nc.Y   - 128.0) + 128.0)) / 255.0
+                let blue   = (myTrunc (factor * (nc.Z   - 128.0) + 128.0)) / 255.0
+                V4d(red, green, blue, 1.0)
+            else
+                col
+        //}
+
+    [<ReflectedDefinition>]
+    let mapBrightness (col : V4d) = 
+    //let mapBrightness (v : Vertex) = 
+        //fragment { 
+            if (uniform?useBrightnS) then
+                let b = uniform?brightnessS
+                let nc = V4d(col.X*255.0, col.Y*255.0, col.Z*255.0, 255.0)        
+        
+                let red   = (myTrunc(nc.X + b)) / 255.0 
+                let green = (myTrunc(nc.Y + b)) / 255.0 
+                let blue  = (myTrunc(nc.Z + b)) / 255.0 
+                V4d(red, green, blue, 1.0)
+            else
+                col
+       // }
+
+    [<ReflectedDefinition>]
+    let mapGamma (col : V4d) = 
+    //let mapGamma (v : Vertex) = 
+        //fragment { 
+            if (uniform?useGammaS) then
+                let g = uniform?gammaS
+                let gammaCorrection = 1.0 / g
+                V4d(col.X**gammaCorrection, col.Y**gammaCorrection, col.Z**gammaCorrection, 1.0)
+            else
+                col
+        //}
+
+    [<ReflectedDefinition>]
+    let grayscale (col : V4d) =
+    //let grayscale (v : Vertex) = 
+    //    fragment { 
+            if (uniform?useGrayS) then
+                let value = col.X * 0.299 + col.Y * 0.587 + col.Z * 0.114
+                V4d(value, value, value, 1.0)
+            else
+                col
+        //}
+
+    [<ReflectedDefinition>]
+    let addColor (col : V4d) =
+    //let addColor (v : Vertex) = 
+        //fragment { 
+            if (uniform?useColorS) then
+                let hue : V3d =  uniform?colorS
+                let nc = V4d(col.X*255.0, col.Y*255.0, col.Z*255.0, 255.0)
+
+                let red   = (myTrunc( nc.X * hue.X)) / 255.0
+                let green = (myTrunc( nc.Y * hue.Y)) / 255.0
+                let blue  = (myTrunc( nc.Z * hue.Z)) / 255.0
+                V4d(red, green, blue, 1.0)
+            else
+                col
+        //}
+
+    let mapColorAdaption (v : Vertex) =
+        fragment { 
+            return v.c
+                    |> addColor
+                    |> mapContrast
+                    |> mapBrightness
+                    |> mapGamma
+                    |> grayscale                    
+        }
+
 module Sg =
     open FSharp.Data.Adaptive
     open Aardvark.Base.Rendering
@@ -161,7 +360,7 @@ module Sg =
                 toEffect Shader.singleColor
                 toEffect DefaultSurfaces.pointSprite
                 toEffect Shader.pointSpriteFragment
-                toEffect Aardvark.GeoSpatial.Opc.Shader.Shaders.depthOffsetFS
+                toEffect Shader.DepthOffset.depthOffsetFS
             ]
 
     let drawSingleColorPoints (pointsF : aval<V3f[]>) (color : aval<V4d>) pointSize offset = 
@@ -192,10 +391,10 @@ module Sg =
         |> Sg.lines color
         |> Sg.noEvents
         |> Sg.shader {
-            do! Shader.stableTrafo
+            do! Shader.StableTrafo.stableTrafo
             do! DefaultSurfaces.vertexColor
-            do! Shader.Shaders.thickLine
-            do! Shader.Shaders.depthOffsetFS 
+            do! Shader.ThickLineNew.thickLine
+            do! Shader.DepthOffset.depthOffsetFS 
         }                               
         |> Sg.uniform "LineWidth" width
         |> Sg.uniform "DepthOffset" (offset |> AVal.map (fun depthWorld -> depthWorld / (100.0 - 0.1))) 
@@ -260,14 +459,14 @@ module Sg =
         let edges = edgeLines false points trafo 
         let pline = drawStableLinesHelper edges offset color width
       
-        if picking then
-            pline 
-            |> Sg.pickable' (pickableContent points edges trafo)            
-            |> Sg.withEvents [ pickAnnotationFunc edges ]
-            |> Sg.trafo trafo
-        else 
-            pline
-            |> Sg.trafo trafo
+        //if picking then
+        //    pline 
+        //    |> Sg.pickable' (pickableContent points edges trafo)            
+        //    |> Sg.withEvents [ pickAnnotationFunc edges ]
+        //    |> Sg.trafo trafo
+        //else 
+        pline
+        |> Sg.trafo trafo
 
     //## POINTS ##
     let private sphereSgHelper (color: aval<C4b>) (size: aval<float>) (pos: aval<V3d>) = 
@@ -281,7 +480,7 @@ module Sg =
         let isgDot = sphereSgHelper color size point
         isgDot
         |> Sg.effect [
-            toEffect Shader.screenSpaceScale
+            toEffect Shader.ScreenSpaceScale.screenSpaceScale
             toEffect DefaultSurfaces.stableTrafo
             toEffect DefaultSurfaces.vertexColor          
         ]
@@ -307,7 +506,7 @@ module Sg =
         } 
         |> Sg.set
         |> Sg.effect [
-            toEffect Shader.screenSpaceScale
+            toEffect Shader.ScreenSpaceScale.screenSpaceScale
             toEffect DefaultSurfaces.stableTrafo
             toEffect DefaultSurfaces.vertexColor          
         ]
@@ -387,7 +586,7 @@ module Sg =
         Sg.text (Font.create "Consolas" FontStyle.Regular) C4b.White text
         |> Sg.noEvents
         |> Sg.shader {
-            do! Shader.stableTrafo
+            do! Shader.StableTrafo.stableTrafo
         }            
         |> Sg.trafo (invariantScaleTrafo view near pos size hfov)  // fixed pixel size scaling
         |> Sg.trafo billboardTrafo
@@ -421,7 +620,7 @@ module Sg =
         Sg.text (Font.create "Consolas" FontStyle.Regular) C4b.White text
         |> Sg.noEvents
         |> Sg.effect [
-            Shader.stableTrafo |> toEffect
+            Shader.StableTrafo.stableTrafo |> toEffect
         ]         
         |> Sg.trafo (0.1 |> Trafo3d.Scale |> AVal.constant )
         |> Sg.trafo billboardTrafo

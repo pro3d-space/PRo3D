@@ -57,7 +57,7 @@ let main argv =
 
     let rotate = argsList.Contains("-rotate")
     
-    let instance = App.start (LinkingTestApp.App.app opcDir rotate dumpFile cacheFile access)
+    let instance = failwith "" //App.start (LinkingTestApp.App.app opcDir rotate dumpFile cacheFile access)
 
     Log.line ">>>> %s" (System.IO.Path.GetFullPath("./resources"))
 

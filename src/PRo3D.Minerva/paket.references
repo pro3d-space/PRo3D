@@ -17,7 +17,6 @@ Adaptify.MSBuild
 
 Aardvark.Geometry.Intersection
 Aardvark.Geometry.PointTree
-Aardvark.GeoSpatial.Opc
 
 FSharp.Core
 FsPickler

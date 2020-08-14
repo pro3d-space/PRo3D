@@ -10,7 +10,7 @@ open Aardvark.Base.Rendering
 open Aardvark.Rendering.Text 
 open Aardvark.Geometry
 open Aardvark.SceneGraph
-open Aardvark.GeoSpatial.Opc
+open OpcViewer.Base
 
 open Aardvark.UI
 open Aardvark.UI.Primitives
@@ -700,9 +700,10 @@ module MinervaApp =
             { model with session = session }
     
     let selectionColor (model : AdaptiveMinervaModel) (feature : Feature) =
-        model.session.selection.selectedProducts 
-        |> ASet.contains feature.id
-        |> AVal.map (fun x -> if x then C4b.VRVisGreen else C4b.White)
+        failwith ""
+        //model.session.selection.selectedProducts 
+        //|> ASet.contains feature.id
+        //|> AVal.map (fun x -> if x then C4b.VRVisGreen else C4b.White)
 
     let viewFeatures (instr : Instrument) model (features : list<Feature>) =
         

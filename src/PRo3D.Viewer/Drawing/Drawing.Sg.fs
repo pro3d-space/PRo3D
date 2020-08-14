@@ -13,10 +13,11 @@ open Aardvark.SceneGraph
 open Aardvark.SceneGraph.Opc
 open Aardvark.Rendering.Text
 
-open Aardvark.GeoSpatial.Opc
-
 open Aardvark.UI
 open Aardvark.UI.Primitives    
+
+open OpcViewer.Base
+
 open PRo3D
 open PRo3D.Base
 open PRo3D.Drawing
@@ -38,9 +39,9 @@ module Sg =
           |> Sg.uniform "Size" size
           |> Sg.shader {
               //do! Shader.screenSpaceScale
-              do! Shader.stableTrafo
+              do! Shader.StableTrafo.stableTrafo
               do! DefaultSurfaces.vertexColor
-              do! Shader.stableLight
+              do! Shader.StableLight.stableLight
           }
           |> Sg.trafo(trafo)
     
@@ -48,9 +49,9 @@ module Sg =
         Sg.cone 30 color radius height
            |> Sg.noEvents         
            |> Sg.shader {                   
-               do! Shader.stableTrafo
+               do! Shader.StableTrafo.stableTrafo
                do! DefaultSurfaces.vertexColor
-               do! Shader.stableLight
+               do! Shader.StableLight.stableLight
            }
            |> Sg.trafo(trafo) 
            

@@ -11,12 +11,13 @@ open Aardvark.SceneGraph
 open Aardvark.SceneGraph.IO
 open Aardvark.SceneGraph.Opc
 open Aardvark.Prinziple
-open Aardvark.VRVis.Opc
-
-open Aardvark.GeoSpatial.Opc
 
 open Aardvark.UI.Operators
 open Aardvark.UI.Trafos  
+
+open Aardvark.GeoSpatial.Opc
+open Aardvark.VRVis.Opc
+//open OpcViewer.Base
 
 open PRo3D
 open PRo3D.Base

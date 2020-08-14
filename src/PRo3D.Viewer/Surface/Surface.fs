@@ -24,6 +24,9 @@ open System.Diagnostics
 open Adaptify.FSharp.Core
 open FSharp.Data.Adaptive
 
+open OpcViewer.Base
+open OpcViewer.Base.Picking
+
 open Adaptify
 
 module SurfaceUtils =
@@ -90,7 +93,7 @@ module SurfaceUtils =
                             |> Seq.chunkBySize 3
                             |> Seq.filter(fun x -> x.Length = 3)
                             |> Seq.map(fun x -> Triangle3d x)
-                            |> Seq.filter(fun x -> (Aardvark.VRVis.Opc.KdTrees.triangleIsNan x |> not)) |> Seq.toArray
+                            |> Seq.filter(fun x -> (IntersectionController.triangleIsNan x |> not)) |> Seq.toArray
                             |> TriangleSet
                                               
                         Log.startTimed "Building kdtrees for %s" (Path.GetFileName surface.importPath |> Path.GetFileName)
@@ -106,7 +109,7 @@ module SurfaceUtils =
                             affine        = Trafo3d.Identity
                             boundingBox   = tree.BoundingBox3d
                             kdtreePath    = kdPath
-                            objectSetPath = ""
+                            objectSetPath = ""                  
                             coordinatesPath = ""
                             texturePath = ""
                           } 
@@ -700,22 +703,13 @@ module SurfaceApp =
                              let! hc = headerColor
                              yield div[clazz "header"; style hc][
                                 Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
-                             ]
-                             //if selected then
-                             //    yield div[onClick singleSelect][ u[][Incremental.text desc]]
-                             //else
-                             //    yield div[onClick singleSelect][Incremental.text desc]
+                             ]                             
  
                              yield i [clazz "home icon"                                                
                                       onClick (fun _ -> FlyToSurface key) ][] |> UI.wrapToolTipBottom "Fly to surface"                                                     
 
                              yield i [clazz "folder icon"                                                
-                                      onClick (fun _ -> OpenFolder key) ][] |> UI.wrapToolTipBottom "Open Folder"
-
-                             //yield i [
-                             //  clazz "microchip icon"
-                             //  onClick (fun _ -> RebuildKdTrees key)
-                             //][] |> UI.wrapToolTip "process kdtrees"
+                                      onClick (fun _ -> OpenFolder key) ][] |> UI.wrapToolTipBottom "Open Folder"                             
 
                              yield Incremental.i (absRelIcons) (AList.empty)
                              yield Incremental.i visibleIcon AList.empty |> UI.wrapToolTipBottom "Toggle Visible"

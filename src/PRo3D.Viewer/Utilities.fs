@@ -2,73 +2,17 @@ namespace PRo3D
 
 open System
 open System.IO
-//open System.Windows.Forms
-
 
 open Aardvark.Base
-//open Aardvark.GeoSpatial.Opc
+open Aardvark.UI
 open PRo3D
-open Aardvark.GeoSpatial.Opc
+open OpcViewer.Base
 
 open PRo3D
 open PRo3D.Base.Annotation
 
-module Dialogs =
-    //open Microsoft.WindowsAPICodePack.Dialogs    
+module Dialogs =    
 
-    //let saveDialog  (w : Form)  =
-    //    let mutable r = Unchecked.defaultof<_>
-    //    w.Invoke(Action(fun _ -> 
-    //        let dialog = new SaveFileDialog()
-    //        if dialog.ShowDialog() = DialogResult.OK then
-    //            r <- Some dialog.FileName
-    //        else r <- None
-    //    )) |> ignore
-    //    r
-    
-    //let openDialog (w : Form) =
-    //    let mutable r = Unchecked.defaultof<_>
-    //    w.Invoke(Action(fun _ -> 
-    //        let dialog = new OpenFileDialog()
-    //        if dialog.ShowDialog() = DialogResult.OK then
-    //            r <- Some dialog.FileName
-    //        else r <- None
-    //    )) |> ignore
-    //    r
-
-    //let openDialog2 (w : Form)(isFolder : bool)(isMulti : bool) =
-    //    let mutable r = []
-    //    w.Invoke(Action(fun _ -> 
-    //        let dialog = new CommonOpenFileDialog()
-    //        dialog.Multiselect <- isMulti
-    //      //  dialog.InitialDirectory <- "C:\\Users"
-    //        dialog.IsFolderPicker <- isFolder
-    //        if dialog.ShowDialog() = CommonFileDialogResult.Ok then
-    //            r <- dialog.FileNames |> Seq.toList
-    //        else r <- []
-    //    )) |> ignore
-    //    r
-
-    //let openDialog3 (w : Form) (path: string) =
-    //    let mutable r = Unchecked.defaultof<_>
-    //    w.Invoke(Action(fun _ -> 
-    //        let dialog = new OpenFileDialog()
-    //        dialog.InitialDirectory <- path
-    //        if dialog.ShowDialog() = DialogResult.OK then
-    //            r <- Some dialog.FileName
-    //        else r <- None
-    //    )) |> ignore
-    //    r
-      
-    //let openFolders (w : Form) =
-    //    openDialog2 w true true
-
-    //let openFolder (w : Form) =
-    //    openDialog2 w true false
-
-    // aardium dialogs
-
-    open Aardvark.UI
         
     let onChooseFiles (chosen : list<string> -> 'msg) =
         let cb xs =
@@ -243,7 +187,7 @@ module Sg =
         Effect.compose [
             toEffect DefaultSurfaces.stableTrafo
             toEffect DefaultSurfaces.vertexColor
-            toEffect Shader.Shaders.thickLine
+            toEffect Shader.ThickLineNew.thickLine
         ]
 
     let lines (points : alist<V3d>) (offset : aval<float>) (color : aval<C4b>) (width : aval<float>) (trafo : aval<Trafo3d>) = 
@@ -260,9 +204,9 @@ module Sg =
 
     let scaledLinesEffect = 
         Effect.compose [
-            toEffect Shader.stableTrafo
+            toEffect Shader.StableTrafo.stableTrafo
             toEffect DefaultSurfaces.vertexColor
-            toEffect Shader.Shaders.thickLine
+            toEffect Shader.ThickLineNew.thickLine
         ]
                                
     let scaledLines (points : alist<V3d>) (color : aval<C4b>) (width : aval<float>) (trafo : aval<Trafo3d>) = 
@@ -310,9 +254,9 @@ module Sg =
 
     let dotEffect = 
         Effect.compose [
-            toEffect <| Shader.screenSpaceScale
-            toEffect <| Shader.stableTrafo
-            toEffect <| DefaultSurfaces.vertexColor  
+            toEffect <| Shader.ScreenSpaceScale.screenSpaceScale
+            toEffect <| Shader.StableTrafo.stableTrafo
+            toEffect <| DefaultSurfaces.vertexColor
         ]
 
     let dot (point : aval<V3d>) (size:aval<float>) (color : aval<C4b>) =
@@ -323,7 +267,7 @@ module Sg =
 
     let indexedDotEffect = 
         Effect.compose [
-            toEffect Shader.stableTrafo
+            toEffect Shader.StableTrafo.stableTrafo
             toEffect DefaultSurfaces.vertexColor
             toEffect DefaultSurfaces.pointSprite
         ]
@@ -340,8 +284,8 @@ module Sg =
 
     let spheresEffect = 
         Effect.compose [ 
-            toEffect <| Shader.screenSpaceScale
-            toEffect <| Shader.stableTrafo
+            toEffect <| Shader.ScreenSpaceScale.screenSpaceScale
+            toEffect <| Shader.StableTrafo.stableTrafo
             toEffect <| DefaultSurfaces.vertexColor 
         ]
     
@@ -414,7 +358,7 @@ module Sg =
         )
         rotTrafo * modelt
 
-    let stableTextShader = Effect.compose [Shader.stableTrafo |> toEffect]
+    let stableTextShader = Effect.compose [Shader.StableTrafo.stableTrafo |> toEffect]
     
     let text (view : aval<CameraView>) near hfov pos modelTrafo text (size : aval<double>) =
          

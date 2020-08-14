@@ -41,8 +41,7 @@ module SemanticApp =
     
     let getSemantic' (app : AdaptiveSemanticsModel) (semanticId : CorrelationSemanticId) =
         AMap.tryFind semanticId app.semantics
-    
-    
+        
     //let getSemanticOrDefault'  (app : MSemanticApp) (semanticId : SemanticId) =
     //  AMap.tryFind semanticId app.semantics
     

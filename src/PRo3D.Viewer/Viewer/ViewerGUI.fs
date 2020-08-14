@@ -223,12 +223,14 @@ module Gui =
                 div [ clazz "menu"] [             
                     div [ clazz "ui inverted item";
                         Dialogs.onChooseFiles  ImportDiscoveredSurfacesThreads;
-                        clientEvent "onclick" ("parent.aardvark.processEvent('__ID__', 'onchoose', parent.aardvark.dialog.showOpenDialog({properties: ['openDirectory', 'multiSelections']}));") ][
+                       // clientEvent "onclick" ("parent.aardvark.processEvent('__ID__', 'onchoose', top.aardvark.dialog.showOpenDialog({properties: ['openDirectory', 'multiSelections']}));");
+                        clientEvent "onclick" ("top.aardvark.dialog.showOpenDialog({ filters: [{ name: 'import OPCs'},], properties: ['openDirectory', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});")
+                    ][
                         text "OPC"
                     ]
                     div [ clazz "ui inverted item"; 
                         Dialogs.onChooseFiles ImportObject;
-                        clientEvent "onclick" ("top.aardvark.processEvent('__ID__', 'onchoose', top.aardvark.dialog.showOpenDialog({properties: ['openFile']}));") ][
+                        clientEvent "onclick" ("top.aardvark.processEvent('__ID__', 'onchoose', top.aardvark.dialog.showOpenDialog({properties: ['openFile'], filters: [{ extensions: ['obj']},]}));") ][
                         text "OBJ"
                     ]
                 ]
@@ -261,7 +263,10 @@ module Gui =
                     //save scene as
                     div [ 
                         clazz "ui inverted item"; Dialogs.onSaveFile SaveAs;
-                        clientEvent "onclick" ("top.aardvark.processEvent('__ID__', 'onsave', top.aardvark.dialog.showSaveDialog({filters: [{ name: 'Scene', extensions: ['pro3d']},]}));") ][
+                        clientEvent "onclick" (
+                            "top.aardvark.processEvent('__ID__', 'onsave', top.aardvark.dialog.showSaveDialog({filters: [{ name: 'Scene', extensions: ['pro3d']},]}));"
+                        ) 
+                    ][
                         text "Save as..."
                     ]
 
@@ -275,7 +280,8 @@ module Gui =
 
                         clientEvent "onclick" (
                             "top.aardvark.dialog.showOpenDialog({ filters: [{ name: 'Scene', extensions: ['pro3d','scn']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
-                           )][                                       
+                        )
+                    ][      
                         text "Open"
                     ]
 

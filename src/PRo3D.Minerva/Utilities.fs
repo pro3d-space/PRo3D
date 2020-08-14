@@ -4,8 +4,6 @@ open System
 open System.IO
 open System.Diagnostics
 
-open Aardvark.GeoSpatial.Opc
-
 open Aardvark.Base
 open Aardvark.Base.Rendering
 open Aardvark.Rendering.Text 
@@ -16,6 +14,7 @@ open Aardvark.UI
 
 open FShade
 
+open OpcViewer.Base
 open PRo3D.Base
 
 module Files = 
@@ -164,7 +163,7 @@ module Drawing =
         Sg.cone 30 color radius height
         |> Sg.noEvents
         |> Sg.shader {
-            do! Shader.stableTrafo
+            do! Shader.StableTrafo.stableTrafo
             do! DefaultSurfaces.vertexColor
             //do! Shader.stableLight
         }

@@ -13,6 +13,9 @@ open Aardvark.SceneGraph.Opc
 
 open Aardvark.VRVis.Opc
 
+open OpcViewer.Base
+open OpcViewer.Base.Picking
+
 open Aardvark.UI.Operators
 open Aardvark.UI.Trafos  
 
@@ -36,7 +39,7 @@ module DebugKdTreesX =
         |> Seq.chunkBySize 3
         |> Seq.filter(fun x -> x.Length = 3)
         |> Seq.map(fun x -> Triangle3d x)
-        |> Seq.filter(fun x -> (triangleIsNan x |> not)) |> Seq.toArray
+        |> Seq.filter(fun x -> (IntersectionController.triangleIsNan x |> not)) |> Seq.toArray
         |> TriangleSet
 
     let getTriangleSet (indices : int[]) (vertices:V3d[]) = 
@@ -44,7 +47,7 @@ module DebugKdTreesX =
         |> Seq.map(fun x -> vertices.[x])
         |> Seq.chunkBySize 3
         |> Seq.map(fun x -> Triangle3d(x))
-        |> Seq.filter(fun x -> (triangleIsNan x |> not)) |> Seq.toArray
+        |> Seq.filter(fun x -> (IntersectionController.triangleIsNan x |> not)) |> Seq.toArray
         |> TriangleSet
 
     let loadTriangles (kd : LazyKdTree) =
