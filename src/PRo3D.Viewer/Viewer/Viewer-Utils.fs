@@ -598,7 +598,7 @@ module ViewerUtils =
             PRo3D.Base.Shader.differentColor |> toEffect
             
             
-            Shader.LoDColor                |> toEffect                             
+            //Shader.LoDColor                |> toEffect                             
             PRo3D.Base.Shader.falseColorLegend2 |> toEffect
             PRo3D.Base.Shader.mapColorAdaption  |> toEffect            
             //PRo3D.Base.OtherShader.Shader.footprintV        |> toEffect //TODO reactivate viewplanner

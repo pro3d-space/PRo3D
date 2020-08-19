@@ -21,8 +21,7 @@
     <Compile Include="ChironExt.fs" />
     <Compile Include="GuiEx.fs" />
     <Compile Include="CooTransformation.fs" />
-    <Compile Include="Serialization.fs" />
-    <Compile Include="Shaders.fs" />
+    <Compile Include="Serialization.fs" />    
     <Compile Include="Utilities.fs" />
     <Compile Include="OutlineEffect.fs" />
     <Compile Include="Annotation-Model.fs" />

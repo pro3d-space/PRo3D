@@ -9,6 +9,7 @@ open Aardvark.UI
 open Aardvark.UI.Trafos
 open Aardvark.UI.Primitives
 open PRo3D
+open Aardvark.Base.Rendering
 
 
 module Shader =

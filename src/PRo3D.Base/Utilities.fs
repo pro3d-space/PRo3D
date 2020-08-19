@@ -9,7 +9,7 @@ open Aardvark.Rendering.Text
 open OpcViewer.Base
 open Aardvark.SceneGraph.SgPrimitives
 open Aardvark.SceneGraph.``Sg Picking Extensions``
-open Aardvark.Base.Rendering.Effects
+open OpcViewer.Base.Shader
 
 module Fail =
     let with1 formatString value =
@@ -134,7 +134,7 @@ module Shader =
             restartStrip()
         }
 
-    let markPatchBorders (v : Vertex) =
+    let markPatchBorders (v : Effects.Vertex) =
         fragment {    
             if uniform?selected then
                 if   (v.tc.X >= 0.99) && (v.tc.X <= 1.0) || (v.tc.X >= 0.0) && (v.tc.X <= 0.01) then
@@ -231,7 +231,7 @@ module Shader =
                 (startColor + (hStepSize * ((float)(pos1))))
         currColorH
 
-    let falseColorLegend2 (v : Aardvark.GeoSpatial.Opc.Shader.Vertex) =
+    let falseColorLegend2 (v : AttrVertex) =
         fragment {    
     
             if (uniform?falseColors) 
@@ -322,7 +322,7 @@ module Shader =
                 col
         //}
 
-    let mapColorAdaption (v : Vertex) =
+    let mapColorAdaption (v : Effects.Vertex) =
         fragment { 
             return v.c
                     |> addColor

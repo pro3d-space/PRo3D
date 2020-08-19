@@ -35,9 +35,9 @@ nuget Adaptify.Core                         ~> 1.0.0
 nuget Aardium                               ~> 1.1.0
 
 nuget Uncodium.Eigensystems                 ~> 1.1.0
-nuget OPCViewer.Base                        ~> 1.0.1
+nuget OPCViewer.Base                        ~> 1.0.3
 
-nuget Aardvark.GeoSpatial.Opc               ~> 5.1.0
+nuget Aardvark.GeoSpatial.Opc               ~> 5.2.0
 
 nuget Chiron                                ~> 6.3.1
 nuget RestSharp                             ~> 106.6.9
