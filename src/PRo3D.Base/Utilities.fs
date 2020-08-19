@@ -10,6 +10,7 @@ open OpcViewer.Base
 open Aardvark.SceneGraph.SgPrimitives
 open Aardvark.SceneGraph.``Sg Picking Extensions``
 open OpcViewer.Base.Shader
+open FShade
 
 module Fail =
     let with1 formatString value =
@@ -65,8 +66,7 @@ module Utilities =
             wc.DownloadFile(screenshot,Path.combine [folder; name])
 
 module Shader = 
-    open FShade
-    open Aardvark.Base.Rendering
+   
 
     type UniformScope with
         member x.PointSize : float = uniform?PointSize
@@ -268,59 +268,50 @@ module Shader =
         //}
 
     [<ReflectedDefinition>]
-    let mapBrightness (col : V4d) = 
-    //let mapBrightness (v : Vertex) = 
-        //fragment { 
-            if (uniform?useBrightnS) then
-                let b = uniform?brightnessS
-                let nc = V4d(col.X*255.0, col.Y*255.0, col.Z*255.0, 255.0)        
+    let mapBrightness (col : V4d) =     
+        if (uniform?useBrightnS) then
+            let b = uniform?brightnessS
+            let nc = V4d(col.X*255.0, col.Y*255.0, col.Z*255.0, 255.0)        
         
-                let red   = (myTrunc(nc.X + b)) / 255.0 
-                let green = (myTrunc(nc.Y + b)) / 255.0 
-                let blue  = (myTrunc(nc.Z + b)) / 255.0 
-                V4d(red, green, blue, 1.0)
-            else
-                col
-       // }
+            let red   = (myTrunc(nc.X + b)) / 255.0 
+            let green = (myTrunc(nc.Y + b)) / 255.0 
+            let blue  = (myTrunc(nc.Z + b)) / 255.0 
+            V4d(red, green, blue, 1.0)
+        else
+            col
+    
 
     [<ReflectedDefinition>]
-    let mapGamma (col : V4d) = 
-    //let mapGamma (v : Vertex) = 
-        //fragment { 
-            if (uniform?useGammaS) then
-                let g = uniform?gammaS
-                let gammaCorrection = 1.0 / g
-                V4d(col.X**gammaCorrection, col.Y**gammaCorrection, col.Z**gammaCorrection, 1.0)
-            else
-                col
-        //}
+    let mapGamma (col : V4d) =    
+        if (uniform?useGammaS) then
+            let g = uniform?gammaS
+            let gammaCorrection = 1.0 / g
+            V4d(col.X**gammaCorrection, col.Y**gammaCorrection, col.Z**gammaCorrection, 1.0)
+        else
+            col
 
     [<ReflectedDefinition>]
-    let grayscale (col : V4d) =
-    //let grayscale (v : Vertex) = 
-    //    fragment { 
-            if (uniform?useGrayS) then
-                let value = col.X * 0.299 + col.Y * 0.587 + col.Z * 0.114
-                V4d(value, value, value, 1.0)
-            else
-                col
-        //}
+    let grayscale (col : V4d) =    
+        if (uniform?useGrayS) then
+            let value = col.X * 0.299 + col.Y * 0.587 + col.Z * 0.114
+            V4d(value, value, value, 1.0)
+        else
+            col
+    
 
     [<ReflectedDefinition>]
-    let addColor (col : V4d) =
-    //let addColor (v : Vertex) = 
-        //fragment { 
-            if (uniform?useColorS) then
-                let hue : V3d =  uniform?colorS
-                let nc = V4d(col.X*255.0, col.Y*255.0, col.Z*255.0, 255.0)
+    let addColor (col : V4d) =    
+        if (uniform?useColorS) then
+            let hue : V3d =  uniform?colorS
+            let nc = V4d(col.X*255.0, col.Y*255.0, col.Z*255.0, 255.0)
 
-                let red   = (myTrunc( nc.X * hue.X)) / 255.0
-                let green = (myTrunc( nc.Y * hue.Y)) / 255.0
-                let blue  = (myTrunc( nc.Z * hue.Z)) / 255.0
-                V4d(red, green, blue, 1.0)
-            else
-                col
-        //}
+            let red   = (myTrunc( nc.X * hue.X)) / 255.0
+            let green = (myTrunc( nc.Y * hue.Y)) / 255.0
+            let blue  = (myTrunc( nc.Z * hue.Z)) / 255.0
+            V4d(red, green, blue, 1.0)
+        else
+            col
+        
 
     let mapColorAdaption (v : Effects.Vertex) =
         fragment { 
@@ -332,10 +323,7 @@ module Shader =
                     |> grayscale                    
         }
 
-module Sg =
-    open FSharp.Data.Adaptive
-    open Aardvark.Base.Rendering
-    open FShade
+module Sg =    
 
     let colorPointsEffect = 
         lazy 
@@ -364,16 +352,17 @@ module Sg =
             ]
 
     let drawSingleColorPoints (pointsF : aval<V3f[]>) (color : aval<V4d>) pointSize offset = 
-      Sg.draw IndexedGeometryMode.PointList
-      |> Sg.vertexAttribute DefaultSemantic.Positions pointsF
-      |> Sg.uniform "PointSize" pointSize
-      |> Sg.uniform "SingleColor" color
-      |> Sg.uniform "DepthOffset" (
-            offset |> AVal.map (fun depthWorld -> depthWorld / (100.0 - 0.1)))
-      |> Sg.effect [singleColorPointsEffect.Value]
+        Sg.draw IndexedGeometryMode.PointList
+        |> Sg.vertexAttribute DefaultSemantic.Positions pointsF
+        |> Sg.uniform "PointSize" pointSize
+        |> Sg.uniform "SingleColor" color
+        |> Sg.uniform "DepthOffset" (
+              offset |> AVal.map (fun depthWorld -> depthWorld / (100.0 - 0.1)))
+        |> Sg.effect [singleColorPointsEffect.Value]
+
     //## LINES ##
     let edgeLines (close: bool) (points: alist<V3d>) (trafo: aval<Trafo3d>) : aval<Line3d[]>  =
-      points
+        points
         |> AList.map(fun d -> trafo.GetValue().Backward.TransformPos d)
         |> AList.toAVal 
         |> AVal.map (fun l ->
@@ -452,10 +441,14 @@ module Sg =
                 return PickShape.Box Box3d.Unit
         }
 
-    let pickableLine (points : alist<V3d>) (offset : aval<float>) (color : aval<C4b>) 
-                      (width : aval<float>) (trafo : aval<Trafo3d>) 
-                      (picking: bool) // picking generally enabled
-                      (pickAnnotationFunc:  aval<Line3d[]> -> SceneEventKind * (SceneHit -> bool * seq<_>)) = 
+    let pickableLine 
+        (points : alist<V3d>) 
+        (offset : aval<float>) 
+        (color : aval<C4b>) 
+        (width : aval<float>) 
+        (trafo : aval<Trafo3d>) 
+        (picking: bool) // picking generally enabled
+        (pickAnnotationFunc:  aval<Line3d[]> -> SceneEventKind * (SceneHit -> bool * seq<_>)) = 
         let edges = edgeLines false points trafo 
         let pline = drawStableLinesHelper edges offset color width
       

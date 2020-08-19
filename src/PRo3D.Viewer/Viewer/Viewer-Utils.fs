@@ -589,27 +589,25 @@ module ViewerUtils =
     let surfaceEffect =
         Effect.compose [
             Shader.stableTrafo             |> toEffect
-            triangleFilterX                |> toEffect
-            Shader.OPCFilter.improvedDiffuseTexture |> toEffect
+          //  triangleFilterX                |> toEffect
+          //  Shader.OPCFilter.improvedDiffuseTexture |> toEffect
             fixAlpha |> toEffect
             
             // selection coloring makes gamma correction pointless. remove if we are happy withmark PatchBorders
             // Shader.selectionColor          |> toEffect       
-            PRo3D.Base.Shader.differentColor |> toEffect
+         //   PRo3D.Base.Shader.differentColor |> toEffect
             
             
             //Shader.LoDColor                |> toEffect                             
-            PRo3D.Base.Shader.falseColorLegend2 |> toEffect
-            PRo3D.Base.Shader.mapColorAdaption  |> toEffect            
+         //   PRo3D.Base.Shader.falseColorLegend2 |> toEffect
+         //   PRo3D.Base.Shader.mapColorAdaption  |> toEffect            
             //PRo3D.Base.OtherShader.Shader.footprintV        |> toEffect //TODO reactivate viewplanner
             //PRo3D.Base.OtherShader.Shader.footPrintF        |> toEffect
         ]
 
     let getSurfacesScenegraphs (m:AdaptiveModel) =
         let sgGrouped = m.scene.surfacesModel.sgGrouped
-
         
-
       //  let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
         let usehighlighting = true |> AVal.constant //m.scene.config.useSurfaceHighlighting
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
