@@ -47,16 +47,16 @@ open PRo3D.Viewplanner
 open PRo3D.Minerva
 open PRo3D.Linking
 open PRo3D.Correlations
-open CorrelationDrawing.Model
+//open CorrelationDrawing.Model
 open Scene   
 
 open Aardium
 
 open MBrace.FsPickler
 open Chiron
-open CorrelationDrawing.LogTypes
-open CorrelationDrawing.Nuevo
-open CorrelationDrawing.AnnotationTypes
+//open CorrelationDrawing.LogTypes
+//open CorrelationDrawing.Nuevo
+//open CorrelationDrawing.AnnotationTypes
  
 open Aether
 open Aether.Operators
@@ -451,23 +451,24 @@ module ViewerApp =
             | Drawing.PickAnnotation (hit,id) when m.interaction = Interactions.DrawLog && m.ctrlFlag ->
                 match DrawingApp.intersectAnnotation hit id m.drawing.annotations.flat with
                 | Some (anno, point) ->           
-                    let pickingAction, msg =
-                        match m.correlationPlot.logginMode, m.correlationPlot.correlationPlot.selectedLogNuevo with
-                        | LoggingMode.PickReferencePlane, None ->
-                            (CorrelationPanelsMessage.LogPickReferencePlane anno.key), "pick reference plane"
-                        | LoggingMode.PickLoggingPoints, None ->
-                            (CorrelationPanelsMessage.LogAddSelectedPoint(anno.key, point)), "add points to log"
-                        | _, Some _->
-                            (CorrelationPanelsMessage.LogAddPointToSelected(anno.key, point)), "changed log point"
-                        | _ -> 
-                            CorrelationPanelsMessage.Nop, ""
-                    let cp = 
-                        CorrelationPanelsApp.update
-                            m.correlationPlot       
-                            m.scene.referenceSystem
-                            pickingAction
+                    //let pickingAction, msg =
+                    //    match m.correlationPlot.logginMode, m.correlationPlot.correlationPlot.selectedLogNuevo with
+                    //    | LoggingMode.PickReferencePlane, None ->
+                    //        (CorrelationPanelsMessage.LogPickReferencePlane anno.key), "pick reference plane"
+                    //    | LoggingMode.PickLoggingPoints, None ->
+                    //        (CorrelationPanelsMessage.LogAddSelectedPoint(anno.key, point)), "add points to log"
+                    //    | _, Some _->
+                    //        (CorrelationPanelsMessage.LogAddPointToSelected(anno.key, point)), "changed log point"
+                    //    | _ -> 
+                    //        CorrelationPanelsMessage.Nop, ""
+                    //let cp = 
+                    //    CorrelationPanelsApp.update
+                    //        m.correlationPlot       
+                    //        m.scene.referenceSystem
+                    //        pickingAction
                                                         
-                    { m with correlationPlot = cp } |> shortFeedback msg
+                    //{ m with correlationPlot = cp } |> shortFeedback msg
+                    m
                 | None -> m
                 
             | _ ->
@@ -867,59 +868,64 @@ module ViewerApp =
                 match (k, m.interaction) with
                 | (Aardvark.Application.Keys.Enter, Interactions.PickAnnotation) -> 
                         
-                    let selected =
-                        m.drawing.annotations.selectedLeaves 
-                        |> HashSet.map (fun x -> x.id)
+                    //let selected =
+                    //    m.drawing.annotations.selectedLeaves 
+                    //    |> HashSet.map (fun x -> x.id)
 
-                    let correlationPlot = 
-                        CorrelationPanelsApp.update
-                            m.correlationPlot 
-                            m.scene.referenceSystem
-                            (LogAssignCrossbeds selected)
+                    //let correlationPlot = 
+                    //    CorrelationPanelsApp.update
+                    //        m.correlationPlot 
+                    //        m.scene.referenceSystem
+                    //        (LogAssignCrossbeds selected)
 
-                    { m with correlationPlot = correlationPlot; pastCorrelation = Some m.correlationPlot } |> shortFeedback "crossbeds assigned"                       
+                    //{ m with correlationPlot = correlationPlot; pastCorrelation = Some m.correlationPlot } |> shortFeedback "crossbeds assigned"                       
+                    m
                 | (Aardvark.Application.Keys.Enter, Interactions.DrawLog) -> 
-                    //confirm when in logpick mode
-                    let correlationPlot = 
-                        CorrelationPanelsApp.update 
-                            m.correlationPlot 
-                            m.scene.referenceSystem
-                            (UpdateAnnotations m.drawing.annotations.flat)
+                    ////confirm when in logpick mode
+                    //let correlationPlot = 
+                    //    CorrelationPanelsApp.update 
+                    //        m.correlationPlot 
+                    //        m.scene.referenceSystem
+                    //        (UpdateAnnotations m.drawing.annotations.flat)
                                                                            
-                    let correlationPlot, msg =
-                        match m.correlationPlot.logginMode with
-                        | LoggingMode.PickLoggingPoints ->                                                                  
-                            CorrelationPlotAction.FinishLog
-                            |> CorrelationPanelsMessage.CorrPlotMessage
-                            |> CorrelationPanelsApp.update correlationPlot m.scene.referenceSystem, "finished log"                                
-                        | LoggingMode.PickReferencePlane ->
-                            correlationPlot, "reference plane selected"
+                    //let correlationPlot, msg =
+                    //    match m.correlationPlot.logginMode with
+                    //    | LoggingMode.PickLoggingPoints ->                                                                  
+                    //        CorrelationPlotAction.FinishLog
+                    //        |> CorrelationPanelsMessage.CorrPlotMessage
+                    //        |> CorrelationPanelsApp.update correlationPlot m.scene.referenceSystem, "finished log"                                
+                    //    | LoggingMode.PickReferencePlane ->
+                    //        correlationPlot, "reference plane selected"
 
-                    let correlationPlot = 
-                        CorrelationPanelsApp.update 
-                            correlationPlot 
-                            m.scene.referenceSystem
-                            LogConfirm
+                    //let correlationPlot = 
+                    //    CorrelationPanelsApp.update 
+                    //        correlationPlot 
+                    //        m.scene.referenceSystem
+                    //        LogConfirm
                             
-                    { m with correlationPlot = correlationPlot; pastCorrelation = Some m.correlationPlot } |> shortFeedback msg
+                    //{ m with correlationPlot = correlationPlot; pastCorrelation = Some m.correlationPlot } |> shortFeedback msg
+                    m
                 | (Aardvark.Application.Keys.Escape,Interactions.DrawLog) -> 
-                    let panelUpdate = 
-                        CorrelationPanelsApp.update 
-                            m.correlationPlot
-                            m.scene.referenceSystem
-                            CorrelationPanelsMessage.LogCancel
-                    { m with correlationPlot = panelUpdate } |> shortFeedback "cancel log"
+                    //let panelUpdate = 
+                    //    CorrelationPanelsApp.update 
+                    //        m.correlationPlot
+                    //        m.scene.referenceSystem
+                    //        CorrelationPanelsMessage.LogCancel
+                    //{ m with correlationPlot = panelUpdate } |> shortFeedback "cancel log"
+                    m
                 | (Aardvark.Application.Keys.Back, Interactions.DrawLog) ->                     
-                    let panelUpdate = 
-                        CorrelationPanelsApp.update
-                            m.correlationPlot
-                            m.scene.referenceSystem
-                            CorrelationPanelsMessage.RemoveLastPoint
-                    { m with correlationPlot = panelUpdate } |> shortFeedback "removed last point"
+                    //let panelUpdate = 
+                    //    CorrelationPanelsApp.update
+                    //        m.correlationPlot
+                    //        m.scene.referenceSystem
+                    //        CorrelationPanelsMessage.RemoveLastPoint
+                    //{ m with correlationPlot = panelUpdate } |> shortFeedback "removed last point"
+                    m
                 | (Aardvark.Application.Keys.B, Interactions.DrawLog) ->                     
-                    match m.pastCorrelation with
-                    | None -> m
-                    | Some past -> { m with correlationPlot = past; pastCorrelation = None} |> shortFeedback "undo last correlation"
+                    //match m.pastCorrelation with
+                    //| None -> m
+                    //| Some past -> { m with correlationPlot = past; pastCorrelation = None} |> shortFeedback "undo last correlation"
+                    m
                 | _ -> m
 
             let m = 
@@ -930,7 +936,7 @@ module ViewerApp =
                     //    cv = (_camera.Get m).view
                     //}
 
-                    Serialization.save "./logbrush" m.correlationPlot.logBrush |> ignore
+                    //Serialization.save "./logbrush" m.correlationPlot.logBrush |> ignore
 
                     //let waypoints = IndexList.append wp m.waypoints
                     //Log.line "saving waypoints %A" waypoints
@@ -1156,79 +1162,80 @@ module ViewerApp =
             match m.multiSelectBox with
             | Some x -> { m with multiSelectBox = None }
             | None -> m
-        | CorrelationPanelMessage a,_,_ ->
-            let blurg =
-                match a with 
-                | CorrelationPanelsMessage.SemanticAppMessage _ ->
-                    m |> PRo3D.ViewerIO.colorBySemantic'                    
-                | _ -> 
-                    m
-            let blurg =
-                { blurg with correlationPlot = CorrelationPanelsApp.update m.correlationPlot m.scene.referenceSystem a }
+       // | CorrelationPanelMessage a,_,_ ->
+            //let blurg =
+            //    match a with 
+            //    | CorrelationPanelsMessage.SemanticAppMessage _ ->
+            //        m |> PRo3D.ViewerIO.colorBySemantic'                    
+            //    | _ -> 
+            //        m
+            //let blurg =
+            //    { blurg with correlationPlot = CorrelationPanelsApp.update m.correlationPlot m.scene.referenceSystem a }
 
-            let blarg = 
-                match a with
-                | CorrelationPanelsMessage.CorrPlotMessage 
-                    (CorrelationPlotAction.DiagramMessage
-                        (Svgplus.DA.DiagramAppAction.DiagramItemMessage
-                            (diagramItemId, Svgplus.DiagramItemAction.RectangleStackMessage 
-                                (_ , Svgplus.RectangleStackAction.RectangleMessage 
-                                    (_, Svgplus.RectangleAction.Select rid)))))
-                        ->          
-                    Log.line "[Viewer] corrplotmessage %A" blurg.correlationPlot.correlationPlot.selectedFacies
+            //let blarg = 
+            //    match a with
+            //    | CorrelationPanelsMessage.CorrPlotMessage 
+            //        (CorrelationPlotAction.DiagramMessage
+            //            (Svgplus.DA.DiagramAppAction.DiagramItemMessage
+            //                (diagramItemId, Svgplus.DiagramItemAction.RectangleStackMessage 
+            //                    (_ , Svgplus.RectangleStackAction.RectangleMessage 
+            //                        (_, Svgplus.RectangleAction.Select rid)))))
+            //            ->          
+            //        Log.line "[Viewer] corrplotmessage %A" blurg.correlationPlot.correlationPlot.selectedFacies
 
-                    let plot = blurg.correlationPlot.correlationPlot
+            //        let plot = blurg.correlationPlot.correlationPlot
 
-                    let selectionSet =
-                        match plot.selectedFacies with
-                        | Some selected -> 
-                            let selectedLogId : LogId = 
-                                diagramItemId 
-                                |> LogId.fromDiagramItemId
+            //        let selectionSet =
+            //            match plot.selectedFacies with
+            //            | Some selected -> 
+            //                let selectedLogId : LogId = 
+            //                    diagramItemId 
+            //                    |> LogId.fromDiagramItemId
 
-                            let log = 
-                                plot.logsNuevo |> HashMap.find selectedLogId
-
-
-                            // find facies
-                            match Facies.tryFindFacies selected log.facies with
-                            | Some facies ->
+            //                let log = 
+            //                    plot.logsNuevo |> HashMap.find selectedLogId
 
 
-                                // find measurements
-                                Log.line "[Viewer] selected facies has %A measurements" facies.measurements
+            //                // find facies
+            //                match Facies.tryFindFacies selected log.facies with
+            //                | Some facies ->
 
-                                // also make for aggregation stuff ... secondary log
+
+            //                    // find measurements
+            //                    Log.line "[Viewer] selected facies has %A measurements" facies.measurements
+
+            //                    // also make for aggregation stuff ... secondary log
                                     
 
-                                facies.measurements 
-                                |> HashSet.map(fun x -> 
-                                    {
-                                        id = ContactId.value x
-                                        path = []
-                                        name = ""
-                                    }
-                                )
-                            | None ->
-                                HashSet.empty
-                        | None -> 
-                            HashSet.empty
+            //                    facies.measurements 
+            //                    |> HashSet.map(fun x -> 
+            //                        {
+            //                            id = ContactId.value x
+            //                            path = []
+            //                            name = ""
+            //                        }
+            //                    )
+            //                | None ->
+            //                    HashSet.empty
+            //            | None -> 
+            //                HashSet.empty
 
-                    // m.drawing.annotations.selectedLeaves
-                    { 
-                        blurg with 
-                            drawing = { 
-                                blurg.drawing with 
-                                    annotations = { 
-                                        blurg.drawing.annotations with 
-                                            selectedLeaves = selectionSet
-                                    }
-                            }
-                    }
-                | _ -> 
-                    blurg
+            //        // m.drawing.annotations.selectedLeaves
+            //        { 
+            //            blurg with 
+            //                drawing = { 
+            //                    blurg.drawing with 
+            //                        annotations = { 
+            //                            blurg.drawing.annotations with 
+            //                                selectedLeaves = selectionSet
+            //                        }
+            //                }
+            //        }
+            //    | _ -> 
+            //        blurg
 
-            blarg
+            //blarg
+           // m
         | PickSurface _,_,_ ->
             m
         | _ -> 
@@ -1352,27 +1359,27 @@ module ViewerApp =
                 |> Sg.fillMode (AVal.constant FillMode.Fill)
                 |> Sg.cullMode (AVal.constant CullMode.None)
 
-            let _, correlationPlanes =
-                PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
-                    m.scene.config.dnsPlaneSize.value
-                    m.scene.cameraView 
-                    m.scene.config.nearPlane.value 
-                    m.correlationPlot 
-                    m.drawing.dnsColorLegend
+            //let _, correlationPlanes =
+            //    PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
+            //        m.scene.config.dnsPlaneSize.value
+            //        m.scene.cameraView 
+            //        m.scene.config.nearPlane.value 
+            //        m.correlationPlot 
+            //        m.drawing.dnsColorLegend
 
-            let _, planes = 
-                PRo3D.Correlations.CorrelationPanelsApp.viewFinishedLogs 
-                    m.scene.config.dnsPlaneSize.value
-                    m.scene.cameraView 
-                    m.scene.config.nearPlane.value 
-                    m.drawing.dnsColorLegend 
-                    m.correlationPlot 
-                    (allowLogPicking m)
+            //let _, planes = 
+            //    PRo3D.Correlations.CorrelationPanelsApp.viewFinishedLogs 
+            //        m.scene.config.dnsPlaneSize.value
+            //        m.scene.cameraView 
+            //        m.scene.config.nearPlane.value 
+            //        m.drawing.dnsColorLegend 
+            //        m.correlationPlot 
+            //        (allowLogPicking m)
 
-            let viewContactOfInterest = 
-                PRo3D.Correlations.CorrelationPanelsApp.viewContactOfInterest m.correlationPlot
+            //let viewContactOfInterest = 
+            //    PRo3D.Correlations.CorrelationPanelsApp.viewContactOfInterest m.correlationPlot
                 
-            Sg.ofList[ds;annos; correlationPlanes; planes; viewContactOfInterest]
+            Sg.ofList[ds;annos;]// correlationPlanes; planes; viewContactOfInterest]
 
         let overlayed =
                         
@@ -1412,24 +1419,24 @@ module ViewerApp =
             let viewportFilteredText = 
                 MinervaApp.viewPortLabels m.minervaModel m.navigation.camera.view (ViewerUtils.frustum m) |> Sg.map MinervaActions
                 
-            let correlationLogs, _ =
-                PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
-                    m.scene.config.dnsPlaneSize.value
-                    m.scene.cameraView 
-                    near 
-                    m.correlationPlot 
-                    m.drawing.dnsColorLegend
+            //let correlationLogs, _ =
+            //    PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
+            //        m.scene.config.dnsPlaneSize.value
+            //        m.scene.cameraView 
+            //        near 
+            //        m.correlationPlot 
+            //        m.drawing.dnsColorLegend
 
-            let finishedLogs, _ =
-                PRo3D.Correlations.CorrelationPanelsApp.viewFinishedLogs 
-                    m.scene.config.dnsPlaneSize.value
-                    m.scene.cameraView 
-                    near 
-                    m.drawing.dnsColorLegend 
-                    m.correlationPlot 
-                    (allowLogPicking m)
+            //let finishedLogs, _ =
+            //    PRo3D.Correlations.CorrelationPanelsApp.viewFinishedLogs 
+            //        m.scene.config.dnsPlaneSize.value
+            //        m.scene.cameraView 
+            //        near 
+            //        m.drawing.dnsColorLegend 
+            //        m.correlationPlot 
+            //        (allowLogPicking m)
 
-            [exploreCenter; refSystem; viewPlans; homePosition; solText; (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
+            [exploreCenter; refSystem; viewPlans; homePosition; solText;] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
         let minervaSg =
             let minervaFeatures = 
@@ -1570,20 +1577,20 @@ module ViewerApp =
                         LinkingApp.viewHorizontalBar m.minervaModel.session.selection.highlightedFrustra m.linkingModel |> UI.map LinkingActions
                     ]
                 )
-            | Some "corr_logs" ->
-                CorrelationPanelsApp.viewLogs m.correlationPlot
-                |> UI.map CorrelationPanelMessage
-            | Some "corr_svg" -> 
-                CorrelationPanelsApp.viewSvg m.correlationPlot
-                |> UI.map CorrelationPanelMessage
-            | Some "corr_semantics" -> 
-                CorrelationPanelsApp.viewSemantics m.correlationPlot
-                |> UI.map CorrelationPanelMessage
-            | Some "corr_mappings" -> 
-                require (myCss) (
-                    body bodyAttributes [
-                        CorrelationPanelsApp.viewMappings m.correlationPlot |> UI.map CorrelationPanelMessage
-                    ] )
+            //| Some "corr_logs" ->
+            //    CorrelationPanelsApp.viewLogs m.correlationPlot
+            //    |> UI.map CorrelationPanelMessage
+            //| Some "corr_svg" -> 
+            //    CorrelationPanelsApp.viewSvg m.correlationPlot
+            //    |> UI.map CorrelationPanelMessage
+            //| Some "corr_semantics" -> 
+            //    CorrelationPanelsApp.viewSemantics m.correlationPlot
+            //    |> UI.map CorrelationPanelMessage
+            //| Some "corr_mappings" -> 
+            //    require (myCss) (
+            //        body bodyAttributes [
+            //            CorrelationPanelsApp.viewMappings m.correlationPlot |> UI.map CorrelationPanelMessage
+            //        ] )
             | None -> 
                 require (myCss) (
                     body [][                    

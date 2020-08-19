@@ -161,7 +161,7 @@ type ViewerAction =
 | StartDragging             of V2i * MouseButtons
 | Dragging                  of V2i
 | EndDragging               of V2i * MouseButtons
-| CorrelationPanelMessage   of CorrelationPanelsMessage
+//| CorrelationPanelMessage   of CorrelationPanelsMessage
 | MakeSnapshot              of int*int*string
 | ImportSnapshotData        of list<string>
 | SetTextureFiltering       of bool // TODO move to versioned ViewConfigModel in V3
@@ -535,8 +535,8 @@ module Viewer =
             //    }
             linkingModel = PRo3D.Linking.LinkingModel.initial
             
-            correlationPlot = CorrelationPanelModel.initial
-            pastCorrelation = None
+           // correlationPlot = CorrelationPanelModel.initial
+            //pastCorrelation = None
             //instrumentCamera = { CameraController.initial with view = CameraView.lookAt V3d.Zero V3d.One V3d.OOI }        
             //instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
             viewerMode = ViewerMode.Standard                

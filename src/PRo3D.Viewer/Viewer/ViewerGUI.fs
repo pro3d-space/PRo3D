@@ -101,7 +101,7 @@ module Gui =
                 yield attribute "height" (sprintf "%ipx" b.SizeY)
             } |> AttributeMap.ofAMap
 
-        let selectionRectangle = Incremental.Svg.rect attr AList.empty
+        let selectionRectangle = Incremental.Svg.rect attr //Incremental.Svg.rect attr AList.empty
 
         let canvasAttributes = 
             [
@@ -400,8 +400,8 @@ module Gui =
                                         //fixes all broken surface import paths
                                         fixAllBrokenPaths
                             
-                                        PRo3D.Correlations.CorrelationPanelsApp.viewExportLogButton m.scene.scenePath 
-                                        |> UI.map CorrelationPanelMessage
+                                        //PRo3D.Correlations.CorrelationPanelsApp.viewExportLogButton m.scene.scenePath 
+                                        //|> UI.map CorrelationPanelMessage
 
                                         //fixes particular broken surface import paths (doesn't work atm)
                                         //surfaceUiThing m

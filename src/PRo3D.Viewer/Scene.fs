@@ -304,6 +304,7 @@ module Scene =
     let loadLogBrush (m : Model) =
         match Serialization.fileExists "./logbrush" with
         | Some path ->
-            let logBrush = Serialization.loadAs<option<PRo3D.Correlations.LogDrawingBrush>> path
-            { m with correlationPlot = { m.correlationPlot with logBrush = logBrush } }
+            //let logBrush = Serialization.loadAs<option<PRo3D.Correlations.LogDrawingBrush>> path
+            //{ m with correlationPlot = { m.correlationPlot with logBrush = logBrush } }
+            m
         | None -> m
