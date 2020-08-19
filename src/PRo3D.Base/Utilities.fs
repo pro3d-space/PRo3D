@@ -67,7 +67,6 @@ module Utilities =
 
 module Shader = 
    
-
     type UniformScope with
         member x.PointSize : float = uniform?PointSize
 
@@ -247,7 +246,6 @@ module Shader =
     let myTrunc (value : float) =
         clamp 0.0 255.0 value
 
-
     //TODO LF ... put all color adaptation mechanisms into 1 shader. Shader code produced by FShade has a ridiculous size ~6500 lines of code
 
     [<ReflectedDefinition>]
@@ -280,7 +278,6 @@ module Shader =
         else
             col
     
-
     [<ReflectedDefinition>]
     let mapGamma (col : V4d) =    
         if (uniform?useGammaS) then
@@ -298,7 +295,6 @@ module Shader =
         else
             col
     
-
     [<ReflectedDefinition>]
     let addColor (col : V4d) =    
         if (uniform?useColorS) then
@@ -312,7 +308,6 @@ module Shader =
         else
             col
         
-
     let mapColorAdaption (v : Effects.Vertex) =
         fragment { 
             return v.c

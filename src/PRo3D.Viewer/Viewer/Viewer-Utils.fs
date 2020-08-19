@@ -590,12 +590,13 @@ module ViewerUtils =
         Effect.compose [
             Shader.stableTrafo             |> toEffect
           //  triangleFilterX                |> toEffect
-          //  Shader.OPCFilter.improvedDiffuseTexture |> toEffect
+            Shader.OPCFilter.improvedDiffuseTexture |> toEffect
             fixAlpha |> toEffect
             
             // selection coloring makes gamma correction pointless. remove if we are happy withmark PatchBorders
             // Shader.selectionColor          |> toEffect       
-         //   PRo3D.Base.Shader.differentColor |> toEffect
+            //PRo3D.Base.Shader.markPatchBorders |> toEffect
+          //  PRo3D.Base.Shader.differentColor |> toEffect
             
             
             //Shader.LoDColor                |> toEffect                             
