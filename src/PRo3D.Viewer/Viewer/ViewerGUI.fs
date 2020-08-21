@@ -214,29 +214,37 @@ module Gui =
             ]                              
         ]
 
-    module TopMenu =
-   
+    module TopMenu =                       
+
+        let jsImportOPCDialog =
+            "top.aardvark.dialog.showOpenDialog({ filters: [{ name: 'OPC'},], properties: ['openDirectory', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+           
+        let jsImportOBJDialog =
+            "top.aardvark.dialog.showOpenDialog({ filters: [{ name: 'OBJ', extensions: ['obj']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
         let private importSurface =
             [
                 text "Import"
                 i [clazz "dropdown icon"][] 
-                div [ clazz "menu"] [             
+                div [ clazz "menu"] [
                     div [ clazz "ui inverted item";
                         Dialogs.onChooseFiles  ImportDiscoveredSurfacesThreads;
-                       // clientEvent "onclick" ("parent.aardvark.processEvent('__ID__', 'onchoose', top.aardvark.dialog.showOpenDialog({properties: ['openDirectory', 'multiSelections']}));");
-                        clientEvent "onclick" ("top.aardvark.dialog.showOpenDialog({ filters: [{ name: 'import OPCs'},], properties: ['openDirectory', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});")
+                        clientEvent "onclick" (jsImportOPCDialog)
                     ][
                         text "OPC"
                     ]
                     div [ clazz "ui inverted item"; 
                         Dialogs.onChooseFiles ImportObject;
-                        clientEvent "onclick" ("top.aardvark.processEvent('__ID__', 'onchoose', top.aardvark.dialog.showOpenDialog({properties: ['openFile'], filters: [{ extensions: ['obj']},]}));") ][
+                        clientEvent "onclick" (jsImportOBJDialog)
+                    ][
                         text "OBJ"
                     ]
                 ]
             ]
         
         let private scene (m:AdaptiveModel) =
+            let jsSaveSceneDialog = "top.aardvark.dialog.showSaveDialog({ filters:  [{ name: 'Scene', extensions: ['pro3d'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePaths);});"
+
             let saveSceneDialog (m:AdaptiveModel) = 
                 adaptive {
                     let! path = m.scene.scenePath
@@ -248,9 +256,7 @@ module Gui =
                             div [
                                 clazz "ui inverted item"
                                 Dialogs.onSaveFile SaveScene
-                                clientEvent "onclick" (
-                                    "top.aardvark.processEvent('__ID__', 'onsave', top.aardvark.dialog.showSaveDialog({filters: [{ name: 'Scene', extensions: ['pro3d']},]}));"
-                                )
+                                clientEvent "onclick" jsSaveSceneDialog
                             ] [ text "Save" ]
                 }
             [
