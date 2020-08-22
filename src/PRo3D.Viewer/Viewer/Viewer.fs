@@ -593,14 +593,24 @@ module ViewerApp =
                 |> ViewerIO.loadLastFootPrint
                 |> updateSceneWithNewSurface
         | ImportDiscoveredSurfacesThreads sl,_,_ -> 
-            let feedback = {
-                id      = System.Guid.NewGuid().ToString()
-                text    = "Importing OPCs..."
-                timeout = 5000
-                msg     = (ImportDiscoveredSurfaces sl)
-            }
-                
-            m |> UserFeedback.queueFeedback feedback
+            if sl.Length > 0 then
+                let feedback = {
+                    id      = System.Guid.NewGuid().ToString()
+                    text    = "Importing OPCs..."
+                    timeout = 5000
+                    msg     = (ImportDiscoveredSurfaces sl)
+                }
+                    
+                m |> UserFeedback.queueFeedback feedback
+            else 
+                let feedback = {
+                    id      = System.Guid.NewGuid().ToString()
+                    text    = "cancelled"
+                    timeout = 3000
+                    msg     = ViewerAction.Nop
+                }
+                    
+                m |> UserFeedback.queueFeedback feedback
         | ImportObject sl,_,_ -> 
             match sl |> List.tryHead with
             | Some path ->  
@@ -682,12 +692,7 @@ module ViewerApp =
                     let vp = ViewPlanApp.createViewPlanFromFile importedData m.scene.viewPlans r m.scene.referenceSystem m.navigation.camera
                     { m with scene = { m.scene with viewPlans = vp }}
                 | None -> Log.error "no rover selected"; m
-            | None -> m
-        | QuickLoad1,_,_ ->
-            Scene.loadScene @"E:\Aardwork\Exomars\_NEWVIEWER\Scenes\TestScene\scene.scn" m runtime signature     
-        | QuickLoad2,_,_ ->
-            (MeasurementsImporter.startImporter "E:\Aardwork\Exomars\_SCENES\cd - Copy\cd.xml") |> ignore               
-            m
+            | None -> m      
         | DeleteLast,_,_ -> 
             if File.Exists @".\last" then
                 File.Delete(@".\last") |> ignore

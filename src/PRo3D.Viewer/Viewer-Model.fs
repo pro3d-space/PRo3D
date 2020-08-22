@@ -119,8 +119,6 @@ type ViewerAction =
 | SwitchViewerMode          of ViewerMode
 | DnSProperties             of PropertyActions
 | ConfigPropertiesMessage   of ConfigProperties.Action
-| QuickLoad1
-| QuickLoad2
 | DeleteLast
 | AddSg                     of ISg
 | PickSurface               of SceneHit*string
@@ -167,6 +165,7 @@ type ViewerAction =
 | SetTextureFiltering       of bool // TODO move to versioned ViewConfigModel in V3
 //| UpdateShatterCones        of list<SnapshotShattercone> // TODO snapshots and shattercone things should be in own apps
 | TestHaltonRayCasting      //of list<string>
+| Nop
 
 and MailboxState = {
   events  : list<MailboxAction>

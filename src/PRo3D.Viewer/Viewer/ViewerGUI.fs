@@ -217,10 +217,10 @@ module Gui =
     module TopMenu =                       
 
         let jsImportOPCDialog =
-            "top.aardvark.dialog.showOpenDialog({ filters: [{ name: 'OPC'},], properties: ['openDirectory', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+            "top.aardvark.dialog.showOpenDialog({ filters: [{ name: 'OPC (directories)'}], properties: ['openDirectory', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
            
         let jsImportOBJDialog =
-            "top.aardvark.dialog.showOpenDialog({ filters: [{ name: 'OBJ', extensions: ['obj']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+            "top.aardvark.dialog.showOpenDialog({ filters: [{ name: 'OBJ (*.obj)', extensions: ['obj']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
         let private importSurface =
             [
@@ -243,7 +243,7 @@ module Gui =
             ]
         
         let private scene (m:AdaptiveModel) =
-            let jsSaveSceneDialog = "top.aardvark.dialog.showSaveDialog({ filters:  [{ name: 'Scene', extensions: ['pro3d'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePaths);});"
+            let jsSaveSceneDialog = "top.aardvark.dialog.showSaveDialog({ filters:  [{ name: 'Scene (*.pro3d)', extensions: ['pro3d'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
 
             let saveSceneDialog (m:AdaptiveModel) = 
                 adaptive {
@@ -259,6 +259,9 @@ module Gui =
                                 clientEvent "onclick" jsSaveSceneDialog
                             ] [ text "Save" ]
                 }
+
+            let jsOpenSceneDialog = "top.aardvark.dialog.showOpenDialog({ filters: [{ name: 'Scene (*.pro3d, *.scn)', extensions: ['pro3d','scn']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
             [
                 text "Scene" 
                 i [clazz "dropdown icon"][]
@@ -269,9 +272,7 @@ module Gui =
                     //save scene as
                     div [ 
                         clazz "ui inverted item"; Dialogs.onSaveFile SaveAs;
-                        clientEvent "onclick" (
-                            "top.aardvark.processEvent('__ID__', 'onsave', top.aardvark.dialog.showSaveDialog({filters: [{ name: 'Scene', extensions: ['pro3d']},]}));"
-                        ) 
+                        clientEvent "onclick" jsSaveSceneDialog
                     ][
                         text "Save as..."
                     ]
@@ -284,9 +285,7 @@ module Gui =
                             | Some y -> LoadScene y 
                             | None -> NoAction "no scene selected")
 
-                        clientEvent "onclick" (
-                            "top.aardvark.dialog.showOpenDialog({ filters: [{ name: 'Scene', extensions: ['pro3d','scn']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
-                        )
+                        clientEvent "onclick" jsOpenSceneDialog
                     ][      
                         text "Open"
                     ]
@@ -351,14 +350,16 @@ module Gui =
             Incremental.div(AttributeMap.ofAMap blarg) blurg |> UI.map SurfaceActions
         
         let fixAllBrokenPaths =
+            let jsLocateSurfacesDialog =  "top.aardvark.dialog.showOpenDialog({ filters: [{ name: 'OPC (directories)'}], properties: ['openDirectory']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
             let ui = 
                 alist {
                     yield
                         div [ 
                             clazz "ui item";
                             Dialogs.onChooseFiles  SurfaceApp.Action.ChangeImportDirectories;
-                            clientEvent "onclick" ("parent.aardvark.processEvent('__ID__', 'onchoose', parent.aardvark.dialog.showOpenDialog({properties: ['openDirectory', 'multiSelections']}));") ][
-                            text "fix all broken paths"
+                            clientEvent "onclick" jsLocateSurfacesDialog 
+                        ][
+                            text "Locate Surfaces"
                         ]
                 }
         
@@ -382,6 +383,9 @@ module Gui =
                                 //annotations menu
                                 DrawingApp.UI.annotationMenu |> UI.map DrawingMessage;                                                           
                             
+                                //fixes all broken surface import paths
+                                fixAllBrokenPaths
+
                                 //Extras Menu
                                 div [ clazz "ui dropdown item"] [
                                     text "Extras"
@@ -403,8 +407,7 @@ module Gui =
                                             text "Rover Placement"
                                         ]
                             
-                                        //fixes all broken surface import paths
-                                        fixAllBrokenPaths
+                                        
                             
                                         //PRo3D.Correlations.CorrelationPanelsApp.viewExportLogButton m.scene.scenePath 
                                         //|> UI.map CorrelationPanelMessage
