@@ -2,25 +2,17 @@ namespace PRo3D.DrawingApp
 
 open System
 
+open FSharp.Data.Adaptive
+
 open Aardvark.Base
 open Aardvark.Application
 open Aardvark.UI
-
-open FSharp.Data.Adaptive
-open Aardvark.Base.Rendering
-open Aardvark.Application
-open Aardvark.SceneGraph
-open Aardvark.SceneGraph.Opc
-open Aardvark.Rendering.Text
-open Aardvark.VRVis
-open Aardvark.VRVis.Opc
-
-open Aardvark.UI
 open Aardvark.UI.Primitives    
+
 open PRo3D
+open PRo3D.Base.Annotation
 open PRo3D.Drawing
 open PRo3D.Groups
-open PRo3D.Base.Annotation
 
 module UI =
 
@@ -34,29 +26,14 @@ module UI =
         //  Html.Layout.boxH [ Html.SemUi.dropDown model.semantic SetSemantic ]                
         ]
                     
-    let mkColor (model : AdaptiveGroupsModel) (a : AdaptiveAnnotation) =
-        let color =  
-            model.selectedLeaves.Content
+    let mkColor (model : AdaptiveGroupsModel) (a : AdaptiveAnnotation) =        
+        model.selectedLeaves.Content
             |> AVal.bind (fun selected -> 
                 if HashSet.exists (fun x -> x.id = a.key) selected then 
                     AVal.constant C4b.VRVisGreen
-                else a.color.c
-            )
-            //|> ASet.map(fun x -> x.id = a.key)
-            //|> ASet.contains true
-            //|> AVal.bind (function x -> if x then AVal.constant C4b.VRVisGreen else a.color.c)
-        color              
-      
-    let mkCubeColor (model : AdaptiveGroupsModel) (a : AdaptiveAnnotation) =
-        model.selectedLeaves.Content
-        |> AVal.bind (fun selected -> 
-            if HashSet.exists (fun x -> x.id = a.key) selected then
-                AVal.constant C4b.VRVisGreen
-            else a.color.c
-           )
-        //|> ASet.map(fun x -> x.id = a.key)
-        //|> ASet.contains true
-        //|> AVal.bind (function x -> if x then AVal.constant C4b.VRVisGreen else a.color.c)
+                else 
+                    a.color.c
+            )                              
     
     let isSingleSelect (model : AdaptiveGroupsModel) (a : AdaptiveAnnotation) =
         model.singleSelectLeaf |> AVal.map( fun x -> 
@@ -142,7 +119,7 @@ module UI =
                     yield clazz "cube middle aligned icon"
                     yield onClick (multiSelect)
 
-                    let! c = mkCubeColor model a
+                    let! c = mkColor model a
                     yield style (sprintf "color: %s" (Html.ofC4b c))
                 } |> AttributeMap.ofAMap
             

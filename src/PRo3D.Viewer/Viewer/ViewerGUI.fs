@@ -382,38 +382,30 @@ module Gui =
                             
                                 //annotations menu
                                 DrawingApp.UI.annotationMenu |> UI.map DrawingMessage;                                                           
-                            
-                                //fixes all broken surface import paths
-                                fixAllBrokenPaths
-
+                                                            
                                 //Extras Menu
                                 div [ clazz "ui dropdown item"] [
                                     text "Extras"
                                     i [clazz "dropdown icon"][] 
                                     div [ clazz "menu"] [
+                                        //fixes all broken surface import paths
+                                        fixAllBrokenPaths
+
                                         div [ clazz "ui item";
                                             Dialogs.onChooseFiles ImportAnnotationGroups;
                                             clientEvent "onclick" ("top.aardvark.processEvent('__ID__', 'onchoose', top.aardvark.dialog.showOpenDialog({filters: [{ name: 'xml', extensions: ['xml']},], properties: ['openFile']}));") ][
                                             text "Import Annotations Groups"
                                         ]
-                                        div [ clazz "ui item";
-                                            Dialogs.onChooseFiles ImportSurfaceTrafo;
-                                            clientEvent "onclick" ("top.aardvark.processEvent('__ID__', 'onchoose', top.aardvark.dialog.showOpenDialog({filters: [{ name: 'xml', extensions: ['xml']},],properties: ['openFile']}));") ] [
-                                            text "Import Surface Trafos"
-                                        ]
-                                        div [ clazz "ui item";
-                                            Dialogs.onChooseFiles ImportRoverPlacement;
-                                            clientEvent "onclick" ("top.aardvark.processEvent('__ID__', 'onchoose', top.aardvark.dialog.showOpenDialog({properties: ['openFile']}));") ] [
-                                            text "Rover Placement"
-                                        ]
-                            
-                                        
-                            
-                                        //PRo3D.Correlations.CorrelationPanelsApp.viewExportLogButton m.scene.scenePath 
-                                        //|> UI.map CorrelationPanelMessage
-
-                                        //fixes particular broken surface import paths (doesn't work atm)
-                                        //surfaceUiThing m
+                                        //div [ clazz "ui item";
+                                        //    Dialogs.onChooseFiles ImportSurfaceTrafo;
+                                        //    clientEvent "onclick" ("top.aardvark.processEvent('__ID__', 'onchoose', top.aardvark.dialog.showOpenDialog({filters: [{ name: 'xml', extensions: ['xml']},],properties: ['openFile']}));") ] [
+                                        //    text "Import Surface Trafos"
+                                        //]
+                                        //div [ clazz "ui item";
+                                        //    Dialogs.onChooseFiles ImportRoverPlacement;
+                                        //    clientEvent "onclick" ("top.aardvark.processEvent('__ID__', 'onchoose', top.aardvark.dialog.showOpenDialog({properties: ['openFile']}));") ] [
+                                        //    text "Rover Placement"
+                                        //]                                                                                                                                        
                                     ]
                                 ]
                             ] 
@@ -593,7 +585,8 @@ module Gui =
             div [][
                 GuiEx.accordion "Annotations" "Write" true [
                     GroupsApp.viewSelectionButtons |> UI.map AnnotationGroupsMessageViewer
-                    DrawingApp.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage // CHECK-merge viewAnnotationGroups
+                    PRo3D.DrawingApp.UI.viewAnnotationGroups m.drawing |> UI.map ViewerAction.DrawingMessage
+                   // DrawingApp.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage // CHECK-merge viewAnnotationGroups
                 ]
                 GuiEx.accordion "Properties" "Content" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle prop)                                        
