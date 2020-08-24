@@ -304,8 +304,7 @@ module Gui =
                         div [clazz "ui flowing popup bottom left transition hidden"] [
                             Incremental.div (AttributeMap.ofList [clazz "ui link list"]) (
                                 alist {
-                                    let! recentScenes = m.recent.recentScenes
-                                    //let sortedList = recentScenes |> List.sortBy( fun sh -> sh.writeDate.DayOfYear ) |> List.sortBy( fun sh -> sh.writeDate.Year )
+                                    let! recentScenes = m.recent.recentScenes                                    
                                     let last10Scenes =
                                         if recentScenes.Length > 10 then
                                             recentScenes |> List.take 10
