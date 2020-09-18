@@ -12,15 +12,15 @@ nuget Aardvark.Base.Incremental             ~> 5.0.14
 nuget Aardvark.Base.FSharp                  ~> 5.0.14
 nuget Aardvark.Geometry                     ~> 5.0.14
 
-nuget Aardvark.Base.Rendering               ~> 5.0.8
-nuget Aardvark.Application.Slim             ~> 5.0.8
-nuget Aardvark.Application.Slim.GL          ~> 5.0.8
-nuget Aardvark.SceneGraph                   ~> 5.0.8
-nuget Aardvark.SceneGraph.IO                ~> 5.0.8
-nuget Aardvark.SceneGraph.Opc               ~> 5.0.8
-nuget Aardvark.Rendering.Text               ~> 5.0.8
-nuget Aardvark.Rendering.Vulkan             ~> 5.0.8
-nuget Aardvark.Rendering.GL                 ~> 5.0.8
+nuget Aardvark.Base.Rendering               ~> 5.0.10
+nuget Aardvark.Application.Slim             ~> 5.0.10
+nuget Aardvark.Application.Slim.GL          ~> 5.0.10
+nuget Aardvark.SceneGraph                   ~> 5.0.10
+nuget Aardvark.SceneGraph.IO                ~> 5.0.10
+nuget Aardvark.SceneGraph.Opc               ~> 5.0.10
+nuget Aardvark.Rendering.Text               ~> 5.0.10
+nuget Aardvark.Rendering.Vulkan             ~> 5.0.10
+nuget Aardvark.Rendering.GL                 ~> 5.0.10
 
 nuget Aardvark.Geometry.Intersection        ~> 5.0.14
 nuget Aardvark.Geometry.PointTree           ~> 5.0.14

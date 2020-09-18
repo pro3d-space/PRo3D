@@ -77,7 +77,7 @@ module SurfaceUtils =
             Log.line "[OBJ] The OBJ file was loaded successfully!" 
             let dir = Path.GetDirectoryName(surface.importPath)
             let filename = Path.GetFileNameWithoutExtension surface.importPath
-            let kdTreePath = dir + "\\" + filename + ".aakd" //Path.ChangeExtension(s.importPath, name)
+            let kdTreePath = Path.combine [dir; filename + ".aakd"] //Path.ChangeExtension(s.importPath, name)
             let mutable count = 0
             let kdTrees = 
                 if File.Exists(kdTreePath) |> not then

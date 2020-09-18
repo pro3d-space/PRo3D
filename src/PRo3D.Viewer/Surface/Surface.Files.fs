@@ -280,7 +280,7 @@ module Files =
        /// [RNO] TODO CAN THROW ERRORS - REWRITE!!
        let relativePath (path : string) (remaining : int) = 
            let parts = 
-               path.Split(Path.DirectorySeparatorChar) 
+               path.Split('\\') 
            //match parts.Length < remaining
            parts
                |> List.ofArray 
@@ -308,7 +308,7 @@ module Files =
                          kdtreePath    = Path.Combine(path, kdTreeSub)
                          objectSetPath = Path.Combine(path, triangleSub)
                  }
-             | KdTrees.Level0KdTree.LazyKdTree lk -> // surfaces have absolute paths                  
+             | KdTrees.Level0KdTree.LazyKdTree lk -> // surfaces have absolute paths        
                  let kdTreeSub   = lk.kdtreePath    |> surfaceRelativePath
                  let triangleSub = lk.objectSetPath |> surfaceRelativePath                                                                                
                         

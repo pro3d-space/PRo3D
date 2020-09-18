@@ -66,3 +66,11 @@ module Missing =
             match a with
             | AdaptiveSome a -> Some a
             | AdaptiveNone -> None
+
+
+namespace Aardvark.Rendering.Text
+
+module Font =
+    
+    let create name style =
+        FontSquirrel.Hack.Regular

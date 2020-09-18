@@ -58,10 +58,10 @@ module Serialization =
         | true  -> Some filePath
         | false -> None
 
-    let changeExtension (ext:string) (scenePath:string) = 
-        let p = System.IO.Path.GetDirectoryName(scenePath)
-        let name = System.IO.Path.GetFileNameWithoutExtension(scenePath) + ext
-        p + "\\" + name
+    let changeExtension (ext:string) (scenePath:string) = System.IO.Path.ChangeExtension(scenePath,ext)
+        //let p = System.IO.Path.GetDirectoryName(scenePath)
+        //let name = System.IO.Path.GetFileNameWithoutExtension(scenePath) + ext
+        //p + "\\" + name
 
     module Chiron =
         let writeToFile path (contents : string) =

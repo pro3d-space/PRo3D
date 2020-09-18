@@ -371,7 +371,7 @@ module FootPrint =
         
     let getFootprintsPath (scenePath:string) =
         let path = Path.GetDirectoryName scenePath
-        path + "\\FootPrints"
+        Path.combine [path;"FootPrints"]
        
     let createFootprintData (vp:ViewPlanModel) (scenePath:string) =
 
