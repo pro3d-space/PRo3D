@@ -23,6 +23,8 @@ open Chiron
 //open CorrelationDrawing.Model
 #nowarn "0044"
 
+
+//TODO make nice api for serialization
 module ViewerIO =  
     open PRo3D.Correlations
     
@@ -33,8 +35,6 @@ module ViewerIO =
       { m with scene = { m.scene with viewPlans = vps } }
     
     
-
-
     //let getAnnotationPath_depr (scenePath:string) = 
     //  scenePath |> changeExtension ".ann" 
 
@@ -66,23 +66,11 @@ module ViewerIO =
                 annotationGroups    = scenepath |> Serialization.changeExtension ".ann" 
                 annotationsFlat     = scenepath |> Serialization.changeExtension ".ann.json" 
                 annotationDepr      = scenepath |> Serialization.changeExtension ".ann_old" 
-            }
+            }   
 
-    let saveVersioned (model : DrawingModel) (paths : ScenePaths) =                
+    let saveVersioned' (model : DrawingModel) (paths : ScenePaths) =        
+        PRo3D.Drawing.IO.saveVersioned model paths.annotations                
         
-        Log.startTimed "[Drawing] Writing annotation grouping"
-        {
-            version        = Annotations.current
-            annotations    = model.annotations
-            dnsColorLegend = model.dnsColorLegend
-        } 
-        |> Json.serialize 
-        |> Json.formatWith JsonFormattingOptions.Pretty 
-        |> Serialization.writeToFile paths.annotations
-
-        Log.stop()
-        
-        model
         
     let tryLoadAnnotations (scenePath : string) : option<Annotations> =
         try        
@@ -130,7 +118,8 @@ module ViewerIO =
         m.scene.scenePath 
         |> Option.bind(fun p ->        
             let scenePaths = p |> ScenePaths.create
-            scenePaths.annotations |> tryLoadAnnotations)
+            scenePaths.annotations |> tryLoadAnnotations
+        )
         |> Option.map(fun g ->                 
 
             //color annotations according to semantics
@@ -145,16 +134,16 @@ module ViewerIO =
             //        m.scene.referenceSystem                    
             //        (UpdateAnnotations flat)
             
-            //{   
-            //    m with                    
-            //        correlationPlot = corr
-            //        drawing = {
-            //            m.drawing with 
-            //                annotations    = { g.annotations with flat = flat }
-            //                dnsColorLegend = g.dnsColorLegend 
-            //        }
-            //}            
-            m
+            {   
+                m with                    
+                    //correlationPlot = corr
+                    drawing = {
+                        m.drawing with 
+                            annotations    = g.annotations
+                            dnsColorLegend = g.dnsColorLegend 
+                    }
+            }            
+            
         ) 
         |> Option.defaultValue m
 
@@ -279,7 +268,7 @@ module ViewerIO =
 
             //saving annotations
             let drawing =                 
-                scenePaths |> saveVersioned m.drawing
+                scenePaths |> saveVersioned' m.drawing
             
             //saving minerva session
             let minerva = 

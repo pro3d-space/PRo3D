@@ -421,7 +421,7 @@ module SurfaceModel =
         model.surfaces.flat |> HashMap.tryFind guid
 
     let groupSurfaces (sgSurfaces : HashMap<Guid, SgSurface>) (surfaces : HashMap<Guid, Surface>) =
-      sgSurfaces
+        sgSurfaces
         |> HashMap.toList
         |> List.groupBy(fun (_,x) -> 
             let surf = HashMap.find x.surface surfaces 
@@ -460,22 +460,3 @@ type SurfaceModel with
             do! Json.write "version"  x.version
             do! Json.write "surfaces" x.surfaces
         }
-
-//[<ModelType>]
-//type Grouping<'a> = {
-//  root                 : Node
-//  flat                 : HashMap<Guid,'a>
-//  activeGroup          : TreeSelection
-//  activeChild          : TreeSelection  
-//  groupsLookup         : HashMap<Guid,string>
-//  lastSelectedItem     : SelectedItem
-//  selectedLeaves       : HashSet<TreeSelection> 
-//  singleSelectLeaf     : option<Guid>
-//}
-
-//type SaveAnnotations = {
-//    annotations: Grouping<Annotation>
-//    colorLegend : FalseColorsModel
-//}
-
-    //FsPickler.RegisterPicklerFactory (fun _ -> surfaceModelPickler)

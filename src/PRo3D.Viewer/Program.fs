@@ -60,12 +60,6 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-type License = {
-  key         : string
-  userName    : string
-  institution : string
-}
-
 let viewerVersion       = "3.1.0-prerelease1"
 let catchDomainErrors   = false
 
@@ -118,16 +112,16 @@ let main argv =
     use sendQueue = new BlockingCollection<string>()    
         
     let ws (webSocket : WebSocket) (context: HttpContext) =
-      socket {
-        let mutable loop = true
-        
-        while loop do
-          let str = sendQueue.Take()
-          Log.warn "taking item from bc"
-          let s = ByteSegment(System.Text.Encoding.UTF8.GetBytes str)
-          
-          do! webSocket.send Text s true
-      }        
+        socket {
+            let mutable loop = true
+            
+            while loop do
+                let str = sendQueue.Take()
+                Log.warn "taking item from bc"
+                let s = ByteSegment(System.Text.Encoding.UTF8.GetBytes str)
+                
+                do! webSocket.send Text s true
+        }        
 
     PatchLod.useAsyncLoading <- (argv |> Array.contains "-sync" |> not)
     let startEmpty = (argv |> Array.contains "-empty")
@@ -140,7 +134,7 @@ let main argv =
    // let minervaMailbox = MailboxProcessor.Start(PRo3D.Minerva.App.messagingMailbox cts, cts.Token)
     
     let argsKv = 
-      argv 
+        argv 
         |> Array.filter(fun x -> x.Contains "=")
         |> Array.map(fun x -> 
               let kv = x.Split [|'='|]
@@ -197,7 +191,7 @@ let main argv =
         ()
     
     if catchDomainErrors then
-      AppDomain.CurrentDomain.UnhandledException.AddHandler(UnhandledExceptionEventHandler(domainError))
+        AppDomain.CurrentDomain.UnhandledException.AddHandler(UnhandledExceptionEventHandler(domainError))
 
     WebPart.startServerLocalhost 54322 [
         MutableApp.toWebPart' runtime false mainApp
@@ -209,9 +203,7 @@ let main argv =
         Suave.Files.browseHome        
     ] |> ignore
 
-    
-    
-
+        
     //WebPart.startServer 4322 [
     //    MutableApp.toWebPart' runtime false instrumentApp        
     //    Suave.Files.browseHome
@@ -255,46 +247,18 @@ let main argv =
     ] |> ignore
 
     
-
     let titlestr = "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH"
 
-    match startupArgs.hasValidAnimationArgs with
-    | true ->
-        PatchLod.useAsyncLoading <- false // need this for rendering without gui!
-        //NoGuiViewer.animate runtime mModel mainApp startupArgs |> ignore // TODO requires ViewerApp.start to return value version
-        try            
-            match startupArgs.exitOnFinish with
-            | true ->
-                0
-            | false -> 
-                Log.line ""
-                Log.line "Execution finished."
-                Log.line "Your images have been saved to %s" (Path.GetFullPath startupArgs.outFolder)
-                Log.line "Press any key to exit."
-                System.Console.ReadLine () |> ignore
-                0
-        with 
-        | e -> 
-            Log.line "%s" e.Message
-            0
-    | false ->
-        Aardium.run {
-            url "http://localhost:54322/"   //"http://localhost:4321/?page=main"
-            width 1280
-            height 800
-            debug true
-            title titlestr
-        }
+    
+    Aardium.run {
+        url "http://localhost:54322/"   //"http://localhost:4321/?page=main"
+        width 1280
+        height 800
+        debug true
+        title titlestr
+    }
 
-        CooTransformation.deInitCooTrafo ()
-        // Log.line "[Viewer] Could not deinit CooTrafo."
-        0
-    | false ->
-        try            
-            Log.line "Press any key to exit."
-            System.Console.ReadLine () |> ignore
-            0
-        with 
-        | e -> 
-            Log.line "%s" e.Message
-            0
+    CooTransformation.deInitCooTrafo ()
+    // Log.line "[Viewer] Could not deinit CooTrafo."
+    0
+ 

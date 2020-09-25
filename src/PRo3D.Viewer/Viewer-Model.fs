@@ -95,76 +95,76 @@ type PropertyActions =
 //    | PlaneExtrudeAction of PlaneExtrude.App.Action
 
 type ViewerAction =                
-| DrawingMessage            of Drawing.Action
+| DrawingMessage                  of Drawing.Action
 | AnnotationGroupsMessageViewer   of GroupsAppAction
-| NavigationMessage         of Navigation.Action
-| AnimationMessage          of AnimationAction
-| ReferenceSystemMessage    of ReferenceSystemApp.Action
-| AnnotationMessage         of AnnotationProperties.Action
-| BookmarkMessage           of BookmarkAction
-| BookmarkUIMessage         of GroupsAppAction
-| RoverMessage              of RoverApp.Action
-| ViewPlanMessage           of ViewPlanApp.Action
-| DnSColorLegendMessage     of FalseColorLegendApp.Action
-| SetCamera                 of CameraView        
-| SetCameraAndFrustum       of CameraView * double * double        
-| SetCameraAndFrustum2      of CameraView * Frustum
-| ImportSurface             of list<string>
-| ImportDiscoveredSurfaces  of list<string>
-| ImportDiscoveredSurfacesThreads  of list<string>
-| ImportObject              of list<string>
-| ImportAnnotationGroups    of list<string>
-| ImportSurfaceTrafo        of list<string>
-| ImportRoverPlacement      of list<string>
-| SwitchViewerMode          of ViewerMode
-| DnSProperties             of PropertyActions
-| ConfigPropertiesMessage   of ConfigProperties.Action
+| NavigationMessage               of Navigation.Action
+| AnimationMessage                of AnimationAction
+| ReferenceSystemMessage          of ReferenceSystemApp.Action
+| AnnotationMessage               of AnnotationProperties.Action
+| BookmarkMessage                 of BookmarkAction
+| BookmarkUIMessage               of GroupsAppAction
+| RoverMessage                    of RoverApp.Action
+| ViewPlanMessage                 of ViewPlanApp.Action
+| DnSColorLegendMessage           of FalseColorLegendApp.Action
+| SetCamera                       of CameraView        
+| SetCameraAndFrustum             of CameraView * double * double        
+| SetCameraAndFrustum2            of CameraView * Frustum
+| ImportSurface                   of list<string>
+| ImportDiscoveredSurfaces        of list<string>
+| ImportDiscoveredSurfacesThreads of list<string>
+| ImportObject                    of list<string>
+| ImportPRo3Dv1Annotations        of list<string>
+| ImportSurfaceTrafo              of list<string>
+| ImportRoverPlacement            of list<string>
+| SwitchViewerMode                of ViewerMode
+| DnSProperties                   of PropertyActions
+| ConfigPropertiesMessage         of ConfigProperties.Action
 | DeleteLast
-| AddSg                     of ISg
-| PickSurface               of SceneHit*string
-| PickObject                of V3d*Guid
-| SaveScene                 of string
-| SaveAs                    of string
-| OpenScene                 of list<string>
-| LoadScene                 of string
+| AddSg                           of ISg
+| PickSurface                     of SceneHit*string
+| PickObject                      of V3d*Guid
+| SaveScene                       of string
+| SaveAs                          of string
+| OpenScene                       of list<string>
+| LoadScene                       of string
 | NewScene
-| KeyDown                   of key : Aardvark.Application.Keys
-| KeyUp                     of key : Aardvark.Application.Keys      
-| SetKind                   of TrafoKind
-| SetInteraction            of Interactions        
-| SetMode                   of TrafoMode
-| TransforAdaptiveSurface          of System.Guid * Trafo3d
-| ImportTrafo               of list<string>
-//| TransformAllSurfaces      of list<SnapshotSurfaceUpdate>
-| Translate                 of string * TrafoController.Action
-| Rotate                    of string * TrafoController.Action
-| SurfaceActions            of SurfaceApp.Action
-| MinervaActions            of PRo3D.Minerva.MinervaAction
-//| ScaleToolAction           of ScaleToolAction
-| LinkingActions            of PRo3D.Linking.LinkingAction
-| AlignmentActions          of PRo3D.Align.AlignmentActions
-| SetTabMenu                of TabMenu
-| OpenSceneFileLocation     of string
-| NoAction                  of string
-| OrientationCube           of ISg
-| UpdateDockConfig          of DockConfig
-| AddPage                   of DockElement    
+| KeyDown                         of key : Aardvark.Application.Keys
+| KeyUp                           of key : Aardvark.Application.Keys      
+| SetKind                         of TrafoKind
+| SetInteraction                  of Interactions        
+| SetMode                         of TrafoMode
+| TransforAdaptiveSurface                of System.Guid * Trafo3d
+| ImportTrafo                     of list<string>
+//| TransformAllSurfaces            of list<SnapshotSurfaceUpdate>
+| Translate                       of string * TrafoController.Action
+| Rotate                          of string * TrafoController.Action
+| SurfaceActions                  of SurfaceApp.Action
+| MinervaActions                  of PRo3D.Minerva.MinervaAction
+//| ScaleToolAction                 of ScaleToolAction
+| LinkingActions                  of PRo3D.Linking.LinkingAction
+| AlignmentActions                of PRo3D.Align.AlignmentActions
+| SetTabMenu                      of TabMenu
+| OpenSceneFileLocation           of string
+| NoAction                        of string
+| OrientationCube                 of ISg
+| UpdateDockConfig                of DockConfig
+| AddPage                         of DockElement    
 | ToggleOrientationCube
-| UpdateUserFeedback        of string
-| StartImportMessaging      of list<string>
-| Logging                   of string * ViewerAction
-| ThreadsDone               of string    
-| SnapshotThreadsDone       of string
-| OnResize                  of V2i
-| StartDragging             of V2i * MouseButtons
-| Dragging                  of V2i
-| EndDragging               of V2i * MouseButtons
-//| CorrelationPanelMessage   of CorrelationPanelsMessage
-| MakeSnapshot              of int*int*string
-| ImportSnapshotData        of list<string>
-| SetTextureFiltering       of bool // TODO move to versioned ViewConfigModel in V3
-//| UpdateShatterCones        of list<SnapshotShattercone> // TODO snapshots and shattercone things should be in own apps
-| TestHaltonRayCasting      //of list<string>
+| UpdateUserFeedback              of string
+| StartImportMessaging            of list<string>
+| Logging                         of string * ViewerAction
+| ThreadsDone                     of string    
+| SnapshotThreadsDone             of string
+| OnResize                        of V2i
+| StartDragging                   of V2i * MouseButtons
+| Dragging                        of V2i
+| EndDragging                     of V2i * MouseButtons
+//| CorrelationPanelMessage         of CorrelationPanelsMessage
+| MakeSnapshot                    of int*int*string
+| ImportSnapshotData              of list<string>
+| SetTextureFiltering             of bool // TODO move to versioned ViewConfigModel in V3
+//| UpdateShatterCones              of list<SnapshotShattercone> // TODO snapshots and shattercone things should be in own apps
+| TestHaltonRayCasting            //of list<string>
 | Nop
 
 and MailboxState = {

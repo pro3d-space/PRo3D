@@ -33,8 +33,8 @@ type Action =
   | ClearWorking
   | ClearSelection
   | Clear
-  | SaveVersioned
-  | LoadVersioned
+  | LegacySaveVersioned
+  | LegacyLoadVersioned
   | SetSegment             of int * Segment
   | Finish                   
   | Undo                   
@@ -52,7 +52,7 @@ type Action =
   | ExportAsAnnotations     of string
   | AddAnnotations         of list<string>
   | PickAnnotation         of SceneHit * Guid
-  | SaveCSV of string
+  | ExportAsCSV of string
 
 [<ModelType>]
 type DrawingModel = {

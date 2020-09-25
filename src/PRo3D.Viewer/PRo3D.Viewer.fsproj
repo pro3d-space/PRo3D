@@ -40,6 +40,7 @@
     <Compile Include="Drawing\DrawingUtilities.fs" />
     <Compile Include="Drawing\Drawing.UI.fs" />
     <Compile Include="Drawing\Drawing.Sg.fs" />
+    <Compile Include="Drawing\Drawing.IO.fs" />
     <Compile Include="Drawing\Drawing.fs" />
     <Compile Include="MeasurementsImporter.fs" />
     <Compile Include="Navigation.fs" />

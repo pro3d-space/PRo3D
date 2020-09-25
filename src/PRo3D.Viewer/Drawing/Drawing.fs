@@ -29,6 +29,7 @@ open PRo3D.Drawing
 open PRo3D.DrawingApp
 open PRo3D.Groups
 open MBrace.FsPickler.Json   
+open PRo3D.Base
 open PRo3D.Base.Annotation
 open PRo3D.DrawingUtilities
 open PRo3D.Groups
@@ -38,7 +39,6 @@ open Chiron
 open PRo3D.Base.Annotation
 
 module DrawingApp =
-    open PRo3D.Base
 
    // open Newtonsoft.Json
         
@@ -46,20 +46,20 @@ module DrawingApp =
         let firstP = a.points.[0]
         let lastP = a.points.[(a.points.Count-1)]
         match a.projection with
-            | Projection.Viewpoint | Projection.Sky ->     
-                let newSegment = { startPoint = firstP; endPoint = lastP; points = IndexList.ofList [firstP;lastP] }
+        | Projection.Viewpoint | Projection.Sky ->     
+            let newSegment = { startPoint = firstP; endPoint = lastP; points = IndexList.ofList [firstP;lastP] }
 
-                if PRo3D.Config.useAsyncIntersections then
-                    { a with segments = IndexList.add newSegment a.segments }
-                else
-                    let dir = newSegment.endPoint - newSegment.startPoint
-                    let points = [ 
-                            for s in 0 .. PRo3D.Config.sampleCount do
-                                yield newSegment.startPoint + dir * (float s / float PRo3D.Config.sampleCount) // world space
-                        ]
-                    let newSegment = { startPoint = firstP; endPoint = lastP; points = IndexList.ofList points }
-                    { a with segments = IndexList.add newSegment a.segments }
-            | _ -> { a with points = a.points |> IndexList.add firstP }
+            if PRo3D.Config.useAsyncIntersections then
+                { a with segments = IndexList.add newSegment a.segments }
+            else
+                let dir = newSegment.endPoint - newSegment.startPoint
+                let points = [ 
+                        for s in 0 .. PRo3D.Config.sampleCount do
+                            yield newSegment.startPoint + dir * (float s / float PRo3D.Config.sampleCount) // world space
+                    ]
+                let newSegment = { startPoint = firstP; endPoint = lastP; points = IndexList.ofList points }
+                { a with segments = IndexList.add newSegment a.segments }
+        | _ -> { a with points = a.points |> IndexList.add firstP }
 
     let getFinishedAnnotation up north planet (view:CameraView) (model : DrawingModel) =
       match model.working with
@@ -162,39 +162,39 @@ module DrawingApp =
         let id = Guid.NewGuid() |> string
 
         let computation = 
-          proclist {
-            let mutable r = []
-            let result = MVar.empty()
-            let task = 
-                async {
-                    do! Async.SwitchToNewThread()
-                    let r = 
-                        [ for s in 0 .. PRo3D.Config.sampleCount do
-                            let p = newSegment.startPoint + dir * (float s / float PRo3D.Config.sampleCount) // world space
-                            match samplePoint p with
-                                | None -> ()
-                                | Some projectedPoint -> // projected point in world space
-                                    r <- r @ [projectedPoint]
-                                    MVar.put result (Choice1Of2 r)
-                                    yield projectedPoint
-                        ]
-                    MVar.put result (Choice2Of2 ())
-                } |> Async.Start
-
-            let rec doIt () =
-                proclist {
-                     let! r = Proc.Await (MVar.takeAsync result)
-                     match r with
-                        | Choice1Of2 r -> 
-                            printfn "mked it: %A" r
-                            let segment = { newSegment with points = IndexList.ofList r}
-                            yield SetSegment(segmentIndex,segment)
-                            yield! doIt()
-                        | Choice2Of2 _ -> ()
-                }
-
-            yield! doIt()
-          } 
+            proclist {
+                let mutable r = []
+                let result = MVar.empty()
+                let task = 
+                    async {
+                        do! Async.SwitchToNewThread()
+                        let r = 
+                            [ for s in 0 .. PRo3D.Config.sampleCount do
+                                let p = newSegment.startPoint + dir * (float s / float PRo3D.Config.sampleCount) // world space
+                                match samplePoint p with
+                                    | None -> ()
+                                    | Some projectedPoint -> // projected point in world space
+                                        r <- r @ [projectedPoint]
+                                        MVar.put result (Choice1Of2 r)
+                                        yield projectedPoint
+                            ]
+                        MVar.put result (Choice2Of2 ())
+                    } |> Async.Start
+                
+                let rec doIt () =
+                    proclist {
+                         let! r = Proc.Await (MVar.takeAsync result)
+                         match r with
+                            | Choice1Of2 r -> 
+                                printfn "mked it: %A" r
+                                let segment = { newSegment with points = IndexList.ofList r}
+                                yield SetSegment(segmentIndex,segment)
+                                yield! doIt()
+                            | Choice2Of2 _ -> ()
+                    }
+                
+                yield! doIt()
+            } 
         
         let pool = 
             if model.pendingIntersections.store.ContainsKey id then 
@@ -272,8 +272,8 @@ module DrawingApp =
             let model, newSegment = addPoint up north planet hitFunction point view model name webSocket
             
             match newSegment with
-                | None         -> model
-                | Some segment -> addNewSegment hitFunction model segment
+            | None         -> model
+            | Some segment -> addNewSegment hitFunction model segment
             |> stash
         | RemoveLastPoint, _, _ -> 
           //let annotation = { w with points = w.points |> IndexList.append p }
@@ -289,7 +289,6 @@ module DrawingApp =
             | None -> model
             | Some w ->                         
                 { model with working = Some { w with segments = IndexList.setAt segmentIndex segment w.segments } }
-
         | Finish, _, _ -> 
             let up     = smallConfig.up.Get(bigConfig)
             let north  = smallConfig.north.Get(bigConfig)
@@ -327,7 +326,7 @@ module DrawingApp =
         | ClearWorking,_ , _->
             { model with working = None }
         | Clear,_ , _->
-          { model with annotations = GroupsModel.initial }
+            { model with annotations = GroupsModel.initial }
         | Action.Nop, _, _ -> model                   
         | Undo, _, _ -> 
             match model.past with
@@ -343,39 +342,7 @@ module DrawingApp =
         | DnsColorLegendMessage msg,_, _ -> 
             { model with dnsColorLegend = FalseColorLegendApp.update model.dnsColorLegend msg }
         | FlyToAnnotation msg, _, _ ->               
-            model
-        | SaveCSV p, _, _ -> 
-          
-            let lookups = GroupsApp.updateGroupsLookup model.annotations
-            let annotations =
-                model.annotations.flat
-                |> Leaf.toAnnotations
-                |> HashMap.toList 
-                |> List.map snd
-                |> List.map (Csv.exportAnnotation lookups)                  
-            
-            let csvTable = Csv.Seq.csv "," true id annotations
-            if p.IsEmptyOrNull() |> not then Csv.Seq.write (p) csvTable
-            model
-        //| ExportAsAnnotations p, _,_ ->
-            
-        //    let flat' = model.annotations.flat |> HashMap.filter(fun a b -> b.visible)
-
-        //    let filtered = { model.annotations with flat = flat'}
-
-        //    let annoCore : saveAnnotations'' =
-        //        {
-        //            version        = saveAnnotations''.current
-        //            annotations    = filtered |> GroupsModel'.convert |> GroupsModel''.convert
-        //            dnsColorLegend = model.dnsColorLegend |> FalseColorsModel'.convert
-        //        } 
-
-        //    annoCore
-        //    |> Json.serialize 
-        //    |> Json.formatWith JsonFormattingOptions.Pretty 
-        //    |> Serialization.writeToFile p
-
-        //    model
+            model        
         | PickAnnotation (_hit, id), false, true ->
             match (model.annotations.flat.TryFind id) with
             | Some (Leaf.Annotations ann) ->       
@@ -387,7 +354,31 @@ module DrawingApp =
                 { model with annotations = annotations }
 
             | _ -> model        
-        | SaveVersioned, _,_ ->
+        
+        | AddAnnotations path, _,_ ->
+            match path |> List.tryHead with
+            | Some p -> 
+                let annos = DrawingUtilities.IO.loadAnnotations p
+                Log.line "[Drawing] Merging annotations"                
+                let merged = GroupsApp.union model.annotations annos.annotations
+                { model with annotations = merged }
+            | None ->
+                model
+        | ExportAsAnnotations path, _, _ ->
+            Drawing.IO.saveVersioned model path            
+        | ExportAsCSV p, _, _ ->           
+            let lookups = GroupsApp.updateGroupsLookup model.annotations
+            let annotations =
+                model.annotations.flat
+                |> Leaf.toAnnotations
+                |> HashMap.toList 
+                |> List.map snd
+                |> List.map (Csv.exportAnnotation lookups)                  
+            
+            let csvTable = Csv.Seq.csv "," true id annotations
+            if p.IsEmptyOrNull() |> not then Csv.Seq.write (p) csvTable
+            model      
+        | LegacySaveVersioned, _,_ ->
             let path = "./annotations.json"
             let pathgGrouping = "./annotations.grouping"
             
@@ -404,7 +395,7 @@ module DrawingApp =
 
             { model with annotations = annotations' }
             //model
-        | LoadVersioned, _,_ ->
+        | LegacyLoadVersioned, _,_ ->
             let path = "./annotations.json"
             let pathgGrouping = "./annotations.grouping"
 
@@ -417,12 +408,6 @@ module DrawingApp =
             let grouping = { grouping with flat = annos }
 
             { model with annotations = grouping }
-        | AddAnnotations p, _,_ ->
-          let annos = DrawingUtilities.IO.loadAnnotations (p |> List.head)
-          Log.line "[Drawing] Merging annotations"
-
-          let merged = GroupsApp.union model.annotations annos.annotations
-          { model with annotations = merged }
         | _ -> model
                                     
     let threads (m : DrawingModel) = m.pendingIntersections

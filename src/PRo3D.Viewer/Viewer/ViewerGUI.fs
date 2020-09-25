@@ -217,33 +217,34 @@ module Gui =
     module TopMenu =                       
 
         let jsImportOPCDialog =
-            "top.aardvark.dialog.showOpenDialog({ filters: [{ name: 'OPC (directories)'}], properties: ['openDirectory', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+            "top.aardvark.dialog.showOpenDialog({tile: 'Select directory to discover OPCs and import', filters: [{ name: 'OPC (directories)'}], properties: ['openDirectory', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
            
         let jsImportOBJDialog =
-            "top.aardvark.dialog.showOpenDialog({ filters: [{ name: 'OBJ (*.obj)', extensions: ['obj']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+            "top.aardvark.dialog.showOpenDialog({tile: 'Select *.obj files to import', filters: [{ name: 'OBJ (*.obj)', extensions: ['obj']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
         let private importSurface =
             [
-                text "Import"
+                text "Surfaces"
                 i [clazz "dropdown icon"][] 
                 div [ clazz "menu"] [
                     div [ clazz "ui inverted item";
-                        Dialogs.onChooseFiles  ImportDiscoveredSurfacesThreads;
+                        Dialogs.onChooseFiles ImportDiscoveredSurfacesThreads;
                         clientEvent "onclick" (jsImportOPCDialog)
                     ][
-                        text "OPC"
+                        text "Import OPCs"
                     ]
                     div [ clazz "ui inverted item"; 
                         Dialogs.onChooseFiles ImportObject;
                         clientEvent "onclick" (jsImportOBJDialog)
                     ][
-                        text "OBJ"
+                        text "Import (*.obj)"
                     ]
                 ]
             ]
         
         let private scene (m:AdaptiveModel) =
-            let jsSaveSceneDialog = "top.aardvark.dialog.showSaveDialog({ filters:  [{ name: 'Scene (*.pro3d)', extensions: ['pro3d'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
+            let jsSaveSceneDialog = 
+                "top.aardvark.dialog.showSaveDialog({ title:'Save Scene as', filters:  [{ name: 'Scene (*.pro3d)', extensions: ['pro3d'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
 
             let saveSceneDialog (m:AdaptiveModel) = 
                 adaptive {
@@ -260,7 +261,7 @@ module Gui =
                             ] [ text "Save" ]
                 }
 
-            let jsOpenSceneDialog = "top.aardvark.dialog.showOpenDialog({ filters: [{ name: 'Scene (*.pro3d, *.scn)', extensions: ['pro3d','scn']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+            let jsOpenSceneDialog = "top.aardvark.dialog.showOpenDialog({ title:'Open scene', filters: [{ name: 'Scene (*.pro3d, *.scn)', extensions: ['pro3d','scn']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
             [
                 text "Scene" 
@@ -274,7 +275,7 @@ module Gui =
                         clazz "ui inverted item"; Dialogs.onSaveFile SaveAs;
                         clientEvent "onclick" jsSaveSceneDialog
                     ][
-                        text "Save as..."
+                        text "Save as"
                     ]
 
                     //load scene
@@ -320,36 +321,12 @@ module Gui =
                         ] 
                     ] 
                 ]
-            ]
-        
-        let surfaceUiThing (m : AdaptiveModel)=
-            let blarg =
-                amap {
-                    let! selected = 
-                        m.scene.surfacesModel.surfaces.singleSelectLeaf
-                    
-                    match selected with
-                    | Some s ->
-                        yield clazz "ui item"
-                        yield Dialogs.onChooseDirectory s SurfaceApp.Action.ChangeImportDirectory
-                        yield clientEvent "onclick" (
-                          "top.aardvark.processEvent('__ID__', 'onchoose', top.aardvark.dialog.showOpenDialog({properties: ['openDirectory','multiSelections']}));"
-                        )
-                    | None -> ()
-                }
-            
-            let blurg = 
-                alist {
-                    let! selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
-                    match selected with
-                    | Some _ -> yield text "fix broken path"
-                    | None -> ()
-                }
-            
-            Incremental.div(AttributeMap.ofAMap blarg) blurg |> UI.map SurfaceActions
+            ]        
         
         let fixAllBrokenPaths =
-            let jsLocateSurfacesDialog =  "top.aardvark.dialog.showOpenDialog({ filters: [{ name: 'OPC (directories)'}], properties: ['openDirectory']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+            let jsLocateSurfacesDialog = 
+                "top.aardvark.dialog.showOpenDialog({title:'Select directory to locate OPCs', filters: [{ name: 'OPC (directories)'}], properties: ['openDirectory']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
             let ui = 
                 alist {
                     yield
@@ -364,13 +341,14 @@ module Gui =
         
             Incremental.div(AttributeMap.Empty) ui |> UI.map SurfaceActions                
         
-        let menu (m : AdaptiveModel) = 
+        let menu (m : AdaptiveModel) =             
+
             div [clazz "menu-bar"] [
                 // menu
                 div [ clazz "ui top menu"; style "z-index: 10000; padding:0px; margin:0px"] [
                     onBoot "$('#__ID__').dropdown('on', 'hover');" (
                         div [ clazz "ui dropdown item"; style "padding:0px 5px"] [
-                            i [clazz "large sidebar icon"; style "margin:0px 2px"] [] 
+                            i [clazz "large sidebar icon"; style "margin:0px 2px"] []
                             
                             div [ clazz "ui menu"] [
                                 //import surfaces
@@ -390,9 +368,11 @@ module Gui =
                                         //fixes all broken surface import paths
                                         fixAllBrokenPaths
 
+                                        let jsOpenOldAnnotationsFileDialogue = "top.aardvark.dialog.showOpenDialog({title:'Import legacy annotations from PRo3D 1.0' , filters: [{ name: 'Annotations (*.xml)', extensions: ['xml']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
                                         div [ clazz "ui item";
-                                            Dialogs.onChooseFiles ImportAnnotationGroups;
-                                            clientEvent "onclick" ("top.aardvark.processEvent('__ID__', 'onchoose', top.aardvark.dialog.showOpenDialog({filters: [{ name: 'xml', extensions: ['xml']},], properties: ['openFile']}));") ][
+                                            Dialogs.onChooseFiles ImportPRo3Dv1Annotations;
+                                            clientEvent "onclick" jsOpenOldAnnotationsFileDialogue ][
                                             text "Import Annotations Groups"
                                         ]
                                         //div [ clazz "ui item";

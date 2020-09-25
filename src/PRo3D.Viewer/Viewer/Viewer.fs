@@ -623,65 +623,73 @@ module ViewerApp =
                 |> ViewerIO.loadLastFootPrint
                 |> updateSceneWithNewSurface     
             | None -> m              
-        | ImportAnnotationGroups sl,_,_ ->
+        | ImportPRo3Dv1Annotations sl,_,_ ->
             match sl |> List.tryHead with
             | Some path -> 
-                //update groups
-                let imported, flat, lookup = AnnotationGroupsImporter.startImporter path m.scene.referenceSystem
+                try 
+                    let imported, flat, lookup = 
+                        AnnotationGroupsImporter.import path m.scene.referenceSystem
 
-                let newGroups = 
-                    m.drawing.annotations.rootGroup.subNodes
-                    |> IndexList.append imported
+                    let newGroups = 
+                        m.drawing.annotations.rootGroup.subNodes
+                        |> IndexList.append imported
 
-                let flat = 
-                    flat 
-                    |> HashMap.map(fun k v -> 
-                        let a = v |> Leaf.toAnnotation
-                        let a' = if a.geometry = Geometry.DnS then { a with showDns = true } else a
-                        a'|> Leaf.Annotations
-                    )    
-                                      
-                let newflat = m.drawing.annotations.flat |> HashMap.union flat
+                    let flat = 
+                        flat 
+                        |> HashMap.map(fun _ v ->
+                            let a = v |> Leaf.toAnnotation
+                            
+                            (if a.geometry = Geometry.DnS then { a with showDns = true } else a)
+                            |> Leaf.Annotations
+                        )    
+                                          
+                    let newflat = m.drawing.annotations.flat |> HashMap.union flat
 
-                //let inline median input = 
-                //  let sorted = input |> Seq.toArray |> Array.sort
-                //  let m1,m2 = 
-                //      let len = sorted.Length-1 |> float
-                //      len/2. |> floor |> int, len/2. |> ceil |> int 
-                //  (sorted.[m1] + sorted.[m2] |> float)/2.
+                    //let inline median input = 
+                    //  let sorted = input |> Seq.toArray |> Array.sort
+                    //  let m1,m2 = 
+                    //      let len = sorted.Length-1 |> float
+                    //      len/2. |> floor |> int, len/2. |> ceil |> int 
+                    //  (sorted.[m1] + sorted.[m2] |> float)/2.
 
-                //let stuff = 
-                //  flat 
-                //    |> HashMap.toList 
-                //    |> List.map snd 
-                //    |> List.map Leaf.toAnnotation
-                //    |> List.filter(fun x -> x.geometry = Geometry.DnS)
-                //    |> List.map(fun x -> x.points |> DipAndStrike.calculateDnsErrors)
-                //    |> List.concat
-                  
-                //let avg = stuff |> List.average
-                //let med = stuff |> List.toArray |> median
-                //let std = DipAndStrike.computeStandardDeviation avg stuff
-                //Log.line "%f %f %f" std avg med
-                  
-                //let result = stuff |> List.map(fun x -> { error = x } )
+                    //let stuff = 
+                    //  flat 
+                    //    |> HashMap.toList 
+                    //    |> List.map snd 
+                    //    |> List.map Leaf.toAnnotation
+                    //    |> List.filter(fun x -> x.geometry = Geometry.DnS)
+                    //    |> List.map(fun x -> x.points |> DipAndStrike.calculateDnsErrors)
+                    //    |> List.concat
+                      
+                    //let avg = stuff |> List.average
+                    //let med = stuff |> List.toArray |> median
+                    //let std = DipAndStrike.computeStandardDeviation avg stuff
+                    //Log.line "%f %f %f" std avg med
+                      
+                    //let result = stuff |> List.map(fun x -> { error = x } )
 
-                //let csvTable = Csv.Seq.csv ";" true id result
-                //Csv.Seq.write ("./error.csv") csvTable |> ignore
+                    //let csvTable = Csv.Seq.csv ";" true id result
+                    //Csv.Seq.write ("./error.csv") csvTable |> ignore
 
-                m 
-                |> Optic.set _groups newGroups
-                |> Optic.set _lookUp lookup
-                |> Optic.set _flat newflat          
+                    m 
+                    |> Optic.set _groups newGroups
+                    |> Optic.set _lookUp lookup
+                    |> Optic.set _flat newflat
+                with 
+                | e -> Log.error "[Viewer] %A" e; m
             | None -> m
         | ImportSurfaceTrafo sl,_,_ ->  
             match sl |> List.tryHead with
             | Some path ->
-                let imported = SurfaceTrafoImporter.startImporter path |> IndexList.toList                  
-                let s = Surfaces.SurfaceApp.updateSurfaceTrafos imported m.scene.surfacesModel
-                s.surfaces.flat |> HashMap.toList |> List.iter(fun (_,v) -> Log.warn "%A" (v |> Leaf.toSurface).preTransform)
-                m 
-                |> Optic.set _surfaceModelLens s  
+                let imported = 
+                    SurfaceTrafoImporter.startImporter path 
+                    |> IndexList.toList
+
+                let s = 
+                    m.scene.surfacesModel 
+                    |> Surfaces.SurfaceApp.updateSurfaceTrafos imported                
+
+                m |> Optic.set _surfaceModelLens s  
             | None -> m
         | ImportRoverPlacement sl,_,_ ->  
             match sl |> List.tryHead with
@@ -1652,7 +1660,7 @@ module ViewerApp =
                 |> ViewerIO.loadCorrelations
                 |> ViewerIO.loadLastFootPrint
                 |> ViewerIO.loadMinerva dumpFile cacheFile
-                |> ViewerIO.loadLinking                                       
+                |> ViewerIO.loadLinking
             else
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs |> ViewerIO.loadRoverData       
 

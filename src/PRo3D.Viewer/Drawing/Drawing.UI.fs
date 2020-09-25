@@ -41,6 +41,16 @@ module UI =
             | Some selected -> selected = a.key
             | None -> false )
     
+    let jsOpenAnnotationFileDialog = 
+        "top.aardvark.dialog.showOpenDialog({ title: 'Import Annotations', filters: [{ name: 'Annotations (*.ann)', extensions: ['ann']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+    let jsExportAnnotationsFileDialog = 
+        "top.aardvark.dialog.showSaveDialog({ title: 'Save Annotations as', filters:  [{ name: 'Annotations (*.pro3d.ann)', extensions: ['pro3d.ann'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
+
+    let jsExportAnnotationsAsCSVDialog =
+        "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
+        
+
     let annotationMenu = //todo move to viewer io gui
         div [ clazz "ui dropdown item"] [
             text "Annotations"
@@ -49,7 +59,7 @@ module UI =
                 div [
                     clazz "ui inverted item"
                     Dialogs.onChooseFiles AddAnnotations
-                    clientEvent "onclick" ("top.aardvark.processEvent('__ID__', 'onchoose', top.aardvark.dialog.showOpenDialog({filters: [{ name: 'Annotations (*.ann)', extensions: ['ann']},],properties: ['openFile']}));" )
+                    clientEvent "onclick" jsOpenAnnotationFileDialog
                 ][
                     text "Import"
                 ]
@@ -57,18 +67,18 @@ module UI =
                     clazz "ui inverted item"; onMouseClick (fun _ -> Clear)
                 ][
                     text "Clear"
-                ]
+                ]                
                 div [ 
                     clazz "ui inverted item"
                     Dialogs.onSaveFile ExportAsAnnotations
-                    clientEvent "onclick" ("top.aardvark.processEvent('__ID__', 'onsave', top.aardvark.dialog.showSaveDialog({filters: [{ name: 'Annotations (*.pro3d.ann)', extensions: ['pro3d.ann']}], options: [{title: 'Save Measurements as .csv'}]}));")
+                    clientEvent "onclick" jsExportAnnotationsFileDialog
                 ][
                     text "Export (*.pro3d.ann)"
                 ]
                 div [ 
                     clazz "ui inverted item"
                     Dialogs.onSaveFile ExportAsCsv
-                    clientEvent "onclick" ("top.aardvark.processEvent('__ID__', 'onsave', top.aardvark.dialog.showSaveDialog({filters: [{ name: 'Annotations (*.csv)', extensions: ['csv']}], options: [{title: 'Save Measurements as .csv'}]}));")
+                    clientEvent "onclick" jsExportAnnotationsAsCSVDialog
                 ][
                     text "Export (*.csv)"
                 ]     

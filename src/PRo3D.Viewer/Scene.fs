@@ -268,7 +268,7 @@ module Scene =
 
             let sModel = 
                 m.scene.surfacesModel 
-                  |> prepareSurfaceModel runtime signature scene.scenePath
+                |> prepareSurfaceModel runtime signature scene.scenePath
 
             Optic.set _surfaceModelLens sModel m  
         //with e ->            
@@ -284,11 +284,11 @@ module Scene =
                 match m.recent.recentScenes |> List.sortByDescending (fun v -> v.writeDate) |> List.tryHead with
                 | Some (scenePath) ->
                     try
-                       loadScene scenePath.path m runtime signature                       
+                        loadScene scenePath.path m runtime signature                       
                     with e ->
-                      Log.warn "[Scene] Error parsing last scene: %s. loading empty" scenePath.path
-                      Log.error "[Scene] %A" e.Message
-                      m
+                        Log.warn "[Scene] Error parsing last scene: %s. loading empty" scenePath.path
+                        Log.error "[Scene] %A" e.Message
+                        m
                 | None -> 
                     Log.warn "[Scene] No recent scene found"
                     m            

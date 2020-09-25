@@ -96,17 +96,15 @@ module AnnotationGroupsImporter =
                     | _ -> ()
             }
 
-    let readLine (filePath:string) =
-                use sr = new System.IO.StreamReader (filePath)
-                sr.ReadLine ()       
-
-    let startImporter (path:string) (refSys:ReferenceSystem) =
+    let import (path:string) (refSys:ReferenceSystem) =
 
         let trafoFile = System.IO.Path.ChangeExtension(path, ".trafo")
         let t = 
-         match (Serialization.fileExists trafoFile) with
-           | Some path-> readLine path |> Trafo3d.Parse                       
-           | None -> Trafo3d.Identity
+            match (Serialization.fileExists trafoFile) with
+            | Some path-> 
+                use sr = new System.IO.StreamReader (path)
+                sr.ReadLine () |> Trafo3d.Parse
+            | None -> Trafo3d.Identity
 
         let fileName = path |> System.IO.Path.GetFileName
 
@@ -115,20 +113,20 @@ module AnnotationGroupsImporter =
         let xGroups = (root.Elements(xname "MeasurementGroup")).ToListOfT<XElement>()
         printfn "%A" xGroups.Count
         let groupsNFlat = 
-          xGroups 
+            xGroups 
             |> Seq.toList
             |> List.map(getGroups t fileName refSys.up.value refSys.north.value)
 
         let flat = 
-          groupsNFlat 
+            groupsNFlat 
             |> List.map (fun (_,x,_) -> x)
             |> List.fold (fun acc x -> HashMap.union acc x) HashMap.empty
 
         let groups = 
-          groupsNFlat |> List.map (fun (x,_,_) -> x) |> IndexList.ofList
+            groupsNFlat |> List.map (fun (x,_,_) -> x) |> IndexList.ofList
         
         let lookup = 
-          groupsNFlat 
+            groupsNFlat 
             |> List.map (fun (_,_,x) -> x)
             |> List.fold (fun acc x -> HashMap.union acc x) HashMap.empty        
 
