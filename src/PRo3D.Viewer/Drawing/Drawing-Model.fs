@@ -47,12 +47,11 @@ type Action =
   | UpVectorChanged        of V3d
   | NorthVectorChanged     of V3d
   | GroupsMessage          of GroupsAppAction
-  | DnsColorLegendMessage  of FalseColorLegendApp.Action
-  | ExportAsCsv            of string
-  | ExportAsAnnotations     of string
+  | DnsColorLegendMessage  of FalseColorLegendApp.Action  
+  | ExportAsAnnotations    of string
   | AddAnnotations         of list<string>
   | PickAnnotation         of SceneHit * Guid
-  | ExportAsCSV of string
+  | ExportAsCsv            of string
 
 [<ModelType>]
 type DrawingModel = {

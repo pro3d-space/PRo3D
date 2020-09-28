@@ -218,10 +218,7 @@ module ViewerUtils =
                           
     let colormap = 
         let config = { wantMipMaps = false; wantSrgb = false; wantCompressed = false }
-        FileTexture("resources/HueColorMap.png",config) :> ITexture
-
-    let pickable' (pick :aval<Pickable>) (sg: ISg) =
-        Sg.PickableApplicator (pick, AVal.constant sg)
+        FileTexture("resources/HueColorMap.png",config) :> ITexture    
     
     let toModSurface (leaf : AdaptiveLeafCase) = 
          adaptive {
@@ -532,7 +529,7 @@ module ViewerUtils =
                     |> Sg.texture (Sym.ofString "FootPrintTexture") fp.projTex
                     |> Sg.LodParameters( getLodParameters surf refsys frustum )
                     |> Sg.AttributeParameters( attributeParameters surf )
-                    |> pickable' pickable
+                    |> OpcViewer.Base.Sg.pickable' pickable
                     |> Sg.noEvents 
                     |> Sg.withEvents [
                         SceneEventKind.Click, (
@@ -604,8 +601,7 @@ module ViewerUtils =
             // Shader.selectionColor          |> toEffect
             PRo3D.Base.Shader.markPatchBorders |> toEffect
             //PRo3D.Base.Shader.differentColor   |> toEffect
-            
-            
+                        
             //Shader.LoDColor                |> toEffect                             
          //   PRo3D.Base.Shader.falseColorLegend2 |> toEffect
             PRo3D.Base.Shader.mapColorAdaption  |> toEffect            

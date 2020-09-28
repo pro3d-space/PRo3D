@@ -229,10 +229,7 @@ module Sg =
     //## PICKING ##
 
     let cylinders width positions = 
-        positions |> Array.pairwise |> Array.map(fun (a,b) -> Line3d(a,b)) |> Array.map (fun x -> Cylinder3d(x, width))
-
-    let pickable' (pick :aval<Pickable>) (sg: ISg) =
-        Sg.PickableApplicator (pick, AVal.constant sg)
+        positions |> Array.pairwise |> Array.map(fun (a,b) -> Line3d(a,b)) |> Array.map (fun x -> Cylinder3d(x, width))    
 
     let getTriangles (pos : V3d[]) : array<Triangle3d> =
         let get (ti : int) =

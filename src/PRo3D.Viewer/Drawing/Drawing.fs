@@ -365,8 +365,8 @@ module DrawingApp =
             | None ->
                 model
         | ExportAsAnnotations path, _, _ ->
-            Drawing.IO.saveVersioned model path            
-        | ExportAsCSV p, _, _ ->           
+            Drawing.IO.saveVersioned model path
+        | ExportAsCsv p, _, _ ->           
             let lookups = GroupsApp.updateGroupsLookup model.annotations
             let annotations =
                 model.annotations.flat

@@ -168,7 +168,13 @@ module Sg =
     
     let mutable lastHash = -1
 
-    let pickEventsHelper (id : aval<Guid>) (currentlyActive : aval<bool>) (pixelWidth : aval<float>) (model : aval<Trafo3d>) (edges : aval<Line3d[]>) =
+    let pickEventsHelper 
+        (id              : aval<Guid>) 
+        (currentlyActive : aval<bool>) 
+        (pixelWidth      : aval<float>) 
+        (model           : aval<Trafo3d>) 
+        (edges           : aval<Line3d[]>) =
+
         SceneEventKind.Click, (
             fun (sceneHit : SceneHit) ->
                 let id = id |> AVal.force

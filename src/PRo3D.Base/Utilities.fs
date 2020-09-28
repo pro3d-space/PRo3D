@@ -419,6 +419,7 @@ module Sg =
                 let box = cp |> Box3d
                 if box.IsInvalid then 
                     Log.warn "invalid pick box for annotation"
+                    
                     return PickShape.Box Box3d.Unit
                 else
                          
@@ -444,17 +445,24 @@ module Sg =
         (trafo : aval<Trafo3d>) 
         (picking: bool) // picking generally enabled
         (pickAnnotationFunc:  aval<Line3d[]> -> SceneEventKind * (SceneHit -> bool * seq<_>)) = 
+
         let edges = edgeLines false points trafo 
         let pline = drawStableLinesHelper edges offset color width
       
-        //if picking then
-        //    pline 
-        //    |> Sg.pickable' (pickableContent points edges trafo)            
-        //    |> Sg.withEvents [ pickAnnotationFunc edges ]
-        //    |> Sg.trafo trafo
-        //else 
-        pline
-        |> Sg.trafo trafo
+        let event = pickAnnotationFunc edges        
+
+        if picking then
+            let applicator =
+                pline 
+                |> Sg.pickable' ((pickableContent points edges trafo) |> AVal.map Pickable.ofShape)
+
+            (applicator :> ISg) 
+            |> Sg.noEvents
+            |> Sg.withEvents [ pickAnnotationFunc edges ]
+            |> Sg.trafo trafo
+        else 
+            pline
+            |> Sg.trafo trafo
 
     //## POINTS ##
     let private sphereSgHelper (color: aval<C4b>) (size: aval<float>) (pos: aval<V3d>) = 
