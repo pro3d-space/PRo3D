@@ -138,7 +138,7 @@ type ViewerAction =
 //| TransformAllSurfaces            of list<SnapshotSurfaceUpdate>
 | Translate                       of string * TrafoController.Action
 | Rotate                          of string * TrafoController.Action
-| SurfaceActions                  of SurfaceApp.Action
+| SurfaceActions                  of SurfaceAppAction
 | MinervaActions                  of PRo3D.Minerva.MinervaAction
 //| ScaleToolAction                 of ScaleToolAction
 | LinkingActions                  of PRo3D.Linking.LinkingAction

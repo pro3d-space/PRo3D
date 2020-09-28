@@ -29,6 +29,25 @@ open OpcViewer.Base.Picking
 
 open Adaptify
 
+type SurfaceAppAction =
+| SurfacePropertiesMessage  of SurfaceProperties.Action
+| FlyToSurface              of Guid
+| MakeRelative              of Guid
+| RemoveSurface             of Guid*list<Index>
+| PickSurface               of SceneHit*string
+| OpenFolder                of Guid
+| RebuildKdTrees            of Guid
+| ToggleActiveFlag          of Guid
+| ChangeImportDirectory     of Guid*string
+| ChangeImportDirectories   of list<string>
+| GroupsMessage             of GroupsAppAction
+//| PickObject                of V3d
+| PlaceSurface              of V3d
+| ScalarsColorLegendMessage of FalseColorLegendApp.Action
+| ColorCorrectionMessage    of ColorCorrectionProperties.Action
+| SetHomePosition           
+| TranslationMessage        of TranslationApp.Action
+
 module SurfaceUtils =
     open Aardvark.SceneGraph.SgFSharp.Sg   
     open System.Diagnostics 
@@ -212,24 +231,6 @@ module SurfaceApp =
 
 
     
-    type Action =
-        | SurfacePropertiesMessage  of SurfaceProperties.Action
-        | FlyToSurface              of Guid
-        | MakeRelative              of Guid
-        | RemoveSurface             of Guid*list<Index>
-        | PickSurface               of SceneHit*string
-        | OpenFolder                of Guid
-        | RebuildKdTrees            of Guid
-        | ToggleActiveFlag          of Guid
-        | ChangeImportDirectory     of Guid*string
-        | ChangeImportDirectories   of list<string>
-        | GroupsMessage             of GroupsAppAction
-        //| PickObject                of V3d
-        | PlaceSurface              of V3d
-        | ScalarsColorLegendMessage of FalseColorLegendApp.Action
-        | ColorCorrectionMessage    of ColorCorrectionProperties.Action
-        | SetHomePosition           
-        | TranslationMessage        of TranslationApp.Action
         
     let doKdTreeIntersection 
         (m : SurfaceModel) 
@@ -371,21 +372,22 @@ module SurfaceApp =
 
         let surfaces =        
             model.surfaces.flat 
-              |> HashMap.toList
-              |> List.map(fun (_,v) -> 
+            |> HashMap.toList
+            |> List.map(fun (_,v) -> 
                 let s = (v |> Leaf.toSurface)
                 let newPath = 
                     surfacePaths
-                        |> List.map( fun p -> 
-                                        let name = p |> IO.Path.GetFileName
-                                        match name = s.name with
-                                         | true -> Some p
-                                         | false -> None)
-                        |> List.choose( fun np -> np) 
+                    |> List.map(fun p -> 
+                        let name = p |> IO.Path.GetFileName
+                        match name = s.name with
+                        | true -> Some p
+                        | false -> None
+                    )
+                    |> List.choose( fun np -> np) 
                 match newPath.IsEmpty with
-                 | true -> s
-                 | false -> { s with importPath = newPath.Head } 
-              )
+                | true -> s
+                | false -> { s with importPath = newPath.Head } 
+            )
               
         let flat' = 
             surfaces 
@@ -399,22 +401,29 @@ module SurfaceApp =
         { model with surfaces = { model.surfaces with flat = flat' } }
 
    
-    let update (model:SurfaceModel) (action:Action) (scenePath : option<string>) (view:CameraView) (refSys : PRo3D.ReferenceSystem.ReferenceSystem) = 
-      match action with
+    let update 
+        (model     : SurfaceModel) 
+        (action    : SurfaceAppAction) 
+        (scenePath : option<string>) 
+        (view      : CameraView) 
+        (refSys    : PRo3D.ReferenceSystem.ReferenceSystem) = 
+
+        match action with
         | SurfacePropertiesMessage msg ->                
             let m = 
-              match model.surfaces.singleSelectLeaf with
+                match model.surfaces.singleSelectLeaf with
                 | Some s -> 
                   let surface = model.surfaces.flat |> HashMap.find s |> Leaf.toSurface 
                   let s' = 
                       match msg with
-                        | SurfaceProperties.Action.SetHomePosition -> { surface with homePosition = Some view }
-                        | _ -> SurfaceProperties.update surface msg
+                      | SurfaceProperties.Action.SetHomePosition -> { surface with homePosition = Some view }
+                      | _ -> SurfaceProperties.update surface msg
+
                   model |> SurfaceModel.updateSingleSurface s'                        
                 | None -> model
             match msg with
-              | SurfaceProperties.SetPriority _ -> m |> SurfaceModel.triggerSgGrouping 
-              | _ -> m            
+            | SurfaceProperties.SetPriority _ -> m |> SurfaceModel.triggerSgGrouping 
+            | _ -> m            
         | MakeRelative id ->                
             let model = Files.makeSurfaceRelative id model scenePath
             let sgSurfaces = model.sgSurfaces |> Files.expandLazyKdTreePaths scenePath (model.surfaces.flat |> Leaf.toSurfaces)
@@ -426,119 +435,120 @@ module SurfaceApp =
         | OpenFolder id ->
             let surf = id |> SurfaceModel.getSurface model
             match surf with
-              | Some s -> 
+            | Some s -> 
                 match s with 
-                  | Leaf.Surfaces sf ->
+                | Leaf.Surfaces sf ->
                     let path = Files.getSurfaceFolder sf scenePath
                     match path with
-                      | Some p -> 
-                          Process.Start("explorer.exe", p) |> ignore
-                          model
-                      | None -> model
-                  | _ -> failwith "can only contain surfaces"
-              | None -> model
+                    | Some p -> 
+                        Process.Start("explorer.exe", p) |> ignore
+                        model
+                    | None -> model
+                | _ -> failwith "can only contain surfaces"
+            | None -> model
         | RebuildKdTrees id ->                
             let surf = id |> SurfaceModel.getSurface model
             match surf with
-              | Some (Leaf.Surfaces sf) ->                    
+            | Some (Leaf.Surfaces sf) ->                    
                 let path = Files.getSurfaceFolder sf scenePath
                 match path with
-                   | Some p ->                            
-                       let path = @".\20170530_TextureConverter_single\Vrvis.TextureConverter.exe"
-                       if File.Exists(path) then //\Vrvis.TextureConverter.exe") then
-                         let mutable converter = new Process()                             
-                         Log.line "start processing"                        
-                         converter.StartInfo.FileName <- "Vrvis.TextureConverter.exe"
-                         converter.StartInfo.Arguments <- p + " -overwrite" //-lazy"
-                         converter.StartInfo.UseShellExecute <- true                          
-                         converter.StartInfo.WorkingDirectory <- @".\20170530_TextureConverter_single"                                    
-                         converter.Start() |> ignore    
-                         converter.WaitForExit()
-                            //)
-                       else
-                         Log.line "texture converter not found"                             
-                       model
-                   | None -> model                         
-              | _ -> model
+                | Some p ->                            
+                    let path = @".\20170530_TextureConverter_single\Vrvis.TextureConverter.exe"
+                    if File.Exists(path) then //\Vrvis.TextureConverter.exe") then
+                        let mutable converter = new Process()                             
+                        Log.line "start processing"                        
+                        converter.StartInfo.FileName <- "Vrvis.TextureConverter.exe"
+                        converter.StartInfo.Arguments <- p + " -overwrite" //-lazy"
+                        converter.StartInfo.UseShellExecute <- true                          
+                        converter.StartInfo.WorkingDirectory <- @".\20170530_TextureConverter_single"                                    
+                        converter.Start() |> ignore    
+                        converter.WaitForExit()
+                           //)
+                    else
+                        Log.line "texture converter not found"                             
+                    model
+                | None -> model                         
+            | _ -> model
         | ToggleActiveFlag id ->               
-          let surf = id |> SurfaceModel.getSurface model
-          match surf with
+            let surf = id |> SurfaceModel.getSurface model
+            match surf with
             | Some (Leaf.Surfaces s) ->
-              { s with isActive = not s.isActive } |> SurfaceModel.updateSingleSurface' model
+                { s with isActive = not s.isActive } |> SurfaceModel.updateSingleSurface' model
             | _ -> model
         | ChangeImportDirectory (id, dir) ->
-          let surf = id |> SurfaceModel.getSurface model
-          match surf with
+            let surf = id |> SurfaceModel.getSurface model
+            match surf with
             | Some (Leaf.Surfaces s) when (dir |> System.IO.Directory.Exists) && (dir |> Files.isSurfaceFolder) ->
-              { s with importPath = dir } |> SurfaceModel.updateSingleSurface' model
+                { s with importPath = dir } |> SurfaceModel.updateSingleSurface' model
             | _ -> model          
         | ChangeImportDirectories sl ->
             match sl with
-                | [] -> model
-                | paths ->
-                    let selectedPaths = paths |> List.choose Files.tryDirectoryExists
-                    changeImportDirectories model selectedPaths
+            | [] -> model
+            | paths ->
+                let selectedPaths = paths |> List.choose Files.tryDirectoryExists
+                changeImportDirectories model selectedPaths
             
         | GroupsMessage msg -> 
             let groups = GroupsApp.update model.surfaces msg
 
             match msg with
-              | GroupsAppAction.RemoveGroup _ | GroupsAppAction.RemoveLeaf _ ->
+            | GroupsAppAction.RemoveGroup _ | GroupsAppAction.RemoveLeaf _ ->
                 let sgs = 
-                    model.sgSurfaces 
-                        |> HashMap.filter(fun k _ -> groups.flat |> HashMap.containsKey k)
+                  model.sgSurfaces 
+                      |> HashMap.filter(fun k _ -> groups.flat |> HashMap.containsKey k)
 
                 { model with surfaces = groups; sgSurfaces = sgs } |> SurfaceModel.triggerSgGrouping                  
-              | _ -> { model with surfaces = groups }
+            | _ -> 
+                { model with surfaces = groups }
         //| PickObject p -> model   
         | PlaceSurface p -> 
             match model.surfaces.singleSelectLeaf with
             | Some id -> 
-              match model.surfaces.flat.TryFind(id) with 
-              | Some s -> 
-                 let trans = Trafo3d.Translation(p)
-                 let s = s |> Leaf.toSurface
-                 let f = (fun _ -> { s with preTransform = Trafo3d.Translation(p)  } |> Leaf.Surfaces)
-                 let g = Groups.updateLeaf s.guid f model.surfaces
-                 
-                 let sgs' = 
-                     model.sgSurfaces
-                     |> HashMap.update id (fun x -> 
-                       match x with 
-                       | Some sg ->    
-                         let pose = Pose.translate p // bb.Center
-                         //let pose = { sg.trafo.pose with position = sg.trafo.pose.position + p }
-
-                         let trafo' = { 
-                           TrafoController.initial with 
-                             pose = pose
-                             previewTrafo = Trafo3d.Translation(p)
-                             mode = TrafoMode.Local 
-                         }
-                         { sg with trafo = trafo'; globalBB = (sg.globalBB.Transformed trafo'.previewTrafo) } // (Trafo3d.Translation(p))) }  //
-                       | None   -> failwith "surface not found")                             
-                 { model with surfaces = g; sgSurfaces = sgs'} 
-              | None -> model
+                match model.surfaces.flat.TryFind(id) with 
+                | Some s -> 
+                    let trans = Trafo3d.Translation(p)
+                    let s = s |> Leaf.toSurface
+                    let f = (fun _ -> { s with preTransform = Trafo3d.Translation(p)  } |> Leaf.Surfaces)
+                    let g = Groups.updateLeaf s.guid f model.surfaces
+                    
+                    let sgs' = 
+                        model.sgSurfaces
+                        |> HashMap.update id (fun x -> 
+                            match x with 
+                            | Some sg ->    
+                                let pose = Pose.translate p // bb.Center
+                                //let pose = { sg.trafo.pose with position = sg.trafo.pose.position + p }
+                                
+                                let trafo' = { 
+                                  TrafoController.initial with 
+                                    pose = pose
+                                    previewTrafo = Trafo3d.Translation(p)
+                                    mode = TrafoMode.Local 
+                                }
+                                { sg with trafo = trafo'; globalBB = (sg.globalBB.Transformed trafo'.previewTrafo) } // (Trafo3d.Translation(p))) }  //
+                            | None   -> failwith "surface not found")                             
+                    { model with surfaces = g; sgSurfaces = sgs'} 
+                | None -> model
             | None -> model
         | ScalarsColorLegendMessage msg ->
             match model.surfaces.singleSelectLeaf with
-              | Some s -> 
+            | Some s -> 
                 let surface = model.surfaces.flat |> HashMap.find s |> Leaf.toSurface 
                 match surface.selectedScalar with
-                  | Some s -> 
+                | Some s -> 
                     let sc = { s with colorLegend = (FalseColorLegendApp.update s.colorLegend msg) }                        
                     let scs = surface.scalarLayers |> HashMap.alter sc.index (Option.map(fun _ -> sc))
                     let s' = { surface with selectedScalar = Some sc; scalarLayers = scs }
                     model |> SurfaceModel.updateSingleSurface s'   
-                  | None -> model
-              | None -> model
+                | None -> model
+            | None -> model
         | ColorCorrectionMessage msg ->       
             let m = 
-              match model.surfaces.singleSelectLeaf with
+                match model.surfaces.singleSelectLeaf with
                 | Some s -> 
-                  let surface = model.surfaces.flat |> HashMap.find s |> Leaf.toSurface
-                  let s' = { surface with colorCorrection = (ColorCorrectionProperties.update surface.colorCorrection msg) }
-                  model |> SurfaceModel.updateSingleSurface s'                        
+                    let surface = model.surfaces.flat |> HashMap.find s |> Leaf.toSurface
+                    let s' = { surface with colorCorrection = (ColorCorrectionProperties.update surface.colorCorrection msg) }
+                    model |> SurfaceModel.updateSingleSurface s'                        
                 | None -> model
             m
         | TranslationMessage msg ->  
@@ -562,37 +572,37 @@ module SurfaceApp =
                 //         m' |> SurfaceModel.updateSingleSurface s'
                 //      | None -> model
                 //    | None -> model
-              match model.surfaces.singleSelectLeaf with
+                match model.surfaces.singleSelectLeaf with
                 | Some s -> 
-                  let surface = model.surfaces.flat |> HashMap.find s |> Leaf.toSurface
-                  let t =  { surface.transformation with pivot = refSys.origin }
-                  let transformation' = (TranslationApp.update t msg)
-                  let s' = { surface with transformation = transformation' }
-                  //let homePosition = 
-                  //  match surface.homePosition with
-                  //    | Some hp ->
-                  //        let superTrafo = PRo3D.Transformations.fullTrafo' s' refSys
-                  //        let trafo' = superTrafo.Forward
-                  //        let pos = trafo'.TransformPos(hp.Location)
-                  //        let forward = trafo'.TransformDir(hp.Forward)
-                  //        let up = trafo'.TransformDir(hp.Up)
-                  //        Some ( hp
-                  //                 |> CameraView.withLocation pos
-                  //                 |> CameraView.withForward forward )//(CameraView.lookAt pos forward hp.Up)
-                  //    | None -> surface.homePosition
-                  //let s'' = { s' with homePosition = homePosition }
-                  
-                 
-                  //let sgs' = 
-                  //      model.sgSurfaces
-                  //      |> HashMap.update s (fun x -> 
-                  //          match x with 
-                  //          | Some sg ->  
-                  //              let trafo' = { sg.trafo with previewTrafo = sg.trafo.previewTrafo * s'.transformation.trafo }
-                  //              { sg with trafo = trafo'; globalBB = (sg.globalBB.Transformed trafo'.previewTrafo) }
-                  //          | None   -> failwith "surface not found") 
-                  //let m' = { model with sgSurfaces = sgs'} 
-                  model |> SurfaceModel.updateSingleSurface s'            
+                    let surface = model.surfaces.flat |> HashMap.find s |> Leaf.toSurface
+                    let t =  { surface.transformation with pivot = refSys.origin }
+                    let transformation' = (TranslationApp.update t msg)
+                    let s' = { surface with transformation = transformation' }
+                    //let homePosition = 
+                    //  match surface.homePosition with
+                    //    | Some hp ->
+                    //        let superTrafo = PRo3D.Transformations.fullTrafo' s' refSys
+                    //        let trafo' = superTrafo.Forward
+                    //        let pos = trafo'.TransformPos(hp.Location)
+                    //        let forward = trafo'.TransformDir(hp.Forward)
+                    //        let up = trafo'.TransformDir(hp.Up)
+                    //        Some ( hp
+                    //                 |> CameraView.withLocation pos
+                    //                 |> CameraView.withForward forward )//(CameraView.lookAt pos forward hp.Up)
+                    //    | None -> surface.homePosition
+                    //let s'' = { s' with homePosition = homePosition }
+                    
+                    
+                    //let sgs' = 
+                    //      model.sgSurfaces
+                    //      |> HashMap.update s (fun x -> 
+                    //          match x with 
+                    //          | Some sg ->  
+                    //              let trafo' = { sg.trafo with previewTrafo = sg.trafo.previewTrafo * s'.transformation.trafo }
+                    //              { sg with trafo = trafo'; globalBB = (sg.globalBB.Transformed trafo'.previewTrafo) }
+                    //          | None   -> failwith "surface not found") 
+                    //let m' = { model with sgSurfaces = sgs'} 
+                    model |> SurfaceModel.updateSingleSurface s'            
                 | None -> model
             m
         | _ -> model
@@ -736,7 +746,7 @@ module SurfaceApp =
              ]
        }
            
-    let rec viewTree path (group : AdaptiveNode) (model : AdaptiveGroupsModel) : alist<DomNode<Action>> =
+    let rec viewTree path (group : AdaptiveNode) (model : AdaptiveGroupsModel) : alist<DomNode<SurfaceAppAction>> =
 
         alist {
 
@@ -774,7 +784,7 @@ module SurfaceApp =
                  
             let itemAttributes =
                 amap {
-                    yield onMouseClick (fun _ -> Action.GroupsMessage(GroupsAppAction.ToggleExpand path))
+                    yield onMouseClick (fun _ -> SurfaceAppAction.GroupsMessage(GroupsAppAction.ToggleExpand path))
                     let! selected = group.expanded
                     if selected 
                     then yield clazz "icon outline open folder"
@@ -792,29 +802,29 @@ module SurfaceApp =
 
             let singleSelect = 
                     fun (s:AdaptiveSurface,path:list<Index>) -> 
-                        Action.GroupsMessage(GroupsAppAction.SingleSelectLeaf (path, s.guid |> AVal.force, ""))
+                        SurfaceAppAction.GroupsMessage(GroupsAppAction.SingleSelectLeaf (path, s.guid |> AVal.force, ""))
 
             let multiSelect = 
                 fun (s:AdaptiveSurface,path:list<Index>) -> 
-                    Action.GroupsMessage(GroupsAppAction.AddLeafToSelection (path, s.guid |> AVal.force, ""))
+                    SurfaceAppAction.GroupsMessage(GroupsAppAction.AddLeafToSelection (path, s.guid |> AVal.force, ""))
 
             let lift = fun (a:GroupsAppAction) -> (GroupsMessage a)
 
             yield div [ clazz "item"] [
-                    Incremental.i itemAttributes AList.empty
-                    div [ clazz "content" ] [                         
-                        div [ clazz "description noselect"] [desc]
-                        Incremental.div (AttributeMap.ofAMap childrenAttribs) (                          
-                            alist { 
-                                let! isExpanded = group.expanded
-                                if isExpanded then yield! children
-                                
-                                if isExpanded then 
-                                    yield! viewSurfacesInGroups path model singleSelect multiSelect lift group.leaves
-                            }
-                        )  
-                                
-                    ]
+                Incremental.i itemAttributes AList.empty
+                div [ clazz "content" ] [                         
+                    div [ clazz "description noselect"] [desc]
+                    Incremental.div (AttributeMap.ofAMap childrenAttribs) (                          
+                        alist { 
+                            let! isExpanded = group.expanded
+                            if isExpanded then yield! children
+                            
+                            if isExpanded then 
+                                yield! viewSurfacesInGroups path model singleSelect multiSelect lift group.leaves
+                        }
+                    )  
+                            
+                ]
             ]
                 
         }

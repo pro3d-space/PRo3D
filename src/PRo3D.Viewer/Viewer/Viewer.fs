@@ -354,13 +354,13 @@ module ViewerApp =
             | [] -> m'
             | _  -> { m' with tabMenu = TabMenu.Viewplanner }
         | Interactions.PlaceSurface, ViewerMode.Standard -> 
-            let action = (SurfaceApp.Action.PlaceSurface(p)) 
+            let action = (SurfaceAppAction.PlaceSurface(p)) 
             let surfaceModel =
                 SurfaceApp.update 
                     m.scene.surfacesModel action m.scene.scenePath m.navigation.camera.view m.scene.referenceSystem
             { m with scene = { m.scene with surfacesModel = surfaceModel } }
         | Interactions.PickSurface, ViewerMode.Standard -> 
-            let action = SurfaceApp.Action.GroupsMessage(GroupsAppAction.SingleSelectLeaf(list.Empty, surf.guid, ""))
+            let action = SurfaceAppAction.GroupsMessage(GroupsAppAction.SingleSelectLeaf(list.Empty, surf.guid, ""))
             let surfaceModel' = 
                 SurfaceApp.update
                    m.scene.surfacesModel action m.scene.scenePath m.navigation.camera.view m.scene.referenceSystem
@@ -485,7 +485,7 @@ module ViewerApp =
             let s = SurfaceApp.update m.scene.surfacesModel msg m.scene.scenePath view m.scene.referenceSystem
             let animation = 
                 match msg with
-                | SurfaceApp.Action.FlyToSurface id -> 
+                | SurfaceAppAction.FlyToSurface id -> 
                     let surf = m |> Optic.get _sgSurfaces |> HashMap.tryFind id
                     let surface = m.scene.surfacesModel.surfaces.flat |> HashMap.find id |> Leaf.toSurface 
                     let superTrafo = PRo3D.Transformations.fullTrafo' surface m.scene.referenceSystem

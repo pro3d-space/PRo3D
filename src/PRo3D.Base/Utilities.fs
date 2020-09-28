@@ -311,11 +311,11 @@ module Shader =
     let mapColorAdaption (v : Effects.Vertex) =
         fragment { 
             return v.c
-                    |> addColor
-                    |> mapContrast
-                    |> mapBrightness
-                    |> mapGamma
-                    |> grayscale                    
+            |> addColor
+            |> mapContrast
+            |> mapBrightness
+            |> mapGamma
+            |> grayscale
         }
 
 module Sg =    

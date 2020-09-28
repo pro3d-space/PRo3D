@@ -413,144 +413,151 @@ module ViewerUtils =
         
 
     let viewSingleSurfaceSg 
-        (surface : AdaptiveSgSurface) 
-        (blarg : amap<Guid, AdaptiveLeafCase>) // TODO v5: to get your naming right!!
-        (frustum : aval<Frustum>) 
+        (surface    : AdaptiveSgSurface) 
+        (blarg      : amap<Guid, AdaptiveLeafCase>) // TODO v5: to get your naming right!!
+        (frustum    : aval<Frustum>) 
         (selectedId : aval<Option<Guid>>)
-        (isctrl:aval<bool>) 
-        (globalBB : aval<Box3d>) 
-        (refsys:AdaptiveReferenceSystem) 
-        (fp:AdaptiveFootPrint) 
-        (vp:aval<Option<AdaptiveViewPlan>>) 
-        (useHighlighting:aval<bool>) 
-        (filterTexture : aval<bool>) =
+        (isctrl     : aval<bool>) 
+        (globalBB   : aval<Box3d>) 
+        (refsys     : AdaptiveReferenceSystem) 
+        (fp         : AdaptiveFootPrint) 
+        (vp         : aval<Option<AdaptiveViewPlan>>) 
+        (useHighlighting :aval<bool>) 
+        (filterTexture   : aval<bool>) =
 
         adaptive {
-          let! exists = (blarg |> AMap.keys) |> ASet.contains surface.surface
-          if exists then
-            
-            let surf = lookUp (surface.surface) blarg
-                //AVal.bind(fun x -> lookUp (x.surface) blarg )
-            
-            let isSelected = AVal.map2(fun x y ->
-              match x with
-                | Some id -> (id = surface.surface) && y
-                | None -> false) selectedId useHighlighting
-            
-            let createSg (sg : ISg) =
-                sg 
-                |> Sg.noEvents 
-                |> Sg.cullMode(surf |> AVal.bind(fun x -> x.cullMode))
-                |> Sg.fillMode(surf |> AVal.bind(fun x -> x.fillMode))
-            
-            let pickable = 
-              AVal.map2( fun (a:Box3d) (b:Trafo3d) -> 
-                { shape = PickShape.Box (a.Transformed(b)); trafo = Trafo3d.Identity }) globalBB (Transformations.fullTrafo surf refsys)
-            
-            let pickBox = 
-              pickable 
-                |> AVal.map(fun k ->
-                  match k.shape with
-                    | PickShape.Box bb -> bb
-                    | _ -> Box3d.Invalid)
-            
-            let triangleFilter = surf |> AVal.bind(fun s -> s.triangleSize.value)
-            
-            let trafo =
-               adaptive {
-                    let! fullTrafo = Transformations.fullTrafo surf refsys
-                    let! s = surf
-                    let! sc = s.scaling.value
-                    let! t = s.preTransform
-                    return Trafo3d.Scale(sc) * (t * fullTrafo )
-                }
+            let! exists = (blarg |> AMap.keys) |> ASet.contains surface.surface
+            if exists then
+              
+                let surf = lookUp (surface.surface) blarg
+                    //AVal.bind(fun x -> lookUp (x.surface) blarg )
                 
-            let trafoObj =
-               adaptive {
-                    let! s = surf
-                    let! t = s.preTransform
-                    return t
-                }
+                let isSelected = AVal.map2(fun x y ->
+                    match x with
+                    | Some id -> (id = surface.surface) && y
+                    | None -> false) selectedId useHighlighting
+                
+                let createSg (sg : ISg) =
+                    sg 
+                    |> Sg.noEvents 
+                    |> Sg.cullMode(surf |> AVal.bind(fun x -> x.cullMode))
+                    |> Sg.fillMode(surf |> AVal.bind(fun x -> x.fillMode))
+                
+                let pickable = 
+                    AVal.map2( fun (a:Box3d) (b:Trafo3d) -> 
+                        { shape = PickShape.Box (a.Transformed(b)); trafo = Trafo3d.Identity }
+                    ) globalBB (Transformations.fullTrafo surf refsys)
+                
+                let pickBox = 
+                    pickable 
+                    |> AVal.map(fun k ->
+                        match k.shape with
+                        | PickShape.Box bb -> bb
+                        | _ -> Box3d.Invalid)
+                
+                let triangleFilter = 
+                    surf |> AVal.bind(fun s -> s.triangleSize.value)
+                
+                let trafo =
+                    adaptive {
+                        let! fullTrafo = Transformations.fullTrafo surf refsys
+                        let! s = surf
+                        let! sc = s.scaling.value
+                        let! t = s.preTransform
+                        return Trafo3d.Scale(sc) * (t * fullTrafo )
+                    }
+                    
+                let trafoObj =
+                   adaptive {
+                        let! s = surf
+                        let! t = s.preTransform
+                        return t
+                    }
+                
+                let! filterTexture = filterTexture
+                
+                let magnificationFilter = 
+                    match filterTexture with
+                    | false -> TextureFilterMode.Point
+                    | true -> TextureFilterMode.Linear // HERA/MARS-DL, default for snapshots
+                
+                let samplerDescription : SamplerStateDescription -> SamplerStateDescription = 
+                    (fun x -> 
+                        x.Filter <- new TextureFilter(TextureFilterMode.Linear, magnificationFilter, TextureFilterMode.Linear, true ); 
+                        x
+                    )
+                        
+                let footprintVisible = //AVal.map2 (fun (vp:Option<AdaptiveViewPlan>) vis -> (vp.IsSome && vis)) vp, fp.isVisible
+                    adaptive {
+                        let! vp = vp
+                        let! visible = fp.isVisible
+                        let! id = fp.vpId
+                        return (vp.IsSome && visible)
+                    }
+                
+                let footprintMatrix = 
+                    adaptive {
+                        let! fppm = fp.projectionMatrix
+                        let! fpvm = fp.instViewMatrix
+                        let! s = surf
+                        let! ts = s.preTransform
+                        let! t = trafo
+                        //return (t.Forward * fpvm * fppm) //* t.Forward 
+                        return (fppm * fpvm) // * ts.Forward
+                    } 
 
-            let! filterTexture = filterTexture
-            
-            let magnificationFilter = 
-                match filterTexture with
-                | false -> TextureFilterMode.Point
-                | true -> TextureFilterMode.Linear // HERA/MARS-DL, default for snapshots
-            
-            let samplerDescription : SamplerStateDescription -> SamplerStateDescription = 
-                (fun x -> 
-                    x.Filter <- new TextureFilter(TextureFilterMode.Linear, magnificationFilter, TextureFilterMode.Linear, true ); 
-                    x)           
-            let footprintVisible = //AVal.map2 (fun (vp:Option<AdaptiveViewPlan>) vis -> (vp.IsSome && vis)) vp, fp.isVisible
-                adaptive {
-                    let! vp = vp
-                    let! visible = fp.isVisible
-                    let! id = fp.vpId
-                    return (vp.IsSome && visible)
-                }
-            
-            let footprintMatrix = 
-                adaptive {
-                    let! fppm = fp.projectionMatrix
-                    let! fpvm = fp.instViewMatrix
-                    let! s = surf
-                    let! ts = s.preTransform
-                    let! t = trafo
-                    //return (t.Forward * fpvm * fppm) //* t.Forward 
-                    return (fppm * fpvm) // * ts.Forward
-                } 
-            let structuralOnOff (visible : aval<bool>) (sg : ISg<_>) : ISg<_> = 
-                visible 
-                |> AVal.map (fun visible -> 
-                    if visible then sg else Sg.empty
-                )
-                |> Sg.dynamic
-            let test =             
-              surface.sceneGraph
-                |> AVal.map createSg
-                |> Sg.dynamic
-                |> Sg.trafo trafo //(Transformations.fullTrafo surf refsys)
-                |> Sg.modifySamplerState (DefaultSemantic.DiffuseColorTexture)(AVal.constant(samplerDescription))
-                |> Sg.uniform "selected"      (isSelected) // isSelected
-                |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
-                |> addAttributeFalsecolorMappingParameters surf
-                |> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
-                |> addImageCorrectionParameters surf
-                |> Sg.uniform "footprintVisible" footprintVisible
-                |> Sg.uniform "instrumentMVP" footprintMatrix
-                |> Sg.uniform "projMVP" fp.projectionMatrix
-                |> Sg.uniform "globalToLocal" fp.globalToLocalPos
-                |> Sg.uniform "instViewMVP" fp.instViewMatrix
-                |> Sg.texture (Sym.ofString "FootPrintTexture") fp.projTex
-                |> Sg.LodParameters( getLodParameters surf refsys frustum )
-                |> Sg.AttributeParameters( attributeParameters surf )
-                |> pickable' pickable
-                |> Sg.noEvents 
-                |> Sg.withEvents [
-                     SceneEventKind.Click, (
-                       fun sceneHit -> 
-                         let surfM = surf       |> AVal.force
-                         let name  = surfM.name |> AVal.force                                                  
-                         Log.warn "spawning picksurface %s" name
-                         true, Seq.ofList [PickSurface (sceneHit,name)])                         
-                   ]  
-                // handle surface visibility
-                //|> Sg.onOff (surf |> AVal.bind(fun x -> x.isVisible)) // on off variant
-                |> structuralOnOff  (surf |> AVal.bind(fun x -> x.isVisible)) // structural variant
-              |> Sg.andAlso (
-                (Sg.wireBox (C4b.VRVisGreen |> AVal.constant) pickBox) 
-                  |> Sg.noEvents
-                  |> Sg.effect [              
-                      Shader.stableTrafo |> toEffect 
-                      DefaultSurfaces.vertexColor |> toEffect
-                    ] |> Sg.onOff ~~false
-                )
-            
-            return test
-          else
-            return Sg.empty
+                let structuralOnOff (visible : aval<bool>) (sg : ISg<_>) : ISg<_> = 
+                    visible 
+                    |> AVal.map (fun visible -> 
+                        if visible then sg else Sg.empty
+                    )
+                    |> Sg.dynamic
+
+                let test =             
+                    surface.sceneGraph
+                    |> AVal.map createSg
+                    |> Sg.dynamic
+                    |> Sg.trafo trafo //(Transformations.fullTrafo surf refsys)
+                    |> Sg.modifySamplerState (DefaultSemantic.DiffuseColorTexture)(AVal.constant(samplerDescription))
+                    |> Sg.uniform "selected"      (isSelected) // isSelected
+                    |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
+                    |> addAttributeFalsecolorMappingParameters surf
+                    |> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
+                    |> addImageCorrectionParameters surf
+                    |> Sg.uniform "footprintVisible" footprintVisible
+                    |> Sg.uniform "instrumentMVP" footprintMatrix
+                    |> Sg.uniform "projMVP" fp.projectionMatrix
+                    |> Sg.uniform "globalToLocal" fp.globalToLocalPos
+                    |> Sg.uniform "instViewMVP" fp.instViewMatrix
+                    |> Sg.texture (Sym.ofString "FootPrintTexture") fp.projTex
+                    |> Sg.LodParameters( getLodParameters surf refsys frustum )
+                    |> Sg.AttributeParameters( attributeParameters surf )
+                    |> pickable' pickable
+                    |> Sg.noEvents 
+                    |> Sg.withEvents [
+                        SceneEventKind.Click, (
+                           fun sceneHit -> 
+                             let surfM = surf       |> AVal.force
+                             let name  = surfM.name |> AVal.force                                                  
+                             Log.warn "spawning picksurface %s" name
+                             true, Seq.ofList [PickSurface (sceneHit,name)])
+                       ]  
+                    // handle surface visibility
+                    //|> Sg.onOff (surf |> AVal.bind(fun x -> x.isVisible)) // on off variant
+                    |> structuralOnOff  (surf |> AVal.bind(fun x -> x.isVisible)) // structural variant
+                    |> Sg.andAlso (
+                        (Sg.wireBox (C4b.VRVisGreen |> AVal.constant) pickBox) 
+                        |> Sg.noEvents
+                        |> Sg.effect [              
+                            Shader.stableTrafo |> toEffect 
+                            DefaultSurfaces.vertexColor |> toEffect
+                        ] 
+                        |> Sg.onOff isSelected
+                    )
+                
+                return test
+            else
+                return Sg.empty
         } |> Sg.dynamic
         
     let frustum (m:AdaptiveModel) =
@@ -589,19 +596,19 @@ module ViewerUtils =
     let surfaceEffect =
         Effect.compose [
             Shader.stableTrafo             |> toEffect
-          //  triangleFilterX                |> toEffect
+            triangleFilterX                |> toEffect
             Shader.OPCFilter.improvedDiffuseTexture |> toEffect
             fixAlpha |> toEffect
             
-            // selection coloring makes gamma correction pointless. remove if we are happy withmark PatchBorders
-            // Shader.selectionColor          |> toEffect       
-            //PRo3D.Base.Shader.markPatchBorders |> toEffect
-          //  PRo3D.Base.Shader.differentColor |> toEffect
+            // selection coloring makes gamma correction pointless. remove if we are happy with markPatchBorders
+            // Shader.selectionColor          |> toEffect
+            PRo3D.Base.Shader.markPatchBorders |> toEffect
+            //PRo3D.Base.Shader.differentColor   |> toEffect
             
             
             //Shader.LoDColor                |> toEffect                             
          //   PRo3D.Base.Shader.falseColorLegend2 |> toEffect
-         //   PRo3D.Base.Shader.mapColorAdaption  |> toEffect            
+            PRo3D.Base.Shader.mapColorAdaption  |> toEffect            
             //PRo3D.Base.OtherShader.Shader.footprintV        |> toEffect //TODO reactivate viewplanner
             //PRo3D.Base.OtherShader.Shader.footPrintF        |> toEffect
         ]

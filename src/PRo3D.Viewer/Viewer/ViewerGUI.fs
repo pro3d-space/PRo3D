@@ -284,7 +284,8 @@ module Gui =
                         Dialogs.onChooseFiles(fun x -> 
                             match (x |> List.tryHead) with 
                             | Some y -> LoadScene y 
-                            | None -> NoAction "no scene selected")
+                            | None -> NoAction "no scene selected"
+                        )
 
                         clientEvent "onclick" jsOpenSceneDialog
                     ][      
@@ -332,7 +333,7 @@ module Gui =
                     yield
                         div [ 
                             clazz "ui item";
-                            Dialogs.onChooseFiles  SurfaceApp.Action.ChangeImportDirectories;
+                            Dialogs.onChooseFiles  SurfaceAppAction.ChangeImportDirectories;
                             clientEvent "onclick" jsLocateSurfacesDialog 
                         ][
                             text "Locate Surfaces"

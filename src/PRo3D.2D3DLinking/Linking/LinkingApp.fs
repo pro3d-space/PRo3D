@@ -169,7 +169,7 @@ module LinkingApp =
             |> HashMap.values
             |> HashSet.ofSeq
             |> HashSet.map (fun p -> p.instrument)
-
+            
         let filterProducts =
             m.filterProducts
             |> HashMap.map (fun k v -> if HashSet.contains k currentInstruments then true else v)
