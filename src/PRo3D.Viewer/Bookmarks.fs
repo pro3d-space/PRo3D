@@ -31,7 +31,12 @@ module Bookmarks =
             exploreCenter  = exploreCenter
         }
             
-    let update (bookmarks : GroupsModel) (act : BookmarkAction) (navigationModel : Lens<'a,NavigationModel>) (outerModel:'a) : ('a * GroupsModel) =
+    let update 
+        (bookmarks       : GroupsModel) 
+        (act             : BookmarkAction) 
+        (navigationModel : Lens<'a,NavigationModel>) 
+        (outerModel      : 'a) : ('a * GroupsModel) =
+
         match act with
         | AddBookmark ->
             let nav = Optic.get navigationModel outerModel
@@ -104,12 +109,13 @@ module Bookmarks =
             | None -> false )
 
     let viewBookmarks 
-      (path         : list<Index>) 
-      (model        : AdaptiveGroupsModel) 
-      (singleSelect : AdaptiveBookmark*list<Index> -> 'outer) 
-      (multiSelect  : AdaptiveBookmark*list<Index> -> 'outer) 
-      (lift         : GroupsAppAction -> 'outer) 
-      (bookmarks    : alist<System.Guid>) : alist<DomNode<'outer>> =
+        (path         : list<Index>) 
+        (model        : AdaptiveGroupsModel) 
+        (singleSelect : AdaptiveBookmark*list<Index> -> 'outer) 
+        (multiSelect  : AdaptiveBookmark*list<Index> -> 'outer) 
+        (lift         : GroupsAppAction -> 'outer) 
+        (bookmarks    : alist<System.Guid>) : alist<DomNode<'outer>> =
+
         alist {
             let bookmarks = 
                 bookmarks

@@ -477,7 +477,9 @@ module GroupsApp =
 
         | ClearSelection ->
             { model with selectedLeaves = HashSet.Empty; } //singleSelectLeaf = None
-        | UpdateCam id -> model
+        | UpdateCam id -> 
+            Log.warn "[Groups] flyto %A not handled in higher level app" id
+            model
         | AddAndSelectGroup (p,node) ->
             let t = insertGroup p node model   
             let selection = { id = node.key; path = p; name = node.name}

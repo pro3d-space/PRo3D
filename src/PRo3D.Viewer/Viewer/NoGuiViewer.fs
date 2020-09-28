@@ -120,10 +120,10 @@ module NoGuiViewer =
                          (outPath     : string)
                          (runtime     : IRuntime)
                          (animation   : SnapshotAnimation) =
+
         let resolution = animation.resolution
         let frustum =
-            Frustum.perspective animation.fieldOfView 1.0 1000000.0 
-                                (float(resolution.X)/float(resolution.Y))
+            Frustum.perspective animation.fieldOfView 1.0 1000000.0 (float(resolution.X)/float(resolution.Y))
         let depth = runtime.CreateTexture(resolution, TextureFormat.Depth24Stencil8, 1, 1);
         let col = runtime.CreateTexture(resolution, TextureFormat.Rgba8, 1, 1);
         let signature = 

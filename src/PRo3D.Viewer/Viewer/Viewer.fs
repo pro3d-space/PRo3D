@@ -227,30 +227,34 @@ module ViewerApp =
         | Some s -> s.trafo.grabbed.IsSome
         | None -> false    
 
-    let private animateFowardAndLocation (pos: V3d) (dir: V3d) (duration: RelativeTime) (name: string) = 
+    let private animateFowardAndLocation (pos: V3d) (dir: V3d) (up:V3d) (duration: RelativeTime) (name: string) = 
         {
             (CameraAnimations.initial name) with 
                 sample = fun (localTime, globalTime) (state : CameraView) -> // given the state and t since start of the animation, compute a state and the cameraview
-                if localTime < duration then                  
-                    let rot      = Rot3d.RotateInto(state.Forward, dir) * localTime / duration
-                    let forward' = (Rot3d rot).Transform(state.Forward)
-                  
-                    let vec       = pos - state.Location
-                    let velocity  = vec.Length / duration                  
-                    let dir       = vec.Normalized
-                    let location' = state.Location + dir * velocity * localTime
+                    if localTime < duration then                  
+                        let rot      = Rot3d.RotateInto(state.Forward, dir) * localTime / duration |> Rot3d |> Trafo3d
+                        let forward  = rot.Forward.TransformDir state.Forward
 
-                    let view = 
-                        state 
-                        |> CameraView.withForward forward'
-                        |> CameraView.withLocation location'
-      
-                    Some (state,view)
-                else None
+                        let uprot     = Rot3d.RotateInto(state.Up, up) * localTime / duration |> Rot3d |> Trafo3d
+                        let up        = uprot.Forward.TransformDir state.Up
+                      
+                        let vec       = pos - state.Location
+                        let velocity  = vec.Length / duration                  
+                        let dir       = vec.Normalized
+                        let location  = state.Location + dir * velocity * localTime
+
+                        let view = 
+                            state 
+                            |> CameraView.withForward forward
+                            |> CameraView.withUp up
+                            |> CameraView.withLocation location                                                                              
+
+                        Some (state,view)
+                    else None
         }
 
-    let private createAnimation (pos: V3d) (forward: V3d) (animationsOld: AnimationModel) : AnimationModel =                                    
-        animateFowardAndLocation pos forward 3.5 "ForwardAndLocation2s"
+    let private createAnimation (pos: V3d) (forward: V3d) (up : V3d) (animationsOld: AnimationModel) : AnimationModel =                                    
+        animateFowardAndLocation pos forward up 3.5 "ForwardAndLocation2s"
         |> AnimationAction.PushAnimation 
         |> AnimationApp.update animationsOld
 
@@ -444,7 +448,7 @@ module ViewerApp =
                 | Some a ->                                                
                     //m |> lookAtBoundingBox (Box3d(a.points |> IndexList.toList))
                     let animationMessage = 
-                        animateFowardAndLocation a.view.Location a.view.Forward 2.0 "ForwardAndLocation2s"
+                        animateFowardAndLocation a.view.Location a.view.Forward a.view.Up 2.0 "ForwardAndLocation2s"
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     { m with  animations = a'}
                 | None -> m
@@ -495,7 +499,7 @@ module ViewerApp =
                         //let pos = trafo'.TransformPos(hp.Location)
                         //let forward = trafo'.TransformDir(hp.Forward)
                         let animationMessage = 
-                            animateFowardAndLocation hp.Location hp.Forward 2.0 "ForwardAndLocation2s"
+                            animateFowardAndLocation hp.Location hp.Forward hp.Up 2.0 "ForwardAndLocation2s"
                         AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     | None ->
                         match surf with
@@ -503,7 +507,7 @@ module ViewerApp =
                             let bb = s.globalBB.Transformed(surface.preTransform.Forward * superTrafo.Forward)
                             let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value    
                             let animationMessage = 
-                                animateFowardAndLocation view.Location view.Forward 2.0 "ForwardAndLocation2s"
+                                animateFowardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
                             let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                             a'
                         | None -> m.animations
@@ -521,6 +525,8 @@ module ViewerApp =
                 Optic.set _annotations a m
             | None -> m       
         | BookmarkMessage msg,_,_ ->  
+            Log.warn "[Viewer] bookmarks animation %A" m.navigation.camera.view.Location
+
             let m', bm = Bookmarks.update m.scene.bookmarks msg _navigation m
             let animation = 
                 match msg with
@@ -530,7 +536,8 @@ module ViewerApp =
                         createAnimation 
                             m'.navigation.camera.view.Location
                             m'.navigation.camera.view.Forward
-                            m.animations                      
+                            m'.navigation.camera.view.Up
+                            { m.animations with cam = m.navigation.camera.view } 
                     | _ -> m.animations
                 | _ -> m.animations
             
@@ -1127,10 +1134,10 @@ module ViewerApp =
                 // Fly to center of selected prodcuts
                 let center = Box3d(minerva'.selectedSgFeatures.positions).Center
                 let newForward = (center - currentView.Location).Normalized             
-                { m with minervaModel = minerva'; animations = createAnimation center newForward m.animations }   
+                { m with minervaModel = minerva'; animations = createAnimation center newForward currentView.Up m.animations }   
             | Minerva.MinervaAction.FlyToProduct v -> 
                 let newForward = (v - currentView.Location).Normalized             
-                { m with animations = createAnimation v newForward m.animations }   
+                { m with animations = createAnimation v newForward currentView.Up m.animations }
             | _ ->                
                 let minerva' = MinervaApp.update currentView m.frustum m.minervaModel a                                                                               
                 //let linking' = PRo3D.Linking.LinkingApp.update currentView m.frustum injectLinking (PRo3D.Linking.LinkingAction(a))
@@ -1251,9 +1258,9 @@ module ViewerApp =
            // m
         | PickSurface _,_,_ ->
             m
-        | _ -> 
-            Log.warn "[Viewer] don't know message %A. ignoring it." msg
-            m                                            
+        //| _ -> 
+        //    Log.warn "[Viewer] don't know message %A. ignoring it." msg
+        //    m                                            
         | _ -> m       
                                    
     let mkBrushISg color size trafo : ISg<Message> =
