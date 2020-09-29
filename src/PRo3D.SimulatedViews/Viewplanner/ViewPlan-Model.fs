@@ -6,17 +6,17 @@ open Aardvark.Base
 open FSharp.Data.Adaptive
 open Aardvark.UI.Primitives
 open Aardvark.UI
-open ViewPlanner
+
 open FShade.Intrinsics
 open Aardvark.Base.CameraView
 
 open Chiron
-open PRo3D.Rover
+open Adaptify
+
 
 
 [<ModelType>]
-type ViewPlan = {
-    [<PrimaryKey>]
+type ViewPlan = {    
     id                  : Guid
     name                : string
     position            : V3d

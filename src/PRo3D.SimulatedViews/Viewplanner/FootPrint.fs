@@ -1,4 +1,4 @@
-namespace PRo3D
+namespace PRo3D.SimulatedViews
 
 open Aardvark.Base
 open Aardvark.UI.Animation
@@ -18,7 +18,7 @@ open MBrace.FsPickler.Json
 open Chiron
 
 open PRo3D.Base
-open PRo3D.Viewplanner
+
 
 module FootPrint = 
         

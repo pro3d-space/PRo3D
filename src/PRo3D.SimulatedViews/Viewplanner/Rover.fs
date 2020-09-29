@@ -1,4 +1,4 @@
-namespace PRo3D
+namespace PRo3D.SimulatedViews
 
 open System
 open System.Runtime.InteropServices

@@ -6,7 +6,6 @@ open Aardvark.Base
 open FSharp.Data.Adaptive
 open Aardvark.UI.Primitives
 open Aardvark.UI
-open ViewPlanner
 open FShade.Intrinsics
 open Aardvark.Base.CameraView
 

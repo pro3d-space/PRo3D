@@ -1,11 +1,11 @@
-﻿namespace PRo3D
+﻿namespace PRo3D.SimulatedViews
 
 open Aardvark.Base
 open Aardvark.UI.Animation
 open System
 open PRo3D.Base
 open MBrace.FsPickler.Json   
-open PRo3D.Viewer
+
 open Aardvark.UI
 open Chiron
 
@@ -33,7 +33,7 @@ with
   member this.toActions frustum =
     let actions = 
         [
-            ViewerAction.SetCameraAndFrustum2 (this.view,frustum);
+            failwith "SnapshotAnimation.fs" //ViewerAction.SetCameraAndFrustum2 (this.view,frustum);
         ]
     let sunAction =
         match this.sunPosition with
@@ -145,7 +145,7 @@ type ArnoldSnapshot = {
   member this.toActions frustum =
         let actions = 
             [
-                ViewerAction.SetCameraAndFrustum2 (this.view,frustum);
+                failwith "SnapshotAnimation.fs" //ViewerAction.SetCameraAndFrustum2 (this.view,frustum);
             ] |> List.toSeq
         actions    
   member this.toSnapshot () =
