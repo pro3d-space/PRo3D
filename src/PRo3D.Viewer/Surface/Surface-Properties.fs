@@ -12,6 +12,7 @@ open Aardvark.SceneGraph
 
 open PRo3D
 open PRo3D.Base
+open PRo3D.Core
 
 module SurfaceProperties =
     open Aardvark.UI.Html.SemUi
@@ -32,35 +33,36 @@ module SurfaceProperties =
         | SetTexturesMap of Option<TextureLayer>
         | SetHomePosition //of Guid //of Option<CameraView>
 
-    let update (model : PRo3D.Surfaces.Surface) (act : Action) =
+    let update (model : Surface) (act : Action) =
         match act with
-            | SetFillMode mode ->
-                { model with fillMode = mode }
-            | SetCullMode mode ->
-                { model with cullMode = mode }
-            | SetName s ->
-                { model with name = s }
-            | ToggleVisible ->
-                { model with isVisible = not model.isVisible }
-            | ToggleIsActive ->
-                { model with isActive = not model.isActive }
-            | SetTriangleSize a ->
-                { model with triangleSize = Numeric.update model.triangleSize a}
-            | SetQuality a ->
-                { model with quality = Numeric.update model.quality a }
-            | SetPriority a ->
-                { model with priority = Numeric.update model.priority a }
-            | SetScaling a ->
-                { model with scaling = Numeric.update model.scaling a }
-            | SetScalarMap a -> 
-                match a with
-                  | Some s -> 
-                    let scs = model.scalarLayers |> HashMap.alter s.index (Option.map(fun _ -> s))
-                    { model with selectedScalar = Some s} |> Console.print //; scalarLayers = scs 
-                  | None -> { model with selectedScalar = None }
-            | SetTexturesMap a ->                
-                { model with selectedTexture = a } |> Console.print
-            | SetHomePosition -> model
+        | SetFillMode mode ->
+            { model with fillMode = mode }
+        | SetCullMode mode ->
+            { model with cullMode = mode }
+        | SetName s ->
+            { model with name = s }
+        | ToggleVisible ->
+            { model with isVisible = not model.isVisible }
+        | ToggleIsActive ->
+            { model with isActive = not model.isActive }
+        | SetTriangleSize a ->
+            { model with triangleSize = Numeric.update model.triangleSize a}
+        | SetQuality a ->
+            { model with quality = Numeric.update model.quality a }
+        | SetPriority a ->
+            { model with priority = Numeric.update model.priority a }
+        | SetScaling a ->
+            { model with scaling = Numeric.update model.scaling a }
+        | SetScalarMap a -> 
+            match a with
+            | Some s -> 
+                let scs = model.scalarLayers |> HashMap.alter s.index (Option.map(fun _ -> s))
+                Log.error "[SurfaceProperties] %A" scs
+                { model with selectedScalar = Some s} |> Console.print //; scalarLayers = scs 
+            | None -> { model with selectedScalar = None }
+        | SetTexturesMap a ->                
+            { model with selectedTexture = a } |> Console.print
+        | SetHomePosition -> model
             
 
     let getTextures (layers : seq<AttributeLayer>) =

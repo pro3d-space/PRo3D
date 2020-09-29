@@ -23,6 +23,8 @@ open OpcViewer.Base
 
 open Adaptify.FSharp.Core
 
+open PRo3D.Core
+
 module HaltonPlacement =
     let create2DHaltonRandomSeries =
         new HaltonRandomSeries(2, new RandomSystem(System.DateTime.Now.Second))
@@ -52,7 +54,58 @@ module HaltonPlacement =
             yield transformedForwardRay            
         ]  
         
-    //let getHaltonRandomTrafos (count : int) (m : Model) =
+
+    let mutable lastHash = -1  
+    
+    let getSinglePointOnSurface (interaction : Interactions) (ray : Ray3d) (cameraLocation : V3d ) = 
+        let mutable cache = HashMap.Empty
+        let rayHash = ray.GetHashCode()
+
+        if rayHash = lastHash then
+            None
+        else    
+            let onlyActive (id : Guid) (l : Leaf) (s : SgSurface) = l.active
+            let onlyVisible (id : Guid) (l : Leaf) (s : SgSurface) = l.visible
+
+            let surfaceFilter = 
+               match interaction with
+               | Interactions.PickSurface -> onlyVisible
+               | _ -> onlyActive
+
+            Log.startTimed "[RayCastSurface] try intersect kdtree"                                                             
+            let hitF (camLocation : V3d) (p : V3d) = 
+                let ray =
+                    let dir = (p-camLocation).Normalized
+                    FastRay3d(camLocation, dir)
+                
+                match SurfaceApp.doKdTreeIntersection m.scene.surfacesModel m.scene.referenceSystem ray surfaceFilter cache with
+                | Some (t,surf), c ->                             
+                    cache <- c; ray.Ray.GetPointOnRay t |> Some
+                | None, c ->
+                    cache <- c; None
+                                  
+            let result = 
+                match SurfaceApp.doKdTreeIntersection m.scene.surfacesModel m.scene.referenceSystem (FastRay3d(ray)) surfaceFilter cache with
+                | Some (t,surf), c ->                         
+                    cache <- c
+                    let hit = ray.GetPointOnRay(t)
+                   
+                    lastHash <- rayHash
+                    match hitF cameraLocation hit with
+                    | None -> None
+                    | Some projectedPoint -> Some projectedPoint
+                | None, _ -> 
+                    Log.error "[RayCastSurface] no hit"
+                    None
+            Log.stop()
+            Log.line "done intersecting"
+                
+            result 
+
+    let getPointsOnSurfaces (m : Model) (rays : list<Ray3d>) (camLocation : V3d ) = 
+        rays |> List.choose( fun ray -> getSinglePointOnSurface m ray camLocation)
+
+    
     let getHaltonRandomTrafos (shattercone : SnapshotShattercone) (frustum : Frustum) (view : CameraView) =
         let haltonSeries = create2DHaltonRandomSeries
         let rays = computeSCRayRaster shattercone.count view frustum haltonSeries

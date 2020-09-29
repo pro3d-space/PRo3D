@@ -37,55 +37,7 @@ module ViewerUtils =
 
    
 
-    let mutable lastHash = -1  
-
-    let getSinglePointOnSurface (m : Model) (ray : Ray3d) (cameraLocation : V3d ) = 
-        let mutable cache = HashMap.Empty
-        let rayHash = ray.GetHashCode()
-
-        if rayHash = lastHash then
-            None
-        else    
-            let onlyActive (id : Guid) (l : Leaf) (s : SgSurface) = l.active
-            let onlyVisible (id : Guid) (l : Leaf) (s : SgSurface) = l.visible
-
-            let surfaceFilter = 
-               match m.interaction with
-               | Interactions.PickSurface -> onlyVisible
-               | _ -> onlyActive
-
-            Log.startTimed "[RayCastSurface] try intersect kdtree"                                                             
-            let hitF (camLocation : V3d) (p : V3d) = 
-                let ray =
-                    let dir = (p-camLocation).Normalized
-                    FastRay3d(camLocation, dir) 
-                //let doKdTreeIntersection (m : SurfaceModel) (refSys : PRo3D.ReferenceSystem.ReferenceSystem) (r : FastRay3d) (cache : option<float * PRo3D.Surfaces.Surface> * HashMap<_,_>)  = 
-                match SurfaceApp.doKdTreeIntersection m.scene.surfacesModel m.scene.referenceSystem ray surfaceFilter cache with
-                    | Some (t,surf), c ->                             
-                        cache <- c; ray.Ray.GetPointOnRay t |> Some
-                    | None, c ->
-                        cache <- c; None
-                                  
-            let result = 
-                match SurfaceApp.doKdTreeIntersection m.scene.surfacesModel m.scene.referenceSystem (FastRay3d(ray)) surfaceFilter cache with
-                | Some (t,surf), c ->                         
-                    cache <- c
-                    let hit = ray.GetPointOnRay(t)
-                   
-                    lastHash <- rayHash
-                    match hitF cameraLocation hit with
-                    | None -> None
-                    | Some projectedPoint -> Some projectedPoint
-                | None, _ -> 
-                    Log.error "[RayCastSurface] no hit"
-                    None
-            Log.stop()
-            Log.line "done intersecting"
-                
-            result 
-
-    let getPointsOnSurfaces (m : Model) (rays : list<Ray3d>) (camLocation : V3d ) = 
-        rays |> List.choose( fun ray -> getSinglePointOnSurface m ray camLocation)
+    
            
     let viewHaltonSeries (points : aval<list<V3d>>) =
         let points =

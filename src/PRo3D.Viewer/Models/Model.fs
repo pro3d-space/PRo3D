@@ -23,7 +23,6 @@ open Chiron
 #nowarn "0044"
 #nowarn "0686"
 
-
 module List =
     let rec updateIf (p : 'a -> bool) (f : 'a -> 'a) (xs : list<'a>) = 
         match xs with
@@ -63,31 +62,36 @@ module Option =
         | true  -> Some v
         | false -> None
 
-type NavigationMode = FreeFly = 0 | ArcBall = 1
 type InteractionMode = PickOrbitCenter = 0 | Draw = 1 | PlaceObject = 2
 type Points = list<V3d>
 
-type Projection = Linear = 0 | Viewpoint = 1 | Sky = 2
-type Geometry = Point = 0 | Line = 1 | Polyline = 2 | Polygon = 3 | DnS = 4
+type Projection = 
+    | Linear    = 0 
+    | Viewpoint = 1 
+    | Sky       = 2
+
+type Geometry = 
+    | Point     = 0 
+    | Line      = 1 
+    | Polyline  = 2 
+    | Polygon   = 3 
+    | DnS       = 4
+
 type Semantic = 
-    | Horizon0 = 0 
-    | Horizon1 = 1 
-    | Horizon2 = 2 
-    | Horizon3 = 3 
-    | Horizon4 = 4 
-    | Crossbed = 5 
-    | GrainSize = 6 
-    | None = 7
+    | Horizon0  = 0 
+    | Horizon1  = 1 
+    | Horizon2  = 2 
+    | Horizon3  = 3 
+    | Horizon4  = 4 
+    | Crossbed  = 5 
+    | GrainSize = 6
+    | None      = 7
 
 type ViewerMode =
     | Standard
     | Instrument
 
-type TTAlignment =
-    | Top    = 0
-    | Right  = 1
-    | Bottom = 2
-    | Left   = 3
+
     
 type SnapshotType = 
     | Camera
@@ -95,10 +99,10 @@ type SnapshotType =
     | CameraSurfaceMask
 
 type GuiMode =
-  | NoGui
-  | RenderViewOnly
-  | CoreGui
-  | CompleteGui
+    | NoGui
+    | RenderViewOnly
+    | CoreGui
+    | CompleteGui
 
 
 type StartupArgs = {
@@ -120,7 +124,7 @@ type StartupArgs = {
 } with 
     member args.hasValidAnimationArgs =
         (args.opcPaths.IsSome || args.objPaths.IsSome)
-            && args.snapshotType.IsSome && args.areValid  
+            && args.snapshotType.IsSome && args.areValid
     static member initArgs =
       {
           opcPaths              = None
@@ -159,236 +163,18 @@ module Statistics =
     sumOfSquares = Double.NaN
   }
 
-[<ModelType>]
-type FalseColorsModel = {
-    version         : int
-    useFalseColors  : bool
-    lowerBound      : NumericInput
-    upperBound      : NumericInput
-    interval        : NumericInput
-    invertMapping   : bool
-    lowerColor      : ColorInput //C4b
-    upperColor      : ColorInput //C4b    
-}
 
-type FalseColorsShaderParams = {
-    hsvStart   : V3d //(h, s, v)
-    hsvEnd     : V3d //(h, s, v)
-    interval   : float
-    inverted   : bool
-    lowerBound : float
-    upperBound : float
-    stepS      : float
-    numOfRG    : float
-}
-
-module FalseColorsModel =
-    
-    let current = 0
-    let read0 =
-        json {
-            let! useFalseColors = Json.read "useFalseColors"
-            let! lowerBound     = Json.readWith Ext.fromJson<NumericInput,Ext> "lowerBound"
-            let! upperBound     = Json.readWith Ext.fromJson<NumericInput,Ext> "upperBound"
-            let! interval       = Json.readWith Ext.fromJson<NumericInput,Ext> "interval"
-            let! invertMapping  = Json.read "invertMapping"
-            let! lowerColor     = Json.readWith Ext.fromJson<ColorInput,Ext> "lowerColor"
-            let! upperColor     = Json.readWith Ext.fromJson<ColorInput,Ext> "upperColor"
-
-            return 
-                {
-                    version        = current
-                    useFalseColors = useFalseColors
-                    lowerBound     = lowerBound
-                    upperBound     = upperBound
-                    interval       = interval
-                    invertMapping  = invertMapping
-                    lowerColor     = lowerColor
-                    upperColor     = upperColor
-                }
-        }
-        //TODO TO rename inits
-    let dnSInterv  = {
-        value   = 5.0
-        min     = 0.0
-        max     = 90.0
-        step    = 0.1
-        format = "{0:0.00}"
-    } 
-    let initMinAngle = {
-        value   = 0.0
-        min     = 0.0
-        max     = 90.0
-        step    = 1.0
-        format  = "{0:0.0}"
-    }
-    let initMaxAngle = {
-        value   = 45.0
-        min     = 1.0
-        max     = 90.0
-        step    = 1.0
-        format  = "{0:0.0}"
-    }
-
-    let initDnSLegend = 
-        {
-            version         = current
-            useFalseColors  = false
-            lowerBound      = initMinAngle
-            upperBound      = initMaxAngle
-            interval        = dnSInterv
-            invertMapping   = false
-            lowerColor      = { c = C4b.Blue }
-            upperColor      = { c = C4b.Red }
-        }
-   
-    let scalarsInterv  = {
-        value   = 5.0
-        min     = 0.0
-        max     = 90.0
-        step    = 0.0001
-        format  = "{0:0.0000}"
-    } 
-
-    let initlb (range: Range1d) = {
-        value   = range.Min
-        min     = range.Min
-        max     = range.Max
-        step    = 0.0001
-        format  = "{0:0.0000}"
-    }
-
-    let initub (range: Range1d) = {
-        value   = range.Max
-        min     = range.Min
-        max     = range.Max
-        step    = 0.0001
-        format  = "{0:0.0000}"
-    }
-
-    let initDefinedScalarsLegend (range: Range1d) = {
-        version         = current
-        useFalseColors  = false
-        lowerBound      = initlb range
-        upperBound      = initub range 
-        interval        = scalarsInterv 
-        invertMapping   = false
-        lowerColor      = { c = C4b.Blue }
-        upperColor      = { c = C4b.Red }
-    }
-    
-    let initShaderParams = 
-        {
-            hsvStart = V3d(0.0, 0.0, 0.0) 
-            hsvEnd   = V3d(0.0, 0.0, 0.0) 
-            interval = 1.0
-            inverted = false
-            lowerBound = 0.0
-            upperBound = 1.0
-            stepS     = 1.0
-            numOfRG  = 1.0
-        }
-
-type FalseColorsModel with
-    static member FromJson(_ : FalseColorsModel) =
-        json {
-            let! v = Json.read "version"
-            match v with
-            | 0 -> return! FalseColorsModel.read0
-            | _ -> 
-                return! v 
-                |> sprintf "don't know version %A  of FalseColorsModel"
-                |> Json.error
-        }
-    static member ToJson (x : FalseColorsModel) =
-        json {
-            do! Json.write "version"         x.version
-            do! Json.write "useFalseColors"  x.useFalseColors
-            do! Json.writeWith Ext.toJson<NumericInput,Ext> "lowerBound" x.lowerBound
-            do! Json.writeWith Ext.toJson<NumericInput,Ext> "upperBound" x.upperBound
-            do! Json.writeWith Ext.toJson<NumericInput,Ext> "interval"   x.interval
-            do! Json.write "invertMapping"   x.invertMapping 
-            do! Json.writeWith Ext.toJson<ColorInput,Ext> "lowerColor"   x.lowerColor
-            do! Json.writeWith Ext.toJson<ColorInput,Ext> "upperColor"   x.upperColor
-    
-        }    
 
 [<ModelType>]
-type OrientationCubeModel =
-  {
+type OrientationCubeModel = {
     camera  : CameraControllerState
-  }
-
-//[<ModelType>]
-//type DipAndStrikeResults = {
-//    plane           : Plane3d
-//    dipAngle        : float
-//    dipDirection    : V3d
-//    strikeDirection : V3d
-//    dipAzimuth      : float
-//    strikeAzimuth   : float
-//    centerOfMass    : V3d
-//    error           : Statistics
-//}
-
-//[<ModelType>]
-//type AnnotationResults = {
-//    height      : float
-//    heightDelta : float
-//    avgAltitude : float
-//    length      : float
-//    wayLength   : float
-//    bearing     : float
-//    slope       : float
-//}
-
-//[<ModelType>]
-//type Segment = {
-//    startPoint : V3d
-//    endPoint   : V3d
-    
-//    points : IndexList<V3d> 
-//}
-
-//[<DomainType; Obsolete("use Annotation' instead")>]
-//type Annotation = {
-//    [<PrimaryKey; NonIncremental>]
-//    key         : Guid
-
-//    modelTrafo  : Trafo3d
-
-//    geometry    : Geometry
-//    projection  : Projection
-//    semantic    : Semantic
-
-//    points      : IndexList<V3d>
-//    segments    : IndexList<Segment> 
-//    color       : ColorInput
-//    thickness   : NumericInput
-//    results     : Option<AnnotationResults>
-//    dnsResults  : Option<DipAndStrikeResults>
-
-//    visible     : bool
-//    showDns     : bool
-//    text        : string
-//    textsize    : NumericInput
-
-//    surfaceName : string
-//    view        : CameraView
-//}
-
+}
 
 type Style = {
     color : C4b
     thickness : NumericInput
 }
-
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module Annotation =
-    open Aardvark.Base.IndexedGeometryPrimitives
-
     
-
 module JsonTypes =
     type _V3d = {
         X : double
@@ -418,54 +204,32 @@ module JsonTypes =
 
     let ofPolygon (p:Points) : _Points = p  |> List.map ofV3d
 
-    let ofSegment (s:Segment) : _Segment = s.points  |> IndexList.map ofV3d 
-                                                     |> IndexList.toList
+    let ofSegment (s:Segment) : _Segment = 
+        s.points  
+        |> IndexList.map ofV3d 
+        |> IndexList.toList
 
-    let ofSegment1 (s:IndexList<V3d>) : _Segment = s  |> IndexList.map ofV3d
-                                                  |> IndexList.toList
+    let ofSegment1 (s:IndexList<V3d>) : _Segment = 
+        s  
+        |> IndexList.map ofV3d
+        |> IndexList.toList
 
 
     let rec fold f s xs =
         match xs with
-            | x::xs -> 
-                    let r = fold f s xs
-                    f x r
-            | [] -> s
+        | x::xs -> 
+                let r = fold f s xs
+                f x r
+        | [] -> s
 
     let sum = [ 1 .. 10 ] |> List.fold (fun s e -> s * e) 1
 
     let sumDistance (polyline : Points) : double =
-        polyline  |> List.pairwise |> List.fold (fun s (a,b) -> s + (b - a).LengthSquared) 0.0 |> Math.Sqrt
-
-    //let ofAnnotation (a:Annotation) : _Annotation =
-    //    let polygon = ofPolygon (a.points |> IndexList.toList)
-    //    let avgHeight = (polygon |> List.map (fun v -> v.Z ) |> List.sum) / double polygon.Length
-    //    let distance = sumDistance (a.points |> IndexList.toList)
-    //    let angle, azimuth =
-    //        match a.dnsResults with
-    //            | Some dns -> 
-    //                dns.dipAngle, dns.dipAzimuth
-    //            | None -> -1.0, -1.0
-
-    //    {            
-    //        semantic = a.semantic.ToString()
-    //        geometry = polygon
-    //        segments = a.segments |> IndexList.map (fun x -> ofSegment1 x.points) |> IndexList.toList //|> List.map (fun x -> ofSegment x)
-    //        color = a.color.ToString()
-    //        thickness = a.thickness.value
-            
-    //        projection = a.projection.ToString()
-    //        elevation = avgHeight
-    //        distance = distance
-
-    //        azimuth = azimuth
-    //        angle = angle
-    //        surfid = a.surfaceName
-    //    }  
-
-    //let ofDrawing (m : Drawing) : list<_Annotation> =
-    //    m.finished.AsList |> List.map ofAnnotation
-
+        polyline  
+        |> List.pairwise 
+        |> List.fold (fun s (a,b) -> s + (b - a).LengthSquared) 0.0 
+        |> Math.Sqrt
+    
 [<ModelType>]
 type PathProxy = {
     absolutePath : option<string>

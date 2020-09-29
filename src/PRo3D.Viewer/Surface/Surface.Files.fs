@@ -20,107 +20,11 @@ open Aardvark.UI.Operators
 open Aardvark.UI.Trafos  
 
 open PRo3D
-open PRo3D.Groups
+open PRo3D.Core
 open PRo3DCompability
 
 
-module DebugKdTreesX = 
-    open Aardvark.VRVis.Opc.KdTrees
-    open MBrace.FsPickler
-    open Aardvark.Geometry
-    open OpcViewer.Base
-   
-    let getInvalidIndices3f (positions : V3f[]) =
-        positions |> List.ofArray |> List.mapi (fun i x -> if x.AnyNaN then Some i else None) |> List.choose id    
 
-    let getTriangleSet3f (vertices:V3f[]) =
-      vertices 
-        |> Seq.map(fun x -> x.ToV3d())
-        |> Seq.chunkBySize 3
-        |> Seq.filter(fun x -> x.Length = 3)
-        |> Seq.map(fun x -> Triangle3d x)
-        |> Seq.filter(fun x -> (IntersectionController.triangleIsNan x |> not)) |> Seq.toArray
-        |> TriangleSet
-
-    let getTriangleSet (indices : int[]) (vertices:V3d[]) = 
-      indices 
-        |> Seq.map(fun x -> vertices.[x])
-        |> Seq.chunkBySize 3
-        |> Seq.map(fun x -> Triangle3d(x))
-        |> Seq.filter(fun x -> (IntersectionController.triangleIsNan x |> not)) |> Seq.toArray
-        |> TriangleSet
-
-    let loadTriangles (kd : LazyKdTree) =
-        
-        let positions = kd.objectSetPath |> Aara.fromFile<V3f>
-                
-        let invalidIndices = getInvalidIndices3f positions.Data |> List.toArray
-        let size = positions.Size.XY.ToV2i()
-        let indices = PRo3DCSharp.ComputeIndexArray(size, invalidIndices)
-                  
-       // Log.warn "num of inv_indices: %A" invalidIndices.Length
-       // Log.warn "num of indices: %A" indices.Length
-                       
-        positions.Data 
-          |> Array.map (fun x ->  x.ToV3d() |> kd.affine.Forward.TransformPos) 
-          |> getTriangleSet indices
-
-    let loadObjectSet (cache : HashMap<string, ConcreteKdIntersectionTree>) (lvl0Tree : Level0KdTree) =             
-      match lvl0Tree with
-        | InCoreKdTree kd -> 
-          kd.kdTree, cache
-        | LazyKdTree kd ->             
-          let kdTree, cache =
-            match kd.kdTree with
-            | Some k -> k, cache
-            | None -> 
-              let key = (kd.boundingBox.ToString())
-              let tree = cache |> HashMap.tryFind key
-              match tree with
-              | Some t ->                 
-                t, cache
-              | None ->                                     
-                Log.line "cache miss %A- loading kdtree" kd.boundingBox
-            
-                let mutable tree = KdTrees.loadKdtree kd.kdtreePath      
-                let triangles = kd |> loadTriangles
-                
-                tree.KdIntersectionTree.ObjectSet <- triangles                                                            
-                tree, (HashMap.add key tree cache)
-          kdTree, cache
-
-    let getTriangle (set : TriangleSet) (index : int) : Triangle3d =
-      let pi = index * 3
-      let pl = set.Position3dList
-      Triangle3d(pl.[pi], pl.[pi+1], pl.[pi + 2])
-
-    let isNotOversized (size) (triangle:Triangle3d) =      
-      ((Vec.Distance(triangle.P0, triangle.P1) < size) && 
-       (Vec.Distance(triangle.P0, triangle.P2) < size) &&
-       (Vec.Distance(triangle.P1, triangle.P2) < size))
-
-    let intersectKdTrees bb (hitObject : PRo3D.Surfaces.Surface) (cache : HashMap<string, ConcreteKdIntersectionTree>) (ray : FastRay3d) (kdTreeMap: HashMap<Box3d, KdTrees.Level0KdTree>) = 
-
-        let kdtree, c = kdTreeMap |> HashMap.find bb |> loadObjectSet cache
-
-        let kdi = kdtree.KdIntersectionTree 
-        let mutable hit = ObjectRayHit.MaxRange
-                        
-        try
-          let hitFilter = //true means being omitted
-            fun (a:IIntersectableObjectSet) (b:int) _ _ -> 
-            let triangles = a :?> TriangleSet //TODO TO crashes if not encountering a triangleset
-            b |> getTriangle triangles |> isNotOversized hitObject.triangleSize.value |> not // = tooBig            
-
-          if kdi.Intersect(ray, null, Func<IIntersectableObjectSet,int,int, RayHit3d,bool>(hitFilter), 0.0, Double.MaxValue, &hit) then              
-              Some (hit.RayHit.T, hitObject),c
-          else            
-              None,c
-        with 
-          | e -> 
-            Log.error "[DebugKdtrees] error in kdtree intersection" 
-            Log.error "%A" e
-            None,c
   
 module Files = 
        open System.IO
@@ -258,7 +162,7 @@ module Files =
            names |> List.map(fun a -> whyEscaping (Path.combine [path; a])) // what is this???
            //names |> List.map(fun a -> (Path.combine [path; a]))
        
-       let getSurfaceFolder (surface:PRo3D.Surfaces.Surface) (scenePath:option<string>) =
+       let getSurfaceFolder (surface : Surface) (scenePath : option<string>) =
          if surface.relativePaths 
          then
            match scenePath with
@@ -295,7 +199,7 @@ module Files =
        let surfaceRelativePath (path : string) =
            relativePath path 4
 
-       let expandLazyKdTreePaths (scenePath : option<string>) (surfaces : HashMap<Guid, PRo3D.Surfaces.Surface>) (sgSurfaces : HashMap<Guid, SgSurface>) =
+       let expandLazyKdTreePaths (scenePath : option<string>) (surfaces : HashMap<Guid, Surface>) (sgSurfaces : HashMap<Guid, SgSurface>) =
          let expand surf tree =
              match tree with 
              | KdTrees.Level0KdTree.LazyKdTree lk when surf.relativePaths && scenePath.IsSome -> // scene is portable                                        

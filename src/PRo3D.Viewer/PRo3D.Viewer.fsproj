@@ -29,12 +29,9 @@
     <Compile Include="DipAndStrike.fs" />
     <Compile Include="ReferenceSystem.fs" />
     <Compile Include="OrientationCube.fs" />
-    <Compile Include="Surface-Model.fs" />
     <Compile Include="Navigation-Model.fs" />
     <Compile Include="Bookmark-Model.fs" />
     <Compile Include="Csv.fs" />
-    <Compile Include="GroupsModels.fs" />
-    <Compile Include="Groups.fs" />
     <Compile Include="Drawing\Drawing-Properties.fs" />
     <Compile Include="Drawing\Drawing-Model.fs" />
     <Compile Include="Drawing\DrawingUtilities.fs" />
@@ -52,10 +49,6 @@
     <Compile Include="Surface\Surface.Sg.fs" />
     <Compile Include="Surface\Surface.fs" />
     <Compile Include="Properties.fs" />
-    <Compile Include="ViewPlanner\Rover-Model.fs" />
-    <Compile Include="ViewPlanner\FootPrint.fs" />
-    <Compile Include="ViewPlanner\Rover.fs" />
-    <Compile Include="ViewPlanner\ViewPlan.fs" />
     <Compile Include="CorrelationPanelsAppModel.fs" />
     <Compile Include="DockConfigs.fs" />
     <Compile Include="Viewer-Model.fs" />
@@ -67,11 +60,9 @@
     <Compile Include="AnnotationGroupsImporter.fs" />
     <Compile Include="SurfaceTrafoImporter.fs" />
     <Compile Include="RoverPlacementImporter.fs" />
-    <Compile Include="Viewer\Snapshot-Model.fs" />
     <Compile Include="Viewer\Viewer-Utils.fs" />
     <Compile Include="Viewer\ViewerGUI.fs" />
     <Compile Include="Viewer\Viewer-IO.fs" />
-    <Compile Include="Viewer\SnapshotAnimation.fs" />
     <Compile Include="Viewer\SceneConverter.fs" />
     <Compile Include="Viewer\Viewer.fs" />
     <Compile Include="Viewer\NoGuiViewer.fs" />
@@ -98,6 +89,7 @@
     <ProjectReference Include="..\PRo3D.2D3DLinking\PRo3D.Linking.fsproj" />
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
     <ProjectReference Include="..\PRo3D.Minerva\PRo3D.Minerva.fsproj" />
+    <ProjectReference Include="..\PRo3D.SimulatedViews\PRo3D.SimulatedViews.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

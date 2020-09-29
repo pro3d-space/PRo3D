@@ -4,7 +4,18 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Library.fs" />
+    <Compile Include="Core-Types.fs" />
+    <Compile Include="FalseColors-Model.fs" />
+    <Compile Include="Surface-Model.fs" />
+    <Compile Include="Bookmark-Model.fs" />
+    <Compile Include="Groups-Model.fs" />
+    <Compile Include="Model.fs" />
+    <Compile Include="UI.fs" />
+    <Compile Include="Surface.fs" />
+    <Compile Include="GroupsApp.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

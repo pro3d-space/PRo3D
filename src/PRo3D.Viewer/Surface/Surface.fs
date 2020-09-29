@@ -16,18 +16,17 @@ open Aardvark.VRVis.Opc
 open Aardvark.UI.Operators
 open Aardvark.UI.Trafos  
 
-open PRo3D.Base
 open PRo3D
-open PRo3D.Groups
-open System.Diagnostics
+open PRo3D.Base
+open PRo3D.Core
 
 open Adaptify.FSharp.Core
-open FSharp.Data.Adaptive
 
 open OpcViewer.Base
 open OpcViewer.Base.Picking
 
 open Adaptify
+open System.Diagnostics
 
 type SurfaceAppAction =
 | SurfacePropertiesMessage  of SurfaceProperties.Action
@@ -90,7 +89,7 @@ module SurfaceUtils =
         open Aardvark.Geometry
         
         //TODO TO use loadObject from master
-        let loadObject (surface : PRo3D.Surfaces.Surface) : SgSurface =                        
+        let loadObject (surface : Surface) : SgSurface =
             Log.line "[OBJ] Please wait while the OBJ file is being loaded." 
             let obj = Loader.Assimp.load (surface.importPath)  
             Log.line "[OBJ] The OBJ file was loaded successfully!" 
@@ -228,81 +227,10 @@ module SurfaceUtils =
             doc |> layers
                                             
 module SurfaceApp =
-
-
+            
     
-        
-    let doKdTreeIntersection 
-        (m : SurfaceModel) 
-        (refSys : PRo3D.ReferenceSystem.ReferenceSystem) 
-        (r : FastRay3d) 
-        (filterSurface : Guid -> Leaf -> SgSurface -> bool) 
-        cache
-        : option<float * PRo3D.Surfaces.Surface> * HashMap<_,_> = 
 
-        let mutable cache = cache
-        let activeSgSurfaces = 
-            m.surfaces.flat
-            |> HashMap.toList 
-            |> List.choose (fun (id,leaf) -> 
-                   match m.sgSurfaces |> HashMap.tryFind id with
-                   | None -> None
-                   | Some s -> 
-                       if filterSurface id leaf s then Some s
-                       else None
-               )
-    
-        let hits = 
-            activeSgSurfaces 
-            |> List.map (fun d -> d.picking, (m.surfaces.flat |> HashMap.find d.surface) |> Leaf.toSurface)                      
-            |> List.choose (
-               fun (p ,surf) ->
-                 match p with
-                    | Picking.KdTree kd ->
-                      if kd.IsEmpty then Log.error "no kdtree loaded for %s" surf.name; None
-                      else                    
-                        let superTrafo = PRo3D.Transformations.fullTrafo' surf refSys
-                        //get bbs that are hit
-                        let hitBoxes =
-                          kd  
-                            |> HashMap.toList |> List.map fst
-                            |> List.filter(
-                                fun x -> 
-                                   let mutable t = 0.0
-                                   let r' = r.Ray //combine pre and current transform
-                                   x.Transformed(surf.preTransform.Forward * superTrafo.Forward).Intersects(r', &t)
-                            )
-                        //intersect corresponding kdtrees
-                        let closestHit =
-                          hitBoxes
-                            |> List.choose(
-                                fun key -> 
-                                    //Log.line "intersection: %s; pr: %f" surf.name surf.priority.value                                                             
-                                    //let ray = r.Ray.Transformed(surf.preTransform.Backward) |> FastRay3d  //combine pre and current transform                     
-                                    let ray = r.Ray.Transformed(surf.preTransform.Backward * superTrafo.Backward) |> FastRay3d
-                                    let hit, c = 
-                                      kd |> DebugKdTreesX.intersectKdTrees key surf cache ray
-                                    cache <- c
-                                    hit
-                                    )
-                            |> List.sortBy(fun (t,_)-> t)
-                            |> List.tryHead
-                      
-                        closestHit
-                    | Picking.PickMesh pm -> Log.error "no kdtree loaded for %s" surf.name; None
-               )
-            |> List.groupBy(fun (_,surf) -> surf.priority.value) |> List.sortByDescending fst
-            |> List.tryHead
-            |> Option.bind(fun (_,b) -> b |> List.sortBy fst |> List.tryHead)
-            //|> List.sortBy(fun (t,_) -> t)
-            //|> List.tryPick(fun d -> Some d)
-    
-        hits, cache
-
-    //let doKdTreeIntersection (m : SurfaceModel) (r : FastRay3d) cache : option<float * PRo3D.Surfaces.Surface> * HashMap<_,_> = 
-    //  doKdTreeIntersection' m Trafo3d.Identity r cache 
-
-    let updateTrafo (trafo:SurfaceTrafo) (surfaces:HashMap<string,PRo3D.Surfaces.Surface>) (model:SurfaceModel) =                                
+    let updateTrafo (trafo : SurfaceTrafo) (surfaces : HashMap<string,Surface>) (model : SurfaceModel) = 
       match surfaces.TryFind(trafo.id) with
         | Some s -> 
           let f = (fun _ -> { s with preTransform = trafo.trafo } |> Leaf.Surfaces)
@@ -455,7 +383,7 @@ module SurfaceApp =
                 | Some p ->                            
                     let path = @".\20170530_TextureConverter_single\Vrvis.TextureConverter.exe"
                     if File.Exists(path) then //\Vrvis.TextureConverter.exe") then
-                        let mutable converter = new Process()                             
+                        let mutable converter = new Process()
                         Log.line "start processing"                        
                         converter.StartInfo.FileName <- "Vrvis.TextureConverter.exe"
                         converter.StartInfo.Arguments <- p + " -overwrite" //-lazy"

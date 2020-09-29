@@ -1,4 +1,4 @@
-namespace PRo3D.Groups
+namespace PRo3D.Core
 
 open System
 open Aardvark.Base
@@ -11,9 +11,7 @@ open Aardvark.SceneGraph.Opc
 
 open PRo3D
 open PRo3D.Base.Annotation
-open PRo3D.Surfaces
-open PRo3D.Bookmarkings
-open PRo3D.Navigation2
+open PRo3D.Core
 open Chiron
 
 #nowarn "0044"
@@ -434,13 +432,13 @@ module SurfaceModel =
     let triggerSgGrouping (model:SurfaceModel) =
         { model with sgGrouped = (groupSurfaces model.sgSurfaces (model.surfaces.flat |> Leaf.toSurfaces))}
    
-    let updateSingleSurface (s':PRo3D.Surfaces.Surface) (model:SurfaceModel) =
+    let updateSingleSurface (s': Surface) (model:SurfaceModel) =
         let surfaces' = 
             Groups.replaceLeaf (Leaf.Surfaces s') model.surfaces
 
         { model with surfaces = surfaces' }
 
-    let updateSingleSurface' (model:SurfaceModel) (s':PRo3D.Surfaces.Surface) =
+    let updateSingleSurface' (model:SurfaceModel) (s': Surface) =
         updateSingleSurface s' model
 
 type SurfaceModel with

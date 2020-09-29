@@ -17,47 +17,58 @@ module Dialogs =
     let onChooseFiles (chosen : list<string> -> 'msg) =
         let cb xs =
             match xs with
-                | [] -> chosen []
-                | x::[] when x <> null -> x |> Aardvark.Service.Pickler.json.UnPickleOfString |> List.map Aardvark.Service.PathUtils.ofUnixStyle |> chosen
-                | _ -> chosen []//failwithf "onChooseFiles: %A" xs
+            | [] -> chosen []
+            | x::[] when x <> null -> 
+                x 
+                |> Aardvark.Service.Pickler.json.UnPickleOfString 
+                |> List.map Aardvark.Service.PathUtils.ofUnixStyle 
+                |> chosen
+            | _ -> 
+                chosen []
         onEvent "onchoose" [] cb   
 
     let onChooseDirectory (id:Guid) (chosen : Guid * string -> 'msg) =
         let cb xs =
             match xs with
-                | [] -> chosen (id, String.Empty)
-                | x::[] when x <> null -> 
-                  let id = id
-                  let path = 
+            | [] -> chosen (id, String.Empty)
+            | x::[] when x <> null -> 
+                let id = id
+                let path = 
                     x 
-                      |> Aardvark.Service.Pickler.json.UnPickleOfString 
-                      |> List.map Aardvark.Service.PathUtils.ofUnixStyle 
-                      |> List.tryHead
-                  match path with
-                  | Some p -> 
-                    chosen (id, p)
-                  | None -> chosen (id,String.Empty)
-                | _ -> chosen (id,String.Empty)//failwithf "onChooseFiles: %A" xs
+                    |> Aardvark.Service.Pickler.json.UnPickleOfString 
+                    |> List.map Aardvark.Service.PathUtils.ofUnixStyle 
+                    |> List.tryHead
+                match path with
+                | Some p -> 
+                  chosen (id, p)
+                | None -> chosen (id,String.Empty)
+            | _ -> 
+                chosen (id,String.Empty)
         onEvent "onchoose" [] cb   
 
     let onSaveFile (chosen : string -> 'msg) =
         let cb xs =
             match xs with
-                | x::[] when x <> null -> x |> Aardvark.Service.Pickler.json.UnPickleOfString |> Aardvark.Service.PathUtils.ofUnixStyle |> chosen
-                | _ -> chosen String.Empty //failwithf "onSaveFile: %A" xs
+            | x::[] when x <> null -> 
+                x 
+                |> Aardvark.Service.Pickler.json.UnPickleOfString 
+                |> Aardvark.Service.PathUtils.ofUnixStyle 
+                |> chosen
+            | _ -> 
+                chosen String.Empty //failwithf "onSaveFile: %A" xs
         onEvent "onsave" [] cb
 
     let onSaveFile1 (chosen : string -> 'msg) (path : Option<string>) =
-      let cb xs =
-        match path with
-        | Some p-> p |> chosen
-        | None ->
-          match xs with
-          | x::[] when x <> null -> 
-            x |> Aardvark.Service.Pickler.json.UnPickleOfString |> Aardvark.Service.PathUtils.ofUnixStyle |> chosen
-          | _ -> 
-            String.Empty |> chosen
-      onEvent "onsave" [] cb
+        let cb xs =
+            match path with
+            | Some p-> p |> chosen
+            | None ->
+                match xs with
+                | x::[] when x <> null -> 
+                    x |> Aardvark.Service.Pickler.json.UnPickleOfString |> Aardvark.Service.PathUtils.ofUnixStyle |> chosen
+                | _ -> 
+                    String.Empty |> chosen
+        onEvent "onsave" [] cb
           
 module Double =
     let degreesFromRadians (d:float) =
@@ -74,8 +85,8 @@ module Box3d =
     let ofSeq (bs:seq<Box3d>) =
         let box = 
             match bs |> Seq.tryHead with
-                | Some b -> b
-                | None -> failwith "box sequence must not be empty"
+            | Some b -> b
+            | None -> failwith "box sequence must not be empty"
                     
         for b in bs do
             box.ExtendBy(b)
@@ -152,24 +163,24 @@ module Sg =
         }
            
     let computeInvariantScale (view : aval<CameraView>) (near : aval<float>) (p:aval<V3d>) (size:aval<float>) (hfov:aval<float>) =
-      adaptive {
-          let! p = p
-          let! v = view
-          let! near = near
-          let! size = size
-          let! hfov = hfov
-          let hfov_rad = Conversion.RadiansFromDegrees(hfov)
-         
-          let wz = Fun.Tan(hfov_rad / 2.0) * near * size
-          let dist = Vec.Distance(p, v.Location)
-      
-          return ( wz / near ) * dist
-      }
+        adaptive {
+            let! p = p
+            let! v = view
+            let! near = near
+            let! size = size
+            let! hfov = hfov
+            let hfov_rad = Conversion.RadiansFromDegrees(hfov)
+           
+            let wz = Fun.Tan(hfov_rad / 2.0) * near * size
+            let dist = Vec.Distance(p, v.Location)
+        
+            return ( wz / near ) * dist
+        }
 
     //## LINES ##
 
     let edgeLines (close : bool) (points : alist<V3d>) (trafo:aval<Trafo3d>) =
-      points
+        points
         |> AList.map(fun d -> trafo.GetValue().Backward.TransformPos d)
         |> AList.toAVal 
         |> AVal.map (fun l ->
@@ -177,11 +188,12 @@ module Sg =
             let head = list |> List.tryHead
                 
             match head with
-                | Some h -> if close then list @ [h] else list
-                                |> List.pairwise
-                                |> List.map (fun (a,b) -> new Line3d(a,b))
-                                |> List.toArray
-                | None -> [||])       
+            | Some h ->     
+                if close then list @ [h] else list
+                |> List.pairwise
+                |> List.map (fun (a,b) -> new Line3d(a,b))
+                |> List.toArray
+            | None -> [||])       
         
     let composedThickLineShader = 
         Effect.compose [
@@ -191,8 +203,8 @@ module Sg =
         ]
 
     let lines (points : alist<V3d>) (offset : aval<float>) (color : aval<C4b>) (width : aval<float>) (trafo : aval<Trafo3d>) = 
-      let edges = edgeLines false points trafo
-      edges
+        let edges = edgeLines false points trafo
+        edges
         |> Sg.lines color
         |> Sg.noEvents
         |> Sg.effect [composedThickLineShader]                             
@@ -200,7 +212,7 @@ module Sg =
         |> Sg.uniform "LineWidth" width
         |> Sg.uniform "DepthOffset" (
                 offset |> AVal.map (fun depthWorld -> depthWorld / (100.0 - 0.1))
-           ) 
+        )
 
     let scaledLinesEffect = 
         Effect.compose [
@@ -218,13 +230,13 @@ module Sg =
             }
                                                             
         edges
-            |> Sg.lines color
-            |> Sg.noEvents
-            |> Sg.uniform "WorldPos" (trafo |> AVal.map(fun (x : Trafo3d) -> x.Forward.C3.XYZ))
-            |> Sg.uniform "Size" size
-            |> Sg.effect [scaledLinesEffect]                             
-            |> Sg.trafo trafo
-            |> Sg.uniform "LineWidth" width             
+        |> Sg.lines color
+        |> Sg.noEvents
+        |> Sg.uniform "WorldPos" (trafo |> AVal.map(fun (x : Trafo3d) -> x.Forward.C3.XYZ))
+        |> Sg.uniform "Size" size
+        |> Sg.effect [scaledLinesEffect]                             
+        |> Sg.trafo trafo
+        |> Sg.uniform "LineWidth" width
     
     //## PICKING ##
 
@@ -374,87 +386,8 @@ module Sg =
       |> Sg.effect [stableTextShader]        
       |> Sg.trafo invScaleTrafo
       |> Sg.trafo billboardTrafo      
-module UI =
-    open Aardvark.UI
-    open FSharp.Data.Adaptive
-
-    let toAlignmentString (alignment : TTAlignment) =
-        match alignment with
-        | TTAlignment.Top      -> "top center"
-        | TTAlignment.Right    -> "right center"
-        | TTAlignment.Bottom   -> "bottom center"   
-        | TTAlignment.Left     -> "left center" 
-        | _ -> alignment |> sprintf "unknown alignment %A" |> failwith
-
-    let wrapToolTip (text:string) (alignment:TTAlignment ) (dom:DomNode<'a>) : DomNode<'a> =
-        //dom
-        let attr = 
-            [ attribute "title" text
-              attribute "data-position" (toAlignmentString alignment) //"top center"
-              attribute "data-variation" "mini" ] 
-                |> AttributeMap.ofList
-                //|> AttributeMap.union dom.                
-                
-        onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (       
-            dom.WithAttributes attr     
-        )
-
-    let wrapToolTipRight (text:string) (dom:DomNode<'a>) : DomNode<'a> =
-        //dom
-        let attr = 
-            [ attribute "title" text
-              attribute "data-position" "right center"
-              attribute "data-variation" "mini"] 
-                |> AttributeMap.ofList
-                //|> AttributeMap.union dom.Attributes                
-                
-        onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (       
-            dom.WithAttributes attr     
-        )
-
-    let wrapToolTipBottom (text:string) (dom:DomNode<'a>) : DomNode<'a> =
-        //dom
-        let attr = 
-            [ attribute "title" text
-              attribute "data-position" "bottom center"
-              attribute "data-variation" "mini"] 
-                |> AttributeMap.ofList
-                //|> AttributeMap.union dom.Attributes                
-                
-        onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (       
-            dom.WithAttributes attr     
-        )
 
 
-    let dropDown'' (values : alist<'a>)(selected : aval<Option<'a>>) (change : Option<'a> -> 'msg) (f : 'a ->string)  =
-
-        let attributes (name : string) =
-            AttributeMap.ofListCond [
-                always (attribute "value" (name))
-                onlyWhen (
-                        selected 
-                            |> AVal.map (
-                                fun x -> 
-                                    match x with
-                                        | Some s -> name = f s
-                                        | None   -> name = "-None-"
-                            )) (attribute "selected" "selected")
-            ]
-
-        let ortisOnChange  = 
-            let cb (i : int) =
-                let currentState = values.Content |> AVal.force
-                change (IndexList.tryAt (i-1) currentState)
-                    
-            onEvent "onchange" ["event.target.selectedIndex"] (fun x -> x |> List.head |> Int32.Parse |> cb)
-
-        Incremental.select (AttributeMap.ofList [ortisOnChange; style "color:black"]) 
-            (
-                alist {
-                    yield Incremental.option (attributes "-None-") (AList.ofList [text "-None-"])
-                    yield! values |> AList.mapi(fun i x -> Incremental.option (attributes (f x)) (AList.ofList [text (f x)]))
-                }
-            )
 
 module Console =    
 
@@ -467,9 +400,6 @@ module Lenses =
     let set    (lens : Lens<'s,'a>) (v : 'a) (s:'s) : 's     = lens.Set(s,v)
     let set'   (lens : Lens<'s,'a>) (s:'s) (v : 'a)  : 's    = lens.Set(s,v)
     let update (lens : Lens<'s,'a>) (f : 'a->'a) (s:'s) : 's = lens.Update(s,f)
-
-
-
   
 module PRo3DNumeric = 
     open FSharp.Data.Adaptive
@@ -550,12 +480,12 @@ module PRo3DNumeric =
     let view (model : AdaptiveNumericInput) =
         view' [InputBox] model
 
-  module GenericFunctions =
-    let rec applyXTimes (a : 'a) (f : 'a -> int -> 'a) (lastIndex : int) =
-        match lastIndex with
-        | t when t <= 0 -> f a lastIndex
-        | t when t > 0 -> applyXTimes (f a lastIndex) f (lastIndex - 1)
-        | _ -> a
+    module GenericFunctions =
+        let rec applyXTimes (a : 'a) (f : 'a -> int -> 'a) (lastIndex : int) =
+            match lastIndex with
+            | t when t <= 0 -> f a lastIndex
+            | t when t > 0 -> applyXTimes (f a lastIndex) f (lastIndex - 1)
+            | _ -> a
 
 module Net =
     open System.Threading

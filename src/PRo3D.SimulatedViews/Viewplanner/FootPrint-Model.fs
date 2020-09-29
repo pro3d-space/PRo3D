@@ -11,6 +11,7 @@ open Aardvark.Base.CameraView
 
 open Chiron
 open PRo3D
+open Adaptify
 
 type XMLScheme = {
     xmlType    : string

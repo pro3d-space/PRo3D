@@ -16,8 +16,9 @@ open Aardvark.SceneGraph.SgPrimitives
 open Aardvark.SceneGraph.FShadeSceneGraph
 open Aardvark.VRVis.Opc
 
+open PRo3D.Core
 open PRo3D.ReferenceSystem
-open PRo3D.Surfaces
+
 open Aardvark.Base.MultimethodTest
 
 module Transformations = 

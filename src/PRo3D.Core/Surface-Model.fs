@@ -1,4 +1,4 @@
-namespace PRo3D.Surfaces
+namespace PRo3D.Core
 
 open System
 open Aardvark.Base
@@ -12,11 +12,10 @@ open Aardvark.UI.Primitives
 open Aardvark.UI.Trafos
 open Aardvark.VRVis
 open Aardvark.VRVis.Opc
-open PRo3D
-open PRo3D.ReferenceSystem
 
 open DevILSharp.ILU
 open Chiron
+
 open PRo3D.Base
 
 open Adaptify
@@ -240,8 +239,8 @@ type Transformations with
         }
 
 type SurfaceType = 
-| SurfaceOPC = 0
-| SurfaceOBJ = 1
+    | SurfaceOPC = 0
+    | SurfaceOBJ = 1
 
 [<ModelType>]
 type Surface = {

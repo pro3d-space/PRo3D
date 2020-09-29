@@ -414,7 +414,7 @@ module SnapshotAnimation =
         let fpPath = FootPrint.getFootprintsPath scenepath
         snapshot fpPath filename width height 
 
-    let animateAndScreenshot (scenePath:string) (ex: PRo3D.Viewplanner.Extrinsics) (duration : RelativeTime) (name : string) (width : int) (height : int) = 
+    let animateAndScreenshot (scenePath:string) (ex: Extrinsics) (duration : RelativeTime) (name : string) (width : int) (height : int) = 
       let fpPath = FootPrint.getFootprintsPath scenePath
       {
         (CameraAnimations.initial name) with 

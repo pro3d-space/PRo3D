@@ -1,4 +1,4 @@
-namespace PRo3D.Groups
+namespace PRo3D.Core
 
 open System
 
@@ -34,7 +34,7 @@ type GroupsAppAction =
     | SetVisibility         of path : list<Index> * isVisible : bool
     | SetSelection          of path : list<Index> * isSelected : bool
     | MoveChilds      
-    | AddAndSelectGroup     of list<Index>*Groups.Node
+    | AddAndSelectGroup     of list<Index> * Node
     | ClearSnapshotsGroup
     | ClearSelection
     | UpdateCam             of Guid
@@ -44,15 +44,15 @@ module GroupsApp =
                                         
     let getNode (path : list<Index>) (root : Node) : Node =
         let rec goDeeper (p : list<Index>) (node : Node) =
-          match p with 
-          | [] -> 
-              Log.warn "found %A" node.name
-              node
-          | x :: rest ->
-              Log.warn "visiting %A" x
-              match IndexList.tryGet x node.subNodes with
-              | Some n -> goDeeper rest n
-              | None   -> Log.error "Index list does not match tree"; node
+            match p with 
+            | [] -> 
+                Log.warn "found %A" node.name
+                node
+            | x :: rest ->
+                Log.warn "visiting %A" x
+                match IndexList.tryGet x node.subNodes with
+                | Some n -> goDeeper rest n
+                | None   -> Log.error "Index list does not match tree"; node
 
         goDeeper (List.rev path) root
 
@@ -93,7 +93,7 @@ module GroupsApp =
 
     let updateLeaves leaves f model =
         let flat =
-          leaves
+            leaves
             |> IndexList.toList
             |> List.map  (createUpdate f model)
             |> List.fold (fun a b -> HashMap.union a b) model.flat
@@ -119,8 +119,8 @@ module GroupsApp =
             IndexList.concat [looks; subs]
 
         (go m.rootGroup)
-          |> IndexList.toList
-          |> HashMap.ofList                 
+        |> IndexList.toList
+        |> HashMap.ofList                 
     
     let updateActiveGroup (f : Node -> Node) (m : GroupsModel) =
         let root = updateNodeAt m.activeGroup.path f m.rootGroup        
@@ -130,17 +130,17 @@ module GroupsApp =
     let updateStructureAt (p : list<Index>) (f : Node -> Guid -> Node) (t : Node) = 
         let rec go (p : list<Index>) (t : Node)  =
             match p with
-              | x::rest -> 
+            | x::rest -> 
                 match rest with
-                  | [] -> 
+                | [] -> 
                     match IndexList.tryGet x t.subNodes with
-                      | Some c -> f t c.key
-                      | None -> t
-                  | _ -> 
+                    | Some c -> f t c.key
+                    | None -> t
+                | _ -> 
                     match IndexList.tryGet x t.subNodes with
-                      | Some c -> { t with subNodes = IndexList.set x (go rest c) t.subNodes }
-                      | None   -> t
-              | _ -> t
+                    | Some c -> { t with subNodes = IndexList.set x (go rest c) t.subNodes }
+                    | None   -> t
+            | _ -> t
         go (List.rev p) t 
         
     let removeGroup (ag:Node) (id:Guid) =
@@ -222,10 +222,10 @@ module GroupsApp =
 
     let rec removeSelected (selection:list<TreeSelection>) (removeFromFlat:bool) (m:GroupsModel)  =
         match selection with
-          | x::rest ->                
-                let m' = removeLeaf m x.id x.path removeFromFlat
-                removeSelected rest removeFromFlat m'
-          |_ -> m
+        | x::rest ->                
+            let m' = removeLeaf m x.id x.path removeFromFlat
+            removeSelected rest removeFromFlat m'
+        |_ -> m
                     
     let moveChildren m =
        
