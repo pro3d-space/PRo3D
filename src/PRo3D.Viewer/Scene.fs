@@ -8,10 +8,9 @@ open Aardvark.SceneGraph.Opc
 open Aardvark.UI.Primitives
 
 open PRo3D.Base
+open PRo3D.Core
 open PRo3D.Surfaces
 open PRo3D.Viewer
-open PRo3D.Surfaces.Surface
-open PRo3D.Groups
 open PRo3D.Navigation2
 
 open Chiron
@@ -20,8 +19,7 @@ open Aether
 open Aether.Operators
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module Model =
-    open PRo3D.Base
+module Model =    
 
     let withScene (s:Scene) (m:Model) =
         { m with scene = s}

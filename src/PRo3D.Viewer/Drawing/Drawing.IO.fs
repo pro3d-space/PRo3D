@@ -3,7 +3,7 @@
 open Aardvark.Base
 open PRo3D
 open PRo3D.Base
-open PRo3D.Groups
+open PRo3D.Core
 open Chiron
 
 module IO =

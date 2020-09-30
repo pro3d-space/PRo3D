@@ -1,4 +1,4 @@
-namespace PRo3D
+namespace PRo3D.Core
 
 open System
 open System.Xml.Linq
@@ -10,9 +10,15 @@ open Aardvark.UI
 open PRo3D.Base.Annotation
 
 open FSharp.Data.Adaptive
+open Aardvark.UI.Primitives
+open Adaptify
+
+[<ModelType>]
+type MeasurementsImporterModel = {
+    annotations : IndexList<Annotation>
+}
 
 module MeasurementsImporter = 
-    open Aardvark.UI.Primitives
    
     let xname s = XName.Get(s)
 

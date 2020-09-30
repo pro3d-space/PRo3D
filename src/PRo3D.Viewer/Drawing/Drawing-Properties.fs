@@ -6,8 +6,9 @@ open System
 open Aardvark.UI
 open Aardvark.UI.Static.Svg
 open FSharp.Data.Adaptive
-open PRo3D.Groups
+
 open PRo3D.Base.Annotation
+open PRo3D.Core
 
 module AnnotationProperties = 
             
@@ -24,46 +25,49 @@ module AnnotationProperties =
         | PrintPosition   
        
     let horizontalDistance (points:list<V3d>) (up:V3d) = 
-            match points.Length with
-              | 1 -> 0.0
-              | _ -> let v = points.[0] - points.[points.Length - 1]
-                     Math.Sqrt(v.LengthSquared - (v * up.Normalized).LengthSquared)
+        match points.Length with
+        | 1 -> 0.0
+        | _ -> 
+            let v = points.[0] - points.[points.Length - 1]
+            Math.Sqrt(v.LengthSquared - (v * up.Normalized).LengthSquared)
                     // Math.Sqrt(Math.Pow(v.Length, 2.0) + Math.Pow((v * up.Normalized).Length, 2.0))
 
     let verticalDistance (points:list<V3d>) (up:V3d) = 
         match points.Length with
-            | 1 -> 0.0
-            | _ -> let v = points.[0] - points.[points.Length - 1]
-                   (v * up.Normalized).Length
+        | 1 -> 0.0
+        | _ -> 
+            let v = points.[0] - points.[points.Length - 1]
+            (v * up.Normalized).Length
             
     let update (model : Annotation) (act : Action) =
         match act with
-            | SetGeometry mode ->
-                { model with geometry = mode }
-            | SetSemantic mode ->
-                { model with semantic = mode }
-            | SetProjection mode ->
-                { model with projection = mode }
-            | ChangeThickness a ->
-                { model with thickness = Numeric.update model.thickness a }
-            | SetText t ->
-                { model with text = t }
-             | SetTextSize s ->
-                { model with textsize = Numeric.update model.textsize s }
-            | ToggleVisible ->
-                { model with visible = (not model.visible) }
-            | ToggleShowDns ->
-                { model with showDns = (not model.showDns) }
-            | ChangeColor a ->
-                { model with color = ColorPicker.update model.color a }
-            | PrintPosition ->
-                let p = match model.geometry with
-                          | Geometry.Point -> 
-                            let a = model.points |> IndexList.tryFirst
-                            a.ToString()
-                          | _-> ""
-                Log.line "Position: %A" p
-                model
+        | SetGeometry mode ->
+            { model with geometry = mode }
+        | SetSemantic mode ->
+            { model with semantic = mode }
+        | SetProjection mode ->
+            { model with projection = mode }
+        | ChangeThickness a ->
+            { model with thickness = Numeric.update model.thickness a }
+        | SetText t ->
+            { model with text = t }
+         | SetTextSize s ->
+            { model with textsize = Numeric.update model.textsize s }
+        | ToggleVisible ->
+            { model with visible = (not model.visible) }
+        | ToggleShowDns ->
+            { model with showDns = (not model.showDns) }
+        | ChangeColor a ->
+            { model with color = ColorPicker.update model.color a }
+        | PrintPosition ->
+            let p = 
+                match model.geometry with
+                | Geometry.Point -> 
+                    let a = model.points |> IndexList.tryFirst
+                    a.ToString()
+                | _-> ""
+            Log.line "Position: %A" p
+            model
 
     let view (model : AdaptiveAnnotation) = 
 
@@ -109,19 +113,19 @@ module AnnotationProperties =
         let horDist  = AVal.map( fun u -> horizontalDistance (model.points |> AList.force |> IndexList.toList) u ) up
       
         require GuiEx.semui (
-          Html.table [   
-            Html.row "Position:"      [Incremental.text (pos   |> AVal.map  (fun d -> d))]
-            Html.row "PrintPosition:" [button [clazz "ui button tiny"; onClick (fun _ -> PrintPosition )][]]
-            Html.row "Height:"        [Incremental.text (height  |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
-            Html.row "HeightDelta:"   [Incremental.text (heightD |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
-            Html.row "Avg Altitude:"  [Incremental.text (alt     |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
-            Html.row "Length:"        [Incremental.text (length  |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
-            Html.row "WayLength:"     [Incremental.text (wLength |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
-            Html.row "Bearing:"       [Incremental.text (bearing |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
-            Html.row "Slope:"         [Incremental.text (slope   |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
-            Html.row "Vertical Distance:"   [Incremental.text (vertDist  |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
-            Html.row "Horizontal Distance:" [Incremental.text (horDist   |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
-          ]
+            Html.table [   
+                Html.row "Position:"      [Incremental.text (pos   |> AVal.map  (fun d -> d))]
+                Html.row "PrintPosition:" [button [clazz "ui button tiny"; onClick (fun _ -> PrintPosition )][]]
+                Html.row "Height:"        [Incremental.text (height  |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
+                Html.row "HeightDelta:"   [Incremental.text (heightD |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
+                Html.row "Avg Altitude:"  [Incremental.text (alt     |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
+                Html.row "Length:"        [Incremental.text (length  |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
+                Html.row "WayLength:"     [Incremental.text (wLength |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
+                Html.row "Bearing:"       [Incremental.text (bearing |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
+                Html.row "Slope:"         [Incremental.text (slope   |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
+                Html.row "Vertical Distance:"   [Incremental.text (vertDist  |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
+                Html.row "Horizontal Distance:" [Incremental.text (horDist   |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
+            ]
         )
        
     let app = 

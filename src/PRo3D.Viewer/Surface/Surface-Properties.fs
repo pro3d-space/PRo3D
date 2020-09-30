@@ -1,23 +1,21 @@
 namespace PRo3D.Surfaces
 
 open System
-open Aardvark.Base
 open FSharp.Data.Adaptive
+
+open Aardvark.Base
+open Aardvark.Base.Rendering
 open Aardvark.UI
 open Aardvark.UI.Primitives
-open Aardvark.Base.Rendering
+open Aardvark.SceneGraph
 open Aardvark.SceneGraph.Opc
 open Aardvark.VRVis
-open Aardvark.SceneGraph
 
 open PRo3D
 open PRo3D.Base
 open PRo3D.Core
 
-module SurfaceProperties =
-    open Aardvark.UI.Html.SemUi
-    open FShade.Intrinsics
-    
+module SurfaceProperties =        
 
     type Action =
         | SetFillMode    of FillMode
@@ -67,22 +65,22 @@ module SurfaceProperties =
 
     let getTextures (layers : seq<AttributeLayer>) =
         layers 
-          |> Seq.choose (fun x -> match x with | TextureLayer l -> Some l | _ -> None) 
-          |> Seq.mapi(fun i x -> { x with index = i}) 
-          |> IndexList.ofSeq
+        |> Seq.choose (fun x -> match x with | TextureLayer l -> Some l | _ -> None) 
+        |> Seq.mapi(fun i x -> { x with index = i}) 
+        |> IndexList.ofSeq
 
     let getScalars (layers : seq<AttributeLayer>) =
         layers 
-          |> Seq.choose (fun x -> match x with | ScalarLayer l -> Some l | _ -> None) 
-          |> Seq.mapi(fun i x -> { x with index = i}) 
-          |> IndexList.ofSeq
+        |> Seq.choose (fun x -> match x with | ScalarLayer l -> Some l | _ -> None) 
+        |> Seq.mapi(fun i x -> { x with index = i}) 
+        |> IndexList.ofSeq
 
     let getScalarsHmap (layers : seq<AttributeLayer>) =
         layers 
-          |> Seq.choose (fun x -> match x with | ScalarLayer l -> Some l | _ -> None) 
-          |> Seq.mapi(fun i x -> { x with index = i}) 
-          |> Seq.map(fun x -> x.index, x)
-          |> HashMap.ofSeq
+        |> Seq.choose (fun x -> match x with | ScalarLayer l -> Some l | _ -> None) 
+        |> Seq.mapi(fun i x -> { x with index = i}) 
+        |> Seq.map(fun x -> x.index, x)
+        |> HashMap.ofSeq
 
     let mapTolist (input : amap<_,'a>) : alist<'a> = 
         input |> AMap.toASet |> AList.ofASet |> AList.map snd    
@@ -120,9 +118,7 @@ module SurfaceProperties =
         ]
       )
 
-module ColorCorrectionProperties =
-    open Aardvark.UI.Html.SemUi
-    open FShade.Intrinsics
+module ColorCorrectionProperties =    
 
     type Action =
         | SetContrast    of Numeric.Action
@@ -135,7 +131,7 @@ module ColorCorrectionProperties =
         | UseColor
         | UseGrayScale
 
-    let update (model : PRo3D.Surfaces.ColorCorrection) (act : Action) =        
+    let update (model : ColorCorrection) (act : Action) =        
       match act with
         | SetContrast c ->
             { model with contrast = Numeric.update model.contrast c }

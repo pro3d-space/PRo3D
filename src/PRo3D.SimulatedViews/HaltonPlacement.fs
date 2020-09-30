@@ -57,7 +57,13 @@ module HaltonPlacement =
 
     let mutable lastHash = -1  
     
-    let getSinglePointOnSurface (interaction : Interactions) (ray : Ray3d) (cameraLocation : V3d ) = 
+    let getSinglePointOnSurface 
+        (interaction : Interactions) 
+        (surfaces    : SurfaceModel) 
+        (refSystem   : ReferenceSystem) 
+        (cameraLocation : V3d ) 
+        (ray : Ray3d) = 
+
         let mutable cache = HashMap.Empty
         let rayHash = ray.GetHashCode()
 
@@ -78,14 +84,14 @@ module HaltonPlacement =
                     let dir = (p-camLocation).Normalized
                     FastRay3d(camLocation, dir)
                 
-                match SurfaceApp.doKdTreeIntersection m.scene.surfacesModel m.scene.referenceSystem ray surfaceFilter cache with
+                match SurfaceIntersection.doKdTreeIntersection surfaces refSystem ray surfaceFilter cache with
                 | Some (t,surf), c ->                             
                     cache <- c; ray.Ray.GetPointOnRay t |> Some
                 | None, c ->
                     cache <- c; None
                                   
             let result = 
-                match SurfaceApp.doKdTreeIntersection m.scene.surfacesModel m.scene.referenceSystem (FastRay3d(ray)) surfaceFilter cache with
+                match SurfaceIntersection.doKdTreeIntersection surfaces refSystem (FastRay3d(ray)) surfaceFilter cache with
                 | Some (t,surf), c ->                         
                     cache <- c
                     let hit = ray.GetPointOnRay(t)
@@ -102,20 +108,35 @@ module HaltonPlacement =
                 
             result 
 
-    let getPointsOnSurfaces (m : Model) (rays : list<Ray3d>) (camLocation : V3d ) = 
-        rays |> List.choose( fun ray -> getSinglePointOnSurface m ray camLocation)
+    let getPointsOnSurfaces 
+        (interaction : Interactions) 
+        (surfaces    : SurfaceModel)
+        (refSystem   : ReferenceSystem) 
+        (camLocation : V3d )
+        (rays        : list<Ray3d>) =
 
-    
-    let getHaltonRandomTrafos (shattercone : SnapshotShattercone) (frustum : Frustum) (view : CameraView) =
+        rays |> List.choose( fun ray -> getSinglePointOnSurface interaction surfaces refSystem camLocation ray)
+        
+    let getHaltonRandomTrafos
+        (interaction : Interactions) 
+        (surfaces    : SurfaceModel) 
+        (refSystem   : ReferenceSystem) 
+        (shattercone : SnapshotShattercone) 
+        (frustum : Frustum) 
+        (view : CameraView) =
+
         let haltonSeries = create2DHaltonRandomSeries
         let rays = computeSCRayRaster shattercone.count view frustum haltonSeries
-        let points = getPointsOnSurfaces m rays m.scene.cameraView.Location 
+        let points = getPointsOnSurfaces interaction surfaces refSystem view.Location rays
 
         let hsScaling = 
             match shattercone.scale with
-            | Some s -> let rs = genRandomNumbersBetween shattercone.count s.X s.Y
-                        rs |> List.map(fun x -> (float)x/100.0) 
-            | None -> [ for i in 1 .. shattercone.count -> 1.0 ]
+            | Some s -> 
+                let rs = genRandomNumbersBetween shattercone.count s.X s.Y
+                rs |> List.map(fun x -> (float)x/100.0) 
+
+            | None -> 
+                [ for i in 1 .. shattercone.count -> 1.0 ]
 
         let xRotation =
             match shattercone.xRotation with

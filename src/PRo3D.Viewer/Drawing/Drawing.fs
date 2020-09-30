@@ -24,19 +24,19 @@ open Aardvark.VRVis.Opc
 
 open Aardvark.UI
 open Aardvark.UI.Primitives    
+
 open PRo3D
 open PRo3D.Drawing
 open PRo3D.DrawingApp
-open PRo3D.Groups
-open MBrace.FsPickler.Json   
+
 open PRo3D.Base
 open PRo3D.Base.Annotation
+open PRo3D.Core
 open PRo3D.DrawingUtilities
-open PRo3D.Groups
 
 open Chiron
 
-open PRo3D.Base.Annotation
+
 
 module DrawingApp =
 

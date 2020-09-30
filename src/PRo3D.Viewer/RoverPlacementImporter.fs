@@ -6,9 +6,7 @@ module RoverPlacementImporter =
     open System.Xml
 
     open Aardvark.Base
-    open Aardvark.UI
-    open PRo3D.Groups
-    open PRo3D.ReferenceSystem
+    open Aardvark.UI    
 
     open FSharp.Data.Adaptive
 

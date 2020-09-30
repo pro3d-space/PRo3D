@@ -2,8 +2,10 @@ namespace PRo3D.Surfaces
 
 open System
 open System.IO
-open Aardvark.Base
+open System.Diagnostics
 open FSharp.Data.Adaptive
+
+open Aardvark.Base
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.Base.Rendering
@@ -12,21 +14,17 @@ open Aardvark.SceneGraph.IO
 open Aardvark.SceneGraph.Opc
 
 open Aardvark.VRVis.Opc
-
 open Aardvark.UI.Operators
 open Aardvark.UI.Trafos  
+
+open OpcViewer.Base
+open OpcViewer.Base.Picking
 
 open PRo3D
 open PRo3D.Base
 open PRo3D.Core
 
 open Adaptify.FSharp.Core
-
-open OpcViewer.Base
-open OpcViewer.Base.Picking
-
-open Adaptify
-open System.Diagnostics
 
 type SurfaceAppAction =
 | SurfacePropertiesMessage  of SurfaceProperties.Action
@@ -47,9 +45,7 @@ type SurfaceAppAction =
 | SetHomePosition           
 | TranslationMessage        of TranslationApp.Action
 
-module SurfaceUtils =
-    open Aardvark.SceneGraph.SgFSharp.Sg   
-    open System.Diagnostics 
+module SurfaceUtils =    
     
     /// creates a surface from opc folder path
     let mk (stype:SurfaceType) (maxTriangleSize : float) path =                 
@@ -227,11 +223,9 @@ module SurfaceUtils =
             doc |> layers
                                             
 module SurfaceApp =
-            
-    
-
+                
     let updateTrafo (trafo : SurfaceTrafo) (surfaces : HashMap<string,Surface>) (model : SurfaceModel) = 
-      match surfaces.TryFind(trafo.id) with
+        match surfaces.TryFind(trafo.id) with
         | Some s -> 
           let f = (fun _ -> { s with preTransform = trafo.trafo } |> Leaf.Surfaces)
           let g = Groups.updateLeaf s.guid f model.surfaces
@@ -240,57 +234,53 @@ module SurfaceApp =
         | None -> model
                  
     let updateTrafos (trafos:IndexList<SurfaceTrafo>) (model:SurfaceModel) =
-      let surfaces = 
-        model.surfaces.flat 
-          |> HashMap.toList 
-          |> List.map(fun (_,v) -> 
-             let surf = v |> Leaf.toSurface
-             (surf.name, surf))
-          |> HashMap.ofList
-      
-      let rec update (p : list<SurfaceTrafo>) (model:SurfaceModel)  =
-          match p with
+        let surfaces = 
+            model.surfaces.flat 
+            |> HashMap.toList 
+            |> List.map(fun (_,v) -> 
+               let surf = v |> Leaf.toSurface
+               (surf.name, surf))
+            |> HashMap.ofList
+        
+        let rec update (p : list<SurfaceTrafo>) (model:SurfaceModel)  =
+            match p with
             | x::rest -> 
-              match rest with
+                match rest with
                 | [] -> updateTrafo x surfaces model
                 | _ ->  update rest (updateTrafo x surfaces model) 
             | _ -> model
-      update (trafos |> IndexList.toList) model
 
-    //let union (l : SurfaceModel) (r : SurfaceModel) : SurfaceModel =
-    //  let l' = { l with 
-
-    //  l
+        update (trafos |> IndexList.toList) model    
 
     let hmapsingle (k,v) = HashMap.single k v
 
     let updateSurfaceTrafos (trafos: list<SurfaceTrafo>) (model:SurfaceModel) =
-      let surfaces =        
-        model.surfaces.flat 
-          |> HashMap.toList
-          |> List.map(fun (_,v) -> 
-            let s = (v |> Leaf.toSurface)
-            s.name, s)
-          |> HashMap.ofList
-      
-      let surfaces' = 
-        trafos 
-          |> List.filter (fun x -> x.id |> surfaces.ContainsKey)
-          |> List.map(fun x -> HashMap.find x.id surfaces, x) // TODO to: non total! can be?
-          |> List.map(fun (a,b) -> { a with preTransform = b.trafo })
-            
-      let flat' = 
-        surfaces' 
-          |> List.choose(fun x -> 
-            let f = (fun _ -> x |> Leaf.Surfaces)
-            Groups.updateLeaf' x.guid f model.surfaces 
-              |> HashMap.tryFind x.guid 
-              |> Option.map(fun leaf -> (x.guid,leaf) |> hmapsingle))          
-          |> List.fold HashMap.union HashMap.empty
-                    
-      //write union of surface models ... union flat and recalculate all others
-      //this does only update surfaces ... not kdtrees or sgs !!!!             
-      { model with surfaces = { model.surfaces with flat = flat' } }
+        let surfaces =        
+            model.surfaces.flat 
+            |> HashMap.toList
+            |> List.map(fun (_,v) -> 
+              let s = (v |> Leaf.toSurface)
+              s.name, s)
+            |> HashMap.ofList
+        
+        let surfaces' = 
+            trafos 
+            |> List.filter (fun x -> x.id |> surfaces.ContainsKey)
+            |> List.map(fun x -> HashMap.find x.id surfaces, x) // TODO to: non total! can be?
+            |> List.map(fun (a,b) -> { a with preTransform = b.trafo })
+              
+        let flat' = 
+             surfaces' 
+            |> List.choose(fun x -> 
+                let f = (fun _ -> x |> Leaf.Surfaces)
+                Groups.updateLeaf' x.guid f model.surfaces 
+                |> HashMap.tryFind x.guid 
+                |> Option.map(fun leaf -> (x.guid,leaf) |> hmapsingle))          
+            |> List.fold HashMap.union HashMap.empty
+                      
+        //write union of surface models ... union flat and recalculate all others
+        //this does only update surfaces ... not kdtrees or sgs !!!!             
+        { model with surfaces = { model.surfaces with flat = flat' } }
 
     let changeImportDirectories (model:SurfaceModel) (selectedPaths:list<string>) = 
         let surfacePaths = 
@@ -334,20 +324,20 @@ module SurfaceApp =
         (action    : SurfaceAppAction) 
         (scenePath : option<string>) 
         (view      : CameraView) 
-        (refSys    : PRo3D.ReferenceSystem.ReferenceSystem) = 
+        (refSys    : ReferenceSystem) = 
 
         match action with
         | SurfacePropertiesMessage msg ->                
             let m = 
                 match model.surfaces.singleSelectLeaf with
                 | Some s -> 
-                  let surface = model.surfaces.flat |> HashMap.find s |> Leaf.toSurface 
-                  let s' = 
-                      match msg with
-                      | SurfaceProperties.Action.SetHomePosition -> { surface with homePosition = Some view }
-                      | _ -> SurfaceProperties.update surface msg
-
-                  model |> SurfaceModel.updateSingleSurface s'                        
+                    let surface = model.surfaces.flat |> HashMap.find s |> Leaf.toSurface 
+                    let s' = 
+                        match msg with
+                        | SurfaceProperties.Action.SetHomePosition -> { surface with homePosition = Some view }
+                        | _ -> SurfaceProperties.update surface msg
+                    
+                    model |> SurfaceModel.updateSingleSurface s'                        
                 | None -> model
             match msg with
             | SurfaceProperties.SetPriority _ -> m |> SurfaceModel.triggerSgGrouping 

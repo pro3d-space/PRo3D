@@ -9,11 +9,11 @@ open Aardvark.UI.Primitives
 open Aardvark.Application
 open Aardvark.SceneGraph
 open Aardvark.SceneGraph.Opc
-open PRo3D.ReferenceSystem
 
 open PRo3D
-open PRo3D.Groups
+open PRo3D.Base
 open PRo3D.Base.Annotation
+open PRo3D.Core
 
 type Action =
   | SetSemantic         of Semantic

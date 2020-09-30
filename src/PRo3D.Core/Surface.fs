@@ -10,11 +10,11 @@ open FSharp.Data.Adaptive
 open OpcViewer.Base.Picking
 open Aardvark.SceneGraph
 open Aardvark.SceneGraph.Opc
-open PRo3DCompability
 open Aardvark.VRVis.Opc
 open PRo3D.Core
+open PRo3DCompability
 
-module Transformations = 
+module SurfaceTransformations = 
 
     let fullTrafo' (surf : Surface) (refsys : ReferenceSystem) = 
     
@@ -42,7 +42,6 @@ module Transformations =
             
             return fullTrafo' s rSys
         }
-
 module DebugKdTreesX = 
    
     let getInvalidIndices3f (positions : V3f[]) =
@@ -139,7 +138,7 @@ module DebugKdTreesX =
             Log.error "%A" e
             None,c
 
-module Surface =
+module SurfaceIntersection =
 
     let doKdTreeIntersection 
         (m             : SurfaceModel)
@@ -169,7 +168,7 @@ module Surface =
                 | Picking.KdTree kd ->
                     if kd.IsEmpty then Log.error "no kdtree loaded for %s" surf.name; None
                     else                    
-                        let superTrafo = Transformations.fullTrafo' surf refSys
+                        let superTrafo = SurfaceTransformations.fullTrafo' surf refSys
                         //get bbs that are hit
                         let hitBoxes =
                             kd

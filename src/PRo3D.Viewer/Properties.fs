@@ -1,15 +1,14 @@
 namespace PRo3D
 
 open System
+open Aardvark.Base
+open Aardvark.Base.Rendering
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open FSharp.Data.Adaptive
-open Aardvark.SceneGraph.AirState
-open PRo3D.Surfaces
+
 
 module ConfigProperties =
-    open Aardvark.Base
-    open Aardvark.Base.Rendering    
 
     type Action =
         | SetNearPlane              of Numeric.Action
@@ -28,28 +27,31 @@ module ConfigProperties =
 
     let update (model : ViewConfigModel) (act : Action) =
         match act with
-            | SetNearPlane s ->
-                { model with nearPlane = Numeric.update model.nearPlane s }
-            //| SetOffset s ->
-            //    { model with offset = Numeric.update model.offset s }
-            | SetFarPlane s ->
-                { model with farPlane = Numeric.update model.farPlane s }
-            | SetNavigationSensitivity s ->
-                Log.warn "sense %A" s
-                { model with navigationSensitivity = Numeric.update model.navigationSensitivity s }
-            | SetArrowLength al ->
-                { model with arrowLength = Numeric.update model.arrowLength al }
-            | SetImportTriangleSize size ->
-                { model with importTriangleSize = Numeric.update model.importTriangleSize size }
-            | SetArrowThickness at ->
-                { model with arrowThickness = Numeric.update model.arrowThickness at }
-            | SetDnSPlaneSize s ->
-                { model with dnsPlaneSize = Numeric.update model.dnsPlaneSize s }
-            | ToggleLodColors ->
-                { model with lodColoring = not model.lodColoring}
-            | ToggleOrientationCube  -> {model with drawOrientationCube = not model.drawOrientationCube}
-            | ToggleSurfaceHighlighting  -> model // {model with useSurfaceHighlighting = not model.useSurfaceHighlighting}
-            //| ToggleExplorationPoint -> {model with showExplorationPoint = not model.showExplorationPoint}
+        | SetNearPlane s ->
+            { model with nearPlane = Numeric.update model.nearPlane s }
+        //| SetOffset s ->
+        //    { model with offset = Numeric.update model.offset s }
+        | SetFarPlane s ->
+            { model with farPlane = Numeric.update model.farPlane s }
+        | SetNavigationSensitivity s ->
+            Log.warn "sense %A" s
+            { model with navigationSensitivity = Numeric.update model.navigationSensitivity s }
+        | SetArrowLength al ->
+            { model with arrowLength = Numeric.update model.arrowLength al }
+        | SetImportTriangleSize size ->
+            { model with importTriangleSize = Numeric.update model.importTriangleSize size }
+        | SetArrowThickness at ->
+            { model with arrowThickness = Numeric.update model.arrowThickness at }
+        | SetDnSPlaneSize s ->
+            { model with dnsPlaneSize = Numeric.update model.dnsPlaneSize s }
+        | ToggleLodColors ->
+            { model with lodColoring = not model.lodColoring}
+        | ToggleOrientationCube  -> {model with drawOrientationCube = not model.drawOrientationCube}
+        | ToggleSurfaceHighlighting  -> model // {model with useSurfaceHighlighting = not model.useSurfaceHighlighting}
+        | _ -> 
+            Log.warn "[ConfigProperties] Unknown action %A" act
+            model
+        //| ToggleExplorationPoint -> {model with showExplorationPoint = not model.showExplorationPoint}
            
 
     let view (model : AdaptiveViewConfigModel) =    

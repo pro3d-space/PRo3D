@@ -6,9 +6,10 @@ open System.Xml
 
 open Aardvark.Base
 open Aardvark.UI
+open PRo3D.Groups
+open PRo3D.ReferenceSystem
 open PRo3D.Base
 open PRo3D.Base.Annotation
-open PRo3D.Core
 
 
 open FSharp.Data.Adaptive

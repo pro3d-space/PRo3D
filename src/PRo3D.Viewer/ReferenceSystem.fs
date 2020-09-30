@@ -6,8 +6,7 @@ open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
 open Aardvark.Base.Rendering    
 
-open Aardvark.Application
-    
+open Aardvark.Application    
 open Aardvark.UI
 
     
@@ -16,9 +15,9 @@ open Aardvark.SceneGraph.SgPrimitives
 open Aardvark.SceneGraph.FShadeSceneGraph
 open Aardvark.VRVis.Opc
 
-open PRo3D.ReferenceSystem    
 open PRo3D.Base
 open PRo3D.Base.Annotation
+open PRo3D.Core
 
 open Aether
 open Aether.Operators
@@ -117,38 +116,38 @@ module ReferenceSystemApp =
    
     let update<'a> (bigConfig : 'a) (config : ReferenceSystemConfig<'a>) (model : ReferenceSystem) (act : Action) =
         match act with
-            | InferCoordSystem p ->
-                let m' = updateCoordSystem p model.planet model
-                { m' with origin = p }, bigConfig
-            | UpdateUpNorth p ->
-                updateCoordSystem p model.planet model, bigConfig
-            | SetUp up ->    
-                let up = Vector3d.update model.up up
-                let up = ReferenceSystem.setV3d up.value.Normalized
-                { model with up =  up}, bigConfig
-            | SetNorth  n     -> 
-                let n = Vector3d.update model.north n
-                let n = ReferenceSystem.setV3d n.value//.Normalized
-                
-                { model with north = n }, bigConfig
-            | SetNOffset o ->
-                let noffset = Numeric.update model.noffset o
-                let no = 
-                  Rot3d.Rotation(model.up.value, noffset.value |> Double.radiansFromDegrees)
-                    .Transform(model.north.value) |> Vec.normalize                
+        | InferCoordSystem p ->
+            let m' = updateCoordSystem p model.planet model
+            { m' with origin = p }, bigConfig
+        | UpdateUpNorth p ->
+            updateCoordSystem p model.planet model, bigConfig
+        | SetUp up ->    
+            let up = Vector3d.update model.up up
+            let up = ReferenceSystem.setV3d up.value.Normalized
+            { model with up =  up}, bigConfig
+        | SetNorth  n     -> 
+            let n = Vector3d.update model.north n
+            let n = ReferenceSystem.setV3d n.value//.Normalized
+            
+            { model with north = n }, bigConfig
+        | SetNOffset o ->
+            let noffset = Numeric.update model.noffset o
+            let no = 
+              Rot3d.Rotation(model.up.value, noffset.value |> Double.radiansFromDegrees)
+                .Transform(model.north.value) |> Vec.normalize                
 
 
-                { model with noffset = noffset; northO = no }, bigConfig 
-            | ToggleVisible   -> 
-                { model with isVisible = not model.isVisible}, bigConfig
-            | SetArrowSize d  ->
-                let big' = Optic.set config.arrowLength d bigConfig
-                model, big'          
-            | SetScale s ->
-                { model with selectedScale = s }, bigConfig
-            | SetPlanet p ->      
-                let m' = updateCoordSystem model.origin p model
-                { m' with planet = p }, bigConfig
+            { model with noffset = noffset; northO = no }, bigConfig 
+        | ToggleVisible   -> 
+            { model with isVisible = not model.isVisible}, bigConfig
+        | SetArrowSize d  ->
+            let big' = Optic.set config.arrowLength d bigConfig
+            model, big'          
+        | SetScale s ->
+            { model with selectedScale = s }, bigConfig
+        | SetPlanet p ->      
+            let m' = updateCoordSystem model.origin p model
+            { m' with planet = p }, bigConfig
 
     module Sg =
         open PRo3D.Base.Sg

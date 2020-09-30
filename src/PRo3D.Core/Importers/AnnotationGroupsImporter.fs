@@ -1,4 +1,4 @@
-namespace PRo3D
+namespace PRo3D.Core
 
 open System
 open System.Xml.Linq
@@ -8,7 +8,6 @@ open Aardvark.Base
 open Aardvark.UI
 open PRo3D.Base
 open PRo3D.Base.Annotation
-open PRo3D.Core
 
 
 open FSharp.Data.Adaptive

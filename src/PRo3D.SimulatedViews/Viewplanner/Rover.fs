@@ -8,7 +8,6 @@ open FSharp.Data.Adaptive
 open Aardvark.Base
 open Aardvark.UI
 open IPWrappers
-open PRo3D.Viewplanner
 
 module RoverProvider =
 

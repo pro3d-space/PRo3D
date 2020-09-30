@@ -193,12 +193,9 @@ type Transformations = {
     yaw                   : NumericInput
     trafo                 : Trafo3d
     pivot                 : V3d
-}
-
-module Transformations = 
-
-    let current = 0
-    let read0 = 
+} with
+    static member current = 0
+    static member read0 = 
         json {            
             let! useTranslationArrows = Json.read "useTranslationArrows"
             let! translation          = Json.readWith Ext.fromJson<V3dInput,Ext>     "translation"
@@ -207,7 +204,7 @@ module Transformations =
             let! pivot                = Json.read "pivot"
             
             return {
-                version              = current
+                version              = Transformations.current
                 useTranslationArrows = useTranslationArrows
                 translation          = translation
                 yaw                  = yaw                 
@@ -216,7 +213,6 @@ module Transformations =
             }
         }
 
-type Transformations with 
     static member FromJson(_ : Transformations) =
         json {
             let! v = Json.read "version"
@@ -237,6 +233,8 @@ type Transformations with
             do! Json.writeWith Ext.toJson<Trafo3d,Ext> "trafo" x.trafo
             do! Json.write "pivot" (x.pivot.ToString())
         }
+
+
 
 type SurfaceType = 
     | SurfaceOPC = 0
@@ -279,6 +277,7 @@ type Surface = {
     homePosition    : Option<CameraView>
     transformation  : Transformations
 }
+
 module Surface =
     let current = 0    
 

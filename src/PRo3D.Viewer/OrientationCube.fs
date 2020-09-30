@@ -1,16 +1,18 @@
 namespace PRo3D.OrientationCube
 
-open Aardvark.Base
 open FSharp.Data.Adaptive
+
+open Aardvark.Base
 open Aardvark.Base.Rendering
-open Aardvark.SceneGraph
 open Aardvark.Rendering
+open Aardvark.SceneGraph
+
 open Aardvark.UI
 open Aardvark.UI.Trafos
 open Aardvark.UI.Primitives
-open PRo3D
-open Aardvark.Base.Rendering
 
+open PRo3D
+open PRo3D.Core
 
 module Shader =
     
@@ -58,8 +60,7 @@ module Shader =
             }
         }
         
-module Sg =
-    open PRo3D.ReferenceSystem
+module Sg =    
     
     let loadCubeModel (filename : string) =
         Aardvark.SceneGraph.IO.Loader.Assimp.load filename

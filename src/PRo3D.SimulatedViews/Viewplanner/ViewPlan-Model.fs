@@ -12,6 +12,7 @@ open Aardvark.Base.CameraView
 
 open Chiron
 open Adaptify
+open PRo3D.SimulatedViews
 
 
 
@@ -53,8 +54,8 @@ module ViewPlanModel =
         }
 
     let initRoverModel = {
-        rovers = hmap.Empty
-        platforms = hmap.Empty
+        rovers = HashMap.Empty
+        platforms = HashMap.Empty
         selectedRover = None
         //selectedInstrument = None
         //selectedAxis = None
@@ -62,7 +63,7 @@ module ViewPlanModel =
         }
         
     let initial = {
-        viewPlans         = hset.Empty
+        viewPlans         = HashSet.Empty
         selectedViewPlan  = None
         working           = list.Empty
         roverModel        = initRoverModel

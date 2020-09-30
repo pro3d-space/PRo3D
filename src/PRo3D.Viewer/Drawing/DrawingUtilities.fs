@@ -1,20 +1,19 @@
 namespace PRo3D
 
 open System
+open FSharp.Data.Adaptive
+
 open Aardvark.Base
 open Aardvark.Application
 open Aardvark.UI
     
 open PRo3D
 open PRo3D.Base
-open PRo3D.Groups
-open Chiron
-open Chiron.Mapping
-
-open PRo3D.Base
 open PRo3D.Base.Annotation
+open PRo3D.Core
 
-open FSharp.Data.Adaptive
+open Chiron
+
 
 module DrawingUtilities =
       

@@ -10,6 +10,7 @@ open Aardvark.UI
 open Aardvark.UI.Operators
 open Aardvark.UI.Primitives
 open Aardvark.Rendering.Text
+open PRo3D.Core
 
 
 module FalseColorLegendApp = 
@@ -30,20 +31,20 @@ module FalseColorLegendApp =
    
     let update (model : FalseColorsModel) (act : Action) =
         match act with
-            | UseFalseColors -> 
-                    { model with useFalseColors = (not model.useFalseColors) }                    
-            | SetLowerBound l -> 
-                    { model with lowerBound = Numeric.update model.lowerBound l }
-            | SetUpperBound u -> 
-                    { model with upperBound = Numeric.update model.upperBound u }
-            | SetInterval i -> 
-                    { model with interval = Numeric.update model.interval i }
-            | InvertMapping ->
-                    { model with invertMapping = not model.invertMapping }
-            | SetLowerColor lc -> 
-                    { model with lowerColor = ColorPicker.update model.lowerColor lc }            
-            | SetUpperColor uc -> 
-                    { model with upperColor = ColorPicker.update model.upperColor uc }        
+        | UseFalseColors -> 
+            { model with useFalseColors = (not model.useFalseColors) }                    
+        | SetLowerBound l -> 
+            { model with lowerBound = Numeric.update model.lowerBound l }
+        | SetUpperBound u -> 
+            { model with upperBound = Numeric.update model.upperBound u }
+        | SetInterval i -> 
+            { model with interval = Numeric.update model.interval i }
+        | InvertMapping ->
+            { model with invertMapping = not model.invertMapping }
+        | SetLowerColor lc -> 
+            { model with lowerColor = ColorPicker.update model.lowerColor lc }
+        | SetUpperColor uc -> 
+            { model with upperColor = ColorPicker.update model.upperColor uc }
             
             
     //let myCss = { kind = Stylesheet; name = "semui-overrides"; url = "semui-overrides.css" }

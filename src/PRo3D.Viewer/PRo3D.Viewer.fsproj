@@ -20,11 +20,9 @@
   <ItemGroup>
     <None Include="paket.references" />
     <Compile Include="Config.fs" />
-    <Compile Include="Serialization.fs" />
     <Compile Include="Models\Model.fs" />
     <Compile Include="Models\VersionedModel.fs" />
     <Compile Include="Utilities.fs" />
-    <Compile Include="ReferenceSystem-Model.fs" />
     <Compile Include="FalseColorLegendApp.fs" />
     <Compile Include="DipAndStrike.fs" />
     <Compile Include="ReferenceSystem.fs" />
@@ -39,7 +37,6 @@
     <Compile Include="Drawing\Drawing.Sg.fs" />
     <Compile Include="Drawing\Drawing.IO.fs" />
     <Compile Include="Drawing\Drawing.fs" />
-    <Compile Include="MeasurementsImporter.fs" />
     <Compile Include="Navigation.fs" />
     <Compile Include="AlignmentModel.fs" />
     <Compile Include="AlignmentApp.fs" />
@@ -58,7 +55,6 @@
 
     <Compile Include="LensConfigs.fs" />
     <Compile Include="AnnotationGroupsImporter.fs" />
-    <Compile Include="SurfaceTrafoImporter.fs" />
     <Compile Include="RoverPlacementImporter.fs" />
     <Compile Include="Viewer\Viewer-Utils.fs" />
     <Compile Include="Viewer\ViewerGUI.fs" />
@@ -88,6 +84,7 @@
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.2D3DLinking\PRo3D.Linking.fsproj" />
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
+    <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
     <ProjectReference Include="..\PRo3D.Minerva\PRo3D.Minerva.fsproj" />
     <ProjectReference Include="..\PRo3D.SimulatedViews\PRo3D.SimulatedViews.fsproj" />
   </ItemGroup>

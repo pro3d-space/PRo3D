@@ -1,7 +1,5 @@
 namespace PRo3D
 
-
-
 open System
 open Aardvark.Base
 open FSharp.Data.Adaptive
@@ -17,6 +15,7 @@ open Aardvark.Base.Rendering
 open Aardvark.Base.CameraView
 
 open PRo3D.Base
+open PRo3D.Core
 open PRo3D.Base.Annotation
 open Chiron
 
@@ -236,25 +235,16 @@ type PathProxy = {
     relativePath : option<string>
 }
 
-[<ModelType>]
-type MeasurementsImporterModel = {
-    annotations : IndexList<Annotation>
-}
 
-type SurfaceTrafo = {
-    id : string
-    trafo: Trafo3d
-}
+
+
 
 type SurfaceShift = {
     id : string
     shift: float
 }
 
-[<ModelType>]
-type SurfaceTrafoImporterModel = {
-    trafos : IndexList<SurfaceTrafo>
-}
+
 
 [<ModelType>]
 type ViewConfigModel = {

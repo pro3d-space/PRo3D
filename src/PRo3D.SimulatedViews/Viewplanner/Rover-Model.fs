@@ -59,81 +59,81 @@ type InstrumentType =
     | DRILL      // Drill
     | RIM        // Rover Inspection Mirror
     | Undefined
-type ArnoldSnapshot = {
-    location      : V3d
-    forward       : V3d
-    up            : V3d
-    filename      : string
-}
-with 
-  static member current = 0
-  static member private readV0 = 
-      json {
-        let! location    = Json.read "location"
-        let! forward     = Json.read "forward"
-        let! up          = Json.read "up"
-        let! filename    = Json.read "filename"
+//type ArnoldSnapshot = {
+//    location      : V3d
+//    forward       : V3d
+//    up            : V3d
+//    filename      : string
+//}
+//with 
+//  static member current = 0
+//  static member private readV0 = 
+//      json {
+//        let! location    = Json.read "location"
+//        let! forward     = Json.read "forward"
+//        let! up          = Json.read "up"
+//        let! filename    = Json.read "filename"
   
-        return {
-          location    = location |> V3d.Parse
-          forward     = forward  |> V3d.Parse
-          up          = up       |> V3d.Parse
-          filename    = filename
-        }
-      }
+//        return {
+//          location    = location |> V3d.Parse
+//          forward     = forward  |> V3d.Parse
+//          up          = up       |> V3d.Parse
+//          filename    = filename
+//        }
+//      }
 
-  static member FromJson(_ : ArnoldSnapshot) = 
-    json {
-        return! ArnoldSnapshot.readV0
-        //let! v = Json.read "version"
-        //match v with            
-        //  | 0 -> return! ArnoldSnapshot.readV0
-        //  | _ -> return! v |> sprintf "don't know version %A  of ArnoldSnapshot" |> Json.error
-    }
-  static member ToJson (x : ArnoldSnapshot) =
-    json {
-      do! Json.write      "location"  (x.location.ToString())
-      do! Json.write      "forward"   (x.forward.ToString())
-      do! Json.write      "up"        (x.up.ToString())
-      do! Json.write      "filename"  (x.filename.ToString())
-    }
+//  static member FromJson(_ : ArnoldSnapshot) = 
+//    json {
+//        return! ArnoldSnapshot.readV0
+//        //let! v = Json.read "version"
+//        //match v with            
+//        //  | 0 -> return! ArnoldSnapshot.readV0
+//        //  | _ -> return! v |> sprintf "don't know version %A  of ArnoldSnapshot" |> Json.error
+//    }
+//  static member ToJson (x : ArnoldSnapshot) =
+//    json {
+//      do! Json.write      "location"  (x.location.ToString())
+//      do! Json.write      "forward"   (x.forward.ToString())
+//      do! Json.write      "up"        (x.up.ToString())
+//      do! Json.write      "filename"  (x.filename.ToString())
+//    }
 
-type ArnoldAnimation = {
-    fieldOfView   : double
-    resolution    : V2i
-    snapshots     : list<ArnoldSnapshot>
-}
-with 
-  static member current = 0
-  static member private readV0 = 
-      json {
-        let! fieldOfView    = Json.read "fieldOfView"
-        let! resolution     = Json.read "resolution"
-        let! snapshots      = Json.read "snapshots"
+//type ArnoldAnimation = {
+//    fieldOfView   : double
+//    resolution    : V2i
+//    snapshots     : list<ArnoldSnapshot>
+//}
+//with 
+//  static member current = 0
+//  static member private readV0 = 
+//      json {
+//        let! fieldOfView    = Json.read "fieldOfView"
+//        let! resolution     = Json.read "resolution"
+//        let! snapshots      = Json.read "snapshots"
 
-        //let snapshots' = snapshots |> List.map 
+//        //let snapshots' = snapshots |> List.map 
   
-        return {
-          fieldOfView    = fieldOfView
-          resolution     = resolution |> V2i.Parse
-          snapshots      = snapshots  //|> Serialization.jsonSerializer.UnPickleOfString
-        }
-      }
+//        return {
+//          fieldOfView    = fieldOfView
+//          resolution     = resolution |> V2i.Parse
+//          snapshots      = snapshots  //|> Serialization.jsonSerializer.UnPickleOfString
+//        }
+//      }
 
-  static member FromJson(_ : ArnoldAnimation) = 
-    json {
-        let! v = Json.read "version"
-        match v with            
-          | 0 -> return! ArnoldAnimation.readV0
-          | _ -> return! v |> sprintf "don't know version %A  of ArnoldAnimation" |> Json.error
-    }
-  static member ToJson (x : ArnoldAnimation) =
-    json {
-        do! Json.write      "version"        0
-        do! Json.write      "fieldOfView"  (x.fieldOfView)
-        do! Json.write      "resolution"   (x.resolution.ToString())
-        do! Json.write      "snapshots"    (x.snapshots)
-    }
+//  static member FromJson(_ : ArnoldAnimation) = 
+//    json {
+//        let! v = Json.read "version"
+//        match v with            
+//          | 0 -> return! ArnoldAnimation.readV0
+//          | _ -> return! v |> sprintf "don't know version %A  of ArnoldAnimation" |> Json.error
+//    }
+//  static member ToJson (x : ArnoldAnimation) =
+//    json {
+//        do! Json.write      "version"        0
+//        do! Json.write      "fieldOfView"  (x.fieldOfView)
+//        do! Json.write      "resolution"   (x.resolution.ToString())
+//        do! Json.write      "snapshots"    (x.snapshots)
+//    }
 
 [<ModelType>]
 type Instrument = {

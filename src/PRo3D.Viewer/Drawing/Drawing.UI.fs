@@ -11,8 +11,9 @@ open Aardvark.UI.Primitives
 
 open PRo3D
 open PRo3D.Base.Annotation
+open PRo3D.Core
 open PRo3D.Drawing
-open PRo3D.Groups
+
 
 module UI =
 
