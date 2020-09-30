@@ -3,9 +3,13 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <OutputPath>..\..\bin\Debug\</OutputPath>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Include="Core-Types.fs" />
     <Compile Include="FalseColors-Model.fs" />
+    <Compile Include="ReferenceSystem-Model.fs" />
     <Compile Include="Surface-Model.fs" />
     <Compile Include="Bookmark-Model.fs" />
     <Compile Include="Groups-Model.fs" />

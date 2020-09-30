@@ -21,12 +21,13 @@ open Aardvark.VRVis.Opc
 
 open PRo3D
 open PRo3D.Base
-open PRo3D.Groups
+open PRo3D.Core
+
 
 module Sg =
 
     type SgHelper = {
-        surf   : PRo3D.Surfaces.Surface
+        surf   : Surface
         bb     : Box3d
         sg     : ISg        
         kdtree : HashMap<Box3d,KdTrees.Level0KdTree>

@@ -182,8 +182,8 @@ type TextureLayer with
         }
 
 type AttributeLayer = 
-| ScalarLayer  of ScalarLayer
-| TextureLayer of TextureLayer
+    | ScalarLayer  of ScalarLayer
+    | TextureLayer of TextureLayer
 
 [<ModelType>]
 type Transformations = { 

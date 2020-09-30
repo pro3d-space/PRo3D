@@ -1,4 +1,4 @@
-namespace PRo3D.ReferenceSystem
+namespace PRo3D.Core
 
 open FSharp.Data.Adaptive
 open Adaptify
@@ -120,14 +120,14 @@ module ReferenceSystem =
         planet = Planet.Mars
     }
 
-    open ViewConfigModelLenses
+    //open ViewConfigModelLenses
 
     
-    let initialConfig : ReferenceSystemConfig<ViewConfigModel> = {
-        arrowLength    = ViewConfigModel.arrowLength_    >-> NumericInput.value_
-        arrowThickness = ViewConfigModel.arrowThickness_ >-> NumericInput.value_
-        nearPlane      = ViewConfigModel.nearPlane_ >-> NumericInput.value_
-    }
+    //let initialConfig : ReferenceSystemConfig<ViewConfigModel> = {
+    //    arrowLength    = ViewConfigModel.arrowLength_    >-> NumericInput.value_
+    //    arrowThickness = ViewConfigModel.arrowThickness_ >-> NumericInput.value_
+    //    nearPlane      = ViewConfigModel.nearPlane_ >-> NumericInput.value_
+    //}
 
 type ReferenceSystem with
     static member FromJson(_ : ReferenceSystem) =

@@ -3,6 +3,10 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <WarningLevel>4</WarningLevel>
+    <OutputPath>..\..\bin\Debug\</OutputPath>
+  </PropertyGroup>
   <ItemGroup>      
     <Compile Include="Viewplanner\FootPrint-Model.fs" />      
     <Compile Include="Viewplanner\Rover-Model.fs" />      

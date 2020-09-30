@@ -20,35 +20,6 @@ open PRo3D.Core
 open PRo3D.ReferenceSystem
 
 open Aardvark.Base.MultimethodTest
-
-module Transformations = 
-
-  let fullTrafo' (surf : Surface) (refsys : ReferenceSystem) = 
-  
-    let north = refsys.northO.Normalized
-    
-    let up = refsys.up.value.Normalized
-    let east   = north.Cross(up)
-          
-    let refSysRotation = 
-      Trafo3d.FromOrthoNormalBasis(north, east, up)
-        
-    //translation along north, east, up            
-    let trans = surf.transformation.translation.value |> Trafo3d.Translation
-    let rot = Trafo3d.Rotation(up, surf.transformation.yaw.value.RadiansFromDegrees())
-
-    let originTrafo = -surf.transformation.pivot |> Trafo3d.Translation
-
-    originTrafo * rot * originTrafo.Inverse * refSysRotation.Inverse * trans * refSysRotation    
-
-  let fullTrafo (surf : aval<AdaptiveSurface>) (refsys : AdaptiveReferenceSystem) = 
-    adaptive {
-      let! s = surf
-      let! s = s.Current
-      let! rSys = refsys.Current
-
-      return fullTrafo' s rSys
-    }
         
 module TranslationApp =
     

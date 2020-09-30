@@ -14,6 +14,35 @@ open PRo3DCompability
 open Aardvark.VRVis.Opc
 open PRo3D.Core
 
+module Transformations = 
+
+    let fullTrafo' (surf : Surface) (refsys : ReferenceSystem) = 
+    
+        let north = refsys.northO.Normalized
+        
+        let up = refsys.up.value.Normalized
+        let east   = north.Cross(up)
+              
+        let refSysRotation = 
+          Trafo3d.FromOrthoNormalBasis(north, east, up)
+            
+        //translation along north, east, up            
+        let trans = surf.transformation.translation.value |> Trafo3d.Translation
+        let rot = Trafo3d.Rotation(up, surf.transformation.yaw.value.RadiansFromDegrees())
+        
+        let originTrafo = -surf.transformation.pivot |> Trafo3d.Translation
+        
+        originTrafo * rot * originTrafo.Inverse * refSysRotation.Inverse * trans * refSysRotation    
+    
+    let fullTrafo (surf : aval<AdaptiveSurface>) (refsys : AdaptiveReferenceSystem) = 
+        adaptive {
+            let! s = surf
+            let! s = s.Current
+            let! rSys = refsys.Current
+            
+            return fullTrafo' s rSys
+        }
+
 module DebugKdTreesX = 
    
     let getInvalidIndices3f (positions : V3f[]) =
@@ -140,7 +169,7 @@ module Surface =
                 | Picking.KdTree kd ->
                     if kd.IsEmpty then Log.error "no kdtree loaded for %s" surf.name; None
                     else                    
-                        let superTrafo = PRo3D.Transformations.fullTrafo' surf refSys
+                        let superTrafo = Transformations.fullTrafo' surf refSys
                         //get bbs that are hit
                         let hitBoxes =
                             kd
