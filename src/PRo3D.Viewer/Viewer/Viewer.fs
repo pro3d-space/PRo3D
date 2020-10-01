@@ -680,14 +680,14 @@ module ViewerApp =
             match sl |> List.tryHead with
             | Some path ->
                 let imported = 
-                    SurfaceTrafoImporter.startImporter path 
+                    SurfaceTrafoImporter.startImporter path
                     |> IndexList.toList
 
                 let s = 
                     m.scene.surfacesModel 
                     |> Surfaces.SurfaceApp.updateSurfaceTrafos imported                
 
-                m |> Optic.set _surfaceModelLens s  
+                m |> Optic.set SceneLoader._surfaceModelLens s  
             | None -> m
         | ImportRoverPlacement sl,_,_ ->  
             match sl |> List.tryHead with

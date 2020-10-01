@@ -13,7 +13,7 @@ type NavigationMode =
 [<ModelType>]
 type NavigationModel = {
     camera         : CameraControllerState    
-    navigationMode : NavigationMode      
+    navigationMode : NavigationMode
     exploreCenter  : V3d
 }
 
