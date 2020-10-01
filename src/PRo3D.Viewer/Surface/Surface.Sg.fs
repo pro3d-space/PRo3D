@@ -137,7 +137,7 @@ module Sg =
         |> Seq.map (fun p -> assertInvalidBB p.info.GlobalBoundingBox)
         |> Box3d.ofSeq
        
-    let createSgSurface (s:PRo3D.Surfaces.Surface) sg (bb:Box3d) (kd:HashMap<Box3d,KdTrees.Level0KdTree>) = 
+    let createSgSurface (s : Surface) sg (bb : Box3d) (kd : HashMap<Box3d,KdTrees.Level0KdTree>) = 
     
         let pose = Pose.translate V3d.Zero // bb.Center
         let trafo = { TrafoController.initial with pose = pose; previewTrafo = Pose.toTrafo pose; mode = TrafoMode.Local }
@@ -154,10 +154,10 @@ module Sg =
     
     let transformBox (trafo:Trafo3d) (bb:Box3d) = bb.Transformed(trafo)
               
-    let createSgSurfaces runtime signature (surfaces:IndexList<PRo3D.Surfaces.Surface>) =
+    let createSgSurfaces runtime signature (surfaces:IndexList<Surface>) =
       
         let surfaces = 
-          surfaces
+            surfaces
             |> IndexList.toList
             |> List.filter(fun s ->
                 let dirExists = Directory.Exists s.importPath
@@ -202,19 +202,22 @@ module Sg =
                 let fail = Aardvark.UI.Extensions.Sg.empty
 
                 match guid with
-                    | Some i -> 
-                        let! exists = (model.surfaces.flat |> AMap.keys) |> ASet.contains i
-                        if exists then
-                          let leaf = model.surfaces.flat |> AMap.find i 
-                          let! surf = leaf 
-                          let x = match surf with | AdaptiveSurfaces s -> s | _ -> surf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
-                          let! hpos = x.homePosition
-                          match hpos with
-                              | Some p -> yield Sg.dot (AVal.constant C4b.Yellow) (AVal.constant 3.0) (AVal.constant p.Location)
-                              | None -> yield fail
-                        else
-                          yield fail
-                    | None -> yield fail
+                | Some i -> 
+                    let! exists = (model.surfaces.flat |> AMap.keys) |> ASet.contains i
+                    if exists then
+                        let leaf = model.surfaces.flat |> AMap.find i 
+                        let! surf = leaf 
+                        let x = 
+                            match surf with 
+                            | AdaptiveSurfaces s -> s 
+                            | _ -> surf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
+                        let! hpos = x.homePosition
+                        match hpos with
+                        | Some p -> yield Sg.dot (AVal.constant C4b.Yellow) (AVal.constant 3.0) (AVal.constant p.Location)
+                        | None -> yield fail
+                    else
+                        yield fail
+                | None -> yield fail
             }|> Aardvark.UI.``F# Sg``.Sg.set
         Aardvark.UI.``F# Sg``.Sg.ofList [point]
         

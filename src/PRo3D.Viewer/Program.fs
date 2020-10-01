@@ -1,10 +1,33 @@
 open System
 
 //open System.Windows.Forms
+open System.Collections.Concurrent
+open System.Diagnostics
+open System.Threading
+open System.Xml
+open System.Text
+open System.Runtime.Serialization
 
 open Aardvark.Base
 open Aardvark.Application.Slim
+open Aardvark.SceneGraph.Opc
 open Aardvark.UI
+open Aardvark.VRVis
+open Aardvark.VRVis.Opc
+open Aardvark.GeoSpatial.Opc
+open OpcViewer.Base
+
+open PRo3D
+open PRo3D.Base
+open PRo3D.Core
+open PRo3D.Surfaces
+open PRo3D.SimulatedViews
+open RemoteControlModel
+open PRo3D.Viewer
+
+open Aardium
+
+open Chiron
 
 open Suave
 open Suave.WebPart
@@ -14,30 +37,7 @@ open Suave.WebSocket
 open Suave.Operators
 open Suave.Filters
 open Suave.Successful
-
-open System.Collections.Concurrent
-open System.Diagnostics
-open System.Xml
-open PRo3D.Surfaces
-open RemoteControlModel
-open PRo3D
-open PRo3D.Viewplanner
-
 open Suave.Json
-open System.Runtime.Serialization
-open Aardvark.VRVis
-open PRo3D.Viewer
-open PRo3D.Groups
-open System.Text
-open Aardvark.SceneGraph.Opc
-open Aardvark.VRVis.Opc
-open Aardvark.GeoSpatial.Opc
-open OpcViewer.Base
-
-open Aardium
-open System.Threading
-open PRo3D.Base
-open Chiron
 
 open FSharp.Data.Adaptive
 
@@ -99,7 +99,7 @@ let main argv =
     Serialization.init()
     
     Serialization.registry.RegisterFactory (fun _ -> KdTrees.level0KdTreePickler)
-    Serialization.registry.RegisterFactory (fun _ -> Surfaces.Init.incorePickler)
+    Serialization.registry.RegisterFactory (fun _ -> Init.incorePickler)
     
     Log.line "PRo3D Viewer - Version: %s; powered by Aardvark" viewerVersion
     
@@ -170,7 +170,7 @@ let main argv =
     //Log.line "[Viewer] scene: %A" loadedScnx
 
     let mainApp = 
-        PRo3D.ViewerApp.start runtime signature startEmpty messagingMailbox sendQueue dumpFile cacheFile
+        ViewerApp.start runtime signature startEmpty messagingMailbox sendQueue dumpFile cacheFile
 
     let s = { MailboxState.empty with update = mainApp.update Guid.Empty }
     MailboxAction.InitMailboxState s |> messagingMailbox.Post

@@ -16,13 +16,12 @@ open Aardvark.SceneGraph.SgPrimitives
 open Aardvark.SceneGraph.FShadeSceneGraph
 open Aardvark.VRVis.Opc
 
+open PRo3D.Base
 open PRo3D.Core
-open PRo3D.ReferenceSystem
 
 open Aardvark.Base.MultimethodTest
         
 module TranslationApp =
-    
 
     //open Aardvark.UI.ChoiceModule
    
@@ -34,14 +33,14 @@ module TranslationApp =
 
     let update<'a> (model : Transformations) (act : Action) =
         match act with
-            | SetTranslation t ->    
-                let t' = Vector3d.update model.translation t
-                { model with translation =  t' } // trafo = Trafo3d.Translation t'.value}
-            | SetYaw a ->    
-                let yaw = Numeric.update model.yaw a
-                { model with yaw = yaw }
-            | ToggleVisible   -> 
-                { model with useTranslationArrows = not model.useTranslationArrows}
+        | SetTranslation t ->    
+            let t' = Vector3d.update model.translation t
+            { model with translation =  t' } // trafo = Trafo3d.Translation t'.value}
+        | SetYaw a ->    
+            let yaw = Numeric.update model.yaw a
+            { model with yaw = yaw }
+        | ToggleVisible   -> 
+            { model with useTranslationArrows = not model.useTranslationArrows}
 
    
     module UI =

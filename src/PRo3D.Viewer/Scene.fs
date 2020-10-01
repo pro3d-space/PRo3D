@@ -48,7 +48,7 @@ module Model =
         stashAndSaveRecent' handle model
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module Scene =        
+module SceneLoader =        
     
     module Minerva =
         let defaultDumpFile =  @".\MinervaData\dump.csv"
@@ -67,13 +67,13 @@ module Scene =
             let p' = Path.Combine((Path.GetDirectoryName p), "Surfaces")
             let flat' = 
                 (m.surfacesModel.surfaces.flat |> Leaf.toSurfaces)
-                    |> HashMap.map(fun _ x ->                            
-                        if x.relativePaths then
-                            let p'' = Path.Combine(p', x.name)
-                            { x with opcPaths = Files.expandNamesToPaths p'' x.opcNames }
-                        else x
-                    )
-                    |> HashMap.map(fun _ x -> Leaf.Surfaces x)
+                |> HashMap.map(fun _ x ->                            
+                    if x.relativePaths then
+                        let p'' = Path.Combine(p', x.name)
+                        { x with opcPaths = Files.expandNamesToPaths p'' x.opcNames }
+                    else x
+                )
+                |> HashMap.map(fun _ x -> Leaf.Surfaces x)
             
             let sm = { m.surfacesModel.surfaces with flat = flat' }                
             
@@ -86,15 +86,15 @@ module Scene =
 
     let addLegacyTrafos surfaces = 
         surfaces 
-            |> IndexList.map(fun s -> s,Path.ChangeExtension(s.importPath, ".trafo"))
-            |> IndexList.map(fun(s,p) ->                     
-               match (Serialization.fileExists p) with
-                 | Some path->
-                     let t = readLine path
-                     Log.line "[TRAFO] Importing trafo: %s" (t.ToString ())
-                     { s with preTransform = Trafo3d.Parse(t) }
-                 | None -> s
-               )
+        |> IndexList.map(fun s -> s,Path.ChangeExtension(s.importPath, ".trafo"))
+        |> IndexList.map(fun(s,p) ->                     
+           match (Serialization.fileExists p) with
+           | Some path->
+               let t = readLine path
+               Log.line "[TRAFO] Importing trafo: %s" (t.ToString ())
+               { s with preTransform = Trafo3d.Parse(t) }
+           | None -> s
+        )
 
     let getOPCxPath (surfacePath : string) = 
         let name = Path.GetFileName surfacePath
@@ -126,7 +126,7 @@ module Scene =
             surfaces 
             |> addLegacyTrafos
             |> addSurfaceAttributes
-            |> IndexList.map( fun x -> { x with colorCorrection = PRo3D.Surfaces.Init.initColorCorrection}) 
+            |> IndexList.map( fun x -> { x with colorCorrection = Init.initColorCorrection}) 
               
         let existingSurfaces = 
             model.scene.surfacesModel.surfaces.flat
@@ -245,30 +245,30 @@ module Scene =
         //try            
         //    //let s = Serialization.loadAs<Scene> path
 
-            let scene = 
-                path
-                |> Serialization.Chiron.readFromFile 
-                |> Json.parse 
-                |> Json.deserialize
+        let scene = 
+            path
+            |> Serialization.Chiron.readFromFile 
+            |> Json.parse 
+            |> Json.deserialize
 
-            let scene = 
-                { scene  with scenePath = Some path }
-                |> expandRelativePaths
-               
-            let m = 
-                m 
-                |> Model.withScene scene
-                |> resetControllerState
+        let scene = 
+            { scene  with scenePath = Some path }
+            |> expandRelativePaths
+           
+        let m = 
+            m 
+            |> Model.withScene scene
+            |> resetControllerState
 
-            let cameraView = m.scene.cameraView
+        let cameraView = m.scene.cameraView
 
-            let m = { m with frustum = setFrustum m } |> Optic.set _cameraView cameraView
+        let m = { m with frustum = setFrustum m } |> Optic.set _cameraView cameraView
 
-            let sModel = 
-                m.scene.surfacesModel 
-                |> prepareSurfaceModel runtime signature scene.scenePath
+        let sModel = 
+            m.scene.surfacesModel 
+            |> prepareSurfaceModel runtime signature scene.scenePath
 
-            Optic.set _surfaceModelLens sModel m  
+        Optic.set _surfaceModelLens sModel m  
         //with e ->            
         //    Log.error "Could not load selected scenefile %A. It is either outdated or not a valid scene" path
         //    Log.error "exact error %A" e

@@ -13,6 +13,7 @@ open PRo3D.Base.Annotation
 
 open Adaptify.FSharp.Core
 open FSharp.Data.Adaptive    
+open PRo3D.Base
 
 module DipAndStrike =
     

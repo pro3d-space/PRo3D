@@ -7,10 +7,6 @@ open FSharp.Data.Adaptive
 open Aardvark.UI.Primitives
 open Aardvark.UI
 
-open FShade.Intrinsics
-open Aardvark.Base.CameraView
-
-open Chiron
 open Adaptify
 open PRo3D.SimulatedViews
 
@@ -34,24 +30,23 @@ type ViewPlan = {
 
 [<ModelType>]
 type ViewPlanModel = {
-    viewPlans           : HashSet<ViewPlan>
+    viewPlans           : HashMap<Guid, ViewPlan>
     selectedViewPlan    : Option<ViewPlan>
     working             : list<V3d> // pos + lookAt
     roverModel          : RoverModel
     instrumentCam       : CameraControllerState
     instrumentFrustum   : Frustum
     //footPrint           : FootPrint 
-    }
+}
 
 module ViewPlanModel =
-    let currentAngle = 
-        {
-            value = 0.0
-            min =  0.0
-            max = 90.0
-            step = 0.1
-            format = "{0:0.0}"
-        }
+    let currentAngle = {
+        value = 0.0
+        min =  0.0
+        max = 90.0
+        step = 0.1
+        format = "{0:0.0}"
+    }
 
     let initRoverModel = {
         rovers = HashMap.Empty
@@ -60,10 +55,10 @@ module ViewPlanModel =
         //selectedInstrument = None
         //selectedAxis = None
         //currentAngle = currentAngle
-        }
+    }
         
     let initial = {
-        viewPlans         = HashSet.Empty
+        viewPlans         = HashMap.Empty
         selectedViewPlan  = None
         working           = list.Empty
         roverModel        = initRoverModel

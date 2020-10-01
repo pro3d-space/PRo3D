@@ -10,10 +10,10 @@ open PRo3D
 open PRo3D.Base
 open PRo3D.Minerva
 open PRo3D.Linking
-open PRo3D.Groups
+open PRo3D.Core
 open PRo3D.Drawing
 open PRo3D.Viewer
-open PRo3D.Viewplanner
+open PRo3D.SimulatedViews
 
 open FSharp.Data.Adaptive
 

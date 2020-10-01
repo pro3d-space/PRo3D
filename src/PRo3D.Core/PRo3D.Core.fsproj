@@ -14,7 +14,9 @@
     <Compile Include="Bookmark-Model.fs" />
     <Compile Include="Groups-Model.fs" />
     <Compile Include="Model.fs" />
+    <Compile Include="Sg.fs" />
     <Compile Include="UI.fs" />
+    <Compile Include="ReferenceSystem.fs" />
     <Compile Include="Surface.fs" />
     <Compile Include="Importers/MeasurementsImporter.fs" />
     <Compile Include="Importers/AnnotationGroupsImporter.fs" />

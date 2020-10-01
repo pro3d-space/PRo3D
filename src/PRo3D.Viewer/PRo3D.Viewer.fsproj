@@ -25,7 +25,6 @@
     <Compile Include="Utilities.fs" />
     <Compile Include="FalseColorLegendApp.fs" />
     <Compile Include="DipAndStrike.fs" />
-    <Compile Include="ReferenceSystem.fs" />
     <Compile Include="OrientationCube.fs" />
     <Compile Include="Navigation-Model.fs" />
     <Compile Include="Bookmark-Model.fs" />

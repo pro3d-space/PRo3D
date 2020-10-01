@@ -12,7 +12,6 @@ open PRo3D
 open PRo3D.Base.Annotation
 
 module Dialogs =    
-
         
     let onChooseFiles (chosen : list<string> -> 'msg) =
         let cb xs =
@@ -70,12 +69,7 @@ module Dialogs =
                     String.Empty |> chosen
         onEvent "onsave" [] cb
           
-module Double =
-    let degreesFromRadians (d:float) =
-        d.DegreesFromRadians()
-        
-    let radiansFromDegrees (d:float) =
-        d.RadiansFromDegrees()
+
     
 module Box3d =
     let extendBy (box:Box3d) (b:Box3d) =
@@ -394,98 +388,6 @@ module Console =
     let print (x:'a) : 'a =
         printfn "%A" x
         x
-
-module Lenses = 
-    let get    (lens : Lens<'s,'a>) (s:'s) : 'a              = lens.Get(s)
-    let set    (lens : Lens<'s,'a>) (v : 'a) (s:'s) : 's     = lens.Set(s,v)
-    let set'   (lens : Lens<'s,'a>) (s:'s) (v : 'a)  : 's    = lens.Set(s,v)
-    let update (lens : Lens<'s,'a>) (f : 'a->'a) (s:'s) : 's = lens.Update(s,f)
-  
-module PRo3DNumeric = 
-    open FSharp.Data.Adaptive
-    open Aardvark.UI
-
-    let inline (=>) a b = Attributes.attribute a b
-
-    type Action = 
-        | SetValue of float
-        | SetMin of float
-        | SetMax of float
-        | SetStep of float
-        | SetFormat of string
-
-    let update (model : NumericInput) (action : Action) =
-        match action with
-        | SetValue v -> { model with value = v }
-        | SetMin v ->   { model with min = v }
-        | SetMax v ->   { model with max = v }
-        | SetStep v ->  { model with step = v }
-        | SetFormat s -> { model with format = s }
-
-    let formatNumber (format : string) (value : float) =
-        String.Format(Globalization.CultureInfo.InvariantCulture, format, value)
-
-    let numericField<'msg> ( f : Action -> seq<'msg> ) ( atts : AttributeMap<'msg> ) ( model : AdaptiveNumericInput ) inputType =         
-
-        let tryParseAndClamp min max fallback (s: string) =
-            let parsed = 0.0
-            match Double.TryParse(s, Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
-                | (true,v) -> clamp min max v
-                | _ ->  printfn "validation failed: %s" s
-                        fallback
-
-        let onWheel' (f : Aardvark.Base.V2d -> seq<'msg>) =
-            let serverClick (args : list<string>) : Aardvark.Base.V2d = 
-                let delta = List.head args |> Pickler.unpickleOfJson
-                delta  / Aardvark.Base.V2d(-100.0,-100.0) // up is down in mouse wheel events
-
-            onEvent' "onwheel" ["{ X: event.deltaX.toFixed(10), Y: event.deltaY.toFixed(10)  }"] (serverClick >> f)
-
-        let attributes = 
-            amap {                
-                yield style "text-align:right; color : black"                
-
-                let! min = model.min
-                let! max = model.max
-                let! value = model.value
-                match inputType with
-                    | Slider ->   
-                        yield "type" => "range"
-                        yield onChange' (tryParseAndClamp min max value >> SetValue >> f)   // continous updates for slider
-                    | InputBox -> 
-                        yield "type" => "number"
-                        yield onChange' (tryParseAndClamp min max value >> SetValue >> f)  // batch updates for input box (to let user type)
-
-                let! step = model.step
-                yield onWheel' (fun d -> value + d.Y * step |> clamp min max |> SetValue |> f)
-
-                yield "step" => sprintf "%f" step
-                yield "min"  => sprintf "%f" min
-                yield "max"  => sprintf "%f" max
-
-                let! format = model.format
-                yield "value" => formatNumber format value
-            } 
-
-        Incremental.input (AttributeMap.ofAMap attributes |> AttributeMap.union atts)
-
-    let numericField' = numericField (Seq.singleton) AttributeMap.empty
-
-    let view' (inputTypes : list<NumericInputType>) (model : AdaptiveNumericInput) : DomNode<Action> =
-        inputTypes 
-            |> List.map (numericField' model) 
-            |> List.intersperse (text " ") 
-            |> div []
-
-    let view (model : AdaptiveNumericInput) =
-        view' [InputBox] model
-
-    module GenericFunctions =
-        let rec applyXTimes (a : 'a) (f : 'a -> int -> 'a) (lastIndex : int) =
-            match lastIndex with
-            | t when t <= 0 -> f a lastIndex
-            | t when t > 0 -> applyXTimes (f a lastIndex) f (lastIndex - 1)
-            | _ -> a
 
 module Net =
     open System.Threading

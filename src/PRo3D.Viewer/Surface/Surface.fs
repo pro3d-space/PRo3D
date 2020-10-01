@@ -594,7 +594,7 @@ module SurfaceApp =
 
              let visibleIcon = 
                 amap {
-                  yield onMouseClick (fun _ -> lift <| Groups.ToggleChildVisibility (key,path))
+                  yield onMouseClick (fun _ -> lift <| GroupsAppAction.ToggleChildVisibility (key,path))
                   let! visible = s.isVisible
                   if visible then 
                     yield clazz "unhide icon" 

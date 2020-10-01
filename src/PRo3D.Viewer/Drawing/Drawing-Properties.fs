@@ -1,12 +1,14 @@
 namespace PRo3D
 
-open Adaptify.FSharp.Core
-open Aardvark.Base
 open System
-open Aardvark.UI
-open Aardvark.UI.Static.Svg
+open Adaptify.FSharp.Core
 open FSharp.Data.Adaptive
 
+open Aardvark.Base
+open Aardvark.UI
+open Aardvark.UI.Static.Svg
+
+open PRo3D.Base
 open PRo3D.Base.Annotation
 open PRo3D.Core
 

@@ -122,22 +122,22 @@ module SceneLoading =
     // load using new projects aka .pro3d file
     let loadNewStyleScene (m : Model) (runtime : IRuntime) (signature : IFramebufferSignature) (sceneFile : string) =
         match Path.GetExtension sceneFile with 
-            | ".pro3d" ->
-                try 
-                    Scene.loadScene sceneFile m runtime signature 
-                    |> Model.stashAndSaveRecent sceneFile
-                    |> ViewerIO.loadRoverData
-                    |> ViewerIO.loadAnnotations  
-                    |> ViewerIO.loadCorrelations
-                    |> ViewerIO.loadLastFootPrint
-                    |> Choice1Of2 
-                with e -> 
-                    let error = sprintf "[PRo3D] SceneLoading.loadScene failed: %A" e.Message
-                    Log.warn "%s" error
-                    Log.line "Stacktrace: %A" e.StackTrace
-                    Choice2Of2(error, Some e)
-            | ".scn" -> Choice2Of2(sprintf "tried to load old scn file %s using new loader." sceneFile, None)
-            | _ -> Choice2Of2(sprintf "unknown file format extension of file %s. Should be .pro3d" sceneFile, None)
+        | ".pro3d" ->
+            try 
+                SceneLoader.loadScene sceneFile m runtime signature 
+                |> Model.stashAndSaveRecent sceneFile
+                |> ViewerIO.loadRoverData
+                |> ViewerIO.loadAnnotations  
+                |> ViewerIO.loadCorrelations
+                |> ViewerIO.loadLastFootPrint
+                |> Choice1Of2 
+            with e -> 
+                let error = sprintf "[PRo3D] SceneLoading.loadScene failed: %A" e.Message
+                Log.warn "%s" error
+                Log.line "Stacktrace: %A" e.StackTrace
+                Choice2Of2(error, Some e)
+        | ".scn" -> Choice2Of2(sprintf "tried to load old scn file %s using new loader." sceneFile, None)
+        | _ -> Choice2Of2(sprintf "unknown file format extension of file %s. Should be .pro3d" sceneFile, None)
 
     // if scene file is an old one (*.scn) the file is upgraded automatically to *.pro3d. The resulting file path
     // is returned as well as info if conversion was necessary.

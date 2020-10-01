@@ -20,9 +20,9 @@ open OpcViewer.Base
 
 open PRo3D
 open PRo3D.Base
-open PRo3D.Drawing
-open PRo3D.Base
 open PRo3D.Base.Annotation
+open PRo3D.Core
+open PRo3D.Drawing
 
 open FShade
 
@@ -89,7 +89,11 @@ module Sg =
             | None -> ()            
         } |> Sg.set
                                   
-    let drawDns' (points : alist<V3d>) (dnsResults : aval<option<AdaptiveDipAndStrikeResults>>) (conf:innerViewConfig) (cl : AdaptiveFalseColorsModel) =                         
+    let drawDns' 
+        (points     : alist<V3d>) 
+        (dnsResults : aval<option<AdaptiveDipAndStrikeResults>>) 
+        (conf       : innerViewConfig) 
+        (cl         : AdaptiveFalseColorsModel) =                         
         aset {                            
             let! dns = dnsResults
             match dns with
@@ -149,7 +153,11 @@ module Sg =
             | None -> ()            
         } |> Sg.set
         
-    let drawDns (anno : AdaptiveAnnotation) (conf:innerViewConfig) (cl : AdaptiveFalseColorsModel) (cam:aval<CameraView>) =   
+    let drawDns 
+        (anno   : AdaptiveAnnotation) 
+        (conf   : innerViewConfig) 
+        (cl     : AdaptiveFalseColorsModel) 
+        (cam    : aval<CameraView>) =   
         drawDns' anno.points (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption anno.dnsResults) conf cl
 
     let getPolylinePoints (a : AdaptiveAnnotation) =

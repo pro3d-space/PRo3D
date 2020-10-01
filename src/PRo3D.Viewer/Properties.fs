@@ -6,6 +6,7 @@ open Aardvark.Base.Rendering
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open FSharp.Data.Adaptive
+open PRo3D.Base
 
 
 module ConfigProperties =

@@ -1,38 +1,34 @@
 namespace PRo3D.Viewer
 
 open System
-open Aardvark.Base
 open FSharp.Data.Adaptive
+
+open Aardvark.Base
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.Application
 open Aardvark.SceneGraph
-open Aardvark.SceneGraph.Opc
-open Aardvark.VRVis
-
-open Aardvark.Base.Frustum
 open Aardvark.UI.Trafos
 open Aardvark.UI.Animation
 
 open PRo3D
 open PRo3D.Base
+open PRo3D.Base.Annotation
+open PRo3D.Core
+open PRo3D.SimulatedViews
 open PRo3D.Surfaces
 open PRo3D.Navigation2
-open PRo3D.Groups
-open PRo3D.ReferenceSystem
 open PRo3D.Align
-open PRo3D.Base.Annotation
 
 open PRo3D.SimulatedViews
 
 open Chiron
-open PRo3D.Minerva
 
 open Adaptify
 
 open Aether
 open Aether.Operators
-
+open PRo3D.Minerva
 
 #nowarn "0686"
 
@@ -42,8 +38,6 @@ type TabMenu =
     | Viewplanner = 2
     | Bookmarks   = 3
     | Config      = 4
-
-
 
 type BookmarkAction =
     | AddBookmark 
@@ -77,7 +71,7 @@ type ViewerAction =
     | AnnotationGroupsMessageViewer   of GroupsAppAction
     | NavigationMessage               of Navigation.Action
     | AnimationMessage                of AnimationAction
-    | ReferenceSystemMessage          of ReferenceSystemApp.Action
+    | ReferenceSystemMessage          of ReferenceSystemAction
     | AnnotationMessage               of AnnotationProperties.Action
     | BookmarkMessage                 of BookmarkAction
     | BookmarkUIMessage               of GroupsAppAction
@@ -217,6 +211,8 @@ module Scene =
                     feedbackThreads = ThreadPool.empty
                 }
         }
+
+
 
 type Scene with
     static member FromJson (_ : Scene) =

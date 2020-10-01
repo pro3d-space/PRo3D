@@ -28,12 +28,14 @@ open System.IO
 open PRo3D
 open PRo3D.Base
 open PRo3D.Base.Annotation
-open PRo3D.Groups
-open PRo3D.ReferenceSystem
+open PRo3D.Core
+
 open PRo3D.Surfaces
 open PRo3D.Bookmarkings
-open PRo3D.Viewplanner
+
 open PRo3D.Correlations
+
+open PRo3D.SimulatedViews
 
 open Adaptify
 open FSharp.Data.Adaptive
@@ -404,9 +406,9 @@ module Gui =
                     return ViewPlanApp.UI.viewSelectRover m.scene.viewPlans.roverModel |> UI.map RoverMessage
                 | Interactions.PlaceCoordinateSystem -> 
                     return Html.Layout.horizontal [
-                        Html.Layout.boxH [ Html.SemUi.dropDown' m.scene.referenceSystem.scaleChart m.scene.referenceSystem.selectedScale ReferenceSystemApp.Action.SetScale id ]
+                        Html.Layout.boxH [ Html.SemUi.dropDown' m.scene.referenceSystem.scaleChart m.scene.referenceSystem.selectedScale ReferenceSystemAction.SetScale id ]
                         //Html.Layout.boxH [ i [clazz "unhide icon"][] ]
-                        Html.Layout.boxH [ GuiEx.iconToggle m.scene.referenceSystem.isVisible "unhide icon" "hide icon" ReferenceSystemApp.Action.ToggleVisible  ]                        
+                        Html.Layout.boxH [ GuiEx.iconToggle m.scene.referenceSystem.isVisible "unhide icon" "hide icon" ReferenceSystemAction.ToggleVisible  ]                        
                         ] |> UI.map ReferenceSystemMessage
                 | _ -> 
                   return div[][]
@@ -467,7 +469,7 @@ module Gui =
               
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large Globe icon"][] ]
-                Html.Layout.boxH [ Html.SemUi.dropDown m.scene.referenceSystem.planet ReferenceSystemApp.Action.SetPlanet ] |> UI.map ReferenceSystemMessage
+                Html.Layout.boxH [ Html.SemUi.dropDown m.scene.referenceSystem.planet ReferenceSystemAction.SetPlanet ] |> UI.map ReferenceSystemMessage
             ] 
             Html.Layout.horizontal [
                 scenepath m

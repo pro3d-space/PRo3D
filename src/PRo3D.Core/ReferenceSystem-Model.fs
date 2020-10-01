@@ -34,6 +34,30 @@ type ReferenceSystemConfig<'a> = {
     nearPlane      : Lens<'a,double>
 }
 
+type ReferenceSystemAction =
+    | InferCoordSystem   of V3d
+    | UpdateUpNorth      of V3d
+    | SetUp              of Vector3d.Action
+    | SetNorth           of Vector3d.Action
+    | SetNOffset         of Numeric.Action
+    | ToggleVisible
+    | SetScale           of string
+    | SetArrowSize       of double
+    | SetPlanet          of Planet
+
+type InnerConfig<'a> =
+    {
+        arrowLength     : Lens<'a,float>
+        arrowThickness  : Lens<'a,float>            
+    } 
+
+type MInnerConfig<'ma> =
+    {
+        getArrowLength    : 'ma -> aval<float>
+        getArrowThickness : 'ma -> aval<float>
+        getNearDistance   : 'ma -> aval<float>
+    }
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module ReferenceSystem =    
     

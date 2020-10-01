@@ -7,12 +7,7 @@ open PRo3D
 open PRo3D.Core
 open Aardvark.Base
 
-[<ModelType>]
-type NavigationModel = {
-    camera         : CameraControllerState    
-    navigationMode : NavigationMode      
-    exploreCenter  : V3d
-}
+
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module NavigationModel =

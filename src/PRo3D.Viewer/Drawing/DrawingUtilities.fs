@@ -255,7 +255,7 @@ module DrawingUtilities =
                 flat
                 |> HashMap.values
                 |> Seq.toList
-                |> List.filter(fun x -> (HashSet.contains x.id flatGroupIds) |> not)
+                |> List.filter(fun x -> (FSharp.Data.Adaptive.HashSet.contains x.id flatGroupIds) |> not)
                         
             Log.error "[ViewerIO] found %d floating leaves" (floatingLeaves.Length)
             

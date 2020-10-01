@@ -11,6 +11,7 @@ open Aardvark.UI.Operators
 open Aardvark.UI.Primitives
 open Aardvark.Rendering.Text
 open PRo3D.Core
+open PRo3D.Base
 
 
 module FalseColorLegendApp = 

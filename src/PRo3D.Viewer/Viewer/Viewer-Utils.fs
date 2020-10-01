@@ -23,10 +23,12 @@ open OpcViewer.Base
 
 open FShade
 open PRo3D
-open PRo3D.ReferenceSystem
+open PRo3D.Base
+open PRo3D.Core
 open PRo3D.Surfaces
 open PRo3D.Viewer
-open PRo3D.Groups
+open PRo3D.SimulatedViews
+
 
 open Adaptify.FSharp.Core
 
@@ -241,7 +243,7 @@ module ViewerUtils =
             let sizes = V2i(1024,768)
             let! quality = s.quality.value
             //let! trafo = AVal.map2(fun a b -> a * b) s.preTransform s.transformation.trafo //combine pre and current transform
-            let! trafo = PRo3D.Transformations.fullTrafo surf refsys
+            let! trafo = SurfaceTransformations.fullTrafo surf refsys
             
             return { frustum = frustum; size = sizes; factor = Math.Pow(Math.E, quality); trafo = trafo }
         }
@@ -324,7 +326,7 @@ module ViewerUtils =
                 let pickable = 
                     AVal.map2( fun (a:Box3d) (b:Trafo3d) -> 
                         { shape = PickShape.Box (a.Transformed(b)); trafo = Trafo3d.Identity }
-                    ) globalBB (Transformations.fullTrafo surf refsys)
+                    ) globalBB (SurfaceTransformations.fullTrafo surf refsys)
                 
                 let pickBox = 
                     pickable 
@@ -338,7 +340,7 @@ module ViewerUtils =
                 
                 let trafo =
                     adaptive {
-                        let! fullTrafo = Transformations.fullTrafo surf refsys
+                        let! fullTrafo = SurfaceTransformations.fullTrafo surf refsys
                         let! s = surf
                         let! sc = s.scaling.value
                         let! t = s.preTransform
