@@ -417,7 +417,13 @@ module DrawingApp =
         | AdaptiveAnnotations ann -> Some ann
         | _ -> None
        
-    let view<'ma> (mbigConfig : 'ma)(msmallConfig : MSmallConfig<'ma>) (view : aval<CameraView>) (pickingAllowed : aval<bool>) (model:AdaptiveDrawingModel) : ISg<Drawing.Action> * ISg<Drawing.Action> =
+    let view<'ma> 
+        (mbigConfig     : 'ma)
+        (msmallConfig   : MSmallConfig<'ma>)
+        (view           : aval<CameraView>)
+        (pickingAllowed : aval<bool>)
+        (model          : AdaptiveDrawingModel)
+        : ISg<Drawing.Action> * ISg<Drawing.Action> =
         // order is irrelevant for rendering. change list to set,
         // since set provides more degrees of freedom for the compiler           
         let annoSet = 

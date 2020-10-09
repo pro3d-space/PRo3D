@@ -167,3 +167,56 @@ module HaltonPlacement =
             
 
         points, trafos //points |> List.map( fun p -> Trafo3d.Scale(0.03) * Trafo3d.Translation(p) )
+
+    let viewHaltonSeries (points : aval<list<V3d>>) =
+        let points =
+            aset{
+                let! points = points
+                let pnts = 
+                    points 
+                    |> List.map( fun p -> PRo3D.Base.Sg.dot ~~C4b.Cyan ~~5.0 ~~p)
+                    |> Sg.ofList
+                yield pnts
+                } |> Sg.set
+        points
+                        
+    let getSgSurfacesWithBBIntersection (newSurfaces : IndexList<Surface>) (sgSurfaces : list<Guid*SgSurface>) (newSg : SgSurface) = 
+        let mutable sgsurfs = sgSurfaces //[]
+        let mutable sgsurfsout = []
+        let mutable testSfs = newSurfaces
+        let sgSurfs =
+            for i in [|0..newSurfaces.Count-1|] do
+                let newSgSurf = {newSg with surface = newSurfaces.[i].guid}
+
+                // put the first sgsurface in the list
+                if sgsurfs.IsEmpty then 
+                    sgsurfs <- sgsurfs @ [(newSgSurf.surface, newSgSurf)]
+
+                // check for the new Sgsurface if bb intersects with others
+                else
+                    let obj1 = newSgSurf.globalBB.Transformed(newSurfaces.[i].preTransform) 
+                    let addSurf = 
+                        [
+                        for x in 0..sgsurfs.Length-1 do
+                            let surf2 = newSurfaces |> IndexList.toList |> List.find(fun s -> (fst sgsurfs.[x]) = s.guid)
+                            let obj2 = (snd sgsurfs.[x]).globalBB.Transformed(surf2.preTransform)
+                            yield (obj1).Intersects(obj2)
+                            ]
+                    if addSurf |> List.contains true then
+                        // TEST: this surface bb intersects with another one and would be discarded 
+                        sgsurfsout <- sgsurfsout @ [(newSgSurf.surface, newSgSurf)]
+                        let sfs = 
+                            { newSurfaces.[i] with 
+                                colorCorrection = 
+                                        { newSurfaces.[i].colorCorrection with color = {c = C4b.Red}; useColor = true } 
+                            }
+                        let testSurfs = testSfs |> IndexList.map(fun x -> if x.guid = newSgSurf.surface then sfs else x)
+                        testSfs <- testSurfs
+                    else
+                        sgsurfs <- sgsurfs @ [(newSgSurf.surface, newSgSurf)]
+               
+                
+        // keep only the remaining surfaces
+        let sfs = sgsurfs |> List.map(fun sg -> newSurfaces |> IndexList.toList |> List.find(fun s -> (fst sg) = s.guid))
+        sfs, sgsurfs        
+

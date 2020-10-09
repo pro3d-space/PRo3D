@@ -452,7 +452,7 @@ module Sg =
         |> Sg.uniform "DepthOffset" (
               offset |> AVal.map (fun depthWorld -> depthWorld / (100.0 - 0.1)))
         |> Sg.effect [singleColorPointsEffect.Value]
-
+    
     //## LINES ##
     let edgeLines (close: bool) (points: alist<V3d>) (trafo: aval<Trafo3d>) : aval<Line3d[]>  =
         points
@@ -616,6 +616,17 @@ module Sg =
             |> AVal.map (function | Some p -> Trafo3d.Translation p | None -> Trafo3d.Identity)
 
         stablePoints trafo positions, trafo
+
+    let drawPointList (positions : alist<V3d>) (color : aval<C4b>) (pointSize : aval<double>) (offset : aval<double>)= 
+        let positions = positions |> AList.toAVal |> AVal.map IndexList.toArray
+        let (pointsF, trafo) = stablePoints' positions
+
+        drawSingleColorPoints 
+            pointsF 
+            (color |> AVal.map(fun x -> x.ToC4f().ToV4d()))
+            pointSize 
+            offset
+        |> Sg.trafo trafo
 
     //## TEXT ##
     let private invariantScaleTrafo 

@@ -15,6 +15,7 @@
     <Compile Include="Viewplanner\Rover.fs" />      
     <Compile Include="Viewplanner\ViewPlan-Model.fs" />      
     <Compile Include="Viewplanner\FootPrint.fs" />      
+    <Compile Include="Viewplanner\RoverPlacementImporter.fs" />      
     <Compile Include="Viewplanner\ViewPlan.fs" />
     <Compile Include="Snapshot-Model.fs" />
     <Compile Include="HaltonPlacement.fs" />

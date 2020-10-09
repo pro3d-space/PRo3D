@@ -36,69 +36,7 @@ module ViewerUtils =
 
     //let _surfaceModelLens = Model.Lens.scene |. Scene.Lens.surfacesModel
     //let _flatSurfaces = Scene.Lens.surfacesModel |. SurfaceModel.Lens.surfaces |. GroupsModel.Lens.flat
-
-   
-
-    
-           
-    let viewHaltonSeries (points : aval<list<V3d>>) =
-        let points =
-            aset{
-                let! points = points
-                let pnts = 
-                    points 
-                    |> List.map( fun p -> PRo3D.Sg.dot (AVal.constant p) (AVal.constant 5.0) (AVal.constant C4b.Cyan) )
-                    |> Sg.ofList
-                yield pnts
-                } |> Sg.set
-        points
-                    
-    //let getSgSurfacesWithBBIntersection (surfaces : IndexList<Surface>) (trafos : list<Trafo3d>) (sgs : SgSurface) = 
-    let getSgSurfacesWithBBIntersection (newSurfaces : IndexList<Surface>) (sgSurfaces : list<Guid*SgSurface>) (newSg : SgSurface) = 
-        let mutable sgsurfs = sgSurfaces //[]
-        let mutable sgsurfsout = []
-        let mutable testSfs = newSurfaces
-        let sgSurfs =
-            for i in [|0..newSurfaces.Count-1|] do
-                let newSgSurf = {newSg with surface = newSurfaces.[i].guid}
-
-                // put the first sgsurface in the list
-                if sgsurfs.IsEmpty then 
-                    sgsurfs <- sgsurfs @ [(newSgSurf.surface, newSgSurf)]
-
-                // check for the new Sgsurface if bb intersects with others
-                else
-                    let obj1 = newSgSurf.globalBB.Transformed(newSurfaces.[i].preTransform) 
-                    let addSurf = 
-                        [
-                        for x in 0..sgsurfs.Length-1 do
-                            let surf2 = newSurfaces |> IndexList.toList |> List.find(fun s -> (fst sgsurfs.[x]) = s.guid)
-                            let obj2 = (snd sgsurfs.[x]).globalBB.Transformed(surf2.preTransform)
-                            yield (obj1).Intersects(obj2)
-                            ]
-                    if addSurf |> List.contains true then
-                        // TEST: this surface bb intersects with another one and would be discarded 
-                        sgsurfsout <- sgsurfsout @ [(newSgSurf.surface, newSgSurf)]
-                        let sfs = 
-                            { newSurfaces.[i] with 
-                                colorCorrection = 
-                                        { newSurfaces.[i].colorCorrection with color = {c = C4b.Red}; useColor = true } 
-                            }
-                        let testSurfs = testSfs |> IndexList.map(fun x -> if x.guid = newSgSurf.surface then sfs else x)
-                        testSfs <- testSurfs
-                    else
-                        sgsurfs <- sgsurfs @ [(newSgSurf.surface, newSgSurf)]
-               
-                
-        // keep only the remaining surfaces
-        let sfs = sgsurfs |> List.map(fun sg -> newSurfaces |> IndexList.toList |> List.find(fun s -> (fst sg) = s.guid))
-        sfs, sgsurfs
-
-        //TEST: add the discarded
-        //testSfs |> IndexList.toList, sgsurfs @ sgsurfsout
-
-    
-                          
+        
     let colormap = 
         let config = { wantMipMaps = false; wantSrgb = false; wantCompressed = false }
         FileTexture("resources/HueColorMap.png",config) :> ITexture    
@@ -141,10 +79,6 @@ module ViewerUtils =
             |> Sg.uniform "useColorS"      useColor
             |> Sg.uniform "colorS"         color
 
-
-   // let viewSingleSurfaceSg (surface : AdaptiveSgSurface) (surfaceTable : amap<Guid, aval<MLeaf>>) (frustum : aval<Frustum>) (selectedId : aval<Option<Guid>>) (isctrl:aval<bool>) (globalBB : aval<Box3d>) (refsys:AdaptiveReferenceSystem) =
-    
-
     let addAttributeFalsecolorMappingParameters (surf:aval<AdaptiveSurface>)  (isg:ISg<'a>) =
             
         let selectedScalar =
@@ -156,19 +90,7 @@ module ViewerUtils =
                 | _ -> return false
             }  
       
-        let scalar = surf |> AVal.bind( fun x -> x.selectedScalar )
-
-        //let texturLayer =  
-        //    adaptive {
-        //        let! scalar = scalar
-        //        let! s = surf
-        //        match scalar with
-        //         | Some sc -> 
-        //            return s.textureLayers |> AList.toList
-        //                                   |> List.find( fun (tl:TextureLayer) -> tl.label = (AVal.force sc.label ))
-        //         | None -> return list.Empty
-               
-        //    }  
+        let scalar = surf |> AVal.bind( fun x -> x.selectedScalar )        
       
 
         let interval = scalar |> AVal.bind ( fun x ->
@@ -236,7 +158,10 @@ module ViewerUtils =
             |> Sg.uniform "MinMax"         rangeToMinMax
             |> Sg.texture (Sym.ofString "ColorMapTexture") (AVal.constant colormap)
 
-    let getLodParameters (surf:aval<AdaptiveSurface>) (refsys:AdaptiveReferenceSystem) (frustum : aval<Frustum>) =
+    let getLodParameters 
+        (surf:aval<AdaptiveSurface>) 
+        (refsys:AdaptiveReferenceSystem) 
+        (frustum : aval<Frustum>) =
         adaptive {
             let! s = surf
             let! frustum = frustum 
@@ -247,14 +172,14 @@ module ViewerUtils =
             
             return { frustum = frustum; size = sizes; factor = Math.Pow(Math.E, quality); trafo = trafo }
         }
+    
     let getLodParameters' (surf:Surface) (frustum : Frustum) =
         let sizes = V2i(1024,768)
         let quality = surf.quality.value
         let trafo = surf.preTransform //combine pre and current transform
             
         { frustum = frustum; size = sizes; factor = Math.Pow(Math.E, quality); trafo = trafo }
-        
-    
+            
     let attributeParameters (surf:aval<AdaptiveSurface>) =
          adaptive {
             let! s = surf
@@ -291,18 +216,17 @@ module ViewerUtils =
 
             attr
         
-
     let viewSingleSurfaceSg 
-        (surface    : AdaptiveSgSurface) 
-        (blarg      : amap<Guid, AdaptiveLeafCase>) // TODO v5: to get your naming right!!
-        (frustum    : aval<Frustum>) 
-        (selectedId : aval<Option<Guid>>)
-        (isctrl     : aval<bool>) 
-        (globalBB   : aval<Box3d>) 
-        (refsys     : AdaptiveReferenceSystem) 
-        (fp         : AdaptiveFootPrint) 
-        (vp         : aval<Option<AdaptiveViewPlan>>) 
-        (useHighlighting :aval<bool>) 
+        (surface         : AdaptiveSgSurface) 
+        (blarg           : amap<Guid, AdaptiveLeafCase>) // TODO v5: to get your naming right!!
+        (frustum         : aval<Frustum>) 
+        (selectedId      : aval<Option<Guid>>)
+        (isctrl          : aval<bool>) 
+        (globalBB        : aval<Box3d>) 
+        (refsys          : AdaptiveReferenceSystem)
+        (fp              : AdaptiveFootPrint) 
+        (vp              : aval<Option<AdaptiveViewPlan>>) 
+        (useHighlighting : aval<bool>)
         (filterTexture   : aval<bool>) =
 
         adaptive {
@@ -607,6 +531,7 @@ module ViewerUtils =
         task.Run(null, fbo |> OutputDescription.ofFramebuffer) |> ignore
         let colorImage = runtime.Download(col)
         colorImage
+
 module GaleCrater =
     open PRo3D.Base
 

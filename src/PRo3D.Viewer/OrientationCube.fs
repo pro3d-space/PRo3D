@@ -14,6 +14,8 @@ open Aardvark.UI.Primitives
 open PRo3D
 open PRo3D.Core
 
+//todo move to base
+
 module Shader =
     
     open FShade

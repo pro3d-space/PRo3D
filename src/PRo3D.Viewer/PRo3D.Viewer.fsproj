@@ -23,12 +23,9 @@
     <Compile Include="Models\Model.fs" />
     <Compile Include="Models\VersionedModel.fs" />
     <Compile Include="Utilities.fs" />
-    <Compile Include="FalseColorLegendApp.fs" />
-    <Compile Include="DipAndStrike.fs" />
     <Compile Include="OrientationCube.fs" />
     <Compile Include="Navigation-Model.fs" />
     <Compile Include="Bookmark-Model.fs" />
-    <Compile Include="Csv.fs" />
     <Compile Include="Drawing\Drawing-Properties.fs" />
     <Compile Include="Drawing\Drawing-Model.fs" />
     <Compile Include="Drawing\DrawingUtilities.fs" />
@@ -43,18 +40,16 @@
     <Compile Include="Surface\Surface-Properties.fs" />
     <Compile Include="Surface\Surface.Files.fs" />
     <Compile Include="Surface\Surface.Sg.fs" />
-    <Compile Include="Surface\Surface.fs" />
-    <Compile Include="Properties.fs" />
+    <Compile Include="Surface\SurfaceApp.fs" />
+    <Compile Include="ViewConfigApp.fs" />
     <Compile Include="CorrelationPanelsAppModel.fs" />
+    <Compile Include="CorrelationPanelsApp.fs" />
     <Compile Include="DockConfigs.fs" />
     <Compile Include="Viewer-Model.fs" />
-    <Compile Include="CorrelationPanelsApp.fs" />
     <Compile Include="Bookmarks.fs" />
     <Compile Include="Scene.fs" />
 
     <Compile Include="LensConfigs.fs" />
-    <Compile Include="AnnotationGroupsImporter.fs" />
-    <Compile Include="RoverPlacementImporter.fs" />
     <Compile Include="Viewer\Viewer-Utils.fs" />
     <Compile Include="Viewer\ViewerGUI.fs" />
     <Compile Include="Viewer\Viewer-IO.fs" />

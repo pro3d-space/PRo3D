@@ -253,7 +253,7 @@ module Sg =
             Sg.drawLines polyPoints offset color thickness trafo //polyline
             //Sg.dots polyPoints (AVal.constant C4b.VRVisGreen) // debug sample points
             //Sg.drawSpheres points thickness color                     //support points
-            Sg.drawPointList 
+            PRo3D.Base.Sg.drawPointList 
               points 
               (C4b.VRVisGreen |> AVal.constant)//(color     |> AVal.map (fun x -> (x |> PRo3D.Sg.createSecondaryColor)))
               (thickness |> AVal.map (fun x -> x * 1.5)) 
