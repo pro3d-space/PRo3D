@@ -63,3 +63,5 @@ src\Aardvark.OpcViewer.psess
 *.domaincache
 /.paket
 /bin/Converter
+/src/PRo3D.SimulatedViews/bin/Release/netcoreapp3.1
+/src/PRo3D.Core/bin/Release/netcoreapp3.1
