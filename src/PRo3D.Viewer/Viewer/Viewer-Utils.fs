@@ -31,6 +31,7 @@ open PRo3D.SimulatedViews
 
 
 open Adaptify.FSharp.Core
+open OpcViewer.Base.Shader
 
 module ViewerUtils =    
 
@@ -409,13 +410,14 @@ module ViewerUtils =
             PRo3D.Base.Shader.markPatchBorders |> toEffect
             //PRo3D.Base.Shader.differentColor   |> toEffect
                         
-            //Shader.LoDColor                |> toEffect                             
+            OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
          //   PRo3D.Base.Shader.falseColorLegend2 |> toEffect
             PRo3D.Base.Shader.mapColorAdaption  |> toEffect            
             //PRo3D.Base.OtherShader.Shader.footprintV        |> toEffect //TODO reactivate viewplanner
             //PRo3D.Base.OtherShader.Shader.footPrintF        |> toEffect
         ]
 
+    //TODO TO refactor screenshot specific
     let getSurfacesScenegraphs (m:AdaptiveModel) =
         let sgGrouped = m.scene.surfacesModel.sgGrouped
         
@@ -445,7 +447,7 @@ module ViewerUtils =
                         set 
                         |> Sg.set
                         |> Sg.effect [surfaceEffect]
-                        |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
+                        //|> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
                         |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()                        
 
                     yield  sg
@@ -456,6 +458,7 @@ module ViewerUtils =
             }                              
         sgs
   
+    //TODO TO refactor screenshot specific
     let getSurfacesSgWithCamera (m : AdaptiveModel) =
         let sgs = getSurfacesScenegraphs m
         let camera =
@@ -543,6 +546,7 @@ module GaleCrater =
     let galeTrafo = V3d(0.0,0.0,-560.92)
 
     let _translation = Surface.transformation_ >-> Transformations.translation_ >-> V3dInput.value_
+    let _quality = Surface.quality_ >-> NumericInput.value_
 
     let hack surfaces =
 
@@ -555,14 +559,17 @@ module GaleCrater =
                         |> Path.GetFileName 
                         |> String.split('_')
                     
-                    let gridCoord = new V2i((parsedPath.[1] |> Int32.Parse), (parsedPath.[2] |> Int32.Parse))
-                    galeBounds.Contains(gridCoord)                          
+                    //let gridCoord = new V2i((parsedPath.[1] |> Int32.Parse), (parsedPath.[2] |> Int32.Parse))
+                    //galeBounds.Contains(gridCoord)   
+                    true
                 else
                     true
             )
             |> IndexList.map(fun x ->
                 if isGale x then
-                    x |> Optic.set _translation galeTrafo
+                    x 
+                    |> Optic.set _translation galeTrafo
+                    |> Optic.set _quality (0.1)
                 else    
                     x
             )
