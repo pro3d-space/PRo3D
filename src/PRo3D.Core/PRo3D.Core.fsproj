@@ -34,7 +34,6 @@
     <Compile Include="Importers/MeasurementsImporter.fs" />
     <Compile Include="Importers/AnnotationGroupsImporter.fs" />
     <Compile Include="Importers/SurfaceTrafoImporter.fs" />
-    <Compile Include="Importers/SurfaceTrafoImporter.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CSharpUtils\CSharpUtils.csproj" />
