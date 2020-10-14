@@ -15,10 +15,10 @@ open PRo3D
 open PRo3D.Base
 open PRo3D.Base.Annotation
 open PRo3D.Core
+open PRo3D.Core.Drawing
 open PRo3D.SimulatedViews
 open PRo3D.Surfaces
 open PRo3D.Navigation2
-open PRo3D.Align
 
 open PRo3D.SimulatedViews
 
@@ -45,7 +45,7 @@ type BookmarkAction =
     | PrintViewParameters of Guid
 
 type PropertyActions =
-    | DrawingMessage    of Drawing.Action
+    | DrawingMessage    of DrawingAction
     | AnnotationMessage of AnnotationProperties.Action
 
 //type CorrelationPanelsMessage = 
@@ -67,7 +67,7 @@ type PropertyActions =
 //    | PlaneExtrudeAction of PlaneExtrude.App.Action
 
 type ViewerAction =                
-    | DrawingMessage                  of Drawing.Action
+    | DrawingMessage                  of DrawingAction
     | AnnotationGroupsMessageViewer   of GroupsAppAction
     | NavigationMessage               of Navigation.Action
     | AnimationMessage                of AnimationAction
@@ -113,8 +113,7 @@ type ViewerAction =
     | SurfaceActions                  of SurfaceAppAction
     | MinervaActions                  of PRo3D.Minerva.MinervaAction
     //| ScaleToolAction                 of ScaleToolAction
-    | LinkingActions                  of PRo3D.Linking.LinkingAction
-    | AlignmentActions                of PRo3D.Align.AlignmentActions
+    | LinkingActions                  of PRo3D.Linking.LinkingAction    
     | SetTabMenu                      of TabMenu
     | OpenSceneFileLocation           of string
     | NoAction                        of string
@@ -146,7 +145,7 @@ and MailboxState = {
 and MailboxAction =
 | ViewerAction  of ViewerAction
 | InitMailboxState of MailboxState  
-| DrawingAction of PRo3D.Drawing.Action 
+| DrawingAction of PRo3D.Core.Drawing.DrawingAction 
 
 [<ModelType>] 
 type Scene = {
@@ -286,7 +285,7 @@ type MultiSelectionBox =
 type Model = { 
     startupArgs          : StartupArgs
     scene                : Scene
-    drawing              : Drawing.DrawingModel    
+    drawing              : PRo3D.Core.Drawing.DrawingModel
     interaction          : Interactions
     recent               : Recent
     waypoints            : IndexList<WayPoint>
@@ -295,8 +294,7 @@ type Model = {
                          
     trafoKind            : TrafoKind
     trafoMode            : TrafoMode
-                         
-    alignment            : AlignmentModel
+                             
     tabMenu              : TabMenu
                          
     viewerMode           : ViewerMode
@@ -484,9 +482,7 @@ module Viewer =
             waypoints       = IndexList.empty
 
             trafoKind       = TrafoKind.Rotate
-            trafoMode       = TrafoMode.Local
-
-            alignment       = Alignment.initModel
+            trafoMode       = TrafoMode.Local            
 
             past            = None
             future          = None

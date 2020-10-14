@@ -25,9 +25,7 @@ open Chiron
 
 
 //TODO make nice api for serialization
-module ViewerIO =  
-    open PRo3D.Correlations
-    
+module ViewerIO =          
 
     //rover data
     let loadRoverData (m:Model) =

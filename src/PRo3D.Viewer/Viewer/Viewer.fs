@@ -31,23 +31,17 @@ open PRo3D
 open PRo3D.Base
 open PRo3D.Base.Annotation
 open PRo3D.Core
+open PRo3D.Core.Drawing
 open PRo3D.Navigation2
 open PRo3D.Bookmarkings
 
 open PRo3D.Surfaces
 open PRo3D.Viewer
-open PRo3D.Drawing
 open PRo3D.OrientationCube
 
 open PRo3D.SimulatedViews
 open PRo3D.Minerva
 open PRo3D.Linking
-open PRo3D.Correlations
-//open CorrelationDrawing.Model
-
-//open CorrelationDrawing.LogTypes
-//open CorrelationDrawing.Nuevo
-//open CorrelationDrawing.AnnotationTypes
  
 open Aether
 open Aether.Operators

@@ -64,7 +64,6 @@ let viewerVersion       = "3.1.0-prerelease1"
 let catchDomainErrors   = false
 
 open System.IO
-open PRo3D.DrawingUtilities
 
 let rec allFiles dirs =
     if Seq.isEmpty dirs then Seq.empty else

@@ -29,11 +29,10 @@ open PRo3D
 open PRo3D.Base
 open PRo3D.Base.Annotation
 open PRo3D.Core
+open PRo3D.Core.Drawing
 
 open PRo3D.Surfaces
 open PRo3D.Bookmarkings
-
-open PRo3D.Correlations
 
 open PRo3D.SimulatedViews
 
@@ -588,6 +587,50 @@ module Gui =
                 GuiEx.accordion "Dip&Strike ColorLegend" "paint brush" false [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDnSColorLegendUI m))] 
                 ]    
+
+        let jsOpenAnnotationFileDialog = 
+            "top.aardvark.dialog.showOpenDialog({ title: 'Import Annotations', filters: [{ name: 'Annotations (*.ann)', extensions: ['ann']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+        let jsExportAnnotationsFileDialog = 
+            "top.aardvark.dialog.showSaveDialog({ title: 'Save Annotations as', filters:  [{ name: 'Annotations (*.pro3d.ann)', extensions: ['pro3d.ann'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
+
+        let jsExportAnnotationsAsCSVDialog =
+            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
+            
+
+        let annotationMenu = //todo move to viewer io gui
+            div [ clazz "ui dropdown item"] [
+                text "Annotations"
+                i [clazz "dropdown icon"][] 
+                div [ clazz "menu"] [                    
+                    div [
+                        clazz "ui inverted item"
+                        Dialogs.onChooseFiles AddAnnotations
+                        clientEvent "onclick" jsOpenAnnotationFileDialog
+                    ][
+                        text "Import"
+                    ]
+                    div [
+                        clazz "ui inverted item"; onMouseClick (fun _ -> Clear)
+                    ][
+                        text "Clear"
+                    ]                
+                    div [ 
+                        clazz "ui inverted item"
+                        Dialogs.onSaveFile ExportAsAnnotations
+                        clientEvent "onclick" jsExportAnnotationsFileDialog
+                    ][
+                        text "Export (*.pro3d.ann)"
+                    ]
+                    div [ 
+                        clazz "ui inverted item"
+                        Dialogs.onSaveFile ExportAsCsv
+                        clientEvent "onclick" jsExportAnnotationsAsCSVDialog
+                    ][
+                        text "Export (*.csv)"
+                    ]     
+                ]
+            ]         
 
     module Config =
       let config (model : AdaptiveModel) = 

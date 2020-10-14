@@ -1,4 +1,4 @@
-namespace PRo3D.DrawingApp
+namespace PRo3D.Core.Drawing
 
 open System
 
@@ -10,10 +10,10 @@ open Aardvark.UI
 open Aardvark.UI.Primitives    
 
 open PRo3D
+open PRo3D.Base
 open PRo3D.Base.Annotation
 open PRo3D.Core
-open PRo3D.Drawing
-open PRo3D.Base
+open PRo3D.Core.Drawing
 
 
 module UI =
@@ -43,49 +43,7 @@ module UI =
             | Some selected -> selected = a.key
             | None -> false )
     
-    let jsOpenAnnotationFileDialog = 
-        "top.aardvark.dialog.showOpenDialog({ title: 'Import Annotations', filters: [{ name: 'Annotations (*.ann)', extensions: ['ann']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
-
-    let jsExportAnnotationsFileDialog = 
-        "top.aardvark.dialog.showSaveDialog({ title: 'Save Annotations as', filters:  [{ name: 'Annotations (*.pro3d.ann)', extensions: ['pro3d.ann'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
-
-    let jsExportAnnotationsAsCSVDialog =
-        "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
-        
-
-    let annotationMenu = //todo move to viewer io gui
-        div [ clazz "ui dropdown item"] [
-            text "Annotations"
-            i [clazz "dropdown icon"][] 
-            div [ clazz "menu"] [                    
-                div [
-                    clazz "ui inverted item"
-                    Dialogs.onChooseFiles AddAnnotations
-                    clientEvent "onclick" jsOpenAnnotationFileDialog
-                ][
-                    text "Import"
-                ]
-                div [
-                    clazz "ui inverted item"; onMouseClick (fun _ -> Clear)
-                ][
-                    text "Clear"
-                ]                
-                div [ 
-                    clazz "ui inverted item"
-                    Dialogs.onSaveFile ExportAsAnnotations
-                    clientEvent "onclick" jsExportAnnotationsFileDialog
-                ][
-                    text "Export (*.pro3d.ann)"
-                ]
-                div [ 
-                    clazz "ui inverted item"
-                    Dialogs.onSaveFile ExportAsCsv
-                    clientEvent "onclick" jsExportAnnotationsAsCSVDialog
-                ][
-                    text "Export (*.csv)"
-                ]     
-            ]
-        ]                    
+               
     
     let viewAnnotations (annotations : alist<AdaptiveAnnotation>) : alist<DomNode<Action>> =      
         annotations 
@@ -199,7 +157,7 @@ module UI =
         else
             i [clazz icon; onClick (fun _ -> onClickAction)] [] |> UI.wrapToolTipBottom toolTipText
                 
-    let rec viewTree path (group : AdaptiveNode) (model : AdaptiveGroupsModel) (lookup : amap<Guid, AdaptiveAnnotation>) : DomNode<Action> =
+    let rec viewTree path (group : AdaptiveNode) (model : AdaptiveGroupsModel) (lookup : amap<Guid, AdaptiveAnnotation>) : DomNode<DrawingAction> =
                                                   
         let activeIcon =
             adaptive {
@@ -235,7 +193,7 @@ module UI =
            
         let itemAttributes =
             amap {
-                yield onMouseClick (fun _ -> Action.GroupsMessage(GroupsAppAction.ToggleExpand path))
+                yield onMouseClick (fun _ -> DrawingAction.GroupsMessage(GroupsAppAction.ToggleExpand path))
                 let! expanded = group.expanded
                 if expanded then 
                     yield clazz "icon outline open folder"
@@ -254,11 +212,11 @@ module UI =
 
         let singleSelect = 
             fun (a:AdaptiveAnnotation,path:list<Index>) -> 
-                Action.GroupsMessage(GroupsAppAction.SingleSelectLeaf (path, a.key, ""))
+                DrawingAction.GroupsMessage(GroupsAppAction.SingleSelectLeaf (path, a.key, ""))
 
         let multiSelect = 
             fun (a:AdaptiveAnnotation,path:list<Index>) -> 
-                Action.GroupsMessage(GroupsAppAction.AddLeafToSelection (path, a.key, ""))
+                DrawingAction.GroupsMessage(GroupsAppAction.AddLeafToSelection (path, a.key, ""))
 
         let lift = fun (a:GroupsAppAction) -> (GroupsMessage a)
 
