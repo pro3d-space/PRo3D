@@ -305,7 +305,7 @@ module ViewerApp =
                 | ViewerMode.Standard -> m.navigation.camera.view
                 | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam 
 
-            let msg = Drawing.Action.AddPointAdv(p, hitFunction, surf.name)
+            let msg = DrawingAction.AddPointAdv(p, hitFunction, surf.name)
             let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig bc view m.drawing msg
             //Log.stop()
             { m with drawing = drawing } |> stash
@@ -799,19 +799,19 @@ module ViewerApp =
           
             let drawingAction =
                 match k with
-                | Aardvark.Application.Keys.Enter    -> Drawing.Action.Finish
-                | Aardvark.Application.Keys.Back     -> Drawing.Action.RemoveLastPoint
-                | Aardvark.Application.Keys.Escape   -> Drawing.Action.ClearWorking
+                | Aardvark.Application.Keys.Enter    -> DrawingAction.Finish
+                | Aardvark.Application.Keys.Back     -> DrawingAction.RemoveLastPoint
+                | Aardvark.Application.Keys.Escape   -> DrawingAction.ClearWorking
                 | Aardvark.Application.Keys.LeftCtrl -> 
                     match m.interaction with 
-                    | Interactions.DrawAnnotation -> Drawing.Action.StartDrawing
-                    | Interactions.PickAnnotation -> Drawing.Action.StartPicking
-                    | _ -> Drawing.Action.Nop
-                | Aardvark.Application.Keys.D0 -> Drawing.Action.SetSemantic Semantic.Horizon0
-                | Aardvark.Application.Keys.D1 -> Drawing.Action.SetSemantic Semantic.Horizon1
-                | Aardvark.Application.Keys.D2 -> Drawing.Action.SetSemantic Semantic.Horizon2
-                | Aardvark.Application.Keys.D3 -> Drawing.Action.SetSemantic Semantic.Horizon3 
-                | _  -> Drawing.Action.Nop
+                    | Interactions.DrawAnnotation -> DrawingAction.StartDrawing
+                    | Interactions.PickAnnotation -> DrawingAction.StartPicking
+                    | _ -> DrawingAction.Nop
+                | Aardvark.Application.Keys.D0 -> DrawingAction.SetSemantic Semantic.Horizon0
+                | Aardvark.Application.Keys.D1 -> DrawingAction.SetSemantic Semantic.Horizon1
+                | Aardvark.Application.Keys.D2 -> DrawingAction.SetSemantic Semantic.Horizon2
+                | Aardvark.Application.Keys.D3 -> DrawingAction.SetSemantic Semantic.Horizon3 
+                | _  -> DrawingAction.Nop
 
             let m =
                 match k with 
@@ -837,7 +837,7 @@ module ViewerApp =
                     let view = m.navigation.camera.view
                     let m = { m with drawing = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.drawing drawingAction } |> stash
                     match drawingAction with
-                    | Drawing.Action.Finish -> { m with tabMenu = TabMenu.Annotations }
+                    | Drawing.DrawingAction.Finish -> { m with tabMenu = TabMenu.Annotations }
                     | _ -> m                     
                 | _ -> m
                                     
@@ -971,11 +971,11 @@ module ViewerApp =
                 match m.interaction with
                 | Interactions.DrawAnnotation -> 
                     let view = m.navigation.camera.view
-                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.drawing Drawing.Action.StopDrawing
+                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.drawing DrawingAction.StopDrawing
                     { m with drawing = d; ctrlFlag = false; picking = false }
                 | Interactions.PickAnnotation -> 
                     let view = m.navigation.camera.view
-                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.drawing Drawing.Action.StopPicking 
+                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.drawing DrawingAction.StopPicking 
                     { m with drawing = d; ctrlFlag = false; picking = false }
                 | Interactions.PickMinervaProduct -> { m with minervaModel = { m.minervaModel with picking = false }}
                 |_-> { m with ctrlFlag = false; picking = false }

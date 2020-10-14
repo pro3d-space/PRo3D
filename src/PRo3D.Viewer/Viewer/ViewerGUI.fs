@@ -341,7 +341,52 @@ module Gui =
                         ]
                 }
         
-            Incremental.div(AttributeMap.Empty) ui |> UI.map SurfaceActions                
+            Incremental.div(AttributeMap.Empty) ui |> UI.map SurfaceActions      
+            
+
+        let jsOpenAnnotationFileDialog = 
+            "top.aardvark.dialog.showOpenDialog({ title: 'Import Annotations', filters: [{ name: 'Annotations (*.ann)', extensions: ['ann']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+        let jsExportAnnotationsFileDialog = 
+            "top.aardvark.dialog.showSaveDialog({ title: 'Save Annotations as', filters:  [{ name: 'Annotations (*.pro3d.ann)', extensions: ['pro3d.ann'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
+
+        let jsExportAnnotationsAsCSVDialog =
+            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
+              
+
+        let annotationMenu = //todo move to viewer io gui
+            div [ clazz "ui dropdown item"] [
+                text "Annotations"
+                i [clazz "dropdown icon"][] 
+                div [ clazz "menu"] [                    
+                    div [
+                        clazz "ui inverted item"
+                        Dialogs.onChooseFiles AddAnnotations
+                        clientEvent "onclick" jsOpenAnnotationFileDialog
+                    ][
+                        text "Import"
+                    ]
+                    div [
+                        clazz "ui inverted item"; onMouseClick (fun _ -> Clear)
+                    ][
+                        text "Clear"
+                    ]                
+                    div [ 
+                        clazz "ui inverted item"
+                        Dialogs.onSaveFile ExportAsAnnotations
+                        clientEvent "onclick" jsExportAnnotationsFileDialog
+                    ][
+                        text "Export (*.pro3d.ann)"
+                    ]
+                    div [ 
+                        clazz "ui inverted item"
+                        Dialogs.onSaveFile ExportAsCsv
+                        clientEvent "onclick" jsExportAnnotationsAsCSVDialog
+                    ][
+                        text "Export (*.csv)"
+                    ]     
+                ]
+            ]       
         
         let menu (m : AdaptiveModel) =             
 
@@ -360,7 +405,7 @@ module Gui =
                                 div [ clazz "ui dropdown item"] (scene m)
                             
                                 //annotations menu
-                                DrawingApp.UI.annotationMenu |> UI.map DrawingMessage;                                                           
+                                annotationMenu |> UI.map DrawingMessage;                                                           
                                                             
                                 //Extras Menu
                                 div [ clazz "ui dropdown item"] [
@@ -400,7 +445,7 @@ module Gui =
                 let! interaction = m.interaction
                 match interaction with
                 | Interactions.DrawAnnotation -> 
-                    return DrawingApp.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage
+                    return Drawing.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage
                 | Interactions.PlaceRover ->
                     return ViewPlanApp.UI.viewSelectRover m.scene.viewPlans.roverModel |> UI.map RoverMessage
                 | Interactions.PlaceCoordinateSystem -> 
@@ -566,7 +611,7 @@ module Gui =
             div [][
                 GuiEx.accordion "Annotations" "Write" true [
                     GroupsApp.viewSelectionButtons |> UI.map AnnotationGroupsMessageViewer
-                    PRo3D.DrawingApp.UI.viewAnnotationGroups m.drawing |> UI.map ViewerAction.DrawingMessage
+                    Drawing.UI.viewAnnotationGroups m.drawing |> UI.map ViewerAction.DrawingMessage
                    // DrawingApp.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage // CHECK-merge viewAnnotationGroups
                 ]
                 GuiEx.accordion "Properties" "Content" true [
@@ -588,49 +633,7 @@ module Gui =
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDnSColorLegendUI m))] 
                 ]    
 
-        let jsOpenAnnotationFileDialog = 
-            "top.aardvark.dialog.showOpenDialog({ title: 'Import Annotations', filters: [{ name: 'Annotations (*.ann)', extensions: ['ann']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
-        let jsExportAnnotationsFileDialog = 
-            "top.aardvark.dialog.showSaveDialog({ title: 'Save Annotations as', filters:  [{ name: 'Annotations (*.pro3d.ann)', extensions: ['pro3d.ann'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
-
-        let jsExportAnnotationsAsCSVDialog =
-            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
-            
-
-        let annotationMenu = //todo move to viewer io gui
-            div [ clazz "ui dropdown item"] [
-                text "Annotations"
-                i [clazz "dropdown icon"][] 
-                div [ clazz "menu"] [                    
-                    div [
-                        clazz "ui inverted item"
-                        Dialogs.onChooseFiles AddAnnotations
-                        clientEvent "onclick" jsOpenAnnotationFileDialog
-                    ][
-                        text "Import"
-                    ]
-                    div [
-                        clazz "ui inverted item"; onMouseClick (fun _ -> Clear)
-                    ][
-                        text "Clear"
-                    ]                
-                    div [ 
-                        clazz "ui inverted item"
-                        Dialogs.onSaveFile ExportAsAnnotations
-                        clientEvent "onclick" jsExportAnnotationsFileDialog
-                    ][
-                        text "Export (*.pro3d.ann)"
-                    ]
-                    div [ 
-                        clazz "ui inverted item"
-                        Dialogs.onSaveFile ExportAsCsv
-                        clientEvent "onclick" jsExportAnnotationsAsCSVDialog
-                    ][
-                        text "Export (*.csv)"
-                    ]     
-                ]
-            ]         
 
     module Config =
       let config (model : AdaptiveModel) = 

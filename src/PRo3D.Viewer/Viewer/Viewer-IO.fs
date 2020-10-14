@@ -11,7 +11,7 @@ open PRo3D.Base
 open PRo3D.Minerva
 open PRo3D.Linking
 open PRo3D.Core
-open PRo3D.Drawing
+open PRo3D.Core.Drawing
 open PRo3D.Viewer
 open PRo3D.SimulatedViews
 
@@ -67,7 +67,7 @@ module ViewerIO =
             }   
 
     let saveVersioned' (model : DrawingModel) (paths : ScenePaths) =        
-        PRo3D.Drawing.IO.saveVersioned model paths.annotations                
+        PRo3D.Core.Drawing.IO.saveVersioned model paths.annotations                
         
         
     let tryLoadAnnotations (scenePath : string) : option<Annotations> =
