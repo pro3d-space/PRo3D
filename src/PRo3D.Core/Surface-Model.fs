@@ -1,4 +1,4 @@
-namespace PRo3D.Core
+namespace PRo3D.Core.Surface
 
 open System
 open Aardvark.Base
@@ -17,6 +17,7 @@ open DevILSharp.ILU
 open Chiron
 
 open PRo3D.Base
+open PRo3D.Core
 
 open Adaptify
 
@@ -234,7 +235,10 @@ type Transformations = {
             do! Json.write "pivot" (x.pivot.ToString())
         }
 
-
+type SurfaceTrafo = {
+    id : string
+    trafo: Trafo3d
+}
 
 type SurfaceType = 
     | SurfaceOPC = 0

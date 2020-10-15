@@ -30,8 +30,7 @@ open PRo3D.Base
 open PRo3D.Base.Annotation
 open PRo3D.Core
 open PRo3D.Core.Drawing
-
-open PRo3D.Surfaces
+open PRo3D.Core.Surface
 open PRo3D.Bookmarkings
 
 open PRo3D.SimulatedViews

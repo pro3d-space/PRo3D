@@ -16,8 +16,9 @@ open PRo3D.Base
 open PRo3D.Base.Annotation
 open PRo3D.Core
 open PRo3D.Core.Drawing
+open PRo3D.Core.Surface
 open PRo3D.SimulatedViews
-open PRo3D.Surfaces
+open PRo3D.Core.Surface
 open PRo3D.Navigation2
 
 open PRo3D.SimulatedViews

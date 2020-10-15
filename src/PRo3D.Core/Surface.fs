@@ -1,4 +1,4 @@
-﻿namespace PRo3D.Core
+﻿namespace PRo3D.Core.Surface
 
 open System
 open Aardvark.Base
@@ -11,7 +11,10 @@ open OpcViewer.Base.Picking
 open Aardvark.SceneGraph
 open Aardvark.SceneGraph.Opc
 open Aardvark.VRVis.Opc
+
+open PRo3D.Base
 open PRo3D.Core
+open PRo3D.Core.Surface
 open PRo3DCompability
 
 module SurfaceTransformations = 

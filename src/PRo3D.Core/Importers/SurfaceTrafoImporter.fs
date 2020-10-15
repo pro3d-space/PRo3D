@@ -3,11 +3,7 @@ namespace PRo3D.Core
 open FSharp.Data.Adaptive
 open Adaptify
 open Aardvark.Base
-
-type SurfaceTrafo = {
-    id : string
-    trafo: Trafo3d
-}
+open PRo3D.Core.Surface
 
 [<ModelType>]
 type SurfaceTrafoImporterModel = {

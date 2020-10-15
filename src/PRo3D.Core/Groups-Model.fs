@@ -10,8 +10,10 @@ open Aardvark.Geometry
 open Aardvark.SceneGraph.Opc 
 
 open PRo3D
+open PRo3D.Base
 open PRo3D.Base.Annotation
 open PRo3D.Core
+open PRo3D.Core.Surface
 open Chiron
 
 #nowarn "0044"

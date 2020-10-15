@@ -1,9 +1,8 @@
-﻿namespace PRo3D.Core
+﻿namespace PRo3D.Base
 
 open System
 open Aardvark.Base
 open Aardvark.UI
-open PRo3D.Base
 
 open Chiron
 open Adaptify

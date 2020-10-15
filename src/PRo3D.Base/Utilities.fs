@@ -14,8 +14,24 @@ open Aardvark.Rendering.Text
 open OpcViewer.Base
 open OpcViewer.Base.Shader
 open FShade
+open System.IO
 
 //TODO refactor: cleanup utilities, move to other projects if applicable, remove dupblicate code from PRo3D.Viewer Utilities
+
+module Box3d =
+    let extendBy (box:Aardvark.Base.Box3d) (b:Aardvark.Base.Box3d) =
+        box.ExtendBy(b)
+        box
+
+    let ofSeq (bs:seq<Aardvark.Base.Box3d>) =
+        let box = 
+            match bs |> Seq.tryHead with
+            | Some b -> b
+            | None -> failwith "box sequence must not be empty"
+                    
+        for b in bs do
+            box.ExtendBy(b)
+        box
 
 module Double =
     let degreesFromRadians (d:float) =
@@ -767,6 +783,36 @@ module AList =
             x |> IndexList.toList |> List.pairwise |> IndexList.ofList
         )
         |> AList.ofAVal
+
+module Copy =
+    let rec copyAll' (source : DirectoryInfo) (target : DirectoryInfo) skipExisting =
+        
+        // Check if the target directory exists, if not, create it.
+        if not(Directory.Exists target.FullName) then
+            Directory.CreateDirectory target.FullName |> ignore
+
+        // Copy each file into it's new directory.
+        for fi in source.GetFiles() do
+             let sourceFile = fi.FullName
+             let targetFile = Path.Combine(target.FullName, fi.Name)
+
+             if ((sourceFile.ToLower() == targetFile.ToLower()) || (skipExisting && File.Exists(targetFile))) then
+                Log.warn "Skipping %s, already exists" targetFile
+             else
+                Log.line "Copying to %s" targetFile
+                fi.CopyTo(Path.Combine((target.ToString()), fi.Name), true) |> ignore      
+                
+        // Copy each subdirectory using recursion.
+        let bla = source.GetDirectories()
+        for srcSubDir in bla do
+            let nextTgtSubDir = target.CreateSubdirectory(srcSubDir.Name)
+            copyAll' srcSubDir nextTgtSubDir skipExisting
+
+    let copyAll source target skipExisting=
+        let s = DirectoryInfo(source)
+        let t = DirectoryInfo(target)
+
+        copyAll' s t skipExisting
 
 [<AutoOpen>]
 module ScreenshotUtilities = 

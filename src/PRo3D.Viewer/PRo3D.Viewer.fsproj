@@ -29,12 +29,7 @@
     <Compile Include="OrientationCube.fs" />
     <Compile Include="Navigation-Model.fs" />
     <Compile Include="Bookmark-Model.fs" />
-    <Compile Include="Navigation.fs" />
-    <Compile Include="Surface\Translation.fs" />
-    <Compile Include="Surface\Surface-Properties.fs" />
-    <Compile Include="Surface\Surface.Files.fs" />
-    <Compile Include="Surface\Surface.Sg.fs" />
-    <Compile Include="Surface\SurfaceApp.fs" />
+    <Compile Include="Navigation.fs" />  
     <Compile Include="ViewConfigApp.fs" />
     <Compile Include="DockConfigs.fs" />
     <Compile Include="Viewer-Model.fs" />

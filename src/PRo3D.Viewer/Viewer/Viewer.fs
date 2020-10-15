@@ -35,7 +35,7 @@ open PRo3D.Core.Drawing
 open PRo3D.Navigation2
 open PRo3D.Bookmarkings
 
-open PRo3D.Surfaces
+open PRo3D.Core.Surface
 open PRo3D.Viewer
 open PRo3D.OrientationCube
 

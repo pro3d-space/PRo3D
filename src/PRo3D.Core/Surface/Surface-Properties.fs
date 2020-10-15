@@ -1,4 +1,4 @@
-namespace PRo3D.Surfaces
+namespace PRo3D.Core.Surface
 
 open System
 open FSharp.Data.Adaptive
@@ -14,6 +14,7 @@ open Aardvark.VRVis
 open PRo3D
 open PRo3D.Base
 open PRo3D.Core
+open PRo3D.Core.Surface
 
 module SurfaceProperties =        
 

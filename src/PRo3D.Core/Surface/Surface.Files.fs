@@ -1,4 +1,4 @@
-namespace PRo3D.Surfaces
+namespace PRo3D.Core.Surface
 
 open System
 open System.IO
@@ -20,7 +20,9 @@ open Aardvark.UI.Operators
 open Aardvark.UI.Trafos  
 
 open PRo3D
+open PRo3D.Base
 open PRo3D.Core
+open PRo3D.Core.Surface
 open PRo3DCompability
 
 
@@ -252,7 +254,7 @@ module Files =
                            match s with
                                |Leaf.Surfaces sf -> 
                                    let targetDir = Path.Combine(targetSurfaceDir, sf.name)
-                                   Copy.copyAll sf.importPath targetDir true
+                                   PRo3D.Base.Copy.copyAll sf.importPath targetDir true
 
                                    // update opc paths and scene
                                    let s' = { sf with opcPaths = expandNamesToPaths targetDir sf.opcNames; relativePaths = true }

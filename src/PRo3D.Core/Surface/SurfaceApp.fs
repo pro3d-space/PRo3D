@@ -1,4 +1,4 @@
-namespace PRo3D.Surfaces
+namespace PRo3D.Core.Surface
 
 open System
 open System.IO
@@ -23,6 +23,7 @@ open OpcViewer.Base.Picking
 open PRo3D
 open PRo3D.Base
 open PRo3D.Core
+open PRo3D.Core.Surface
 
 open Adaptify.FSharp.Core
 
@@ -224,7 +225,7 @@ module SurfaceUtils =
                                             
 module SurfaceApp =
                 
-    let updateTrafo (trafo : SurfaceTrafo) (surfaces : HashMap<string,Surface>) (model : SurfaceModel) = 
+    let updateTrafo (trafo : PRo3D.Core.Surface.SurfaceTrafo) (surfaces : HashMap<string,Surface>) (model : SurfaceModel) = 
         match surfaces.TryFind(trafo.id) with
         | Some s -> 
           let f = (fun _ -> { s with preTransform = trafo.trafo } |> Leaf.Surfaces)
@@ -242,7 +243,7 @@ module SurfaceApp =
                (surf.name, surf))
             |> HashMap.ofList
         
-        let rec update (p : list<SurfaceTrafo>) (model:SurfaceModel)  =
+        let rec update (p : list<SurfaceTrafo>) (model:SurfaceModel) =
             match p with
             | x::rest -> 
                 match rest with

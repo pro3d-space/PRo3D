@@ -1,13 +1,11 @@
 ﻿namespace FSharp.Data.Adaptive
 
 
+open FSharp.Data.Adaptive
+open Adaptify.FSharp.Core
+
 [<AutoOpen>]
 module MissingFunctionality = 
-
-
-    open FSharp.Data.Adaptive
-    open Adaptify.FSharp.Core
-
 
     module HashMap =
         let values (v : HashMap<_,_>) = v |> HashMap.toSeq |> Seq.map snd
@@ -105,7 +103,6 @@ module Missing =
             match a with
             | AdaptiveSome a -> Some a
             | AdaptiveNone -> None
-
 
 namespace Aardvark.Rendering.Text
 
