@@ -141,22 +141,22 @@ module ReferenceSystemApp =
                     let! north = model.northO //model.north.value 
                     let! view = camera.view
                     return DipAndStrike.bearing up north view.Forward
-                    }
+                }
 
             let pitch = 
                 adaptive {
                     let! up = model.up.value
                     let! view = camera.view
                     return DipAndStrike.pitch up view.Forward
-                    }
+                }
 
             let altitude = 
                 adaptive {
-                        let! pos = model.origin
-                        let! planet = model.planet
-                        let! up = model.up.value
-                        return CooTransformation.getAltitude pos up planet
-                    }
+                    let! pos = model.origin
+                    let! planet = model.planet
+                    let! up = model.up.value
+                    return CooTransformation.getAltitude pos up planet
+                }
 
             require GuiEx.semui (
                 Html.table [                                                

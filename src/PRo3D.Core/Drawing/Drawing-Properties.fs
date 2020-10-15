@@ -1,4 +1,4 @@
-namespace PRo3D
+namespace PRo3D.Core.Drawing
 
 open System
 open Adaptify.FSharp.Core

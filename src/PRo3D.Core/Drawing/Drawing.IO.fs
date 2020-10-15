@@ -1,5 +1,4 @@
-﻿namespace PRo3D.Drawing
-
+﻿namespace PRo3D.Core.Drawing
 open Aardvark.Base
 open PRo3D
 open PRo3D.Base

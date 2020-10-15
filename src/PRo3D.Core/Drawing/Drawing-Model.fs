@@ -1,4 +1,4 @@
-namespace PRo3D.Drawing
+namespace PRo3D.Core.Drawing
 
 open System
 open Aardvark.Base
@@ -15,7 +15,7 @@ open PRo3D.Base
 open PRo3D.Base.Annotation
 open PRo3D.Core
 
-type Action =
+type DrawingAction =
   | SetSemantic         of Semantic
   | ChangeColor         of ColorPicker.Action
   | ChangeThickness     of Numeric.Action
@@ -70,7 +70,7 @@ type DrawingModel = {
     annotations: GroupsModel 
     exportPath : Option<string>
 
-    pendingIntersections : ThreadPool<Action>    
+    pendingIntersections : ThreadPool<DrawingAction>    
 
     [<TreatAsValue>]
     past : Option<DrawingModel> 

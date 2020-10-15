@@ -12,6 +12,7 @@
     <OutputPath>..\..\bin\Release\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Config.fs" />
     <Compile Include="Core-Types.fs" />
     <Compile Include="ReferenceSystem-Model.fs" />
     <Compile Include="Surface-Model.fs" />
@@ -22,10 +23,17 @@
     <Compile Include="UI.fs" />
     <Compile Include="ReferenceSystem.fs" />
     <Compile Include="Surface.fs" />
+    <Compile Include="GroupsApp.fs" />
+    <Compile Include="Drawing\Drawing-Properties.fs" />
+    <Compile Include="Drawing\Drawing-Model.fs" />
+    <Compile Include="Drawing\DrawingUtilities.fs" />
+    <Compile Include="Drawing\Drawing.UI.fs" />
+    <Compile Include="Drawing\Drawing.Sg.fs" />
+    <Compile Include="Drawing\Drawing.IO.fs" />
+    <Compile Include="Drawing\Drawing-App.fs" />
     <Compile Include="Importers/MeasurementsImporter.fs" />
     <Compile Include="Importers/AnnotationGroupsImporter.fs" />
     <Compile Include="Importers/SurfaceTrafoImporter.fs" />
-    <Compile Include="GroupsApp.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CSharpUtils\CSharpUtils.csproj" />

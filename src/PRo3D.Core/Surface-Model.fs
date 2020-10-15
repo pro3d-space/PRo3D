@@ -441,7 +441,7 @@ module Init =
 
         
     let quality = {
-        value = 4.5
+        value = 1.0
         min =  -2.0
         max = 5.0
         step = 0.1
