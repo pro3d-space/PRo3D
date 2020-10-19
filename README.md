@@ -28,6 +28,8 @@ PRo3D is based on the functional-first libraries of the [The Aardvark Platform](
 
 Demo data and the pre-built application can be found on our release page: [TODO](TODO).
 
+A video-based introduction to PRo3D can be found in the [Getting Started](http://www.pro3d.space/#started) of [PRo3D.space](http://www.pro3d.space)
+
 # Getting started with from source
 
 * clone
