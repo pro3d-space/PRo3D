@@ -46,6 +46,8 @@ open PRo3D.Linking
 open Aether
 open Aether.Operators
 
+open PRo3D.Core.Surface
+
 type UserFeedback<'a> = {
     id      : string
     text    : string
@@ -679,7 +681,7 @@ module ViewerApp =
 
                 let s = 
                     m.scene.surfacesModel 
-                    |> Surfaces.SurfaceApp.updateSurfaceTrafos imported                
+                    |> SurfaceApp.updateSurfaceTrafos imported                
 
                 m |> Optic.set SceneLoader._surfaceModelLens s  
             | None -> m
@@ -699,7 +701,7 @@ module ViewerApp =
                 m
             else 
                 m
-        | PickSurface (p,name), _ ,true ->
+        | ViewerAction.PickSurface (p,name), _ ,true ->
             let fray = p.globalRay.Ray
             let r = fray.Ray
             let rayHash = r.GetHashCode()              
@@ -1241,7 +1243,7 @@ module ViewerApp =
 
             //blarg
            // m
-        | PickSurface _,_,_ ->
+        | ViewerAction.PickSurface _,_,_ ->
             m
         //| _ -> 
         //    Log.warn "[Viewer] don't know message %A. ignoring it." msg
@@ -1408,7 +1410,7 @@ module ViewerApp =
                 Navigation.Sg.view m.navigation            
           
             let homePosition =
-                Surfaces.Sg.viewHomePosition m.scene.surfacesModel
+                Sg.viewHomePosition m.scene.surfacesModel
                                  
             let viewPlans =
                 ViewPlanApp.Sg.view 

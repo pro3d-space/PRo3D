@@ -22,6 +22,7 @@ open IPWrappers
 
 open PRo3D.Base
 open PRo3D.Core
+open PRo3D.Core.Surface
 
 open Adaptify.FSharp.Core
 

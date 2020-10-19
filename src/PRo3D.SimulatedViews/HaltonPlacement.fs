@@ -24,6 +24,9 @@ open OpcViewer.Base
 open Adaptify.FSharp.Core
 
 open PRo3D.Core
+open PRo3D.Core.Surface
+
+
 
 module HaltonPlacement =
     let create2DHaltonRandomSeries =
