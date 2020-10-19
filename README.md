@@ -20,15 +20,34 @@ Planetary geology is the most elaborately supported use-case of PRo3D, however w
 * Large data visualization
 * Overlaying of arbitrary 3D surfaces
 
-# Technology
+# Technology & System Requirements
 
-PRo3D is based on the functional-first libraries of the [The Aardvark Platform](https://aardvarkians.com/). In december, we will finish the final bits for mac os finally making the application fully cross-platform.
+PRo3D is based on the functional-first libraries of the [The Aardvark Platform](https://aardvarkians.com/). In December, we will finish the final bits for mac os finally making the application fully cross-platform.
+
+_required:_
+
+CPU: Intel i5 or AMD equivalent
+GPU: dedicated GPU, NVIDIA Geforce 700s Series or greater
+RAM: 8 GB
+
+_recommended:_
+
+CPU: Intel i7 or AMD equivalent
+GPU: NVIDIA Geforce 1650GTX or AMD equivalent
+RAM: 16GB
+
+_technological constraints:_
+
+OS/Runtime: Windows 10 (64bit, v10.0.17763), .NET Standard 2.0 (linux and mac versions are in development)
+Graphics: NVIDIA Kepler Architecture (GTX 6*) or greater
+
+PRo3D's performance may vary with the size and type of datasets and the selected quality settings for surface rendering. PRo3D may as well run on machines beneath the required specification. Most of the time, PRo3D also runs on AMD cards, but it is not guaranteed.
 
 # Getting started from pre-built binaries
 
 Demo data and the pre-built application can be found on our release page: [TODO](TODO).
 
-A video-based introduction to PRo3D can be found in the [Getting Started](http://www.pro3d.space/#started) of [PRo3D.space](http://www.pro3d.space)
+A video-based introduction to PRo3D can be found in the [Getting Started](http://www.pro3d.space/#started) section of [PRo3D.space](http://www.pro3d.space)
 
 # Getting started with from source
 
