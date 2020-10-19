@@ -1,0 +1,32 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <GenerateLenses>True</GenerateLenses>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <WarningLevel>4</WarningLevel>
+    <OutputPath>..\..\bin\Debug\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <OutputPath>..\..\bin\Release\</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>      
+    <Compile Include="Viewplanner\FootPrint-Model.fs" />      
+    <Compile Include="Viewplanner\Rover-Model.fs" />      
+    <Compile Include="Viewplanner\Rover.fs" />      
+    <Compile Include="Viewplanner\ViewPlan-Model.fs" />      
+    <Compile Include="Viewplanner\FootPrint.fs" />      
+    <Compile Include="Viewplanner\RoverPlacementImporter.fs" />      
+    <Compile Include="Viewplanner\ViewPlan.fs" />
+    <Compile Include="Snapshot-Model.fs" />
+    <Compile Include="HaltonPlacement.fs" />
+    <Compile Include="SnapshotAnimation.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
+    <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>

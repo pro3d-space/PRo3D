@@ -91,3 +91,16 @@ module DockConfigs =
             useCachedConfig false
         }
 
+    let renderOnly =
+        config {
+            content (                        
+                horizontal 1.0 [                                                        
+                    stack 1.0 None [
+                        {id = "render"; title = Some " Main View "; weight = 0.6; deleteInvisible = None; isCloseable = None}                       
+                    ]                                                
+                ]                        
+            )
+            appName "PRo3D"
+            useCachedConfig false
+        }
+

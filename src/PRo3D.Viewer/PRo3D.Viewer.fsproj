@@ -18,60 +18,28 @@
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Remove="Drawing\**" />
+  </ItemGroup>
+  <ItemGroup>
     <None Include="paket.references" />
     <Compile Include="Config.fs" />
-    <Compile Include="Serialization.fs" />
     <Compile Include="Models\Model.fs" />
     <Compile Include="Models\VersionedModel.fs" />
     <Compile Include="Utilities.fs" />
-    <Compile Include="ReferenceSystem-Model.fs" />
-    <Compile Include="FalseColorLegendApp.fs" />
-    <Compile Include="DipAndStrike.fs" />
-    <Compile Include="ReferenceSystem.fs" />
     <Compile Include="OrientationCube.fs" />
-    <Compile Include="Surface-Model.fs" />
     <Compile Include="Navigation-Model.fs" />
     <Compile Include="Bookmark-Model.fs" />
-    <Compile Include="Csv.fs" />
-    <Compile Include="GroupsModels.fs" />
-    <Compile Include="Groups.fs" />
-    <Compile Include="Drawing\Drawing-Properties.fs" />
-    <Compile Include="Drawing\Drawing-Model.fs" />
-    <Compile Include="Drawing\DrawingUtilities.fs" />
-    <Compile Include="Drawing\Drawing.UI.fs" />
-    <Compile Include="Drawing\Drawing.Sg.fs" />
-    <Compile Include="Drawing\Drawing.IO.fs" />
-    <Compile Include="Drawing\Drawing.fs" />
-    <Compile Include="MeasurementsImporter.fs" />
-    <Compile Include="Navigation.fs" />
-    <Compile Include="AlignmentModel.fs" />
-    <Compile Include="AlignmentApp.fs" />
-    <Compile Include="Surface\Translation.fs" />
-    <Compile Include="Surface\Surface-Properties.fs" />
-    <Compile Include="Surface\Surface.Files.fs" />
-    <Compile Include="Surface\Surface.Sg.fs" />
-    <Compile Include="Surface\Surface.fs" />
-    <Compile Include="Properties.fs" />
-    <Compile Include="ViewPlanner\Rover-Model.fs" />
-    <Compile Include="ViewPlanner\FootPrint.fs" />
-    <Compile Include="ViewPlanner\Rover.fs" />
-    <Compile Include="ViewPlanner\ViewPlan.fs" />
-    <Compile Include="CorrelationPanelsAppModel.fs" />
+    <Compile Include="Navigation.fs" />  
+    <Compile Include="ViewConfigApp.fs" />
     <Compile Include="DockConfigs.fs" />
     <Compile Include="Viewer-Model.fs" />
-    <Compile Include="CorrelationPanelsApp.fs" />
     <Compile Include="Bookmarks.fs" />
     <Compile Include="Scene.fs" />
 
     <Compile Include="LensConfigs.fs" />
-    <Compile Include="AnnotationGroupsImporter.fs" />
-    <Compile Include="SurfaceTrafoImporter.fs" />
-    <Compile Include="RoverPlacementImporter.fs" />
-    <Compile Include="Viewer\Snapshot-Model.fs" />
     <Compile Include="Viewer\Viewer-Utils.fs" />
     <Compile Include="Viewer\ViewerGUI.fs" />
     <Compile Include="Viewer\Viewer-IO.fs" />
-    <Compile Include="Viewer\SnapshotAnimation.fs" />
     <Compile Include="Viewer\SceneConverter.fs" />
     <Compile Include="Viewer\Viewer.fs" />
     <Compile Include="Viewer\NoGuiViewer.fs" />
@@ -97,7 +65,9 @@
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.2D3DLinking\PRo3D.Linking.fsproj" />
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
+    <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
     <ProjectReference Include="..\PRo3D.Minerva\PRo3D.Minerva.fsproj" />
+    <ProjectReference Include="..\PRo3D.SimulatedViews\PRo3D.SimulatedViews.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

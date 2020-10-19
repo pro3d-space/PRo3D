@@ -1,16 +1,44 @@
 namespace PRo3D.Base
 
-open Aardvark.Base
-open Aardvark.SceneGraph
-open Aardvark.UI
+open System
+
 open FSharp.Data.Adaptive
+
+open Aardvark.Base
 open Aardvark.Base.Rendering
-open Aardvark.Rendering.Text
-open OpcViewer.Base
+open Aardvark.SceneGraph
 open Aardvark.SceneGraph.SgPrimitives
 open Aardvark.SceneGraph.``Sg Picking Extensions``
+open Aardvark.UI
+open Aardvark.Rendering.Text
+open OpcViewer.Base
 open OpcViewer.Base.Shader
 open FShade
+open System.IO
+
+//TODO refactor: cleanup utilities, move to other projects if applicable, remove dupblicate code from PRo3D.Viewer Utilities
+
+module Box3d =
+    let extendBy (box:Aardvark.Base.Box3d) (b:Aardvark.Base.Box3d) =
+        box.ExtendBy(b)
+        box
+
+    let ofSeq (bs:seq<Aardvark.Base.Box3d>) =
+        let box = 
+            match bs |> Seq.tryHead with
+            | Some b -> b
+            | None -> failwith "box sequence must not be empty"
+                    
+        for b in bs do
+            box.ExtendBy(b)
+        box
+
+module Double =
+    let degreesFromRadians (d:float) =
+        d.DegreesFromRadians()
+        
+    let radiansFromDegrees (d:float) =
+        d.RadiansFromDegrees()
 
 module Fail =
     let with1 formatString value =
@@ -39,6 +67,92 @@ module Utilities =
         compressTime    : float
         frameTime       : float
     }
+
+  module PRo3DNumeric = 
+      open FSharp.Data.Adaptive
+      open Aardvark.UI
+  
+      let inline (=>) a b = Attributes.attribute a b
+  
+      type Action = 
+          | SetValue of float
+          | SetMin of float
+          | SetMax of float
+          | SetStep of float
+          | SetFormat of string
+  
+      let update (model : NumericInput) (action : Action) =
+          match action with
+          | SetValue v -> { model with value = v }
+          | SetMin v ->   { model with min = v }
+          | SetMax v ->   { model with max = v }
+          | SetStep v ->  { model with step = v }
+          | SetFormat s -> { model with format = s }
+  
+      let formatNumber (format : string) (value : float) =
+          String.Format(Globalization.CultureInfo.InvariantCulture, format, value)
+  
+      let numericField<'msg> ( f : Action -> seq<'msg> ) ( atts : AttributeMap<'msg> ) ( model : AdaptiveNumericInput ) inputType =         
+  
+          let tryParseAndClamp min max fallback (s: string) =
+              let parsed = 0.0
+              match Double.TryParse(s, Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
+                  | (true,v) -> clamp min max v
+                  | _ ->  printfn "validation failed: %s" s
+                          fallback
+  
+          let onWheel' (f : Aardvark.Base.V2d -> seq<'msg>) =
+              let serverClick (args : list<string>) : Aardvark.Base.V2d = 
+                  let delta = List.head args |> Pickler.unpickleOfJson
+                  delta  / Aardvark.Base.V2d(-100.0,-100.0) // up is down in mouse wheel events
+  
+              onEvent' "onwheel" ["{ X: event.deltaX.toFixed(10), Y: event.deltaY.toFixed(10)  }"] (serverClick >> f)
+  
+          let attributes = 
+              amap {                
+                  yield style "text-align:right; color : black"                
+  
+                  let! min = model.min
+                  let! max = model.max
+                  let! value = model.value
+                  match inputType with
+                      | Slider ->   
+                          yield "type" => "range"
+                          yield onChange' (tryParseAndClamp min max value >> SetValue >> f)   // continous updates for slider
+                      | InputBox -> 
+                          yield "type" => "number"
+                          yield onChange' (tryParseAndClamp min max value >> SetValue >> f)  // batch updates for input box (to let user type)
+  
+                  let! step = model.step
+                  yield onWheel' (fun d -> value + d.Y * step |> clamp min max |> SetValue |> f)
+  
+                  yield "step" => sprintf "%f" step
+                  yield "min"  => sprintf "%f" min
+                  yield "max"  => sprintf "%f" max
+  
+                  let! format = model.format
+                  yield "value" => formatNumber format value
+              } 
+  
+          Incremental.input (AttributeMap.ofAMap attributes |> AttributeMap.union atts)
+  
+      let numericField' = numericField (Seq.singleton) AttributeMap.empty
+  
+      let view' (inputTypes : list<NumericInputType>) (model : AdaptiveNumericInput) : DomNode<Action> =
+          inputTypes 
+              |> List.map (numericField' model) 
+              |> List.intersperse (text " ") 
+              |> div []
+  
+      let view (model : AdaptiveNumericInput) =
+          view' [InputBox] model
+  
+      module GenericFunctions =
+          let rec applyXTimes (a : 'a) (f : 'a -> int -> 'a) (lastIndex : int) =
+              match lastIndex with
+              | t when t <= 0 -> f a lastIndex
+              | t when t > 0 -> applyXTimes (f a lastIndex) f (lastIndex - 1)
+              | _ -> a
 
   let takeScreenshot baseAddress (width:int) (height:int) name folder =
         let wc = new System.Net.WebClient()
@@ -354,7 +468,7 @@ module Sg =
         |> Sg.uniform "DepthOffset" (
               offset |> AVal.map (fun depthWorld -> depthWorld / (100.0 - 0.1)))
         |> Sg.effect [singleColorPointsEffect.Value]
-
+    
     //## LINES ##
     let edgeLines (close: bool) (points: alist<V3d>) (trafo: aval<Trafo3d>) : aval<Line3d[]>  =
         points
@@ -519,6 +633,17 @@ module Sg =
 
         stablePoints trafo positions, trafo
 
+    let drawPointList (positions : alist<V3d>) (color : aval<C4b>) (pointSize : aval<double>) (offset : aval<double>)= 
+        let positions = positions |> AList.toAVal |> AVal.map IndexList.toArray
+        let (pointsF, trafo) = stablePoints' positions
+
+        drawSingleColorPoints 
+            pointsF 
+            (color |> AVal.map(fun x -> x.ToC4f().ToV4d()))
+            pointSize 
+            offset
+        |> Sg.trafo trafo
+
     //## TEXT ##
     let private invariantScaleTrafo 
         (view : aval<CameraView>) 
@@ -658,6 +783,36 @@ module AList =
             x |> IndexList.toList |> List.pairwise |> IndexList.ofList
         )
         |> AList.ofAVal
+
+module Copy =
+    let rec copyAll' (source : DirectoryInfo) (target : DirectoryInfo) skipExisting =
+        
+        // Check if the target directory exists, if not, create it.
+        if not(Directory.Exists target.FullName) then
+            Directory.CreateDirectory target.FullName |> ignore
+
+        // Copy each file into it's new directory.
+        for fi in source.GetFiles() do
+             let sourceFile = fi.FullName
+             let targetFile = Path.Combine(target.FullName, fi.Name)
+
+             if ((sourceFile.ToLower() == targetFile.ToLower()) || (skipExisting && File.Exists(targetFile))) then
+                Log.warn "Skipping %s, already exists" targetFile
+             else
+                Log.line "Copying to %s" targetFile
+                fi.CopyTo(Path.Combine((target.ToString()), fi.Name), true) |> ignore      
+                
+        // Copy each subdirectory using recursion.
+        let bla = source.GetDirectories()
+        for srcSubDir in bla do
+            let nextTgtSubDir = target.CreateSubdirectory(srcSubDir.Name)
+            copyAll' srcSubDir nextTgtSubDir skipExisting
+
+    let copyAll source target skipExisting=
+        let s = DirectoryInfo(source)
+        let t = DirectoryInfo(target)
+
+        copyAll' s t skipExisting
 
 [<AutoOpen>]
 module ScreenshotUtilities = 

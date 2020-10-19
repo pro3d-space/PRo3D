@@ -27,39 +27,26 @@ open Aardvark.SceneGraph.Opc
 open Aardvark.SceneGraph.SgPrimitives.Sg
 open Aardvark.VRVis
 
-open MBrace.FsPickler
-open System.IO
-
 open PRo3D
 open PRo3D.Base
+open PRo3D.Base.Annotation
+open PRo3D.Core
+open PRo3D.Core.Drawing
 open PRo3D.Navigation2
 open PRo3D.Bookmarkings
-open PRo3D.ReferenceSystem
-open PRo3D.Surfaces
-open PRo3D.Viewer
-open PRo3D.Drawing
-open PRo3D.Groups
-open PRo3D.OrientationCube
-open PRo3D.Linking
-open PRo3D.Base.Annotation
 
-open PRo3D.Viewplanner
+open PRo3D.Core.Surface
+open PRo3D.Viewer
+open PRo3D.OrientationCube
+
+open PRo3D.SimulatedViews
 open PRo3D.Minerva
 open PRo3D.Linking
-open PRo3D.Correlations
-//open CorrelationDrawing.Model
-open Scene   
-
-open Aardium
-
-open MBrace.FsPickler
-open Chiron
-//open CorrelationDrawing.LogTypes
-//open CorrelationDrawing.Nuevo
-//open CorrelationDrawing.AnnotationTypes
  
 open Aether
 open Aether.Operators
+
+open PRo3D.Core.Surface
 
 type UserFeedback<'a> = {
     id      : string
@@ -94,7 +81,7 @@ module UserFeedback =
 module ViewerApp =         
                      
     // surfaces
-    let _surfacesModel   = Model.scene_  >-> Scene.surfacesModel_        
+    let _surfacesModel   = Model.scene_  >-> Scene.surfacesModel_
     let _sgSurfaces      = _surfacesModel  >-> SurfaceModel.sgSurfaces_
     let _selectedSurface = _surfacesModel  >-> SurfaceModel.surfaces_  >-> GroupsModel.singleSelectLeaf_
        
@@ -156,7 +143,7 @@ module ViewerApp =
             nearPlane      = ViewConfigModel.nearPlane_      >-> NumericInput.value_
         }
 
-    let mrefConfig : ReferenceSystemApp.MInnerConfig<AdaptiveViewConfigModel> =
+    let mrefConfig : MInnerConfig<AdaptiveViewConfigModel> =
         {
             getArrowLength    = fun (x:AdaptiveViewConfigModel) -> x.arrowLength.value
             getArrowThickness = fun (x:AdaptiveViewConfigModel) -> x.arrowThickness.value
@@ -210,7 +197,7 @@ module ViewerApp =
             // useful default viewpoint after 2nd import
             match m.scene.firstImport with                  
             | true -> 
-                let refAction = ReferenceSystemApp.Action.InferCoordSystem(fullBb.Center)
+                let refAction = ReferenceSystemAction.InferCoordSystem(fullBb.Center)
                 let (refSystem',_)= 
                     ReferenceSystemApp.update m.scene.config refConfig (m.scene.referenceSystem) refAction
                 let navigation' =  { m.navigation with exploreCenter = fullBb.Center} 
@@ -320,13 +307,13 @@ module ViewerApp =
                 | ViewerMode.Standard -> m.navigation.camera.view
                 | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam 
 
-            let msg = Drawing.Action.AddPointAdv(p, hitFunction, surf.name)
+            let msg = DrawingAction.AddPointAdv(p, hitFunction, surf.name)
             let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig bc view m.drawing msg
             //Log.stop()
             { m with drawing = drawing } |> stash
         | Interactions.PlaceCoordinateSystem, ViewerMode.Standard -> 
                       
-            let refAction = ReferenceSystemApp.Action.InferCoordSystem(p)
+            let refAction = ReferenceSystemAction.InferCoordSystem(p)
             let (refSystem',_) = 
                 ReferenceSystemApp.update m.scene.config refConfig (m.scene.referenceSystem) refAction  
                       
@@ -492,7 +479,7 @@ module ViewerApp =
                 | SurfaceAppAction.FlyToSurface id -> 
                     let surf = m |> Optic.get _sgSurfaces |> HashMap.tryFind id
                     let surface = m.scene.surfacesModel.surfaces.flat |> HashMap.find id |> Leaf.toSurface 
-                    let superTrafo = PRo3D.Transformations.fullTrafo' surface m.scene.referenceSystem
+                    let superTrafo = SurfaceTransformations.fullTrafo' surface m.scene.referenceSystem
                     match (surface.homePosition) with
                     | Some hp ->
                         //let trafo' = surface.preTransform.Forward * superTrafo.Forward
@@ -568,7 +555,7 @@ module ViewerApp =
                     |> List.map (SurfaceUtils.mk SurfaceType.SurfaceOPC m.scene.config.importTriangleSize.value)
                     |> IndexList.ofList
 
-                let m = Scene.import' runtime signature surfaces m 
+                let m = SceneLoader.import' runtime signature surfaces m 
                 m
                 |> ViewerIO.loadLastFootPrint
                 |> updateSceneWithNewSurface    
@@ -594,7 +581,7 @@ module ViewerApp =
                 //gale crater hook
                 let surfaces = GaleCrater.hack surfaces
 
-                let m = Scene.import' runtime signature surfaces m 
+                let m = SceneLoader.import' runtime signature surfaces m 
                 //updateSceneWithNewSurface m
                 m
                 |> ViewerIO.loadLastFootPrint
@@ -626,7 +613,7 @@ module ViewerApp =
                     |> SurfaceUtils.mk SurfaceType.SurfaceOBJ m.scene.config.importTriangleSize.value
                     |> IndexList.single                                
                 m 
-                |> Scene.importObj runtime signature objects 
+                |> SceneLoader.importObj runtime signature objects 
                 |> ViewerIO.loadLastFootPrint
                 |> updateSceneWithNewSurface     
             | None -> m              
@@ -689,14 +676,14 @@ module ViewerApp =
             match sl |> List.tryHead with
             | Some path ->
                 let imported = 
-                    SurfaceTrafoImporter.startImporter path 
+                    SurfaceTrafoImporter.startImporter path
                     |> IndexList.toList
 
                 let s = 
                     m.scene.surfacesModel 
-                    |> Surfaces.SurfaceApp.updateSurfaceTrafos imported                
+                    |> SurfaceApp.updateSurfaceTrafos imported                
 
-                m |> Optic.set _surfaceModelLens s  
+                m |> Optic.set SceneLoader._surfaceModelLens s  
             | None -> m
         | ImportRoverPlacement sl,_,_ ->  
             match sl |> List.tryHead with
@@ -714,7 +701,7 @@ module ViewerApp =
                 m
             else 
                 m
-        | PickSurface (p,name), _ ,true ->
+        | ViewerAction.PickSurface (p,name), _ ,true ->
             let fray = p.globalRay.Ray
             let r = fray.Ray
             let rayHash = r.GetHashCode()              
@@ -752,14 +739,14 @@ module ViewerApp =
                                 FastRay3d(p + (up * 5000.0), -up)  
                             | _ -> Log.error "projection started without proj mode"; FastRay3d()
                    
-                        match SurfaceApp.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem ray surfaceFilter cache with
+                        match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem ray surfaceFilter cache with
                         | Some (t,surf), c ->                             
                             cache <- c; ray.Ray.GetPointOnRay t |> Some
                         | None, c ->
                             cache <- c; None
                                    
                     let result = 
-                        match SurfaceApp.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem fray surfaceFilter cache with
+                        match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem fray surfaceFilter cache with
                         | Some (t,surf), c ->                         
                             cache <- c
                             let hit = r.GetPointOnRay(t)
@@ -801,7 +788,7 @@ module ViewerApp =
                     Log.error "[PRo3D] could not load file: %s, error: %s" path msg
                     m
 
-            |> ViewerIO.loadMinerva Scene.Minerva.defaultDumpFile Scene.Minerva.defaultCacheFile
+            |> ViewerIO.loadMinerva SceneLoader.Minerva.defaultDumpFile SceneLoader.Minerva.defaultCacheFile
 
         | NewScene,_,_ ->
             let initialModel = Viewer.initial m.messagingMailbox StartupArgs.initArgs //m.minervaModel.minervaMessagingMailbox
@@ -814,19 +801,19 @@ module ViewerApp =
           
             let drawingAction =
                 match k with
-                | Aardvark.Application.Keys.Enter    -> Drawing.Action.Finish
-                | Aardvark.Application.Keys.Back     -> Drawing.Action.RemoveLastPoint
-                | Aardvark.Application.Keys.Escape   -> Drawing.Action.ClearWorking
+                | Aardvark.Application.Keys.Enter    -> DrawingAction.Finish
+                | Aardvark.Application.Keys.Back     -> DrawingAction.RemoveLastPoint
+                | Aardvark.Application.Keys.Escape   -> DrawingAction.ClearWorking
                 | Aardvark.Application.Keys.LeftCtrl -> 
                     match m.interaction with 
-                    | Interactions.DrawAnnotation -> Drawing.Action.StartDrawing
-                    | Interactions.PickAnnotation -> Drawing.Action.StartPicking
-                    | _ -> Drawing.Action.Nop
-                | Aardvark.Application.Keys.D0 -> Drawing.Action.SetSemantic Semantic.Horizon0
-                | Aardvark.Application.Keys.D1 -> Drawing.Action.SetSemantic Semantic.Horizon1
-                | Aardvark.Application.Keys.D2 -> Drawing.Action.SetSemantic Semantic.Horizon2
-                | Aardvark.Application.Keys.D3 -> Drawing.Action.SetSemantic Semantic.Horizon3 
-                | _  -> Drawing.Action.Nop
+                    | Interactions.DrawAnnotation -> DrawingAction.StartDrawing
+                    | Interactions.PickAnnotation -> DrawingAction.StartPicking
+                    | _ -> DrawingAction.Nop
+                | Aardvark.Application.Keys.D0 -> DrawingAction.SetSemantic Semantic.Horizon0
+                | Aardvark.Application.Keys.D1 -> DrawingAction.SetSemantic Semantic.Horizon1
+                | Aardvark.Application.Keys.D2 -> DrawingAction.SetSemantic Semantic.Horizon2
+                | Aardvark.Application.Keys.D3 -> DrawingAction.SetSemantic Semantic.Horizon3 
+                | _  -> DrawingAction.Nop
 
             let m =
                 match k with 
@@ -852,7 +839,7 @@ module ViewerApp =
                     let view = m.navigation.camera.view
                     let m = { m with drawing = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.drawing drawingAction } |> stash
                     match drawingAction with
-                    | Drawing.Action.Finish -> { m with tabMenu = TabMenu.Annotations }
+                    | Drawing.DrawingAction.Finish -> { m with tabMenu = TabMenu.Annotations }
                     | _ -> m                     
                 | _ -> m
                                     
@@ -986,11 +973,11 @@ module ViewerApp =
                 match m.interaction with
                 | Interactions.DrawAnnotation -> 
                     let view = m.navigation.camera.view
-                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.drawing Drawing.Action.StopDrawing
+                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.drawing DrawingAction.StopDrawing
                     { m with drawing = d; ctrlFlag = false; picking = false }
                 | Interactions.PickAnnotation -> 
                     let view = m.navigation.camera.view
-                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.drawing Drawing.Action.StopPicking 
+                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.drawing DrawingAction.StopPicking 
                     { m with drawing = d; ctrlFlag = false; picking = false }
                 | Interactions.PickMinervaProduct -> { m with minervaModel = { m.minervaModel with picking = false }}
                 |_-> { m with ctrlFlag = false; picking = false }
@@ -1006,9 +993,9 @@ module ViewerApp =
             let _refSystem = (Model.scene_ >-> Scene.referenceSystem_)
             let m' = m |> Optic.set _refSystem refsystem'                        
             match a with 
-            | ReferenceSystemApp.Action.SetUp _ | ReferenceSystemApp.Action.SetPlanet _ ->
+            | ReferenceSystemAction.SetUp _ | ReferenceSystemAction.SetPlanet _ ->
                 m' |> updateCameraUp
-            | ReferenceSystemApp.Action.SetNOffset _ -> //update annotation results
+            | ReferenceSystemAction.SetNOffset _ -> //update annotation results
                 let flat = 
                     m'.drawing.annotations.flat
                     |> HashMap.map(fun _ v ->
@@ -1256,7 +1243,7 @@ module ViewerApp =
 
             //blarg
            // m
-        | PickSurface _,_,_ ->
+        | ViewerAction.PickSurface _,_,_ ->
             m
         //| _ -> 
         //    Log.warn "[Viewer] don't know message %A. ignoring it." msg
@@ -1412,7 +1399,7 @@ module ViewerApp =
             let near = m.scene.config.nearPlane.value
 
             let refSystem =
-                ReferenceSystemApp.Sg.view
+                Sg.view
                     m.scene.config
                     mrefConfig
                     m.scene.referenceSystem
@@ -1423,7 +1410,7 @@ module ViewerApp =
                 Navigation.Sg.view m.navigation            
           
             let homePosition =
-                Surfaces.Sg.viewHomePosition m.scene.surfacesModel
+                Sg.viewHomePosition m.scene.surfacesModel
                                  
             let viewPlans =
                 ViewPlanApp.Sg.view 
@@ -1660,8 +1647,8 @@ module ViewerApp =
         let m = 
             if startEmpty |> not then
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs
-                |> Scene.loadLastScene runtime signature
-                |> Scene.loadLogBrush
+                |> SceneLoader.loadLastScene runtime signature
+                |> SceneLoader.loadLogBrush
                 |> ViewerIO.loadRoverData                
                 |> ViewerIO.loadAnnotations
                 |> ViewerIO.loadCorrelations

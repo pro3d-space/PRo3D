@@ -13,9 +13,10 @@ open Aardvark.Rendering.Text
 open System.Collections.Concurrent
 open System.Runtime.Serialization
 open PRo3D
-open PRo3D.Surfaces
+open PRo3D.Core.Surface
 open PRo3D.Viewer
 open PRo3D.OrientationCube
+open PRo3D.SimulatedViews
 
 module NoGuiViewer =
 

@@ -2,7 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
     <GenerateLenses>True</GenerateLenses>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -24,8 +24,11 @@
     <Compile Include="Serialization.fs" />    
     <Compile Include="Utilities.fs" />
     <Compile Include="OutlineEffect.fs" />
-    <Compile Include="Annotation-Model.fs" />
-    <Compile Include="AnnotationHelpers.fs" />
+    <Compile Include="FalseColors\FalseColors-Model.fs" />
+    <Compile Include="FalseColors\FalseColorLegendApp.fs" />
+    <Compile Include="Annotation\Annotation-Model.fs" />
+    <Compile Include="Annotation\AnnotationHelpers.fs" />
+    <Compile Include="Annotation\Csv.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CSharpUtils\CSharpUtils.csproj" />

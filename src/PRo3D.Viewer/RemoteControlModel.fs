@@ -8,7 +8,7 @@ open Aardvark.Base.Rendering
 open FSharp.Data.Adaptive
 open PRo3D
 open PRo3D.Viewer
-open PRo3D.Viewplanner
+open PRo3D.SimulatedViews
 
 open Adaptify
 

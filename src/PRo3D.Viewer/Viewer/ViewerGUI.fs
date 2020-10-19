@@ -28,12 +28,12 @@ open System.IO
 open PRo3D
 open PRo3D.Base
 open PRo3D.Base.Annotation
-open PRo3D.Groups
-open PRo3D.ReferenceSystem
-open PRo3D.Surfaces
+open PRo3D.Core
+open PRo3D.Core.Drawing
+open PRo3D.Core.Surface
 open PRo3D.Bookmarkings
-open PRo3D.Viewplanner
-open PRo3D.Correlations
+
+open PRo3D.SimulatedViews
 
 open Adaptify
 open FSharp.Data.Adaptive
@@ -340,7 +340,52 @@ module Gui =
                         ]
                 }
         
-            Incremental.div(AttributeMap.Empty) ui |> UI.map SurfaceActions                
+            Incremental.div(AttributeMap.Empty) ui |> UI.map SurfaceActions      
+            
+
+        let jsOpenAnnotationFileDialog = 
+            "top.aardvark.dialog.showOpenDialog({ title: 'Import Annotations', filters: [{ name: 'Annotations (*.ann)', extensions: ['ann']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+        let jsExportAnnotationsFileDialog = 
+            "top.aardvark.dialog.showSaveDialog({ title: 'Save Annotations as', filters:  [{ name: 'Annotations (*.pro3d.ann)', extensions: ['pro3d.ann'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
+
+        let jsExportAnnotationsAsCSVDialog =
+            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
+              
+
+        let annotationMenu = //todo move to viewer io gui
+            div [ clazz "ui dropdown item"] [
+                text "Annotations"
+                i [clazz "dropdown icon"][] 
+                div [ clazz "menu"] [                    
+                    div [
+                        clazz "ui inverted item"
+                        Dialogs.onChooseFiles AddAnnotations
+                        clientEvent "onclick" jsOpenAnnotationFileDialog
+                    ][
+                        text "Import"
+                    ]
+                    div [
+                        clazz "ui inverted item"; onMouseClick (fun _ -> Clear)
+                    ][
+                        text "Clear"
+                    ]                
+                    div [ 
+                        clazz "ui inverted item"
+                        Dialogs.onSaveFile ExportAsAnnotations
+                        clientEvent "onclick" jsExportAnnotationsFileDialog
+                    ][
+                        text "Export (*.pro3d.ann)"
+                    ]
+                    div [ 
+                        clazz "ui inverted item"
+                        Dialogs.onSaveFile ExportAsCsv
+                        clientEvent "onclick" jsExportAnnotationsAsCSVDialog
+                    ][
+                        text "Export (*.csv)"
+                    ]     
+                ]
+            ]       
         
         let menu (m : AdaptiveModel) =             
 
@@ -359,7 +404,7 @@ module Gui =
                                 div [ clazz "ui dropdown item"] (scene m)
                             
                                 //annotations menu
-                                DrawingApp.UI.annotationMenu |> UI.map DrawingMessage;                                                           
+                                annotationMenu |> UI.map DrawingMessage;                                                           
                                                             
                                 //Extras Menu
                                 div [ clazz "ui dropdown item"] [
@@ -399,14 +444,14 @@ module Gui =
                 let! interaction = m.interaction
                 match interaction with
                 | Interactions.DrawAnnotation -> 
-                    return DrawingApp.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage
+                    return Drawing.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage
                 | Interactions.PlaceRover ->
                     return ViewPlanApp.UI.viewSelectRover m.scene.viewPlans.roverModel |> UI.map RoverMessage
                 | Interactions.PlaceCoordinateSystem -> 
                     return Html.Layout.horizontal [
-                        Html.Layout.boxH [ Html.SemUi.dropDown' m.scene.referenceSystem.scaleChart m.scene.referenceSystem.selectedScale ReferenceSystemApp.Action.SetScale id ]
+                        Html.Layout.boxH [ Html.SemUi.dropDown' m.scene.referenceSystem.scaleChart m.scene.referenceSystem.selectedScale ReferenceSystemAction.SetScale id ]
                         //Html.Layout.boxH [ i [clazz "unhide icon"][] ]
-                        Html.Layout.boxH [ GuiEx.iconToggle m.scene.referenceSystem.isVisible "unhide icon" "hide icon" ReferenceSystemApp.Action.ToggleVisible  ]                        
+                        Html.Layout.boxH [ GuiEx.iconToggle m.scene.referenceSystem.isVisible "unhide icon" "hide icon" ReferenceSystemAction.ToggleVisible  ]                        
                         ] |> UI.map ReferenceSystemMessage
                 | _ -> 
                   return div[][]
@@ -467,7 +512,7 @@ module Gui =
               
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large Globe icon"][] ]
-                Html.Layout.boxH [ Html.SemUi.dropDown m.scene.referenceSystem.planet ReferenceSystemApp.Action.SetPlanet ] |> UI.map ReferenceSystemMessage
+                Html.Layout.boxH [ Html.SemUi.dropDown m.scene.referenceSystem.planet ReferenceSystemAction.SetPlanet ] |> UI.map ReferenceSystemMessage
             ] 
             Html.Layout.horizontal [
                 scenepath m
@@ -565,7 +610,7 @@ module Gui =
             div [][
                 GuiEx.accordion "Annotations" "Write" true [
                     GroupsApp.viewSelectionButtons |> UI.map AnnotationGroupsMessageViewer
-                    PRo3D.DrawingApp.UI.viewAnnotationGroups m.drawing |> UI.map ViewerAction.DrawingMessage
+                    Drawing.UI.viewAnnotationGroups m.drawing |> UI.map ViewerAction.DrawingMessage
                    // DrawingApp.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage // CHECK-merge viewAnnotationGroups
                 ]
                 GuiEx.accordion "Properties" "Content" true [
@@ -586,6 +631,8 @@ module Gui =
                 GuiEx.accordion "Dip&Strike ColorLegend" "paint brush" false [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDnSColorLegendUI m))] 
                 ]    
+
+
 
     module Config =
       let config (model : AdaptiveModel) = 

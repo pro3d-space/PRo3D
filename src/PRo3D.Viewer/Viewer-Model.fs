@@ -1,41 +1,35 @@
 namespace PRo3D.Viewer
 
 open System
-open Aardvark.Base
 open FSharp.Data.Adaptive
+
+open Aardvark.Base
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.Application
 open Aardvark.SceneGraph
-open Aardvark.SceneGraph.Opc
-open Aardvark.VRVis
-
-open Aardvark.Base.Frustum
 open Aardvark.UI.Trafos
 open Aardvark.UI.Animation
 
 open PRo3D
 open PRo3D.Base
-open PRo3D.Surfaces
-open PRo3D.Navigation2
-open PRo3D.Groups
-open PRo3D.ReferenceSystem
-open PRo3D.Align
 open PRo3D.Base.Annotation
-open PRo3D.Viewplanner
-//open PRo3D.Correlations
-//open CorrelationDrawing
-//open CorrelationDrawing.Model
-//open UIPlus
+open PRo3D.Core
+open PRo3D.Core.Drawing
+open PRo3D.Core.Surface
+open PRo3D.SimulatedViews
+open PRo3D.Core.Surface
+open PRo3D.Navigation2
+
+open PRo3D.SimulatedViews
 
 open Chiron
-open PRo3D.Minerva
 
 open Adaptify
 
 open Aether
 open Aether.Operators
-
+open PRo3D.Minerva
 
 #nowarn "0686"
 
@@ -46,35 +40,14 @@ type TabMenu =
     | Bookmarks   = 3
     | Config      = 4
 
-type Interactions =
-| PickExploreCenter     = 0
-| PlaceCoordinateSystem = 1  // compute up north vector at that point
-| DrawAnnotation        = 2
-| PlaceRover            = 3
-| TrafoControls         = 4
-| PlaceSurface          = 5
-| PickAnnotation        = 6
-| PickSurface           = 7
-| PickMinervaProduct    = 8
-| PickMinervaFilter     = 9
-| PickLinking           = 10
-| DrawLog               = 11
-| PickLog               = 12
-| PlaceValidator        = 13
-| TrueThickness         = 14 // CHECK-merge
-//| AlignPick             = 5
-
-//type ViewerMode =
-//    | Standard
-//    | Instrument    
-
 type BookmarkAction =
-  | AddBookmark 
-  | GroupsMessage   of GroupsAppAction
-  | PrintViewParameters of Guid
+    | AddBookmark 
+    | GroupsMessage   of GroupsAppAction
+    | PrintViewParameters of Guid
+
 type PropertyActions =
-| DrawingMessage    of Drawing.Action
-| AnnotationMessage of AnnotationProperties.Action
+    | DrawingMessage    of DrawingAction
+    | AnnotationMessage of AnnotationProperties.Action
 
 //type CorrelationPanelsMessage = 
 //| CorrPlotMessage               of CorrelationPlotAction
@@ -95,77 +68,76 @@ type PropertyActions =
 //    | PlaneExtrudeAction of PlaneExtrude.App.Action
 
 type ViewerAction =                
-| DrawingMessage                  of Drawing.Action
-| AnnotationGroupsMessageViewer   of GroupsAppAction
-| NavigationMessage               of Navigation.Action
-| AnimationMessage                of AnimationAction
-| ReferenceSystemMessage          of ReferenceSystemApp.Action
-| AnnotationMessage               of AnnotationProperties.Action
-| BookmarkMessage                 of BookmarkAction
-| BookmarkUIMessage               of GroupsAppAction
-| RoverMessage                    of RoverApp.Action
-| ViewPlanMessage                 of ViewPlanApp.Action
-| DnSColorLegendMessage           of FalseColorLegendApp.Action
-| SetCamera                       of CameraView        
-| SetCameraAndFrustum             of CameraView * double * double        
-| SetCameraAndFrustum2            of CameraView * Frustum
-| ImportSurface                   of list<string>
-| ImportDiscoveredSurfaces        of list<string>
-| ImportDiscoveredSurfacesThreads of list<string>
-| ImportObject                    of list<string>
-| ImportPRo3Dv1Annotations        of list<string>
-| ImportSurfaceTrafo              of list<string>
-| ImportRoverPlacement            of list<string>
-| SwitchViewerMode                of ViewerMode
-| DnSProperties                   of PropertyActions
-| ConfigPropertiesMessage         of ConfigProperties.Action
-| DeleteLast
-| AddSg                           of ISg
-| PickSurface                     of SceneHit*string
-| PickObject                      of V3d*Guid
-| SaveScene                       of string
-| SaveAs                          of string
-| OpenScene                       of list<string>
-| LoadScene                       of string
-| NewScene
-| KeyDown                         of key : Aardvark.Application.Keys
-| KeyUp                           of key : Aardvark.Application.Keys      
-| SetKind                         of TrafoKind
-| SetInteraction                  of Interactions        
-| SetMode                         of TrafoMode
-| TransforAdaptiveSurface                of System.Guid * Trafo3d
-| ImportTrafo                     of list<string>
-//| TransformAllSurfaces            of list<SnapshotSurfaceUpdate>
-| Translate                       of string * TrafoController.Action
-| Rotate                          of string * TrafoController.Action
-| SurfaceActions                  of SurfaceAppAction
-| MinervaActions                  of PRo3D.Minerva.MinervaAction
-//| ScaleToolAction                 of ScaleToolAction
-| LinkingActions                  of PRo3D.Linking.LinkingAction
-| AlignmentActions                of PRo3D.Align.AlignmentActions
-| SetTabMenu                      of TabMenu
-| OpenSceneFileLocation           of string
-| NoAction                        of string
-| OrientationCube                 of ISg
-| UpdateDockConfig                of DockConfig
-| AddPage                         of DockElement    
-| ToggleOrientationCube
-| UpdateUserFeedback              of string
-| StartImportMessaging            of list<string>
-| Logging                         of string * ViewerAction
-| ThreadsDone                     of string    
-| SnapshotThreadsDone             of string
-| OnResize                        of V2i
-| StartDragging                   of V2i * MouseButtons
-| Dragging                        of V2i
-| EndDragging                     of V2i * MouseButtons
-//| CorrelationPanelMessage         of CorrelationPanelsMessage
-| MakeSnapshot                    of int*int*string
-| ImportSnapshotData              of list<string>
-| SetTextureFiltering             of bool // TODO move to versioned ViewConfigModel in V3
-//| UpdateShatterCones              of list<SnapshotShattercone> // TODO snapshots and shattercone things should be in own apps
-| TestHaltonRayCasting            //of list<string>
-| Nop
+    | DrawingMessage                  of DrawingAction
+    | AnnotationGroupsMessageViewer   of GroupsAppAction
+    | NavigationMessage               of Navigation.Action
+    | AnimationMessage                of AnimationAction
+    | ReferenceSystemMessage          of ReferenceSystemAction
+    | AnnotationMessage               of AnnotationProperties.Action
+    | BookmarkMessage                 of BookmarkAction
+    | BookmarkUIMessage               of GroupsAppAction
+    | RoverMessage                    of RoverApp.Action
+    | ViewPlanMessage                 of ViewPlanApp.Action
+    | DnSColorLegendMessage           of FalseColorLegendApp.Action
+    | SetCamera                       of CameraView        
+    | SetCameraAndFrustum             of CameraView * double * double        
+    | SetCameraAndFrustum2            of CameraView * Frustum
+    | ImportSurface                   of list<string>
+    | ImportDiscoveredSurfaces        of list<string>
+    | ImportDiscoveredSurfacesThreads of list<string>
+    | ImportObject                    of list<string>
+    | ImportPRo3Dv1Annotations        of list<string>
+    | ImportSurfaceTrafo              of list<string>
+    | ImportRoverPlacement            of list<string>
+    | SwitchViewerMode                of ViewerMode
+    | DnSProperties                   of PropertyActions
+    | ConfigPropertiesMessage         of ConfigProperties.Action
+    | DeleteLast
+    | AddSg                           of ISg
+    | PickSurface                     of SceneHit*string
+    | PickObject                      of V3d*Guid
+    | SaveScene                       of string
+    | SaveAs                          of string
+    | OpenScene                       of list<string>
+    | LoadScene                       of string
+    | NewScene
+    | KeyDown                         of key : Aardvark.Application.Keys
+    | KeyUp                           of key : Aardvark.Application.Keys      
+    | SetKind                         of TrafoKind
+    | SetInteraction                  of Interactions        
+    | SetMode                         of TrafoMode
+    | TransforAdaptiveSurface                of System.Guid * Trafo3d
+    | ImportTrafo                     of list<string>
+    //| TransformAllSurfaces            of list<SnapshotSurfaceUpdate>
+    | Translate                       of string * TrafoController.Action
+    | Rotate                          of string * TrafoController.Action
+    | SurfaceActions                  of SurfaceAppAction
+    | MinervaActions                  of PRo3D.Minerva.MinervaAction
+    //| ScaleToolAction                 of ScaleToolAction
+    | LinkingActions                  of PRo3D.Linking.LinkingAction    
+    | SetTabMenu                      of TabMenu
+    | OpenSceneFileLocation           of string
+    | NoAction                        of string
+    | OrientationCube                 of ISg
+    | UpdateDockConfig                of DockConfig
+    | AddPage                         of DockElement    
+    | ToggleOrientationCube
+    | UpdateUserFeedback              of string
+    | StartImportMessaging            of list<string>
+    | Logging                         of string * ViewerAction
+    | ThreadsDone                     of string    
+    | SnapshotThreadsDone             of string
+    | OnResize                        of V2i
+    | StartDragging                   of V2i * MouseButtons
+    | Dragging                        of V2i
+    | EndDragging                     of V2i * MouseButtons
+    //| CorrelationPanelMessage         of CorrelationPanelsMessage
+    | MakeSnapshot                    of int*int*string
+    | ImportSnapshotData              of list<string>
+    | SetTextureFiltering             of bool // TODO move to versioned ViewConfigModel in V3
+    //| UpdateShatterCones              of list<SnapshotShattercone> // TODO snapshots and shattercone things should be in own apps
+    | TestHaltonRayCasting            //of list<string>
+    | Nop
 
 and MailboxState = {
   events  : list<MailboxAction>
@@ -174,7 +146,7 @@ and MailboxState = {
 and MailboxAction =
 | ViewerAction  of ViewerAction
 | InitMailboxState of MailboxState  
-| DrawingAction of PRo3D.Drawing.Action 
+| DrawingAction of PRo3D.Core.Drawing.DrawingAction 
 
 [<ModelType>] 
 type Scene = {
@@ -239,6 +211,8 @@ module Scene =
                     feedbackThreads = ThreadPool.empty
                 }
         }
+
+
 
 type Scene with
     static member FromJson (_ : Scene) =
@@ -312,7 +286,7 @@ type MultiSelectionBox =
 type Model = { 
     startupArgs          : StartupArgs
     scene                : Scene
-    drawing              : Drawing.DrawingModel    
+    drawing              : PRo3D.Core.Drawing.DrawingModel
     interaction          : Interactions
     recent               : Recent
     waypoints            : IndexList<WayPoint>
@@ -321,8 +295,7 @@ type Model = {
                          
     trafoKind            : TrafoKind
     trafoMode            : TrafoMode
-                         
-    alignment            : AlignmentModel
+                             
     tabMenu              : TabMenu
                          
     viewerMode           : ViewerMode
@@ -510,9 +483,7 @@ module Viewer =
             waypoints       = IndexList.empty
 
             trafoKind       = TrafoKind.Rotate
-            trafoMode       = TrafoMode.Local
-
-            alignment       = Alignment.initModel
+            trafoMode       = TrafoMode.Local            
 
             past            = None
             future          = None

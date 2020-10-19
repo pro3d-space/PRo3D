@@ -1,6 +1,7 @@
 ﻿namespace PRo3D
 
 open Aardvark.Base
+open PRo3D.SimulatedViews
 open PRo3D.CommandLineUtils
 
 module CommandLine =

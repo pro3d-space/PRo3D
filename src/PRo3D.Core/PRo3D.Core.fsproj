@@ -1,0 +1,50 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <GenerateLenses>True</GenerateLenses>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <OutputPath>..\..\bin\Debug\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <OutputPath>..\..\bin\Release\</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Config.fs" />
+    <Compile Include="Core-Types.fs" />
+    <Compile Include="ReferenceSystem-Model.fs" />
+    <Compile Include="Surface-Model.fs" />
+    <Compile Include="Bookmark-Model.fs" />
+    <Compile Include="Groups-Model.fs" />
+    <Compile Include="Model.fs" />
+    <Compile Include="Sg.fs" />
+    <Compile Include="UI.fs" />
+    <Compile Include="ReferenceSystem.fs" />
+    <Compile Include="Surface.fs" />
+    <Compile Include="GroupsApp.fs" />
+    <Compile Include="Surface\Translation.fs" />
+    <Compile Include="Surface\Surface-Properties.fs" />
+    <Compile Include="Surface\Surface.Files.fs" />
+    <Compile Include="Surface\Surface.Sg.fs" />
+    <Compile Include="Surface\SurfaceApp.fs" />
+    <Compile Include="Drawing\Drawing-Properties.fs" />
+    <Compile Include="Drawing\Drawing-Model.fs" />
+    <Compile Include="Drawing\DrawingUtilities.fs" />
+    <Compile Include="Drawing\Drawing.UI.fs" />
+    <Compile Include="Drawing\Drawing.Sg.fs" />
+    <Compile Include="Drawing\Drawing.IO.fs" />
+    <Compile Include="Drawing\Drawing-App.fs" />
+    <Compile Include="Importers/MeasurementsImporter.fs" />
+    <Compile Include="Importers/AnnotationGroupsImporter.fs" />
+    <Compile Include="Importers/SurfaceTrafoImporter.fs" />
+    <None Include="paket.references" />
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="..\CSharpUtils\CSharpUtils.csproj" />
+    <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>

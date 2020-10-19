@@ -1,15 +1,15 @@
 namespace PRo3D
 
 open System
+open System.Diagnostics
+open FSharp.Data.Adaptive    
 open Aardvark.Base
 open Aardvark.UI
 open PRo3D.Base
+open PRo3D.Core
+open PRo3D.SimulatedViews
 open RemoteControlModel
-open FSharp.Data.Adaptive    
 open MBrace
-open MBrace.FsPickler.Json
-open System.Diagnostics
-open PRo3D.Viewplanner
 
 type ClientStatistics =
     {

@@ -7,7 +7,7 @@ open Adaptify
 open Aardvark.UI.Primitives
 open PRo3D
 open PRo3D.Base
-open PRo3D.ReferenceSystem
+open PRo3D.Core
 open Chiron
 
 #nowarn "0686"

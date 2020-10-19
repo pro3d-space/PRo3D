@@ -1,0 +1,1522 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardium">
+          <HintPath>..\..\packages\Aardium\lib\netstandard2.0\Aardium.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.Application">
+          <HintPath>..\..\packages\Aardvark.Application\lib\netstandard2.0\Aardvark.Application.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.Application.Slim.GL">
+          <HintPath>..\..\packages\Aardvark.Application.Slim.GL\lib\netstandard2.0\Aardvark.Application.Slim.GL.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1'">
+      <ItemGroup>
+        <Reference Include="Aardvark.Base">
+          <HintPath>..\..\packages\Aardvark.Base\lib\netcoreapp3.0\Aardvark.Base.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.Base">
+          <HintPath>..\..\packages\Aardvark.Base\lib\netstandard2.0\Aardvark.Base.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.Base.Essentials">
+          <HintPath>..\..\packages\Aardvark.Base.Essentials\lib\netstandard2.0\Aardvark.Base.Essentials.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.Base.FSharp">
+          <HintPath>..\..\packages\Aardvark.Base.FSharp\lib\netstandard2.0\Aardvark.Base.FSharp.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.Base.Incremental">
+          <HintPath>..\..\packages\Aardvark.Base.Incremental\lib\netstandard2.0\Aardvark.Base.Incremental.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.Base.IO">
+          <HintPath>..\..\packages\Aardvark.Base.IO\lib\netstandard2.0\Aardvark.Base.IO.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.Base.Rendering">
+          <HintPath>..\..\packages\Aardvark.Base.Rendering\lib\netstandard2.0\Aardvark.Base.Rendering.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.Base.Runtime">
+          <HintPath>..\..\packages\Aardvark.Base.Runtime\lib\netstandard2.0\Aardvark.Base.Runtime.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.Base.Telemetry">
+          <HintPath>..\..\packages\Aardvark.Base.Telemetry\lib\netstandard2.0\Aardvark.Base.Telemetry.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="Aardvark.Base.TypeProviders">
+          <HintPath>..\..\packages\Aardvark.Base.TypeProviders\lib\net45\Aardvark.Base.TypeProviders.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.Base.TypeProviders">
+          <HintPath>..\..\packages\Aardvark.Base.TypeProviders\lib\netstandard2.0\Aardvark.Base.TypeProviders.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.Geometry">
+          <HintPath>..\..\packages\Aardvark.Geometry\lib\netstandard2.0\Aardvark.Geometry.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.Geometry.Intersection">
+          <HintPath>..\..\packages\Aardvark.Geometry.Intersection\lib\netstandard2.0\Aardvark.Geometry.Intersection.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.Geometry.PointTree">
+          <HintPath>..\..\packages\Aardvark.Geometry.PointTree\lib\netstandard2.0\Aardvark.Geometry.PointTree.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.GeoSpatial.Opc">
+          <HintPath>..\..\packages\Aardvark.GeoSpatial.Opc\lib\netstandard2.0\Aardvark.GeoSpatial.Opc.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.GPGPU">
+          <HintPath>..\..\packages\Aardvark.GPGPU\lib\netstandard2.0\Aardvark.GPGPU.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.Rendering.GL">
+          <HintPath>..\..\packages\Aardvark.Rendering.GL\lib\netstandard2.0\Aardvark.Rendering.GL.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.Rendering.Text">
+          <HintPath>..\..\packages\Aardvark.Rendering.Text\lib\netstandard2.0\Aardvark.Rendering.Text.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.Rendering.Vulkan">
+          <HintPath>..\..\packages\Aardvark.Rendering.Vulkan\lib\netstandard2.0\Aardvark.Rendering.Vulkan.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.SceneGraph">
+          <HintPath>..\..\packages\Aardvark.SceneGraph\lib\netstandard2.0\Aardvark.SceneGraph.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.SceneGraph.IO">
+          <HintPath>..\..\packages\Aardvark.SceneGraph.IO\lib\netstandard2.0\Aardvark.SceneGraph.IO.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.SceneGraph.Opc">
+          <HintPath>..\..\packages\Aardvark.SceneGraph.Opc\lib\netstandard2.0\Aardvark.SceneGraph.Opc.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.Service">
+          <HintPath>..\..\packages\Aardvark.Service\lib\netstandard2.0\Aardvark.Service.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.UI">
+          <HintPath>..\..\packages\Aardvark.UI\lib\netstandard2.0\Aardvark.UI.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.UI.Primitives">
+          <HintPath>..\..\packages\Aardvark.UI.Primitives\lib\netstandard2.0\Aardvark.UI.Primitives.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Adaptify.Core">
+          <HintPath>..\..\packages\Adaptify.Core\lib\netstandard2.0\Adaptify.Core.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="Aether">
+          <HintPath>..\..\packages\Aether\lib\net45\Aether.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aether">
+          <HintPath>..\..\packages\Aether\lib\netstandard2.0\Aether.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="Chiron">
+          <HintPath>..\..\packages\Chiron\lib\net452\Chiron.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Chiron">
+          <HintPath>..\..\packages\Chiron\lib\netstandard2.0\Chiron.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="CommonMark">
+          <HintPath>..\..\packages\CommonMark.NET\lib\net45\CommonMark.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="CommonMark">
+          <HintPath>..\..\packages\CommonMark.NET\lib\netstandard1.0\CommonMark.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="DevILSharp">
+          <HintPath>..\..\packages\DevILSharp\lib\netstandard2.0\DevILSharp.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="FParsec">
+          <HintPath>..\..\packages\FParsec\lib\net45\FParsec.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="FParsecCS">
+          <HintPath>..\..\packages\FParsec\lib\net45\FParsecCS.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="FParsec">
+          <HintPath>..\..\packages\FParsec\lib\netstandard2.0\FParsec.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="FParsecCS">
+          <HintPath>..\..\packages\FParsec\lib\netstandard2.0\FParsecCS.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="FShade.Core">
+          <HintPath>..\..\packages\FShade.Core\lib\netstandard2.0\FShade.Core.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="FShade.GLSL">
+          <HintPath>..\..\packages\FShade.GLSL\lib\netstandard2.0\FShade.GLSL.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="FShade.Imperative">
+          <HintPath>..\..\packages\FShade.Imperative\lib\netstandard2.0\FShade.Imperative.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="FShade.SpirV">
+          <HintPath>..\..\packages\FShade.SpirV\lib\netstandard2.0\FShade.SpirV.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="FSharp.Core">
+          <HintPath>..\..\packages\FSharp.Core\lib\net45\FSharp.Core.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="FSharp.Core">
+          <HintPath>..\..\packages\FSharp.Core\lib\netstandard1.6\FSharp.Core.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="System.Xml.Linq">
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="FSharp.Data">
+          <HintPath>..\..\packages\FSharp.Data\lib\net45\FSharp.Data.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="FSharp.Data">
+          <HintPath>..\..\packages\FSharp.Data\lib\netstandard2.0\FSharp.Data.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1'">
+      <ItemGroup>
+        <Reference Include="FSharp.Data.Adaptive">
+          <HintPath>..\..\packages\FSharp.Data.Adaptive\lib\netcoreapp3.1\FSharp.Data.Adaptive.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="FSharp.Data.Adaptive">
+          <HintPath>..\..\packages\FSharp.Data.Adaptive\lib\netstandard2.0\FSharp.Data.Adaptive.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="FsPickler">
+          <HintPath>..\..\packages\FsPickler\lib\net45\FsPickler.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="FsPickler">
+          <HintPath>..\..\packages\FsPickler\lib\netstandard2.0\FsPickler.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="FsPickler.Json">
+          <HintPath>..\..\packages\FsPickler.Json\lib\net45\FsPickler.Json.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="FsPickler.Json">
+          <HintPath>..\..\packages\FsPickler.Json\lib\netstandard2.0\FsPickler.Json.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="GLSLangSharp">
+          <HintPath>..\..\packages\GLSLangSharp\lib\netstandard2.0\GLSLangSharp.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="mscorlib">
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Microsoft.Bcl.AsyncInterfaces">
+          <HintPath>..\..\packages\Microsoft.Bcl.AsyncInterfaces\lib\net461\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Microsoft.Bcl.AsyncInterfaces">
+          <HintPath>..\..\packages\Microsoft.Bcl.AsyncInterfaces\lib\netstandard2.0\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Microsoft.Bcl.AsyncInterfaces">
+          <HintPath>..\..\packages\Microsoft.Bcl.AsyncInterfaces\ref\netstandard2.0\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="Microsoft.CSharp">
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Microsoft.CSharp">
+          <HintPath>..\..\packages\Microsoft.CSharp\lib\netstandard2.0\Microsoft.CSharp.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Microsoft.CSharp">
+          <HintPath>..\..\packages\Microsoft.CSharp\ref\netstandard2.0\Microsoft.CSharp.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="System">
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="System.Core">
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Microsoft.DotNet.PlatformAbstractions">
+          <HintPath>..\..\packages\Microsoft.DotNet.PlatformAbstractions\lib\net45\Microsoft.DotNet.PlatformAbstractions.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Microsoft.DotNet.PlatformAbstractions">
+          <HintPath>..\..\packages\Microsoft.DotNet.PlatformAbstractions\lib\netstandard2.0\Microsoft.DotNet.PlatformAbstractions.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="Microsoft.Extensions.DependencyModel">
+          <HintPath>..\..\packages\Microsoft.Extensions.DependencyModel\lib\net451\Microsoft.Extensions.DependencyModel.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Microsoft.Extensions.DependencyModel">
+          <HintPath>..\..\packages\Microsoft.Extensions.DependencyModel\lib\netstandard2.0\Microsoft.Extensions.DependencyModel.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="Newtonsoft.Json">
+          <HintPath>..\..\packages\Newtonsoft.Json\lib\net45\Newtonsoft.Json.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Newtonsoft.Json">
+          <HintPath>..\..\packages\Newtonsoft.Json\lib\netstandard2.0\Newtonsoft.Json.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="OPCViewer.Base">
+          <HintPath>..\..\packages\OPCViewer.Base\lib\netstandard2.0\OPCViewer.Base.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="System.Web">
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="RestSharp">
+          <HintPath>..\..\packages\RestSharp\lib\net452\RestSharp.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="RestSharp">
+          <HintPath>..\..\packages\RestSharp\lib\netstandard2.0\RestSharp.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="ICSharpCode.SharpZipLib">
+          <HintPath>..\..\packages\SharpZipLib\lib\net45\ICSharpCode.SharpZipLib.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="ICSharpCode.SharpZipLib">
+          <HintPath>..\..\packages\SharpZipLib\lib\netstandard2.0\ICSharpCode.SharpZipLib.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Silk.NET.Core">
+          <HintPath>..\..\packages\Silk.NET.Core\lib\netstandard2.0\Silk.NET.Core.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Silk.NET.GLFW">
+          <HintPath>..\..\packages\Silk.NET.GLFW\lib\netstandard2.0\Silk.NET.GLFW.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="Suave">
+          <HintPath>..\..\packages\Suave\lib\net461\Suave.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Suave">
+          <HintPath>..\..\packages\Suave\lib\netstandard2.0\Suave.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="System.Buffers">
+          <HintPath>..\..\packages\System.Buffers\lib\net461\System.Buffers.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0'">
+      <ItemGroup>
+        <Reference Include="System.Buffers">
+          <HintPath>..\..\packages\System.Buffers\lib\netstandard2.0\System.Buffers.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0'">
+      <ItemGroup>
+        <Reference Include="System.Buffers">
+          <HintPath>..\..\packages\System.Buffers\ref\netstandard2.0\System.Buffers.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Collections">
+          <HintPath>..\..\packages\System.Collections\ref\netstandard1.3\System.Collections.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="System.Collections.Immutable">
+          <HintPath>..\..\packages\System.Collections.Immutable\lib\net461\System.Collections.Immutable.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Collections.Immutable">
+          <HintPath>..\..\packages\System.Collections.Immutable\lib\netstandard2.0\System.Collections.Immutable.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Diagnostics.Debug">
+          <HintPath>..\..\packages\System.Diagnostics.Debug\ref\netstandard1.3\System.Diagnostics.Debug.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Dynamic.Runtime">
+          <HintPath>..\..\packages\System.Dynamic.Runtime\lib\netstandard1.3\System.Dynamic.Runtime.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Dynamic.Runtime">
+          <HintPath>..\..\packages\System.Dynamic.Runtime\ref\netstandard1.3\System.Dynamic.Runtime.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Globalization">
+          <HintPath>..\..\packages\System.Globalization\ref\netstandard1.3\System.Globalization.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.IO">
+          <HintPath>..\..\packages\System.IO\ref\netstandard1.5\System.IO.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Linq">
+          <HintPath>..\..\packages\System.Linq\lib\netstandard1.6\System.Linq.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Linq">
+          <HintPath>..\..\packages\System.Linq\ref\netstandard1.6\System.Linq.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Linq.Expressions">
+          <HintPath>..\..\packages\System.Linq.Expressions\lib\netstandard1.6\System.Linq.Expressions.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Linq.Expressions">
+          <HintPath>..\..\packages\System.Linq.Expressions\ref\netstandard1.6\System.Linq.Expressions.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="System.Memory">
+          <HintPath>..\..\packages\System.Memory\lib\net461\System.Memory.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Memory">
+          <HintPath>..\..\packages\System.Memory\lib\netstandard2.0\System.Memory.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="System.Numerics">
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="System.Numerics.Vectors">
+          <HintPath>..\..\packages\System.Numerics.Vectors\lib\net46\System.Numerics.Vectors.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Numerics.Vectors">
+          <HintPath>..\..\packages\System.Numerics.Vectors\lib\netstandard2.0\System.Numerics.Vectors.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Numerics.Vectors">
+          <HintPath>..\..\packages\System.Numerics.Vectors\ref\netstandard2.0\System.Numerics.Vectors.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.ObjectModel">
+          <HintPath>..\..\packages\System.ObjectModel\lib\netstandard1.3\System.ObjectModel.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.ObjectModel">
+          <HintPath>..\..\packages\System.ObjectModel\ref\netstandard1.3\System.ObjectModel.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="System.Windows">
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="System.Windows.Forms">
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="WindowsBase">
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="System.Reactive">
+          <HintPath>..\..\packages\System.Reactive\lib\net46\System.Reactive.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Reactive">
+          <HintPath>..\..\packages\System.Reactive\lib\netstandard2.0\System.Reactive.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Import Project="..\..\packages\Adaptify.MSBuild\build\Adaptify.MSBuild.targets" Condition="Exists('..\..\packages\Adaptify.MSBuild\build\Adaptify.MSBuild.targets')" Label="Paket" />
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1'">
+      <PropertyGroup>
+        <__paket__System_Reactive_targets>netcoreapp3.0\System.Reactive</__paket__System_Reactive_targets>
+      </PropertyGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Reflection">
+          <HintPath>..\..\packages\System.Reflection\ref\netstandard1.5\System.Reflection.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0'">
+      <ItemGroup>
+        <Reference Include="System.Reflection.Emit">
+          <HintPath>..\..\packages\System.Reflection.Emit\lib\netstandard2.0\System.Reflection.Emit.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0'">
+      <ItemGroup>
+        <Reference Include="System.Reflection.Emit">
+          <HintPath>..\..\packages\System.Reflection.Emit\ref\netstandard2.0\System.Reflection.Emit.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0'">
+      <ItemGroup>
+        <Reference Include="System.Reflection.Emit.ILGeneration">
+          <HintPath>..\..\packages\System.Reflection.Emit.ILGeneration\lib\netstandard2.0\System.Reflection.Emit.ILGeneration.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0'">
+      <ItemGroup>
+        <Reference Include="System.Reflection.Emit.ILGeneration">
+          <HintPath>..\..\packages\System.Reflection.Emit.ILGeneration\ref\netstandard2.0\System.Reflection.Emit.ILGeneration.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0'">
+      <ItemGroup>
+        <Reference Include="System.Reflection.Emit.Lightweight">
+          <HintPath>..\..\packages\System.Reflection.Emit.Lightweight\lib\netstandard2.0\System.Reflection.Emit.Lightweight.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0'">
+      <ItemGroup>
+        <Reference Include="System.Reflection.Emit.Lightweight">
+          <HintPath>..\..\packages\System.Reflection.Emit.Lightweight\ref\netstandard2.0\System.Reflection.Emit.Lightweight.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Reflection.Extensions">
+          <HintPath>..\..\packages\System.Reflection.Extensions\ref\netstandard1.0\System.Reflection.Extensions.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="System.Reflection.Metadata">
+          <HintPath>..\..\packages\System.Reflection.Metadata\lib\net461\System.Reflection.Metadata.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Reflection.Metadata">
+          <HintPath>..\..\packages\System.Reflection.Metadata\lib\netstandard2.0\System.Reflection.Metadata.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Reflection.Primitives">
+          <HintPath>..\..\packages\System.Reflection.Primitives\ref\netstandard1.0\System.Reflection.Primitives.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Reflection.TypeExtensions">
+          <HintPath>..\..\packages\System.Reflection.TypeExtensions\lib\netstandard2.0\System.Reflection.TypeExtensions.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Reflection.TypeExtensions">
+          <HintPath>..\..\packages\System.Reflection.TypeExtensions\ref\netstandard2.0\System.Reflection.TypeExtensions.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Resources.ResourceManager">
+          <HintPath>..\..\packages\System.Resources.ResourceManager\ref\netstandard1.0\System.Resources.ResourceManager.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Runtime">
+          <HintPath>..\..\packages\System.Runtime\ref\netstandard1.5\System.Runtime.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="System.Runtime.CompilerServices.Unsafe">
+          <HintPath>..\..\packages\System.Runtime.CompilerServices.Unsafe\lib\net461\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0'">
+      <ItemGroup>
+        <Reference Include="System.Runtime.CompilerServices.Unsafe">
+          <HintPath>..\..\packages\System.Runtime.CompilerServices.Unsafe\lib\netcoreapp2.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Runtime.CompilerServices.Unsafe">
+          <HintPath>..\..\packages\System.Runtime.CompilerServices.Unsafe\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Runtime.CompilerServices.Unsafe">
+          <HintPath>..\..\packages\System.Runtime.CompilerServices.Unsafe\ref\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Runtime.Extensions">
+          <HintPath>..\..\packages\System.Runtime.Extensions\ref\netstandard1.5\System.Runtime.Extensions.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="System.Runtime.InteropServices.RuntimeInformation">
+          <HintPath>..\..\packages\System.Runtime.InteropServices.RuntimeInformation\lib\net45\System.Runtime.InteropServices.RuntimeInformation.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Runtime.InteropServices.WindowsRuntime">
+          <HintPath>..\..\packages\System.Runtime.InteropServices.WindowsRuntime\ref\netstandard1.0\System.Runtime.InteropServices.WindowsRuntime.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Runtime.InteropServices.WindowsRuntime">
+          <HintPath>..\..\packages\System.Runtime.InteropServices.WindowsRuntime\lib\netstandard1.3\System.Runtime.InteropServices.WindowsRuntime.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Text.Encoding">
+          <HintPath>..\..\packages\System.Text.Encoding\ref\netstandard1.3\System.Text.Encoding.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="System.Text.Encodings.Web">
+          <HintPath>..\..\packages\System.Text.Encodings.Web\lib\net461\System.Text.Encodings.Web.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Text.Encodings.Web">
+          <HintPath>..\..\packages\System.Text.Encodings.Web\lib\netstandard2.0\System.Text.Encodings.Web.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="System.Text.Json">
+          <HintPath>..\..\packages\System.Text.Json\lib\net461\System.Text.Json.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1'">
+      <ItemGroup>
+        <Reference Include="System.Text.Json">
+          <HintPath>..\..\packages\System.Text.Json\lib\netcoreapp3.0\System.Text.Json.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Text.Json">
+          <HintPath>..\..\packages\System.Text.Json\lib\netstandard2.0\System.Text.Json.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Threading">
+          <HintPath>..\..\packages\System.Threading\lib\netstandard1.3\System.Threading.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Threading">
+          <HintPath>..\..\packages\System.Threading\ref\netstandard1.3\System.Threading.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Threading.Tasks">
+          <HintPath>..\..\packages\System.Threading.Tasks\ref\netstandard1.3\System.Threading.Tasks.dll</HintPath>
+          <Private>False</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="System.Threading.Tasks.Extensions">
+          <HintPath>..\..\packages\System.Threading.Tasks.Extensions\lib\net461\System.Threading.Tasks.Extensions.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="System.Threading.Tasks.Extensions">
+          <HintPath>..\..\packages\System.Threading.Tasks.Extensions\lib\netstandard2.0\System.Threading.Tasks.Extensions.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="System.ValueTuple">
+          <HintPath>..\..\packages\System.ValueTuple\lib\net47\System.ValueTuple.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
+      <ItemGroup>
+        <Reference Include="Ultz.SuperInvoke">
+          <HintPath>..\..\packages\Ultz.SuperInvoke\lib\net461\Ultz.SuperInvoke.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1'">
+      <ItemGroup>
+        <Reference Include="Ultz.SuperInvoke">
+          <HintPath>..\..\packages\Ultz.SuperInvoke\lib\netcoreapp3.0\Ultz.SuperInvoke.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Ultz.SuperInvoke">
+          <HintPath>..\..\packages\Ultz.SuperInvoke\lib\netstandard2.0\Ultz.SuperInvoke.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1'">
+      <ItemGroup>
+        <Reference Include="Ultz.SuperInvoke.Loader">
+          <HintPath>..\..\packages\Ultz.SuperInvoke.Loader\lib\netcoreapp3.0\Ultz.SuperInvoke.Loader.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Ultz.SuperInvoke.Loader">
+          <HintPath>..\..\packages\Ultz.SuperInvoke.Loader\lib\netstandard2.0\Ultz.SuperInvoke.Loader.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Uncodium.Eigensystems">
+          <HintPath>..\..\packages\Uncodium.Eigensystems\lib\netstandard2.0\Uncodium.Eigensystems.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="AssimpNet">
+          <HintPath>..\..\packages\Unofficial.AssimpNet\lib\netstandard2.0\AssimpNet.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="LibTessDotNet">
+          <HintPath>..\..\packages\Unofficial.LibTessDotNet\lib\netstandard2.0\LibTessDotNet.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="OpenTK">
+          <HintPath>..\..\packages\Unofficial.OpenTK\lib\netstandard2.0\OpenTK.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Unofficial.Typography">
+          <HintPath>..\..\packages\Unofficial.Typography\lib\netstandard2.0\Unofficial.Typography.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Import Project="..\..\packages\System.Reactive\build\$(__paket__System_Reactive_targets).targets" Condition="Exists('..\..\packages\System.Reactive\build\$(__paket__System_Reactive_targets).targets')" Label="Paket" />
+</Project>
