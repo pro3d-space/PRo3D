@@ -18,7 +18,7 @@ Planetary geology is the most elaborately supported use-case of PRo3D, however w
 
 # Licensing
 
-PRo3D is free for academic use. When used for publications, we kindly ask for [PRo3D Homepage](http://pro3d.space). For commercial use, customization, please consult science@vrvis.at.
+PRo3D is **free** for academic use. When used for publications, we kindly ask for [PRo3D Homepage](http://pro3d.space). For commercial use, customization, please consult science@vrvis.at.
 
 # Technology & System Requirements
 
