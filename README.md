@@ -1,4 +1,4 @@
-[PRo3D Homepage](http://pro3d.space) | [Aardvark Platform Repository](https://github.com/aardvark-platform)
+[PRo3D Homepage](http://pro3d.space) 
 
 ![](http://www.pro3d.space/images/garden.jpg)
 
@@ -18,7 +18,7 @@ Planetary geology is the most elaborately supported use-case of PRo3D, however w
 
 # Technology & System Requirements
 
-PRo3D is based on the functional-first libraries of the [The Aardvark Platform](https://aardvarkians.com/). In December, we will finish the final bits for mac os finally making the application fully cross-platform.
+PRo3D is based on the functional-first libraries of the [The Aardvark Platform](https://aardvarkians.com/), available on [github](https://github.com/aardvark-platform). In December, we will finish the final bits for mac os finally making the application fully cross-platform.
 
 _required:_
 
@@ -34,7 +34,7 @@ RAM: 16GB
 
 _technological constraints:_
 
-OS/Runtime: Windows 10 (64bit, v10.0.17763), .NET Standard 2.0 (linux and mac versions are in development)
+OS/Runtime: Windows 10 (64bit, v10.0.17763), .NET Core 3.1 (linux and mac versions are in development)
 Graphics: NVIDIA Kepler Architecture (GTX 6*) or greater
 
 PRo3D's performance may vary with the size and type of datasets and the selected quality settings for surface rendering. PRo3D may as well run on machines beneath the required specification. Most of the time, PRo3D also runs on AMD cards, but it is not guaranteed.
