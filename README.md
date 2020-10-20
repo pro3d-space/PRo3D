@@ -1,4 +1,4 @@
-[PRo3D Homepage](http://pro3d.space) | ![Windows](https://github.com/vrvis/PRo3D/workflows/Windows/badge.svg) | ![Linux](https://github.com/vrvis/PRo3D/workflows/Linux/badge.svg) |  ![Mac OS](https://github.com/vrvis/PRo3D/workflows/MacOS/badge.svg)
+[PRo3D Homepage](http://pro3d.space) | ![Windows](https://github.com/vrvis/PRo3D/workflows/Windows/badge.svg) ![Linux](https://github.com/vrvis/PRo3D/workflows/Linux/badge.svg)   ![Mac OS](https://github.com/vrvis/PRo3D/workflows/MacOS/badge.svg)
 
 ![](http://www.pro3d.space/images/garden.jpg)
 
@@ -15,6 +15,10 @@ Planetary geology is the most elaborately supported use-case of PRo3D, however w
 * Geological analysis of 3D digital outcrop models
 * Large data visualization
 * Overlaying of arbitrary 3D surfaces
+
+# Licensing
+
+PRo3D is free for academic use. When used for publications, we kindly ask for [PRo3D Homepage](http://pro3d.space). For commercial use, customization, please consult science@vrvis.at.
 
 # Technology & System Requirements
 
