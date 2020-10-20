@@ -1,7 +1,3 @@
-﻿---
-tags: PRo3D Read.me
----
-
 [PRo3D Homepage](http://pro3d.space) | [Aardvark Platform Repository](https://github.com/aardvark-platform)
 
 ![](http://www.pro3d.space/images/garden.jpg)
