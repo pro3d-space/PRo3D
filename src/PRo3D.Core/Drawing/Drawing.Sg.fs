@@ -32,8 +32,8 @@ module Sg =
       //TODO TO refactor formatting
     //open PRo3D.Surfaces.Mutable.SgSurfaceModule
 
-    let discISg color size height trafo =
-        Sg.cylinder 30 color size height              
+    let discISg color size thickness trafo =
+        Sg.cylinder 30 color size thickness              
           |> Sg.noEvents
           |> Sg.uniform "WorldPos" (trafo |> AVal.map(fun (x : Trafo3d) -> x.Forward.C3.XYZ))
           |> Sg.uniform "Size" size

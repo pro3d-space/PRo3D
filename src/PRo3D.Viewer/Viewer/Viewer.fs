@@ -382,6 +382,15 @@ module ViewerApp =
         //    let msg = PlaneExtrude.App.Action.PointsMsg(Utils.Picking.Action.AddPoint p)
         //    let pe = PlaneExtrude.App.update m.scene.referenceSystem m.scaleTools.planeExtrude msg
         //    { m with scaleTools = { m.scaleTools with planeExtrude = pe  } }
+        | Interactions.PlaceValidator, ViewerMode.Standard -> 
+            let heightVal = 
+                HeightValidatorApp.update 
+                    m.heighValidation 
+                    m.scene.referenceSystem.up.value 
+                    m.scene.referenceSystem.north.value
+                    (HeightValidatorAction.PlaceValidator p)
+
+            { m with heighValidation = heightVal }
         | _ -> m       
 
     let mutable lastHash = -1    
@@ -1244,7 +1253,9 @@ module ViewerApp =
             //blarg
            // m
         | ViewerAction.PickSurface _,_,_ ->
-            m
+            m 
+        | ViewerAction.HeightValidation a,_,false ->
+            { m with heighValidation = HeightValidatorApp.update m.heighValidation m.scene.referenceSystem.up.value m.scene.referenceSystem.north.value a }
         //| _ -> 
         //    Log.warn "[Viewer] don't know message %A. ignoring it." msg
         //    m                                            
@@ -1443,7 +1454,10 @@ module ViewerApp =
             //        m.correlationPlot 
             //        (allowLogPicking m)
 
-            [exploreCenter; refSystem; viewPlans; homePosition; solText;] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
+            let heightValidation =
+                HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation
+
+            [exploreCenter; refSystem; viewPlans; homePosition; solText; heightValidation] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
         let minervaSg =
             let minervaFeatures = 
@@ -1473,8 +1487,11 @@ module ViewerApp =
                 m.linkingModel
             |> Sg.map LinkingActions
 
+        let heightValidationDiscs =
+            HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
+        
         let depthTested = 
-            [linkingSg; annotationSg; minervaSg] |> Sg.ofList
+            [linkingSg; annotationSg; minervaSg; heightValidationDiscs] |> Sg.ofList
 
         let cmds    = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m
         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
@@ -1557,6 +1574,8 @@ module ViewerApp =
                 )
             | Some "annotations" -> 
                 require (myCss) (body bodyAttributes [Gui.Annotations.annotationUI m])
+            | Some "validation" -> 
+                require (myCss) (body bodyAttributes [HeightValidatorApp.viewUI m.heighValidation |> UI.map HeightValidation])
             | Some "bookmarks" -> 
                 require (myCss) (body bodyAttributes [Gui.Bookmarks.bookmarkUI m])
             | Some "config" -> 

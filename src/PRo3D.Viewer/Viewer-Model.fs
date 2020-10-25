@@ -137,6 +137,7 @@ type ViewerAction =
     | SetTextureFiltering             of bool // TODO move to versioned ViewConfigModel in V3
     //| UpdateShatterCones              of list<SnapshotShattercone> // TODO snapshots and shattercone things should be in own apps
     | TestHaltonRayCasting            //of list<string>
+    | HeightValidation               of HeightValidatorAction
     | Nop
 
 and MailboxState = {
@@ -335,6 +336,8 @@ type Model = {
     arnoldSnapshotThreads: ThreadPool<ViewerAction>
     showExplorationPoint : bool
     filterTexture        : bool // TODO move to versioned ViewConfigModel in V3
+
+    heighValidation      : HeightValidatorModel
 }
 
 
@@ -466,7 +469,7 @@ module Viewer =
             startupArgs     = startupArgs            
             drawing         = Drawing.DrawingModel.initialdrawing
             properties      = NoProperties
-            interaction     = Interactions.PlaceCoordinateSystem
+            interaction     = Interactions.PlaceValidator
             multiSelectBox  = None
             shiftFlag       = false
             picking         = false
@@ -516,4 +519,6 @@ module Viewer =
             arnoldSnapshotThreads = ThreadPool.empty
             showExplorationPoint = startupArgs.showExplorationPoint
             filterTexture = startupArgs.magnificationFilter
+
+            heighValidation = HeightValidatorModel.init()
     }
