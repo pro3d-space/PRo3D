@@ -30,6 +30,9 @@ open Adaptify
 open Aether
 open Aether.Operators
 open PRo3D.Minerva
+open CorrelationDrawing.Model
+open CorrelationDrawing
+open UIPlus
 
 #nowarn "0686"
 
@@ -49,21 +52,21 @@ type PropertyActions =
     | DrawingMessage    of DrawingAction
     | AnnotationMessage of AnnotationProperties.Action
 
-//type CorrelationPanelsMessage = 
-//| CorrPlotMessage               of CorrelationPlotAction
-//| SemanticAppMessage            of SemanticAction
-//| ColourMapMessage              of ColourMap.Action
-//| LogPickReferencePlane         of Guid
-//| LogAddSelectedPoint           of Guid * V3d
-//| LogAddPointToSelected         of Guid * V3d
-//| LogCancel
-//| LogConfirm
-//| LogAssignCrossbeds            of HashSet<Guid>
-//| UpdateAnnotations             of HashMap<Guid, PRo3D.Groups.Leaf>
-//| ExportLogs                    of string
-//| RemoveLastPoint
-//| SetContactOfInterest          of HashSet<CorrelationDrawing.AnnotationTypes.ContactId>
-//| Nop
+type CorrelationPanelsMessage = 
+| CorrPlotMessage               of CorrelationPlotAction
+| SemanticAppMessage            of SemanticAction
+| ColourMapMessage              of ColourMap.Action
+| LogPickReferencePlane         of Guid
+| LogAddSelectedPoint           of Guid * V3d
+| LogAddPointToSelected         of Guid * V3d
+| LogCancel
+| LogConfirm
+| LogAssignCrossbeds            of HashSet<Guid>
+| UpdateAnnotations             of HashMap<Guid, Leaf>
+| ExportLogs                    of string
+| RemoveLastPoint
+| SetContactOfInterest          of HashSet<CorrelationDrawing.AnnotationTypes.ContactId>
+| Nop
 //type ScaleToolAction = 
 //    | PlaneExtrudeAction of PlaneExtrude.App.Action
 
@@ -131,7 +134,7 @@ type ViewerAction =
     | StartDragging                   of V2i * MouseButtons
     | Dragging                        of V2i
     | EndDragging                     of V2i * MouseButtons
-    //| CorrelationPanelMessage         of CorrelationPanelsMessage
+    | CorrelationPanelMessage         of CorrelationPanelsMessage
     | MakeSnapshot                    of int*int*string
     | ImportSnapshotData              of list<string>
     | SetTextureFiltering             of bool // TODO move to versioned ViewConfigModel in V3

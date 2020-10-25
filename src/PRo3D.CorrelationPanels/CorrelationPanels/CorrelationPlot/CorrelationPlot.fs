@@ -747,7 +747,7 @@ module CorrelationPlotApp =
                 
                 match selected with
                 | Some logId ->
-                    let! logs = model.logsNuevo //> AMap.toAVal
+                    let! logs = model.logsNuevo |> AMap.toAVal
                     match (logs |> HashMap.tryFind logId) with
                     | Some log -> 
                         yield GeologicalLogNuevoProperties.view log 

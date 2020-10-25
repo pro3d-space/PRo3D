@@ -101,7 +101,7 @@ module Gui =
                 yield attribute "height" (sprintf "%ipx" b.SizeY)
             } |> AttributeMap.ofAMap
 
-        let selectionRectangle = Incremental.Svg.rect attr //Incremental.Svg.rect attr AList.empty
+        let selectionRectangle = Incremental.Svg.rect attr AList.empty
 
         let canvasAttributes = 
             [
