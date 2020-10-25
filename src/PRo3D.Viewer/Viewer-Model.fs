@@ -34,6 +34,11 @@ open CorrelationDrawing.Model
 open CorrelationDrawing
 open UIPlus
 
+open PRo3D.Correlations
+open PRo3D.Correlations.Model
+open PRo3D.Bookmarkings
+
+
 #nowarn "0686"
 
 type TabMenu = 
@@ -43,30 +48,11 @@ type TabMenu =
     | Bookmarks   = 3
     | Config      = 4
 
-type BookmarkAction =
-    | AddBookmark 
-    | GroupsMessage   of GroupsAppAction
-    | PrintViewParameters of Guid
-
 type PropertyActions =
     | DrawingMessage    of DrawingAction
     | AnnotationMessage of AnnotationProperties.Action
 
-type CorrelationPanelsMessage = 
-| CorrPlotMessage               of CorrelationPlotAction
-| SemanticAppMessage            of SemanticAction
-| ColourMapMessage              of ColourMap.Action
-| LogPickReferencePlane         of Guid
-| LogAddSelectedPoint           of Guid * V3d
-| LogAddPointToSelected         of Guid * V3d
-| LogCancel
-| LogConfirm
-| LogAssignCrossbeds            of HashSet<Guid>
-| UpdateAnnotations             of HashMap<Guid, Leaf>
-| ExportLogs                    of string
-| RemoveLastPoint
-| SetContactOfInterest          of HashSet<CorrelationDrawing.AnnotationTypes.ContactId>
-| Nop
+
 //type ScaleToolAction = 
 //    | PlaneExtrudeAction of PlaneExtrude.App.Action
 
@@ -325,8 +311,8 @@ type Model = {
     minervaModel     : PRo3D.Minerva.MinervaModel
     linkingModel     : PRo3D.Linking.LinkingModel
 
-    //correlationPlot : CorrelationPanelModel
-    //pastCorrelation : Option<CorrelationPanelModel>
+    correlationPlot : CorrelationPanelModel
+    pastCorrelation : Option<CorrelationPanelModel>
             
     [<TreatAsValue>]
     past : Option<Drawing.DrawingModel> 
@@ -511,8 +497,8 @@ module Viewer =
             //    }
             linkingModel = PRo3D.Linking.LinkingModel.initial
             
-           // correlationPlot = CorrelationPanelModel.initial
-            //pastCorrelation = None
+            correlationPlot = CorrelationPanelModel.initial
+            pastCorrelation = None
             //instrumentCamera = { CameraController.initial with view = CameraView.lookAt V3d.Zero V3d.One V3d.OOI }        
             //instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
             viewerMode = ViewerMode.Standard                

@@ -1,5 +1,6 @@
 namespace PRo3D.Bookmarkings
 
+open System
 open Aardvark.Base
 open FSharp.Data.Adaptive
 open Aardvark.Application
@@ -15,6 +16,11 @@ open PRo3D.Viewer
 
 open Aether
 open Aether.Operators
+
+type BookmarkAction =
+| AddBookmark 
+| GroupsMessage   of GroupsAppAction
+| PrintViewParameters of Guid
 
 module Bookmarks = 
     

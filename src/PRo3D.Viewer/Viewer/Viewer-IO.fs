@@ -18,6 +18,8 @@ open PRo3D.SimulatedViews
 open FSharp.Data.Adaptive
 
 open Chiron
+open PRo3D.Correlations
+open CorrelationDrawing
 
 //open CorrelationDrawing
 //open CorrelationDrawing.Model
@@ -77,23 +79,23 @@ module ViewerIO =
             Log.error "[ViewerIO] couldn't load %A" e
             None
     
-    //let colorBySemantic 
-    //    (semantics : HashMap<SemanticTypes.CorrelationSemanticId, SemanticTypes.CorrelationSemantic>) 
-    //    flat =
+    let colorBySemantic 
+        (semantics : HashMap<SemanticTypes.CorrelationSemanticId, SemanticTypes.CorrelationSemantic>) 
+        flat =
 
-    //    flat
-    //    |> Leaf.toAnnotations
-    //    |> HashMap.map(fun k a ->
-    //        let (Annotation.SemanticId semId) = a.semanticId 
-    //        let semantic = 
-    //            semantics
-    //            |> HashMap.tryFind (semId |> SemanticTypes.CorrelationSemanticId)
+        flat
+        |> Leaf.toAnnotations
+        |> HashMap.map(fun k a ->
+            let (Annotation.SemanticId semId) = a.semanticId 
+            let semantic = 
+                semantics
+                |> HashMap.tryFind (semId |> SemanticTypes.CorrelationSemanticId)
 
-    //        match semantic with
-    //        | Some s -> { a with color = s.color }
-    //        | None -> a
-    //    )
-    //    |> HashMap.map(fun _ v -> Leaf.Annotations v)
+            match semantic with
+            | Some s -> { a with color = s.color }
+            | None -> a
+        )
+        |> HashMap.map(fun _ v -> Leaf.Annotations v)
 
     //let colorBySemantic' (model : Model) =
     //    let flat = 
@@ -121,20 +123,20 @@ module ViewerIO =
         |> Option.map(fun g ->                 
 
             //color annotations according to semantics
-            //let flat = 
-            //    g.annotations.flat |> colorBySemantic m.correlationPlot.semanticApp.semantics
+            let flat = 
+                g.annotations.flat |> colorBySemantic m.correlationPlot.semanticApp.semantics
                 
 
             //update contacts table for correlation panel (TODO TO remove duplication)
-            //let corr = 
-            //    CorrelationPanelsApp.update
-            //        m.correlationPlot 
-            //        m.scene.referenceSystem                    
-            //        (UpdateAnnotations flat)
+            let corr = 
+                CorrelationPanelsApp.update
+                    m.correlationPlot 
+                    m.scene.referenceSystem                    
+                    (UpdateAnnotations flat)
             
             {   
                 m with                    
-                    //correlationPlot = corr
+                    correlationPlot = corr
                     drawing = {
                         m.drawing with 
                             annotations    = g.annotations
@@ -153,46 +155,45 @@ module ViewerIO =
         )    
         |> Option.map(fun correlationsPath ->
 
-            //let correlationPlotModel = 
-            //    correlationsPath
-            //    |> Serialization.Chiron.readFromFile 
-            //    |> Json.parse 
-            //    |> Json.deserialize
+            let correlationPlotModel = 
+                correlationsPath
+                |> Serialization.Chiron.readFromFile 
+                |> Json.parse 
+                |> Json.deserialize
 
             //TODO TO refactor weird point of failure, having contacts and annotations
-            //let correlationPlotModel = 
-            //    UpdateAnnotations m.drawing.annotations.flat 
-            //    |> CorrelationPanelsApp.update correlationPlotModel m.scene.referenceSystem
+            let correlationPlotModel = 
+                UpdateAnnotations m.drawing.annotations.flat 
+                |> CorrelationPanelsApp.update correlationPlotModel m.scene.referenceSystem
                
-            //let correlationPlotModel = 
-            //    { 
-            //        correlationPlotModel with 
-            //            correlationPlot = {
-            //                correlationPlotModel.correlationPlot with
-            //                    upVector    = m.scene.referenceSystem.up.value
-            //                    northVector = m.scene.referenceSystem.north.value
-            //            }
-            //    }
+            let correlationPlotModel = 
+                { 
+                    correlationPlotModel with 
+                        correlationPlot = {
+                            correlationPlotModel.correlationPlot with
+                                upVector    = m.scene.referenceSystem.up.value
+                                northVector = m.scene.referenceSystem.north.value
+                        }
+                }
 
-            //let m = 
-            //    { m with correlationPlot = correlationPlotModel }                    
+            let m = 
+                { m with correlationPlot = correlationPlotModel }                    
             
-            //let correlationPlotModel =
-            //    CorrelationDrawing.CorrelationPlotApp.reconstructDiagramsFromLogs 
-            //      m.correlationPlot.contacts
-            //      m.correlationPlot.semanticApp
-            //      m.correlationPlot.correlationPlot.colorMap
-            //      m.correlationPlot.correlationPlot
+            let correlationPlotModel =
+                CorrelationDrawing.CorrelationPlotApp.reconstructDiagramsFromLogs 
+                  m.correlationPlot.contacts
+                  m.correlationPlot.semanticApp
+                  m.correlationPlot.correlationPlot.colorMap
+                  m.correlationPlot.correlationPlot
 
-            //let diagram =
-            //    correlationPlotModel.diagram
-            //    |> Svgplus.DiagramApp.update (Svgplus.DA.DiagramAppAction.SetYScaling(correlationPlotModel.diagram.yScaleValue))
+            let diagram =
+                correlationPlotModel.diagram
+                |> Svgplus.DiagramApp.update (Svgplus.DA.DiagramAppAction.SetYScaling(correlationPlotModel.diagram.yScaleValue))
 
-            //let correlationPlotModel =
-            //    { correlationPlotModel with diagram = diagram }
+            let correlationPlotModel =
+                { correlationPlotModel with diagram = diagram }
 
-            //{ m with correlationPlot = { m.correlationPlot with correlationPlot = correlationPlotModel } }
-            m
+            { m with correlationPlot = { m.correlationPlot with correlationPlot = correlationPlotModel } }            
         )
         |> Option.defaultValue m
 

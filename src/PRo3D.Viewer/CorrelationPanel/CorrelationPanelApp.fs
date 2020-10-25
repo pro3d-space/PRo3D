@@ -120,6 +120,21 @@ module ContactsTable =
         let k = annotations |> create
         contacts |> HashMap.union k
 
+type CorrelationPanelsMessage = 
+| CorrPlotMessage               of CorrelationPlotAction
+| SemanticAppMessage            of SemanticAction
+| ColourMapMessage              of ColourMap.Action
+| LogPickReferencePlane         of Guid
+| LogAddSelectedPoint           of Guid * V3d
+| LogAddPointToSelected         of Guid * V3d
+| LogCancel
+| LogConfirm
+| LogAssignCrossbeds            of HashSet<Guid>
+| UpdateAnnotations             of HashMap<Guid, Leaf>
+| ExportLogs                    of string
+| RemoveLastPoint
+| SetContactOfInterest          of HashSet<CorrelationDrawing.AnnotationTypes.ContactId>
+| Nop
 
 module CorrelationPanelsApp =        
     open CorrelationDrawing.Nuevo

@@ -32,10 +32,10 @@
     <Compile Include="Navigation.fs" />  
     <Compile Include="ViewConfigApp.fs" />
     <Compile Include="DockConfigs.fs" />
-    <Compile Include="Viewer-Model.fs" />
     <Compile Include="Bookmarks.fs" />
     <Compile Include="CorrelationPanel\CorrelationPanelAppModel.fs" />
     <Compile Include="CorrelationPanel\CorrelationPanelApp.fs" />
+    <Compile Include="Viewer-Model.fs" />
     
     <Compile Include="Scene.fs" />
 
