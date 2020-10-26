@@ -240,7 +240,7 @@ module CorrelationPlotApp =
                 let setUncertainty = RectangleAction.SetUncertainty (rect.isUncertain)         
                 
                 // TODO v5: correlations
-                let id = failwith "" // n.id
+                let id = n.id //failwith "" // n.id
 
                 // TODO..why is this stuff duplicated in logs and diagram?
                 let logs  =

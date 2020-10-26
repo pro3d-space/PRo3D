@@ -10,7 +10,19 @@ module MissingFunctionality =
     module HashMap =
         let values (v : HashMap<_,_>) = v |> HashMap.toSeq |> Seq.map snd
 
-        let pivot _ = failwith "" // TODO v5: what was this
+        let pivot input = 
+            input
+            |> HashMap.toList                    
+            |> List.fold (fun acc (v,k) -> //switching keys and values
+                acc 
+                |> HashMap.update k (fun x ->
+                    match x with
+                    | Some values -> v :: values
+                    | None -> [v]
+                )
+            ) HashMap.empty
+                
+           // failwith "" // TODO v5: what was this
 
 
     module ASet =

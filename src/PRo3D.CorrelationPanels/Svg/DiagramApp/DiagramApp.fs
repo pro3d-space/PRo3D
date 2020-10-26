@@ -620,45 +620,50 @@ module DiagramApp =
             |> UI.map (fun x -> DiagramAppAction.CorrelationsMessage x)
             |> AList.single
                         
-        //let distanceLabels = 
-        //    model.order
-        //    |> AList.map (fun x -> 
-        //        model.items 
-        //        |> AMap.find x 
-        //        |> AVal.map (fun item -> 
-        //            let pos = 
-        //                AVal.map2 (fun c (d:CorrelationDrawing.Size2D) -> 
-        //                    let offset = V2d(d.width / 2.0, 0.0)
-        //                    (c-offset, c+offset)
-        //                ) item.header.centre item.header.dim
-        //            let posAndPoint = AVal.map2 (fun p c -> p, c) pos item.contactPoint
-        //            posAndPoint |> AVal.toAList)
-        //        |> AVal.toAList
-        //        |> AList.concat
-        //    )
-        //    |> AList.concat
-        //    |> PRo3D.Base.AList.pairwise
-        //    |> AList.map (fun (a, b) -> 
-        //        let (aLeft, aRight), aPoint = a
-        //        let (bLeft, bRight), bPoint = b
-                
-        //        let labelPos = (aRight + bLeft) / 2.0 + V2d(0.0, -2.0) 
-        //        let labelText = sprintf "%.2fm" (V3d.Distance (aPoint, bPoint))
-        //        let label = Svgplus.Base.drawText' labelPos labelText CorrelationDrawing.Orientation.Horizontal CorrelationDrawing.TextAnchor.Middle
-                
-        //        let lineStart = aRight + V2d(4.0, 0.0)
-        //        let lineEnd = bLeft + V2d(-4.0, 0.0)
-        //        let line = Svgplus.Base.drawLine lineStart lineEnd C4b.Black 2.0
 
-        //        let tickOffset = V2d(0.0,3.0)
-        //        let lineEnd = Svgplus.Base.drawLine (lineEnd+tickOffset) (lineEnd-tickOffset) C4b.Black 1.5
-        //        let lineStart = Svgplus.Base.drawLine (lineStart+tickOffset) (lineStart-tickOffset) C4b.Black 1.5
+
+        let distanceLabels =             
+            let k = 
+                model.order
+                |> AList.map (fun x -> 
+                    model.items 
+                    |> AMap.find x 
+                    |> AVal.map (fun item -> 
+                        let pos = 
+                            AVal.map2 (fun c (d:CorrelationDrawing.Size2D) -> 
+                                let offset = V2d(d.width / 2.0, 0.0)
+                                (c-offset, c+offset)
+                            ) item.header.centre item.header.dim
+                        let posAndPoint = AVal.map2 (fun p c -> p, c) pos item.contactPoint
+                        posAndPoint |> AList.ofAValSingle)
+                    |> AList.ofAValSingle
+                    |> AList.collect id
+                )
+            k
+            |> AList.collect id
+            |> PRo3D.Base.AList.pairwise
+            |> AList.map (fun (a, b) -> 
+                let (aLeft, aRight), aPoint = a
+                let (bLeft, bRight), bPoint = b
                 
-        //        Incremental.Svg.g AttributeMap.empty ([ line; lineEnd; lineStart; label] |> AList.ofList)
-        //    )
+                let labelPos = (aRight + bLeft) / 2.0 + V2d(0.0, -2.0) 
+                let distance = Vec.distance aPoint bPoint
+                let labelText = sprintf "%.2fm" distance
+                let label = Svgplus.Base.drawText' labelPos labelText CorrelationDrawing.Orientation.Horizontal CorrelationDrawing.TextAnchor.Middle
+                
+                let lineStart = aRight + V2d(4.0, 0.0)
+                let lineEnd = bLeft + V2d(-4.0, 0.0)
+                let line = Svgplus.Base.drawLine lineStart lineEnd C4b.Black 2.0
+
+                let tickOffset = V2d(0.0,3.0)
+                let lineEnd = Svgplus.Base.drawLine (lineEnd+tickOffset) (lineEnd-tickOffset) C4b.Black 1.5
+                let lineStart = Svgplus.Base.drawLine (lineStart+tickOffset) (lineStart-tickOffset) C4b.Black 1.5
+                
+                Incremental.Svg.g AttributeMap.empty ([ line; lineEnd; lineStart; label] |> AList.ofList)
+            )
 
         // TODO v5: andi check above
-        let distanceLabels = failwith ""
+        let distanceLabels = distanceLabels
 
         let lst =             
             correlationlines

@@ -796,8 +796,11 @@ module ViewerApp =
                 | SceneLoading.SceneLoadResult.Loaded(newModel,converted,path) -> 
                     Log.line "[PRo3D] loaded scene: %s" path
                     newModel
-                | SceneLoading.SceneLoadResult.Error(msg,exn) -> 
-                    Log.error "[PRo3D] could not load file: %s, error: %s" path msg
+                | SceneLoading.SceneLoadResult.Error(msg,Some exn) -> 
+                    Log.error "[PRo3D] could not load file: %s, error: %s" path exn.Message
+                    m
+                | _ ->
+                    Log.error "[PRo3D] Sth. went wrong when loading scene: %s" path
                     m
 
             |> ViewerIO.loadMinerva SceneLoader.Minerva.defaultDumpFile SceneLoader.Minerva.defaultCacheFile
