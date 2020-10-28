@@ -22,7 +22,7 @@ PRo3D is **free** for academic use. When used for publications, we kindly ask fo
 
 # Technology & System Requirements
 
-Current status of the repository: ![Windows](https://github.com/vrvis/PRo3D/workflows/Windows/badge.svg) ![Linux](https://github.com/vrvis/PRo3D/workflows/Linux/badge.svg)   ![Mac OS](https://github.com/vrvis/PRo3D/workflows/MacOS/badge.svg)
+Current status of the repository: ![Windows](https://github.com/vrvis/PRo3D/workflows/Windows/badge.svg). Mac and windows support is currently under development: ![Linux](https://github.com/vrvis/PRo3D/workflows/Linux/badge.svg)   ![Mac OS](https://github.com/vrvis/PRo3D/workflows/MacOS/badge.svg)
 
 PRo3D is based on the functional-first libraries of the [The Aardvark Platform](https://aardvarkians.com/), available on [github](https://github.com/aardvark-platform). In December, we will finish the final bits for mac os finally making the application fully cross-platform.
 
