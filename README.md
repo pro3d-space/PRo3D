@@ -1,9 +1,10 @@
-Official website: [PRo3D Homepage](http://pro3d.space) 
-Status: ![Windows](https://github.com/vrvis/PRo3D/workflows/Windows/badge.svg) ![Linux](https://github.com/vrvis/PRo3D/workflows/Linux/badge.svg)   ![Mac OS](https://github.com/vrvis/PRo3D/workflows/MacOS/badge.svg)
-
 ![](http://www.pro3d.space/images/garden.jpg)
 
 **PRo3D**, short for **P**lanetary **Ro**botics **3D** Viewer, is an interactive 3D visualization tool allowing planetary scientists to work with high-resolution 3D reconstructions of the Martian surface.
+Additional information can also be found on the [PRo3D Homepage](http://pro3d.space).
+
+Current status: ![Windows](https://github.com/vrvis/PRo3D/workflows/Windows/badge.svg) ![Linux](https://github.com/vrvis/PRo3D/workflows/Linux/badge.svg)   ![Mac OS](https://github.com/vrvis/PRo3D/workflows/MacOS/badge.svg)
+
 
 # Who uses PRo3D?
 
