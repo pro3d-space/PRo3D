@@ -30,7 +30,7 @@
     <Compile Include="Navigation-Model.fs" />
     <Compile Include="Bookmark-Model.fs" />
     <Compile Include="Navigation.fs" />  
-    <Compile Include="ViewConfigApp.fs" />
+    <Compile Include="ViewconfigApp.fs" />
     <Compile Include="DockConfigs.fs" />
     <Compile Include="Viewer-Model.fs" />
     <Compile Include="Bookmarks.fs" />
