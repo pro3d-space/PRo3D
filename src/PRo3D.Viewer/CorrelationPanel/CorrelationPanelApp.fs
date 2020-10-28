@@ -715,7 +715,16 @@ module CorrelationPanelsApp =
                 | AdaptiveSome brush -> 
                     brush.localPoints 
                     |> AList.map(fun x -> x.position)
-                    |> drawLogSg cam ~~"new log" near ~~C4b.Magenta ~~C4b.DarkMagenta (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption brush.referencePlane) brush.modelTrafo None (AVal.constant false) // cannot be selected
+                    |> drawLogSg 
+                        cam 
+                        ~~"new log" 
+                        near 
+                        ~~C4b.Magenta 
+                        ~~C4b.DarkMagenta 
+                        (brush.referencePlane |> AVal.map Missing.AdaptiveOption.toOption)
+                        brush.modelTrafo 
+                        None 
+                        ~~false // cannot be selected
                 | AdaptiveNone -> Sg.empty           
             ) |> Sg.dynamic
 

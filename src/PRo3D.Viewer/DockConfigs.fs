@@ -55,6 +55,7 @@ module DockConfigs =
                           {id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                           {id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }                    
                           {id = "corr_logs"; title = Some " Logs "; weight = 0.4; deleteInvisible = None; isCloseable = None }
+                          {id = "validation"; title = Some " Validation "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                         ]                          
                         stack 0.5 (Some "config") [
                           {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }

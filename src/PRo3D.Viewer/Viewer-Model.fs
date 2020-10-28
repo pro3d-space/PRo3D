@@ -445,7 +445,7 @@ module Viewer =
 
                     referenceSystem = ReferenceSystem.initial                    
                     bookmarks       = GroupsModel.initial
-                    dockConfig      = DockConfigs.core
+                    dockConfig      = DockConfigs.correlations
                     closedPages     = list.Empty 
                     firstImport     = true
                     userFeedback    = ""

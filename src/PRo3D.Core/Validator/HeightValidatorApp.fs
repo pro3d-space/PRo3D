@@ -5,30 +5,22 @@ open System
 open Aardvark.Base
 open Aardvark.Application
 open Aardvark.UI
-
-open FSharp.Data.Adaptive
-open FSharp.Data.Adaptive.Operators
-open Aardvark.Base.Rendering
-open Aardvark.Application
 open Aardvark.SceneGraph
-open Aardvark.SceneGraph.Opc
 open Aardvark.Rendering.Text
 
 open Aardvark.UI
 open Aardvark.UI.Primitives    
 
+open FSharp.Data.Adaptive
+open FSharp.Data.Adaptive.Operators
+
 open OpcViewer.Base
 
-open PRo3D
 open PRo3D.Base
-open PRo3D.Base.Annotation
 open PRo3D.Core
 open PRo3D.Core.Drawing
 
-open FShade
 
-open Adaptify.FSharp.Core
-open PRo3D.Base
 
 module HeightValidatorApp =    
 
@@ -44,21 +36,21 @@ module HeightValidatorApp =
 
                 Log.line "creating validator"
                 let validator = 
-                    HeightValidatorModel.createValidator 
+                    HeightComputations.createValidator 
                         brush.[0]
                         brush.[1]
                         up
                         north
                         model.validator.inclination.value
 
-                { model with validator = validator; result = HeightValidatorModel.computeResult validator; validatorBrush = IndexList.empty }
+                { model with validator = validator; result = HeightComputations.computeResult validator; validatorBrush = IndexList.empty }
             | _ -> 
                 model
         | ChangeInclination a ->
 
-            let validator = (HeightValidatorModel.updateValidator model.validator a)
+            let validator = (HeightComputations.updateValidator model.validator a)
            
-            let result = HeightValidatorModel.computeResult validator
+            let result = HeightComputations.computeResult validator
 
             { model with validator = validator; result = result }
         | _ ->

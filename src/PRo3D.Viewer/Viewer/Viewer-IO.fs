@@ -97,21 +97,21 @@ module ViewerIO =
         )
         |> HashMap.map(fun _ v -> Leaf.Annotations v)
 
-    //let colorBySemantic' (model : Model) =
-    //    let flat = 
-    //        colorBySemantic 
-    //            model.correlationPlot.semanticApp.semantics
-    //            model.drawing.annotations.flat
+    let colorBySemantic' (model : Model) =
+        let flat = 
+            colorBySemantic 
+                model.correlationPlot.semanticApp.semantics
+                model.drawing.annotations.flat
 
-    //    { 
-    //        model with 
-    //            drawing = {
-    //                model.drawing with 
-    //                    annotations = {
-    //                        model.drawing.annotations with flat = flat
-    //                    }
-    //            }                    
-    //    }
+        { 
+            model with 
+                drawing = {
+                    model.drawing with 
+                        annotations = {
+                            model.drawing.annotations with flat = flat
+                        }
+                }                    
+        }
             
 
     let loadAnnotations (m : Model) = 

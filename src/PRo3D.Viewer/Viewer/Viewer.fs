@@ -51,6 +51,9 @@ open PRo3D.Correlations.Model
 
 open PRo3D.Core.Surface
 open CorrelationDrawing.Model
+open CorrelationDrawing.LogTypes
+open CorrelationDrawing.Nuevo
+open CorrelationDrawing.AnnotationTypes
 
 type UserFeedback<'a> = {
     id      : string
@@ -963,7 +966,7 @@ module ViewerApp =
                     //{ m with waypoints = waypoints }                                                                                  
                     m |> shortFeedback "Saved logbrush"
                 | Aardvark.Application.Keys.F8 ->
-                    { m with scene = { m.scene with dockConfig = DockConfigs.core } }
+                    { m with scene = { m.scene with dockConfig = DockConfigs.correlations } }
                 | _ -> m
 
             let interaction' = 
@@ -1181,79 +1184,79 @@ module ViewerApp =
             match m.multiSelectBox with
             | Some x -> { m with multiSelectBox = None }
             | None -> m
-       // | CorrelationPanelMessage a,_,_ ->
-            //let blurg =
-            //    match a with 
-            //    | CorrelationPanelsMessage.SemanticAppMessage _ ->
-            //        m |> PRo3D.ViewerIO.colorBySemantic'                    
-            //    | _ -> 
-            //        m
-            //let blurg =
-            //    { blurg with correlationPlot = CorrelationPanelsApp.update m.correlationPlot m.scene.referenceSystem a }
+        | CorrelationPanelMessage a,_,_ ->
+            let blurg =
+                match a with 
+                | CorrelationPanelsMessage.SemanticAppMessage _ ->
+                    m |> PRo3D.ViewerIO.colorBySemantic'                    
+                | _ -> 
+                    m
+            let blurg =
+                { blurg with correlationPlot = CorrelationPanelsApp.update m.correlationPlot m.scene.referenceSystem a }
 
-            //let blarg = 
-            //    match a with
-            //    | CorrelationPanelsMessage.CorrPlotMessage 
-            //        (CorrelationPlotAction.DiagramMessage
-            //            (Svgplus.DA.DiagramAppAction.DiagramItemMessage
-            //                (diagramItemId, Svgplus.DiagramItemAction.RectangleStackMessage 
-            //                    (_ , Svgplus.RectangleStackAction.RectangleMessage 
-            //                        (_, Svgplus.RectangleAction.Select rid)))))
-            //            ->          
-            //        Log.line "[Viewer] corrplotmessage %A" blurg.correlationPlot.correlationPlot.selectedFacies
+            let blarg = 
+                match a with
+                | CorrelationPanelsMessage.CorrPlotMessage 
+                    (CorrelationPlotAction.DiagramMessage
+                        (Svgplus.DA.DiagramAppAction.DiagramItemMessage
+                            (diagramItemId, Svgplus.DiagramItemAction.RectangleStackMessage 
+                                (_ , Svgplus.RectangleStackAction.RectangleMessage 
+                                    (_, Svgplus.RectangleAction.Select rid)))))
+                        ->          
+                    Log.line "[Viewer] corrplotmessage %A" blurg.correlationPlot.correlationPlot.selectedFacies
 
-            //        let plot = blurg.correlationPlot.correlationPlot
+                    let plot = blurg.correlationPlot.correlationPlot
 
-            //        let selectionSet =
-            //            match plot.selectedFacies with
-            //            | Some selected -> 
-            //                let selectedLogId : LogId = 
-            //                    diagramItemId 
-            //                    |> LogId.fromDiagramItemId
+                    let selectionSet =
+                        match plot.selectedFacies with
+                        | Some selected -> 
+                            let selectedLogId : LogId = 
+                                diagramItemId 
+                                |> LogId.fromDiagramItemId
 
-            //                let log = 
-            //                    plot.logsNuevo |> HashMap.find selectedLogId
-
-
-            //                // find facies
-            //                match Facies.tryFindFacies selected log.facies with
-            //                | Some facies ->
+                            let log = 
+                                plot.logsNuevo |> HashMap.find selectedLogId
 
 
-            //                    // find measurements
-            //                    Log.line "[Viewer] selected facies has %A measurements" facies.measurements
+                            // find facies
+                            match Facies.tryFindFacies selected log.facies with
+                            | Some facies ->
 
-            //                    // also make for aggregation stuff ... secondary log
+
+                                // find measurements
+                                Log.line "[Viewer] selected facies has %A measurements" facies.measurements
+
+                                // also make for aggregation stuff ... secondary log
                                     
 
-            //                    facies.measurements 
-            //                    |> HashSet.map(fun x -> 
-            //                        {
-            //                            id = ContactId.value x
-            //                            path = []
-            //                            name = ""
-            //                        }
-            //                    )
-            //                | None ->
-            //                    HashSet.empty
-            //            | None -> 
-            //                HashSet.empty
+                                facies.measurements 
+                                |> HashSet.map(fun x -> 
+                                    {
+                                        id = ContactId.value x
+                                        path = []
+                                        name = ""
+                                    }
+                                )
+                            | None ->
+                                HashSet.empty
+                        | None -> 
+                            HashSet.empty
 
-            //        // m.drawing.annotations.selectedLeaves
-            //        { 
-            //            blurg with 
-            //                drawing = { 
-            //                    blurg.drawing with 
-            //                        annotations = { 
-            //                            blurg.drawing.annotations with 
-            //                                selectedLeaves = selectionSet
-            //                        }
-            //                }
-            //        }
-            //    | _ -> 
-            //        blurg
+                    // m.drawing.annotations.selectedLeaves
+                    { 
+                        blurg with 
+                            drawing = { 
+                                blurg.drawing with 
+                                    annotations = { 
+                                        blurg.drawing.annotations with 
+                                            selectedLeaves = selectionSet
+                                    }
+                            }
+                    }
+                | _ -> 
+                    blurg
 
-            //blarg
+            blarg
            // m
         | ViewerAction.PickSurface _,_,_ ->
             m 
@@ -1380,27 +1383,27 @@ module ViewerApp =
                 |> Sg.fillMode (AVal.constant FillMode.Fill)
                 |> Sg.cullMode (AVal.constant CullMode.None)
 
-            //let _, correlationPlanes =
-            //    PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
-            //        m.scene.config.dnsPlaneSize.value
-            //        m.scene.cameraView 
-            //        m.scene.config.nearPlane.value 
-            //        m.correlationPlot 
-            //        m.drawing.dnsColorLegend
+            let _, correlationPlanes =
+                PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
+                    m.scene.config.dnsPlaneSize.value
+                    m.scene.cameraView 
+                    m.scene.config.nearPlane.value 
+                    m.correlationPlot 
+                    m.drawing.dnsColorLegend
 
-            //let _, planes = 
-            //    PRo3D.Correlations.CorrelationPanelsApp.viewFinishedLogs 
-            //        m.scene.config.dnsPlaneSize.value
-            //        m.scene.cameraView 
-            //        m.scene.config.nearPlane.value 
-            //        m.drawing.dnsColorLegend 
-            //        m.correlationPlot 
-            //        (allowLogPicking m)
+            let _, planes = 
+                PRo3D.Correlations.CorrelationPanelsApp.viewFinishedLogs 
+                    m.scene.config.dnsPlaneSize.value
+                    m.scene.cameraView 
+                    m.scene.config.nearPlane.value 
+                    m.drawing.dnsColorLegend 
+                    m.correlationPlot 
+                    (allowLogPicking m)
 
-            //let viewContactOfInterest = 
-            //    PRo3D.Correlations.CorrelationPanelsApp.viewContactOfInterest m.correlationPlot
+            let viewContactOfInterest = 
+                PRo3D.Correlations.CorrelationPanelsApp.viewContactOfInterest m.correlationPlot
                 
-            Sg.ofList[ds;annos;]// correlationPlanes; planes; viewContactOfInterest]
+            Sg.ofList[ds;annos; correlationPlanes; planes; viewContactOfInterest]
 
         let overlayed =
                         
@@ -1440,27 +1443,37 @@ module ViewerApp =
             let viewportFilteredText = 
                 MinervaApp.viewPortLabels m.minervaModel m.navigation.camera.view (ViewerUtils.frustum m) |> Sg.map MinervaActions
                 
-            //let correlationLogs, _ =
-            //    PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
-            //        m.scene.config.dnsPlaneSize.value
-            //        m.scene.cameraView 
-            //        near 
-            //        m.correlationPlot 
-            //        m.drawing.dnsColorLegend
+            let correlationLogs, _ =
+                PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
+                    m.scene.config.dnsPlaneSize.value
+                    m.scene.cameraView 
+                    near 
+                    m.correlationPlot 
+                    m.drawing.dnsColorLegend
 
-            //let finishedLogs, _ =
-            //    PRo3D.Correlations.CorrelationPanelsApp.viewFinishedLogs 
-            //        m.scene.config.dnsPlaneSize.value
-            //        m.scene.cameraView 
-            //        near 
-            //        m.drawing.dnsColorLegend 
-            //        m.correlationPlot 
-            //        (allowLogPicking m)
+            let finishedLogs, _ =
+                PRo3D.Correlations.CorrelationPanelsApp.viewFinishedLogs 
+                    m.scene.config.dnsPlaneSize.value
+                    m.scene.cameraView 
+                    near 
+                    m.drawing.dnsColorLegend 
+                    m.correlationPlot 
+                    (allowLogPicking m)
 
             let heightValidation =
                 HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation
 
-            [exploreCenter; refSystem; viewPlans; homePosition; solText; heightValidation] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
+            [
+                exploreCenter; 
+                refSystem; 
+                viewPlans; 
+                homePosition; 
+                solText; 
+                heightValidation; 
+                (correlationLogs |> Sg.map CorrelationPanelMessage); 
+                (finishedLogs |> Sg.map CorrelationPanelMessage)
+            ] 
+            |> Sg.ofList // (*;orientationCube*) //solText
 
         let minervaSg =
             let minervaFeatures = 
