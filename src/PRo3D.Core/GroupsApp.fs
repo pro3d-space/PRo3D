@@ -33,7 +33,7 @@ type GroupsAppAction =
     | ToggleGroup           of list<Index>
     | SetVisibility         of path : list<Index> * isVisible : bool
     | SetSelection          of path : list<Index> * isSelected : bool
-    | MoveChilds      
+    | MoveLeaves      
     | AddAndSelectGroup     of list<Index> * Node
     | ClearSnapshotsGroup
     | ClearSelection
@@ -470,11 +470,9 @@ module GroupsApp =
             if isSelected then
                 { model with selectedLeaves = HashSet.union model.selectedLeaves leaves }
             else
-                { model with selectedLeaves = HashSet.difference model.selectedLeaves leaves }
-        // TODO v5: to check this - MoveLeaves not existent anymore
-        //| MoveLeaves  -> 
-        //    moveChildren model
-
+                { model with selectedLeaves = HashSet.difference model.selectedLeaves leaves }        
+        | MoveLeaves  -> 
+            moveChildren model
         | ClearSelection ->
             { model with selectedLeaves = HashSet.Empty; } //singleSelectLeaf = None
         | UpdateCam id -> 
@@ -531,7 +529,7 @@ module GroupsApp =
        div[][
             div [clazz "ui buttons inverted"] [
                 //onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
-                    button [clazz "ui icon button"; attribute "data-content" "Move Selection"; onMouseClick (fun _ -> MoveChilds)] [
+                    button [clazz "ui icon button"; attribute "data-content" "Move Selection"; onMouseClick (fun _ -> MoveLeaves)] [
                             i [clazz "Move icon"] [] ] |> UI.wrapToolTip "Move Selection" TTAlignment.Top
                 //)
                 ]
