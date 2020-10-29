@@ -20,7 +20,7 @@ Planetary geology is the most elaborately supported use-case of PRo3D, however w
 
 # Licensing
 
-PRo3D is **free** for academic use. When used for publications, we kindly ask for [PRo3D Homepage](http://pro3d.space). For commercial use, customization, please consult science@vrvis.at.
+PRo3D is **free** for academic use. When used for publications, we kindly ask to reference PRo3D and [PRo3D Homepage](http://pro3d.space). For commercial use, and or customization, please contact science@vrvis.at.
 
 # Technology & System Requirements
 
@@ -47,7 +47,7 @@ PRo3D's performance may vary with the size and type of datasets and the selected
 
 # Getting started from pre-built binaries
 
-Demo data and the pre-built application can be found on our release page: [TODO](TODO).
+Demo data and the pre-built application versions will soon be found on a separate release page. For now, please refer to the 'Getting started with from source' section.
 
 A video-based introduction to PRo3D can be found in the [Getting Started](http://www.pro3d.space/#started) section of [PRo3D.space](http://www.pro3d.space)
 
@@ -55,7 +55,13 @@ A video-based introduction to PRo3D can be found in the [Getting Started](http:/
 
 * clone
 * run `build.cmd`
-* `dotnet run PRo3D.Viewer`
+* `dotnet run PRo3D.Viewer` or open `/src/PRo3D.sln` with Visual Studio 2019
+
+A reconstruction of the Cape Desire outcrop at the rim of Victoria crater can be found [here](http://download.vrvis.at/realtime/PRo3D/CapeDesire/Cape_Desire_RGB.zip). For loading the data please watch the video-based introduction to PRo3D can be found in the [Getting Started](http://www.pro3d.space/#started) section of [PRo3D.space](http://www.pro3d.space)
+
+> Image data courtesy NASA/JPL/CalTech/ASU, 3D data processing by JOANNEUM RESEARCH under ESA/PRODEX Contracts PEA 4000105568 & 4000117520. The research leading to these results has received funding from the European Community’s Seventh Framework Programme (FP7/2007-2013) under grant agreement n° 312377 PRoViDE
+
+If you have any questions, feel free to contact us on [discord](https://discord.gg/CyxNwrg).
 
 # Packages
 
@@ -67,15 +73,7 @@ package | description
 
 # How to contribute?
 
-* what contributions are wanted?
-  * Documentation
-  * Feedback and Bug Reports
-  * Improvement of existing code
-  * Adding new features
-* Opening Issues
-* Opening Pull Requests
-
-:question: write separate contribution doc
+If you want to contribute, feel free to contact us on [discord](https://discord.gg/CyxNwrg).
 
 # Embedding in the Aardvark Platform
 
