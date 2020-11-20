@@ -16,7 +16,7 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PRo3D.SimulatedViews", "PRo
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PRo3D.Core", "PRo3D.Core\PRo3D.Core.fsproj", "{F056E304-D2D0-4EC5-860E-3B0D855FB50E}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PRo3D.Snapshots", "PRo3D.Snapshots\PRo3D.Snapshots.fsproj", "{3382604C-D53A-4A64-A979-B946F8380E6D}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PRo3D.SnapshotViewer", "PRo3D.Snapshots\PRo3D.SnapshotViewer.fsproj", "{3382604C-D53A-4A64-A979-B946F8380E6D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
