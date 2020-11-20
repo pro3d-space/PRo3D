@@ -177,8 +177,13 @@ module ViewPlanApp =
             trafoFromTranslatedBase working.[0] newTiltVec forward newRightVec
         
 
-    let createViewPlan (working:list<V3d>) (rover:Rover) (ref:ReferenceSystem) (camState:CameraControllerState) 
-        (kdTree:HashMap<string, ConcreteKdIntersectionTree>) (surfaceModel:SurfaceModel) =
+    let createViewPlan 
+        (working      : list<V3d>) 
+        (rover        : Rover) 
+        (ref          : ReferenceSystem) 
+        (camState     : CameraControllerState) 
+        (kdTree       : HashMap<string, ConcreteKdIntersectionTree>) 
+        (surfaceModel : SurfaceModel) =
         
         let position = working.[0]
         let lookAt = working.[1]
@@ -325,175 +330,181 @@ module ViewPlanApp =
         fp, { m with roverModel = roverModel }
 
     //let update (model : ViewPlanModel) (camState:CameraControllerState) (action : Action) =
-    let update (model : ViewPlanModel) (action : Action) (navigation : Lens<'a,NavigationModel>)
-      (footprint : Lens<'a,FootPrint>) (scenepath:Option<string>) (outerModel:'a) : ('a * ViewPlanModel) = 
+    let update 
+        (model : ViewPlanModel) 
+        (action : Action) 
+        (navigation : Lens<'a,NavigationModel>)
+        (footprint : Lens<'a,FootPrint>) 
+        (scenepath:Option<string>) 
+        (outerModel:'a) 
+        : ('a * ViewPlanModel) = 
       
-      match action with
-      | AddPoint (p,ref,kdTree,surfaceModel) ->
-        match model.roverModel.selectedRover with
-        | Some r -> 
-          match model.working.IsEmpty with
-          | true -> 
-            outerModel, {model with working = [p]} // first point (position)
-          | false -> // second point (lookAt)
-            let w = List.append model.working [p]
-            let navigation = Optic.get navigation outerModel
-            let wp = createViewPlan w r ref navigation.camera kdTree surfaceModel
-            outerModel, { model with viewPlans = HashMap.add wp.id wp model.viewPlans; working = List.Empty; selectedViewPlan = Some wp }
-        | None -> outerModel, model
-
-      | SelectViewPlan id ->
-          let vp = model.viewPlans |> HashMap.tryFind id
-          let fp = Optic.get footprint outerModel
-          let vp', m , om =
-            match vp, model.selectedViewPlan with
-            | Some a, Some b -> 
-              if a.id = b.id then 
-                None, model, outerModel
-              else 
-                let fp', m' = updateInstrumentCam a model fp
-                let newOuterModel = Optic.set footprint fp' outerModel
-                Some a, m', newOuterModel
-            | Some a, None -> 
-              let fp', m' = updateInstrumentCam a model fp
-              let newOuterModel = Optic.set footprint fp' outerModel
-              Some a, m', newOuterModel
-            | None, _ -> 
-              None, model, outerModel
-          
-          om, { m with selectedViewPlan = vp' }
-
-      | FlyToViewPlan id -> 
-        let vp = model.viewPlans |> HashMap.tryFind id
-        match vp with
-        | Some v-> 
-          let nav = Optic.get navigation outerModel
-          let nav' = { nav with camera = v.viewerState }
-          let newOuterModel = Optic.set navigation nav' outerModel
-          (newOuterModel, model)
-        | _ -> 
-          (outerModel, model)
-
-      | IsVisible id ->         
-        let viewPlans =  model.viewPlans |> HashMap.alter id (function None -> None | Some o -> Some { o with isVisible = not o.isVisible }) //.map(fun x -> if x.id = id then { x with isVisible = not x.isVisible } else x)
-        outerModel, { model with viewPlans = viewPlans }
-
-      | RemoveViewPlan id ->
-          let vp' = 
-            match model.selectedViewPlan with
-            | Some v -> if v.id = id then None else Some v
-            | None -> None
-
-          let vps = removeViewPlan model.viewPlans id
-          outerModel, { model with viewPlans = vps; selectedViewPlan = vp' }
-
-      | SelectInstrument i -> 
-        match model.selectedViewPlan with
-        | Some vp -> 
-          let newVp         = { vp with selectedInstrument = i }
-          let fp            = Optic.get footprint outerModel
-          let fp', m'       = updateInstrumentCam newVp model fp
-          let newOuterModel = Optic.set footprint fp' outerModel
-
-          let viewPlans = model.viewPlans |> HashMap.add newVp.id newVp 
-
-          newOuterModel, { m' with selectedViewPlan = Some newVp; viewPlans = viewPlans }
-        | None -> outerModel, model                                                     
-
-      | SelectAxis a       -> 
-        match model.selectedViewPlan with
-        | Some vp -> 
-          let newVp = { vp with selectedAxis = a }
-          let viewPlans = model.viewPlans |> HashMap.add newVp.id newVp 
-
-          outerModel, { model with selectedViewPlan = Some newVp; viewPlans = viewPlans }
-        | None -> outerModel, model    
-
-      | ChangeAngle (id,a) -> 
-        match model.selectedViewPlan with
-        | Some vp -> 
-          match vp.rover.axes.TryFind id with
-          | Some ax -> 
-            let angle = Utilities.PRo3DNumeric.update ax.angle a
-            let ax' = { ax with angle = angle } 
-
-            let rover = { vp.rover with axes = (vp.rover.axes |> HashMap.update id (fun _ -> ax')) }
-            let vp' = { vp with rover = rover; currentAngle = angle }
-
-            let angleUpdate = { 
-              roverId = vp'.rover.id
-              axisId = ax'.id ; 
-              angle = ax'.angle.value 
-            }
-
-            let roverModel' = RoverApp.updateAnglePlatform angleUpdate model.roverModel
+        match action with
+        | AddPoint (p,ref,kdTree,surfaceModel) ->
+            match model.roverModel.selectedRover with
+            | Some r -> 
+                match model.working.IsEmpty with
+                | true -> 
+                  outerModel, {model with working = [p]} // first point (position)
+                | false -> // second point (lookAt)
+                  let w = List.append model.working [p]
+                  let navigation = Optic.get navigation outerModel
+                  let wp = createViewPlan w r ref navigation.camera kdTree surfaceModel
+                  outerModel, { model with viewPlans = HashMap.add wp.id wp model.viewPlans; working = List.Empty; selectedViewPlan = Some wp }
+            | None -> outerModel, model
+        
+        | SelectViewPlan id ->
+            let vp = model.viewPlans |> HashMap.tryFind id
             let fp = Optic.get footprint outerModel
-            let fp', m' = updateRovers model roverModel' vp' fp
-            let newOuterModel = Optic.set footprint fp' outerModel
-                                        
-            newOuterModel, m'
-          | None -> outerModel, model                                
-        | None -> outerModel, model        
-
-      | ChangeFocal (id, f) ->
-        match model.selectedViewPlan with
-        | Some vp -> 
-          match vp.selectedInstrument with
-          | Some inst ->   
-            let focal = Numeric.update inst.focal f
-            let inst' =  { inst with focal = focal }
-
-            let instruments' = 
-              vp.rover.instruments 
-                |> HashMap.update id (fun x -> 
-                   match x with
-                   | Some _ -> inst'
-                   | None   -> failwith "instrument not found")
-
-            let rover = { vp.rover with instruments = instruments'}
-            let vp' = { vp with rover = rover; selectedInstrument = Some inst' }
-
-            let focusUpdate = {
-              roverId      = vp'.rover.id 
-              instrumentId = inst'.id
-              focal        = inst'.focal.value              
-            }
-
-            let roverModel' = RoverApp.updateFocusPlatform focusUpdate model.roverModel
-            let fp = Optic.get footprint outerModel
-            let fp', m' = updateRovers model roverModel' vp' fp
-            let newOuterModel = Optic.set footprint fp' outerModel
+            let vp', m , om =
+                match vp, model.selectedViewPlan with
+                | Some a, Some b -> 
+                    if a.id = b.id then 
+                      None, model, outerModel
+                    else 
+                      let fp', m' = updateInstrumentCam a model fp
+                      let newOuterModel = Optic.set footprint fp' outerModel
+                      Some a, m', newOuterModel
+                | Some a, None -> 
+                    let fp', m' = updateInstrumentCam a model fp
+                    let newOuterModel = Optic.set footprint fp' outerModel
+                    Some a, m', newOuterModel
+                | None, _ -> 
+                    None, model, outerModel
             
-            newOuterModel, m'
-          | None -> outerModel, model                                       
-        | None -> outerModel, model 
-
-      | SetVPName t -> 
-        match model.selectedViewPlan with
-        | Some vp -> 
-          let vp' = {vp with name = t}
-          let viewPlans = model.viewPlans |> HashMap.add vp'.id vp'
-          outerModel, {model with selectedViewPlan = Some vp'; viewPlans = viewPlans }              
-        | None -> outerModel, model
-
-      | ToggleFootprint ->   
-        let fp = Optic.get footprint outerModel
-        let fp' = { fp with isVisible = not fp.isVisible }
-        let newOuterModel = Optic.set footprint fp' outerModel
-        newOuterModel, model
-
-      | SaveFootPrint -> 
-        match scenepath with
-        | Some sp -> outerModel, (FootPrint.createFootprintData model sp)
-        | None -> outerModel, model
-
-      | OpenFootprintFolder ->
-        match scenepath with
-        | Some sp -> 
-          let fpPath = FootPrint.getFootprintsPath sp
-          if (Directory.Exists fpPath) then Process.Start("explorer.exe", fpPath) |> ignore
-          outerModel, model
-        | None -> outerModel, model        
+            om, { m with selectedViewPlan = vp' }
+        
+        | FlyToViewPlan id -> 
+            let vp = model.viewPlans |> HashMap.tryFind id
+            match vp with
+            | Some v-> 
+              let nav = Optic.get navigation outerModel
+              let nav' = { nav with camera = v.viewerState }
+              let newOuterModel = Optic.set navigation nav' outerModel
+              (newOuterModel, model)
+            | _ -> 
+              (outerModel, model)
+        
+        | IsVisible id ->         
+            let viewPlans =  model.viewPlans |> HashMap.alter id (function None -> None | Some o -> Some { o with isVisible = not o.isVisible }) //.map(fun x -> if x.id = id then { x with isVisible = not x.isVisible } else x)
+            outerModel, { model with viewPlans = viewPlans }
+        
+        | RemoveViewPlan id ->
+            let vp' = 
+                match model.selectedViewPlan with
+                | Some v -> if v.id = id then None else Some v
+                | None -> None
+        
+            let vps = removeViewPlan model.viewPlans id
+            outerModel, { model with viewPlans = vps; selectedViewPlan = vp' }
+        
+        | SelectInstrument i -> 
+            match model.selectedViewPlan with
+            | Some selected -> 
+                let updateSelected = { selected with selectedInstrument = i }
+                let fp             = Optic.get footprint outerModel
+                let fp', m'        = updateInstrumentCam selected model fp
+                let newOuterModel  = Optic.set footprint fp' outerModel
+                
+                let viewPlans = model.viewPlans |> HashMap.add selected.id selected 
+                
+                newOuterModel, { m' with selectedViewPlan = Some selected; viewPlans = viewPlans }
+            | None -> outerModel, model                                                     
+        
+        | SelectAxis a       -> 
+            match model.selectedViewPlan with
+            | Some vp -> 
+                let newVp = { vp with selectedAxis = a }
+                let viewPlans = model.viewPlans |> HashMap.add newVp.id newVp 
+                
+                outerModel, { model with selectedViewPlan = Some newVp; viewPlans = viewPlans }
+            | None -> outerModel, model    
+        
+        | ChangeAngle (id,a) -> 
+            match model.selectedViewPlan with
+            | Some vp -> 
+                match vp.rover.axes.TryFind id with
+                | Some ax -> 
+                    let angle = Utilities.PRo3DNumeric.update ax.angle a
+                    let ax' = { ax with angle = angle } 
+                    
+                    let rover = { vp.rover with axes = (vp.rover.axes |> HashMap.update id (fun _ -> ax')) }
+                    let vp' = { vp with rover = rover; currentAngle = angle }
+                    
+                    let angleUpdate = { 
+                      roverId = vp'.rover.id
+                      axisId = ax'.id ; 
+                      angle = ax'.angle.value 
+                    }
+                    
+                    let roverModel' = RoverApp.updateAnglePlatform angleUpdate model.roverModel
+                    let fp = Optic.get footprint outerModel
+                    let fp', m' = updateRovers model roverModel' vp' fp
+                    let newOuterModel = Optic.set footprint fp' outerModel
+                                                
+                    newOuterModel, m'
+                | None -> outerModel, model                                
+            | None -> outerModel, model        
+        
+        | ChangeFocal (id, f) ->
+            match model.selectedViewPlan with
+            | Some vp -> 
+              match vp.selectedInstrument with
+              | Some inst ->   
+                let focal = Numeric.update inst.focal f
+                let inst' =  { inst with focal = focal }
+            
+                let instruments' = 
+                  vp.rover.instruments 
+                    |> HashMap.update id (fun x -> 
+                       match x with
+                       | Some _ -> inst'
+                       | None   -> failwith "instrument not found")
+            
+                let rover = { vp.rover with instruments = instruments'}
+                let vp' = { vp with rover = rover; selectedInstrument = Some inst' }
+            
+                let focusUpdate = {
+                  roverId      = vp'.rover.id 
+                  instrumentId = inst'.id
+                  focal        = inst'.focal.value              
+                }
+            
+                let roverModel' = RoverApp.updateFocusPlatform focusUpdate model.roverModel
+                let fp = Optic.get footprint outerModel
+                let fp', m' = updateRovers model roverModel' vp' fp
+                let newOuterModel = Optic.set footprint fp' outerModel
+                
+                newOuterModel, m'
+              | None -> outerModel, model                                       
+            | None -> outerModel, model 
+        
+        | SetVPName t -> 
+            match model.selectedViewPlan with
+            | Some vp -> 
+              let vp' = {vp with name = t}
+              let viewPlans = model.viewPlans |> HashMap.add vp'.id vp'
+              outerModel, {model with selectedViewPlan = Some vp'; viewPlans = viewPlans }              
+            | None -> outerModel, model
+        
+        | ToggleFootprint ->   
+            let fp = Optic.get footprint outerModel
+            let fp' = { fp with isVisible = not fp.isVisible }
+            let newOuterModel = Optic.set footprint fp' outerModel
+            newOuterModel, model
+        
+        | SaveFootPrint -> 
+            match scenepath with
+            | Some sp -> outerModel, (FootPrint.createFootprintData model sp)
+            | None -> outerModel, model
+        
+        | OpenFootprintFolder ->
+            match scenepath with
+            | Some sp -> 
+                let fpPath = FootPrint.getFootprintsPath sp
+                if (Directory.Exists fpPath) then Process.Start("explorer.exe", fpPath) |> ignore
+                outerModel, model
+            | None -> outerModel, model        
 
     module Sg =     
         let drawWorking (model:AdaptiveViewPlanModel) =
@@ -654,8 +665,12 @@ module ViewPlanApp =
                 sgInstruments
             ]         
 
-        let view<'ma> (mbigConfig : 'ma) (minnerConfig : MInnerConfig<'ma>)
-          (model:AdaptiveViewPlanModel) (cam:aval<CameraView>) : ISg<Action> =
+        let view<'ma> 
+            (mbigConfig : 'ma) 
+            (minnerConfig : MInnerConfig<'ma>)
+            (model:AdaptiveViewPlanModel) 
+            (cam:aval<CameraView>) 
+            : ISg<Action> =
                        
             let length    = minnerConfig.getArrowLength    mbigConfig
             let thickness = minnerConfig.getArrowThickness mbigConfig

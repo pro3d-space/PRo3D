@@ -432,6 +432,139 @@ module Shader =
             |> grayscale
         }
 
+module Footprints =
+    type FootPrintVertex =
+        {
+            [<Position>]                pos     : V4d            
+            [<WorldPosition>]           wp      : V4d
+            [<TexCoord>]                tc      : V2d
+            [<Color>]                   c       : V4d
+            [<Normal>]                  n       : V3d
+            [<SourceVertexIndex>]       sv      : int
+            [<Semantic("Scalar")>]      scalar  : float
+            [<Semantic("LightDir")>]    ldir    : V3d
+            [<Semantic("Tex0")>]        tc0     : V4d
+
+        }
+
+    type RoverVertex =
+        {
+            [<Position>]                  pos         : V4d    
+            [<Semantic("RoverPosProj")>]  posProj     : V4d
+            [<Color>]                     c       : V4d
+        }
+      
+    let private footprintmap =
+        sampler2d {
+            texture uniform?FootPrintTexture
+            filter Filter.MinMagMipLinear
+            borderColor C4f.Black
+            addressU WrapMode.Border
+            addressV WrapMode.Border
+            addressW WrapMode.Border
+    }
+
+    type UniformScope with
+        member x.RoverMVP : M44d = uniform?RoverMVP
+        member x.HasRoverMVP : bool = uniform?HasRoverMVP
+
+    [<ReflectedDefinition>]
+    let transformNormal (n : V3d) =
+        uniform.ModelViewTrafoInv.Transposed * V4d(n, 0.0)
+        |> Vec.xyz
+        |> Vec.normalize
+
+    let footprintV (v : RoverVertex) =
+        vertex {
+            let roverProjSpace = uniform.RoverMVP * v.pos
+
+            return { v with posProj = roverProjSpace  } //v.wp
+        }
+
+    let footPrintF (v : RoverVertex) =
+        fragment {           
+            if uniform?footprintVisible && uniform.HasRoverMVP then
+                let outside = v.c * 0.7 
+                let pos = v.posProj
+                let t = pos.XY / pos.W
+                let c = 
+                    if t.X > -1.0 && t.X < 1.0 && t.Y > -1.0 && t.Y < 1.0 then
+                        v.c 
+                    elif t.X > -1.01 && t.X < 1.01 && t.Y > -1.01 && t.Y < 1.01 then
+                        v.c * V4d(1.0, 0.0, 0.0, 1.0)
+                    else
+                        outside 
+          
+                if (pos.Z <= 0.0) then
+                    return outside
+                else
+                    return c 
+         
+            else
+                return v.c
+        }
+
+    let footprintV2 (v : FootPrintVertex) =
+        vertex {
+            let instrumentMatrix    : M44d   = uniform?instrumentMVP          
+            let vp = uniform.ModelViewTrafo * v.pos
+            let wp = uniform.ModelTrafo * v.pos
+    
+            return { 
+                v with
+                    pos  = uniform.ProjTrafo * vp
+                    wp   = wp
+                    n    = transformNormal v.n
+                    ldir = V3d.Zero - vp.XYZ |> Vec.normalize
+                    tc0  = instrumentMatrix * v.pos                  
+
+            } 
+        } 
+  
+    let footPrintFOld (v : FootPrintVertex) =
+        fragment {           
+            if uniform?footprintVisible && uniform.HasRoverMVP then
+                let outside = v.c * 0.7 
+                let t = v.tc0.XY / v.tc0.W
+                let c = 
+                    if t.X > -1.0 && t.X < 1.0 && t.Y > -1.0 && t.Y < 1.0 then
+                        v.c 
+                    elif t.X > -1.01 && t.X < 1.01 && t.Y > -1.01 && t.Y < 1.01 then
+                        v.c * V4d(1.0, 0.0, 0.0, 1.0)
+                    else
+                        outside 
+          
+                if (v.tc0.Z <= 0.0) then
+                    return outside
+                else
+                    return c 
+         
+            else
+                return v.c
+        }
+    
+    let footPrintF2 (v : FootPrintVertex) =
+        fragment {           
+            if uniform?footprintVisible then
+                //let col = v.c * V4d(1.0, 0.0, 0.0, 1.0)
+                let proTex0 = v.tc0.XY / v.tc0.W
+                let c = footprintmap.Sample(proTex0)
+                let col = 
+                    if (c.W <= 0.50) then
+                        (v.c * 0.7)
+                    elif (c.W <= 0.999) then
+                        v.c * V4d(1.0, 0.0, 0.0, 1.0)
+                    else
+                        v.c
+          
+                if (v.tc0.Z <= 0.0) then
+                    return (v.c * 0.7)
+                else
+                    return col 
+            else
+                return v.c
+        }
+
 module Sg =    
 
     let colorPointsEffect = 

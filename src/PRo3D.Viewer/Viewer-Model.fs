@@ -174,7 +174,7 @@ type Scene = {
 
 module Scene =
         
-    let current = 0    
+    let current = 1
     let read0 = 
         json {            
             let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
@@ -213,6 +213,45 @@ module Scene =
                 }
         }
 
+    let read1 = 
+           json {            
+               let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
+               let! navigationMode  = Json.read "navigationMode"
+               let! exploreCenter   = Json.read "exploreCenter" 
+
+               let! interactionMode = Json.read "interactionMode"
+               let! surfaceModel    = Json.read "surfaceModel"
+               let! config          = Json.read "config"
+               let! scenePath       = Json.read "scenePath"
+               let! referenceSystem = Json.read "referenceSystem"
+               let! bookmarks       = Json.read "bookmarks"
+               let! dockConfig      = Json.read "dockConfig"            
+               let! viewPlans       = Json.read "viewplans"
+
+               return 
+                   {
+                       version         = current
+
+                       cameraView      = cameraView
+                       navigationMode  = navigationMode |> enum<NavigationMode>
+                       exploreCenter   = exploreCenter  |> V3d.Parse
+                       
+                       interaction     = interactionMode |> enum<InteractionMode>
+                       surfacesModel   = surfaceModel
+                       config          = config
+                       scenePath       = scenePath
+                       referenceSystem = referenceSystem
+                       bookmarks       = bookmarks
+
+                       viewPlans       = viewPlans |> Serialization.jsonSerializer.UnPickleOfString
+                       dockConfig      = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
+                       closedPages     = List.empty
+                       firstImport     = false
+                       userFeedback    = String.Empty
+                       feedbackThreads = ThreadPool.empty
+                   }
+           }
+
 
 
 type Scene with
@@ -241,6 +280,7 @@ type Scene with
             do! Json.write "referenceSystem" x.referenceSystem
             do! Json.write "bookmarks" x.bookmarks
 
+            do! Json.write "viewplans"  (x.viewPlans |> Serialization.jsonSerializer.PickleToString)
             do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString)                   
         }
 
@@ -456,7 +496,7 @@ module Viewer =
 
                     referenceSystem = ReferenceSystem.initial                    
                     bookmarks       = GroupsModel.initial
-                    dockConfig      = DockConfigs.core
+                    dockConfig      = DockConfigs.full
                     closedPages     = list.Empty 
                     firstImport     = true
                     userFeedback    = ""
@@ -465,11 +505,11 @@ module Viewer =
                 }
 
             navigation      = navInit
-
+            //viewPlans       = ViewPlanModel.initial
             startupArgs     = startupArgs            
             drawing         = Drawing.DrawingModel.initialdrawing
             properties      = NoProperties
-            interaction     = Interactions.PlaceValidator
+            interaction     = Interactions.PlaceRover
             multiSelectBox  = None
             shiftFlag       = false
             picking         = false

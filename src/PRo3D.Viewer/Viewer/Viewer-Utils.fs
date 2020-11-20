@@ -413,8 +413,8 @@ module ViewerUtils =
             OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
          //   PRo3D.Base.Shader.falseColorLegend2 |> toEffect
             PRo3D.Base.Shader.mapColorAdaption  |> toEffect            
-            //PRo3D.Base.OtherShader.Shader.footprintV        |> toEffect //TODO reactivate viewplanner
-            //PRo3D.Base.OtherShader.Shader.footPrintF        |> toEffect
+            PRo3D.Base.Footprints.footprintV        |> toEffect //TODO reactivate viewplanner
+            PRo3D.Base.Footprints.footPrintF        |> toEffect
         ]
 
     //TODO TO refactor screenshot specific

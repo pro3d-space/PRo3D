@@ -334,7 +334,7 @@ module ViewerApp =
             let addPointMsg = ViewPlanApp.Action.AddPoint(p,ref,cache,(Optic.get _surfacesModel m))
 
             let outerModel, viewPlans' = 
-              ViewPlanApp.update m.scene.viewPlans addPointMsg _navigation _footprint m.scene.scenePath m 
+                ViewPlanApp.update m.scene.viewPlans addPointMsg _navigation _footprint m.scene.scenePath m 
 
             let m' = 
                 { m with 
@@ -585,7 +585,6 @@ module ViewerApp =
                     |> List.filter (fun x -> Files.isSurfaceFolder x || Files.isZippedOpcFolder x)
                     |> List.map (SurfaceUtils.mk SurfaceType.SurfaceOPC m.scene.config.importTriangleSize.value)
                     |> IndexList.ofList
-
                     
                 //gale crater hook
                 let surfaces = GaleCrater.hack surfaces
@@ -960,7 +959,7 @@ module ViewerApp =
                     //{ m with waypoints = waypoints }                                                                                  
                     m |> shortFeedback "Saved logbrush"
                 | Aardvark.Application.Keys.F8 ->
-                    { m with scene = { m.scene with dockConfig = DockConfigs.core } }
+                    { m with scene = { m.scene with dockConfig = DockConfigs.full } }
                 | _ -> m
 
             let interaction' = 

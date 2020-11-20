@@ -113,9 +113,12 @@ module Sg =
                     mars //scene.lodDecider 
                     scene.useCompressedTextures
                     ViewerModality.XYZ
+                    PatchLod.CoordinatesMapping.Local
                     (PatchLod.toRoseTree h.tree)
             )
-            |> Sg.ofList                
+            |> Sg.ofList
+            |> Sg.uniform "RoverMVP" (AVal.constant M44f.Identity)
+            |> Sg.uniform "HasRoverMVP" (AVal.constant false)
                                                 
         g, patchHierarchies, kdTrees
     

@@ -79,8 +79,7 @@ module SurfaceUtils =
             colorCorrection = Init.initColorCorrection
             homePosition    = None
             transformation  = Init.transformations
-        }       
-   
+        }          
 
     module ObjectFiles =        
         open Aardvark.Geometry
@@ -153,8 +152,8 @@ module SurfaceUtils =
                 |> Sg.requirePicking
                 |> Sg.noEvents
                 |> Sg.scale 1.0
-                //|> Sg.uniform "RoverMVP" (AVal.constant M44f.Identity)
-                //|> Sg.uniform "HasRoverMVP" (AVal.constant false)
+                |> Sg.uniform "RoverMVP" (AVal.constant M44f.Identity)
+                |> Sg.uniform "HasRoverMVP" (AVal.constant false)
 
             let pose = Pose.translate bb.Center // bb.Center V3d.Zero
             let trafo = { TrafoController.initial with pose = pose; previewTrafo = Pose.toTrafo pose; mode = TrafoMode.Local }
