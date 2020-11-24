@@ -124,9 +124,11 @@ module NoGuiViewer =
 
         let resolution = animation.resolution
         let frustum =
-            //TODO rno refactor
-            //Frustum.perspective animation.fieldOfView 1.0 1000000.0 (float(resolution.X)/float(resolution.Y))
-            Frustum.perspective 60.0 1.0 1000000.0 (float(resolution.X)/float(resolution.Y))
+            match animation.fieldOfView with
+            | Some fov ->
+                Frustum.perspective fov 1.0 1000000.0 (float(resolution.X)/float(resolution.Y))
+            | None ->
+                Frustum.perspective 60.0 1.0 1000000.0 (float(resolution.X)/float(resolution.Y))
         let depth = runtime.CreateTexture(resolution, TextureFormat.Depth24Stencil8, 1, 1);
         let col = runtime.CreateTexture(resolution, TextureFormat.Rgba8, 1, 1);
         let signature = 
