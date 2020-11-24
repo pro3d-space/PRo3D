@@ -9,43 +9,53 @@ open MBrace.FsPickler.Json
 open Aardvark.UI
 open Chiron
 
-/////////////////////
 type Snapshot = {
     filename       : string
     camera         : SnapshotCamera
     sunPosition    : option<V3d>
+    lightDirection : option<V3d>
     surfaceUpdates : option<list<SnapshotSurfaceUpdate>>
     shattercones   : option<list<SnapshotShattercone>>
+    renderMask     : option<bool>
 }
 with 
   static member TestData =
     {
         filename        = "testname"
         camera          = SnapshotCamera.TestData
-        sunPosition     = Some (V3d(10.0))
+        sunPosition     = None
+        lightDirection  = Some (V3d(0.0,1.0,0.0))
         surfaceUpdates  = Some [SnapshotSurfaceUpdate.TestData]
         shattercones    = Some [SnapshotShattercone.TestData]
+        renderMask      = Some false
     }
   member this.view = 
     CameraView.look this.camera.location 
                     this.camera.forward.Normalized 
                     this.camera.up.Normalized
-  member this.toActions frustum =
+  member this.toActions frustum filename =
     let actions = 
         [
-            failwith "SnapshotAnimation.fs" //ViewerAction.SetCameraAndFrustum2 (this.view,frustum);
+             //TODO rno refactor
+            //ViewerAction.SetCameraAndFrustum2 (this.view,frustum); //X
+            //ViewerAction.SetMaskObjs this.renderMask
         ]
     let sunAction =
-        match this.sunPosition with
-        | Some p -> [] //TODO transform uniform
+        match this.lightDirection with
+        | Some p -> [
+                        //TODO rno refactor
+                       //ViewerAction.ShadingMessage (Shading.ShadingActions.SetLightDirectionV3d p)
+                    ]
         | None -> []        
     let surfAction =
         match this.surfaceUpdates with
         | Some s ->
             match s.IsEmptyOrNull () with
             | false ->
-                //[ViewerAction.TransformAllSurfaces s] //TODO MarsDL
-                []
+                [
+                    //ViewerAction.TransformAllSurfaces s
+                    //TODO rno refactor
+                ]
             | true -> []
         | None -> []
     let shatterConeAction =
@@ -53,8 +63,10 @@ with
         | Some sc ->
             match sc.IsEmptyOrNull () with
             | false ->
-                //[ViewerAction.UpdateShatterCones sc] //TODO MarsDL
-                []
+                [
+                    //ViewerAction.UpdateShatterCones (sc, frustum, filename)
+                    //TODO rno refactor
+                ] //XX
             | true -> []
         | None -> []
     // ADD ACTIONS FOR NEW SNAPSHOT MEMBERS HERE
@@ -65,15 +77,19 @@ with
         let! filename       = Json.read "filename"
         let! view           = Json.read "view"
         let! sunPosition    = Json.parseOption (Json.tryRead "sunPosition") V3d.Parse
+        let! lightDirection    = Json.parseOption (Json.tryRead "lightDirection") V3d.Parse
         let! surfaceUpdates = Json.tryRead "surfaceUpdates"
         let! shattercones   = Json.tryRead "shattercones"
+        let! renderMask     = Json.tryRead "renderMask"
   
         return {
             filename        = filename
             camera          = view 
             sunPosition     = sunPosition
+            lightDirection  = lightDirection
             surfaceUpdates  = surfaceUpdates 
             shattercones    = shattercones
+            renderMask      = renderMask
         }
       }
   static member FromJson(_ : Snapshot) = 
@@ -84,36 +100,87 @@ with
     json {
       do! Json.write            "filename"           x.filename
       do! Json.write            "view"               x.camera
-      do! Json.writeOption      "sunPosition"        x.sunPosition 
-      do! Json.writeOptionList  "surfaceUpdates"     x.surfaceUpdates (fun x n -> Json.write n x)
-      do! Json.writeOptionList  "shattercones"       x.shattercones (fun x n -> Json.write n x)
+      do! Json.writeOption      "lightDirection"     x.lightDirection
+      if x.sunPosition.IsSome then
+        do! Json.writeOption      "sunPosition"        x.sunPosition 
+      if x.surfaceUpdates.IsSome then
+        do! Json.writeOptionList  "surfaceUpdates"     x.surfaceUpdates (fun x n -> Json.write n x)
+      if x.shattercones.IsSome then
+        do! Json.writeOptionList  "shattercones"       x.shattercones (fun x n -> Json.write n x)
+      if x.renderMask.IsSome then
+        do! Json.write            "renderMask"         x.renderMask 
     }  
 
 
 /// Camera and Surface animation
 type SnapshotAnimation = {
-    fieldOfView   : double
+    fieldOfView   : option<float>
     resolution    : V2i
+    nearplane     : option<float>
+    farplane      : option<float>
+    lightLocation : option<V3d>
+    renderMask  : option<bool>
     snapshots     : list<Snapshot>
 }
 with 
+    static member defaultNearplane = 0.001
+    static member defaultFarplane  = 1000000.0
+    member this.actions =
+        let setNearplane =
+            match this.nearplane with
+            | Some np -> []
+                //TODO rno refactor
+                //[(ConfigProperties.Action.SetNearPlane (Numeric.SetValue np))
+                //  |> ViewerAction.ConfigPropertiesMessage]
+            | None -> []
+        let setFarplane =
+            match this.farplane with
+            | Some fp -> []
+                //TODO rno refactor
+                //[(ConfigProperties.Action.SetFarPlane (Numeric.SetValue fp))
+                //  |> ViewerAction.ConfigPropertiesMessage]
+            | None -> []
+        let lightActions = 
+            match this.lightLocation with
+            | Some loc -> 
+                [
+                    //TODO rno refactor
+                    //ViewerAction.ShadingMessage (Shading.ShadingActions.SetLightPositionV3d loc)
+                    //ViewerAction.ShadingMessage (Shading.ShadingActions.SetUseLighting true)
+                ]
+            | None -> []
+        setNearplane@setFarplane@lightActions |> List.toSeq
+
     static member TestData =
         {
-            fieldOfView = 5.47
-            resolution  = V2i(1024)
+            fieldOfView = Some 5.47
+            resolution  = V2i(4096)
+            nearplane   = Some 0.00001
+            farplane    = Some 1000000.0
+            lightLocation = 5.0 |> V3d |> Some
             snapshots   = [Snapshot.TestData]
+            renderMask = None
         }
+
     static member private readV0 = 
         json {
-            let! fieldOfView    = Json.read "fieldOfView"
+            let! fieldOfView    = Json.tryRead "fieldOfView"
             let! resolution     = Json.read "resolution"
+            let! nearplane      = Json.tryRead "nearplane"
+            let! farplane       = Json.tryRead "farplane"
             let! snapshots      = Json.read "snapshots"
+            let! lightLocation  = Json.tryRead "lightLocation"
+            let! renderMask   = Json.tryRead "lightLocation"
             
             let a : SnapshotAnimation = 
                 {
                     fieldOfView = fieldOfView
                     resolution  = resolution |> V2i.Parse
+                    nearplane   = nearplane
+                    farplane    = farplane
+                    lightLocation = lightLocation |> Option.map (fun loc -> loc |> V3d.Parse)
                     snapshots   = snapshots
+                    renderMask  = renderMask
                 }
             return a
         }
@@ -126,11 +193,97 @@ with
         }
     static member ToJson (x : SnapshotAnimation) =
         json {
-            do! Json.write      "version"      0
-            do! Json.write      "fieldOfView"  x.fieldOfView
-            do! Json.write      "resolution"   (x.resolution.ToString())
-            do! Json.write      "snapshots"    x.snapshots
+            do! Json.write              "version"        0
+            do! Json.writeOptionFloat   "fieldOfView"    x.fieldOfView
+            do! Json.write              "resolution"     (x.resolution.ToString ())
+            if x.lightLocation.IsSome then
+              do! Json.writeOption        "lightLocation"  (x.lightLocation)
+            do! Json.writeOptionFloat   "nearplane"      (x.nearplane)
+            do! Json.writeOptionFloat   "farplane"       (x.farplane )
+            if x.renderMask.IsSome then
+              do! Json.writeOption "renderMask" x.renderMask
+            do! Json.write              "snapshots"      x.snapshots
         }  
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module Snapshot =
+
+    let writeToFile (snapshot : Snapshot) (path : string) =
+        snapshot
+            |> Json.serialize 
+            |> Json.formatWith JsonFormattingOptions.Pretty 
+            |> Serialization.writeToFile (Path.combine [path; "snapshot.json"])
+
+    let readSCPlacement (filepath : string) =
+        try
+            let json =
+                filepath
+                    |> Serialization.readFromFile
+                    |> Json.parse 
+            let (scPlacement : SnapshotShattercone) =
+                json |> Json.deserialize
+            scPlacement
+        with e ->
+            Log.error "[SNAPSHOTS] Could not read json File. Please check the format is correct."
+            Log.line "%s" e.Message
+            Log.line "%s" e.StackTrace 
+            raise e
+
+    let writeSCPlacementToFile (scPlacement : SnapshotShattercone) 
+                               (filepath : string) =
+        scPlacement
+            |> Json.serialize 
+            |> Json.formatWith JsonFormattingOptions.Pretty 
+            |> Serialization.writeToFile filepath
+
+    let toSnapshotCamera (camView : CameraView) : SnapshotCamera =
+        {
+            location = camView.Location
+            forward  = camView.Forward
+            up       = camView.Up
+        }
+
+    let importSnapshotCamera (filepath : string) : SnapshotCamera =
+        try
+            let json =
+                filepath
+                    |> Serialization.readFromFile
+                    |> Json.parse 
+            let (cam : SnapshotCamera) =
+                json |> Json.deserialize
+            cam
+        with e ->
+            Log.error "[SNAPSHOTS] Could not read json File. Please check the format is correct."
+            Log.line "%s" e.Message
+            Log.line "%s" e.StackTrace 
+            raise e
+
+
+    let fromViews (camViews : seq<CameraView>) (sp : List<SnapshotShattercone>) 
+                  (lightDirection : V3d) =
+        let foo = Seq.zip camViews [0 .. (Seq.length camViews - 1)]
+        seq {
+            for (v, i) in foo do
+               yield {
+                        filename        = sprintf "%06i" i
+                        camera          = v |> toSnapshotCamera
+                        sunPosition     = None
+                        lightDirection  = Some lightDirection
+                        surfaceUpdates  = None
+                        shattercones    = Some sp
+                        renderMask      = None         
+                      }
+               //yield {
+               //         filename        = sprintf "%06i_mask" i
+               //         camera          = v |> toSnapshotCamera
+               //         sunPosition     = None
+               //         lightDirection  = Some lightDirection
+               //         surfaceUpdates  = None
+               //         shattercones    = None
+               //         renderMask      = Some true     
+               //      }
+            }
+
 
 /// Camera Animation
 type ArnoldSnapshot = {
@@ -143,23 +296,72 @@ type ArnoldSnapshot = {
   member this.view = 
     CameraView.look this.location this.forward.Normalized this.up.Normalized
   member this.toActions frustum =
-        let actions = 
-            [
-                failwith "SnapshotAnimation.fs" //ViewerAction.SetCameraAndFrustum2 (this.view,frustum);
-            ] |> List.toSeq
-        actions    
+      let actions = 
+          [
+              //TODO rno refactor
+              //ViewerAction.SetCameraAndFrustum2 (this.view,frustum);
+          ] |> List.toSeq
+      actions    
   member this.toSnapshot () =
-    {
-        filename       = this.filename
-        camera         = {
-                            location = this.location
-                            forward  = this.forward
-                            up       = this.up
-                         }
-        sunPosition    = None
-        surfaceUpdates = None
-        shattercones   = None
-    }
+      {
+          filename       = this.filename
+          camera         = {
+                              location = this.location
+                              forward  = this.forward
+                              up       = this.up
+                           }
+          sunPosition    = None
+          lightDirection = None
+          surfaceUpdates = None
+          shattercones   = None
+          renderMask     = None
+      }
+  member this.toSCPlacement () =
+      let plain = 
+          {
+              filename       = this.filename
+              camera         = {
+                                  location = this.location
+                                  forward  = this.forward
+                                  up       = this.up
+                               }
+              sunPosition    = None //Some (V3d(0.1842, -0.93675, -0.29759))
+              lightDirection = Some (V3d(0.1842, -0.93675, -0.29759))
+              surfaceUpdates = None
+              shattercones   = 
+                   [{
+                      name         = "02-Presqu-ile-LF"
+                      count        = 1
+                      color        = None
+                      contrast     = None
+                      brightness   = None
+                      gamma        = None
+                      scale        = Some (V2i(1,3))
+                      xRotation    = None
+                      yRotation    = None 
+                      zRotation    = Some (V2i(90,90)) //Some (V2i(0,360))
+                      maxDistance  = None
+                      subsurface   = None
+                      maskColor    = None
+                   }] |> Some
+              renderMask     = None
+          }
+      let mask =
+          {
+              filename       = sprintf "%s_mask" this.filename
+              camera         = {
+                                  location = this.location
+                                  forward  = this.forward
+                                  up       = this.up
+                               }
+              lightDirection = Some (V3d(0.1842, -0.93675, -0.29759))
+              sunPosition    = None
+              surfaceUpdates = None
+              shattercones   = None
+              renderMask     = Some true
+          }
+      [plain; mask]
+        
   static member current = 0
   static member private readV0 = 
       json {
@@ -199,9 +401,23 @@ type ArnoldAnimation = {
 with 
   member this.toSnapshotAnimation () : SnapshotAnimation =
     {
-        fieldOfView   = this.fieldOfView
+        fieldOfView   = Some this.fieldOfView
         resolution    = this.resolution
+        nearplane     = Some 0.00001
+        farplane      = Some 1000000.0
+        lightLocation = None
         snapshots     = this.snapshots |> List.map (fun x -> x.toSnapshot ())
+        renderMask    = None
+    }
+  member this.generateSCAnimation () : SnapshotAnimation =
+    {
+        fieldOfView   = Some this.fieldOfView
+        resolution    = this.resolution
+        nearplane     = Some 0.00001
+        farplane      = Some 1000000.0
+        lightLocation = Some (V3d (0.1842, -0.93675, -0.29759))
+        renderMask    = None
+        snapshots     = [for s in this.snapshots do yield! s.toSCPlacement ()]
     }
   static member current = 0
   static member private readV0 = 
@@ -234,16 +450,29 @@ with
     }
 
 module SnapshotAnimation = 
+
     ///////////////////// WRITE TESTDATA
     let writeTestAnimation () =
         SnapshotAnimation.TestData
             |> Json.serialize 
             |> Json.formatWith JsonFormattingOptions.Pretty 
             |> Serialization.writeToFile "animationTest.json"
-
+        SnapshotAnimation.TestData
     //////////////////////    
 
-    let readLegacyFile path =
+    let writeToDir (animation : SnapshotAnimation) (dirpath : string) =
+        animation
+            |> Json.serialize 
+            |> Json.formatWith JsonFormattingOptions.Pretty 
+            |> Serialization.writeToFile (Path.combine [dirpath; "snapshots.json"])
+
+    let writeToFile (animation : SnapshotAnimation) (filepath : string) =
+        animation
+            |> Json.serialize 
+            |> Json.formatWith JsonFormattingOptions.Pretty 
+            |> Serialization.writeToFile filepath
+
+    let readArnoldAnimation path =
         try
             let foo =
                 path
@@ -252,11 +481,16 @@ module SnapshotAnimation =
             let (bar : ArnoldAnimation) =
                 foo
                 |> Json.deserialize
-            Some (bar.toSnapshotAnimation ())
+            bar
         with e ->
-            Log.line "[SNAPSHOTS] Could not read json File. Please check the format is correct."
+            Log.error "[SNAPSHOTS] Could not read json File. Please check the format is correct."
             Log.line "%s" e.Message
-            None
+            Log.line "%s" e.StackTrace 
+            raise e
+
+    let readLegacyFile path =
+        let aa = readArnoldAnimation path
+        Some (aa.toSnapshotAnimation ())
 
     let read path = 
         try
@@ -269,9 +503,21 @@ module SnapshotAnimation =
                 |> Json.deserialize
             Some bar
         with e ->
-            Log.line "[SNAPSHOTS] Could not read json File. Please check the format is correct."
+            Log.error "[SNAPSHOTS] Could not read json File. Please check the format is correct."
             Log.line "%s" e.Message
-            None
+            Log.line "%s" e.StackTrace 
+            raise e
+
+    let generate (snapshots : seq<Snapshot>) (foV : float) (renderMask : bool) =
+        {
+            fieldOfView = Some foV //Some 30.0
+            resolution  = V2i(4096)
+            nearplane   = Some 0.001
+            farplane    = Some 100.0
+            lightLocation = None
+            snapshots   = snapshots |> Seq.toList
+            renderMask  = Some renderMask
+        }
 
     let readTestAnimation () =
         try
@@ -314,89 +560,6 @@ module SnapshotAnimation =
         with e ->        
             Log.error "[ViewerIO] couldn't load %A" e
             None
-
-    //let writeDataToJsonFile =   
-    //    //let path = "C:\Users\laura\VRVis\Data\Donut_medium_georef_compl\donut.snapshots.json"
-    //    //let ex1 =
-    //    //     {
-    //    //        location = V3d(-36924.38, 272515.17, 587.71)
-    //    //        forward  = V3d(0.44, -0.31, -0.84)
-    //    //        up       = V3d(-0.67, 0.51, -0.54)
-    //    //    }
-           
-    //    //let ex2 =
-    //    //    {
-    //    //        location = V3d(-36930.36, 272519.67, 569.74)
-    //    //        forward  = V3d(0.46, -0.34, 0.82)
-    //    //        up       = V3d(-0.74, -0.66, 0.15)
-    //    //    }
-            
-    //    //let ex3 =
-    //    //    {
-    //    //        location = V3d(-36926.17, 272516.11, 584.91)
-    //    //        forward  = V3d(0.83, -0.51, -0.24)
-    //    //        up       = V3d(-0.39, -0.82, 0.41)
-    //    //    }
-            
-    //    //let testdata = 
-    //    //    {
-    //    //        fieldOfView = 26.49
-    //    //        resolution  = V2i(1600, 1200)
-    //    //        snapshots   = [ex1; ex2; ex3]
-    //    //    }
-
-    //    let path = "C:\Users\laura\VRVis\Data\GardenCitySmall\GardenCitySmall\gardenCity.snapshots.json"
-    //    let ex1 =
-    //         {
-    //            location = V3d(-2486974.23, 2288926.50, -275792.76)
-    //            forward  = V3d(0.42, -0.63, -0.65)
-    //            up       = V3d(-0.54, 0.40, -0.74)
-    //            filename = ""
-    //        }
-           
-    //    let ex2 =
-    //        {
-    //            location = V3d(-2486973.65, 2288925.99, -275793.60)
-    //            forward = V3d(0.34, -0.85, 0.41)
-    //            up       = V3d(-0.55, 0.18, -0.82)
-    //            filename = ""
-    //        }
-            
-    //    let ex3 =
-    //        {
-    //            location = V3d(-2486973.72, 2288924.03, -275796.63)
-    //            forward  = V3d(0.05, 0.51, 0.86)
-    //            up       = V3d(-0.07, -0.86, 0.51)
-    //            filename = ""
-    //        }
-
-    //    let ex4 =
-    //        {
-    //            location = V3d(-2486971.72, 2288922.95, -275794.30)
-    //            forward  = V3d(-0.54, 0.82, 0.17)
-    //            up       = V3d(-0.34, -0.40, 0.85)
-    //            filename = ""
-    //        }
-
-    //    let ex5 =
-    //        {
-    //            location = V3d(-2486972.34, 2288940.76, -275790.74)
-    //            forward  = V3d(-0.08, -0.98, -0.19)
-    //            up       = V3d(0.09, -0.20, 0.98)
-    //            filename = ""
-    //        }
-            
-    //    let testdata = 
-    //        {
-    //            fieldOfView = 26.49
-    //            resolution  = V2i(1600, 1200)
-    //            snapshots   = [ex1; ex2; ex3; ex4; ex5]
-    //        }
-          
-    //    testdata
-    //     |> Json.serialize 
-    //     |> Json.formatWith JsonFormattingOptions.Pretty 
-    //     |> Serialization.writeToFile path
         
     
     let snapshot (fpPath:string) (filename:string) (width : int) (height : int) =

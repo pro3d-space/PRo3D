@@ -124,7 +124,9 @@ module NoGuiViewer =
 
         let resolution = animation.resolution
         let frustum =
-            Frustum.perspective animation.fieldOfView 1.0 1000000.0 (float(resolution.X)/float(resolution.Y))
+            //TODO rno refactor
+            //Frustum.perspective animation.fieldOfView 1.0 1000000.0 (float(resolution.X)/float(resolution.Y))
+            Frustum.perspective 60.0 1.0 1000000.0 (float(resolution.X)/float(resolution.Y))
         let depth = runtime.CreateTexture(resolution, TextureFormat.Depth24Stencil8, 1, 1);
         let col = runtime.CreateTexture(resolution, TextureFormat.Rgba8, 1, 1);
         let signature = 
@@ -157,7 +159,7 @@ module NoGuiViewer =
         for i in 0 .. (positions.Length-1) do
             let snapshot = positions.[i]
             let actions = snapshot.toActions frustum
-            mApp.updateSync (Guid.NewGuid ()) actions
+            //mApp.updateSync (Guid.NewGuid ()) actions //TODO rno refactor
             let fullPathName = Path.combine [outPath;snapshot.filename]
             let parameters : RenderParameters =
                 {

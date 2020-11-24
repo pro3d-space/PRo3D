@@ -23,6 +23,7 @@
     <Compile Include="Snapshot-Model.fs" />
     <Compile Include="HaltonPlacement.fs" />
     <Compile Include="SnapshotAnimation.fs" />
+    <Compile Include="Snapshot-Utils.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
