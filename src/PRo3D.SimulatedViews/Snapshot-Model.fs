@@ -1,7 +1,10 @@
 ﻿namespace PRo3D.SimulatedViews
 
-open Chiron
+
 open Aardvark.Base
+open Aardvark.UI
+open Adaptify
+open Chiron
 
 module Json =
       let parseOption (x : Json<Option<'a>>) (f : 'a -> 'b) = 
@@ -233,3 +236,5 @@ with
       if x.maskColor.IsSome then
         do! Json.writeOption      "maskColor"   x.maskColor
     }
+
+

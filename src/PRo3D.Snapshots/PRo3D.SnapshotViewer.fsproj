@@ -27,6 +27,7 @@
     <Compile Include="Models\Model.fs" />
     <Compile Include="Models\VersionedModel.fs" />
     <Compile Include="Utilities.fs" />
+    <Compile Include="Shading-Model.fs" />
     <Compile Include="Lighting-Utils.fs" />
     <Compile Include="OrientationCube.fs" />
     <Compile Include="Navigation-Model.fs" />
