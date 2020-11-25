@@ -42,9 +42,7 @@ module RoverProvider =
                 horizontalDistortionMap       = String.Empty
                 verticalDistortionMap         = String.Empty
                 vignettingMap                 = String.Empty
-            }
-
-       // let focalToNumeric (focals : list<double>) (current : double) : NumericInput =
+            }       
 
         let instrument = {
             index                  = i
@@ -109,7 +107,9 @@ module RoverProvider =
                             format = "{0:0.0}"
                         }
 
-            }) |> Array.map axisHack |> Array.toList
+            }) 
+            |> Array.map axisHack 
+            |> Array.toList
 
     let toRover (platform : ViewPlanner.SPlatform) =
         let wheels = 
@@ -186,14 +186,14 @@ module RoverApp =
     let updateRoversAndPlatforms p m shift =
         let error = IPWrappers.ViewPlanner.UpdatePlatform(ref p)
         match error with
-          | 0 ->
+        | 0 ->
             let r'         = p |> RoverProvider.toRover
             let r''        = { r' with axes = r'.axes |> HashMap.map(fun x y -> RoverProvider.shiftOutput y shift) }
             let rovers'    = m.rovers |> HashMap.alter r''.id (Option.map(fun _ -> r''))
             let platforms' = m.platforms |> HashMap.alter r''.id (Option.map(fun _ -> p))
-
+            
             { m with rovers = rovers'; platforms = platforms' }
-          | _ -> 
+        | _ -> 
             Log.error "encountered %d from update platform" error
             m
 
@@ -232,35 +232,34 @@ module RoverApp =
     let updateRovers (r : Rover) (m : RoverModel) = 
         let rovers' = 
             m.rovers 
-                |> HashMap.update r.id (fun x -> 
-                    match x with 
-                        | Some _ -> r
-                        | None   -> failwith "rover not found")
+            |> HashMap.update r.id (fun x -> 
+                match x with 
+                | Some _ -> r
+                | None   -> failwith "rover not found"
+            )
                         
         { m with selectedRover = Some r; rovers = rovers' }
 
     let update (m : RoverModel) (a:Action) =
         match a with
-          | SelectRover r      -> { m with selectedRover = r }
+        | SelectRover r -> { m with selectedRover = r }
           
-    let angle = 
-        {
-            value = 0.0
-            min =  -90.0
-            max = 90.0
-            step = 0.1
-            format = "{0:0.0}"
-        }
+    let angle = {
+        value = 0.0
+        min =  -90.0
+        max = 90.0
+        step = 0.1
+        format = "{0:0.0}"
+    }
 
-    let initial =
-        {
-            rovers = HashMap.Empty
-            platforms = HashMap.Empty
-            //selectedInstrument = None
-            selectedRover = None
-            //selectedAxis = None
-            //currentAngle = angle
-        }
+    let initial = {
+        rovers = HashMap.Empty
+        platforms = HashMap.Empty
+        //selectedInstrument = None
+        selectedRover = None
+        //selectedAxis = None
+        //currentAngle = angle
+    }
 
     let mapTolist (input : amap<_,'a>) : alist<'a> = 
         input |> AMap.toASet |> AList.ofASet |> AList.map snd    

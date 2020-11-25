@@ -1,4 +1,4 @@
-namespace PRo3D.FootPrint
+namespace PRo3D.SimulatedViews
 
 open System
 
@@ -18,12 +18,12 @@ type XMLScheme = {
     version     : float
 }
 with 
-  static member current = 0
-  static member ToJson (x : XMLScheme) =
-    json {
-      do! Json.write      "xmlType"    x.xmlType
-      do! Json.write      "version"    x.version
-    }
+    static member current = 0
+    static member ToJson (x : XMLScheme) =
+        json {
+          do! Json.write      "xmlType"    x.xmlType
+          do! Json.write      "version"    x.version
+        }
 
 type FileInfo = {
     fileType    : string
@@ -31,25 +31,25 @@ type FileInfo = {
     name        : string
 }
 with 
-  static member current = 0
-  static member ToJson (x : FileInfo) =
-    json {
-      do! Json.write      "fileType"    x.fileType
-      do! Json.write      "path"        x.path
-      do! Json.write      "name"        x.name
-    }
+    static member current = 0
+    static member ToJson (x : FileInfo) =
+        json {
+          do! Json.write      "fileType"    x.fileType
+          do! Json.write      "path"        x.path
+          do! Json.write      "name"        x.name
+        }
 
 type Calibration = {
     instrumentPlatformXmlFileName       : string
     instrumentPlatformXmlFileVersion    : float
 }
 with 
-  static member current = 0
-  static member ToJson (x : Calibration) =
-    json {
-      do! Json.write      "instrumentPlatformXmlFileName"      x.instrumentPlatformXmlFileName
-      do! Json.write      "instrumentPlatformXmlFileVersion"   x.instrumentPlatformXmlFileVersion
-    }
+    static member current = 0
+    static member ToJson (x : Calibration) =
+        json {
+            do! Json.write      "instrumentPlatformXmlFileName"      x.instrumentPlatformXmlFileName
+            do! Json.write      "instrumentPlatformXmlFileVersion"   x.instrumentPlatformXmlFileVersion
+        }
 
 type RoverInfo = {
     position        : V3d
@@ -57,37 +57,37 @@ type RoverInfo = {
     placementTrafo  : Trafo3d
 }
 with 
-  static member current = 0
-  static member ToJson (x : RoverInfo) =
-    json {
-      do! Json.write      "position"         (x.position.ToString())
-      do! Json.write      "lookAtPosition"   (x.lookAtPosition.ToString())
-      do! Json.write      "placementTrafo"   (x.placementTrafo.ToString())
-    }
+    static member current = 0
+    static member ToJson (x : RoverInfo) =
+        json {
+            do! Json.write      "position"         (x.position.ToString())
+            do! Json.write      "lookAtPosition"   (x.lookAtPosition.ToString())
+            do! Json.write      "placementTrafo"   (x.placementTrafo.ToString())
+        }
 
 type Angles = {
     panAxis     : double
     tiltAxis    : double
 }
 with 
-  static member current = 0
-  static member ToJson (x : Angles) =
-    json {
-      do! Json.write      "panAxis"    x.panAxis
-      do! Json.write      "tiltAxis"   x.tiltAxis
-    }
+    static member current = 0
+    static member ToJson (x : Angles) =
+        json {
+            do! Json.write      "panAxis"    x.panAxis
+            do! Json.write      "tiltAxis"   x.tiltAxis
+        }
 
 type ReferenceFrameInfo = {
     name            : string
     parentFrameName : string
 }
 with 
-  static member current = 0
-  static member ToJson (x : ReferenceFrameInfo) =
-    json {
-      do! Json.write      "name"              x.name
-      do! Json.write      "parentFrameName"   x.parentFrameName
-    }
+    static member current = 0
+    static member ToJson (x : ReferenceFrameInfo) =
+        json {
+            do! Json.write      "name"              x.name
+            do! Json.write      "parentFrameName"   x.parentFrameName
+        }
 
 type InstrumentInfo = {
     camIdentifier       : string
@@ -96,26 +96,26 @@ type InstrumentInfo = {
     referenceFrameInfo  : ReferenceFrameInfo
 }
 with 
-  static member current = 0
-  static member ToJson (x : InstrumentInfo) =
-    json {
-      do! Json.write      "camIdentifier"       x.camIdentifier
-      do! Json.write      "angles"              x.angles
-      do! Json.write      "focalLength"         x.focalLength
-      do! Json.write      "referenceFrameInfo"  x.referenceFrameInfo
-    }
+    static member current = 0
+    static member ToJson (x : InstrumentInfo) =
+        json {
+            do! Json.write      "camIdentifier"       x.camIdentifier
+            do! Json.write      "angles"              x.angles
+            do! Json.write      "focalLength"         x.focalLength
+            do! Json.write      "referenceFrameInfo"  x.referenceFrameInfo
+        }
 
 type SurfaceInfoData = {
     opcId   : Guid
     layers  : List<string>
 }
 with 
-  static member current = 0
-  static member ToJson (x : SurfaceInfoData) =
-    json {
-      do! Json.write      "opcId"    x.opcId
-      do! Json.write      "layers"   x.layers
-    }
+    static member current = 0
+    static member ToJson (x : SurfaceInfoData) =
+        json {
+          do! Json.write      "opcId"    x.opcId
+          do! Json.write      "layers"   x.layers
+        }
 
 
 type Acquisition = {
@@ -156,7 +156,6 @@ type FootPrint = {
     projectionMatrix    : M44d
     instViewMatrix      : M44d
     projTex             : ITexture
+    globalToLocalPos    : V3d
 }
-
-
 
