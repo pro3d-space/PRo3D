@@ -113,7 +113,7 @@ module Sg =
                     mars //scene.lodDecider 
                     scene.useCompressedTextures
                     ViewerModality.XYZ
-                    PatchLod.CoordinatesMapping.Local
+                    //PatchLod.CoordinatesMapping.Local
                     (PatchLod.toRoseTree h.tree)
             )
             |> Sg.ofList                
