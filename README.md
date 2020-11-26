@@ -53,7 +53,10 @@ A video-based introduction to PRo3D can be found in the [Getting Started](http:/
 
 # Getting started with from source
 
-* clone
+for contributions and when compiling from source windows is the recommended platform. Currently we use few native libraries which are not yet compiled for mac/linux delaying full cross-platform support.
+
+* install [dotnet 3.1 sdk](https://dotnet.microsoft.com/download)
+* `git clone git@github.com:vrvis/PRo3D.git`
 * run `build.cmd`
 * `dotnet run PRo3D.Viewer` or open `/src/PRo3D.sln` with Visual Studio 2019
 
