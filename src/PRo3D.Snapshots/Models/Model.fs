@@ -6,6 +6,7 @@ open FSharp.Data.Adaptive
 open Adaptify
 open Aardvark.UI
 open Aardvark.UI.Primitives
+open PRo3D.SimulatedViews
 open Aardvark.Application
 
 open Aardvark.SceneGraph
@@ -52,13 +53,6 @@ type Semantic =
 type ViewerMode =
     | Standard
     | Instrument
-
-
-    
-type SnapshotType = 
-    | Camera
-    | CameraAndSurface
-    | CameraSurfaceMask
 
 type GuiMode =
     | NoGui

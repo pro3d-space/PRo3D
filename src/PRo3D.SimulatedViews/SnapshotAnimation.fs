@@ -9,6 +9,7 @@ open MBrace.FsPickler.Json
 open Aardvark.UI
 open Chiron
 
+
 type Snapshot = {
     filename       : string
     camera         : SnapshotCamera

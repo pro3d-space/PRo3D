@@ -20,7 +20,9 @@
     <Compile Include="Viewplanner\FootPrint.fs" />      
     <Compile Include="Viewplanner\RoverPlacementImporter.fs" />      
     <Compile Include="Viewplanner\ViewPlan.fs" />      
-    <Compile Include="SurfaceExtensions.fs" />
+    <Compile Include="SurfaceExtensions.fs" />      
+    <Compile Include="JsonUtils.fs" />      
+    <Compile Include="RenderingUtils.fs" />
     <Compile Include="Snapshot-Model.fs" />
     <Compile Include="SnapshotSettings-Model.fs" />
     <Compile Include="SnapshotSettingsApp.fs" />
