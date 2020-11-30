@@ -46,7 +46,7 @@ PRo3D's performance may vary with the size and type of datasets and the selected
 
 # Getting started from pre-built binaries
 
-Demo data and the pre-built application versions can be found on our [PRo3D Release Page](https://hackmd.io/ENmUp9nnT7iYXGt4uRqFXg?view#PRo3D-Releases). A video-based introduction to PRo3D can be found in the [Getting Started](http://www.pro3d.space/#started) section of [PRo3D.space](http://www.pro3d.space)
+Demo data and the pre-built application versions can be found on our [PRo3D Release Page](https://hackmd.io/@A2KmRrUKS4qQoCFA51Eocw/BJzMnBzoP). A video-based introduction to PRo3D can be found in the [Getting Started](http://www.pro3d.space/#started) section of [PRo3D.space](http://www.pro3d.space)
 
 # Getting started with from source
 
