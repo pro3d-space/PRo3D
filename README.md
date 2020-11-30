@@ -2,8 +2,7 @@
 
 ![](http://www.pro3d.space/images/garden.jpg)
 
-**PRo3D**, short for **P**lanetary **Ro**botics **3D** Viewer, is an interactive 3D visualization tool allowing planetary scientists to work with high-resolution 3D reconstructions of the Martian surface.
-Additional information can also be found on the [PRo3D Homepage](http://pro3d.space).
+**PRo3D**, short for **P**lanetary **Ro**botics **3D** Viewer, is an interactive 3D visualization tool allowing planetary scientists to work with high-resolution 3D reconstructions of the Martian surface. Additional information can be found on the [PRo3D Homepage](http://pro3d.space).
 
 
 # Who uses PRo3D?
@@ -47,9 +46,7 @@ PRo3D's performance may vary with the size and type of datasets and the selected
 
 # Getting started from pre-built binaries
 
-Demo data and the pre-built application versions will soon be found on a separate release page. For now, please refer to the 'Getting started with from source' section.
-
-A video-based introduction to PRo3D can be found in the [Getting Started](http://www.pro3d.space/#started) section of [PRo3D.space](http://www.pro3d.space)
+Demo data and the pre-built application versions can be found on our [PRo3D Release Page](https://hackmd.io/ENmUp9nnT7iYXGt4uRqFXg?view#PRo3D-Releases). A video-based introduction to PRo3D can be found in the [Getting Started](http://www.pro3d.space/#started) section of [PRo3D.space](http://www.pro3d.space)
 
 # Getting started with from source
 
