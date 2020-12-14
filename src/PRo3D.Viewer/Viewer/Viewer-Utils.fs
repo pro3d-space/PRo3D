@@ -171,7 +171,7 @@ module ViewerUtils =
             //let! trafo = AVal.map2(fun a b -> a * b) s.preTransform s.transformation.trafo //combine pre and current transform
             let! trafo = SurfaceTransformations.fullTrafo surf refsys
             
-            return { frustum = frustum; size = sizes; factor = Math.Pow(Math.E, quality); trafo = trafo }
+            return { frustum = frustum; size = sizes; factor = quality; trafo = trafo }
         }
     
     let getLodParameters' (surf:Surface) (frustum : Frustum) =
