@@ -75,9 +75,11 @@ let main argv =
     //Xilium.CefGlue.ChromiumUtilities.unpackCef()
     //Chromium.init argv        
 
+    let startupArgs = (CommandLine.parseArguments argv)
 // check if there are command line arguments, and if they are valid    
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
     
+
     Aardvark.Init()
     Aardium.init()        
 
