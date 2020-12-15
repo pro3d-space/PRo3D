@@ -79,7 +79,8 @@ module ReferenceSystemApp =
         V3d(px, py, pz)
     
    
-    let upVector (point:V3d) (planet) = CooTransformation.getUpVector point planet //point.Normalized
+    let upVector (point:V3d) (planet) = 
+        CooTransformation.getUpVector point planet //point.Normalized
     
     let northVector (up:V3d) =
         let east = V3d.OOI.Cross(up)
@@ -87,7 +88,11 @@ module ReferenceSystemApp =
     
     let updateCoordSystem (p:V3d) (planet:Planet) (model : ReferenceSystem) = 
         let up = upVector p planet
-        let n  = match planet with | Planet.None -> V3d.IOO | _ -> northVector up
+        let n  = 
+            match planet with 
+            | Planet.None | Planet.JPL -> V3d.IOO 
+            | _ -> northVector up
+
         let no = Rot3d.Rotation(up, model.noffset.value |> Double.radiansFromDegrees).Transform(n) //updateVectorInDegree up n model.origin model.noffset.value 
         { model with north = ReferenceSystem.setV3d n; up = ReferenceSystem.setV3d up; northO = no }
 

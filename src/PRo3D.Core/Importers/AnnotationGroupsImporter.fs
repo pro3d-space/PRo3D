@@ -26,7 +26,7 @@ module AnnotationGroupsImporter =
             |> List.map (MeasurementsImporter.getAnnotation trafo)          
             |> List.map(fun x -> 
                 let dns = 
-                  x.points 
+                    x.points 
                     |> DipAndStrike.calculateDipAndStrikeResults (up) (north)
         
                 let results = 

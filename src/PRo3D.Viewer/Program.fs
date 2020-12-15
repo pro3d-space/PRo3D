@@ -60,7 +60,7 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "3.1.0"
+let viewerVersion       = "3.1.1"
 let catchDomainErrors   = false
 
 open System.IO
@@ -75,14 +75,9 @@ let main argv =
     //Xilium.CefGlue.ChromiumUtilities.unpackCef()
     //Chromium.init argv        
 
-// check if there are command line arguments, and if they are valid
-    let startupArgs = (CommandLine.parseArguments argv)
+// check if there are command line arguments, and if they are valid    
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
-
-    //match startupArgs.areValid with
-    //| true ->
-    System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
-
+    
     Aardvark.Init()
     Aardium.init()        
 
