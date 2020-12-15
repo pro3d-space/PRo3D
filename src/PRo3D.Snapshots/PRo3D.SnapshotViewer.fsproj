@@ -24,10 +24,12 @@
   <ItemGroup>
     <None Include="paket.references" />
     <Compile Include="Config.fs" />
+    <Compile Include="StartupArgs.fs" />
+    <Compile Include="Shading-Model.fs" />
+    <Compile Include="ShadingApp.fs" />
     <Compile Include="Models\Model.fs" />
     <Compile Include="Models\VersionedModel.fs" />
     <Compile Include="Utilities.fs" />
-    <Compile Include="Shading-Model.fs" />
     <Compile Include="Lighting-Utils.fs" />
     <Compile Include="OrientationCube.fs" />
     <Compile Include="Navigation-Model.fs" />
@@ -45,7 +47,7 @@
     <Compile Include="Viewer\Viewer-IO.fs" />
     <Compile Include="Viewer\SceneConverter.fs" />
     <Compile Include="Viewer\Viewer.fs" />
-    <Compile Include="Viewer\NoGuiViewer.fs" />
+    <Compile Include="Viewer\SnapshotGenerator.fs" />
     <Compile Include="CommandLine\CommandLineUtils.fs" />
     <Compile Include="CommandLine\CommandLine.fs" />
     <Compile Include="RemoteControlModel.fs" />

@@ -26,6 +26,18 @@ module CommandLineUtils =
             Log.warn "%s" e.Message
             None
 
+    let parseInt (flag : string) (args : string []) =
+        match parseArg flag args with
+        | Some str -> 
+            try
+                let number = int str
+                Some number
+            with e -> 
+                Log.warn "Could not parse command line argument %s" flag
+                Log.warn "%s" e.Message
+                None
+        | None -> None
+
     /// check if flag is present and returns the corresponding
     /// argument(s) in a list if it is
     let parseMultiple (flag : string) (delim : char) (args : string []) =

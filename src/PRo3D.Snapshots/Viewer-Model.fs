@@ -138,6 +138,7 @@ type ViewerAction =
     //| UpdateShatterCones              of list<SnapshotShattercone> // TODO snapshots and shattercone things should be in own apps
     | TestHaltonRayCasting            //of list<string>
     | HeightValidation               of HeightValidatorAction
+    | ShadingMessage                 of Shading.ShadingActions
     | Nop
 
 and MailboxState = {
@@ -174,7 +175,7 @@ type Scene = {
 
 module Scene =
         
-    let current = 0    
+    let current = 1    
     let read0 = 
         json {            
             let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
@@ -212,8 +213,6 @@ module Scene =
                     feedbackThreads = ThreadPool.empty
                 }
         }
-
-
 
 type Scene with
     static member FromJson (_ : Scene) =

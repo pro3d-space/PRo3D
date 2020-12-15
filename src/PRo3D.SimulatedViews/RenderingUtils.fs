@@ -19,6 +19,10 @@ type RenderRange =
       fromFrame : int
       frameCount : int
     }
+    with static member fromOptions from count =
+      match from, count with
+      | Some from, Some count -> Some {fromFrame = from; frameCount = count}
+      | _,_ -> None
 
 module Rendering =
     let render (r : RenderParameters) = 

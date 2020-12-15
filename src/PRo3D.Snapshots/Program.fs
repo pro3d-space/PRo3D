@@ -50,7 +50,6 @@ type Calc =
       b : int;
    }
  
-
  [<DataContract>]
 type Result =
    { 
@@ -72,21 +71,13 @@ let rec allFiles dirs =
    
 [<EntryPoint;STAThread>]
 let main argv = 
-    //Xilium.CefGlue.ChromiumUtilities.unpackCef()
-    //Chromium.init argv        
-
-// check if there are command line arguments, and if they are valid
+    // check if there are command line arguments, and if they are valid
     let startupArgs = (CommandLine.parseArguments argv)
-    System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
-
-    //match startupArgs.areValid with
-    //| true ->
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
 
     Aardvark.Init()
     Aardium.init()        
 
-    //use app = new VulkanApplication()
     use app = new OpenGlApplication()
     let runtime = app.Runtime    
 
@@ -126,11 +117,8 @@ let main argv =
     let startEmpty = (argv |> Array.contains "-empty")
 
     // main app
-    //use form = new Form(Width = 1280, Height = 800)
     let cts = new CancellationTokenSource()
     let messagingMailbox = MailboxProcessor.Start(Viewer.initMessageLoop cts, cts.Token)    
-
-   // let minervaMailbox = MailboxProcessor.Start(PRo3D.Minerva.App.messagingMailbox cts, cts.Token)
     
     let argsKv = 
         argv 
@@ -154,19 +142,7 @@ let main argv =
             Log.warn "need cache file ... cache=\"[cachefilepath]\" -> using defaultPath '.\MinervaData\dump.cache'"
             @".\MinervaData\dump.cache"
 
-    //let access =
-    //    match argsKv |> HashMap.tryFind "access" with
-    //    | Some file -> file
-    //    | None -> failwith "need minerva access ... access=\"minervaaccount:pw\" "
-
     Log.startTimed "[Viewer] reading json scene"
-    //let loadedScnx : Scene = 
-    //    @"E:\PRo3D\Scenes SCN\20191210_ViewPlanner.pro3d"
-    //    |> Chiron.readFromFile 
-    //    |> Json.parse 
-    //    |> Json.deserialize
-
-    //Log.line "[Viewer] scene: %A" loadedScnx
 
     let mainApp = 
         ViewerApp.start runtime signature startEmpty messagingMailbox sendQueue dumpFile cacheFile
@@ -175,13 +151,7 @@ let main argv =
     MailboxAction.InitMailboxState s |> messagingMailbox.Post
     
     CooTransformation.initCooTrafo () // should be a function not a value
-    
-    //let domainError (sender:obj) (args:UnhandledExceptionEventArgs) =
-    //    let e = args.ExceptionObject :?> Exception;
-    //    Log.error "%A" e
-    //    MessageBox.Show(e.Message, "Sorry for the inconvenience", MessageBoxButtons.OK, MessageBoxIcon.Error) |> ignore
-    //    ()
-    
+       
     let domainError (sender:obj) (args:UnhandledExceptionEventArgs) =
         let e = args.ExceptionObject :?> Exception;
         Log.error "%A" e
@@ -201,12 +171,6 @@ let main argv =
         Suave.Files.browse (IO.Directory.GetCurrentDirectory())
         Suave.Files.browseHome        
     ] |> ignore
-
-        
-    //WebPart.startServer 4322 [
-    //    MutableApp.toWebPart' runtime false instrumentApp        
-    //    Suave.Files.browseHome
-    //]
 
     // screenshot app
     let send msg =
@@ -245,9 +209,7 @@ let main argv =
         Suave.Files.browseHome
     ] |> ignore
 
-    
     let titlestr = "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH"
-
     
     Aardium.run {
         url "http://localhost:54322/"   //"http://localhost:4321/?page=main"
@@ -258,6 +220,5 @@ let main argv =
     }
 
     CooTransformation.deInitCooTrafo ()
-    // Log.line "[Viewer] Could not deinit CooTrafo."
     0
  

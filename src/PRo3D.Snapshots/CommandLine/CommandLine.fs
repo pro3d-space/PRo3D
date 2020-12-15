@@ -78,6 +78,9 @@ module CommandLine =
                 let outFolder           = checkAndCreateDir (parseArg "--out" argv)
                 let exitOnFinish        = (argv |> hasFlag "exitOnFinish")
                 let renderDepth         = (argv |> hasFlag "renderDepth")
+                let renderMask          = (argv |> hasFlag "renderMask")
+                let frameId             = parseInt "--frameId" argv 
+                let frameCount          = parseInt "--frameCount" argv 
                 let useAsyncLoading     = (argv |> hasFlag "sync" |> not)
                 let startEmpty          = (argv |> hasFlag "empty")
                 let magFilter           = not (argv |> hasFlag "noMagFilter")
@@ -128,6 +131,7 @@ module CommandLine =
                             showExplorationPoint  = showExplorationCentre
                             showReferenceSystem   = showReferenceSystem
                             renderDepth           = renderDepth
+                            renderMask            = renderMask
                             exitOnFinish          = exitOnFinish
                             areValid              = surfPathsValid && snapPathValid
                             verbose               = verbose
@@ -135,6 +139,8 @@ module CommandLine =
                             startEmpty            = startEmpty
                             useAsyncLoading       = false
                             magnificationFilter   = magFilter
+                            frameId               = frameId
+                            frameCount            = frameCount
                         }
                     | None -> 
                         Log.line "[Arguments] Starting PRo3D in GUI-Mode."
@@ -147,6 +153,7 @@ module CommandLine =
                             showExplorationPoint  = showExplorationCentre
                             showReferenceSystem   = showReferenceSystem
                             renderDepth           = false
+                            renderMask            = false
                             exitOnFinish          = false
                             areValid              = true
                             verbose               = verbose
@@ -154,6 +161,8 @@ module CommandLine =
                             startEmpty            = startEmpty
                             useAsyncLoading       = useAsyncLoading
                             magnificationFilter   = false
+                            frameId               = None
+                            frameCount            = None
                         }
                 args
             sargs

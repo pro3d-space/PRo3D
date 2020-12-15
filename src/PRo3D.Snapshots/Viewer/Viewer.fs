@@ -1259,6 +1259,8 @@ module ViewerApp =
         //| _ -> 
         //    Log.warn "[Viewer] don't know message %A. ignoring it." msg
         //    m                                            
+        | ShadingMessage message, _, _ ->
+            m //{m with shadingApp = Shading.ShadingApp.update m.shadingProperties message} //rno TODO
         | _ -> m       
                                    
     let mkBrushISg color size trafo : ISg<Message> =

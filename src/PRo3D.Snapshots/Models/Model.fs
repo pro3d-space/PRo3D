@@ -14,11 +14,13 @@ open Aardvark.SceneGraph.Opc
 open Aardvark.VRVis
 open Aardvark.Base.Rendering
 open Aardvark.Base.CameraView
-
+open PRo3D.SimulatedViews
 open PRo3D.Base
 open PRo3D.Core
 open PRo3D.Base.Annotation
 open Chiron
+open SnapshotSettings
+open Shading.ShadingApp
 
 #nowarn "0044"
 #nowarn "0686"
@@ -54,51 +56,7 @@ type ViewerMode =
     | Standard
     | Instrument
 
-type GuiMode =
-    | NoGui
-    | RenderViewOnly
-    | CoreGui
-    | CompleteGui
 
-
-type StartupArgs = {
-    opcPaths              : option<list<string>>
-    objPaths              : option<list<string>>
-    snapshotPath          : option<string>
-    outFolder             : string
-    snapshotType          : option<SnapshotType>
-    guiMode               : GuiMode
-    showExplorationPoint  : bool
-    showReferenceSystem   : bool
-    renderDepth           : bool
-    exitOnFinish          : bool
-    areValid              : bool
-    verbose               : bool
-    startEmpty            : bool
-    useAsyncLoading       : bool
-    magnificationFilter   : bool
-} with 
-    member args.hasValidAnimationArgs =
-        (args.opcPaths.IsSome || args.objPaths.IsSome)
-            && args.snapshotType.IsSome && args.areValid
-    static member initArgs =
-      {
-          opcPaths              = None
-          objPaths              = None
-          snapshotPath          = None
-          snapshotType          = None
-          guiMode               = GuiMode.CompleteGui
-          showExplorationPoint  = true
-          showReferenceSystem   = true
-          renderDepth           = false
-          exitOnFinish          = false
-          areValid              = true
-          verbose               = false
-          startEmpty            = false
-          useAsyncLoading       = false
-          magnificationFilter   = false
-          outFolder             = ""
-      }
 
 
 [<ModelType>]
@@ -217,9 +175,12 @@ type ViewConfigModel = {
     offset                  : NumericInput
     lodColoring             : bool
     drawOrientationCube     : bool
-    //useSurfaceHighlighting  : bool
-    //showExplorationPoint    : bool
-    }
+    // SnapshotViewer extensions
+    showExplorationPoint    : bool
+    filterTexture           : bool // TODO move to versioned ViewConfigModel in V3
+    shadingProperties       : Shading.ShadingApp
+    snapshotSettings        : SnapshotSettings
+}
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module ViewConfigModel =
@@ -295,9 +256,12 @@ module ViewConfigModel =
         lodColoring         = false
         importTriangleSize  = initImportTriangleSize        
         drawOrientationCube = false
-        offset = depthOffset
+        offset              = depthOffset
         //useSurfaceHighlighting = true
-        //showExplorationPoint = true
+        showExplorationPoint  = true
+        filterTexture         = false 
+        shadingProperties     = Shading.ShadingApp.init
+        snapshotSettings      =  SimulatedViews.SnapshotSettings.init
     }
        
     module V0 =
@@ -327,6 +291,10 @@ module ViewConfigModel =
                     importTriangleSize    = importTriangleSize      
                     drawOrientationCube   = drawOrientationCube
                     offset                = depthOffset
+                    showExplorationPoint  = true
+                    filterTexture         = false 
+                    shadingProperties     =  Shading.ShadingApp.init
+                    snapshotSettings      =  SnapshotSettings.init
                 }
             }
     module V1 =
@@ -357,8 +325,49 @@ module ViewConfigModel =
                     importTriangleSize    = importTriangleSize      
                     drawOrientationCube   = drawOrientationCube
                     offset                = depthoffset
+                    showExplorationPoint  = true
+                    filterTexture         = false 
+                    shadingProperties     =  Shading.ShadingApp.init
+                    snapshotSettings      =  SnapshotSettings.init
                 }
             }
+
+        module V2 =
+            let read = 
+                json {
+                    let! nearPlane                     = Json.readWith Ext.fromJson<NumericInput,Ext> "nearPlane"
+                    let! farPlane                      = Json.readWith Ext.fromJson<NumericInput,Ext> "farPlane"
+                    let! navigationSensitivity         = Json.readWith Ext.fromJson<NumericInput,Ext> "navigationSensitivity"
+                    let! arrowLength                   = Json.readWith Ext.fromJson<NumericInput,Ext> "arrowLength"
+                    let! arrowThickness                = Json.readWith Ext.fromJson<NumericInput,Ext> "arrowThickness"
+                    let! dnsPlaneSize                  = Json.readWith Ext.fromJson<NumericInput,Ext> "dnsPlaneSize"
+                    let! (lodColoring : bool)          = Json.read "lodColoring"
+                    let! importTriangleSize            = Json.readWith Ext.fromJson<NumericInput,Ext> "importTriangleSize"
+                    let! (drawOrientationCube : bool)  = Json.read "drawOrientationCube"                        
+                    let! depthoffset                   = Json.readWith Ext.fromJson<NumericInput,Ext> "depthOffset"
+                    let! (showExplorationPoint : bool) = Json.read "showExplorationPoint"                        
+                    let! (filterTexture : bool)        = Json.read "filterTexture"                        
+                    let! (shadingProperties : Shading.ShadingApp) = Json.read "shadingProperties"          
+                    let! (snapshotSettings : SnapshotSettings) = Json.read "snapshotSettings"
+            
+                    return {            
+                        version               = current
+                        nearPlane             = nearPlane
+                        farPlane              = farPlane
+                        navigationSensitivity = navigationSensitivity
+                        arrowLength           = arrowLength
+                        arrowThickness        = arrowThickness
+                        dnsPlaneSize          = dnsPlaneSize
+                        lodColoring           = lodColoring
+                        importTriangleSize    = importTriangleSize      
+                        drawOrientationCube   = drawOrientationCube
+                        offset                = depthoffset
+                        showExplorationPoint  = true
+                        filterTexture         = false 
+                        shadingProperties     = shadingProperties
+                        snapshotSettings      = snapshotSettings
+                    }
+                }
 
 type ViewConfigModel with 
     static member FromJson(_ : ViewConfigModel) = 
