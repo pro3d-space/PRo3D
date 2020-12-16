@@ -8,7 +8,6 @@ open Aardvark.UI.Primitives
 open FSharp.Data.Adaptive
 open PRo3D.Base
 
-
 module ConfigProperties =
 
     type Action =
@@ -23,7 +22,10 @@ module ConfigProperties =
         | ToggleLodColors
         | ToggleOrientationCube 
         | ToggleSurfaceHighlighting
-        //| ToggleExplorationPoint
+        | ShadingMessage            of Shading.ShadingAction
+        | SnapshotMessage           of SimulatedViews.SnapshotSettingsAction
+        | ToggleExplorationPoint
+        | ToggleFilterTexture
         
 
     let update (model : ViewConfigModel) (act : Action) =
@@ -49,28 +51,41 @@ module ConfigProperties =
             { model with lodColoring = not model.lodColoring}
         | ToggleOrientationCube  -> {model with drawOrientationCube = not model.drawOrientationCube}
         | ToggleSurfaceHighlighting  -> model // {model with useSurfaceHighlighting = not model.useSurfaceHighlighting}
+        | ShadingMessage message ->
+            {model with shadingApp = Shading.ShadingApp.update model.shadingApp message}
+        | SnapshotMessage message ->
+            {model with snapshotSettings = SimulatedViews.ShatterconeApp.updateSnapshotSettings model.snapshotSettings message}
+        | ToggleExplorationPoint -> {model with showExplorationPoint = not model.showExplorationPoint}
+        | ToggleFilterTexture -> {model with filterTexture = not model.filterTexture}
         | _ -> 
             Log.warn "[ConfigProperties] Unknown action %A" act
             model
-        //| ToggleExplorationPoint -> {model with showExplorationPoint = not model.showExplorationPoint}
+        
            
 
     let view (model : AdaptiveViewConfigModel) =    
         require GuiEx.semui (
-            Html.table [      
-                Html.row "Near Plane:"              [Numeric.view' [InputBox] model.nearPlane             |> UI.map SetNearPlane ]               
-                Html.row "Far Plane:"               [Numeric.view' [InputBox] model.farPlane              |> UI.map SetFarPlane ]    
-                Html.row "Navigation Sensitivity:"  [Numeric.view' [Slider] model.navigationSensitivity   |> UI.map SetNavigationSensitivity ]    
-                Html.row "Import Triangle Size(m):" [Numeric.view' [InputBox] model.importTriangleSize    |> UI.map SetImportTriangleSize ] 
-                Html.row "Arrow Length:"            [Numeric.view' [InputBox] model.arrowLength           |> UI.map SetArrowLength ] 
-                Html.row "Arrow Thickness:"         [Numeric.view' [InputBox] model.arrowThickness        |> UI.map SetArrowThickness ]   
-                Html.row "D+S Plane Size:"          [Numeric.view' [InputBox] model.dnsPlaneSize          |> UI.map SetDnSPlaneSize ]   
-             //   Html.row "Offset:"                  [Numeric.view' [InputBox] model.offset          |> UI.map SetOffset ]   
-                Html.row "Lod colors:"              [GuiEx.iconCheckBox model.lodColoring ToggleLodColors]
-                Html.row "Orientation Cube: "       [GuiEx.iconCheckBox model.drawOrientationCube ToggleOrientationCube]
-              //  Html.row "Surface highlighting: "   [GuiEx.iconCheckBox model.useSurfaceHighlighting ToggleSurfaceHighlighting]
-               // Html.row "Exploration Point: "      [GuiEx.iconCheckBox model.showExplorationPoint ToggleExplorationPoint]
+            div [] [
+                Html.table [      
+                    Html.row "Near Plane:"              [Numeric.view' [InputBox] model.nearPlane             |> UI.map SetNearPlane ]               
+                    Html.row "Far Plane:"               [Numeric.view' [InputBox] model.farPlane              |> UI.map SetFarPlane ]    
+                    Html.row "Navigation Sensitivity:"  [Numeric.view' [Slider] model.navigationSensitivity   |> UI.map SetNavigationSensitivity ]    
+                    Html.row "Import Triangle Size(m):" [Numeric.view' [InputBox] model.importTriangleSize    |> UI.map SetImportTriangleSize ] 
+                    Html.row "Arrow Length:"            [Numeric.view' [InputBox] model.arrowLength           |> UI.map SetArrowLength ] 
+                    Html.row "Arrow Thickness:"         [Numeric.view' [InputBox] model.arrowThickness        |> UI.map SetArrowThickness ]   
+                    Html.row "D+S Plane Size:"          [Numeric.view' [InputBox] model.dnsPlaneSize          |> UI.map SetDnSPlaneSize ]   
+                 //   Html.row "Offset:"                  [Numeric.view' [InputBox] model.offset          |> UI.map SetOffset ]   
+                    Html.row "Lod colors:"              [GuiEx.iconCheckBox model.lodColoring ToggleLodColors]
+                    Html.row "Orientation Cube: "       [GuiEx.iconCheckBox model.drawOrientationCube ToggleOrientationCube]
+                  //  Html.row "Surface highlighting: "   [GuiEx.iconCheckBox model.useSurfaceHighlighting ToggleSurfaceHighlighting]
+                    Html.row "Exploration Point: "      [GuiEx.iconCheckBox model.showExplorationPoint ToggleExplorationPoint]
+                    Html.row "Filter Texture: "         [GuiEx.iconCheckBox model.filterTexture ToggleFilterTexture]
+                ]
+                (Shading.ShadingApp.view model.shadingApp) |> UI.map ShadingMessage
+                (SimulatedViews.SnapshotSettings.view model.snapshotSettings) |> UI.map SnapshotMessage
+
             ]
+            
         )
 
 module CameraProperties =

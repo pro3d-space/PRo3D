@@ -138,7 +138,6 @@ type ViewerAction =
     //| UpdateShatterCones              of list<SnapshotShattercone> // TODO snapshots and shattercone things should be in own apps
     | TestHaltonRayCasting            //of list<string>
     | HeightValidation               of HeightValidatorAction
-    | ShadingMessage                 of Shading.ShadingActions
     | Nop
 
 and MailboxState = {
@@ -175,7 +174,7 @@ type Scene = {
 
 module Scene =
         
-    let current = 1    
+    let current = 0    
     let read0 = 
         json {            
             let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
@@ -333,9 +332,6 @@ type Model = {
     //viewPlans            : ViewPlanModel
  
     arnoldSnapshotThreads: ThreadPool<ViewerAction>
-    showExplorationPoint : bool
-    filterTexture        : bool // TODO move to versioned ViewConfigModel in V3
-
     heighValidation      : HeightValidatorModel
 }
 
@@ -516,8 +512,5 @@ module Viewer =
             viewPortSize = V2i.One
 
             arnoldSnapshotThreads = ThreadPool.empty
-            showExplorationPoint = startupArgs.showExplorationPoint
-            filterTexture = startupArgs.magnificationFilter
-
             heighValidation = HeightValidatorModel.init()
     }

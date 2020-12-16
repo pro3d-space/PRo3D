@@ -92,7 +92,7 @@ module ShatterconeApp =
             maskColor       = maskColor
         }    
     
-    let updateSnapshotSettings (model : SnapshotSettings) (message : SnapshotSettingsAction) =
+    let updateSnapshotSettings (model : SnapshotSettings) (message : SnapshotSettingsAction) = //TODO rno move to own file and module
         match message with
         | SetNumSnapshots num ->  
             {model with numSnapshots     = Numeric.update model.numSnapshots  num} 

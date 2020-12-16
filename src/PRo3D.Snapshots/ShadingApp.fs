@@ -15,7 +15,7 @@ open PRo3D.Core.Surface
 open PRo3D.SimulatedViews
 open Chiron
 
-type ShadingActions =
+type ShadingAction =
     | SetLightDirectionV3d of V3d
     | SetLightDirection    of Vector3d.Action
     | ToggleUseDirection
@@ -108,7 +108,7 @@ module ShadingApp =
             shadowProjection = ShadowProjection.Othographic
        } 
     
-    let update (model : ShadingApp) (message : ShadingActions) =
+    let update (model : ShadingApp) (message : ShadingAction) =
         match message with
         | SetLightLocation vectorAction ->
             let lightLocation = (Vector3d.update model.lightLocation vectorAction)
@@ -171,11 +171,12 @@ module ShadingApp =
     let view (model : AdaptiveShadingApp) =
        require Html.semui (
             Html.table [      
+                Html.row "Shading Settings" []
                 Html.row "Light Direction:"
                     [
-                        div [] [text "Normalize Direction ";(Html.SemUi.iconCheckBox model.normalizeLightDirection ShadingActions.ToggleUseDirection)]
+                        div [] [text "Normalize Direction ";(Html.SemUi.iconCheckBox model.normalizeLightDirection ShadingAction.ToggleUseDirection)]
                         (Aardvark.UI.Vector3d.view model.lightDirection) 
-                            |> UI.map ShadingActions.SetLightDirection
+                            |> UI.map ShadingAction.SetLightDirection
                     ]
                 //Html.row "Light Distance: "               
                 //    [
@@ -195,11 +196,11 @@ module ShadingApp =
                 //    ]
                 Html.row "Use Mask: "
                     [
-                        (Html.SemUi.iconCheckBox model.useMask ShadingActions.ToggleUseMask)
+                        (Html.SemUi.iconCheckBox model.useMask ShadingAction.ToggleUseMask)
                     ]
                 Html.row "Use Lighting: "
                     [
-                        (Html.SemUi.iconCheckBox model.useLighting ShadingActions.ToggleLighting)
+                        (Html.SemUi.iconCheckBox model.useLighting ShadingAction.ToggleLighting)
                     ]
 
                 //Html.row "Ambient Light: "               
@@ -225,7 +226,7 @@ module ShadingApp =
                 //    ]
                 Html.row "Display Debug Objects: "
                     [
-                        (Html.SemUi.iconCheckBox model.debug ShadingActions.ToggleDebug)
+                        (Html.SemUi.iconCheckBox model.debug ShadingAction.ToggleDebug)
                     ]
                 //Html.row "Set Shadow Projection: "
                 //    [
@@ -233,7 +234,7 @@ module ShadingApp =
                 //    ]
                 Html.row "Show Light View: "
                     [
-                        (Html.SemUi.iconCheckBox model.showShadowMap ShadingActions.ToggleShowShadowMap)
+                        (Html.SemUi.iconCheckBox model.showShadowMap ShadingAction.ToggleShowShadowMap)
                     ]
                 ]
             )

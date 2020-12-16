@@ -1159,8 +1159,6 @@ module ViewerApp =
         | OnResize a,_,_ ->              
             Log.line "[RenderControl Resized] %A" a
             { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y) }
-        | SetTextureFiltering b,_,_ ->
-            {m with filterTexture = b}
        // | TestHaltonRayCasting _,_,_->
             //ViewerUtils.placeMultipleOBJs2 m [SnapshotShattercone.TestData] // TODO MarsDL put in own app
         //| UpdateShatterCones shatterCones,_,_ -> // TODO MarsDL put in own app
@@ -1178,80 +1176,6 @@ module ViewerApp =
             match m.multiSelectBox with
             | Some x -> { m with multiSelectBox = None }
             | None -> m
-       // | CorrelationPanelMessage a,_,_ ->
-            //let blurg =
-            //    match a with 
-            //    | CorrelationPanelsMessage.SemanticAppMessage _ ->
-            //        m |> PRo3D.ViewerIO.colorBySemantic'                    
-            //    | _ -> 
-            //        m
-            //let blurg =
-            //    { blurg with correlationPlot = CorrelationPanelsApp.update m.correlationPlot m.scene.referenceSystem a }
-
-            //let blarg = 
-            //    match a with
-            //    | CorrelationPanelsMessage.CorrPlotMessage 
-            //        (CorrelationPlotAction.DiagramMessage
-            //            (Svgplus.DA.DiagramAppAction.DiagramItemMessage
-            //                (diagramItemId, Svgplus.DiagramItemAction.RectangleStackMessage 
-            //                    (_ , Svgplus.RectangleStackAction.RectangleMessage 
-            //                        (_, Svgplus.RectangleAction.Select rid)))))
-            //            ->          
-            //        Log.line "[Viewer] corrplotmessage %A" blurg.correlationPlot.correlationPlot.selectedFacies
-
-            //        let plot = blurg.correlationPlot.correlationPlot
-
-            //        let selectionSet =
-            //            match plot.selectedFacies with
-            //            | Some selected -> 
-            //                let selectedLogId : LogId = 
-            //                    diagramItemId 
-            //                    |> LogId.fromDiagramItemId
-
-            //                let log = 
-            //                    plot.logsNuevo |> HashMap.find selectedLogId
-
-
-            //                // find facies
-            //                match Facies.tryFindFacies selected log.facies with
-            //                | Some facies ->
-
-
-            //                    // find measurements
-            //                    Log.line "[Viewer] selected facies has %A measurements" facies.measurements
-
-            //                    // also make for aggregation stuff ... secondary log
-                                    
-
-            //                    facies.measurements 
-            //                    |> HashSet.map(fun x -> 
-            //                        {
-            //                            id = ContactId.value x
-            //                            path = []
-            //                            name = ""
-            //                        }
-            //                    )
-            //                | None ->
-            //                    HashSet.empty
-            //            | None -> 
-            //                HashSet.empty
-
-            //        // m.drawing.annotations.selectedLeaves
-            //        { 
-            //            blurg with 
-            //                drawing = { 
-            //                    blurg.drawing with 
-            //                        annotations = { 
-            //                            blurg.drawing.annotations with 
-            //                                selectedLeaves = selectionSet
-            //                        }
-            //                }
-            //        }
-            //    | _ -> 
-            //        blurg
-
-            //blarg
-           // m
         | ViewerAction.PickSurface _,_,_ ->
             m 
         | ViewerAction.HeightValidation a,_,false ->
@@ -1259,8 +1183,6 @@ module ViewerApp =
         //| _ -> 
         //    Log.warn "[Viewer] don't know message %A. ignoring it." msg
         //    m                                            
-        | ShadingMessage message, _, _ ->
-            m //{m with shadingApp = Shading.ShadingApp.update m.shadingProperties message} //rno TODO
         | _ -> m       
                                    
     let mkBrushISg color size trafo : ISg<Message> =
@@ -1420,7 +1342,11 @@ module ViewerApp =
                 |> Sg.map ReferenceSystemMessage  
 
             let exploreCenter =
-                Navigation.Sg.view m.navigation            
+                m.scene.config.showExplorationPoint
+                  |> AVal.map (fun showP ->
+                                  match showP with
+                                  | true -> Navigation.Sg.view m.navigation            
+                                  | false -> Sg.empty) |> Sg.dynamic
           
             let homePosition =
                 Sg.viewHomePosition m.scene.surfacesModel

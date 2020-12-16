@@ -177,8 +177,8 @@ type ViewConfigModel = {
     drawOrientationCube     : bool
     // SnapshotViewer extensions
     showExplorationPoint    : bool
-    filterTexture           : bool // TODO move to versioned ViewConfigModel in V3
-    shadingProperties       : Shading.ShadingApp
+    filterTexture           : bool 
+    shadingApp              : Shading.ShadingApp
     snapshotSettings        : SnapshotSettings
 }
 
@@ -260,7 +260,7 @@ module ViewConfigModel =
         //useSurfaceHighlighting = true
         showExplorationPoint  = true
         filterTexture         = false 
-        shadingProperties     = Shading.ShadingApp.init
+        shadingApp     = Shading.ShadingApp.init
         snapshotSettings      =  SimulatedViews.SnapshotSettings.init
     }
        
@@ -293,7 +293,7 @@ module ViewConfigModel =
                     offset                = depthOffset
                     showExplorationPoint  = true
                     filterTexture         = false 
-                    shadingProperties     =  Shading.ShadingApp.init
+                    shadingApp     =  Shading.ShadingApp.init
                     snapshotSettings      =  SnapshotSettings.init
                 }
             }
@@ -327,47 +327,47 @@ module ViewConfigModel =
                     offset                = depthoffset
                     showExplorationPoint  = true
                     filterTexture         = false 
-                    shadingProperties     =  Shading.ShadingApp.init
+                    shadingApp     =  Shading.ShadingApp.init
                     snapshotSettings      =  SnapshotSettings.init
                 }
             }
 
-        module V2 =
-            let read = 
-                json {
-                    let! nearPlane                     = Json.readWith Ext.fromJson<NumericInput,Ext> "nearPlane"
-                    let! farPlane                      = Json.readWith Ext.fromJson<NumericInput,Ext> "farPlane"
-                    let! navigationSensitivity         = Json.readWith Ext.fromJson<NumericInput,Ext> "navigationSensitivity"
-                    let! arrowLength                   = Json.readWith Ext.fromJson<NumericInput,Ext> "arrowLength"
-                    let! arrowThickness                = Json.readWith Ext.fromJson<NumericInput,Ext> "arrowThickness"
-                    let! dnsPlaneSize                  = Json.readWith Ext.fromJson<NumericInput,Ext> "dnsPlaneSize"
-                    let! (lodColoring : bool)          = Json.read "lodColoring"
-                    let! importTriangleSize            = Json.readWith Ext.fromJson<NumericInput,Ext> "importTriangleSize"
-                    let! (drawOrientationCube : bool)  = Json.read "drawOrientationCube"                        
-                    let! depthoffset                   = Json.readWith Ext.fromJson<NumericInput,Ext> "depthOffset"
-                    let! (showExplorationPoint : bool) = Json.read "showExplorationPoint"                        
-                    let! (filterTexture : bool)        = Json.read "filterTexture"                        
-                    let! (shadingProperties : Shading.ShadingApp) = Json.read "shadingProperties"          
-                    let! (snapshotSettings : SnapshotSettings) = Json.read "snapshotSettings"
+    module V2 =
+        let read = 
+            json {
+                let! nearPlane                     = Json.readWith Ext.fromJson<NumericInput,Ext> "nearPlane"
+                let! farPlane                      = Json.readWith Ext.fromJson<NumericInput,Ext> "farPlane"
+                let! navigationSensitivity         = Json.readWith Ext.fromJson<NumericInput,Ext> "navigationSensitivity"
+                let! arrowLength                   = Json.readWith Ext.fromJson<NumericInput,Ext> "arrowLength"
+                let! arrowThickness                = Json.readWith Ext.fromJson<NumericInput,Ext> "arrowThickness"
+                let! dnsPlaneSize                  = Json.readWith Ext.fromJson<NumericInput,Ext> "dnsPlaneSize"
+                let! (lodColoring : bool)          = Json.read "lodColoring"
+                let! importTriangleSize            = Json.readWith Ext.fromJson<NumericInput,Ext> "importTriangleSize"
+                let! (drawOrientationCube : bool)  = Json.read "drawOrientationCube"                        
+                let! depthoffset                   = Json.readWith Ext.fromJson<NumericInput,Ext> "depthOffset"
+                let! (showExplorationPoint : bool) = Json.read "showExplorationPoint"                        
+                let! (filterTexture : bool)        = Json.read "filterTexture"                        
+                let! (shadingProperties : Shading.ShadingApp) = Json.read "shadingProperties"          
+                let! (snapshotSettings : SnapshotSettings) = Json.read "snapshotSettings"
             
-                    return {            
-                        version               = current
-                        nearPlane             = nearPlane
-                        farPlane              = farPlane
-                        navigationSensitivity = navigationSensitivity
-                        arrowLength           = arrowLength
-                        arrowThickness        = arrowThickness
-                        dnsPlaneSize          = dnsPlaneSize
-                        lodColoring           = lodColoring
-                        importTriangleSize    = importTriangleSize      
-                        drawOrientationCube   = drawOrientationCube
-                        offset                = depthoffset
-                        showExplorationPoint  = true
-                        filterTexture         = false 
-                        shadingProperties     = shadingProperties
-                        snapshotSettings      = snapshotSettings
-                    }
+                return {            
+                    version               = current
+                    nearPlane             = nearPlane
+                    farPlane              = farPlane
+                    navigationSensitivity = navigationSensitivity
+                    arrowLength           = arrowLength
+                    arrowThickness        = arrowThickness
+                    dnsPlaneSize          = dnsPlaneSize
+                    lodColoring           = lodColoring
+                    importTriangleSize    = importTriangleSize      
+                    drawOrientationCube   = drawOrientationCube
+                    offset                = depthoffset
+                    showExplorationPoint  = true
+                    filterTexture         = false 
+                    shadingApp     = shadingProperties
+                    snapshotSettings      = snapshotSettings
                 }
+            }
 
 type ViewConfigModel with 
     static member FromJson(_ : ViewConfigModel) = 
@@ -376,6 +376,7 @@ type ViewConfigModel with
             match v with
             | 0 -> return! ViewConfigModel.V0.read
             | 1 -> return! ViewConfigModel.V1.read
+            | 2 -> return! ViewConfigModel.V2.read
             | _ -> return! v |> sprintf "don't know version %A  of ViewConfigModel" |> Json.error
         }
     static member ToJson (x : ViewConfigModel) =
@@ -391,7 +392,11 @@ type ViewConfigModel with
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "nearPlane" x.nearPlane
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "offset" x.offset
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "depthOffset" x.offset
-            do! Json.write "version" x.version
+            do! Json.write "showExplorationPoint" x.showExplorationPoint                        
+            do! Json.write "filterTexture"        x.filterTexture                 
+            do! Json.write "shadingProperties"    x.shadingApp       
+            do! Json.write "snapshotSettings"     x.snapshotSettings
+            do! Json.write "version"              x.version
         }
 
 

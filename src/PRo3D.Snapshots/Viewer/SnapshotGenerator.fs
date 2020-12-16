@@ -67,7 +67,9 @@ module SnapshotGenerator =
             ]
         let sunAction =
             match this.lightDirection with
-            | Some p -> [ViewerAction.ShadingMessage (Shading.ShadingActions.SetLightDirectionV3d p)
+            | Some p -> [Viewer.ConfigPropertiesMessage 
+                          (ConfigProperties.Action.ShadingMessage 
+                            (Shading.ShadingAction.SetLightDirectionV3d p))
                         ]
             | None -> []        
         let surfAction =
@@ -108,8 +110,12 @@ module SnapshotGenerator =
             match anim.lightLocation with
             | Some loc -> 
                 [
-                    ViewerAction.ShadingMessage (Shading.ShadingActions.SetLightPositionV3d loc)
-                    ViewerAction.ShadingMessage (Shading.ShadingActions.SetUseLighting true)
+                    (Viewer.ConfigPropertiesMessage 
+                    (ConfigProperties.Action.ShadingMessage 
+                      (Shading.ShadingAction.SetLightPositionV3d loc)))
+                    (Viewer.ConfigPropertiesMessage 
+                    (ConfigProperties.Action.ShadingMessage 
+                      (Shading.ShadingAction.SetUseLighting true)))                    
                 ]
             | None -> []
         setNearplane@setFarplane@lightActions |> List.toSeq

@@ -292,24 +292,24 @@ module ViewerUtils =
                         x
                     )
                         
-                let footprintVisible = //AVal.map2 (fun (vp:Option<AdaptiveViewPlan>) vis -> (vp.IsSome && vis)) vp, fp.isVisible
-                    adaptive {
-                        let! vp = vp
-                        let! visible = fp.isVisible
-                        let! id = fp.vpId
-                        return (vp.IsSome && visible)
-                    }
+                //let footprintVisible = //AVal.map2 (fun (vp:Option<AdaptiveViewPlan>) vis -> (vp.IsSome && vis)) vp, fp.isVisible
+                //    adaptive {
+                //        let! vp = vp
+                //        let! visible = fp.isVisible
+                //        let! id = fp.vpId
+                //        return (vp.IsSome && visible)
+                //    }
                 
-                let footprintMatrix = 
-                    adaptive {
-                        let! fppm = fp.projectionMatrix
-                        let! fpvm = fp.instViewMatrix
-                        let! s = surf
-                        let! ts = s.preTransform
-                        let! t = trafo
-                        //return (t.Forward * fpvm * fppm) //* t.Forward 
-                        return (fppm * fpvm) // * ts.Forward
-                    } 
+                //let footprintMatrix = 
+                //    adaptive {
+                //        let! fppm = fp.projectionMatrix
+                //        let! fpvm = fp.instViewMatrix
+                //        let! s = surf
+                //        let! ts = s.preTransform
+                //        let! t = trafo
+                //        //return (t.Forward * fpvm * fppm) //* t.Forward 
+                //        return (fppm * fpvm) // * ts.Forward
+                //    } 
 
                 let structuralOnOff (visible : aval<bool>) (sg : ISg<_>) : ISg<_> = 
                     visible 
@@ -329,12 +329,12 @@ module ViewerUtils =
                     |> addAttributeFalsecolorMappingParameters surf
                     |> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
                     |> addImageCorrectionParameters surf
-                    |> Sg.uniform "footprintVisible" footprintVisible
-                    |> Sg.uniform "instrumentMVP" footprintMatrix
-                    |> Sg.uniform "projMVP" fp.projectionMatrix
-                    |> Sg.uniform "globalToLocal" fp.globalToLocalPos
-                    |> Sg.uniform "instViewMVP" fp.instViewMatrix
-                    |> Sg.texture (Sym.ofString "FootPrintTexture") fp.projTex
+                    //|> Sg.uniform "footprintVisible" footprintVisible
+                    //|> Sg.uniform "instrumentMVP" footprintMatrix
+                    //|> Sg.uniform "projMVP" fp.projectionMatrix
+                    //|> Sg.uniform "globalToLocal" fp.globalToLocalPos
+                    //|> Sg.uniform "instViewMVP" fp.instViewMatrix
+                    //|> Sg.texture (Sym.ofString "FootPrintTexture") fp.projTex
                     |> Sg.LodParameters( getLodParameters surf refsys frustum )
                     |> Sg.AttributeParameters( attributeParameters surf )
                     |> OpcViewer.Base.Sg.pickable' pickable
@@ -432,7 +432,7 @@ module ViewerUtils =
                         let bla = m.scene.surfacesModel.surfaces.flat
                         viewSingleSurfaceSg sf bla m.frustum selected m.ctrlFlag 
                                             sf.globalBB refSystem m.footPrint 
-                                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting m.filterTexture)
+                                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting m.scene.config.filterTexture)
                     |> AMap.toASet 
                     |> ASet.map snd                     
                 )                
@@ -470,7 +470,7 @@ module ViewerUtils =
 
     let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
         let usehighlighting = true |> AVal.constant //m.scene.config.useSurfaceHighlighting
-        let filterTexture = ~~true
+        let filterTexture = m.scene.config.filterTexture
 
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
