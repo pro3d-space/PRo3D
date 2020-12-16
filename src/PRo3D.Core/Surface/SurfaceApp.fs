@@ -85,6 +85,63 @@ module SurfaceUtils =
     module ObjectFiles =        
         open Aardvark.Geometry
         
+        let buildKdTrees  (surface : Surface) kdTreePath =
+            Log.line "[OBJ] Please wait while the OBJ file is being loaded." 
+            let obj = Loader.Assimp.load (surface.importPath)  
+            Log.line "[OBJ] The OBJ file was loaded successfully!" 
+            let mutable count = 0
+
+            obj.meshes 
+            |> Array.map(fun x ->
+                let kdPath = sprintf "%s_%i.kd" surface.importPath count          
+                let pos = x.geometry.IndexedAttributes.[DefaultSemantic.Positions] |> unbox<V3f[]>
+    
+                //let indices = x.geometry.IndexArray |> unbox<int[]> potential problem with indices
+                let t = 
+                    pos                      
+                    |> Seq.map(fun x -> x.ToV3d())
+                    |> Seq.chunkBySize 3
+                    |> Seq.filter(fun x -> x.Length = 3)
+                    |> Seq.map(fun x -> Triangle3d x)
+                    |> Seq.filter(fun x -> (IntersectionController.triangleIsNan x |> not)) |> Seq.toArray
+                    |> TriangleSet
+                          
+                Log.startTimed "Building kdtrees for %s" (Path.GetFileName surface.importPath |> Path.GetFileName)
+                let tree = 
+                    KdIntersectionTree(t, 
+                        KdIntersectionTree.BuildFlags.MediumIntersection + KdIntersectionTree.BuildFlags.Hierarchical) //|> PRo3D.Serialization.save kdTreePath                  
+                Log.stop()
+    
+                //saveKdTree (kdPath, tree) |> ignore   // CHECK-merge
+    
+                let kd : KdTrees.LazyKdTree = {
+                    kdTree        = Some (tree.ToConcreteKdIntersectionTree());
+                    affine        = Trafo3d.Identity
+                    boundingBox   = tree.BoundingBox3d
+                    kdtreePath    = kdPath
+                    objectSetPath = ""                  
+                    coordinatesPath = ""
+                    texturePath = ""
+                  } 
+    
+                count <- count + 1
+    
+                kd.boundingBox, (KdTrees.Level0KdTree.LazyKdTree kd)
+            ) 
+            |> Array.toList
+            |> Serialization.save kdTreePath
+
+        let loadKdTrees (surface) (kdTreePath : string) =
+            Serialization.loadAs<List<Box3d*KdTrees.Level0KdTree>> kdTreePath
+              |> List.map(fun kd -> 
+                  match kd with 
+                  | _, KdTrees.Level0KdTree.InCoreKdTree tree -> (tree.boundingBox, (KdTrees.Level0KdTree.InCoreKdTree tree))
+                  | _, KdTrees.Level0KdTree.LazyKdTree tree -> 
+                     let loadedTree = if File.Exists(tree.kdtreePath) then Some (tree.kdtreePath |> KdTrees.loadKdtree) else None
+                     (tree.boundingBox, (KdTrees.Level0KdTree.LazyKdTree {tree with kdTree = loadedTree}))
+              )
+
+
         //TODO TO use loadObject from master
         let loadObject (surface : Surface) : SgSurface =
             Log.line "[OBJ] Please wait while the OBJ file is being loaded." 
@@ -93,58 +150,17 @@ module SurfaceUtils =
             let dir = Path.GetDirectoryName(surface.importPath)
             let filename = Path.GetFileNameWithoutExtension surface.importPath
             let kdTreePath = Path.combine [dir; filename + ".aakd"] //Path.ChangeExtension(s.importPath, name)
-            let mutable count = 0
             let kdTrees = 
-                if File.Exists(kdTreePath) |> not then
-                    obj.meshes 
-                    |> Array.map(fun x ->
-                        let kdPath = sprintf "%s_%i.kd" surface.importPath count          
-                        let pos = x.geometry.IndexedAttributes.[DefaultSemantic.Positions] |> unbox<V3f[]>
-                        
-                        //let indices = x.geometry.IndexArray |> unbox<int[]> potential problem with indices
-                        let t = 
-                            pos                      
-                            |> Seq.map(fun x -> x.ToV3d())
-                            |> Seq.chunkBySize 3
-                            |> Seq.filter(fun x -> x.Length = 3)
-                            |> Seq.map(fun x -> Triangle3d x)
-                            |> Seq.filter(fun x -> (IntersectionController.triangleIsNan x |> not)) |> Seq.toArray
-                            |> TriangleSet
-                                              
-                        Log.startTimed "Building kdtrees for %s" (Path.GetFileName surface.importPath |> Path.GetFileName)
-                        let tree = 
-                            KdIntersectionTree(t, 
-                                KdIntersectionTree.BuildFlags.MediumIntersection + KdIntersectionTree.BuildFlags.Hierarchical) //|> PRo3D.Serialization.save kdTreePath                  
-                        Log.stop()
-                        
-                        //saveKdTree (kdPath, tree) |> ignore   // CHECK-merge
-                        
-                        let kd : KdTrees.LazyKdTree = {
-                            kdTree        = Some (tree.ToConcreteKdIntersectionTree());
-                            affine        = Trafo3d.Identity
-                            boundingBox   = tree.BoundingBox3d
-                            kdtreePath    = kdPath
-                            objectSetPath = ""                  
-                            coordinatesPath = ""
-                            texturePath = ""
-                          } 
-                        
-                        count <- count + 1
-                        
-                        kd.boundingBox, (KdTrees.Level0KdTree.LazyKdTree kd)
-                    ) 
-                    |> Array.toList
-                    |> Serialization.save kdTreePath
-                
+                if File.Exists(kdTreePath) then
+                    try
+                      loadKdTrees surface kdTreePath
+                    with
+                    | err ->
+                      Log.warn "[Surface] Invalid cache. Building KdTrees."
+                      buildKdTrees surface kdTreePath
                 else
-                  Serialization.loadAs<List<Box3d*KdTrees.Level0KdTree>> kdTreePath
-                    |> List.map(fun kd -> 
-                        match kd with 
-                        | _, KdTrees.Level0KdTree.InCoreKdTree tree -> (tree.boundingBox, (KdTrees.Level0KdTree.InCoreKdTree tree))
-                        | _, KdTrees.Level0KdTree.LazyKdTree tree -> 
-                           let loadedTree = if File.Exists(tree.kdtreePath) then Some (tree.kdtreePath |> KdTrees.loadKdtree) else None
-                           (tree.boundingBox, (KdTrees.Level0KdTree.LazyKdTree {tree with kdTree = loadedTree}))
-                    )
+                    buildKdTrees surface kdTreePath
+                    
 
             let bb = obj.bounds
             let sg = 
