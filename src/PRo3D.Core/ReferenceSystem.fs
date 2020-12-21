@@ -123,7 +123,6 @@ module ReferenceSystemApp =
               Rot3d.Rotation(model.up.value, noffset.value |> Double.radiansFromDegrees)
                 .Transform(model.north.value) |> Vec.normalize                
 
-
             { model with noffset = noffset; northO = no }, bigConfig 
         | ToggleVisible   -> 
             { model with isVisible = not model.isVisible}, bigConfig

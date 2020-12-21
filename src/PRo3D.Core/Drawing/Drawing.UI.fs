@@ -139,8 +139,10 @@ module UI =
                             yield div[clazz "header"; style hc][
                                 Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
                             ]
-                            yield Incremental.i visibleIcon AList.empty |> UI.wrapToolTipBottom "Toggle Visible"
-                            yield i [clazz "binoculars icon"; onClick (fun _ -> FlyToAnnotation a.key)][] |> UI.wrapToolTipBottom "FlyTo"
+                            yield Incremental.i visibleIcon AList.empty 
+                                |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
+                            yield i [clazz "binoculars icon"; onClick (fun _ -> FlyToAnnotation a.key)][] 
+                                |> UI.wrapToolTip DataPosition.Bottom "FlyTo"
                         } 
                     )
 
@@ -155,7 +157,7 @@ module UI =
         if toolTipText.IsEmptyOrNull() then
             i [clazz icon; onClick (fun _ -> onClickAction)] []
         else
-            i [clazz icon; onClick (fun _ -> onClickAction)] [] |> UI.wrapToolTipBottom toolTipText
+            i [clazz icon; onClick (fun _ -> onClickAction)] [] |> UI.wrapToolTip DataPosition.Bottom toolTipText
                 
     let rec viewTree path (group : AdaptiveNode) (model : AdaptiveGroupsModel) (lookup : amap<Guid, AdaptiveAnnotation>) : DomNode<DrawingAction> =
                                                   
@@ -179,10 +181,10 @@ module UI =
             div [style color] [       
                 Incremental.text group.name
                 Incremental.i setActiveAttributes AList.empty 
-                |> UI.wrapToolTipBottom "Set active"
+                |> UI.wrapToolTip DataPosition.Bottom "Set active"
                   
                 i [clazz "plus icon"; onMouseClick (fun _ -> GroupsMessage(GroupsAppAction.AddGroup path))] [] 
-                |> UI.wrapToolTipBottom "Add Group"
+                |> UI.wrapToolTip DataPosition.Bottom "Add Group"
 
                 staticClickIcon "unhide icon" "Show All" (GroupsMessage(GroupsAppAction.SetVisibility(path,true)))
                 staticClickIcon "hide icon"   "Hide All" (GroupsMessage(GroupsAppAction.SetVisibility(path,false)))

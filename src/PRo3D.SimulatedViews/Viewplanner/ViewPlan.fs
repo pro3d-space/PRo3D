@@ -695,13 +695,14 @@ module ViewPlanApp =
 
                 i [clazz "home icon";                                                
                     onClick (fun _ -> FlyToViewPlan id)
-                ][] |> UI.wrapToolTipBottom "FlyTo"                                                                                
+                ][] |> UI.wrapToolTip DataPosition.Bottom "FlyTo"                                                                                
 
-                Incremental.i toggleMap AList.empty |> UI.wrapToolTipBottom "Toggle Arrows"                                                                     
+                Incremental.i toggleMap AList.empty 
+                |> UI.wrapToolTip DataPosition.Bottom "Toggle Arrows"                                                                     
 
                 i [clazz "Remove icon red";                                             
                     onClick (fun _ -> RemoveViewPlan id)
-                ][] |> UI.wrapToolTipBottom "Remove"                                         
+                ][] |> UI.wrapToolTip DataPosition.Bottom "Remove"                                         
             ]    
 
         let viewViewPlans (m:AdaptiveViewPlanModel) = 
@@ -863,9 +864,9 @@ module ViewPlanApp =
 
         let viewRoverProperties lifter (fpVisible:aval<bool>) (model : AdaptiveViewPlanModel) = 
             model.selectedViewPlan 
-                |> AVal.map(fun x ->
-                    match x with 
-                      | AdaptiveSome x -> viewRoverProperties' x.rover x fpVisible |> UI.map lifter
-                      | AdaptiveNone ->   div[][] |> UI.map lifter)        
+            |> AVal.map(fun x ->
+                match x with 
+                | AdaptiveSome x -> viewRoverProperties' x.rover x fpVisible |> UI.map lifter
+                | AdaptiveNone ->   div[][] |> UI.map lifter)
 
        

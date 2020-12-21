@@ -191,10 +191,14 @@ module RemoteControlApp =
                     yield div [clazz "content"] [                                        
                         div [clazz "header"] [
                             text sh.id
-                            i [clazz "ui inverted icon map pin"; onClick (fun _ -> UpdateCameraTest sh)] [] |> UI.wrapToolTip "goto waypoint" TTAlignment.Bottom
-                            i [clazz "ui inverted icon camera retro"; onClick (fun _ -> UpdateCameraTest sh)] [] |> UI.wrapToolTip "take screenshot" TTAlignment.Bottom
+                            i [clazz "ui inverted icon map pin"; onClick (fun _ -> UpdateCameraTest sh)] [] 
+                            |> UI.wrapToolTip DataPosition.Bottom "goto waypoint"
+
+                            i [clazz "ui inverted icon camera retro"; onClick (fun _ -> UpdateCameraTest sh)] [] 
+                            |> UI.wrapToolTip DataPosition.Bottom "take screenshot"
                             // i [clazz "ui inverted icon folder"; onClick (fun _ -> OpenFolder sh.folder)] []
-                            i [clazz "ui inverted icon find"; onClick (fun _ -> UpdatePlatformTest sh)] [] |> UI.wrapToolTip "take platformshot" TTAlignment.Bottom
+                            i [clazz "ui inverted icon find"; onClick (fun _ -> UpdatePlatformTest sh)] [] 
+                            |> UI.wrapToolTip DataPosition.Bottom "take platformshot"
                         ]
                     ]
                 }

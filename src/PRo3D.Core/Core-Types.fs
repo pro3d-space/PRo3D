@@ -17,7 +17,7 @@ type NavigationModel = {
     exploreCenter  : V3d
 }
 
-type TTAlignment =
+type DataPosition =
     | Top    = 0
     | Right  = 1
     | Bottom = 2

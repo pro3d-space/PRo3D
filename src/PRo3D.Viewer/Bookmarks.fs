@@ -159,7 +159,7 @@ module Bookmarks =
                                         ([ Incremental.text b.name ] |> AList.ofList)
                                 ]
                                 yield i [clazz "home icon"; 
-                                onClick (fun _ -> lift <| GroupsAppAction.UpdateCam key)][] |> UI.wrapToolTip "FlyTo" TTAlignment.Bottom                                          
+                                onClick (fun _ -> lift <| GroupsAppAction.UpdateCam key)][] |> UI.wrapToolTip DataPosition.Bottom "FlyTo"                                          
                             } 
                         ) 
                         
@@ -190,12 +190,12 @@ module Bookmarks =
             let desc =
                 div [style color] [       
                     Incremental.text group.name
-                    Incremental.i map AList.empty |> UI.wrapToolTip "Set active" TTAlignment.Bottom
+                    Incremental.i map AList.empty |> UI.wrapToolTip DataPosition.Bottom "Set active"
                         
                     i [clazz "plus icon"
                        onMouseClick (fun _ -> 
                          BookmarkAction.GroupsMessage(GroupsAppAction.AddGroup path))] [] 
-                    |> UI.wrapToolTip "Add Group" TTAlignment.Bottom                             
+                    |> UI.wrapToolTip DataPosition.Bottom "Add Group"
                 ]
                  
             let itemAttributes =
@@ -271,7 +271,7 @@ module Bookmarks =
          div [clazz "ui buttons inverted"] [
                     //onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
                         button [clazz "ui icon button"; onMouseClick (fun _ -> AddBookmark )] [ //
-                                i [clazz "plus icon"] [] ] |> UI.wrapToolTip "Add Bookmark" TTAlignment.Bottom
+                                i [clazz "plus icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Add Bookmark"
                    // )
                 ] 
 

@@ -565,105 +565,110 @@ module SurfaceApp =
                   | None -> false )
 
     let viewSurfacesInGroups 
-       (path         : list<Index>) 
-       (model        : AdaptiveGroupsModel) 
-       (singleSelect : AdaptiveSurface*list<Index> -> 'outer) 
-       (multiSelect  : AdaptiveSurface*list<Index> -> 'outer) 
-       (lift         : GroupsAppAction -> 'outer) 
-       (surfaceIds   : alist<Guid>) : alist<DomNode<'outer>> =
-       alist {
-
-         let surfaces = 
-            surfaceIds 
-               |> AList.chooseA (fun x -> model.flat |> AMap.tryFind x)
-
-         let surfaces = 
-            surfaces
-               |> AList.choose(function | AdaptiveSurfaces s -> Some s | _-> None )
-
-         for s in surfaces do
-
-             let singleSelect = fun _ -> singleSelect(s,path)
-             let multiSelect = fun _ -> multiSelect(s,path)
-             //let! selected = s |> isSingleSelect model
-
-             let! c = mkColor model s
-             let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
-
-             let! key = s.guid                                                                             
-             let! absRelIcons = absRelIcons s
-
-             let visibleIcon = 
-                amap {
-                  yield onMouseClick (fun _ -> lift <| GroupsAppAction.ToggleChildVisibility (key,path))
-                  let! visible = s.isVisible
-                  if visible then 
-                    yield clazz "unhide icon" 
-                  else 
-                    yield clazz "hide icon"
-                } |> AttributeMap.ofAMap
+        (path         : list<Index>) 
+        (model        : AdaptiveGroupsModel) 
+        (singleSelect : AdaptiveSurface*list<Index> -> 'outer) 
+        (multiSelect  : AdaptiveSurface*list<Index> -> 'outer) 
+        (lift         : GroupsAppAction -> 'outer) 
+        (surfaceIds   : alist<Guid>) : alist<DomNode<'outer>> =
+        alist {
+        
+            let surfaces = 
+                surfaceIds 
+                |> AList.chooseA (fun x -> model.flat |> AMap.tryFind x)
             
-             let headerColor = 
-               (isSingleSelect model s) 
-                 |> AVal.map(fun x -> 
-                   (if x then C4b.VRVisGreen else C4b.Gray) 
-                     |> Html.ofC4b 
-                     |> sprintf "color: %s"
-                 ) 
+            let surfaces = 
+                surfaces
+                |> AList.choose(function | AdaptiveSurfaces s -> Some s | _-> None )
+            
+            for s in surfaces do
+            
+                let singleSelect = fun _ -> singleSelect(s,path)
+                let multiSelect = fun _ -> multiSelect(s,path)
+                //let! selected = s |> isSingleSelect model
+            
+                let! c = mkColor model s
+                let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
+            
+                let! key = s.guid                                                                             
+                let! absRelIcons = absRelIcons s
+            
+                let visibleIcon = 
+                    amap {
+                        yield onMouseClick (fun _ -> lift <| GroupsAppAction.ToggleChildVisibility (key,path))
+                        let! visible = s.isVisible
+                        if visible then 
+                            yield clazz "unhide icon" 
+                        else 
+                            yield clazz "hide icon"
+                    } 
+                    |> AttributeMap.ofAMap
+               
+                let headerColor = 
+                    (isSingleSelect model s) 
+                    |> AVal.map(fun x -> 
+                        (if x then C4b.VRVisGreen else C4b.Gray) 
+                        |> Html.ofC4b 
+                        |> sprintf "color: %s"
+                    ) 
+            
+               // let headerColor = sprintf "color: %s" (Html.ofC4b C4b.Gray)
+                let headerAttributes =
+                    amap {
+                        yield onClick singleSelect
+                        //let! selected = isSingleSelect model s
+                        
+                        //yield if selected then style "text-transform:uppercase" else style "text-transform:none"
+                        //yield if selected then style bgc else style bgc
+                    } 
+                    |> AttributeMap.ofAMap
+            
+                let headerText = 
+                    AVal.map2 (fun a b -> sprintf "%.0f|%s" a b) (s.priority.value) s.name
+            
+                let bgc = sprintf "color: %s" (Html.ofC4b c)
+                yield div [clazz "item"; style infoc] [
+                    i [clazz "cube middle aligned icon"; onClick multiSelect;style bgc][] 
+                    div [clazz "content"; style infoc] [                     
+                        yield Incremental.div (AttributeMap.ofList [style infoc])(
+                            alist {
+                                let! hc = headerColor
+                                yield div[clazz "header"; style hc][
+                                   Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
+                                ]                             
+            
+                                yield i [clazz "home icon"; onClick (fun _ -> FlyToSurface key) ][]
+                                    |> UI.wrapToolTip DataPosition.Bottom "Fly to surface"                                                     
+            
+                                yield i [clazz "folder icon"; onClick (fun _ -> OpenFolder key) ][] 
+                                    |> UI.wrapToolTip DataPosition.Bottom "Open Folder"                             
+            
+                                yield Incremental.i (absRelIcons) (AList.empty)
+                                yield Incremental.i visibleIcon AList.empty 
+                                |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
 
-            // let headerColor = sprintf "color: %s" (Html.ofC4b C4b.Gray)
-             let headerAttributes =
-                amap {
-                  yield onClick singleSelect
-                  //let! selected = isSingleSelect model s
-                  
-                  //yield if selected then style "text-transform:uppercase" else style "text-transform:none"
-                  //yield if selected then style bgc else style bgc
-                } |> AttributeMap.ofAMap
-
-             let headerText = AVal.map2 (fun a b -> sprintf "%.0f|%s" a b) (s.priority.value) s.name
-
-             let bgc = sprintf "color: %s" (Html.ofC4b c)
-             yield div [clazz "item"; style infoc] [
-                 i [clazz "cube middle aligned icon"; onClick multiSelect;style bgc][] 
-                 div [clazz "content"; style infoc] [                     
-                     yield Incremental.div (AttributeMap.ofList [style infoc])(
-                         alist {
-                             let! hc = headerColor
-                             yield div[clazz "header"; style hc][
-                                Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
-                             ]                             
- 
-                             yield i [clazz "home icon"                                                
-                                      onClick (fun _ -> FlyToSurface key) ][] |> UI.wrapToolTipBottom "Fly to surface"                                                     
-
-                             yield i [clazz "folder icon"                                                
-                                      onClick (fun _ -> OpenFolder key) ][] |> UI.wrapToolTipBottom "Open Folder"                             
-
-                             yield Incremental.i (absRelIcons) (AList.empty)
-                             yield Incremental.i visibleIcon AList.empty |> UI.wrapToolTipBottom "Toggle Visible"
-                             yield GuiEx.iconCheckBox s.isActive (ToggleActiveFlag key) |> UI.wrapToolTipBottom "Toggle IsActive"
-
-                             let! path = s.importPath
-                             //
-                             //  yield i 
-                             if (Directory.Exists path) |> not || (path |> Files.isSurfaceFolder |> not) then
-                               yield i [
-                                 clazz "exclamation red icon"
-                                 //Dialogs.onChooseDirectory key ChangeImportDirectory;
-                                 ////clientEvent "onclick" ("""
-                                 ////   var files = parent.aardvark.dialog.showOpenDialog({properties: ['openDirectory','multiSelections']});
-                                 ////   console.log(files);
-                                 ////   parent.aardvark.processEvent('__ID__', 'onchoose', files);
-                                 ////   """)
-                                 //clientEvent "onclick" ("parent.aardvark.processEvent('__ID__', 'onchoose', parent.aardvark.dialog.showOpenDialog({properties: ['openDirectory','multiSelections']}));")
-                                 ]
-                                 []
-                         } 
-                     )                                     
-                 ]
-             ]
-       }
+                                yield GuiEx.iconCheckBox s.isActive (ToggleActiveFlag key) 
+                                |> UI.wrapToolTip DataPosition.Bottom "Toggle IsActive"
+            
+                                let! path = s.importPath
+                                //
+                                //  yield i 
+                                if (Directory.Exists path) |> not || (path |> Files.isSurfaceFolder |> not) then
+                                    yield i [
+                                        clazz "exclamation red icon"
+                                        //Dialogs.onChooseDirectory key ChangeImportDirectory;
+                                        ////clientEvent "onclick" ("""
+                                        ////   var files = parent.aardvark.dialog.showOpenDialog({properties: ['openDirectory','multiSelections']});
+                                        ////   console.log(files);
+                                        ////   parent.aardvark.processEvent('__ID__', 'onchoose', files);
+                                        ////   """)
+                                        //clientEvent "onclick" ("parent.aardvark.processEvent('__ID__', 'onchoose', parent.aardvark.dialog.showOpenDialog({properties: ['openDirectory','multiSelections']}));")
+                                    ] []
+                            } 
+                        )                                     
+                    ]
+                ]
+        }
            
     let rec viewTree path (group : AdaptiveNode) (model : AdaptiveGroupsModel) : alist<DomNode<SurfaceAppAction>> =
 
@@ -683,21 +688,24 @@ module SurfaceApp =
             let activeAttributes = 
                 GroupsApp.clickIconAttributes activeIcon (GroupsMessage setActive)
                                    
-            let toggleIcon = AVal.constant "unhide icon" //group.visible |> AVal.map(fun toggle -> if toggle then "unhide icon" else "hide icon")                
+            let toggleIcon = 
+                AVal.constant "unhide icon" //group.visible |> AVal.map(fun toggle -> if toggle then "unhide icon" else "hide icon")                
 
             let toggleAttributes = GroupsApp.clickIconAttributes toggleIcon (GroupsMessage(GroupsAppAction.ToggleGroup path))
                
             let desc =
                 div [style color] [       
                     Incremental.text group.name
-                    Incremental.i activeAttributes AList.empty |> UI.wrapToolTipBottom "Set active"
+                    Incremental.i activeAttributes AList.empty 
+                    |> UI.wrapToolTip DataPosition.Bottom "Set active"
                         
                     i [clazz "plus icon"
                        onMouseClick (fun _ -> 
                          GroupsMessage(GroupsAppAction.AddGroup path))] []
-                    |> UI.wrapToolTip "Add Group" TTAlignment.Bottom                         
+                    |> UI.wrapToolTip DataPosition.Bottom "Add Group"           
 
-                    Incremental.i toggleAttributes AList.empty |> UI.wrapToolTipBottom "Toggle Group"
+                    Incremental.i toggleAttributes AList.empty 
+                    |> UI.wrapToolTip DataPosition.Bottom "Toggle Group"
                    // GuiEx.iconCheckBox group.visible (GroupsMessage(Groups.ToggleGroup path))
                 ]
                  

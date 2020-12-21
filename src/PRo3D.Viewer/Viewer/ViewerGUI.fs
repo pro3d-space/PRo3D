@@ -461,12 +461,12 @@ module Gui =
         let scenepath (m:AdaptiveModel) = 
             Incremental.div (AttributeMap.Empty) (
                 alist {
-                    let! scenePath = m.scene.scenePath 
+                    let! scenePath = m.scene.scenePath
                     let icon = 
                         match scenePath with
                         | Some p -> 
                             i [clazz "large folder icon" ; onClick (fun _ -> OpenSceneFileLocation p) ][] 
-                            |> UI.wrapToolTip "open folder" TTAlignment.Bottom
+                            |> UI.wrapToolTip DataPosition.Bottom "open folder"
                         | None -> div[][]  
                           
                     let scenePath = AVal.bindOption m.scene.scenePath "" (fun sp -> AVal.constant sp)

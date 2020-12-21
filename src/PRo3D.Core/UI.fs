@@ -5,54 +5,35 @@ open System
 module UI =
     open Aardvark.UI
     open FSharp.Data.Adaptive
+    let enabletoolTips = false
 
-    let toAlignmentString (alignment : TTAlignment) =
+    let toAlignmentString (alignment : DataPosition) =
         match alignment with
-        | TTAlignment.Top      -> "top center"
-        | TTAlignment.Right    -> "right center"
-        | TTAlignment.Bottom   -> "bottom center"   
-        | TTAlignment.Left     -> "left center" 
-        | _ -> alignment |> sprintf "unknown alignment %A" |> failwith
+        | DataPosition.Top      -> "top center"
+        | DataPosition.Right    -> "right center"
+        | DataPosition.Bottom   -> "bottom center"   
+        | DataPosition.Left     -> "left center" 
+        | _ -> 
+            alignment |> sprintf "unknown alignment %A" |> failwith
 
-    let wrapToolTip (text:string) (alignment:TTAlignment ) (dom:DomNode<'a>) : DomNode<'a> =
-        //dom
-        let attr = 
-            [ attribute "title" text
-              attribute "data-position" (toAlignmentString alignment) //"top center"
-              attribute "data-variation" "mini" ] 
+    let wrapToolTip (alignment:DataPosition ) (text:string) (dom:DomNode<'a>) : DomNode<'a> =
+        if(enabletoolTips) then
+            //dom
+            let attr = 
+                [ 
+                    attribute "title" text
+                    attribute "data-position" (toAlignmentString alignment) //"top center"
+                    attribute "data-variation" "mini" 
+                ] 
                 |> AttributeMap.ofList
-                //|> AttributeMap.union dom.                
+                    //|> AttributeMap.union dom.                
                 
-        onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (       
-            dom.WithAttributes attr     
-        )
-
-    let wrapToolTipRight (text:string) (dom:DomNode<'a>) : DomNode<'a> =
-        //dom
-        let attr = 
-            [ attribute "title" text
-              attribute "data-position" "right center"
-              attribute "data-variation" "mini"] 
-                |> AttributeMap.ofList
-                //|> AttributeMap.union dom.Attributes                
-                
-        onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (       
-            dom.WithAttributes attr     
-        )
-
-    let wrapToolTipBottom (text:string) (dom:DomNode<'a>) : DomNode<'a> =
-        //dom
-        let attr = 
-            [ attribute "title" text
-              attribute "data-position" "bottom center"
-              attribute "data-variation" "mini"] 
-                |> AttributeMap.ofList
-                //|> AttributeMap.union dom.Attributes                
-                
-        onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (       
-            dom.WithAttributes attr     
-        )
-
+            
+            onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (       
+                dom.WithAttributes attr     
+            ) 
+        else
+            dom
 
     let dropDown'' (values : alist<'a>)(selected : aval<Option<'a>>) (change : Option<'a> -> 'msg) (f : 'a ->string)  =
 
@@ -60,13 +41,13 @@ module UI =
             AttributeMap.ofListCond [
                 always (attribute "value" (name))
                 onlyWhen (
-                        selected 
-                            |> AVal.map (
-                                fun x -> 
-                                    match x with
-                                        | Some s -> name = f s
-                                        | None   -> name = "-None-"
-                            )) (attribute "selected" "selected")
+                    selected 
+                    |> AVal.map (
+                        fun x -> 
+                            match x with
+                            | Some s -> name = f s
+                            | None   -> name = "-None-"
+                    )) (attribute "selected" "selected")
             ]
 
         let ortisOnChange  = 

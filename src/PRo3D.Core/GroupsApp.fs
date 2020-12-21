@@ -525,21 +525,18 @@ module GroupsApp =
         } |> AttributeMap.ofAMap
 
     let viewSelectionButtons =
-       // Html.table [
-       div[][
+        // Html.table [
+        div[][
             div [clazz "ui buttons inverted"] [
-                //onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
-                    button [clazz "ui icon button"; attribute "data-content" "Move Selection"; onMouseClick (fun _ -> MoveLeaves)] [
-                            i [clazz "Move icon"] [] ] |> UI.wrapToolTip "Move Selection" TTAlignment.Top
-                //)
-                ]
-            div [clazz "ui buttons inverted"] [
-                //onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
-                    button [clazz "ui icon button"; attribute "data-content" "Clear Selection"; onMouseClick (fun _ -> ClearSelection)] [
-                            i [clazz "Remove icon"] [] ] |> UI.wrapToolTip "Clear Selection" TTAlignment.Top
-                //)
-                ] 
+                
+                button [clazz "ui icon button"; attribute "data-content" "Move Selection"; onMouseClick (fun _ -> MoveLeaves)] [
+                    i [clazz "Move icon"] [] ] |> UI.wrapToolTip DataPosition.Top "Move Selection"                
             ]
+            div [clazz "ui buttons inverted"] [                
+                button [clazz "ui icon button"; attribute "data-content" "Clear Selection"; onMouseClick (fun _ -> ClearSelection)] [
+                            i [clazz "Remove icon"] [] ] |> UI.wrapToolTip DataPosition.Top "Clear Selection"                
+            ] 
+        ]
 
     let viewUI (model : AdaptiveGroupsModel) =   
         let ts = model.activeGroup
@@ -575,7 +572,7 @@ module GroupsApp =
                 div [clazz "ui buttons inverted"] [
                     onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
                         button [clazz "ui icon button"; onMouseClick (fun _ -> RemoveLeaf (ts.id,ts.path))] [
-                                i [clazz "remove icon red"] [] ] |> UI.wrapToolTipRight "Remove"
+                                i [clazz "remove icon red"] [] ] |> UI.wrapToolTip DataPosition.Right "Remove"
                     )
                 ] 
             ]
@@ -585,13 +582,13 @@ module GroupsApp =
                 div [clazz "ui buttons inverted"] [
                     //onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
                         button [clazz "ui icon button"; attribute "data-content" "Remove Group"; onMouseClick (fun _ -> RemoveGroup ts.path)] [ //
-                                i [clazz "remove icon red"] [] ] |> UI.wrapToolTipRight "Remove Group"
+                                i [clazz "remove icon red"] [] ] |> UI.wrapToolTip DataPosition.Right "Remove Group"
                     //)
                 ] 
                 div [clazz "ui buttons inverted"] [
                     //onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
                         button [clazz "ui icon button"; attribute "data-content" "Clear Group"; onMouseClick (fun _ -> ClearGroup ts.path)] [ //
-                                i [clazz "remove circle icon"] [] ] |> UI.wrapToolTipRight "Clear Group"
+                                i [clazz "remove circle icon"] [] ] |> UI.wrapToolTip DataPosition.Right "Clear Group"
                     //)
                 ] 
             ]
