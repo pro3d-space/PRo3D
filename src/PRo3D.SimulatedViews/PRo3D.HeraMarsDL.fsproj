@@ -15,7 +15,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Application">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.application\5.0.20\lib\netstandard2.0\Aardvark.Application.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.application\5.0.21-prerelease0001\lib\netstandard2.0\Aardvark.Application.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -26,7 +26,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Application.Slim.GL">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.application.slim.gl\5.0.20\lib\netstandard2.0\Aardvark.Application.Slim.GL.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.application.slim.gl\5.0.21-prerelease0001\lib\netstandard2.0\Aardvark.Application.Slim.GL.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -101,7 +101,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Base.Rendering">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.rendering\5.0.20\lib\netstandard2.0\Aardvark.Base.Rendering.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.rendering\5.0.21-prerelease0001\lib\netstandard2.0\Aardvark.Base.Rendering.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -165,7 +165,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Geometry.Intersection">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.geometry.intersection\5.0.28\lib\netstandard2.0\Aardvark.Geometry.Intersection.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.geometry.intersection\5.0.30\lib\netstandard2.0\Aardvark.Geometry.Intersection.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -187,7 +187,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.GeoSpatial.Opc">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.geospatial.opc\5.2.0\lib\netstandard2.0\Aardvark.GeoSpatial.Opc.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.geospatial.opc\5.2.1-prerelease0002\lib\netstandard2.0\Aardvark.GeoSpatial.Opc.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -198,7 +198,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.GPGPU">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.gpgpu\5.0.20\lib\netstandard2.0\Aardvark.GPGPU.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.gpgpu\5.0.21-prerelease0001\lib\netstandard2.0\Aardvark.GPGPU.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -209,7 +209,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Rendering.GL">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.rendering.gl\5.0.20\lib\netstandard2.0\Aardvark.Rendering.GL.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.rendering.gl\5.0.21-prerelease0001\lib\netstandard2.0\Aardvark.Rendering.GL.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -220,7 +220,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Rendering.Text">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.rendering.text\5.0.20\lib\netstandard2.0\Aardvark.Rendering.Text.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.rendering.text\5.0.21-prerelease0001\lib\netstandard2.0\Aardvark.Rendering.Text.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -231,7 +231,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Rendering.Vulkan">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.rendering.vulkan\5.0.20\lib\netstandard2.0\Aardvark.Rendering.Vulkan.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.rendering.vulkan\5.0.21-prerelease0001\lib\netstandard2.0\Aardvark.Rendering.Vulkan.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -242,7 +242,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.SceneGraph">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.scenegraph\5.0.20\lib\netstandard2.0\Aardvark.SceneGraph.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.scenegraph\5.0.21-prerelease0001\lib\netstandard2.0\Aardvark.SceneGraph.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -253,7 +253,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.SceneGraph.IO">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.scenegraph.io\5.0.20\lib\netstandard2.0\Aardvark.SceneGraph.IO.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.scenegraph.io\5.0.21-prerelease0001\lib\netstandard2.0\Aardvark.SceneGraph.IO.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -264,7 +264,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.SceneGraph.Opc">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.scenegraph.opc\5.0.20\lib\netstandard2.0\Aardvark.SceneGraph.Opc.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.scenegraph.opc\5.0.21-prerelease0001\lib\netstandard2.0\Aardvark.SceneGraph.Opc.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
