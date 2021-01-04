@@ -65,3 +65,5 @@ src\Aardvark.OpcViewer.psess
 /bin/Converter
 /src/PRo3D.SimulatedViews/bin/Release/netcoreapp3.1
 /src/PRo3D.Core/bin/Release/netcoreapp3.1
+/bin/publish
+/src/PRo3D.Viewer/PRo3D.Viewer.fsproj.user

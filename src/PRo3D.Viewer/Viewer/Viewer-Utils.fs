@@ -348,8 +348,8 @@ module ViewerUtils =
                              true, Seq.ofList [PickSurface (sceneHit,name)])
                        ]  
                     // handle surface visibility
-                    //|> Sg.onOff (surf |> AVal.bind(fun x -> x.isVisible)) // on off variant
-                    |> structuralOnOff  (surf |> AVal.bind(fun x -> x.isVisible)) // structural variant
+                    |> Sg.onOff (surf |> AVal.bind(fun x -> x.isVisible)) // on off variant
+                    //|> structuralOnOff  (surf |> AVal.bind(fun x -> x.isVisible)) // structural variant
                     |> Sg.andAlso (
                         (Sg.wireBox (C4b.VRVisGreen |> AVal.constant) pickBox) 
                         |> Sg.noEvents
