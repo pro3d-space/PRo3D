@@ -68,7 +68,7 @@ module Files =
             client.Headers.[System.Net.HttpRequestHeader.Authorization] <- "Basic " + credentials
             //try takeScreenshot baseAddress sh.col sh.row sh.id sh.folder with e -> printfn "error: %A" e
 
-            try (client.DownloadFile(path, imagePath) |> ignore) with 
+            try (client.DownloadFile(path, imagePath) |> ignore) with
                 e -> Log.error "[Minerva] error: %A" e
 
             match (File.Exists imagePath) with

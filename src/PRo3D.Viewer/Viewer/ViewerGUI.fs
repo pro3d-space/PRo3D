@@ -214,6 +214,25 @@ module Gui =
             ]                              
         ]
 
+    module CustomGui =
+        let dropDown<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (selected : aval<'a>) (change : 'a -> 'msg) =
+            let names  = Enum.GetNames(typeof<'a>)
+            let values = Enum.GetValues(typeof<'a>) |> unbox<'a[]> 
+            let nv     = Array.zip names values
+
+            let attributes (name : string) (value : 'a) =
+                AttributeMap.ofListCond [
+                    always (attribute "value" name)
+                    onlyWhen (AVal.map ((=) value) selected) (attribute "selected" "selected")
+                ]
+       
+            select [onChange (fun str -> Enum.Parse(typeof<'a>, str) |> unbox<'a> |> change); style "color:black"] [
+                for (name, value) in nv do
+                    if exclude |> HashSet.contains value |> not then
+                        let att = attributes name value
+                        yield Incremental.option att (AList.ofList [text name])
+            ] 
+
     module TopMenu =                       
 
         let jsImportOPCDialog =
@@ -342,7 +361,6 @@ module Gui =
         
             Incremental.div(AttributeMap.Empty) ui |> UI.map SurfaceActions      
             
-
         let jsOpenAnnotationFileDialog = 
             "top.aardvark.dialog.showOpenDialog({ title: 'Import Annotations', filters: [{ name: 'Annotations (*.ann)', extensions: ['ann']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
@@ -352,7 +370,6 @@ module Gui =
         let jsExportAnnotationsAsCSVDialog =
             "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
               
-
         let annotationMenu = //todo move to viewer io gui
             div [ clazz "ui dropdown item"] [
                 text "Annotations"
@@ -458,6 +475,7 @@ module Gui =
             }
             
         let style' = "color: white; font-family:Consolas;"
+
         let scenepath (m:AdaptiveModel) = 
             Incremental.div (AttributeMap.Empty) (
                 alist {
@@ -502,7 +520,7 @@ module Gui =
               
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large wizard icon"][] ]
-                Html.Layout.boxH [ Html.SemUi.dropDown m.interaction SetInteraction ]                                         
+                Html.Layout.boxH [ CustomGui.dropDown Interactions.hideSet m.interaction SetInteraction ]
                 Incremental.div  AttributeMap.empty (AList.ofAValSingle (dynamicTop m))
                 Html.Layout.boxH [ 
                     div[style "font-style:italic; width:100%; text-align:right"] [
