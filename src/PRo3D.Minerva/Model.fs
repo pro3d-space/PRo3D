@@ -18,6 +18,9 @@ open PRo3D.Base
 
 #nowarn "0686"
 
+module Config =
+    let mutable ShowMinervaErrors = false
+
 type FeatureId = FeatureId of string
 
 type Typus = 
@@ -584,9 +587,12 @@ module MinervaModel =
                   features    = features |> IndexList.ofList
                 } |> Serialization.save cachePath
              | (_, true) -> Serialization.loadAs cachePath
-             | _ -> 
+             | _ when Config.ShowMinervaErrors -> 
                 Log.error "[Minerva] sth. went wrong with dump.csv"
                 FeatureCollection.initial
+             | _ -> 
+                FeatureCollection.initial
+
         Log.stop()
         featureCollection
    
