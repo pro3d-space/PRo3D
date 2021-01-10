@@ -519,9 +519,9 @@ module ViewerApp =
                     model.scene.surfacesModel 
                     |> SceneLoader.prepareSurfaceModel runtime signature model.scene.scenePath
                 | _ -> 
-                    m.scene.surfacesModel
+                    model.scene.surfacesModel
 
-            { model with scene = { m.scene with surfacesModel = surfaceModel} }
+            { model with scene = { model.scene with surfacesModel = surfaceModel} }
         | AnnotationMessage msg,_,_ ->                
             match m.drawing.annotations.singleSelectLeaf with
             | Some selected ->                             
