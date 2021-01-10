@@ -481,6 +481,8 @@ module ViewerApp =
                     DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.drawing msg
                 { m with drawing = drawing; } |> stash
         | SurfaceActions msg,_,_ ->
+            
+
             let view = m.navigation.camera.view
             let s = SurfaceApp.update m.scene.surfacesModel msg m.scene.scenePath view m.scene.referenceSystem
             let animation = 
@@ -509,7 +511,17 @@ module ViewerApp =
                         | None -> m.animations
                 | _-> m.animations
                    
-            { m with scene = { m.scene with surfacesModel = s}; animations = animation}
+            let model = { m with scene = { m.scene with surfacesModel = s}; animations = animation}
+
+            let surfaceModel = 
+                match msg with
+                | SurfaceAppAction.ChangeImportDirectories _ ->
+                    model.scene.surfacesModel 
+                    |> SceneLoader.prepareSurfaceModel runtime signature model.scene.scenePath
+                | _ -> 
+                    model.scene.surfacesModel
+
+            { model with scene = { model.scene with surfacesModel = surfaceModel} }
         | AnnotationMessage msg,_,_ ->                
             match m.drawing.annotations.singleSelectLeaf with
             | Some selected ->                             

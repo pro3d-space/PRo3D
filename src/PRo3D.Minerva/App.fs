@@ -28,9 +28,9 @@ open PRo3D.Minerva.Communication.JsonNetworkCommand
 open Chiron
 open Aether
 open Aether.Operators
-
         
-module MinervaApp =  
+module MinervaApp =      
+
     open System.IO
 
     let instrumentText (instr : Instrument) =

@@ -256,7 +256,9 @@ module Leaf =
 
     let toggleVisibility (c : Leaf) =
         match c with        
-        | Surfaces    s -> Surfaces    { s with isVisible = not s.isVisible }
+        | Surfaces    s -> 
+            Log.warn "[Groups-Model] surface visible %A" s.isVisible
+            Surfaces    { s with isVisible = not s.isVisible }
         | Annotations a -> Annotations { a with visible   = not a.visible }
         | _ -> c
 

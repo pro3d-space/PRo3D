@@ -190,7 +190,12 @@ module SceneLoader =
           |> SurfaceModel.triggerSgGrouping 
           |> (flip <| Optic.set _surfaceModelLens) m
              
-    let prepareSurfaceModel (runtime : IRuntime) (signature: IFramebufferSignature) (scenePath : option<string>) (model : SurfaceModel) : SurfaceModel =
+    let prepareSurfaceModel 
+        (runtime   : IRuntime) 
+        (signature : IFramebufferSignature) 
+        (scenePath : option<string>) 
+        (model     : SurfaceModel) : SurfaceModel =
+
         let surfaces = model.surfaces.flat |> Leaf.toSurfaces 
 
         let surfacesList =
@@ -204,7 +209,7 @@ module SceneLoader =
             |> IndexList.filter ( fun x -> x.surfaceType = SurfaceType.SurfaceOPC)
 
         let sgSurfaces = 
-          Sg.createSgSurfaces runtime signature opcSurfs |> Files.expandLazyKdTreePaths scenePath surfaces        
+            Sg.createSgSurfaces runtime signature opcSurfs |> Files.expandLazyKdTreePaths scenePath surfaces        
 
         let objSurfs = 
             surfacesList 
@@ -282,7 +287,7 @@ module SceneLoader =
                 match m.recent.recentScenes |> List.sortByDescending (fun v -> v.writeDate) |> List.tryHead with
                 | Some (scenePath) ->
                     try
-                        loadScene scenePath.path m runtime signature                       
+                        loadScene scenePath.path m runtime signature
                     with e ->
                         Log.warn "[Scene] Error parsing last scene: %s. loading empty" scenePath.path
                         Log.error "[Scene] %A" e.Message

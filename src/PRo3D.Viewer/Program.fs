@@ -60,7 +60,7 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "3.1.2"
+let viewerVersion       = "3.1.3"
 let catchDomainErrors   = false
 
 open System.IO
@@ -140,15 +140,19 @@ let main argv =
     let dumpFile =
         match argsKv |> HashMap.tryFind "dump" with
         | Some file -> file
-        | None -> 
+        | None when Minerva.Config.ShowMinervaErrors ->
             Log.warn "need dump file ... dump=\"[dumpfilepath]\" -> using defaultPath '.\MinervaData\dump.csv'"
             @".\MinervaData\dump.csv"
+        | _ -> 
+            @".\MinervaData\dump.cache"
 
     let cacheFile =
         match argsKv |> HashMap.tryFind "cache" with
         | Some file -> file
-        | None -> 
+        | None when Minerva.Config.ShowMinervaErrors ->
             Log.warn "need cache file ... cache=\"[cachefilepath]\" -> using defaultPath '.\MinervaData\dump.cache'"
+            @".\MinervaData\dump.cache"
+        | _ -> 
             @".\MinervaData\dump.cache"
 
     //let access =

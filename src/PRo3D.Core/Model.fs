@@ -1,5 +1,7 @@
 ﻿namespace PRo3D.Core
 
+open FSharp.Data.Adaptive
+
 type Interactions =
     | PickExploreCenter     = 0
     | PlaceCoordinateSystem = 1  // compute up north vector at that point
@@ -16,3 +18,18 @@ type Interactions =
     | PickLog               = 12
     | PlaceValidator        = 13
     | TrueThickness         = 14 // CHECK-merge
+
+module Interactions =
+    let hideSet = 
+        [
+            Interactions.PlaceRover
+            Interactions.TrafoControls
+            Interactions.PlaceSurface
+            Interactions.PickMinervaProduct
+            Interactions.PickMinervaFilter
+            Interactions.PickLinking
+            Interactions.DrawLog            
+            Interactions.PickLog            
+            Interactions.PlaceValidator            
+            Interactions.TrueThickness            
+        ] |> HashSet.ofList

@@ -643,7 +643,7 @@ module SurfaceApp =
                                 yield i [clazz "folder icon"; onClick (fun _ -> OpenFolder key) ][] 
                                     |> UI.wrapToolTip DataPosition.Bottom "Open Folder"                             
             
-                                yield Incremental.i (absRelIcons) (AList.empty)
+                                //yield Incremental.i (absRelIcons) (AList.empty)
                                 yield Incremental.i visibleIcon AList.empty 
                                 |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
 
