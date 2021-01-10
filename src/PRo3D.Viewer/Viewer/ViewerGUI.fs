@@ -646,10 +646,10 @@ module Gui =
                       Incremental.div AttributeMap.empty (AList.ofAValSingle (config m))
               ]
               GuiEx.accordion "Coordinate System" "Map Signs" false [
-                  ReferenceSystemApp.UI.view m.scene.referenceSystem m.navigation.camera |> UI.map ReferenceSystemMessage
+                  ReferenceSystemApp.UI.view m.scene.referenceSystem |> UI.map ReferenceSystemMessage
               ]
               GuiEx.accordion "Camera" "Camera Retro" false [
-                  CameraProperties.view m.navigation.camera
+                  CameraProperties.view m.scene.referenceSystem m.navigation.camera
               ]
           ] 
           

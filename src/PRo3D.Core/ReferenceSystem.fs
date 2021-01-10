@@ -138,41 +138,27 @@ module ReferenceSystemApp =
     
     module UI =
 
-        let view (model:AdaptiveReferenceSystem) (camera : AdaptiveCameraControllerState) =
-            let bearing = 
-                adaptive {
-                    let! up = model.up.value
-                    let! north = model.northO //model.north.value 
-                    let! view = camera.view
-                    return DipAndStrike.bearing up north view.Forward
-                }
-
-            let pitch = 
-                adaptive {
-                    let! up = model.up.value
-                    let! view = camera.view
-                    return DipAndStrike.pitch up view.Forward
-                }
-
-            let altitude = 
+        let view (model:AdaptiveReferenceSystem)  =
+            
+            let sphericalCoo = 
                 adaptive {
                     let! pos = model.origin
                     let! planet = model.planet
-                    let! up = model.up.value
-                    return CooTransformation.getAltitude pos up planet
+                    //let! up = model.up.value
+                    return CooTransformation.getLatLonAlt pos planet
                 }
 
             require GuiEx.semui (
                 Html.table [                                                
-                    Html.row "Pos:"     [Incremental.text (model.origin     |> AVal.map (fun x -> x.ToString("0.00")))]
-                    Html.row "Up:"      [Vector3d.view model.up |> UI.map SetUp ]
-                    Html.row "North:"   [Incremental.text (model.north.value |> AVal.map (fun x -> x.ToString("0.00")))]
-                    Html.row "NorthO:"  [Incremental.text (model.northO |> AVal.map (fun x -> x.ToString("0.00")))]
-                    Html.row "N-Offset:"[Numeric.view' [InputBox] model.noffset |> UI.map SetNOffset ] 
-                    Html.row "Bearing:" [Incremental.text (bearing |> AVal.map (fun x -> x.ToString("0.00")))] // compute azimuth with view dir, north vector and up vector
-                    Html.row "Pitch:"   [Incremental.text (pitch |> AVal.map (fun x -> x.ToString("0.00")))]  // same for pitch which relates to dip angle
-                    Html.row "Altitude:"  [Incremental.text (altitude |> AVal.map (fun x -> x.ToString("0.00")))]
-                    Html.row "Visible:" [GuiEx.iconCheckBox model.isVisible ToggleVisible ]
+                    Html.row "Pos:"         [Incremental.text (model.origin     |> AVal.map (fun x -> x.ToString("0.00")))]
+                    Html.row "Up:"          [Vector3d.view model.up |> UI.map SetUp ]
+                    Html.row "North:"       [Incremental.text (model.north.value |> AVal.map (fun x -> x.ToString("0.00")))]
+                    Html.row "NorthO:"      [Incremental.text (model.northO |> AVal.map (fun x -> x.ToString("0.00")))]
+                    Html.row "N-Offset:"    [Numeric.view' [InputBox] model.noffset |> UI.map SetNOffset ] 
+                    Html.row "Longitude:"   [Incremental.text (sphericalCoo |> AVal.map (fun x -> x.longitude.ToString("0.00")))]
+                    Html.row "Latitude:"    [Incremental.text (sphericalCoo |> AVal.map (fun x -> x.latitude.ToString("0.00")))]
+                    Html.row "Altitude:"    [Incremental.text (sphericalCoo |> AVal.map (fun x -> x.altitude.ToString("0.00")))]
+                    Html.row "Visible:"     [GuiEx.iconCheckBox model.isVisible ToggleVisible ]
                       
                 ]
             )
