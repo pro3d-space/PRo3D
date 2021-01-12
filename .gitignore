@@ -67,3 +67,4 @@ src\Aardvark.OpcViewer.psess
 /src/PRo3D.Core/bin/Release/netcoreapp3.1
 /bin/publish
 /src/PRo3D.Viewer/PRo3D.Viewer.fsproj.user
+**/bin/Any CPU/**

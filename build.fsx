@@ -85,39 +85,13 @@ Target.create "Publish" (fun _ ->
     if Directory.Exists "bin/publish" then 
         Directory.Delete("bin/publish", true)
 
-    // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314 
-    let fsProjWorkaround = 
-       """
-        <PropertyGroup>
-          <!-- this is replaced by build script-->
-          <PublishSingleFile>true</PublishSingleFile>
-          <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
-        </PropertyGroup>"""
-
-    let projectsToPatch = 
-        [
-            "src/PRo3D.Viewer/PRo3D.Viewer.fsproj"
-            "src/PRo3D.2D3DLinking/PRo3D.Linking.fsproj"
-            "src/PRo3D.Base/PRo3D.Base.fsproj"
-            "src/PRo3D.Minerva/PRo3D.Minerva.fsproj"
-        ]
-
-    let projects = 
-        projectsToPatch |> List.map (fun p -> 
-            p, File.ReadAllText p
-        )
-
-    projects |> List.iter (fun (p, oldContent) -> 
-        File.WriteAllText(p, oldContent.Replace("""<PropertyGroup Condition="$(PublishHookForBuildScript)"/>""", fsProjWorkaround))
-    )
-
     // 1. publish exe
     "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
         { o with
             Framework = Some "netcoreapp3.1"
             Runtime = Some "win10-x64"
             // "-p:PublishSingleFile=true
-            Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=true" }// /p:Publish='publish'"  }
+            Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=true -p:InPublish=True"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
             Configuration = DotNet.BuildConfiguration.Release
             OutputPath = Some "bin/publish"
@@ -125,9 +99,6 @@ Target.create "Publish" (fun _ ->
         }
     )
 
-    projects |> List.iter (fun (path,oldContent) -> 
-        File.WriteAllText(path,oldContent)
-    )
 
     // 1.1, copy most likely missing c++ libs
     for dll in Directory.EnumerateFiles("data/runtime", "*.dll") do 
