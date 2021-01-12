@@ -44,7 +44,8 @@ Target.create "CopyResources" (fun _ ->
     copyResources outDirs
 )
 
-DefaultSetup.install ["src/PRo3D.sln"]
+let solutionName = "src/PRo3D.sln"
+DefaultSetup.install [solutionName]
 
 "Compile" ==> "CopyResources" ==> "AddNativeResources" |> ignore
 
@@ -90,8 +91,7 @@ Target.create "Publish" (fun _ ->
         { o with
             Framework = Some "netcoreapp3.1"
             Runtime = Some "win10-x64"
-            // "-p:PublishSingleFile=true
-            Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=true -p:InPublish=True"  }
+            Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=true -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
             Configuration = DotNet.BuildConfiguration.Release
             OutputPath = Some "bin/publish"
@@ -101,11 +101,11 @@ Target.create "Publish" (fun _ ->
 
 
     // 1.1, copy most likely missing c++ libs
-    for dll in Directory.EnumerateFiles("data/runtime", "*.dll") do 
-        let fileName = Path.GetFileName dll
-        let target = Path.Combine("bin/publish/",fileName)
-        Fake.Core.Trace.logfn "copying: %s -> %s" dll target
-        File.Copy(dll, Path.Combine("bin/publish/",fileName))
+    //for dll in Directory.EnumerateFiles("data/runtime", "*.dll") do 
+    //    let fileName = Path.GetFileName dll
+    //    let target = Path.Combine("bin/publish/",fileName)
+    //    Fake.Core.Trace.logfn "copying: %s -> %s" dll target
+    //    File.Copy(dll, Path.Combine("bin/publish/",fileName))
 
     // 2, copy licences
     File.Copy("CREDITS.MD", "bin/publish/CREDITS.MD")
@@ -117,11 +117,42 @@ Target.create "Publish" (fun _ ->
 
 "Credits" ==> "Publish"
 
-Target.create "CompileDebug" (fun _ -> 
-    let old = config
-    config <- { config with debug = true; verbose = true }
-    Target.run 1 "Compile" []
-    config <- old
+
+Target.create "CompileDebug" (fun _ ->
+    let cfg = "Debug" //if config.debug then "Debug" else "Release"
+    
+    let tag = 
+        try 
+            let tag = getGitTag()
+            let assemblyVersion = NugetInfo.assemblyVersion tag
+            Some (tag, assemblyVersion)
+        with _ -> None
+
+    let props =
+        [
+            yield "Configuration", cfg
+            match tag with
+            | Some (tag, assemblyVersion) -> 
+                yield "AssemblyVersion", assemblyVersion
+                yield "AssemblyFileVersion", assemblyVersion
+                yield "InformationalVersion", assemblyVersion
+                yield "ProductVersion", assemblyVersion
+                yield "PackageVersion", tag
+            | _ -> ()
+        ]
+
+    solutionName |> DotNet.build (fun o ->
+        { o with
+            NoRestore = true 
+            Configuration = if config.debug then DotNet.BuildConfiguration.Debug else DotNet.BuildConfiguration.Release
+            MSBuildParams =
+                { o.MSBuildParams with
+                    Properties = props
+                    DisableInternalBinLog = true
+                }
+            OutputPath = Some "bin/Debug"
+        }
+    )
 )
 
 "CompileDebug" ==> "Default"
@@ -130,4 +161,6 @@ Target.create "CompileDebug" (fun _ ->
 do System.Diagnostics.Debugger.Launch() |> ignore
 #endif
 
+
 entry()
+
