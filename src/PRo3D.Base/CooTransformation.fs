@@ -11,6 +11,8 @@ type Planet =
 
 module CooTransformation = 
 
+    type private Self = Self
+
     type SphericalCoo = {
           longitude : double
           latitude  : double
@@ -21,11 +23,9 @@ module CooTransformation =
     let init = 0.0
 
     let initCooTrafo () = 
-        let directory = @".\InstrumentStuff" 
-        let test = @".\bin" 
-        let t = System.IO.Path.GetFullPath(test)
-        let errorCode = CooTrafo.Init(test, directory)
-        printfn "%A" errorCode
+        let errorCode = CooTrafo.Init("CooTransformationConfig", "log")
+        if errorCode <> 0 then 
+            Log.error "could not initialize CooTrafo"
 
     let deInitCooTrafo () = 
         CooTrafo.DeInit()

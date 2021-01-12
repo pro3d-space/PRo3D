@@ -6,8 +6,10 @@
     <RootNamespace>_2D3DLinking</RootNamespace>
     <AssemblyName>PRo3D.Linking</AssemblyName>
     <GenerateLenses>True</GenerateLenses>
-    <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
   </PropertyGroup>
+
+  <PropertyGroup Condition="$(PublishHookForBuildScript)"/>
+  
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>..\..\bin\Debug</OutputPath>
   </PropertyGroup>

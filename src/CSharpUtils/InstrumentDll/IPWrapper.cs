@@ -10,38 +10,35 @@ namespace IPWrappers
 {
     /// <summary>
     /// Contains functions and marshalling structs to call routines from the InstrumentPlatforms.dll 
-    /// provided by Joanneum Research. The provided dll 
+    /// provided by Joanneum Research. 
     /// </summary>
     public static partial class ViewPlanner
     {        
-        [DllImport(@".\bin\InstrumentPlatforms.dll")]
+        [DllImport(@"InstrumentPlatforms.dll")]
         public static extern int Init(string configDir, string logDir);
 
         #region GetPlatformNames()
-        //[DllImport("TestLib.dll")]
-        [DllImport(@".\bin\InstrumentPlatforms.dll")]
+        [DllImport(@"InstrumentPlatforms.dll")]
         public static extern uint GetNrOfAvailablePlatforms();
 
-        // [DllImport("TestLib.dll", CharSet = CharSet.Ansi)]
-        [DllImport(@".\bin\InstrumentPlatforms.dll", CharSet = CharSet.Ansi)]
+        [DllImport(@"InstrumentPlatforms.dll", CharSet = CharSet.Ansi)]
         public static extern void GetAvailablePlatforms([MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.LPStr)] IntPtr[] platformNames, uint numberOfPlatforms);
 
-        //[DllImport("TestLib.dll")]
-        [DllImport(@".\bin\InstrumentPlatforms.dll", CharSet = CharSet.Ansi)]
+        [DllImport(@"InstrumentPlatforms.dll", CharSet = CharSet.Ansi)]
         public static extern int InitPlatform(ref SPlatform poPlatform, uint nNrOfPlatformPointsOnGround, uint nNrOfPlatformInstruments, uint nNrOfPlatformAxes);
         #endregion
 
         #region GetPlatform(string platformId)     
-        [DllImport(@".\bin\InstrumentPlatforms.dll")]
+        [DllImport(@"InstrumentPlatforms.dll")]
         public static extern uint GetNrOfPlatformPointsOnGround(string pcPlatformId);
         
-        [DllImport(@".\bin\InstrumentPlatforms.dll")]
+        [DllImport(@"InstrumentPlatforms.dll")]
         public static extern uint GetNrOfPlatformInstruments(string pcPlatformId);
 
-        [DllImport(@".\bin\InstrumentPlatforms.dll")]
+        [DllImport(@"InstrumentPlatforms.dll")]
         public static extern uint GetNrOfPlatformAxes(string pcPlatformId);
 
-        [DllImport(@".\bin\InstrumentPlatforms.dll")]
+        [DllImport(@"InstrumentPlatforms.dll")]
         public static extern int UpdatePlatform(ref SPlatform poPlatform);
         #endregion       
 

@@ -307,7 +307,7 @@ module ViewPlanApp =
                     instrumentCam     = CameraView.lookAt V3d.Zero V3d.One V3d.OOI
                     instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0 }
       
-    let updateRovers (model:ViewPlanModel) (roverModel:RoverModel) (vp:ViewPlan) (fp:FootPrint)  : ('a*ViewPlanModel)=
+    let updateRovers (model:ViewPlanModel) (roverModel:RoverModel) (vp:ViewPlan) (fp:FootPrint)  : (FootPrint * ViewPlanModel)=
         let r = roverModel.rovers  |> HashMap.find vp.rover.id
         let i = 
             match vp.selectedInstrument with

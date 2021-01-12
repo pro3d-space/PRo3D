@@ -11,6 +11,7 @@ open Fake.Core.TargetOperators
 open Fake.Tools
 open Fake.IO.Globbing.Operators
 open System.Runtime.InteropServices
+open Fake.DotNet
 
 //do MSBuildDefaults <- { MSBuildDefaults with Verbosity = Some Minimal }
 do Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
@@ -24,10 +25,11 @@ let resources =
     [
         //"lib\Dependencies\PRo3D.Base\windows"; // currently handled by native dependency injection mechanism 
         "lib/groupmappings"
+        "data/CooTransformationConfig"
     ]
 
 
-Target.create "CopyResources" (fun _ -> 
+let copyResources outDirs = 
     for r in resources do
         for outDir in outDirs do
             if Directory.Exists outDir then
@@ -37,12 +39,121 @@ Target.create "CopyResources" (fun _ ->
                 else 
                     printfn "copying file %s => %s" r outDir
                     Shell.copyFile outDir r
+
+Target.create "CopyResources" (fun _ -> 
+    copyResources outDirs
 )
 
 DefaultSetup.install ["src/PRo3D.sln"]
 
 "Compile" ==> "CopyResources" ==> "AddNativeResources" |> ignore
 
+Target.create "Credits" (fun _ -> 
+    let allLicences = 
+        seq {
+            yield! Directory.EnumerateFiles("3rdPartyLICENSES/","*.txt") 
+            yield! Directory.EnumerateFiles("3rdPartyLICENSES/","*.md") 
+        }
+    let template = File.ReadAllText "3rdPartyLICENSES/CreditsTemplate"
+
+    let summary = allLicences |> Seq.map Path.GetFileNameWithoutExtension 
+
+    let normalizeName (s : string) = s.Replace("-LICENSE","").Replace("_LICENSE","").Replace("_",".")
+   
+    let credits = 
+        template.Replace("__PACKAGES__", summary 
+        |> Seq.map (normalizeName >> sprintf " - %s")
+        |> String.concat Environment.NewLine)
+    printfn "%s" credits
+
+    let licences = 
+        allLicences 
+        |> Seq.map (fun file -> 
+            if Path.GetExtension file = ".md" then
+                sprintf "## %s\n\n\n```%s\n```\n" (file |> Path.GetFileNameWithoutExtension |> normalizeName) (File.ReadAllText file)
+            else
+                sprintf "## %s\n\n\n```%s\n```\n" (file |> Path.GetFileNameWithoutExtension |> normalizeName) (File.ReadAllText file))
+        |> String.concat System.Environment.NewLine
+
+    let credits = credits.Replace("__LICENCES__", licences)
+
+    File.WriteAllText("CREDITS.MD", credits)
+)
+
+
+Target.create "Publish" (fun _ ->
+    if Directory.Exists "bin/publish" then 
+        Directory.Delete("bin/publish", true)
+
+    // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314 
+    let fsProjWorkaround = 
+       """
+        <PropertyGroup>
+          <!-- this is replaced by build script-->
+          <PublishSingleFile>true</PublishSingleFile>
+          <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
+        </PropertyGroup>"""
+
+    let projectsToPatch = 
+        [
+            "src/PRo3D.Viewer/PRo3D.Viewer.fsproj"
+            "src/PRo3D.2D3DLinking/PRo3D.Linking.fsproj"
+            "src/PRo3D.Base/PRo3D.Base.fsproj"
+            "src/PRo3D.Minerva/PRo3D.Minerva.fsproj"
+        ]
+
+    let projects = 
+        projectsToPatch |> List.map (fun p -> 
+            p, File.ReadAllText p
+        )
+
+    projects |> List.iter (fun (p, oldContent) -> 
+        File.WriteAllText(p, oldContent.Replace("""<PropertyGroup Condition="$(PublishHookForBuildScript)"/>""", fsProjWorkaround))
+    )
+
+    // 1. publish exe
+    "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
+        { o with
+            Framework = Some "netcoreapp3.1"
+            Runtime = Some "win10-x64"
+            // "-p:PublishSingleFile=true
+            Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=true" }// /p:Publish='publish'"  }
+            //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
+            Configuration = DotNet.BuildConfiguration.Release
+            OutputPath = Some "bin/publish"
+            
+        }
+    )
+
+    projects |> List.iter (fun (path,oldContent) -> 
+        File.WriteAllText(path,oldContent)
+    )
+
+    // 1.1, copy most likely missing c++ libs
+    for dll in Directory.EnumerateFiles("data/runtime", "*.dll") do 
+        let fileName = Path.GetFileName dll
+        let target = Path.Combine("bin/publish/",fileName)
+        Fake.Core.Trace.logfn "copying: %s -> %s" dll target
+        File.Copy(dll, Path.Combine("bin/publish/",fileName))
+
+    // 2, copy licences
+    File.Copy("CREDITS.MD", "bin/publish/CREDITS.MD")
+
+    // 3, resources
+    copyResources ["bin/publish"] 
+
+)
+
+"Credits" ==> "Publish"
+
+Target.create "CompileDebug" (fun _ -> 
+    let old = config
+    config <- { config with debug = true; verbose = true }
+    Target.run 1 "Compile" []
+    config <- old
+)
+
+"CompileDebug" ==> "Default"
 
 #if DEBUG
 do System.Diagnostics.Debugger.Launch() |> ignore

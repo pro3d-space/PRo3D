@@ -4,6 +4,14 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
+  <Choose>
+    <When Condition="'$(BuildType)' == 'publish'">
+      <PropertyGroup>
+        <PublishSingleFile>true</PublishSingleFile>
+        <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
+      </PropertyGroup>
+    </When>
+  </Choose>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>..\..\bin\Debug\</OutputPath>
   </PropertyGroup>
