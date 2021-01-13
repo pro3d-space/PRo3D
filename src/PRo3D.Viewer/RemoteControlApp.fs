@@ -88,10 +88,6 @@ module RemoteControlApp =
             m   
 
     let loadRoverData (m : RemoteModel) =      
-      let directory = @".\InstrumentStuff"
-      let errorCode = IPWrappers.ViewPlanner.Init(directory, directory)
-      printfn "%A" errorCode
-
       let names = RoverProvider.platformNames()    
       printfn "%A" names
 

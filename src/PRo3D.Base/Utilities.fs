@@ -16,6 +16,9 @@ open OpcViewer.Base.Shader
 open FShade
 open System.IO
 
+
+type Self = Self
+
 //TODO refactor: cleanup utilities, move to other projects if applicable, remove dupblicate code from PRo3D.Viewer Utilities
 
 module Box3d =

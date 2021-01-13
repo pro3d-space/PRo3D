@@ -48,11 +48,7 @@ module ViewPlanApp =
             
     let loadRoverData (model : ViewPlanModel) (path : Option<string>) =      
         match path with
-        | Some _ ->
-            let directory = @".\InstrumentStuff"
-            let errorCode = ViewPlanner.Init(directory, directory)
-            printfn "%A" errorCode
-            
+        | Some _ ->            
             let names = RoverProvider.platformNames()    
             printfn "%A" names
             

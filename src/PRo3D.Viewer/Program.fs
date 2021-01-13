@@ -81,8 +81,12 @@ let main argv =
     
     Aardvark.Base.Report.Verbosity <- 1000
 
+    let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
+
+    Log.line "Running with AppData: %s" appData
     Aardvark.Init()
-    CooTransformation.initCooTrafo()
+
+    CooTransformation.initCooTrafo appData
 
 
     Aardium.init()        
@@ -93,7 +97,7 @@ let main argv =
     let runtime = app.Runtime    
 
     Aardvark.Rendering.GL.RuntimeConfig.SupressSparseBuffers <- true
-    app.ShaderCachePath <- None
+    //app.ShaderCachePath <- None
 
     Sg.hackRunner <- runtime.CreateLoadRunner 2 |> Some
 
@@ -180,7 +184,6 @@ let main argv =
     let s = { MailboxState.empty with update = mainApp.update Guid.Empty }
     MailboxAction.InitMailboxState s |> messagingMailbox.Post
     
-    CooTransformation.initCooTrafo () // should be a function not a value
     
     //let domainError (sender:obj) (args:UnhandledExceptionEventArgs) =
     //    let e = args.ExceptionObject :?> Exception;
@@ -264,6 +267,5 @@ let main argv =
     }
 
     CooTransformation.deInitCooTrafo ()
-    // Log.line "[Viewer] Could not deinit CooTrafo."
     0
  

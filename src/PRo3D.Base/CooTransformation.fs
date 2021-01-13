@@ -1,7 +1,10 @@
 ﻿namespace PRo3D.Base
 
+open System
 open Aardvark.Base
-open IPWrappers
+open JR
+open System.IO
+open System.IO.Compression
 
 type Planet = 
 | Earth = 0
@@ -22,13 +25,44 @@ module CooTransformation =
 
     let init = 0.0
 
-    let initCooTrafo () = 
-        let errorCode = CooTrafo.Init("CooTransformationConfig", "log")
+    let initCooTrafo (appData : string) = 
+
+        let jrDir = Path.combine [appData; "JR";]
+        let cooTransformationDir = Path.combine [jrDir; "CooTransformationConfig"]
+        if not (Directory.Exists cooTransformationDir) then
+            Log.line "[CooTransformation] no instrument dir found, creating one"
+            Directory.CreateDirectory jrDir |> ignore
+
+
+
+        use fs = typeof<Self>.Assembly.GetManifestResourceStream("PRo3D.Base.resources.CooTransformationConfig.zip")
+        use archive = new ZipArchive(fs, ZipArchiveMode.Read)
+        for e in archive.Entries do
+            let path = Path.combine [cooTransformationDir; e.Name]
+            if File.Exists path then
+                Log.line "[CooTransformation] Skipping installation of %s" e.Name
+            else
+                Log.line "[CooTransformation] installing %s" e.Name
+                use s = File.OpenWrite(path)
+                e.Open().CopyTo(s)
+
+        let configDir = cooTransformationDir
+        let logDir = Path.combine [jrDir; "logs"]
+
+        if not (Directory.Exists logDir) then
+            Directory.CreateDirectory logDir |> ignore
+
+        Log.line "[CooTransformation] initializing at %s, logging to %s" configDir logDir
+        let errorCode = CooTransformation.Init(configDir, logDir)
         if errorCode <> 0 then 
-            Log.error "could not initialize CooTrafo"
+            failwithf "[CooTransformation] could not initialize library, config dir: %s, return code: %d" configDir errorCode
+        else 
+            Log.line "Successfully initialized CooTrafo"
 
     let deInitCooTrafo () = 
-        CooTrafo.DeInit()
+        Log.line "[CooTransformation] shutting down..."
+        CooTransformation.DeInit()
+        Log.line "[CooTransformation] down."
 
     let getLatLonAlt (p:V3d) (planet:Planet) : SphericalCoo = 
         match planet with
@@ -39,7 +73,7 @@ module CooTransformation =
             let lon = ref init
             let alt = ref init
             
-            let errorCode = CooTrafo.Xyz2LatLonAlt(planet.ToString(), p.X, p.Y, p.Z, lat, lon, alt)
+            let errorCode = CooTransformation.Xyz2LatLonAlt(planet.ToString(), p.X, p.Y, p.Z, lat, lon, alt)
             
             if errorCode <> 0 then
                 Log.line "cootrafo errorcode %A" errorCode
@@ -55,7 +89,7 @@ module CooTransformation =
         let lat = ref init
         let lon = ref init
         let rad = ref init
-        let errorCode = CooTrafo.Xyz2LatLonRad( p.X, p.Y, p.Z, lat, lon, rad)
+        let errorCode = CooTransformation.Xyz2LatLonRad( p.X, p.Y, p.Z, lat, lon, rad)
         
         if errorCode <> 0 then
             Log.line "cootrafo errorcode %A" errorCode
@@ -75,7 +109,7 @@ module CooTransformation =
             let pY = ref init
             let pZ = ref init
             let error = 
-                CooTrafo.LatLonAlt2Xyz(planet.ToString(), sc.latitude, sc.longitude, sc.altitude, pX, pY, pZ )
+                CooTransformation.LatLonAlt2Xyz(planet.ToString(), sc.latitude, sc.longitude, sc.altitude, pX, pY, pZ )
             
             if error <> 0 then
                 Log.line "cootrafo errorcode %A" error

@@ -25,7 +25,6 @@ let resources =
     [
         //"lib\Dependencies\PRo3D.Base\windows"; // currently handled by native dependency injection mechanism 
         "lib/groupmappings"
-        "data/CooTransformationConfig"
     ]
 
 
@@ -83,8 +82,8 @@ Target.create "Credits" (fun _ ->
 
 
 Target.create "Publish" (fun _ ->
-    if Directory.Exists "bin/publish" then 
-        Directory.Delete("bin/publish", true)
+    //if Directory.Exists "bin/publish" then 
+    //    Directory.Delete("bin/publish", true)
 
     // 1. publish exe
     "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
@@ -94,8 +93,8 @@ Target.create "Publish" (fun _ ->
             Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=true -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
             Configuration = DotNet.BuildConfiguration.Release
-            OutputPath = Some "bin/publish"
-            
+            OutputPath = Some @"F:\pro3d\openPro3d\bin\publish"
+
         }
     )
 
@@ -144,18 +143,70 @@ Target.create "CompileDebug" (fun _ ->
     solutionName |> DotNet.build (fun o ->
         { o with
             NoRestore = true 
-            Configuration = if config.debug then DotNet.BuildConfiguration.Debug else DotNet.BuildConfiguration.Release
+            Configuration = DotNet.BuildConfiguration.Debug
             MSBuildParams =
                 { o.MSBuildParams with
                     Properties = props
                     DisableInternalBinLog = true
                 }
-            OutputPath = Some "bin/Debug"
         }
     )
 )
 
-"CompileDebug" ==> "Default"
+Target.create "CompileInstruments" (fun _ ->
+    let cfg = "Debug" //if config.debug then "Debug" else "Release"
+    
+    let tag = 
+        try 
+            let tag = getGitTag()
+            let assemblyVersion = NugetInfo.assemblyVersion tag
+            Some (tag, assemblyVersion)
+        with _ -> None
+
+    let props =
+        [
+            yield "Configuration", cfg
+            match tag with
+            | Some (tag, assemblyVersion) -> 
+                yield "AssemblyVersion", assemblyVersion
+                yield "AssemblyFileVersion", assemblyVersion
+                yield "InformationalVersion", assemblyVersion
+                yield "ProductVersion", assemblyVersion
+                yield "PackageVersion", tag
+            | _ -> ()
+        ]
+
+    "src/InstrumentPlatforms/JR.Wrappers.sln"|> DotNet.build (fun o ->
+        { o with
+            NoRestore = true 
+            Configuration = DotNet.BuildConfiguration.Debug
+            MSBuildParams =
+                { o.MSBuildParams with
+                    Properties = props
+                    DisableInternalBinLog = true
+                }
+        }
+    )
+
+    "src/InstrumentPlatforms/JR.Wrappers.sln"|> DotNet.build (fun o ->
+        { o with
+            NoRestore = true 
+            Configuration = DotNet.BuildConfiguration.Release
+            MSBuildParams =
+                { o.MSBuildParams with
+                    Properties = props
+                    DisableInternalBinLog = true
+                }
+        }
+    )
+
+    File.Copy("bin/Debug/netstandard2.0/JR.Wrappers.dll", "lib/JR.Wrappers.dll", true)
+)
+
+
+
+"CompileInstruments" ==> "AddNativeResources"
+"AddNativeResources" ==> "Publish"
 
 #if DEBUG
 do System.Diagnostics.Debugger.Launch() |> ignore

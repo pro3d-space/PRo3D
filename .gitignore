@@ -68,3 +68,6 @@ src\Aardvark.OpcViewer.psess
 /bin/publish
 /src/PRo3D.Viewer/PRo3D.Viewer.fsproj.user
 **/bin/Any CPU/**
+/instruments/InstrumentPlatforms/.vs/InstrumentPlatforms/v16/*.suo
+/instruments/InstrumentPlatforms/.vs/InstrumentPlatforms/DesignTimeBuild/*.v2
+**/.vs/**

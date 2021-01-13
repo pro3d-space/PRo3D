@@ -186,7 +186,7 @@ type Rover = {
 [<ModelType>]
 type RoverModel = {
     rovers             : HashMap<string, Rover>
-    platforms          : HashMap<string, IPWrappers.ViewPlanner.SPlatform>
+    platforms          : HashMap<string, JR.InstrumentPlatforms.SPlatform>
     selectedRover      : option<Rover>
     //selectedInstrument : option<Instrument>
     //selectedAxis       : option<Axis>

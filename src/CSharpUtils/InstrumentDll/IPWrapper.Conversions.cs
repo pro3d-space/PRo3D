@@ -8,27 +8,28 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using IPWrappers;
+using static JR.InstrumentPlatforms;
 
 namespace IPWrappers
 {
     public static class IPWrapperConversions
     {        
-        public static List<V3d> ToV3ds(this ViewPlanner.SPoint3D[] self)
+        public static List<V3d> ToV3ds(this SPoint3D[] self)
         {
             return self.Select(x => x.ToV3d()).ToList();
         }
 
-        public static V3d ToV3d(this ViewPlanner.SPoint3D self)
+        public static V3d ToV3d(this SPoint3D self)
         {
             return new V3d(self.m_dX, self.m_dY, self.m_dZ);
         }
 
-        public static V3d ToV3d(this ViewPlanner.SVector3D self)
+        public static V3d ToV3d(this SVector3D self)
         {
             return new V3d(self.m_dX, self.m_dY, self.m_dZ);
         }
 
-        public static Box3d ToBox3d(this ViewPlanner.SBoundingBox self)
+        public static Box3d ToBox3d(this SBoundingBox self)
         {
             var origin = self.m_oOriginBB.ToV3d();
             var edge1 = self.m_oEdge1.ToV3d();
@@ -41,14 +42,14 @@ namespace IPWrappers
                 origin + edge3);
         }
 
-        public static M44d ToM44d(this ViewPlanner.STransformationMatrix self)
+        public static M44d ToM44d(this STransformationMatrix self)
         {
             return new M44d(self.m_adElement);
         }
 
-        public static ViewPlanner.STransformationMatrix ToSTransfMatrix(this M44d self)
+        public static STransformationMatrix ToSTransfMatrix(this M44d self)
         {
-            return new ViewPlanner.STransformationMatrix()
+            return new STransformationMatrix()
             {
                 m_adElement = self.Elements.ToArray()
             };

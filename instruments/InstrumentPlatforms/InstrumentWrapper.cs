@@ -1,19 +1,16 @@
-﻿using Aardvark.Base;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading.Tasks;
+using System.Runtime.InteropServices;
 
-namespace IPWrappers
+namespace JR
 {
     /// <summary>
     /// Contains functions and marshalling structs to call routines from the InstrumentPlatforms.dll 
     /// provided by Joanneum Research. 
     /// </summary>
-    public static partial class ViewPlanner
-    {        
+    public static partial class InstrumentPlatforms
+    {
         [DllImport(@"InstrumentPlatforms.dll")]
         public static extern int Init(string configDir, string logDir);
 
@@ -31,7 +28,7 @@ namespace IPWrappers
         #region GetPlatform(string platformId)     
         [DllImport(@"InstrumentPlatforms.dll")]
         public static extern uint GetNrOfPlatformPointsOnGround(string pcPlatformId);
-        
+
         [DllImport(@"InstrumentPlatforms.dll")]
         public static extern uint GetNrOfPlatformInstruments(string pcPlatformId);
 
@@ -55,26 +52,5 @@ namespace IPWrappers
                 ElementPointers = elementPointers;
             }
         }
-    }
-
-    public static partial class CooTrafo
-    {
-        [DllImport(@".\bin\CooTransformation.dll")]
-        public static extern uint GetDllVersion();
-
-        [DllImport(@".\bin\CooTransformation.dll")]
-        public static extern int Init(string configDir, string logDir);
-
-        [DllImport(@".\bin\CooTransformation.dll")]
-        public static extern void DeInit();
-
-        [DllImport(@".\bin\CooTransformation.dll")]
-        public static extern int Xyz2LatLonRad(double dX, double dY, double dZ, ref double pdLat, ref double pdLon, ref double pdRad);
-
-        [DllImport(@".\bin\CooTransformation.dll")]
-        public static extern int Xyz2LatLonAlt(string pcPlanet, double dX, double dY, double dZ, ref double pdLat, ref double pdLon, ref double pdAlt );
-
-        [DllImport(@".\bin\CooTransformation.dll")]
-        public static extern int LatLonAlt2Xyz( string pcPlanet, double dLat, double dLon, double dAlt, ref double pdX, ref double pdY, ref double pdZ );
     }
 }
