@@ -80,7 +80,9 @@ let main argv =
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
     
     Aardvark.Base.Report.Verbosity <- 1000
+    
 
+    Aardvark.UnpackNativeDependencies(typeof<JR.InstrumentPlatforms>.Assembly)
     let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
 
     Log.line "Running with AppData: %s" appData

@@ -107,7 +107,7 @@ Target.create "Publish" (fun _ ->
     //    File.Copy(dll, Path.Combine("bin/publish/",fileName))
 
     // 2, copy licences
-    File.Copy("CREDITS.MD", "bin/publish/CREDITS.MD")
+    File.Copy("CREDITS.MD", "bin/publish/CREDITS.MD", true)
 
     // 3, resources
     copyResources ["bin/publish"] 
@@ -200,13 +200,16 @@ Target.create "CompileInstruments" (fun _ ->
         }
     )
 
+)
+
+
+Target.create "CopyJRWRapper" (fun _ -> 
     File.Copy("bin/Debug/netstandard2.0/JR.Wrappers.dll", "lib/JR.Wrappers.dll", true)
 )
 
 
-
 "CompileInstruments" ==> "AddNativeResources"
-"AddNativeResources" ==> "Publish"
+"AddNativeResources" ==> "CopyJRWrapper" ==> "Publish"
 
 #if DEBUG
 do System.Diagnostics.Debugger.Launch() |> ignore
