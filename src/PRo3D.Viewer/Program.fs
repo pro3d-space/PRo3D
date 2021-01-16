@@ -144,7 +144,7 @@ let main argv =
             Log.warn "need dump file ... dump=\"[dumpfilepath]\" -> using defaultPath '.\MinervaData\dump.csv'"
             @".\MinervaData\dump.csv"
         | _ -> 
-            @".\MinervaData\dump.cache"
+            @".\MinervaData\dump.csv"
 
     let cacheFile =
         match argsKv |> HashMap.tryFind "cache" with

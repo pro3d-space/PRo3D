@@ -30,6 +30,6 @@ module Interactions =
             Interactions.PickLinking
             Interactions.DrawLog            
             Interactions.PickLog            
-            Interactions.PlaceValidator            
+            //Interactions.PlaceValidator            
             Interactions.TrueThickness            
         ] |> HashSet.ofList

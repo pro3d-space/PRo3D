@@ -138,10 +138,10 @@ module HeightValidatorModel =
         
         let res =
             {
-                pointDistance = Vec.distance pos upper
-                cooTrafoThickness_geographic = geographic
-                cooTrafoThickness_true = geographic * cos (dip.RadiansFromDegrees())
-                heightOverHorizontal = horizontalHeight
+                pointDistance                 = Vec.distance pos upper
+                cooTrafoThickness_geographic  = geographic
+                cooTrafoThickness_true        = geographic * cos (dip.RadiansFromDegrees())
+                heightOverHorizontal          = horizontalHeight
                 heightOverPlaneThickness_true = tiltedHeight
             }        
 
