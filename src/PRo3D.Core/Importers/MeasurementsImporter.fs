@@ -142,29 +142,29 @@ module MeasurementsImporter =
 
         Log.line "TrafoImporter: Found %A in xml" id
 
-        let an = {
-                version = Annotation.current
-                key = id
-                geometry = getGeometry (anType, closed)
-                projection = Projection.Linear
-                semantic = Semantic.Horizon0
-                points = points
-                segments = segments
-                color = { c = color }
-                thickness = style.thickness
-                results = None
-                dnsResults = None
-                modelTrafo = trafo 
-                visible = true 
-                showDns = false
-                text = ""
-                textsize = textsize
-                surfaceName = ""
-                view = FreeFlyController.initial.view
-                semanticId = SemanticId ""
-                semanticType = SemanticType.Undefined
-        }
-        an
+        {
+            version = Annotation.current
+            key = id
+            geometry = getGeometry (anType, closed)
+            projection = Projection.Linear
+            semantic = Semantic.Horizon0
+            points = points
+            segments = segments
+            color = { c = color }
+            thickness = style.thickness
+            results = None
+            dnsResults = None
+            modelTrafo = trafo 
+            visible = true 
+            showDns = false
+            text = ""
+            textsize = textsize
+            surfaceName = ""
+            view = FreeFlyController.initial.view
+            semanticId = SemanticId ""
+            semanticType = SemanticType.Undefined
+            manualDipAngle = Annotation.initial.manualDipAngle
+        }        
         
 
     type XmlReader with

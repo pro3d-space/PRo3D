@@ -118,95 +118,95 @@ module DrawingUtilities =
                 annotationGroups
 
 
-    module Calculations =
-        //let getHeightDelta (p:V3d) (upVec:V3d) = (p * upVec).Length
+    //module Calculations =
+    //    //let getHeightDelta (p:V3d) (upVec:V3d) = (p * upVec).Length
 
-        let getHeightDelta2 (p:V3d) (upVec:V3d) (planet:Planet) = 
-            CooTransformation.getHeight p upVec planet
+    //    let getHeightDelta2 (p:V3d) (upVec:V3d) (planet:Planet) = 
+    //        CooTransformation.getHeight p upVec planet
 
-        let calcResultsPoint (model:Annotation) (upVec:V3d) (planet:Planet) : AnnotationResults =
-            //let p = point //trafo.Forward.TransformPos(point)
-            { 
-                version = AnnotationResults.current
-                height = 0.0
-                heightDelta = 0.0
-                avgAltitude = CooTransformation.getAltitude model.points.[0] upVec planet
-                length = 0.0
-                wayLength = 0.0
-                bearing = 0.0
-                slope = 0.0
-            }
+    //    let calcResultsPoint (model:Annotation) (upVec:V3d) (planet:Planet) : AnnotationResults =
+    //        //let p = point //trafo.Forward.TransformPos(point)
+    //        { 
+    //            version       = AnnotationResults.current
+    //            height        = Double.NaN
+    //            heightDelta   = Double.NaN
+    //            avgAltitude   = CooTransformation.getAltitude model.points.[0] upVec planet
+    //            length        = Double.NaN
+    //            wayLength     = Double.NaN
+    //            bearing       = Double.NaN
+    //            slope         = Double.NaN
+    //            trueThickness = Double.NaN
+    //        }
         
+    //    let getDistance (points:list<V3d>) = 
+    //      points
+    //        |> List.pairwise
+    //        |> List.map (fun (a,b) -> Vec.Distance(a,b))
+    //        |> List.sum
 
-        let getDistance (points:list<V3d>) = 
-          points
-            |> List.pairwise
-            |> List.map (fun (a,b) -> Vec.Distance(a,b))
-            |> List.sum
-
-        let getSegmentDistance (s:Segment) = 
-          getDistance
-            [ 
-              yield s.startPoint
-              for p in s.points do
-                 yield p
-              yield s.endPoint 
-            ] 
+    //    let getSegmentDistance (s:Segment) = 
+    //      getDistance
+    //        [ 
+    //          yield s.startPoint
+    //          for p in s.points do
+    //             yield p
+    //          yield s.endPoint 
+    //        ] 
    
-        let computeWayLength (segments:IndexList<Segment>) = 
-          [ for s in segments do
-               yield getSegmentDistance s
-          ] |> List.sum
+    //    let computeWayLength (segments:IndexList<Segment>) = 
+    //      [ for s in segments do
+    //           yield getSegmentDistance s
+    //      ] |> List.sum
                                                                
+    //    let calcResultsLine (model:Annotation) (upVec:V3d) (northVec:V3d) (planet:Planet) : AnnotationResults =
+    //        let count = model.points.Count
+    //        let dist = Vec.Distance(model.points.[0], model.points.[count-1])
+    //        let wayLength =
+    //            if model.segments.IsEmpty then
+    //                computeWayLength model.segments
+    //            else
+    //                dist
 
-        let calcResultsLine (model:Annotation) (upVec:V3d) (northVec:V3d) (planet:Planet) : AnnotationResults =
-            let count = model.points.Count
-            let dist = Vec.Distance(model.points.[0], model.points.[count-1])
-            let wayLength =
-                if model.segments.IsEmpty then
-                    computeWayLength model.segments
-                else
-                    dist
+    //        let heights = 
+    //            model.points 
+    //            // |> IndexList.map(fun x -> model.modelTrafo.Forward.TransformPos(x))
+    //            |> IndexList.map(fun p -> getHeightDelta2 p upVec planet ) 
+    //            |> IndexList.toList
 
-            let heights = 
-                model.points 
-                // |> IndexList.map(fun x -> model.modelTrafo.Forward.TransformPos(x))
-                |> IndexList.map(fun p -> getHeightDelta2 p upVec planet ) 
-                |> IndexList.toList
+    //        let hcount = heights.Length
 
-            let hcount = heights.Length
+    //        let line = new Line3d(model.points.[0], model.points.[count-1])
+    //        let bearing = DipAndStrike.bearing upVec northVec line.Direction.Normalized
+    //        let slope = DipAndStrike.pitch upVec line.Direction.Normalized
 
-            let line = new Line3d(model.points.[0], model.points.[count-1])
-            let bearing = DipAndStrike.bearing upVec northVec line.Direction.Normalized
-            let slope = DipAndStrike.pitch upVec line.Direction.Normalized
+    //        {   
+    //            version     = AnnotationResults.current
+    //            height      = (heights |> List.max) - (heights |> List.min)
+    //            heightDelta = Fun.Abs (heights.[hcount-1] - heights.[0])
+    //            avgAltitude = (heights |> List.average)
+    //            length      = dist
+    //            wayLength   = wayLength
+    //            bearing     = bearing
+    //            slope       = slope
+    //            trueThickness = 0.0
+    //        }
 
-            {   
-                version     = AnnotationResults.current
-                height      = (heights |> List.max) - (heights |> List.min)
-                heightDelta = Fun.Abs (heights.[hcount-1] - heights.[0])
-                avgAltitude = (heights |> List.average)
-                length      = dist
-                wayLength   = wayLength
-                bearing     = bearing
-                slope       = slope
-            }
+    //    let calculateAnnotationResults (model:Annotation) (upVec:V3d) (northVec:V3d) (planet:Planet) : AnnotationResults =
+    //        match model.points.Count with
+    //            | x when x > 1 -> calcResultsLine model upVec northVec planet
+    //            | _ -> calcResultsPoint model upVec planet
 
-        let calculateAnnotationResults (model:Annotation) (upVec:V3d) (northVec:V3d) (planet:Planet) : AnnotationResults =
-            match model.points.Count with
-                | x when x > 1 -> calcResultsLine model upVec northVec planet
-                | _ -> calcResultsPoint model upVec planet
-
-        let recalcBearing (model:Annotation) (upVec:V3d) (northVec:V3d) = 
-            match model.results with 
-            | Some r ->
-                let count = model.points.Count
-                match count with
-                | x when x > 1 ->
-                    let line = new Line3d(model.points.[0], model.points.[count-1])
-                    let bearing = DipAndStrike.bearing upVec northVec line.Direction.Normalized
-                    Some {r with bearing = bearing }
-                | _ -> Some r
-            | None -> None
+    //    let recalcBearing (model:Annotation) (upVec:V3d) (northVec:V3d) = 
+    //        match model.results with 
+    //        | Some r ->
+    //            let count = model.points.Count
+    //            match count with
+    //            | x when x > 1 ->
+    //                let line = new Line3d(model.points.[0], model.points.[count-1])
+    //                let bearing = DipAndStrike.bearing upVec northVec line.Direction.Normalized
+    //                Some {r with bearing = bearing }
+    //            | _ -> Some r
+    //        | None -> None
 
     module IO =         
         

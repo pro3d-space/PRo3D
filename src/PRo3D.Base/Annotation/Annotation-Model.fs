@@ -20,11 +20,12 @@ type Projection =
 | Sky = 2
 
 type Geometry = 
-| Point = 0 
-| Line = 1 
-| Polyline = 2 
-| Polygon = 3 
-| DnS = 4
+| Point     = 0 
+| Line      = 1 
+| Polyline  = 2 
+| Polygon   = 3 
+| DnS       = 4
+| TT        = 5
 
 type Semantic = 
 | Horizon0 = 0 
@@ -210,17 +211,18 @@ with
         
 [<ModelType>]
 type AnnotationResults = {
-    version     : int
-    height      : float
-    heightDelta : float
-    avgAltitude : float
-    length      : float
-    wayLength   : float
-    bearing     : float
-    slope       : float
+    version         : int
+    height          : float
+    heightDelta     : float
+    avgAltitude     : float
+    length          : float
+    wayLength       : float
+    bearing         : float
+    slope           : float
+    trueThickness   : float
 }
 with 
-    static member current = 0
+    static member current = 1
     static member private readV0 =
         json {      
             let! height     = Json.readFloat "height"     
@@ -240,6 +242,31 @@ with
               wayLength   = wayLength  
               bearing     = bearing    
               slope       = slope            
+              trueThickness = Double.NaN
+            }
+        }
+
+    static member private readV1 =
+        json {      
+            let! height         = Json.readFloat "height"     
+            let! heightDelta    = Json.readFloat "heightDelta"
+            let! avgAltitude    = Json.readFloat "avgAltitude"
+            let! length         = Json.readFloat "length"     
+            let! wayLength      = Json.readFloat "wayLength"  
+            let! bearing        = Json.readFloat "bearing"    
+            let! slope          = Json.readFloat "slope"
+            let! trueThickness  = Json.readFloat "trueThickness"
+            
+            return {
+                version       = AnnotationResults.current    
+                height        = height     
+                heightDelta   = heightDelta
+                avgAltitude   = avgAltitude
+                length        = length
+                wayLength     = wayLength  
+                bearing       = bearing
+                slope         = slope
+                trueThickness = trueThickness
             }
         }
     static member FromJson(_: AnnotationResults) =
@@ -247,19 +274,21 @@ with
             let! v = Json.read "version"
             match v with 
             | 0 -> return! AnnotationResults.readV0
+            | 1 -> return! AnnotationResults.readV1
             | _ -> return! v |> sprintf "don't know version %A  of AnnotationResults" |> Json.error
         }
     
     static member ToJson (x : AnnotationResults) =
         json {
-            do! Json.write      "version"     x.version     
-            do! Json.writeFloat "height"      x.height      
-            do! Json.writeFloat "heightDelta" x.heightDelta       
-            do! Json.writeFloat "avgAltitude" x.avgAltitude 
-            do! Json.writeFloat "length" x.length            
-            do! Json.writeFloat "wayLength" x.wayLength       
-            do! Json.writeFloat "bearing"     x.bearing     
-            do! Json.writeFloat "slope"       x.slope       
+            do! Json.write      "version"       x.version     
+            do! Json.writeFloat "height"        x.height      
+            do! Json.writeFloat "heightDelta"   x.heightDelta       
+            do! Json.writeFloat "avgAltitude"   x.avgAltitude 
+            do! Json.writeFloat "length"        x.length            
+            do! Json.writeFloat "wayLength"     x.wayLength       
+            do! Json.writeFloat "bearing"       x.bearing     
+            do! Json.writeFloat "slope"         x.slope       
+            do! Json.writeFloat "trueThickness" x.trueThickness
         }
 
 module AnnotationResults =
@@ -268,14 +297,15 @@ module AnnotationResults =
     
     let initial = 
         {
-            version     = current
-            height      = Double.NaN
-            heightDelta = Double.NaN
-            avgAltitude = Double.NaN
-            length      = Double.NaN
-            wayLength   = Double.NaN
-            bearing     = Double.NaN
-            slope       = Double.NaN
+            version       = current
+            height        = Double.NaN
+            heightDelta   = Double.NaN
+            avgAltitude   = Double.NaN
+            length        = Double.NaN
+            wayLength     = Double.NaN
+            bearing       = Double.NaN
+            slope         = Double.NaN
+            trueThickness = Double.NaN
         }  
 
 type SemanticId = SemanticId of string
@@ -283,40 +313,49 @@ type SemanticType = Metric = 0 | Angular = 1 | Hierarchical = 2 | Undefined = 3
 
 [<ModelType>]
 type Annotation = {
-    version      : int
+    version        : int
     
     [<NonAdaptive>]
-    key          : Guid
+    key            : Guid
+                   
+    modelTrafo     : Trafo3d
+                   
+    geometry       : Geometry
+    projection     : Projection
+                   
+    semantic       : Semantic
+                   
+    points         : IndexList<V3d>
+    segments       : IndexList<Segment>
+                   
+    color          : ColorInput
+    thickness      : NumericInput
+                   
+    results        : Option<AnnotationResults>
+    dnsResults     : Option<DipAndStrikeResults>
+                   
+    visible        : bool
+    showDns        : bool
+    text           : string
+    textsize       : NumericInput
+    manualDipAngle : NumericInput
                  
-    modelTrafo   : Trafo3d
-                 
-    geometry     : Geometry
-    projection   : Projection
-
-    semantic     : Semantic
-                 
-    points       : IndexList<V3d>
-    segments     : IndexList<Segment>
-                 
-    color        : ColorInput
-    thickness    : NumericInput
-                 
-    results      : Option<AnnotationResults>
-    dnsResults   : Option<DipAndStrikeResults>
-                 
-    visible      : bool
-    showDns      : bool
-    text         : string
-    textsize     : NumericInput
-                 
-    surfaceName  : string
-    view         : CameraView
-    
-    semanticId   : SemanticId
-    semanticType : SemanticType
+    surfaceName    : string
+    view           : CameraView
+                   
+    semanticId     : SemanticId
+    semanticType   : SemanticType
 }
 with 
-    static member current = 2
+    static member current = 3
+    static member initialManualDipAngle = {
+        value   = Double.NaN
+        min     = 0.0
+        max     = 90.0
+        step    = 0.1
+        format  = "{0:0.0}"
+    }
+        
     static member private readV0 =
         json {
             let! key          = Json.read "key"
@@ -367,6 +406,7 @@ with
               view         = cameraView
               semanticId   = SemanticId ""
               semanticType = SemanticType.Undefined
+              manualDipAngle = Annotation.initialManualDipAngle
             }
         }
     static member private readV1 =
@@ -402,26 +442,27 @@ with
             let! semanticType  = Json.read "semanticType"
             
             return {
-                version      = Annotation.current
-                key          = key           |> Guid.Parse
-                modelTrafo   = modelTrafo    |> Trafo3d.Parse        
-                geometry     = geometry      |> enum<Geometry>
-                projection   = projection    |> enum<Projection>
-                semantic     = semantic      |> enum<Semantic>
-                points       = points        |> Serialization.jsonSerializer.UnPickleOfString
-                segments     = segments      |> Serialization.jsonSerializer.UnPickleOfString
-                color        = color
-                thickness    = thickness      
-                results      = results    
-                dnsResults   = dnsResults         
-                visible      = visible 
-                showDns      = showDns   
-                text         = text      
-                textsize     = textSize         
-                surfaceName  = surfaceName
-                view         = cameraView 
-                semanticId   = semanticId |> SemanticId
-                semanticType = semanticType |> enum<SemanticType>
+                version        = Annotation.current
+                key            = key           |> Guid.Parse
+                modelTrafo     = modelTrafo    |> Trafo3d.Parse        
+                geometry       = geometry      |> enum<Geometry>
+                projection     = projection    |> enum<Projection>
+                semantic       = semantic      |> enum<Semantic>
+                points         = points        |> Serialization.jsonSerializer.UnPickleOfString
+                segments       = segments      |> Serialization.jsonSerializer.UnPickleOfString
+                color          = color
+                thickness      = thickness      
+                results        = results    
+                dnsResults     = dnsResults         
+                visible        = visible 
+                showDns        = showDns   
+                text           = text      
+                textsize       = textSize         
+                surfaceName    = surfaceName
+                view           = cameraView 
+                semanticId     = semanticId |> SemanticId
+                semanticType   = semanticType |> enum<SemanticType>
+                manualDipAngle = Annotation.initialManualDipAngle
             }
         }
     static member private readV2 =
@@ -477,8 +518,69 @@ with
                 view         = cameraView
                 semanticId   = semanticId   |> SemanticId
                 semanticType = semanticType |> enum<SemanticType>
+                manualDipAngle = Annotation.initialManualDipAngle
             }
         }
+
+    static member private readV3 =
+        json {
+            let! key          = Json.read "key"
+            let! modelTrafo   = Json.read "modelTrafo" //|> Trafo3d.Parse
+            let! geometry     = Json.read "geometry"
+            let! projection   = Json.read "projection"
+            let! semantic     = Json.read "semantic"
+            
+            let! points   = Json.readWith Ext.fromJson<list<V3d>,Ext> "points"
+            let! segments = Json.read "segments"
+            
+            let! color        = Json.readWith Ext.fromJson<ColorInput,Ext> "color"
+            let! thickness    = Json.readWith Ext.fromJson<NumericInput,Ext> "thickness"
+            
+            let! results      = Json.read "results"
+            let! dnsResults   = Json.read "dnsResults"
+            
+            let! visible  = Json.read "visible"
+            let! showDns  = Json.read "showDns"
+            let! text     = Json.read "text"
+            let! textSize = Json.readWith Ext.fromJson<NumericInput,Ext> "textsize"
+            
+            let! surfaceName = Json.read "surfaceName"
+            
+            let! (cameraView : list<string>) = Json.read "view"
+            
+            let cameraView = cameraView |> List.map V3d.Parse
+            let cameraView = CameraView(cameraView.[0],cameraView.[1],cameraView.[2],cameraView.[3], cameraView.[4])
+            
+            let! semanticId    = Json.read "semanticId"
+            let! semanticType  = Json.read "semanticType"
+
+            let! manualDipAngle = Json.readWith Ext.fromJson<NumericInput,Ext> "manualDipAngle"
+            
+            return {
+                version        = Annotation.current
+                key            = key           |> Guid.Parse
+                modelTrafo     = modelTrafo    |> Trafo3d.Parse        
+                geometry       = geometry      |> enum<Geometry>
+                projection     = projection    |> enum<Projection>
+                semantic       = semantic      |> enum<Semantic>
+                points         = points        |> IndexList.ofList
+                segments       = segments      |> IndexList.ofList
+                color          = color
+                thickness      = thickness
+                results        = results
+                dnsResults     = dnsResults
+                visible        = visible
+                showDns        = showDns
+                text           = text
+                textsize       = textSize
+                surfaceName    = surfaceName
+                view           = cameraView
+                semanticId     = semanticId   |> SemanticId
+                semanticType   = semanticType |> enum<SemanticType>
+                manualDipAngle = manualDipAngle
+            }
+        }
+
     static member FromJson(_:Annotation) = 
         json {
             let! v = Json.read "version"
@@ -486,6 +588,7 @@ with
             | 0 -> return! Annotation.readV0
             | 1 -> return! Annotation.readV1
             | 2 -> return! Annotation.readV2
+            | 3 -> return! Annotation.readV3
             | _ -> return! v |> sprintf "don't know version %A of Annotation" |> Json.error
         }
     
@@ -514,28 +617,39 @@ with
             do! Json.write "view" camView
             do! Json.write "semanticId" (x.semanticId.ToString())
             do! Json.write "semanticType" (x.semanticType |> int)
+
+            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "manualDipAngle" (x.manualDipAngle)
           
         }
 
 module Annotation =
          
-    let thickn = {
-        value   = 3.0
-        min     = 1.0
-        max     = 8.0
-        step    = 1.0
-        format  = "{0:0}"
-    }
-    
-    let texts = {
-        value   = 0.05
-        min     = 0.01
-        max     = 5.0
-        step    = 0.01
-        format  = "{0:0.00}"
-    }
+    module Initial =
+        let thickness = {
+            value   = 3.0
+            min     = 1.0
+            max     = 8.0
+            step    = 1.0
+            format  = "{0:0}"
+        }
+        
+        let texts = {
+            value   = 0.05
+            min     = 0.01
+            max     = 5.0
+            step    = 0.01
+            format  = "{0:0.00}"
+        }
+
+        let manualDipAngle = {
+            value   = Double.NaN
+            min     = 0.0
+            max     = 90.0
+            step    = 0.1
+            format  = "{0:0.0}"
+        }
                 
-    let mk projection geometry color thickness surfaceName : Annotation =
+    let mk projection geometry color thickness surfaceName : Annotation = //TODO refactor: check if make and mk do the same ... remove one
         {
              version     = Annotation.current
              key         = Guid.NewGuid()
@@ -550,7 +664,7 @@ module Annotation =
              projection  = projection
              visible     = true
              text        = ""
-             textsize    = texts
+             textsize    = Initial.texts
              modelTrafo  = Trafo3d.Identity
              showDns     = 
                  match geometry with 
@@ -560,13 +674,23 @@ module Annotation =
              semanticId   = SemanticId ""
              semanticType = SemanticType.Undefined
              view         = FreeFlyController.initial.view
+             manualDipAngle = Initial.manualDipAngle
         }
 
     let initial =
-        mk Projection.Viewpoint Geometry.Polyline { c = C4b.Magenta } thickn ""
+        mk Projection.Viewpoint Geometry.Polyline { c = C4b.Magenta } Initial.thickness ""
       
     let thickness = [1.0; 2.0; 3.0; 4.0; 5.0; 1.0; 1.0]
-    let color = [new C4b(241,238,246); new C4b(189,201,225); new C4b(116,169,207); new C4b(43,140,190); new C4b(4,90,141); new C4b(241,163,64); new C4b(153,142,195) ]
+    let color = 
+        [
+            new C4b(241,238,246); 
+            new C4b(189,201,225); 
+            new C4b(116,169,207); 
+            new C4b(43,140,190); 
+            new C4b(4,90,141); 
+            new C4b(241,163,64); 
+            new C4b(153,142,195) 
+        ]
     
     let make (projection) (geometry) (color) (thickness) (surfName) : Annotation  =       
         {
@@ -583,7 +707,7 @@ module Annotation =
             projection  = projection
             visible     = true
             text        = ""
-            textsize    = texts
+            textsize    = Initial.texts
             modelTrafo  = Trafo3d.Identity
             showDns     = 
                 match geometry with 
@@ -593,4 +717,5 @@ module Annotation =
             view         = FreeFlyController.initial.view
             semanticId   = SemanticId ""
             semanticType = SemanticType.Undefined
+            manualDipAngle = Initial.manualDipAngle
         }

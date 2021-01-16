@@ -527,8 +527,21 @@ module ViewerApp =
             | Some selected ->                             
                 let f = (fun x ->
                     let a = x |> Leaf.toAnnotation
-                    AnnotationProperties.update a msg |> Leaf.Annotations)
-                      
+                    let a = AnnotationProperties.update a msg 
+
+                    //update true thickness computation on dip angle change
+                    let a = 
+                        if (a.geometry = Geometry.TT) then                                                         
+                           let up = m.scene.referenceSystem.up.value
+                           let north = m.scene.referenceSystem.north.value
+                           let planet = m.scene.referenceSystem.planet
+                           Log.error "[Viewer] updating TT results"
+                           let results = Calculations.calcResultsLine a up north planet |> Some
+                           { a with results = results }
+                        else
+                            a                    
+                    a |> Leaf.Annotations)
+
                 let a = m.drawing.annotations |> Groups.updateLeaf selected f
                 Optic.set _annotations a m
             | None -> m       

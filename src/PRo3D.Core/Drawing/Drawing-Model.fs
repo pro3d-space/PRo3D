@@ -103,7 +103,7 @@ module DrawingModel =
         draw          = false  
         pick          = false
         color         = { c = C4b.DarkBlue } 
-        thickness     = Annotation.thickn
+        thickness     = Annotation.Initial.thickness
 
         working     = None
         projection  = Projection.Linear

@@ -3,6 +3,8 @@ namespace PRo3D.Core.Drawing
 open System
 open System.IO
 
+open PRo3D.Base
+
 //open System.Windows.Forms
 open System.Text
 open System.Net.WebSockets
@@ -57,14 +59,16 @@ module DrawingApp =
         | _ -> { a with points = a.points |> IndexList.add firstP }
 
     let getFinishedAnnotation up north planet (view:CameraView) (model : DrawingModel) =
-      match model.working with
+        match model.working with
         | Some w ->  
             let w = 
-              match w.geometry with
+                match w.geometry with
                 | Geometry.Polygon -> closePolyline w
                 | _-> w 
-
-            let dns = w.points |> DipAndStrike.calculateDipAndStrikeResults (up) (north)
+        
+            let dns = 
+                w.points 
+                |> DipAndStrike.calculateDipAndStrikeResults (up) (north)
                 //match w.points.Count with 
                 //    | x when x > 2 ->
                 //        //let up = 
@@ -72,85 +76,94 @@ module DrawingApp =
                 //        let result = w.points |> DipAndStrike.calculateDipAndStrikeResults (up) (north)
                 //        Some result //more acc. by using segments as well?
                 //    | _ -> None 
+
+            let w =
+                match w.geometry with 
+                | Geometry.TT -> { w with manualDipAngle = { w.manualDipAngle with value = 0.0 }}
+                | _ -> w
+
             let results = Calculations.calculateAnnotationResults w up north planet
+
             Some { w with dnsResults = dns ; results = Some results; view = view }
         | None -> None
 
     let finishAndAppendAndSend up north planet (view:CameraView) (model : DrawingModel) (bc : BlockingCollection<string>) = 
       
-      let groups = 
-        match getFinishedAnnotation up north planet view model with
-          | Some a -> 
-            //let json = a |> JsonTypes.ofAnnotation |> Aardvark.UI.Pickler.jsonToString                 
-            //bc.Add json
-            model.annotations |> GroupsApp.addLeafToActiveGroup (Leaf.Annotations a) true
-          | None -> model.annotations             
-
-      { model with  working = None; pendingIntersections = ThreadPool.empty; annotations = groups }
+        let groups = 
+            match getFinishedAnnotation up north planet view model with
+            | Some a -> 
+                //let json = a |> JsonTypes.ofAnnotation |> Aardvark.UI.Pickler.jsonToString                 
+                //bc.Add json
+                model.annotations |> GroupsApp.addLeafToActiveGroup (Leaf.Annotations a) true
+            | None -> 
+                model.annotations
+        
+        { model with  working = None; pendingIntersections = ThreadPool.empty; annotations = groups }
     
     //adds new point to working state, if certain conditions are met the annotation finishes itself
+    // returns current segment for async computations outside
     let addPoint up north planet samplePoint (p : V3d) view model surfaceName bc =
       
-      let working, newSegment = 
-        match model.working with
-          | Some w ->     
-            let annotation = { w with points = w.points |> IndexList.add p }
-            Log.line "working contains %d points" annotation.points.Count
-            
-            //fetch current drawing segment (projected, polyline or polygon)
-            let result = 
-              match w.projection with
-                | Projection.Viewpoint | Projection.Sky ->                     
-                  match IndexList.tryAt (IndexList.count w.points-1) w.points with
-                    | None -> 
-                      annotation, None
-                    | Some a -> 
-                      let segmentIndex = IndexList.count annotation.segments
-                      let newSegment = { startPoint = a; endPoint = p; points = IndexList.ofList [a;p] }
-
-                      if PRo3D.Config.useAsyncIntersections then
-                        { annotation with segments = IndexList.add newSegment annotation.segments }, Some (newSegment,segmentIndex)
-                      else
-                        let vec = newSegment.endPoint - newSegment.startPoint
-                        let dir = vec.Normalized
-                        let step = vec.Length / float PRo3D.Config.sampleCount
-                        let points = [ 
-                          for s in 0 .. PRo3D.Config.sampleCount do
-                            let p = newSegment.startPoint + dir * (float s) * step // world space
-                            match samplePoint p with
-                              | None -> ()
-                              | Some projectedPoint -> yield projectedPoint
-                        ]
-                        let newSegment = { startPoint = a; endPoint = p; points = IndexList.ofList points }
-                        { annotation with segments = IndexList.add newSegment annotation.segments }, None
-                | Projection.Linear ->
-                    annotation, None
-                | _ -> failwith "case does not exist"            
-            result 
-          | None ->  //no working state, start new working annotation
-            { 
-                //annotation states should be immutable after creation
-                //(Annotation.make model.projection model.geometry model.semantic surfaceName)  
-                //    with points = IndexList.ofList [p]; modelTrafo = Trafo3d.Translation p
-                (Annotation.make model.projection model.geometry model.color model.thickness surfaceName)
-                    with points = IndexList.ofList [p]; modelTrafo = Trafo3d.Translation p
-            }, None
+        let working, newSegment = 
+            match model.working with
+            | Some w ->     
+                let annotation = { w with points = w.points |> IndexList.add p }
+                Log.line "working contains %d points" annotation.points.Count
+                
+                //fetch current drawing segment (projected, polyline or polygon)
+                let result = 
+                    match w.projection with
+                    | Projection.Viewpoint | Projection.Sky ->                     
+                        match IndexList.tryAt (IndexList.count w.points-1) w.points with
+                        | None -> 
+                            annotation, None
+                        | Some a -> 
+                            let segmentIndex = IndexList.count annotation.segments
+                            let newSegment = { startPoint = a; endPoint = p; points = IndexList.ofList [a;p] }
+                            
+                            if PRo3D.Config.useAsyncIntersections then
+                                { annotation with segments = IndexList.add newSegment annotation.segments }, Some (newSegment,segmentIndex)
+                            else
+                                let vec = newSegment.endPoint - newSegment.startPoint
+                                let dir = vec.Normalized
+                                let step = vec.Length / float PRo3D.Config.sampleCount
+                                let points = [ 
+                                    for s in 0 .. PRo3D.Config.sampleCount do
+                                        let p = newSegment.startPoint + dir * (float s) * step // world space
+                                        match samplePoint p with
+                                        | None -> ()
+                                        | Some projectedPoint -> yield projectedPoint
+                                ]
+                                let newSegment = { startPoint = a; endPoint = p; points = IndexList.ofList points }
+                                { annotation with segments = IndexList.add newSegment annotation.segments }, None
+                    | Projection.Linear ->
+                        annotation, None
+                    | _ -> failwith "case does not exist"            
+                result 
+            | None ->  //no working state, start new working annotation
+                { 
+                    //annotation states should be immutable after creation
+                    //(Annotation.make model.projection model.geometry model.semantic surfaceName)  
+                    //    with points = IndexList.ofList [p]; modelTrafo = Trafo3d.Translation p
+                    (Annotation.make model.projection model.geometry model.color model.thickness surfaceName)
+                        with points = IndexList.ofList [p]; modelTrafo = Trafo3d.Translation p
+                }, None
       
-      //let text = 
-      //      match model.geometry with
-      //          | Geometry.Point -> "x:" + p.X.ToString() + ", y:" + p.Y.ToString() + ", z:" + p.Z.ToString()
-      //          | _ -> ""
-      //let working' = { working with text = text }
-      let model = { model with working = Some working }
-
-      match (working.geometry, (working.points |> IndexList.count)) with
-          | Geometry.Point, 1 -> 
-              Log.line "Picked single point at: %A" (working.points |> IndexList.tryFirst).Value
-              finishAndAppendAndSend up north planet view model bc, None
-          | Geometry.Line, 2 -> 
-              finishAndAppendAndSend up north planet view model bc, None
-          | _ -> 
-              model, newSegment // returns current segment for async computations outside
+        //let text = 
+        //      match model.geometry with
+        //          | Geometry.Point -> "x:" + p.X.ToString() + ", y:" + p.Y.ToString() + ", z:" + p.Z.ToString()
+        //          | _ -> ""
+        //let working' = { working with text = text }
+        let model = { model with working = Some working }
+        
+        match (working.geometry, (working.points |> IndexList.count)) with
+        | Geometry.Point, 1 -> 
+            Log.line "Picked single point at: %A" (working.points |> IndexList.tryFirst).Value
+            finishAndAppendAndSend up north planet view model bc, None
+        | Geometry.TT, 2 | Geometry.Line, 2 -> 
+            finishAndAppendAndSend up north planet view model bc, None
+        | _ -> 
+            model, newSegment 
 
     let addNewSegment samplePoint model (newSegment : Segment, segmentIndex : int) =
         let dir = newSegment.endPoint - newSegment.startPoint

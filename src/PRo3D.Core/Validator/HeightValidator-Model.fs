@@ -126,7 +126,7 @@ module HeightValidatorModel =
         let lower = validator.lower
         let upper = validator.upper
        
-        let cooHeightPos = PRo3D.Base.CooTransformation.getElevation' Planet.Mars lower
+        let cooHeightPos   = PRo3D.Base.CooTransformation.getElevation' Planet.Mars lower
         let cooHeightUpper = PRo3D.Base.CooTransformation.getElevation' Planet.Mars upper
 
         let geographic = cooHeightUpper - cooHeightPos
