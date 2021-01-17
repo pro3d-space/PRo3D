@@ -265,6 +265,7 @@ module DrawingApp =
         (smallConfig : SmallConfig<'a> ) 
         (webSocket   : BlockingCollection<string>) 
         (view        : CameraView) 
+        (shiftFlag   : bool)
         (model       : DrawingModel) 
         (act         : DrawingAction) =
 
@@ -273,10 +274,10 @@ module DrawingApp =
             { model with draw = true }
         | StopDrawing, _, false -> 
             { model with draw = false; hoverPosition = None; pick = false }
-        | StartPicking, _, _ ->                                 
+        | StartPicking, _, _ ->                                       
             { model with pick = true }
         | StopPicking, _, _ -> 
-            { model with pick = false}
+            { model with pick = false}        
         | DrawingAction.Move p, true, false -> 
             { model with hoverPosition = Some (Trafo3d.Translation p) }
         | AddPointAdv (point, hitFunction, name), true, false ->
@@ -362,9 +363,13 @@ module DrawingApp =
             match (model.annotations.flat.TryFind id) with
             | Some (Leaf.Annotations ann) ->       
                             
+                Log.error "[DrawingApp] shiftflag is %A" shiftFlag
                 // { model with annotations = Groups.addSingleSelectedLeaf model.annotations list.Empty ann.key "" }              
                 let annotations =
-                    GroupsApp.update model.annotations (GroupsAppAction.AddLeafToSelection(List.empty, ann.key, String.Empty))
+                    if shiftFlag then
+                        GroupsApp.update model.annotations (GroupsAppAction.AddLeafToSelection(List.empty, ann.key, String.Empty))
+                    else 
+                        GroupsApp.update model.annotations (GroupsAppAction.SingleSelectLeaf(List.empty, ann.key, String.Empty))
                     
                 { model with annotations = annotations }
 

@@ -122,6 +122,8 @@ let main argv =
     PatchLod.useAsyncLoading <- (argv |> Array.contains "-sync" |> not)
     let startEmpty = (argv |> Array.contains "-empty")
 
+    UI.enabletoolTips <- (argv |> Array.contains "-notooltips" |> not)
+
     // main app
     //use form = new Form(Width = 1280, Height = 800)
     let cts = new CancellationTokenSource()

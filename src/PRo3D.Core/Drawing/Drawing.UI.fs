@@ -141,7 +141,7 @@ module UI =
                             ]
                             yield Incremental.i visibleIcon AList.empty 
                                 |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
-                            yield i [clazz "binoculars icon"; onClick (fun _ -> FlyToAnnotation a.key)][] 
+                            yield i [clazz "home icon"; onClick (fun _ -> FlyToAnnotation a.key)][] 
                                 |> UI.wrapToolTip DataPosition.Bottom "FlyTo"
                         } 
                     )
