@@ -24,7 +24,7 @@ let outDirs = [ @"bin\Debug\netcoreapp3.1"; @"bin\Release\netcoreapp3.1"]
 let resources = 
     [
         //"lib\Dependencies\PRo3D.Base\windows"; // currently handled by native dependency injection mechanism 
-        "lib/groupmappings"
+        //"lib/groupmappings"
     ]
 
 
@@ -93,8 +93,6 @@ Target.create "Publish" (fun _ ->
             Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=true -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
             Configuration = DotNet.BuildConfiguration.Release
-            OutputPath = Some @"F:\pro3d\openPro3d\bin\publish"
-
         }
     )
 

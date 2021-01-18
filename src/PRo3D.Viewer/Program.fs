@@ -72,27 +72,16 @@ let rec allFiles dirs =
    
 [<EntryPoint;STAThread>]
 let main argv = 
-    //Xilium.CefGlue.ChromiumUtilities.unpackCef()
-    //Chromium.init argv        
-
     let startupArgs = (CommandLine.parseArguments argv)
-// check if there are command line arguments, and if they are valid    
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
     
-    Aardvark.Base.Report.Verbosity <- 1000
-    
-
-    Aardvark.UnpackNativeDependencies(typeof<JR.InstrumentPlatforms>.Assembly)
     let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
-
     Log.line "Running with AppData: %s" appData
+
+    Aardium.init()      
+    
     Aardvark.Init()
-
     CooTransformation.initCooTrafo appData
-
-
-    Aardium.init()        
-
 
     //use app = new VulkanApplication()
     use app = new OpenGlApplication()

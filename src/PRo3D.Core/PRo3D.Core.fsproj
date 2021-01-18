@@ -23,6 +23,7 @@
     <OutputPath>..\..\bin\Release\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="resources/groupmappings" />
     <Compile Include="Config.fs" />
     <Compile Include="Core-Types.fs" />
     <Compile Include="ReferenceSystem-Model.fs" />

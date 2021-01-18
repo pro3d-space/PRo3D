@@ -22,17 +22,22 @@ module DrawingUtilities =
     open Aardvark.Application
     open Aardvark.UI
     open System
-    
+    open System.IO
+
     open PRo3D
+
+    type private Self = Self
     
      //(semanticsModel : CorrelationDrawing.SemanticTypes.SemanticsModel)
 
     module CorrelationHelpers =        
 
         let tryReadGroupMappingsFile() : option<HashMap<string,SemanticId>> =
-            if System.IO.File.Exists "groupmappings" then
+            let stream = typeof<Self>.Assembly.GetManifestResourceStream "PRo3D.Core.resources.groupmappings"
+            if stream <> null then
+                use s = new StreamReader(stream)
                 let lines = 
-                    File.readAllLines "groupmappings"
+                    s.ReadToEnd().Split(System.Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
                     |> List.ofArray
                     |> List.map(fun x -> 
                         let line = x |> String.split '='
