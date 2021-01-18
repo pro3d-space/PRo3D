@@ -32,7 +32,6 @@ module Csv =
         color         : string
         thickness     : float        
 
-
         points        : int
         height        : float
         heightDelta   : float
@@ -41,6 +40,9 @@ module Csv =
         dipAngle      : float
         dipAzimuth    : float
         strikeAzimuth : float
+
+        manualDip     : float
+        trueThickness : float
 
         errorAvg      : float
         errorMin      : float
@@ -57,7 +59,7 @@ module Csv =
         z             : double
     }
 
-    let exportAnnotation (lookUp) (a: Annotation) =
+    let exportAnnotation (lookUp) (a: Annotation) : ExportAnnotation =
       
         let results = 
             match a.results with
@@ -130,6 +132,9 @@ module Csv =
             errorMax     = dnsResults.errorMax
             errorStd     = dnsResults.errorStd
             sumOfSquares = dnsResults.errorSos
+
+            manualDip     = a.manualDipAngle.value
+            trueThickness = results.trueThickness
             
             text          = a.text;
             groupName     = lookUp |> HashMap.tryFind a.key |> Option.defaultValue("")

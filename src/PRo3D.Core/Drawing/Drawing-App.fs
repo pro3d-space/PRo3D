@@ -393,7 +393,8 @@ module DrawingApp =
                 |> Leaf.toAnnotations
                 |> HashMap.toList 
                 |> List.map snd
-                |> List.map (Csv.exportAnnotation lookups)                  
+                |> List.filter(fun a -> a.visible)
+                |> List.map (Csv.exportAnnotation lookups)
             
             let csvTable = Csv.Seq.csv "," true id annotations
             if p.IsEmptyOrNull() |> not then Csv.Seq.write (p) csvTable

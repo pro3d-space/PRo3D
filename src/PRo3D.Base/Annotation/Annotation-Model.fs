@@ -291,13 +291,11 @@ with
             do! Json.writeFloat "trueThickness" x.trueThickness
         }
 
-module AnnotationResults =
-    let current = 0
-    //conversion
+module AnnotationResults =    
     
     let initial = 
         {
-            version       = current
+            version       = AnnotationResults.current
             height        = Double.NaN
             heightDelta   = Double.NaN
             avgAltitude   = Double.NaN
