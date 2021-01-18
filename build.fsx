@@ -13,12 +13,12 @@ open Fake.IO.Globbing.Operators
 open System.Runtime.InteropServices
 open Fake.DotNet
 
-//do MSBuildDefaults <- { MSBuildDefaults with Verbosity = Some Minimal }
+open Fake.IO
+open Fake.Api
+
 do Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 
-
-open Fake.IO
-
+let notes = ReleaseNotes.load "RELEASE_NOTES.md"
 
 let outDirs = [ @"bin\Debug\netcoreapp3.1"; @"bin\Release\netcoreapp3.1"]
 let resources = 
@@ -81,9 +81,24 @@ Target.create "Credits" (fun _ ->
 )
 
 
+let r = System.Text.RegularExpressions.Regex("let viewerVersion.*=.*\"(.*)\"")
+let test = """let viewerVersion       = "3.1.3" """
+
 Target.create "Publish" (fun _ ->
-    //if Directory.Exists "bin/publish" then 
-    //    Directory.Delete("bin/publish", true)
+
+    // 0.0 copy version over into source code...
+    let programFs = File.ReadAllLines "src/PRo3D.Viewer/Program.fs"
+    let patched = 
+        programFs 
+        |> Array.map (fun line -> 
+            if line.StartsWith "let viewerVersion" then 
+                sprintf "let viewerVersion       = \"%s\"" notes.NugetVersion 
+            else line
+        )
+    File.WriteAllLines("src/PRo3D.Viewer/Program.fs", patched)
+
+    if Directory.Exists "bin/publish" then 
+        Directory.Delete("bin/publish", true)
 
     // 1. publish exe
     "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
@@ -93,11 +108,13 @@ Target.create "Publish" (fun _ ->
             Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=true -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
             Configuration = DotNet.BuildConfiguration.Release
+            VersionSuffix = Some notes.NugetVersion
+            OutputPath = Some "bin/publish"
         }
     )
 
 
-    // 1.1, copy most likely missing c++ libs
+    // 1.1, copy most likely missing c++ libs, currently no reports of missing runtime libs
     //for dll in Directory.EnumerateFiles("data/runtime", "*.dll") do 
     //    let fileName = Path.GetFileName dll
     //    let target = Path.Combine("bin/publish/",fileName)
@@ -107,9 +124,10 @@ Target.create "Publish" (fun _ ->
     // 2, copy licences
     File.Copy("CREDITS.MD", "bin/publish/CREDITS.MD", true)
 
-    // 3, resources
-    copyResources ["bin/publish"] 
+    // 3, resources (currently everything included)
+    // copyResources ["bin/publish"] 
 
+    File.Move("bin/publish/PRo3D.Viewer.exe", sprintf "bin/publish/PRo3D.Viewer.%s.exe" notes.NugetVersion)
 )
 
 "Credits" ==> "Publish"
@@ -176,7 +194,7 @@ Target.create "CompileInstruments" (fun _ ->
 
     "src/InstrumentPlatforms/JR.Wrappers.sln"|> DotNet.build (fun o ->
         { o with
-            NoRestore = true 
+            NoRestore = false 
             Configuration = DotNet.BuildConfiguration.Debug
             MSBuildParams =
                 { o.MSBuildParams with
@@ -188,7 +206,7 @@ Target.create "CompileInstruments" (fun _ ->
 
     "src/InstrumentPlatforms/JR.Wrappers.sln"|> DotNet.build (fun o ->
         { o with
-            NoRestore = true 
+            NoRestore = false 
             Configuration = DotNet.BuildConfiguration.Release
             MSBuildParams =
                 { o.MSBuildParams with
@@ -206,13 +224,31 @@ Target.create "CopyJRWRapper" (fun _ ->
 )
 
 
+
 "CompileInstruments" ==> "AddNativeResources"
 "AddNativeResources" ==> "CopyJRWrapper" ==> "Publish"
+
+
+
+Target.create "GitHubRelease" (fun _ ->
+    let token =
+        match Environment.environVarOrDefault "github_token" "" with
+        | s when not (System.String.IsNullOrWhiteSpace s) -> s
+        | _ -> failwith "please set the github_token environment variable to a github personal access token with repro access."
+
+    let files = System.IO.Directory.EnumerateFiles("bin/publish") 
+
+    GitHub.createClientWithToken token
+    |> GitHub.draftNewRelease "vrvis" "PRo3D" notes.NugetVersion (notes.SemVer.PreRelease <> None) notes.Notes
+    |> GitHub.uploadFiles files
+    |> GitHub.publishDraft
+    |> Async.RunSynchronously)
 
 #if DEBUG
 do System.Diagnostics.Debugger.Launch() |> ignore
 #endif
 
+"Publish" ==> "GithubRelease"
 
 entry()
 

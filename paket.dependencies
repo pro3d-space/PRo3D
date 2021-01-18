@@ -49,7 +49,9 @@ nuget RestSharp                             ~> 106.6.9
 group Build
 framework: netstandard2.0
 
-nuget Fake.IO.FileSystem
-
 source https://api.nuget.org/v3/index.json
 github aardvark-platform/aardvark.fake:v5
+
+nuget Fake.IO.FileSystem
+nuget Fake.Api.GitHub
+nuget Fake.Core.ReleaseNotes
