@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
@@ -7,8 +7,20 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <GenerateLenses>True</GenerateLenses>
-    <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
   </PropertyGroup>
+  
+  <PropertyGroup>
+    <InPublish>False</InPublish>
+  </PropertyGroup>
+  
+  <PropertyGroup Condition="$(InPublish)">
+    <!-- this is replaced by build script-->
+    <PublishSingleFile>true</PublishSingleFile>
+    <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
+    <!--<PublishTrimmed>true</PublishTrimmed>-->
+  </PropertyGroup>
+
+  
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>..\..\bin\Debug\</OutputPath>
   </PropertyGroup>
@@ -49,9 +61,7 @@
     <Compile Include="RemoteControlModel.fs" />
     <Compile Include="RemoteControlApp.fs" />
     <Compile Include="Program.fs" />
-    <None Include="resources\HueColorMap.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+    <EmbeddedResource Include="resources\HueColorMap.png"/>
     <EmbeddedResource Include="resources\spectrum.js">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </EmbeddedResource>
@@ -69,6 +79,11 @@
     <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
     <ProjectReference Include="..\PRo3D.Minerva\PRo3D.Minerva.fsproj" />
     <ProjectReference Include="..\PRo3D.SimulatedViews\PRo3D.SimulatedViews.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="JR.Wrappers">
+      <HintPath>..\..\lib\JR.Wrappers.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

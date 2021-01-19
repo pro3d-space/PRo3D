@@ -9,16 +9,18 @@ open Aardvark.Base
 open Aardvark.UI
 open IPWrappers
 
+open JR
+
 module RoverProvider =
 
-    let toInstrument i (inst : ViewPlanner.SInstrument) = 
+    let toInstrument i (inst : InstrumentPlatforms.SInstrument) = 
         let pos    = inst.m_oInstrumentExtrinsics.m_oPosition.ToV3d()
         let up     = inst.m_oInstrumentExtrinsics.m_oUp.ToV3d()
         let lookAt = inst.m_oInstrumentExtrinsics.m_oLookAt.ToV3d()
         let box    = inst.m_oInstrumentExtrinsics.m_oBoundingBox.ToBox3d()
 
         let focals = 
-            ViewPlanner.UnMarshalArray<double>(
+            JR.InstrumentPlatforms.UnMarshalArray<double>(
                     inst.m_pdCalibratedFocalLengths, (int)inst.m_nNrOfCalibratedFocalLengths) 
 
         let extrinsics =
@@ -66,7 +68,7 @@ module RoverProvider =
 
         instrument
 
-    let toInstruments (instruments : ViewPlanner.SInstrument[]) : list<Instrument> = 
+    let toInstruments (instruments : InstrumentPlatforms.SInstrument[]) : list<Instrument> = 
         instruments |> Array.mapi toInstrument |> Array.toList
        
     let shiftNumericInput shift (input:NumericInput)= 
@@ -92,7 +94,7 @@ module RoverProvider =
         else 
             axis
 
-    let toAxes (axes : ViewPlanner.SAxis[]) : list<Axis> =
+    let toAxes (axes : InstrumentPlatforms.SAxis[]) : list<Axis> =
         axes |> Array.mapi(fun i x->
             { 
                 index        = i
@@ -111,21 +113,21 @@ module RoverProvider =
 
             }) |> Array.map axisHack |> Array.toList
 
-    let toRover (platform : ViewPlanner.SPlatform) =
+    let toRover (platform : InstrumentPlatforms.SPlatform) =
         let wheels = 
-            ViewPlanner.UnMarshalArray<ViewPlanner.SPoint3D>(
+            InstrumentPlatforms.UnMarshalArray<InstrumentPlatforms.SPoint3D>(
                 platform.m_poPointsOnGround, 
                 (int)platform.m_nNrOfPlatformPointsOnGround
             ).ToV3ds()
                        
         let axes = 
-            ViewPlanner.UnMarshalArray<ViewPlanner.SAxis>(
+            InstrumentPlatforms.UnMarshalArray<InstrumentPlatforms.SAxis>(
                 platform.m_poPlatformAxes, 
                 (int)platform.m_nNrOfPlatformAxes) 
             |> toAxes
 
         let instruments = 
-            ViewPlanner.UnMarshalArray<ViewPlanner.SInstrument>(
+            InstrumentPlatforms.UnMarshalArray<InstrumentPlatforms.SInstrument>(
                 platform.m_poPlatformInstruments, 
                 (int)platform.m_nNrOfPlatformInstruments) 
             |> toInstruments
@@ -140,32 +142,32 @@ module RoverProvider =
         }
         
     let platformNames () =
-        let numberOfPlatforms = ViewPlanner.GetNrOfAvailablePlatforms();
+        let numberOfPlatforms = InstrumentPlatforms.GetNrOfAvailablePlatforms();
         Log.line "Number of Plattforms: %d" numberOfPlatforms
     
         let pointerArray : IntPtr array = Array.zeroCreate (int numberOfPlatforms)
-        ViewPlanner.GetAvailablePlatforms(pointerArray, numberOfPlatforms);
+        InstrumentPlatforms.GetAvailablePlatforms(pointerArray, numberOfPlatforms);
        
         pointerArray |> Array.map(fun x -> Marshal.PtrToStringAnsi(x))
 
     let initRover platformId =
         //Get various counts to initialize respective arrays
         let numWheelPoints = uint32 6 // IPWrapper.GetNrOfPlatformPointsOnGround(platformId)
-        let nuAdaptiveInstruments = ViewPlanner.GetNrOfPlatformInstruments(platformId)
-        let nuAdaptiveAxis =        ViewPlanner.GetNrOfPlatformAxes(platformId)
+        let nuAdaptiveInstruments = InstrumentPlatforms.GetNrOfPlatformInstruments(platformId)
+        let nuAdaptiveAxis =        InstrumentPlatforms.GetNrOfPlatformAxes(platformId)
 
         Log.line "Initialising %A" platformId
         Log.line "Wheels: %d, Instruments: %d, Axes: %d" numWheelPoints nuAdaptiveInstruments nuAdaptiveAxis
 
         //create and empty platform struct to be filled by the backend
         let mutable platform = 
-            ViewPlanner.SPlatform.CreateEmpty(numWheelPoints, nuAdaptiveInstruments, nuAdaptiveAxis)
+            InstrumentPlatforms.SPlatform.CreateEmpty(numWheelPoints, nuAdaptiveInstruments, nuAdaptiveAxis)
 
         //crucial for backend to know which platform / rover to take
         platform.m_pcPlatformId <- platformId.ToPtr();
 
         //init platform writes values into platform reference
-        let errorCode = ViewPlanner.InitPlatform(ref platform, numWheelPoints, nuAdaptiveInstruments, nuAdaptiveAxis)
+        let errorCode = InstrumentPlatforms.InitPlatform(ref platform, numWheelPoints, nuAdaptiveInstruments, nuAdaptiveAxis)
         if (errorCode <> 0) then failwith "init platform failed" else ()
 
         //convert initialised platform to rover and add to database
@@ -184,7 +186,7 @@ module RoverApp =
         //| SelectAxis       of option<Axis>
 
     let updateRoversAndPlatforms p m shift =
-        let error = IPWrappers.ViewPlanner.UpdatePlatform(ref p)
+        let error = InstrumentPlatforms.UpdatePlatform(ref p)
         match error with
           | 0 ->
             let r'         = p |> RoverProvider.toRover
@@ -201,10 +203,10 @@ module RoverApp =
         let r = m.rovers |> HashMap.find up.roverId    
         let mutable p = m.platforms |> HashMap.find up.roverId       
         let i = r.instruments|> HashMap.find up.instrumentId
-        let mutable pInstruments = ViewPlanner.UnMarshalArray<ViewPlanner.SInstrument>(p.m_poPlatformInstruments)
+        let mutable pInstruments = InstrumentPlatforms.UnMarshalArray<InstrumentPlatforms.SInstrument>(p.m_poPlatformInstruments)
 
         pInstruments.[i.index].m_dCurrentFocalLengthInMm <- up.focal
-        ViewPlanner.MarshalArray(pInstruments, p.m_poPlatformInstruments)
+        InstrumentPlatforms.MarshalArray(pInstruments, p.m_poPlatformInstruments)
 
         updateRoversAndPlatforms p m false    
 
@@ -213,7 +215,7 @@ module RoverApp =
         let r = m.rovers |> HashMap.find up.roverId    
         let mutable p = m.platforms |> HashMap.find up.roverId       
         let a = r.axes |> HashMap.find up.axisId
-        let mutable pAxes = ViewPlanner.UnMarshalArray<ViewPlanner.SAxis>(p.m_poPlatformAxes)
+        let mutable pAxes = InstrumentPlatforms.UnMarshalArray<InstrumentPlatforms.SAxis>(p.m_poPlatformAxes)
 
         //let up = { up with angle = -up.angle}
 
@@ -224,7 +226,7 @@ module RoverApp =
                                 up.angle, false
 
         pAxes.[a.index].m_fCurrentAngle <- angle.GonsFromDegrees() //up.angle.GonsFromDegrees()
-        ViewPlanner.MarshalArray(pAxes, p.m_poPlatformAxes)        
+        InstrumentPlatforms.MarshalArray(pAxes, p.m_poPlatformAxes)        
         
         updateRoversAndPlatforms p m shift
             

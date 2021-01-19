@@ -34,13 +34,16 @@ open Adaptify.FSharp.Core
 open OpcViewer.Base.Shader
 
 module ViewerUtils =    
+    type Self = Self
 
     //let _surfaceModelLens = Model.Lens.scene |. Scene.Lens.surfacesModel
     //let _flatSurfaces = Scene.Lens.surfacesModel |. SurfaceModel.Lens.surfaces |. GroupsModel.Lens.flat
         
     let colormap = 
         let config = { wantMipMaps = false; wantSrgb = false; wantCompressed = false }
-        FileTexture("resources/HueColorMap.png",config) :> ITexture    
+        let s = typeof<Self>.Assembly.GetManifestResourceStream("PRo3D.Viewer.resources.HueColorMap.png")
+        let pi = PixImage.Create(s)
+        PixTexture2d(PixImageMipMap [| pi |], true) :> ITexture    
     
     let toModSurface (leaf : AdaptiveLeafCase) = 
          adaptive {

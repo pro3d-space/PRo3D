@@ -60,7 +60,7 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "3.1.3"
+let viewerVersion       = "3.2.1-prerelease"
 let catchDomainErrors   = false
 
 open System.IO
@@ -72,23 +72,23 @@ let rec allFiles dirs =
    
 [<EntryPoint;STAThread>]
 let main argv = 
-    //Xilium.CefGlue.ChromiumUtilities.unpackCef()
-    //Chromium.init argv        
-
     let startupArgs = (CommandLine.parseArguments argv)
-// check if there are command line arguments, and if they are valid    
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
     
+    let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
+    Log.line "Running with AppData: %s" appData
 
+    Aardium.init()      
+    
     Aardvark.Init()
-    Aardium.init()        
+    CooTransformation.initCooTrafo appData
 
     //use app = new VulkanApplication()
     use app = new OpenGlApplication()
     let runtime = app.Runtime    
 
     Aardvark.Rendering.GL.RuntimeConfig.SupressSparseBuffers <- true
-    app.ShaderCachePath <- None
+    //app.ShaderCachePath <- None
 
     Sg.hackRunner <- runtime.CreateLoadRunner 2 |> Some
 
@@ -175,7 +175,6 @@ let main argv =
     let s = { MailboxState.empty with update = mainApp.update Guid.Empty }
     MailboxAction.InitMailboxState s |> messagingMailbox.Post
     
-    CooTransformation.initCooTrafo () // should be a function not a value
     
     //let domainError (sender:obj) (args:UnhandledExceptionEventArgs) =
     //    let e = args.ExceptionObject :?> Exception;
@@ -259,6 +258,5 @@ let main argv =
     }
 
     CooTransformation.deInitCooTrafo ()
-    // Log.line "[Viewer] Could not deinit CooTrafo."
     0
  

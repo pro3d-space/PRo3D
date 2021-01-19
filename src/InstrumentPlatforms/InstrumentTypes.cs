@@ -1,14 +1,23 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.InteropServices;
-using Aardvark.Base;
 using System.Text;
-using System.Threading.Tasks;
+using System.Runtime.InteropServices;
+using System.Linq;
 
-namespace IPWrappers
+namespace JR
 {
-    public static partial class ViewPlanner
+    public static class ArrayExtensions
+    {
+        public static T[] Set<T>(this T[] array, T defaultVaue)
+        {
+            for (int i = 0; i < array.Length; i++)
+            {
+                array[i] = defaultVaue;
+            }
+            return array;
+        }
+    }
+    public static partial class InstrumentPlatforms
     {
         public const string NotSet = "NotSet";
 
@@ -34,12 +43,12 @@ namespace IPWrappers
             {
                 return new SPoint3D()
                 {
-                    m_dX = 1.0,
-                    m_dY = 2.0,
-                    m_dZ = 3.0
+                    m_dX = 0.0,
+                    m_dY = 0.0,
+                    m_dZ = 0.0
                 };
             }
-        };      
+        };
 
         [StructLayout(LayoutKind.Sequential)]
         public struct SVector3D
@@ -52,9 +61,9 @@ namespace IPWrappers
             {
                 return new SVector3D()
                 {
-                    m_dX = double.NaN,
-                    m_dY = double.NaN,
-                    m_dZ = double.NaN
+                    m_dX = 0,
+                    m_dY = 0,
+                    m_dZ = 0
                 };
             }
         };
@@ -155,7 +164,7 @@ namespace IPWrappers
 
             public double m_dFieldOfViewH;
             public double m_dFieldOfViewV;
-          
+
             public double m_dPrinciplePointH;
             public double m_dPrinciplePointV;
             public double m_dFocalLengthPerPxH;
@@ -217,7 +226,7 @@ namespace IPWrappers
         {
             public IntPtr m_pcInstrumentName;
             public uint m_nNrOfCalibratedFocalLengths;
-            
+
             public IntPtr m_pdCalibratedFocalLengths; //double
             public double m_dCurrentFocalLengthInMm;
 
@@ -280,14 +289,14 @@ namespace IPWrappers
                     m_oPlatform2Ground = STransformation.Default(),
                     m_oBoundingBox = SBoundingBox.Default(),
 
-                  //  m_nNrOfPlatformPointsOnGround = numberPointsOnGround,
-                  //  m_poPointsOnGround = MarshalArray(pointsArray),
+                    //  m_nNrOfPlatformPointsOnGround = numberPointsOnGround,
+                    //  m_poPointsOnGround = MarshalArray(pointsArray),
 
-                 //   m_nNrOfPlatformInstruments = numberOfInstruments,
-                  //  m_poPlatformInstruments = MarshalArray(instrumentsArray),
+                    //   m_nNrOfPlatformInstruments = numberOfInstruments,
+                    //  m_poPlatformInstruments = MarshalArray(instrumentsArray),
 
-                  //  m_nNrOfPlatformAxes = numberOfAxes,
-                  //  m_poPlatformAxes = axisArray_m
+                    //  m_nNrOfPlatformAxes = numberOfAxes,
+                    //  m_poPlatformAxes = axisArray_m
                 };
             }
 
@@ -299,7 +308,7 @@ namespace IPWrappers
 
                 var childPointers = s_childPointerLut[axisArray_m];
                 var instrumentsArray = new SInstrument[numberOfInstruments].Set(SInstrument.Default(childPointers));
-              
+
                 return new SPlatform()
                 {
                     m_pcPlatformId = NotSet.ToPtr(),
@@ -369,7 +378,7 @@ namespace IPWrappers
                 intPtrs[i] = runningPtr;
                 Marshal.StructureToPtr(input[i], runningPtr, false);
                 runningPtr = new IntPtr((long)runningPtr + sizeOfOne);
-            }        
+            }
         }
 
         //public static T[] UnMarshalArray<T>(ArrayBuffer input) where T : struct
@@ -390,7 +399,7 @@ namespace IPWrappers
 
             for (int i = 0; i < count; i++)
             {
-                outputArray[i] = (T)Marshal.PtrToStructure(elements[i], typeof(T));                
+                outputArray[i] = (T)Marshal.PtrToStructure(elements[i], typeof(T));
             }
 
             return outputArray;

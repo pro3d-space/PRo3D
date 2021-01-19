@@ -1,11 +1,22 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <OutputType>Exe</OutputType>
     <GenerateLenses>True</GenerateLenses>
+    <!--<RuntimeIdentifier>win10-x64</RuntimeIdentifier>-->
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <InPublish>False</InPublish>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$(InPublish)">
+    <!-- this is replaced by build script-->
+    <PublishSingleFile>true</PublishSingleFile>
     <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
   </PropertyGroup>
+  
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>..\..\bin\Debug\</OutputPath>
   </PropertyGroup>
