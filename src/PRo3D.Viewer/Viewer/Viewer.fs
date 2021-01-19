@@ -1512,10 +1512,11 @@ module ViewerApp =
 
     let view (m: AdaptiveModel) = //(localhost: string)
        
-        let myCss = [
+        let viewerDependencies = [
             { kind = Stylesheet;  name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.css" }
             { kind = Stylesheet;  name = "semui-overrides"; url = "semui-overrides.css" }
             { kind = Script;      name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.js" }
+            { kind = Script;      name = "errorReporting";  url = "./errorReporting.js"  }
         ]
         
         let bodyAttributes = [style "background: #1B1C1E; height:100%; overflow-y:scroll; overflow-x:hidden;"] //overflow-y : visible
@@ -1553,7 +1554,7 @@ module ViewerApp =
         page (fun request -> 
             match Map.tryFind "page" request.queryParams with
             | Some "instrumentview" ->
-                require (myCss) (
+                require (viewerDependencies) (
                     body [ style "background: #1B1C1E; width:100%; height:100%; overflow-y:auto; overflow-x:auto;"] [
                       Incremental.div instrumentViewAttributes (
                         alist {
@@ -1563,7 +1564,7 @@ module ViewerApp =
                     ]
                 )
             | Some "render" -> 
-                require (myCss) (
+                require (viewerDependencies) (
                     body renderViewAttributes [ //[ style "background: #1B1C1E; height:100%; width:100%"] [
                         //div [style "background:#000;"] [
                         Incremental.div (AttributeMap.ofList[style "background:#000;"]) (
@@ -1580,20 +1581,20 @@ module ViewerApp =
                     ]                
                 )
             | Some "surfaces" -> 
-                require (myCss) (
+                require (viewerDependencies) (
                     body bodyAttributes
                         [SurfaceApp.surfaceUI m.scene.surfacesModel |> UI.map SurfaceActions] 
                 )
             | Some "annotations" -> 
-                require (myCss) (body bodyAttributes [Gui.Annotations.annotationUI m])
+                require (viewerDependencies) (body bodyAttributes [Gui.Annotations.annotationUI m])
             | Some "validation" -> 
-                require (myCss) (body bodyAttributes [HeightValidatorApp.viewUI m.heighValidation |> UI.map HeightValidation])
+                require (viewerDependencies) (body bodyAttributes [HeightValidatorApp.viewUI m.heighValidation |> UI.map HeightValidation])
             | Some "bookmarks" -> 
-                require (myCss) (body bodyAttributes [Gui.Bookmarks.bookmarkUI m])
+                require (viewerDependencies) (body bodyAttributes [Gui.Bookmarks.bookmarkUI m])
             | Some "config" -> 
-                require (myCss) (body bodyAttributes [Gui.Config.configUI m])
+                require (viewerDependencies) (body bodyAttributes [Gui.Config.configUI m])
             | Some "viewplanner" -> 
-                require (myCss) (body bodyAttributes [Gui.ViewPlanner.viewPlannerUI m])
+                require (viewerDependencies) (body bodyAttributes [Gui.ViewPlanner.viewPlannerUI m])
             | Some "minerva" -> 
                //let pos = m.scene.navigation.camera.view |> AVal.map(fun x -> x.Location)
                 let minervaItems = 
@@ -1606,11 +1607,11 @@ module ViewerApp =
                         ]
                     ]
 
-                require (myCss @ Html.semui) (
+                require (viewerDependencies @ Html.semui) (
                     body bodyAttributes (minervaItems @ linkingItems)
                 )
             | Some "linking" ->
-                require (myCss) (
+                require (viewerDependencies) (
                     body bodyAttributes [
                         LinkingApp.viewHorizontalBar m.minervaModel.session.selection.highlightedFrustra m.linkingModel |> UI.map LinkingActions
                     ]
@@ -1630,7 +1631,7 @@ module ViewerApp =
             //            CorrelationPanelsApp.viewMappings m.correlationPlot |> UI.map CorrelationPanelMessage
             //        ] )
             | None -> 
-                require (myCss) (
+                require (viewerDependencies) (
                     body [][                    
                         Gui.TopMenu.getTopMenu m
                         div[clazz "dockingMainDings"] [

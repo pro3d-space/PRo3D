@@ -45,6 +45,8 @@ nuget Aardvark.GeoSpatial.Opc               ~> 5.2.1-prerelease0002
 nuget Chiron                                ~> 6.3.1
 nuget RestSharp                             ~> 106.6.9
 
+nuget Microsoft.Diagnostics.Runtime         ~> 2.0.1
+
 
 group Build
 framework: netstandard2.0

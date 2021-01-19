@@ -78,6 +78,9 @@ let main argv =
     let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
     Log.line "Running with AppData: %s" appData
 
+
+    let crashDumpFile = "Aardvark.log"
+
     Aardium.init()      
     
     Aardvark.Init()
@@ -198,8 +201,33 @@ let main argv =
         Reflection.assemblyWebPart typeof<EmbeddedRessource>.Assembly
        // Reflection.assemblyWebPart typeof<CorrelationDrawing.CorrelationPanelResources>.Assembly //(System.Reflection.Assembly.LoadFrom "PRo3D.CorrelationPanels.dll")
        // prefix "/instrument" >=> MutableApp.toWebPart runtime instrumentApp
-        Suave.Files.browse (IO.Directory.GetCurrentDirectory())
-        Suave.Files.browseHome        
+
+        path "/crash.txt" >=> Suave.Writers.setMimeType "text/plain" >=> request (fun r -> 
+            Files.sendFile "Aardvark.log" false
+        )
+
+        path "/minilog.txt" >=> Suave.Writers.setMimeType "text/plain" >=> request (fun r -> 
+            use s = File.Open("Aardvark.log", FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+            use r = new StreamReader(s)
+            let log = 
+                seq {
+                    while not r.EndOfStream do 
+                        let line = r.ReadLine() 
+                        if line.Contains "GetPluginAssemblyPaths" || line.Contains "[cache hit ]" then 
+                            () 
+                        else 
+                            yield line
+                } |> Seq.toArray
+            let head = Array.take (min log.Length 300) log
+            let trail = log.[max 0 (log.Length - 20) .. max 0 (log.Length - 1)]
+            let newline = """%0D%0A"""
+            let miniLog = sprintf "%s%s..truncated..%s%s" (String.concat "%0D%0A" head) newline (String.concat "%0D%0A" trail) newline
+            OK miniLog
+            //Files.sendFile "Aardvark.log" false
+        )
+        // should all be handled via embedded resources
+        //Suave.Files.browse (IO.Directory.GetCurrentDirectory())
+        //Suave.Files.browseHome        
     ] |> ignore
 
         

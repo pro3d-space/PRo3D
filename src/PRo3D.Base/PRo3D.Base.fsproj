@@ -15,6 +15,7 @@
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="ErrorReporting.fs" />
     <EmbeddedResource Include="resources\CooTransformationConfig.zip" />
     <Compile Include="MissingHelpers.fs" />
     <None Include="paket.references" />

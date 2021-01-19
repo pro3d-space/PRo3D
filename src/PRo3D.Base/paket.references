@@ -24,3 +24,5 @@ FsPickler
 FSharp.Data
 
 Chiron
+
+Microsoft.Diagnostics.Runtime

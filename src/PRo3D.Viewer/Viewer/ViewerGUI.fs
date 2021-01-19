@@ -447,7 +447,18 @@ module Gui =
                                         //    Dialogs.onChooseFiles ImportRoverPlacement;
                                         //    clientEvent "onclick" ("top.aardvark.processEvent('__ID__', 'onchoose', top.aardvark.dialog.showOpenDialog({properties: ['openFile']}));") ] [
                                         //    text "Rover Placement"
-                                        //]                                                                                                                                        
+                                        //]
+                                        
+
+                                        div [clazz "ui item"; clientEvent "onclick" "sendCrashDump()"] [
+                                            text "Send log to maintainers"
+                                        ]
+                                        a [style "visibility:hidden"; clazz "invisibleCrashButton"] []
+
+                                        //div [clazz "ui item"; onClick (fun _ ->  ViewerAction.Nop)] [
+                                        //    text "Send Crash Report"
+                                        //    a [attribute "href" "mailto:hs@pro3d.com?attach=C:\\Program Files (x86)\\ProcessExplorer\\procexp64.exe"] [text "go"]
+                                        //]
                                     ]
                                 ]
                             ] 
