@@ -15,16 +15,17 @@ open PRo3D.Core
 module AnnotationProperties = 
             
     type Action = 
-        | SetGeometry     of Geometry
-        | SetProjection   of Projection
-        | SetSemantic     of Semantic
-        | ChangeThickness of Numeric.Action
-        | ChangeColor     of ColorPicker.Action
-        | SetText         of string
-        | SetTextSize     of Numeric.Action
-        | ToggleVisible
-        | ToggleShowDns
-        | PrintPosition   
+    | SetGeometry     of Geometry
+    | SetProjection   of Projection
+    | SetSemantic     of Semantic
+    | ChangeThickness of Numeric.Action
+    | ChangeColor     of ColorPicker.Action
+    | SetText         of string
+    | SetTextSize     of Numeric.Action
+    | ToggleVisible
+    | ToggleShowDns
+    | PrintPosition   
+    | SetManualDippingAngle of Numeric.Action
        
     let horizontalDistance (points:list<V3d>) (up:V3d) = 
         match points.Length with
@@ -43,7 +44,7 @@ module AnnotationProperties =
         | _ -> 
             let a = points |> List.head
             let b = points |> List.last
-            let v = (a - b)
+            let v = (b - a)
 
             (v |> Vec.dot up.Normalized)
             
@@ -59,7 +60,7 @@ module AnnotationProperties =
             { model with thickness = Numeric.update model.thickness a }
         | SetText t ->
             { model with text = t }
-         | SetTextSize s ->
+        | SetTextSize s ->
             { model with textsize = Numeric.update model.textsize s }
         | ToggleVisible ->
             { model with visible = (not model.visible) }
@@ -76,6 +77,10 @@ module AnnotationProperties =
                 | _-> ""
             Log.line "Position: %A" p
             model
+        | SetManualDippingAngle a ->                
+            let annotation = { model with manualDipAngle = Numeric.update model.manualDipAngle a }            
+
+            annotation
 
     let view (model : AdaptiveAnnotation) = 
 
@@ -90,6 +95,7 @@ module AnnotationProperties =
                 Html.row "TextSize:"    [Numeric.view' [InputBox] model.textsize |> UI.map SetTextSize ]
                 Html.row "Visible:"     [GuiEx.iconCheckBox model.visible ToggleVisible ]
                 Html.row "Show DnS:"    [GuiEx.iconCheckBox model.showDns ToggleShowDns ]
+                Html.row "Dip Angle:"   [Numeric.view' [InputBox] model.manualDipAngle |> UI.map SetManualDippingAngle]
             ]
 
         )
@@ -103,36 +109,53 @@ module AnnotationProperties =
 
     let viewResults (model : AdaptiveAnnotation) (up:aval<V3d>) =   
         
-        let results = AVal.map AdaptiveOption.toOption model.results
-        let height   = AVal.bindOption results Double.NaN (fun a -> a.height)
-        let heightD  = AVal.bindOption results Double.NaN (fun a -> a.heightDelta)
-        let alt      = AVal.bindOption results Double.NaN (fun a -> a.avgAltitude)
-        let length   = AVal.bindOption results Double.NaN (fun a -> a.length)
-        let wLength  = AVal.bindOption results Double.NaN (fun a -> a.wayLength)
-        let bearing  = AVal.bindOption results Double.NaN (fun a -> a.bearing)
-        let slope    = AVal.bindOption results Double.NaN (fun a -> a.slope)
+        let results       = AVal.map AdaptiveOption.toOption model.results
+        let height        = AVal.bindOption results Double.NaN (fun a -> a.height)
+        let heightD       = AVal.bindOption results Double.NaN (fun a -> a.heightDelta)
+        let alt           = AVal.bindOption results Double.NaN (fun a -> a.avgAltitude)
+        let length        = AVal.bindOption results Double.NaN (fun a -> a.length)
+        let wLength       = AVal.bindOption results Double.NaN (fun a -> a.wayLength)
+        let bearing       = AVal.bindOption results Double.NaN (fun a -> a.bearing)
+        let slope         = AVal.bindOption results Double.NaN (fun a -> a.slope)
+        let trueThickness = AVal.bindOption results Double.NaN (fun a -> a.trueThickness)
 
-        let pos = AVal.map( fun x -> match x with 
-                                        | Geometry.Point -> let points = model.points |> AList.force |> IndexList.toArray
-                                                            points.[0].ToString()
-                                        | _-> "" ) model.geometry
+        let pos = 
+            AVal.map( 
+                fun x -> 
+                    match x with 
+                    | Geometry.Point -> 
+                        let points = model.points |> AList.force |> IndexList.toArray
+                        points.[0].ToString()
+                    | _ -> "" 
+            ) model.geometry
         
-        let vertDist = AVal.map( fun u -> verticalDistance   (model.points |> AList.force |> IndexList.toList) u ) up // TODO refactor: why so complicated to list stuff?
+        // TODO refactor: why so complicated to list stuff?, not incremental
+        let vertDist = AVal.map( fun u -> verticalDistance   (model.points |> AList.force |> IndexList.toList) u ) up 
         let horDist  = AVal.map( fun u -> horizontalDistance (model.points |> AList.force |> IndexList.toList) u ) up
+
+        //apparent thickness
+        //vertical thickness
+        //true thickness
       
         require GuiEx.semui (
             Html.table [   
-                Html.row "Position:"      [Incremental.text (pos   |> AVal.map  (fun d -> d))]
-                Html.row "PrintPosition:" [button [clazz "ui button tiny"; onClick (fun _ -> PrintPosition )][]]
-                Html.row "Height:"        [Incremental.text (height  |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
-                Html.row "HeightDelta:"   [Incremental.text (heightD |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
-                Html.row "Avg Altitude:"  [Incremental.text (alt     |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
-                Html.row "Length:"        [Incremental.text (length  |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
-                Html.row "WayLength:"     [Incremental.text (wLength |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
-                Html.row "Bearing:"       [Incremental.text (bearing |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
-                Html.row "Slope:"         [Incremental.text (slope   |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
-                Html.row "Vertical Distance:"   [Incremental.text (vertDist  |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
-                Html.row "Horizontal Distance:" [Incremental.text (horDist   |> AVal.map  (fun d -> sprintf "%.4f" (d)))]
+                //yield Html.row "Position:"              
+                //    [
+                //        Incremental.text (pos |> AVal.map  (fun d -> d));                         
+                //        //button [clazz "ui button tiny"; onClick (fun _ -> PrintPosition)][i[clazz "ui icon print"][]]
+                //    ]
+
+                //yield Html.row "PrintPosition:"         [button [clazz "ui button tiny"; onClick (fun _ -> PrintPosition )][]]
+                yield Html.row "Height:"                [Incremental.text (height  |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
+                yield Html.row "HeightDelta:"           [Incremental.text (heightD |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
+                yield Html.row "Avg Altitude:"          [Incremental.text (alt     |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
+                yield Html.row "Length:"                [Incremental.text (length  |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
+                yield Html.row "WayLength:"             [Incremental.text (wLength |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
+                yield Html.row "Bearing:"               [Incremental.text (bearing |> AVal.map  (fun d -> sprintf "%.4f deg" (d)))]
+                yield Html.row "Slope:"                 [Incremental.text (slope   |> AVal.map  (fun d -> sprintf "%.4f deg" (d)))]
+                yield Html.row "Vertical Distance:"     [Incremental.text (vertDist  |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
+                yield Html.row "Horizontal Distance:"   [Incremental.text (horDist   |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
+                yield Html.row "True Thickness:"        [Incremental.text (trueThickness |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
             ]
         )
        

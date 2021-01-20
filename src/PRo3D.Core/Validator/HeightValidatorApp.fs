@@ -51,7 +51,11 @@ module HeightValidatorApp =
                         north
                         model.validator.inclination.value
 
-                { model with validator = validator; result = HeightValidatorModel.computeResult validator; validatorBrush = IndexList.empty }
+                { model with 
+                    validator      = validator; 
+                    result         = HeightValidatorModel.computeResult validator; 
+                    validatorBrush = IndexList.empty 
+                }
             | _ -> 
                 model
         | ChangeInclination a ->

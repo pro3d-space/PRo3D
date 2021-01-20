@@ -1,19 +1,17 @@
 namespace PRo3D
 
-open PRo3D.Base.Annotation
 
-open FSharp.Data.Adaptive
-
+open System
 open System.IO
 open Microsoft.FSharp.Reflection
-open Aardvark.UI
+open FSharp.Data.Adaptive
+
 open Aardvark.Base
-open System
+open Aardvark.UI
 open PRo3D.Base.Annotation
 
 module Csv =
     
-
     type ExportDnS = {
         dipAngle      : float
         dipAzimuth    : float
@@ -34,7 +32,6 @@ module Csv =
         color         : string
         thickness     : float        
 
-
         points        : int
         height        : float
         heightDelta   : float
@@ -43,6 +40,9 @@ module Csv =
         dipAngle      : float
         dipAzimuth    : float
         strikeAzimuth : float
+
+        manualDip     : float
+        trueThickness : float
 
         errorAvg      : float
         errorMin      : float
@@ -59,87 +59,91 @@ module Csv =
         z             : double
     }
 
-    let exportAnnotation (lookUp) (a: Annotation) =
+    let exportAnnotation (lookUp) (a: Annotation) : ExportAnnotation =
       
-      let results = 
-        match a.results with
-          | Some r -> r
-          | None ->  
-            { 
-              version     = AnnotationResults.current
-              height      = Double.NaN
-              heightDelta = Double.NaN
-              avgAltitude = Double.NaN
-              length      = Double.NaN
-              wayLength   = Double.NaN
-              bearing     = Double.NaN
-              slope       = Double.NaN
-            }
+        let results = 
+            match a.results with
+            | Some r -> r
+            | None ->  
+                { 
+                    version       = AnnotationResults.current
+                    height        = Double.NaN
+                    heightDelta   = Double.NaN
+                    avgAltitude   = Double.NaN
+                    length        = Double.NaN
+                    wayLength     = Double.NaN
+                    bearing       = Double.NaN
+                    slope         = Double.NaN
+                    trueThickness = Double.NaN
+                }
+        
+        let dnsResults = 
+            match a.dnsResults with
+            | Some x -> 
+                { 
+                    dipAngle      = x.dipAngle
+                    dipAzimuth    = x.dipAzimuth
+                    strikeAzimuth = x.strikeAzimuth
+                    errorAvg      = x.error.average
+                    errorMin      = x.error.min
+                    errorMax      = x.error.max
+                    errorStd      = x.error.stdev
+                    errorSos      = x.error.sumOfSquares
+                }
+            | None -> 
+                { 
+                    dipAngle      = Double.NaN
+                    dipAzimuth    = Double.NaN
+                    strikeAzimuth = Double.NaN
+                    errorAvg      = Double.NaN
+                    errorMin      = Double.NaN
+                    errorMax      = Double.NaN
+                    errorStd      = Double.NaN
+                    errorSos      = Double.NaN
+                }
+        
+        let points = 
+            a.points
+            //|> IndexList.map a.modelTrafo.Forward.TransformPos 
+            |> IndexList.toArray
+        
+        let c = Box3d(points).Center
+        
+        {   
+            key           = a.key
+            geometry      = a.geometry
+            projection    = a.projection
+            semantic      = a.semantic
+            color         = a.color.ToString()
+            thickness     = a.thickness.value
+            points        = a.points.Count
+            
+            
+            height        = results.height
+            heightDelta   = results.heightDelta
+            length        = results.length
+            wayLength     = results.wayLength
+            dipAngle      = dnsResults.dipAngle
+            dipAzimuth    = dnsResults.dipAzimuth
+            strikeAzimuth = dnsResults.strikeAzimuth
+            
+            errorAvg     = dnsResults.errorAvg
+            errorMin     = dnsResults.errorMin 
+            errorMax     = dnsResults.errorMax
+            errorStd     = dnsResults.errorStd
+            sumOfSquares = dnsResults.errorSos
 
-      let dnsResults = 
-        match a.dnsResults with
-          | Some x -> 
-            { 
-              dipAngle      = x.dipAngle
-              dipAzimuth    = x.dipAzimuth
-              strikeAzimuth = x.strikeAzimuth
-              errorAvg      = x.error.average
-              errorMin      = x.error.min
-              errorMax      = x.error.max
-              errorStd      = x.error.stdev
-              errorSos      = x.error.sumOfSquares
-            }
-          | None -> 
-            { 
-              dipAngle      = Double.NaN
-              dipAzimuth    = Double.NaN
-              strikeAzimuth = Double.NaN
-              errorAvg      = Double.NaN
-              errorMin      = Double.NaN
-              errorMax      = Double.NaN
-              errorStd      = Double.NaN
-              errorSos      = Double.NaN
-            }
-
-      let points = 
-        a.points 
-          //|> IndexList.map a.modelTrafo.Forward.TransformPos 
-          |> IndexList.toArray
-
-      let c = Box3d(points).Center
-
-      {   
-        key           = a.key
-        geometry      = a.geometry
-        projection    = a.projection
-        semantic      = a.semantic
-        color         = a.color.ToString()
-        thickness     = a.thickness.value
-        points        = a.points.Count
-
-
-        height        = results.height
-        heightDelta   = results.heightDelta
-        length        = results.length
-        wayLength     = results.wayLength
-        dipAngle      = dnsResults.dipAngle
-        dipAzimuth    = dnsResults.dipAzimuth
-        strikeAzimuth = dnsResults.strikeAzimuth
-
-        errorAvg     = dnsResults.errorAvg
-        errorMin     = dnsResults.errorMin 
-        errorMax     = dnsResults.errorMax
-        errorStd     = dnsResults.errorStd
-        sumOfSquares = dnsResults.errorSos
-
-        text          = a.text;
-        groupName     = lookUp |> HashMap.tryFind a.key |> Option.defaultValue("")
-        surfaceName   = a.surfaceName
-
-        x             = c.X;
-        y             = c.Y;
-        z             = c.Z;
-      }
+            manualDip     = a.manualDipAngle.value
+            trueThickness = results.trueThickness
+            
+            text          = a.text;
+            groupName     = lookUp |> HashMap.tryFind a.key |> Option.defaultValue("")
+            surfaceName   = a.surfaceName
+            
+            x             = c.X;
+            y             = c.Y;
+            z             = c.Z;
+        }
 
     //TODO TO revise csv exporter, make baselib maybe
 

@@ -28,6 +28,8 @@ type DrawingAction =
   | StopDrawing   
   | StartPicking            
   | StopPicking  
+  | StartPickingMulti     
+  | StopPickingMulti  
   | AddPointAdv         of V3d * (V3d -> Option<V3d>) * string
   | RemoveLastPoint  
   | ClearWorking
@@ -58,6 +60,7 @@ type DrawingModel = {
 
     draw          : bool
     pick          : bool
+    multi         : bool
     hoverPosition : option<Trafo3d>    
 
     working    : Option<Annotation>
@@ -102,8 +105,9 @@ module DrawingModel =
         hoverPosition = None
         draw          = false  
         pick          = false
+        multi         = false
         color         = { c = C4b.DarkBlue } 
-        thickness     = Annotation.thickn
+        thickness     = Annotation.Initial.thickness
 
         working     = None
         projection  = Projection.Linear

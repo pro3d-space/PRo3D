@@ -585,7 +585,7 @@ module MinervaModel =
                   typus       = Typus.FeatureCollection    
                   boundingBox = Box2d.Invalid
                   features    = features |> IndexList.ofList
-                } |> Serialization.save cachePath
+                } //|> Serialization.save cachePath
              | (_, true) -> Serialization.loadAs cachePath
              | _ when Config.ShowMinervaErrors -> 
                 Log.error "[Minerva] sth. went wrong with dump.csv"

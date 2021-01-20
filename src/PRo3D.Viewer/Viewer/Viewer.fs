@@ -308,7 +308,7 @@ module ViewerApp =
                 | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam 
 
             let msg = DrawingAction.AddPointAdv(p, hitFunction, surf.name)
-            let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig bc view m.drawing msg
+            let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig bc view m.shiftFlag m.drawing msg
             //Log.stop()
             { m with drawing = drawing } |> stash
         | Interactions.PlaceCoordinateSystem, ViewerMode.Standard -> 
@@ -442,7 +442,11 @@ module ViewerApp =
                 let _a = m |> Optic.get _flat |> HashMap.tryFind id |> Option.map Leaf.toAnnotation
                 match _a with 
                 | Some a ->                                                
-                    //m |> lookAtBoundingBox (Box3d(a.points |> IndexList.toList))
+                    
+                    //let animationMessage = 
+                    //    animateFowardAndLocation hp.Location hp.Forward hp.Up 2.0 "ForwardAndLocation2s"
+                    //AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
+
                     let animationMessage = 
                         animateFowardAndLocation a.view.Location a.view.Forward a.view.Up 2.0 "ForwardAndLocation2s"
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
@@ -478,7 +482,7 @@ module ViewerApp =
                     | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam
 
                 let drawing = 
-                    DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.drawing msg
+                    DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing msg
                 { m with drawing = drawing; } |> stash
         | SurfaceActions msg,_,_ ->
             
@@ -492,10 +496,7 @@ module ViewerApp =
                     let surface = m.scene.surfacesModel.surfaces.flat |> HashMap.find id |> Leaf.toSurface 
                     let superTrafo = SurfaceTransformations.fullTrafo' surface m.scene.referenceSystem
                     match (surface.homePosition) with
-                    | Some hp ->
-                        //let trafo' = surface.preTransform.Forward * superTrafo.Forward
-                        //let pos = trafo'.TransformPos(hp.Location)
-                        //let forward = trafo'.TransformDir(hp.Forward)
+                    | Some hp ->                        
                         let animationMessage = 
                             animateFowardAndLocation hp.Location hp.Forward hp.Up 2.0 "ForwardAndLocation2s"
                         AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
@@ -527,8 +528,21 @@ module ViewerApp =
             | Some selected ->                             
                 let f = (fun x ->
                     let a = x |> Leaf.toAnnotation
-                    AnnotationProperties.update a msg |> Leaf.Annotations)
-                      
+                    let a = AnnotationProperties.update a msg 
+
+                    //update true thickness computation on dip angle change
+                    let a = 
+                        if (a.geometry = Geometry.TT) then                                                         
+                           let up = m.scene.referenceSystem.up.value
+                           let north = m.scene.referenceSystem.north.value
+                           let planet = m.scene.referenceSystem.planet
+                           Log.error "[Viewer] updating TT results"
+                           let results = Calculations.calcResultsLine a up north planet |> Some
+                           { a with results = results }
+                        else
+                            a                    
+                    a |> Leaf.Annotations)
+
                 let a = m.drawing.annotations |> Groups.updateLeaf selected f
                 Optic.set _annotations a m
             | None -> m       
@@ -830,6 +844,10 @@ module ViewerApp =
                     | Interactions.DrawAnnotation -> DrawingAction.StartDrawing
                     | Interactions.PickAnnotation -> DrawingAction.StartPicking
                     | _ -> DrawingAction.Nop
+                //| Aardvark.Application.Keys.LeftShift -> 
+                //    match m.interaction with                     
+                //    | Interactions.PickAnnotation -> DrawingAction.StartPickingMulti
+                //    | _ -> DrawingAction.Nop
                 | Aardvark.Application.Keys.D0 -> DrawingAction.SetSemantic Semantic.Horizon0
                 | Aardvark.Application.Keys.D1 -> DrawingAction.SetSemantic Semantic.Horizon1
                 | Aardvark.Application.Keys.D2 -> DrawingAction.SetSemantic Semantic.Horizon2
@@ -858,7 +876,7 @@ module ViewerApp =
                 match m.interaction with
                 | Interactions.DrawAnnotation | Interactions.PickAnnotation ->
                     let view = m.navigation.camera.view
-                    let m = { m with drawing = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.drawing drawingAction } |> stash
+                    let m = { m with drawing = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing drawingAction } |> stash
                     match drawingAction with
                     | Drawing.DrawingAction.Finish -> { m with tabMenu = TabMenu.Annotations }
                     | _ -> m                     
@@ -994,11 +1012,11 @@ module ViewerApp =
                 match m.interaction with
                 | Interactions.DrawAnnotation -> 
                     let view = m.navigation.camera.view
-                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.drawing DrawingAction.StopDrawing
+                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing DrawingAction.StopDrawing
                     { m with drawing = d; ctrlFlag = false; picking = false }
                 | Interactions.PickAnnotation -> 
                     let view = m.navigation.camera.view
-                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.drawing DrawingAction.StopPicking 
+                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing DrawingAction.StopPicking 
                     { m with drawing = d; ctrlFlag = false; picking = false }
                 | Interactions.PickMinervaProduct -> { m with minervaModel = { m.minervaModel with picking = false }}
                 |_-> { m with ctrlFlag = false; picking = false }

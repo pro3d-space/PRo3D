@@ -455,7 +455,7 @@ module Init =
     let triangleSize = {
         value = 1.0
         min = 0.0
-        max = 100.0
+        max = 10000.0
         step = 0.01
         format = "{0:0.000}"
     }

@@ -436,7 +436,7 @@ module Gui =
                                         div [ clazz "ui item";
                                             Dialogs.onChooseFiles ImportPRo3Dv1Annotations;
                                             clientEvent "onclick" jsOpenOldAnnotationsFileDialogue ][
-                                            text "Import Annotations Groups"
+                                            text "Import v1 Annotations (*.xml)"
                                         ]
                                         //div [ clazz "ui item";
                                         //    Dialogs.onChooseFiles ImportSurfaceTrafo;
