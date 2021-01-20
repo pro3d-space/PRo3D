@@ -1,4 +1,4 @@
-### 3.3.0
+### 3.3.1
 
 * csv export contains visible annotations only
 * also added manualDipAngle and trueThickness result to export (NaN of not applicable to annotation)
