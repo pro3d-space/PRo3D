@@ -15,6 +15,7 @@ all resources should be embedded using dotnet embedded resources to allow "singl
 
 - set github_token in your env (used by "ReleaseGithub" target)
 - tag automatically created by github (given RELEASE_NOTES.MD)
+- what happens if tag exists, what happens if release does not exist but the tag - this should be found somewhere here: https://docs.github.com/en/rest/reference/repos#releases
 
 # Title bar
 
