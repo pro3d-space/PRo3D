@@ -60,7 +60,7 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "3.2.1-prerelease"
+let viewerVersion       = "3.3.0"
 let catchDomainErrors   = false
 
 open System.IO
@@ -125,6 +125,8 @@ let main argv =
     PatchLod.useAsyncLoading <- (argv |> Array.contains "-sync" |> not)
     let startEmpty = (argv |> Array.contains "-empty")
 
+    UI.enabletoolTips <- (argv |> Array.contains "-notooltips" |> not)
+
     // main app
     //use form = new Form(Width = 1280, Height = 800)
     let cts = new CancellationTokenSource()
@@ -147,7 +149,7 @@ let main argv =
             Log.warn "need dump file ... dump=\"[dumpfilepath]\" -> using defaultPath '.\MinervaData\dump.csv'"
             @".\MinervaData\dump.csv"
         | _ -> 
-            @".\MinervaData\dump.cache"
+            @".\MinervaData\dump.csv"
 
     let cacheFile =
         match argsKv |> HashMap.tryFind "cache" with

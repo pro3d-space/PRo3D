@@ -31,7 +31,7 @@ module CooTransformation =
         let cooTransformationDir = Path.combine [jrDir; "CooTransformationConfig"]
         if not (Directory.Exists cooTransformationDir) then
             Log.line "[CooTransformation] no instrument dir found, creating one"
-            Directory.CreateDirectory jrDir |> ignore
+            Directory.CreateDirectory cooTransformationDir |> ignore
 
 
 

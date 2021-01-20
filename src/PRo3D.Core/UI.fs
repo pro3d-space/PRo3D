@@ -5,7 +5,7 @@ open System
 module UI =
     open Aardvark.UI
     open FSharp.Data.Adaptive
-    let enabletoolTips = false
+    let mutable enabletoolTips = false
 
     let toAlignmentString (alignment : DataPosition) =
         match alignment with
