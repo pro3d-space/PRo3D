@@ -105,7 +105,7 @@ Target.create "Publish" (fun _ ->
         { o with
             Framework = Some "netcoreapp3.1"
             Runtime = Some "win10-x64"
-            Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=true -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false"  }
+            Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=true -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
             Configuration = DotNet.BuildConfiguration.Release
             VersionSuffix = Some notes.NugetVersion
