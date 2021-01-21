@@ -19,6 +19,107 @@ open Aether
 open Aether.Operators
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module Scene =
+    let toModSurface (leaf : AdaptiveLeafCase) = 
+          adaptive {
+             let c = leaf
+             match c with 
+                 | AdaptiveSurfaces s -> return s
+                 | _ -> return c |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
+             }
+      
+    let lookUp guid (scene : AdaptiveScene) =
+        let surfaces = scene.surfacesModel.surfaces.flat
+        let entry = surfaces |> AMap.find guid
+        entry |> AVal.bind(fun x -> x |> toModSurface)
+
+    let completeTrafo guid (scene : AdaptiveScene) = 
+        let surf = lookUp guid scene
+        adaptive {
+            let! fullTrafo = SurfaceTransformations.fullTrafo surf scene.referenceSystem
+            let! s = surf
+            let! sc = s.scaling.value
+            let! t = s.preTransform
+            return Trafo3d.Scale(sc) * (t * fullTrafo )
+        }
+
+    let isVisibleSurfaceObj guid (scene : AdaptiveScene) =
+        let surfaces = scene.surfacesModel.surfaces.flat 
+        adaptive {
+            let! exists = surfaces |> AMap.keys |> ASet.contains guid
+            let isObj =
+                match exists with
+                | false -> AVal.constant false
+                | true  ->
+                    let surf = lookUp guid scene
+                    let surfType = AVal.map (fun (s : AdaptiveSurface) -> s.surfaceType) surf
+                    let isObj = 
+                        surfType |> AVal.map (fun st ->
+                                                match st with
+                                                | SurfaceType.SurfaceOBJ -> true
+                                                | SurfaceType.SurfaceOPC -> false
+                                                | _ -> true
+                                            )
+                    let isVisible = surf |> AVal.bind (fun s -> s.isVisible)
+                    AVal.map2 (fun a b -> a && b) isObj isVisible
+            return! isObj        
+        }
+
+    let calculateSceneBoundingBox (scene : AdaptiveScene) (noOpcs : bool) =
+        let surfaces = scene.surfacesModel.surfaces.flat 
+        let noOpcs guid =
+            match noOpcs with
+            | true -> isVisibleSurfaceObj guid scene
+            | false -> true |> AVal.constant
+
+        let sgSurfaces = scene.surfacesModel.sgSurfaces
+                            |> AMap.filterA (fun g sg -> noOpcs g)
+
+        let combine b1 b2 =
+            adaptive {
+                let! b1 = b1
+                let! b2 = b2
+                return Box3d.ofSeq [b1;b2]
+            }
+  
+        let calcSbb () =
+            adaptive {
+                let trafos =
+                    sgSurfaces
+                        |> AMap.map (fun guid surf -> completeTrafo guid scene)
+                let transformBB (sgSurf : AdaptiveSgSurface) =
+                    adaptive {
+                        let! bb = sgSurf.globalBB
+                        let! trafo = AMap.find sgSurf.surface trafos
+                        let! trafo = trafo
+                        return bb.Transformed trafo
+                    }
+                let transformedBBs =
+                    sgSurfaces
+                        |> AMap.map (fun guid sg -> sg |> transformBB)
+                let bbList =
+                    transformedBBs
+                        |> AMap.toASet
+                        |> ASet.toAList
+                        |> AList.map snd
+   
+                let! plst = AList.toAVal bbList
+                let s = plst |> IndexList.toList
+                let sceneBb = List.fold combine s.Head s
+                let! sbb = sceneBb
+                return! sceneBb
+            }   
+  
+        sgSurfaces 
+          |> AMap.keys  
+          |> ASet.count 
+          |> AVal.bind (fun c -> 
+                        match c > 0 with
+                        | true -> calcSbb ()
+                        | false -> Box3d.Unit |> AVal.constant
+                      )
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Model =    
 
     let withScene (s:Scene) (m:Model) =

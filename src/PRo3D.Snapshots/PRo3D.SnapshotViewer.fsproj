@@ -25,6 +25,7 @@
     <None Include="paket.references" />
     <Compile Include="Config.fs" />
     <Compile Include="StartupArgs.fs" />
+    <Compile Include="Shaders.fs" />
     <Compile Include="Shading-Model.fs" />
     <Compile Include="ShadingApp.fs" />
     <Compile Include="Models\Model.fs" />

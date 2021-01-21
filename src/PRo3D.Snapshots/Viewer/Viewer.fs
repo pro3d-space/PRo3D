@@ -1255,7 +1255,7 @@ module ViewerApp =
             | _ -> false
         ) m.ctrlFlag m.interaction
 
-    let viewInstrumentView (m: AdaptiveModel) = 
+    let viewInstrumentView (m: AdaptiveModel) runtime = 
         let annotationsI, discsI = 
             DrawingApp.view 
                 m.scene.config 
@@ -1280,12 +1280,12 @@ module ViewerApp =
              |> Sg.cullMode (AVal.constant CullMode.None)
 
         // instrument view control
-        let icmds    = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed discsInst m // m.scene.surfacesModel.sgGrouped overlayed discs m
+        let icmds    = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed discsInst m runtime // m.scene.surfacesModel.sgGrouped overlayed discs m
         let icam = 
             AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
         DomNode.RenderControl((instrumentControlAttributes m), icam, icmds, None) //AttributeMap.Empty
 
-    let viewRenderView (m: AdaptiveModel) = 
+    let viewRenderView (m: AdaptiveModel) runtime = 
         let annotations, discs = DrawingApp.view m.scene.config mdrawingConfig m.navigation.camera.view (allowAnnotationPicking m) m.drawing  
             
         let annotationSg = 
@@ -1421,12 +1421,12 @@ module ViewerApp =
         let depthTested = 
             [linkingSg; annotationSg; minervaSg; heightValidationDiscs] |> Sg.ofList
 
-        let cmds    = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m
+        let cmds    = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m runtime
         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
         let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
         DomNode.RenderControl((renderControlAttributes m), cam, cmds, None)
 
-    let view (m: AdaptiveModel) = //(localhost: string)
+    let view (m: AdaptiveModel) runtime = //(localhost: string)
        
         let myCss = [
             { kind = Stylesheet;  name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.css" }
@@ -1473,7 +1473,7 @@ module ViewerApp =
                     body [ style "background: #1B1C1E; width:100%; height:100%; overflow-y:auto; overflow-x:auto;"] [
                       Incremental.div instrumentViewAttributes (
                         alist {
-                            yield viewInstrumentView m 
+                            yield viewInstrumentView m runtime
                             yield Viewer.Gui.textOverlaysInstrumentView m.scene.viewPlans
                         } )
                     ]
@@ -1484,7 +1484,7 @@ module ViewerApp =
                         //div [style "background:#000;"] [
                         Incremental.div (AttributeMap.ofList[style "background:#000;"]) (
                             alist {
-                                yield viewRenderView m
+                                yield viewRenderView m runtime
                                 yield Viewer.Gui.textOverlays m.scene.referenceSystem m.navigation.camera.view
                                 yield Viewer.Gui.textOverlaysUserFeedback m.scene
                                 yield Viewer.Gui.dnsColorLegend m
@@ -1608,7 +1608,7 @@ module ViewerApp =
         App.start {
             unpersist = Unpersist.instance
             threads   = threadPool
-            view      = view //localhost
+            view      = (fun m -> view m runtime)//localhost
             update    = update runtime signature sendQueue messagingMailbox
             initial   = m
         }

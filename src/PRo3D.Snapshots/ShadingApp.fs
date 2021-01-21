@@ -49,7 +49,7 @@ module ShadingApp =
        }
 
        let ambientRange = {
-            value   = float 0.0
+            value   = float 0.1
             min     = float 0.0
             max     = float 0.3
             step    = float 0.01
@@ -167,6 +167,64 @@ module ShadingApp =
             Log.line "Shadow Projection set to %s" (proj.ToString ())
             {model with shadowProjection = proj}
         | NoAction -> model
+
+    let lightView (m : AdaptiveShadingApp)  (bb : aval<Box3d>) (up : aval<V3d>)=
+        let casterBound = bb
+        let center = casterBound |> AVal.map (fun b -> b.Center)
+        adaptive { 
+            let! proj = m.shadowProjection
+            let! lightDir = m.lightDirection.value
+            let! center = center
+            let! up =  up // f�r case light dir = up TODO! vektor != lightDir
+            match proj with
+            | ShadowProjection.Othographic ->
+                let lookat = center + lightDir
+                let v = CameraView.lookAt center lookat up 
+                return CameraView.viewTrafo v
+            | ShadowProjection.Perspective | _ ->
+                let! distance = m.lightDistance.value
+                let location = center - lightDir * distance
+                let v = CameraView.lookAt location center up
+                return CameraView.viewTrafo v
+            //| _ -> 
+            //    let! frustum = m.frustum
+            //    return frustum |> Frustum.projTrafo
+        }
+
+    let lightProj (m : AdaptiveShadingApp) (bb : aval<Box3d>) (up : aval<V3d>) = 
+        adaptive {
+            let! proj = m.shadowProjection
+            match proj with
+            | ShadowProjection.Othographic ->
+                let! casterBB = bb
+                let! vp = lightView m bb up
+                let transformed = casterBB.Transformed vp
+                return (Frustum.ortho transformed) |> Frustum.projTrafo
+            | ShadowProjection.Perspective | _ ->
+                let! lightDist = m.lightDistance.value
+                let fp = lightDist
+                let near = fp / 10000.0
+                // fov berechnen damit bb drin
+                let frustum = Frustum.perspective 60.0 near fp 1.0 
+                return frustum |> Frustum.projTrafo
+            //| _ -> 
+            //    let! frustum = m.frustum
+            //    return frustum |> Frustum.projTrafo
+        }
+
+    let lightViewProjection (m : AdaptiveShadingApp) (bb : aval<Box3d>) (up : aval<V3d>) = 
+        adaptive {
+            let! v = lightView m bb up
+            let! p = lightProj m bb up
+            return v * p
+        }
+
+    let shadowMapSize = V2i(4096, 4096) |> AVal.init
+
+    let shadowDepthsignature (runtime : IRuntime) = 
+        runtime.CreateFramebufferSignature [
+            DefaultSemantic.Depth, { format = RenderbufferFormat.DepthComponent32; samples = 1 }
+        ]
 
     let view (model : AdaptiveShadingApp) =
        require Html.semui (
