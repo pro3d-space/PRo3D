@@ -139,7 +139,7 @@ type ShatterconePlacement = {
         }
 
 
-type ShatterconeAction =
+type ObjectPlacementAction =
     | SetName         of string
     | SetCount        of Numeric.Action
     | ScaleFrom       of Numeric.Action 

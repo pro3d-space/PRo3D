@@ -617,14 +617,19 @@ module ViewerApp =
         | ImportObject sl,_,_ -> 
             match sl |> List.tryHead with
             | Some path ->  
-                let objects =                   
+                let newSurface = 
                     path 
                     |> SurfaceUtils.mk SurfaceType.SurfaceOBJ m.scene.config.importTriangleSize.value
+                let objects =                   
+                  newSurface
                     |> IndexList.single                                
-                m 
-                |> SceneLoader.importObj runtime signature objects 
-                |> ViewerIO.loadLastFootPrint
-                |> updateSceneWithNewSurface     
+                let m = 
+                    m 
+                    |> SceneLoader.importObj runtime signature objects 
+                    |> ViewerIO.loadLastFootPrint
+                    |> updateSceneWithNewSurface     
+                let newScPlacement = HashMap.add newSurface.name ShatterconePlacement.init m.scene.shatterconePlacements
+                {m with scene = {m.scene with shatterconePlacements = newScPlacement}}
             | None -> m              
         | ImportPRo3Dv1Annotations sl,_,_ ->
             match sl |> List.tryHead with
@@ -1182,7 +1187,17 @@ module ViewerApp =
             { m with heighValidation = HeightValidatorApp.update m.heighValidation m.scene.referenceSystem.up.value m.scene.referenceSystem.north.value a }
         //| _ -> 
         //    Log.warn "[Viewer] don't know message %A. ignoring it." msg
-        //    m                                            
+        //    m                    
+        | ObjectPlacementMessage (str, message), _, _ ->
+          let scPlacements = 
+              let updatePlacement optPlacement =
+                  match optPlacement with
+                  | Some p -> ShatterconeApp.update p message
+                  | None -> 
+                      Log.line "Could not find guid %s in shattercone placements." str
+                      ShatterconePlacement.init
+              HashMap.update str updatePlacement m.scene.shatterconePlacements
+          {m with scene = {m.scene with shatterconePlacements = scPlacements}}        
         | _ -> m       
                                    
     let mkBrushISg color size trafo : ISg<Message> =
@@ -1496,9 +1511,36 @@ module ViewerApp =
                     ]                
                 )
             | Some "surfaces" -> 
+                let scButtons = //TODO move to ObjectPlacement
+                   div[][
+                        div [clazz "ui buttons inverted"] [
+                                button [clazz "ui button"; onMouseClick (fun _ -> TestHaltonRayCasting)] [
+                                        text "place"]
+                            ]        
+                        //div [clazz "ui buttons inverted"] [
+                        //        button [clazz "ui button"; onMouseClick (fun _ -> ClearSnapshotGroup)] [
+                        //                text "clear"]
+                        //    ]  
+                        ]
+                let shatterconeGui = ShatterconeApp.viewSelected m.scene.surfacesModel m.scene.shatterconePlacements 
+                let mapper guid domNode = 
+                    domNode |> UI.map (fun action -> ObjectPlacementMessage (guid, action))
                 require (myCss) (
                     body bodyAttributes
-                        [SurfaceApp.surfaceUI m.scene.surfacesModel |> UI.map SurfaceActions] 
+                        [SurfaceApp.surfaceUI m.scene.surfacesModel |> UI.map SurfaceActions
+                         GuiEx.accordion "Shattercones" 
+                                         "Circle" 
+                                         false 
+                                         [
+                                         scButtons;
+                                         Incremental.div AttributeMap.empty 
+                                                         (AList.ofAValSingle (shatterconeGui 
+                                                                               |> AVal.map (fun (name, domNode) -> mapper name domNode)
+                                                                             )
+                                                         )
+                                         ] 
+                                        
+                        ] 
                 )
             | Some "annotations" -> 
                 require (myCss) (body bodyAttributes [Gui.Annotations.annotationUI m])

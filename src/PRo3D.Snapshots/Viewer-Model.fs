@@ -138,6 +138,7 @@ type ViewerAction =
     //| UpdateShatterCones              of list<SnapshotShattercone> // TODO snapshots and shattercone things should be in own apps
     | TestHaltonRayCasting            //of list<string>
     | HeightValidation               of HeightValidatorAction
+    | ObjectPlacementMessage         of (string * ObjectPlacementAction)
     | Nop
 
 and MailboxState = {
@@ -189,7 +190,13 @@ module Scene =
             let! referenceSystem = Json.read "referenceSystem"
             let! bookmarks       = Json.read "bookmarks"
             let! dockConfig      = Json.read "dockConfig"            
-
+            let shatterconePlacements =
+                (surfaceModel.surfaces.flat |> Leaf.toSurfaces)
+                    |> HashMap.filter(fun g x -> x.surfaceType = SurfaceType.SurfaceOBJ)
+                    |> HashMap.map (fun g x -> (x.name, ShatterconePlacement.init))
+                    |> HashMap.values
+                    |> HashMap.ofSeq
+                    
             return 
                 {
                     version         = current
@@ -211,7 +218,7 @@ module Scene =
                     firstImport     = false
                     userFeedback    = String.Empty
                     feedbackThreads = ThreadPool.empty
-                    shatterconePlacements = HashMap.empty
+                    shatterconePlacements = shatterconePlacements
                 }
         }
 
@@ -228,7 +235,17 @@ module Scene =
             let! referenceSystem = Json.read "referenceSystem"
             let! bookmarks       = Json.read "bookmarks"
             let! dockConfig      = Json.read "dockConfig"  
-            //let! shatterconePlacements = Json.read "shatterconePlacements"
+            let! shatterconePlacements = Json.read "shatterconePlacements"
+            let shatterconePlacements =
+                match shatterconePlacements with 
+                | [] -> 
+                    (surfaceModel.surfaces.flat |> Leaf.toSurfaces)
+                        |> HashMap.filter(fun g x -> x.surfaceType = SurfaceType.SurfaceOBJ)
+                        |> HashMap.map (fun g x -> (x.name, ShatterconePlacement.init))
+                        |> HashMap.values
+                        |> List.ofSeq
+                | lst -> lst 
+
 
             return 
                 {
@@ -251,7 +268,7 @@ module Scene =
                     firstImport     = false
                     userFeedback    = String.Empty
                     feedbackThreads = ThreadPool.empty
-                    shatterconePlacements = HashMap.empty //shatterconePlacements //TODO rno
+                    shatterconePlacements = shatterconePlacements |> HashMap.ofList
                 }
         }
 
@@ -261,6 +278,7 @@ type Scene with
             let! v = Json.read "version"
             match v with
             | 0 -> return! Scene.read0
+            | 1 -> return! Scene.read1
             | _ ->
                 return! v 
                 |> sprintf "don't know version %A  of Scene" 

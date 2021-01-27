@@ -99,7 +99,7 @@ module ShatterconeApp =
         | SetFieldOfView       num -> 
             {model with fieldOfView     = Numeric.update model.fieldOfView  num}   
     
-    let update (model : ShatterconePlacement) (message : ShatterconeAction) =
+    let update (model : ShatterconePlacement) (message : ObjectPlacementAction) =
         match message with
         | SetName        str ->  
             {model with name = str}
