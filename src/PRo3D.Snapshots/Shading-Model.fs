@@ -6,7 +6,7 @@ open Chiron
 open PRo3D.Base
 
 type ShadowProjection =
-    | Othographic = 0
+    | Orthographic = 0
     | Perspective = 1
     | Debug       = 2
 

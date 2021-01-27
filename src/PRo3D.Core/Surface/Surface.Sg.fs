@@ -3,6 +3,7 @@ namespace PRo3D.Core.Surface
 open System
 open System.IO
 open Aardvark.Base
+open Aardvark.Base.Ag
 open FSharp.Data.Adaptive
 open Aardvark.UI
 open Aardvark.UI.Primitives
@@ -10,6 +11,7 @@ open Aardvark.Base.Rendering
 open Aardvark.SceneGraph
 open Aardvark.SceneGraph.IO
 open Aardvark.SceneGraph.Opc
+open Aardvark.SceneGraph.Semantics
 open Aardvark.Prinziple
 
 open Aardvark.UI.Operators
@@ -102,11 +104,36 @@ module Sg =
         
         let mars = mars (scene.preTransform)
 
+
+        let createShadowContext (f : Aardvark.GeoSpatial.Opc.PatchLod.PatchNode) (scope : Scope) =
+             match scope.TryGetInherited "LightViewProj" with
+                 | None -> Option<aval<Trafo3d>>.None :> obj
+                 | Some v -> Some (v |> unbox<aval<Trafo3d>>) :> obj
+
+        let uniforms = 
+             Map.ofList [    
+                 //"LightViewProj", fun scope (rp : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
+                 "LightViewProj", fun scope (rp : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
+                     let vp : Option<aval<Trafo3d>> = unbox scope
+                     match vp with
+                     | Some vp -> 
+                         AVal.map2 (fun (m : Trafo3d) (vp : Trafo3d) -> (m * vp).Forward)                                     
+                                   rp.trafo vp :> IAdaptiveValue
+                     | None -> 
+                         Log.error "did not provide LightViewProj but shader wanted it."
+                         (AVal.constant M44f.Identity) :> IAdaptiveValue
+                 "HasLightViewProj", fun scope _ -> 
+                     let vp : Option<aval<Trafo3d>> = unbox scope
+                     match vp with
+                         | Some _ -> AVal.constant true :> IAdaptiveValue
+                         | _ -> AVal.constant false :> IAdaptiveValue
+             ]
+
         // create level of detail hierarchy (Sg)
         let g = 
             patchHierarchies 
             |> List.map (fun h ->                                  
-                Sg.patchLod 
+                Sg.patchLod'
                     signature
                     runner 
                     h.opcPaths.Opc_DirAbsPath
@@ -114,6 +141,8 @@ module Sg =
                     scene.useCompressedTextures
                     ViewerModality.XYZ
                     (PatchLod.toRoseTree h.tree)
+                    uniforms
+                    createShadowContext
             )
             |> Sg.ofList                
                                                 

@@ -14,9 +14,6 @@ module Shader =
         member x.Ambient            : float = uniform?Ambient
         member x.AmbientShadow      : float = uniform?AmbientShadow
         member x.LightViewProj      : M44d = uniform?LightViewProj
-        //member x.LightView          : M44d = uniform?LightView
-        //member x.LightProj          : M44d = uniform?LightProj
-        //member x.ModelLightViewProj : M44d = uniform?ModelLightViewProj
 
     let private diffuseSampler =
         sampler2d {
@@ -68,26 +65,12 @@ module Shader =
 
     let shadowShaderV (v : ShadowVertex) =
         vertex {
-            let vp = uniform.LightViewProj * v.pos
+            //TODO somewhere LVP is wrongly multiplied with MVP, but where?
+            // multiplying with inv works, but is a workaround
+            let vp = (uniform.LightViewProj * uniform.ModelViewProjTrafoInv) * v.pos
             return { v with pProj =  vp} 
         }
-   
-    //let shadowShaderF (v : ShadowVertex) =
-    //    fragment {
-    //        let p = v.pProj.XYZ / v.pProj.W
-    //        let tc = V3d(0.5, 0.5,0.5) + V3d(0.5, 0.5, 0.5) * p.XYZ
-    //        let shadow =
-    //          if tc.X < 0.0 || tc.X > 1.0 || tc.Y < 0.0 || tc.Y > 1.0 then 1.0
-    //          else
-    //            let lightDepth = min tc.Z 1.0
-    //            (shadowSampler.Sample(tc.XY, lightDepth - 0.000017))
-    //        let ambient = uniform.AmbientShadow
-    //        let d = ambient + shadow * (1.0 - ambient) //TODO proper lighting if needed
-        
-    //        let texColor = diffuseSampler.Sample(v.tc,-1.0)
-    //        return V4d(texColor.XYZ * d, 1.0)
-    //        //return V4d(tc.X, tc.Y, 0.0,1.0)
-    //    }
+  
 
     let showShadowMap (v : Vertex) =
         fragment {
@@ -96,62 +79,10 @@ module Shader =
             return V4d(c, c, c, 1.0)
         }
 
-    //let addDummyNormal (v : ShadowVertex) = 
-    //  vertex {
-    //      return {v with n = V3d(1.0)}
-    //  }
-      
-
-    //[<ReflectedDefinition>]
-    //let applyShadow (v : ShadowVertex) = 
-    //    let p = v.pProj.XYZ / v.pProj.W
-    //    let tc = V3d(0.5, 0.5,0.5) + V3d(0.5, 0.5, 0.5) * p.XYZ
-    //    let shadow =
-    //        if tc.X < 0.0 || tc.X > 1.0 || tc.Y < 0.0 || tc.Y > 1.0 then 1.0
-    //        else
-    //        let lightDepth = min tc.Z 1.0
-    //        (shadowSampler.Sample(tc.XY, lightDepth - 0.000017))
-    //    let ambient = uniform.AmbientShadow
-    //    let d = ambient + shadow * (1.0 - ambient) //TODO proper lighting if needed
-
-    //    let texColor = diffuseSampler.Sample(v.tc,-1.0)
-    //    V4d(texColor.XYZ * d, 1.0)
-
-    //[<ReflectedDefinition>]
-    //let applyLighting (v : ShadowVertex) = 
-    //    let n = v.n |> Vec.normalize // viewspace normal
-    //    let l = uniform.LightLocation //debug direction //TODO rename
-    //    let lv = Vec.normalize (uniform.ViewTrafo * V4d(l,0.0)).XYZ // light direction in view space
-    //    let texColor = diffuseSampler.Sample(v.tc,-1.0) 
-    //    let ambient = uniform.Ambient
-    //    let diffuse = texColor.XYZ * (max 0.0 (Vec.dot n -lv))
-    //    V4d(diffuse * (1.0 - ambient) + V3d(ambient), 1.0)
-
-    //let dispatchShader (v : ShadowVertex) =
-    //    fragment {
-    //        let useLighting : bool = uniform?useLighting
-    //        let useMask : bool = uniform?useMask
-    //        let drawShadow : bool = uniform?drawShadow
-
-    //        if useMask then
-    //            return uniform?maskColor
-    //        else
-    //            let fragment = 
-    //                if useLighting then
-    //                    applyLighting v
-    //                else
-    //                    diffuseSampler.Sample(v.tc,-1.0)
-    //            let fragment =
-    //                if drawShadow then
-    //                    applyShadow v
-    //                else fragment
-    //            return fragment
-    //    }
-
     let dispatchOPCShader (v : ShadowVertex) = 
         fragment {
-            let useLighting : bool = uniform?useLighting
-            if  useLighting then
+            let drawShadows : bool = uniform?drawShadows
+            if  drawShadows then
                 //return diffuseSampler.Sample(v.tc,-1.0) //applyShadow v
                 let p = v.pProj.XYZ / v.pProj.W
                 let tc = V3d(0.5, 0.5,0.5) + V3d(0.5, 0.5, 0.5) * p.XYZ
@@ -165,6 +96,7 @@ module Shader =
 
                 let texColor = diffuseSampler.Sample(v.tc,-1.0)
                 return V4d(texColor.XYZ * d, 1.0)
+                //return V4d(p, 1.0)
             else 
                 return diffuseSampler.Sample(v.tc,-1.0)
         }  
@@ -179,16 +111,18 @@ module Shader =
 
     let dispatchOBJShader (v : ShadowVertex) = 
         fragment {
-            let useLighting : bool = uniform?useLighting
-            //let useMask : bool = uniform?useMask
-            if useLighting then
-                let n = v.n |> Vec.normalize // viewspace normal
-                let l = uniform.LightDirection
-                let lv = Vec.normalize (uniform.ViewTrafo * V4d(l,0.0)).XYZ // light direction in view space
-                let texColor = diffuseSampler.Sample(v.tc,-1.0) 
-                let ambient = uniform.Ambient
-                let diffuse = texColor.XYZ * (max 0.0 (Vec.dot n -lv))
-                return V4d(diffuse * (1.0 - ambient) + V3d(ambient), 1.0)
-            else 
-                return diffuseSampler.Sample(v.tc,-1.0)
+            let useMask : bool = uniform?useMask
+            if useMask then return uniform?maskColor else
+                let useLighting : bool = uniform?useLighting
+            
+                if useLighting then
+                    let n = v.n |> Vec.normalize // viewspace normal
+                    let l = uniform.LightDirection
+                    let lv = Vec.normalize (uniform.ViewTrafo * V4d(l,0.0)).XYZ // light direction in view space
+                    let texColor = diffuseSampler.Sample(v.tc,-1.0) 
+                    let ambient = uniform.Ambient
+                    let diffuse = texColor.XYZ * (max 0.0 (Vec.dot n -lv))
+                    return V4d(diffuse * (1.0 - ambient) + V3d(ambient), 1.0)
+                else 
+                    return diffuseSampler.Sample(v.tc,-1.0)
         }   

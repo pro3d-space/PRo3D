@@ -151,30 +151,31 @@ and MailboxAction =
 
 [<ModelType>] 
 type Scene = {
-    version           : int
-
-    cameraView        : CameraView
-    navigationMode    : NavigationMode
-    exploreCenter     : V3d
-
-    interaction       : InteractionMode
-    surfacesModel     : SurfaceModel
-    config            : ViewConfigModel
-    scenePath         : Option<string>
-    referenceSystem   : ReferenceSystem    
-    bookmarks         : GroupsModel
-
-    viewPlans         : ViewPlanModel
-    dockConfig        : DockConfig
-    closedPages       : list<DockElement>
-    firstImport       : bool
-    userFeedback      : string
-    feedbackThreads   : ThreadPool<ViewerAction> 
+    version               : int
+                          
+    cameraView            : CameraView
+    navigationMode        : NavigationMode
+    exploreCenter         : V3d
+                          
+    interaction           : InteractionMode
+    surfacesModel         : SurfaceModel
+    config                : ViewConfigModel
+    scenePath             : Option<string>
+    referenceSystem       : ReferenceSystem    
+    bookmarks             : GroupsModel
+                          
+    viewPlans             : ViewPlanModel
+    dockConfig            : DockConfig
+    closedPages           : list<DockElement>
+    firstImport           : bool
+    userFeedback          : string
+    feedbackThreads       : ThreadPool<ViewerAction> 
+    shatterconePlacements : HashMap<String, ShatterconePlacement>
 }
 
 module Scene =
         
-    let current = 0    
+    let current = 1    
     let read0 = 
         json {            
             let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
@@ -210,6 +211,47 @@ module Scene =
                     firstImport     = false
                     userFeedback    = String.Empty
                     feedbackThreads = ThreadPool.empty
+                    shatterconePlacements = HashMap.empty
+                }
+        }
+
+    let read1 = 
+        json {            
+            let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
+            let! navigationMode  = Json.read "navigationMode"
+            let! exploreCenter   = Json.read "exploreCenter" 
+
+            let! interactionMode = Json.read "interactionMode"
+            let! surfaceModel    = Json.read "surfaceModel"
+            let! config          = Json.read "config"
+            let! scenePath       = Json.read "scenePath"
+            let! referenceSystem = Json.read "referenceSystem"
+            let! bookmarks       = Json.read "bookmarks"
+            let! dockConfig      = Json.read "dockConfig"  
+            //let! shatterconePlacements = Json.read "shatterconePlacements"
+
+            return 
+                {
+                    version         = current
+
+                    cameraView      = cameraView
+                    navigationMode  = navigationMode |> enum<NavigationMode>
+                    exploreCenter   = exploreCenter  |> V3d.Parse
+                
+                    interaction     = interactionMode |> enum<InteractionMode>
+                    surfacesModel   = surfaceModel
+                    config          = config
+                    scenePath       = scenePath
+                    referenceSystem = referenceSystem
+                    bookmarks       = bookmarks
+
+                    viewPlans       = ViewPlanModel.initial
+                    dockConfig      = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
+                    closedPages     = List.empty
+                    firstImport     = false
+                    userFeedback    = String.Empty
+                    feedbackThreads = ThreadPool.empty
+                    shatterconePlacements = HashMap.empty //shatterconePlacements //TODO rno
                 }
         }
 
@@ -457,6 +499,7 @@ module Viewer =
                     userFeedback    = ""
                     feedbackThreads = ThreadPool.empty
                     viewPlans       = ViewPlanModel.initial
+                    shatterconePlacements = HashMap.empty
                 }
 
             navigation      = navInit

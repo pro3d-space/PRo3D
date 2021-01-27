@@ -105,7 +105,7 @@ module ShadingApp =
             shadowFrustum    = frustumRange
             debug            = false
             showShadowMap    = false
-            shadowProjection = ShadowProjection.Othographic
+            shadowProjection = ShadowProjection.Orthographic
        } 
     
     let update (model : ShadingApp) (message : ShadingAction) =
@@ -177,7 +177,7 @@ module ShadingApp =
             let! center = center
             let! up =  up // f�r case light dir = up TODO! vektor != lightDir
             match proj with
-            | ShadowProjection.Othographic ->
+            | ShadowProjection.Orthographic ->
                 let lookat = center + lightDir
                 let v = CameraView.lookAt center lookat up 
                 return CameraView.viewTrafo v
@@ -195,7 +195,7 @@ module ShadingApp =
         adaptive {
             let! proj = m.shadowProjection
             match proj with
-            | ShadowProjection.Othographic ->
+            | ShadowProjection.Orthographic ->
                 let! casterBB = bb
                 let! vp = lightView m bb up
                 let transformed = casterBB.Transformed vp

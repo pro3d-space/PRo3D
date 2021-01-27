@@ -361,6 +361,11 @@ module ViewerUtils =
         let drawShadows =
             AVal.map2 (fun x y -> x && y) isOPC scene.config.shadingApp.useShadows 
 
+        //let maskColor = placement |> Mod.bind (fun p -> match p with 
+        //                                                 | Some p -> p.maskColor.c
+        //                                                 | None -> C4b.Green |> Mod.constant
+        //                                      )
+
         let sg =             
             sgSurface.sceneGraph
             |> AVal.map (addCullFillMode surf)
@@ -372,10 +377,10 @@ module ViewerUtils =
             |> Sg.uniform "LightDirection" scene.config.shadingApp.lightDirection.value
             |> Sg.uniform "useLighting" scene.config.shadingApp.useLighting
             |> Sg.uniform "useMask" scene.config.shadingApp.useMask
+            |> Sg.uniform "maskColor" (C4b.Green |> AVal.constant) //TODO add mask color
             |> Sg.uniform "drawShadows" drawShadows
             |> Sg.uniform "Ambient" scene.config.shadingApp.ambient.value
             |> Sg.uniform "AmbientShadow" scene.config.shadingApp.ambientShadow.value
-            //|> Sg.uniform "LightViewProj" lightViewProj
             |> ShadowSg.applyLightViewProj lightViewProj 
             |> Sg.texture (Sym.ofString "ShadowTexture") shadowDepth 
             |> addAttributeFalsecolorMappingParameters surf
@@ -416,32 +421,23 @@ module ViewerUtils =
         let refsys = m.scene.referenceSystem
         let frustum = m.frustum
         let surf = Scene.lookUp (surface.surface) m.scene
-        let triangleFilter = surf |> AVal.bind(fun s -> s.triangleSize.value)
         let sg =             
             surface.sceneGraph
             |> AVal.map (fun sg -> addCullFillMode surf sg)
             |> Sg.dynamic
             |> Sg.trafo (getModelTrafo surf refsys) 
-            //|> addAttributeFalsecolorMappingParameters surf
-            //|> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
-            //|> addImageCorrectionParameters surf
-            //|> Sg.uniform "LightViewProj" (Shadows.getLightViewProjectionTrafo m)
             |> Sg.onOff(surf |> AVal.bind(fun x -> x.isVisible))
             |> Sg.LodParameters( getLodParameters surf refsys frustum )
-            //|> Sg.AttributeParameters( attributeParameters surf )
             |> Sg.noEvents 
             |> Sg.effect [
-                //triangleFilterX     |> toEffect
                 Shader.stableTrafo  |> toEffect 
                 Shader.OPCFilter.improvedDiffuseTexture |> toEffect
+                //Shader.constantColor V4d.OOOO |> toEffect
             ]
         sg
 
-
     let getShadowDepthSg (m : AdaptiveModel) sceneBB =        
         let sgGrouped = m.scene.surfacesModel.sgGrouped
-        let surfs = m.scene.surfacesModel.surfaces.flat
-        
         let surfacesToSg surfaces =
             surfaces
               |> AMap.filterA (fun guid sf -> Scene.isVisibleSurfaceObj guid m.scene)
@@ -449,10 +445,8 @@ module ViewerUtils =
               |> AMap.toASet 
               |> ASet.map snd    
               |> Sg.set
-
         let grouped = sgGrouped |> AList.map surfacesToSg
         let sg = grouped |> AList.toASet |> Sg.set
-
         sg
             |> Sg.viewTrafo (Shading.ShadingApp.lightView m.scene.config.shadingApp 
                                                           sceneBB m.scene.referenceSystem.up.value) 
@@ -473,7 +467,6 @@ module ViewerUtils =
                               (Shading.ShadingApp.shadowDepthsignature runtime)
                 |> RenderTask.renderToDepth Shading.ShadingApp.shadowMapSize   
         let exists id = existingSurfIds |> ASet.contains id
-        //let shadowDepth = getShadowDepth m runtime shadowDepthsignature
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 
@@ -538,7 +531,7 @@ module ViewerUtils =
               return (lp.Inverse * lv.Inverse)
            }
             
-        Sg.box' C4b.Cyan (Box3d.FromCenterAndSize(V3d.OOO, (V3d(0.1,0.1,0.02))))
+        Sg.box' C4b.Cyan (Box3d.FromCenterAndSize(V3d.OOO, (V3d(0.2,0.2,0.04))))
         |> Sg.noEvents
         |> Sg.trafo lightTrafo
         |> Sg.effect [ 
@@ -553,6 +546,20 @@ module ViewerUtils =
                 Shader.stableTrafo |> toEffect 
                 Shader.StableLight.Effect
               ])
+        |> Sg.andAlso 
+          (Sg.wireBox (C4b.BlueViolet |> AVal.constant) sceneBB
+            |> Sg.noEvents
+            |> Sg.effect [ 
+                Shader.stableTrafo |> toEffect 
+                Shader.StableLight.Effect
+              ])
+
+    let debugSimpleSg (m:AdaptiveModel) (runtime : IRuntime) =
+        let sceneBB = Scene.calculateSceneBoundingBox m.scene true // OPCs do not throw shadows
+        let sg = getShadowDepthSg m sceneBB
+        alist {
+            yield RenderCommand.SceneGraph sg
+        }
 
     let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) 
                        overlayed depthTested (m:AdaptiveModel)
