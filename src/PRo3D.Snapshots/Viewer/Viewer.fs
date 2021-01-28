@@ -45,7 +45,7 @@ open PRo3D.Linking
  
 open Aether
 open Aether.Operators
-
+open PRo3D.SimulatedViews
 open PRo3D.Core.Surface
 
 type UserFeedback<'a> = {
@@ -1164,17 +1164,18 @@ module ViewerApp =
         | OnResize a,_,_ ->              
             Log.line "[RenderControl Resized] %A" a
             { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y) }
-       // | TestHaltonRayCasting _,_,_->
-            //ViewerUtils.placeMultipleOBJs2 m [SnapshotShattercone.TestData] // TODO MarsDL put in own app
-        //| UpdateShatterCones shatterCones,_,_ -> // TODO MarsDL put in own app
-        //// TODO: LAURA
-        //    match shatterCones.IsEmptyOrNull () with
-        //    | false ->
-        //        let m' = addOrClearSnapshotGroup m
-        //        ViewerUtils.placeMultipleOBJs2 m' shatterCones
-        //    | true ->
-        //        Log.line "[Viewer] No shattercone updates found."
-        //        m
+        | TestHaltonRayCasting _,_,_->
+            let snapshotSCParameters = 
+              ShatterconeUtils.generateSnapshotSCParas m.scene.surfacesModel
+                                                       m.scene.shatterconePlacements
+            let m = 
+                match Seq.isEmpty snapshotSCParameters with
+                | false ->
+                    ViewerSnapshotUtils.placeAllObjs m
+                | true -> 
+                    Log.line "[Viewer] No snapshot parameters available."
+                    m
+            m
         | StartDragging _,_,_
         | Dragging _,_,_ 
         | EndDragging _,_,_ -> 

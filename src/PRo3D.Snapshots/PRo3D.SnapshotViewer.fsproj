@@ -43,6 +43,8 @@
     <Compile Include="Scene.fs" />
 
     <Compile Include="LensConfigs.fs" />
+
+    <Compile Include="Viewer\Viewer-Snapshot-Utils.fs" />
     <Compile Include="Viewer\Viewer-Utils.fs" />
     <Compile Include="Viewer\ViewerGUI.fs" />
     <Compile Include="Viewer\Viewer-IO.fs" />

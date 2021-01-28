@@ -109,6 +109,21 @@ module ShatterconeUtils =
             | None -> brightnColor
         {surf with colorCorrection = gammaColor}
 
+    let generateSnapshotSCParas (surfacesModel    : SurfaceModel) 
+                                (objectPlacements : HashMap<string, ShatterconePlacement>) =
+        let m = clearSnapshotGroup surfacesModel
+        let surfacesWithSCPlacement =
+            surfacesModel.surfaces.flat 
+                |> HashMap.map (fun key s -> Leaf.toSurface s)
+                |> HashMap.map (fun key s -> s, HashMap.tryFind s.name objectPlacements)
+        let paras = 
+            surfacesWithSCPlacement
+                |> HashMap.filter (fun guid (s,p) ->  p.IsSome)
+                |> HashMap.map (fun guid (s,p) -> s, p.Value)
+                |> HashMap.map (fun guid (s,p) ->  ShatterconeApp.toSnapshotShattercone  
+                                                    p s.name s.colorCorrection)
+                |> HashMap.values |> Seq.toList
+        paras
 
     let placeSc (surf : Surface) (filename : string) frustum  
                 (refSystem   : ReferenceSystem)

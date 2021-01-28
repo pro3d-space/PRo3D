@@ -118,7 +118,7 @@ module HaltonPlacement =
                     Log.error "[RayCastSurface] no hit"
                     None
             Log.stop()
-            Log.line "done intersecting"
+            Log.line "[HaltonPlacement] done intersecting"
                 
             result 
 

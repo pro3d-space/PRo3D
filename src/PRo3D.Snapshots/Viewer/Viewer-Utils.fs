@@ -317,6 +317,16 @@ module ViewerUtils =
                              lightViewProj 
                              shadowDepth =
         let surf = Scene.lookUp sgSurface.surface scene
+        let placement = 
+            adaptive {
+                let! s = surf
+                let! n = s.name
+                return! (scene.shatterconePlacements |> AMap.tryFind n)
+            }
+        let maskColor = placement |> AVal.bind (fun p -> match p with 
+                                                         | Some p -> p.maskColor.c
+                                                         | None -> C4b.Green |> AVal.constant
+                                              )
         let isSelected = AVal.map2(fun x y ->
             match x with
             | Some id -> (id = sgSurface.surface) && y
@@ -377,7 +387,7 @@ module ViewerUtils =
             |> Sg.uniform "LightDirection" scene.config.shadingApp.lightDirection.value
             |> Sg.uniform "useLighting" scene.config.shadingApp.useLighting
             |> Sg.uniform "useMask" scene.config.shadingApp.useMask
-            |> Sg.uniform "maskColor" (C4b.Green |> AVal.constant) //TODO add mask color
+            |> Sg.uniform "maskColor" maskColor
             |> Sg.uniform "drawShadows" drawShadows
             |> Sg.uniform "Ambient" scene.config.shadingApp.ambient.value
             |> Sg.uniform "AmbientShadow" scene.config.shadingApp.ambientShadow.value
