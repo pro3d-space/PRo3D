@@ -111,7 +111,7 @@ module ShatterconeUtils =
 
     let generateSnapshotSCParas (surfacesModel    : SurfaceModel) 
                                 (objectPlacements : HashMap<string, ShatterconePlacement>) =
-        let m = clearSnapshotGroup surfacesModel
+        let surfacesModel = clearSnapshotGroup surfacesModel
         let surfacesWithSCPlacement =
             surfacesModel.surfaces.flat 
                 |> HashMap.map (fun key s -> Leaf.toSurface s)
@@ -133,6 +133,66 @@ module ShatterconeUtils =
         let hasName surf = 
             String.contains shattercone.name surf.importPath
               || String.contains surf.importPath shattercone.name
+
+        let place originalSgs = 
+            let (sObjsSgs, sObjsSurfs) = getSurfacesInSnapshotGroup surfacesModel
+            let transformableSurfs = sObjsSurfs |> List.filter hasName
+            // get halton random points on surface (points for debugging)
+            let surf = surf |> updateColorCorrection shattercone
+            let pnts, trafos = 
+                HaltonPlacement.getHaltonRandomTrafos Interactions.PickSurface surfacesModel
+                                                      refSystem shattercone frustum view
+            let transformSurfaces toTransform trafos =
+                //let oldTrafos = toTransform |> List.map (fun s -> s.preTransform)
+                let zipped = List.zip trafos toTransform    
+                let update (t,s) =
+                    let s = s |> updateColorCorrection shattercone
+                    {s with preTransform = t; isVisible = true;}
+
+                let updatedSurfaces =
+                    zipped |> List.map update
+                updatedSurfaces
+            let (newSurfaces, toDelete) = 
+                match transformableSurfs.Length with
+                | nr when nr = 0 ->      
+                    let newSurfaces =
+                        [
+                          for t in [|0..trafos.Length-1|] do
+                              yield {surf with guid = Guid.NewGuid(); preTransform = trafos.[t]; isVisible = true} 
+                        ] 
+                    newSurfaces, List.empty    
+                | nr when nr = trafos.Length  ->
+                    (transformSurfaces transformableSurfs trafos, List.empty)
+                | nr when nr > trafos.Length ->
+                    let (transformThese, deleteThese) = List.splitAt trafos.Length transformableSurfs
+                    (transformSurfaces transformThese trafos, deleteThese)
+                | nr when nr < trafos.Length ->
+                    let transformTrafos, newTrafos = List.splitAt transformableSurfs.Length trafos
+                    let transformedSurfs = transformSurfaces transformableSurfs transformTrafos
+                    let newSurfs =
+                        seq {
+                            for trafo in newTrafos do
+                                yield {surf with guid = Guid.NewGuid (); preTransform = trafo; isVisible = true}
+                        } |> List.ofSeq
+                    transformedSurfs@newSurfs, List.empty
+                | _ -> List.empty, List.empty
+            let keepGuids = newSurfaces |> List.map (fun s -> s.guid)
+            let deleteGuids = toDelete |> List.map (fun s -> s.guid)
+            let allSurfaces =
+                sObjsSurfs 
+                    |> List.filter (fun s -> not (List.contains s.guid keepGuids)) // delete surfaces that need to be updated
+                    |> List.filter (fun s -> not (List.contains s.guid deleteGuids))
+                    |> List.append newSurfaces // add new or updated Surfaces
+            let allObjSgSurfaces = 
+                sObjsSgs
+                    |> List.filter (fun (g, s) -> not (List.contains g keepGuids)) // delete sgsurfaces that need to be updated
+                    |> List.filter (fun (g, s) -> not (List.contains g deleteGuids))
+            let surfs, sgSurfs = 
+                HaltonPlacement.getSgSurfacesWithBBIntersection ((allSurfaces)|> IndexList.ofList) 
+                                                                allObjSgSurfaces 
+                                                                originalSgs
+            surfs, sgSurfs, deleteGuids
+
         match hasName surf with
         | true -> 
             let sgGrouped = surfacesModel.sgGrouped
@@ -141,92 +201,44 @@ module ShatterconeUtils =
                         |> IndexList.map(fun x -> x.TryFind surf.guid)
                         |> IndexList.tryFirst
                         |> Option.flatten
-            let (sObjsSgs, sObjsSurfs) = getSurfacesInSnapshotGroup surfacesModel
-            let transformableSurfs = sObjsSurfs |> List.filter hasName    
-            let snapshotSurfs, objSgSurfs, deleteGuids =          
+    
+            let surfacesModel = 
                 match sgSurface with
                 | Some originalSgs -> 
-                    // get halton random points on surface (points for debugging)
-                    let surf = surf |> updateColorCorrection shattercone
-                    let pnts, trafos = 
-                        HaltonPlacement.getHaltonRandomTrafos Interactions.PickSurface surfacesModel
-                                                              refSystem shattercone frustum view
-                    let transformSurfaces toTransform trafos =
-                        let zipped = List.zip trafos toTransform    
-                        let updatedSurfaces =
-                            zipped |> List.map (fun (t,s) ->
-                                                  let s = s |> updateColorCorrection shattercone
-                                                  {s with preTransform = t; isVisible = true}
-                                                )
-                        updatedSurfaces
-                    let (newSurfaces, toDelete) = 
-                        match transformableSurfs.Length with
-                        | nr when nr = 0 ->      
-                            let newSurfaces =
-                                [
-                                  for t in [|0..trafos.Length-1|] do
-                                      yield {surf with guid = Guid.NewGuid(); preTransform = trafos.[t]; isVisible = true} 
-                                ] 
-                            newSurfaces, List.empty    
-                        | nr when nr = trafos.Length  ->
-                            (transformSurfaces transformableSurfs trafos, List.empty)
-                        | nr when nr > trafos.Length ->
-                            let (transformThese, deleteThese) = List.splitAt trafos.Length transformableSurfs
-                            (transformSurfaces transformThese trafos, deleteThese)
-                        | nr when nr < trafos.Length ->
-                            let transformTrafos, newTrafos = List.splitAt transformableSurfs.Length trafos
-                            let transformedSurfs = transformSurfaces transformableSurfs transformTrafos
-                            let newSurfs =
-                                seq {
-                                    for trafo in newTrafos do
-                                        yield {surf with guid = Guid.NewGuid (); preTransform = trafo; isVisible = true}
-                                } |> List.ofSeq
-                            transformedSurfs@newSurfs, List.empty
-                        | _ -> List.empty, List.empty
-                    let keepGuids = newSurfaces |> List.map (fun s -> s.guid)
-                    let deleteGuids = toDelete |> List.map (fun s -> s.guid)
-                    let allSurfaces =
-                        sObjsSurfs 
-                            |> List.filter (fun s -> not (List.contains s.guid keepGuids)) // delete surfaces that need to be updated
-                            |> List.filter (fun s -> not (List.contains s.guid deleteGuids))
-                            |> List.append newSurfaces // add new or updated Surfaces
-                    let allObjSgSurfaces = 
-                        sObjsSgs
-                            |> List.filter (fun (g, s) -> not (List.contains g keepGuids)) // delete sgsurfaces that need to be updated
-                            |> List.filter (fun (g, s) -> not (List.contains g deleteGuids))
-                    let surfs, sgSurfs = 
-                        HaltonPlacement.getSgSurfacesWithBBIntersection ((allSurfaces)|> IndexList.ofList) 
-                                                                        allObjSgSurfaces 
-                                                                        originalSgs
-                    surfs, sgSurfs, deleteGuids
-                | None -> List.empty, List.empty,  List.empty
-                
-            // points for debugging
-            //let m = { m with drawing = {m.drawing with haltonPoints = []}}
+                    let snapshotSurfs, objSgSurfs, deleteGuids = place originalSgs
+                    // points for debugging
+                    //let m = { m with drawing = {m.drawing with haltonPoints = []}}
 
-            //distance.xml
-            writeDistancesToFile snapshotSurfs filename (Path.GetFileNameWithoutExtension shattercone.name) navModel |> ignore 
-            let newLeaves = snapshotSurfs |> IndexList.ofList |> IndexList.map Leaf.Surfaces
-            let surfacesModel = 
-                let groups = 
-                    surfacesModel.surfaces 
-                        |> GroupsApp.removeLeavesFromGroup "snapshots" deleteGuids
-                        |> GroupsApp.addLeavesToSnapshots newLeaves  
-                {surfacesModel with surfaces = groups}
-            let snapshotObjGuids = snapshotSurfs |> List.map (fun s -> s.guid)
-            let filteredOldSgSurfs =
-                surfacesModel.sgSurfaces
-                    |> HashMap.filter (fun g s -> not (List.contains g deleteGuids))
-                    |> HashMap.filter (fun g s -> not (List.contains g snapshotObjGuids))
-            //handle sg surfaces
-            let allSgSurfs = 
-                objSgSurfs
-                    |> HashMap.ofList
-                    |> HashMap.union filteredOldSgSurfs
-            let surfacesModel = {surfacesModel with sgSurfaces = allSgSurfs}
-                                                               
-            surfacesModel 
-                |> SurfaceModel.triggerSgGrouping 
+                    //distance.xml
+                    writeDistancesToFile snapshotSurfs filename (Path.GetFileNameWithoutExtension shattercone.name) navModel |> ignore 
+                    let newLeaves = snapshotSurfs |> IndexList.ofList |> IndexList.map Leaf.Surfaces
+                    let surfacesModel = 
+                        let groups = 
+                            surfacesModel.surfaces 
+                                |> GroupsApp.removeLeavesFromGroup "snapshots" deleteGuids
+                        let groups = 
+                            groups
+                                |> GroupsApp.removeLeavesFromGroup "snapshots" (newLeaves.AsList |> List.map (fun x -> x.id))
+                        let groups =
+                            groups
+                                |> GroupsApp.addLeavesToSnapshots newLeaves  
+                        {surfacesModel with surfaces = groups}
+                    let snapshotObjGuids = snapshotSurfs |> List.map (fun s -> s.guid)
+                    let filteredOldSgSurfs =
+                        surfacesModel.sgSurfaces
+                            |> HashMap.filter (fun g s -> not (List.contains g deleteGuids))
+                            |> HashMap.filter (fun g s -> not (List.contains g snapshotObjGuids))
+                    //handle sg surfaces
+                    let allSgSurfs = 
+                        objSgSurfs
+                            |> HashMap.ofList
+                            |> HashMap.union filteredOldSgSurfs
+                    let surfacesModel = {surfacesModel with sgSurfaces = allSgSurfs}
+                                                   
+                    surfacesModel 
+                        |> SurfaceModel.triggerSgGrouping 
+                | None -> surfacesModel
+            surfacesModel
         | false -> surfacesModel
 
     /// applys function f for each item in lst, using the resulting Model for the next step
@@ -263,4 +275,5 @@ module ShatterconeUtils =
                             |> List.filter (fun s -> s.surfaceType = SurfaceType.SurfaceOBJ)
                             |> List.filter (fun s -> not (List.contains s.guid snapshotObjGuids))
         let placeObjs = placeObjs frustum filename  refSystem navModel shattercones
-        applyToModel surfaces m placeObjs
+        let m = applyToModel surfaces m placeObjs
+        m

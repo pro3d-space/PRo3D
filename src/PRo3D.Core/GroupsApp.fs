@@ -189,8 +189,7 @@ module GroupsApp =
         { model with rootGroup = root'; flat = model.flat |> HashMap.union cs }    
         
     // add a list of children to the "snapshots" group
-    let addLeavesToSnapshots (cs : IndexList<Leaf>) model = 
-
+    let addLeavesToSnapshots (children : IndexList<Leaf>) model = 
         //add ids to group
         let node = 
             model.rootGroup.subNodes 
@@ -198,12 +197,11 @@ module GroupsApp =
             |> List.find(fun x -> x.name = "snapshots")
 
          //add child nodes to flat
-        let cs' = cs |> IndexList.toList |> List.map(fun x -> (x.id,x))|> HashMap.ofList
-
-        let t = [{node with leaves = node.leaves |> IndexList.append (cs |> IndexList.map (fun x -> x.id)) }] |> IndexList.ofList
-        let root' = {model.rootGroup with subNodes = t}
-        
-        { model with rootGroup = root'; flat = model.flat |> HashMap.union cs' }    
+        let mapOfChildren = children |> IndexList.toList |> List.map(fun x -> (x.id,x))|> HashMap.ofList
+        let t = [{node with leaves = node.leaves |> IndexList.append (children |> IndexList.map (fun x -> x.id)) }] |> IndexList.ofList
+        let root = {model.rootGroup with subNodes = t}
+        let newFlat = model.flat |> HashMap.union mapOfChildren
+        { model with rootGroup = root; flat = newFlat}    
                
     let removeFromSelection id path model =
         { model with selectedLeaves = model.selectedLeaves |> HashSet.remove( { id = id; path = path; name = "" } ) }
@@ -332,7 +330,7 @@ module GroupsApp =
                                 |> IndexList.add updatedNode
                          
                 let root = {m.rootGroup with subNodes = subNodes}
-                { m with rootGroup = root; flat = m.flat |> HashMap.union flat }   
+                { m with rootGroup = root; flat = flat }   
             | None -> 
                 Log.line "[Groups] Group %s not found. Cannot delete." group
                 m

@@ -39,4 +39,5 @@ module ViewerSnapshotUtils =
                                                    m.navigation
                                                    surf
             Model.withScene {m.scene with surfacesModel = surfaceModel} m
-        ShatterconeUtils.applyToModel surfaces m placeObjs
+        let m = ShatterconeUtils.applyToModel surfaces m placeObjs
+        m

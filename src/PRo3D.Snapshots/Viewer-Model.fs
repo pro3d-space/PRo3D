@@ -298,7 +298,7 @@ type Scene with
             do! Json.write "scenePath" x.scenePath
             do! Json.write "referenceSystem" x.referenceSystem
             do! Json.write "bookmarks" x.bookmarks
-
+            do! Json.write "shatterconePlacements" (x.shatterconePlacements |> HashMap.toList)
             do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString)                   
         }
 
