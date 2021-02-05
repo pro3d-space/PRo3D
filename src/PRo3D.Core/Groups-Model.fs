@@ -306,6 +306,13 @@ module Leaf =
             match x with
             | Leaf.Bookmarks b -> Some b
             | _ -> None)
+
+    let mapToBookmarks bms =
+        bms
+        |> HashMap.choose(fun g x -> 
+            match x with
+            | Leaf.Bookmarks b -> Some b
+            | _ -> None)
         
 module Groups = 
     let updateLeaf' id f model =

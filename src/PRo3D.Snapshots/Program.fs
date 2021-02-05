@@ -144,8 +144,8 @@ let main argv =
 
     Log.startTimed "[Viewer] reading json scene"
 
-    let mainApp = 
-        ViewerApp.start runtime signature startEmpty messagingMailbox sendQueue dumpFile cacheFile
+    let (mainApp, mModel) = 
+        ViewerApp.start runtime signature messagingMailbox sendQueue startupArgs dumpFile cacheFile
 
     let s = { MailboxState.empty with update = mainApp.update Guid.Empty }
     MailboxAction.InitMailboxState s |> messagingMailbox.Post
@@ -211,13 +211,31 @@ let main argv =
 
     let titlestr = "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH"
     
-    Aardium.run {
-        url "http://localhost:54322/"   //"http://localhost:4321/?page=main"
-        width 1280
-        height 800
-        debug true
-        title titlestr
-    }
+    match startupArgs.hasValidAnimationArgs with
+    | true ->
+        PatchLod.useAsyncLoading <- false // need this for rendering without gui!
+        SnapshotGenerator.animate runtime mModel mainApp startupArgs |> ignore
+        try            
+            match startupArgs.exitOnFinish with
+            | true ->
+                ()
+            | false -> 
+                Log.line ""
+                Log.line "Execution finished."
+                Log.line "Your images have been saved to %s" (Path.GetFullPath startupArgs.outFolder)
+                Log.line "Press any key to exit."
+                System.Console.ReadLine () |> ignore
+        with 
+        | e -> 
+            Log.line "%s" e.Message
+    | false ->
+        Aardium.run {
+            url "http://localhost:54322/"   //"http://localhost:4321/?page=main"
+            width 1280
+            height 800
+            debug true
+            title titlestr
+        }
 
     CooTransformation.deInitCooTrafo ()
     0

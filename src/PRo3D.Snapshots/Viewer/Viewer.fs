@@ -173,6 +173,35 @@ module ViewerApp =
             up                    = ReferenceSystem.up_ >-> V3dInput.value_  |> Aether.toBase
         }
 
+    let tryFindSurface (m : Model) (predicate : Guid -> Surface -> bool) =
+        let filtered = 
+            m.scene.surfacesModel.surfaces.flat 
+              |> HashMap.map (fun guid leaf -> Leaf.toSurface leaf)
+              |> (HashMap.filter predicate)
+        match filtered.Count with
+        | x when x < 1 -> None
+        | x when x > 1 -> None
+        | x when x = 1 -> filtered 
+                            |> HashMap.values
+                            |> Seq.tryHead
+        | _ -> None
+ 
+    let tryGetSurface (m : Model) (guid : Guid) =
+        m.scene.surfacesModel.surfaces.flat 
+          |> HashMap.tryFind guid           
+          |> Option.map Leaf.toSurface
+
+    let tryFindSurfaceCalled (m : Model) (name : string) = 
+        let hasName guid (surface : Surface) = 
+            ( String.contains name surface.importPath) 
+              || ( String.contains surface.importPath name) 
+        let surf = tryFindSurface m hasName        
+        surf
+
+    let getAllSurfaces (m : Model) =
+        m.scene.surfacesModel.surfaces.flat 
+          |> HashMap.map (fun g s -> s |> Leaf.toSurface)
+
     let updateCameraUp (m: Model) =
         let cam = m.navigation.camera
         let view' = CameraView.lookAt cam.view.Location (cam.view.Location + cam.view.Forward) m.scene.referenceSystem.up.value
@@ -430,6 +459,7 @@ module ViewerApp =
         | SetCamera cv,_,false -> Optic.set _view cv m
         | SetCameraAndFrustum (cv, hfov, _),_,false -> m
         | SetCameraAndFrustum2 (cv,frustum),_,false ->
+            Log.line "[Viewer] Setting camera and frustum."
             let m = Optic.set _view cv m
             { m with frustum = frustum }
         | AnnotationGroupsMessageViewer msg,_,_ ->
@@ -1043,13 +1073,23 @@ module ViewerApp =
         | TransforAdaptiveSurface (guid, trafo),_,_ ->
             //transforAdaptiveSurface m guid trafo //TODO moved function?
             m
-        //| TransformAllSurfaces surfaceUpdates,_,_ -> //TODO MarsDL Hera
-        //    match surfaceUpdates.IsEmptyOrNull () with
-        //    | false ->
-        //        transformAllSurfaces m surfaceUpdates
-        //    | true ->
-        //        Log.line "[Viewer] No surface updates found."
-        //        m
+        | TransformAllSurfaces surfaceUpdates,_,_ -> //TODO MarsDL Hera
+            match surfaceUpdates.IsEmptyOrNull () with
+            | false ->
+                Log.line "[Viewer] Transforming surfaces."
+                let surfacesModel = 
+                    SnapshotApp.transformAllSurfaces m.scene.surfacesModel surfaceUpdates
+                Optic.set _surfacesModel surfacesModel m
+            | true ->
+                Log.line "[Viewer] No surface updates found."
+                m
+        | UpdateShatterCones (shatterCones, filename) ,_,_ ->
+            match shatterCones.IsEmptyOrNull () with
+            | false ->
+                ViewerSnapshotUtils.placeAllObjs m shatterCones filename
+            | true ->
+                Log.line "[Viewer] No shattercone updates found."
+                m
         //| TransformAllSurfaces (surfaceUpdates,scs),_,_ ->
         //    match surfaceUpdates.IsEmptyOrNull () with
         //    | false ->
@@ -1171,11 +1211,55 @@ module ViewerApp =
             let m = 
                 match Seq.isEmpty snapshotSCParameters with
                 | false ->
-                    ViewerSnapshotUtils.placeAllObjs m
+                    ViewerSnapshotUtils.updateObjPlacementsFromGui m
                 | true -> 
                     Log.line "[Viewer] No snapshot parameters available."
                     m
             m
+        //| ImportBookmark lst,_,_ -> //TODO rno
+        //    match lst |> List.tryHead with
+        //    | Some path ->
+        //        let _camera = NavigationModel.Lens.camera |. CameraControllerState.Lens.view
+        //        let cam = Snapshot.importSnapshotCamera path
+        //        let view = m.scene.navigation.camera.view
+        //                      |> CameraView.withLocation cam.location
+        //                      |> CameraView.withForward cam.forward
+        //                      |> CameraView.withUp cam.up
+        //        let bmmodel = _bookmarksModel.Get(m)
+        //        let name = sprintf "Bookmark #%d" bmmodel.bookmarks.flat.Count
+        //        let newBm =
+        //            {
+        //                key = Guid.NewGuid ()
+        //                name = name
+        //                navigationState = _camera.Set(m.scene.navigation, view)
+        //            }
+        //        let newGroupsModel = Groups.addLeafToActiveGroup (Leaf.Bookmarks newBm) true (bmmodel.bookmarks)
+        //        _bookmarksModel.Set(m, {bmmodel with bookmarks = newGroupsModel})
+        //    | None -> m
+        | ExportSnapshotFile , _, _ ->
+             let jsonScs = ShatterconeUtils.generateSnapshotSCParas m.scene.surfacesModel
+                                                                    m.scene.shatterconePlacements
+             match jsonScs.IsEmptyOrNull () with
+             | false ->
+                 let bookmarks = m.scene.bookmarks.flat
+                                   |> Leaf.mapToBookmarks
+                 let bmviews =
+                     seq {
+                         for guid, bm in bookmarks do
+                           yield bm.cameraView
+                     }
+                 let intvs = 
+                     bmviews 
+                       |> Seq.pairwise
+                       |> Seq.map (fun (a,b) -> ShatterconeUtils.interpolateView a b (int m.scene.config.snapshotSettings.numSnapshots.value))
+                 let intvs = seq {for x in intvs do yield! x}
+                 let snapshots = Snapshot.fromViews intvs jsonScs m.scene.config.shadingApp.lightDirection.value
+                 let snapAnimation = SnapshotAnimation.generate snapshots m.scene.config.snapshotSettings.fieldOfView.value true
+                 SnapshotAnimation.writeToFile snapAnimation "snapshots.json"              
+                 m
+             | true ->
+                 Log.warn "No shattercone placement parameters."
+                 m
         | StartDragging _,_,_
         | Dragging _,_,_ 
         | EndDragging _,_,_ -> 
@@ -1631,27 +1715,59 @@ module ViewerApp =
             let wp = Serialization.loadAs<IndexList<WayPoint>> path
             { m with waypoints = wp }
         | None -> m
-    
-    let start (runtime: IRuntime) (signature: IFramebufferSignature)(startEmpty: bool) messagingMailbox sendQueue dumpFile cacheFile =
 
+    let start (runtime: IRuntime) (signature: IFramebufferSignature)
+              messagingMailbox sendQueue (startupArgs : StartupArgs)
+              dumpFile cacheFile =
+        let initialViewer = 
+            PRo3D.Viewer.Viewer.initial messagingMailbox startupArgs
+        
         let m = 
-            if startEmpty |> not then
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs
-                |> SceneLoader.loadLastScene runtime signature
-                |> SceneLoader.loadLogBrush
-                |> ViewerIO.loadRoverData                
-                |> ViewerIO.loadAnnotations
-                |> ViewerIO.loadCorrelations
-                |> ViewerIO.loadLastFootPrint
-                |> ViewerIO.loadMinerva dumpFile cacheFile
-                |> ViewerIO.loadLinking
-            else
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs |> ViewerIO.loadRoverData       
-
-        App.start {
+            match startupArgs.startEmpty, startupArgs.hasValidAnimationArgs with
+            | _, true  ->
+                initialViewer
+            | true, false ->
+                Log.line "[Viewer] Command line argument startEmpty is set."
+                initialViewer
+                    |> ViewerIO.loadRoverData              
+            | false, false ->
+                initialViewer
+                    |> PRo3D.SceneLoader.loadLastScene runtime signature
+                    |> ViewerIO.loadRoverData
+                    |> ViewerIO.loadAnnotations
+                    |> ViewerIO.loadLastFootPrint
+            | _, _ ->
+                initialViewer
+      
+        AppExtension.start' {
             unpersist = Unpersist.instance
             threads   = threadPool
-            view      = (fun m -> view m runtime)//localhost
+            view      = (fun x -> view x runtime) //localhost
             update    = update runtime signature sendQueue messagingMailbox
             initial   = m
         }
+    
+    // TODO rno check
+    //let start (runtime: IRuntime) (signature: IFramebufferSignature)(startEmpty: bool) messagingMailbox sendQueue dumpFile cacheFile =
+
+    //    let m = 
+    //        if startEmpty |> not then
+    //            PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs
+    //            |> SceneLoader.loadLastScene runtime signature
+    //            |> SceneLoader.loadLogBrush
+    //            |> ViewerIO.loadRoverData                
+    //            |> ViewerIO.loadAnnotations
+    //            |> ViewerIO.loadCorrelations
+    //            |> ViewerIO.loadLastFootPrint
+    //            |> ViewerIO.loadMinerva dumpFile cacheFile
+    //            |> ViewerIO.loadLinking
+    //        else
+    //            PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs |> ViewerIO.loadRoverData       
+
+    //    App.start {
+    //        unpersist = Unpersist.instance
+    //        threads   = threadPool
+    //        view      = (fun m -> view m runtime)//localhost
+    //        update    = update runtime signature sendQueue messagingMailbox
+    //        initial   = m
+    //    }

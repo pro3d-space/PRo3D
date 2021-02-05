@@ -11,63 +11,7 @@ open OpcViewer.Base
 open PRo3D
 open PRo3D.Base.Annotation
 
-module Dialogs =    
-        
-    let onChooseFiles (chosen : list<string> -> 'msg) =
-        let cb xs =
-            match xs with
-            | [] -> chosen []
-            | x::[] when x <> null -> 
-                x 
-                |> Aardvark.Service.Pickler.json.UnPickleOfString 
-                |> List.map Aardvark.Service.PathUtils.ofUnixStyle 
-                |> chosen
-            | _ -> 
-                chosen []
-        onEvent "onchoose" [] cb   
 
-    let onChooseDirectory (id:Guid) (chosen : Guid * string -> 'msg) =
-        let cb xs =
-            match xs with
-            | [] -> chosen (id, String.Empty)
-            | x::[] when x <> null -> 
-                let id = id
-                let path = 
-                    x 
-                    |> Aardvark.Service.Pickler.json.UnPickleOfString 
-                    |> List.map Aardvark.Service.PathUtils.ofUnixStyle 
-                    |> List.tryHead
-                match path with
-                | Some p -> 
-                  chosen (id, p)
-                | None -> chosen (id,String.Empty)
-            | _ -> 
-                chosen (id,String.Empty)
-        onEvent "onchoose" [] cb   
-
-    let onSaveFile (chosen : string -> 'msg) =
-        let cb xs =
-            match xs with
-            | x::[] when x <> null -> 
-                x 
-                |> Aardvark.Service.Pickler.json.UnPickleOfString 
-                |> Aardvark.Service.PathUtils.ofUnixStyle 
-                |> chosen
-            | _ -> 
-                chosen String.Empty //failwithf "onSaveFile: %A" xs
-        onEvent "onsave" [] cb
-
-    let onSaveFile1 (chosen : string -> 'msg) (path : Option<string>) =
-        let cb xs =
-            match path with
-            | Some p-> p |> chosen
-            | None ->
-                match xs with
-                | x::[] when x <> null -> 
-                    x |> Aardvark.Service.Pickler.json.UnPickleOfString |> Aardvark.Service.PathUtils.ofUnixStyle |> chosen
-                | _ -> 
-                    String.Empty |> chosen
-        onEvent "onsave" [] cb
           
 module Mod =
     open FSharp.Data.Adaptive

@@ -15,10 +15,10 @@ open PRo3D.Viewer
 
 open PRo3D.SimulatedViews
 module ViewerSnapshotUtils =
-    let placeAllObjs (m : Model) =
-        let snapshotSCParameters = 
-          ShatterconeUtils.generateSnapshotSCParas m.scene.surfacesModel
-                                                   m.scene.shatterconePlacements
+
+
+
+    let placeAllObjs (m : Model) (snapshotPlacements) filename =
         let surfacesModel = ShatterconeUtils.addSnapshotGroup m.scene.surfacesModel
         let m = Model.withScene {m.scene with surfacesModel = surfacesModel} m
         let snapSgs, snapSurfs = 
@@ -32,12 +32,17 @@ module ViewerSnapshotUtils =
         let placeObjs (m : Model) surf = 
             let surfaceModel = 
                 ShatterconeUtils.placeMultipleOBJs m.scene.surfacesModel
-                                                   snapshotSCParameters 
+                                                   snapshotPlacements 
                                                    m.frustum 
-                                                   "distances"
+                                                   filename
                                                    m.scene.referenceSystem
                                                    m.navigation
-                                                   surf
             Model.withScene {m.scene with surfacesModel = surfaceModel} m
         let m = ShatterconeUtils.applyToModel surfaces m placeObjs
         m
+
+    let updateObjPlacementsFromGui (m : Model) =
+        let snapshotSCParameters = 
+          ShatterconeUtils.generateSnapshotSCParas m.scene.surfacesModel
+                                                    m.scene.shatterconePlacements
+        placeAllObjs m snapshotSCParameters ""

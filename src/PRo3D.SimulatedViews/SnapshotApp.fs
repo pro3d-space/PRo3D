@@ -13,6 +13,7 @@ open PRo3D
 open Adaptify
 open FSharp.Data.Adaptive
 open PRo3D.Core.Surface
+open PRo3D.Core
 open PRo3D.SimulatedViews.Rendering
 
 type SnapshotApp<'model,'aModel, 'msg> =
@@ -91,7 +92,6 @@ module SnapshotApp =
                     } |> Seq.toList
             | false -> snapshots
         
-        //let sg = ViewerUtils.getSurfacesSgWithCamera mModel runtime shadowDepthsignature
         let taskclear = app.runtime.CompileClear(signature,AVal.constant C4f.Black,AVal.constant 1.0)
         let task = app.runtime.CompileRender(signature, app.sceneGraph)
         let (size, depth) = 
@@ -178,3 +178,70 @@ module SnapshotApp =
         | SnapshotType.CameraAndSurface ->
             SnapshotAnimation.read snapshotPath
         | _ -> None 
+
+    let transformAllSurfaces (surfacesModel : SurfaceModel) (surfaceUpdates : list<SnapshotSurfaceUpdate>) =
+        let surfaceGuids = HashMap.keys surfacesModel.surfaces.flat 
+        let nrSurfaces = HashSet.count surfaceGuids
+        let surfaces = surfacesModel.surfaces.flat 
+                                |> HashMap.toList
+                                |> List.map(fun (_,v) -> v |> Leaf.toSurface)
+
+        let hasName (surf : Surface) (name : string) =
+            let surfName = 
+                let n = surf.opcPaths.FirstOrDefault ""
+                match n.Length with
+                | len when len > 0 -> n
+                | _ -> surf.importPath
+            String.contains (String.toLowerInvariant name) (String.toLowerInvariant surfName)
+
+        let transformSurf m surf =
+            let surfaceUpdate  = 
+                surfaceUpdates
+                    |> List.filter (fun s -> hasName surf s.surfname)
+                    |> List.tryHead
+
+            let updatedSurf =
+                match surfaceUpdate with
+                | Some upd ->
+                    let surf =
+                        match upd.visible with
+                        | Some v -> {surf with isVisible    = v}
+                        | None -> surf
+                    let surf =
+                        match upd.trafo with
+                        | Some trafo ->
+                            {surf with preTransform = trafo}
+                        | None -> surf
+                    let surf =
+                        match upd.translation with
+                        | Some tr -> 
+                          let translation = {surf.transformation.translation with value = tr}
+                          {surf with transformation = {surf.transformation with translation = translation}}
+                        | None -> surf
+                    surf
+                | None -> surf
+
+            SurfaceModel.updateSingleSurface updatedSurf surfacesModel
+
+        // apply surface tranformation to each surface mentioned in the snapshot
+        ShatterconeUtils.applyToModel surfaces surfacesModel transformSurf       
+
+    let menuItems placeAction generateJsonAction = //TODO rno importBookmarkAction =
+      div [ clazz "ui dropdown item"] [
+        text "Snapshots"
+        i [clazz "dropdown icon"][] 
+        div [ clazz "menu"] [
+          div [ clazz "ui item"; onMouseClick (fun _ -> placeAction)][
+              text "Place Shattercones"
+          ]
+          div [ clazz "ui item";onMouseClick (fun _ -> generateJsonAction)][
+                text "Generate Shattercone Placement"
+              ]
+          ]
+          //div [ clazz "ui item";
+          //  UI.Dialogs.onChooseFiles  importBookmarkAction;
+          //  clientEvent "onclick" ("parent.aardvark.processEvent('__ID__', 'onchoose', parent.aardvark.dialog.showOpenDialog({properties: ['openFile']}));") ][
+          //  text "Import Bookmark"
+          //]
+      ]
+      

@@ -77,7 +77,7 @@ module SnapshotGenerator =
             | Some s ->
                 match s.IsEmptyOrNull () with
                 | false ->
-                    [//ViewerAction.TransformAllSurfaces s
+                    [ViewerAction.TransformAllSurfaces s
                     ]
                 | true -> []
             | None -> []
@@ -86,8 +86,7 @@ module SnapshotGenerator =
             | Some sc ->
                 match sc.IsEmptyOrNull () with
                 | false ->
-                    [//ViewerAction.UpdateShatterCones (sc, frustum, filename)
-                    ] //XX
+                    [ViewerAction.UpdateShatterCones (sc, filename)] 
                 | true -> []
             | None -> []
         // ADD ACTIONS FOR NEW SNAPSHOT MEMBERS HERE
@@ -125,6 +124,7 @@ module SnapshotGenerator =
                   (mModel       : AdaptiveModel)
                   (mApp         : MutableApp<Model, ViewerAction>) 
                   (args         : StartupArgs) =
+        let sg = ViewerUtils.getSurfacesSgWithCamera mModel runtime
         let hasLoadedAny = loadData args mApp
         match hasLoadedAny with
         | true ->
@@ -134,7 +134,7 @@ module SnapshotGenerator =
                 let snapshotApp : SnapshotApp<Model, AdaptiveModel, ViewerAction> = 
                     {
                         viewerApp = mApp
-                        sceneGraph = Sg.empty //TODO
+                        sceneGraph = sg
                         snapshotAnimation = data
                         getAnimationActions = getAnimationActions
                         getSnapshotActions = getSnapshotActions

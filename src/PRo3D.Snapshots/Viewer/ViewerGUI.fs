@@ -34,7 +34,7 @@ open PRo3D.Core.Surface
 open PRo3D.Bookmarkings
 
 open PRo3D.SimulatedViews
-
+open PRo3D.Core.UI
 open Adaptify
 open FSharp.Data.Adaptive
 
@@ -405,7 +405,11 @@ module Gui =
                             
                                 //annotations menu
                                 annotationMenu |> UI.map DrawingMessage;                                                           
-                                                            
+                                
+                                //snapshot menu
+                                SnapshotApp.menuItems ViewerAction.TestHaltonRayCasting 
+                                                      ViewerAction.ExportSnapshotFile
+
                                 //Extras Menu
                                 div [ clazz "ui dropdown item"] [
                                     text "Extras"

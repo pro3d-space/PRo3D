@@ -76,15 +76,13 @@ module ShatterconeUtils =
                              (filename:string) (name:string) (nav : NavigationModel) =
         let distances =
             surfs
-            |> List.map( fun s -> 
-                          let preTransform = s.preTransform.Forward.C3.XYZ
-                          let camera = nav.camera.view.Location
-                          Vec.Distance(preTransform, camera)
-                       )
+            |> List.map( fun s -> Vec.Distance(s.preTransform.Forward.C3.XYZ, nav.camera.view.Location))
+            
         let distXml = sprintf "%s_%s_distances.xml" filename name
         let text = (distances |> List.map(fun d -> sprintf "%f\n" d)) |> List.fold (+)""
         //Log.error "%s" text
         File.WriteAllText(distXml, text)
+
    
     let updateColorCorrection (shattercone : SnapshotShattercone) (surf : Surface) =
         let colorAdaption = surf.colorCorrection
@@ -265,8 +263,7 @@ module ShatterconeUtils =
                           (frustum      : Frustum) 
                           (filename     : string) 
                           (refSystem    : ReferenceSystem)
-                          (navModel     : NavigationModel) 
-                          (surface      : Surface) =
+                          (navModel     : NavigationModel) =
         let snapSgs, snapSurfs = getSurfacesInSnapshotGroup m
         let snapshotObjGuids = snapSgs |> List.map fst
         let surfaces = m.surfaces.flat 
@@ -277,3 +274,29 @@ module ShatterconeUtils =
         let placeObjs = placeObjs frustum filename  refSystem navModel shattercones
         let m = applyToModel surfaces m placeObjs
         m
+
+    let interpolateView (fromView : CameraView) (toView : CameraView) (steps : int) =
+        let locFrom = fromView.Location
+        let upFrom  = fromView.Up
+        let forwardFrom = fromView.Forward
+        let locTo = toView.Location
+        let upTo  = toView.Up
+        let forwardTo = toView.Forward
+        let deltaLoc = locTo - locFrom
+        let deltaUp = upTo - upFrom
+        let deltaFw = forwardTo - forwardFrom
+        let stepLoc = (deltaLoc / float steps)
+        let stepUp  = (deltaUp / float steps)
+        let stepFw  = (deltaFw / float steps)
+        let interp = 
+            seq {
+                for i in [0 .. steps] do
+                  let loc = locFrom + (float i) * stepLoc
+                  let up  = upFrom  + (float i) * stepUp
+                  let fw  = forwardFrom + (float i) * stepFw
+                  yield (toView |> CameraView.withLocation loc
+                                |> CameraView.withUp up
+                                |> CameraView.withForward fw
+                        )  
+            }
+        interp

@@ -108,7 +108,7 @@ type ViewerAction =
     | SetMode                         of TrafoMode
     | TransforAdaptiveSurface                of System.Guid * Trafo3d
     | ImportTrafo                     of list<string>
-    //| TransformAllSurfaces            of list<SnapshotSurfaceUpdate>
+    | TransformAllSurfaces            of list<SnapshotSurfaceUpdate>
     | Translate                       of string * TrafoController.Action
     | Rotate                          of string * TrafoController.Action
     | SurfaceActions                  of SurfaceAppAction
@@ -135,10 +135,11 @@ type ViewerAction =
     | MakeSnapshot                    of int*int*string
     | ImportSnapshotData              of list<string>
     | SetTextureFiltering             of bool // TODO move to versioned ViewConfigModel in V3
-    //| UpdateShatterCones              of list<SnapshotShattercone> // TODO snapshots and shattercone things should be in own apps
+    | UpdateShatterCones              of (list<SnapshotShattercone> * string)
     | TestHaltonRayCasting            //of list<string>
     | HeightValidation               of HeightValidatorAction
     | ObjectPlacementMessage         of (string * ObjectPlacementAction)
+    | ExportSnapshotFile             
     | Nop
 
 and MailboxState = {

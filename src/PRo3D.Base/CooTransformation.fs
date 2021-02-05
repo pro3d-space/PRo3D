@@ -27,7 +27,8 @@ module CooTransformation =
         printfn "%A" errorCode
 
     let deInitCooTrafo () = 
-        CooTrafo.DeInit()
+        ()
+        //CooTrafo.DeInit() //TODO rno why does this crash?
 
     let getLatLonAlt (p:V3d) (planet:Planet) : SphericalCoo = 
       match planet with
