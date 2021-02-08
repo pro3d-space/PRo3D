@@ -1,4 +1,4 @@
-## 3.4.0-prerelease1
+## 3.4.0-prerelease
 
 * added picking tolerance in meters for annotation picking to viewconfig to address picking problems at orbital scale.
   * this tolerance does not affect the accuracy of the line picking itself
