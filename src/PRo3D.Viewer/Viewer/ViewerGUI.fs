@@ -467,7 +467,7 @@ module Gui =
                 ]
             ]
         
-        let dynamicTop (m:AdaptiveModel) =
+        let dynamicTopMenu (m:AdaptiveModel) =
             adaptive {
                 let! interaction = m.interaction
                 match interaction with
@@ -481,6 +481,12 @@ module Gui =
                         //Html.Layout.boxH [ i [clazz "unhide icon"][] ]
                         Html.Layout.boxH [ GuiEx.iconToggle m.scene.referenceSystem.isVisible "unhide icon" "hide icon" ReferenceSystemAction.ToggleVisible  ]                        
                         ] |> UI.map ReferenceSystemMessage
+                | Interactions.PickAnnotation ->
+                     return Html.Layout.horizontal [
+                        Html.Layout.boxH [text "eps.:"]
+                        Html.Layout.boxH [
+                            Numeric.view' [InputBox] m.scene.config.pickingTolerance |> UI.map (fun x -> (ConfigProperties.Action.SetPickingTolerance x) |> ConfigPropertiesMessage)] 
+                     ]
                 | _ -> 
                   return div[][]
             }
@@ -532,7 +538,7 @@ module Gui =
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large wizard icon"][] ]
                 Html.Layout.boxH [ CustomGui.dropDown Interactions.hideSet m.interaction SetInteraction ]
-                Incremental.div  AttributeMap.empty (AList.ofAValSingle (dynamicTop m))
+                Incremental.div  AttributeMap.empty (AList.ofAValSingle (dynamicTopMenu m))
                 Html.Layout.boxH [ 
                     div[style "font-style:italic; width:100%; text-align:right"] [
                         Incremental.text (m.interaction |> AVal.map interactionText)

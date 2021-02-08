@@ -225,7 +225,7 @@ module ViewerUtils =
         (blarg           : amap<Guid, AdaptiveLeafCase>) // TODO v5: to get your naming right!!
         (frustum         : aval<Frustum>) 
         (selectedId      : aval<Option<Guid>>)
-        (isctrl          : aval<bool>) 
+        (surfacePicking  : aval<bool>)
         (globalBB        : aval<Box3d>) 
         (refsys          : AdaptiveReferenceSystem)
         (fp              : AdaptiveFootPrint) 
@@ -320,8 +320,8 @@ module ViewerUtils =
                         if visible then sg else Sg.empty
                     )
                     |> Sg.dynamic
-
-                let test =             
+                
+                let surfaceSg =
                     surface.sceneGraph
                     |> AVal.map createSg
                     |> Sg.dynamic
@@ -346,9 +346,10 @@ module ViewerUtils =
                         SceneEventKind.Click, (
                            fun sceneHit -> 
                              let surfM = surf       |> AVal.force
-                             let name  = surfM.name |> AVal.force                                                  
-                             Log.warn "spawning picksurface %s" name
-                             true, Seq.ofList [PickSurface (sceneHit,name)])
+                             let name  = surfM.name |> AVal.force        
+                             let surfacePicking = surfacePicking |> AVal.force
+                             //Log.warn "[SurfacePicking] spawning picksurface action %s" name //TODO remove spanwning altogether when interaction is not "PickSurface"
+                             true, Seq.ofList [PickSurface (sceneHit, name, surfacePicking)])
                        ]  
                     // handle surface visibility
                     |> Sg.onOff (surf |> AVal.bind(fun x -> x.isVisible)) // on off variant
@@ -361,9 +362,8 @@ module ViewerUtils =
                             DefaultSurfaces.vertexColor |> toEffect
                         ] 
                         |> Sg.onOff isSelected
-                    )
-                
-                return test
+                    )                                
+                return surfaceSg
             else
                 return Sg.empty
         } |> Sg.dynamic
@@ -433,9 +433,16 @@ module ViewerUtils =
                 fun x -> ( x 
                     |> AMap.map(fun _ sf -> 
                         let bla = m.scene.surfacesModel.surfaces.flat
-                        viewSingleSurfaceSg sf bla m.frustum selected m.ctrlFlag 
-                                            sf.globalBB refSystem m.footPrint 
-                                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting m.filterTexture)
+                        viewSingleSurfaceSg 
+                            sf 
+                            bla 
+                            m.frustum 
+                            selected 
+                            m.ctrlFlag 
+                            sf.globalBB 
+                            refSystem 
+                            m.footPrint 
+                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting m.filterTexture)
                     |> AMap.toASet 
                     |> ASet.map snd                     
                 )                
@@ -482,9 +489,15 @@ module ViewerUtils =
                 fun x -> ( x 
                     |> AMap.map(fun _ sf -> 
                         let bla = m.scene.surfacesModel.surfaces.flat
-                        viewSingleSurfaceSg sf bla m.frustum selected m.ctrlFlag sf.globalBB 
-                                            refSystem m.footPrint 
-                                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting filterTexture
+                        viewSingleSurfaceSg 
+                            sf 
+                            bla 
+                            m.frustum 
+                            selected 
+                            (m.interaction |> AVal.map(fun x -> x = Interactions.PickSurface))
+                            sf.globalBB 
+                            refSystem m.footPrint 
+                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting filterTexture
                        )
                     |> AMap.toASet 
                     |> ASet.map snd                     

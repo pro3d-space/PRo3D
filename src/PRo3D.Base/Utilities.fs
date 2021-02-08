@@ -522,13 +522,21 @@ module Sg =
         |> Sg.trafo trafo
         |> Sg.uniform "LineWidth" width      
 
-    let private pickableContent (points: alist<V3d>) (edges: aval<Line3d[]>) (trafo: aval<Trafo3d>) = 
+    let private pickableContent
+        (points            : alist<V3d>) 
+        (edges             : aval<Line3d[]>) 
+        (trafo             : aval<Trafo3d>) 
+        (pickingTolerance  : aval<float>) = 
+
         adaptive {
             let! edg = edges 
             let! t = trafo
+            let! tolerance = pickingTolerance
+
+
             if edg.Length = 1 then        
                 let e = edg |> Array.head
-                let cylinder = Cylinder3d(e.P0, e.P1, 0.1)
+                let cylinder = Cylinder3d(e.P0, e.P1, tolerance)
                 return PickShape.Cylinder cylinder
             elif edg.Length > 1 then
                 let! xs = points.Content
@@ -544,7 +552,7 @@ module Sg =
                         let hits =
                             edg 
                             |> Array.choose (fun e -> 
-                                let c = Cylinder3d(e.P0, e.P1, 0.1)
+                                let c = Cylinder3d(e.P0, e.P1, tolerance)
                                 Geometry.RayPart.intersect g c
                             ) 
                         if hits.Length > 0 then Some (Array.min hits) else None
@@ -555,23 +563,22 @@ module Sg =
         }
 
     let pickableLine 
-        (points : alist<V3d>) 
-        (offset : aval<float>) 
-        (color : aval<C4b>) 
-        (width : aval<float>) 
-        (trafo : aval<Trafo3d>) 
-        (picking: bool) // picking generally enabled
-        (pickAnnotationFunc:  aval<Line3d[]> -> SceneEventKind * (SceneHit -> bool * seq<_>)) = 
+        (points             : alist<V3d>) 
+        (offset             : aval<float>) 
+        (color              : aval<C4b>) 
+        (width              : aval<float>) 
+        (pickingTolerance   : aval<float>)
+        (trafo              : aval<Trafo3d>) 
+        (picking            : bool) // picking generally enabled
+        (pickAnnotationFunc : aval<Line3d[]> -> SceneEventKind * (SceneHit -> bool * seq<_>)) = 
 
         let edges = edgeLines false points trafo 
-        let pline = drawStableLinesHelper edges offset color width
-      
-        let event = pickAnnotationFunc edges        
+        let pline = drawStableLinesHelper edges offset color width              
 
         if picking then
             let applicator =
                 pline 
-                |> Sg.pickable' ((pickableContent points edges trafo) |> AVal.map Pickable.ofShape)
+                |> Sg.pickable' ((pickableContent points edges trafo pickingTolerance) |> AVal.map Pickable.ofShape)
 
             (applicator :> ISg) 
             |> Sg.noEvents

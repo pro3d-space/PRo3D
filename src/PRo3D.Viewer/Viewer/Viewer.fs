@@ -159,12 +159,13 @@ module ViewerApp =
 
     let mdrawingConfig : DrawingApp.MSmallConfig<AdaptiveViewConfigModel> =
         {            
-            getNearPlane       = fun x -> x.nearPlane.value
-            getHfov            = fun (x:AdaptiveViewConfigModel) -> ((AVal.init 60.0) :> aval<float>)
-            getArrowThickness  = fun (x:AdaptiveViewConfigModel) -> x.arrowThickness.value
-            getArrowLength     = fun (x:AdaptiveViewConfigModel) -> x.arrowLength.value
-            getDnsPlaneSize    = fun (x:AdaptiveViewConfigModel) -> x.dnsPlaneSize.value
-            getOffset          = fun (x:AdaptiveViewConfigModel) -> AVal.constant(0.1)//x.offset.value
+            getNearPlane        = fun x -> x.nearPlane.value
+            getHfov             = fun (x:AdaptiveViewConfigModel) -> ((AVal.init 60.0) :> aval<float>)
+            getArrowThickness   = fun (x:AdaptiveViewConfigModel) -> x.arrowThickness.value
+            getArrowLength      = fun (x:AdaptiveViewConfigModel) -> x.arrowLength.value
+            getDnsPlaneSize     = fun (x:AdaptiveViewConfigModel) -> x.dnsPlaneSize.value
+            getOffset           = fun (x:AdaptiveViewConfigModel) -> AVal.constant(0.1)//x.offset.value
+            getPickingTolerance = fun (x:AdaptiveViewConfigModel) -> x.pickingTolerance.value
         }
 
     let navConf : Navigation.smallConfig<ViewConfigModel, ReferenceSystem> =
@@ -736,7 +737,7 @@ module ViewerApp =
                 m
             else 
                 m
-        | ViewerAction.PickSurface (p,name), _ ,true ->
+        | ViewerAction.PickSurface (p,name,true), _ ,true ->
             let fray = p.globalRay.Ray
             let r = fray.Ray
             let rayHash = r.GetHashCode()              
@@ -795,7 +796,7 @@ module ViewerApp =
                             m
 
                     Log.stop()
-                    Log.line "done intersecting"
+                    Log.line "[PickSurface] done intersecting"
                      
                     result
             else m
@@ -1392,7 +1393,13 @@ module ViewerApp =
         DomNode.RenderControl((instrumentControlAttributes m), icam, icmds, None) //AttributeMap.Empty
 
     let viewRenderView (m: AdaptiveModel) = 
-        let annotations, discs = DrawingApp.view m.scene.config mdrawingConfig m.navigation.camera.view (allowAnnotationPicking m) m.drawing  
+        let annotations, discs = 
+            DrawingApp.view 
+                m.scene.config 
+                mdrawingConfig 
+                m.navigation.camera.view 
+                (allowAnnotationPicking m)                 
+                m.drawing
             
         let annotationSg = 
             let ds =

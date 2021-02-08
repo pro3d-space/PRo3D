@@ -94,7 +94,7 @@ type ViewerAction =
     | ConfigPropertiesMessage         of ConfigProperties.Action
     | DeleteLast
     | AddSg                           of ISg
-    | PickSurface                     of SceneHit*string
+    | PickSurface                     of SceneHit*string*bool
     | PickObject                      of V3d*Guid
     | SaveScene                       of string
     | SaveAs                          of string
@@ -288,7 +288,7 @@ type Model = {
     startupArgs          : StartupArgs
     scene                : Scene
     drawing              : PRo3D.Core.Drawing.DrawingModel
-    interaction          : Interactions
+    interaction          : Interactions    
     recent               : Recent
     waypoints            : IndexList<WayPoint>
 

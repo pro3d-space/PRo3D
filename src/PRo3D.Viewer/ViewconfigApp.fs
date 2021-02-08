@@ -22,6 +22,7 @@ module ConfigProperties =
         | SetArrowThickness         of Numeric.Action
         | SetDnSPlaneSize           of Numeric.Action
         | SetOffset                 of Numeric.Action
+        | SetPickingTolerance       of Numeric.Action
         | ToggleLodColors
         | ToggleOrientationCube 
         | ToggleSurfaceHighlighting
@@ -49,8 +50,12 @@ module ConfigProperties =
             { model with dnsPlaneSize = Numeric.update model.dnsPlaneSize s }
         | ToggleLodColors ->
             { model with lodColoring = not model.lodColoring}
-        | ToggleOrientationCube  -> {model with drawOrientationCube = not model.drawOrientationCube}
-        | ToggleSurfaceHighlighting  -> model // {model with useSurfaceHighlighting = not model.useSurfaceHighlighting}
+        | ToggleOrientationCube -> 
+            { model with drawOrientationCube = not model.drawOrientationCube}
+        | ToggleSurfaceHighlighting -> 
+            model // {model with useSurfaceHighlighting = not model.useSurfaceHighlighting}
+        | SetPickingTolerance tolerance ->
+            { model with pickingTolerance = Numeric.update model.pickingTolerance tolerance }
         | _ -> 
             Log.warn "[ConfigProperties] Unknown action %A" act
             model
@@ -60,6 +65,7 @@ module ConfigProperties =
     let view (model : AdaptiveViewConfigModel) =    
         require GuiEx.semui (
             Html.table [      
+                Html.row "Picking Tolerance:"       [Numeric.view' [InputBox] model.pickingTolerance      |> UI.map SetPickingTolerance ]
                 Html.row "Near Plane:"              [Numeric.view' [InputBox] model.nearPlane             |> UI.map SetNearPlane ]               
                 Html.row "Far Plane:"               [Numeric.view' [InputBox] model.farPlane              |> UI.map SetFarPlane ]    
                 Html.row "Navigation Sensitivity:"  [Numeric.view' [Slider] model.navigationSensitivity   |> UI.map SetNavigationSensitivity ]    

@@ -16,6 +16,9 @@ open Aardvark.Application
 open Aardvark.UI
 
 open FSharp.Data.Adaptive
+open FSharp.Data.Adaptive.Operators
+
+
 open Aardvark.Base.Rendering
 open Aardvark.Application
 open Aardvark.SceneGraph
@@ -225,12 +228,13 @@ module DrawingApp =
 
     type MSmallConfig<'ma> =
         {            
-            getNearPlane       : 'ma -> aval<float>
-            getHfov            : 'ma -> aval<float>            
-            getArrowThickness  : 'ma -> aval<float>
-            getArrowLength     : 'ma -> aval<float>
-            getDnsPlaneSize    : 'ma -> aval<float>
-            getOffset          : 'ma -> aval<float>
+            getNearPlane        : 'ma -> aval<float>
+            getHfov             : 'ma -> aval<float>            
+            getArrowThickness   : 'ma -> aval<float>
+            getArrowLength      : 'ma -> aval<float>
+            getDnsPlaneSize     : 'ma -> aval<float>
+            getOffset           : 'ma -> aval<float>
+            getPickingTolerance : 'ma -> aval<float>
         }
    
     let cylinders width positions = 
@@ -363,12 +367,14 @@ module DrawingApp =
             match (model.annotations.flat.TryFind id) with
             | Some (Leaf.Annotations ann) ->       
                             
-                Log.error "[DrawingApp] shiftflag is %A" shiftFlag
+                //Log.error "[DrawingApp] shiftflag is %A" shiftFlag
                 // { model with annotations = Groups.addSingleSelectedLeaf model.annotations list.Empty ann.key "" }              
                 let annotations =
                     if shiftFlag then
+                        Log.line "[DrawingApp] single select"
                         GroupsApp.update model.annotations (GroupsAppAction.AddLeafToSelection(List.empty, ann.key, String.Empty))
-                    else 
+                    else
+                        Log.line "[DrawingApp] multi select"
                         GroupsApp.update model.annotations (GroupsAppAction.SingleSelectLeaf(List.empty, ann.key, String.Empty))
                     
                 { model with annotations = annotations }
@@ -439,11 +445,11 @@ module DrawingApp =
         | _ -> None
        
     let view<'ma> 
-        (mbigConfig     : 'ma)
-        (msmallConfig   : MSmallConfig<'ma>)
-        (view           : aval<CameraView>)
-        (pickingAllowed : aval<bool>)
-        (model          : AdaptiveDrawingModel)
+        (mbigConfig       : 'ma)
+        (msmallConfig     : MSmallConfig<'ma>)
+        (view             : aval<CameraView>)
+        (pickingAllowed   : aval<bool>)        
+        (model            : AdaptiveDrawingModel)
         : ISg<DrawingAction> * ISg<DrawingAction> =
         // order is irrelevant for rendering. change list to set,
         // since set provides more degrees of freedom for the compiler           
@@ -454,12 +460,13 @@ module DrawingApp =
 
         let config : Sg.innerViewConfig = 
             {
-                nearPlane      = msmallConfig.getNearPlane      mbigConfig
-                hfov           = msmallConfig.getHfov           mbigConfig                    
-                arrowLength    = msmallConfig.getArrowLength    mbigConfig
-                arrowThickness = msmallConfig.getArrowThickness mbigConfig
-                dnsPlaneSize   = msmallConfig.getDnsPlaneSize   mbigConfig
-                offset         = msmallConfig.getOffset         mbigConfig
+                nearPlane        = msmallConfig.getNearPlane        mbigConfig
+                hfov             = msmallConfig.getHfov             mbigConfig                    
+                arrowLength      = msmallConfig.getArrowLength      mbigConfig
+                arrowThickness   = msmallConfig.getArrowThickness   mbigConfig
+                dnsPlaneSize     = msmallConfig.getDnsPlaneSize     mbigConfig
+                offset           = msmallConfig.getOffset           mbigConfig
+                pickingTolerance = msmallConfig.getPickingTolerance mbigConfig
             }
        
         Log.startTimed "[Drawing] creating finished annotation geometry"

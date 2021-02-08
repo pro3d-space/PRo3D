@@ -57,12 +57,13 @@ module Sg =
            
     type innerViewConfig =
         {
-            nearPlane       : aval<float>
-            hfov            : aval<float>                
-            arrowThickness  : aval<float>
-            arrowLength     : aval<float>
-            dnsPlaneSize    : aval<float>
-            offset          : aval<float>
+            nearPlane        : aval<float>
+            hfov             : aval<float>                
+            arrowThickness   : aval<float>
+            arrowLength      : aval<float>
+            dnsPlaneSize     : aval<float>
+            offset           : aval<float>
+            pickingTolerance : aval<float>
         }
     
     let drawTrueThicknessPlane (planeScale : aval<float>) (dnsResults : aval<option<AdaptiveDipAndStrikeResults>>) (cl : AdaptiveFalseColorsModel) =                         
@@ -191,14 +192,17 @@ module Sg =
                 let modelTrafo = model |> AVal.force
                 let pixelWidth = pixelWidth |> AVal.force                        
         
+                Log.line "[AnnotationPicking] pickable hit"
+
                 let rayHash = sceneHit.globalRay.Ray.Ray.GetHashCode()
 
                 if (rayHash = lastHash) then
-                    Log.warn "rayHash took over"
+                    Log.warn "[AnnotationPicking] detected duplicate picking interaction (rayhash)"
                     true, Seq.empty
                 else
-
                     if lines.Length > 0 && currentlyActive then
+                        Log.line "[AnnotationPicking] Pixel picking in progress"
+
                         let reallyHit = 
                              // TODO hs/to real horrorshow here!
                              lines 
@@ -219,9 +223,10 @@ module Sg =
                         // TODO hs/to picking refactoring (search for this string in order to find connected parts)
                         if reallyHit then
                             lastHash <- rayHash
-                            Log.warn "[AnnotationPicking] picked %A" id
+                            Log.line "[AnnotationPicking] pixel picked %A" id
                             true, Seq.ofList [ PickAnnotation (sceneHit, (id)) ]
-                        else 
+                        else
+                            Log.line "[AnnotationPicking] no pixel picking hit"
                             true, Seq.empty // if no pick continue anyways. we are no blocker geometry
                     else 
                         true, Seq.empty
@@ -292,13 +297,13 @@ module Sg =
         |> Sg.set  
 
     let finishedAnnotation 
-        (anno       : AdaptiveAnnotation) 
-        (c          : aval<C4b>) 
-        (conf       : innerViewConfig)
-        (view       : aval<CameraView>) 
-        (showPoints : aval<bool>) 
-        (picked     : aval<bool>)
-        (pickingAllowed : aval<bool>) =
+        (anno             : AdaptiveAnnotation) 
+        (color            : aval<C4b>) 
+        (config           : innerViewConfig)
+        (view             : aval<CameraView>) 
+        (showPoints       : aval<bool>)         
+        (picked           : aval<bool>)
+        (pickingAllowed   : aval<bool>) =
 
         let points = getPolylinePoints anno      
         let dots = 
@@ -306,10 +311,10 @@ module Sg =
             |> optional (
                 getDotsIsg
                     anno.points
-                    (anno.thickness.value |> AVal.map(fun x -> x+0.5)) 
-                    c 
+                    (anno.thickness.value |> AVal.map(fun x -> x + 0.5))
+                    color
                     anno.geometry 
-                    conf.offset
+                    config.offset
             )
        
         let azimuth =
@@ -323,12 +328,12 @@ module Sg =
                 return x
             }
     
-        let azimuthText = (drawText' view conf (azimuth |> AVal.map(fun x -> sprintf "%.2f" x)) anno)
+        let azimuthText = (drawText' view config (azimuth |> AVal.map(fun x -> sprintf "%.2f" x)) anno)
           
         let texts = 
             anno.text 
             |> AVal.map (String.IsNullOrEmpty >> not) 
-            |> optional (drawText view conf anno)
+            |> optional (drawText view config anno)
     
         let dotsAndText = ASet.union' [dots; texts] |> Sg.set
             
@@ -338,7 +343,16 @@ module Sg =
 
         let pickFunc = pickEventsHelper (anno.key |> AVal.constant) pickingAllowed anno.thickness.value anno.modelTrafo
 
-        let pickingLines = Sg.pickableLine points conf.offset c anno.thickness.value anno.modelTrafo true pickFunc
+        let pickingLines = 
+            Sg.pickableLine 
+                points 
+                config.offset 
+                color
+                anno.thickness.value 
+                config.pickingTolerance
+                anno.modelTrafo 
+                true 
+                pickFunc
              
         let selectionSg = 
             picked 
