@@ -1,4 +1,13 @@
-### 3.3.1
+## 3.4.0-prerelease1
+
+* added picking tolerance in meters for annotation picking to viewconfig to address picking problems at orbital scale.
+  * this tolerance does not affect the accuracy of the line picking itself
+  * it rather affects performance: having a large tolerance for small scale scenes may result in unnecessary intersections tests
+* picking tolerance is serialized with view config (now version 2), older versions will be intialized with 0.01m
+* numeric control for picking tolerance directly next to interaction dropdown with text "eps.:"
+* removed unnecessary surface intersection computation when trying to pick annotations
+
+## 3.3.1
 
 * csv export contains visible annotations only
 * also added manualDipAngle and trueThickness result to export (NaN of not applicable to annotation)
