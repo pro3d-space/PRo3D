@@ -38,6 +38,12 @@ open Suave.Operators
 open Suave.Filters
 open Suave.Successful
 open Suave.Json
+open Suave.Files
+open Suave.Filters
+open Suave.Operators
+open Suave.Successful
+open Suave.ServerErrors
+open Suave.Writers
 
 open FSharp.Data.Adaptive
 
@@ -197,12 +203,38 @@ let main argv =
     if catchDomainErrors then
         AppDomain.CurrentDomain.UnhandledException.AddHandler(UnhandledExceptionEventHandler(domainError))
 
+
+    let setCORSHeaders =
+        setHeader  "Access-Control-Allow-Origin" "*"
+        >=> setHeader "Access-Control-Allow-Headers" "content-type"
+    
+    let allow_cors : WebPart =
+        choose [
+            OPTIONS >=>
+                fun context ->
+                    context |> (
+                        setCORSHeaders
+                        >=> OK "CORS approved" 
+                    )
+        ]
+
     WebPart.startServerLocalhost 54322 [
+        allow_cors
         MutableApp.toWebPart' runtime false mainApp
         path "/websocket" >=> handShake ws
         Reflection.assemblyWebPart typeof<EmbeddedRessource>.Assembly
        // Reflection.assemblyWebPart typeof<CorrelationDrawing.CorrelationPanelResources>.Assembly //(System.Reflection.Assembly.LoadFrom "PRo3D.CorrelationPanels.dll")
        // prefix "/instrument" >=> MutableApp.toWebPart runtime instrumentApp
+
+        path "/setCamera" >=> request (fun r -> 
+            let location = V3d(-1775712.90, -4676627.34, 3945759.99)
+            let forward = V3d(-0.507, -0.040, -0.861)
+            let sky = V3d(-0.278, -0.732, 0.62)
+            let cv = CameraView.look location forward sky
+            mainApp.update (Guid.NewGuid()) (Seq.ofList [Viewer.SetCamera cv])
+            OK ""
+        )
+
 
         path "/crash.txt" >=> Suave.Writers.setMimeType "text/plain" >=> request (fun r -> 
             Files.sendFile "Aardvark.log" false
