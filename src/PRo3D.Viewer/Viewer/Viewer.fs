@@ -1534,7 +1534,7 @@ module ViewerApp =
         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
         let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
         DomNode.RenderControl((renderControlAttributes m), cam, cmds, None)
-
+        
     let view (m: AdaptiveModel) = //(localhost: string)
        
         let viewerDependencies = [
@@ -1546,128 +1546,10 @@ module ViewerApp =
         
         let bodyAttributes = [style "background: #1B1C1E; height:100%; overflow-y:scroll; overflow-x:hidden;"] //overflow-y : visible
 
-        let onResize (cb : V2i -> 'msg) =
-            onEvent "onresize" ["{ X: $(document).width(), Y: $(document).height()  }"] (List.head >> Pickler.json.UnPickleOfString >> cb)
-
-        let onFocus (cb : V2i -> 'msg) =
-            onEvent "onfocus" ["{ X: $(document).width(), Y: $(document).height()  }"] (List.head >> Pickler.json.UnPickleOfString >> cb)
-
-        let renderViewAttributes = [ 
-            style "background: #1B1C1E; height:100%; width:100%"
-            Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Standard)            
-            onResize OnResize     
-            onFocus OnResize
-            onMouseDown (fun button pos -> StartDragging (pos, button))
-         //   onMouseMove (fun delta -> Dragging delta)
-            onMouseUp (fun button pos -> EndDragging (pos, button))
-        ]
-        //let renderViewAttributes =
-        //    amap {
-        //        yield style "background: #1B1C1E; height:100%; width:100%"
-        //        yield onClick (fun _ -> SwitchViewerMode ViewerMode.Standard)
-        //    } |> AttributeMap.ofAMap
-       
-        let instrumentViewAttributes =
-            amap {
-                let! hor, vert = ViewPlanApp.getInstrumentResolution m.scene.viewPlans
-                let height = "height:" + (vert/uint32(2)).ToString() + ";" ///uint32(2)
-                let width = "width:" + (hor/uint32(2)).ToString() + ";" ///uint32(2)
-                yield style ("background: #1B1C1E;" + height + width)
-                yield Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Instrument)
-            } |> AttributeMap.ofAMap
-
-        page (fun request -> 
-            match Map.tryFind "page" request.queryParams with
-            | Some "instrumentview" ->
-                require (viewerDependencies) (
-                    body [ style "background: #1B1C1E; width:100%; height:100%; overflow-y:auto; overflow-x:auto;"] [
-                      Incremental.div instrumentViewAttributes (
-                        alist {
-                            yield viewInstrumentView m 
-                            yield Viewer.Gui.textOverlaysInstrumentView m.scene.viewPlans
-                        } )
-                    ]
-                )
-            | Some "render" -> 
-                require (viewerDependencies) (
-                    body renderViewAttributes [ //[ style "background: #1B1C1E; height:100%; width:100%"] [
-                        //div [style "background:#000;"] [
-                        Incremental.div (AttributeMap.ofList[style "background:#000;"]) (
-                            alist {
-                                yield viewRenderView m
-                                yield Viewer.Gui.textOverlays m.scene.referenceSystem m.navigation.camera.view
-                                yield Viewer.Gui.textOverlaysUserFeedback m.scene
-                                yield Viewer.Gui.dnsColorLegend m
-                                yield Viewer.Gui.scalarsColorLegend m
-                                yield Viewer.Gui.selectionRectangle m
-                                yield PRo3D.Linking.LinkingApp.sceneOverlay m.linkingModel |> UI.map LinkingActions
-                            }
-                        )
-                    ]                
-                )
-            | Some "surfaces" -> 
-                require (viewerDependencies) (
-                    body bodyAttributes
-                        [SurfaceApp.surfaceUI m.scene.surfacesModel |> UI.map SurfaceActions] 
-                )
-            | Some "annotations" -> 
-                require (viewerDependencies) (body bodyAttributes [Gui.Annotations.annotationUI m])
-            | Some "validation" -> 
-                require (viewerDependencies) (body bodyAttributes [HeightValidatorApp.viewUI m.heighValidation |> UI.map HeightValidation])
-            | Some "bookmarks" -> 
-                require (viewerDependencies) (body bodyAttributes [Gui.Bookmarks.bookmarkUI m])
-            | Some "config" -> 
-                require (viewerDependencies) (body bodyAttributes [Gui.Config.configUI m])
-            | Some "viewplanner" -> 
-                require (viewerDependencies) (body bodyAttributes [Gui.ViewPlanner.viewPlannerUI m])
-            | Some "minerva" -> 
-               //let pos = m.scene.navigation.camera.view |> AVal.map(fun x -> x.Location)
-                let minervaItems = 
-                    PRo3D.Minerva.MinervaApp.viewFeaturesGui m.minervaModel |> List.map (UI.map MinervaActions)
-
-                let linkingItems =
-                    [
-                        Html.SemUi.accordion "Linked Products" "Image" false [
-                            LinkingApp.viewSideBar m.linkingModel |> UI.map LinkingActions
-                        ]
-                    ]
-
-                require (viewerDependencies @ Html.semui) (
-                    body bodyAttributes (minervaItems @ linkingItems)
-                )
-            | Some "linking" ->
-                require (viewerDependencies) (
-                    body bodyAttributes [
-                        LinkingApp.viewHorizontalBar m.minervaModel.session.selection.highlightedFrustra m.linkingModel |> UI.map LinkingActions
-                    ]
-                )
-            //| Some "corr_logs" ->
-            //    CorrelationPanelsApp.viewLogs m.correlationPlot
-            //    |> UI.map CorrelationPanelMessage
-            //| Some "corr_svg" -> 
-            //    CorrelationPanelsApp.viewSvg m.correlationPlot
-            //    |> UI.map CorrelationPanelMessage
-            //| Some "corr_semantics" -> 
-            //    CorrelationPanelsApp.viewSemantics m.correlationPlot
-            //    |> UI.map CorrelationPanelMessage
-            //| Some "corr_mappings" -> 
-            //    require (myCss) (
-            //        body bodyAttributes [
-            //            CorrelationPanelsApp.viewMappings m.correlationPlot |> UI.map CorrelationPanelMessage
-            //        ] )
-            | None -> 
-                require (viewerDependencies) (
-                    body [][                    
-                        Gui.TopMenu.getTopMenu m
-                        div[clazz "dockingMainDings"] [
-                            m.scene.dockConfig
-                            |> docking [                                           
-                                style "width:100%; height:100%; background:#F00"
-                                onLayoutChanged UpdateDockConfig ]
-                        ]
-                    ]
-                )
-            | _ -> body[][])                                            
+        page (
+            fun request -> 
+                Gui.Pages.pageRouting viewerDependencies bodyAttributes m viewInstrumentView viewRenderView request
+        )
                    
     let threadPool (m: Model) =
         let unionMany xs = List.fold ThreadPool.union ThreadPool.empty xs
