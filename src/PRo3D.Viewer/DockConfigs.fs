@@ -83,7 +83,8 @@ module DockConfigs =
                         ]                          
                         stack 0.5 (Some "config") [
                             {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            {id = "bookmarks"; title = Some " Bookmarks"; weight = 0.4; deleteInvisible = None; isCloseable = None }                       
+                            {id = "bookmarks"; title = Some " Bookmarks"; weight = 0.4; deleteInvisible = None; isCloseable = None }
+                            {id = "properties"; title = Some " Properties "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                         ]
                     ]
                 ]                        
