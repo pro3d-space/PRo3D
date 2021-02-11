@@ -1,8 +1,12 @@
+## 3.4.1-prerelease2
+
+- fixed problem with picking points on surface
+
 ## 3.4.1-prerelease1
 
-* added properties tab to docking GUI
-* currently only shows annotation properties when an annotation is selected
-* this will not show in already existing scenes. to reset the docking GUI and make properties visible press F8 and save your scene afterwards.
+- added properties tab to docking GUI
+- currently only shows annotation properties when an annotation is selected
+- this will not show in already existing scenes. to reset the docking GUI and make properties visible press F8 and save your scene afterwards.
 
 ## 3.4.0-prerelease2
 
@@ -29,6 +33,7 @@
 (contains changes from 3.1.4 prereleases)
 
 ## 3.2.1-prerelease
+
 * test prerelease
 
 

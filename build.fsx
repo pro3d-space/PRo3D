@@ -20,6 +20,9 @@ do Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 
 let notes = ReleaseNotes.load "RELEASE_NOTES.md"
 
+printf "%A" notes.Notes
+failwith ""
+
 let outDirs = [ @"bin\Debug\netcoreapp3.1"; @"bin\Release\netcoreapp3.1"]
 let resources = 
     [
