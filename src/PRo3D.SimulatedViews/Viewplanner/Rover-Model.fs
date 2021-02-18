@@ -10,7 +10,7 @@ open Aardvark.UI.Primitives
 open Aardvark.UI
 open IPWrappers
 open FShade.Intrinsics
-open Aardvark.Base.CameraView
+open Aardvark.Rendering
 
 open PRo3D.Base
 open Chiron

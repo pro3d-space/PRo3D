@@ -7,7 +7,7 @@ open FSharp.Data.Adaptive
 open Aardvark.UI.Primitives
 open Aardvark.UI
 open FShade.Intrinsics
-open Aardvark.Base.CameraView
+open Aardvark.Rendering
 
 open Chiron
 open PRo3D

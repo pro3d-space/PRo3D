@@ -7,13 +7,12 @@ open Aardvark.UI
 open System
 
 open FSharp.Data.Adaptive
-open Aardvark.Base.Rendering    
+open Aardvark.Rendering    
 
-open Aardvark.Base.Rendering   
+open Aardvark.Rendering   
 
 open Aardvark.SceneGraph.Opc
 open Aardvark.SceneGraph.SgPrimitives
-open Aardvark.SceneGraph.FShadeSceneGraph
 open Aardvark.VRVis.Opc
 
 open PRo3D.Base

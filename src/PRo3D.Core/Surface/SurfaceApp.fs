@@ -8,7 +8,7 @@ open FSharp.Data.Adaptive
 open Aardvark.Base
 open Aardvark.UI
 open Aardvark.UI.Primitives
-open Aardvark.Base.Rendering
+open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.SceneGraph.IO
 open Aardvark.SceneGraph.Opc
@@ -637,7 +637,8 @@ module SurfaceApp =
                                    Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
                                 ]                             
             
-                                yield i [clazz "home icon"; onClick (fun _ -> FlyToSurface key) ][]
+                                yield 
+                                    i [clazz "home icon"; onClick (fun _ -> FlyToSurface key) ][] 
                                     |> UI.wrapToolTip DataPosition.Bottom "Fly to surface"                                                     
             
                                 yield i [clazz "folder icon"; onClick (fun _ -> OpenFolder key) ][] 

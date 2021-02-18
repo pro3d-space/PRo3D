@@ -16,6 +16,7 @@ open Aardvark.VRVis
 open Aardvark.VRVis.Opc
 open Aardvark.GeoSpatial.Opc
 open OpcViewer.Base
+open Aardvark.Rendering
 
 open PRo3D
 open PRo3D.Base

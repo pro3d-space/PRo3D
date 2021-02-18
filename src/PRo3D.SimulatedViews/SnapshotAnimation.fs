@@ -3,6 +3,7 @@
 open Aardvark.Base
 open Aardvark.UI.Animation
 open System
+open Aardvark.Rendering
 open PRo3D.Base
 open MBrace.FsPickler.Json   
 

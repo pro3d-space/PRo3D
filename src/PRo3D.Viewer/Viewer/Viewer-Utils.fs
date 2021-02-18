@@ -7,8 +7,9 @@ open Aardvark.Base
 open Aardvark.Base.Geometry
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
-open Aardvark.Base.Rendering
-open Aardvark.Base.Rendering.Effects
+open FShade
+open Aardvark.Rendering.Effects
+open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.UI
 open Aardvark.UI.Primitives
@@ -16,12 +17,12 @@ open Aardvark.UI.Trafos
 open Aardvark.UI.Animation
 open Aardvark.Rendering.Text
 
+
 open Aardvark.SceneGraph.Opc
 open Aardvark.SceneGraph.SgPrimitives.Sg
 open Aardvark.GeoSpatial.Opc
 open OpcViewer.Base
 
-open FShade
 open PRo3D
 open PRo3D.Base
 open PRo3D.Core
@@ -281,18 +282,14 @@ module ViewerUtils =
                         let! t = s.preTransform
                         return t
                     }
+
                 
-                let! filterTexture = filterTexture
-                
-                let magnificationFilter = 
-                    match filterTexture with
-                    | false -> TextureFilterMode.Point
-                    | true -> TextureFilterMode.Linear // HERA/MARS-DL, default for snapshots
-                
-                let samplerDescription : SamplerStateDescription -> SamplerStateDescription = 
-                    (fun x -> 
-                        x.Filter <- new TextureFilter(TextureFilterMode.Linear, magnificationFilter, TextureFilterMode.Linear, true ); 
-                        x
+                let samplerDescription : aval<SamplerState -> SamplerState> = 
+                    filterTexture |> AVal.map (fun filterTexture ->  
+                        fun (x : SamplerState) -> 
+                            match filterTexture with
+                            | false -> { x with Filter = TextureFilter.MinLinearMagPoint }
+                            | true -> { x with Filter = TextureFilter.MinMagLinear }  // HERA/MARS-DL, default for snapshots
                     )
                         
                 let footprintVisible = //AVal.map2 (fun (vp:Option<AdaptiveViewPlan>) vis -> (vp.IsSome && vis)) vp, fp.isVisible
@@ -326,7 +323,7 @@ module ViewerUtils =
                     |> AVal.map createSg
                     |> Sg.dynamic
                     |> Sg.trafo trafo //(Transformations.fullTrafo surf refsys)
-                    |> Sg.modifySamplerState (DefaultSemantic.DiffuseColorTexture)(AVal.constant(samplerDescription))
+                    |> Sg.modifySamplerState DefaultSemantic.DiffuseColorTexture samplerDescription
                     |> Sg.uniform "selected"      (isSelected) // isSelected
                     |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
                     |> addAttributeFalsecolorMappingParameters surf
@@ -372,6 +369,7 @@ module ViewerUtils =
         let near = m.scene.config.nearPlane.value
         let far = m.scene.config.farPlane.value
         (Navigation.UI.frustum near far)
+
 
     let fixAlpha (v : Vertex) =
         fragment {         
@@ -521,7 +519,7 @@ module ViewerUtils =
                  // assign priorities globally, or for each anno and make sets
                 yield RenderCommand.SceneGraph depthTested
 
-                yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0))
+                yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
             
             yield RenderCommand.SceneGraph overlayed
             

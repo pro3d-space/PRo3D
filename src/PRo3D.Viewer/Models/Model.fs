@@ -11,8 +11,7 @@ open Aardvark.Application
 open Aardvark.SceneGraph
 open Aardvark.SceneGraph.Opc
 open Aardvark.VRVis
-open Aardvark.Base.Rendering
-open Aardvark.Base.CameraView
+open Aardvark.Rendering
 
 open PRo3D.Base
 open PRo3D.Core

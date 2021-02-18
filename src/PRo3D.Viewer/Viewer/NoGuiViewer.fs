@@ -5,7 +5,7 @@ open Aardvark.Service
 open System
 open Aardvark.Base
 open FSharp.Data.Adaptive
-open Aardvark.Base.Rendering
+open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.UI
 open Aardvark.UI.Primitives

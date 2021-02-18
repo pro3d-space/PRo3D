@@ -5,6 +5,7 @@ open System.IO
 
 open Aardvark
 open Aardvark.Base
+open Aardvark.Rendering
 
 open PRo3D
 open PRo3D.Base

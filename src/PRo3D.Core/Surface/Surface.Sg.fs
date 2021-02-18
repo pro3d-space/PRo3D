@@ -4,13 +4,13 @@ open System
 open System.IO
 open Aardvark.Base
 open FSharp.Data.Adaptive
-open Aardvark.UI
-open Aardvark.UI.Primitives
-open Aardvark.Base.Rendering
+open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.SceneGraph.IO
 open Aardvark.SceneGraph.Opc
 open Aardvark.Prinziple
+open Aardvark.UI
+open Aardvark.UI.Primitives
 
 open Aardvark.UI.Operators
 open Aardvark.UI.Trafos  
@@ -116,7 +116,7 @@ module Sg =
                     //PatchLod.CoordinatesMapping.Local
                     (PatchLod.toRoseTree h.tree)
             )
-            |> Sg.ofList                
+            |> SgFSharp.Sg.ofList                
                                                 
         g, patchHierarchies, kdTrees
     
@@ -200,7 +200,7 @@ module Sg =
         let point = 
             aset{
                 let! guid = model.surfaces.singleSelectLeaf
-                let fail = Aardvark.UI.Extensions.Sg.empty
+                let fail = Sg.empty
 
                 match guid with
                 | Some i -> 

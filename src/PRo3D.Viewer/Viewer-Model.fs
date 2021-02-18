@@ -10,6 +10,7 @@ open Aardvark.Application
 open Aardvark.SceneGraph
 open Aardvark.UI.Trafos
 open Aardvark.UI.Animation
+open Aardvark.Rendering
 
 open PRo3D
 open PRo3D.Base

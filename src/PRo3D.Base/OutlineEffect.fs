@@ -2,7 +2,7 @@ namespace PRo3D.Base
 
 open Aardvark.Base
 open FSharp.Data.Adaptive
-open Aardvark.Base.Rendering
+open Aardvark.Rendering
 open Aardvark.UI    
 open OpcViewer.Base
 
@@ -34,8 +34,23 @@ module OutlineEffect =
     //            restartStrip()
     //        }
 
-    let read a = StencilMode(StencilOperationFunction.Keep, StencilOperationFunction.Keep, StencilOperationFunction.Keep, StencilCompareFunction.Greater, a, 0xffu)
-    let write a = StencilMode(StencilOperationFunction.Replace, StencilOperationFunction.Replace, StencilOperationFunction.Keep, StencilCompareFunction.Greater, a, 0xffu)
+    let read a =
+      { StencilMode.None with 
+          Comparison = ComparisonFunction.Greater
+          CompareMask = StencilMask 0xff
+          Reference = a
+      }
+      //StencilMode(StencilOperationFunction.Keep, StencilOperationFunction.Keep, StencilOperationFunction.Keep, StencilCompareFunction.Greater, a, 0xffu)
+
+    let write a =
+      { StencilMode.None with 
+          Comparison = ComparisonFunction.Greater
+          CompareMask = StencilMask 0xff
+          Reference = a
+          Pass = StencilOperation.Replace
+          DepthFail = StencilOperation.Replace
+          Fail = StencilOperation.Keep
+      }
 
     // NOTE: sg MUST only hold pure Sg without any modes or shaders!
     let createForSg (outlineGroup: int) (pass: RenderPass) (color: C4f) sg =
@@ -45,7 +60,7 @@ module OutlineEffect =
             sg 
             |> Sg.stencilMode (AVal.constant (write outlineGroup))
             |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Stencil])
-            |> Sg.depthTest (AVal.init DepthTestMode.None)
+            |> Sg.depthTest (AVal.init DepthTest.None)
             |> Sg.cullMode (AVal.init CullMode.None)
             |> Sg.blendMode (AVal.init BlendMode.Blend)
             |> Sg.fillMode (AVal.init FillMode.Fill)
@@ -58,7 +73,7 @@ module OutlineEffect =
             sg 
             |> Sg.stencilMode (AVal.constant (read outlineGroup))
             |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Colors])
-            |> Sg.depthTest (AVal.init DepthTestMode.None)
+            |> Sg.depthTest (AVal.init DepthTest.None)
             |> Sg.cullMode (AVal.init CullMode.None)
             |> Sg.blendMode (AVal.init BlendMode.Blend)
             |> Sg.fillMode (AVal.init FillMode.Fill)
@@ -108,7 +123,7 @@ module OutlineEffect =
             |> Sg.stencilMode (AVal.constant (read outlineGroup))
             |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Colors])
             |> Sg.pass outlinePass
-            |> Sg.depthTest (AVal.constant DepthTestMode.None)
+            |> Sg.depthTest (AVal.constant DepthTest.None)
             |> Sg.shader {
                 do! DefaultSurfaces.stableTrafo
                 do! DefaultSurfaces.thickLine
@@ -148,7 +163,7 @@ module OutlineEffect =
             |> Sg.stencilMode (AVal.constant (read outlineGroup))
             |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Colors])
             |> Sg.pass outlinePass
-            |> Sg.depthTest (AVal.constant DepthTestMode.None)
+            |> Sg.depthTest (AVal.constant DepthTest.None)
             |> Sg.uniform "LineWidth" outlineWidth
             |> Sg.shader {
                     do! Shader.ScreenSpaceScale.screenSpaceScale

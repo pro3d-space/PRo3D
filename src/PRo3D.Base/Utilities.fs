@@ -5,7 +5,7 @@ open System
 open FSharp.Data.Adaptive
 
 open Aardvark.Base
-open Aardvark.Base.Rendering
+open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.SceneGraph.SgPrimitives
 open Aardvark.SceneGraph.``Sg Picking Extensions``
@@ -446,7 +446,7 @@ module Sg =
                 toEffect Shader.pointSpriteFragment
             ]
 
-    let drawColoredPoints pointsF colors pointSize = 
+    let drawColoredPoints (pointsF : aval<V3f[]>) (colors : aval<C4b[]>) (pointSize : aval<float>) = 
         Sg.draw IndexedGeometryMode.PointList
         |> Sg.vertexAttribute DefaultSemantic.Positions pointsF
         |> Sg.vertexAttribute DefaultSemantic.Colors colors

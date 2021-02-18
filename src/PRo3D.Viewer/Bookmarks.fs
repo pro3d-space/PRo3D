@@ -5,6 +5,7 @@ open FSharp.Data.Adaptive
 open Aardvark.Application
 open Aardvark.UI
 open Aardvark.UI.Primitives
+open Aardvark.Rendering
 
 open PRo3D
 open PRo3D.Base

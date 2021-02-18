@@ -55,7 +55,7 @@ module SceneLoading =
     open System.IO
     open PRo3D.Viewer
     open Aardvark.Base
-    open Aardvark.Base.Rendering
+    open Aardvark.Rendering
 
     [<RequireQualifiedAccess>]
     type SceneLoadResult = 

@@ -45,7 +45,7 @@
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1'">
       <PropertyGroup>
-        <__paket__System_Reactive_targets>netcoreapp3.0\System.Reactive</__paket__System_Reactive_targets>
+        <__paket__System_Reactive_targets>netcoreapp3.1\System.Reactive</__paket__System_Reactive_targets>
       </PropertyGroup>
     </When>
   </Choose>
@@ -190,7 +190,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardium">
-          <HintPath>C:\Users\hs\.nuget\packages\aardium\1.1.0\lib\netstandard2.0\Aardium.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardium\2.0.0\lib\netstandard2.0\Aardium.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -201,7 +201,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Application">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.application\5.0.21-prerelease0001\lib\netstandard2.0\Aardvark.Application.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.application\5.1.3\lib\netstandard2.0\Aardvark.Application.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -212,7 +212,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Application.Slim">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.application.slim\5.0.21-prerelease0001\lib\netstandard2.0\Aardvark.Application.Slim.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.application.slim\5.1.3\lib\netstandard2.0\Aardvark.Application.Slim.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -223,7 +223,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1'">
       <ItemGroup>
         <Reference Include="Aardvark.Base">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base\5.0.28\lib\netcoreapp3.1\Aardvark.Base.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base\5.1.3\lib\netcoreapp3.1\Aardvark.Base.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -232,7 +232,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Base">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base\5.0.28\lib\netstandard2.0\Aardvark.Base.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base\5.1.3\lib\netstandard2.0\Aardvark.Base.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -243,7 +243,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Base.Essentials">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.essentials\5.0.28\lib\netstandard2.0\Aardvark.Base.Essentials.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.essentials\5.1.3\lib\netstandard2.0\Aardvark.Base.Essentials.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -254,7 +254,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Base.FSharp">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.fsharp\5.0.28\lib\netstandard2.0\Aardvark.Base.FSharp.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.fsharp\5.1.3\lib\netstandard2.0\Aardvark.Base.FSharp.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -265,7 +265,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Base.Incremental">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.incremental\5.0.28\lib\netstandard2.0\Aardvark.Base.Incremental.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.incremental\5.1.3\lib\netstandard2.0\Aardvark.Base.Incremental.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -276,18 +276,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Base.IO">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.io\5.0.28\lib\netstandard2.0\Aardvark.Base.IO.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
-      <ItemGroup>
-        <Reference Include="Aardvark.Base.Rendering">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.rendering\5.0.21-prerelease0001\lib\netstandard2.0\Aardvark.Base.Rendering.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.io\5.1.3\lib\netstandard2.0\Aardvark.Base.IO.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -298,7 +287,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Base.Runtime">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.runtime\5.0.28\lib\netstandard2.0\Aardvark.Base.Runtime.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.runtime\5.1.3\lib\netstandard2.0\Aardvark.Base.Runtime.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -309,7 +298,23 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Base.Telemetry">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.telemetry\5.0.28\lib\netstandard2.0\Aardvark.Base.Telemetry.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.telemetry\5.1.3\lib\netstandard2.0\Aardvark.Base.Telemetry.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.Base.Tensors">
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.tensors\5.1.3\lib\netstandard2.0\Aardvark.Base.Tensors.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Aardvark.Base.Tensors.CSharp">
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.tensors\5.1.3\lib\netstandard2.0\Aardvark.Base.Tensors.CSharp.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -340,7 +345,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Geometry">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.geometry\5.0.28\lib\netstandard2.0\Aardvark.Geometry.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.geometry\5.1.3\lib\netstandard2.0\Aardvark.Geometry.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -351,7 +356,29 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.GPGPU">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.gpgpu\5.0.21-prerelease0001\lib\netstandard2.0\Aardvark.GPGPU.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.gpgpu\5.1.3\lib\netstandard2.0\Aardvark.GPGPU.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.PixImage.DevIL">
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.piximage.devil\5.1.3\lib\netstandard2.0\Aardvark.PixImage.DevIL.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="Aardvark.Rendering">
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.rendering\5.1.3\lib\netstandard2.0\Aardvark.Rendering.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -362,7 +389,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Rendering.GL">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.rendering.gl\5.0.21-prerelease0001\lib\netstandard2.0\Aardvark.Rendering.GL.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.rendering.gl\5.1.3\lib\netstandard2.0\Aardvark.Rendering.GL.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -373,7 +400,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Rendering.Text">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.rendering.text\5.0.21-prerelease0001\lib\netstandard2.0\Aardvark.Rendering.Text.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.rendering.text\5.1.3\lib\netstandard2.0\Aardvark.Rendering.Text.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -384,7 +411,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Rendering.Vulkan">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.rendering.vulkan\5.0.21-prerelease0001\lib\netstandard2.0\Aardvark.Rendering.Vulkan.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.rendering.vulkan\5.1.3\lib\netstandard2.0\Aardvark.Rendering.Vulkan.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -395,7 +422,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.SceneGraph">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.scenegraph\5.0.21-prerelease0001\lib\netstandard2.0\Aardvark.SceneGraph.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.scenegraph\5.1.3\lib\netstandard2.0\Aardvark.SceneGraph.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -406,7 +433,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.SceneGraph.IO">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.scenegraph.io\5.0.21-prerelease0001\lib\netstandard2.0\Aardvark.SceneGraph.IO.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.scenegraph.io\5.1.3\lib\netstandard2.0\Aardvark.SceneGraph.IO.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -417,7 +444,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.SceneGraph.Opc">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.scenegraph.opc\5.0.21-prerelease0001\lib\netstandard2.0\Aardvark.SceneGraph.Opc.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.scenegraph.opc\5.1.3\lib\netstandard2.0\Aardvark.SceneGraph.Opc.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -428,7 +455,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Service">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.service\5.0.15\lib\netstandard2.0\Aardvark.Service.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.service\5.1.0\lib\netstandard2.0\Aardvark.Service.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -439,7 +466,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.UI">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.ui\5.0.15\lib\netstandard2.0\Aardvark.UI.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.ui\5.1.0\lib\netstandard2.0\Aardvark.UI.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -450,7 +477,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.UI.Primitives">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.ui.primitives\5.0.15\lib\netstandard2.0\Aardvark.UI.Primitives.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.ui.primitives\5.1.0\lib\netstandard2.0\Aardvark.UI.Primitives.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -461,7 +488,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Adaptify.Core">
-          <HintPath>C:\Users\hs\.nuget\packages\adaptify.core\1.0.2\lib\netstandard2.0\Adaptify.Core.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\adaptify.core\1.0.4\lib\netstandard2.0\Adaptify.Core.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -492,7 +519,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="DevILSharp">
-          <HintPath>C:\Users\hs\.nuget\packages\devilsharp\0.2.9\lib\netstandard2.0\DevILSharp.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\devilsharp\0.2.11\lib\netstandard2.0\DevILSharp.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -503,7 +530,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="FShade.Core">
-          <HintPath>C:\Users\hs\.nuget\packages\fshade.core\5.1.3\lib\netstandard2.0\FShade.Core.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fshade.core\5.1.5\lib\netstandard2.0\FShade.Core.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -514,7 +541,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="FShade.GLSL">
-          <HintPath>C:\Users\hs\.nuget\packages\fshade.glsl\5.1.3\lib\netstandard2.0\FShade.GLSL.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fshade.glsl\5.1.5\lib\netstandard2.0\FShade.GLSL.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -525,7 +552,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="FShade.Imperative">
-          <HintPath>C:\Users\hs\.nuget\packages\fshade.imperative\5.1.3\lib\netstandard2.0\FShade.Imperative.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fshade.imperative\5.1.5\lib\netstandard2.0\FShade.Imperative.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -536,7 +563,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="FShade.SpirV">
-          <HintPath>C:\Users\hs\.nuget\packages\fshade.spirv\5.1.3\lib\netstandard2.0\FShade.SpirV.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fshade.spirv\5.1.5\lib\netstandard2.0\FShade.SpirV.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -567,7 +594,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1'">
       <ItemGroup>
         <Reference Include="FSharp.Data.Adaptive">
-          <HintPath>C:\Users\hs\.nuget\packages\fsharp.data.adaptive\1.0.1\lib\netcoreapp3.1\FSharp.Data.Adaptive.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fsharp.data.adaptive\1.1.0\lib\netcoreapp3.1\FSharp.Data.Adaptive.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -576,7 +603,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="FSharp.Data.Adaptive">
-          <HintPath>C:\Users\hs\.nuget\packages\fsharp.data.adaptive\1.0.1\lib\netstandard2.0\FSharp.Data.Adaptive.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fsharp.data.adaptive\1.1.0\lib\netstandard2.0\FSharp.Data.Adaptive.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -715,6 +742,26 @@
       <ItemGroup>
         <Reference Include="ICSharpCode.SharpZipLib">
           <HintPath>C:\Users\hs\.nuget\packages\sharpziplib\1.2.0\lib\netstandard2.0\ICSharpCode.SharpZipLib.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1'">
+      <ItemGroup>
+        <Reference Include="SixLabors.ImageSharp">
+          <HintPath>C:\Users\hs\.nuget\packages\sixlabors.imagesharp\1.0.3\lib\netcoreapp3.1\SixLabors.ImageSharp.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+      <ItemGroup>
+        <Reference Include="SixLabors.ImageSharp">
+          <HintPath>C:\Users\hs\.nuget\packages\sixlabors.imagesharp\1.0.3\lib\netstandard2.0\SixLabors.ImageSharp.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -964,28 +1011,10 @@
     </When>
   </Choose>
   <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
-      <ItemGroup>
-        <Reference Include="System.Windows">
-          <Paket>True</Paket>
-        </Reference>
-        <Reference Include="System.Windows.Forms">
-          <Paket>True</Paket>
-        </Reference>
-        <Reference Include="WindowsBase">
-          <Paket>True</Paket>
-        </Reference>
-        <Reference Include="System.Reactive">
-          <HintPath>C:\Users\hs\.nuget\packages\system.reactive\4.4.1\lib\net46\System.Reactive.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Reactive">
-          <HintPath>C:\Users\hs\.nuget\packages\system.reactive\4.4.1\lib\netstandard2.0\System.Reactive.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.reactive\5.0.0\lib\netstandard2.0\System.Reactive.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1382,6 +1411,6 @@
       </ItemGroup>
     </When>
   </Choose>
-  <Import Project="C:\Users\hs\.nuget\packages\adaptify.msbuild\1.0.2\build\Adaptify.MSBuild.targets" Condition="Exists('C:\Users\hs\.nuget\packages\adaptify.msbuild\1.0.2\build\Adaptify.MSBuild.targets')" Label="Paket" />
-  <Import Project="C:\Users\hs\.nuget\packages\system.reactive\4.4.1\build\$(__paket__System_Reactive_targets).targets" Condition="Exists('C:\Users\hs\.nuget\packages\system.reactive\4.4.1\build\$(__paket__System_Reactive_targets).targets')" Label="Paket" />
+  <Import Project="C:\Users\hs\.nuget\packages\adaptify.msbuild\1.0.4\build\Adaptify.MSBuild.targets" Condition="Exists('C:\Users\hs\.nuget\packages\adaptify.msbuild\1.0.4\build\Adaptify.MSBuild.targets')" Label="Paket" />
+  <Import Project="C:\Users\hs\.nuget\packages\system.reactive\5.0.0\build\$(__paket__System_Reactive_targets).targets" Condition="Exists('C:\Users\hs\.nuget\packages\system.reactive\5.0.0\build\$(__paket__System_Reactive_targets).targets')" Label="Paket" />
 </Project>
