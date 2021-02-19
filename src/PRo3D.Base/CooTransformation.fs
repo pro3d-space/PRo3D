@@ -145,5 +145,9 @@ module CooTransformation =
             let v2 = getXYZFromLatLonAlt ({sc with altitude = height}) planet
             (v2 - p).Normalized
 
+    module SphericalCoo =
+        let toV3d (spherical : SphericalCoo) =
+            V3d(spherical.latitude, spherical.longitude, spherical.altitude)
+            
         
        

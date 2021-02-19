@@ -529,7 +529,7 @@ module ViewerApp =
             | Some selected ->                             
                 let f = (fun x ->
                     let a = x |> Leaf.toAnnotation
-                    let a = AnnotationProperties.update a msg 
+                    let a = AnnotationProperties.update a m.scene.referenceSystem.planet msg
 
                     //update true thickness computation on dip angle change
                     let a = 
@@ -550,7 +550,7 @@ module ViewerApp =
         | BookmarkMessage msg,_,_ ->  
             Log.warn "[Viewer] bookmarks animation %A" m.navigation.camera.view.Location
 
-            let m', bm = Bookmarks.update m.scene.bookmarks msg _navigation m
+            let m', bm = Bookmarks.update m.scene.bookmarks m.scene.referenceSystem.planet msg _navigation m
             let animation = 
                 match msg with
                 | BookmarkAction.GroupsMessage k ->

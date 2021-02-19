@@ -1,3 +1,9 @@
+## 3.5.1-prerelease1
+
+- added print location / coordinate for point annotation
+- added print location / coordinate for bookmark location
+- added long lat alt prints via cootrafo
+
 ## 3.4.1-prerelease2
 
 - fixed problem with picking points on surface
