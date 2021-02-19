@@ -32,6 +32,7 @@ module Sg =
     //            }
     //            |> Sg.trafo(trafo)
 
+    //TODO refactor: confusing use of variable names and transformations, seems very complicated for a line with a label
     let directionMarker (near:aval<float>) (cam:aval<CameraView>) (style : MarkerStyle) =
         aset{
            
