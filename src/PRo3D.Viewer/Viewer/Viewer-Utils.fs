@@ -480,20 +480,28 @@ module ViewerUtils =
         let usehighlighting = true |> AVal.constant //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true
 
+        //avoids kdtree intersections for certain interactions
+        let surfacePicking = 
+            m.interaction 
+            |> AVal.map(fun x -> 
+                match x with
+                | Interactions.PickAnnotation | Interactions.PickLog -> false
+                | _ -> true
+            )
+
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 
-                    |> AMap.map(fun _ sf -> 
-                        let bla = m.scene.surfacesModel.surfaces.flat
+                    |> AMap.map(fun _ surface ->                         
                         viewSingleSurfaceSg 
-                            sf 
-                            bla 
+                            surface 
+                            m.scene.surfacesModel.surfaces.flat
                             m.frustum 
                             selected 
-                            (m.interaction |> AVal.map(fun x -> x = Interactions.PickSurface))
-                            sf.globalBB 
+                            surfacePicking
+                            surface.globalBB
                             refSystem m.footPrint 
                             (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting filterTexture
                        )

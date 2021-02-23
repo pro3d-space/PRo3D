@@ -469,6 +469,8 @@ module DrawingApp =
                 pickingTolerance = msmallConfig.getPickingTolerance mbigConfig
             }
        
+
+
         Log.startTimed "[Drawing] creating finished annotation geometry"
         let annotations =              
             annoSet 
@@ -481,7 +483,7 @@ module DrawingApp =
                 
                 let sg = Sg.finishedAnnotation a c config view showPoints picked pickingAllowed
                 sg
-                )
+            )
             |> Sg.set               
         Log.stop()
                             
