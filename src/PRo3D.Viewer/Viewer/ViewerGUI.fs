@@ -564,12 +564,21 @@ module Gui =
     module Annotations =
       
         let viewAnnotationProperties (model : AdaptiveModel) =
-            let view = (fun leaf ->
-                match leaf with
-                  | AdaptiveAnnotations ann -> AnnotationProperties.view ann
-                  | _ -> div[style "font-style:italic"][ text "no annotation selected" ])
-            
-            model.drawing.annotations |> GroupsApp.viewSelected view AnnotationMessage
+            adaptive {
+
+                let! multiSelect = model.drawing.annotations.selectedLeaves |> ASet.isEmpty |> AVal.map not
+
+            //if model.drawing.annotations.selectedLeaves |> ASet.isEmpty then
+                if multiSelect then
+                    return div[style "font-style:italic"][ text "multiple annotations selected"]
+                else
+                    let view = (fun leaf ->
+                        match leaf with
+                          | AdaptiveAnnotations ann -> AnnotationProperties.view ann
+                          | _ -> div[style "font-style:italic"][ text "no annotation selected"])
+                    
+                    return! model.drawing.annotations |> GroupsApp.viewSelected view AnnotationMessage
+            }
                 
         let viewAnnotationResults (model : AdaptiveModel) =
             let view = (fun leaf ->

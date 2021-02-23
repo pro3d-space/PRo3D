@@ -42,6 +42,7 @@
     <Compile Include="Surface\Surface.Sg.fs" />
     <Compile Include="Surface\SurfaceApp.fs" />
     <Compile Include="Drawing\Drawing-Properties.fs" />
+    <Compile Include="Drawing\Drawing-BulkEdit.fs" />
     <Compile Include="Drawing\Drawing-Model.fs" />
     <Compile Include="Drawing\DrawingUtilities.fs" />
     <Compile Include="Drawing\Drawing.UI.fs" />

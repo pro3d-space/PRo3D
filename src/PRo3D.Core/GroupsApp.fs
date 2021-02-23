@@ -19,7 +19,7 @@ type GroupsAppAction =
     | ToggleExpand          of list<Index>
     | SetActiveGroup        of Guid*list<Index>*string
     | AddGroup              of list<Index>
-    | AddLeaves             of list<Index>*IndexList<Leaf>    
+    | AddLeaves             of list<Index>*IndexList<Leaf>
     | RemoveGroup           of list<Index>
     | RemoveLeaf            of Guid*list<Index> 
     | ToggleChildVisibility of Guid*list<Index> 
@@ -552,19 +552,24 @@ module GroupsApp =
             ]
         )
 
-    let viewSelected (view : AdaptiveLeafCase -> DomNode<'a>) (lifter : 'a -> 'b) (model : AdaptiveGroupsModel) : aval<DomNode<'b>> = 
+    let viewSelected 
+        (view : AdaptiveLeafCase -> DomNode<'a>) 
+        (lifter : 'a -> 'b) 
+        (model : AdaptiveGroupsModel) : aval<DomNode<'b>> = 
+
         adaptive {
             let! selected = model.singleSelectLeaf
             match selected with
-                | Some guid -> 
-                    let! exists = model.flat |> AMap.keys |> ASet.contains guid
-                    if exists then
-                      let item = 
-                        model.flat |> AMap.find guid |> AVal.force // TODO v5: to - wrong adaptive, where was bind on id - why?
-                      return view item |> UI.map lifter
-                    else return div[][] |> UI.map lifter
-                | None ->
+            | Some guid -> 
+                let! exists = model.flat |> AMap.keys |> ASet.contains guid
+                if exists then
+                    let item = 
+                        model.flat |> AMap.find guid |> AVal.force // TODO v5: to - wrong adaptive, where was bind on id - why?                        
+                    return view item |> UI.map lifter
+                else 
                     return div[][] |> UI.map lifter
+            | None ->
+                return div[][] |> UI.map lifter
         }
 
     let deleteLeaf (ts:TreeSelection) =

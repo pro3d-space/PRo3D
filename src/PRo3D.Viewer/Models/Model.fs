@@ -109,20 +109,20 @@ type StartupArgs = {
 
 [<ModelType>]
 type Statistics = {
-  average      : float
-  min          : float
-  max          : float
-  stdev        : float
-  sumOfSquares : float
+    average      : float
+    min          : float
+    max          : float
+    stdev        : float
+    sumOfSquares : float
 }
 
 module Statistics = 
   let init = {
-    average      = Double.NaN
-    min          = Double.NaN
-    max          = Double.NaN
-    stdev        = Double.NaN
-    sumOfSquares = Double.NaN
+      average      = Double.NaN
+      min          = Double.NaN
+      max          = Double.NaN
+      stdev        = Double.NaN
+      sumOfSquares = Double.NaN
   }
 
 
@@ -198,16 +198,10 @@ type PathProxy = {
     relativePath : option<string>
 }
 
-
-
-
-
 type SurfaceShift = {
     id : string
     shift: float
 }
-
-
 
 [<ModelType>]
 type ViewConfigModel = {
@@ -226,7 +220,7 @@ type ViewConfigModel = {
     drawOrientationCube     : bool
     //useSurfaceHighlighting  : bool
     //showExplorationPoint    : bool
-    }
+}
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module ViewConfigModel =
