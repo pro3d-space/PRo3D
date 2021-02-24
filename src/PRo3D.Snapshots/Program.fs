@@ -113,7 +113,7 @@ let main argv =
                 do! webSocket.send Text s true
         }        
 
-    PatchLod.useAsyncLoading <- (argv |> Array.contains "-sync" |> not)
+    PatchLod.useAsyncLoading <- true //(argv |> Array.contains "-sync" |> not)
     let startEmpty = (argv |> Array.contains "-empty")
 
     // main app
@@ -144,7 +144,7 @@ let main argv =
 
     Log.startTimed "[Viewer] reading json scene"
 
-    let (mainApp, mModel) = 
+    let (mModel, mainApp) = 
         ViewerApp.start runtime signature messagingMailbox sendQueue startupArgs dumpFile cacheFile
 
     let s = { MailboxState.empty with update = mainApp.update Guid.Empty }
@@ -213,7 +213,7 @@ let main argv =
     
     match startupArgs.hasValidAnimationArgs with
     | true ->
-        PatchLod.useAsyncLoading <- false // need this for rendering without gui!
+        PatchLod.useAsyncLoading <- true // need this for rendering without gui!
         SnapshotGenerator.animate runtime mModel mainApp startupArgs |> ignore
         try            
             match startupArgs.exitOnFinish with

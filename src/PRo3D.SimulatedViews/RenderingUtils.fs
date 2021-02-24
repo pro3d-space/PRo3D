@@ -88,6 +88,7 @@ module Rendering =
     let renderAndSave (filename : string)
                       (verbose  : bool) 
                       (p        : RenderParameters) =
+        Aardvark.GeoSpatial.Opc.PatchLod.useAsyncLoading <- true
         match verbose with
         | true -> Report.Verbosity <- 3
         | false -> Report.Verbosity <- -1
@@ -111,7 +112,7 @@ module Rendering =
                 col.TryDispose () |> ignore
                 Log.line "[SNAPSHOT] %s" filename
             | None -> 
-                Log.error "[SNAPSHOT] Error."
+                Log.error "[SNAPSHOT] Fatal Error"
                 //Environment.Exit(int ExitCode.REQUEST_RESTART)
         with e ->
             Log.error "[SNAPSHOT] Could not save image %s" filename

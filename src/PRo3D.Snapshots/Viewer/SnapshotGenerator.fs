@@ -134,7 +134,8 @@ module SnapshotGenerator =
                 let snapshotApp : SnapshotApp<Model, AdaptiveModel, ViewerAction> = 
                     {
                         viewerApp = mApp
-                        sceneGraph = sg
+                        adaptiveModel = mModel
+                        sceneGraph = ViewerUtils.getSurfacesSgWithCamera
                         snapshotAnimation = data
                         getAnimationActions = getAnimationActions
                         getSnapshotActions = getSnapshotActions
@@ -142,10 +143,10 @@ module SnapshotGenerator =
                         renderRange = RenderRange.fromOptions args.frameId args.frameCount
                         outputFolder = args.outFolder
                         renderMask = args.renderMask
-                        renderDepth = args.renderDepth
+                        renderDepth = true // args.renderDepth //TODO debug rno
                         verbose = args.verbose
                     }
-                SnapshotApp.executeAnimation snapshotApp//mApp mModel args.renderDepth startupArgs.verbose startupArgs.outFolder runtime data
+                SnapshotApp.executeAnimation snapshotApp //mApp mModel args.renderDepth startupArgs.verbose startupArgs.outFolder runtime data
             | None -> 
                 Log.line "[SNAPSHOT] Could not load data."
         | false -> 

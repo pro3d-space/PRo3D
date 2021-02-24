@@ -460,8 +460,12 @@ module ViewerApp =
         | SetCameraAndFrustum (cv, hfov, _),_,false -> m
         | SetCameraAndFrustum2 (cv,frustum),_,false ->
             Log.line "[Viewer] Setting camera and frustum."
-            let m = Optic.set _view cv m
-            { m with frustum = frustum }
+            //let m = Optic.set _view cv m
+            let m =
+                { m with frustum = frustum 
+                         scene   = {m.scene with cameraView = cv}
+                }
+            m
         | AnnotationGroupsMessageViewer msg,_,_ ->
             let ag = m.drawing.annotations 
                 
@@ -1086,6 +1090,7 @@ module ViewerApp =
         | UpdateShatterCones (shatterCones, filename) ,_,_ ->
             match shatterCones.IsEmptyOrNull () with
             | false ->
+                Log.line "[Viewer] Updating object placements."
                 ViewerSnapshotUtils.placeAllObjs m shatterCones filename
             | true ->
                 Log.line "[Viewer] No shattercone updates found."
@@ -1738,14 +1743,14 @@ module ViewerApp =
                     |> ViewerIO.loadLastFootPrint
             | _, _ ->
                 initialViewer
-      
-        AppExtension.start' {
-            unpersist = Unpersist.instance
-            threads   = threadPool
-            view      = (fun x -> view x runtime) //localhost
-            update    = update runtime signature sendQueue messagingMailbox
-            initial   = m
+        let app = {
+          unpersist = Unpersist.instance
+          threads   = threadPool
+          view      = (fun x -> view x runtime) //localhost
+          update    = update runtime signature sendQueue messagingMailbox
+          initial   = m
         }
+        AppExtension.start' app
     
     // TODO rno check
     //let start (runtime: IRuntime) (signature: IFramebufferSignature)(startEmpty: bool) messagingMailbox sendQueue dumpFile cacheFile =

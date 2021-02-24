@@ -124,8 +124,8 @@ type SnapshotAnimation = {
     snapshots     : list<Snapshot>
 }
 with 
-    static member defaultNearplane = 0.001
-    static member defaultFarplane  = 1000000.0
+    static member defaultNearplane = 0.01
+    static member defaultFarplane  = 100000.0
     member this.actions =
         let setNearplane =
             match this.nearplane with
@@ -156,7 +156,7 @@ with
         {
             fieldOfView = Some 5.47
             resolution  = V2i(4096)
-            nearplane   = Some 0.00001
+            nearplane   = Some 0.1
             farplane    = Some 1000000.0
             lightLocation = 5.0 |> V3d |> Some
             snapshots   = [Snapshot.TestData]

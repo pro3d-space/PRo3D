@@ -91,7 +91,7 @@ module HaltonPlacement =
                match interaction with
                | Interactions.PickSurface -> onlyVisible
                | _ -> onlyActive
-
+            Report.Verbosity <- -1 //TODO rno
             Log.startTimed "[RayCastSurface] try intersect kdtree"                                                             
             let hitF (camLocation : V3d) (p : V3d) = 
                 let ray =
@@ -119,7 +119,7 @@ module HaltonPlacement =
                     None
             Log.stop()
             Log.line "[HaltonPlacement] done intersecting"
-                
+            Report.Verbosity <- 3 //TODO rno
             result 
 
     let getPointsOnSurfaces 

@@ -16,10 +16,12 @@ open PRo3D.Core.Surface
 open PRo3D.Core
 open PRo3D.SimulatedViews.Rendering
 
+[<ModelType>]
 type SnapshotApp<'model,'aModel, 'msg> =
   {
     viewerApp            : MutableApp<'model, 'msg>
-    sceneGraph           : ISg<'msg>
+    adaptiveModel        : 'aModel
+    sceneGraph           : 'aModel -> IRuntime -> ISg<'msg>
     snapshotAnimation    : SnapshotAnimation
     getAnimationActions  : SnapshotAnimation -> seq<'msg>
     getSnapshotActions   : Snapshot -> Frustum -> string -> seq<'msg> //snashot -> frustum -> pathname -> actions
@@ -91,9 +93,12 @@ module SnapshotApp =
                               }
                     } |> Seq.toList
             | false -> snapshots
-        
+
+        let sg = app.sceneGraph app.adaptiveModel app.runtime
+
+            //
         let taskclear = app.runtime.CompileClear(signature,AVal.constant C4f.Black,AVal.constant 1.0)
-        let task = app.runtime.CompileRender(signature, app.sceneGraph)
+        let task = app.runtime.CompileRender(signature, sg) //app.sceneGraph)
         let (size, depth) = 
             match app.renderDepth with 
             | true -> Some resolution, Some depth
