@@ -453,7 +453,7 @@ type SurfaceModel with
             | 0 -> return! SurfaceModel.read0
             | _ ->
                 return! v
-                |> sprintf "don't know version %A  of ViewConfigModel"
+                |> sprintf "don't know version %A  of SurfaceModel"
                 |> Json.error
         }
 

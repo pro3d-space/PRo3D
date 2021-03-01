@@ -581,6 +581,7 @@ module ViewerApp =
         | DnSColorLegendMessage msg,_,_ ->
             let cm = FalseColorLegendApp.update m.drawing.dnsColorLegend msg
             { m with drawing = { m.drawing with dnsColorLegend = cm } }
+        | SceneObjectsMessage msg,_,_ -> m // todo laura
         | ImportSurface sl,_,_ ->                 
             match sl with
             | [] -> m
@@ -652,6 +653,16 @@ module ViewerApp =
                 |> SceneLoader.importObj runtime signature objects 
                 |> ViewerIO.loadLastFootPrint
                 |> updateSceneWithNewSurface     
+            | None -> m       
+        | ImportSceneObject sl,_,_ -> 
+            match sl |> List.tryHead with
+            | Some path ->  
+                let sceneObjects =                   
+                    path 
+                    |> SceneObjectsUtils.mk 
+                    |> IndexList.single                                
+                m 
+                |> SceneLoader.importSceneObj sceneObjects
             | None -> m              
         | ImportPRo3Dv1Annotations sl,_,_ ->
             match sl |> List.tryHead with
@@ -1494,7 +1505,10 @@ module ViewerApp =
             let heightValidation =
                 HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation
 
-            [exploreCenter; refSystem; viewPlans; homePosition; solText; heightValidation] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
+            let sceneObjects =
+                SceneObjectsApp.Sg.view m.scene.sceneObjectsModel m.scene.referenceSystem |> Sg.map SceneObjectsMessage
+
+            [exploreCenter; refSystem; viewPlans; homePosition; solText; heightValidation; sceneObjects] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
         let minervaSg =
             let minervaFeatures = 

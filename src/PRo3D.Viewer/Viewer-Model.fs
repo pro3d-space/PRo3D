@@ -79,6 +79,7 @@ type ViewerAction =
     | RoverMessage                    of RoverApp.Action
     | ViewPlanMessage                 of ViewPlanApp.Action
     | DnSColorLegendMessage           of FalseColorLegendApp.Action
+    | SceneObjectsMessage             of SceneObjectAction
     | SetCamera                       of CameraView        
     | SetCameraAndFrustum             of CameraView * double * double        
     | SetCameraAndFrustum2            of CameraView * Frustum
@@ -86,6 +87,7 @@ type ViewerAction =
     | ImportDiscoveredSurfaces        of list<string>
     | ImportDiscoveredSurfacesThreads of list<string>
     | ImportObject                    of list<string>
+    | ImportSceneObject               of list<string>
     | ImportPRo3Dv1Annotations        of list<string>
     | ImportSurfaceTrafo              of list<string>
     | ImportRoverPlacement            of list<string>
@@ -170,11 +172,12 @@ type Scene = {
     firstImport       : bool
     userFeedback      : string
     feedbackThreads   : ThreadPool<ViewerAction> 
+    sceneObjectsModel : SceneObjectsModel
 }
 
 module Scene =
         
-    let current = 0    
+    let current = 1    
     let read0 = 
         json {            
             let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
@@ -187,7 +190,8 @@ module Scene =
             let! scenePath       = Json.read "scenePath"
             let! referenceSystem = Json.read "referenceSystem"
             let! bookmarks       = Json.read "bookmarks"
-            let! dockConfig      = Json.read "dockConfig"            
+            let! dockConfig      = Json.read "dockConfig"   
+            let! sceneObjectsModel    = Json.read "sceneObjectsModel"  
 
             return 
                 {
@@ -210,6 +214,7 @@ module Scene =
                     firstImport     = false
                     userFeedback    = String.Empty
                     feedbackThreads = ThreadPool.empty
+                    sceneObjectsModel    = sceneObjectsModel
                 }
         }
 
@@ -241,7 +246,8 @@ type Scene with
             do! Json.write "referenceSystem" x.referenceSystem
             do! Json.write "bookmarks" x.bookmarks
 
-            do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString)                   
+            do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString)  
+            do! Json.write "sceneObjectsModel" x.sceneObjectsModel
         }
 
 [<ModelType>] 
@@ -462,6 +468,7 @@ module Viewer =
                     userFeedback    = ""
                     feedbackThreads = ThreadPool.empty
                     viewPlans       = ViewPlanModel.initial
+                    sceneObjectsModel    = SceneObjectsModel.initial
                 }
 
             navigation      = navInit

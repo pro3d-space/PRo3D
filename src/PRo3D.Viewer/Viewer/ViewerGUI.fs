@@ -241,6 +241,9 @@ module Gui =
         let jsImportOBJDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select *.obj files to import', filters: [{ name: 'OBJ (*.obj)', extensions: ['obj']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
+        let jsImportSceneObjectDialog =
+            "top.aardvark.dialog.showOpenDialog({tile: 'Select *.obj or *.dae files to import', filters: [{ name: 'OBJ (*.obj)', extensions: ['obj']}, { name: 'DAE (*.dae)', extensions: ['dae']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
         let private importSurface =
             [
                 text "Surfaces"
@@ -257,6 +260,12 @@ module Gui =
                         clientEvent "onclick" (jsImportOBJDialog)
                     ][
                         text "Import (*.obj)"
+                    ]
+                    div [ clazz "ui inverted item"; 
+                        Dialogs.onChooseFiles ImportSceneObject;
+                        clientEvent "onclick" (jsImportSceneObjectDialog)
+                    ][
+                        text "Import (*.obj or *.dae)"
                     ]
                 ]
             ]

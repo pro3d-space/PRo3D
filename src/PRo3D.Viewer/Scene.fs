@@ -59,6 +59,7 @@ module SceneLoader =
     let _flatSurfaces     = Scene.surfacesModel_ >-> SurfaceModel.surfaces_ >-> GroupsModel.flat_
     let _camera           = Model.navigation_ >-> NavigationModel.camera_
     let _cameraView       = _camera >-> CameraControllerState.view_
+    let _sceneObjects     = Model.scene_ >-> Scene.sceneObjectsModel_ //>-> SceneObjectsModel.sceneObjects_
 
 
     let expandRelativePaths (m:Scene) =               
@@ -163,14 +164,14 @@ module SceneLoader =
 
     let importObj (runtime : IRuntime) (signature: IFramebufferSignature)(surfaces : IndexList<Surface>) (m : Model) =
       
-        let existingSurfaces = 
-            m.scene.surfacesModel.surfaces.flat
-            |> Leaf.toSurfaces
-            |> HashMap.toList 
-            |> List.map snd 
-            |> IndexList.ofList
+        //let existingSurfaces = 
+        //    m.scene.surfacesModel.surfaces.flat
+        //    |> Leaf.toSurfaces
+        //    |> HashMap.toList 
+        //    |> List.map snd 
+        //    |> IndexList.ofList
 
-        let allSurfaces = existingSurfaces |> IndexList.append surfaces //????
+        //let allSurfaces = existingSurfaces |> IndexList.append surfaces //????
         let sChildren = surfaces |> IndexList.map Leaf.Surfaces
 
         let m = 
@@ -180,8 +181,8 @@ module SceneLoader =
 
         //handle sg surfaces
         let m = 
-            allSurfaces
-            |> IndexList.filter (fun s -> s.surfaceType = SurfaceType.SurfaceOBJ)
+            surfaces
+            //|> IndexList.filter (fun s -> s.surfaceType = SurfaceType.SurfaceOBJ)
             |> SurfaceUtils.ObjectFiles.createSgObjects runtime signature
             |> HashMap.union m.scene.surfacesModel.sgSurfaces
             |> (flip <| Optic.set (_surfaceModelLens >-> SurfaceModel.sgSurfaces_)) m
@@ -189,7 +190,24 @@ module SceneLoader =
         m.scene.surfacesModel 
           |> SurfaceModel.triggerSgGrouping 
           |> (flip <| Optic.set _surfaceModelLens) m
-             
+
+    let importSceneObj (sceneObjs : IndexList<SceneObject>) (m : Model) =
+    
+          let test =
+            sceneObjs |> IndexList.toList |> List.map(fun x -> (x.guid,x))|> HashMap.ofList
+          let m = 
+            m.scene.sceneObjectsModel.sceneObjects 
+            |> HashMap.union test
+            |> (flip <| Optic.set (_sceneObjects >-> SceneObjectsModel.sceneObjects_)) m
+
+          let m = 
+              sceneObjs
+              |> SceneObjectsUtils.createSgSceneObjects 
+              |> HashMap.union m.scene.sceneObjectsModel.sgSceneObjects
+              |> (flip <| Optic.set (_sceneObjects >-> SceneObjectsModel.sgSceneObjects_)) m
+                  
+          m
+        
     let prepareSurfaceModel 
         (runtime   : IRuntime) 
         (signature : IFramebufferSignature) 
