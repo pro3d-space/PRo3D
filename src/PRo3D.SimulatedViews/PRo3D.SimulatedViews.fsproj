@@ -22,13 +22,14 @@
     <Compile Include="Viewplanner\ViewPlan.fs" />      
     <Compile Include="SurfaceExtensions.fs" />      
     <Compile Include="JsonUtils.fs" />      
-    <Compile Include="RenderingUtils.fs" />
+    <Compile Include="RenderingUtils.fs" />      
+    <Compile Include="ObjectPlacement-Model.fs" />
     <Compile Include="Snapshot-Model.fs" />
     <Compile Include="SnapshotSettings-Model.fs" />
     <Compile Include="SnapshotSettingsApp.fs" />
-    <Compile Include="ObjectPlacement-Model.fs" />
     <Compile Include="ObjectPlacementApp.fs" />
     <Compile Include="HaltonPlacement.fs" />
+    <Compile Include="Snapshot.fs" />
     <Compile Include="SnapshotAnimation.fs" />
     <Compile Include="Snapshot-Utils.fs" />
     <Compile Include="SnapshotApp.fs" />

@@ -54,7 +54,7 @@ module ConfigProperties =
         | ShadingMessage message ->
             {model with shadingApp = Shading.ShadingApp.update model.shadingApp message}
         | SnapshotMessage message ->
-            {model with snapshotSettings = SimulatedViews.ShatterconeApp.updateSnapshotSettings model.snapshotSettings message}
+            {model with snapshotSettings = SimulatedViews.ObjectPlacementApp.updateSnapshotSettings model.snapshotSettings message}
         | ToggleExplorationPoint -> {model with showExplorationPoint = not model.showExplorationPoint}
         | ToggleFilterTexture -> {model with filterTexture = not model.filterTexture}
         | _ -> 

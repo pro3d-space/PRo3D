@@ -20,9 +20,9 @@ type RenderRange =
       frameCount : int
     }
     with static member fromOptions from count =
-      match from, count with
-      | Some from, Some count -> Some {fromFrame = from; frameCount = count}
-      | _,_ -> None
+            match from, count with
+            | Some from, Some count -> Some {fromFrame = from; frameCount = count}
+            | _,_ -> None
 
 module Rendering =
     let render (r : RenderParameters) = 
@@ -112,7 +112,7 @@ module Rendering =
                 col.TryDispose () |> ignore
                 Log.line "[SNAPSHOT] %s" filename
             | None -> 
-                Log.error "[SNAPSHOT] Fatal Error"
+                Log.error "[SNAPSHOT] Could not render image %s" filename
                 //Environment.Exit(int ExitCode.REQUEST_RESTART)
         with e ->
             Log.error "[SNAPSHOT] Could not save image %s" filename

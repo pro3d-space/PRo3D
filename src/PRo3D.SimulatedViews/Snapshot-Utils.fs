@@ -11,7 +11,7 @@ open PRo3D.Core.Surface
 
 //open Aardvark.GeoSpatial.Opc.Shader
 
-module ShatterconeUtils =
+module PlacementUtils =
     let addSnapshotGroup (m    : SurfaceModel) =
         let groupsModel = GroupsApp.addGroupToRoot m.surfaces "snapshots"
         {m with surfaces = groupsModel}
@@ -84,7 +84,7 @@ module ShatterconeUtils =
         File.WriteAllText(distXml, text)
 
    
-    let updateColorCorrection (shattercone : SnapshotShattercone) (surf : Surface) =
+    let updateColorCorrection (shattercone : ObjectPlacementParameters) (surf : Surface) =
         let colorAdaption = surf.colorCorrection
         let sColor = 
             match shattercone.color with
@@ -108,7 +108,7 @@ module ShatterconeUtils =
         {surf with colorCorrection = gammaColor}
 
     let generateSnapshotSCParas (surfacesModel    : SurfaceModel) 
-                                (objectPlacements : HashMap<string, ShatterconePlacement>) =
+                                (objectPlacements : HashMap<string, ObjectPlacementApp>) =
         let surfacesModel = clearSnapshotGroup surfacesModel
         let surfacesWithSCPlacement =
             surfacesModel.surfaces.flat 
@@ -118,7 +118,7 @@ module ShatterconeUtils =
             surfacesWithSCPlacement
                 |> HashMap.filter (fun guid (s,p) ->  p.IsSome)
                 |> HashMap.map (fun guid (s,p) -> s, p.Value)
-                |> HashMap.map (fun guid (s,p) ->  ShatterconeApp.toSnapshotShattercone  
+                |> HashMap.map (fun guid (s,p) ->  ObjectPlacementApp.toSnapshotShattercone  
                                                     p s.name s.colorCorrection)
                 |> HashMap.values |> Seq.toList
         paras
@@ -127,7 +127,7 @@ module ShatterconeUtils =
                 (refSystem   : ReferenceSystem)
                 (view : CameraView) (navModel : NavigationModel) 
                 (surfacesModel : SurfaceModel)
-                (shattercone : SnapshotShattercone) =
+                (shattercone : ObjectPlacementParameters) =
         let hasName surf = 
             String.contains shattercone.name surf.importPath
               || String.contains surf.importPath shattercone.name
@@ -251,7 +251,7 @@ module ShatterconeUtils =
                   (filename     : string) 
                   (refSystem    : ReferenceSystem)
                   (navModel     : NavigationModel) 
-                  (shattercones : list<SnapshotShattercone>) 
+                  (shattercones : list<ObjectPlacementParameters>) 
                   (m            : SurfaceModel)
                   (surface      : Surface) =
         let placeSc = placeSc surface filename frustum refSystem navModel.camera.view navModel
@@ -259,7 +259,7 @@ module ShatterconeUtils =
         m
 
     let placeMultipleOBJs (m            : SurfaceModel) 
-                          (shattercones : list<SnapshotShattercone>) 
+                          (shattercones : list<ObjectPlacementParameters>) 
                           (frustum      : Frustum) 
                           (filename     : string) 
                           (refSystem    : ReferenceSystem)

@@ -81,18 +81,18 @@ module SnapshotApp =
                 |> List.filter (fun (i, x) -> i >= id && i < id + count)
                 |> List.map snd            
         let snapshots =
-            match app.renderMask with
-            | true ->
+            match app.renderMask, app.snapshotAnimation.renderMask with
+            | true, _ | _, Some true ->
                 seq {
                     for s in snapshots do
                         yield s
                         yield {s with renderMask = Some true
-                                      shattercones = None
+                                      placementParameters = None
                                       filename = sprintf "%s_mask" s.filename
                                       surfaceUpdates = None
                               }
                     } |> Seq.toList
-            | false -> snapshots
+            | false, _ -> snapshots
 
         let sg = app.sceneGraph app.adaptiveModel app.runtime
 
@@ -121,59 +121,14 @@ module SnapshotApp =
             let fullPathName = Path.combine [app.outputFolder;snapshot.filename]
             let actions = (app.getSnapshotActions snapshot frustum fullPathName)
             app.viewerApp.updateSync (Guid.NewGuid ()) actions
+
+            //TODO rno should be obsolete with snc rendering
+            taskclear.Run (null, fbo) |> ignore
+            task.Run (null, fbo) |> ignore
+            System.Threading.Thread.Sleep(1000)
+            //TODO end
+
             renderAndSave (sprintf "%s.png" fullPathName) app.verbose parameters
-
-    /// returns (batchSize, nrOfBatches)
-    let calculateBatches (a : SnapshotAnimation) =
-        let nrOfSnapshots = a.snapshots.Length
-        match nrOfSnapshots with
-        | nrs when nrs < 1 -> (-1, 0)
-        | nrs when nrs >= 1  ->
-            let shatterconeEntry = a.snapshots.Head.shattercones
-            let nrOfScs =
-                match shatterconeEntry with
-                | Some sce -> sce |> List.map (fun a -> a.count)
-                                  |> List.reduce (+)
-                              
-                | None -> 0
-            let batchSize = 
-                match nrs, nrOfScs with
-                | (nrs, nrOfScs) when nrs <= 20 && nrOfScs < 6 -> -1
-                | (nrs, nrOfScs) when nrs > 20 && nrOfScs = 1 -> 60
-                | (nrs, nrOfScs) when nrs > 20 && nrOfScs = 2 -> 50
-                | (nrs, nrOfScs) when nrs > 20 && nrOfScs = 3 -> 30
-                | (nrs, nrOfScs) when nrs > 20 && nrOfScs <= 6 -> 20
-                | (nrs, nrOfScs) when nrs > 20 && nrOfScs > 6 -> 10
-                | _ -> -1
-            let nrOfBatches =  ((float nrs) / (float batchSize)) |> ceil |> int
-            (batchSize, nrOfBatches)
-        | _ -> (-1, 1)
-
-    let tryWriteBatchFile' (snapshotPath : string) 
-                           (snapshotType : SnapshotType) 
-                           (range        : option<RenderRange>) =
-        match snapshotType with
-        | SnapshotType.Camera -> //backwards compatibility
-            None
-        | SnapshotType.CameraAndSurface ->
-            let anim = SnapshotAnimation.read snapshotPath
-            match range, anim with
-            | None, Some a -> 
-                let batchSize, nrOfBatches = calculateBatches a
-                match batchSize, nrOfBatches with
-                | -1, _ -> None
-                | _, 0 -> None
-                | size, nr ->
-                    let batches = 
-                        [0..nrOfBatches - 1] 
-                            |> List.map (fun i -> sprintf "--frameId %i --frameCount %i --exitOnFinish" (i * size) (size))
-                            |> List.reduce (fun a b -> sprintf "%s \n %s" a b)
-                    System.IO.File.WriteAllText("cl.tmp", batches)
-                    Some "cl.tmp"
-            | Some r, Some a -> None 
-            | _, _ -> None
-        | _ -> None
-
 
     let readAnimation (snapshotPath : string)
                       (snapshotType : SnapshotType) =   
@@ -229,7 +184,7 @@ module SnapshotApp =
             SurfaceModel.updateSingleSurface updatedSurf surfacesModel
 
         // apply surface tranformation to each surface mentioned in the snapshot
-        ShatterconeUtils.applyToModel surfaces surfacesModel transformSurf       
+        PlacementUtils.applyToModel surfaces surfacesModel transformSurf       
 
     let menuItems placeAction generateJsonAction = //TODO rno importBookmarkAction =
       div [ clazz "ui dropdown item"] [
@@ -237,10 +192,10 @@ module SnapshotApp =
         i [clazz "dropdown icon"][] 
         div [ clazz "menu"] [
           div [ clazz "ui item"; onMouseClick (fun _ -> placeAction)][
-              text "Place Shattercones"
+              text "Place Objects"
           ]
           div [ clazz "ui item";onMouseClick (fun _ -> generateJsonAction)][
-                text "Generate Shattercone Placement"
+                text "Generate Snapshot File"
               ]
           ]
           //div [ clazz "ui item";
@@ -249,4 +204,3 @@ module SnapshotApp =
           //  text "Import Bookmark"
           //]
       ]
-      

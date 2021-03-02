@@ -135,7 +135,7 @@ module HaltonPlacement =
         (interaction : Interactions) 
         (surfaces    : SurfaceModel) 
         (refSystem   : ReferenceSystem) 
-        (shattercone : SnapshotShattercone) 
+        (shattercone : ObjectPlacementParameters) 
         (frustum : Frustum) 
         (view : CameraView) =
 

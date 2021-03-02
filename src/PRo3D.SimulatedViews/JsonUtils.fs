@@ -34,3 +34,10 @@ module Json =
             Json.write name a
         | None ->
             Json.writeNone name
+
+      let writeOptionBool (name : string) (x : option<bool>) =
+        match x with
+        | Some a ->
+            Json.write name a
+        | None ->
+            Json.writeNone name

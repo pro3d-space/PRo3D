@@ -321,7 +321,7 @@ module ViewerUtils =
             adaptive {
                 let! s = surf
                 let! n = s.name
-                return! (scene.shatterconePlacements |> AMap.tryFind n)
+                return! (scene.objectPlacements |> AMap.tryFind n)
             }
         let maskColor = placement |> AVal.bind (fun p -> match p with 
                                                          | Some p -> p.maskColor.c

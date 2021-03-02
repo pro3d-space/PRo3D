@@ -81,18 +81,18 @@ module SnapshotGenerator =
                     ]
                 | true -> []
             | None -> []
-        let shatterConeAction =
-            match this.shattercones with
+        let PlacementAction =
+            match this.placementParameters with
             | Some sc ->
                 match sc.IsEmptyOrNull () with
                 | false ->
-                    [ViewerAction.UpdateShatterCones (sc, filename)] 
+                    [ViewerAction.UpdatePlacementParameters (sc, filename)] 
                 | true -> []
             | None -> []
         // ADD ACTIONS FOR NEW SNAPSHOT MEMBERS HERE
-        actions@sunAction@surfAction@shatterConeAction |> List.toSeq    
+        actions@sunAction@surfAction@PlacementAction |> List.toSeq    
 
-    let getAnimationActions (anim : SnapshotAnimation) =
+    let getAnimationActions (anim : SnapshotAnimation) =               
         let setNearplane =
             match anim.nearplane with
             | Some np -> 

@@ -8,12 +8,13 @@ open PRo3D.Core.Surface
 open PRo3D.Core
 open FSharp.Data.Adaptive
 
+/// GUI interface to object placement parameters
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module ObjectPlacementApp =
 
-module ShatterconeApp =
-
-    let toSnapshotShattercone (model : ShatterconePlacement) 
+    let toSnapshotShattercone (model : ObjectPlacementApp) 
                               (name  : string)
-                              (colorCorrection : ColorCorrection) : SnapshotShattercone =
+                              (colorCorrection : ColorCorrection) : ObjectPlacementParameters =
         {
             name         = name
             count        = int model.count.value
@@ -30,8 +31,8 @@ module ShatterconeApp =
             maskColor    = model.maskColor.c |> Some
         }
 
-    let fromSnapshotShattercone (ssc : SnapshotShattercone) =
-        let init = ShatterconePlacement.init
+    let fromSnapshotShattercone (ssc : ObjectPlacementParameters) =
+        let init = ObjectPlacementApp.init
         let scaleFrom =
             match ssc.scale with
                 | Some scale -> 
@@ -98,8 +99,10 @@ module ShatterconeApp =
             {model with numSnapshots     = Numeric.update model.numSnapshots  num} 
         | SetFieldOfView       num -> 
             {model with fieldOfView     = Numeric.update model.fieldOfView  num}   
+        | SetRenderMask b ->
+            {model with renderMask = b}
     
-    let update (model : ShatterconePlacement) (message : ObjectPlacementAction) =
+    let update (model : ObjectPlacementApp) (message : ObjectPlacementAction) =
         match message with
         | SetName        str ->  
             {model with name = str}
@@ -128,7 +131,7 @@ module ShatterconeApp =
         | SetMaskColor colorAction ->
             {model with maskColor = ColorPicker.update model.maskColor colorAction}
 
-    let view (model : AdaptiveShatterconePlacement) = //(selectedName : IMod<string>) =
+    let view (model : AdaptiveObjectPlacementApp) = //(selectedName : IMod<string>) =
        require Html.semui (
             Html.table 
               [      
@@ -153,7 +156,7 @@ module ShatterconeApp =
               ]           
             )
 
-    let viewSelected (surfaceModel : AdaptiveSurfaceModel) (models : amap<String, AdaptiveShatterconePlacement>) =
+    let viewSelected (surfaceModel : AdaptiveSurfaceModel) (models : amap<String, AdaptiveObjectPlacementApp>) =
         adaptive {
             let! guid = surfaceModel.surfaces.singleSelectLeaf
             match guid with

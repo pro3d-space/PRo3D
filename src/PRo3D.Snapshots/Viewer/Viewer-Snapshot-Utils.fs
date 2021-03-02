@@ -19,10 +19,10 @@ module ViewerSnapshotUtils =
 
 
     let placeAllObjs (m : Model) (snapshotPlacements) filename =
-        let surfacesModel = ShatterconeUtils.addSnapshotGroup m.scene.surfacesModel
+        let surfacesModel = PlacementUtils.addSnapshotGroup m.scene.surfacesModel
         let m = Model.withScene {m.scene with surfacesModel = surfacesModel} m
         let snapSgs, snapSurfs = 
-            ShatterconeUtils.getSurfacesInSnapshotGroup surfacesModel
+            PlacementUtils.getSurfacesInSnapshotGroup surfacesModel
         let snapshotObjGuids = snapSgs |> List.map fst
         let surfaces = m.scene.surfacesModel.surfaces.flat 
                             |> HashMap.toList
@@ -31,18 +31,18 @@ module ViewerSnapshotUtils =
                             |> List.filter (fun s -> not (List.contains s.guid snapshotObjGuids))
         let placeObjs (m : Model) surf = 
             let surfaceModel = 
-                ShatterconeUtils.placeMultipleOBJs m.scene.surfacesModel
+                PlacementUtils.placeMultipleOBJs m.scene.surfacesModel
                                                    snapshotPlacements 
                                                    m.frustum 
                                                    filename
                                                    m.scene.referenceSystem
                                                    m.navigation
             Model.withScene {m.scene with surfacesModel = surfaceModel} m
-        let m = ShatterconeUtils.applyToModel surfaces m placeObjs
+        let m = PlacementUtils.applyToModel surfaces m placeObjs
         m
 
     let updateObjPlacementsFromGui (m : Model) =
         let snapshotSCParameters = 
-          ShatterconeUtils.generateSnapshotSCParas m.scene.surfacesModel
-                                                    m.scene.shatterconePlacements
+          PlacementUtils.generateSnapshotSCParas m.scene.surfacesModel
+                                                    m.scene.objectPlacements
         placeAllObjs m snapshotSCParameters ""

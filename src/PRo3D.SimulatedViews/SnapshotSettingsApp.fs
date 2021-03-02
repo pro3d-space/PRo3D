@@ -42,5 +42,6 @@ module SnapshotSettings =
             version         = currentVersion
             numSnapshots    = snapshots
             fieldOfView     = foV
+            renderMask      = Some true
         }
 

@@ -83,7 +83,6 @@ module Shader =
         fragment {
             let drawShadows : bool = uniform?drawShadows
             if  drawShadows then
-                //return diffuseSampler.Sample(v.tc,-1.0) //applyShadow v
                 let p = v.pProj.XYZ / v.pProj.W
                 let tc = V3d(0.5, 0.5,0.5) + V3d(0.5, 0.5, 0.5) * p.XYZ
                 let shadow =
@@ -96,7 +95,6 @@ module Shader =
 
                 let texColor = diffuseSampler.Sample(v.tc,-1.0)
                 return V4d(texColor.XYZ * d, 1.0)
-                //return V4d(p, 1.0)
             else 
                 return diffuseSampler.Sample(v.tc,-1.0)
         }  

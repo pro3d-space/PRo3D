@@ -25,13 +25,13 @@
     <None Include="paket.references" />
     <Compile Include="Config.fs" />
     <Compile Include="StartupArgs.fs" />
-    <Compile Include="Shaders.fs" />
-    <Compile Include="Shading-Model.fs" />
-    <Compile Include="ShadingApp.fs" />
+    <Compile Include="Lighting\Shaders.fs" />
+    <Compile Include="Lighting\Shading-Model.fs" />
+    <Compile Include="Lighting\ShadingApp.fs" />
+    <Compile Include="Lighting\Lighting-Utils.fs" />
     <Compile Include="Models\Model.fs" />
     <Compile Include="Models\VersionedModel.fs" />
     <Compile Include="Utilities.fs" />
-    <Compile Include="Lighting-Utils.fs" />
     <Compile Include="OrientationCube.fs" />
     <Compile Include="Navigation-Model.fs" />
     <Compile Include="Bookmark-Model.fs" />

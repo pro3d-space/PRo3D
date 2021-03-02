@@ -662,8 +662,8 @@ module ViewerApp =
                     |> SceneLoader.importObj runtime signature objects 
                     |> ViewerIO.loadLastFootPrint
                     |> updateSceneWithNewSurface     
-                let newScPlacement = HashMap.add newSurface.name ShatterconePlacement.init m.scene.shatterconePlacements
-                {m with scene = {m.scene with shatterconePlacements = newScPlacement}}
+                let newScPlacement = HashMap.add newSurface.name ObjectPlacementApp.init m.scene.objectPlacements
+                {m with scene = {m.scene with objectPlacements = newScPlacement}}
             | None -> m              
         | ImportPRo3Dv1Annotations sl,_,_ ->
             match sl |> List.tryHead with
@@ -1087,13 +1087,13 @@ module ViewerApp =
             | true ->
                 Log.line "[Viewer] No surface updates found."
                 m
-        | UpdateShatterCones (shatterCones, filename) ,_,_ ->
-            match shatterCones.IsEmptyOrNull () with
+        | UpdatePlacementParameters (placementParameters, filename) ,_,_ ->
+            match placementParameters.IsEmptyOrNull () with
             | false ->
                 Log.line "[Viewer] Updating object placements."
-                ViewerSnapshotUtils.placeAllObjs m shatterCones filename
+                ViewerSnapshotUtils.placeAllObjs m placementParameters filename
             | true ->
-                Log.line "[Viewer] No shattercone updates found."
+                Log.line "[Viewer] No placement updates found."
                 m
         //| TransformAllSurfaces (surfaceUpdates,scs),_,_ ->
         //    match surfaceUpdates.IsEmptyOrNull () with
@@ -1211,8 +1211,8 @@ module ViewerApp =
             { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y) }
         | TestHaltonRayCasting _,_,_->
             let snapshotSCParameters = 
-              ShatterconeUtils.generateSnapshotSCParas m.scene.surfacesModel
-                                                       m.scene.shatterconePlacements
+              PlacementUtils.generateSnapshotSCParas m.scene.surfacesModel
+                                                       m.scene.objectPlacements
             let m = 
                 match Seq.isEmpty snapshotSCParameters with
                 | false ->
@@ -1242,8 +1242,8 @@ module ViewerApp =
         //        _bookmarksModel.Set(m, {bmmodel with bookmarks = newGroupsModel})
         //    | None -> m
         | ExportSnapshotFile , _, _ ->
-             let jsonScs = ShatterconeUtils.generateSnapshotSCParas m.scene.surfacesModel
-                                                                    m.scene.shatterconePlacements
+             let jsonScs = PlacementUtils.generateSnapshotSCParas m.scene.surfacesModel
+                                                                    m.scene.objectPlacements
              match jsonScs.IsEmptyOrNull () with
              | false ->
                  let bookmarks = m.scene.bookmarks.flat
@@ -1256,14 +1256,14 @@ module ViewerApp =
                  let intvs = 
                      bmviews 
                        |> Seq.pairwise
-                       |> Seq.map (fun (a,b) -> ShatterconeUtils.interpolateView a b (int m.scene.config.snapshotSettings.numSnapshots.value))
+                       |> Seq.map (fun (a,b) -> PlacementUtils.interpolateView a b (int m.scene.config.snapshotSettings.numSnapshots.value))
                  let intvs = seq {for x in intvs do yield! x}
                  let snapshots = Snapshot.fromViews intvs jsonScs m.scene.config.shadingApp.lightDirection.value
                  let snapAnimation = SnapshotAnimation.generate snapshots m.scene.config.snapshotSettings.fieldOfView.value true
                  SnapshotAnimation.writeToFile snapAnimation "snapshots.json"              
                  m
              | true ->
-                 Log.warn "No shattercone placement parameters."
+                 Log.warn "No object placement parameters."
                  m
         | StartDragging _,_,_
         | Dragging _,_,_ 
@@ -1282,12 +1282,12 @@ module ViewerApp =
           let scPlacements = 
               let updatePlacement optPlacement =
                   match optPlacement with
-                  | Some p -> ShatterconeApp.update p message
+                  | Some p -> ObjectPlacementApp.update p message
                   | None -> 
-                      Log.line "Could not find guid %s in shattercone placements." str
-                      ShatterconePlacement.init
-              HashMap.update str updatePlacement m.scene.shatterconePlacements
-          {m with scene = {m.scene with shatterconePlacements = scPlacements}}        
+                      Log.line "Could not find guid %s in object placements." str
+                      ObjectPlacementApp.init
+              HashMap.update str updatePlacement m.scene.objectPlacements
+          {m with scene = {m.scene with objectPlacements = scPlacements}}        
         | _ -> m       
                                    
     let mkBrushISg color size trafo : ISg<Message> =
@@ -1612,19 +1612,19 @@ module ViewerApp =
                         //                text "clear"]
                         //    ]  
                         ]
-                let shatterconeGui = ShatterconeApp.viewSelected m.scene.surfacesModel m.scene.shatterconePlacements 
+                let placementGui = ObjectPlacementApp.viewSelected m.scene.surfacesModel m.scene.objectPlacements 
                 let mapper guid domNode = 
                     domNode |> UI.map (fun action -> ObjectPlacementMessage (guid, action))
                 require (myCss) (
                     body bodyAttributes
                         [SurfaceApp.surfaceUI m.scene.surfacesModel |> UI.map SurfaceActions
-                         GuiEx.accordion "Shattercones" 
+                         GuiEx.accordion "Object Placement" 
                                          "Circle" 
                                          false 
                                          [
                                          scButtons;
                                          Incremental.div AttributeMap.empty 
-                                                         (AList.ofAValSingle (shatterconeGui 
+                                                         (AList.ofAValSingle (placementGui 
                                                                                |> AVal.map (fun (name, domNode) -> mapper name domNode)
                                                                              )
                                                          )

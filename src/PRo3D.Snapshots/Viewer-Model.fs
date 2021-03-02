@@ -135,7 +135,7 @@ type ViewerAction =
     | MakeSnapshot                    of int*int*string
     | ImportSnapshotData              of list<string>
     | SetTextureFiltering             of bool // TODO move to versioned ViewConfigModel in V3
-    | UpdateShatterCones              of (list<SnapshotShattercone> * string)
+    | UpdatePlacementParameters              of (list<ObjectPlacementParameters> * string)
     | TestHaltonRayCasting            //of list<string>
     | HeightValidation               of HeightValidatorAction
     | ObjectPlacementMessage         of (string * ObjectPlacementAction)
@@ -172,7 +172,8 @@ type Scene = {
     firstImport           : bool
     userFeedback          : string
     feedbackThreads       : ThreadPool<ViewerAction> 
-    shatterconePlacements : HashMap<String, ShatterconePlacement>
+    /// placement parameters for objects that will be placed into the scene randomly according to the parameters set in the app
+    objectPlacements      : HashMap<String, ObjectPlacementApp>
 }
 
 module Scene =
@@ -191,10 +192,10 @@ module Scene =
             let! referenceSystem = Json.read "referenceSystem"
             let! bookmarks       = Json.read "bookmarks"
             let! dockConfig      = Json.read "dockConfig"            
-            let shatterconePlacements =
+            let objectPlacements =
                 (surfaceModel.surfaces.flat |> Leaf.toSurfaces)
                     |> HashMap.filter(fun g x -> x.surfaceType = SurfaceType.SurfaceOBJ)
-                    |> HashMap.map (fun g x -> (x.name, ShatterconePlacement.init))
+                    |> HashMap.map (fun g x -> (x.name, ObjectPlacementApp.init))
                     |> HashMap.values
                     |> HashMap.ofSeq
                     
@@ -219,7 +220,7 @@ module Scene =
                     firstImport     = false
                     userFeedback    = String.Empty
                     feedbackThreads = ThreadPool.empty
-                    shatterconePlacements = shatterconePlacements
+                    objectPlacements = objectPlacements
                 }
         }
 
@@ -236,13 +237,13 @@ module Scene =
             let! referenceSystem = Json.read "referenceSystem"
             let! bookmarks       = Json.read "bookmarks"
             let! dockConfig      = Json.read "dockConfig"  
-            let! shatterconePlacements = Json.read "shatterconePlacements"
-            let shatterconePlacements =
-                match shatterconePlacements with 
+            let! objectPlacements = Json.read "shatterconePlacements"
+            let objectPlacements =
+                match objectPlacements with 
                 | [] -> 
                     (surfaceModel.surfaces.flat |> Leaf.toSurfaces)
                         |> HashMap.filter(fun g x -> x.surfaceType = SurfaceType.SurfaceOBJ)
-                        |> HashMap.map (fun g x -> (x.name, ShatterconePlacement.init))
+                        |> HashMap.map (fun g x -> (x.name, ObjectPlacementApp.init))
                         |> HashMap.values
                         |> List.ofSeq
                 | lst -> lst 
@@ -269,7 +270,7 @@ module Scene =
                     firstImport     = false
                     userFeedback    = String.Empty
                     feedbackThreads = ThreadPool.empty
-                    shatterconePlacements = shatterconePlacements |> HashMap.ofList
+                    objectPlacements = objectPlacements |> HashMap.ofList
                 }
         }
 
@@ -299,7 +300,7 @@ type Scene with
             do! Json.write "scenePath" x.scenePath
             do! Json.write "referenceSystem" x.referenceSystem
             do! Json.write "bookmarks" x.bookmarks
-            do! Json.write "shatterconePlacements" (x.shatterconePlacements |> HashMap.toList)
+            do! Json.write "shatterconePlacements" (x.objectPlacements |> HashMap.toList)
             do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString)                   
         }
 
@@ -518,7 +519,7 @@ module Viewer =
                     userFeedback    = ""
                     feedbackThreads = ThreadPool.empty
                     viewPlans       = ViewPlanModel.initial
-                    shatterconePlacements = HashMap.empty
+                    objectPlacements = HashMap.empty
                 }
 
             navigation      = navInit
