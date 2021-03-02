@@ -39,7 +39,7 @@ module SnapshotAnimation =
                 path
                     |> Serialization.readFromFile
                     |> Json.parse 
-            let (bar : ArnoldAnimation) =
+            let (bar : LegacyAnimation) =
                 foo
                 |> Json.deserialize
             bar
@@ -98,7 +98,7 @@ module SnapshotAnimation =
     let updateSnapshotCam (location : V3d) (forward : V3d) (up : V3d) = 
         CameraView.look location forward.Normalized up.Normalized
 
-    let updateArnoldSnapshotCam (extr:ArnoldSnapshot)  = 
+    let updateArnoldSnapshotCam (extr:LegacySnapshot)  = 
         CameraView.look extr.location extr.forward.Normalized extr.up.Normalized
 
     let updateSnapshotFrustum (frust:Frustum) (fieldOfView : double) (resolution : V2i)  =
@@ -107,12 +107,12 @@ module SnapshotAnimation =
 
         Frustum.perspective fieldOfView frust.near frust.far (resh/resv)
 
-    let updateArnoldSnapshotFrustum (frust:Frustum) (dataAnimation:ArnoldAnimation)  =
+    let updateArnoldSnapshotFrustum (frust:Frustum) (dataAnimation:LegacyAnimation)  =
         updateSnapshotFrustum frust dataAnimation.fieldOfView dataAnimation.resolution
         
     let loadData (path : string) =
         try 
-             let (arnoldanims : ArnoldAnimation) =
+             let (arnoldanims : LegacyAnimation) =
                     path 
                         |> Serialization.readFromFile
                         |> Json.parse 

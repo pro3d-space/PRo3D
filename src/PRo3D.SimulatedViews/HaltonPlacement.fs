@@ -135,34 +135,32 @@ module HaltonPlacement =
         (interaction : Interactions) 
         (surfaces    : SurfaceModel) 
         (refSystem   : ReferenceSystem) 
-        (shattercone : ObjectPlacementParameters) 
+        (parameters : ObjectPlacementParameters) 
         (frustum : Frustum) 
         (view : CameraView) =
 
         let haltonSeries = create2DHaltonRandomSeries
-        let rays = computeSCRayRaster shattercone.count view frustum haltonSeries
+        let rays = computeSCRayRaster parameters.count view frustum haltonSeries
         let points = getPointsOnSurfaces interaction surfaces refSystem view.Location rays
         let hsScaling = 
-            match shattercone.scale with
+            match parameters.scale with
             | Some s -> 
-                let rs = genRandomNumbersBetween shattercone.count s.X s.Y
+                let rs = genRandomNumbersBetween parameters.count s.X s.Y
                 rs |> List.map(fun x -> (float)x/100.0) 
             | None -> 
-                [ for i in 1 .. shattercone.count -> 1.0 ]
+                [ for i in 1 .. parameters.count -> 1.0 ]
         let xRotation =
-            match shattercone.xRotation with
-            | Some rx -> genRandomNumbersBetween shattercone.count rx.X rx.Y
-            | None -> [ for i in 1 .. shattercone.count -> 0 ]
-        //let yRotation = genRandomNumbersBetween shattercone.count 45 135
+            match parameters.xRotation with
+            | Some rx -> genRandomNumbersBetween parameters.count rx.X rx.Y
+            | None -> [ for i in 1 .. parameters.count -> 0 ]
         let yRotation = 
-            match shattercone.yRotation with
-            | Some ry -> genRandomNumbersBetween shattercone.count ry.X ry.Y
-            | None -> [ for i in 1 .. shattercone.count -> 0 ]
+            match parameters.yRotation with
+            | Some ry -> genRandomNumbersBetween parameters.count ry.X ry.Y
+            | None -> [ for i in 1 .. parameters.count -> 0 ]
         let zRotation =
-            match shattercone.zRotation with
-            | Some rz -> genRandomNumbersBetween shattercone.count rz.X rz.Y //0 360
-            | None -> [ for i in 1 .. shattercone.count -> 0 ]
-        //let zRotation = genRandomNumbersBetween shattercone.count 0 360
+            match parameters.zRotation with
+            | Some rz -> genRandomNumbersBetween parameters.count rz.X rz.Y //0 360
+            | None -> [ for i in 1 .. parameters.count -> 0 ]
         let trafos =
             [
             for i in 0..points.Length-1 do

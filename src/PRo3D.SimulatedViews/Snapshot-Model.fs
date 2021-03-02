@@ -111,45 +111,7 @@ with
   member this.view = 
     CameraView.look this.camera.location 
                     this.camera.forward.Normalized 
-                    this.camera.up.Normalized
-  member this.toActions frustum filename =
-    let actions = 
-        [
-              //TODO rno refactor
-            //ViewerAction.SetCameraAndFrustum2 (this.view,frustum); //X
-            //ViewerAction.SetMaskObjs this.renderMask
-        ]
-    let sunAction =
-        match this.lightDirection with
-        | Some p -> [
-                        //TODO rno refactor
-                        //ViewerAction.ShadingMessage (Shading.ShadingActions.SetLightDirectionV3d p)
-                    ]
-        | None -> []        
-    let surfAction =
-        match this.surfaceUpdates with
-        | Some s ->
-            match s.IsEmptyOrNull () with
-            | false ->
-                [
-                    //ViewerAction.TransformAllSurfaces s
-                    //TODO rno refactor
-                ]
-            | true -> []
-        | None -> []
-    let shatterConeAction =
-        match this.placementParameters with
-        | Some sc ->
-            match sc.IsEmptyOrNull () with
-            | false ->
-                [
-                    //ViewerAction.UpdateShatterCones (sc, frustum, filename)
-                    //TODO rno refactor
-                ] //XX
-            | true -> []
-        | None -> []
-    // ADD ACTIONS FOR NEW SNAPSHOT MEMBERS HERE
-    actions@sunAction@surfAction@shatterConeAction |> List.toSeq    
+                    this.camera.up.Normalized 
   static member current = 0
   static member private readV0 = 
       json {
@@ -158,7 +120,7 @@ with
         let! sunPosition    = Json.parseOption (Json.tryRead "sunPosition") V3d.Parse
         let! lightDirection    = Json.parseOption (Json.tryRead "lightDirection") V3d.Parse
         let! surfaceUpdates = Json.tryRead "surfaceUpdates"
-        let! shattercones   = Json.tryRead "shattercones"
+        let! placementParameters   = Json.tryRead "shattercones"
         let! renderMask     = Json.tryRead "renderMask"
 
         return {
@@ -167,7 +129,7 @@ with
             sunPosition     = sunPosition
             lightDirection  = lightDirection
             surfaceUpdates  = surfaceUpdates 
-            placementParameters    = shattercones
+            placementParameters    = placementParameters
             renderMask      = renderMask
         }
       }
@@ -204,32 +166,6 @@ type SnapshotAnimation = {
 with 
   static member defaultNearplane = 0.01
   static member defaultFarplane  = 100000.0
-  member this.actions =
-      let setNearplane =
-          match this.nearplane with
-          | Some np -> []
-              //TODO rno refactor
-              //[(ConfigProperties.Action.SetNearPlane (Numeric.SetValue np))
-              //  |> ViewerAction.ConfigPropertiesMessage]
-          | None -> []
-      let setFarplane =
-          match this.farplane with
-          | Some fp -> []
-              //TODO rno refactor
-              //[(ConfigProperties.Action.SetFarPlane (Numeric.SetValue fp))
-              //  |> ViewerAction.ConfigPropertiesMessage]
-          | None -> []
-      let lightActions = 
-          match this.lightLocation with
-          | Some loc -> 
-              [
-                  //TODO rno refactor
-                  //ViewerAction.ShadingMessage (Shading.ShadingActions.SetLightPositionV3d loc)
-                  //ViewerAction.ShadingMessage (Shading.ShadingActions.SetUseLighting true)
-              ]
-          | None -> []
-      setNearplane@setFarplane@lightActions |> List.toSeq
-
   static member TestData =
       {
           fieldOfView = Some 5.47
@@ -240,7 +176,6 @@ with
           snapshots   = [Snapshot.TestData]
           renderMask = None
       }
-
   static member private readV0 = 
       json {
           let! fieldOfView    = Json.tryRead "fieldOfView"
@@ -284,8 +219,8 @@ with
           do! Json.write              "snapshots"      x.snapshots
       }  
 
-/// Camera Animation
-type ArnoldSnapshot = {
+/// The functionality of this format can be achieved with the new Snapshot format. As long as users still use this older format it should be maintained.
+type LegacySnapshot = {
     location      : V3d
     forward       : V3d
     up            : V3d
@@ -376,15 +311,15 @@ type ArnoldSnapshot = {
           filename    = filename
         }
       }
-  static member FromJson(_ : ArnoldSnapshot) = 
+  static member FromJson(_ : LegacySnapshot) = 
     json {
-        return! ArnoldSnapshot.readV0
+        return! LegacySnapshot.readV0
         //let! v = Json.read "version"
         //match v with            
         //  | 0 -> return! ArnoldSnapshot.readV0
         //  | _ -> return! v |> sprintf "don't know version %A  of ArnoldSnapshot" |> Json.error
     }
-  static member ToJson (x : ArnoldSnapshot) =
+  static member ToJson (x : LegacySnapshot) =
     json {
       do! Json.write      "location"  (x.location.ToString())
       do! Json.write      "forward"   (x.forward.ToString())
@@ -392,10 +327,11 @@ type ArnoldSnapshot = {
       do! Json.write      "filename"  (x.filename.ToString())
     }
 
-type ArnoldAnimation = {
+/// The functionality of this format can be achieved with the new SnapshotAnimation format. As long as users still use this older format it should be maintained.
+type LegacyAnimation = {
     fieldOfView   : double
     resolution    : V2i
-    snapshots     : list<ArnoldSnapshot>
+    snapshots     : list<LegacySnapshot>
 }
 with 
   member this.toSnapshotAnimation () : SnapshotAnimation =
@@ -408,11 +344,11 @@ with
         snapshots     = this.snapshots |> List.map (fun x -> x.toSnapshot ())
         renderMask    = None
     }
-  member this.generateSCAnimation () : SnapshotAnimation =
+  member this.generateAnimation () : SnapshotAnimation =
     {
         fieldOfView   = Some this.fieldOfView
         resolution    = this.resolution
-        nearplane     = Some 0.00001
+        nearplane     = Some 0.01
         farplane      = Some 1000000.0
         lightLocation = Some (V3d (0.1842, -0.93675, -0.29759))
         renderMask    = None
@@ -433,14 +369,14 @@ with
           snapshots      = snapshots  //|> Serialization.jsonSerializer.UnPickleOfString
         }
       }
-  static member FromJson(_ : ArnoldAnimation) = 
+  static member FromJson(_ : LegacyAnimation) = 
     json {
         let! v = Json.read "version"
         match v with            
-          | 0 -> return! ArnoldAnimation.readV0
+          | 0 -> return! LegacyAnimation.readV0
           | _ -> return! v |> sprintf "don't know version %A  of ArnoldAnimation" |> Json.error
     }
-  static member ToJson (x : ArnoldAnimation) =
+  static member ToJson (x : LegacyAnimation) =
     json {
         do! Json.write      "version"        0
         do! Json.write      "fieldOfView"  (x.fieldOfView)

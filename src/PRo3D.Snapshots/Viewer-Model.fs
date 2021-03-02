@@ -131,7 +131,6 @@ type ViewerAction =
     | StartDragging                   of V2i * MouseButtons
     | Dragging                        of V2i
     | EndDragging                     of V2i * MouseButtons
-    //| CorrelationPanelMessage         of CorrelationPanelsMessage
     | MakeSnapshot                    of int*int*string
     | ImportSnapshotData              of list<string>
     | SetTextureFiltering             of bool // TODO move to versioned ViewConfigModel in V3
@@ -237,16 +236,19 @@ module Scene =
             let! referenceSystem = Json.read "referenceSystem"
             let! bookmarks       = Json.read "bookmarks"
             let! dockConfig      = Json.read "dockConfig"  
-            let! objectPlacements = Json.read "shatterconePlacements"
+            let! objectPlacementsOld = Json.read "shatterconePlacements"
+            let! objectPlacementsNew = Json.read "objectPlacements"
             let objectPlacements =
-                match objectPlacements with 
-                | [] -> 
+                match objectPlacementsOld, objectPlacementsNew with 
+                | [], [] -> 
                     (surfaceModel.surfaces.flat |> Leaf.toSurfaces)
                         |> HashMap.filter(fun g x -> x.surfaceType = SurfaceType.SurfaceOBJ)
                         |> HashMap.map (fun g x -> (x.name, ObjectPlacementApp.init))
                         |> HashMap.values
                         |> List.ofSeq
-                | lst -> lst 
+                | lst, [] -> lst
+                | [], lst -> lst 
+                | lst1, lst2 -> lst2
 
 
             return 
@@ -300,7 +302,7 @@ type Scene with
             do! Json.write "scenePath" x.scenePath
             do! Json.write "referenceSystem" x.referenceSystem
             do! Json.write "bookmarks" x.bookmarks
-            do! Json.write "shatterconePlacements" (x.objectPlacements |> HashMap.toList)
+            do! Json.write "objectPlacements" (x.objectPlacements |> HashMap.toList)
             do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString)                   
         }
 

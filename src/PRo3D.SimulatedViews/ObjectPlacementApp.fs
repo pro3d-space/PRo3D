@@ -12,7 +12,7 @@ open FSharp.Data.Adaptive
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module ObjectPlacementApp =
 
-    let toSnapshotShattercone (model : ObjectPlacementApp) 
+    let toObjectPlacementParameters (model : ObjectPlacementApp) 
                               (name  : string)
                               (colorCorrection : ColorCorrection) : ObjectPlacementParameters =
         {
@@ -31,7 +31,7 @@ module ObjectPlacementApp =
             maskColor    = model.maskColor.c |> Some
         }
 
-    let fromSnapshotShattercone (ssc : ObjectPlacementParameters) =
+    let fromPLacementParameters (ssc : ObjectPlacementParameters) =
         let init = ObjectPlacementApp.init
         let scaleFrom =
             match ssc.scale with
@@ -151,8 +151,6 @@ module ObjectPlacementApp =
                 Html.row "zRotationTo         :" [ Numeric.view' [InputBox] model.zRotationTo     |> UI.map ZRotationTo     ]
                 Html.row "maxDistance         :" [ Numeric.view' [InputBox] model.maxDistance     |> UI.map SetMaxDistance  ]
                 Html.row "subsurface          :" [ Numeric.view' [InputBox] model.subsurface      |> UI.map SetSubsurface   ]
-                //Html.row "Use color correction:" [GuiEx.iconCheckBox model.useColorCorrection ShatterconeAction.ToggleUseColorCorrection ]
-                //Html.row "colorParameters     :" [ ColorCorrectionProperties.view model.colorCorrection |> UI.map ColorMessage]
               ]           
             )
 
@@ -172,7 +170,7 @@ module ObjectPlacementApp =
                         let! placement = models |> AMap.find name
                         return name, view placement
                     else 
-                        let empty = div[ style "font-style:italic"][ text "only OBJ models have shattercone options" ] 
+                        let empty = div[ style "font-style:italic"][ text "only OBJ models have placement options" ] 
                         return name, empty
                 | None ->
                     let empty = div[ style "font-style:italic"][ text "surface id not found" ]

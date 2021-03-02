@@ -84,24 +84,24 @@ module PlacementUtils =
         File.WriteAllText(distXml, text)
 
    
-    let updateColorCorrection (shattercone : ObjectPlacementParameters) (surf : Surface) =
+    let updateColorCorrection (objectPlacement : ObjectPlacementParameters) (surf : Surface) =
         let colorAdaption = surf.colorCorrection
         let sColor = 
-            match shattercone.color with
+            match objectPlacement.color with
             | Some col -> {colorAdaption with color = {c = col}; useColor = true}
             | None -> colorAdaption
         let conColor = 
-            match shattercone.contrast with
+            match objectPlacement.contrast with
             | Some contr -> let contrast = {sColor.contrast with value = contr}
                             {sColor with contrast = contrast; useContrast = true}
             | None -> sColor
         let brightnColor = 
-            match shattercone.brightness with
+            match objectPlacement.brightness with
             | Some brightn -> let brightness = {conColor.brightness with value = brightn}
                               {conColor with brightness = brightness; useBrightn = true}
             | None -> conColor
         let gammaColor = 
-            match shattercone.gamma with
+            match objectPlacement.gamma with
             | Some gamma -> let gamma = {brightnColor.gamma with value = gamma}
                             {brightnColor with gamma = gamma; useGamma = true}
             | None -> brightnColor
@@ -118,7 +118,7 @@ module PlacementUtils =
             surfacesWithSCPlacement
                 |> HashMap.filter (fun guid (s,p) ->  p.IsSome)
                 |> HashMap.map (fun guid (s,p) -> s, p.Value)
-                |> HashMap.map (fun guid (s,p) ->  ObjectPlacementApp.toSnapshotShattercone  
+                |> HashMap.map (fun guid (s,p) ->  ObjectPlacementApp.toObjectPlacementParameters  
                                                     p s.name s.colorCorrection)
                 |> HashMap.values |> Seq.toList
         paras
@@ -127,24 +127,24 @@ module PlacementUtils =
                 (refSystem   : ReferenceSystem)
                 (view : CameraView) (navModel : NavigationModel) 
                 (surfacesModel : SurfaceModel)
-                (shattercone : ObjectPlacementParameters) =
+                (placementParameters : ObjectPlacementParameters) =
         let hasName surf = 
-            String.contains shattercone.name surf.importPath
-              || String.contains surf.importPath shattercone.name
+            String.contains placementParameters.name surf.importPath
+              || String.contains surf.importPath placementParameters.name
 
         let place originalSgs = 
             let (sObjsSgs, sObjsSurfs) = getSurfacesInSnapshotGroup surfacesModel
             let transformableSurfs = sObjsSurfs |> List.filter hasName
             // get halton random points on surface (points for debugging)
-            let surf = surf |> updateColorCorrection shattercone
+            let surf = surf |> updateColorCorrection placementParameters
             let pnts, trafos = 
                 HaltonPlacement.getHaltonRandomTrafos Interactions.PickSurface surfacesModel
-                                                      refSystem shattercone frustum view
+                                                      refSystem placementParameters frustum view
             let transformSurfaces toTransform trafos =
                 //let oldTrafos = toTransform |> List.map (fun s -> s.preTransform)
                 let zipped = List.zip trafos toTransform    
                 let update (t,s) =
-                    let s = s |> updateColorCorrection shattercone
+                    let s = s |> updateColorCorrection placementParameters
                     {s with preTransform = t; isVisible = true;}
 
                 let updatedSurfaces =
@@ -208,7 +208,7 @@ module PlacementUtils =
                     //let m = { m with drawing = {m.drawing with haltonPoints = []}}
 
                     //distance.xml
-                    writeDistancesToFile snapshotSurfs filename (Path.GetFileNameWithoutExtension shattercone.name) navModel |> ignore 
+                    writeDistancesToFile snapshotSurfs filename (Path.GetFileNameWithoutExtension placementParameters.name) navModel |> ignore 
                     let newLeaves = snapshotSurfs |> IndexList.ofList |> IndexList.map Leaf.Surfaces
                     let surfacesModel = 
                         let groups = 
@@ -259,7 +259,7 @@ module PlacementUtils =
         m
 
     let placeMultipleOBJs (m            : SurfaceModel) 
-                          (shattercones : list<ObjectPlacementParameters>) 
+                          (placementParameters : list<ObjectPlacementParameters>) 
                           (frustum      : Frustum) 
                           (filename     : string) 
                           (refSystem    : ReferenceSystem)
@@ -271,7 +271,7 @@ module PlacementUtils =
                             |> List.map(fun (_,v) -> v |> Leaf.toSurface)
                             |> List.filter (fun s -> s.surfaceType = SurfaceType.SurfaceOBJ)
                             |> List.filter (fun s -> not (List.contains s.guid snapshotObjGuids))
-        let placeObjs = placeObjs frustum filename  refSystem navModel shattercones
+        let placeObjs = placeObjs frustum filename  refSystem navModel placementParameters
         let m = applyToModel surfaces m placeObjs
         m
 
