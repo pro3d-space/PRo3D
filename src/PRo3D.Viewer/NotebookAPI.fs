@@ -60,7 +60,7 @@ module NotebookEndpoint =
             path "/setCamera" >=> POST >=> (request (fun r ->
                     let getString (rawForm : byte[]) =
                         System.Text.Encoding.UTF8.GetString(rawForm)
-                    let cam = r.rawForm |> getString |> PRo3D.Remoting.Camera.fromJson 
+                    let cam : Remoting.Camera = r.rawForm |> getString |> PRo3D.Remoting.Camera.fromJson 
                     CameraView.look cam.location cam.forward cam.up |> ViewerAction.SetCamera |> Seq.singleton |> app.update Guid.Empty 
                     OK ""
                 )
