@@ -16,6 +16,8 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PRo3D.SimulatedViews", "PRo
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PRo3D.Core", "PRo3D.Core\PRo3D.Core.fsproj", "{F056E304-D2D0-4EC5-860E-3B0D855FB50E}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PRo3D.Remoting", "PRo3D.Remoting\PRo3D.Remoting.fsproj", "{D631F60B-C865-45E8-BD6B-2B7E553513E0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -50,6 +52,10 @@ Global
 		{F056E304-D2D0-4EC5-860E-3B0D855FB50E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F056E304-D2D0-4EC5-860E-3B0D855FB50E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F056E304-D2D0-4EC5-860E-3B0D855FB50E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D631F60B-C865-45E8-BD6B-2B7E553513E0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D631F60B-C865-45E8-BD6B-2B7E553513E0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D631F60B-C865-45E8-BD6B-2B7E553513E0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D631F60B-C865-45E8-BD6B-2B7E553513E0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

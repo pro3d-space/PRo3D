@@ -173,7 +173,6 @@ let main argv =
     //    |> Json.deserialize
 
     //Log.line "[Viewer] scene: %A" loadedScnx
-
     let mainApp = 
         ViewerApp.start runtime signature startEmpty messagingMailbox sendQueue dumpFile cacheFile
 
@@ -199,6 +198,9 @@ let main argv =
 
     WebPart.startServerLocalhost 54322 [
         MutableApp.toWebPart' runtime false mainApp
+
+        yield! NotebookEndpoint.getWebParts mainApp
+
         path "/websocket" >=> handShake ws
         Reflection.assemblyWebPart typeof<EmbeddedRessource>.Assembly
        // Reflection.assemblyWebPart typeof<CorrelationDrawing.CorrelationPanelResources>.Assembly //(System.Reflection.Assembly.LoadFrom "PRo3D.CorrelationPanels.dll")

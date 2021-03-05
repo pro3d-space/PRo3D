@@ -60,6 +60,7 @@
     <Compile Include="CommandLine\CommandLine.fs" />
     <Compile Include="RemoteControlModel.fs" />
     <Compile Include="RemoteControlApp.fs" />
+    <Compile Include="NotebookAPI.fs" />
     <Compile Include="Program.fs" />
     <EmbeddedResource Include="resources\errorReporting.js" />
     <EmbeddedResource Include="resources\HueColorMap.png" />
@@ -79,6 +80,7 @@
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
     <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
     <ProjectReference Include="..\PRo3D.Minerva\PRo3D.Minerva.fsproj" />
+    <ProjectReference Include="..\PRo3D.Remoting\PRo3D.Remoting.fsproj" />
     <ProjectReference Include="..\PRo3D.SimulatedViews\PRo3D.SimulatedViews.fsproj" />
   </ItemGroup>
   <ItemGroup>
