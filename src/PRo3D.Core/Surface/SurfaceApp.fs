@@ -595,7 +595,7 @@ module SurfaceApp =
             
                 let visibleIcon = 
                     amap {
-                        yield onMouseClick (fun _ -> lift <| GroupsAppAction.ToggleChildVisibility (key,path))
+                        yield onMouseClick (fun _ -> lift <| GroupsAppAction.ToggleLeafVisibility (key,path))
                         let! visible = s.isVisible
                         if visible then 
                             yield clazz "unhide icon" 
@@ -711,7 +711,7 @@ module SurfaceApp =
                  
             let itemAttributes =
                 amap {
-                    yield onMouseClick (fun _ -> SurfaceAppAction.GroupsMessage(GroupsAppAction.ToggleExpand path))
+                    yield onMouseClick (fun _ -> SurfaceAppAction.GroupsMessage(GroupsAppAction.ToggleExpandGroup path))
                     let! selected = group.expanded
                     if selected 
                     then yield clazz "icon outline open folder"

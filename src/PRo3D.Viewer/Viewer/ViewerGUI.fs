@@ -592,32 +592,32 @@ module Gui =
             |> FalseColorLegendApp.viewDnSLegendProperties DnSColorLegendMessage 
             |> AVal.constant
           
-        let annotationLeafButtonns' (model : AdaptiveModel) = 
-            let ts = model.drawing.annotations.activeChild
-            let sel = model.drawing.annotations.singleSelectLeaf
-            adaptive {  
-                let! ts = ts
-                let! sel = sel
-                match sel with
-                | Some _ -> return (GroupsApp.viewLeafButtons ts |> UI.map AnnotationGroupsMessageViewer)
-                | None -> return div[style "font-style:italic"][ text "no annotation group selected" ]
-            }      
+        //let annotationLeafButtonns' (model : AdaptiveModel) = 
+        //    let ts = model.drawing.annotations.activeChild
+        //    let sel = model.drawing.annotations.singleSelectLeaf
+        //    adaptive {  
+        //        let! ts = ts
+        //        let! sel = sel
+        //        match sel with
+        //        | Some _ -> return (GroupsApp.viewLeafButtons ts |> UI.map AnnotationGroupsMessageViewer)
+        //        | None -> return div[style "font-style:italic"][ text "no annotation group selected" ]
+        //    }      
             
         let annotationLeafButtonns (model : AdaptiveModel) =           
             AVal.map2(fun ts sel -> 
                 match sel with
-                | Some _ -> (GroupsApp.viewLeafButtons ts |> UI.map AnnotationGroupsMessageViewer)
-                | None -> div[style "font-style:italic"][ text "no annotation group selected" ]
+                | Some _ -> (GroupsApp.viewLeafButtons ts |> UI.map AnnotationGroupMessage)
+                | None -> div[style "font-style:italic"][ text "no annotation selected" ]
             ) model.drawing.annotations.activeChild model.drawing.annotations.singleSelectLeaf
             
         let annotationGroupProperties (model : AdaptiveModel) =                            
             GroupsApp.viewUI model.drawing.annotations 
-            |> UI.map AnnotationGroupsMessageViewer 
+            |> UI.map AnnotationGroupMessage 
             |> AVal.constant
         
         let annotationGroupButtons (model : AdaptiveModel) = 
             model.drawing.annotations.activeGroup 
-            |> AVal.map (fun x -> GroupsApp.viewGroupButtons x |> UI.map AnnotationGroupsMessageViewer)            
+            |> AVal.map (fun x -> GroupsApp.viewGroupButtons x |> UI.map AnnotationGroupMessage)            
             
         let annotationUI (m : AdaptiveModel) = 
             
@@ -631,7 +631,7 @@ module Gui =
             
             div [][
                 GuiEx.accordion "Annotations" "Write" true [
-                    GroupsApp.viewSelectionButtons |> UI.map AnnotationGroupsMessageViewer
+                    GroupsApp.viewSelectionButtons |> UI.map AnnotationGroupMessage
                     Drawing.UI.viewAnnotationGroups m.drawing |> UI.map ViewerAction.DrawingMessage
                    // DrawingApp.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage // CHECK-merge viewAnnotationGroups
                 ]
@@ -639,6 +639,10 @@ module Gui =
                 GuiEx.accordion "Actions" "Asterisk" true [
                   Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
                 ]                    
+
+                GuiEx.accordion "Active Group" "Content" true [
+                    annotationGroupProperties m |> AList.ofAValSingle |> Incremental.div AttributeMap.empty
+                ]
                
                 GuiEx.accordion "Dip&Strike ColorLegend" "paint brush" false [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDnSColorLegendUI m))] 
@@ -809,38 +813,45 @@ module Gui =
                 require (viewerDependencies) (body bodyAttributes [HeightValidatorApp.viewUI m.heighValidation |> UI.map HeightValidation])
             | Some "bookmarks" -> 
                 require (viewerDependencies) (body bodyAttributes [Bookmarks.bookmarkUI m])
-            | Some "properties" ->
-                let prop = 
-                    m.drawing.annotations.lastSelectedItem
-                    |> AVal.bind (fun x -> 
-                        match x with 
-                        | SelectedItem.Group -> Annotations.annotationGroupProperties m
-                        | _ -> Annotations.viewAnnotationProperties m
-                    )
+            | Some "properties" ->             
+                //Properties app
+                //let prop = 
+                //    m.drawing.annotations.lastSelectedItem
+                //    |> AVal.bind (fun x -> 
+                //        match x with 
+                //        | SelectedItem.Group -> Annotations.annotationGroupProperties m
+                //        | SelectedItem.Child -> Annotations.viewAnnotationProperties m
+                //        | _ -> failwith "[ViewerGui] unknown type"
+                //    )
 
-                let results = 
-                    m.drawing.annotations.lastSelectedItem
-                    |> AVal.bind (fun x -> 
-                        match x with 
-                        | SelectedItem.Group -> Annotations.annotationGroupProperties m
-                        | _ -> Annotations.viewAnnotationResults m 
-                    )
+                //let results = 
+                //    m.drawing.annotations.lastSelectedItem
+                //    |> AVal.bind (fun x -> 
+                //        match x with 
+                //        | SelectedItem.Group -> Annotations.annotationGroupProperties m
+                //        | SelectedItem.Child -> Annotations.viewAnnotationResults m 
+                //        | _ -> failwith "[ViewerGui] unknown type"
+                //    )
 
-                let blurg ()=
+                let singleAnnotationGUI ()=
                     [
+                        //GuiEx.accordion "Active Group" "Content" true [
+                        //    Annotations.annotationGroupProperties m |> AList.ofAValSingle |> Incremental.div AttributeMap.empty                             
+                        //]
+
                         GuiEx.accordion "Properties" "Content" true [
-                                           Incremental.div AttributeMap.empty (AList.ofAValSingle prop)
+                            Annotations.viewAnnotationProperties m |> AList.ofAValSingle |> Incremental.div AttributeMap.empty
                         ]
                                        
                         GuiEx.accordion "Measurements" "Content" true [
-                            Incremental.div AttributeMap.empty (AList.ofAValSingle results)                                        
+                            Incremental.div AttributeMap.empty (AList.ofAValSingle (Annotations.viewAnnotationResults m))
                         ]
                         
                         GuiEx.accordion "Dip&Strike" "Calculator" false [
                             Incremental.div AttributeMap.empty (AList.ofAValSingle(Annotations.viewDipAndStrike m))]
                     ]
 
-                require (viewerDependencies) (body bodyAttributes (blurg()))
+                require (viewerDependencies) (body bodyAttributes (singleAnnotationGUI()))
             | Some "config" -> 
                 require (viewerDependencies) (body bodyAttributes [Config.configUI m])
             | Some "viewplanner" -> 

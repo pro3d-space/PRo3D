@@ -69,7 +69,7 @@ type PropertyActions =
 
 type ViewerAction =                
     | DrawingMessage                  of DrawingAction
-    | AnnotationGroupsMessageViewer   of GroupsAppAction
+    | AnnotationGroupMessage          of GroupsAppAction
     | NavigationMessage               of Navigation.Action
     | AnimationMessage                of AnimationAction
     | ReferenceSystemMessage          of ReferenceSystemAction

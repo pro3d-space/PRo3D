@@ -200,7 +200,7 @@ module Bookmarks =
                  
             let itemAttributes =
                 amap {
-                    yield onMouseClick (fun _ -> BookmarkAction.GroupsMessage(GroupsAppAction.ToggleExpand path))
+                    yield onMouseClick (fun _ -> BookmarkAction.GroupsMessage(GroupsAppAction.ToggleExpandGroup path))
                     let! selected = group.expanded
                     if selected 
                     then yield clazz "icon large outline open folder"
@@ -259,7 +259,7 @@ module Bookmarks =
             let view = model.cameraView
             require GuiEx.semui (
                 Html.table [  
-                    Html.row "Change Name:"[Html.SemUi.textBox model.name GroupsAppAction.SetChildName ]
+                    Html.row "Change Name:"[Html.SemUi.textBox model.name GroupsAppAction.SetLeafName ]
                     Html.row "Pos:"     [Incremental.text (view |> AVal.map (fun x -> x.Location.ToString("0.00")))] 
                     Html.row "LookAt:"  [Incremental.text (view |> AVal.map (fun x -> x.Forward.ToString("0.00")))]
                     Html.row "Up:"      [Incremental.text (view |> AVal.map (fun x -> x.Up.ToString("0.00")))]

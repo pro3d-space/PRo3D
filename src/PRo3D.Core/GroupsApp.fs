@@ -16,27 +16,27 @@ open PRo3D
 //open PRo3D.Versioned
 
 type GroupsAppAction =
-    | ToggleExpand          of list<Index>
+    | ToggleExpandGroup     of list<Index>
     | SetActiveGroup        of Guid*list<Index>*string
     | AddGroup              of list<Index>
-    | AddLeaves             of list<Index>*IndexList<Leaf>    
+    | AddLeavesToGroup      of list<Index>*IndexList<Leaf>    
     | RemoveGroup           of list<Index>
     | RemoveLeaf            of Guid*list<Index> 
-    | ToggleChildVisibility of Guid*list<Index> 
+    | ToggleLeafVisibility  of Guid*list<Index> 
     | ActiveChild           of Guid*list<Index>*string
     | UpdateLeafProperties  of Leaf
     | SetGroupName          of string
-    | SetChildName          of string
+    | SetLeafName           of string
     | ClearGroup            of list<Index>
     | AddLeafToSelection    of list<Index>*Guid*string 
     | SingleSelectLeaf      of list<Index>*Guid*string 
     | ToggleGroup           of list<Index>
-    | SetVisibility         of path : list<Index> * isVisible : bool
-    | SetSelection          of path : list<Index> * isSelected : bool
+    | SetGroupVisibility    of path : list<Index> * isVisible : bool
+    | SetLeavesSelection    of path : list<Index> * isSelected : bool
     | MoveLeaves      
     | AddAndSelectGroup     of list<Index> * Node
     | ClearSnapshotsGroup
-    | ClearSelection
+    | ClearLeavesSelection
     | UpdateCam             of Guid
     | Nop
 
@@ -227,7 +227,7 @@ module GroupsApp =
             removeSelected rest removeFromFlat m'
         |_ -> m
                     
-    let moveChildren m =
+    let moveLeaves m =
        
         let toMove = 
             m.selectedLeaves
@@ -245,7 +245,9 @@ module GroupsApp =
                 { x with leaves = x.leaves |> IndexList.append ids })
          
         // update selection paths
-        let sel = (m.selectedLeaves |> HashSet.map( fun x -> {x with path = m.activeGroup.path }))
+        let sel = 
+            m.selectedLeaves |> HashSet.map( fun x -> {x with path = m.activeGroup.path })
+
         { m with selectedLeaves = sel}        
 
     let checkSelection model =
@@ -311,25 +313,84 @@ module GroupsApp =
 
     let update (model : GroupsModel) (action : GroupsAppAction) =
         match action with
+        | RemoveLeaf (k,p) ->
+            removeLeaf model k p true
+        | ToggleLeafVisibility (c,p) -> 
+            model |> Groups.updateLeaf c (fun x -> Leaf.toggleVisibility x)
+        | UpdateLeafProperties a ->
+            Groups.replaceLeaf a model
+        | SetLeafName t -> 
+            match model.singleSelectLeaf with
+            | Some id -> model |> Groups.updateLeaf id (fun x -> Leaf.setName x t)
+            | None -> model
+        | SingleSelectLeaf (p,id,s) ->
+            addSingleSelectedLeaf model p id s
+        | AddLeafToSelection (p,id,s) ->
+            let incomingSelection = {   // CHECK-merge (treeSelection)
+                id = id
+                path = p
+                name = s
+            }
+            
+            if HashSet.contains incomingSelection model.selectedLeaves
+            then 
+                let a = HashSet.remove incomingSelection model.selectedLeaves
+                                            
+                let singleSelect = 
+                    match model.singleSelectLeaf with
+                    | Some single when single = incomingSelection.id -> None
+                    | _ -> model.singleSelectLeaf
+
+                { model with 
+                    singleSelectLeaf = singleSelect
+                    //activeChild      = incomingSelection
+                    //lastSelectedItem = SelectedItem.Child 
+                    selectedLeaves = a
+                }                    
+            else
+                let b = HashSet.add incomingSelection model.selectedLeaves //HashSet.empty
+
+                { 
+                    model with 
+                        singleSelectLeaf = incomingSelection.id |> Some
+                        activeChild      = incomingSelection
+                        lastSelectedItem = SelectedItem.Child 
+                        selectedLeaves = b
+                }                                                                          
+        | MoveLeaves  -> 
+            moveLeaves model
+        | SetLeavesSelection (p, isSelected) ->    
+            let leaves = 
+                getNode p model.rootGroup 
+                |> collectLeaves
+                |> IndexList.toList
+                |> List.map(fun x -> 
+                    {
+                        id = x
+                        path = []
+                        name = ""
+                    }
+                ) |> HashSet.ofList
+
+            if isSelected then
+                { model with selectedLeaves = HashSet.union model.selectedLeaves leaves }
+            else
+                { model with selectedLeaves = HashSet.difference model.selectedLeaves leaves }        
+        | ClearLeavesSelection ->
+            { model with selectedLeaves = HashSet.Empty; } //singleSelectLeaf = None
         | SetActiveGroup (g, p, s) -> 
             let selection = { id = g; path = p; name = s}
 
             { model with 
                 activeGroup      = selection
                 lastSelectedItem = SelectedItem.Group
-                } 
-        | ActiveChild (g, p, s) -> 
-            { model with
-                activeChild = { id = g; path = p; name = s }
-                lastSelectedItem = SelectedItem.Child
-                } 
-        | ToggleExpand p -> 
+                }       
+        | ToggleExpandGroup p -> 
             let func = (fun (x:Node) -> { x with expanded = not x.expanded })
             { model with rootGroup = updateNodeAt p func model.rootGroup }
         | AddGroup p -> 
             insertGroup p (createEmptyGroup()) model
-        | RemoveGroup p -> 
-            
+        | RemoveGroup p ->             
             //delete from flat
             let flat' = 
                 model.rootGroup 
@@ -354,18 +415,12 @@ module GroupsApp =
                 path = list.Empty
                 name = m'.rootGroup.name}
            
-            { m' with selectedLeaves = selection ; singleSelectLeaf = last; activeGroup = newSelection; }
+            { m' with selectedLeaves = selection ; singleSelectLeaf = last; activeGroup = newSelection }
 
-        | AddLeaves (p,cs) ->
+        | AddLeavesToGroup (p,cs) ->
             failwith "addchildren"
             //AddChildren p cs model
             model
-        | RemoveLeaf (k,p) ->
-            removeLeaf model k p true
-        | ToggleChildVisibility (c,p) -> 
-            model |> Groups.updateLeaf c (fun x -> Leaf.toggleVisibility x)
-        | UpdateLeafProperties a ->
-            Groups.replaceLeaf a model
         | SetGroupName t -> 
             let func = 
                 fun (x:Node) -> { x with name = t }
@@ -374,22 +429,16 @@ module GroupsApp =
                 rootGroup   = updateNodeAt model.activeGroup.path func model.rootGroup
                 activeGroup = { model.activeGroup with name = t }
             }
-        | SetChildName t -> 
-            match model.singleSelectLeaf with
-            | Some id -> model |> Groups.updateLeaf id (fun x -> Leaf.setName x t)
-            | None -> model
-        | ClearGroup p -> 
-            //failwith "clear group"
-
+        | ClearGroup p ->             
             //delete from flat
             let flat' = 
                 model.rootGroup 
-                  |> getNode p
-                  |> collectLeaves                
-                  |> IndexList.toList 
-                  |> List.fold (fun rest k -> HashMap.remove k rest) model.flat
+                |> getNode p
+                |> collectLeaves                
+                |> IndexList.toList 
+                |> List.fold (fun rest k -> HashMap.remove k rest) model.flat
 
-            //delet from hierarchy                                
+            //delete from hierarchy                                
             let func = 
                 fun (x:Node) -> { x with leaves = IndexList.Empty }
 
@@ -400,41 +449,6 @@ module GroupsApp =
             let last = checkLastSelected m'
 
             { m' with selectedLeaves = selection ; singleSelectLeaf = last }
-        | SingleSelectLeaf (p,id,s) ->
-            addSingleSelectedLeaf model p id s
-        | AddLeafToSelection (p,id,s) ->
-            let incomingSelection = {   // CHECK-merge (treeSelection)
-                id = id
-                path = p
-                name = s
-            }
-            
-            if HashSet.contains incomingSelection model.selectedLeaves
-            then 
-                let a = HashSet.remove incomingSelection model.selectedLeaves
-                                            
-                let singleSelect = 
-                    match model.singleSelectLeaf with
-                    | Some single when single = incomingSelection.id -> None
-                    | _ -> model.singleSelectLeaf
-
-                { 
-                    model with 
-                        singleSelectLeaf = singleSelect
-                        //activeChild      = incomingSelection
-                      //  lastSelectedItem = SelectedItem.Child 
-                        selectedLeaves = a
-                }                    
-            else
-                let b = HashSet.add incomingSelection model.selectedLeaves //HashSet.empty
-
-                { 
-                    model with 
-                        singleSelectLeaf = incomingSelection.id |> Some
-                        activeChild      = incomingSelection
-                        lastSelectedItem = SelectedItem.Child 
-                        selectedLeaves = b
-                }                                                                          
         | ToggleGroup p ->
             
             let leaves = 
@@ -445,36 +459,15 @@ module GroupsApp =
 
             let f = (fun (k:Leaf) -> (k.setVisible (not k.visible)))
             updateLeaves leaves f m'
-        | SetVisibility (p, isVisible) ->    
+        | SetGroupVisibility (p, isVisible) ->    
             let leaves = 
                   getNode p model.rootGroup |> collectLeaves
 
             let func = fun (x:Node) -> { x with visible = isVisible }
-            let m' = {model with rootGroup = updateNodeAt p func model.rootGroup }
+            let m' = { model with rootGroup = updateNodeAt p func model.rootGroup }
 
             let f = (fun (k:Leaf) -> (k.setVisible isVisible))
             updateLeaves leaves f m'              
-        | SetSelection (p, isSelected) ->    
-            let leaves = 
-                getNode p model.rootGroup 
-                |> collectLeaves
-                |> IndexList.toList
-                |> List.map(fun x -> 
-                    {
-                        id = x
-                        path = []
-                        name = ""
-                    }
-                ) |> HashSet.ofList
-
-            if isSelected then
-                { model with selectedLeaves = HashSet.union model.selectedLeaves leaves }
-            else
-                { model with selectedLeaves = HashSet.difference model.selectedLeaves leaves }        
-        | MoveLeaves  -> 
-            moveChildren model
-        | ClearSelection ->
-            { model with selectedLeaves = HashSet.Empty; } //singleSelectLeaf = None
         | UpdateCam id -> 
             Log.warn "[Groups] flyto %A not handled in higher level app" id
             model
@@ -484,8 +477,9 @@ module GroupsApp =
 
             { t with 
                 activeGroup      = selection
-                lastSelectedItem = SelectedItem.Group } 
-        | ClearSnapshotsGroup -> 
+                lastSelectedItem = SelectedItem.Group 
+            }
+        | ClearSnapshotsGroup -> //TODO refactor ... groupsApp should be able to exist in a base library
 
             let node = 
                 model.rootGroup.subNodes 
@@ -533,7 +527,7 @@ module GroupsApp =
                     i [clazz "Move icon"] [] ] |> UI.wrapToolTip DataPosition.Top "Move Selection"                
             ]
             div [clazz "ui buttons inverted"] [                
-                button [clazz "ui icon button"; attribute "data-content" "Clear Selection"; onMouseClick (fun _ -> ClearSelection)] [
+                button [clazz "ui icon button"; attribute "data-content" "Clear Selection"; onMouseClick (fun _ -> ClearLeavesSelection)] [
                             i [clazz "Remove icon"] [] ] |> UI.wrapToolTip DataPosition.Top "Clear Selection"                
             ] 
         ]

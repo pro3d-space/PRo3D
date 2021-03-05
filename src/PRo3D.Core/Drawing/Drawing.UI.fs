@@ -76,7 +76,7 @@ module UI =
             
             let visibleIcon = 
                 amap {
-                    yield onMouseClick (fun _ -> lift <| GroupsAppAction.ToggleChildVisibility (a.key,path))
+                    yield onMouseClick (fun _ -> lift <| GroupsAppAction.ToggleLeafVisibility (a.key,path))
                     let! visible = a.visible
                     if visible then 
                         yield clazz "unhide icon" 
@@ -186,16 +186,16 @@ module UI =
                 i [clazz "plus icon"; onMouseClick (fun _ -> GroupsMessage(GroupsAppAction.AddGroup path))] [] 
                 |> UI.wrapToolTip DataPosition.Bottom "Add Group"
 
-                staticClickIcon "unhide icon" "Show All" (GroupsMessage(GroupsAppAction.SetVisibility(path,true)))
-                staticClickIcon "hide icon"   "Hide All" (GroupsMessage(GroupsAppAction.SetVisibility(path,false)))
+                staticClickIcon "unhide icon" "Show All" (GroupsMessage(GroupsAppAction.SetGroupVisibility(path,true)))
+                staticClickIcon "hide icon"   "Hide All" (GroupsMessage(GroupsAppAction.SetGroupVisibility(path,false)))
 
-                staticClickIcon "bookmark icon"         "Select All"   (GroupsMessage(GroupsAppAction.SetSelection(path,true)))
-                staticClickIcon "bookmark outline icon" "Deselect All" (GroupsMessage(GroupsAppAction.SetSelection(path,false)))
+                staticClickIcon "bookmark icon"         "Select All"   (GroupsMessage(GroupsAppAction.SetLeavesSelection(path,true)))
+                staticClickIcon "bookmark outline icon" "Deselect All" (GroupsMessage(GroupsAppAction.SetLeavesSelection(path,false)))
             ]
            
         let itemAttributes =
             amap {
-                yield onMouseClick (fun _ -> DrawingAction.GroupsMessage(GroupsAppAction.ToggleExpand path))
+                yield onMouseClick (fun _ -> DrawingAction.GroupsMessage(GroupsAppAction.ToggleExpandGroup path))
                 let! expanded = group.expanded
                 if expanded then 
                     yield clazz "icon outline open folder"
