@@ -15,23 +15,28 @@ open PRo3D.Base.Annotation
 open PRo3D.Core
 open PRo3D.Core.Drawing
 
+type AnnotationGroupsAction =
+| GroupsMessage         of GroupsAppAction
+| DnSColorLegendMessage of FalseColorLegendApp.Action
 
 module AnnotationGroups =
                        
     let mkColor (model : AdaptiveGroupsModel) (a : AdaptiveAnnotation) =        
         model.selectedLeaves.Content
-            |> AVal.bind (fun selected -> 
-                if HashSet.exists (fun x -> x.id = a.key) selected then 
-                    AVal.constant C4b.VRVisGreen
-                else 
-                    a.color.c
-            )                              
+        |> AVal.bind (fun selected -> 
+            if HashSet.exists (fun x -> x.id = a.key) selected then 
+                AVal.constant C4b.VRVisGreen
+            else 
+                a.color.c
+        )      
     
     let isSingleSelect (model : AdaptiveGroupsModel) (a : AdaptiveAnnotation) =
-        model.singleSelectLeaf |> AVal.map( fun x -> 
+        model.singleSelectLeaf 
+        |> AVal.map( fun x -> 
             match x with 
             | Some selected -> selected = a.key
-            | None -> false )
+            | None -> false 
+        )
                        
     //let viewAnnotations (annotations : alist<AdaptiveAnnotation>) : alist<DomNode<Action>> =      
     //    annotations 
@@ -48,11 +53,10 @@ module AnnotationGroups =
     let viewAnnotationsInGroup 
         (path         : list<Index>) 
         (model        : AdaptiveGroupsModel)
-        (singleSelect : AdaptiveAnnotation*list<Index> -> 'outer)
-        (multiSelect  : AdaptiveAnnotation*list<Index> -> 'outer)
-        (lift         : GroupsAppAction -> 'outer) 
+        (singleSelect : AdaptiveAnnotation*list<Index> -> AnnotationGroupsAction)
+        (multiSelect  : AdaptiveAnnotation*list<Index> -> AnnotationGroupsAction)       
         (annotations  : alist<AdaptiveAnnotation>) 
-        : alist<DomNode<'outer>> =
+        : alist<DomNode<AnnotationGroupsAction>> =
     
         annotations 
         |> AList.map(fun a ->
@@ -64,7 +68,7 @@ module AnnotationGroups =
             
             let visibleIcon = 
                 amap {
-                    yield onMouseClick (fun _ -> lift <| GroupsAppAction.ToggleLeafVisibility (a.key,path))
+                    yield onMouseClick (fun _ -> GroupsAppAction.ToggleLeafVisibility (a.key,path) |> AnnotationGroupsAction.GroupsMessage)
                     let! visible = a.visible
                     if visible then 
                         yield clazz "unhide icon" 
@@ -129,8 +133,8 @@ module AnnotationGroups =
                             ]
                             yield Incremental.i visibleIcon AList.empty 
                                 |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
-                            yield i [clazz "home icon"; onClick (fun _ -> FlyToAnnotation a.key)][] 
-                                |> UI.wrapToolTip DataPosition.Bottom "FlyTo"
+                            //yield i [clazz "home icon"; onClick (fun _ -> FlyToAnnotation a.key)][] 
+                            //    |> UI.wrapToolTip DataPosition.Bottom "FlyTo"
                         } 
                     )
 
@@ -147,7 +151,7 @@ module AnnotationGroups =
         else
             i [clazz icon; onClick (fun _ -> onClickAction)] [] |> UI.wrapToolTip DataPosition.Bottom toolTipText
                 
-    let rec viewTree path (group : AdaptiveNode) (model : AdaptiveGroupsModel) (lookup : amap<Guid, AdaptiveAnnotation>) : DomNode<DrawingAction> =
+    let rec viewTree path (group : AdaptiveNode) (model : AdaptiveGroupsModel) (lookup : amap<Guid, AdaptiveAnnotation>) : DomNode<AnnotationGroupsAction> =
                                                   
         let activeIcon =
             adaptive {
@@ -181,9 +185,19 @@ module AnnotationGroups =
                 staticClickIcon "bookmark outline icon" "Deselect All" (GroupsMessage(GroupsAppAction.SetLeavesSelection(path,false)))
             ]
            
+
+        let singleSelect = 
+            fun (a:AdaptiveAnnotation,path:list<Index>) -> 
+                GroupsAppAction.SingleSelectLeaf (path, a.key, "") |> GroupsMessage
+
+        let multiSelect = 
+            fun (a:AdaptiveAnnotation,path:list<Index>) -> 
+                GroupsAppAction.AddLeafToSelection (path, a.key, "") |> GroupsMessage
+
+       // let lift = fun (a:GroupsAppAction) -> (GroupsMessage a)
         let itemAttributes =
             amap {
-                yield onMouseClick (fun _ -> DrawingAction.GroupsMessage(GroupsAppAction.ToggleExpandGroup path))
+                yield onMouseClick (fun _ -> GroupsAppAction.ToggleExpandGroup path |> GroupsMessage)
                 let! expanded = group.expanded
                 if expanded then 
                     yield clazz "icon outline open folder"
@@ -200,16 +214,6 @@ module AnnotationGroups =
                     yield style "display:none"                             
             }         
 
-        let singleSelect = 
-            fun (a:AdaptiveAnnotation,path:list<Index>) -> 
-                DrawingAction.GroupsMessage(GroupsAppAction.SingleSelectLeaf (path, a.key, ""))
-
-        let multiSelect = 
-            fun (a:AdaptiveAnnotation,path:list<Index>) -> 
-                DrawingAction.GroupsMessage(GroupsAppAction.AddLeafToSelection (path, a.key, ""))
-
-        let lift = fun (a:GroupsAppAction) -> (GroupsMessage a)
-
         let subNodes = 
             group.subNodes 
             |> AList.mapi (fun i v -> viewTree (i::path) v model lookup) 
@@ -218,7 +222,7 @@ module AnnotationGroups =
             group.leaves 
             |> AList.filterA (fun x -> lookup |> AMap.keys |> ASet.contains x)
             |> AList.map(fun x -> lookup |> AMap.find x |> AVal.force) 
-            |> viewAnnotationsInGroup path model singleSelect multiSelect lift
+            |> viewAnnotationsInGroup path model singleSelect multiSelect
 
         let nodes = annos |> AList.append subNodes
 
@@ -250,3 +254,50 @@ module AnnotationGroups =
             //Incremental.div (AttributeMap.ofList [clazz "ui list"]) ([])
             div [clazz "ui list"] [tree]
         )
+
+    //group stuff
+    let viewDnSColorLegendUI (model : AdaptiveDrawingModel) = 
+        model.dnsColorLegend 
+        |> FalseColorLegendApp.viewDnSLegendProperties DnSColorLegendMessage 
+        |> AVal.constant                  
+
+    let annotationGroupProperties (model : AdaptiveDrawingModel) =                            
+        GroupsApp.viewUI model.annotations     
+        |> UI.map GroupsMessage
+        |> AVal.constant
+    
+    let annotationGroupButtons (model : AdaptiveDrawingModel) = 
+        model.annotations.activeGroup 
+        |> AVal.map (fun x -> GroupsApp.viewGroupButtons x |> UI.map GroupsMessage)
+        
+
+    let viewAnnotationGroupsUI (m : AdaptiveDrawingModel) = 
+        
+        let buttons = 
+            m.annotations.lastSelectedItem
+            |> AVal.bind (fun x -> 
+                match x with 
+                | SelectedItem.Group -> annotationGroupButtons m
+                | _ -> failwith "no leafbuttons" //annotationLeafButtons m
+            )
+        
+        div [][
+            GuiEx.accordion "Annotations" "Write" true [
+                GroupsApp.viewSelectionButtons |> UI.map GroupsMessage
+                viewAnnotationGroups m //|> UI.map ViewerAction.DrawingMessage
+               // DrawingApp.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage // CHECK-merge viewAnnotationGroups
+            ]
+            
+            GuiEx.accordion "Actions" "Asterisk" true [
+              Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
+            ]                    
+
+            GuiEx.accordion "Active Group" "Content" true [
+                annotationGroupProperties m 
+                |> AList.ofAValSingle 
+                |> Incremental.div AttributeMap.empty
+            ]
+           
+            GuiEx.accordion "Dip&Strike ColorLegend" "paint brush" false [
+                Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDnSColorLegendUI m))] 
+            ]    

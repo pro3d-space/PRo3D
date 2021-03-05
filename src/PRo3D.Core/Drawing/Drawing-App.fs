@@ -356,7 +356,7 @@ module DrawingApp =
             match model.future with
             | Some f -> f
             | None -> model           
-        | GroupsMessage msg,_, _ ->
+        | DrawingAction.GroupsMessage msg,_, _ ->
             let m = { model with annotations = GroupsApp.update model.annotations msg}
             m
         | DnsColorLegendMessage msg,_, _ -> 

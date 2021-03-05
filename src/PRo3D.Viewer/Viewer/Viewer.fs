@@ -433,7 +433,7 @@ module ViewerApp =
         | SetCameraAndFrustum2 (cv,frustum),_,false ->
             let m = Optic.set _view cv m
             { m with frustum = frustum }
-        | AnnotationGroupMessage msg,_,_ ->
+        | AnnotationGroupsMessage(AnnotationGroupsAction.GroupsMessage msg) ,_,_ ->
             let ag = m.drawing.annotations 
                 
             { m with drawing = { m.drawing with annotations = GroupsApp.update ag msg}}

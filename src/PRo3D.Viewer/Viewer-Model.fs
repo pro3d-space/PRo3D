@@ -68,8 +68,8 @@ type PropertyActions =
 //    | PlaneExtrudeAction of PlaneExtrude.App.Action
 
 type ViewerAction =                
-    | DrawingMessage                  of DrawingAction
-    | AnnotationGroupMessage          of GroupsAppAction
+    | DrawingMessage                  of DrawingAction   
+    | AnnotationGroupsMessage         of AnnotationGroupsAction
     | NavigationMessage               of Navigation.Action
     | AnimationMessage                of AnimationAction
     | ReferenceSystemMessage          of ReferenceSystemAction

@@ -42,7 +42,8 @@
     <Compile Include="Surface\Surface.Sg.fs" />
     <Compile Include="Surface\SurfaceApp.fs" />
     <Compile Include="Drawing\Drawing-Model.fs" />
-    <Compile Include="Drawing\Drawing.UI.fs" />
+    <Compile Include="Drawing\AnnotationGroups.fs" />
+    <Compile Include="Drawing\AnnotationLeaves.fs" />
     <Compile Include="Drawing\DrawingUtilities.fs" />
     <Compile Include="Drawing\Drawing.Sg.fs" />
     <Compile Include="Drawing\Drawing.IO.fs" />
