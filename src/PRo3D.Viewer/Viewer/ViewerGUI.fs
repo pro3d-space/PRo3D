@@ -472,7 +472,7 @@ module Gui =
                 let! interaction = m.interaction
                 match interaction with
                 | Interactions.DrawAnnotation -> 
-                    return Drawing.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage
+                    return DrawingApp.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage
                 | Interactions.PlaceRover ->
                     return ViewPlanApp.UI.viewSelectRover m.scene.viewPlans.roverModel |> UI.map RoverMessage
                 | Interactions.PlaceCoordinateSystem -> 

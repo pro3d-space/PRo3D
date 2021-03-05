@@ -1,4 +1,4 @@
-namespace PRo3D.Core.Drawing
+namespace PRo3D.Base.Annotation
 
 open System
 open Adaptify.FSharp.Core
@@ -9,13 +9,11 @@ open Aardvark.UI
 open Aardvark.UI.Static.Svg
 
 open PRo3D.Base
-open PRo3D.Base.Annotation
-open PRo3D.Core
 
 module AnnotationPropertiesApp = 
             
     type Action = 
-    | SetGeometry     of Geometry
+    | SetGeometry     of Annotation.Geometry
     | SetProjection   of Projection
     | SetSemantic     of Semantic
     | ChangeThickness of Numeric.Action
@@ -80,7 +78,7 @@ module AnnotationPropertiesApp =
         | SetManualDippingAngle a ->                
             let annotation = { model with manualDipAngle = Numeric.update model.manualDipAngle a }            
 
-            annotation
+            annotation    
 
     let view (model : AdaptiveAnnotation) = 
 

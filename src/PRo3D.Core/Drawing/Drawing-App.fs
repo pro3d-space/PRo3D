@@ -444,6 +444,16 @@ module DrawingApp =
         | AdaptiveAnnotations ann -> Some ann
         | _ -> None
        
+    let viewAnnotationToolsHorizontal (model:AdaptiveDrawingModel) =
+        Html.Layout.horizontal [
+            Html.Layout.boxH [ i [clazz "large Write icon"][] ]
+            Html.Layout.boxH [ Html.SemUi.dropDown model.geometry SetGeometry ]
+            Html.Layout.boxH [ Html.SemUi.dropDown model.projection SetProjection ]
+            Html.Layout.boxH [ ColorPicker.view model.color |> UI.map ChangeColor; div[][] ]
+            Html.Layout.boxH [ Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ]
+        //  Html.Layout.boxH [ Html.SemUi.dropDown model.semantic SetSemantic ]                
+        ]
+
     let view<'ma> 
         (mbigConfig       : 'ma)
         (msmallConfig     : MSmallConfig<'ma>)
@@ -473,8 +483,8 @@ module DrawingApp =
         let annotations =              
             annoSet 
             |> ASet.map(fun (_,a) -> 
-                let c = UI.mkColor model.annotations a
-                let picked = UI.isSingleSelect model.annotations a
+                let c = AnnotationGroups.mkColor model.annotations a
+                let picked = AnnotationGroups.isSingleSelect model.annotations a
                 let showPoints = 
                   a.geometry 
                     |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
