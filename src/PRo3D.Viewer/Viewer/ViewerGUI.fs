@@ -561,20 +561,22 @@ module Gui =
                     yield div [clazz "item topmenu"] [t]
             ]
         
+    //TOTO move to annotations somewhow
     module Annotations =
       
+        //leaf stuff
         let viewAnnotationProperties (model : AdaptiveModel) =
             let view = (fun leaf ->
                 match leaf with
-                  | AdaptiveAnnotations ann -> AnnotationProperties.view ann
-                  | _ -> div[style "font-style:italic"][ text "no annotation selected" ])
+                | AdaptiveAnnotations ann -> AnnotationPropertiesApp.view ann
+                | _ -> div[style "font-style:italic"][ text "no annotation selected" ])
             
             model.drawing.annotations |> GroupsApp.viewSelected view AnnotationMessage
                 
         let viewAnnotationResults (model : AdaptiveModel) =
             let view = (fun leaf ->
                 match leaf with
-                  | AdaptiveAnnotations ann -> AnnotationProperties.viewResults ann model.scene.referenceSystem.up.value
+                  | AdaptiveAnnotations ann -> AnnotationPropertiesApp.viewResults ann model.scene.referenceSystem.up.value
                   | _ -> div[style "font-style:italic"][ text "no annotation selected" ])
             
             model.drawing.annotations |> GroupsApp.viewSelected view AnnotationMessage
@@ -586,30 +588,21 @@ module Gui =
                   | _ -> div[style "font-style:italic"][ text "no annotation selected" ])
         
             model.drawing.annotations |> GroupsApp.viewSelected view DnSProperties    
-            
-        let viewDnSColorLegendUI (model : AdaptiveModel) = 
-            model.drawing.dnsColorLegend 
-            |> FalseColorLegendApp.viewDnSLegendProperties DnSColorLegendMessage 
-            |> AVal.constant
-          
-        //let annotationLeafButtonns' (model : AdaptiveModel) = 
-        //    let ts = model.drawing.annotations.activeChild
-        //    let sel = model.drawing.annotations.singleSelectLeaf
-        //    adaptive {  
-        //        let! ts = ts
-        //        let! sel = sel
-        //        match sel with
-        //        | Some _ -> return (GroupsApp.viewLeafButtons ts |> UI.map AnnotationGroupsMessageViewer)
-        //        | None -> return div[style "font-style:italic"][ text "no annotation group selected" ]
-        //    }      
-            
-        let annotationLeafButtonns (model : AdaptiveModel) =           
+                        
+        let annotationLeafButtons (model : AdaptiveModel) =           
             AVal.map2(fun ts sel -> 
                 match sel with
                 | Some _ -> (GroupsApp.viewLeafButtons ts |> UI.map AnnotationGroupMessage)
                 | None -> div[style "font-style:italic"][ text "no annotation selected" ]
             ) model.drawing.annotations.activeChild model.drawing.annotations.singleSelectLeaf
             
+
+        //group stuff
+        let viewDnSColorLegendUI (model : AdaptiveModel) = 
+            model.drawing.dnsColorLegend 
+            |> FalseColorLegendApp.viewDnSLegendProperties DnSColorLegendMessage 
+            |> AVal.constant                  
+
         let annotationGroupProperties (model : AdaptiveModel) =                            
             GroupsApp.viewUI model.drawing.annotations 
             |> UI.map AnnotationGroupMessage 
@@ -626,7 +619,7 @@ module Gui =
                 |> AVal.bind (fun x -> 
                     match x with 
                     | SelectedItem.Group -> annotationGroupButtons m
-                    | _ -> annotationLeafButtonns m 
+                    | _ -> annotationLeafButtons m
                 )
             
             div [][
@@ -641,7 +634,9 @@ module Gui =
                 ]                    
 
                 GuiEx.accordion "Active Group" "Content" true [
-                    annotationGroupProperties m |> AList.ofAValSingle |> Incremental.div AttributeMap.empty
+                    annotationGroupProperties m 
+                    |> AList.ofAValSingle 
+                    |> Incremental.div AttributeMap.empty
                 ]
                
                 GuiEx.accordion "Dip&Strike ColorLegend" "paint brush" false [
@@ -814,24 +809,9 @@ module Gui =
             | Some "bookmarks" -> 
                 require (viewerDependencies) (body bodyAttributes [Bookmarks.bookmarkUI m])
             | Some "properties" ->             
-                //Properties app
-                //let prop = 
-                //    m.drawing.annotations.lastSelectedItem
-                //    |> AVal.bind (fun x -> 
-                //        match x with 
-                //        | SelectedItem.Group -> Annotations.annotationGroupProperties m
-                //        | SelectedItem.Child -> Annotations.viewAnnotationProperties m
-                //        | _ -> failwith "[ViewerGui] unknown type"
-                //    )
-
-                //let results = 
-                //    m.drawing.annotations.lastSelectedItem
-                //    |> AVal.bind (fun x -> 
-                //        match x with 
-                //        | SelectedItem.Group -> Annotations.annotationGroupProperties m
-                //        | SelectedItem.Child -> Annotations.viewAnnotationResults m 
-                //        | _ -> failwith "[ViewerGui] unknown type"
-                //    )
+                
+                let singleSurfaceGUI () = failwith
+                    
 
                 let singleAnnotationGUI ()=
                     [

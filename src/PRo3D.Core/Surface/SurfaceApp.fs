@@ -756,59 +756,45 @@ module SurfaceApp =
                 
         }
 
-
     let viewSurfacesGroups (model:AdaptiveSurfaceModel) = 
         require GuiEx.semui (
             Incremental.div 
-              (AttributeMap.ofList [clazz "ui celled list"]) 
-              (viewTree [] model.surfaces.rootGroup model.surfaces)            
+                (AttributeMap.ofList [clazz "ui celled list"]) 
+                (viewTree [] model.surfaces.rootGroup model.surfaces)
         )    
-        
-
-    //let viewSurfaceProperties (model:AdaptiveSurfaceModel) =
-    //    adaptive {
-    //        let! bla = model.surfaces.lastSelectedChild
-    //        let opt = 
-    //            match bla with
-    //                | Some s -> SurfaceProperties.view s
-    //                | None   -> div[][]
-
-    //        return (opt |> UI.map SurfacePropertiesMessage)
-    //    }    
-
-   // let noSurfaceSelected = div[ style "font-style:italic"][ text "no surface selected" ]
-
+            
     let lscToDom lsc isSome = 
         adaptive {
             match lsc with
-                | Some b ->   
-                    let! b' = b
-                    match b' with 
-                        | AdaptiveSurfaces bm -> return isSome bm
-                        | _ -> return div[][]                                                             
-                | None   -> return div[][] 
+            | Some b ->   
+                let! b' = b
+                match b' with 
+                | AdaptiveSurfaces bm -> return isSome bm
+                | _ -> return div[][]                                                             
+            | None   -> return div[][] 
         }
     
-      //failwith ""
-
     let viewSurfaceProperties (model:AdaptiveSurfaceModel) =
         adaptive {
             let! guid = model.surfaces.singleSelectLeaf
-            let flat = model.surfaces.flat
-            
+            let empty = div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map SurfacePropertiesMessage                         
+
             match guid with
-              | Some i ->
-                let! exists = flat |> AMap.keys |> ASet.contains i
+            | Some i ->
+                let! exists = model.surfaces.flat |> AMap.keys |> ASet.contains i
                 if exists then
-                  let leaf = flat |> AMap.find i 
-                  let! surf = leaf 
-                  let x = match surf with | AdaptiveSurfaces s -> s | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith                                     
-                  return SurfaceProperties.view x |> UI.map SurfacePropertiesMessage
+                    let leaf = model.surfaces.flat |> AMap.find i 
+                    let! leaf = leaf 
+                    let surf = 
+                        match leaf with 
+                        | AdaptiveSurfaces s -> s 
+                        | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith                                     
+
+                    return SurfaceProperties.view surf |> UI.map SurfacePropertiesMessage
                 else
-                  return div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map SurfacePropertiesMessage 
-                  
-              
-              | None -> return div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map SurfacePropertiesMessage 
+                    return empty
+            | None -> 
+                return empty
         }                          
         
     let surfaceGroupProperties (model:AdaptiveSurfaceModel) =
@@ -822,16 +808,21 @@ module SurfaceApp =
             let empty = div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map TranslationMessage 
 
             match guid with
-              | Some i -> 
+            | Some i -> 
                 let! exists = (model.surfaces.flat |> AMap.keys) |> ASet.contains i
                 if exists then
-                  let leaf = model.surfaces.flat |> AMap.find i 
-                  let! surf = leaf 
-                  let x = match surf with | AdaptiveSurfaces s -> s | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
-                  return TranslationApp.UI.view x.transformation |> UI.map TranslationMessage
+                    let leaf = model.surfaces.flat |> AMap.find i 
+                    let! surf = leaf 
+                    let x = 
+                        match surf with 
+                        | AdaptiveSurfaces s -> s 
+                        | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
+
+                    return TranslationApp.UI.view x.transformation |> UI.map TranslationMessage
                 else
-                  return empty
-              | None -> return empty
+                    return empty
+            | None -> 
+                return empty
         }                          
 
     let viewColorCorrectionTools (model:AdaptiveSurfaceModel) =
@@ -840,16 +831,17 @@ module SurfaceApp =
             let empty = div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map ColorCorrectionMessage 
             
             match guid with
-                | Some i -> 
-                  let! exists = (model.surfaces.flat |> AMap.keys) |> ASet.contains i
-                  if exists then
+            | Some i -> 
+                let! exists = (model.surfaces.flat |> AMap.keys) |> ASet.contains i
+                if exists then
                     let leaf = model.surfaces.flat |> AMap.find i // TODO to: common - make a map here!
                     let! surf = leaf 
                     let colorCorrection = match surf with | AdaptiveSurfaces s -> s.colorCorrection | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
                     return ColorCorrectionProperties.view colorCorrection |> UI.map ColorCorrectionMessage
-                  else 
+                else 
                     return empty
-                | None -> return empty 
+            | None -> 
+                return empty
         }                          
 
     //TODO LF refactor and simplify, use option.map, bind, default value as described in
@@ -923,26 +915,28 @@ module SurfaceApp =
         } 
     
     let surfaceUI (model:AdaptiveSurfaceModel) =
-        let item2 = 
-            model.surfaces.lastSelectedItem 
-                |> AVal.bind (fun x -> 
-                    match x with 
-                        | SelectedItem.Group -> surfaceGroupProperties model
-                        | _ -> viewSurfaceProperties model
-                )
+        //let leafProperties = 
+        //    model.surfaces.lastSelectedItem 
+        //    |> AVal.bind (fun x -> 
+        //        match x with 
+        //        | SelectedItem.Group -> surfaceGroupProperties model
+        //        | _ -> viewSurfaceProperties model
+        //    )
+
         let buttons = 
             model.surfaces.lastSelectedItem 
-                |> AVal.bind (fun x -> 
-                    match x with 
-                        | SelectedItem.Group -> surfacesGroupButtons model
-                        | _ -> surfacesLeafButtonns model
-                )
+            |> AVal.bind (fun x -> 
+                match x with 
+                | SelectedItem.Group -> surfacesGroupButtons model
+                | _ -> surfacesLeafButtonns model
+            )
+
         div[][                            
             yield GuiEx.accordion "Surfaces" "Cubes" true [ viewSurfacesGroups model ]
-            yield GuiEx.accordion "Properties" "Content" false [
-              Incremental.div AttributeMap.empty (AList.ofAValSingle item2)
+            //yield GuiEx.accordion "Properties" "Content" false [
+            //  Incremental.div AttributeMap.empty (AList.ofAValSingle leafProperties)
                
-            ]
+            //]
             yield GuiEx.accordion "Actions" "Asterisk" false [
                 Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
             ]  

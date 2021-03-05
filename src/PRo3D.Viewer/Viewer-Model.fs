@@ -47,7 +47,7 @@ type BookmarkAction =
 
 type PropertyActions =
     | DrawingMessage    of DrawingAction
-    | AnnotationMessage of AnnotationProperties.Action
+    | AnnotationMessage of AnnotationPropertiesApp.Action
 
 //type CorrelationPanelsMessage = 
 //| CorrPlotMessage               of CorrelationPlotAction
@@ -73,7 +73,7 @@ type ViewerAction =
     | NavigationMessage               of Navigation.Action
     | AnimationMessage                of AnimationAction
     | ReferenceSystemMessage          of ReferenceSystemAction
-    | AnnotationMessage               of AnnotationProperties.Action
+    | AnnotationMessage               of AnnotationPropertiesApp.Action
     | BookmarkMessage                 of BookmarkAction
     | BookmarkUIMessage               of GroupsAppAction
     | RoverMessage                    of RoverApp.Action

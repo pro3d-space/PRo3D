@@ -12,7 +12,7 @@ open PRo3D.Base
 open PRo3D.Base.Annotation
 open PRo3D.Core
 
-module AnnotationProperties = 
+module AnnotationPropertiesApp = 
             
     type Action = 
     | SetGeometry     of Geometry
@@ -157,16 +157,5 @@ module AnnotationProperties =
                 yield Html.row "Horizontal Distance:"   [Incremental.text (horDist   |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield Html.row "True Thickness:"        [Incremental.text (trueThickness |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
             ]
-        )
-       
-    let app = 
-        {
-            unpersist = Unpersist.instance
-            threads   = fun _ -> ThreadPool.empty
-            initial   = Annotation.initial
-            update    = update
-            view      = view
-        }
-
-    let start() = App.start app
+        )        
 

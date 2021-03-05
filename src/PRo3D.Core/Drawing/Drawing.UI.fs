@@ -42,20 +42,18 @@ module UI =
             match x with 
             | Some selected -> selected = a.key
             | None -> false )
-    
-               
-    
-    let viewAnnotations (annotations : alist<AdaptiveAnnotation>) : alist<DomNode<Action>> =      
-        annotations 
-        |> AList.map(fun a ->
-            div [clazz "item"] [
-                i [clazz "large Sticky Note middle aligned icon"][]
-                div [clazz "content"] [
-                    div [clazz "header"][Incremental.text (a.geometry |> AVal.map(string))]
-                    div [clazz "description"][Incremental.text (a.points |> AList.count |> AVal.map(string))]
-                ]
-            ]
-        )
+                       
+    //let viewAnnotations (annotations : alist<AdaptiveAnnotation>) : alist<DomNode<Action>> =      
+    //    annotations 
+    //    |> AList.map(fun a ->
+    //        div [clazz "item"] [
+    //            i [clazz "large Sticky Note middle aligned icon"][]
+    //            div [clazz "content"] [
+    //                div [clazz "header"][Incremental.text (a.geometry |> AVal.map(string))]
+    //                div [clazz "description"][Incremental.text (a.points |> AList.count |> AVal.map(string))]
+    //            ]
+    //        ]
+    //    )
                      
     let viewAnnotationsInGroup 
         (path         : list<Index>) 

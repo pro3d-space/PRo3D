@@ -529,7 +529,7 @@ module ViewerApp =
             | Some selected ->                             
                 let f = (fun x ->
                     let a = x |> Leaf.toAnnotation
-                    let a = AnnotationProperties.update a msg 
+                    let a = AnnotationPropertiesApp.update a msg 
 
                     //update true thickness computation on dip angle change
                     let a = 
