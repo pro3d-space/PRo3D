@@ -54,14 +54,22 @@ module SceneObjectsUtils =
         let bb = sceneObj.bounds
         let pose = Pose.translate bb.Center //Pose.translate V3d.Zero // sceneObj.Center V3d.Zero
         let trafo = { TrafoController.initial with pose = pose; previewTrafo = Pose.toTrafo pose; mode = TrafoMode.Local }
+
+        let filetype = Path.GetExtension sObject.name
         
         let sg =
-            sceneObj
+            match filetype with
+            | ".dae" ->
+                sceneObj
                 |> Sg.adapter
                 // flip the z coordinates (since the model is upside down)
                 |> Sg.transform (Trafo3d.Scale(1.0, 1.0, -1.0))
-                //|> Sg.requirePicking
-                |> Sg.noEvents
+            | _ -> 
+                sceneObj
+                |> Sg.adapter
+                
+            //|> Sg.requirePicking
+            |> Sg.noEvents
 
         {
             surface     = sObject.guid    
@@ -230,6 +238,20 @@ module SceneObjectsApp =
                                 yield clazz toggleIcon
                                 yield onClick (fun _ -> IsVisible soid)
                             } |> AttributeMap.ofAMap  
+
+                        let tt = 
+                            m.selectedSceneObject |> AVal.map( fun x -> 
+                                match x with 
+                                  | AdaptiveSome selected -> (selected.guid |> AVal.force) = soid
+                                  | AdaptiveNone -> false )
+
+                        let headerColor = 
+                            tt 
+                            |> AVal.map(fun x -> 
+                                (if x then C4b.VRVisGreen else C4b.Gray) 
+                                |> Html.ofC4b 
+                                |> sprintf "color: %s"
+                            ) 
                
                         let color =
                             match selected with
@@ -251,9 +273,8 @@ module SceneObjectsApp =
                             div [clazz "content"; style infoc] [                     
                                 yield Incremental.div (AttributeMap.ofList [style infoc])(
                                     alist {
-                                        let! c = color
-                                        let headerC = c |> Html.ofC4b |> sprintf "color: %s"
-                                        yield div[clazz "header"; style headerC][
+                                        let! hc = headerColor
+                                        yield div[clazz "header"; style hc][
                                             Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
                                          ]                
                                         //yield i [clazz "large cube middle aligned icon"; style bgc; onClick (fun _ -> SelectSO soid)][]           

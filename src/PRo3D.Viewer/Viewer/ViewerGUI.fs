@@ -261,6 +261,20 @@ module Gui =
                     ][
                         text "Import (*.obj)"
                     ]
+                    //div [ clazz "ui inverted item"; 
+                    //    Dialogs.onChooseFiles ImportSceneObject;
+                    //    clientEvent "onclick" (jsImportSceneObjectDialog)
+                    //][
+                    //    text "Import (*.obj or *.dae)"
+                    //]
+                ]
+            ]
+
+        let private importSCeneObject =
+            [
+                text "Scene Objects"
+                i [clazz "dropdown icon"][] 
+                div [ clazz "menu"] [
                     div [ clazz "ui inverted item"; 
                         Dialogs.onChooseFiles ImportSceneObject;
                         clientEvent "onclick" (jsImportSceneObjectDialog)
@@ -430,7 +444,10 @@ module Gui =
                                 div [ clazz "ui dropdown item"] (scene m)
                             
                                 //annotations menu
-                                annotationMenu |> UI.map DrawingMessage;                                                           
+                                annotationMenu |> UI.map DrawingMessage;       
+                                
+                                //scene objects
+                                div [ clazz "ui dropdown item"; style "width: 150px"] importSCeneObject
                                                             
                                 //Extras Menu
                                 div [ clazz "ui dropdown item"] [
