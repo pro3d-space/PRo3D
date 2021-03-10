@@ -537,6 +537,7 @@ module Gui =
             | Interactions.PlaceRover            -> "CTRL+click to (1) place rover and (2) pick lookat"
             | Interactions.TrafoControls         -> "not implemented"
             | Interactions.PlaceSurface          -> "not implemented"
+            | Interactions.PlaceSceneObject      -> "CTRL+click to place scene object"
             //| Interactions.PickLinking           -> "CTRL+click to place point on surface"
             | _ -> ""
         
@@ -687,6 +688,19 @@ module Gui =
               ]
           ]                
 
+    module SceneObjects = 
+        
+        let sceneObjectsUI (m : AdaptiveModel) =             
+          div [][
+              yield GuiEx.accordion "SceneObjects" "Write" true [
+                      SceneObjectsApp.UI.viewSceneObjects m.scene.sceneObjectsModel 
+                  ]
+              yield GuiEx.accordion "Transformation" "expand arrows alternate " false [
+                      Incremental.div AttributeMap.empty (AList.ofAValSingle(SceneObjectsApp.UI.viewTranslationTools m.scene.sceneObjectsModel))
+                  ]  
+             
+          ] |> UI.map SceneObjectsMessage             
+
     module Bookmarks =
         let bookmarkGroupProperties (model : AdaptiveModel) =                                       
             GroupsApp.viewUI model.scene.bookmarks 
@@ -818,6 +832,8 @@ module Gui =
                 require (viewerDependencies) (body bodyAttributes [HeightValidatorApp.viewUI m.heighValidation |> UI.map HeightValidation])
             | Some "bookmarks" -> 
                 require (viewerDependencies) (body bodyAttributes [Bookmarks.bookmarkUI m])
+            | Some "sceneobjects" -> 
+                require (viewerDependencies) (body bodyAttributes [SceneObjects.sceneObjectsUI m])
             | Some "properties" ->
                 let prop = 
                     m.drawing.annotations.lastSelectedItem

@@ -37,8 +37,8 @@
     <Compile Include="ReferenceSystem.fs" />
     <Compile Include="Surface.fs" />
     <Compile Include="GroupsApp.fs" />
+    <Compile Include="Translation.fs" />
     <Compile Include="SceneObjectsApp.fs" />
-    <Compile Include="Surface\Translation.fs" />
     <Compile Include="Surface\Surface-Properties.fs" />
     <Compile Include="Surface\Surface.Files.fs" />
     <Compile Include="Surface\Surface.Sg.fs" />

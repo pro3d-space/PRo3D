@@ -225,7 +225,7 @@ type Scene with
         json {
             let! v = Json.read "version"
             match v with
-            | 0 -> return! Scene.read0
+            | 1 -> return! Scene.read0
             | _ ->
                 return! v 
                 |> sprintf "don't know version %A  of Scene" 
@@ -426,7 +426,7 @@ module Viewer =
                   stack 0.5 None [                        
                     {id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                     {id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                  ]                          
+                    ]                          
                   stack 0.5 (Some "config") [
                     {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                     {id = "bookmarks"; title = Some " Bookmarks"; weight = 0.4; deleteInvisible = None; isCloseable = None }  

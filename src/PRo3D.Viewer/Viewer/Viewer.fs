@@ -392,6 +392,10 @@ module ViewerApp =
                     (HeightValidatorAction.PlaceValidator p)
 
             { m with heighValidation = heightVal }
+        | Interactions.PlaceSceneObject, ViewerMode.Standard -> 
+            let action = (SceneObjectAction.PlaceSceneObject(p)) 
+            let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel action m.scene.referenceSystem
+            { m with scene = { m.scene with sceneObjectsModel = sobjs } }
         | _ -> m       
 
     let mutable lastHash = -1    
@@ -486,8 +490,6 @@ module ViewerApp =
                     DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing msg
                 { m with drawing = drawing; } |> stash
         | SurfaceActions msg,_,_ ->
-            
-
             let view = m.navigation.camera.view
             let s = SurfaceApp.update m.scene.surfacesModel msg m.scene.scenePath view m.scene.referenceSystem
             let animation = 
@@ -581,7 +583,23 @@ module ViewerApp =
         | DnSColorLegendMessage msg,_,_ ->
             let cm = FalseColorLegendApp.update m.drawing.dnsColorLegend msg
             { m with drawing = { m.drawing with dnsColorLegend = cm } }
-        | SceneObjectsMessage msg,_,_ -> m // todo laura
+        | SceneObjectsMessage msg,_,_ -> 
+            let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel msg m.scene.referenceSystem
+            let animation = 
+                match msg with
+                | SceneObjectAction.FlyToSO id -> 
+                    let sgSo = sobjs.sgSceneObjects |> HashMap.find id
+                    let sceneObj = sobjs.sceneObjects |> HashMap.find id
+                    let superTrafo = SceneObjectTransformations.fullTrafo' sceneObj.transformation m.scene.referenceSystem
+                    let bb = sgSo.globalBB.Transformed(sceneObj.preTransform.Forward * superTrafo.Forward)
+                    let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value    
+                    let animationMessage = 
+                        animateFowardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
+                    let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
+                    a'
+                | _-> m.animations
+                   
+            { m with scene = { m.scene with sceneObjectsModel = sobjs}; animations = animation}
         | ImportSurface sl,_,_ ->                 
             match sl with
             | [] -> m
