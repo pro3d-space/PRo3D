@@ -208,8 +208,11 @@ module GroupsApp =
     let removeFromSelection id path model =
         { model with selectedLeaves = model.selectedLeaves |> HashSet.remove( { id = id; path = path; name = "" } ) }
     
-    let removeLeaf model (id:Guid) path removeFromFlat =
-        let func = (fun (x:Node) -> { x with leaves = x.leaves |> IndexList.filter (fun id' -> id' <> id) }) // TODO v5: check
+    let removeLeaf model (id:Guid) path removeFromFlat =        
+        let func = (fun (x:Node) -> 
+            Log.warn "[GroupsApp] removing id %A from group %A" id x.name
+            { x with leaves = x.leaves |> IndexList.filter (fun id' -> id' <> id) }
+        ) // TODO v5: check
         let root' = updateNodeAt path func model.rootGroup
 
         let m = model |> removeFromSelection id path
@@ -239,10 +242,11 @@ module GroupsApp =
         // * add leaves to destination group
         let m = 
             m
-            |> removeSelected    (m.selectedLeaves |> HashSet.toList) false
+            |> removeSelected (m.selectedLeaves |> HashSet.toList) false
             |> updateActiveGroup (fun (x:Node) -> 
                 let ids = (toMove |> IndexList.map(fun x -> x.id))
-                { x with leaves = x.leaves |> IndexList.append ids })
+                { x with leaves = x.leaves |> IndexList.append ids }
+            )
          
         // update selection paths
         let sel = (m.selectedLeaves |> HashSet.map( fun x -> {x with path = m.activeGroup.path }))
@@ -455,14 +459,16 @@ module GroupsApp =
             let f = (fun (k:Leaf) -> (k.setVisible isVisible))
             updateLeaves leaves f m'              
         | SetSelection (p, isSelected) ->    
-            let leaves = 
+            let node = 
                 getNode p model.rootGroup 
-                |> collectLeaves
+                //|> collectLeaves
+            let leaves =
+                node.leaves
                 |> IndexList.toList
                 |> List.map(fun x -> 
                     {
                         id = x
-                        path = []
+                        path = p
                         name = ""
                     }
                 ) |> HashSet.ofList

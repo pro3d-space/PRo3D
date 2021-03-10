@@ -1,3 +1,8 @@
+## 3.6.0-prerelease1
+
+- fixed duplication bug when moving multiple annotations via "select all" in a group mechanic
+- "select all" only selects all leaves in a group not including the leaves of sub groups
+
 ## 3.5.1-prerelease1
 
 - added print location / coordinate for point annotation

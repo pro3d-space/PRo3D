@@ -60,7 +60,7 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "3.4.1-prerelease1"
+let viewerVersion       = "added through buildscript via realease notes"
 let catchDomainErrors   = false
 
 open System.IO
