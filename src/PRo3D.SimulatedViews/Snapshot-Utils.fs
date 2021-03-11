@@ -107,7 +107,7 @@ module PlacementUtils =
             | None -> brightnColor
         {surf with colorCorrection = gammaColor}
 
-    let generateSnapshotSCParas (surfacesModel    : SurfaceModel) 
+    let generatePlacementParameters (surfacesModel    : SurfaceModel) 
                                 (objectPlacements : HashMap<string, ObjectPlacementApp>) =
         let surfacesModel = clearSnapshotGroup surfacesModel
         let surfacesWithSCPlacement =

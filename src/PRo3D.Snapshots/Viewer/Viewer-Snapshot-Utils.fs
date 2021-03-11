@@ -43,6 +43,6 @@ module ViewerSnapshotUtils =
 
     let updateObjPlacementsFromGui (m : Model) =
         let snapshotSCParameters = 
-          PlacementUtils.generateSnapshotSCParas m.scene.surfacesModel
+          PlacementUtils.generatePlacementParameters m.scene.surfacesModel
                                                     m.scene.objectPlacements
         placeAllObjs m snapshotSCParameters ""

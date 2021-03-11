@@ -1211,7 +1211,7 @@ module ViewerApp =
             { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y) }
         | TestHaltonRayCasting _,_,_->
             let snapshotSCParameters = 
-              PlacementUtils.generateSnapshotSCParas m.scene.surfacesModel
+              PlacementUtils.generatePlacementParameters m.scene.surfacesModel
                                                        m.scene.objectPlacements
             let m = 
                 match Seq.isEmpty snapshotSCParameters with
@@ -1242,7 +1242,7 @@ module ViewerApp =
         //        _bookmarksModel.Set(m, {bmmodel with bookmarks = newGroupsModel})
         //    | None -> m
         | ExportSnapshotFile , _, _ ->
-             let jsonScs = PlacementUtils.generateSnapshotSCParas m.scene.surfacesModel
+             let jsonScs = PlacementUtils.generatePlacementParameters m.scene.surfacesModel
                                                                     m.scene.objectPlacements
              match jsonScs.IsEmptyOrNull () with
              | false ->

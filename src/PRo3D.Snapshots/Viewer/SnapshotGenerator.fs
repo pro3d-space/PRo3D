@@ -133,7 +133,7 @@ module SnapshotGenerator =
             | Some data ->
                 let snapshotApp : SnapshotApp<Model, AdaptiveModel, ViewerAction> = 
                     {
-                        viewerApp = mApp
+                        mutableApp = mApp
                         adaptiveModel = mModel
                         sceneGraph = ViewerUtils.getSurfacesSgWithCamera
                         snapshotAnimation = data

@@ -19,14 +19,20 @@ open PRo3D.SimulatedViews.Rendering
 [<ModelType>]
 type SnapshotApp<'model,'aModel, 'msg> =
   {
-    viewerApp            : MutableApp<'model, 'msg>
+    /// the app that is used to create the scenegraph that should be rendered; snapshot updates will be applied to this app
+    mutableApp           : MutableApp<'model, 'msg>
+    /// the adaptive model associated with the mutable app
     adaptiveModel        : 'aModel
     sceneGraph           : 'aModel -> IRuntime -> ISg<'msg>
     snapshotAnimation    : SnapshotAnimation
+    /// animation actions are applied before rendering images
     getAnimationActions  : SnapshotAnimation -> seq<'msg>
+    /// snapshot actions are applied before rendering each corresponding image
     getSnapshotActions   : Snapshot -> Frustum -> string -> seq<'msg> //snashot -> frustum -> pathname -> actions
     runtime              : IRuntime
+    /// used to render only a range of images in a SnapshotAnimation
     renderRange          : option<RenderRange>
+    /// the folder where rendered images will be saved
     outputFolder         : string
     renderMask           : bool
     renderDepth          : bool
@@ -67,8 +73,7 @@ module SnapshotApp =
                     DefaultSemantic.Depth, depth.GetOutputView()
                 ]
             ) |> OutputDescription.ofFramebuffer
-        // let shadowDepthsignature = ViewerUtils.Shadows.shadowDepthsignature runtime
-        app.viewerApp.updateSync (Guid.NewGuid ()) (app.getAnimationActions app.snapshotAnimation)
+        app.mutableApp.updateSync (Guid.NewGuid ()) (app.getAnimationActions app.snapshotAnimation)
 
         let snapshots =
             let id, count =
@@ -96,9 +101,8 @@ module SnapshotApp =
 
         let sg = app.sceneGraph app.adaptiveModel app.runtime
 
-            //
         let taskclear = app.runtime.CompileClear(signature,AVal.constant C4f.Black,AVal.constant 1.0)
-        let task = app.runtime.CompileRender(signature, sg) //app.sceneGraph)
+        let task = app.runtime.CompileRender(signature, sg)
         let (size, depth) = 
             match app.renderDepth with 
             | true -> Some resolution, Some depth
@@ -120,7 +124,7 @@ module SnapshotApp =
             let snapshot = snapshots.[i]
             let fullPathName = Path.combine [app.outputFolder;snapshot.filename]
             let actions = (app.getSnapshotActions snapshot frustum fullPathName)
-            app.viewerApp.updateSync (Guid.NewGuid ()) actions
+            app.mutableApp.updateSync (Guid.NewGuid ()) actions
 
             //TODO rno should be obsolete with snc rendering
             taskclear.Run (null, fbo) |> ignore

@@ -33,7 +33,7 @@ module SnapshotAnimation =
             |> Json.formatWith JsonFormattingOptions.Pretty 
             |> Serialization.writeToFile filepath
 
-    let readArnoldAnimation path =
+    let readLegacyAnimation path =
         try
             let foo =
                 path
@@ -50,8 +50,8 @@ module SnapshotAnimation =
             raise e
 
     let readLegacyFile path =
-        let aa = readArnoldAnimation path
-        Some (aa.toSnapshotAnimation ())
+        let animation = readLegacyAnimation path
+        Some (animation.toSnapshotAnimation ())
 
     let read path = 
         try
