@@ -261,12 +261,6 @@ module Gui =
                     ][
                         text "Import (*.obj)"
                     ]
-                    //div [ clazz "ui inverted item"; 
-                    //    Dialogs.onChooseFiles ImportSceneObject;
-                    //    clientEvent "onclick" (jsImportSceneObjectDialog)
-                    //][
-                    //    text "Import (*.obj or *.dae)"
-                    //]
                 ]
             ]
 

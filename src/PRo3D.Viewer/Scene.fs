@@ -241,7 +241,22 @@ module SceneLoader =
         model           
         |> SurfaceModel.withSgSurfaces sgs
         |> SurfaceModel.triggerSgGrouping    
-          
+
+
+    let prepareSceneObjectsModel
+        (model     : SceneObjectsModel) : SceneObjectsModel =
+
+        let sOList =
+            model.sceneObjects
+            |> HashMap.toList 
+            |> List.map snd 
+            |> IndexList.ofList
+
+        let sgSurfaces = 
+             SceneObjectsUtils.createSgSceneObjects sOList
+
+        { model with sgSceneObjects = sgSurfaces }
+
     let setFrustum (m:Model) =
        let near = m.scene.config.nearPlane.value
        let far = m.scene.config.farPlane.value
@@ -291,7 +306,13 @@ module SceneLoader =
             m.scene.surfacesModel 
             |> prepareSurfaceModel runtime signature scene.scenePath
 
-        Optic.set _surfaceModelLens sModel m  
+        let m = Optic.set _surfaceModelLens sModel m  
+
+        // add sg scene objects
+        let sOModel = 
+            m.scene.sceneObjectsModel |> prepareSceneObjectsModel 
+        Optic.set _sceneObjects sOModel m  
+
         //with e ->            
         //    Log.error "Could not load selected scenefile %A. It is either outdated or not a valid scene" path
         //    Log.error "exact error %A" e

@@ -74,6 +74,7 @@ type SceneObject with
         }
     static member ToJson(x : SceneObject) =
         json {
+            do! Json.write "version" x.version
             do! Json.write "guid" x.guid
             do! Json.write "name" x.name
             do! Json.write "importPath" x.importPath

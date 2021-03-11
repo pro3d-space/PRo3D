@@ -190,6 +190,45 @@ module Scene =
             let! scenePath       = Json.read "scenePath"
             let! referenceSystem = Json.read "referenceSystem"
             let! bookmarks       = Json.read "bookmarks"
+            let! dockConfig      = Json.read "dockConfig"  
+
+            return 
+                {
+                    version             = current
+
+                    cameraView          = cameraView
+                    navigationMode      = navigationMode |> enum<NavigationMode>
+                    exploreCenter       = exploreCenter  |> V3d.Parse
+                    
+                    interaction         = interactionMode |> enum<InteractionMode>
+                    surfacesModel       = surfaceModel
+                    config              = config
+                    scenePath           = scenePath
+                    referenceSystem     = referenceSystem
+                    bookmarks           = bookmarks
+
+                    viewPlans           = ViewPlanModel.initial
+                    dockConfig          = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
+                    closedPages         = List.empty
+                    firstImport         = false
+                    userFeedback        = String.Empty
+                    feedbackThreads     = ThreadPool.empty
+                    sceneObjectsModel   = SceneObjectsModel.initial
+                }
+        }
+
+    let read1 = 
+        json {            
+            let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
+            let! navigationMode  = Json.read "navigationMode"
+            let! exploreCenter   = Json.read "exploreCenter" 
+
+            let! interactionMode = Json.read "interactionMode"
+            let! surfaceModel    = Json.read "surfaceModel"
+            let! config          = Json.read "config"
+            let! scenePath       = Json.read "scenePath"
+            let! referenceSystem = Json.read "referenceSystem"
+            let! bookmarks       = Json.read "bookmarks"
             let! dockConfig      = Json.read "dockConfig"   
             let! sceneObjectsModel    = Json.read "sceneObjectsModel"  
 
@@ -200,7 +239,7 @@ module Scene =
                     cameraView      = cameraView
                     navigationMode  = navigationMode |> enum<NavigationMode>
                     exploreCenter   = exploreCenter  |> V3d.Parse
-                    
+                        
                     interaction     = interactionMode |> enum<InteractionMode>
                     surfacesModel   = surfaceModel
                     config          = config
@@ -225,7 +264,8 @@ type Scene with
         json {
             let! v = Json.read "version"
             match v with
-            | 1 -> return! Scene.read0
+            | 0 -> return! Scene.read0
+            | 1 -> return! Scene.read1
             | _ ->
                 return! v 
                 |> sprintf "don't know version %A  of Scene" 
