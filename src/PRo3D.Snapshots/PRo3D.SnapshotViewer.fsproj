@@ -24,7 +24,6 @@
   <ItemGroup>
     <None Include="paket.references" />
     <Compile Include="Config.fs" />
-    <Compile Include="StartupArgs.fs" />
     <Compile Include="Models\Model.fs" />
     <Compile Include="Models\VersionedModel.fs" />
     <Compile Include="Utilities.fs" />
@@ -49,8 +48,6 @@
     <Compile Include="Viewer\SceneConverter.fs" />
     <Compile Include="Viewer\Viewer.fs" />
     <Compile Include="Viewer\SnapshotGenerator.fs" />
-    <Compile Include="CommandLine\CommandLineUtils.fs" />
-    <Compile Include="CommandLine\CommandLine.fs" />
     <Compile Include="RemoteControlModel.fs" />
     <Compile Include="RemoteControlApp.fs" />
     <Compile Include="Program.fs" />
