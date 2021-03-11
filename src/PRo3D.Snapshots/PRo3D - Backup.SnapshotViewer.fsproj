@@ -20,6 +20,7 @@
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Remove="Drawing\**" />
+    <EmbeddedResource Remove="Lighting\**" />
   </ItemGroup>
   <ItemGroup>
     <None Include="paket.references" />
