@@ -20,19 +20,19 @@
     <Compile Include="Viewplanner\FootPrint.fs" />      
     <Compile Include="Viewplanner\RoverPlacementImporter.fs" />      
     <Compile Include="Viewplanner\ViewPlan.fs" />      
-    <Compile Include="SurfaceExtensions.fs" />      
-    <Compile Include="JsonUtils.fs" />      
-    <Compile Include="RenderingUtils.fs" />      
-    <Compile Include="ObjectPlacement-Model.fs" />
-    <Compile Include="Snapshot-Model.fs" />
-    <Compile Include="SnapshotSettings-Model.fs" />
-    <Compile Include="SnapshotSettingsApp.fs" />
-    <Compile Include="ObjectPlacementApp.fs" />
-    <Compile Include="HaltonPlacement.fs" />
-    <Compile Include="Snapshot.fs" />
-    <Compile Include="SnapshotAnimation.fs" />
-    <Compile Include="Snapshot-Utils.fs" />
-    <Compile Include="SnapshotApp.fs" />
+    <Compile Include="Snapshots\SurfaceExtensions.fs" />      
+    <Compile Include="Snapshots\JsonUtils.fs" />      
+    <Compile Include="Snapshots\RenderingUtils.fs" />      
+    <Compile Include="Snapshots\ObjectPlacement-Model.fs" />      
+    <Compile Include="Snapshots\Snapshot-Model.fs" />      
+    <Compile Include="Snapshots\SnapshotSettings-Model.fs" />      
+    <Compile Include="Snapshots\SnapshotSettingsApp.fs" />      
+    <Compile Include="Snapshots\ObjectPlacementApp.fs" />      
+    <Compile Include="Snapshots\HaltonPlacement.fs" />      
+    <Compile Include="Snapshots\Snapshot.fs" />      
+    <Compile Include="Snapshots\SnapshotAnimation.fs" />      
+    <Compile Include="Snapshots\Snapshot-Utils.fs" />      
+    <Compile Include="Snapshots\SnapshotApp.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
