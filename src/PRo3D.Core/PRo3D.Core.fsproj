@@ -30,12 +30,14 @@
     <Compile Include="Surface-Model.fs" />
     <Compile Include="Bookmark-Model.fs" />
     <Compile Include="Groups-Model.fs" />
+    <Compile Include="ScaleBars-Model.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="Sg.fs" />
     <Compile Include="UI.fs" />
     <Compile Include="ReferenceSystem.fs" />
     <Compile Include="Surface.fs" />
     <Compile Include="GroupsApp.fs" />
+    <Compile Include="ScaleBarsApp.fs" />
     <Compile Include="Surface\Translation.fs" />
     <Compile Include="Surface\Surface-Properties.fs" />
     <Compile Include="Surface\Surface.Files.fs" />
