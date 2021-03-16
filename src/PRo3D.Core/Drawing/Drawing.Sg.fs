@@ -32,27 +32,27 @@ module Sg =
       //TODO TO refactor formatting
     //open PRo3D.Surfaces.Mutable.SgSurfaceModule
 
+    let stableLight = 
+        Effect.compose [
+            //do! Shader.screenSpaceScale
+            toEffect Shader.StableTrafo.stableTrafo
+            toEffect DefaultSurfaces.vertexColor
+            toEffect Shader.StableLight.stableLight
+        ]
+
     let discISg color size thickness trafo =
         Sg.cylinder 30 color size thickness              
           |> Sg.noEvents
           |> Sg.uniform "WorldPos" (trafo |> AVal.map(fun (x : Trafo3d) -> x.Forward.C3.XYZ))
           |> Sg.uniform "Size" size
-          |> Sg.shader {
-              //do! Shader.screenSpaceScale
-              do! Shader.StableTrafo.stableTrafo
-              do! DefaultSurfaces.vertexColor
-              do! Shader.StableLight.stableLight
-          }
+          |> Sg.effect [stableLight]
           |> Sg.trafo(trafo)
-    
+
+
     let coneISg color radius height trafo =  
         Sg.cone 30 color radius height
            |> Sg.noEvents         
-           |> Sg.shader {                   
-               do! Shader.StableTrafo.stableTrafo
-               do! DefaultSurfaces.vertexColor
-               do! Shader.StableLight.stableLight
-           }
+           |> Sg.effect [stableLight]
            |> Sg.trafo(trafo) 
            
     type innerViewConfig =
@@ -273,13 +273,20 @@ module Sg =
     let drawText (view : aval<CameraView>) (conf: innerViewConfig) (anno : AdaptiveAnnotation) = 
         drawText' view conf anno.text anno
     
-    let optional (sg : ISg<_>) (m : aval<bool>) : aset<ISg<_>> =
+    let optionalSet (sg : ISg<_>) (m : aval<bool>) : aset<ISg<_>> =
         adaptive {
             let! m = m 
             if m then return sg
             else return Sg.empty
         } |> ASet.ofAValSingle
-    
+
+    let optional (m : aval<bool>) (sg : ISg<_>)  : ISg<_> =
+        adaptive {
+            let! m = m 
+            if m then return sg
+            else return Sg.empty
+        } |> Sg.dynamic
+
     let getDotsIsg (points : alist<V3d>) (size:aval<float>) (color : aval<C4b>) (geometry: aval<Geometry>) (offset : aval<float>) =
         aset {
             let! geometry = geometry
@@ -308,7 +315,7 @@ module Sg =
         let points = getPolylinePoints anno      
         let dots = 
             showPoints 
-            |> optional (
+            |> optionalSet (
                 getDotsIsg
                     anno.points
                     (anno.thickness.value |> AVal.map(fun x -> x + 0.5))
@@ -333,7 +340,7 @@ module Sg =
         let texts = 
             anno.text 
             |> AVal.map (String.IsNullOrEmpty >> not) 
-            |> optional (drawText view config anno)
+            |> optionalSet (drawText view config anno)
     
         let dotsAndText = ASet.union' [dots; texts] |> Sg.set
             
@@ -342,6 +349,7 @@ module Sg =
             AVal.map2 (&&) pickingAllowed anno.visible
 
         let pickFunc = pickEventsHelper (anno.key |> AVal.constant) pickingAllowed anno.thickness.value anno.modelTrafo
+
 
         let pickingLines = 
             Sg.pickableLine 
@@ -369,7 +377,5 @@ module Sg =
         ] |> Sg.onOff anno.visible
     
     let finishedAnnotationDiscs (anno : AdaptiveAnnotation) (conf:innerViewConfig) (cl : AdaptiveFalseColorsModel) (cam:aval<CameraView>) =
-        anno.showDns 
-        |> optional (drawDns anno conf cl cam) 
-        |> Sg.set 
+        optional anno.showDns (drawDns anno conf cl cam) 
         |> Sg.onOff anno.visible

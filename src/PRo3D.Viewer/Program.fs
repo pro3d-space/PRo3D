@@ -42,6 +42,8 @@ open Suave.Json
 
 open FSharp.Data.Adaptive
 
+
+
 [<DataContract>]
 type Calc =
    { 
@@ -198,7 +200,22 @@ let main argv =
     if catchDomainErrors then
         AppDomain.CurrentDomain.UnhandledException.AddHandler(UnhandledExceptionEventHandler(domainError))
 
+
+    let setCORSHeaders =
+        Suave.Writers.setHeader  "Access-Control-Allow-Origin" "*"
+        >=> Suave.Writers.setHeader "Access-Control-Allow-Headers" "content-type"
+    
+    let allow_cors : WebPart =
+        choose [
+            OPTIONS >=>
+                fun context ->
+                    context |> (
+                        setCORSHeaders
+                        >=> OK "CORS approved" )
+        ]
+
     WebPart.startServerLocalhost 54322 [
+        allow_cors
         MutableApp.toWebPart' runtime false mainApp
         path "/websocket" >=> handShake ws
         Reflection.assemblyWebPart typeof<EmbeddedRessource>.Assembly

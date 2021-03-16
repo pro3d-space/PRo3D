@@ -51,11 +51,15 @@ module Sg =
         let closest = bb.GetClosestPointOn(campPos)
         let dist    = (closest - campPos).Length
 
-        let unitPxSize = lodParams.frustum.right / (float lodParams.size.X / 2.0)
-        let px = (lodParams.frustum.near * p.triangleSize) / dist
-                
-    //    Log.warn "%f to %f - avgSize: %f" px (unitPxSize * lodParams.factor) p.triangleSize
-        px > unitPxSize * (exp lodParams.factor)
+        // super agressive to prune out far away stuf
+        if (campPos - bb.Center).Length > p.info.GlobalBoundingBox.Size.[p.info.GlobalBoundingBox.Size.MajorDim] * 1.5 then false
+        else
+
+            let unitPxSize = lodParams.frustum.right / (float lodParams.size.X / 2.0)
+            let px = (lodParams.frustum.near * p.triangleSize) / dist // (pow dist 1.2) // (added pow 1.2 here... discuss)
+
+                //    Log.warn "%f to %f - avgSize: %f" px (unitPxSize * lodParams.factor) p.triangleSize
+            px > unitPxSize * (exp lodParams.factor)
 
     let createPlainSceneGraph (runtime : IRuntime) (signature : IFramebufferSignature) (scene : OpcScene) (createKdTrees)
         : (ISg * list<PatchHierarchy> * HashMap<Box3d, KdTrees.Level0KdTree>) =
@@ -112,6 +116,7 @@ module Sg =
                     h.opcPaths.Opc_DirAbsPath
                     mars //scene.lodDecider 
                     scene.useCompressedTextures
+                    true
                     ViewerModality.XYZ
                     //PatchLod.CoordinatesMapping.Local
                     (PatchLod.toRoseTree h.tree)
@@ -176,6 +181,7 @@ module Sg =
                        patchHierarchies      = d.opcPaths
                        preTransform          = d.preTransform
                        useCompressedTextures = false
+                       lodDecider = DefaultMetrics.mars2
                 }
             )
             |> List.map (fun d -> createPlainSceneGraph runtime signature d true)

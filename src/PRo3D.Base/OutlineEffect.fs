@@ -132,7 +132,26 @@ module OutlineEffect =
             }
             
         [mask; outline] |> Sg.ofList 
+
+
+    let screenSpaceStablePoints = 
+        FShade.Effect.compose [
+            toEffect Shader.ScreenSpaceScale.screenSpaceScale
+            toEffect DefaultSurfaces.stableTrafo
+            toEffect DefaultSurfaces.vertexColor
+        ]
         
+    let outlineShader = 
+        FShade.Effect.compose [
+            toEffect Shader.ScreenSpaceScale.screenSpaceScale
+            toEffect DefaultSurfaces.stableTrafo
+            toEffect Shader.lines
+            toEffect DefaultSurfaces.thickLine
+            toEffect DefaultSurfaces.thickLineRoundCaps
+            //toEffect DefaultSurfaces.constantColor C4f.Red
+            toEffect DefaultSurfaces.vertexColor
+        ]
+
     let createForPoints
         (points : alist<V3d>) 
         (outlineGroup: int)
@@ -152,11 +171,7 @@ module OutlineEffect =
             |> Sg.stencilMode (AVal.constant (write outlineGroup))
             |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Stencil])
             |> Sg.pass pass
-            |> Sg.shader {
-                    do! Shader.ScreenSpaceScale.screenSpaceScale
-                    do! DefaultSurfaces.stableTrafo
-                    do! DefaultSurfaces.vertexColor
-            }
+            |> Sg.effect [screenSpaceStablePoints]
             
         let outline = 
             sg //sgo
@@ -165,15 +180,7 @@ module OutlineEffect =
             |> Sg.pass outlinePass
             |> Sg.depthTest (AVal.constant DepthTest.None)
             |> Sg.uniform "LineWidth" outlineWidth
-            |> Sg.shader {
-                    do! Shader.ScreenSpaceScale.screenSpaceScale
-                    do! DefaultSurfaces.stableTrafo
-                    do! Shader.lines
-                    do! DefaultSurfaces.thickLine
-                    do! DefaultSurfaces.thickLineRoundCaps
-                    //do! DefaultSurfaces.constantColor C4f.Red
-                    do! DefaultSurfaces.vertexColor
-                }
+            |> Sg.effect [outlineShader]
         [mask; outline] |> Sg.ofList 
         
     type PointOrLine = 

@@ -637,8 +637,7 @@ module SurfaceApp =
                                    Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
                                 ]                             
             
-                                yield 
-                                    i [clazz "home icon"; onClick (fun _ -> FlyToSurface key) ][] 
+                                yield i [clazz "home icon"; onClick (fun _ -> FlyToSurface key) ][] 
                                     |> UI.wrapToolTip DataPosition.Bottom "Fly to surface"                                                     
             
                                 yield i [clazz "folder icon"; onClick (fun _ -> OpenFolder key) ][] 

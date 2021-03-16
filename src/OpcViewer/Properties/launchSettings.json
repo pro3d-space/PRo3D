@@ -1,8 +1,7 @@
 {
   "profiles": {
-    "PRo3D.Viewer": {
+    "OpcViewer": {
       "commandName": "Project",
-      "commandLineArgs": "access=\"minerva:tai8Ies7\"",
       "nativeDebugging": true
     }
   }
