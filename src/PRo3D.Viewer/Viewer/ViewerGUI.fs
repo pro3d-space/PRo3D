@@ -487,6 +487,8 @@ module Gui =
                         Html.Layout.boxH [
                             Numeric.view' [InputBox] m.scene.config.pickingTolerance |> UI.map (fun x -> (ConfigProperties.Action.SetPickingTolerance x) |> ConfigPropertiesMessage)] 
                      ]
+                | Interactions.PlaceScaleBar ->
+                    return ScaleBarsDrawing.UI.viewScaleBarToolsHorizontal m.scaleBarsDrawing |> UI.map ScaleBarsDrawingMessage
                 | _ -> 
                   return div[][]
             }
@@ -528,6 +530,7 @@ module Gui =
             | Interactions.PlaceRover            -> "CTRL+click to (1) place rover and (2) pick lookat"
             | Interactions.TrafoControls         -> "not implemented"
             | Interactions.PlaceSurface          -> "not implemented"
+            | Interactions.PlaceScaleBar         -> "CTRL+click to place scale bar"
             //| Interactions.PickLinking           -> "CTRL+click to place point on surface"
             | _ -> ""
         
@@ -676,6 +679,22 @@ module Gui =
               GuiEx.accordion "Properties" "Content" true [
                   Incremental.div AttributeMap.empty (viewPlanProperties m |> AList.ofAValSingle)
               ]
+          ] 
+          
+    module ScaleBars = 
+        //let scaleBarProperties (model : AdaptiveModel) =
+        //      //model.scene.viewPlans |> ViewPlan.UI.viewRoverProperties ViewPlanMessage 
+        //      model.scene.viewPlans |> ViewPlanApp.UI.viewRoverProperties ViewPlanMessage model.footPrint.isVisible
+        
+        let scaleBarsUI (m : AdaptiveModel) =             
+          div [][
+              GuiEx.accordion "ScaleBars" "Write" true [
+                  ScaleBarsApp.UI.viewScaleBars m.scene.scaleBars |> UI.map ScaleBarsMessage
+              ]
+              // Todo: properties
+              //GuiEx.accordion "Properties" "Content" true [
+              //    Incremental.div AttributeMap.empty (scaleBarProperties m |> AList.ofAValSingle)
+              //]
           ]                
 
     module Bookmarks =
@@ -809,6 +828,8 @@ module Gui =
                 require (viewerDependencies) (body bodyAttributes [HeightValidatorApp.viewUI m.heighValidation |> UI.map HeightValidation])
             | Some "bookmarks" -> 
                 require (viewerDependencies) (body bodyAttributes [Bookmarks.bookmarkUI m])
+            | Some "scalebars" -> 
+                require (viewerDependencies) (body bodyAttributes [ScaleBars.scaleBarsUI m])
             | Some "properties" ->
                 let prop = 
                     m.drawing.annotations.lastSelectedItem

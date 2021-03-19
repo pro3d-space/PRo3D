@@ -37,7 +37,6 @@
     <Compile Include="ReferenceSystem.fs" />
     <Compile Include="Surface.fs" />
     <Compile Include="GroupsApp.fs" />
-    <Compile Include="ScaleBarsApp.fs" />
     <Compile Include="Surface\Translation.fs" />
     <Compile Include="Surface\Surface-Properties.fs" />
     <Compile Include="Surface\Surface.Files.fs" />
@@ -50,6 +49,7 @@
     <Compile Include="Drawing\Drawing.Sg.fs" />
     <Compile Include="Drawing\Drawing.IO.fs" />
     <Compile Include="Drawing\Drawing-App.fs" />
+    <Compile Include="ScaleBarsApp.fs" />
     <Compile Include="Validator/HeightValidator-Model.fs" />
     <Compile Include="Validator/HeightValidatorApp.fs" />
     <Compile Include="Importers/MeasurementsImporter.fs" />

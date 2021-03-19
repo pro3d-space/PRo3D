@@ -138,6 +138,8 @@ type ViewerAction =
     //| UpdateShatterCones              of list<SnapshotShattercone> // TODO snapshots and shattercone things should be in own apps
     | TestHaltonRayCasting            //of list<string>
     | HeightValidation               of HeightValidatorAction
+    | ScaleBarsDrawingMessage        of ScaleBarDrawingAction
+    | ScaleBarsMessage               of ScaleBarsAction
     | Nop
 
 and MailboxState = {
@@ -163,6 +165,7 @@ type Scene = {
     scenePath         : Option<string>
     referenceSystem   : ReferenceSystem    
     bookmarks         : GroupsModel
+    scaleBars         : ScaleBarsModel
 
     viewPlans         : ViewPlanModel
     dockConfig        : DockConfig
@@ -174,7 +177,7 @@ type Scene = {
 
 module Scene =
         
-    let current = 0    
+    let current = 1    
     let read0 = 
         json {            
             let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
@@ -187,7 +190,47 @@ module Scene =
             let! scenePath       = Json.read "scenePath"
             let! referenceSystem = Json.read "referenceSystem"
             let! bookmarks       = Json.read "bookmarks"
-            let! dockConfig      = Json.read "dockConfig"            
+            let! dockConfig      = Json.read "dockConfig"     
+
+            return 
+                {
+                    version         = current
+
+                    cameraView      = cameraView
+                    navigationMode  = navigationMode |> enum<NavigationMode>
+                    exploreCenter   = exploreCenter  |> V3d.Parse
+                    
+                    interaction     = interactionMode |> enum<InteractionMode>
+                    surfacesModel   = surfaceModel
+                    config          = config
+                    scenePath       = scenePath
+                    referenceSystem = referenceSystem
+                    bookmarks       = bookmarks
+                   
+                    viewPlans       = ViewPlanModel.initial
+                    dockConfig      = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
+                    closedPages     = List.empty
+                    firstImport     = false
+                    userFeedback    = String.Empty
+                    feedbackThreads = ThreadPool.empty
+                    scaleBars       = ScaleBarsModel.initial
+                }
+        }
+
+    let read1 = 
+        json {            
+            let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
+            let! navigationMode  = Json.read "navigationMode"
+            let! exploreCenter   = Json.read "exploreCenter" 
+
+            let! interactionMode = Json.read "interactionMode"
+            let! surfaceModel    = Json.read "surfaceModel"
+            let! config          = Json.read "config"
+            let! scenePath       = Json.read "scenePath"
+            let! referenceSystem = Json.read "referenceSystem"
+            let! bookmarks       = Json.read "bookmarks"
+            let! dockConfig      = Json.read "dockConfig"  
+            let! scaleBars       = Json.read "scaleBars" 
 
             return 
                 {
@@ -210,6 +253,7 @@ module Scene =
                     firstImport     = false
                     userFeedback    = String.Empty
                     feedbackThreads = ThreadPool.empty
+                    scaleBars       = scaleBars
                 }
         }
 
@@ -221,6 +265,7 @@ type Scene with
             let! v = Json.read "version"
             match v with
             | 0 -> return! Scene.read0
+            | 1 -> return! Scene.read1
             | _ ->
                 return! v 
                 |> sprintf "don't know version %A  of Scene" 
@@ -241,7 +286,8 @@ type Scene with
             do! Json.write "referenceSystem" x.referenceSystem
             do! Json.write "bookmarks" x.bookmarks
 
-            do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString)                   
+            do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString)  
+            do! Json.write "scaleBars" x.scaleBars
         }
 
 [<ModelType>] 
@@ -324,6 +370,8 @@ type Model = {
 
     //correlationPlot : CorrelationPanelModel
     //pastCorrelation : Option<CorrelationPanelModel>
+
+    scaleBarsDrawing     : ScaleBarDrawing
             
     [<TreatAsValue>]
     past : Option<Drawing.DrawingModel> 
@@ -394,6 +442,7 @@ module Viewer =
                     {id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                     {id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                     {id = "minerva"; title = Some " Minerva "; weight = 0.4; deleteInvisible = None; isCloseable = None }
+                    {id = "scalebars"; title = Some " ScaleBars "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                   ]                          
                   stack 0.5 (Some "config") [
                     {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
@@ -420,6 +469,7 @@ module Viewer =
                   stack 0.5 None [                        
                     {id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                     {id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
+                    {id = "scalebars"; title = Some " ScaleBars "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                   ]                          
                   stack 0.5 (Some "config") [
                     {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
@@ -456,6 +506,7 @@ module Viewer =
 
                     referenceSystem = ReferenceSystem.initial                    
                     bookmarks       = GroupsModel.initial
+                    scaleBars       = ScaleBarsModel.initial
                     dockConfig      = DockConfigs.core
                     closedPages     = list.Empty 
                     firstImport     = true
@@ -488,6 +539,7 @@ module Viewer =
             trafoKind       = TrafoKind.Rotate
             trafoMode       = TrafoMode.Local            
 
+            scaleBarsDrawing = InitScaleBarsParams.initialScaleBarDrawing
             past            = None
             future          = None
 

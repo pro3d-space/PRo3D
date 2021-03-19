@@ -392,6 +392,10 @@ module ViewerApp =
                     (HeightValidatorAction.PlaceValidator p)
 
             { m with heighValidation = heightVal }
+        | Interactions.PlaceScaleBar, _ ->
+            let msg = ScaleBarsAction.AddScaleBar(p, m.scaleBarsDrawing, m.navigation.camera.view)
+            let scm = ScaleBarsApp.update m.scene.scaleBars msg
+            { m with scene = { m.scene with scaleBars = scm } }
         | _ -> m       
 
     let mutable lastHash = -1    
@@ -1289,7 +1293,27 @@ module ViewerApp =
             { m with heighValidation = HeightValidatorApp.update m.heighValidation m.scene.referenceSystem.up.value m.scene.referenceSystem.north.value a }
         //| _ -> 
         //    Log.warn "[Viewer] don't know message %A. ignoring it." msg
-        //    m                                            
+        //    m            
+        | ScaleBarsDrawingMessage msg,_,_->    
+            let scDrawing = ScaleBarsDrawing.update m.scaleBarsDrawing msg
+            { m with scaleBarsDrawing = scDrawing }
+        | ScaleBarsMessage msg,_,_->  
+            let _scaleBars = (Model.scene_ >-> Scene.scaleBars_ >-> ScaleBarsModel.scaleBars_)
+            match msg with
+            | ScaleBarsAction.FlyToSB id ->
+                let _sb = m |> Optic.get _scaleBars |> HashMap.tryFind id
+                match _sb with 
+                | Some sb ->
+                    let animationMessage = 
+                        animateFowardAndLocation sb.view.Location sb.view.Forward sb.view.Up 2.0 "ForwardAndLocation2s"
+                    let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
+                    { m with  animations = a'}
+                | None -> m
+            | _ ->
+                let _scaleBarsModel = (Model.scene_ >-> Scene.scaleBars_ )
+                let scaleBars' = ScaleBarsApp.update m.scene.scaleBars msg
+                let m' = m |> Optic.set _scaleBarsModel scaleBars'  
+                m'
         | _ -> m       
                                    
     let mkBrushISg color size trafo : ISg<Message> =
@@ -1473,6 +1497,16 @@ module ViewerApp =
 
             let viewportFilteredText = 
                 MinervaApp.viewPortLabels m.minervaModel m.navigation.camera.view (ViewerUtils.frustum m) |> Sg.map MinervaActions
+
+            let scaleBars =
+                ScaleBarsApp.Sg.view
+                    m.scene.scaleBars
+                    m.navigation.camera.view
+                    m.scene.config
+                    mrefConfig
+                    m.scene.referenceSystem
+                |> Sg.map ScaleBarsMessage
+
                 
             //let correlationLogs, _ =
             //    PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
@@ -1494,7 +1528,7 @@ module ViewerApp =
             let heightValidation =
                 HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation
 
-            [exploreCenter; refSystem; viewPlans; homePosition; solText; heightValidation] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
+            [exploreCenter; refSystem; viewPlans; homePosition; solText; heightValidation; scaleBars] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
         let minervaSg =
             let minervaFeatures = 

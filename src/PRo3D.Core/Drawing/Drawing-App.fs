@@ -44,6 +44,7 @@ module DrawingApp =
         
     let closePolyline (a:Annotation) = 
         let firstP = a.points.[0]
+        let firstP = a.points.[0]
         let lastP = a.points.[(a.points.Count-1)]
         match a.projection with
         | Projection.Viewpoint | Projection.Sky ->     

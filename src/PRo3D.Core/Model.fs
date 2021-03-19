@@ -18,6 +18,7 @@ type Interactions =
     | PickLog               = 12
     | PlaceValidator        = 13
     | TrueThickness         = 14 // CHECK-merge
+    | PlaceScaleBar         = 15
 
 module Interactions =
     let hideSet = 
