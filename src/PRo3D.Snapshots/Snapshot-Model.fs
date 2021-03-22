@@ -1,5 +1,4 @@
-﻿namespace PRo3D.SimulatedViews
-
+﻿namespace PRo3D
 open Chiron
 open Aardvark.Base
 
@@ -121,56 +120,44 @@ with
     json {
       do! Json.write        "opcname"  (x.surfname.ToString())
       do! Json.writeOption  "trafo"     x.trafo
-      do! Json.write  "visible"   x.visible
+      do! Json.writeOption  "visible"   x.visible
     }
 
 type SnapshotShattercone = {
-    name        : string
-    count       : int
-    color       : option<C4b>
-    contrast    : option<float>
-    brightness  : option<float>
-    gamma       : option<float>
-    scale       : option<V2i> // [min,max]
-    xRotation   : option<V2i> // [min,max] in degree?
-    yRotation   : option<V2i> 
-    zRotation   : option<V2i>
+    name      : string
+    count     : int
+    color     : option<C4b>
+    scale     : option<V2i> // [min,max]
+    xRotation : option<V2i> // [min,max] in degree?
+    yRotation : option<V2i> 
+    zRotation : option<V2i>
 } 
 with 
   static member TestData =
     {
-        name       = "Steinheim_Germany_Model_1.obj"
-        count      = 10
-        color      = Some C4b.Green //(C4b(242, 198, 153, 255))
-        contrast   = None
-        brightness = None
-        gamma      = None
-        scale      = Some (V2i(1, 5))
-        xRotation  = None
-        yRotation  = Some (V2i(0, 180))
-        zRotation  = Some (V2i(0, 360))
+        name      = "Steinheim_Germany_Model_1.obj"
+        count     = 10
+        color     = Some C4b.Green //(C4b(242, 198, 153, 255))
+        scale     = Some (V2i(1, 5))
+        xRotation = None
+        yRotation = Some (V2i(0, 180))
+        zRotation = Some (V2i(0, 360))
     }
   static member current = 0
   static member private readV0 = 
       json {
-        let! name       = Json.read "name"
-        let! count      = Json.read "count"
-        let! color      = Json.parseOption (Json.tryRead "color") C4b.Parse
-        let! contrast   = Json.tryRead "contrast"
-        let! brightness = Json.tryRead "brightness"
-        let! gamma      = Json.tryRead "gamma"
-        let! scale      = Json.parseOption (Json.tryRead "scale") V2i.Parse 
-        let! xRotation  = Json.parseOption (Json.tryRead "xRotation") V2i.Parse 
-        let! yRotation  = Json.parseOption (Json.tryRead "yRotation") V2i.Parse 
-        let! zRotation  = Json.parseOption (Json.tryRead "zRotation") V2i.Parse 
+        let! name    = Json.read "name"
+        let! count   = Json.read "count"
+        let! color   = Json.parseOption (Json.tryRead "color") C4b.Parse
+        let! scale   = Json.parseOption (Json.tryRead "scale") V2i.Parse 
+        let! xRotation   = Json.parseOption (Json.tryRead "xRotation") V2i.Parse 
+        let! yRotation   = Json.parseOption (Json.tryRead "yRotation") V2i.Parse 
+        let! zRotation   = Json.parseOption (Json.tryRead "zRotation") V2i.Parse 
         
         let res = {
             name        = name
             count       = count
             color       = color
-            contrast    = contrast
-            brightness  = brightness
-            gamma       = gamma
             scale       = scale 
             xRotation   = xRotation 
             yRotation   = yRotation 
@@ -187,9 +174,6 @@ with
       do! Json.write        "name"          (x.name.ToString())
       do! Json.write        "count"         x.count
       do! Json.writeOption  "color"         x.color
-      do! Json.writeOption  "contrast"      x.contrast
-      do! Json.writeOption  "brightness"    x.brightness
-      do! Json.writeOption  "gamma"         x.gamma
       do! Json.writeOption  "scale"         x.scale
       do! Json.writeOption  "xRotation"     x.xRotation
       do! Json.writeOption  "yRotation"     x.yRotation

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
@@ -8,8 +8,8 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <GenerateLenses>True</GenerateLenses>
   </PropertyGroup>
-  
-  <PropertyGroup>
+
+    <PropertyGroup>
     <InPublish>False</InPublish>
   </PropertyGroup>
   
@@ -20,7 +20,7 @@
     <!--<PublishTrimmed>true</PublishTrimmed>-->
   </PropertyGroup>
 
-  
+
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>..\..\bin\Debug\</OutputPath>
   </PropertyGroup>
@@ -51,19 +51,21 @@
 
     <Compile Include="LensConfigs.fs" />
 
-    <Compile Include="AnnotationRendering.fs" />
+    <Compile Include="Viewer\AppUtils.fs" />
+
+    <Compile Include="Viewer\Viewer-Snapshot-Utils.fs" />
     <Compile Include="Viewer\Viewer-Utils.fs" />
     <Compile Include="Viewer\ViewerGUI.fs" />
     <Compile Include="Viewer\Viewer-IO.fs" />
     <Compile Include="Viewer\SceneConverter.fs" />
     <Compile Include="Viewer\Viewer.fs" />
-    <Compile Include="CommandLine\CommandLineUtils.fs" />
-    <Compile Include="CommandLine\CommandLine.fs" />
+    <Compile Include="Viewer\SnapshotGenerator.fs" />
     <Compile Include="RemoteControlModel.fs" />
     <Compile Include="RemoteControlApp.fs" />
     <Compile Include="Program.fs" />
-    <EmbeddedResource Include="resources\errorReporting.js" />
-    <EmbeddedResource Include="resources\HueColorMap.png" />
+    <None Include="resources\HueColorMap.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <EmbeddedResource Include="resources\spectrum.js">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </EmbeddedResource>
@@ -82,7 +84,7 @@
     <ProjectReference Include="..\PRo3D.Minerva\PRo3D.Minerva.fsproj" />
     <ProjectReference Include="..\PRo3D.SimulatedViews\PRo3D.SimulatedViews.fsproj" />
   </ItemGroup>
-  <ItemGroup>
+    <ItemGroup>
     <Reference Include="JR.Wrappers">
       <HintPath>..\..\lib\JR.Wrappers.dll</HintPath>
     </Reference>

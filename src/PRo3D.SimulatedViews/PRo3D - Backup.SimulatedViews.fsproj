@@ -13,6 +13,10 @@
     <OutputPath>..\..\bin\Release\</OutputPath>
   </PropertyGroup>
   <ItemGroup>      
+    <Compile Include="Lighting\Lighting-Utils.fs" />      
+    <Compile Include="Lighting\Shaders.fs" />      
+    <Compile Include="Lighting\Shading-Model.fs" />      
+    <Compile Include="Lighting\ShadingApp.fs" />      
     <Compile Include="Viewplanner\FootPrint-Model.fs" />      
     <Compile Include="Viewplanner\Rover-Model.fs" />      
     <Compile Include="Viewplanner\Rover.fs" />      
@@ -32,23 +36,11 @@
     <Compile Include="Snapshots\Snapshot.fs" />      
     <Compile Include="Snapshots\SnapshotAnimation.fs" />      
     <Compile Include="Snapshots\Snapshot-Utils.fs" />      
-    <Compile Include="Snapshots\SnapshotApp.fs" />      
-    <Compile Include="Lighting\Shaders.fs" />      
-    <Compile Include="Lighting\Shading-Model.fs" />      
-    <Compile Include="Lighting\ShadingApp.fs" />      
-    <Compile Include="Lighting\Lighting-Utils.fs" />      
-    <Compile Include="CommandLine\StartupArgs.fs" />      
-    <Compile Include="CommandLine\CommandLineUtils.fs" />      
-    <Compile Include="CommandLine\CommandLine.fs" />
+    <Compile Include="Snapshots\SnapshotApp.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
     <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <Reference Include="JR.Wrappers">
-      <HintPath>..\..\lib\JR.Wrappers.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

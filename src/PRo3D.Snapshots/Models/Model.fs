@@ -6,17 +6,21 @@ open FSharp.Data.Adaptive
 open Adaptify
 open Aardvark.UI
 open Aardvark.UI.Primitives
+
 open Aardvark.Application
 
 open Aardvark.SceneGraph
 open Aardvark.SceneGraph.Opc
 open Aardvark.VRVis
 open Aardvark.Rendering
-
+open PRo3D.SimulatedViews
+open PRo3D.Shading
 open PRo3D.Base
 open PRo3D.Core
 open PRo3D.Base.Annotation
 open Chiron
+open SnapshotSettings
+open Shading.ShadingApp
 
 #nowarn "0044"
 #nowarn "0686"
@@ -53,32 +57,6 @@ type ViewerMode =
     | Instrument
 
 
-    
-type SnapshotType = 
-    | Camera
-    | CameraAndSurface
-    | CameraSurfaceMask
-
-type GuiMode =
-    | NoGui
-    | RenderViewOnly
-    | CoreGui
-    | CompleteGui
-
-
-type StartupArgs = {
-    startEmpty            : bool
-    useAsyncLoading       : bool
-    magnificationFilter   : bool
-    showExplorationPoint  : bool
-} with 
-    static member initArgs =
-      {
-          magnificationFilter   = false
-          startEmpty            = false
-          useAsyncLoading       = false
-          showExplorationPoint  = true
-      }
 
 
 [<ModelType>]
@@ -198,9 +176,12 @@ type ViewConfigModel = {
     pickingTolerance        : NumericInput
     lodColoring             : bool
     drawOrientationCube     : bool
-    //useSurfaceHighlighting  : bool
-    //showExplorationPoint    : bool
-    }
+    // SnapshotViewer extensions
+    showExplorationPoint    : bool
+    filterTexture           : bool 
+    shadingApp              : Shading.ShadingApp
+    snapshotSettings        : SnapshotSettings
+}
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module ViewConfigModel =
@@ -271,7 +252,7 @@ module ViewConfigModel =
        format = "{0:0.000}"
     }       
 
-    let current = 2
+    let current = 3
  
     let initial = {
         version = current
@@ -286,8 +267,10 @@ module ViewConfigModel =
         drawOrientationCube = false
         offset              = depthOffset
         pickingTolerance    = initPickingTolerance
-        //useSurfaceHighlighting = true
-        //showExplorationPoint = true
+        showExplorationPoint  = true
+        filterTexture         = false 
+        shadingApp            = ShadingApp.init
+        snapshotSettings      = SnapshotSettings.init
     }
        
     module V0 =
@@ -302,9 +285,9 @@ module ViewConfigModel =
                 let! (lodColoring : bool)         = Json.read "lodColoring"
                 let! importTriangleSize           = Json.readWith Ext.fromJson<NumericInput,Ext> "importTriangleSize"
                 let! (drawOrientationCube : bool) = Json.read "drawOrientationCube"                        
-                
+                 
                 //return initial
-                
+                 
                 return {            
                     version               = current
                     nearPlane             = nearPlane
@@ -318,6 +301,10 @@ module ViewConfigModel =
                     drawOrientationCube   = drawOrientationCube
                     offset                = depthOffset
                     pickingTolerance      = initPickingTolerance
+                    showExplorationPoint  = true
+                    filterTexture         = false 
+                    shadingApp            = ShadingApp.init
+                    snapshotSettings      = SnapshotSettings.init
                 }
             }
     module V1 =
@@ -349,6 +336,10 @@ module ViewConfigModel =
                     drawOrientationCube   = drawOrientationCube
                     offset                = depthoffset
                     pickingTolerance      = initPickingTolerance
+                    showExplorationPoint  = true
+                    filterTexture         = false 
+                    shadingApp            = ShadingApp.init
+                    snapshotSettings      = SnapshotSettings.init
                 }
             }
 
@@ -382,6 +373,48 @@ module ViewConfigModel =
                     drawOrientationCube   = drawOrientationCube
                     offset                = depthoffset
                     pickingTolerance      = pickingTolerance
+                    showExplorationPoint  = true
+                    filterTexture         = false 
+                    shadingApp            = ShadingApp.init
+                    snapshotSettings      = SnapshotSettings.init
+                }
+            }            
+
+    module V3 =
+        let read = 
+            json {
+                let! nearPlane                     = Json.readWith Ext.fromJson<NumericInput,Ext> "nearPlane"
+                let! farPlane                      = Json.readWith Ext.fromJson<NumericInput,Ext> "farPlane"
+                let! navigationSensitivity         = Json.readWith Ext.fromJson<NumericInput,Ext> "navigationSensitivity"
+                let! arrowLength                   = Json.readWith Ext.fromJson<NumericInput,Ext> "arrowLength"
+                let! arrowThickness                = Json.readWith Ext.fromJson<NumericInput,Ext> "arrowThickness"
+                let! dnsPlaneSize                  = Json.readWith Ext.fromJson<NumericInput,Ext> "dnsPlaneSize"
+                let! (lodColoring : bool)          = Json.read "lodColoring"
+                let! importTriangleSize            = Json.readWith Ext.fromJson<NumericInput,Ext> "importTriangleSize"
+                let! (drawOrientationCube : bool)  = Json.read "drawOrientationCube"                        
+                let! depthoffset                   = Json.readWith Ext.fromJson<NumericInput,Ext> "depthOffset"
+                let! (showExplorationPoint : bool) = Json.read "showExplorationPoint"                        
+                let! (filterTexture : bool)        = Json.read "filterTexture"                        
+                let! (shadingProperties : Shading.ShadingApp) = Json.read "shadingProperties"          
+                let! (snapshotSettings : SnapshotSettings) = Json.read "snapshotSettings"
+            
+                return {            
+                    version               = current
+                    nearPlane             = nearPlane
+                    farPlane              = farPlane
+                    navigationSensitivity = navigationSensitivity
+                    arrowLength           = arrowLength
+                    arrowThickness        = arrowThickness
+                    dnsPlaneSize          = dnsPlaneSize
+                    lodColoring           = lodColoring
+                    importTriangleSize    = importTriangleSize      
+                    drawOrientationCube   = drawOrientationCube
+                    offset                = depthoffset
+                    pickingTolerance      = initPickingTolerance
+                    showExplorationPoint  = true
+                    filterTexture         = false 
+                    shadingApp            = shadingProperties
+                    snapshotSettings      = snapshotSettings
                 }
             }
 
@@ -393,6 +426,7 @@ type ViewConfigModel with
             | 0 -> return! ViewConfigModel.V0.read
             | 1 -> return! ViewConfigModel.V1.read
             | 2 -> return! ViewConfigModel.V2.read
+            | 3 -> return! ViewConfigModel.V3.read
             | _ -> return! v |> sprintf "don't know version %A  of ViewConfigModel" |> Json.error
         }
     static member ToJson (x : ViewConfigModel) =
@@ -409,7 +443,11 @@ type ViewConfigModel with
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "offset"                x.offset
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "depthOffset"           x.offset
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "pickingTolerance"      x.pickingTolerance
-            do! Json.write "version" x.version
+            do! Json.write "showExplorationPoint" x.showExplorationPoint                        
+            do! Json.write "filterTexture"        x.filterTexture                 
+            do! Json.write "shadingProperties"    x.shadingApp       
+            do! Json.write "snapshotSettings"     x.snapshotSettings
+            do! Json.write "version"              x.version
         }
 
 

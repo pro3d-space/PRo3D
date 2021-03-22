@@ -275,6 +275,7 @@ type Surface = {
     textureLayers   : IndexList<TextureLayer>
     selectedTexture : option<TextureLayer>
 
+    [<Adaptify.NonAdaptiveAttribute>]
     surfaceType     : SurfaceType     
 
     colorCorrection : ColorCorrection

@@ -308,6 +308,13 @@ module Leaf =
             match x with
             | Leaf.Bookmarks b -> Some b
             | _ -> None)
+
+    let mapToBookmarks bms =
+        bms
+        |> HashMap.choose(fun g x -> 
+            match x with
+            | Leaf.Bookmarks b -> Some b
+            | _ -> None)
         
 module Groups = 
     let updateLeaf' id f model =
@@ -423,15 +430,17 @@ module SurfaceModel =
         model.surfaces.flat |> HashMap.tryFind guid
 
     let groupSurfaces (sgSurfaces : HashMap<Guid, SgSurface>) (surfaces : HashMap<Guid, Surface>) =
-        sgSurfaces
-        |> HashMap.toList
-        |> List.groupBy(fun (_,x) -> 
-            let surf = HashMap.find x.surface surfaces 
-            surf.priority.value)
-        |> List.map(fun (p,k) -> (p, k |> HashMap.ofList))
-        |> List.sortBy fst
-        |> List.map snd
-        |> IndexList.ofList
+        let debug = 
+            sgSurfaces
+            |> HashMap.toList
+            |> List.groupBy(fun (_,x) -> 
+                let surf = HashMap.find x.surface surfaces 
+                surf.priority.value)
+            |> List.map(fun (p,k) -> (p, k |> HashMap.ofList))
+            |> List.sortBy fst
+            |> List.map snd
+            |> IndexList.ofList
+        debug
 
     let triggerSgGrouping (model:SurfaceModel) =
         { model with sgGrouped = (groupSurfaces model.sgSurfaces (model.surfaces.flat |> Leaf.toSurfaces))}

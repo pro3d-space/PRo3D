@@ -18,6 +18,8 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PRo3D.Core", "PRo3D.Core\PR
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "OpcViewer", "OpcViewer\OpcViewer.fsproj", "{99328F55-6096-4547-ABC0-9750C16772CB}"
 EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PRo3D.SnapshotViewer", "PRo3D.Snapshots\PRo3D.SnapshotViewer.fsproj", "{3382604C-D53A-4A64-A979-B946F8380E6D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -56,6 +58,10 @@ Global
 		{99328F55-6096-4547-ABC0-9750C16772CB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{99328F55-6096-4547-ABC0-9750C16772CB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{99328F55-6096-4547-ABC0-9750C16772CB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3382604C-D53A-4A64-A979-B946F8380E6D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3382604C-D53A-4A64-A979-B946F8380E6D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3382604C-D53A-4A64-A979-B946F8380E6D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3382604C-D53A-4A64-A979-B946F8380E6D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

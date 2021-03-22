@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "PRo3D.Viewer": {
+      "commandName": "Project",
+      "commandLineArgs": "PRo3D.Viewer.exe --opc E:\\\\AardVRVIs\\\\Mars-DL\\\\StereoMosaic --obj E:\\\\AardVRVIs\\\\Mars-DL\\\\SCModels\\\\02-Presqu-ile-LF_Hist\\\\02-Presqu-ile-LF.obj --asnap d:\\VRVis\\Aaardvark\\PRo3D_NEW\\PRo3D\\bin\\Debug\\netcoreapp3.1\\snapshots.json --out tmp --verbose --exitOnFinish"
+    }
+  }
+}
