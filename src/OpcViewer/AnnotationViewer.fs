@@ -40,7 +40,6 @@ module AnnotationViewer =
 
 
 
-
         let sg = 
             annoSet 
             |> ASet.map(fun (_,a) -> 
@@ -61,7 +60,7 @@ module AnnotationViewer =
 
         Aardvark.Init()
 
-        use app = new VulkanApplication()
+        use app = new OpenGlApplication()
         let win = app.CreateGameWindow(1)
         win.RenderAsFastAsPossible <- true
         let runtime = win.Runtime
@@ -136,6 +135,12 @@ module AnnotationViewer =
             |> Sg.uniform "LodVisEnabled" lodVisEnabled
             |> Sg.fillMode fillMode
 
-        win.RenderTask <- runtime.CompileRender(win.FramebufferSignature, sg)
+        Log.startTimed "rendering first frame"
+        let fbo = runtime.CreateFramebuffer(win.FramebufferSignature, AVal.constant (V2i(1024,1024))).GetValue()
+        let t = runtime.CompileRender(win.FramebufferSignature, sg)
+        t.Run(RenderToken.Empty, fbo)
+        Log.stop()
+
+        win.RenderTask <- t
         win.Run()
         0
