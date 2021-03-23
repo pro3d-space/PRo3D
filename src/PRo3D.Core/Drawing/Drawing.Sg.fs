@@ -128,10 +128,7 @@ module Sg =
                 
                 let! dip = x.dipDirection
                 let dipLine = 
-                  alist {
-                      yield center'
-                      yield center' + dip.Normalized * lineLength'
-                  }
+                  AVal.constant [| center'; center' + dip.Normalized * lineLength' |]
                 
                 yield Sg.drawScaledLines dipLine color conf.arrowThickness posTrafo 
                 
@@ -144,11 +141,8 @@ module Sg =
                 //strikes lines
                 let! strike = x.strikeDirection
                 let strikeLine1 =
-                  alist {                                                                
-                      yield center' - strike.Normalized * lineLength'
-                      yield center' + strike.Normalized * lineLength'
-                  }                                            
-                
+                    AVal.constant [| center' - strike.Normalized * lineLength'; center' + strike.Normalized * lineLength'  |]
+
                 //yield Sg.lines strikeLine1 (AVal.constant C4b.Red) conf.arrowThickness posTrafo anno.key
                 yield Sg.drawScaledLines strikeLine1 (AVal.constant C4b.Red) conf.arrowThickness posTrafo
             | None -> ()            
@@ -162,18 +156,39 @@ module Sg =
         drawDns' anno.points (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption anno.dnsResults) conf cl
 
     let getPolylinePoints (a : AdaptiveAnnotation) =
-        alist {                          
-            let! hasSegments = (a.segments |> AList.count) |> AVal.map(fun x -> x > 0)
-            if hasSegments |> not then
-                yield! a.points
-            else
-                for segment in a.segments do
-                    let! startPoint = segment.startPoint
-                    let! endPoint = segment.endPoint
-                    yield  startPoint
-                    yield! segment.points
-                    yield  endPoint
-        }
+        //a.segments.Content 
+        //    |> AVal.bind (fun segments -> 
+        //        if IndexList.isEmpty segments then a.points |> AList.toAVal |> AVal.map IndexList.toArray
+        //        else 
+        //            segments |> IndexList.map (fun s -> 
+                        
+        //            )
+        //    )
+        AVal.custom (fun t -> 
+            let segments = a.segments.Content.GetValue t
+            if IndexList.isEmpty segments then  
+                a.points.Content.GetValue(t) |> IndexList.toArray 
+            else 
+                let points = System.Collections.Generic.List<V3d>()
+                a.segments.Content.GetValue(t) |> IndexList.iter(fun (s : AdaptiveSegment) -> 
+                    points.Add(s.startPoint.GetValue(t))
+                    for s in s.points.Content.GetValue(t) do points.Add(s)
+                    points.Add(s.endPoint.GetValue(t))
+                )
+                points.ToArray()
+        )
+        //alist {                          
+        //    let! hasSegments = (a.segments |> AList.count) |> AVal.map(fun x -> x > 0)
+        //    if hasSegments |> not then
+        //        yield! a.points
+        //    else
+        //        for segment in a.segments do
+        //            let! startPoint = segment.startPoint
+        //            let! endPoint = segment.endPoint
+        //            yield  startPoint
+        //            yield! segment.points
+        //            yield  endPoint
+        //}
     
     let mutable lastHash = -1
 
@@ -235,11 +250,11 @@ module Sg =
     let drawWorkingAnnotation (offset : aval<float>) (anno : aval<Option<AdaptiveAnnotation>>)  = 
     
         let polyPoints =
-            alist {
+            adaptive {
                 let! anno = anno
                 match anno with
-                | Some a -> yield! getPolylinePoints a
-                | None -> ()
+                | Some a -> return! getPolylinePoints a
+                | None -> return [||]
             }
     
         let points = 
@@ -323,20 +338,7 @@ module Sg =
                     anno.geometry 
                     config.offset
             )
-       
-        let azimuth =
-            adaptive { 
-                let! results = anno.dnsResults 
-                let! x = 
-                    match results with
-                    | AdaptiveSome r -> r.dipAzimuth
-                    | AdaptiveNone   -> AVal.constant Double.NaN
-                
-                return x
-            }
-    
-        let azimuthText = (drawText' view config (azimuth |> AVal.map(fun x -> sprintf "%.2f" x)) anno)
-          
+     
         let texts = 
             anno.text 
             |> AVal.map (String.IsNullOrEmpty >> not) 
@@ -370,8 +372,7 @@ module Sg =
             |> Sg.dynamic
     
         Sg.ofList [
-            selectionSg
-            //azimuthText
+            //selectionSg
             pickingLines
             dotsAndText
         ] |> Sg.onOff anno.visible

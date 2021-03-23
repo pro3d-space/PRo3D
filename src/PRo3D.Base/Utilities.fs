@@ -489,28 +489,24 @@ module Sg =
         |> Sg.effect [singleColorPointsEffect.Value]
     
     //## LINES ##
-    let edgeLines (close: bool) (points: alist<V3d>) (trafo: aval<Trafo3d>) : aval<Line3d[]>  =
-        points
-        |> AList.map(fun d -> trafo.GetValue().Backward.TransformPos d)
-        |> AList.toAVal 
-        |> AVal.map (fun l ->
-            let list = IndexList.toList l   
-            match list |> List.tryHead with
-            | Some h -> 
-                if close then list @ [h] else list
-                    |> List.pairwise
-                    |> List.map (fun (a,b) -> new Line3d(a,b))
-                    |> List.toArray
-            | None -> [||])       
-      
-     
+    let edgeLines (close: bool) (points: aval<V3d[]>) (trafo: aval<Trafo3d>) : aval<Line3d[]>  =
+        (points, trafo)
+        ||> AVal.map2(fun d t -> d |> Array.map (fun d -> t.Backward.TransformPos d))
+        |> AVal.map (fun l -> 
+            match l with
+            | [||] -> [||]
+            | xs -> 
+                let xs = if close then Array.append xs [|Array.head xs|] else xs
+                xs |> Array.pairwise |> Array.map (fun (a,b) -> Line3d(a,b))
+        ) 
 
     let stableLinesHelperEffect = 
         Effect.compose [
+            //toEffect DefaultSurfaces.trafo
             toEffect Shader.stableTrafo'
             toEffect DefaultSurfaces.vertexColor
             toEffect Shader.ThickLineNew.thickLine
-            //toEffect Shader.DepthOffset.depthOffsetFS 
+            toEffect Shader.DepthOffset.depthOffsetFS 
         ]
 
 
@@ -522,7 +518,7 @@ module Sg =
         |> Sg.uniform "LineWidth" width
         |> Sg.uniform "DepthOffset" (offset |> AVal.map (fun depthWorld -> depthWorld / (100.0 - 0.1))) 
 
-    let drawLines (points: alist<V3d>) (offset: aval<float>) (color: aval<C4b>) (width: aval<float>) (trafo: aval<Trafo3d>) : ISg<_> = 
+    let drawLines (points: aval<V3d[]>) (offset: aval<float>) (color: aval<C4b>) (width: aval<float>) (trafo: aval<Trafo3d>) : ISg<_> = 
         let edges = edgeLines false points trafo
         drawStableLinesHelper edges offset color width
         |> Sg.trafo trafo
@@ -535,7 +531,7 @@ module Sg =
             toEffect DefaultSurfaces.thickLine
         ]
                                
-    let drawScaledLines (points: alist<V3d>) (color: aval<C4b>) (width: aval<float>) (trafo: aval<Trafo3d>) : ISg<_> = 
+    let drawScaledLines (points: aval<V3d[]>) (color: aval<C4b>) (width: aval<float>) (trafo: aval<Trafo3d>) : ISg<_> = 
         let edges = edgeLines false points trafo     
         let size = edges |> AVal.map (fun line -> (float (line.Length)) * 100.0)
                                                             
@@ -549,7 +545,7 @@ module Sg =
         |> Sg.uniform "LineWidth" width      
 
     let private pickableContent
-        (points            : alist<V3d>) 
+        (points            : aval<V3d[]>) 
         (edges             : aval<Line3d[]>) 
         (trafo             : aval<Trafo3d>) 
         (pickingTolerance  : aval<float>) = 
@@ -565,8 +561,7 @@ module Sg =
                 let cylinder = Cylinder3d(e.P0, e.P1, tolerance)
                 return PickShape.Cylinder cylinder
             elif edg.Length > 1 then
-                let! xs = points.Content
-                let cp = xs |> IndexList.toArray
+                let! cp = points
                 let box = cp |> Box3d
                 if box.IsInvalid then 
                     Log.warn "invalid pick box for annotation"
@@ -589,7 +584,7 @@ module Sg =
         }
 
     let pickableLine 
-        (points             : alist<V3d>) 
+        (points             : aval<V3d[]>) 
         (offset             : aval<float>) 
         (color              : aval<C4b>) 
         (width              : aval<float>) 
@@ -651,9 +646,10 @@ module Sg =
         |> Sg.effect [indexedGeometryDotsShader]
         |> Sg.uniform "PointSize" size
     
-    let drawSpheres (points: alist<V3d>) (size: aval<float>) (color: aval<C4b>) =
+    // TODO: performance - instancing
+    let drawSpheres (points: aval<V3d[]>) (size: aval<float>) (color: aval<C4b>) =
         aset {
-            for p in points |> ASet.ofAList do                        
+            for p in points do                        
                 yield sphereSgHelper color size (AVal.constant p)
         } 
         |> Sg.set
