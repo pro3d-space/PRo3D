@@ -533,30 +533,6 @@ module ViewerUtils =
             
         }  
 
-    let renderScreenshot (runtime : IRuntime) (size : V2i) (sg : ISg<ViewerAction>) = 
-        let col = runtime.CreateTexture(size, TextureFormat.Rgba8, 1, 1);
-        let signature = 
-            runtime.CreateFramebufferSignature [
-                DefaultSemantic.Colors, { format = RenderbufferFormat.Rgba8; samples = 1 }
-            ]
-
-        let fbo = 
-            runtime.CreateFramebuffer(
-                signature, 
-                Map.ofList [
-                    DefaultSemantic.Colors, col.GetOutputView()
-                ]
-            )
-
-        let taskclear = runtime.CompileClear(signature,AVal.constant C4f.Black,AVal.constant 1.0)
-        
-        let task = runtime.CompileRender(signature, sg)
-
-        taskclear.Run(null, fbo |> OutputDescription.ofFramebuffer) |> ignore
-        task.Run(null, fbo |> OutputDescription.ofFramebuffer) |> ignore
-        let colorImage = runtime.Download(col)
-        colorImage
-
 module GaleCrater =
     open PRo3D.Base
 
