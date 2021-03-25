@@ -13,6 +13,10 @@
     <OutputPath>..\..\bin\Release\</OutputPath>
   </PropertyGroup>
   <ItemGroup>      
+    <Compile Include="Comparison\UIExtensions.fs" />      
+    <Compile Include="Comparison\Comparison-Model.fs" />      
+    <Compile Include="Comparison\CustomGui.fs" />      
+    <Compile Include="Comparison\ComparisonApp.fs" />      
     <Compile Include="Viewplanner\FootPrint-Model.fs" />      
     <Compile Include="Viewplanner\Rover-Model.fs" />      
     <Compile Include="Viewplanner\Rover.fs" />      

@@ -46,20 +46,6 @@ module ViewerUtils =
         let pi = PixImage.Create(s)
         PixTexture2d(PixImageMipMap [| pi |], true) :> ITexture    
     
-    let toModSurface (leaf : AdaptiveLeafCase) = 
-         adaptive {
-            let c = leaf
-            match c with 
-                | AdaptiveSurfaces s -> return s
-                | _ -> return c |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
-            }
-             
-    let lookUp guid (table:amap<Guid, AdaptiveLeafCase>) =
-        
-        let entry = table |> AMap.find guid
-
-        entry |> AVal.bind(fun x -> x |> toModSurface)
-    
     let addImageCorrectionParameters (surf:aval<AdaptiveSurface>)  (isg:ISg<'a>) =
         
             //AVal.bind(fun x -> lookUp (x.surface) blarg )
@@ -238,7 +224,7 @@ module ViewerUtils =
             let! exists = (blarg |> AMap.keys) |> ASet.contains surface.surface
             if exists then
               
-                let surf = lookUp (surface.surface) blarg
+                let surf = SurfaceUtils.lookUp (surface.surface) blarg
                     //AVal.bind(fun x -> lookUp (x.surface) blarg )
                 
                 let isSelected = AVal.map2(fun x y ->
