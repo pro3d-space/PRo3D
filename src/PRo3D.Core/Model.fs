@@ -24,7 +24,7 @@ module Interactions =
     // excludes interactions from dropdown in topmenu
     let hideSet = 
         [
-            Interactions.PlaceRover
+            //Interactions.PlaceRover
             Interactions.TrafoControls
             Interactions.PlaceSurface
             Interactions.PickMinervaProduct

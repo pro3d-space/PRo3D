@@ -91,7 +91,7 @@ type SceneObjectsModel = {
     version             : int
     sceneObjects        : HashMap<Guid,SceneObject>
     sgSceneObjects      : HashMap<Guid,SgSurface>
-    selectedSceneObject : Option<SceneObject>
+    selectedSceneObject : Option<Guid> 
 }
 
 module SceneObjectsModel =

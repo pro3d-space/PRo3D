@@ -394,7 +394,7 @@ module ViewerApp =
             { m with heighValidation = heightVal }
         | Interactions.PlaceSceneObject, ViewerMode.Standard -> 
             let action = (SceneObjectAction.PlaceSceneObject(p)) 
-            let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel action m.scene.referenceSystem
+            let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel action
             { m with scene = { m.scene with sceneObjectsModel = sobjs } }
         | _ -> m       
 
@@ -584,7 +584,7 @@ module ViewerApp =
             let cm = FalseColorLegendApp.update m.drawing.dnsColorLegend msg
             { m with drawing = { m.drawing with dnsColorLegend = cm } }
         | SceneObjectsMessage msg,_,_ -> 
-            let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel msg m.scene.referenceSystem
+            let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel msg
             let animation = 
                 match msg with
                 | SceneObjectAction.FlyToSO id -> 

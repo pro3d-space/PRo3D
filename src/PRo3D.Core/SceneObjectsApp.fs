@@ -29,6 +29,43 @@ type SceneObjectAction =
     | TranslationMessage    of TranslationApp.Action
     | PlaceSceneObject      of V3d
 
+
+module SceneObjectTransformations = 
+
+    let fullTrafo'' (translation : V3d) (yaw : float) (pivot : V3d) (refsys : ReferenceSystem) = 
+        let north = refsys.northO.Normalized
+        
+        let up = refsys.up.value.Normalized
+        let east   = north.Cross(up)
+              
+        let refSysRotation = 
+            Trafo3d.FromOrthoNormalBasis(north, east, up)
+            
+        //translation along north, east, up            
+        let trans = translation |> Trafo3d.Translation
+        let rot = Trafo3d.Rotation(up, yaw.RadiansFromDegrees())
+        
+        let originTrafo = -pivot |> Trafo3d.Translation //
+        
+        (originTrafo * rot * originTrafo.Inverse * refSysRotation.Inverse * trans * refSysRotation)
+           
+    
+    let fullTrafo (tansform : AdaptiveTransformations) (refsys : ReferenceSystem) = 
+        adaptive {
+           let! translation = tansform.translation.value
+           let! yaw = tansform.yaw.value
+           let! pivot = tansform.pivot
+            
+           return fullTrafo'' translation yaw pivot refsys
+        }
+
+    let fullTrafo' (tansform : Transformations) (refsys : ReferenceSystem) = 
+        let translation = tansform.translation.value
+        let yaw = tansform.yaw.value
+        let pivot = tansform.pivot
+            
+        fullTrafo'' translation yaw pivot refsys
+
 module SceneObjectsUtils = 
 
     let mk (path : string) =  
@@ -51,8 +88,8 @@ module SceneObjectsUtils =
         let sceneObj = 
             Loader.Assimp.load sObject.importPath
 
-        let bb = sceneObj.bounds
-        let pose = Pose.translate bb.Center //Pose.translate V3d.Zero // sceneObj.Center V3d.Zero
+        let bb = sceneObj.bounds//.Transformed(sObject.preTransform) 
+        let pose = Pose.translate V3d.Zero // Pose.translate bb.Center // sceneObj.Center V3d.Zero
         let trafo = { TrafoController.initial with pose = pose; previewTrafo = Pose.toTrafo pose; mode = TrafoMode.Local }
 
         let filetype = Path.GetExtension sObject.name
@@ -93,49 +130,14 @@ module SceneObjectsUtils =
 
         sgSceneObjects
 
-module SceneObjectTransformations = 
 
-    let fullTrafo'' (translation : V3d) (yaw : float) (pivot : V3d) (refsys : ReferenceSystem) = 
-        let north = refsys.northO.Normalized
-        
-        let up = refsys.up.value.Normalized
-        let east   = north.Cross(up)
-              
-        let refSysRotation = 
-            Trafo3d.FromOrthoNormalBasis(north, east, up)
-            
-        //translation along north, east, up            
-        let trans = translation |> Trafo3d.Translation
-        let rot = Trafo3d.Rotation(up, yaw.RadiansFromDegrees())
-        
-        let originTrafo = -pivot |> Trafo3d.Translation
-        
-        (originTrafo * rot * originTrafo.Inverse * refSysRotation.Inverse * trans * refSysRotation)
-           
-    
-    let fullTrafo (tansform : AdaptiveTransformations) (refsys : ReferenceSystem) = 
-        adaptive {
-           let! translation = tansform.translation.value
-           let! yaw = tansform.yaw.value
-           let! pivot = tansform.pivot
-            
-           return fullTrafo'' translation yaw pivot refsys
-        }
-
-    let fullTrafo' (tansform : Transformations) (refsys : ReferenceSystem) = 
-        let translation = tansform.translation.value
-        let yaw = tansform.yaw.value
-        let pivot = tansform.pivot
-            
-        fullTrafo'' translation yaw pivot refsys
         
 
 module SceneObjectsApp = 
 
     let update 
         (model : SceneObjectsModel) 
-        (act : SceneObjectAction) 
-        (refSys    : ReferenceSystem) = 
+        (act : SceneObjectAction) = 
 
         match act with
         | IsVisible id ->
@@ -146,7 +148,7 @@ module SceneObjectsApp =
         | RemoveSO id -> 
             let selSO = 
                 match model.selectedSceneObject with
-                | Some so -> if so.guid = id then None else Some so
+                | Some so -> if so = id then None else Some so
                 | None -> None
 
             let sceneObjects = HashMap.remove id model.sceneObjects
@@ -162,52 +164,81 @@ module SceneObjectsApp =
         | SelectSO id ->
             let so = model.sceneObjects |> HashMap.tryFind id
             match so, model.selectedSceneObject with
-            | Some a, Some b -> 
-                if a.guid = b.guid then 
+            | Some a, Some b ->
+                if a.guid = b then 
                     { model with selectedSceneObject = None }
                 else 
-                    { model with selectedSceneObject = Some a }
+                    { model with selectedSceneObject = Some a.guid }
             | Some a, None -> 
-                { model with selectedSceneObject = Some a }
+                { model with selectedSceneObject = Some a.guid }
             | None, _ -> model
         | TranslationMessage msg ->  
             match model.selectedSceneObject with
-            | Some so -> 
-                //let t =  { so.transformation with pivot = refSys.origin }
-                let transformation' = (TranslationApp.update so.transformation msg)
-                let selSO = { so with transformation = transformation' }
-                let sceneObjs = model.sceneObjects |> HashMap.alter so.guid (function | Some _ -> Some selSO | None -> None )
-                { model with sceneObjects = sceneObjs; selectedSceneObject = (Some selSO) }
+            | Some id -> 
+                let sobj = model.sceneObjects |> HashMap.tryFind id
+                match sobj with
+                | Some so ->
+                    let transformation' = (TranslationApp.update so.transformation msg)
+                    let selSO = { so with transformation = transformation' }
+                    let sceneObjs = model.sceneObjects |> HashMap.alter so.guid (function | Some _ -> Some selSO | None -> None )
+                    { model with sceneObjects = sceneObjs} 
+                | None -> model
             | None -> model
         | PlaceSceneObject p ->
             match model.selectedSceneObject with
             | Some sel -> 
-                match model.sceneObjects.TryFind(sel.guid) with 
+                match model.sceneObjects.TryFind(sel) with 
                 | Some so -> 
+
+                    //reset gui transformation (keep only yaw)
+                    let so' = { so with preTransform = Trafo3d.Translation(p); 
+                                        transformation = {InitSceneObjectParams.transformations with yaw = so.transformation.yaw} }
                     let sceneObjs = 
                         model.sceneObjects 
-                        |> HashMap.alter so.guid (function | Some _ -> Some { so with preTransform = Trafo3d.Translation(p) } | None -> None ) 
-                    let sgs' = 
-                        model.sgSceneObjects
-                        |> HashMap.update sel.guid (fun x -> 
-                            match x with 
-                            | Some sg ->    
-                                let pose = Pose.translate p 
-                                let trafo' = { 
-                                  TrafoController.initial with 
-                                    pose = pose
-                                    previewTrafo = Trafo3d.Translation(p)
-                                    mode = TrafoMode.Local 
-                                }
-                                { sg with trafo = trafo'; globalBB = (sg.globalBB.Transformed trafo'.previewTrafo) } 
-                            | None   -> failwith "scene object not found")                             
-                    { model with sgSceneObjects = sgs'; sceneObjects = sceneObjs} 
+                        |> HashMap.alter so.guid (function | Some _ -> Some so' | None -> None ) 
+
+                    //let sgs' = 
+                    //    model.sgSceneObjects
+                    //    |> HashMap.update sel.guid (fun x -> 
+                    //        match x with 
+                    //        | Some sg ->    
+                    //            let pose = Pose.translate p 
+                    //            let trafo' = { 
+                    //              TrafoController.initial with 
+                    //                pose = pose
+                    //                previewTrafo = Trafo3d.Translation(p)
+                    //                mode = TrafoMode.Local 
+                    //            }
+                    //            let bb1 = sg.globalBB
+                    //            let bb = (bb1.Transformed (Trafo3d.Translation(p)))
+                    //            { sg with trafo = trafo'} //; globalBB = bb } 
+                    //        | None   -> failwith "scene object not found")  
+                            
+                    { model with sceneObjects = sceneObjs} //; selectedSceneObject = (Some so')} //sgSceneObjects = sgs'; 
                 | None -> model
             | None -> model
         |_-> model
 
 
     module UI =
+
+        let viewHeader (m:AdaptiveSceneObject) (soid:Guid) toggleMap= 
+            [
+                Incremental.text m.name; text " "
+
+                i [clazz "home icon"; onClick (fun _ -> FlyToSO soid) ][]
+                |> UI.wrapToolTip DataPosition.Bottom "Fly to scene object"                                                     
+            
+                i [clazz "folder icon"; onClick (fun _ -> OpenFolder soid) ][] 
+                |> UI.wrapToolTip DataPosition.Bottom "Open Folder"                             
+            
+                Incremental.i toggleMap AList.empty 
+                |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
+
+                i [clazz "Remove icon red"; onClick (fun _ -> RemoveSO soid) ][] 
+                |> UI.wrapToolTip DataPosition.Bottom "Remove"     
+            ]    
+
 
         let viewSceneObjects
             (m : AdaptiveSceneObjectsModel) =
@@ -239,25 +270,12 @@ module SceneObjectsApp =
                                 yield onClick (fun _ -> IsVisible soid)
                             } |> AttributeMap.ofAMap  
 
-                        let tt = 
-                            m.selectedSceneObject |> AVal.map( fun x -> 
-                                match x with 
-                                  | AdaptiveSome selected -> (selected.guid |> AVal.force) = soid
-                                  | AdaptiveNone -> false )
-
-                        let headerColor = 
-                            tt 
-                            |> AVal.map(fun x -> 
-                                (if x then C4b.VRVisGreen else C4b.Gray) 
-                                |> Html.ofC4b 
-                                |> sprintf "color: %s"
-                            ) 
-               
                         let color =
                             match selected with
-                              | AdaptiveSome sel -> 
-                                AVal.constant (if (sel.guid |> AVal.force) = (so.guid |> AVal.force) then C4b.VRVisGreen else C4b.Gray) 
-                              | AdaptiveNone -> AVal.constant C4b.Gray
+                              | Some sel -> 
+                                AVal.constant (if sel = (so.guid |> AVal.force) then C4b.VRVisGreen else C4b.Gray) 
+                              | None -> AVal.constant C4b.Gray
+                            
 
                         let headerText = 
                             AVal.map (fun a -> sprintf "%s" a) so.name
@@ -267,34 +285,36 @@ module SceneObjectsApp =
                                 yield onClick (fun _ -> SelectSO soid)
                             } 
                             |> AttributeMap.ofAMap
-            
-                       // let bgc = sprintf "color: %s" (Html.ofC4b color)
-                        yield div [clazz "item"; style infoc] [
-                            div [clazz "content"; style infoc] [                     
-                                yield Incremental.div (AttributeMap.ofList [style infoc])(
-                                    alist {
-                                        let! hc = headerColor
-                                        yield div[clazz "header"; style hc][
-                                            Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
-                                         ]                
-                                        //yield i [clazz "large cube middle aligned icon"; style bgc; onClick (fun _ -> SelectSO soid)][]           
-            
-                                        yield i [clazz "home icon"; onClick (fun _ -> FlyToSO soid) ][]
-                                            |> UI.wrapToolTip DataPosition.Bottom "Fly to scene object"                                                     
-            
-                                        yield i [clazz "folder icon"; onClick (fun _ -> OpenFolder soid) ][] 
-                                            |> UI.wrapToolTip DataPosition.Bottom "Open Folder"                             
-            
-                                        yield Incremental.i toggleMap AList.empty 
-                                        |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
 
-                                        yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveSO soid) ][] 
-                                            |> UI.wrapToolTip DataPosition.Bottom "Remove"     
+                        let! c = color
+                        let bgc = sprintf "color: %s" (Html.ofC4b c)
+                        
+                        //yield div [clazz "item"; style infoc] [
+                        //    div [clazz "content"; style infoc] [                     
+                        yield Incremental.div (AttributeMap.ofList [style infoc])(
+                            alist {
+                                //let! hc = headerColor
+                                yield div[clazz "header"; style bgc][
+                                    Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
+                                    ]                
+                                //yield i [clazz "large cube middle aligned icon"; style bgc; onClick (fun _ -> SelectSO soid)][]           
+            
+                                yield i [clazz "home icon"; onClick (fun _ -> FlyToSO soid) ][]
+                                    |> UI.wrapToolTip DataPosition.Bottom "Fly to scene object"                                                     
+            
+                                yield i [clazz "folder icon"; onClick (fun _ -> OpenFolder soid) ][] 
+                                    |> UI.wrapToolTip DataPosition.Bottom "Open Folder"                             
+            
+                                yield Incremental.i toggleMap AList.empty 
+                                |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
+
+                                yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveSO soid) ][] 
+                                    |> UI.wrapToolTip DataPosition.Bottom "Remove"     
                                        
-                                    } 
-                                )                                     
-                            ]
-                        ]
+                            } 
+                        )                                     
+                        //    ]
+                        //]
                 } )
 
         let viewTranslationTools (model:AdaptiveSceneObjectsModel) =
@@ -303,49 +323,49 @@ module SceneObjectsApp =
                 let empty = div[ style "font-style:italic"][ text "no scene object selected" ] |> UI.map TranslationMessage 
 
                 match guid with
-                  | AdaptiveSome i -> 
-                    let! id = i.guid
-                    let! so = model.sceneObjects |> AMap.tryFind id
-                    match so with
-                    | Some s -> return (TranslationApp.UI.view s.transformation |> UI.map TranslationMessage)
-                    | None -> return empty
-                  | AdaptiveNone -> return empty
+                | Some id -> 
+                  let! so = model.sceneObjects |> AMap.tryFind id
+                  match so with
+                  | Some s -> return (TranslationApp.UI.view s.transformation |> UI.map TranslationMessage)
+                  | None -> return empty
+                | None -> return empty
             }  
 
     module Sg =
 
         let viewSingleSceneObject 
             (sgSurf : AdaptiveSgSurface) 
-            (sceneObj : amap<Guid,AdaptiveSceneObject>) 
+            (sceneObjs : amap<Guid,AdaptiveSceneObject>) 
             (refsys : AdaptiveReferenceSystem) 
-            (selected : aval<AdaptiveOptionCase<SceneObject,AdaptiveSceneObject,AdaptiveSceneObject>>) =
+            (selected : aval<Option<Guid>>) =
 
             adaptive {
-                let! exists = (sceneObj |> AMap.keys) |> ASet.contains sgSurf.surface
+                let! exists = (sceneObjs |> AMap.keys) |> ASet.contains sgSurf.surface
                 if exists then
                   
-                    let sceneObj = sceneObj |> AMap.find sgSurf.surface
+                    let sceneObj = sceneObjs |> AMap.find sgSurf.surface
                     let! so = sceneObj
 
                     let! selected' = selected
                     let selected =
                         match selected' with
-                        | AdaptiveSome sel -> (sel.guid = so.guid)
-                        | AdaptiveNone -> false
+                        | Some sel -> sel = (so.guid |> AVal.force)
+                        | None -> false
 
                     let trafo =
                         adaptive {
                             let! s = sceneObj
                             let! rSys = refsys.Current
-                            let! fullTrafo = SceneObjectTransformations.fullTrafo s.transformation rSys
-
                             let! t = s.preTransform
+                            let! fullTrafo = SceneObjectTransformations.fullTrafo s.transformation rSys
                             
                             let! sc = s.scaling.value
-                            return Trafo3d.Scale(sc) * (t * fullTrafo)
+                            return Trafo3d.Scale(sc) * (fullTrafo * t) //(t * fullTrafo)
                         }
 
                     let! sgSObj = sgSurf.sceneGraph
+                    let! bb = sgSurf.globalBB
+                    let bbTest = trafo |> AVal.map(fun t -> bb.Transformed(t))
                         
                     let surfaceSg =
                         sgSObj
@@ -357,7 +377,15 @@ module SceneObjectsApp =
                             do! DefaultSurfaces.diffuseTexture
                         }
                         |> Sg.onOff so.isVisible
-                      
+                        |> Sg.andAlso (
+                            (Sg.wireBox (C4b.VRVisGreen |> AVal.constant) bbTest) 
+                            |> Sg.noEvents
+                            |> Sg.effect [              
+                                Shader.stableTrafo |> toEffect 
+                                DefaultSurfaces.vertexColor |> toEffect
+                            ] 
+                            |> Sg.onOff (selected |> AVal.constant)
+                            )                      
                                                         
                     return surfaceSg
                 else
