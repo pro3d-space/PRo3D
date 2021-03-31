@@ -104,6 +104,10 @@ module ViewerApp =
 
     //footprint
     let _footprint = Model.footPrint_
+
+    // scale bars
+    let _scaleBarsModel = Model.scene_ >->  Scene.scaleBars_
+    let _scaleBars      = _scaleBarsModel >-> ScaleBarsModel.scaleBars_
        
     let lookAtData (m: Model) =         
         let bb = m |> Optic.get _sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB) |> Box3d.ofSeq
@@ -1298,7 +1302,7 @@ module ViewerApp =
             let scDrawing = ScaleBarsDrawing.update m.scaleBarsDrawing msg
             { m with scaleBarsDrawing = scDrawing }
         | ScaleBarsMessage msg,_,_->  
-            let _scaleBars = (Model.scene_ >-> Scene.scaleBars_ >-> ScaleBarsModel.scaleBars_)
+            //let _scaleBars = (Model.scene_ >-> Scene.scaleBars_ >-> ScaleBarsModel.scaleBars_)
             match msg with
             | ScaleBarsAction.FlyToSB id ->
                 let _sb = m |> Optic.get _scaleBars |> HashMap.tryFind id
@@ -1310,7 +1314,7 @@ module ViewerApp =
                     { m with  animations = a'}
                 | None -> m
             | _ ->
-                let _scaleBarsModel = (Model.scene_ >-> Scene.scaleBars_ )
+                //let _scaleBarsModel = (Model.scene_ >-> Scene.scaleBars_ )
                 let scaleBars' = ScaleBarsApp.update m.scene.scaleBars msg
                 let m' = m |> Optic.set _scaleBarsModel scaleBars'  
                 m'

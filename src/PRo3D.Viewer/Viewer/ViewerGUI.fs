@@ -695,6 +695,9 @@ module Gui =
               //GuiEx.accordion "Properties" "Content" true [
               //    Incremental.div AttributeMap.empty (scaleBarProperties m |> AList.ofAValSingle)
               //]
+              //GuiEx.accordion "Transformation" "expand arrows alternate " false [
+              //    Incremental.div AttributeMap.empty (AList.ofAValSingle((ScaleBarsApp.UI.viewTranslationTools m.scene.scaleBars) |> UI.map ScaleBarsMessage))
+              //]  
           ]                
 
     module Bookmarks =
