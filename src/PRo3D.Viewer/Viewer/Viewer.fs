@@ -1290,6 +1290,8 @@ module ViewerApp =
         //| _ -> 
         //    Log.warn "[Viewer] don't know message %A. ignoring it." msg
         //    m                                            
+        | ComparisonMessage msg, _, _ ->
+            {m with comparisonApp = ComparisonApp.update m.comparisonApp m.scene.surfacesModel msg}
         | _ -> m       
                                    
     let mkBrushISg color size trafo : ISg<Message> =

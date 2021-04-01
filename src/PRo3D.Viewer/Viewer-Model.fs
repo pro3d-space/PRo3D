@@ -139,6 +139,7 @@ type ViewerAction =
     //| UpdateShatterCones              of list<SnapshotShattercone> // TODO snapshots and shattercone things should be in own apps
     | TestHaltonRayCasting            //of list<string>
     | HeightValidation               of HeightValidatorAction
+    | ComparisonMessage              of Comparison.ComparisonAction
     | Nop
 
 and MailboxState = {
@@ -322,7 +323,7 @@ type Model = {
     
     minervaModel     : PRo3D.Minerva.MinervaModel
     linkingModel     : PRo3D.Linking.LinkingModel
-
+    comparisonApp    : PRo3D.Comparison.ComparisonApp
     //correlationPlot : CorrelationPanelModel
     //pastCorrelation : Option<CorrelationPanelModel>
             
@@ -493,7 +494,7 @@ module Viewer =
             future          = None
 
             tabMenu = TabMenu.Surfaces
-
+            comparisonApp    = PRo3D.ComparisonApp.init
             animations = 
                 { 
                     animations = IndexList.empty

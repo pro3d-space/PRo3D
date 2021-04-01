@@ -809,6 +809,9 @@ module Gui =
                 require (viewerDependencies) (body bodyAttributes [HeightValidatorApp.viewUI m.heighValidation |> UI.map HeightValidation])
             | Some "bookmarks" -> 
                 require (viewerDependencies) (body bodyAttributes [Bookmarks.bookmarkUI m])
+            | Some "comparison" -> 
+                require (viewerDependencies) (body bodyAttributes [PRo3D.ComparisonApp.view m.comparisonApp m.scene.surfacesModel
+                                                                    |> UI.map ComparisonMessage])
             | Some "properties" ->
                 let prop = 
                     m.drawing.annotations.lastSelectedItem

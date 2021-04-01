@@ -27,3 +27,9 @@ module SurfaceUtils =
 
     let toAvalSurfaces (surfaces : amap<Guid, AdaptiveLeafCase>) =
         surfaces |> AMap.map (fun guid surface -> toModSurface surface)
+
+    let getSurfaceName (guid : System.Guid) (surfaces : AdaptiveSurfaceModel) =
+        surfaces.surfaces.flat
+            |> AMap.find guid
+            |> AVal.bind (fun x -> (toModSurface x) 
+                                      |> AVal.bind (fun x -> x.name))
