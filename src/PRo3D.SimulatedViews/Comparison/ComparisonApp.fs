@@ -3,14 +3,17 @@
 open System
 open Aardvark.UI
 open PRo3D.Comparison
+open Aardvark.Base
 open FSharp.Data.Adaptive
 open Aardvark.UI
+open Aardvark.UI.Trafos
+open Aardvark.UI.Primitives
 open PRo3D.Core
 open PRo3D.SurfaceUtils
 open PRo3D.Core.Surface
-
-open Aardvark.UI.Primitives
 open PRo3D.Base
+open Aardvark.Rendering
+
 module CustomGui =
     let dynamicDropdown<'msg when 'msg : equality> (items    : list<aval<string>>)
                                                    (selected : aval<string>) 
@@ -56,6 +59,7 @@ module ComparisonApp =
           surface2 = None
           measurements1 = SurfaceMeasurements.init
           measurements2 = SurfaceMeasurements.init
+          showMeasurementsSg = true
       }
 
     let noSelectionToNone (str : string) =
@@ -72,14 +76,27 @@ module ComparisonApp =
 
 
 
-    let calculateMeasurements (surfaceModel : SurfaceModel) (surfaceName: string) =
+    let calculateMeasurements (surfaceModel : SurfaceModel) 
+                              (refSystem    : ReferenceSystem) 
+                              (surfaceName  : string) =
         let surfaceId = findSurfaceByName surfaceModel surfaceName
         match surfaceId with
         | Some surfaceId ->
+            let surfaceFilter (id : Guid) (l : Leaf) (s : SgSurface) =
+                id = surfaceId
             let surface = surfaceModel.surfaces.flat |> HashMap.find surfaceId |> Leaf.toSurface
             let surfaceSg = surfaceModel.sgSurfaces |> HashMap.find surfaceId
+            let trafo = SurfaceTransformations.fullTrafo' surface refSystem
+
+            
+                            
+
             ()
         | None -> ()
+
+
+
+        ()
         // model origin
         // direction x/y/-x/-y/-z
         
@@ -97,20 +114,49 @@ module ComparisonApp =
             {m with surface2 = noSelectionToNone str}
         | MeasurementMessage -> m
 
-    let findASurfaceByName (surfaceModel : AdaptiveSurfaceModel) (name : aval<string>) =
-        let surfaces = SurfaceUtils.toAvalSurfaces surfaceModel.surfaces.flat
-        let toName (surface : aval<AdaptiveSurface>) =
-            surface |> AVal.bind (fun s -> s.name)
-        let filtered = surfaces |> AMap.filterA (fun k v -> AVal.map2 (fun a b -> a = b) name (toName v))
-        let surfaceId =
-            adaptive {
-                let! count = AMap.count filtered
-                if count > 0 then
-                    let first = (filtered |> AMap.keys |> AList.ofASet |> AList.tryFirst)
-                    return! first
-                else return None
-            }
-        surfaceId
+    let isSelected (surfaceName : aval<string>) (m : AdaptiveComparisonApp) =
+        let showSg = 
+            AVal.map3 (fun (s1 : option<string>) s2 surfaceName -> 
+                          match s1, s2 with
+                          | Some s1, Some s2 ->
+                            s1 = surfaceName || s2 = surfaceName
+                          | Some s1, None -> s1 = surfaceName
+                          | None, Some s2 -> s2 = surfaceName
+                          | None, None -> false
+                      ) m.surface1 m.surface2 surfaceName
+        showSg
+
+    let defaultCoordinateCross size trafo =
+        let sg = 
+            Sg.coordinateCross size
+                |> Sg.trafo trafo
+                |> Sg.noEvents
+                |> Sg.effect [              
+                    Shader.stableTrafo |> toEffect 
+                    DefaultSurfaces.vertexColor |> toEffect
+                ] 
+                |> Sg.noEvents
+        sg
+
+    let measurementsSg (surfaceName : aval<string>)
+                       (size        : aval<float>)
+                       (trafo       : aval<Trafo3d>) 
+                       (m           : AdaptiveComparisonApp) =    
+
+
+        let showSg = isSelected surfaceName m
+
+        let sg =
+            showSg |> AVal.map (fun show -> 
+                                  match show with
+                                  | true -> defaultCoordinateCross size trafo
+                                  | false -> Sg.empty
+                               )
+        sg |> Sg.dynamic
+
+
+            
+                
 
     let view (m : AdaptiveComparisonApp) (surfaces : AdaptiveSurfaceModel) =
         let measurementGui (name : option<string>) =

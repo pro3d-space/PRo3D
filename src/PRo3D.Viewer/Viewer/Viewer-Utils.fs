@@ -33,6 +33,7 @@ open PRo3D.SimulatedViews
 
 open Adaptify.FSharp.Core
 open OpcViewer.Base.Shader
+open PRo3D.Comparison
 
 module ViewerUtils =    
     type Self = Self
@@ -218,7 +219,8 @@ module ViewerUtils =
         (fp              : AdaptiveFootPrint) 
         (vp              : aval<Option<AdaptiveViewPlan>>) 
         (useHighlighting : aval<bool>)
-        (filterTexture   : aval<bool>) =
+        (filterTexture   : aval<bool>)
+        (comparisonApp   : AdaptiveComparisonApp) =
 
         adaptive {
             let! exists = (blarg |> AMap.keys) |> ASet.contains surface.surface
@@ -297,6 +299,12 @@ module ViewerUtils =
                         return (fppm * fpvm) // * ts.Forward
                     } 
 
+                let measurementsSg =
+                    ComparisonApp.measurementsSg (surf |> AVal.bind (fun x -> x.name))
+                                                 (pickBox |> AVal.map (fun x -> x.Size.[x.MajorDim]))
+                                                 trafo
+                                                 comparisonApp
+
                 let structuralOnOff (visible : aval<bool>) (sg : ISg<_>) : ISg<_> = 
                     visible 
                     |> AVal.map (fun visible -> 
@@ -345,7 +353,10 @@ module ViewerUtils =
                             DefaultSurfaces.vertexColor |> toEffect
                         ] 
                         |> Sg.onOff isSelected
-                    )                                
+                    )
+                    |> Sg.andAlso (
+                        measurementsSg
+                    )
                 return surfaceSg
             else
                 return Sg.empty
@@ -426,7 +437,9 @@ module ViewerUtils =
                             sf.globalBB 
                             refSystem 
                             m.footPrint 
-                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting m.filterTexture)
+                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting m.filterTexture
+                            m.comparisonApp
+                        )
                     |> AMap.toASet 
                     |> ASet.map snd                     
                 )                
@@ -490,6 +503,7 @@ module ViewerUtils =
                             surface.globalBB
                             refSystem m.footPrint 
                             (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting filterTexture
+                            m.comparisonApp
                        )
                     |> AMap.toASet 
                     |> ASet.map snd                     

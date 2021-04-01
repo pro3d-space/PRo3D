@@ -31,10 +31,11 @@ type SurfaceMeasurements =  {
 
 [<ModelType>]
 type ComparisonApp = {
-    surface1      : option<string>
-    surface2      : option<string>
-    measurements1 : SurfaceMeasurements    
-    measurements2 : SurfaceMeasurements    
+    showMeasurementsSg : bool
+    surface1           : option<string>
+    surface2           : option<string>
+    measurements1      : SurfaceMeasurements    
+    measurements2      : SurfaceMeasurements    
 }
 
 type ComparisonAction =
