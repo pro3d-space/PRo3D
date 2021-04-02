@@ -1,3 +1,7 @@
+## 3.4.2-prerelease1
+
+- performance improvements take I
+
 ## 3.4.1-prerelease2
 
 - fixed problem with picking points on surface
