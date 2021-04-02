@@ -363,7 +363,9 @@ module DrawingApp =
             { model with dnsColorLegend = FalseColorLegendApp.update model.dnsColorLegend msg }
         | FlyToAnnotation msg, _, _ ->               
             model        
-        | PickAnnotation (_hit, id), false, true ->
+
+        // method via bvh
+        | PickAnnotation (_, id), false, true | PickDirectly id, false, true ->
             match (model.annotations.flat.TryFind id) with
             | Some (Leaf.Annotations ann) ->       
                             
@@ -380,7 +382,8 @@ module DrawingApp =
                 { model with annotations = annotations }
 
             | _ -> model        
-        
+
+
         | AddAnnotations path, _,_ ->
             match path |> List.tryHead with
             | Some p -> 
@@ -448,6 +451,9 @@ module DrawingApp =
         (mbigConfig       : 'ma)
         (msmallConfig     : MSmallConfig<'ma>)
         (view             : aval<CameraView>)
+        (frustum          : aval<Frustum>)
+        (runtime          : IRuntime)
+        (viewport         : aval<V2i>)
         (pickingAllowed   : aval<bool>)        
         (model            : AdaptiveDrawingModel)
         : ISg<DrawingAction> * ISg<DrawingAction> =
@@ -471,6 +477,7 @@ module DrawingApp =
        
 
 
+
         Log.startTimed "[Drawing] creating finished annotation geometry"
         let annotations =              
             annoSet 
@@ -486,11 +493,52 @@ module DrawingApp =
             )
             |> Sg.set               
         Log.stop()
+
+        let hoveredAnnotation = cval -1
+        let lines, pickIds, bb = PackedRendering.lines config.offset hoveredAnnotation annoSet (view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward))
+        let pickRenderTarget = PackedRendering.pickRenderTarget runtime config.pickingTolerance lines view frustum viewport
+
+        let packedRender = 
+            let simple (kind : SceneEventKind) (f : SceneHit -> seq<'msg>) =
+                kind, fun evt -> false, Seq.delay (fun () -> (f evt))
+            PackedRendering.packedRender lines 
+            |> Sg.noEvents
+            |> Sg.pickable' (bb |> AVal.map PickShape.Box)
+            |> Sg.withEvents [
+                   simple SceneEventKind.Move (fun (evt : SceneHit) -> 
+                        let r = pickRenderTarget.GetValue(AdaptiveToken.Top,RenderToken.Empty)
+                        let offset = evt.event.evtPixel
+                        let r = runtime.Download(r,0,0,Box2i.FromMinAndSize(offset, V2i(1,1))) |> unbox<PixImage<float32>>
+                        let m = r.GetMatrix<C4f>()
+                        let allowed = pickingAllowed.GetValue()
+                        let p = m.[0,0]
+                        let id : int = BitConverter.SingleToInt32Bits(p.A)
+                        let ids = pickIds.GetValue()
+                        if id > 0 && id < ids.Length  && allowed then
+                            Log.line "hoverhit %A" (id, ids.[id])
+                            transact (fun _ -> hoveredAnnotation.Value <- id)
                             
+                            Seq.empty
+                        else 
+                            transact (fun _ -> hoveredAnnotation.Value <- -1)
+                            Seq.empty
+                   )
+                   Sg.onMouseDown (fun b p -> 
+                        let id = hoveredAnnotation.GetValue()
+                        let ids = pickIds.GetValue()
+                        if id > 0 && id < ids.Length then
+                            Log.line "clickhit %A" (id, ids.[id])
+                            DrawingAction.PickDirectly(ids.[id])
+                        else 
+                            DrawingAction.Nop
+                   )
+            ]
+
         let overlay = 
             Sg.ofList [
              // brush model.hoverPosition; 
               annotations
+              packedRender
               Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
             ]
 

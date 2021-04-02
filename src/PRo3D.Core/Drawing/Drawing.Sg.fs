@@ -372,8 +372,8 @@ module Sg =
             |> Sg.dynamic
     
         Sg.ofList [
-            //selectionSg
-            pickingLines
+            selectionSg
+            //pickingLines
             dotsAndText
         ] |> Sg.onOff anno.visible
     

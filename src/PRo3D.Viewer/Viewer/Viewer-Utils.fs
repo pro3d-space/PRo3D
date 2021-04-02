@@ -419,7 +419,7 @@ module ViewerUtils =
         ]
 
     //TODO TO refactor screenshot specific
-    let getSurfacesScenegraphs (m:AdaptiveModel) =
+    let getSurfacesScenegraphs (frustum : aval<Frustum>) (m:AdaptiveModel) =
         let sgGrouped = m.scene.surfacesModel.sgGrouped
         
       //  let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
@@ -434,7 +434,7 @@ module ViewerUtils =
                         viewSingleSurfaceSg 
                             sf 
                             bla 
-                            m.frustum 
+                            frustum
                             selected 
                             m.ctrlFlag 
                             sf.globalBB 
@@ -468,15 +468,17 @@ module ViewerUtils =
   
     //TODO TO refactor screenshot specific
     let getSurfacesSgWithCamera (m : AdaptiveModel) =
-        let sgs = getSurfacesScenegraphs m
+        let frustum = m.frustum
+        let sgs = getSurfacesScenegraphs frustum m
         let camera =
-            AVal.map2 (fun v f -> Camera.create v f) m.scene.cameraView m.frustum 
+            //TODO hs/to - what about this?
+            AVal.map2 (fun v f -> Camera.create v f) m.scene.cameraView frustum
         sgs 
             |> ASet.ofAList
             |> Sg.set
             |> (camera |> Sg.camera)
 
-    let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
+    let renderCommands (frustum : aval<Frustum>) (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
         let usehighlighting = true |> AVal.constant //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true
 
@@ -498,7 +500,7 @@ module ViewerUtils =
                         viewSingleSurfaceSg 
                             surface 
                             m.scene.surfacesModel.surfaces.flat
-                            m.frustum 
+                            frustum
                             selected 
                             surfacePicking
                             surface.globalBB

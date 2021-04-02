@@ -16,166 +16,18 @@ open PRo3D.Core
 
 open PRo3D.Core.Drawing
 open System.Collections.Generic
+open Aardvark.Rendering
+open System
+
+open PRo3D.Core.PackedRendering
 
 
 module AnnotationViewer = 
 
-
-    module PointsShader =
-        open FShade
-
-        type PointVertex =
-            {
-                [<Position>] pos : V4d
-                [<Semantic("Sizes")>] size : float
-                [<PointSize>] pointSize : float
-                [<Color>] c : V4d
-                [<PointCoord>] tc : V2d
-            }
-
-        let pointSpriteVertex (v : PointVertex) =
-            vertex {
-                return { v with pointSize = v.size }
-            }
-
-        let pointSpriteFragment (v : PointVertex) =
-            fragment {
-                let tc = v.tc
-
-                let c = 2.0 * tc - V2d.II
-                if c.Length > 1.0 then
-                    discard()
-
-                return v
-            }
-
-    module LineShader =
-
-        open FShade
-
-        type ThickLineVertex = 
-            {
-                [<Position>]                pos     : V4d
-                [<Color>]                   c       : V4d
-                [<Semantic("LineCoord")>]   lc      : V2d
-                [<Semantic("Width")>]       w       : float
-                [<SourceVertexIndex>]       i       : int
-            }
-
-
-        // since we need special extension feature not provided by fshade we simply import the functionality (standard approach)
-        [<GLSLIntrinsic("gl_DrawIDARB",requiredExtensions=[|"GL_ARB_shader_draw_parameters"|])>]
-        let drawId () : int = raise <| FShade.Imperative.FShadeOnlyInShaderCodeException "drawId"
-
-        type UniformScope with
-            member x.MVPs       : M44d[]  = x?StorageBuffer?MVPs
-            member x.LineWidths : float[] = x?StorageBuffer?LineWidths
-            member x.Colors     : V4d[]   = x?StorageBuffer?Colors
-
-        let indirectLineVertex (v : ThickLineVertex) =
-            vertex {
-                let id = drawId()
-                return 
-                    { v with 
-                        c = uniform.Colors.[id]; 
-                        pos = uniform.MVPs.[id] * v.pos
-                        w = uniform.LineWidths.[id]
-                    }
-            }
     
-        [<GLSLIntrinsic("mix({0}, {1}, {2})")>]
-        let Lerp (a : V4d) (b : V4d) (s : float) : V4d = failwith ""
-
-        [<ReflectedDefinition>]
-        let clipLine (plane : V4d) (p0 : ref<V4d>) (p1 : ref<V4d>) =
-            let h0 = Vec.dot plane !p0
-            let h1 = Vec.dot plane !p1
-    
-            // h = h0 + (h1 - h0)*t
-            // 0 = h0 + (h1 - h0)*t
-            // (h0 - h1)*t = h0
-            // t = h0 / (h0 - h1)
-            if h0 > 0.0 && h1 > 0.0 then
-                false
-            elif h0 < 0.0 && h1 > 0.0 then
-                let t = h0 / (h0 - h1)
-                p1 := !p0 + t * (!p1 - !p0)
-                true
-            elif h1 < 0.0 && h0 > 0.0 then
-                let t = h0 / (h0 - h1)
-                p0 := !p0 + t * (!p1 - !p0)
-                true
-            else
-                true
-    
-        [<ReflectedDefinition>]
-        let clipLinePure (plane : V4d) (p0 : V4d) (p1 : V4d) =
-            let h0 = Vec.dot plane p0
-            let h1 = Vec.dot plane p1
-    
-            // h = h0 + (h1 - h0)*t
-            // 0 = h0 + (h1 - h0)*t
-            // (h0 - h1)*t = h0
-            // t = h0 / (h0 - h1)
-            if h0 > 0.0 && h1 > 0.0 then
-                (false, p0, p1)
-            elif h0 < 0.0 && h1 > 0.0 then
-                let t = h0 / (h0 - h1)
-                let p11 = p0 + t * (p1 - p0)
-                (true, p0, p11)
-            elif h1 < 0.0 && h0 > 0.0 then
-                let t = h0 / (h0 - h1)
-                let p01 = p0 + t * (p1 - p0)
-                
-                (true, p01, p1)
-            else
-                (true, p0, p1)
-    
-        let thickLine (line : Line<ThickLineVertex>) =
-            triangle {
-                let t = line.P0.w
-                let sizeF = V3d(float uniform.ViewportSize.X, float uniform.ViewportSize.Y, 1.0)
-    
-                let mutable pp0 = line.P0.pos
-                let mutable pp1 = line.P1.pos        
-                                
-                let add = 2.0 * V2d(t,t) / sizeF.XY
-                                
-                let a0 = clipLine (V4d( 1.0,  0.0,  0.0, -(1.0 + add.X))) &&pp0 &&pp1
-                let a1 = clipLine (V4d(-1.0,  0.0,  0.0, -(1.0 + add.X))) &&pp0 &&pp1
-                let a2 = clipLine (V4d( 0.0,  1.0,  0.0, -(1.0 + add.Y))) &&pp0 &&pp1
-                let a3 = clipLine (V4d( 0.0, -1.0,  0.0, -(1.0 + add.Y))) &&pp0 &&pp1
-                let a4 = clipLine (V4d( 0.0,  0.0,  1.0, -1.0)) &&pp0 &&pp1
-                let a5 = clipLine (V4d( 0.0,  0.0, -1.0, -1.0)) &&pp0 &&pp1
-    
-                if a0 && a1 && a2 && a3 && a4 && a5 then
-                    let p0 = pp0.XYZ / pp0.W
-                    let p1 = pp1.XYZ / pp1.W
-    
-                    let fwp = (p1.XYZ - p0.XYZ) * sizeF
-    
-                    let fw = V3d(fwp.XY, 0.0) |> Vec.normalize
-                    let r = V3d(-fw.Y, fw.X, 0.0) / sizeF
-                    let d = fw / sizeF
-                    let p00 = p0 - r * t - d * t
-                    let p10 = p0 + r * t - d * t
-                    let p11 = p1 + r * t + d * t
-                    let p01 = p1 - r * t + d * t
-    
-                    let rel = t / (Vec.length fwp)
-    
-                    yield { line.P0 with i = 0; pos = V4d(p00 * pp0.W, pp0.W); lc = V2d(-1.0, -rel); w = rel }      // restore W component for depthOffset
-                    yield { line.P0 with i = 0; pos = V4d(p10 * pp1.W, pp1.W); lc = V2d( 1.0, -rel); w = rel }      // restore W component for depthOffset
-                    yield { line.P1 with i = 1; pos = V4d(p01 * pp0.W, pp0.W); lc = V2d(-1.0, 1.0 + rel); w = rel } // restore W component for depthOffset
-                    yield { line.P1 with i = 1; pos = V4d(p11 * pp1.W, pp1.W); lc = V2d( 1.0, 1.0 + rel); w = rel } // restore W component for depthOffset
-            }
-    
-        let Effect =
-            toEffect thickLine
-
-    
-    let createAnnotationSg (view : aval<CameraView>) (frustum : aval<Frustum>) (showOld : aval<bool>) (annotations : Annotations) =
+    let createAnnotationSg (win : IRenderWindow) (view : aval<CameraView>) (frustum : aval<Frustum>) (showOld : aval<bool>) (annotations : Annotations) =
         let model = AdaptiveGroupsModel.Create annotations.annotations
+        let runtime = win.Runtime
 
         let annoSet = 
             model.flat 
@@ -189,88 +41,17 @@ module AnnotationViewer =
                 arrowThickness   = AVal.constant 10.0
                 arrowLength      = AVal.constant 10.0
                 dnsPlaneSize     = AVal.constant 10.0
-                offset           = AVal.constant 0.0
+                offset           = AVal.constant 0.1
                 pickingTolerance = AVal.constant 10.0
             }
 
 
-        let lines (viewProj : aval<M44d>) =
-              let instanceAttribs = 
-                  AVal.custom (fun t -> 
-                      Log.startTimed "mk lines"
-                      let annos = annoSet.Content.GetValue(t)
-                      let modelTrafos = List<M44d>()
-                      let vertices = List<_>()
-                      let colors = List<_>()
-                      let tolerances = List<float32>()
-                      let lineWidths = List<float32>()
-                      let dcis = List<DrawCallInfo>()
-                      let depthOffsets = List<float32>()
-                      for (id,anno) in annos do   
-                          let kind = anno.geometry.GetValue t
-                          let p = PRo3D.Core.Drawing.Sg.getPolylinePoints anno
-                          let ps = p.GetValue(t)
-                          let offset = 0.0
-                          let color = anno.color.c.GetValue(t)
-                          let thickness = anno.thickness.value.GetValue(t)
-                          let tolerance = 0.0
-                          let modelTrafo = anno.modelTrafo.GetValue(t)
-                          //let modelTrafo = Trafo3d.Identity
-
-                          let start = vertices.Count
-                          let lines = Array.pairwise ps
-
-                          let isVisible = anno.visible.GetValue(t)
-
-                          for (a,e) in lines do
-                              vertices.Add(modelTrafo.Backward.TransformPos a |> V3f)
-                              vertices.Add(modelTrafo.Backward.TransformPos e |> V3f)
-
-                          let dci = DrawCallInfo(FaceVertexCount = lines.Length * 2, BaseVertex = start, FirstIndex = 0,
-                                                 FirstInstance = 0, InstanceCount = 1)
-       
-
-                          dcis.Add(dci)
-                          modelTrafos.Add(modelTrafo.Forward)
-                          lineWidths.Add(float32 thickness)
-                          colors.Add(C4f color)
-                          tolerances.Add(float32 tolerance)
-                          depthOffsets.Add(float32 offset)
-
-                      let r = 
-                          {| points = vertices.ToArray();
-                             drawCallInfos = dcis.ToArray();
-                             modelTrafos = modelTrafos.ToArray();
-                             lineWidths = lineWidths.ToArray();
-                             colors = colors.ToArray();
-                             tolerances = tolerances.ToArray() 
-                          |}
-                      Log.stop()
-                      r
-                  )
-              let mvps = 
-                (instanceAttribs, viewProj) ||> AVal.map2 (fun i vp -> 
-                    let r = Array.map (fun m -> let r : M44d = vp * m in M44f.op_Explicit r) i.modelTrafos
-                    r
-                )
-              let indirect = instanceAttribs |> AVal.map (fun i -> IndirectBuffer.ofArray false i.drawCallInfos)
-              Sg.indirectDraw IndexedGeometryMode.LineList indirect
-              |> Sg.vertexAttribute DefaultSemantic.Positions (instanceAttribs |> AVal.map (fun i -> i.points))
-              //|> Sg.index  (instanceAttribs |> AVal.map (fun i -> Array.init (i.points.Length * 4) id))
-              |> Sg.uniform "MVPs" mvps
-              |> Sg.uniform "LineWidths" (instanceAttribs |> AVal.map (fun i -> i.lineWidths))
-              |> Sg.uniform "Colors" (instanceAttribs |> AVal.map (fun i -> i.colors))
-              |> Sg.uniform "Tolerances" (instanceAttribs |> AVal.map (fun i -> i.tolerances))
-              |> Sg.shader { 
-                    do! LineShader.indirectLineVertex
-                    do! LineShader.thickLine
-                    //do! OpcViewer.Base.Shader.DepthOffset.depthOffsetFS 
-              }
-              |> Sg.uniform "DepthOffset" (AVal.constant 0.0)
+        let selectedAnnotation = cval -1
 
 
 
-        let points (viewProj : aval<M44d>) =
+
+        let points (view : aval<M44d>) =
             let instanceAttribs = 
                 AVal.custom (fun t -> 
                     Log.startTimed "creating points"
@@ -304,15 +85,15 @@ module AnnotationViewer =
                     Log.stop()
                     modelPos.ToArray(), colors.ToArray(), sizes.ToArray()
                 )
-            let mvps = 
-                (instanceAttribs, viewProj) ||> AVal.map2 (fun (p,_,_) v -> 
-                    let r = Array.map (fun p -> V3f (v.TransformPosProj p)) p
+            let mvs = 
+                (instanceAttribs, view) ||> AVal.map2 (fun (p,_,_) v -> 
+                    let r = Array.map (fun p -> V3f (v.TransformPos p)) p
                     r
                 )
             let colors = instanceAttribs |> AVal.map (fun (mvp, c, s) -> c)
             let sizes = instanceAttribs |> AVal.map (fun (mvp, c, s) -> s )
             Sg.draw IndexedGeometryMode.PointList
-            |> Sg.vertexAttribute DefaultSemantic.Positions mvps
+            |> Sg.vertexAttribute DefaultSemantic.Positions mvs
             |> Sg.vertexAttribute DefaultSemantic.Colors colors
             |> Sg.vertexAttribute "Sizes" sizes
             |> Sg.shader { 
@@ -320,9 +101,87 @@ module AnnotationViewer =
                   do! PointsShader.pointSpriteFragment
                }
 
-        let mvp = (view,frustum) ||> AVal.map2 (fun c f -> (CameraView.viewTrafo c * Frustum.projTrafo f).Forward)
-        let points = points mvp
-        let lines = lines mvp
+        let mv = view |> AVal.map (fun c -> (CameraView.viewTrafo c).Forward)
+        let points = points mv
+        let lines, pickIds, bb = PackedRendering.lines config.offset selectedAnnotation annoSet mv
+
+        let pickColors, pickDepth = 
+            //let size = AVal.constant (V2i(128,128))
+            let size = win.Sizes
+            let signature =
+                runtime.CreateFramebufferSignature [
+                    DefaultSemantic.Colors, { format = RenderbufferFormat.Rgba32f; samples = 1 }
+                    DefaultSemantic.Depth, { format = RenderbufferFormat.Depth24Stencil8; samples = 1 }
+                ]
+
+            lines
+            |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
+            |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo) //(size |> AVal.map (fun s -> Frustum.perspective 20.0 0.01 10000.0 (s.X / s.Y)))
+            |> Sg.shader { 
+                  do! LineShader.indirectLineVertexPicking
+                  do! LineShader.thickLine
+                  do! DepthOffset.depthOffsetFS 
+                  do! Picking.pickId
+            }
+            |> Sg.uniform "PickingTolerance" config.pickingTolerance
+            |> Sg.compile runtime signature
+            |> RenderTask.renderToColorAndDepth size
+
+        win.Mouse.Move.Values.Add(fun (o,p) -> 
+            let r = pickColors.GetValue(AdaptiveToken.Top,RenderToken.Empty)
+            let offset = V3i(p.Position.X,p.Position.Y,0)
+            let boxSize = V2i(10,10)
+            let r = runtime.Download(r,0,0,Box2i.FromMinAndSize(p.Position, V2i(1,1))) |> unbox<PixImage<float32>>
+            let m = r.GetMatrix<C4f>()
+            //let center = m.Size.XY / 2L
+            //let ids = pickIds.GetValue()
+            //let mutable bestDist = Double.MaxValue
+            //let mutable bestId = -1
+            //m.ForeachCoord(fun (c : V2l) ->
+            //    let d = Vec.lengthSquared (c - center)
+            //    if d < bestDist then
+            //        let p = m.[c]
+            //        let id : int = BitConverter.SingleToInt32Bits(p.A)
+            //        if id > 0 && id < ids.Length then
+            //            bestDist <- d
+            //            bestId <- id
+            //)
+            //if bestId > 0 then
+            //    Log.line "hit %A" (id, ids.[bestId]
+            //    transact (fun _ -> selectedAnnotation.Value <- id)
+            let p = m.[0,0]
+            let id : int = BitConverter.SingleToInt32Bits(p.A)
+            let ids = pickIds.GetValue()
+            if id > 0 && id < ids.Length then
+                Log.line "hit %A" (id, ids.[id])
+                transact (fun _ -> selectedAnnotation.Value <- id)
+            else 
+                transact (fun _ -> selectedAnnotation.Value <- -1)
+            //r.SaveAsImage("guh.tiff")
+            ()
+        )
+
+        let overlay = 
+            Sg.fullScreenQuad
+            |> Sg.scale 0.1
+            |> Sg.translate -0.8 0.8 0.0
+            |> Sg.diffuseTexture pickColors
+            |> Sg.shader {
+                do! DefaultSurfaces.trafo
+                do! LensShader.lens
+            }
+            |> Sg.uniform "MousePosition" ((win.Mouse.Position, win.Sizes) ||> AVal.map2 (fun (p : PixelPosition) s -> printf "%A" p.NormalizedPosition; V2d(p.NormalizedPosition.X,1.0-p.NormalizedPosition.Y)))
+            |> Sg.viewTrafo' Trafo3d.Identity
+            |> Sg.projTrafo' Trafo3d.Identity
+
+
+        let lineSg  =
+            lines 
+            |> Sg.shader { 
+                  do! LineShader.indirectLineVertex
+                  do! LineShader.thickLine
+                  do! DepthOffset.depthOffsetFS 
+            }
 
         let onOff b (s : ISg) = 
             adaptive { 
@@ -331,7 +190,7 @@ module AnnotationViewer =
             }
 
         let newSg =
-            Sg.ofList [points; lines]
+            Sg.ofList [points; lineSg]
             |> onOff (AVal.map not showOld)
 
         let sg = 
@@ -349,7 +208,7 @@ module AnnotationViewer =
             |> Sg.set 
             |> onOff showOld
 
-        Sg.ofSeq [Sg.dynamic sg; Sg.dynamic newSg]
+        Sg.ofSeq [Sg.dynamic sg; Sg.dynamic newSg; overlay]
 
     let run (scene : OpcScene) (annotations : Annotations) =
 
@@ -367,7 +226,7 @@ module AnnotationViewer =
 
         let serializer = FsPickler.CreateBinarySerializer()
 
-        let showSurface = true
+        let showSurface = false
 
         let sg = 
             if showSurface && runner.IsSome then
@@ -425,7 +284,7 @@ module AnnotationViewer =
 
         let sg = 
             sg
-            |> Sg.andAlso (createAnnotationSg view frustum showOld annotations)
+            |> Sg.andAlso (createAnnotationSg win view frustum showOld annotations)
             |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
             |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo)
             //|> Sg.transform preTransform
