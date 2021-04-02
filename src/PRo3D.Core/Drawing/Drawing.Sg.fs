@@ -41,7 +41,7 @@ module Sg =
         ]
 
     let discISg color size thickness trafo =
-        Sg.cylinder 30 color size thickness              
+        Sg.cylinder 12 color size thickness              
           |> Sg.noEvents
           |> Sg.uniform "WorldPos" (trafo |> AVal.map(fun (x : Trafo3d) -> x.Forward.C3.XYZ))
           |> Sg.uniform "Size" size
@@ -50,7 +50,7 @@ module Sg =
 
 
     let coneISg color radius height trafo =  
-        Sg.cone 30 color radius height
+        Sg.cone 12 color radius height
            |> Sg.noEvents         
            |> Sg.effect [stableLight]
            |> Sg.trafo(trafo) 
@@ -353,16 +353,16 @@ module Sg =
         let pickFunc = pickEventsHelper (anno.key |> AVal.constant) pickingAllowed anno.thickness.value anno.modelTrafo
 
 
-        let pickingLines = 
-            Sg.pickableLine 
-                points 
-                config.offset 
-                color
-                anno.thickness.value 
-                config.pickingTolerance
-                anno.modelTrafo 
-                true 
-                pickFunc
+        //let pickingLines = 
+        //    Sg.pickableLine 
+        //        points 
+        //        config.offset 
+        //        color
+        //        anno.thickness.value 
+        //        config.pickingTolerance
+        //        anno.modelTrafo 
+        //        true 
+        //        pickFunc
              
         let selectionSg = 
             picked 
@@ -378,5 +378,4 @@ module Sg =
         ] |> optional anno.visible
     
     let finishedAnnotationDiscs (anno : AdaptiveAnnotation) (conf:innerViewConfig) (cl : AdaptiveFalseColorsModel) (cam:aval<CameraView>) =
-        optional anno.showDns (drawDns anno conf cl cam) 
-        |> Sg.onOff anno.visible
+        optional (AVal.map2 (&&) anno.visible anno.showDns) (drawDns anno conf cl cam) 

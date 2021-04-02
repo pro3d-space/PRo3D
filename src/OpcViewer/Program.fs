@@ -64,7 +64,7 @@ let main argv =
 
         Aardvark.Rendering.GL.Config.UseNewRenderTask <- true
 
-        let annotations = @"I:\OPC\Shaler_OPCs_2019\ShalerNew.pro3d.ann"
+        let annotations = @"I:\OPC\Shaler_OPCs_2019\crazy.pro3d.ann"
         //let annotations = @"F:\pro3d\data\20200220_DinosaurQuarry2\notrafo.pro3d.ann"
 
         let annotations = 

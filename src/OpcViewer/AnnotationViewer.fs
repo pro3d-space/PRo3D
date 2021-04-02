@@ -248,7 +248,7 @@ module AnnotationViewer =
 
         let lodVisEnabled = cval true
         let fillMode = cval FillMode.Fill
-        let showOld = cval false
+        let showOld = cval true
 
         win.Keyboard.KeyDown(Keys.PageUp).Values.Add(fun _ -> 
             transact (fun _ -> speed.Value <- speed.Value * 1.5)
