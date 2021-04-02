@@ -4,38 +4,28 @@ open Aardvark.Base
 open Aardvark.UI
 open Adaptify
 
-[<ModelType>]
-type AxesDirections = {
-    xDir : V3d
-    yDir : V3d
-    zDir : V3d
-} with
-    static member init =
-        {
-            xDir = V3d.OOO
-            yDir = V3d.OOO
-            zDir = V3d.OOO
-        }
+
 
 [<ModelType>]
 type SurfaceMeasurements =  {
     /// the dimensions of this surface along x/y/z axes
     dimensions      : V3d
-    /// the directions of x/y/z axes of the model in worldspace
-    axesDirections : AxesDirections
+    /// the angles of x/y/z axes of the model in worldspace
+    rollPitchYaw    : V3d
 } with
     static member init = {
         dimensions     = V3d.OOO
-        axesDirections = AxesDirections.init
+        rollPitchYaw   = V3d.OOO
     }
 
 [<ModelType>]
 type ComparisonApp = {
-    showMeasurementsSg : bool
-    surface1           : option<string>
-    surface2           : option<string>
-    measurements1      : SurfaceMeasurements    
-    measurements2      : SurfaceMeasurements    
+    showMeasurementsSg    : bool
+    surface1              : option<string>
+    surface2              : option<string>
+    measurements1         : option<SurfaceMeasurements>
+    measurements2         : option<SurfaceMeasurements>
+    comparedMeasurements  : option<SurfaceMeasurements>
 }
 
 type ComparisonAction =

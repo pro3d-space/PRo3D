@@ -18,7 +18,7 @@ open PRo3D.Core.Surface
 open PRo3DCompability
 
 module SurfaceTransformations = 
-
+    /// This is not actually the complete trafo!! TODO rename this
     let fullTrafo' (surf : Surface) (refsys : ReferenceSystem) = 
     
         let north = refsys.northO.Normalized

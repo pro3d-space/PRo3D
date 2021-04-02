@@ -300,9 +300,10 @@ module ViewerUtils =
                     } 
 
                 let measurementsSg =
-                    ComparisonApp.measurementsSg (surf |> AVal.bind (fun x -> x.name))
+                    ComparisonApp.measurementsSg surf
                                                  (pickBox |> AVal.map (fun x -> x.Size.[x.MajorDim]))
                                                  trafo
+                                                 refsys
                                                  comparisonApp
 
                 let structuralOnOff (visible : aval<bool>) (sg : ISg<_>) : ISg<_> = 
