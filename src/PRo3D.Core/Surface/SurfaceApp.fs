@@ -224,34 +224,6 @@ module SurfaceUtils =
             doc |> layers
                                             
 module SurfaceApp =
-                
-    let updateTrafo (trafo : PRo3D.Core.Surface.SurfaceTrafo) (surfaces : HashMap<string,Surface>) (model : SurfaceModel) = 
-        match surfaces.TryFind(trafo.id) with
-        | Some s -> 
-          let f = (fun _ -> { s with preTransform = trafo.trafo } |> Leaf.Surfaces)
-          let g = Groups.updateLeaf s.guid f model.surfaces
-          Log.line "MeasurementImporter: matched and updated %s" s.name
-          { model with surfaces = g} 
-        | None -> model
-                 
-    let updateTrafos (trafos:IndexList<SurfaceTrafo>) (model:SurfaceModel) =
-        let surfaces = 
-            model.surfaces.flat 
-            |> HashMap.toList 
-            |> List.map(fun (_,v) -> 
-               let surf = v |> Leaf.toSurface
-               (surf.name, surf))
-            |> HashMap.ofList
-        
-        let rec update (p : list<SurfaceTrafo>) (model:SurfaceModel) =
-            match p with
-            | x::rest -> 
-                match rest with
-                | [] -> updateTrafo x surfaces model
-                | _ ->  update rest (updateTrafo x surfaces model) 
-            | _ -> model
-
-        update (trafos |> IndexList.toList) model    
 
     let hmapsingle (k,v) = HashMap.single k v
 

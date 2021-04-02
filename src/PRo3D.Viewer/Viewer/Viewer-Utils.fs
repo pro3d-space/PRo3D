@@ -419,7 +419,7 @@ module ViewerUtils =
         ]
 
     //TODO TO refactor screenshot specific
-    let getSurfacesScenegraphs (frustum : aval<Frustum>) (m:AdaptiveModel) =
+    let getSurfacesScenegraphs (m:AdaptiveModel) =
         let sgGrouped = m.scene.surfacesModel.sgGrouped
         
       //  let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
@@ -434,7 +434,7 @@ module ViewerUtils =
                         viewSingleSurfaceSg 
                             sf 
                             bla 
-                            frustum
+                            m.frustum 
                             selected 
                             m.ctrlFlag 
                             sf.globalBB 
@@ -468,17 +468,15 @@ module ViewerUtils =
   
     //TODO TO refactor screenshot specific
     let getSurfacesSgWithCamera (m : AdaptiveModel) =
-        let frustum = m.frustum
-        let sgs = getSurfacesScenegraphs frustum m
+        let sgs = getSurfacesScenegraphs m
         let camera =
-            //TODO hs/to - what about this?
-            AVal.map2 (fun v f -> Camera.create v f) m.scene.cameraView frustum
+            AVal.map2 (fun v f -> Camera.create v f) m.scene.cameraView m.frustum 
         sgs 
             |> ASet.ofAList
             |> Sg.set
             |> (camera |> Sg.camera)
 
-    let renderCommands (frustum : aval<Frustum>) (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
+    let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
         let usehighlighting = true |> AVal.constant //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true
 
@@ -500,7 +498,7 @@ module ViewerUtils =
                         viewSingleSurfaceSg 
                             surface 
                             m.scene.surfacesModel.surfaces.flat
-                            frustum
+                            m.frustum 
                             selected 
                             surfacePicking
                             surface.globalBB
@@ -534,30 +532,6 @@ module ViewerUtils =
             yield RenderCommand.SceneGraph overlayed
             
         }  
-
-    let renderScreenshot (runtime : IRuntime) (size : V2i) (sg : ISg<ViewerAction>) = 
-        let col = runtime.CreateTexture2D(size, TextureFormat.Rgba8, 1, 1);
-        let signature = 
-            runtime.CreateFramebufferSignature [
-                DefaultSemantic.Colors, { format = RenderbufferFormat.Rgba8; samples = 1 }
-            ]
-
-        let fbo = 
-            runtime.CreateFramebuffer(
-                signature, 
-                Map.ofList [
-                    DefaultSemantic.Colors, col.GetOutputView()
-                ]
-            )
-
-        let taskclear = runtime.CompileClear(signature,AVal.constant C4f.Black,AVal.constant 1.0)
-        
-        let task = runtime.CompileRender(signature, sg)
-
-        taskclear.Run(null, fbo |> OutputDescription.ofFramebuffer) |> ignore
-        task.Run(null, fbo |> OutputDescription.ofFramebuffer) |> ignore
-        let colorImage = runtime.Download(col)
-        colorImage
 
 module GaleCrater =
     open PRo3D.Base

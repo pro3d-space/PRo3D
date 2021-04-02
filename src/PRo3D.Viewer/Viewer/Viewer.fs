@@ -504,7 +504,7 @@ module ViewerApp =
                     | None ->
                         match surf with
                         | Some s ->
-                            let bb = s.globalBB.Transformed(surface.preTransform.Forward * superTrafo.Forward)
+                            let bb = s.globalBB.Transformed(superTrafo.Forward)
                             let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value    
                             let animationMessage = 
                                 animateFowardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
