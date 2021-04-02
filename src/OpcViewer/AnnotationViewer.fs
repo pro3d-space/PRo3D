@@ -226,7 +226,7 @@ module AnnotationViewer =
 
         let serializer = FsPickler.CreateBinarySerializer()
 
-        let showSurface = false
+        let showSurface = true
 
         let sg = 
             if showSurface && runner.IsSome then

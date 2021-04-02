@@ -536,7 +536,7 @@ module ViewerUtils =
         }  
 
     let renderScreenshot (runtime : IRuntime) (size : V2i) (sg : ISg<ViewerAction>) = 
-        let col = runtime.CreateTexture(size, TextureFormat.Rgba8, 1, 1);
+        let col = runtime.CreateTexture2D(size, TextureFormat.Rgba8, 1, 1);
         let signature = 
             runtime.CreateFramebufferSignature [
                 DefaultSemantic.Colors, { format = RenderbufferFormat.Rgba8; samples = 1 }

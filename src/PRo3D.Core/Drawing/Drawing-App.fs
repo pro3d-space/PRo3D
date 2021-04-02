@@ -497,7 +497,7 @@ module DrawingApp =
         let hoveredAnnotation = cval -1
         let lines, pickIds, bb = PackedRendering.lines config.offset hoveredAnnotation annoSet (view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward))
         let pickRenderTarget = PackedRendering.pickRenderTarget runtime config.pickingTolerance lines view frustum viewport
-
+        pickRenderTarget.Acquire()
         let packedRender = 
             let simple (kind : SceneEventKind) (f : SceneHit -> seq<'msg>) =
                 kind, fun evt -> false, Seq.delay (fun () -> (f evt))
@@ -506,22 +506,23 @@ module DrawingApp =
             |> Sg.pickable' (bb |> AVal.map PickShape.Box)
             |> Sg.withEvents [
                    simple SceneEventKind.Move (fun (evt : SceneHit) -> 
-                        let r = pickRenderTarget.GetValue(AdaptiveToken.Top,RenderToken.Empty)
-                        let offset = evt.event.evtPixel
-                        let r = runtime.Download(r,0,0,Box2i.FromMinAndSize(offset, V2i(1,1))) |> unbox<PixImage<float32>>
-                        let m = r.GetMatrix<C4f>()
-                        let allowed = pickingAllowed.GetValue()
-                        let p = m.[0,0]
-                        let id : int = BitConverter.SingleToInt32Bits(p.A)
-                        let ids = pickIds.GetValue()
-                        if id > 0 && id < ids.Length  && allowed then
-                            Log.line "hoverhit %A" (id, ids.[id])
-                            transact (fun _ -> hoveredAnnotation.Value <- id)
-                            
-                            Seq.empty
-                        else 
-                            transact (fun _ -> hoveredAnnotation.Value <- -1)
-                            Seq.empty
+                        try
+                            let r = pickRenderTarget.GetValue(AdaptiveToken.Top,RenderToken.Empty)
+                            let offset = evt.event.evtPixel
+                            let r = runtime.Download(r,0,0,Box2i.FromMinAndSize(offset, V2i(1,1))) |> unbox<PixImage<float32>>
+                            let m = r.GetMatrix<C4f>()
+                            let allowed = pickingAllowed.GetValue()
+                            let p = m.[0,0]
+                            let id : int = BitConverter.SingleToInt32Bits(p.A)
+                            let ids = pickIds.GetValue()
+                            if id > 0 && id < ids.Length  && allowed then
+                                //Log.line "hoverhit %A" (id, ids.[id])
+                                transact (fun _ -> hoveredAnnotation.Value <- id)
+                                Seq.empty
+                            else 
+                                transact (fun _ -> hoveredAnnotation.Value <- -1)
+                                Seq.empty
+                        with e -> Seq.empty
                    )
                    Sg.onMouseDown (fun b p -> 
                         let id = hoveredAnnotation.GetValue()
