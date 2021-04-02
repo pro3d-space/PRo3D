@@ -45,7 +45,7 @@ nuget Uncodium.Eigensystems                 ~> 1.1.2
 
 nuget OPCViewer.Base                        ~> 1.0.6
 
-nuget Aardvark.GeoSpatial.Opc               ~> 5.4.0
+nuget Aardvark.GeoSpatial.Opc               ~> 5.5.0
 
 nuget Chiron                                ~> 6.3.1
 nuget RestSharp                             ~> 106.6.9

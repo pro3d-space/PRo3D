@@ -375,7 +375,7 @@ module Sg =
             selectionSg
             //pickingLines
             dotsAndText
-        ] |> Sg.onOff anno.visible
+        ] |> optional anno.visible
     
     let finishedAnnotationDiscs (anno : AdaptiveAnnotation) (conf:innerViewConfig) (cl : AdaptiveFalseColorsModel) (cam:aval<CameraView>) =
         optional anno.showDns (drawDns anno conf cl cam) 

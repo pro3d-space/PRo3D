@@ -65,7 +65,7 @@ module UserFeedback =
             msg     = ViewerAction.NoAction ""
         }
 
-    let createWorker (feedback: UserFeedback<'a>) =
+    let createWorker (feedback: UserFeedback<ViewerAction>) =
         proclist {
             yield UpdateUserFeedback ""
             yield UpdateUserFeedback feedback.text
@@ -1404,7 +1404,7 @@ module ViewerApp =
              |> Sg.cullMode (AVal.constant CullMode.None)
 
         // instrument view control
-        let icmds    = ViewerUtils.renderCommands frustum m.scene.surfacesModel.sgGrouped ioverlayed discsInst m // m.scene.surfacesModel.sgGrouped overlayed discs m
+        let icmds    = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed discsInst m // m.scene.surfacesModel.sgGrouped overlayed discs m
         let icam = 
             AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
         DomNode.RenderControl((instrumentControlAttributes m), icam, icmds, None) //AttributeMap.Empty
@@ -1551,10 +1551,10 @@ module ViewerApp =
         let depthTested = 
             [linkingSg; annotationSg; minervaSg; heightValidationDiscs] |> Sg.ofList
 
-        let cmds    = ViewerUtils.renderCommands frustum m.scene.surfacesModel.sgGrouped overlayed depthTested m
+        let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m
         onBoot "attachResize('__ID__')" (
-                DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
-            )
+            DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
+        )
         
     let view (runtime : IRuntime) (m: AdaptiveModel) = //(localhost: string)
 

@@ -96,7 +96,7 @@ let main argv =
     Aardvark.Rendering.GL.RuntimeConfig.SupressSparseBuffers <- true
     //app.ShaderCachePath <- None
 
-    Sg.hackRunner <- runtime.CreateLoadRunner 2 |> Some
+    Sg.hackRunner <- runtime.CreateLoadRunner 1 |> Some
 
     Serialization.init()
     

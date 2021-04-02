@@ -170,7 +170,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Geometry.Intersection">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.geometry.intersection\5.1.2\lib\netstandard2.0\Aardvark.Geometry.Intersection.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.geometry.intersection\5.1.5\lib\netstandard2.0\Aardvark.Geometry.Intersection.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -192,7 +192,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.GeoSpatial.Opc">
-          <HintPath>C:\Users\hs\.nuget\packages\aardvark.geospatial.opc\5.4.0\lib\netstandard2.0\Aardvark.GeoSpatial.Opc.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.geospatial.opc\5.5.0\lib\netstandard2.0\Aardvark.GeoSpatial.Opc.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
