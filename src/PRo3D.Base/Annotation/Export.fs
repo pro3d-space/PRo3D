@@ -1,4 +1,4 @@
-namespace PRo3D
+namespace PRo3D.Base.Annotation
 
 
 open System
@@ -8,9 +8,10 @@ open FSharp.Data.Adaptive
 
 open Aardvark.Base
 open Aardvark.UI
-open PRo3D.Base.Annotation
 
-module Csv =
+open PRo3D.Base.Annotation.GeoJSON
+
+module Export =
     
     type ExportDnS = {
         dipAngle      : float
@@ -22,11 +23,11 @@ module Csv =
         errorMax      : float
         errorStd      : float
         errorSos      : float
-        }
+    }
    
     type ExportAnnotation = {
         key           : Guid
-        geometry      : Geometry
+        geometry      : PRo3D.Base.Annotation.Geometry
         projection    : Projection
         semantic      : Semantic
         color         : string
@@ -59,7 +60,7 @@ module Csv =
         z             : double
     }
 
-    let exportAnnotation (lookUp) (a: Annotation) : ExportAnnotation =
+    let toExportAnnotation (lookUp) (a: Annotation) : ExportAnnotation =
       
         let results = 
             match a.results with
@@ -206,4 +207,30 @@ module Csv =
                     |> Seq.map (Array.map enclose)
                 yield! lines |> Seq.map (Array.join separator)
             }
+
+    module GeoJSON =
+        let toPolygon () =
+            let polygon = 
+                GeoJsonGeometry.Polygon(
+                    [
+                        [
+                            Coordinate.V2d{ X=100.0; Y=0.0 }
+                            Coordinate.V2d{ X=101.0; Y=0.0 }
+                            Coordinate.V2d{ X=101.0; Y=1.0 }
+                            Coordinate.V2d{ X=100.0; Y=1.0 }
+                            Coordinate.V2d{ X=100.0; Y=0.0 }
+                        ]                        
+                        [
+                            Coordinate.V2d{ X=100.8; Y=0.8 }
+                            Coordinate.V2d{ X=100.8; Y=0.2 }
+                            Coordinate.V2d{ X=100.2; Y=0.2 }
+                            Coordinate.V2d{ X=100.2; Y=0.8 }
+                            Coordinate.V2d{ X=100.8; Y=0.8 }
+                        ]
+                    ]
+                )
+
+            ()
+
+        let doJson (path:string) (annotations : list<ExportAnnotation>) = failwith ""
 

@@ -369,6 +369,9 @@ module Gui =
 
         let jsExportAnnotationsAsCSVDialog =
             "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
+
+        let jsExportAnnotationsAsGeoJSONDialog =
+            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
               
         let annotationMenu = //todo move to viewer io gui
             div [ clazz "ui dropdown item"] [
@@ -400,6 +403,13 @@ module Gui =
                         clientEvent "onclick" jsExportAnnotationsAsCSVDialog
                     ][
                         text "Export (*.csv)"
+                    ]     
+                    div [ 
+                        clazz "ui inverted item"
+                        Dialogs.onSaveFile ExportAsGeoJSON
+                        clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
+                    ][
+                        text "Export (*.json)"
                     ]     
                 ]
             ]       

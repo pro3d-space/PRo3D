@@ -43,8 +43,7 @@ type DrawingAction =
   | Redo                   
   | FlyToAnnotation        of Guid
   //| RemoveAnnotation           of list<Index>*Guid       
-  | Send                   
-  | Export                 
+  | Send                     
   | Nop                    
   | UpVectorChanged        of V3d
   | NorthVectorChanged     of V3d
@@ -54,6 +53,7 @@ type DrawingAction =
   | AddAnnotations         of list<string>
   | PickAnnotation         of SceneHit * Guid
   | ExportAsCsv            of string
+  | ExportAsGeoJSON        of string
 
 [<ModelType>]
 type DrawingModel = {
