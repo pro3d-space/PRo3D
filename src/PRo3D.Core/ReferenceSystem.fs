@@ -4,16 +4,10 @@ open System
 open Aardvark.Base
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
-open Aardvark.Base.Rendering    
+open Aardvark.Rendering    
 
 open Aardvark.Application    
 open Aardvark.UI
-
-    
-open Aardvark.SceneGraph.Opc
-open Aardvark.SceneGraph.SgPrimitives
-open Aardvark.SceneGraph.FShadeSceneGraph
-open Aardvark.VRVis.Opc
 
 open PRo3D.Base
 open PRo3D.Base.Annotation

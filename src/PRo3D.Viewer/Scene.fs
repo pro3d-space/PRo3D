@@ -6,6 +6,7 @@ open Aardvark.Base
 open FSharp.Data.Adaptive
 open Aardvark.SceneGraph.Opc
 open Aardvark.UI.Primitives
+open Aardvark.Rendering
 
 open PRo3D.Base
 open PRo3D.Core

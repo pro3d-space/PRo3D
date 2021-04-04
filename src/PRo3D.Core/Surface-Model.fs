@@ -3,7 +3,7 @@ namespace PRo3D.Core.Surface
 open System
 open Aardvark.Base
 open FSharp.Data.Adaptive
-open Aardvark.Base.Rendering
+open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.SceneGraph.Opc
 open Aardvark.SceneGraph.IO.Loader

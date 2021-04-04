@@ -8,7 +8,7 @@ nuget Aardvark.Service
 nuget Aardvark.UI                          
 nuget Aardvark.UI.Primitives               
 
-nuget Aardvark.Base.Rendering
+nuget Aardvark.Rendering
 nuget Aardvark.SceneGraph                  
 nuget Aardvark.SceneGraph.IO               
 nuget Aardvark.Rendering.Text              

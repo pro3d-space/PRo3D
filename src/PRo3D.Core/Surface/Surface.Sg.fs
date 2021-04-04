@@ -4,13 +4,13 @@ open System
 open System.IO
 open Aardvark.Base
 open FSharp.Data.Adaptive
-open Aardvark.UI
-open Aardvark.UI.Primitives
-open Aardvark.Base.Rendering
+open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.SceneGraph.IO
 open Aardvark.SceneGraph.Opc
 open Aardvark.Prinziple
+open Aardvark.UI
+open Aardvark.UI.Primitives
 
 open Aardvark.UI.Operators
 open Aardvark.UI.Trafos  
@@ -42,20 +42,26 @@ module Sg =
         (_projection : aval<Trafo3d>) 
         (p           : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) 
         (lodParams   : aval<LodParameters>)
+        (isActive    : aval<bool>)
         =
 
         let lodParams = lodParams.GetValue self
+        let isActive = isActive.GetValue self
        
         let campPos = (viewTrafo.GetValue self).Backward.C3.XYZ
         let bb      = p.info.GlobalBoundingBox.Transformed(lodParams.trafo * preTrafo ) //* preTrafo)
         let closest = bb.GetClosestPointOn(campPos)
         let dist    = (closest - campPos).Length
 
-        let unitPxSize = lodParams.frustum.right / (float lodParams.size.X / 2.0)
-        let px = (lodParams.frustum.near * p.triangleSize) / dist
-                
-    //    Log.warn "%f to %f - avgSize: %f" px (unitPxSize * lodParams.factor) p.triangleSize
-        px > unitPxSize * (exp lodParams.factor)
+        // super agressive to prune out far away stuf
+        if not isActive || (campPos - bb.Center).Length > p.info.GlobalBoundingBox.Size.[p.info.GlobalBoundingBox.Size.MajorDim] * 1.5 then false
+        else
+
+            let unitPxSize = lodParams.frustum.right / (float lodParams.size.X / 2.0)
+            let px = (lodParams.frustum.near * p.triangleSize) / dist // (pow dist 1.2) // (added pow 1.2 here... discuss)
+
+                //    Log.warn "%f to %f - avgSize: %f" px (unitPxSize * lodParams.factor) p.triangleSize
+            px > unitPxSize * (exp lodParams.factor)
 
     let createPlainSceneGraph (runtime : IRuntime) (signature : IFramebufferSignature) (scene : OpcScene) (createKdTrees)
         : (ISg * list<PatchHierarchy> * HashMap<Box3d, KdTrees.Level0KdTree>) =
@@ -112,11 +118,12 @@ module Sg =
                     h.opcPaths.Opc_DirAbsPath
                     mars //scene.lodDecider 
                     scene.useCompressedTextures
+                    true
                     ViewerModality.XYZ
                     //PatchLod.CoordinatesMapping.Local
                     (PatchLod.toRoseTree h.tree)
             )
-            |> Sg.ofList                
+            |> SgFSharp.Sg.ofList                
                                                 
         g, patchHierarchies, kdTrees
     
@@ -176,6 +183,7 @@ module Sg =
                        patchHierarchies      = d.opcPaths
                        preTransform          = d.preTransform
                        useCompressedTextures = false
+                       lodDecider = DefaultMetrics.mars2
                 }
             )
             |> List.map (fun d -> createPlainSceneGraph runtime signature d true)
@@ -200,7 +208,7 @@ module Sg =
         let point = 
             aset{
                 let! guid = model.surfaces.singleSelectLeaf
-                let fail = Aardvark.UI.Extensions.Sg.empty
+                let fail = Sg.empty
 
                 match guid with
                 | Some i -> 

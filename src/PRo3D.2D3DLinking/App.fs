@@ -5,7 +5,7 @@ namespace LinkingTestApp
 
 //open Aardvark.Base
 //open FSharp.Data.Adaptive
-//open Aardvark.Base.Rendering
+//open Aardvark.Rendering
 
 //open Aardvark.Rendering.Text
 

@@ -8,7 +8,7 @@ open FSharp.Data.Adaptive
 open Aardvark.Base
 open Aardvark.UI
 open Aardvark.UI.Primitives
-open Aardvark.Base.Rendering
+open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.SceneGraph.IO
 open Aardvark.SceneGraph.Opc
@@ -224,34 +224,6 @@ module SurfaceUtils =
             doc |> layers
                                             
 module SurfaceApp =
-                
-    let updateTrafo (trafo : PRo3D.Core.Surface.SurfaceTrafo) (surfaces : HashMap<string,Surface>) (model : SurfaceModel) = 
-        match surfaces.TryFind(trafo.id) with
-        | Some s -> 
-          let f = (fun _ -> { s with preTransform = trafo.trafo } |> Leaf.Surfaces)
-          let g = Groups.updateLeaf s.guid f model.surfaces
-          Log.line "MeasurementImporter: matched and updated %s" s.name
-          { model with surfaces = g} 
-        | None -> model
-                 
-    let updateTrafos (trafos:IndexList<SurfaceTrafo>) (model:SurfaceModel) =
-        let surfaces = 
-            model.surfaces.flat 
-            |> HashMap.toList 
-            |> List.map(fun (_,v) -> 
-               let surf = v |> Leaf.toSurface
-               (surf.name, surf))
-            |> HashMap.ofList
-        
-        let rec update (p : list<SurfaceTrafo>) (model:SurfaceModel) =
-            match p with
-            | x::rest -> 
-                match rest with
-                | [] -> updateTrafo x surfaces model
-                | _ ->  update rest (updateTrafo x surfaces model) 
-            | _ -> model
-
-        update (trafos |> IndexList.toList) model    
 
     let hmapsingle (k,v) = HashMap.single k v
 
@@ -637,7 +609,7 @@ module SurfaceApp =
                                    Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
                                 ]                             
             
-                                yield i [clazz "home icon"; onClick (fun _ -> FlyToSurface key) ][]
+                                yield i [clazz "home icon"; onClick (fun _ -> FlyToSurface key) ][] 
                                     |> UI.wrapToolTip DataPosition.Bottom "Fly to surface"                                                     
             
                                 yield i [clazz "folder icon"; onClick (fun _ -> OpenFolder key) ][] 

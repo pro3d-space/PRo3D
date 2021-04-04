@@ -5,7 +5,7 @@ open System
 open FSharp.Data.Adaptive
 
 open Aardvark.Base
-open Aardvark.Base.Rendering
+open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.SceneGraph.SgPrimitives
 open Aardvark.SceneGraph.``Sg Picking Extensions``
@@ -187,7 +187,7 @@ module Shader =
     type UniformScope with
         member x.PointSize : float = uniform?PointSize
 
-    type pointVertex =
+    type PointVertex =
         {
             [<Position>] pos : V4d
             [<PointSize>] p : float
@@ -196,26 +196,26 @@ module Shader =
             [<SourceVertexIndex>] i : int
         }
 
-    let constantColor (color : V4d) (v : pointVertex) =
+    let constantColor (color : V4d) (v : PointVertex) =
         vertex {
             let ps : float = uniform?PointSize
             return { v with c = color; p = ps }
         }
 
-    let singleColor (v : pointVertex) =
+    let singleColor (v : PointVertex) =
         vertex {
             let ps : float = uniform?PointSize
             let c  : V4d   = uniform?SingleColor
             return { v with c = c; p = ps }
         }
 
-    let differentColor (v : pointVertex) =
+    let differentColor (v : PointVertex) =
         vertex {
             let ps : float = uniform?PointSize
             return { v with c = v.c; p = ps }
         }
 
-    let pointTrafo (v : pointVertex) =
+    let pointTrafo (v : PointVertex) =
         vertex {
             let vp = uniform.ModelViewTrafo * v.pos
             return { 
@@ -224,7 +224,7 @@ module Shader =
             }
         }
 
-    let pointSpriteFragment (v : pointVertex) =
+    let pointSpriteFragment (v : PointVertex) =
         fragment {
             let tc = v.tc
 
@@ -235,7 +235,7 @@ module Shader =
             return v
         }
 
-    let lines (t : Triangle<pointVertex>) =
+    let lines (t : Triangle<PointVertex>) =
         line {
             yield t.P0
             yield t.P1
@@ -261,6 +261,25 @@ module Shader =
                     return v.c
             else return v.c
         }
+
+    [<ReflectedDefinition>]
+    let transformNormal (n : V3d) =
+        uniform.ModelViewTrafoInv.Transposed * V4d(n, 0.0)
+        |> Vec.xyz
+        |> Vec.normalize
+
+    let stableTrafo' (v : AttrVertex) =
+        vertex {
+            let mvp : M44d = uniform?MVP?ModelViewTrafo
+            let vp = mvp * v.pos
+            return  
+                { v with
+                    pos  = uniform.ProjTrafo * vp
+                    wp   = v.pos
+                    n    = transformNormal v.n
+                    ldir = V3d.Zero - vp.XYZ |> Vec.normalize
+                } 
+        } 
     
     [<ReflectedDefinition>]
     let hsv2rgb (h : float) (s : float) (v : float) =
@@ -367,20 +386,17 @@ module Shader =
 
     [<ReflectedDefinition>]
     let mapContrast (col : V4d) =
-    //let mapContrast (v : Vertex) =
-        //fragment { 
-            if (uniform?useContrastS) then
-                let c = uniform?contrastS
-                let nc = V4d(col.X*255.0, col.Y*255.0, col.Z*255.0, 255.0)
+        if (uniform?useContrastS) then
+            let c = uniform?contrastS
+            let nc = V4d(col.X*255.0, col.Y*255.0, col.Z*255.0, 255.0)
         
-                let factor = (259.0 * (c + 255.0)) / (255.0 * (259.0 - c))
-                let red    = (myTrunc (factor * (nc.X   - 128.0) + 128.0)) / 255.0
-                let green  = (myTrunc (factor * (nc.Y   - 128.0) + 128.0)) / 255.0
-                let blue   = (myTrunc (factor * (nc.Z   - 128.0) + 128.0)) / 255.0
-                V4d(red, green, blue, 1.0)
-            else
-                col
-        //}
+            let factor = (259.0 * (c + 255.0)) / (255.0 * (259.0 - c))
+            let red    = (myTrunc (factor * (nc.X   - 128.0) + 128.0)) / 255.0
+            let green  = (myTrunc (factor * (nc.Y   - 128.0) + 128.0)) / 255.0
+            let blue   = (myTrunc (factor * (nc.Z   - 128.0) + 128.0)) / 255.0
+            V4d(red, green, blue, 1.0)
+        else
+            col
 
     [<ReflectedDefinition>]
     let mapBrightness (col : V4d) =     
@@ -446,7 +462,7 @@ module Sg =
                 toEffect Shader.pointSpriteFragment
             ]
 
-    let drawColoredPoints pointsF colors pointSize = 
+    let drawColoredPoints (pointsF : aval<V3f[]>) (colors : aval<C4b[]>) (pointSize : aval<float>) = 
         Sg.draw IndexedGeometryMode.PointList
         |> Sg.vertexAttribute DefaultSemantic.Positions pointsF
         |> Sg.vertexAttribute DefaultSemantic.Colors colors
@@ -473,39 +489,49 @@ module Sg =
         |> Sg.effect [singleColorPointsEffect.Value]
     
     //## LINES ##
-    let edgeLines (close: bool) (points: alist<V3d>) (trafo: aval<Trafo3d>) : aval<Line3d[]>  =
-        points
-        |> AList.map(fun d -> trafo.GetValue().Backward.TransformPos d)
-        |> AList.toAVal 
-        |> AVal.map (fun l ->
-            let list = IndexList.toList l   
-            match list |> List.tryHead with
-            | Some h -> 
-                if close then list @ [h] else list
-                    |> List.pairwise
-                    |> List.map (fun (a,b) -> new Line3d(a,b))
-                    |> List.toArray
-            | None -> [||])       
-      
+    let edgeLines (close: bool) (points: aval<V3d[]>) (trafo: aval<Trafo3d>) : aval<Line3d[]>  =
+        (points, trafo)
+        ||> AVal.map2(fun d t -> d |> Array.map (fun d -> t.Backward.TransformPos d))
+        |> AVal.map (fun l -> 
+            match l with
+            | [||] -> [||]
+            | xs -> 
+                let xs = if close then Array.append xs [|Array.head xs|] else xs
+                xs |> Array.pairwise |> Array.map (fun (a,b) -> Line3d(a,b))
+        ) 
+
+    let stableLinesHelperEffect = 
+        Effect.compose [
+            //toEffect DefaultSurfaces.trafo
+            toEffect Shader.stableTrafo'
+            toEffect DefaultSurfaces.vertexColor
+            toEffect Shader.ThickLineNew.thickLine
+            toEffect Shader.DepthOffset.depthOffsetFS 
+        ]
+
+
     let private drawStableLinesHelper (edges: aval<Line3d[]>) (offset: aval<float>) (color: aval<C4b>) (width: aval<float>) = 
         edges
         |> Sg.lines color
         |> Sg.noEvents
-        |> Sg.shader {
-            do! Shader.StableTrafo.stableTrafo
-            do! DefaultSurfaces.vertexColor
-            do! Shader.ThickLineNew.thickLine
-            do! Shader.DepthOffset.depthOffsetFS 
-        }                               
+        |> Sg.effect [stableLinesHelperEffect]                            
         |> Sg.uniform "LineWidth" width
         |> Sg.uniform "DepthOffset" (offset |> AVal.map (fun depthWorld -> depthWorld / (100.0 - 0.1))) 
 
-    let drawLines (points: alist<V3d>) (offset: aval<float>) (color: aval<C4b>) (width: aval<float>) (trafo: aval<Trafo3d>) : ISg<_> = 
+    let drawLines (points: aval<V3d[]>) (offset: aval<float>) (color: aval<C4b>) (width: aval<float>) (trafo: aval<Trafo3d>) : ISg<_> = 
         let edges = edgeLines false points trafo
         drawStableLinesHelper edges offset color width
         |> Sg.trafo trafo
+        
+
+    let scaledLines = 
+        Effect.compose [
+            toEffect DefaultSurfaces.stableTrafo
+            toEffect DefaultSurfaces.vertexColor
+            toEffect DefaultSurfaces.thickLine
+        ]
                                
-    let drawScaledLines (points: alist<V3d>) (color: aval<C4b>) (width: aval<float>) (trafo: aval<Trafo3d>) : ISg<_> = 
+    let drawScaledLines (points: aval<V3d[]>) (color: aval<C4b>) (width: aval<float>) (trafo: aval<Trafo3d>) : ISg<_> = 
         let edges = edgeLines false points trafo     
         let size = edges |> AVal.map (fun line -> (float (line.Length)) * 100.0)
                                                             
@@ -514,16 +540,12 @@ module Sg =
         |> Sg.noEvents
         |> Sg.uniform "WorldPos" (trafo |> AVal.map(fun (x : Trafo3d) -> x.Forward.C3.XYZ))
         |> Sg.uniform "Size" size
-        |> Sg.shader {               
-            do! DefaultSurfaces.stableTrafo
-            do! DefaultSurfaces.vertexColor
-            do! DefaultSurfaces.thickLine
-        }                               
+        |> Sg.effect [scaledLines]                            
         |> Sg.trafo trafo
         |> Sg.uniform "LineWidth" width      
 
     let private pickableContent
-        (points            : alist<V3d>) 
+        (points            : aval<V3d[]>) 
         (edges             : aval<Line3d[]>) 
         (trafo             : aval<Trafo3d>) 
         (pickingTolerance  : aval<float>) = 
@@ -539,8 +561,7 @@ module Sg =
                 let cylinder = Cylinder3d(e.P0, e.P1, tolerance)
                 return PickShape.Cylinder cylinder
             elif edg.Length > 1 then
-                let! xs = points.Content
-                let cp = xs |> IndexList.toArray
+                let! cp = points
                 let box = cp |> Box3d
                 if box.IsInvalid then 
                     Log.warn "invalid pick box for annotation"
@@ -563,7 +584,7 @@ module Sg =
         }
 
     let pickableLine 
-        (points             : alist<V3d>) 
+        (points             : aval<V3d[]>) 
         (offset             : aval<float>) 
         (color              : aval<C4b>) 
         (width              : aval<float>) 
@@ -596,13 +617,23 @@ module Sg =
         |> Sg.uniform "Size" size
         |> Sg.uniform "WorldPos" pos
 
+    let dotShader = 
+        Effect.compose [
+            toEffect Shader.ScreenSpaceScale.screenSpaceScale
+            toEffect DefaultSurfaces.stableTrafo
+            toEffect DefaultSurfaces.vertexColor      
+        ]
+
     let dot (color: aval<C4b>) (size: aval<float>) (point: aval<V3d>) =
         let isgDot = sphereSgHelper color size point
         isgDot
-        |> Sg.effect [
-            toEffect Shader.ScreenSpaceScale.screenSpaceScale
+        |> Sg.effect [dotShader]
+
+    let indexedGeometryDotsShader = 
+        Effect.compose [
             toEffect DefaultSurfaces.stableTrafo
-            toEffect DefaultSurfaces.vertexColor          
+            toEffect DefaultSurfaces.vertexColor
+            toEffect DefaultSurfaces.pointSprite
         ]
 
     let indexedGeometryDots (points: alist<V3d>) (size: aval<float>) (color: aval<C4b>) =       
@@ -612,24 +643,18 @@ module Sg =
         Sg.draw IndexedGeometryMode.PointList
         |> Sg.vertexAttribute DefaultSemantic.Positions points'         
         |> Sg.vertexAttribute DefaultSemantic.Colors colors
-        |> Sg.effect [
-            toEffect DefaultSurfaces.stableTrafo
-            toEffect DefaultSurfaces.vertexColor
-            toEffect DefaultSurfaces.pointSprite
-        ]
+        |> Sg.effect [indexedGeometryDotsShader]
         |> Sg.uniform "PointSize" size
     
-    let drawSpheres (points: alist<V3d>) (size: aval<float>) (color: aval<C4b>) =
+    // TODO: performance - instancing
+    let drawSpheres (points: aval<V3d[]>) (size: aval<float>) (color: aval<C4b>) =
         aset {
-            for p in points |> ASet.ofAList do                        
+            for p in points do                        
                 yield sphereSgHelper color size (AVal.constant p)
         } 
         |> Sg.set
-        |> Sg.effect [
-            toEffect Shader.ScreenSpaceScale.screenSpaceScale
-            toEffect DefaultSurfaces.stableTrafo
-            toEffect DefaultSurfaces.vertexColor          
-        ]
+        |> Sg.effect [dotShader]
+
     let stablePoints (trafo : aval<Trafo3d>) (positions : aval<V3d[]>) =
         positions 
         |> AVal.map2(fun (t : Trafo3d) x -> 
@@ -698,6 +723,10 @@ module Sg =
         )
         rotTrafo * modelTrafo
 
+
+    let stableTrafoShader = 
+        Effect.compose [toEffect Shader.StableTrafo.stableTrafo]
+
     let text 
         (view       : aval<CameraView>) 
         (near       : aval<float>) 
@@ -716,9 +745,7 @@ module Sg =
       
         Sg.text (Font.create "Consolas" FontStyle.Regular) C4b.White text
         |> Sg.noEvents
-        |> Sg.shader {
-            do! Shader.StableTrafo.stableTrafo
-        }            
+        |> Sg.effect [stableTrafoShader]         
         |> Sg.trafo (invariantScaleTrafo view near pos size hfov)  // fixed pixel size scaling
         |> Sg.trafo billboardTrafo
 
@@ -750,9 +777,7 @@ module Sg =
     
         Sg.text (Font.create "Consolas" FontStyle.Regular) C4b.White text
         |> Sg.noEvents
-        |> Sg.effect [
-            Shader.StableTrafo.stableTrafo |> toEffect
-        ]         
+        |> Sg.effect [stableTrafoShader]      
         |> Sg.trafo (0.1 |> Trafo3d.Scale |> AVal.constant )
         |> Sg.trafo billboardTrafo
 

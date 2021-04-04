@@ -16,6 +16,7 @@ open Aardvark.VRVis
 open Aardvark.VRVis.Opc
 open Aardvark.GeoSpatial.Opc
 open OpcViewer.Base
+open Aardvark.Rendering
 
 open PRo3D
 open PRo3D.Base
@@ -40,6 +41,8 @@ open Suave.Successful
 open Suave.Json
 
 open FSharp.Data.Adaptive
+
+
 
 [<DataContract>]
 type Calc =
@@ -93,7 +96,7 @@ let main argv =
     Aardvark.Rendering.GL.RuntimeConfig.SupressSparseBuffers <- true
     //app.ShaderCachePath <- None
 
-    Sg.hackRunner <- runtime.CreateLoadRunner 2 |> Some
+    Sg.hackRunner <- runtime.CreateLoadRunner 1 |> Some
 
     Serialization.init()
     
@@ -197,7 +200,22 @@ let main argv =
     if catchDomainErrors then
         AppDomain.CurrentDomain.UnhandledException.AddHandler(UnhandledExceptionEventHandler(domainError))
 
+
+    let setCORSHeaders =
+        Suave.Writers.setHeader  "Access-Control-Allow-Origin" "*"
+        >=> Suave.Writers.setHeader "Access-Control-Allow-Headers" "content-type"
+    
+    let allow_cors : WebPart =
+        choose [
+            OPTIONS >=>
+                fun context ->
+                    context |> (
+                        setCORSHeaders
+                        >=> OK "CORS approved" )
+        ]
+
     WebPart.startServerLocalhost 54322 [
+        allow_cors
         MutableApp.toWebPart' runtime false mainApp
         path "/websocket" >=> handShake ws
         Reflection.assemblyWebPart typeof<EmbeddedRessource>.Assembly

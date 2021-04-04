@@ -47,6 +47,7 @@
     <Compile Include="Drawing\Drawing.UI.fs" />
     <Compile Include="Drawing\Drawing.Sg.fs" />
     <Compile Include="Drawing\Drawing.IO.fs" />
+    <Compile Include="Drawing\PackedRendering.fs" />
     <Compile Include="Drawing\Drawing-App.fs" />
     <Compile Include="Validator/HeightValidator-Model.fs" />
     <Compile Include="Validator/HeightValidatorApp.fs" />

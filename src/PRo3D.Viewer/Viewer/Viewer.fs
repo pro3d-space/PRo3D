@@ -13,7 +13,7 @@ open Aardvark.Base
 open Aardvark.Base.Geometry
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
-open Aardvark.Base.Rendering
+open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.Rendering.Text
 open Aardvark.UI
@@ -65,7 +65,7 @@ module UserFeedback =
             msg     = ViewerAction.NoAction ""
         }
 
-    let createWorker (feedback: UserFeedback<'a>) =
+    let createWorker (feedback: UserFeedback<ViewerAction>) =
         proclist {
             yield UpdateUserFeedback ""
             yield UpdateUserFeedback feedback.text
@@ -504,7 +504,7 @@ module ViewerApp =
                     | None ->
                         match surf with
                         | Some s ->
-                            let bb = s.globalBB.Transformed(surface.preTransform.Forward * superTrafo.Forward)
+                            let bb = s.globalBB.Transformed(superTrafo.Forward)
                             let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value    
                             let animationMessage = 
                                 animateFowardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
@@ -1053,7 +1053,7 @@ module ViewerApp =
             //Log.line "config message %A" a
             let c' = ConfigProperties.update m.scene.config a
             let m = Optic.set (Model.scene_ >-> Scene.config_) c' m
-            
+    
             match a with                   
             | ConfigProperties.Action.SetNearPlane _ | ConfigProperties.Action.SetFarPlane _ ->
                 let fov = m.frustum |> Frustum.horizontalFieldOfViewInDegrees
@@ -1061,7 +1061,7 @@ module ViewerApp =
                 let f' = Frustum.perspective fov c'.nearPlane.value c'.farPlane.value asp                    
 
                 { m with frustum = f' }
-                | _ -> m
+            | _ -> m
         | SetMode d,_,_ -> 
             { m with trafoMode = d }
         | SetKind d,_,_ -> 
@@ -1187,9 +1187,12 @@ module ViewerApp =
                 { m with overlayFrustum = None; linkingModel = linking' } //navigation = { m.navigation with camera = camera' }}
             | _ -> 
                 { m with linkingModel = PRo3D.Linking.LinkingApp.update m.linkingModel a }
-        | OnResize a,_,_ ->              
+        | OnResize (a,id),_,_ ->              
             Log.line "[RenderControl Resized] %A" a
-            { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y) }
+            { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y); viewPortSize = HashMap.add id a m.viewPortSize }
+        | ResizeMainControl(a,id),_,_ -> 
+            printfn "resize %A" (a,id)
+            { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y); viewPortSize = HashMap.add id a m.viewPortSize }
         | SetTextureFiltering b,_,_ ->
             {m with filterTexture = b}
        // | TestHaltonRayCasting _,_,_->
@@ -1302,7 +1305,7 @@ module ViewerApp =
         |> Sg.noEvents
         |> Sg.trafo(trafo)
     
-    let renderControlAttributes (m: AdaptiveModel) = 
+    let renderControlAttributes (id : string) (m: AdaptiveModel) = 
         let renderControlAtts (model: AdaptiveNavigationModel) =
             amap {
                 let! state = model.navigationMode
@@ -1327,7 +1330,17 @@ module ViewerApp =
                 onKeyDown (KeyDown)
                 onKeyUp   (KeyUp)        
                 clazz "mainrendercontrol"
-              //  onResize  (OnResize)
+                onEvent "resizeControl"  [] (
+                    fun p -> 
+                        match p with
+                        | w::h::[] -> 
+                            let w : int = Pickler.json.UnPickleOfString w
+                            let h : int = Pickler.json.UnPickleOfString h
+                            printfn "%A" (w,h)
+                            ResizeMainControl(V2i(w,h),id)
+                        | _ -> Nop 
+                )
+                //onResize  (fun s -> OnResize(s,id))
             ] 
         ]            
 
@@ -1362,12 +1375,16 @@ module ViewerApp =
             | _ -> false
         ) m.ctrlFlag m.interaction
 
-    let viewInstrumentView (m: AdaptiveModel) = 
+    let viewInstrumentView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
+        let frustum = m.frustum 
         let annotationsI, discsI = 
             DrawingApp.view 
                 m.scene.config 
                 mdrawingConfig 
                 (m.scene.viewPlans.instrumentCam)
+                frustum
+                runtime
+                (m.viewPortSize |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
                 (allowAnnotationPicking m)
                 m.drawing
 
@@ -1392,12 +1409,19 @@ module ViewerApp =
             AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
         DomNode.RenderControl((instrumentControlAttributes m), icam, icmds, None) //AttributeMap.Empty
 
-    let viewRenderView (m: AdaptiveModel) = 
+    let viewRenderView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
+
+        let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
+        let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
+
         let annotations, discs = 
             DrawingApp.view 
                 m.scene.config 
                 mdrawingConfig 
                 m.navigation.camera.view 
+                frustum
+                runtime
+                (m.viewPortSize |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
                 (allowAnnotationPicking m)                 
                 m.drawing
             
@@ -1470,9 +1494,6 @@ module ViewerApp =
 
             let solText = 
                 MinervaApp.getSolBillboards m.minervaModel m.navigation.camera.view near |> Sg.map MinervaActions
-
-            let viewportFilteredText = 
-                MinervaApp.viewPortLabels m.minervaModel m.navigation.camera.view (ViewerUtils.frustum m) |> Sg.map MinervaActions
                 
             //let correlationLogs, _ =
             //    PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
@@ -1530,25 +1551,28 @@ module ViewerApp =
         let depthTested = 
             [linkingSg; annotationSg; minervaSg; heightValidationDiscs] |> Sg.ofList
 
-        let cmds    = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m
-        let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
-        let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
-        DomNode.RenderControl((renderControlAttributes m), cam, cmds, None)
+        let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m
+        onBoot "attachResize('__ID__')" (
+            DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
+        )
         
-    let view (m: AdaptiveModel) = //(localhost: string)
-       
+    let view (runtime : IRuntime) (m: AdaptiveModel) = //(localhost: string)
+
         let viewerDependencies = [
             { kind = Stylesheet;  name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.css" }
             { kind = Stylesheet;  name = "semui-overrides"; url = "semui-overrides.css" }
             { kind = Script;      name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.js" }
             { kind = Script;      name = "errorReporting";  url = "./errorReporting.js"  }
+
+            { kind = Script;      name = "resize";  url = "./ResizeSensor.js"  }
+            { kind = Script;      name = "resizeElem";  url = "./ElementQueries.js"  }
         ]
         
         let bodyAttributes = [style "background: #1B1C1E; height:100%; overflow-y:scroll; overflow-x:hidden;"] //overflow-y : visible
 
         page (
             fun request -> 
-                Gui.Pages.pageRouting viewerDependencies bodyAttributes m viewInstrumentView viewRenderView request
+                Gui.Pages.pageRouting viewerDependencies bodyAttributes m viewInstrumentView viewRenderView runtime request
         )
                    
     let threadPool (m: Model) =
@@ -1600,7 +1624,7 @@ module ViewerApp =
         App.start {
             unpersist = Unpersist.instance
             threads   = threadPool
-            view      = view //localhost
+            view      = view runtime //localhost
             update    = update runtime signature sendQueue messagingMailbox
             initial   = m
         }

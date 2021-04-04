@@ -10,6 +10,7 @@ open Aardvark.Application
 open Aardvark.SceneGraph
 open Aardvark.UI.Trafos
 open Aardvark.UI.Animation
+open Aardvark.Rendering
 
 open PRo3D
 open PRo3D.Base
@@ -103,6 +104,7 @@ type ViewerAction =
     | NewScene
     | KeyDown                         of key : Aardvark.Application.Keys
     | KeyUp                           of key : Aardvark.Application.Keys      
+    | ResizeMainControl               of V2i * string
     | SetKind                         of TrafoKind
     | SetInteraction                  of Interactions        
     | SetMode                         of TrafoMode
@@ -127,7 +129,7 @@ type ViewerAction =
     | Logging                         of string * ViewerAction
     | ThreadsDone                     of string    
     | SnapshotThreadsDone             of string
-    | OnResize                        of V2i
+    | OnResize                        of V2i * string
     | StartDragging                   of V2i * MouseButtons
     | Dragging                        of V2i
     | EndDragging                     of V2i * MouseButtons
@@ -316,7 +318,7 @@ type Model = {
     picking          : bool
     ctrlFlag         : bool
     frustum          : Frustum
-    viewPortSize     : V2i
+    viewPortSize     : HashMap<string, V2i>
     overlayFrustum   : Option<Frustum>
     
     minervaModel     : PRo3D.Minerva.MinervaModel
@@ -514,7 +516,7 @@ module Viewer =
             //instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
             viewerMode = ViewerMode.Standard                
             footPrint = ViewPlanModel.initFootPrint
-            viewPortSize = V2i.One
+            viewPortSize = HashMap.empty
 
             arnoldSnapshotThreads = ThreadPool.empty
             showExplorationPoint = startupArgs.showExplorationPoint

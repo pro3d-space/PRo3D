@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "OpcViewer": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}

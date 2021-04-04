@@ -3,7 +3,7 @@ namespace PRo3D.OrientationCube
 open FSharp.Data.Adaptive
 
 open Aardvark.Base
-open Aardvark.Base.Rendering
+open Aardvark.Rendering
 open Aardvark.Rendering
 open Aardvark.SceneGraph
 
@@ -83,7 +83,7 @@ module Sg =
             let min = V3d(-d, -d, -d*2.0)
             let max = V3d(d, d, d*2.0)
             let fr = Frustum.ortho (Box3d(min, max))
-            AVal.constant (Frustum.orthoTrafo fr)
+            AVal.constant (Frustum.projTrafo fr)
 
         let northAngle = 
             adaptive {
