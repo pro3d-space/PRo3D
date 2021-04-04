@@ -82,7 +82,7 @@ module Bookmarks =
                     Log.line "\"location\": \"%s\"," (bm.cameraView.Location.ToString ())
                     Log.line "\"up\": \"%s\"" (bm.cameraView.Up.ToString ())
 
-                    let lla = CooTransformation.getLatLonAlt bm.cameraView.Location planet |> CooTransformation.SphericalCoo.toV3d
+                    let lla = CooTransformation.getLatLonAlt planet bm.cameraView.Location |> CooTransformation.SphericalCoo.toV3d
 
                     Log.line "\"lon lat alt\": \"%s\"" (lla.ToString ())
 

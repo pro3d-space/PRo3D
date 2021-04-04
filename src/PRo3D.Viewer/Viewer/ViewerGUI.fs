@@ -126,7 +126,8 @@ module Gui =
             
             let spericalc = 
                 AVal.map2 (fun (a : CameraView) b -> 
-                    CooTransformation.getLatLonAlt(a.Location) b ) cv m.planet
+                    CooTransformation.getLatLonAlt b a.Location
+                ) cv m.planet
             
             let alt2 = 
                 AVal.map2 (fun (a : CameraView) b -> 

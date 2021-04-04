@@ -145,7 +145,7 @@ module ReferenceSystemApp =
                     let! pos = model.origin
                     let! planet = model.planet
                     //let! up = model.up.value
-                    return CooTransformation.getLatLonAlt pos planet
+                    return CooTransformation.getLatLonAlt planet pos
                 }
 
             require GuiEx.semui (

@@ -1,9 +1,13 @@
 ﻿namespace PRo3D.Base.Annotation
 
+
+
 open System
 open Microsoft.FSharp.Reflection
 open Newtonsoft.Json
 open Newtonsoft.Json.Converters
+
+open Aardvark.Base
 
 open Chiron
 //open NUnit.Framework
@@ -12,20 +16,20 @@ open System.IO
 
       
 module GeoJSON =
-    type V2d = {
-        X:float
-        Y:float
-    }
+    //type V2d = {
+    //    X:float
+    //    Y:float
+    //}
     
-    type V3d = {
-        X:float
-        Y:float
-        Z:float
-    }
+    //type V3d = {
+    //    X:float
+    //    Y:float
+    //    Z:float
+    //}
     
     type Coordinate =
-    | V2d of V2d
-    | V3d of V3d
+    | TwoDim of V2d
+    | ThreeDim of V3d
     
     type Ext = Ext
     
@@ -33,42 +37,34 @@ module GeoJSON =
         static member V3dToArray(v:V3d) =
             [v.X;v.Y;v.Z]
     
-        static member V3dFromArray(fl: List<float>) =
-            if fl.Length = 2 then
-                {
-                X = fl.[0]
-                Y = fl.[1] 
-                Z = fl.[2]
-                }
+        static member V3dFromArray(fl: List<float>) =            
+            if fl.Length = 3 then
+                V3d(fl.[0], fl.[1], fl.[2])
             else
-                {X=0.0;Y=0.0;Z=0.0}
-    
-    
+                V3d.NaN
+        
         static member V2dToArray(v:V2d) =
             [v.X;v.Y]
     
         static member V2dFromArray(fl: List<float>) =
             if fl.Length = 2 then
-                {
-                X = fl.[0]
-                Y = fl.[1] 
-                }
+                V2d(fl.[0], fl.[1])
             else
-                {X=0.0;Y=0.0}
+                V2d.NaN
                 
                 
         static member CoordinateFromArray(fl: List<float>) =
             if fl.Length = 2 then
-                Coordinate.V2d(Ext.V2dFromArray(fl))
+                fl |> Ext.V2dFromArray |> Coordinate.TwoDim                
             elif fl.Length = 3 then
-                Coordinate.V3d(Ext.V3dFromArray(fl))
+                fl |> Ext.V3dFromArray |> Coordinate.ThreeDim                
             else
-                Coordinate.V3d({X=0.0;Y=0.0;Z=0.0})
+                V3d.NaN |> Coordinate.ThreeDim
     
         static member CoordinateToArray(c:Coordinate) =
             match c with
-            | V2d(v) -> Ext.V2dToArray(v)
-            | V3d(v) -> Ext.V3dToArray(v)
+            | TwoDim v -> Ext.V2dToArray(v)
+            | ThreeDim v -> Ext.V3dToArray(v)
     
     
         static member readCoordinate name = 
@@ -173,7 +169,7 @@ module GeoJSON =
                     let! y = Json.read "geometries"
                     return GeometryCollection(y)
                 | _ ->
-                    return Point(Coordinate.V3d({X=0.0;Y=0.0;Z=0.0}))
+                    return Point(V3d.NaN |> ThreeDim)
             }
         
     type GeoJsonFeature = {

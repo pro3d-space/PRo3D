@@ -399,6 +399,8 @@ module DrawingApp =
             if p.IsEmptyOrNull() |> not then Export.Seq.write (p) csvTable
             model      
         | ExportAsGeoJSON path, _, _ ->           
+            let planet = smallConfig.planet.Get(bigConfig)
+
             let lookups = GroupsApp.updateGroupsLookup model.annotations
             let annotations =
                 model.annotations.flat
@@ -406,10 +408,11 @@ module DrawingApp =
                 |> HashMap.toList 
                 |> List.map snd
                 |> List.filter(fun a -> a.visible)
-                |> List.map (Export.toExportAnnotation lookups)
+               // |> List.map (Export.toExportAnnotation lookups)
             
             //let csvTable = Csv.Seq.csv "," true id annotations
-            if path.IsEmptyOrNull() |> not then Export.GeoJSON.doJson path annotations
+            Export.GeoJSON.doJson planet path annotations
+
             model
         | LegacySaveVersioned, _,_ ->
             let path = "./annotations.json"

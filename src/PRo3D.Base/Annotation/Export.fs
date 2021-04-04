@@ -10,6 +10,9 @@ open Aardvark.Base
 open Aardvark.UI
 
 open PRo3D.Base.Annotation.GeoJSON
+open PRo3D.Base
+
+open Chiron
 
 module Export =
     
@@ -209,28 +212,73 @@ module Export =
             }
 
     module GeoJSON =
-        let toPolygon () =
-            let polygon = 
-                GeoJsonGeometry.Polygon(
-                    [
-                        [
-                            Coordinate.V2d{ X=100.0; Y=0.0 }
-                            Coordinate.V2d{ X=101.0; Y=0.0 }
-                            Coordinate.V2d{ X=101.0; Y=1.0 }
-                            Coordinate.V2d{ X=100.0; Y=1.0 }
-                            Coordinate.V2d{ X=100.0; Y=0.0 }
-                        ]                        
-                        [
-                            Coordinate.V2d{ X=100.8; Y=0.8 }
-                            Coordinate.V2d{ X=100.8; Y=0.2 }
-                            Coordinate.V2d{ X=100.2; Y=0.2 }
-                            Coordinate.V2d{ X=100.2; Y=0.8 }
-                            Coordinate.V2d{ X=100.8; Y=0.8 }
-                        ]
-                    ]
-                )
+        //let toV2dCoordinate
+        //let toV3dCoordinate (v : V3d) : GeoJSON.V3d = 
+        //    Coordinate.V3d{ X=v.X; Y=v.Y; Z = v.Z }
 
-            ()
+        let annotationToGeoJsonGeometry (planet : Planet) (a : Annotation) : GeoJSON.GeoJsonGeometry =
 
-        let doJson (path:string) (annotations : list<ExportAnnotation>) = failwith ""
+            let latLonAltPoints = 
+                a.points 
+                |> IndexList.map (CooTransformation.getLatLonAlt planet) 
+                |> IndexList.map CooTransformation.SphericalCoo.toV3d 
+                |> IndexList.toList
+
+            match a.geometry with
+            | Geometry.Point ->
+                latLonAltPoints |> List.map ThreeDim |> List.head |> GeoJsonGeometry.Point                
+            | Geometry.Line -> 
+                latLonAltPoints |> List.map ThreeDim |> GeoJsonGeometry.LineString
+            | Geometry.Polyline -> 
+                latLonAltPoints |> List.map ThreeDim |> List.singleton |> GeoJsonGeometry.MultiLineString
+            | Geometry.Polygon -> 
+                latLonAltPoints |> List.map ThreeDim |> List.singleton |> GeoJsonGeometry.Polygon
+            | Geometry.DnS -> 
+                latLonAltPoints |> List.map ThreeDim |> List.singleton |> GeoJsonGeometry.Polygon
+            | Geometry.TT ->
+                latLonAltPoints |> List.map ThreeDim |> GeoJsonGeometry.LineString
+            | _ ->
+                Point(V3d.NaN |> ThreeDim)
+                
+            //| Polygon -> 
+            //| DnS ->
+
+        //let toPolygon () =
+        //    let polygon = 
+        //        GeoJsonGeometry.Polygon(
+        //            [
+        //                [
+        //                    Coordinate.V2d{ X=100.0; Y=0.0 }
+        //                    Coordinate.V2d{ X=101.0; Y=0.0 }
+        //                    Coordinate.V2d{ X=101.0; Y=1.0 }
+        //                    Coordinate.V2d{ X=100.0; Y=1.0 }
+        //                    Coordinate.V2d{ X=100.0; Y=0.0 }
+        //                ]                        
+        //                [
+        //                    Coordinate.V2d{ X=100.8; Y=0.8 }
+        //                    Coordinate.V2d{ X=100.8; Y=0.2 }
+        //                    Coordinate.V2d{ X=100.2; Y=0.2 }
+        //                    Coordinate.V2d{ X=100.2; Y=0.8 }
+        //                    Coordinate.V2d{ X=100.8; Y=0.8 }
+        //                ]
+        //            ]
+        //        )
+
+        //    ()
+
+        let doJson (planet : Planet) (path:string) (annotations : list<Annotation>) : unit = 
+
+            if path.IsEmpty() then ()
+        
+            let geometryCollection =
+                annotations
+                |> List.map(annotationToGeoJsonGeometry planet)
+                |> GeoJsonGeometry.GeometryCollection
+
+            geometryCollection
+            |> Json.serialize 
+            |> Json.formatWith JsonFormattingOptions.Pretty 
+            |> Serialization.writeToFile path
+
+            ()            
 

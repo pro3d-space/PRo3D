@@ -75,7 +75,7 @@ module AnnotationProperties =
                 | Some p -> 
                     Log.line "--- Printing Point Coordinates ---"
                     Log.line "XYZ: %A" p
-                    Log.line "LonLatAlt: %A" (CooTransformation.getLatLonAlt p planet |> CooTransformation.SphericalCoo.toV3d)
+                    Log.line "LonLatAlt: %A" (CooTransformation.getLatLonAlt planet p|> CooTransformation.SphericalCoo.toV3d)
                     Log.line "--- Done ---"
                 | None -> failwith "[DrawingProperties] point geometry without point is invalid"
             | _ -> ()

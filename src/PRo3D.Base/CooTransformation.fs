@@ -64,7 +64,7 @@ module CooTransformation =
         CooTransformation.DeInit()
         Log.line "[CooTransformation] down."
 
-    let getLatLonAlt (p:V3d) (planet:Planet) : SphericalCoo = 
+    let getLatLonAlt (planet:Planet) (p:V3d) : SphericalCoo = 
         match planet with
         | Planet.None | Planet.JPL ->
             { latitude = nan; longitude = nan; altitude = nan; radian = 0.0 }
@@ -120,18 +120,18 @@ module CooTransformation =
         match planet with
         | Planet.None | Planet.JPL -> (p * up).Length // p.Z //
         | _ ->
-            let sc = getLatLonAlt p planet
+            let sc = getLatLonAlt planet p
             sc.altitude
 
     let getAltitude (p:V3d) (up:V3d) (planet:Planet) = 
         match planet with
         | Planet.None | Planet.JPL -> (p * up).Z // p.Z //
         | _ ->
-            let sc = getLatLonAlt p planet
+            let sc = getLatLonAlt planet p
             sc.altitude
 
     let getElevation' (planet : Planet) (p:V3d) =       
-        let sc = getLatLonAlt p planet
+        let sc = getLatLonAlt planet p
         sc.altitude
 
     let getUpVector (p:V3d) (planet:Planet) = 
@@ -139,7 +139,7 @@ module CooTransformation =
         | Planet.None -> V3d.ZAxis
         | Planet.JPL -> -V3d.ZAxis
         | _ ->
-            let sc = getLatLonAlt p planet
+            let sc = getLatLonAlt planet p
             let height = sc.altitude + 100.0
             
             let v2 = getXYZFromLatLonAlt ({sc with altitude = height}) planet
