@@ -1,3 +1,8 @@
+## 3.7.0-prerelease1
+
+- added geoJSON export via menu > annotations > export (*.json)
+- data is exported as `geometryCollection` of `geometry` objects with 3D coordinates `(lon, lat, alt)` computed via SPICE
+
 ## 3.6.0-prerelease1
 
 - fixed duplication bug when moving multiple annotations via "select all" in a group mechanic
