@@ -259,7 +259,7 @@ module ComparisonApp =
         div [][
             div [clazz "ui buttons inverted"] 
                 [button [clazz "ui icon button"; onMouseClick (fun _ -> Update )] [ //
-                            i [clazz "redo icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Update"
+                            i [clazz "calculator icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Update"
                 ] 
 
             br []
