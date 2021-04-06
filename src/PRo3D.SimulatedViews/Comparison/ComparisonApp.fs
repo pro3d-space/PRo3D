@@ -263,8 +263,11 @@ module ComparisonApp =
                 ] 
 
             br []
-            div [] [text "Surface1 ";CustomGui.surfacesDropdown surfaces SelectSurface1 noSelection]
-            div [] [text "Surface2 ";CustomGui.surfacesDropdown surfaces SelectSurface2 noSelection]
+            Html.table [
+                Html.row "Surface1 " [CustomGui.surfacesDropdown surfaces SelectSurface1 noSelection]
+                Html.row "Surface2 " [CustomGui.surfacesDropdown surfaces SelectSurface2 noSelection]
+            ]
+            br []
             Incremental.div ([] |> AttributeMap.ofList) measurement1
             Incremental.div ([] |> AttributeMap.ofList) measurement2
             GuiEx.accordion "Difference" "calculator" true [
