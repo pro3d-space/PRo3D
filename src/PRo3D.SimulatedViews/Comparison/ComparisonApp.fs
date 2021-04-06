@@ -1,6 +1,7 @@
 ﻿namespace PRo3D
 
 open System
+open Aardvark.Rendering
 open Aardvark.UI
 open PRo3D.Comparison
 open Aardvark.Base
@@ -12,7 +13,7 @@ open PRo3D.Core
 open PRo3D.SurfaceUtils
 open PRo3D.Core.Surface
 open PRo3D.Base
-open Aardvark.Rendering
+
 open Adaptify.FSharp.Core
 
 module CustomGui =
@@ -93,40 +94,81 @@ module ComparisonApp =
 
         rot
 
+    let calculateRayHit (fromLocation : V3d) (direction : V3d)
+                        surfaceModel refSystem surfaceFilter = 
+
+        let mutable cache = HashMap.Empty
+        //let localXDir = rotation.Transform refSystem.northO.Normalized
+        //let localYDir = rotation.Transform (globalNorthDir.Cross(globalUpDir).Normalized)
+
+        let ray = new Ray3d (fromLocation, direction)
+        let intersected = SurfaceIntersection.doKdTreeIntersection surfaceModel refSystem (FastRay3d(ray)) surfaceFilter cache
+        match intersected with
+        | Some (t,surf), c ->                         
+          //cache <- c
+            let hit = ray.GetPointOnRay(t) 
+            Log.warn "ray hit surface at %s" (string hit) // rno debug
+            hit |> Some
+        |  None, _ ->
+          //lastHash <- rayHash
+          Log.warn "[RayCastSurface] no hit"
+          None
+
+    let getDimensions (surface : Surface)
+                (surfaceModel : SurfaceModel) 
+                (refSystem    : ReferenceSystem)  =
+        let surfaceFilter (id : Guid) (l : Leaf) (s : SgSurface) = 
+            id = surface.guid
+        let trafo = SurfaceTransformations.fullTrafo' surface refSystem
+        let trafo = SurfaceTransformations.fullTrafo' surface refSystem
+
+        let mutable rot = V3d.OOO
+        let mutable tra = V3d.OOO
+        let mutable sca = V3d.OOO
+
+        trafo.Decompose (&sca, &rot, &tra)
+        //let mutable cache = HashMap.Empty
+        let origin    = surface.transformation.pivot
+        //let globalUpDir    = refSystem.up.value.Normalized
+        //let globalNorthDir = refSystem.northO.Normalized
+        //let globalEastDir  = globalNorthDir.Cross(globalUpDir).Normalized
+        let rotation = rot |> Trafo3d.RotationEuler 
+                           |> Rot3d.FromTrafo3d
+        let localZDir = rotation.Transform refSystem.up.value.Normalized
+        let localYDir = rotation.Transform refSystem.north.value.Normalized
+        let localXDir = (localZDir.Cross localYDir).Normalized
+
+        let zDirHit = calculateRayHit origin localZDir surfaceModel refSystem surfaceFilter
+        let minusZDirHit = calculateRayHit origin -localZDir surfaceModel refSystem surfaceFilter
+        let yDirHit = calculateRayHit origin localYDir surfaceModel refSystem surfaceFilter
+        let minusYDirHit = calculateRayHit origin -localYDir surfaceModel refSystem surfaceFilter
+        let xDirHit = calculateRayHit origin localXDir surfaceModel refSystem surfaceFilter
+        let minusXDirHit = calculateRayHit origin -localXDir surfaceModel refSystem surfaceFilter
+
+        let zSize = Option.map2 (fun (a : V3d) b ->  Vec.Distance (a, b)) zDirHit minusZDirHit
+        let ySize = Option.map2 (fun (a : V3d) b ->  Vec.Distance (a, b)) yDirHit minusYDirHit
+        let xSize = Option.map2 (fun (a : V3d) b ->  Vec.Distance (a, b)) xDirHit minusXDirHit
+
+        match xSize, ySize, zSize with
+        | Some x, Some y, Some z ->
+            V3d (x, y, z)
+        | _,_,_ -> 
+            Log.error "[Comparison] Could not calculate surface size along axes."
+            V3d.OOO
+
     let updateSurfaceMeasurements (surfaceModel : SurfaceModel) 
                                   (refSystem    : ReferenceSystem) 
                                   (surfaceName  : string) =
         let surfaceId = findSurfaceByName surfaceModel surfaceName
         match surfaceId with
         | Some surfaceId ->
-            //let surfaceFilter (id : Guid) (l : Leaf) (s : SgSurface) =
-            //    id = surfaceId
             let surface = surfaceModel.surfaces.flat |> HashMap.find surfaceId |> Leaf.toSurface
-            //let surfaceSg = surfaceModel.sgSurfaces |> HashMap.find surfaceId
-            //let trafo = SurfaceTransformations.fullTrafo' surface refSystem
-            //let mutable cache = HashMap.Empty
-            //let origin    = surface.transformation.pivot
-            //let globalUpDir    = refSystem.up.value.Normalized
-            //let globalNorthDir = refSystem.northO.Normalized
-            //let globalEastDir  = globalNorthDir.Cross(globalUpDir).Normalized
             let axesAngles = getAxesAngles surface refSystem
-
-            {SurfaceMeasurements.init with rollPitchYaw = axesAngles} |> Some
-
-
-            //let localZDir = rotation.Transform refSystem.up.value.Normalized
-            //let localXDir = rotation.Transform refSystem.northO.Normalized
-            //let localYDir = rotation.Transform (globalNorthDir.Cross(globalUpDir).Normalized)
-
-            //let ray = new Ray3d (origin, direction)
+            let dimensions = getDimensions surface surfaceModel refSystem
+            {SurfaceMeasurements.init with rollPitchYaw = axesAngles
+                                           dimensions   = dimensions
+            } |> Some
         | None -> None
-
-        // model origin
-        // direction x/y/-x/-y/-z
-        
-        // SurfaceIntersection.doKdTreeIntersection surfaces refSystem (FastRay3d(ray)) surfaceFilter cache
-
-        //let ray = new Ray3d (
 
     let updateMeasurements (m            : ComparisonApp) 
                            (surfaceModel : SurfaceModel) 
@@ -257,6 +299,7 @@ module ComparisonApp =
                     ) 
 
         div [][
+            br []
             div [clazz "ui buttons inverted"] 
                 [button [clazz "ui icon button"; onMouseClick (fun _ -> Update )] [ //
                             i [clazz "calculator icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Update"

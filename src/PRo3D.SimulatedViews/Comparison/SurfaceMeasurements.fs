@@ -19,7 +19,7 @@ module SurfaceMeasurements =
     let compare (m1 : SurfaceMeasurements) 
                 (m2 : SurfaceMeasurements) =
         {
-            dimensions   = V3d.OOO
+            dimensions   = V3d.Abs (m1.dimensions - m2.dimensions)
             rollPitchYaw = V3d.Abs (m1.rollPitchYaw - m2.rollPitchYaw)
         }
 

@@ -1294,7 +1294,12 @@ module ViewerApp =
             {m with comparisonApp = ComparisonApp.update m.comparisonApp 
                                                          m.scene.surfacesModel 
                                                          m.scene.referenceSystem 
-                                                         msg}
+                                                         msg
+                    scene = {m.scene with referenceSystem = 
+                                            {m.scene.referenceSystem with planet = Planet.None}
+                            }
+            }
+
         | _ -> m       
                                    
     let mkBrushISg color size trafo : ISg<Message> =

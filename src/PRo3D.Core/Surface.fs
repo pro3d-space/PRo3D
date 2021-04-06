@@ -99,7 +99,7 @@ module DebugKdTreesX =
                     | Some t ->                 
                         t, cache
                     | None ->                                     
-                        Log.line "cache miss %A- loading kdtree" kd.boundingBox
+                        //Log.line "cache miss %A- loading kdtree" kd.boundingBox
                     
                         let mutable tree = KdTrees.loadKdtree kd.kdtreePath
                         let triangles = kd |> loadTriangles
