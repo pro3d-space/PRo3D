@@ -59,6 +59,8 @@ module SceneLoader =
     let _flatSurfaces     = Scene.surfacesModel_ >-> SurfaceModel.surfaces_ >-> GroupsModel.flat_
     let _camera           = Model.navigation_ >-> NavigationModel.camera_
     let _cameraView       = _camera >-> CameraControllerState.view_
+    let _scaleBarsModelLens = Model.scene_ >-> Scene.scaleBars_
+    let _scaleBarsLens = _scaleBarsModelLens >-> ScaleBarsModel.scaleBars_
 
 
     let expandRelativePaths (m:Scene) =               
@@ -223,6 +225,13 @@ module SceneLoader =
         model           
         |> SurfaceModel.withSgSurfaces sgs
         |> SurfaceModel.triggerSgGrouping    
+
+    let addScaleBarSegments (m:Model) = 
+        m.scene.scaleBars.scaleBars
+        |> HashMap.map( fun id sb -> 
+                let segments = ScaleBarUtils.updateSegments sb
+                { sb with scSegments = segments})
+        |> (flip <| Optic.set _scaleBarsLens) m
           
     let setFrustum (m:Model) =
        let near = m.scene.config.nearPlane.value

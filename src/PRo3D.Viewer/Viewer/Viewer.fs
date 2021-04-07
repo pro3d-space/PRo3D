@@ -1632,6 +1632,7 @@ module ViewerApp =
                 |> ViewerIO.loadLastFootPrint
                 |> ViewerIO.loadMinerva dumpFile cacheFile
                 |> ViewerIO.loadLinking
+                |> SceneLoader.addScaleBarSegments
             else
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs |> ViewerIO.loadRoverData       
 

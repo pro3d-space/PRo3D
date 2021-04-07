@@ -244,6 +244,7 @@ module ViewerIO =
             |> Option.defaultValue ViewPlanModel.initFootPrint
        
         { m with footPrint = fp }
+
            
     let saveEverything (path:string) (m:Model) =         
 

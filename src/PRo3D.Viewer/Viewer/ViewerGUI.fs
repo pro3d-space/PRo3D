@@ -682,23 +682,21 @@ module Gui =
           ] 
           
     module ScaleBars = 
-        //let scaleBarProperties (model : AdaptiveModel) =
-        //      //model.scene.viewPlans |> ViewPlan.UI.viewRoverProperties ViewPlanMessage 
-        //      model.scene.viewPlans |> ViewPlanApp.UI.viewRoverProperties ViewPlanMessage model.footPrint.isVisible
-        
+       
         let scaleBarsUI (m : AdaptiveModel) =             
           div [][
-              GuiEx.accordion "ScaleBars" "Write" true [
-                  ScaleBarsApp.UI.viewScaleBars m.scene.scaleBars |> UI.map ScaleBarsMessage
+              yield GuiEx.accordion "ScaleBars" "Write" true [
+                  ScaleBarsApp.UI.viewScaleBars m.scene.scaleBars
               ]
               // Todo: properties
-              //GuiEx.accordion "Properties" "Content" true [
-              //    Incremental.div AttributeMap.empty (scaleBarProperties m |> AList.ofAValSingle)
-              //]
-              //GuiEx.accordion "Transformation" "expand arrows alternate " false [
-              //    Incremental.div AttributeMap.empty (AList.ofAValSingle((ScaleBarsApp.UI.viewTranslationTools m.scene.scaleBars) |> UI.map ScaleBarsMessage))
+              yield GuiEx.accordion "Properties" "Content" true [
+                  Incremental.div AttributeMap.empty (AList.ofAValSingle(ScaleBarsApp.UI.viewProperties m.scene.scaleBars)) 
+              ]
+              //yield GuiEx.accordion "Transformation" "expand arrows alternate " false [
+              //    Incremental.div AttributeMap.empty (AList.ofAValSingle(ScaleBarsApp.UI.viewTranslationTools m.scene.scaleBars))
               //]  
-          ]                
+          ]  |> UI.map ScaleBarsMessage    
+          
 
     module Bookmarks =
         let bookmarkGroupProperties (model : AdaptiveModel) =                                       
