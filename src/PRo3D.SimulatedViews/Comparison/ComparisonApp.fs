@@ -10,9 +10,11 @@ open Aardvark.UI
 open Aardvark.UI.Trafos
 open Aardvark.UI.Primitives
 open PRo3D.Core
+open PRo3D.Base
 open PRo3D.SurfaceUtils
 open PRo3D.Core.Surface
 open PRo3D.Base
+open Chiron
 
 open Adaptify.FSharp.Core
 
@@ -91,32 +93,39 @@ module ComparisonApp =
         let mutable sca = V3d.OOO
         
         trafo.Decompose (&sca, &rot, &tra)
-
+        //let (x : float) = System.Math.Round (rot.X, 15)
+        //let (y : float) = System.Math.Round (rot.Y, 15)
+        //let (z : float) = System.Math.Round (rot.Z, 15)
+        //V3d (x, y, z)
         rot
 
     let calculateRayHit (fromLocation : V3d) (direction : V3d)
                         surfaceModel refSystem surfaceFilter = 
 
         let mutable cache = HashMap.Empty
-        //let localXDir = rotation.Transform refSystem.northO.Normalized
-        //let localYDir = rotation.Transform (globalNorthDir.Cross(globalUpDir).Normalized)
-
         let ray = new Ray3d (fromLocation, direction)
-        let intersected = SurfaceIntersection.doKdTreeIntersection surfaceModel refSystem (FastRay3d(ray)) surfaceFilter cache
+        let intersected = SurfaceIntersection.doKdTreeIntersection surfaceModel 
+                                                                   refSystem 
+                                                                   (FastRay3d(ray)) 
+                                                                   surfaceFilter 
+                                                                   cache
         match intersected with
         | Some (t,surf), c ->                         
-          //cache <- c
             let hit = ray.GetPointOnRay(t) 
             Log.warn "ray hit surface at %s" (string hit) // rno debug
             hit |> Some
         |  None, _ ->
-          //lastHash <- rayHash
           Log.warn "[RayCastSurface] no hit"
           None
 
-    let getDimensions (surface : Surface)
-                (surfaceModel : SurfaceModel) 
-                (refSystem    : ReferenceSystem)  =
+    let getDimensionsNonOPC (surface : Surface)
+                            (surfaceModel : SurfaceModel) 
+                            (refSystem    : ReferenceSystem)  = 
+        V3d.OOO
+
+    let getDimensionsOPC (surface : Surface)
+                         (surfaceModel : SurfaceModel) 
+                         (refSystem    : ReferenceSystem)  =
         let surfaceFilter (id : Guid) (l : Leaf) (s : SgSurface) = 
             id = surface.guid
         let trafo = SurfaceTransformations.fullTrafo' surface refSystem
@@ -127,11 +136,7 @@ module ComparisonApp =
         let mutable sca = V3d.OOO
 
         trafo.Decompose (&sca, &rot, &tra)
-        //let mutable cache = HashMap.Empty
         let origin    = surface.transformation.pivot
-        //let globalUpDir    = refSystem.up.value.Normalized
-        //let globalNorthDir = refSystem.northO.Normalized
-        //let globalEastDir  = globalNorthDir.Cross(globalUpDir).Normalized
         let rotation = rot |> Trafo3d.RotationEuler 
                            |> Rot3d.FromTrafo3d
         let localZDir = rotation.Transform refSystem.up.value.Normalized
@@ -164,7 +169,13 @@ module ComparisonApp =
         | Some surfaceId ->
             let surface = surfaceModel.surfaces.flat |> HashMap.find surfaceId |> Leaf.toSurface
             let axesAngles = getAxesAngles surface refSystem
-            let dimensions = getDimensions surface surfaceModel refSystem
+            let dimensions = 
+                match surface.surfaceType with
+                | SurfaceType.SurfaceOPC ->
+                    getDimensionsOPC surface surfaceModel refSystem
+                | _ ->
+                    getDimensionsOPC surface surfaceModel refSystem
+                    //getDimensionsNonOPC surface surfaceModel refSystem 
             {SurfaceMeasurements.init with rollPitchYaw = axesAngles
                                            dimensions   = dimensions
             } |> Some
@@ -199,6 +210,13 @@ module ComparisonApp =
         | SelectSurface2 str -> 
             let m = {m with surface2 = noSelectionToNone str}
             updateMeasurements m surfaceModel refSystem
+        | ExportMeasurements filepath -> 
+            m
+              |> Json.serialize 
+              |> Json.formatWith JsonFormattingOptions.Pretty 
+              |> Serialization.writeToFile filepath
+            Log.line "[Comparison] Measurements exported to %s" (System.IO.Path.GetFullPath filepath)
+            m
         | MeasurementMessage -> m
 
     let isSelected (surfaceName : aval<string>) (m : AdaptiveComparisonApp) =
@@ -224,7 +242,8 @@ module ComparisonApp =
                 ] 
                 |> Sg.noEvents
                 |> Sg.andAlso (
-                    Sg.sphere 12 (C4b.Blue |> AVal.constant) (1.0 |> AVal.constant) //TODO hardcoded
+                    Sg.sphere 12 (C4b.Blue |> AVal.constant) 
+                                 (size |> AVal.map (fun x -> x * 0.001)) 
                         |> Sg.trafo (origin |> AVal.map (fun x -> Trafo3d.Translation x))
                         |> Sg.noEvents
                         |> Sg.effect [              
@@ -244,9 +263,6 @@ module ComparisonApp =
         let upDir = referenceSystem.up.value |> AVal.map (fun x -> x.Normalized)
         let northDir = referenceSystem.northO |> AVal.map (fun x -> x.Normalized)
         let east   =  AVal.map2 (fun (north : V3d) up -> north.Cross(up).Normalized) northDir upDir
-
-
-        //surface.transformation.pivot
 
         let showSg = isSelected surfaceName m
 
@@ -298,12 +314,22 @@ module ComparisonApp =
                              )
                     ) 
 
+
+        let updateButton =
+          button [clazz "ui icon button";style "margin:2px"; onMouseClick (fun _ -> Update )] 
+                  [i [clazz "calculator icon"] []]  |> UI.wrapToolTip DataPosition.Bottom "Update"
+        let exportButton = 
+          button [clazz "ui icon button"
+                  style "margin:2px"
+                  onMouseClick (fun _ -> ExportMeasurements "measurements.json")] 
+                 [i [clazz "download icon"] [] ]
+                    |> UI.wrapToolTip DataPosition.Bottom "Export"
+
         div [][
             br []
             div [clazz "ui buttons inverted"] 
-                [button [clazz "ui icon button"; onMouseClick (fun _ -> Update )] [ //
-                            i [clazz "calculator icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Update"
-                ] 
+                [updateButton;exportButton]
+
 
             br []
             Html.table [
