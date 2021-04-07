@@ -84,6 +84,21 @@ module SurfaceUtils =
 
     module ObjectFiles =        
         open Aardvark.Geometry
+        open Aardvark.Base.Coder
+
+        // copied from old PRo3D to fix missing kdtrees; why was it deleted in this version?
+        let saveKdTree (path, kdTree : Aardvark.Geometry.KdIntersectionTree) =
+            // serialize
+            use stream = new MemoryStream()
+            use coder = new BinaryWritingCoder(stream)
+            coder.CodeT(ref kdTree)
+      
+            // write to file
+            use fileStream = File.Create(path)
+            //stream.Position <- int64 0
+            stream.Seek(int64 0, SeekOrigin.Begin) |> ignore
+            stream.CopyTo(fileStream)
+            fileStream.Close ()
         
         //TODO TO use loadObject from master
         let loadObject (surface : Surface) : SgSurface =
@@ -117,7 +132,7 @@ module SurfaceUtils =
                                 KdIntersectionTree.BuildFlags.MediumIntersection + KdIntersectionTree.BuildFlags.Hierarchical) //|> PRo3D.Serialization.save kdTreePath                  
                         Log.stop()
                         
-                        //saveKdTree (kdPath, tree) |> ignore   // CHECK-merge
+                        saveKdTree (kdPath, tree) |> ignore   // CHECK-merge
                         
                         let kd : KdTrees.LazyKdTree = {
                             kdTree        = Some (tree.ToConcreteKdIntersectionTree());
