@@ -315,11 +315,12 @@ module PackedRendering =
 
 
 
-    let lines (depthOffset : aval<float>) (selectedAnnotation : aval<int>) (annoSet: aset<Guid * AdaptiveAnnotation>) (view : aval<M44d>) =
+    let lines (depthOffset : aval<float>) (selectedAnnotation : aval<int>) (selected : aset<Guid>) (annoSet: aset<Guid * AdaptiveAnnotation>) (view : aval<M44d>) =
           let data = 
               AVal.custom (fun t -> 
                   Log.startTimed "mk lines"
                   let annos = annoSet.Content.GetValue(t)
+                  let selected = selected.Content.GetValue(t)
                   let modelTrafos = List<M44d>()
                   let vertices = List<_>()
                   let colors = List<_>()
@@ -334,7 +335,7 @@ module PackedRendering =
                       let ps = p.GetValue(t)
                       b <- Box3d(b, Box3d(ps))
                       let offset = 0.0
-                      let color = anno.color.c.GetValue(t)
+                      let color = if HashSet.contains id selected then C4b.VRVisGreen else anno.color.c.GetValue(t)
                       let thickness = anno.thickness.value.GetValue(t)
                       let tolerance = 0.0
                       let modelTrafo = anno.modelTrafo.GetValue(t)
