@@ -260,9 +260,9 @@ module ComparisonApp =
                        (m           : AdaptiveComparisonApp) =    
         let surfaceName = surface |> AVal.bind (fun x -> x.name)
         let pivot = surface |> AVal.bind (fun x -> x.transformation.pivot)
-        let upDir = referenceSystem.up.value |> AVal.map (fun x -> x.Normalized)
-        let northDir = referenceSystem.northO |> AVal.map (fun x -> x.Normalized)
-        let east   =  AVal.map2 (fun (north : V3d) up -> north.Cross(up).Normalized) northDir upDir
+       // let upDir = referenceSystem.up.value |> AVal.map (fun x -> x.Normalized)
+      //  let northDir = referenceSystem.northO |> AVal.map (fun x -> x.Normalized)
+      //  let east   =  AVal.map2 (fun (north : V3d) up -> north.Cross(up).Normalized) northDir upDir
 
         let showSg = isSelected surfaceName m
 

@@ -1133,6 +1133,18 @@ module ViewerApp =
         | UpdateDockConfig dcf,_,_ ->
             let closedPages = updateClosedPages m dcf.content
             { m with scene = { m.scene with dockConfig = dcf; closedPages = closedPages } }
+        | ChangeDashboardMode mode, _,_ ->
+            let closedPages = updateClosedPages m mode.dockConfig.content
+            let scene = { m.scene with dockConfig = mode.dockConfig
+                                                    closedPages = closedPages }
+            let scene = 
+                if mode.name = DashboardModes.comparison.name then
+                    let referenceSystem = {m.scene.referenceSystem with planet = Planet.None}
+                    {scene with referenceSystem = referenceSystem}
+                else scene
+            { m with scene = scene
+                     dashboardMode = mode.name}
+            
         | AddPage de,_,_ -> 
             let closedPages = m.scene.closedPages |> List.filter(fun x -> x.id <> de.id)                
             let cont = addDockElement m.scene.dockConfig.content de

@@ -121,6 +121,7 @@ type ViewerAction =
     | NoAction                        of string
     | OrientationCube                 of ISg
     | UpdateDockConfig                of DockConfig
+    | ChangeDashboardMode             of DashboardMode
     | AddPage                         of DockElement    
     | ToggleOrientationCube
     | UpdateUserFeedback              of string
@@ -288,6 +289,7 @@ type MultiSelectionBox =
 [<ModelType>]
 type Model = { 
     startupArgs          : StartupArgs
+    dashboardMode        : string
     scene                : Scene
     drawing              : PRo3D.Core.Drawing.DrawingModel
     interaction          : Interactions    
@@ -465,7 +467,7 @@ module Viewer =
                     feedbackThreads = ThreadPool.empty
                     viewPlans       = ViewPlanModel.initial
                 }
-
+            dashboardMode   = DashboardModes.core.name
             navigation      = navInit
 
             startupArgs     = startupArgs            

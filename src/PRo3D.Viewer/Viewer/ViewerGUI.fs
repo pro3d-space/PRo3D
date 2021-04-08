@@ -404,7 +404,21 @@ module Gui =
                 ]
             ]       
         
-        let menu (m : AdaptiveModel) =             
+        let menu (m : AdaptiveModel) =          
+            let subMenu name menuItems = 
+                div [ clazz "ui dropdown item"] [
+                  text name
+                  i [clazz "dropdown icon"][] 
+                  div [ clazz "menu"] menuItems
+                ]           
+            let menuItem name action =
+                div [ 
+                    clazz "ui inverted item"
+                    onClick (fun _ -> action)
+                ][
+                    text name
+                ]
+                    
 
             div [clazz "menu-bar"] [
                 // menu
@@ -421,7 +435,15 @@ module Gui =
                                 div [ clazz "ui dropdown item"] (scene m)
                             
                                 //annotations menu
-                                annotationMenu |> UI.map DrawingMessage;                                                           
+                                annotationMenu |> UI.map DrawingMessage;   
+                                
+                                subMenu "Change Mode"
+                                        [
+                                          menuItem "PRo3D Core" (ChangeDashboardMode DashboardModes.core)
+                                          menuItem "Surface Comparison" (ChangeDashboardMode DashboardModes.comparison)
+                                          menuItem "Render Only" (ChangeDashboardMode DashboardModes.renderOnly)
+                                        ]
+                                
                                                             
                                 //Extras Menu
                                 div [ clazz "ui dropdown item"] [
@@ -532,7 +554,8 @@ module Gui =
             | _ -> ""
         
         let topMenuItems (m:AdaptiveModel) = [ 
-            
+            div [style "font-weight: bold;margin-left: 1px; margin-right:1px"] 
+                [Incremental.text (m.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]
             Navigation.UI.viewNavigationModes m.navigation  |> UI.map NavigationMessage 
               
             Html.Layout.horizontal [
