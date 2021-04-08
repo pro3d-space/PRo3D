@@ -437,29 +437,31 @@ module PackedRendering =
                 let sizes = List<float32>()
                 for (id,anno) in annos do   
                     let kind = anno.geometry.GetValue t
-                    let isSelected = HashSet.exists (fun (x : Guid) -> x = id) selected
-                    let c = anno.color.c
-                    let color = if isSelected then C4b.VRVisGreen else c.GetValue(t)
-                    match kind with
-                    | Geometry.Point ->
-                        let p = PRo3D.Core.Drawing.Sg.getPolylinePoints anno
+                    let isVisible = anno.visible.GetValue(t)
+                    if isVisible then
+                        let isSelected = HashSet.exists (fun (x : Guid) -> x = id) selected
                         let c = anno.color.c
-                        let size = anno.thickness.value |> AVal.map(fun x -> x + 0.5)
-                        let px = p.GetValue(t)
-                        modelPos.Add(px.[0])
-                        colors.Add(color)
-                        sizes.Add(float32 <| size.GetValue(t))
-                    | Geometry.DnS -> 
-                        let p = PRo3D.Core.Drawing.Sg.getPolylinePoints anno
-                        let c = anno.color.c.GetValue(t)
-                        let size = anno.thickness.value |> AVal.map(fun x -> x + 0.5)
-                        let size = size.GetValue(t)
-                        let px = p.GetValue(t)
-                        for p in px do 
-                            modelPos.Add(p)
-                            colors.Add(C4b.VRVisGreen)
-                            sizes.Add(float32 size)
-                    | _ -> ()
+                        let color = if isSelected then C4b.VRVisGreen else c.GetValue(t)
+                        match kind with
+                        | Geometry.Point ->
+                            let p = PRo3D.Core.Drawing.Sg.getPolylinePoints anno
+                            let c = anno.color.c
+                            let size = anno.thickness.value |> AVal.map(fun x -> x + 0.5)
+                            let px = p.GetValue(t)
+                            modelPos.Add(px.[0])
+                            colors.Add(color)
+                            sizes.Add(float32 <| size.GetValue(t))
+                        | Geometry.DnS -> 
+                            let p = PRo3D.Core.Drawing.Sg.getPolylinePoints anno
+                            let c = anno.color.c.GetValue(t)
+                            let size = anno.thickness.value |> AVal.map(fun x -> x + 0.5)
+                            let size = size.GetValue(t)
+                            let px = p.GetValue(t)
+                            for p in px do 
+                                modelPos.Add(p)
+                                colors.Add(C4b.VRVisGreen)
+                                sizes.Add(float32 size)
+                        | _ -> ()
 
                 Log.stop()
                 modelPos.ToArray(), colors.ToArray(), sizes.ToArray()
