@@ -1,3 +1,8 @@
+## 3.7.0-prerelease2
+
+- performance improvements for dns annotations
+- fixed multiselect
+
 ## 3.7.0-prerelease1
 
 - performance improvements for dns annotations
