@@ -17,25 +17,85 @@ open PRo3D.Base.Annotation
 open System.Collections.Generic
 open Aardvark.Rendering
 open System
+open PRo3D.Core.Drawing
+open PRo3D.Base
+
+open Adaptify.FSharp.Core
 
 module PackedRendering =
 
+
+    module StableLight =
+        open FShade
+
+        type AttrVertex =
+            {
+                [<Position>]                pos     : V4d            
+                [<TexCoord>]                tc      : V2d
+                [<Color>]                   c       : V4d
+                [<Normal>]                  n       : V3d
+                [<Semantic("LightDir")>]    ldir    : V3d
+            }
+
+        let stableLight (v : AttrVertex) =
+            fragment {
+                let n = v.n |> Vec.normalize
+                let c = v.ldir |> Vec.normalize
+     
+                let diffuse = Vec.dot c n |> abs            
+ 
+                return V4d(v.c.XYZ * diffuse, v.c.W)
+            }
+
+        [<ReflectedDefinition>]
+        let transformNormal (n : V3d) =
+            uniform.ModelViewTrafoInv.Transposed * V4d(n, 0.0)
+            |> Vec.xyz
+            |> Vec.normalize
+
+        let stableTrafo' (v : AttrVertex) =
+            vertex {
+                let mvp : M44d = uniform?ModelViewTrafo
+                let vp = mvp * v.pos
+                return  
+                    { v with
+                        pos  = uniform.ProjTrafo * vp
+                        n    = transformNormal v.n
+                        ldir = V3d.Zero - vp.XYZ |> Vec.normalize
+                    } 
+            } 
+
+
+        type UniformScope with
+            member x.Color : V4d = uniform?Color
+
+        let uniformColor (v : Effects.Vertex) =
+            fragment {
+                return uniform.Color
+            }
+
+
     module PointsShader =
         open FShade
+        open PRo3D.Base.Shader.DepthOffset
 
         type PointVertex =
             {
                 [<Position>] pos : V4d
+                [<Semantic("np")>] np : V4d
                 [<Semantic("Sizes")>] size : float
                 [<PointSize>] pointSize : float
                 [<Color>] c : V4d
                 [<PointCoord>] tc : V2d
+
+                [<Depth(DepthWriteMode.OnlyLess)>]
+                depth : float
             }
 
         let pointSpriteVertex (v : PointVertex) =
             vertex {
                 let p = uniform.ProjTrafo * v.pos 
-                return { v with pointSize = v.size; pos = p }
+                return { v with pointSize = v.size; pos = p; np = v.pos }
             }
 
         let pointSpriteFragment (v : PointVertex) =
@@ -46,7 +106,15 @@ module PackedRendering =
                 if c.Length > 1.0 then
                     discard()
 
-                return v
+                let n = V3d(c, Math.Sqrt(1.0 -  Vec.dot c c)) |> Vec.normalize
+                let p = v.np + V4d(n, 1.0)
+
+                let pp = uniform.ProjTrafo * p
+                let nd = pp.Z / pp.W
+                let d = (nd + 1.0) / 2.0
+
+                let d = (d - uniform.DepthOffset)  / v.pos.W
+                return { v with c = v.c;  depth = ((depthDiff() * d) + depthNear() + depthFar()) / 2.0  }
             }
 
     module LineShader =
@@ -223,39 +291,7 @@ module PackedRendering =
                 return V4d(v.c.X, v.c.Y, v.c.Z, intBitsToFloat i)
             }
         
-    module DepthOffset =
-    
-        open FShade
-        open Aardvark.Rendering.Effects
 
-        type UniformScope with
-            member x.DepthOffset : float = x?DepthOffset
-
-        type VertexDepth = 
-            {   
-                [<Color>] c : V4d; 
-                [<Depth>] d : float
-                [<Position>] pos : V4d
-            }
-
-        [<GLSLIntrinsic("gl_DepthRange.near")>]
-        let depthNear()  : float = onlyInShaderCode ""
-
-        [<GLSLIntrinsic("gl_DepthRange.far")>]
-        let depthFar()  : float = onlyInShaderCode ""
-
-        [<GLSLIntrinsic("(gl_DepthRange.far - gl_DepthRange.near)")>]
-        let depthDiff()  : float = onlyInShaderCode ""
-
-        let depthOffsetFS (v : VertexDepth) =
-            fragment {
-                let depthOffset = uniform.DepthOffset
-                let d = (v.pos.Z - depthOffset)  / v.pos.W
-                return { v with c = v.c;  d = ((depthDiff() * d) + depthNear() + depthFar()) / 2.0  }
-            }
-
-        let Effect =
-            toEffect depthOffsetFS
 
     module LensShader = 
         open FShade
@@ -371,7 +407,7 @@ module PackedRendering =
             |> Sg.shader { 
                   do! LineShader.indirectLineVertexPicking
                   do! LineShader.thickLine
-                  do! DepthOffset.depthOffsetFS 
+                  do! PRo3D.Base.Shader.DepthOffset.depthOffsetFS 
                   do! Picking.pickId
             }
             |> Sg.uniform "PickingTolerance" (pickingTolerance |> AVal.map (fun p -> p * 2.0))
@@ -386,5 +422,233 @@ module PackedRendering =
         |> Sg.shader { 
                 do! LineShader.indirectLineVertex
                 do! LineShader.thickLine
-                do! DepthOffset.depthOffsetFS 
+                do! PRo3D.Base.Shader.DepthOffset.depthOffsetFS 
         }
+
+
+    let points (selected : aset<Guid>) (annoSet: aset<Guid * AdaptiveAnnotation>) (depthOffset : aval<float>) (view : aval<M44d>) =
+        let instanceAttribs = 
+            AVal.custom (fun t -> 
+                Log.startTimed "creating points"
+                let annos = annoSet.Content.GetValue(t)
+                let selected = selected.Content.GetValue(t)
+                let modelPos = List<V3d>()
+                let colors = List<C4b>()
+                let sizes = List<float32>()
+                for (id,anno) in annos do   
+                    let kind = anno.geometry.GetValue t
+                    let isSelected = HashSet.exists (fun (x : Guid) -> x = id) selected
+                    let c = anno.color.c
+                    let color = if isSelected then C4b.VRVisGreen else c.GetValue(t)
+                    match kind with
+                    | Geometry.Point ->
+                        let p = PRo3D.Core.Drawing.Sg.getPolylinePoints anno
+                        let c = anno.color.c
+                        let size = anno.thickness.value |> AVal.map(fun x -> x + 0.5)
+                        let px = p.GetValue(t)
+                        modelPos.Add(px.[0])
+                        colors.Add(color)
+                        sizes.Add(float32 <| size.GetValue(t))
+                    | Geometry.DnS -> 
+                        let p = PRo3D.Core.Drawing.Sg.getPolylinePoints anno
+                        let c = anno.color.c.GetValue(t)
+                        let size = anno.thickness.value |> AVal.map(fun x -> x + 0.5)
+                        let size = size.GetValue(t)
+                        let px = p.GetValue(t)
+                        for p in px do 
+                            modelPos.Add(p)
+                            colors.Add(C4b.VRVisGreen)
+                            sizes.Add(float32 size)
+                    | _ -> ()
+
+                Log.stop()
+                modelPos.ToArray(), colors.ToArray(), sizes.ToArray()
+            )
+        let mvs = 
+            (instanceAttribs, view) ||> AVal.map2 (fun (p,_,_) v -> 
+                let r = Array.map (fun p -> V3f (v.TransformPos p)) p
+                r
+            )
+        let colors = instanceAttribs |> AVal.map (fun (mvp, c, s) -> c)
+        let sizes = instanceAttribs |> AVal.map (fun (mvp, c, s) -> s )
+        Sg.draw IndexedGeometryMode.PointList
+        |> Sg.vertexAttribute DefaultSemantic.Positions mvs
+        |> Sg.vertexAttribute DefaultSemantic.Colors colors
+        |> Sg.vertexAttribute "Sizes" sizes
+        |> Sg.uniform "DepthOffset" depthOffset
+        |> Sg.shader { 
+              do! PointsShader.pointSpriteVertex
+              do! PointsShader.pointSpriteFragment
+              //do! DepthOffset.depthOffsetFS
+           }
+
+
+    let fastDns (config : Sg.innerViewConfig) (fcm : AdaptiveFalseColorsModel) (annoSet: aset<Guid * AdaptiveAnnotation>) (view : aval<CameraView>) = 
+        
+        let stableLight = 
+            FShade.Effect.compose [
+                //do! Shader.screenSpaceScale
+                StableLight.stableTrafo'   |> toEffect
+                StableLight.uniformColor   |> toEffect
+                StableLight.stableLight    |> toEffect
+            ]
+
+        let scaledLines = 
+            FShade.Effect.compose [
+                toEffect DefaultSurfaces.stableTrafo
+                toEffect DefaultSurfaces.vertexColor
+                toEffect DefaultSurfaces.thickLine
+            ]
+
+        let attributes = AVal.custom (fun t -> 
+            Log.line "create DNS annotations"
+            let discsTrafos = List<_>()
+            let discColors = List<C4b>()
+            let coneTrafos = List<_>()
+            let coneColors = List<_>()
+            
+            let annos = annoSet.Content.GetValue(t)
+            let planeSize = config.dnsPlaneSize.GetValue(t)
+            let arrowLength = config.arrowLength.GetValue(t)
+            let arrowThickness = config.arrowThickness.GetValue(t)
+
+            let lineVertices = List<V3f>()
+            let lineColors = List<C4b>()
+
+            let mutable generalLineTrafo = None
+
+            for (id,anno) in annos do
+                let visible = anno.visible.GetValue(t)
+                let showDns = anno.showDns.GetValue(t)
+                let dnsResults = anno.dnsResults.GetValue(t)
+                match dnsResults with
+                | AdaptiveSome s when visible && showDns -> 
+                    let p = PRo3D.Core.Drawing.Sg.getPolylinePoints anno
+                    let ps = p.GetValue(t)
+                    if ps.Length > 0 then
+                        let center = ps.[ps.Length / 2]
+                        let r = PRo3D.FalseColorLegendApp.Draw.getColorDnS fcm s.dipAngle
+                        
+                        let color = r.GetValue()
+                        let lengthFactor = 
+                            (ps |> Array.toList |> Calculations.getDistance) / 3.0
+
+                        let posTrafo = center |> Trafo3d.Translation
+
+                        let modelTrafoLines = 
+                            match generalLineTrafo with
+                            | None -> 
+                                let modelTrafo = anno.modelTrafo.GetValue(t)
+                                generalLineTrafo <- Some modelTrafo
+                                modelTrafo
+                            | Some t -> t
+
+                        let plane = s.plane.GetValue(t)
+                        let lineLength = arrowLength * lengthFactor
+
+                        let discRadius = planeSize * lengthFactor
+                        // disc
+                        let discTrafo = Trafo3d.RotateInto(V3d.ZAxis, plane.Normal) * posTrafo
+                        let discThickness = discRadius * 0.01
+                        let cylinderTrafo = Trafo3d.Scale(discRadius,discRadius,discThickness) * discTrafo
+                        discsTrafos.Add(cylinderTrafo)
+                        discColors.Add(color)
+
+                        // dip arrow
+                        let dip = s.dipDirection.GetValue(t)
+                        let coneHeight = lineLength * 0.2
+                        let coneRadius = coneHeight * 0.3
+                        let dipHeadTrafo = Trafo3d.RotateInto(V3d.ZAxis, dip) * Trafo3d.Translation(center + dip.Normalized * lineLength)
+                        let coneTrafo = Trafo3d.Scale(coneRadius, coneRadius, coneHeight) * dipHeadTrafo
+                        coneTrafos.Add(coneTrafo)
+                        coneColors.Add(color)
+
+                        // dip arrow (line)
+                        let dipLine = Line3d(center, center + dip.Normalized * lineLength)
+                        lineVertices.Add(modelTrafoLines.Backward.TransformPos(dipLine.P0) |> V3f)
+                        lineVertices.Add(modelTrafoLines.Backward.TransformPos(dipLine.P1) |> V3f)
+                        lineColors.Add(color); lineColors.Add(color)
+
+                        // strike line
+                        let strike = s.strikeDirection.GetValue(t)
+                        let strikeLine = Line3d(center - strike.Normalized * lineLength, center + strike.Normalized * lineLength)
+                        lineVertices.Add(modelTrafoLines.Backward.TransformPos(strikeLine.P0) |> V3f)
+                        lineVertices.Add(modelTrafoLines.Backward.TransformPos(strikeLine.P1) |> V3f)
+                        lineColors.Add(C4b.Red); lineColors.Add(C4b.Red)
+
+                        ()
+                    else 
+                        ()
+                | _ -> ()
+
+            {| discTrafos = discsTrafos.ToArray(); discColors = discColors.ToArray(); 
+               coneTrafos = coneTrafos.ToArray(); coneColors = coneColors.ToArray(); 
+               modelTrafoLines = Option.defaultValue Trafo3d.Identity generalLineTrafo; lineVertices = lineVertices.ToArray(); lineColors = lineColors.ToArray() |}
+        )
+
+        let discSg = 
+            let discModelViews = 
+                (attributes,view) ||> AVal.map2 (fun d view -> 
+                    let viewMatrix = (CameraView.viewTrafo view)
+                    let forward = Array.zeroCreate d.discTrafos.Length
+                    let backward = Array.zeroCreate d.discTrafos.Length
+                    d.discTrafos |> Array.iteri (fun i (modelMatrix : Trafo3d) -> 
+                        let mv =  modelMatrix * viewMatrix
+                        forward.[i] <- M44f mv.Forward
+                        backward.[i] <- M44f mv.Backward
+                    ) 
+                    forward :> System.Array, backward :> System.Array
+                )
+            let colors = attributes |> AVal.map (fun a -> a.discColors :> System.Array)
+
+            let instancedUniforms =
+                Map.ofList [
+                    "ModelViewTrafo",    (typeof<M44f>,   AVal.map fst discModelViews)
+                    "ModelViewTrafoInv", (typeof<M44f>,   AVal.map snd discModelViews)
+                    "Color",             (typeof<C4b>,    colors        )
+                ]
+
+            let cylinder = 
+                Sg.cylinder' 24 C4b.White 1.0 1.0
+                |> Sg.effect [stableLight]
+
+            Sg.instanced' instancedUniforms cylinder
+
+        let coneSg = 
+            let discModelViews = 
+                (attributes,view) ||> AVal.map2 (fun d view -> 
+                    let viewMatrix = (CameraView.viewTrafo view)
+                    
+                    let forward = Array.zeroCreate d.coneTrafos.Length
+                    let backward = Array.zeroCreate d.coneTrafos.Length
+                    d.coneTrafos |> Array.iteri (fun i (modelMatrix : Trafo3d) -> 
+                        let mv =  modelMatrix * viewMatrix
+                        forward.[i] <- M44f mv.Forward
+                        backward.[i] <- M44f mv.Backward
+                    ) 
+                    forward :> System.Array, backward :> System.Array
+                )
+            let colors = attributes |> AVal.map (fun a -> a.coneColors :> System.Array)
+
+            let instancedUniforms =
+                Map.ofList [
+                    "ModelViewTrafo",    (typeof<M44f>,   AVal.map fst discModelViews)
+                    "ModelViewTrafoInv", (typeof<M44f>,   AVal.map snd discModelViews)
+                    "Color",             (typeof<C4b>,    colors )
+                ]
+
+            let cone = 
+                Sg.cone' 24 C4b.White 1.0 1.0
+                |> Sg.effect [stableLight]
+
+            Sg.instanced' instancedUniforms cone
+
+        let lines = 
+            Sg.draw IndexedGeometryMode.LineList
+            |> Sg.vertexAttribute DefaultSemantic.Positions (attributes |> AVal.map (fun o -> o.lineVertices))
+            |> Sg.vertexAttribute DefaultSemantic.Colors (attributes |> AVal.map (fun o -> o.lineColors))
+            |> Sg.trafo (attributes |> AVal.map (fun a -> a.modelTrafoLines))
+            |> Sg.uniform "LineWidth" config.arrowThickness    
+            |> Sg.effect [scaledLines]
+
+        Sg.ofSeq [discSg; coneSg; lines]

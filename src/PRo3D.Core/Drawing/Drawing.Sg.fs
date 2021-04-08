@@ -317,6 +317,67 @@ module Sg =
                 yield Sg.drawPointList points (C4b.VRVisGreen |> AVal.constant) size (offset |> AVal.map(fun x -> x * 1.1))
         } 
         |> Sg.set  
+        
+
+    let finishedAnnotationOld 
+        (anno             : AdaptiveAnnotation) 
+        (color            : aval<C4b>) 
+        (config           : innerViewConfig)
+        (view             : aval<CameraView>) 
+        (showPoints       : aval<bool>)         
+        (picked           : aval<bool>)
+        (pickingAllowed   : aval<bool>) =
+
+        let points = getPolylinePoints anno      
+        let dots = 
+            showPoints 
+            |> optionalSet (
+                getDotsIsg
+                    anno.points
+                    (anno.thickness.value |> AVal.map(fun x -> x + 0.5))
+                    color
+                    anno.geometry 
+                    config.offset
+            )
+     
+        let texts = 
+            anno.text 
+            |> AVal.map (String.IsNullOrEmpty >> not) 
+            |> optionalSet (drawText view config anno)
+    
+        let dotsAndText = ASet.union' [dots; texts] |> Sg.set
+            
+        //let selectionColor = AVal.map2(fun x color -> if x then C4b.VRVisGreen else color) picked c
+        let pickingAllowed = // for this particular annotation // whether should fire pick actions
+            AVal.map2 (&&) pickingAllowed anno.visible
+
+        let pickFunc = pickEventsHelper (anno.key |> AVal.constant) pickingAllowed anno.thickness.value anno.modelTrafo
+
+
+        let pickingLines = 
+            Sg.pickableLine 
+                points 
+                config.offset 
+                color
+                anno.thickness.value 
+                config.pickingTolerance
+                anno.modelTrafo 
+                true 
+                pickFunc
+             
+        let selectionSg = 
+            picked 
+            |> AVal.map (function
+                | true -> OutlineEffect.createForLineOrPoint PRo3D.Base.OutlineEffect.Both (AVal.constant C4b.VRVisGreen) anno.thickness.value 3.0  RenderPass.main anno.modelTrafo points
+                | false -> Sg.empty ) 
+            |> Sg.dynamic
+    
+        Sg.ofList [
+            selectionSg
+            pickingLines
+            dotsAndText
+        ] |> optional anno.visible
+
 
     let finishedAnnotation 
         (anno             : AdaptiveAnnotation) 
@@ -344,7 +405,7 @@ module Sg =
             |> AVal.map (String.IsNullOrEmpty >> not) 
             |> optionalSet (drawText view config anno)
     
-        let dotsAndText = ASet.union' [dots; texts] |> Sg.set
+        let dotsAndText = texts |> Sg.set //ASet.union' [dots; texts] |> Sg.set
             
         //let selectionColor = AVal.map2(fun x color -> if x then C4b.VRVisGreen else color) picked c
         let pickingAllowed = // for this particular annotation // whether should fire pick actions

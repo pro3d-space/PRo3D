@@ -495,10 +495,11 @@ module DrawingApp =
         Log.stop()
 
         let hoveredAnnotation = cval -1
-        let lines, pickIds, bb = PackedRendering.lines config.offset hoveredAnnotation annoSet (view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward))
+        let viewMatrix = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
+        let lines, pickIds, bb = PackedRendering.lines config.offset hoveredAnnotation annoSet viewMatrix
         let pickRenderTarget = PackedRendering.pickRenderTarget runtime config.pickingTolerance lines view frustum viewport
         pickRenderTarget.Acquire()
-        let packedRender = 
+        let packedLines = 
             let simple (kind : SceneEventKind) (f : SceneHit -> seq<'msg>) =
                 kind, fun evt -> false, Seq.delay (fun () -> (f evt))
             PackedRendering.packedRender lines 
@@ -534,18 +535,25 @@ module DrawingApp =
                             DrawingAction.Nop
                    )
             ]
+        let packedPoints = 
+            PackedRendering.points (model.annotations.selectedLeaves |> ASet.map (fun l -> l.id)) annoSet config.offset viewMatrix
+            |> Sg.noEvents
 
         let overlay = 
             Sg.ofList [
              // brush model.hoverPosition; 
               annotations
-              packedRender
+              Sg.ofSeq [packedLines; packedPoints]
               Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
             ]
 
+        //let depthTest = 
+        //    annoSet 
+        //    |> ASet.map(fun (_,a) -> Sg.finishedAnnotationDiscs a config model.dnsColorLegend view) |> Sg.set
+
         let depthTest = 
-            annoSet 
-            |> ASet.map(fun (_,a) -> Sg.finishedAnnotationDiscs a config model.dnsColorLegend view) |> Sg.set
+            PackedRendering.fastDns config model.dnsColorLegend annoSet view
+            |> Sg.noEvents
 
         (overlay, depthTest)
             

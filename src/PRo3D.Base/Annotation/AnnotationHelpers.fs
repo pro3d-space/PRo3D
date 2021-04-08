@@ -219,6 +219,7 @@ module Calculations =
         |> List.pairwise
         |> List.map (fun (a,b) -> Vec.Distance(a,b))
         |> List.sum
+
     
     let getSegmentDistance (s:Segment) = 
         getDistance

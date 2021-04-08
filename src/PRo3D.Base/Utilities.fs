@@ -183,6 +183,40 @@ module Utilities =
             wc.DownloadFile(screenshot,Path.combine [folder; name])
 
 module Shader = 
+
+    module DepthOffset =
+
+        open FShade
+        open Aardvark.Rendering.Effects
+
+        type UniformScope with
+            member x.DepthOffset : float = x?DepthOffset
+
+        type VertexDepth = 
+            {   
+                [<Color>] c : V4d; 
+                [<Depth>] d : float
+                [<Position>] pos : V4d
+            }
+
+        [<GLSLIntrinsic("gl_DepthRange.near")>]
+        let depthNear()  : float = onlyInShaderCode ""
+
+        [<GLSLIntrinsic("gl_DepthRange.far")>]
+        let depthFar()  : float = onlyInShaderCode ""
+
+        [<GLSLIntrinsic("(gl_DepthRange.far - gl_DepthRange.near)")>]
+        let depthDiff()  : float = onlyInShaderCode ""
+
+        let depthOffsetFS (v : VertexDepth) =
+            fragment {
+                let depthOffset = uniform.DepthOffset
+                let d = (v.pos.Z - depthOffset)  / v.pos.W
+                return { v with c = v.c;  d = ((depthDiff() * d) + depthNear() + depthFar()) / 2.0  }
+            }
+
+        let Effect =
+            toEffect depthOffsetFS
    
     type UniformScope with
         member x.PointSize : float = uniform?PointSize
