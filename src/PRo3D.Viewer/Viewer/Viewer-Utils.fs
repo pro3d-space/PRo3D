@@ -509,7 +509,10 @@ module ViewerUtils =
                     |> ASet.map snd                     
                 )                
             )
+
         //grouped   
+        let last = grouped |> AList.tryLast
+
         alist {        
             let mutable i = 0
             for set in grouped do
@@ -519,19 +522,24 @@ module ViewerUtils =
                     |> Sg.set
                     |> Sg.effect [surfaceEffect]
                     |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-                    |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()                        
+                    |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()
 
                 yield RenderCommand.SceneGraph sg
 
                 //if i = c then //now gets rendered multiple times
                  // assign priorities globally, or for each anno and make sets
-                yield RenderCommand.SceneGraph depthTested
+                let depthTested =
+                    last |> AVal.map (function 
+                        | Some e when System.Object.ReferenceEquals(e,set) -> depthTested 
+                        | _ -> Sg.empty
+                    )
+                yield RenderCommand.SceneGraph (depthTested |> Sg.dynamic)
 
                 yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
-            
+
             yield RenderCommand.SceneGraph overlayed
-            
-        }  
+
+        }
 
 module GaleCrater =
     open PRo3D.Base
