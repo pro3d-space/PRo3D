@@ -509,6 +509,7 @@ module ViewerUtils =
                     |> ASet.map snd                     
                 )                
             )
+
         //grouped   
         let last = grouped |> AList.tryLast
 
@@ -521,7 +522,7 @@ module ViewerUtils =
                     |> Sg.set
                     |> Sg.effect [surfaceEffect]
                     |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-                    |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()                        
+                    |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()
 
                 yield RenderCommand.SceneGraph sg
 
@@ -535,10 +536,10 @@ module ViewerUtils =
                 yield RenderCommand.SceneGraph (depthTested |> Sg.dynamic)
 
                 yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
-            
+
             yield RenderCommand.SceneGraph overlayed
-            
-        }  
+
+        }
 
 module GaleCrater =
     open PRo3D.Base

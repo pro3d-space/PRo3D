@@ -333,14 +333,7 @@ module DrawingApp =
         | ChangeThickness th, _, _ ->
             { model with thickness = Numeric.update model.thickness th }
         | SetExportPath s, _, _ ->
-            { model with exportPath = Some s }
-        | Export, _, _ ->
-            //let path = Path.combine([model.exportPath; "drawing.json"])
-            //printf "Writing %i annotations to %s" (model.annotations |> IndexList.count) path
-            //let json = model.annotations |> IndexList.map JsonTypes.ofAnnotation |> JsonConvert.SerializeObject
-            //Serialization.writeToFile path json 
-            failwith "export not implemented"
-            model
+            { model with exportPath = Some s }        
         | Send, _, _ ->                                                      
             model
         | ClearWorking,_ , _->
@@ -403,11 +396,35 @@ module DrawingApp =
                 |> HashMap.toList 
                 |> List.map snd
                 |> List.filter(fun a -> a.visible)
-                |> List.map (Csv.exportAnnotation lookups)
+                |> List.map (Export.toExportAnnotation lookups)
             
-            let csvTable = Csv.Seq.csv "," true id annotations
-            if p.IsEmptyOrNull() |> not then Csv.Seq.write (p) csvTable
+            let csvTable = Export.Seq.csv "," true id annotations
+            if p.IsEmptyOrNull() |> not then Export.Seq.write (p) csvTable
             model      
+        | ExportAsGeoJSON path, _, _ ->           
+            let planet = smallConfig.planet.Get(bigConfig)            
+            let annotations =
+                model.annotations.flat
+                |> Leaf.toAnnotations
+                |> HashMap.toList 
+                |> List.map snd
+                |> List.filter(fun a -> a.visible)
+               
+            Export.GeoJSON.toJson planet path annotations
+
+            model
+        | ExportAsGeoJSON_xyz path, _, _ ->                       
+                        
+            let annotations =
+                model.annotations.flat
+                |> Leaf.toAnnotations
+                |> HashMap.toList 
+                |> List.map snd
+                |> List.filter(fun a -> a.visible)
+               
+            Export.GeoJSON.toJsonXYZ path annotations
+            
+            model
         | LegacySaveVersioned, _,_ ->
             let path = "./annotations.json"
             let pathgGrouping = "./annotations.grouping"
