@@ -366,10 +366,10 @@ module DrawingApp =
                 // { model with annotations = Groups.addSingleSelectedLeaf model.annotations list.Empty ann.key "" }              
                 let annotations =
                     if shiftFlag then
-                        Log.line "[DrawingApp] single select"
+                        Log.line "[DrawingApp] multi select"
                         GroupsApp.update model.annotations (GroupsAppAction.AddLeafToSelection(List.empty, ann.key, String.Empty))
                     else
-                        Log.line "[DrawingApp] multi select"
+                        Log.line "[DrawingApp] single select"
                         GroupsApp.update model.annotations (GroupsAppAction.SingleSelectLeaf(List.empty, ann.key, String.Empty))
                     
                 { model with annotations = annotations }

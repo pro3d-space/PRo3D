@@ -1014,6 +1014,7 @@ module ViewerApp =
                     Log.line "[Viewer] ShiftFlag %A" m.shiftFlag
                     m                    
                 | _ -> m
+
             match k with
             | Aardvark.Application.Keys.LeftCtrl -> 
                 match m.interaction with
