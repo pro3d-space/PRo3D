@@ -412,6 +412,13 @@ module Gui =
                     ][
                         text "Export (*.json)"
                     ]     
+                    div [ 
+                        clazz "ui inverted item"
+                        Dialogs.onSaveFile ExportAsGeoJSON_xyz
+                        clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
+                    ][
+                        text "Export xyz (*.json)"
+                    ]
                 ]
             ]       
         

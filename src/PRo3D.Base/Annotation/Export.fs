@@ -216,13 +216,18 @@ module Export =
         //let toV3dCoordinate (v : V3d) : GeoJSON.V3d = 
         //    Coordinate.V3d{ X=v.X; Y=v.Y; Z = v.Z }
 
-        let annotationToGeoJsonGeometry (planet : Planet) (a : Annotation) : GeoJSON.GeoJsonGeometry =
+        let annotationToGeoJsonGeometry (planet : option<Planet>) (a : Annotation) : GeoJSON.GeoJsonGeometry =
 
             let latLonAltPoints = 
-                a.points 
-                |> IndexList.map (CooTransformation.getLatLonAlt planet) 
-                |> IndexList.map CooTransformation.SphericalCoo.toV3d 
-                |> IndexList.toList
+                match planet with 
+                | Some p ->
+                    a.points 
+                    |> IndexList.map (CooTransformation.getLatLonAlt p)
+                    |> IndexList.map CooTransformation.SphericalCoo.toV3d
+                    |> IndexList.toList
+                | None ->
+                    a.points
+                    |> IndexList.toList
 
             match a.geometry with
             | Geometry.Point ->
@@ -265,14 +270,14 @@ module Export =
         //        )
 
         //    ()
-
-        let doJson (planet : Planet) (path:string) (annotations : list<Annotation>) : unit = 
+        
+        let toJson (planet : Planet) (path:string) (annotations : list<Annotation>) : unit = 
 
             if path.IsEmpty() then ()
         
             let geometryCollection =
                 annotations
-                |> List.map(annotationToGeoJsonGeometry planet)
+                |> List.map(annotationToGeoJsonGeometry (Some planet))
                 |> GeoJsonGeometry.GeometryCollection
 
             geometryCollection
@@ -281,4 +286,20 @@ module Export =
             |> Serialization.writeToFile path
 
             ()            
+
+        let toJsonXYZ (path:string) (annotations : list<Annotation>) : unit = 
+
+            if path.IsEmpty() then ()
+        
+            let geometryCollection =
+                annotations
+                |> List.map(annotationToGeoJsonGeometry None)
+                |> GeoJsonGeometry.GeometryCollection
+
+            geometryCollection
+            |> Json.serialize 
+            |> Json.formatWith JsonFormattingOptions.Pretty 
+            |> Serialization.writeToFile path
+
+            ()
 
