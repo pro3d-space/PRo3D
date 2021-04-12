@@ -79,4 +79,5 @@ type ComparisonAction =
     | SelectSurface2 of string
     | Update
     | ExportMeasurements of string
+    | ToggleVisible
     | MeasurementMessage

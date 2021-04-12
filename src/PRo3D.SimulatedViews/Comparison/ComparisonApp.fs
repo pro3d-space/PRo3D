@@ -204,21 +204,57 @@ module ComparisonApp =
                (refSystem    : ReferenceSystem)
                (msg          : ComparisonAction) =
         match msg with
-        | Update -> updateMeasurements m surfaceModel refSystem
+        | Update -> 
+            let m = updateMeasurements m surfaceModel refSystem
+            m , surfaceModel
         | SelectSurface1 str -> 
             let m = {m with surface1 = noSelectionToNone str}
-            updateMeasurements m surfaceModel refSystem
+            ///let m = updateMeasurements m surfaceModel refSystem
+            m , surfaceModel
         | SelectSurface2 str -> 
             let m = {m with surface2 = noSelectionToNone str}
-            updateMeasurements m surfaceModel refSystem
+            //let m = updateMeasurements m surfaceModel refSystem
+            m , surfaceModel
         | ExportMeasurements filepath -> 
             m
               |> Json.serialize 
               |> Json.formatWith JsonFormattingOptions.Pretty 
               |> Serialization.writeToFile filepath
             Log.line "[Comparison] Measurements exported to %s" (System.IO.Path.GetFullPath filepath)
-            m
-        | MeasurementMessage -> m
+            m , surfaceModel
+        | ComparisonAction.ToggleVisible ->
+            let surfaceId1 = m.surface1 |> Option.bind (fun x -> findSurfaceByName surfaceModel x)
+            let surfaceId2 = m.surface2 |> Option.bind (fun x -> findSurfaceByName surfaceModel x)
+            let surfaceModel =
+                match surfaceId1, surfaceId2 with
+                | Some id1, Some id2 ->
+                    let s1 = surfaceModel.surfaces.flat |> HashMap.find id1
+                                                        |> Leaf.toSurface
+                    let s2 = surfaceModel.surfaces.flat |> HashMap.find id2
+                                                        |> Leaf.toSurface
+                    let s1, s2 =
+                        match s1.isVisible, s2.isVisible with
+                        | true, true ->
+                            let s1 = {s1 with isVisible = true}
+                            let s2 = {s2 with isVisible = false}
+                            s1, s2
+                        | false, false ->
+                            let s1 = {s1 with isVisible = true}
+                            let s2 = {s2 with isVisible = false}
+                            s1, s2
+                        | _, _ ->
+                            let s1 = {s1 with isVisible = not s1.isVisible}
+                            let s2 = {s2 with isVisible = not s2.isVisible}
+                            s1, s2
+                    surfaceModel
+                      |> SurfaceModel.updateSingleSurface s1
+                      |> SurfaceModel.updateSingleSurface s2
+
+                    
+                | _,_ -> surfaceModel
+            m , surfaceModel
+        | MeasurementMessage -> 
+            m , surfaceModel
 
     let isSelected (surfaceName : aval<string>) (m : AdaptiveComparisonApp) =
         let showSg = 

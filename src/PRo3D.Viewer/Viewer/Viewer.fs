@@ -904,7 +904,7 @@ module ViewerApp =
                 match k with 
                 | Aardvark.Application.Keys.PageUp   -> ConfigProperties.Action.SetNavigationSensitivity (Numeric.Action.SetValue (sensitivity + 0.5))
                 | Aardvark.Application.Keys.PageDown -> ConfigProperties.Action.SetNavigationSensitivity (Numeric.Action.SetValue (sensitivity - 0.5))
-                | _ -> ConfigProperties.Action.SetNavigationSensitivity (Numeric.Action.SetValue (sensitivity))
+                | _ -> ConfigProperties.Action.Nop
 
             let c' = ConfigProperties.update m.scene.config configAction
 
@@ -998,6 +998,15 @@ module ViewerApp =
                     m |> shortFeedback "Saved logbrush"
                 | Aardvark.Application.Keys.F8 ->
                     { m with scene = { m.scene with dockConfig = DockConfigs.core } }
+                | Aardvark.Application.Keys.T ->
+                    let comparisonApp, surfacesModel = 
+                        ComparisonApp.update  m.comparisonApp 
+                                              m.scene.surfacesModel 
+                                              m.scene.referenceSystem 
+                                              Comparison.ComparisonAction.ToggleVisible
+                    {m with comparisonApp = comparisonApp
+                            scene         = {m.scene with surfacesModel = surfacesModel}
+                    }
                 | _ -> m
 
             let interaction' = 
@@ -1312,12 +1321,15 @@ module ViewerApp =
         //    Log.warn "[Viewer] don't know message %A. ignoring it." msg
         //    m                                            
         | ComparisonMessage msg, _, _ ->
-            {m with comparisonApp = ComparisonApp.update m.comparisonApp 
-                                                         m.scene.surfacesModel 
-                                                         m.scene.referenceSystem 
-                                                         msg
+            let comparisonApp, surfacedModel = 
+                ComparisonApp.update  m.comparisonApp 
+                                      m.scene.surfacesModel 
+                                      m.scene.referenceSystem 
+                                      msg              
+            {m with comparisonApp = comparisonApp
                     scene = {m.scene with referenceSystem = 
                                             {m.scene.referenceSystem with planet = Planet.None}
+                                          surfacesModel = surfacedModel
                             }
             }
 
