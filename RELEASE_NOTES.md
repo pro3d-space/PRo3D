@@ -1,5 +1,10 @@
 ## 3.7.0-prerelease1
 
+- performance improvements for dns annotations
+- fixed multiselect
+
+## 3.7.0-prerelease1
+
 - added geoJSON export via menu > annotations > export (*.json)
 - data is exported as `geometryCollection` of `geometry` objects with 3D coordinates `(lon, lat, alt)` computed via SPICE
 
