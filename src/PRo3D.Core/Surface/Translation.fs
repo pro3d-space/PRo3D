@@ -57,6 +57,7 @@ module TranslationApp =
                 Html.table [  
                     //Html.row "Visible:" [GuiEx.iconCheckBox model.useTranslationArrows ToggleVisible ]
                     Html.row "Translation (m):" [viewV3dInput model.translation |> UI.map SetTranslation ]
+                    Html.row "Pivot Point:" [Incremental.text (model.pivot |> AVal.map (fun x -> x.ToString ()))]
                     Html.row "Yaw (deg):" [Numeric.view' [InputBox] model.yaw |> UI.map SetYaw]
                 ]
             )

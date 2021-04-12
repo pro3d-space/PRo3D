@@ -112,11 +112,11 @@ module ComparisonApp =
         match intersected with
         | Some (t,surf), c ->                         
             let hit = ray.GetPointOnRay(t) 
-            Log.warn "ray hit surface at %s" (string hit) // rno debug
+            Log.warn "ray in direction %s hit surface at %s" (direction.ToString ()) (string hit) // rno debug
             hit |> Some
         |  None, _ ->
-          Log.warn "[RayCastSurface] no hit"
-          None
+            Log.warn "[RayCastSurface] no hit in direction %s" (direction.ToString ())
+            None
 
     let getDimensionsNonOPC (surface : Surface)
                             (surfaceModel : SurfaceModel) 
@@ -129,16 +129,17 @@ module ComparisonApp =
         let surfaceFilter (id : Guid) (l : Leaf) (s : SgSurface) = 
             id = surface.guid
         let trafo = SurfaceTransformations.fullTrafo' surface refSystem
-        let trafo = SurfaceTransformations.fullTrafo' surface refSystem
 
         let mutable rot = V3d.OOO
         let mutable tra = V3d.OOO
         let mutable sca = V3d.OOO
 
         trafo.Decompose (&sca, &rot, &tra)
-        let origin    = surface.transformation.pivot
+        let origin    = tra
         let rotation = rot |> Trafo3d.RotationEuler 
                            |> Rot3d.FromTrafo3d
+        Log.warn "[DEBUG] calc trafo translation = %s" (tra.ToString ())
+        Log.warn "[DEBUG] ref system origin = %s" (refSystem.origin.ToString ())
         let localZDir = rotation.Transform refSystem.up.value.Normalized
         let localYDir = rotation.Transform refSystem.north.value.Normalized
         let localXDir = (localZDir.Cross localYDir).Normalized
@@ -260,6 +261,7 @@ module ComparisonApp =
                        (m           : AdaptiveComparisonApp) =    
         let surfaceName = surface |> AVal.bind (fun x -> x.name)
         let pivot = surface |> AVal.bind (fun x -> x.transformation.pivot)
+
        // let upDir = referenceSystem.up.value |> AVal.map (fun x -> x.Normalized)
       //  let northDir = referenceSystem.northO |> AVal.map (fun x -> x.Normalized)
       //  let east   =  AVal.map2 (fun (north : V3d) up -> north.Cross(up).Normalized) northDir upDir

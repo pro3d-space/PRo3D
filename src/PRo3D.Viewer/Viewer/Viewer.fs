@@ -827,8 +827,14 @@ module ViewerApp =
             |> ViewerIO.loadMinerva SceneLoader.Minerva.defaultDumpFile SceneLoader.Minerva.defaultCacheFile
 
         | NewScene,_,_ ->
-            let initialModel = Viewer.initial m.messagingMailbox StartupArgs.initArgs //m.minervaModel.minervaMessagingMailbox
-            { initialModel with recent = m.recent } |> ViewerIO.loadRoverData
+            let oldPlanet = m.scene.referenceSystem.planet
+            let m = Viewer.initial m.messagingMailbox StartupArgs.initArgs //m.minervaModel.minervaMessagingMailbox
+            let (refSystem,_) = ReferenceSystemApp.update m.scene.config 
+                                                          refConfig 
+                                                          ReferenceSystem.initial
+                                                          (SetPlanet oldPlanet)
+            let m = {m with scene = {m.scene with referenceSystem = refSystem}}
+            { m with recent = m.recent } |> ViewerIO.loadRoverData
         | KeyDown k, _, _ ->
             let m =
                 match k with
@@ -1139,10 +1145,13 @@ module ViewerApp =
                                                     closedPages = closedPages }
             let scene = 
                 if mode.name = DashboardModes.comparison.name then
-                    let referenceSystem = {m.scene.referenceSystem with planet = Planet.None}
-                    {scene with referenceSystem = referenceSystem}
+                    let (refSystem,_) = ReferenceSystemApp.update m.scene.config 
+                                                                    refConfig 
+                                                                    m.scene.referenceSystem 
+                                                                    (SetPlanet Planet.None)
+                    {scene with referenceSystem = refSystem}
                 else scene
-            { m with scene = scene
+            { m with scene         = scene
                      dashboardMode = mode.name}
             
         | AddPage de,_,_ -> 
