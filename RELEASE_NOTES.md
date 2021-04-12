@@ -1,4 +1,8 @@
-## 3.7.0-prerelease1
+## 3.7.0-prerelease3
+
+- added geoJSON export via menu > annotations > export xyz (*.json)
+
+## 3.7.0-prerelease2
 
 - performance improvements for dns annotations
 - fixed multiselect
