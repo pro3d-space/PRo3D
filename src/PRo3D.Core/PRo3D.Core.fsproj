@@ -28,7 +28,6 @@
     <Compile Include="Core-Types.fs" />
     <Compile Include="ReferenceSystem-Model.fs" />
     <Compile Include="Surface-Model.fs" />
-    <Compile Include="Bookmark-Model.fs" />
     <Compile Include="Groups-Model.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="Sg.fs" />

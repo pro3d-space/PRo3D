@@ -41,7 +41,6 @@
     <Compile Include="Utilities.fs" />
     <Compile Include="OrientationCube.fs" />
     <Compile Include="Navigation-Model.fs" />
-    <Compile Include="Bookmark-Model.fs" />
     <Compile Include="Navigation.fs" />  
     <Compile Include="ViewconfigApp.fs" />
     <Compile Include="DockConfigs.fs" />

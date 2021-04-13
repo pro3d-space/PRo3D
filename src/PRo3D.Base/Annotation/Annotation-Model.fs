@@ -19,6 +19,7 @@ type Projection =
 | Linear = 0 
 | Viewpoint = 1 
 | Sky = 2
+| Bookmark = 3
 
 type Geometry = 
 | Point     = 0 
@@ -321,7 +322,7 @@ type Annotation = {
                    
     geometry       : Geometry
     projection     : Projection
-                   
+    bookmark       : option<Guid>                   
     semantic       : Semantic
                    
     points         : IndexList<V3d>
@@ -390,6 +391,7 @@ with
               modelTrafo   = modelTrafo    |> Trafo3d.Parse        
               geometry     = geometry      |> enum<Geometry>
               projection   = projection    |> enum<Projection>
+              bookmark     = None
               semantic     = semantic      |> enum<Semantic>
               points       = points        |> Serialization.jsonSerializer.UnPickleOfString
               segments     = segments      |> Serialization.jsonSerializer.UnPickleOfString
@@ -446,6 +448,7 @@ with
                 modelTrafo     = modelTrafo    |> Trafo3d.Parse        
                 geometry       = geometry      |> enum<Geometry>
                 projection     = projection    |> enum<Projection>
+                bookmark       = None
                 semantic       = semantic      |> enum<Semantic>
                 points         = points        |> Serialization.jsonSerializer.UnPickleOfString
                 segments       = segments      |> Serialization.jsonSerializer.UnPickleOfString
@@ -502,6 +505,7 @@ with
                 modelTrafo   = modelTrafo    |> Trafo3d.Parse        
                 geometry     = geometry      |> enum<Geometry>
                 projection   = projection    |> enum<Projection>
+                bookmark     = None
                 semantic     = semantic      |> enum<Semantic>
                 points       = points        |> IndexList.ofList
                 segments     = segments      |> IndexList.ofList
@@ -561,6 +565,7 @@ with
                 modelTrafo     = modelTrafo    |> Trafo3d.Parse        
                 geometry       = geometry      |> enum<Geometry>
                 projection     = projection    |> enum<Projection>
+                bookmark       = None
                 semantic       = semantic      |> enum<Semantic>
                 points         = points        |> IndexList.ofList
                 segments       = segments      |> IndexList.ofList
@@ -648,7 +653,7 @@ module Annotation =
             format  = "{0:0.0}"
         }
                 
-    let mk projection geometry color thickness surfaceName : Annotation = //TODO refactor: check if make and mk do the same ... remove one
+    let mk projection geometry color thickness surfaceName : Annotation =
         {
              version     = Annotation.current
              key         = Guid.NewGuid()
@@ -661,6 +666,7 @@ module Annotation =
              results     = None
              dnsResults  = None            
              projection  = projection
+             bookmark    = None
              visible     = true
              text        = ""
              textsize    = Initial.texts
@@ -678,43 +684,3 @@ module Annotation =
 
     let initial =
         mk Projection.Viewpoint Geometry.Polyline { c = C4b.Magenta } Initial.thickness ""
-      
-    let thickness = [1.0; 2.0; 3.0; 4.0; 5.0; 1.0; 1.0]
-    let color = 
-        [
-            new C4b(241,238,246); 
-            new C4b(189,201,225); 
-            new C4b(116,169,207); 
-            new C4b(43,140,190); 
-            new C4b(4,90,141); 
-            new C4b(241,163,64); 
-            new C4b(153,142,195) 
-        ]
-    
-    let make (projection) (geometry) (color) (thickness) (surfName) : Annotation  =       
-        {
-            version     = Annotation.current
-            key         = Guid.NewGuid()
-            geometry    = geometry
-            semantic    = Semantic.None
-            points      = IndexList.Empty
-            segments    = IndexList.Empty //[]
-            color       = color
-            thickness   = thickness
-            results     = None
-            dnsResults  = None
-            projection  = projection
-            visible     = true
-            text        = ""
-            textsize    = Initial.texts
-            modelTrafo  = Trafo3d.Identity
-            showDns     = 
-                match geometry with 
-                | Geometry.DnS -> true 
-                | _ -> false
-            surfaceName = surfName
-            view         = FreeFlyController.initial.view
-            semanticId   = SemanticId ""
-            semanticType = SemanticType.Undefined
-            manualDipAngle = Initial.manualDipAngle
-        }
