@@ -43,6 +43,8 @@ type TabMenu =
 
 type BookmarkAction =
     | AddBookmark 
+    | ImportBookmarks of list<string>
+    | ExportBookmarks of string
     | GroupsMessage   of GroupsAppAction
     | PrintViewParameters of Guid
 

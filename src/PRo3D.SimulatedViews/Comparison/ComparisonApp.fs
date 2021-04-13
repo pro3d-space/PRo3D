@@ -354,11 +354,10 @@ module ComparisonApp =
 
 
         let updateButton =
-          button [clazz "ui icon button";style "margin:2px"; onMouseClick (fun _ -> Update )] 
+          button [clazz "ui icon button"; onMouseClick (fun _ -> Update )] 
                   [i [clazz "calculator icon"] []]  |> UI.wrapToolTip DataPosition.Bottom "Update"
         let exportButton = 
           button [clazz "ui icon button"
-                  style "margin:2px"
                   onMouseClick (fun _ -> ExportMeasurements "measurements.json")] 
                  [i [clazz "download icon"] [] ]
                     |> UI.wrapToolTip DataPosition.Bottom "Export"

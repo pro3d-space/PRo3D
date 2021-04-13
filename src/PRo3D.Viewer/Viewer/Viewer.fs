@@ -548,7 +548,7 @@ module ViewerApp =
                 Optic.set _annotations a m
             | None -> m       
         | BookmarkMessage msg,_,_ ->  
-            Log.warn "[Viewer] bookmarks animation %A" m.navigation.camera.view.Location
+            //Log.warn "[Viewer] bookmarks animation %A" m.navigation.camera.view.Location
 
             let m', bm = Bookmarks.update m.scene.bookmarks msg _navigation m
             let animation = 

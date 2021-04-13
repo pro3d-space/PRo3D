@@ -436,7 +436,7 @@ module Gui =
                             
                                 //annotations menu
                                 annotationMenu |> UI.map DrawingMessage;   
-                                
+                                Bookmarkings.Bookmarks.UI.menu |> UI.map ViewerAction.BookmarkMessage
                                 subMenu "Change Mode"
                                         [
                                           menuItem "PRo3D Core" (ChangeDashboardMode DashboardModes.core)
