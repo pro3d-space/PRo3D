@@ -37,6 +37,7 @@ module Bookmarks =
             
     let update 
         (bookmarks       : GroupsModel) 
+        (planet          : Planet)
         (act             : BookmarkAction) 
         (navigationModel : Lens<'a,NavigationModel>) 
         (outerModel      : 'a) : ('a * GroupsModel) =
@@ -108,6 +109,11 @@ module Bookmarks =
                     Log.line "\"forward\": \"%s\"," (bm.cameraView.Forward.ToString ())
                     Log.line "\"location\": \"%s\"," (bm.cameraView.Location.ToString ())
                     Log.line "\"up\": \"%s\"" (bm.cameraView.Up.ToString ())
+
+                    let lla = CooTransformation.getLatLonAlt planet bm.cameraView.Location |> CooTransformation.SphericalCoo.toV3d
+
+                    Log.line "\"lon lat alt\": \"%s\"" (lla.ToString ())
+
                     outerModel, bookmarks
                 | _ -> outerModel, bookmarks
             | None ->  outerModel, bookmarks
@@ -187,7 +193,15 @@ module Bookmarks =
                                         ([ Incremental.text b.name ] |> AList.ofList)
                                 ]
                                 yield i [clazz "home icon"; 
-                                onClick (fun _ -> lift <| GroupsAppAction.UpdateCam key)][] |> UI.wrapToolTip DataPosition.Bottom "FlyTo"                                          
+                                    onClick (fun _ -> lift <| GroupsAppAction.UpdateCam key)
+                                ][] |> UI.wrapToolTip DataPosition.Bottom "FlyTo"
+
+                                yield i [clazz "print icon"; 
+                                    onClick (fun _ -> PrintViewParameters key)
+                                ][] 
+
+
+                                    //onClick (fun _ -> PrintPosition )][i[clazz "ui icon print"][]
                             } 
                         ) 
                         

@@ -48,7 +48,7 @@ module AnnotationProperties =
 
             (v |> Vec.dot up.Normalized)
             
-    let update (model : Annotation) (act : Action) =
+    let update (model : Annotation) (planet : Planet) (act : Action) =
         match act with
         | SetGeometry mode ->
             { model with geometry = mode }
@@ -68,14 +68,18 @@ module AnnotationProperties =
             { model with showDns = (not model.showDns) }
         | ChangeColor a ->
             { model with color = ColorPicker.update model.color a }
-        | PrintPosition ->
-            let p = 
-                match model.geometry with
-                | Geometry.Point -> 
-                    let a = model.points |> IndexList.tryFirst
-                    a.ToString()
-                | _-> ""
-            Log.line "Position: %A" p
+        | PrintPosition ->            
+            match model.geometry with
+            | Geometry.Point -> 
+                match model.points |> IndexList.tryFirst with 
+                | Some p -> 
+                    Log.line "--- Printing Point Coordinates ---"
+                    Log.line "XYZ: %A" p
+                    Log.line "LonLatAlt: %A" (CooTransformation.getLatLonAlt planet p|> CooTransformation.SphericalCoo.toV3d)
+                    Log.line "--- Done ---"
+                | None -> failwith "[DrawingProperties] point geometry without point is invalid"
+            | _ -> ()
+            
             model
         | SetManualDippingAngle a ->                
             let annotation = { model with manualDipAngle = Numeric.update model.manualDipAngle a }            
@@ -145,7 +149,7 @@ module AnnotationProperties =
                 //        //button [clazz "ui button tiny"; onClick (fun _ -> PrintPosition)][i[clazz "ui icon print"][]]
                 //    ]
 
-                //yield Html.row "PrintPosition:"         [button [clazz "ui button tiny"; onClick (fun _ -> PrintPosition )][]]
+                yield Html.row "PrintPosition:"         [button [clazz "ui button tiny"; onClick (fun _ -> PrintPosition )][i[clazz "ui icon print"][]]]
                 yield Html.row "Height:"                [Incremental.text (height  |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield Html.row "HeightDelta:"           [Incremental.text (heightD |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield Html.row "Avg Altitude:"          [Incremental.text (alt     |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
@@ -159,14 +163,14 @@ module AnnotationProperties =
             ]
         )
        
-    let app = 
-        {
-            unpersist = Unpersist.instance
-            threads   = fun _ -> ThreadPool.empty
-            initial   = Annotation.initial
-            update    = update
-            view      = view
-        }
+    //let app = 
+    //    {
+    //        unpersist = Unpersist.instance
+    //        threads   = fun _ -> ThreadPool.empty
+    //        initial   = Annotation.initial
+    //        update    = update
+    //        view      = view
+    //    }
 
-    let start() = App.start app
+    //let start() = App.start app
 

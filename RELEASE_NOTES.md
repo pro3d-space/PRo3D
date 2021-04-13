@@ -1,3 +1,31 @@
+## 3.7.0-prerelease3
+
+- added geoJSON export via menu > annotations > export xyz (*.json)
+
+## 3.7.0-prerelease2
+
+- performance improvements for dns annotations
+- fixed multiselect
+
+## 3.7.0-prerelease1
+
+- added geoJSON export via menu > annotations > export (*.json)
+- data is exported as `geometryCollection` of `geometry` objects with 3D coordinates `(lon, lat, alt)` computed via SPICE
+
+## 3.6.1-prerelease1
+
+- performance improvements take I
+
+## 3.6.0-prerelease1
+
+- fixed duplication bug when moving multiple annotations via "select all" in a group mechanic
+- "select all" only selects all leaves in a group not including the leaves of sub groups
+
+## 3.5.1-prerelease1
+
+- added print location / coordinate for point annotation
+- added print location / coordinate for bookmark location
+- added long lat alt prints via cootrafo
 ## 3.4.1-prerelease2
 
 - fixed problem with picking points on surface

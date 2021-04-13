@@ -42,9 +42,11 @@ module Sg =
         (_projection : aval<Trafo3d>) 
         (p           : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) 
         (lodParams   : aval<LodParameters>)
+        (isActive    : aval<bool>)
         =
 
         let lodParams = lodParams.GetValue self
+        let isActive = isActive.GetValue self
        
         let campPos = (viewTrafo.GetValue self).Backward.C3.XYZ
         let bb      = p.info.GlobalBoundingBox.Transformed(lodParams.trafo * preTrafo ) //* preTrafo)
@@ -52,7 +54,7 @@ module Sg =
         let dist    = (closest - campPos).Length
 
         // super agressive to prune out far away stuf
-        if (campPos - bb.Center).Length > p.info.GlobalBoundingBox.Size.[p.info.GlobalBoundingBox.Size.MajorDim] * 1.5 then false
+        if not isActive || (campPos - bb.Center).Length > p.info.GlobalBoundingBox.Size.[p.info.GlobalBoundingBox.Size.MajorDim] * 1.5 then false
         else
 
             let unitPxSize = lodParams.frustum.right / (float lodParams.size.X / 2.0)

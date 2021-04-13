@@ -90,7 +90,7 @@ module OutlineEffect =
         [ mask; outline ] |> Sg.ofList
  
     let createForLine 
-        (points: alist<V3d>) 
+        (points: aval<V3d[]>) 
         (outlineGroup: int) 
         (trafo: aval<Trafo3d>) 
         (color: aval<C4b>) 
@@ -153,7 +153,7 @@ module OutlineEffect =
         ]
 
     let createForPoints
-        (points : alist<V3d>) 
+        (points : aval<V3d[]>) 
         (outlineGroup: int)
         (color: aval<C4b>) 
         (pointWidth : aval<float>)
@@ -188,14 +188,15 @@ module OutlineEffect =
         | Line
         | Both
 
-    let createForLineOrPoint (mode: PointOrLine) (color: aval<C4b>) (width: aval<float>) (outlineWidth: float) (pass: RenderPass) (trafo: aval<Trafo3d>) (points: alist<V3d>) =
+    let createForLineOrPoint (mode: PointOrLine) (color: aval<C4b>) (width: aval<float>) (outlineWidth: float) (pass: RenderPass) (trafo: aval<Trafo3d>) (points: aval<V3d[]>) =
             
         let outlinePass = RenderPass.after "outline" RenderPassOrder.Arbitrary pass
         let outlineWidth = width |> AVal.map (fun x -> x + outlineWidth) // 3.0
         let outlineGroup = 1
 
         aset {
-            let! length = points |> AList.count
+            let! ps = points
+            let length = ps.Length
             match mode, length with 
             | _, 0  -> yield Sg.empty
             | _, 1

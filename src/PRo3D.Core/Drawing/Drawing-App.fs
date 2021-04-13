@@ -333,14 +333,7 @@ module DrawingApp =
         | ChangeThickness th, _, _ ->
             { model with thickness = Numeric.update model.thickness th }
         | SetExportPath s, _, _ ->
-            { model with exportPath = Some s }
-        | Export, _, _ ->
-            //let path = Path.combine([model.exportPath; "drawing.json"])
-            //printf "Writing %i annotations to %s" (model.annotations |> IndexList.count) path
-            //let json = model.annotations |> IndexList.map JsonTypes.ofAnnotation |> JsonConvert.SerializeObject
-            //Serialization.writeToFile path json 
-            failwith "export not implemented"
-            model
+            { model with exportPath = Some s }        
         | Send, _, _ ->                                                      
             model
         | ClearWorking,_ , _->
@@ -363,7 +356,9 @@ module DrawingApp =
             { model with dnsColorLegend = FalseColorLegendApp.update model.dnsColorLegend msg }
         | FlyToAnnotation msg, _, _ ->               
             model        
-        | PickAnnotation (_hit, id), false, true ->
+
+        // method via bvh
+        | PickAnnotation (_, id), false, true | PickDirectly id, false, true ->
             match (model.annotations.flat.TryFind id) with
             | Some (Leaf.Annotations ann) ->       
                             
@@ -371,16 +366,17 @@ module DrawingApp =
                 // { model with annotations = Groups.addSingleSelectedLeaf model.annotations list.Empty ann.key "" }              
                 let annotations =
                     if shiftFlag then
-                        Log.line "[DrawingApp] single select"
+                        Log.line "[DrawingApp] multi select"
                         GroupsApp.update model.annotations (GroupsAppAction.AddLeafToSelection(List.empty, ann.key, String.Empty))
                     else
-                        Log.line "[DrawingApp] multi select"
+                        Log.line "[DrawingApp] single select"
                         GroupsApp.update model.annotations (GroupsAppAction.SingleSelectLeaf(List.empty, ann.key, String.Empty))
                     
                 { model with annotations = annotations }
 
             | _ -> model        
-        
+
+
         | AddAnnotations path, _,_ ->
             match path |> List.tryHead with
             | Some p -> 
@@ -400,11 +396,35 @@ module DrawingApp =
                 |> HashMap.toList 
                 |> List.map snd
                 |> List.filter(fun a -> a.visible)
-                |> List.map (Csv.exportAnnotation lookups)
+                |> List.map (Export.toExportAnnotation lookups)
             
-            let csvTable = Csv.Seq.csv "," true id annotations
-            if p.IsEmptyOrNull() |> not then Csv.Seq.write (p) csvTable
+            let csvTable = Export.Seq.csv "," true id annotations
+            if p.IsEmptyOrNull() |> not then Export.Seq.write (p) csvTable
             model      
+        | ExportAsGeoJSON path, _, _ ->           
+            let planet = smallConfig.planet.Get(bigConfig)            
+            let annotations =
+                model.annotations.flat
+                |> Leaf.toAnnotations
+                |> HashMap.toList 
+                |> List.map snd
+                |> List.filter(fun a -> a.visible)
+               
+            Export.GeoJSON.toJson planet path annotations
+
+            model
+        | ExportAsGeoJSON_xyz path, _, _ ->                       
+                        
+            let annotations =
+                model.annotations.flat
+                |> Leaf.toAnnotations
+                |> HashMap.toList 
+                |> List.map snd
+                |> List.filter(fun a -> a.visible)
+               
+            Export.GeoJSON.toJsonXYZ path annotations
+            
+            model
         | LegacySaveVersioned, _,_ ->
             let path = "./annotations.json"
             let pathgGrouping = "./annotations.grouping"
@@ -448,6 +468,9 @@ module DrawingApp =
         (mbigConfig       : 'ma)
         (msmallConfig     : MSmallConfig<'ma>)
         (view             : aval<CameraView>)
+        (frustum          : aval<Frustum>)
+        (runtime          : IRuntime)
+        (viewport         : aval<V2i>)
         (pickingAllowed   : aval<bool>)        
         (model            : AdaptiveDrawingModel)
         : ISg<DrawingAction> * ISg<DrawingAction> =
@@ -471,6 +494,7 @@ module DrawingApp =
        
 
 
+
         Log.startTimed "[Drawing] creating finished annotation geometry"
         let annotations =              
             annoSet 
@@ -486,17 +510,67 @@ module DrawingApp =
             )
             |> Sg.set               
         Log.stop()
-                            
+
+        let hoveredAnnotation = cval -1
+        let viewMatrix = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
+        let lines, pickIds, bb = PackedRendering.lines config.offset hoveredAnnotation (model.annotations.selectedLeaves |> ASet.map (fun e -> e.id)) annoSet viewMatrix
+        let pickRenderTarget = PackedRendering.pickRenderTarget runtime config.pickingTolerance lines view frustum viewport
+        pickRenderTarget.Acquire()
+        let packedLines = 
+            let simple (kind : SceneEventKind) (f : SceneHit -> seq<'msg>) =
+                kind, fun evt -> false, Seq.delay (fun () -> (f evt))
+            PackedRendering.packedRender lines 
+            |> Sg.noEvents
+            |> Sg.pickable' (bb |> AVal.map PickShape.Box)
+            |> Sg.withEvents [
+                   simple SceneEventKind.Move (fun (evt : SceneHit) -> 
+                        try
+                            let r = pickRenderTarget.GetValue(AdaptiveToken.Top,RenderToken.Empty)
+                            let offset = evt.event.evtPixel
+                            let r = runtime.Download(r,0,0,Box2i.FromMinAndSize(offset, V2i(1,1))) |> unbox<PixImage<float32>>
+                            let m = r.GetMatrix<C4f>()
+                            let allowed = pickingAllowed.GetValue()
+                            let p = m.[0,0]
+                            let id : int = BitConverter.SingleToInt32Bits(p.A)
+                            let ids = pickIds.GetValue()
+                            if id > 0 && id < ids.Length  && allowed then
+                                //Log.line "hoverhit %A" (id, ids.[id])
+                                transact (fun _ -> hoveredAnnotation.Value <- id)
+                                Seq.empty
+                            else 
+                                transact (fun _ -> hoveredAnnotation.Value <- -1)
+                                Seq.empty
+                        with e -> Seq.empty
+                   )
+                   Sg.onMouseDown (fun b p -> 
+                        let id = hoveredAnnotation.GetValue()
+                        let ids = pickIds.GetValue()
+                        if id > 0 && id < ids.Length then
+                            Log.line "clickhit %A" (id, ids.[id])
+                            DrawingAction.PickDirectly(ids.[id])
+                        else 
+                            DrawingAction.Nop
+                   )
+            ]
+        let packedPoints = 
+            PackedRendering.points (model.annotations.selectedLeaves |> ASet.map (fun l -> l.id)) annoSet config.offset viewMatrix
+            |> Sg.noEvents
+
         let overlay = 
             Sg.ofList [
              // brush model.hoverPosition; 
               annotations
+              Sg.ofSeq [packedLines; packedPoints]
               Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
             ]
 
+        //let depthTest = 
+        //    annoSet 
+        //    |> ASet.map(fun (_,a) -> Sg.finishedAnnotationDiscs a config model.dnsColorLegend view) |> Sg.set
+
         let depthTest = 
-            annoSet 
-            |> ASet.map(fun (_,a) -> Sg.finishedAnnotationDiscs a config model.dnsColorLegend view) |> Sg.set
+            PackedRendering.fastDns config model.dnsColorLegend annoSet view
+            |> Sg.noEvents
 
         (overlay, depthTest)
             

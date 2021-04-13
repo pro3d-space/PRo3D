@@ -63,7 +63,7 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "3.4.1-prerelease1"
+let viewerVersion       = "3.7.0-prerelease1"
 let catchDomainErrors   = false
 
 open System.IO
@@ -96,7 +96,7 @@ let main argv =
     Aardvark.Rendering.GL.RuntimeConfig.SupressSparseBuffers <- true
     //app.ShaderCachePath <- None
 
-    Sg.hackRunner <- runtime.CreateLoadRunner 2 |> Some
+    Sg.hackRunner <- runtime.CreateLoadRunner 1 |> Some
 
     Serialization.init()
     

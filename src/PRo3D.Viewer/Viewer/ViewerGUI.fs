@@ -126,7 +126,8 @@ module Gui =
             
             let spericalc = 
                 AVal.map2 (fun (a : CameraView) b -> 
-                    CooTransformation.getLatLonAlt(a.Location) b ) cv m.planet
+                    CooTransformation.getLatLonAlt b a.Location
+                ) cv m.planet
             
             let alt2 = 
                 AVal.map2 (fun (a : CameraView) b -> 
@@ -369,6 +370,9 @@ module Gui =
 
         let jsExportAnnotationsAsCSVDialog =
             "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
+
+        let jsExportAnnotationsAsGeoJSONDialog =
+            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
               
         let annotationMenu = //todo move to viewer io gui
             div [ clazz "ui dropdown item"] [
@@ -401,6 +405,20 @@ module Gui =
                     ][
                         text "Export (*.csv)"
                     ]     
+                    div [ 
+                        clazz "ui inverted item"
+                        Dialogs.onSaveFile ExportAsGeoJSON
+                        clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
+                    ][
+                        text "Export (*.json)"
+                    ]     
+                    div [ 
+                        clazz "ui inverted item"
+                        Dialogs.onSaveFile ExportAsGeoJSON_xyz
+                        clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
+                    ][
+                        text "Export xyz (*.json)"
+                    ]
                 ]
             ]       
         
@@ -766,10 +784,14 @@ module Gui =
     
 
     module Pages =
-        let pageRouting viewerDependencies bodyAttributes (m : AdaptiveModel) viewInstrumentView viewRenderView request =
+        let pageRouting viewerDependencies bodyAttributes (m : AdaptiveModel) viewInstrumentView viewRenderView (runtime : IRuntime) request =
             
             match Map.tryFind "page" request.queryParams with
             | Some "instrumentview" ->
+
+                
+                let id = System.Guid.NewGuid().ToString()
+
                 let instrumentViewAttributes =
                     amap {
                         let! hor, vert = ViewPlanApp.getInstrumentResolution m.scene.viewPlans
@@ -783,13 +805,16 @@ module Gui =
                     body [ style "background: #1B1C1E; width:100%; height:100%; overflow-y:auto; overflow-x:auto;"] [
                       Incremental.div instrumentViewAttributes (
                         alist {
-                            yield viewInstrumentView m 
+                            yield viewInstrumentView runtime id m 
                             yield textOverlaysInstrumentView m.scene.viewPlans
                         } )
                     ]
                 )
             | Some "render" -> 
                 require (viewerDependencies) (
+
+                    let id = System.Guid.NewGuid().ToString()
+
                     let onResize (cb : V2i -> 'msg) =
                         onEvent "onresize" ["{ X: $(document).width(), Y: $(document).height()  }"] (List.head >> Pickler.json.UnPickleOfString >> cb)
 
@@ -799,8 +824,8 @@ module Gui =
                     let renderViewAttributes = [ 
                         style "background: #1B1C1E; height:100%; width:100%"
                         Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Standard)            
-                        onResize OnResize     
-                        onFocus OnResize
+                        onResize (fun s -> OnResize(s, id))     
+                        onFocus (fun s -> OnResize(s, id))     
                         onMouseDown (fun button pos -> StartDragging (pos, button))
                      //   onMouseMove (fun delta -> Dragging delta)
                         onMouseUp (fun button pos -> EndDragging (pos, button))
@@ -810,7 +835,7 @@ module Gui =
                         //div [style "background:#000;"] [
                         Incremental.div (AttributeMap.ofList[style "background:#000;"]) (
                             alist {
-                                yield viewRenderView m
+                                yield viewRenderView runtime id m
                                 yield textOverlays m.scene.referenceSystem m.navigation.camera.view
                                 yield textOverlaysUserFeedback m.scene
                                 yield dnsColorLegend m

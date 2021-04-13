@@ -89,8 +89,10 @@ module UI =
                     yield clazz "cube middle aligned icon"
                     yield onClick (multiSelect)
 
+                    let! guh = model.selectedLeaves.Content
                     let! c = mkColor model a
-                    yield style (sprintf "color: %s" (Html.ofC4b c))
+                    let s = style (sprintf "color: %s" (Html.ofC4b c))
+                    yield s
                 } |> AttributeMap.ofAMap
             
             let headerColor = 

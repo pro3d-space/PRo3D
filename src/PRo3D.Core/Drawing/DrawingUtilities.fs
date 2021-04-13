@@ -102,7 +102,7 @@ module DrawingUtilities =
                             groupName 
                             |> performMapping mapps
                         
-                        Log.line "[Correlation] mapping %A -> %A %A" groupName semId semType
+                        //Log.line "[Correlation] mapping %A -> %A %A" groupName semId semType
                                                 
                         let anno = 
                             annosFlat 

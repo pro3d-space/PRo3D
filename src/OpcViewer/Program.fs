@@ -48,7 +48,24 @@ let main argv =
                 lodDecider       =  DefaultMetrics.mars2 
             }
 
-        let annotations = @"I:\OPC\Shaler_OPCs_2019\ShalerNew.pro3d.ann"
+        //let scene =
+        //    { 
+        //        useCompressedTextures = true
+        //        preTransform     = Trafo3d.Identity
+        //        patchHierarchies = 
+        //                System.IO.Directory.GetDirectories(@"F:\pro3d\data\20200220_DinosaurQuarry2") 
+        //                |> Seq.collect System.IO.Directory.GetDirectories
+        //        boundingBox      = Box3d.Parse("[[-9.996176625, 1.249114172, -1.937521343], [-0.603052397, 27.938626479, -0.132129824]]") 
+        //        near             = 0.1
+        //        far              = 10000.0
+        //        speed            = 5.0
+        //        lodDecider       =  DefaultMetrics.mars2 
+        //    }
+
+        Aardvark.Rendering.GL.Config.UseNewRenderTask <- true
+
+        let annotations = @"I:\OPC\Shaler_OPCs_2019\crazy2.pro3d.ann"
+        //let annotations = @"F:\pro3d\data\20200220_DinosaurQuarry2\notrafo.pro3d.ann"
 
         let annotations = 
             PRo3D.Core.Drawing.DrawingUtilities.IO.loadAnnotations annotations
