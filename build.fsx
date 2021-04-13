@@ -15,10 +15,14 @@ open Fake.DotNet
 
 open Fake.IO
 open Fake.Api
+open Fake.Tools.Git
+
+
 
 do Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 
 let notes = ReleaseNotes.load "RELEASE_NOTES.md"
+printfn "%A" notes
 
 let outDirs = [ @"bin\Debug\netcoreapp3.1"; @"bin\Release\netcoreapp3.1"]
 let resources = 
@@ -242,7 +246,17 @@ Target.create "GitHubRelease" (fun _ ->
     |> GitHub.draftNewRelease "vrvis" "PRo3D" notes.NugetVersion (notes.SemVer.PreRelease <> None) notes.Notes
     |> GitHub.uploadFiles files
     |> GitHub.publishDraft
-    |> Async.RunSynchronously)
+    |> Async.RunSynchronously
+)
+
+
+Target.create "PushTag" (fun _ -> 
+    let newVersion = notes.NugetVersion
+    Branches.pushTag "." "origin" newVersion
+)
+
+
+
 
 #if DEBUG
 do System.Diagnostics.Debugger.Launch() |> ignore
