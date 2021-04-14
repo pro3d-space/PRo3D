@@ -321,8 +321,7 @@ type Annotation = {
     modelTrafo     : Trafo3d
                    
     geometry       : Geometry
-    projection     : Projection
-    bookmark       : option<Guid>                   
+    projection     : Projection                
     semantic       : Semantic
                    
     points         : IndexList<V3d>
@@ -391,7 +390,6 @@ with
               modelTrafo   = modelTrafo    |> Trafo3d.Parse        
               geometry     = geometry      |> enum<Geometry>
               projection   = projection    |> enum<Projection>
-              bookmark     = None
               semantic     = semantic      |> enum<Semantic>
               points       = points        |> Serialization.jsonSerializer.UnPickleOfString
               segments     = segments      |> Serialization.jsonSerializer.UnPickleOfString
@@ -448,7 +446,6 @@ with
                 modelTrafo     = modelTrafo    |> Trafo3d.Parse        
                 geometry       = geometry      |> enum<Geometry>
                 projection     = projection    |> enum<Projection>
-                bookmark       = None
                 semantic       = semantic      |> enum<Semantic>
                 points         = points        |> Serialization.jsonSerializer.UnPickleOfString
                 segments       = segments      |> Serialization.jsonSerializer.UnPickleOfString
@@ -505,7 +502,6 @@ with
                 modelTrafo   = modelTrafo    |> Trafo3d.Parse        
                 geometry     = geometry      |> enum<Geometry>
                 projection   = projection    |> enum<Projection>
-                bookmark     = None
                 semantic     = semantic      |> enum<Semantic>
                 points       = points        |> IndexList.ofList
                 segments     = segments      |> IndexList.ofList
@@ -565,7 +561,6 @@ with
                 modelTrafo     = modelTrafo    |> Trafo3d.Parse        
                 geometry       = geometry      |> enum<Geometry>
                 projection     = projection    |> enum<Projection>
-                bookmark       = None
                 semantic       = semantic      |> enum<Semantic>
                 points         = points        |> IndexList.ofList
                 segments       = segments      |> IndexList.ofList
@@ -666,7 +661,6 @@ module Annotation =
              results     = None
              dnsResults  = None            
              projection  = projection
-             bookmark    = None
              visible     = true
              text        = ""
              textsize    = Initial.texts

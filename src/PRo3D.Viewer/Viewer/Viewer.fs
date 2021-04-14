@@ -773,7 +773,18 @@ module ViewerApp =
                             | Projection.Sky -> 
                                 let up = m.scene.referenceSystem.up.value
                                 FastRay3d(p + (up * 5000.0), -up)  
-                            | _ -> Log.error "projection started without proj mode"; FastRay3d()
+                            | Projection.Bookmark ->
+                                match m.scene.bookmarks.singleSelectLeaf with
+                                | Some bm -> 
+                                    let bm = m.scene.bookmarks.flat 
+                                                |> HashMap.find bm
+                                                |> Leaf.toBookmark
+                                    let dir = (p - bm.cameraView.Location).Normalized
+                                    FastRay3d(bm.cameraView.Location, dir)
+                                | None -> 
+                                    Log.warn "[Projection] No bookmark selected. Please select a bookmark."
+                                    FastRay3d()
+                            | _ -> Log.error "[Projection] projection started without proj mode"; FastRay3d()
                    
                         match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem ray surfaceFilter cache with
                         | Some (t,surf), c ->                             

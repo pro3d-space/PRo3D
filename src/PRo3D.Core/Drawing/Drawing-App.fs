@@ -46,7 +46,7 @@ module DrawingApp =
         let firstP = a.points.[0]
         let lastP = a.points.[(a.points.Count-1)]
         match a.projection with
-        | Projection.Viewpoint | Projection.Sky ->     
+        | Projection.Viewpoint | Projection.Sky | Projection.Bookmark ->     
             let newSegment = { startPoint = firstP; endPoint = lastP; points = IndexList.ofList [firstP;lastP] }
 
             if PRo3D.Config.useAsyncIntersections then
@@ -116,7 +116,7 @@ module DrawingApp =
                 //fetch current drawing segment (projected, polyline or polygon)
                 let result = 
                     match w.projection with
-                    | Projection.Viewpoint | Projection.Sky ->                     
+                    | Projection.Viewpoint | Projection.Sky | Projection.Bookmark ->                     
                         match IndexList.tryAt (IndexList.count w.points-1) w.points with
                         | None -> 
                             annotation, None

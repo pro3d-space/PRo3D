@@ -280,6 +280,11 @@ module Leaf =
         | Leaf.Surfaces s -> s
         | _ -> leaf |> sprintf "wrong type %A" |> failwith
 
+    let toBookmark leaf =
+        match leaf with 
+        | Leaf.Bookmarks s -> s
+        | _ -> leaf |> sprintf "wrong type %A" |> failwith
+
     let toSurfaces' surfaces =
         surfaces |> IndexList.choose(fun x -> match x with | Leaf.Surfaces s -> Some s| _-> None)
 
