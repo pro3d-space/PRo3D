@@ -104,6 +104,10 @@ module ViewerApp =
 
     //footprint
     let _footprint = Model.footPrint_
+
+    // geologic surfaces
+    let _geologicSurfacesModel = Model.scene_ >->  Scene.geologicSurfacesModel_
+    let _geologicSurfaces      = _geologicSurfacesModel >-> GeologicSurfacesModel.geologicSurfaces_
        
     let lookAtData (m: Model) =         
         let bb = m |> Optic.get _sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB) |> Box3d.ofSeq
@@ -1298,7 +1302,30 @@ module ViewerApp =
             { m with heighValidation = HeightValidatorApp.update m.heighValidation m.scene.referenceSystem.up.value m.scene.referenceSystem.north.value a }
         //| _ -> 
         //    Log.warn "[Viewer] don't know message %A. ignoring it." msg
-        //    m                                            
+        //    m               
+        | GeologicSurfacesMessage msg,_,_-> 
+            match msg with
+            | GeologicSurfaceAction.FlyToGS id ->
+                let _gs = m |> Optic.get _geologicSurfaces |> HashMap.tryFind id
+                match _gs with 
+                | Some gs ->
+                    let animationMessage = 
+                        animateFowardAndLocation gs.view.Location gs.view.Forward gs.view.Up 2.0 "ForwardAndLocation2s"
+                    let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
+                    { m with  animations = a'}
+                | None -> m
+
+            | GeologicSurfaceAction.AddGS ->
+                let geologicSurfaces' = 
+                        GeologicSurfacesUtils.makeGeologicSurfaceFromAnnotations 
+                                                                m.drawing.annotations
+                                                                m.scene.geologicSurfacesModel
+                
+                m |> Optic.set _geologicSurfacesModel geologicSurfaces'   
+            | _ ->
+                let geologicSurfaces' = GeologicSurfacesApp.update m.scene.geologicSurfacesModel msg
+                let m' = m |> Optic.set _geologicSurfacesModel geologicSurfaces'  
+                m'
         | _ -> m       
                                    
     let mkBrushISg color size trafo : ISg<Message> =

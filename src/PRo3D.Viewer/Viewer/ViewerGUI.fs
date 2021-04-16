@@ -695,6 +695,23 @@ module Gui =
                   Incremental.div AttributeMap.empty (viewPlanProperties m |> AList.ofAValSingle)
               ]
           ]                
+    
+    module GeologicSurfaces = 
+        
+         let geologicSurfacesUI (m : AdaptiveModel) =           
+           let annos = m.drawing.annotations
+
+           div [][
+               yield br []
+               yield GeologicSurfacesApp.UI.addMesh
+
+               yield GuiEx.accordion "GeologicSurfaces" "Write" true [
+                   GeologicSurfacesApp.UI.viewGeologicSurfaces m.scene.geologicSurfacesModel
+               ]
+               yield GuiEx.accordion "Properties" "Content" true [
+                   Incremental.div AttributeMap.empty (AList.ofAValSingle(GeologicSurfacesApp.UI.viewProperties m.scene.geologicSurfacesModel)) 
+               ]
+           ]  |> UI.map GeologicSurfacesMessage    
 
     module Bookmarks =
         let bookmarkGroupProperties (model : AdaptiveModel) =                                       
@@ -834,6 +851,8 @@ module Gui =
                 require (viewerDependencies) (body bodyAttributes [HeightValidatorApp.viewUI m.heighValidation |> UI.map HeightValidation])
             | Some "bookmarks" -> 
                 require (viewerDependencies) (body bodyAttributes [Bookmarks.bookmarkUI m])
+            | Some "geologicSurf" -> 
+                require (viewerDependencies) (body bodyAttributes [GeologicSurfaces.geologicSurfacesUI m])
             | Some "properties" ->
                 let prop = 
                     m.drawing.annotations.lastSelectedItem

@@ -139,7 +139,8 @@ type ViewerAction =
     | SetTextureFiltering             of bool // TODO move to versioned ViewConfigModel in V3
     //| UpdateShatterCones              of list<SnapshotShattercone> // TODO snapshots and shattercone things should be in own apps
     | TestHaltonRayCasting            //of list<string>
-    | HeightValidation               of HeightValidatorAction
+    | HeightValidation                of HeightValidatorAction
+    | GeologicSurfacesMessage         of GeologicSurfaceAction
     | Nop
 
 and MailboxState = {
@@ -172,11 +173,13 @@ type Scene = {
     firstImport       : bool
     userFeedback      : string
     feedbackThreads   : ThreadPool<ViewerAction> 
+
+    geologicSurfacesModel : GeologicSurfacesModel
 }
 
 module Scene =
         
-    let current = 0    
+    let current = 1   
     let read0 = 
         json {            
             let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
@@ -212,6 +215,50 @@ module Scene =
                     firstImport     = false
                     userFeedback    = String.Empty
                     feedbackThreads = ThreadPool.empty
+
+                    geologicSurfacesModel = GeologicSurfacesModel.initial
+                }
+        }
+
+    let read1 = 
+        json {            
+            let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
+            let! navigationMode  = Json.read "navigationMode"
+            let! exploreCenter   = Json.read "exploreCenter" 
+
+            let! interactionMode = Json.read "interactionMode"
+            let! surfaceModel    = Json.read "surfaceModel"
+            let! config          = Json.read "config"
+            let! scenePath       = Json.read "scenePath"
+            let! referenceSystem = Json.read "referenceSystem"
+            let! bookmarks       = Json.read "bookmarks"
+            let! dockConfig      = Json.read "dockConfig" 
+            
+            let! geologicSurfacesModel = Json.read "geologicSurfacesModel"
+
+            return 
+                {
+                    version         = current
+
+                    cameraView      = cameraView
+                    navigationMode  = navigationMode |> enum<NavigationMode>
+                    exploreCenter   = exploreCenter  |> V3d.Parse
+                    
+                    interaction     = interactionMode |> enum<InteractionMode>
+                    surfacesModel   = surfaceModel
+                    config          = config
+                    scenePath       = scenePath
+                    referenceSystem = referenceSystem
+                    bookmarks       = bookmarks
+
+                    viewPlans       = ViewPlanModel.initial
+                    dockConfig      = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
+                    closedPages     = List.empty
+                    firstImport     = false
+                    userFeedback    = String.Empty
+                    feedbackThreads = ThreadPool.empty
+
+                    geologicSurfacesModel = geologicSurfacesModel
                 }
         }
 
@@ -223,6 +270,7 @@ type Scene with
             let! v = Json.read "version"
             match v with
             | 0 -> return! Scene.read0
+            | 1 -> return! Scene.read1
             | _ ->
                 return! v 
                 |> sprintf "don't know version %A  of Scene" 
@@ -243,7 +291,8 @@ type Scene with
             do! Json.write "referenceSystem" x.referenceSystem
             do! Json.write "bookmarks" x.bookmarks
 
-            do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString)                   
+            do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString)
+            do! Json.write "geologicSurfacesModel" x.geologicSurfacesModel
         }
 
 [<ModelType>] 
@@ -464,6 +513,8 @@ module Viewer =
                     userFeedback    = ""
                     feedbackThreads = ThreadPool.empty
                     viewPlans       = ViewPlanModel.initial
+
+                    geologicSurfacesModel = GeologicSurfacesModel.initial
                 }
 
             navigation      = navInit
