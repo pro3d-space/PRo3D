@@ -105,7 +105,7 @@ module DrawingApp =
     
     //adds new point to working state, if certain conditions are met the annotation finishes itself
     // returns current segment for async computations outside
-    let addPoint up north planet samplePoint (p : V3d) view model surfaceName bc =
+    let addPoint up north planet samplePoint (p : V3d) view model surfaceName bc bookmarkId =
       
         let working, newSegment = 
             match model.working with
@@ -148,7 +148,7 @@ module DrawingApp =
                     //annotation states should be immutable after creation
                     //(Annotation.make model.projection model.geometry model.semantic surfaceName)  
                     //    with points = IndexList.ofList [p]; modelTrafo = Trafo3d.Translation p
-                    (Annotation.mk model.projection model.geometry model.color model.thickness surfaceName)
+                    (Annotation.mk model.projection bookmarkId model.geometry model.color model.thickness surfaceName)
                         with points = IndexList.ofList [p]; modelTrafo = Trafo3d.Translation p
                 }, None
       
@@ -284,12 +284,12 @@ module DrawingApp =
             { model with pick = false}        
         | DrawingAction.Move p, true, false -> 
             { model with hoverPosition = Some (Trafo3d.Translation p) }
-        | AddPointAdv (point, hitFunction, name), true, false ->
+        | AddPointAdv (point, hitFunction, name, bookmarkId), true, false ->
             let up    = smallConfig.up.Get(bigConfig)
             let north = smallConfig.north.Get(bigConfig)
             let planet = smallConfig.planet.Get(bigConfig)
 
-            let model, newSegment = addPoint up north planet hitFunction point view model name webSocket
+            let model, newSegment = addPoint up north planet hitFunction point view model name webSocket bookmarkId
             
             match newSegment with
             | None         -> model

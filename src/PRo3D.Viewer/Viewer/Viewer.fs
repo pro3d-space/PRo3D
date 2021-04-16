@@ -308,7 +308,7 @@ module ViewerApp =
                 | ViewerMode.Standard -> m.navigation.camera.view
                 | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam 
 
-            let msg = DrawingAction.AddPointAdv(p, hitFunction, surf.name)
+            let msg = DrawingAction.AddPointAdv(p, hitFunction, surf.name, m.scene.bookmarks.singleSelectLeaf)
             let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig bc view m.shiftFlag m.drawing msg
             //Log.stop()
             { m with drawing = drawing } |> stash
@@ -1017,6 +1017,10 @@ module ViewerApp =
                         ComparisonApp.update  m.comparisonApp 
                                               m.scene.surfacesModel 
                                               m.scene.referenceSystem 
+                                              (m.drawing.annotations.flat 
+                                                  |> HashMap.map (fun id x -> Leaf.toAnnotation x))
+                                              (m.scene.bookmarks.flat
+                                                  |> HashMap.map (fun id x -> Leaf.toBookmark x))
                                               Comparison.ComparisonAction.ToggleVisible
                     {m with comparisonApp = comparisonApp
                             scene         = {m.scene with surfacesModel = surfacesModel}
@@ -1346,6 +1350,10 @@ module ViewerApp =
                 ComparisonApp.update  m.comparisonApp 
                                       m.scene.surfacesModel 
                                       m.scene.referenceSystem 
+                                      (m.drawing.annotations.flat 
+                                          |> HashMap.map (fun id x -> Leaf.toAnnotation x))
+                                      (m.scene.bookmarks.flat
+                                          |> HashMap.map (fun id x -> Leaf.toBookmark x))
                                       msg              
             {m with comparisonApp = comparisonApp
                     scene = {m.scene with referenceSystem = 

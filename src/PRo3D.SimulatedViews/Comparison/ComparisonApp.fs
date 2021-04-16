@@ -15,7 +15,7 @@ open PRo3D.SurfaceUtils
 open PRo3D.Core.Surface
 open PRo3D.Base
 open Chiron
-
+open PRo3D.Base.Annotation
 open Adaptify.FSharp.Core
 
 module CustomGui =
@@ -59,12 +59,13 @@ module ComparisonApp =
 
     let init : ComparisonApp =
       {
-          surface1 = None
-          surface2 = None
-          measurements1 = None
-          measurements2 = None
+          surface1             = None
+          surface2             = None
+          measurements1        = None
+          measurements2        = None
           comparedMeasurements = None
-          showMeasurementsSg = true
+          annotationMeasurements = []
+          showMeasurementsSg   = true
       }
 
     let noSelectionToNone (str : string) =
@@ -184,7 +185,15 @@ module ComparisonApp =
 
     let updateMeasurements (m            : ComparisonApp) 
                            (surfaceModel : SurfaceModel) 
+                           (annotations  : HashMap<Guid, Annotation.Annotation>) 
+                           (bookmarks    : HashMap<Guid, Bookmark>)
                            (refSystem    : ReferenceSystem) =
+        let annotationMeasurements =
+            match m.surface1, m.surface2 with
+            | Some s1, Some s2 ->
+                AnnotationComparison.compareAnnotationMeasurements 
+                  s1 s2  annotations bookmarks
+            | _,_ -> []
         let measurements1 = Option.bind (fun s1 -> updateSurfaceMeasurements 
                                                         surfaceModel refSystem s1) 
                                         m.surface1 
@@ -196,16 +205,46 @@ module ComparisonApp =
                 comparedMeasurements =
                     Option.map2 (fun a b -> SurfaceMeasurements.compare a b)
                                 measurements1 measurements2
+                annotationMeasurements = annotationMeasurements
         }
 
+    let toggleVisible (surfaceId1   : option<Guid>) 
+                      (surfaceId2   : option<Guid>)
+                      (surfaceModel : SurfaceModel) =
+        match surfaceId1, surfaceId2 with
+        | Some id1, Some id2 ->
+            let s1 = surfaceModel.surfaces.flat |> HashMap.find id1
+                                                |> Leaf.toSurface
+            let s2 = surfaceModel.surfaces.flat |> HashMap.find id2
+                                                |> Leaf.toSurface
+            let s1, s2 =
+                match s1.isVisible, s2.isVisible with
+                | true, true ->
+                    let s1 = {s1 with isVisible = true}
+                    let s2 = {s2 with isVisible = false}
+                    s1, s2
+                | false, false ->
+                    let s1 = {s1 with isVisible = true}
+                    let s2 = {s2 with isVisible = false}
+                    s1, s2
+                | _, _ ->
+                    let s1 = {s1 with isVisible = not s1.isVisible}
+                    let s2 = {s2 with isVisible = not s2.isVisible}
+                    s1, s2
+            surfaceModel
+              |> SurfaceModel.updateSingleSurface s1
+              |> SurfaceModel.updateSingleSurface s2
+        | _,_ -> surfaceModel
 
     let update (m            : ComparisonApp) 
                (surfaceModel : SurfaceModel) 
                (refSystem    : ReferenceSystem)
+               (annotations  : HashMap<Guid, Annotation.Annotation>) 
+               (bookmarks    : HashMap<Guid, Bookmark>)
                (msg          : ComparisonAction) =
         match msg with
         | Update -> 
-            let m = updateMeasurements m surfaceModel refSystem
+            let m = updateMeasurements m surfaceModel annotations bookmarks refSystem
             m , surfaceModel
         | SelectSurface1 str -> 
             let m = {m with surface1 = noSelectionToNone str}
@@ -225,34 +264,10 @@ module ComparisonApp =
         | ComparisonAction.ToggleVisible ->
             let surfaceId1 = m.surface1 |> Option.bind (fun x -> findSurfaceByName surfaceModel x)
             let surfaceId2 = m.surface2 |> Option.bind (fun x -> findSurfaceByName surfaceModel x)
-            let surfaceModel =
-                match surfaceId1, surfaceId2 with
-                | Some id1, Some id2 ->
-                    let s1 = surfaceModel.surfaces.flat |> HashMap.find id1
-                                                        |> Leaf.toSurface
-                    let s2 = surfaceModel.surfaces.flat |> HashMap.find id2
-                                                        |> Leaf.toSurface
-                    let s1, s2 =
-                        match s1.isVisible, s2.isVisible with
-                        | true, true ->
-                            let s1 = {s1 with isVisible = true}
-                            let s2 = {s2 with isVisible = false}
-                            s1, s2
-                        | false, false ->
-                            let s1 = {s1 with isVisible = true}
-                            let s2 = {s2 with isVisible = false}
-                            s1, s2
-                        | _, _ ->
-                            let s1 = {s1 with isVisible = not s1.isVisible}
-                            let s2 = {s2 with isVisible = not s2.isVisible}
-                            s1, s2
-                    surfaceModel
-                      |> SurfaceModel.updateSingleSurface s1
-                      |> SurfaceModel.updateSingleSurface s2
-
-                    
-                | _,_ -> surfaceModel
-            m , surfaceModel
+            let surfaceModel = toggleVisible surfaceId1 surfaceId2 surfaceModel
+            m, surfaceModel
+        | AddBookmarkReference bookmarkId ->
+            m, surfaceModel
         | MeasurementMessage -> 
             m , surfaceModel
 
@@ -312,7 +327,8 @@ module ComparisonApp =
                                )
         sg |> Sg.dynamic
 
-    let view (m : AdaptiveComparisonApp) (surfaces : AdaptiveSurfaceModel) =
+    let view (m : AdaptiveComparisonApp) 
+             (surfaces : AdaptiveSurfaceModel) =
         let measurementGui (name         : option<string>) 
                            (maesurements : option<AdaptiveSurfaceMeasurements>) =
             match name, maesurements with
@@ -362,6 +378,34 @@ module ComparisonApp =
                  [i [clazz "download icon"] [] ]
                     |> UI.wrapToolTip DataPosition.Bottom "Export"
 
+        let annotationComparison =
+            let tables = 
+                adaptive {
+                    let! s1 = m.surface1
+                    let! s2 = m.surface2
+                    let! measurements = m.annotationMeasurements
+                    match s1, s2 with
+                    | Some s1, Some s2 ->
+                        let lst = 
+                            alist {
+                                for annoMeasurement in  measurements do
+                                    yield (AnnotationComparison.view s1 s2 annoMeasurement)
+                            }
+                        let content = 
+                            Incremental.div ([] |> AttributeMap.ofList) 
+                                            lst
+                        return content
+                    | _,_ ->
+                        return div [] []
+                
+                }
+            let header = sprintf "Annotation Length Comparison"
+            let content = Incremental.div  ([] |> AttributeMap.ofList) 
+                                           (AList.ofAValSingle tables)
+            let accordion =
+                GuiEx.accordion header  "calculator" true [content]
+            accordion
+
         div [][
             br []
             div [clazz "ui buttons inverted"] 
@@ -379,4 +423,6 @@ module ComparisonApp =
             GuiEx.accordion "Difference" "calculator" true [
                Incremental.div ([] |> AttributeMap.ofList)  (AList.ofAValSingle compared)
             ]
+            br []
+            annotationComparison
         ]

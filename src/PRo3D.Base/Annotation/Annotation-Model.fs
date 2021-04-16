@@ -321,7 +321,8 @@ type Annotation = {
     modelTrafo     : Trafo3d
                    
     geometry       : Geometry
-    projection     : Projection                
+    projection     : Projection         
+    bookmarkId     : option<System.Guid>
     semantic       : Semantic
                    
     points         : IndexList<V3d>
@@ -390,6 +391,7 @@ with
               modelTrafo   = modelTrafo    |> Trafo3d.Parse        
               geometry     = geometry      |> enum<Geometry>
               projection   = projection    |> enum<Projection>
+              bookmarkId   = None
               semantic     = semantic      |> enum<Semantic>
               points       = points        |> Serialization.jsonSerializer.UnPickleOfString
               segments     = segments      |> Serialization.jsonSerializer.UnPickleOfString
@@ -446,6 +448,7 @@ with
                 modelTrafo     = modelTrafo    |> Trafo3d.Parse        
                 geometry       = geometry      |> enum<Geometry>
                 projection     = projection    |> enum<Projection>
+                bookmarkId     = None
                 semantic       = semantic      |> enum<Semantic>
                 points         = points        |> Serialization.jsonSerializer.UnPickleOfString
                 segments       = segments      |> Serialization.jsonSerializer.UnPickleOfString
@@ -502,6 +505,7 @@ with
                 modelTrafo   = modelTrafo    |> Trafo3d.Parse        
                 geometry     = geometry      |> enum<Geometry>
                 projection   = projection    |> enum<Projection>
+                bookmarkId   = None
                 semantic     = semantic      |> enum<Semantic>
                 points       = points        |> IndexList.ofList
                 segments     = segments      |> IndexList.ofList
@@ -527,6 +531,7 @@ with
             let! modelTrafo   = Json.read "modelTrafo" //|> Trafo3d.Parse
             let! geometry     = Json.read "geometry"
             let! projection   = Json.read "projection"
+            let! bookmarkId   = Json.tryRead "bookmarkId"
             let! semantic     = Json.read "semantic"
             
             let! points   = Json.readWith Ext.fromJson<list<V3d>,Ext> "points"
@@ -561,6 +566,7 @@ with
                 modelTrafo     = modelTrafo    |> Trafo3d.Parse        
                 geometry       = geometry      |> enum<Geometry>
                 projection     = projection    |> enum<Projection>
+                bookmarkId     = bookmarkId    |> Option.map (fun x -> x |> Guid.Parse)
                 semantic       = semantic      |> enum<Semantic>
                 points         = points        |> IndexList.ofList
                 segments       = segments      |> IndexList.ofList
@@ -648,7 +654,7 @@ module Annotation =
             format  = "{0:0.0}"
         }
                 
-    let mk projection geometry color thickness surfaceName : Annotation =
+    let mk projection bookmarkId geometry color thickness surfaceName : Annotation =
         {
              version     = Annotation.current
              key         = Guid.NewGuid()
@@ -661,6 +667,7 @@ module Annotation =
              results     = None
              dnsResults  = None            
              projection  = projection
+             bookmarkId  = bookmarkId
              visible     = true
              text        = ""
              textsize    = Initial.texts
@@ -677,4 +684,4 @@ module Annotation =
         }
 
     let initial =
-        mk Projection.Viewpoint Geometry.Polyline { c = C4b.Magenta } Initial.thickness ""
+        mk Projection.Viewpoint None Geometry.Polyline { c = C4b.Magenta } Initial.thickness ""

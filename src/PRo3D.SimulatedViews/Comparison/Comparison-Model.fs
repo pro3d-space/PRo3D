@@ -1,9 +1,15 @@
 ﻿namespace PRo3D.Comparison
 
-open Aardvark.Base
-open Aardvark.UI
 open Adaptify
+
+
+open Aardvark.Base
+open PRo3D.Base.Annotation
+open Aardvark.UI
+open PRo3D.Core
+open PRo3D.Base
 open Chiron
+
 
 
 [<ModelType>]
@@ -34,6 +40,22 @@ type SurfaceMeasurements =  {
             do! Json.write "rollPitchYaw" (x.rollPitchYaw |> string)
         }
 
+
+type AnnotationMeasurement = {
+    annotationKey : System.Guid
+    text          : string
+    length        : float
+}
+
+type AnnotationMeasurements = {
+    bookmarkName      : string
+    bookmarkId        : System.Guid
+    measurement1      : option<AnnotationMeasurement>
+    measurement2      : option<AnnotationMeasurement>
+    difference        : option<float>
+}
+      
+
 [<ModelType>]
 type ComparisonApp = {
     showMeasurementsSg    : bool
@@ -42,6 +64,7 @@ type ComparisonApp = {
     measurements1         : option<SurfaceMeasurements>
     measurements2         : option<SurfaceMeasurements>
     comparedMeasurements  : option<SurfaceMeasurements>
+    annotationMeasurements : list<AnnotationMeasurements>
 } with
     static member FromJson( _ : ComparisonApp) = 
         json {
@@ -59,6 +82,7 @@ type ComparisonApp = {
                 measurements1         = measurements1       
                 measurements2         = measurements2       
                 comparedMeasurements  = comparedMeasurements
+                annotationMeasurements = []
               }
         }
 
@@ -80,4 +104,5 @@ type ComparisonAction =
     | Update
     | ExportMeasurements of string
     | ToggleVisible
+    | AddBookmarkReference of System.Guid
     | MeasurementMessage

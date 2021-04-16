@@ -30,7 +30,7 @@ type DrawingAction =
   | StopPicking  
   | StartPickingMulti     
   | StopPickingMulti  
-  | AddPointAdv         of V3d * (V3d -> Option<V3d>) * string
+  | AddPointAdv         of V3d * (V3d -> Option<V3d>) * string * option<Guid>
   | RemoveLastPoint  
   | ClearWorking
   | ClearSelection
