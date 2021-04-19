@@ -604,6 +604,8 @@ with
             do! Json.write "modelTrafo" (x.modelTrafo.ToString())
             do! Json.write "geometry"   (x.geometry |> int)
             do! Json.write "projection" (x.projection |> int)
+            if x.bookmarkId.IsSome then
+                do! Json.write "bookmarkId" (x.bookmarkId.Value.ToString())
             do! Json.write "semantic"   (x.semantic |> int)
             do! Json.writeWith (Ext.toJson<list<V3d>,Ext>) "points" (x.points |> IndexList.toList)        
             do! Json.write "segments"   (x.segments |> IndexList.toList)

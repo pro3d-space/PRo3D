@@ -57,16 +57,18 @@ module CustomGui =
 module ComparisonApp =
     let noSelection = "-None-"
 
-    let init : ComparisonApp =
-      {
-          surface1             = None
-          surface2             = None
-          measurements1        = None
-          measurements2        = None
-          comparedMeasurements = None
-          annotationMeasurements = []
-          showMeasurementsSg   = true
-      }
+    let init : ComparisonApp = {   
+        showMeasurementsSg   = true
+        surface1             = None
+        surface2             = None
+        surfaceMeasurements  = 
+          {
+              measurements1        = None
+              measurements2        = None
+              comparedMeasurements = None
+          }
+        annotationMeasurements = []     
+    }
 
     let noSelectionToNone (str : string) =
         if str = noSelection then None else Some str
@@ -188,6 +190,7 @@ module ComparisonApp =
                            (annotations  : HashMap<Guid, Annotation.Annotation>) 
                            (bookmarks    : HashMap<Guid, Bookmark>)
                            (refSystem    : ReferenceSystem) =
+        Log.line "[Comparison] Calculating surface measurements..."
         let annotationMeasurements =
             match m.surface1, m.surface2 with
             | Some s1, Some s2 ->
@@ -200,11 +203,16 @@ module ComparisonApp =
         let measurements2 = Option.bind (fun s2 -> updateSurfaceMeasurements 
                                                         surfaceModel refSystem s2)
                                         m.surface2
-        {m with measurements1 = measurements1
+        let surfaceMeasurements = 
+            {
+                measurements1 = measurements1
                 measurements2 = measurements2
                 comparedMeasurements =
                     Option.map2 (fun a b -> SurfaceMeasurements.compare a b)
                                 measurements1 measurements2
+            }
+        Log.line "[Comparison] Finished calculating surface measurements."
+        {m with surfaceMeasurements    = surfaceMeasurements 
                 annotationMeasurements = annotationMeasurements
         }
 
@@ -219,17 +227,17 @@ module ComparisonApp =
                                                 |> Leaf.toSurface
             let s1, s2 =
                 match s1.isVisible, s2.isVisible with
-                | true, true ->
-                    let s1 = {s1 with isVisible = true}
-                    let s2 = {s2 with isVisible = false}
-                    s1, s2
-                | false, false ->
-                    let s1 = {s1 with isVisible = true}
-                    let s2 = {s2 with isVisible = false}
+                | true, true | false, false ->
+                    let s1 = {s1 with isVisible = true
+                                      isActive  = true}
+                    let s2 = {s2 with isVisible = false
+                                      isActive  = false}
                     s1, s2
                 | _, _ ->
-                    let s1 = {s1 with isVisible = not s1.isVisible}
-                    let s2 = {s2 with isVisible = not s2.isVisible}
+                    let s1 = {s1 with isVisible = not s1.isVisible
+                                      isActive  = not s1.isVisible}
+                    let s2 = {s2 with isVisible = not s2.isVisible
+                                      isActive  = not s2.isVisible}
                     s1, s2
             surfaceModel
               |> SurfaceModel.updateSingleSurface s1
@@ -248,11 +256,19 @@ module ComparisonApp =
             m , surfaceModel
         | SelectSurface1 str -> 
             let m = {m with surface1 = noSelectionToNone str}
-            ///let m = updateMeasurements m surfaceModel refSystem
+            let m =
+                match m.surface1, m.surface2 with
+                | Some s1, Some s2 ->
+                    updateMeasurements m surfaceModel annotations bookmarks refSystem
+                | _,_ -> m
             m , surfaceModel
         | SelectSurface2 str -> 
             let m = {m with surface2 = noSelectionToNone str}
-            //let m = updateMeasurements m surfaceModel refSystem
+            let m =
+                match m.surface1, m.surface2 with
+                | Some s1, Some s2 ->
+                    updateMeasurements m surfaceModel annotations bookmarks refSystem
+                | _,_ -> m
             m , surfaceModel
         | ExportMeasurements filepath -> 
             m
@@ -330,43 +346,87 @@ module ComparisonApp =
     let view (m : AdaptiveComparisonApp) 
              (surfaces : AdaptiveSurfaceModel) =
         let measurementGui (name         : option<string>) 
-                           (maesurements : option<AdaptiveSurfaceMeasurements>) =
+                           (maesurements : option<SurfaceMeasurements>) =
             match name, maesurements with
             | Some name, Some maesurements -> 
-                adaptive {
-                    let header = sprintf "Measurements for %s"  name
-                    let accordion =
-                        GuiEx.accordion header  "calculator" true [
-                            SurfaceMeasurements.view maesurements
-                        ]
-                    return  accordion 
-                }
+                SurfaceMeasurements.view maesurements
             | _,_    -> 
-                GuiEx.accordion "No surface selected"  "calculator" true [] 
-                    |> AVal.constant
+                div [][]
+                 
 
         let measurement1 = 
-            (AVal.bind2 (fun (s : option<string>) m -> 
-                                measurementGui s (m |> AdaptiveOption.toOption)
-                       ) m.surface1 m.measurements1)
+            (AVal.map2 (fun (s : option<string>) m -> 
+                                measurementGui s m.measurements1) m.surface1 m.surfaceMeasurements)
                        |> AList.ofAValSingle
 
+
+        let header surf = 
+            (surf |> AVal.map (fun name -> 
+                                      match name with
+                                      | Some name -> sprintf "Measurements for %s"  name
+                                      | None      -> "No surface selected"))
+
         let measurement2 = 
-            (AVal.bind2 (fun (s : option<string>) m -> 
-                                measurementGui s (m |> AdaptiveOption.toOption)
-                       ) m.surface2 m.measurements2)
+            (AVal.map2 (fun (s : option<string>) m -> 
+                                measurementGui s m.measurements2
+                       ) m.surface2 m.surfaceMeasurements)
                        |> AList.ofAValSingle
 
         let compared = 
-            m.comparedMeasurements
-                |> (AVal.map (fun m -> 
-                                  match m with
-                                  | AdaptiveOption.AdaptiveSome m -> 
+            m.surfaceMeasurements
+                |> (AVal.map (fun x -> 
+                                  match x.comparedMeasurements with
+                                  | Some m -> 
                                       SurfaceMeasurements.view m
-                                  | AdaptiveOption.AdaptiveNone -> 
+                                  | None -> 
                                       div [] []
                              )
                     ) 
+
+        let surfaceMeasurements =
+            alist {
+                yield div [] [Incremental.text (header m.surface1)]
+                yield! measurement1
+                yield div [] [Incremental.text (header m.surface2)]
+                yield! measurement2
+                yield div [] [text "Difference"]
+                let! compared = compared
+                yield compared
+            }
+        let surfaceMeasurements =
+            Incremental.div (AttributeMap.ofList []) surfaceMeasurements
+        //let header = sprintf "Measurements for %s"  name
+
+        let surfaceMeasurements =
+             AVal.map2 (fun (s1 : option<string>) s2 -> 
+                            match s1, s2 with
+                            | Some s1, Some s2 -> 
+                                GuiEx.accordion "Surface Measurements"  "calculator" true [surfaceMeasurements]
+                            | _,_ -> GuiEx.accordion "Surface Measurements"  "calculator" true []
+                       ) m.surface1 m.surface2
+            
+        //let measurement1 = 
+        //    (AVal.bind2 (fun (s : option<string>) m -> 
+        //                        measurementGui s (m.measurements1 
+        //               ) m.surface1 m.surfaceMeasurements)
+        //               |> AList.ofAValSingle
+
+        //let measurement2 = 
+        //    (AVal.bind2 (fun (s : option<string>) m -> 
+        //                        measurementGui s (m.measurements2 |> AdaptiveOption.toOption)
+        //               ) m.surface2 m.surfaceMeasurements)
+        //               |> AList.ofAValSingle
+
+        //let compared = 
+        //    m.comparedMeasurements
+        //        |> (AVal.map (fun m -> 
+        //                          match m with
+        //                          | AdaptiveOption.AdaptiveSome m -> 
+        //                              SurfaceMeasurements.view m
+        //                          | AdaptiveOption.AdaptiveNone -> 
+        //                              div [] []
+        //                     )
+        //            ) 
 
 
         let updateButton =
@@ -418,11 +478,11 @@ module ComparisonApp =
                 Html.row "Surface2 " [CustomGui.surfacesDropdown surfaces SelectSurface2 noSelection]
             ]
             br []
-            Incremental.div ([] |> AttributeMap.ofList) measurement1
-            Incremental.div ([] |> AttributeMap.ofList) measurement2
-            GuiEx.accordion "Difference" "calculator" true [
-               Incremental.div ([] |> AttributeMap.ofList)  (AList.ofAValSingle compared)
-            ]
+            Incremental.div ([] |> AttributeMap.ofList)  
+                           (AList.ofAValSingle surfaceMeasurements)
+            //GuiEx.accordion "Difference" "calculator" true [
+            //   Incremental.div ([] |> AttributeMap.ofList)  (AList.ofAValSingle compared)
+            //]
             br []
             annotationComparison
         ]

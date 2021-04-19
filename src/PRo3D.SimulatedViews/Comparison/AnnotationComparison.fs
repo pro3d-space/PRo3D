@@ -75,7 +75,7 @@ module AnnotationComparison =
 
     let view (surface1 : string) 
              (surface2 : string)
-             (m : AnnotationMeasurements) =
+             (m : AnnotationComparison) =
         let surfaceRow (m1 : option<AnnotationMeasurement>) s1 =
             let value = 
                 match m1 with

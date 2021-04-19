@@ -12,7 +12,6 @@ open Chiron
 
 
 
-[<ModelType>]
 type SurfaceMeasurements =  {
     /// the dimensions of this surface along x/y/z axes
     dimensions      : V3d
@@ -23,17 +22,6 @@ type SurfaceMeasurements =  {
         dimensions     = V3d.OOO
         rollPitchYaw   = V3d.OOO
     }
-    static member FromJson( _ : SurfaceMeasurements) = 
-        json {
-            let! dimensions   = Json.read "dimensions"
-            let! rollPitchYaw = Json.read "rollPitchYaw"
-
-            return 
-              { 
-                  dimensions   = dimensions |> V3d.Parse
-                  rollPitchYaw = rollPitchYaw |> V3d.Parse
-              }
-        }
     static member ToJson (x:SurfaceMeasurements) =
         json {
             do! Json.write "dimensions"   (x.dimensions |> string)
@@ -45,57 +33,68 @@ type AnnotationMeasurement = {
     annotationKey : System.Guid
     text          : string
     length        : float
-}
+} with
+    static member ToJson (x:AnnotationMeasurement) =
+        json {
+            if x.text.Length > 0 then
+              do! Json.write "text" x.text
+            do! Json.write "length" (sprintf "%f" x.length)
+        }
 
-type AnnotationMeasurements = {
+/// Used to compare the way length of two annotations on two different surfaces.
+/// The annotations need to be drawn using Bookmark projection.
+/// To compare two annotations they need to be drawn with the same bookmark selected.
+type AnnotationComparison = {
     bookmarkName      : string
     bookmarkId        : System.Guid
     measurement1      : option<AnnotationMeasurement>
     measurement2      : option<AnnotationMeasurement>
     difference        : option<float>
-}
+} with
+    static member ToJson (x:AnnotationComparison) =
+        json {
+            do! Json.write "bookmark" x.bookmarkName
+            //do! Json.write "bookmarkId" (x.bookmarkId.ToString ())
+            if x.measurement1.IsSome then 
+                do! Json.write "measurements1"  x.measurement1.Value
+            if x.measurement2.IsSome then 
+                do! Json.write "measurements2"  x.measurement2.Value
+            if x.difference.IsSome then 
+                do! Json.write "difference"   x.difference.Value
+        }
       
-
-[<ModelType>]
-type ComparisonApp = {
-    showMeasurementsSg    : bool
-    surface1              : option<string>
-    surface2              : option<string>
+type SurfaceComparison = {
     measurements1         : option<SurfaceMeasurements>
     measurements2         : option<SurfaceMeasurements>
     comparedMeasurements  : option<SurfaceMeasurements>
-    annotationMeasurements : list<AnnotationMeasurements>
 } with
-    static member FromJson( _ : ComparisonApp) = 
+    static member ToJson (x:SurfaceComparison) =
         json {
-            let! surface1   = Json.tryRead "surface1"
-            let! surface2   = Json.tryRead "surface2"
-            let! measurements1   = Json.tryRead "measurements1"
-            let! measurements2   = Json.tryRead "measurements2"
-            let! comparedMeasurements   = Json.tryRead "comparedMeasurements"
-
-            return 
-              { 
-                showMeasurementsSg    = true
-                surface1              = surface1            
-                surface2              = surface2            
-                measurements1         = measurements1       
-                measurements2         = measurements2       
-                comparedMeasurements  = comparedMeasurements
-                annotationMeasurements = []
-              }
+            if x.measurements1.IsSome then 
+                do! Json.write "measurements1"  x.measurements1.Value
+            if x.measurements2.IsSome then 
+                do! Json.write "measurements2"  x.measurements2.Value
+            if x.comparedMeasurements.IsSome then 
+                do! Json.write "comparedMeasurements"   x.comparedMeasurements.Value
         }
 
+/// Used to compare different attributes of two surfaces.
+[<ModelType>]
+type ComparisonApp = {
+    showMeasurementsSg           : bool
+    surface1                     : option<string>
+    surface2                     : option<string>
+    surfaceMeasurements          : SurfaceComparison
+    annotationMeasurements       : list<AnnotationComparison>
+} with
     static member ToJson (x:ComparisonApp) =
         json {
             if x.surface1.IsSome then 
                 do! Json.write "surface1"       x.surface1.Value
-                do! Json.write "measurements1"  x.measurements1.Value
             if x.surface2.IsSome then 
                 do! Json.write "surface2"       x.surface2.Value 
-                do! Json.write "measurements2"  x.measurements2.Value
-            if x.comparedMeasurements.IsSome then 
-                do! Json.write "comparedMeasurements"   x.comparedMeasurements.Value
+            do! Json.write "surfaceMeasurements" x.surfaceMeasurements
+            do! Json.write "annotationMeasurements" x.annotationMeasurements
         }
 
 type ComparisonAction =
