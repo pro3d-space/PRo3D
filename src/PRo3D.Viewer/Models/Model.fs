@@ -53,11 +53,7 @@ type ViewerMode =
     | Instrument
 
 
-    
-type SnapshotType = 
-    | Camera
-    | CameraAndSurface
-    | CameraSurfaceMask
+  
 
 type GuiMode =
     | NoGui
@@ -71,7 +67,7 @@ type StartupArgs = {
     objPaths              : option<list<string>>
     snapshotPath          : option<string>
     outFolder             : string
-    snapshotType          : option<SnapshotType>
+    snapshotType          : option<SimulatedViews.SnapshotType>
     guiMode               : GuiMode
     showExplorationPoint  : bool
     showReferenceSystem   : bool
