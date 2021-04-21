@@ -18,6 +18,8 @@ open System.Diagnostics
 
 open Aardvark.UI.Primitives
 
+open OpcViewer.Base
+
 open PRo3D.Base
 
 
@@ -126,6 +128,7 @@ module ScaleBarUtils =
             | Unit.cm         -> length / 100.0
             | Unit.m          -> length 
             | Unit.km         -> length * 1000.0
+            |_                -> length
 
     let getDirectionVec 
         (orientation : Orientation) 
@@ -134,6 +137,7 @@ module ScaleBarUtils =
             | Orientation.Horizontal -> view.Right
             | Orientation.Vertical   -> view.Up
             | Orientation.Sky        -> view.Sky
+            |_                       -> view.Right
 
     let getP1
         (position : V3d) 
@@ -425,7 +429,48 @@ module ScaleBarsApp =
         open PRo3D.Core
         open PRo3D.Core.Drawing
 
-        let getSgSegment
+
+        let getSgSegmentCylinder
+            (segment : AdaptivescSegment)
+            (thickness : aval<float>) =
+            adaptive {
+                let! p1 = segment.startPoint
+                let! p2 = segment.endPoint
+
+                let length = Vec.Distance(p1,p2)
+                let dir = p2 - p1
+                let trafo =  (Trafo3d.RotateInto(V3d.ZAxis, dir.Normalized) * Trafo3d.Translation(p1))
+                return Sg.cylinder 30 segment.color thickness (AVal.constant length)             
+                        |> Sg.noEvents
+                        |> Sg.uniform "WorldPos" (segment.startPoint)
+                        |> Sg.uniform "Size" (AVal.constant length)
+                        |> Sg.shader {
+                            //do! Shader.screenSpaceScale
+                            do! Shader.StableTrafo.stableTrafo
+                            do! DefaultSurfaces.vertexColor
+                            do! Shader.StableLight.stableLight
+                        }
+                        |> Sg.trafo(AVal.constant trafo)
+            } |> Sg.dynamic
+
+        let getSgSegmentCylinderMask
+            (segment : AdaptivescSegment)
+            (thickness : aval<float>) =
+            adaptive {
+                let! p1 = segment.startPoint
+                let! p2 = segment.endPoint
+
+                let length = Vec.Distance(p1,p2)
+                let dir = p2 - p1
+                let trafo =  (Trafo3d.RotateInto(V3d.ZAxis, dir.Normalized) * Trafo3d.Translation(p1))
+                return Sg.cylinder 30 segment.color thickness (AVal.constant length)             
+                        |> Sg.noEvents
+                        |> Sg.uniform "WorldPos" (segment.startPoint)
+                        |> Sg.uniform "Size" (AVal.constant length)
+                        |> Sg.trafo(AVal.constant trafo)
+            } |> Sg.dynamic
+
+        let getSgSegmentLine
             (segment : AdaptivescSegment) 
             //(trafo : aval<Trafo3d>)
             (thickness : aval<float>) =
@@ -443,7 +488,6 @@ module ScaleBarsApp =
         let getP1P2 
             (scaleBar   : AdaptiveScaleBar) =
             alist {
-                let! alignment = scaleBar.alignment
                 let! position = scaleBar.position
                 let! length = scaleBar.length.value
                 let! unit = scaleBar.unit
@@ -453,21 +497,15 @@ module ScaleBarsApp =
                 let direction = ScaleBarUtils.getDirectionVec orientation view
                 let! alignment = scaleBar.alignment
                 let p1 = ScaleBarUtils.getP1 position length' direction alignment
-                    //match alignment with
-                    //| Pivot.Left -> position
-                    //| Pivot.Right -> position - direction.Normalized * length'
-                    //| Pivot.Middle -> position - direction.Normalized * length' * 0.5
-                    //|_-> position
-
+                    
                 let p2 = p1 + direction.Normalized * length'
                 yield p1
                 yield p2
             }
 
-        let viewSingleScaleBar 
+        let viewSingleScaleBarLine 
             (scaleBar   : AdaptiveScaleBar) 
             (view       : aval<CameraView>)
-            (refsys     : AdaptiveReferenceSystem)
             (near       : aval<float>)
             (selected   : aval<Option<Guid>>) =
 
@@ -484,10 +522,6 @@ module ScaleBarsApp =
                     adaptive {
                         let! pos = scaleBar.position
                         return (Trafo3d.Translation pos)
-                        //let modelTrafo = Trafo3d.Translation pos
-                        //let! rSys = refsys.Current
-                        //let! fullTrafo = ScaleBarTransformations.fullTrafo scaleBar.transformation rSys
-                        //return (modelTrafo * fullTrafo)
                     }
 
                 let text = 
@@ -495,17 +529,11 @@ module ScaleBarsApp =
 
                 let pickFunc = Sg.pickEventsHelper scaleBar.guid (AVal.constant selected) scaleBar.thickness.value trafo
 
-                //let! view = scaleBar.view
-                //let! orientation = scaleBar.orientation
-                ////let! yaw = scaleBar.transformation.yaw.value
-                //let direction = ScaleBarUtils.getDirectionVec orientation view
-                //let dir = Rot3d.Rotation(rSys.up.value, yaw |> Double.radiansFromDegrees).Transform(direction)
-                //let segments = ScaleBarUtils.updateSegments position length direction ((int)subdivisions.value)
                 
                 // do this for all lineparts
                 let sgSegments = 
                     scaleBar.scSegments 
-                    |> AList.map( fun seg -> getSgSegment seg scaleBar.thickness.value ) 
+                    |> AList.map( fun seg -> getSgSegmentLine seg scaleBar.thickness.value ) 
                     |> AList.toASet
                     |> Sg.set
                    
@@ -549,6 +577,71 @@ module ScaleBarsApp =
                 
             } |> Sg.dynamic
 
+        let viewSingleScaleBarCylinder
+            (scaleBar   : AdaptiveScaleBar) 
+            (view       : aval<CameraView>)
+            (near       : aval<float>)
+            (selected   : aval<Option<Guid>>) =
+
+            adaptive {
+                
+                let! selected' = selected
+                let selected =
+                    match selected' with
+                    | Some sel -> sel = (scaleBar.guid |> AVal.force)
+                    | None -> false
+
+            
+                let trafo =
+                    adaptive {
+                        let! pos = scaleBar.position
+                        return (Trafo3d.Translation pos)
+                    }
+
+                let text = 
+                    Sg.text view near (AVal.constant 60.0) scaleBar.position trafo scaleBar.textsize.value scaleBar.text
+
+                let pickFunc = Sg.pickEventsHelper scaleBar.guid (AVal.constant selected) scaleBar.thickness.value trafo
+
+               
+            
+                // do this for all lineparts
+                let sgSegments = 
+                    scaleBar.scSegments 
+                    |> AList.map( fun seg -> getSgSegmentCylinder seg scaleBar.thickness.value ) 
+                    |> AList.toASet
+                    |> Sg.set
+               
+            
+                // add picking
+                //let applicator =
+                //    test 
+                //    |> Sg.pickable' ((pickableContent points edges trafo pickingTolerance) |> AVal.map Pickable.ofShape)
+
+                //(applicator :> ISg) 
+                //|> Sg.noEvents
+                //|> Sg.withEvents [ pickFunc edges ]
+                //|> Sg.trafo trafo
+                             
+                let selectionSg = 
+                    if selected then
+                        let cylinder = 
+                            scaleBar.scSegments 
+                            |> AList.map( fun seg -> getSgSegmentCylinderMask seg scaleBar.thickness.value ) 
+                            |> AList.toASet
+                            |> Sg.set
+                        OutlineEffect.createForSg 1 RenderPass.main C4f.VRVisGreen cylinder
+                    else Sg.empty
+                
+                    
+                return Sg.ofList [
+                        selectionSg //|> Sg.dynamic
+                        sgSegments
+                        text
+                    ] |> Sg.onOff scaleBar.isVisible
+            
+            } |> Sg.dynamic
+
         let view 
             (scaleBarsModel : AdaptiveScaleBarsModel) 
             (view : aval<CameraView>)
@@ -563,10 +656,10 @@ module ScaleBarsApp =
 
             let test =
                 scaleBars |> AMap.map( fun id sb ->
-                    viewSingleScaleBar
+                    viewSingleScaleBarCylinder
                         sb
                         view
-                        refsys
+                        //refsys
                         near
                         selected
                     )

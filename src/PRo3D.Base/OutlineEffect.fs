@@ -40,6 +40,8 @@ module OutlineEffect =
     // NOTE: sg MUST only hold pure Sg without any modes or shaders!
     let createForSg (outlineGroup: int) (pass: RenderPass) (color: C4f) sg =
         let sg = sg |> Sg.uniform "Color" (AVal.constant color)
+
+        let pass1 = RenderPass.after "outline" RenderPassOrder.Arbitrary pass
         
         let mask = 
             sg 
@@ -49,6 +51,7 @@ module OutlineEffect =
             |> Sg.cullMode (AVal.init CullMode.None)
             |> Sg.blendMode (AVal.init BlendMode.Blend)
             |> Sg.fillMode (AVal.init FillMode.Fill)
+            |> Sg.pass pass
             |> Sg.shader {
                 do! DefaultSurfaces.stableTrafo
                 do! DefaultSurfaces.sgColor
@@ -62,7 +65,7 @@ module OutlineEffect =
             |> Sg.cullMode (AVal.init CullMode.None)
             |> Sg.blendMode (AVal.init BlendMode.Blend)
             |> Sg.fillMode (AVal.init FillMode.Fill)
-            |> Sg.pass pass
+            |> Sg.pass pass1
             |> Sg.uniform "LineWidth" (AVal.constant 5.0)
             |> Sg.shader {
                 do! DefaultSurfaces.stableTrafo

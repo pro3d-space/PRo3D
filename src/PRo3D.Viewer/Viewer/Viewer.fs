@@ -1502,14 +1502,6 @@ module ViewerApp =
             let viewportFilteredText = 
                 MinervaApp.viewPortLabels m.minervaModel m.navigation.camera.view (ViewerUtils.frustum m) |> Sg.map MinervaActions
 
-            let scaleBars =
-                ScaleBarsApp.Sg.view
-                    m.scene.scaleBars
-                    m.navigation.camera.view
-                    m.scene.config
-                    mrefConfig
-                    m.scene.referenceSystem
-                |> Sg.map ScaleBarsMessage
 
                 
             //let correlationLogs, _ =
@@ -1532,7 +1524,7 @@ module ViewerApp =
             let heightValidation =
                 HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation
 
-            [exploreCenter; refSystem; viewPlans; homePosition; solText; heightValidation; scaleBars] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
+            [exploreCenter; refSystem; viewPlans; homePosition; solText; heightValidation] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
         let minervaSg =
             let minervaFeatures = 
@@ -1564,9 +1556,18 @@ module ViewerApp =
 
         let heightValidationDiscs =
             HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
+
+        let scaleBars =
+            ScaleBarsApp.Sg.view
+                m.scene.scaleBars
+                m.navigation.camera.view
+                m.scene.config
+                mrefConfig
+                m.scene.referenceSystem
+            |> Sg.map ScaleBarsMessage
         
         let depthTested = 
-            [linkingSg; annotationSg; minervaSg; heightValidationDiscs] |> Sg.ofList
+            [linkingSg; annotationSg; minervaSg; heightValidationDiscs; scaleBars] |> Sg.ofList
 
         let cmds    = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m
         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
