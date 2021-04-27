@@ -4,7 +4,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardium">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardium\2.0.0\lib\netstandard2.0\Aardium.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardium\2.0.2\lib\netstandard2.0\Aardium.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -15,7 +15,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Application">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.application\5.1.7\lib\netstandard2.0\Aardvark.Application.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.application\5.1.7\lib\netstandard2.0\Aardvark.Application.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -26,7 +26,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Application.Slim.GL">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.application.slim.gl\5.1.7\lib\netstandard2.0\Aardvark.Application.Slim.GL.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.application.slim.gl\5.1.7\lib\netstandard2.0\Aardvark.Application.Slim.GL.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -37,7 +37,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1'">
       <ItemGroup>
         <Reference Include="Aardvark.Base">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.base\5.1.6\lib\netcoreapp3.1\Aardvark.Base.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base\5.1.8\lib\netcoreapp3.1\Aardvark.Base.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -46,7 +46,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Base">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.base\5.1.6\lib\netstandard2.0\Aardvark.Base.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base\5.1.8\lib\netstandard2.0\Aardvark.Base.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -57,7 +57,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Base.Essentials">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.base.essentials\5.1.6\lib\netstandard2.0\Aardvark.Base.Essentials.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.essentials\5.1.8\lib\netstandard2.0\Aardvark.Base.Essentials.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -68,7 +68,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Base.FSharp">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.base.fsharp\5.1.6\lib\netstandard2.0\Aardvark.Base.FSharp.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.fsharp\5.1.8\lib\netstandard2.0\Aardvark.Base.FSharp.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -79,7 +79,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Base.Incremental">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.base.incremental\5.1.6\lib\netstandard2.0\Aardvark.Base.Incremental.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.incremental\5.1.8\lib\netstandard2.0\Aardvark.Base.Incremental.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -90,7 +90,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Base.IO">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.base.io\5.1.6\lib\netstandard2.0\Aardvark.Base.IO.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.io\5.1.8\lib\netstandard2.0\Aardvark.Base.IO.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -101,7 +101,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Base.Runtime">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.base.runtime\5.1.6\lib\netstandard2.0\Aardvark.Base.Runtime.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.runtime\5.1.8\lib\netstandard2.0\Aardvark.Base.Runtime.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -112,7 +112,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Base.Telemetry">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.base.telemetry\5.1.6\lib\netstandard2.0\Aardvark.Base.Telemetry.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.telemetry\5.1.8\lib\netstandard2.0\Aardvark.Base.Telemetry.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -123,12 +123,12 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Base.Tensors">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.base.tensors\5.1.6\lib\netstandard2.0\Aardvark.Base.Tensors.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.tensors\5.1.8\lib\netstandard2.0\Aardvark.Base.Tensors.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
         <Reference Include="Aardvark.Base.Tensors.CSharp">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.base.tensors\5.1.6\lib\netstandard2.0\Aardvark.Base.Tensors.CSharp.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.tensors\5.1.8\lib\netstandard2.0\Aardvark.Base.Tensors.CSharp.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -139,7 +139,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="Aardvark.Base.TypeProviders">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.base.typeproviders\4.5.15\lib\net45\Aardvark.Base.TypeProviders.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.typeproviders\4.5.15\lib\net45\Aardvark.Base.TypeProviders.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -148,7 +148,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Base.TypeProviders">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.base.typeproviders\4.5.15\lib\netstandard2.0\Aardvark.Base.TypeProviders.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.base.typeproviders\4.5.15\lib\netstandard2.0\Aardvark.Base.TypeProviders.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -159,7 +159,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Geometry">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.geometry\5.1.6\lib\netstandard2.0\Aardvark.Geometry.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.geometry\5.1.8\lib\netstandard2.0\Aardvark.Geometry.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -170,7 +170,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Geometry.Intersection">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.geometry.intersection\5.1.5\lib\netstandard2.0\Aardvark.Geometry.Intersection.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.geometry.intersection\5.1.5\lib\netstandard2.0\Aardvark.Geometry.Intersection.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -181,7 +181,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Geometry.PointTree">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.geometry.pointtree\5.1.1\lib\netstandard2.0\Aardvark.Geometry.PointTree.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.geometry.pointtree\5.1.1\lib\netstandard2.0\Aardvark.Geometry.PointTree.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -192,7 +192,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.GeoSpatial.Opc">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.geospatial.opc\5.5.0\lib\netstandard2.0\Aardvark.GeoSpatial.Opc.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.geospatial.opc\5.5.0\lib\netstandard2.0\Aardvark.GeoSpatial.Opc.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -203,7 +203,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.GPGPU">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.gpgpu\5.1.7\lib\netstandard2.0\Aardvark.GPGPU.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.gpgpu\5.1.7\lib\netstandard2.0\Aardvark.GPGPU.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -214,7 +214,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.PixImage.DevIL">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.piximage.devil\5.1.6\lib\netstandard2.0\Aardvark.PixImage.DevIL.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.piximage.devil\5.1.8\lib\netstandard2.0\Aardvark.PixImage.DevIL.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -225,7 +225,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Rendering">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.rendering\5.1.7\lib\netstandard2.0\Aardvark.Rendering.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.rendering\5.1.7\lib\netstandard2.0\Aardvark.Rendering.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -236,7 +236,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Rendering.GL">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.rendering.gl\5.1.7\lib\netstandard2.0\Aardvark.Rendering.GL.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.rendering.gl\5.1.7\lib\netstandard2.0\Aardvark.Rendering.GL.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -247,7 +247,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Rendering.Text">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.rendering.text\5.1.7\lib\netstandard2.0\Aardvark.Rendering.Text.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.rendering.text\5.1.7\lib\netstandard2.0\Aardvark.Rendering.Text.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -258,7 +258,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Rendering.Vulkan">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.rendering.vulkan\5.1.7\lib\netstandard2.0\Aardvark.Rendering.Vulkan.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.rendering.vulkan\5.1.7\lib\netstandard2.0\Aardvark.Rendering.Vulkan.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -269,7 +269,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.SceneGraph">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.scenegraph\5.1.7\lib\netstandard2.0\Aardvark.SceneGraph.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.scenegraph\5.1.7\lib\netstandard2.0\Aardvark.SceneGraph.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -280,7 +280,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.SceneGraph.IO">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.scenegraph.io\5.1.7\lib\netstandard2.0\Aardvark.SceneGraph.IO.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.scenegraph.io\5.1.7\lib\netstandard2.0\Aardvark.SceneGraph.IO.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -291,7 +291,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.SceneGraph.Opc">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.scenegraph.opc\5.1.7\lib\netstandard2.0\Aardvark.SceneGraph.Opc.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.scenegraph.opc\5.1.7\lib\netstandard2.0\Aardvark.SceneGraph.Opc.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -302,7 +302,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.Service">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.service\5.1.2\lib\netstandard2.0\Aardvark.Service.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.service\5.1.2\lib\netstandard2.0\Aardvark.Service.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -313,7 +313,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.UI">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.ui\5.1.2\lib\netstandard2.0\Aardvark.UI.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.ui\5.1.2\lib\netstandard2.0\Aardvark.UI.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -324,7 +324,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aardvark.UI.Primitives">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aardvark.ui.primitives\5.1.2\lib\netstandard2.0\Aardvark.UI.Primitives.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aardvark.ui.primitives\5.1.2\lib\netstandard2.0\Aardvark.UI.Primitives.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -335,7 +335,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Adaptify.Core">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\adaptify.core\1.0.5\lib\netstandard2.0\Adaptify.Core.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\adaptify.core\1.0.5\lib\netstandard2.0\Adaptify.Core.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -346,7 +346,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="Aether">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aether\8.3.1\lib\net45\Aether.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aether\8.3.1\lib\net45\Aether.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -355,7 +355,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Aether">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\aether\8.3.1\lib\netstandard2.0\Aether.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\aether\8.3.1\lib\netstandard2.0\Aether.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -366,7 +366,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="Chiron">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\chiron\6.3.1\lib\net452\Chiron.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\chiron\6.3.1\lib\net452\Chiron.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -375,7 +375,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Chiron">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\chiron\6.3.1\lib\netstandard2.0\Chiron.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\chiron\6.3.1\lib\netstandard2.0\Chiron.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -386,7 +386,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="CommonMark">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\commonmark.net\0.15.1\lib\net45\CommonMark.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\commonmark.net\0.15.1\lib\net45\CommonMark.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -395,7 +395,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="CommonMark">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\commonmark.net\0.15.1\lib\netstandard1.0\CommonMark.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\commonmark.net\0.15.1\lib\netstandard1.0\CommonMark.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -406,7 +406,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="DevILSharp">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\devilsharp\0.2.11\lib\netstandard2.0\DevILSharp.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\devilsharp\0.2.11\lib\netstandard2.0\DevILSharp.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -417,12 +417,12 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="FParsec">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\fparsec\1.1.1\lib\net45\FParsec.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fparsec\1.1.1\lib\net45\FParsec.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
         <Reference Include="FParsecCS">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\fparsec\1.1.1\lib\net45\FParsecCS.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fparsec\1.1.1\lib\net45\FParsecCS.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -431,12 +431,12 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="FParsec">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\fparsec\1.1.1\lib\netstandard2.0\FParsec.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fparsec\1.1.1\lib\netstandard2.0\FParsec.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
         <Reference Include="FParsecCS">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\fparsec\1.1.1\lib\netstandard2.0\FParsecCS.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fparsec\1.1.1\lib\netstandard2.0\FParsecCS.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -447,7 +447,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="FShade.Core">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\fshade.core\5.1.7\lib\netstandard2.0\FShade.Core.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fshade.core\5.1.7\lib\netstandard2.0\FShade.Core.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -458,7 +458,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="FShade.GLSL">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\fshade.glsl\5.1.7\lib\netstandard2.0\FShade.GLSL.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fshade.glsl\5.1.7\lib\netstandard2.0\FShade.GLSL.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -469,7 +469,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="FShade.Imperative">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\fshade.imperative\5.1.7\lib\netstandard2.0\FShade.Imperative.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fshade.imperative\5.1.7\lib\netstandard2.0\FShade.Imperative.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -480,7 +480,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="FShade.SpirV">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\fshade.spirv\5.1.7\lib\netstandard2.0\FShade.SpirV.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fshade.spirv\5.1.7\lib\netstandard2.0\FShade.SpirV.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -491,7 +491,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="FSharp.Core">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\fsharp.core\4.6.2\lib\net45\FSharp.Core.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fsharp.core\4.6.2\lib\net45\FSharp.Core.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -500,7 +500,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="FSharp.Core">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\fsharp.core\4.6.2\lib\netstandard1.6\FSharp.Core.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fsharp.core\4.6.2\lib\netstandard1.6\FSharp.Core.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -514,7 +514,7 @@
           <Paket>True</Paket>
         </Reference>
         <Reference Include="FSharp.Data">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\fsharp.data\3.1.1\lib\net45\FSharp.Data.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fsharp.data\3.1.1\lib\net45\FSharp.Data.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -523,7 +523,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="FSharp.Data">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\fsharp.data\3.1.1\lib\netstandard2.0\FSharp.Data.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fsharp.data\3.1.1\lib\netstandard2.0\FSharp.Data.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -534,7 +534,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1'">
       <ItemGroup>
         <Reference Include="FSharp.Data.Adaptive">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\fsharp.data.adaptive\1.2.1\lib\netcoreapp3.1\FSharp.Data.Adaptive.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fsharp.data.adaptive\1.2.1\lib\netcoreapp3.1\FSharp.Data.Adaptive.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -543,7 +543,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="FSharp.Data.Adaptive">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\fsharp.data.adaptive\1.2.1\lib\netstandard2.0\FSharp.Data.Adaptive.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fsharp.data.adaptive\1.2.1\lib\netstandard2.0\FSharp.Data.Adaptive.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -554,7 +554,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="FsPickler">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\fspickler\5.3.2\lib\net45\FsPickler.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fspickler\5.3.2\lib\net45\FsPickler.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -563,7 +563,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="FsPickler">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\fspickler\5.3.2\lib\netstandard2.0\FsPickler.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fspickler\5.3.2\lib\netstandard2.0\FsPickler.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -574,7 +574,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="FsPickler.Json">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\fspickler.json\5.3.2\lib\net45\FsPickler.Json.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fspickler.json\5.3.2\lib\net45\FsPickler.Json.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -583,7 +583,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="FsPickler.Json">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\fspickler.json\5.3.2\lib\netstandard2.0\FsPickler.Json.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\fspickler.json\5.3.2\lib\netstandard2.0\FsPickler.Json.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -594,7 +594,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="GLSLangSharp">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\glslangsharp\0.4.6\lib\netstandard2.0\GLSLangSharp.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\glslangsharp\0.4.6\lib\netstandard2.0\GLSLangSharp.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -608,7 +608,7 @@
           <Paket>True</Paket>
         </Reference>
         <Reference Include="Microsoft.Bcl.AsyncInterfaces">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\microsoft.bcl.asyncinterfaces\1.1.1\lib\net461\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\microsoft.bcl.asyncinterfaces\1.1.1\lib\net461\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -617,7 +617,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Microsoft.Bcl.AsyncInterfaces">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\microsoft.bcl.asyncinterfaces\1.1.1\lib\netstandard2.0\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\microsoft.bcl.asyncinterfaces\1.1.1\lib\netstandard2.0\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -626,7 +626,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Microsoft.Bcl.AsyncInterfaces">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\microsoft.bcl.asyncinterfaces\1.1.1\ref\netstandard2.0\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\microsoft.bcl.asyncinterfaces\1.1.1\ref\netstandard2.0\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -635,7 +635,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1'">
       <ItemGroup>
         <Reference Include="Microsoft.Bcl.AsyncInterfaces">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\microsoft.bcl.asyncinterfaces\1.1.1\lib\netstandard2.1\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\microsoft.bcl.asyncinterfaces\1.1.1\lib\netstandard2.1\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -644,7 +644,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1'">
       <ItemGroup>
         <Reference Include="Microsoft.Bcl.AsyncInterfaces">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\microsoft.bcl.asyncinterfaces\1.1.1\ref\netstandard2.1\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\microsoft.bcl.asyncinterfaces\1.1.1\ref\netstandard2.1\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -662,7 +662,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Microsoft.CSharp">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\microsoft.csharp\4.7.0\lib\netstandard2.0\Microsoft.CSharp.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\microsoft.csharp\4.7.0\lib\netstandard2.0\Microsoft.CSharp.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -671,7 +671,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Microsoft.CSharp">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\microsoft.csharp\4.7.0\ref\netstandard2.0\Microsoft.CSharp.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\microsoft.csharp\4.7.0\ref\netstandard2.0\Microsoft.CSharp.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -688,7 +688,7 @@
           <Paket>True</Paket>
         </Reference>
         <Reference Include="Microsoft.DotNet.PlatformAbstractions">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\microsoft.dotnet.platformabstractions\3.1.6\lib\net45\Microsoft.DotNet.PlatformAbstractions.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\microsoft.dotnet.platformabstractions\3.1.6\lib\net45\Microsoft.DotNet.PlatformAbstractions.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -697,7 +697,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Microsoft.DotNet.PlatformAbstractions">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\microsoft.dotnet.platformabstractions\3.1.6\lib\netstandard2.0\Microsoft.DotNet.PlatformAbstractions.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\microsoft.dotnet.platformabstractions\3.1.6\lib\netstandard2.0\Microsoft.DotNet.PlatformAbstractions.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -708,7 +708,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="Microsoft.Extensions.DependencyModel">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\microsoft.extensions.dependencymodel\3.1.6\lib\net451\Microsoft.Extensions.DependencyModel.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\microsoft.extensions.dependencymodel\3.1.6\lib\net451\Microsoft.Extensions.DependencyModel.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -717,7 +717,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Microsoft.Extensions.DependencyModel">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\microsoft.extensions.dependencymodel\3.1.6\lib\netstandard2.0\Microsoft.Extensions.DependencyModel.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\microsoft.extensions.dependencymodel\3.1.6\lib\netstandard2.0\Microsoft.Extensions.DependencyModel.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -728,7 +728,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="Newtonsoft.Json">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\newtonsoft.json\12.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\newtonsoft.json\12.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -737,7 +737,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Newtonsoft.Json">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\newtonsoft.json\12.0.3\lib\netstandard2.0\Newtonsoft.Json.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\newtonsoft.json\12.0.3\lib\netstandard2.0\Newtonsoft.Json.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -748,7 +748,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="OPCViewer.Base">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\opcviewer.base\1.0.6\lib\netstandard2.0\OPCViewer.Base.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\opcviewer.base\1.0.7\lib\netstandard2.0\OPCViewer.Base.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -762,7 +762,7 @@
           <Paket>True</Paket>
         </Reference>
         <Reference Include="RestSharp">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\restsharp\106.6.10\lib\net452\RestSharp.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\restsharp\106.6.10\lib\net452\RestSharp.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -771,7 +771,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="RestSharp">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\restsharp\106.6.10\lib\netstandard2.0\RestSharp.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\restsharp\106.6.10\lib\netstandard2.0\RestSharp.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -782,7 +782,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="ICSharpCode.SharpZipLib">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\sharpziplib\1.2.0\lib\net45\ICSharpCode.SharpZipLib.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\sharpziplib\1.2.0\lib\net45\ICSharpCode.SharpZipLib.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -791,7 +791,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="ICSharpCode.SharpZipLib">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\sharpziplib\1.2.0\lib\netstandard2.0\ICSharpCode.SharpZipLib.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\sharpziplib\1.2.0\lib\netstandard2.0\ICSharpCode.SharpZipLib.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -802,7 +802,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Silk.NET.Core">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\silk.net.core\1.7.0\lib\netstandard2.0\Silk.NET.Core.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\silk.net.core\1.7.0\lib\netstandard2.0\Silk.NET.Core.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -813,7 +813,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Silk.NET.GLFW">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\silk.net.glfw\1.7.0\lib\netstandard2.0\Silk.NET.GLFW.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\silk.net.glfw\1.7.0\lib\netstandard2.0\Silk.NET.GLFW.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -824,7 +824,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1'">
       <ItemGroup>
         <Reference Include="SixLabors.ImageSharp">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\sixlabors.imagesharp\1.0.3\lib\netcoreapp3.1\SixLabors.ImageSharp.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\sixlabors.imagesharp\1.0.3\lib\netcoreapp3.1\SixLabors.ImageSharp.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -833,7 +833,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="SixLabors.ImageSharp">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\sixlabors.imagesharp\1.0.3\lib\netstandard2.0\SixLabors.ImageSharp.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\sixlabors.imagesharp\1.0.3\lib\netstandard2.0\SixLabors.ImageSharp.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -844,7 +844,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="Suave">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\suave\2.5.6\lib\net461\Suave.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\suave\2.5.6\lib\net461\Suave.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -853,7 +853,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Suave">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\suave\2.5.6\lib\netstandard2.0\Suave.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\suave\2.5.6\lib\netstandard2.0\Suave.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -864,7 +864,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="System.Buffers">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.buffers\4.5.1\lib\net461\System.Buffers.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.buffers\4.5.1\lib\net461\System.Buffers.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -873,7 +873,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Buffers">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.buffers\4.5.1\lib\netstandard2.0\System.Buffers.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.buffers\4.5.1\lib\netstandard2.0\System.Buffers.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -882,7 +882,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Buffers">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.buffers\4.5.1\ref\netstandard2.0\System.Buffers.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.buffers\4.5.1\ref\netstandard2.0\System.Buffers.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -893,7 +893,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Collections">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.collections\4.3.0\ref\netstandard1.3\System.Collections.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.collections\4.3.0\ref\netstandard1.3\System.Collections.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -904,7 +904,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="System.Collections.Immutable">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.collections.immutable\1.7.1\lib\net461\System.Collections.Immutable.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.collections.immutable\1.7.1\lib\net461\System.Collections.Immutable.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -913,7 +913,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Collections.Immutable">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.collections.immutable\1.7.1\lib\netstandard2.0\System.Collections.Immutable.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.collections.immutable\1.7.1\lib\netstandard2.0\System.Collections.Immutable.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -924,7 +924,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Diagnostics.Debug">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.diagnostics.debug\4.3.0\ref\netstandard1.3\System.Diagnostics.Debug.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.diagnostics.debug\4.3.0\ref\netstandard1.3\System.Diagnostics.Debug.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -935,7 +935,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Dynamic.Runtime">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.dynamic.runtime\4.3.0\lib\netstandard1.3\System.Dynamic.Runtime.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.dynamic.runtime\4.3.0\lib\netstandard1.3\System.Dynamic.Runtime.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -944,7 +944,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Dynamic.Runtime">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.dynamic.runtime\4.3.0\ref\netstandard1.3\System.Dynamic.Runtime.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.dynamic.runtime\4.3.0\ref\netstandard1.3\System.Dynamic.Runtime.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -955,7 +955,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Globalization">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.globalization\4.3.0\ref\netstandard1.3\System.Globalization.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.globalization\4.3.0\ref\netstandard1.3\System.Globalization.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -966,7 +966,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.IO">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.io\4.3.0\ref\netstandard1.5\System.IO.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.io\4.3.0\ref\netstandard1.5\System.IO.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -977,7 +977,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Linq">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.linq\4.3.0\lib\netstandard1.6\System.Linq.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.linq\4.3.0\lib\netstandard1.6\System.Linq.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -986,7 +986,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Linq">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.linq\4.3.0\ref\netstandard1.6\System.Linq.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.linq\4.3.0\ref\netstandard1.6\System.Linq.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -997,7 +997,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Linq.Expressions">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.linq.expressions\4.3.0\lib\netstandard1.6\System.Linq.Expressions.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.linq.expressions\4.3.0\lib\netstandard1.6\System.Linq.Expressions.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1006,7 +1006,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Linq.Expressions">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.linq.expressions\4.3.0\ref\netstandard1.6\System.Linq.Expressions.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.linq.expressions\4.3.0\ref\netstandard1.6\System.Linq.Expressions.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1017,7 +1017,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="System.Memory">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.memory\4.5.4\lib\net461\System.Memory.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.memory\4.5.4\lib\net461\System.Memory.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1026,7 +1026,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Memory">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.memory\4.5.4\lib\netstandard2.0\System.Memory.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.memory\4.5.4\lib\netstandard2.0\System.Memory.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1040,7 +1040,7 @@
           <Paket>True</Paket>
         </Reference>
         <Reference Include="System.Numerics.Vectors">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.numerics.vectors\4.5.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.numerics.vectors\4.5.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1049,7 +1049,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Numerics.Vectors">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.numerics.vectors\4.5.0\lib\netstandard2.0\System.Numerics.Vectors.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.numerics.vectors\4.5.0\lib\netstandard2.0\System.Numerics.Vectors.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1058,7 +1058,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Numerics.Vectors">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.numerics.vectors\4.5.0\ref\netstandard2.0\System.Numerics.Vectors.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.numerics.vectors\4.5.0\ref\netstandard2.0\System.Numerics.Vectors.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1069,7 +1069,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.ObjectModel">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.objectmodel\4.3.0\lib\netstandard1.3\System.ObjectModel.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.objectmodel\4.3.0\lib\netstandard1.3\System.ObjectModel.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1078,7 +1078,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.ObjectModel">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.objectmodel\4.3.0\ref\netstandard1.3\System.ObjectModel.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.objectmodel\4.3.0\ref\netstandard1.3\System.ObjectModel.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1089,14 +1089,14 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Reactive">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.reactive\5.0.0\lib\netstandard2.0\System.Reactive.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.reactive\5.0.0\lib\netstandard2.0\System.Reactive.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
       </ItemGroup>
     </When>
   </Choose>
-  <Import Project="..\..\..\..\..\Users\BOOM\.nuget\packages\adaptify.msbuild\1.0.5\build\Adaptify.MSBuild.targets" Condition="Exists('..\..\..\..\..\Users\BOOM\.nuget\packages\adaptify.msbuild\1.0.5\build\Adaptify.MSBuild.targets')" Label="Paket" />
+  <Import Project="C:\Users\hs\.nuget\packages\adaptify.msbuild\1.0.5\build\Adaptify.MSBuild.targets" Condition="Exists('C:\Users\hs\.nuget\packages\adaptify.msbuild\1.0.5\build\Adaptify.MSBuild.targets')" Label="Paket" />
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1'">
       <PropertyGroup>
@@ -1108,7 +1108,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Reflection">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.reflection\4.3.0\ref\netstandard1.5\System.Reflection.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.reflection\4.3.0\ref\netstandard1.5\System.Reflection.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1119,7 +1119,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0'">
       <ItemGroup>
         <Reference Include="System.Reflection.Emit">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.reflection.emit\4.7.0\lib\netstandard2.0\System.Reflection.Emit.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.reflection.emit\4.7.0\lib\netstandard2.0\System.Reflection.Emit.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1128,7 +1128,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0'">
       <ItemGroup>
         <Reference Include="System.Reflection.Emit">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.reflection.emit\4.7.0\ref\netstandard2.0\System.Reflection.Emit.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.reflection.emit\4.7.0\ref\netstandard2.0\System.Reflection.Emit.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1139,7 +1139,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0'">
       <ItemGroup>
         <Reference Include="System.Reflection.Emit.ILGeneration">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.reflection.emit.ilgeneration\4.7.0\lib\netstandard2.0\System.Reflection.Emit.ILGeneration.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.reflection.emit.ilgeneration\4.7.0\lib\netstandard2.0\System.Reflection.Emit.ILGeneration.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1148,7 +1148,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0'">
       <ItemGroup>
         <Reference Include="System.Reflection.Emit.ILGeneration">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.reflection.emit.ilgeneration\4.7.0\ref\netstandard2.0\System.Reflection.Emit.ILGeneration.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.reflection.emit.ilgeneration\4.7.0\ref\netstandard2.0\System.Reflection.Emit.ILGeneration.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1159,7 +1159,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0'">
       <ItemGroup>
         <Reference Include="System.Reflection.Emit.Lightweight">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.reflection.emit.lightweight\4.7.0\lib\netstandard2.0\System.Reflection.Emit.Lightweight.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.reflection.emit.lightweight\4.7.0\lib\netstandard2.0\System.Reflection.Emit.Lightweight.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1168,7 +1168,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0'">
       <ItemGroup>
         <Reference Include="System.Reflection.Emit.Lightweight">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.reflection.emit.lightweight\4.7.0\ref\netstandard2.0\System.Reflection.Emit.Lightweight.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.reflection.emit.lightweight\4.7.0\ref\netstandard2.0\System.Reflection.Emit.Lightweight.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1179,7 +1179,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Reflection.Extensions">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.reflection.extensions\4.3.0\ref\netstandard1.0\System.Reflection.Extensions.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.reflection.extensions\4.3.0\ref\netstandard1.0\System.Reflection.Extensions.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1190,7 +1190,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="System.Reflection.Metadata">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.reflection.metadata\1.8.1\lib\net461\System.Reflection.Metadata.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.reflection.metadata\1.8.1\lib\net461\System.Reflection.Metadata.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1199,7 +1199,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Reflection.Metadata">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.reflection.metadata\1.8.1\lib\netstandard2.0\System.Reflection.Metadata.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.reflection.metadata\1.8.1\lib\netstandard2.0\System.Reflection.Metadata.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1210,7 +1210,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Reflection.Primitives">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.reflection.primitives\4.3.0\ref\netstandard1.0\System.Reflection.Primitives.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.reflection.primitives\4.3.0\ref\netstandard1.0\System.Reflection.Primitives.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1221,7 +1221,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Reflection.TypeExtensions">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.reflection.typeextensions\4.7.0\lib\netstandard2.0\System.Reflection.TypeExtensions.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.reflection.typeextensions\4.7.0\lib\netstandard2.0\System.Reflection.TypeExtensions.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1230,7 +1230,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Reflection.TypeExtensions">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.reflection.typeextensions\4.7.0\ref\netstandard2.0\System.Reflection.TypeExtensions.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.reflection.typeextensions\4.7.0\ref\netstandard2.0\System.Reflection.TypeExtensions.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1241,7 +1241,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Resources.ResourceManager">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.resources.resourcemanager\4.3.0\ref\netstandard1.0\System.Resources.ResourceManager.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.resources.resourcemanager\4.3.0\ref\netstandard1.0\System.Resources.ResourceManager.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1252,7 +1252,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Runtime">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.runtime\4.3.1\ref\netstandard1.5\System.Runtime.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.runtime\4.3.1\ref\netstandard1.5\System.Runtime.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1263,7 +1263,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="System.Runtime.CompilerServices.Unsafe">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.runtime.compilerservices.unsafe\4.7.1\lib\net461\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.runtime.compilerservices.unsafe\4.7.1\lib\net461\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1272,7 +1272,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0'">
       <ItemGroup>
         <Reference Include="System.Runtime.CompilerServices.Unsafe">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.runtime.compilerservices.unsafe\4.7.1\lib\netcoreapp2.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.runtime.compilerservices.unsafe\4.7.1\lib\netcoreapp2.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1281,7 +1281,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Runtime.CompilerServices.Unsafe">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.runtime.compilerservices.unsafe\4.7.1\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.runtime.compilerservices.unsafe\4.7.1\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1290,7 +1290,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Runtime.CompilerServices.Unsafe">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.runtime.compilerservices.unsafe\4.7.1\ref\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.runtime.compilerservices.unsafe\4.7.1\ref\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1301,7 +1301,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Runtime.Extensions">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.runtime.extensions\4.3.1\ref\netstandard1.5\System.Runtime.Extensions.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.runtime.extensions\4.3.1\ref\netstandard1.5\System.Runtime.Extensions.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1312,7 +1312,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="System.Runtime.InteropServices.RuntimeInformation">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.runtime.interopservices.runtimeinformation\4.3.0\lib\net45\System.Runtime.InteropServices.RuntimeInformation.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.runtime.interopservices.runtimeinformation\4.3.0\lib\net45\System.Runtime.InteropServices.RuntimeInformation.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1323,7 +1323,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Runtime.InteropServices.WindowsRuntime">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.runtime.interopservices.windowsruntime\4.3.0\ref\netstandard1.0\System.Runtime.InteropServices.WindowsRuntime.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.runtime.interopservices.windowsruntime\4.3.0\ref\netstandard1.0\System.Runtime.InteropServices.WindowsRuntime.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1332,7 +1332,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Runtime.InteropServices.WindowsRuntime">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.runtime.interopservices.windowsruntime\4.3.0\lib\netstandard1.3\System.Runtime.InteropServices.WindowsRuntime.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.runtime.interopservices.windowsruntime\4.3.0\lib\netstandard1.3\System.Runtime.InteropServices.WindowsRuntime.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1343,7 +1343,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Text.Encoding">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.text.encoding\4.3.0\ref\netstandard1.3\System.Text.Encoding.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.text.encoding\4.3.0\ref\netstandard1.3\System.Text.Encoding.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1354,7 +1354,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="System.Text.Encodings.Web">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.text.encodings.web\4.7.1\lib\net461\System.Text.Encodings.Web.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.text.encodings.web\4.7.1\lib\net461\System.Text.Encodings.Web.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1363,7 +1363,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Text.Encodings.Web">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.text.encodings.web\4.7.1\lib\netstandard2.0\System.Text.Encodings.Web.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.text.encodings.web\4.7.1\lib\netstandard2.0\System.Text.Encodings.Web.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1374,7 +1374,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="System.Text.Json">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.text.json\4.7.2\lib\net461\System.Text.Json.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.text.json\4.7.2\lib\net461\System.Text.Json.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1383,7 +1383,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1'">
       <ItemGroup>
         <Reference Include="System.Text.Json">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.text.json\4.7.2\lib\netcoreapp3.0\System.Text.Json.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.text.json\4.7.2\lib\netcoreapp3.0\System.Text.Json.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1392,7 +1392,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Text.Json">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.text.json\4.7.2\lib\netstandard2.0\System.Text.Json.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.text.json\4.7.2\lib\netstandard2.0\System.Text.Json.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1403,7 +1403,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Threading">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.threading\4.3.0\lib\netstandard1.3\System.Threading.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.threading\4.3.0\lib\netstandard1.3\System.Threading.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1412,7 +1412,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Threading">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.threading\4.3.0\ref\netstandard1.3\System.Threading.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.threading\4.3.0\ref\netstandard1.3\System.Threading.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1423,7 +1423,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Threading.Tasks">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.threading.tasks\4.3.0\ref\netstandard1.3\System.Threading.Tasks.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.threading.tasks\4.3.0\ref\netstandard1.3\System.Threading.Tasks.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1434,7 +1434,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="System.Threading.Tasks.Extensions">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.threading.tasks.extensions\4.5.4\lib\net461\System.Threading.Tasks.Extensions.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.threading.tasks.extensions\4.5.4\lib\net461\System.Threading.Tasks.Extensions.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1443,7 +1443,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Threading.Tasks.Extensions">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.threading.tasks.extensions\4.5.4\lib\netstandard2.0\System.Threading.Tasks.Extensions.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.threading.tasks.extensions\4.5.4\lib\netstandard2.0\System.Threading.Tasks.Extensions.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1454,7 +1454,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="System.ValueTuple">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\system.valuetuple\4.5.0\lib\net47\System.ValueTuple.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\system.valuetuple\4.5.0\lib\net47\System.ValueTuple.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1465,7 +1465,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1'">
       <ItemGroup>
         <Reference Include="Ultz.SuperInvoke">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\ultz.superinvoke\1.1.0\lib\net461\Ultz.SuperInvoke.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\ultz.superinvoke\1.1.0\lib\net461\Ultz.SuperInvoke.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1474,7 +1474,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1'">
       <ItemGroup>
         <Reference Include="Ultz.SuperInvoke">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\ultz.superinvoke\1.1.0\lib\netcoreapp3.0\Ultz.SuperInvoke.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\ultz.superinvoke\1.1.0\lib\netcoreapp3.0\Ultz.SuperInvoke.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1483,7 +1483,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Ultz.SuperInvoke">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\ultz.superinvoke\1.1.0\lib\netstandard2.0\Ultz.SuperInvoke.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\ultz.superinvoke\1.1.0\lib\netstandard2.0\Ultz.SuperInvoke.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1494,7 +1494,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1'">
       <ItemGroup>
         <Reference Include="Ultz.SuperInvoke.Loader">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\ultz.superinvoke.loader\1.1.0\lib\netcoreapp3.0\Ultz.SuperInvoke.Loader.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\ultz.superinvoke.loader\1.1.0\lib\netcoreapp3.0\Ultz.SuperInvoke.Loader.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1503,7 +1503,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Ultz.SuperInvoke.Loader">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\ultz.superinvoke.loader\1.1.0\lib\netstandard2.0\Ultz.SuperInvoke.Loader.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\ultz.superinvoke.loader\1.1.0\lib\netstandard2.0\Ultz.SuperInvoke.Loader.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1514,7 +1514,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Uncodium.Eigensystems">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\uncodium.eigensystems\1.1.2\lib\netstandard2.0\Uncodium.Eigensystems.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\uncodium.eigensystems\1.1.2\lib\netstandard2.0\Uncodium.Eigensystems.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1525,7 +1525,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="AssimpNet">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\unofficial.assimpnet\4.0.9\lib\netstandard2.0\AssimpNet.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\unofficial.assimpnet\4.0.9\lib\netstandard2.0\AssimpNet.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1536,7 +1536,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="LibTessDotNet">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\unofficial.libtessdotnet\2.0.2\lib\netstandard2.0\LibTessDotNet.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\unofficial.libtessdotnet\2.0.2\lib\netstandard2.0\LibTessDotNet.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1547,7 +1547,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="OpenTK">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\unofficial.opentk\3.0.19\lib\netstandard2.0\OpenTK.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\unofficial.opentk\3.0.19\lib\netstandard2.0\OpenTK.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1558,12 +1558,12 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.1') Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.1')) Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="Unofficial.Typography">
-          <HintPath>..\..\..\..\..\Users\BOOM\.nuget\packages\unofficial.typography\0.1.0\lib\netstandard2.0\Unofficial.Typography.dll</HintPath>
+          <HintPath>C:\Users\hs\.nuget\packages\unofficial.typography\0.1.0\lib\netstandard2.0\Unofficial.Typography.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
       </ItemGroup>
     </When>
   </Choose>
-  <Import Project="..\..\..\..\..\Users\BOOM\.nuget\packages\system.reactive\5.0.0\build\$(__paket__System_Reactive_targets).targets" Condition="Exists('..\..\..\..\..\Users\BOOM\.nuget\packages\system.reactive\5.0.0\build\$(__paket__System_Reactive_targets).targets')" Label="Paket" />
+  <Import Project="C:\Users\hs\.nuget\packages\system.reactive\5.0.0\build\$(__paket__System_Reactive_targets).targets" Condition="Exists('C:\Users\hs\.nuget\packages\system.reactive\5.0.0\build\$(__paket__System_Reactive_targets).targets')" Label="Paket" />
 </Project>

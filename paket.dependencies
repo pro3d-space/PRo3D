@@ -43,7 +43,7 @@ nuget Aardium                               ~> 2.0.0
 nuget Uncodium.Eigensystems                 ~> 1.1.2
 
 
-nuget OPCViewer.Base                        ~> 1.0.6
+nuget OPCViewer.Base                        ~> 1.0.7
 
 nuget Aardvark.GeoSpatial.Opc               ~> 5.5.0
 

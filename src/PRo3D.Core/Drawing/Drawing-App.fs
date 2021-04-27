@@ -254,7 +254,7 @@ module DrawingApp =
             |> IndexList.toArray 
             |> cylinders 0.05
             |> Array.tryFind(fun x -> 
-                r.HitsCylinder(x, 0.0, 100.0, &hit2))
+                r.HitsCylinder(x.P0, x.P1, x.Radius, &hit2))
             |> Option.map(fun x ->
                 let hitPoint = hit2.Point
                 let p = Plane3d(x.Axis.Direction, hitPoint)
@@ -366,10 +366,10 @@ module DrawingApp =
                 // { model with annotations = Groups.addSingleSelectedLeaf model.annotations list.Empty ann.key "" }              
                 let annotations =
                     if shiftFlag then
-                        Log.line "[DrawingApp] single select"
+                        Log.line "[DrawingApp] multi select"
                         GroupsApp.update model.annotations (GroupsAppAction.AddLeafToSelection(List.empty, ann.key, String.Empty))
                     else
-                        Log.line "[DrawingApp] multi select"
+                        Log.line "[DrawingApp] single select"
                         GroupsApp.update model.annotations (GroupsAppAction.SingleSelectLeaf(List.empty, ann.key, String.Empty))
                     
                 { model with annotations = annotations }
