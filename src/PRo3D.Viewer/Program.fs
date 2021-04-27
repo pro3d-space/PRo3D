@@ -72,6 +72,14 @@ let rec allFiles dirs =
     if Seq.isEmpty dirs then Seq.empty else
         seq { yield! dirs |> Seq.collect Directory.EnumerateFiles
               yield! dirs |> Seq.collect Directory.EnumerateDirectories |> allFiles }
+
+
+let getFreePort() =
+    let l = System.Net.Sockets.TcpListener(Net.IPAddress.Loopback, 0)
+    l.Start()
+    let ep = l.LocalEndpoint |> unbox<Net.IPEndPoint>
+    l.Stop()
+    ep.Port
    
 [<EntryPoint;STAThread>]
 let main argv = 
@@ -125,7 +133,7 @@ let main argv =
                 do! webSocket.send Text s true
         }        
 
-    PatchLod.useAsyncLoading <- (argv |> Array.contains "-sync" |> not)
+    Sg.useAsyncLoading <- (argv |> Array.contains "-sync" |> not)
     let startEmpty = (argv |> Array.contains "-empty")
 
     UI.enabletoolTips <- (argv |> Array.contains "-notooltips" |> not)
@@ -214,7 +222,10 @@ let main argv =
                         >=> OK "CORS approved" )
         ]
 
-    WebPart.startServerLocalhost 54322 [
+    let port = getFreePort()
+    let uri = sprintf "http://localhost:%d" port
+
+    WebPart.startServerLocalhost port [
         allow_cors
         MutableApp.toWebPart' runtime false mainApp
         path "/websocket" >=> handShake ws
@@ -250,6 +261,9 @@ let main argv =
         //Suave.Files.browseHome        
     ] |> ignore
 
+
+    Log.line "serving at: %s" uri
+
         
     //WebPart.startServer 4322 [
     //    MutableApp.toWebPart' runtime false instrumentApp        
@@ -274,7 +288,7 @@ let main argv =
               mainApp.update Guid.Empty (ViewerAction.SetCameraAndFrustum2 (v.view,frustum) |> Seq.singleton)
 
     let remoteApp = 
-        App.start (PRo3D.RemoteControlApp.app "http://localhost:54322" send)
+        App.start (PRo3D.RemoteControlApp.app uri send)
 
     let takeScreenshot (shot:Shot) =   
         let act = CaptureShot shot |> Seq.singleton
@@ -298,7 +312,7 @@ let main argv =
 
     
     Aardium.run {
-        url "http://localhost:54322/"   //"http://localhost:4321/?page=main"
+        url uri   //"http://localhost:4321/?page=main"
         width 1280
         height 800
         debug true
