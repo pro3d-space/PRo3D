@@ -82,6 +82,7 @@ type StartupArgs = {
     startEmpty            : bool
     useAsyncLoading       : bool
     magnificationFilter   : bool
+    remoteApp             : bool
 } with 
     member args.hasValidAnimationArgs =
         (args.opcPaths.IsSome || args.objPaths.IsSome)
@@ -103,6 +104,7 @@ type StartupArgs = {
           useAsyncLoading       = false
           magnificationFilter   = false
           outFolder             = ""
+          remoteApp             = false
       }
 
 

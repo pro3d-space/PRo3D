@@ -104,6 +104,7 @@ let main argv =
     Aardvark.Rendering.GL.RuntimeConfig.SupressSparseBuffers <- true
     //app.ShaderCachePath <- None
 
+    PRo3D.Core.Drawing.DrawingApp.usePackedAnnotationRendering <- false
     Sg.hackRunner <- runtime.CreateLoadRunner 1 |> Some
 
     Serialization.init()
@@ -300,13 +301,17 @@ let main argv =
         remoteApp.update Guid.Empty act
         { result = shot.folder }
 
-    WebPart.startServerLocalhost 12346 [ 
-        MutableApp.toWebPart runtime (remoteApp)
-        POST >=> path "/shots" >=> mapJson takeScreenshot
-        POST >=> path "/platformshots" >=> mapJson takePlatformShot
-        Suave.Files.browseHome
-    ] |> ignore
-
+    if startupArgs.remoteApp then
+        let remotePort = 12346
+        let _ = WebPart.startServerLocalhost 12346 [ 
+            MutableApp.toWebPart runtime (remoteApp)
+            POST >=> path "/shots" >=> mapJson takeScreenshot
+            POST >=> path "/platformshots" >=> mapJson takePlatformShot
+            Suave.Files.browseHome
+        ] 
+        Log.line "Remote app started at port: %d" remotePort
+    else   
+        Log.warn "no remote app started"
     
     let titlestr = "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH"
 

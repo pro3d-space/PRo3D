@@ -40,6 +40,9 @@ open Chiron
 
 module DrawingApp =
 
+
+    let mutable usePackedAnnotationRendering = true
+
    // open Newtonsoft.Json
         
     let closePolyline (a:Annotation) = 
@@ -495,82 +498,116 @@ module DrawingApp =
 
 
 
-        Log.startTimed "[Drawing] creating finished annotation geometry"
-        let annotations =              
-            annoSet 
-            |> ASet.map(fun (_,a) -> 
-                let c = UI.mkColor model.annotations a
-                let picked = UI.isSingleSelect model.annotations a
-                let showPoints = 
-                  a.geometry 
-                    |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
+
+
+        if usePackedAnnotationRendering then
+
+            Log.startTimed "[Drawing] creating finished annotation geometry"
+            let annotations =              
+                annoSet 
+                |> ASet.map(fun (_,a) -> 
+                    let c = UI.mkColor model.annotations a
+                    let picked = UI.isSingleSelect model.annotations a
+                    let showPoints = 
+                      a.geometry 
+                        |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
                 
-                let sg = Sg.finishedAnnotation a c config view showPoints picked pickingAllowed
-                sg
-            )
-            |> Sg.set               
-        Log.stop()
+                    let sg = Sg.finishedAnnotation a c config view showPoints picked pickingAllowed
+                    sg
+                )
+                |> Sg.set               
+            Log.stop()
 
-        let hoveredAnnotation = cval -1
-        let viewMatrix = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
-        let lines, pickIds, bb = PackedRendering.lines config.offset hoveredAnnotation (model.annotations.selectedLeaves |> ASet.map (fun e -> e.id)) annoSet viewMatrix
-        let pickRenderTarget = PackedRendering.pickRenderTarget runtime config.pickingTolerance lines view frustum viewport
-        pickRenderTarget.Acquire()
-        let packedLines = 
-            let simple (kind : SceneEventKind) (f : SceneHit -> seq<'msg>) =
-                kind, fun evt -> false, Seq.delay (fun () -> (f evt))
-            PackedRendering.packedRender lines 
-            |> Sg.noEvents
-            |> Sg.pickable' (bb |> AVal.map PickShape.Box)
-            |> Sg.withEvents [
-                   simple SceneEventKind.Move (fun (evt : SceneHit) -> 
-                        try
-                            let r = pickRenderTarget.GetValue(AdaptiveToken.Top,RenderToken.Empty)
-                            let offset = evt.event.evtPixel
-                            let r = runtime.Download(r,0,0,Box2i.FromMinAndSize(offset, V2i(1,1))) |> unbox<PixImage<float32>>
-                            let m = r.GetMatrix<C4f>()
-                            let allowed = pickingAllowed.GetValue()
-                            let p = m.[0,0]
-                            let id : int = BitConverter.SingleToInt32Bits(p.A)
+            let hoveredAnnotation = cval -1
+            let viewMatrix = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
+            let lines, pickIds, bb = PackedRendering.lines config.offset hoveredAnnotation (model.annotations.selectedLeaves |> ASet.map (fun e -> e.id)) annoSet viewMatrix
+            let pickRenderTarget = PackedRendering.pickRenderTarget runtime config.pickingTolerance lines view frustum viewport
+            pickRenderTarget.Acquire()
+            let packedLines = 
+                let simple (kind : SceneEventKind) (f : SceneHit -> seq<'msg>) =
+                    kind, fun evt -> false, Seq.delay (fun () -> (f evt))
+                PackedRendering.packedRender lines 
+                |> Sg.noEvents
+                |> Sg.pickable' (bb |> AVal.map PickShape.Box)
+                |> Sg.withEvents [
+                       simple SceneEventKind.Move (fun (evt : SceneHit) -> 
+                            try
+                                let r = pickRenderTarget.GetValue(AdaptiveToken.Top,RenderToken.Empty)
+                                let offset = evt.event.evtPixel
+                                let r = runtime.Download(r,0,0,Box2i.FromMinAndSize(offset, V2i(1,1))) |> unbox<PixImage<float32>>
+                                let m = r.GetMatrix<C4f>()
+                                let allowed = pickingAllowed.GetValue()
+                                let p = m.[0,0]
+                                let id : int = BitConverter.SingleToInt32Bits(p.A)
+                                let ids = pickIds.GetValue()
+                                if id > 0 && id < ids.Length  && allowed then
+                                    //Log.line "hoverhit %A" (id, ids.[id])
+                                    transact (fun _ -> hoveredAnnotation.Value <- id)
+                                    Seq.empty
+                                else 
+                                    transact (fun _ -> hoveredAnnotation.Value <- -1)
+                                    Seq.empty
+                            with e -> Seq.empty
+                       )
+                       Sg.onMouseDown (fun b p -> 
+                            let id = hoveredAnnotation.GetValue()
                             let ids = pickIds.GetValue()
-                            if id > 0 && id < ids.Length  && allowed then
-                                //Log.line "hoverhit %A" (id, ids.[id])
-                                transact (fun _ -> hoveredAnnotation.Value <- id)
-                                Seq.empty
+                            if id > 0 && id < ids.Length then
+                                Log.line "clickhit %A" (id, ids.[id])
+                                DrawingAction.PickDirectly(ids.[id])
                             else 
-                                transact (fun _ -> hoveredAnnotation.Value <- -1)
-                                Seq.empty
-                        with e -> Seq.empty
-                   )
-                   Sg.onMouseDown (fun b p -> 
-                        let id = hoveredAnnotation.GetValue()
-                        let ids = pickIds.GetValue()
-                        if id > 0 && id < ids.Length then
-                            Log.line "clickhit %A" (id, ids.[id])
-                            DrawingAction.PickDirectly(ids.[id])
-                        else 
-                            DrawingAction.Nop
-                   )
-            ]
-        let packedPoints = 
-            PackedRendering.points (model.annotations.selectedLeaves |> ASet.map (fun l -> l.id)) annoSet config.offset viewMatrix
-            |> Sg.noEvents
+                                DrawingAction.Nop
+                       )
+                ]
+            let packedPoints = 
+                PackedRendering.points (model.annotations.selectedLeaves |> ASet.map (fun l -> l.id)) annoSet config.offset viewMatrix
+                |> Sg.noEvents
 
-        let overlay = 
-            Sg.ofList [
-             // brush model.hoverPosition; 
-              annotations
-              Sg.ofSeq [packedLines; packedPoints]
-              Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
-            ]
+            let overlay = 
+                Sg.ofList [
+                 // brush model.hoverPosition; 
+                  annotations
+                  Sg.ofSeq [packedLines; packedPoints]
+                  Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
+                ]
 
-        //let depthTest = 
-        //    annoSet 
-        //    |> ASet.map(fun (_,a) -> Sg.finishedAnnotationDiscs a config model.dnsColorLegend view) |> Sg.set
+            //let depthTest = 
+            //    annoSet 
+            //    |> ASet.map(fun (_,a) -> Sg.finishedAnnotationDiscs a config model.dnsColorLegend view) |> Sg.set
 
-        let depthTest = 
-            PackedRendering.fastDns config model.dnsColorLegend annoSet view
-            |> Sg.noEvents
+            let depthTest = 
+                PackedRendering.fastDns config model.dnsColorLegend annoSet view
+                |> Sg.noEvents
 
-        (overlay, depthTest)
+            (overlay, depthTest)
+
+        else 
+            Log.startTimed "[Drawing] creating finished annotation geometry"
+            let annotations =              
+                annoSet 
+                |> ASet.map(fun (_,a) -> 
+                    let c = UI.mkColor model.annotations a
+                    let picked = UI.isSingleSelect model.annotations a
+                    let showPoints = 
+                        a.geometry 
+                            |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
+                      
+                    let sg = Sg.finishedAnnotationOld a c config view showPoints picked pickingAllowed
+                    sg
+                 )
+                |> Sg.set               
+            Log.stop()
+                                  
+            let overlay = 
+                Sg.ofList [
+                    // brush model.hoverPosition; 
+                    annotations
+                    Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
+                ]
+
+            let depthTest = 
+                annoSet 
+                |> ASet.map(fun (_,a) -> Sg.finishedAnnotationDiscs a config model.dnsColorLegend view) |> Sg.set
+
+            (overlay, depthTest)
             
