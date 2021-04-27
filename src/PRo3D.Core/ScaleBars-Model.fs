@@ -99,6 +99,7 @@ type ScaleBar = {
 
     text           : string
     textsize       : NumericInput
+    textVisible    : bool
    
     isVisible       : bool
     position        : V3d    
@@ -133,8 +134,9 @@ module ScaleBar =
             let! guid            = Json.read "guid"
             let! name            = Json.read "name"
 
-            let! text     = Json.read "text"
-            let! textSize = Json.readWith Ext.fromJson<NumericInput,Ext> "textsize"
+            let! text           = Json.read "text"
+            let! textSize       = Json.readWith Ext.fromJson<NumericInput,Ext> "textsize"
+            let! textVisible    = Json.read "textVisible"
 
             let! isVisible       = Json.read "isVisible"
             let! position        = Json.read "position"
@@ -163,6 +165,7 @@ module ScaleBar =
                     
                     text            = text      
                     textsize        = textSize  
+                    textVisible     = textVisible
 
                     isVisible       = isVisible
                     position        = position |> V3d.Parse
@@ -199,6 +202,7 @@ type ScaleBar with
 
             do! Json.write "text"    x.text
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "textsize" x.textsize
+            do! Json.write "textVisible" x.textVisible    
 
             do! Json.write "isVisible" x.isVisible    
             do! Json.write "position" (x.position.ToString())

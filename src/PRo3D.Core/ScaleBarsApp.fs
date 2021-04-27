@@ -62,6 +62,7 @@ module ScaleBarProperties =
     type Action =
         | SetName        of string
         | SetTextsize    of Numeric.Action
+        | ToggleTextVisible 
         | ToggleVisible 
         | SetLength      of Numeric.Action
         | SetThickness   of Numeric.Action
@@ -75,6 +76,8 @@ module ScaleBarProperties =
             { model with name = s }
         | SetTextsize s ->
             { model with textsize = Numeric.update model.textsize s}
+        | ToggleTextVisible ->
+            { model with textVisible = not model.textVisible }
         | ToggleVisible ->
             { model with isVisible = not model.isVisible }
         | SetLength a ->
@@ -95,10 +98,11 @@ module ScaleBarProperties =
       require GuiEx.semui (
         Html.table [               
           Html.row "Name:"          [Html.SemUi.textBox model.name SetName ]
-          Html.row "Textsize:"      [Numeric.view' [NumericInputType.InputBox] model.textsize |> UI.map SetTextsize ]  
           Html.row "Visible:"       [GuiEx.iconCheckBox model.isVisible ToggleVisible ]
+          Html.row "Textsize:"      [Numeric.view' [NumericInputType.InputBox] model.textsize |> UI.map SetTextsize ]  
+          Html.row "TextVisible:"   [GuiEx.iconCheckBox model.textVisible ToggleTextVisible ]
           Html.row "Length:"        [Numeric.view' [NumericInputType.InputBox] model.length |> UI.map SetLength ]       
-          Html.row "Thickness:"     [Numeric.view' [NumericInputType.Slider]   model.thickness  |> UI.map SetThickness ]
+          Html.row "Thickness:"     [Numeric.view' [NumericInputType.InputBox]   model.thickness  |> UI.map SetThickness ]
           Html.row "Subdivisions:"  [Numeric.view' [NumericInputType.InputBox]   model.subdivisions  |> UI.map SetSubdivisions ]
           Html.row "Orientation:"   [Html.SemUi.dropDown model.orientation SetOrientation]
           Html.row "Unit:"          [Html.SemUi.dropDown model.unit SetUnit]
@@ -202,6 +206,7 @@ module ScaleBarUtils =
                 
                 text            = text
                 textsize        = InitScaleBarsParams.text
+                textVisible     = true
                    
                 isVisible       = true
                 position        = position // V3d.Zero    
@@ -600,6 +605,7 @@ module ScaleBarsApp =
 
                 let text = 
                     Sg.text view near (AVal.constant 60.0) scaleBar.position trafo scaleBar.textsize.value scaleBar.text
+                    |> Sg.onOff scaleBar.textVisible
 
                 let pickFunc = Sg.pickEventsHelper scaleBar.guid (AVal.constant selected) scaleBar.thickness.value trafo
 
