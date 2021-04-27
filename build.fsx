@@ -235,6 +235,8 @@ Target.create "CopyJRWRapper" (fun _ ->
 
 
 Target.create "GitHubRelease" (fun _ ->
+    let newVersion = notes.NugetVersion
+    Branches.pushTag "." "origin" newVersion
     let token =
         match Environment.environVarOrDefault "github_token" "" with
         | s when not (System.String.IsNullOrWhiteSpace s) -> s
@@ -248,13 +250,6 @@ Target.create "GitHubRelease" (fun _ ->
     |> GitHub.publishDraft
     |> Async.RunSynchronously
 )
-
-
-Target.create "PushTag" (fun _ -> 
-    let newVersion = notes.NugetVersion
-    Branches.pushTag "." "origin" newVersion
-)
-
 
 
 

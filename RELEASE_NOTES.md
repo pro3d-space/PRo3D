@@ -1,3 +1,8 @@
+## 3.7.0-prerelease4
+
+- new color correction UI + ordering of operations https://github.com/vrvis/PRo3D/issues/52
+- fixed dns colors
+
 ## 3.7.0-prerelease3
 
 - added geoJSON export via menu > annotations > export xyz (*.json)
