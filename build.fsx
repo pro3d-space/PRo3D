@@ -236,19 +236,24 @@ Target.create "CopyJRWRapper" (fun _ ->
 
 Target.create "GitHubRelease" (fun _ ->
     let newVersion = notes.NugetVersion
-    Branches.pushTag "." "origin" newVersion
-    let token =
-        match Environment.environVarOrDefault "github_token" "" with
-        | s when not (System.String.IsNullOrWhiteSpace s) -> s
-        | _ -> failwith "please set the github_token environment variable to a github personal access token with repro access."
+    try
+        Branches.tag "." newVersion
+        let token =
+            match Environment.environVarOrDefault "github_token" "" with
+            | s when not (System.String.IsNullOrWhiteSpace s) -> s
+            | _ -> failwith "please set the github_token environment variable to a github personal access token with repro access."
 
-    let files = System.IO.Directory.EnumerateFiles("bin/publish") 
+        let files = System.IO.Directory.EnumerateFiles("bin/publish") 
 
-    GitHub.createClientWithToken token
-    |> GitHub.draftNewRelease "vrvis" "PRo3D" notes.NugetVersion (notes.SemVer.PreRelease <> None) notes.Notes
-    |> GitHub.uploadFiles files
-    |> GitHub.publishDraft
-    |> Async.RunSynchronously
+        GitHub.createClientWithToken token
+        |> GitHub.draftNewRelease "vrvis" "PRo3D" notes.NugetVersion (notes.SemVer.PreRelease <> None) notes.Notes
+        |> GitHub.uploadFiles files
+        |> GitHub.publishDraft
+        |> Async.RunSynchronously
+    finally
+        ()
+        //Branches.pushTag "." "origin" newVersion
+        
 )
 
 
