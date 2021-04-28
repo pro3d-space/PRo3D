@@ -34,6 +34,7 @@ module Sg =
     }
 
     let mutable hackRunner : Option<Load.Runner> = None
+    let mutable useAsyncLoading = true
 
     let mars 
         (preTrafo    : Trafo3d)
@@ -121,6 +122,7 @@ module Sg =
                     true
                     ViewerModality.XYZ
                     //PatchLod.CoordinatesMapping.Local
+                    useAsyncLoading
                     (PatchLod.toRoseTree h.tree)
             )
             |> SgFSharp.Sg.ofList                

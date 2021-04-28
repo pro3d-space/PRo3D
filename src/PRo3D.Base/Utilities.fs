@@ -479,10 +479,10 @@ module Shader =
         fragment { 
             return v.c
             |> addColor
-            |> mapContrast
-            |> mapBrightness
-            |> mapGamma
             |> grayscale
+            |> mapBrightness
+            |> mapContrast
+            |> mapGamma
         }
 
 module Sg =    

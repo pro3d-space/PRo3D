@@ -254,7 +254,7 @@ module DrawingApp =
             |> IndexList.toArray 
             |> cylinders 0.05
             |> Array.tryFind(fun x -> 
-                r.HitsCylinder(x, 0.0, 100.0, &hit2))
+                r.HitsCylinder(x.P0, x.P1, x.Radius, &hit2))
             |> Option.map(fun x ->
                 let hitPoint = hit2.Point
                 let p = Plane3d(x.Axis.Direction, hitPoint)

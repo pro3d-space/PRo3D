@@ -453,15 +453,16 @@ module PackedRendering =
                             colors.Add(color)
                             sizes.Add(float32 <| size.GetValue(t))
                         | Geometry.DnS -> 
-                            let p = PRo3D.Core.Drawing.Sg.getPolylinePoints anno
-                            let c = anno.color.c.GetValue(t)
-                            let size = anno.thickness.value |> AVal.map(fun x -> x + 0.5)
-                            let size = size.GetValue(t)
-                            let px = p.GetValue(t)
-                            for p in px do 
-                                modelPos.Add(p)
-                                colors.Add(C4b.VRVisGreen)
-                                sizes.Add(float32 size)
+                            if isSelected then
+                                let p = PRo3D.Core.Drawing.Sg.getPolylinePoints anno
+                                let c = anno.color.c.GetValue(t)
+                                let size = anno.thickness.value |> AVal.map(fun x -> x + 0.5)
+                                let size = size.GetValue(t)
+                                let px = p.GetValue(t)
+                                for p in px do 
+                                    modelPos.Add(p)
+                                    colors.Add(color)
+                                    sizes.Add(float32 size)
                         | _ -> ()
 
                 Log.stop()
@@ -527,12 +528,15 @@ module PackedRendering =
                 match dnsResults with
                 | AdaptiveSome s when visible && showDns -> 
                     let p = PRo3D.Core.Drawing.Sg.getPolylinePoints anno
+                    let dipAngle = s.dipAngle.GetValue(t)
+                    let _ = fcm.Current.GetValue(t)
+                    let r = PRo3D.FalseColorLegendApp.Draw.getColorDnS fcm s.dipAngle
                     let ps = p.GetValue(t)
+                    let color = r.GetValue(t)
+
                     if ps.Length > 0 then
                         let center = ps.[ps.Length / 2]
-                        let r = PRo3D.FalseColorLegendApp.Draw.getColorDnS fcm s.dipAngle
                         
-                        let color = r.GetValue()
                         let lengthFactor = 
                             (ps |> Array.toList |> Calculations.getDistance) / 3.0
 
