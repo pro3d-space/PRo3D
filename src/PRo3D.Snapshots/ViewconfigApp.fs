@@ -23,9 +23,11 @@ module ConfigProperties =
         | SetDnSPlaneSize           of Numeric.Action
         | SetOffset                 of Numeric.Action
         | SetPickingTolerance       of Numeric.Action
+        | ShadingMessage            of Shading.ShadingAction
         | ToggleLodColors
         | ToggleOrientationCube 
         | ToggleSurfaceHighlighting
+        | Nop
         //| ToggleExplorationPoint
         
 

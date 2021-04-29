@@ -39,12 +39,12 @@
     <Compile Include="Models\Model.fs" />
     <Compile Include="Models\VersionedModel.fs" />
     <Compile Include="Utilities.fs" />
-    <Compile Include="OrientationCube.fs" />
     <Compile Include="Navigation-Model.fs" />
-    <Compile Include="Bookmark-Model.fs" />
-    <Compile Include="Navigation.fs" />  
+    <Compile Include="Navigation.fs" />
+    <Compile Include="Bookmark-Model.fs" />  
     <Compile Include="ViewconfigApp.fs" />
     <Compile Include="DockConfigs.fs" />
+    <Compile Include="DashboardModes.fs" />
     <Compile Include="Viewer-Model.fs" />
     <Compile Include="Bookmarks.fs" />
     <Compile Include="Scene.fs" />
@@ -63,6 +63,9 @@
     <Compile Include="RemoteControlModel.fs" />
     <Compile Include="RemoteControlApp.fs" />
     <Compile Include="Program.fs" />
+    <EmbeddedResource Include="resources\ElementQueries.js" />
+    <EmbeddedResource Include="resources\errorReporting.js" />
+    <EmbeddedResource Include="resources\ResizeSensor.js" />
     <None Include="resources\HueColorMap.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -76,6 +79,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </EmbeddedResource>
     <EmbeddedResource Include="resources\semui-overrides.css" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Reactive" Version="5.0.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.2D3DLinking\PRo3D.Linking.fsproj" />

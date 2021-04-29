@@ -39,12 +39,11 @@
     <Compile Include="Models\Model.fs" />
     <Compile Include="Models\VersionedModel.fs" />
     <Compile Include="Utilities.fs" />
-    <Compile Include="OrientationCube.fs" />
     <Compile Include="Navigation-Model.fs" />
-    <Compile Include="Bookmark-Model.fs" />
     <Compile Include="Navigation.fs" />  
     <Compile Include="ViewconfigApp.fs" />
     <Compile Include="DockConfigs.fs" />
+    <Compile Include="DashboardModes.fs" />
     <Compile Include="Viewer-Model.fs" />
     <Compile Include="Bookmarks.fs" />
     <Compile Include="Scene.fs" />
@@ -74,6 +73,8 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </EmbeddedResource>
     <EmbeddedResource Include="resources\semui-overrides.css" />
+    <EmbeddedResource Include="resources\ElementQueries.js" />
+	<EmbeddedResource Include="resources\ResizeSensor.js" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.2D3DLinking\PRo3D.Linking.fsproj" />

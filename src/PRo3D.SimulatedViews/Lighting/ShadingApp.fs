@@ -12,7 +12,7 @@ open PRo3D.Base
 open Adaptify
 open FSharp.Data.Adaptive
 open PRo3D.Core.Surface
-open PRo3D.SimulatedViews
+
 open Chiron
 
 type ShadingAction =

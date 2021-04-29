@@ -65,7 +65,7 @@ module UserFeedback =
             msg     = ViewerAction.NoAction ""
         }
 
-    let createWorker (feedback: UserFeedback<'a>) =
+    let createWorker (feedback: UserFeedback<ViewerAction>) =
         proclist {
             yield UpdateUserFeedback ""
             yield UpdateUserFeedback feedback.text
@@ -308,7 +308,7 @@ module ViewerApp =
                 | ViewerMode.Standard -> m.navigation.camera.view
                 | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam 
 
-            let msg = DrawingAction.AddPointAdv(p, hitFunction, surf.name)
+            let msg = DrawingAction.AddPointAdv(p, hitFunction, surf.name, m.scene.bookmarks.singleSelectLeaf)
             let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig bc view m.shiftFlag m.drawing msg
             //Log.stop()
             { m with drawing = drawing } |> stash
@@ -504,7 +504,7 @@ module ViewerApp =
                     | None ->
                         match surf with
                         | Some s ->
-                            let bb = s.globalBB.Transformed(surface.preTransform.Forward * superTrafo.Forward)
+                            let bb = s.globalBB.Transformed(superTrafo.Forward)
                             let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value    
                             let animationMessage = 
                                 animateFowardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
@@ -529,7 +529,7 @@ module ViewerApp =
             | Some selected ->                             
                 let f = (fun x ->
                     let a = x |> Leaf.toAnnotation
-                    let a = AnnotationProperties.update a msg 
+                    let a = AnnotationProperties.update a m.scene.referenceSystem.planet msg
 
                     //update true thickness computation on dip angle change
                     let a = 
@@ -548,9 +548,9 @@ module ViewerApp =
                 Optic.set _annotations a m
             | None -> m       
         | BookmarkMessage msg,_,_ ->  
-            Log.warn "[Viewer] bookmarks animation %A" m.navigation.camera.view.Location
+            //Log.warn "[Viewer] bookmarks animation %A" m.navigation.camera.view.Location
 
-            let m', bm = Bookmarks.update m.scene.bookmarks msg _navigation m
+            let m', bm = Bookmarks.update m.scene.bookmarks m.scene.referenceSystem.planet msg _navigation m
             let animation = 
                 match msg with
                 | BookmarkAction.GroupsMessage k ->
@@ -644,9 +644,11 @@ module ViewerApp =
         | ImportObject sl,_,_ -> 
             match sl |> List.tryHead with
             | Some path ->  
-                let objects =                   
+                let newSurface = 
                     path 
                     |> SurfaceUtils.mk SurfaceType.SurfaceOBJ m.scene.config.importTriangleSize.value
+                let objects =                   
+                  newSurface
                     |> IndexList.single                                
                 m 
                 |> SceneLoader.importObj runtime signature objects 
@@ -773,7 +775,18 @@ module ViewerApp =
                             | Projection.Sky -> 
                                 let up = m.scene.referenceSystem.up.value
                                 FastRay3d(p + (up * 5000.0), -up)  
-                            | _ -> Log.error "projection started without proj mode"; FastRay3d()
+                            | Projection.Bookmark ->
+                                match m.scene.bookmarks.singleSelectLeaf with
+                                | Some bm -> 
+                                    let bm = m.scene.bookmarks.flat 
+                                                |> HashMap.find bm
+                                                |> Leaf.toBookmark
+                                    let dir = (p - bm.cameraView.Location).Normalized
+                                    FastRay3d(bm.cameraView.Location, dir)
+                                | None -> 
+                                    Log.warn "[Projection] No bookmark selected. Please select a bookmark."
+                                    FastRay3d()
+                            | _ -> Log.error "[Projection] projection started without proj mode"; FastRay3d()
                    
                         match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem ray surfaceFilter cache with
                         | Some (t,surf), c ->                             
@@ -827,12 +840,21 @@ module ViewerApp =
             |> ViewerIO.loadMinerva SceneLoader.Minerva.defaultDumpFile SceneLoader.Minerva.defaultCacheFile
 
         | NewScene,_,_ ->
-            let initialModel = Viewer.initial m.messagingMailbox StartupArgs.initArgs //m.minervaModel.minervaMessagingMailbox
-            { initialModel with recent = m.recent } |> ViewerIO.loadRoverData
+            let oldPlanet = m.scene.referenceSystem.planet
+            let m = Viewer.initial m.messagingMailbox StartupArgs.initArgs //m.minervaModel.minervaMessagingMailbox
+            let (refSystem,_) = ReferenceSystemApp.update m.scene.config 
+                                                          refConfig 
+                                                          ReferenceSystem.initial
+                                                          (SetPlanet oldPlanet)
+            let m = {m with scene = {m.scene with referenceSystem = refSystem}}
+            { m with recent = m.recent } |> ViewerIO.loadRoverData
         | KeyDown k, _, _ ->
             let m =
                 match k with
-                | Aardvark.Application.Keys.LeftShift -> { m with shiftFlag = true}
+                | Aardvark.Application.Keys.LeftShift -> 
+                    let m = { m with shiftFlag = true}
+                    Log.line "[Viewer] ShiftFlag %A" m.shiftFlag
+                    m
                 | _ -> m
           
             let drawingAction =
@@ -898,7 +920,7 @@ module ViewerApp =
                 match k with 
                 | Aardvark.Application.Keys.PageUp   -> ConfigProperties.Action.SetNavigationSensitivity (Numeric.Action.SetValue (sensitivity + 0.5))
                 | Aardvark.Application.Keys.PageDown -> ConfigProperties.Action.SetNavigationSensitivity (Numeric.Action.SetValue (sensitivity - 0.5))
-                | _ -> ConfigProperties.Action.SetNavigationSensitivity (Numeric.Action.SetValue (sensitivity))
+                | _ -> ConfigProperties.Action.Nop
 
             let c' = ConfigProperties.update m.scene.config configAction
 
@@ -992,6 +1014,19 @@ module ViewerApp =
                     m |> shortFeedback "Saved logbrush"
                 | Aardvark.Application.Keys.F8 ->
                     { m with scene = { m.scene with dockConfig = DockConfigs.core } }
+                | Aardvark.Application.Keys.T ->
+                    let comparisonApp, surfacesModel = 
+                        ComparisonApp.update  m.comparisonApp 
+                                              m.scene.surfacesModel 
+                                              m.scene.referenceSystem 
+                                              (m.drawing.annotations.flat 
+                                                  |> HashMap.map (fun id x -> Leaf.toAnnotation x))
+                                              (m.scene.bookmarks.flat
+                                                  |> HashMap.map (fun id x -> Leaf.toBookmark x))
+                                              Comparison.ComparisonAction.ToggleVisible
+                    {m with comparisonApp = comparisonApp
+                            scene         = {m.scene with surfacesModel = surfacesModel}
+                    }
                 | _ -> m
 
             let interaction' = 
@@ -1006,8 +1041,12 @@ module ViewerApp =
         | KeyUp k, _,_ ->               
             let m =
                 match k with
-                | Aardvark.Application.Keys.LeftShift -> { m with shiftFlag = false}
+                | Aardvark.Application.Keys.LeftShift -> 
+                    let m = { m with shiftFlag = false}
+                    Log.line "[Viewer] ShiftFlag %A" m.shiftFlag
+                    m                    
                 | _ -> m
+
             match k with
             | Aardvark.Application.Keys.LeftCtrl -> 
                 match m.interaction with
@@ -1053,7 +1092,7 @@ module ViewerApp =
             //Log.line "config message %A" a
             let c' = ConfigProperties.update m.scene.config a
             let m = Optic.set (Model.scene_ >-> Scene.config_) c' m
-            
+    
             match a with                   
             | ConfigProperties.Action.SetNearPlane _ | ConfigProperties.Action.SetFarPlane _ ->
                 let fov = m.frustum |> Frustum.horizontalFieldOfViewInDegrees
@@ -1061,7 +1100,7 @@ module ViewerApp =
                 let f' = Frustum.perspective fov c'.nearPlane.value c'.farPlane.value asp                    
 
                 { m with frustum = f' }
-                | _ -> m
+            | _ -> m
         | SetMode d,_,_ -> 
             { m with trafoMode = d }
         | SetKind d,_,_ -> 
@@ -1133,6 +1172,21 @@ module ViewerApp =
         | UpdateDockConfig dcf,_,_ ->
             let closedPages = updateClosedPages m dcf.content
             { m with scene = { m.scene with dockConfig = dcf; closedPages = closedPages } }
+        | ChangeDashboardMode mode, _,_ ->
+            let closedPages = updateClosedPages m mode.dockConfig.content
+            let scene = { m.scene with dockConfig = mode.dockConfig
+                                                    closedPages = closedPages }
+            let scene = 
+                if mode.name = DashboardModes.comparison.name then
+                    let (refSystem,_) = ReferenceSystemApp.update m.scene.config 
+                                                                    refConfig 
+                                                                    m.scene.referenceSystem 
+                                                                    (SetPlanet Planet.None)
+                    {scene with referenceSystem = refSystem}
+                else scene
+            { m with scene         = scene
+                     dashboardMode = mode.name}
+            
         | AddPage de,_,_ -> 
             let closedPages = m.scene.closedPages |> List.filter(fun x -> x.id <> de.id)                
             let cont = addDockElement m.scene.dockConfig.content de
@@ -1187,22 +1241,14 @@ module ViewerApp =
                 { m with overlayFrustum = None; linkingModel = linking' } //navigation = { m.navigation with camera = camera' }}
             | _ -> 
                 { m with linkingModel = PRo3D.Linking.LinkingApp.update m.linkingModel a }
-        | OnResize a,_,_ ->              
+        | OnResize (a,id),_,_ ->              
             Log.line "[RenderControl Resized] %A" a
-            { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y) }
+            { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y); viewPortSize = HashMap.add id a m.viewPortSize }
+        | ResizeMainControl(a,id),_,_ -> 
+            printfn "resize %A" (a,id)
+            { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y); viewPortSize = HashMap.add id a m.viewPortSize }
         | SetTextureFiltering b,_,_ ->
             {m with filterTexture = b}
-       // | TestHaltonRayCasting _,_,_->
-            //ViewerUtils.placeMultipleOBJs2 m [SnapshotShattercone.TestData] // TODO MarsDL put in own app
-        //| UpdateShatterCones shatterCones,_,_ -> // TODO MarsDL put in own app
-        //// TODO: LAURA
-        //    match shatterCones.IsEmptyOrNull () with
-        //    | false ->
-        //        let m' = addOrClearSnapshotGroup m
-        //        ViewerUtils.placeMultipleOBJs2 m' shatterCones
-        //    | true ->
-        //        Log.line "[Viewer] No shattercone updates found."
-        //        m
         | StartDragging _,_,_
         | Dragging _,_,_ 
         | EndDragging _,_,_ -> 
@@ -1290,6 +1336,23 @@ module ViewerApp =
         //| _ -> 
         //    Log.warn "[Viewer] don't know message %A. ignoring it." msg
         //    m                                            
+        | ComparisonMessage msg, _, _ ->
+            let comparisonApp, surfacedModel = 
+                ComparisonApp.update  m.comparisonApp 
+                                      m.scene.surfacesModel 
+                                      m.scene.referenceSystem 
+                                      (m.drawing.annotations.flat 
+                                          |> HashMap.map (fun id x -> Leaf.toAnnotation x))
+                                      (m.scene.bookmarks.flat
+                                          |> HashMap.map (fun id x -> Leaf.toBookmark x))
+                                      msg              
+            {m with comparisonApp = comparisonApp
+                    scene = {m.scene with referenceSystem = 
+                                            {m.scene.referenceSystem with planet = Planet.None}
+                                          surfacesModel = surfacedModel
+                            }
+            }
+
         | _ -> m       
                                    
     let mkBrushISg color size trafo : ISg<Message> =
@@ -1302,7 +1365,7 @@ module ViewerApp =
         |> Sg.noEvents
         |> Sg.trafo(trafo)
     
-    let renderControlAttributes (m: AdaptiveModel) = 
+    let renderControlAttributes (id : string) (m: AdaptiveModel) = 
         let renderControlAtts (model: AdaptiveNavigationModel) =
             amap {
                 let! state = model.navigationMode
@@ -1327,7 +1390,17 @@ module ViewerApp =
                 onKeyDown (KeyDown)
                 onKeyUp   (KeyUp)        
                 clazz "mainrendercontrol"
-              //  onResize  (OnResize)
+                onEvent "resizeControl"  [] (
+                    fun p -> 
+                        match p with
+                        | w::h::[] -> 
+                            let w : int = Pickler.json.UnPickleOfString w
+                            let h : int = Pickler.json.UnPickleOfString h
+                            printfn "%A" (w,h)
+                            ResizeMainControl(V2i(w,h),id)
+                        | _ -> Nop 
+                )
+                //onResize  (fun s -> OnResize(s,id))
             ] 
         ]            
 
@@ -1362,12 +1435,16 @@ module ViewerApp =
             | _ -> false
         ) m.ctrlFlag m.interaction
 
-    let viewInstrumentView (m: AdaptiveModel) = 
+    let viewInstrumentView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
+        let frustum = m.frustum 
         let annotationsI, discsI = 
             DrawingApp.view 
                 m.scene.config 
                 mdrawingConfig 
                 (m.scene.viewPlans.instrumentCam)
+                frustum
+                runtime
+                (m.viewPortSize |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
                 (allowAnnotationPicking m)
                 m.drawing
 
@@ -1392,12 +1469,19 @@ module ViewerApp =
             AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
         DomNode.RenderControl((instrumentControlAttributes m), icam, icmds, None) //AttributeMap.Empty
 
-    let viewRenderView (m: AdaptiveModel) = 
+    let viewRenderView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
+
+        let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
+        let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
+
         let annotations, discs = 
             DrawingApp.view 
                 m.scene.config 
                 mdrawingConfig 
                 m.navigation.camera.view 
+                frustum
+                runtime
+                (m.viewPortSize |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
                 (allowAnnotationPicking m)                 
                 m.drawing
             
@@ -1470,9 +1554,6 @@ module ViewerApp =
 
             let solText = 
                 MinervaApp.getSolBillboards m.minervaModel m.navigation.camera.view near |> Sg.map MinervaActions
-
-            let viewportFilteredText = 
-                MinervaApp.viewPortLabels m.minervaModel m.navigation.camera.view (ViewerUtils.frustum m) |> Sg.map MinervaActions
                 
             //let correlationLogs, _ =
             //    PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
@@ -1530,25 +1611,28 @@ module ViewerApp =
         let depthTested = 
             [linkingSg; annotationSg; minervaSg; heightValidationDiscs] |> Sg.ofList
 
-        let cmds    = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m
-        let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
-        let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
-        DomNode.RenderControl((renderControlAttributes m), cam, cmds, None)
+        let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m
+        onBoot "attachResize('__ID__')" (
+            DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
+        )
         
-    let view (m: AdaptiveModel) = //(localhost: string)
-       
+    let view (runtime : IRuntime) (m: AdaptiveModel) = //(localhost: string)
+
         let viewerDependencies = [
             { kind = Stylesheet;  name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.css" }
             { kind = Stylesheet;  name = "semui-overrides"; url = "semui-overrides.css" }
             { kind = Script;      name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.js" }
             { kind = Script;      name = "errorReporting";  url = "./errorReporting.js"  }
+
+            { kind = Script;      name = "resize";  url = "./ResizeSensor.js"  }
+            { kind = Script;      name = "resizeElem";  url = "./ElementQueries.js"  }
         ]
         
         let bodyAttributes = [style "background: #1B1C1E; height:100%; overflow-y:scroll; overflow-x:hidden;"] //overflow-y : visible
 
         page (
             fun request -> 
-                Gui.Pages.pageRouting viewerDependencies bodyAttributes m viewInstrumentView viewRenderView request
+                Gui.Pages.pageRouting viewerDependencies bodyAttributes m viewInstrumentView viewRenderView runtime request
         )
                    
     let threadPool (m: Model) =
@@ -1600,7 +1684,7 @@ module ViewerApp =
         App.start {
             unpersist = Unpersist.instance
             threads   = threadPool
-            view      = view //localhost
+            view      = view runtime //localhost
             update    = update runtime signature sendQueue messagingMailbox
             initial   = m
         }

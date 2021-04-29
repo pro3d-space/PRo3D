@@ -2,6 +2,7 @@
 
 open System
 open Aardvark.Base
+open Aardvark.Rendering
 open Adaptify
 open Aardvark.UI
 open PRo3D.Core.Surface

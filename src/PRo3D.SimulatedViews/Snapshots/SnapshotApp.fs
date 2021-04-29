@@ -43,7 +43,7 @@ type SnapshotApp<'model,'aModel, 'msg> =
 module SnapshotApp =
     let executeAnimation (app : SnapshotApp<'model,'aModel, 'msg>) =
         
-        let resolution = app.snapshotAnimation.resolution
+        let resolution = V3i (app.snapshotAnimation.resolution.X, app.snapshotAnimation.resolution.Y, 1)
         let near, far =
             match app.snapshotAnimation.nearplane, app.snapshotAnimation.farplane with
             | Some n, Some f -> n, f
@@ -58,13 +58,17 @@ module SnapshotApp =
         let frustum =
           Frustum.perspective foV near far 
                               (float(resolution.X)/float(resolution.Y))
-        let depth = app.runtime.CreateTexture(resolution, TextureFormat.Depth24Stencil8, 1, 1);
-        let col = app.runtime.CreateTexture(resolution, TextureFormat.Rgba8, 1, 1);
+
+
+        let depth = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Depth24Stencil8, 1, 1);
+        let col   = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Rgba8, 1, 1);
+
         let signature = 
             app.runtime.CreateFramebufferSignature [
                 DefaultSemantic.Colors, { format = RenderbufferFormat.Rgba8; samples = 1 }
                 DefaultSemantic.Depth,  { format = RenderbufferFormat.Depth24Stencil8; samples = 1 }
             ]
+
         let fbo = 
             app.runtime.CreateFramebuffer(
                 signature, 
@@ -105,7 +109,7 @@ module SnapshotApp =
         let task = app.runtime.CompileRender(signature, sg)
         let (size, depth) = 
             match app.renderDepth with 
-            | true -> Some resolution, Some depth
+            | true -> Some app.snapshotAnimation.resolution, Some depth
             | false -> None, None
 
         let parameters : RenderParameters =

@@ -53,11 +53,7 @@ type ViewerMode =
     | Instrument
 
 
-    
-type SnapshotType = 
-    | Camera
-    | CameraAndSurface
-    | CameraSurfaceMask
+  
 
 type GuiMode =
     | NoGui
@@ -67,17 +63,17 @@ type GuiMode =
 
 
 type StartupArgs = {
+    showExplorationPoint  : bool
     startEmpty            : bool
     useAsyncLoading       : bool
     magnificationFilter   : bool
-    showExplorationPoint  : bool
 } with 
     static member initArgs =
       {
-          magnificationFilter   = false
+          showExplorationPoint  = true
           startEmpty            = false
           useAsyncLoading       = false
-          showExplorationPoint  = true
+          magnificationFilter   = false
       }
 
 

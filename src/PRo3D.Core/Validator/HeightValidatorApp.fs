@@ -117,30 +117,35 @@ module HeightValidatorApp =
         let posB = Sg.dot ~~C4b.Magenta ~~3.0 posB
 
         let inclinedLine = 
-            alist {
-                let! lower = model.validator.lower
-                let! upper = model.validator.upper
-                let! height = model.result.heightOverHorizontal
-                let! up = model.validator.upVector
+            AVal.custom (fun t -> 
+                let lower = model.validator.lower.GetValue(t)
+                let upper = model.validator.upper.GetValue(t)
+                let height = model.result.heightOverHorizontal.GetValue(t)
+                let up = model.validator.upVector.GetValue(t)
                 
-                yield lower 
-                yield upper - height * up
-                yield upper
-                yield lower 
-            }
+                [| lower; upper - height * up; upper; lower |]
+            )
+            //alist {
+            //    let! lower = model.validator.lower
+            //    let! upper = model.validator.upper
+            //    let! height = model.result.heightOverHorizontal
+            //    let! up = model.validator.upVector
+                
+            //    yield lower 
+            //    yield upper - height * up
+            //    yield upper
+            //    yield lower 
+            //}
 
         let inclinedLine = 
             Sg.drawScaledLines inclinedLine ~~C4b.Cyan ~~1.0 (model.validator.lower |> AVal.map(Trafo3d.Translation))
 
         let tiltedUp = 
-            alist {
-                let! plane = model.validator.tiltedPlane
-                let! lower = model.validator.lower
-                let! height = model.result.heightOverPlaneThickness_true
+            (model.validator.tiltedPlane, model.validator.lower, model.result.heightOverPlaneThickness_true) 
+            |||> AVal.map3 (fun plane lower height -> 
+                [| lower; lower + plane.Normal * height |]
+            )
 
-                yield lower
-                yield lower + plane.Normal * height
-            }
                   
         let tiltedUp = 
             Sg.drawScaledLines tiltedUp ~~C4b.Magenta ~~1.0  (model.validator.lower |> AVal.map(Trafo3d.Translation))

@@ -43,6 +43,8 @@ type TabMenu =
 
 type BookmarkAction =
     | AddBookmark 
+    | ImportBookmarks of list<string>
+    | ExportBookmarks of string
     | GroupsMessage   of GroupsAppAction
     | PrintViewParameters of Guid
 
@@ -104,6 +106,7 @@ type ViewerAction =
     | NewScene
     | KeyDown                         of key : Aardvark.Application.Keys
     | KeyUp                           of key : Aardvark.Application.Keys      
+    | ResizeMainControl               of V2i * string
     | SetKind                         of TrafoKind
     | SetInteraction                  of Interactions        
     | SetMode                         of TrafoMode
@@ -121,6 +124,7 @@ type ViewerAction =
     | NoAction                        of string
     | OrientationCube                 of ISg
     | UpdateDockConfig                of DockConfig
+    | ChangeDashboardMode             of DashboardMode
     | AddPage                         of DockElement    
     | ToggleOrientationCube
     | UpdateUserFeedback              of string
@@ -128,7 +132,7 @@ type ViewerAction =
     | Logging                         of string * ViewerAction
     | ThreadsDone                     of string    
     | SnapshotThreadsDone             of string
-    | OnResize                        of V2i
+    | OnResize                        of V2i * string
     | StartDragging                   of V2i * MouseButtons
     | Dragging                        of V2i
     | EndDragging                     of V2i * MouseButtons
@@ -139,6 +143,7 @@ type ViewerAction =
     //| UpdateShatterCones              of list<SnapshotShattercone> // TODO snapshots and shattercone things should be in own apps
     | TestHaltonRayCasting            //of list<string>
     | HeightValidation               of HeightValidatorAction
+    | ComparisonMessage              of Comparison.ComparisonAction
     | Nop
 
 and MailboxState = {
@@ -287,6 +292,7 @@ type MultiSelectionBox =
 [<ModelType>]
 type Model = { 
     startupArgs          : StartupArgs
+    dashboardMode        : string
     scene                : Scene
     drawing              : PRo3D.Core.Drawing.DrawingModel
     interaction          : Interactions    
@@ -317,12 +323,12 @@ type Model = {
     picking          : bool
     ctrlFlag         : bool
     frustum          : Frustum
-    viewPortSize     : V2i
+    viewPortSize     : HashMap<string, V2i>
     overlayFrustum   : Option<Frustum>
     
     minervaModel     : PRo3D.Minerva.MinervaModel
     linkingModel     : PRo3D.Linking.LinkingModel
-
+    comparisonApp    : PRo3D.Comparison.ComparisonApp
     //correlationPlot : CorrelationPanelModel
     //pastCorrelation : Option<CorrelationPanelModel>
             
@@ -464,7 +470,7 @@ module Viewer =
                     feedbackThreads = ThreadPool.empty
                     viewPlans       = ViewPlanModel.initial
                 }
-
+            dashboardMode   = DashboardModes.core.name
             navigation      = navInit
 
             startupArgs     = startupArgs            
@@ -493,7 +499,7 @@ module Viewer =
             future          = None
 
             tabMenu = TabMenu.Surfaces
-
+            comparisonApp    = PRo3D.ComparisonApp.init
             animations = 
                 { 
                     animations = IndexList.empty
@@ -515,7 +521,7 @@ module Viewer =
             //instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
             viewerMode = ViewerMode.Standard                
             footPrint = ViewPlanModel.initFootPrint
-            viewPortSize = V2i.One
+            viewPortSize = HashMap.empty
 
             arnoldSnapshotThreads = ThreadPool.empty
             showExplorationPoint = startupArgs.showExplorationPoint

@@ -5,6 +5,7 @@ open Aardvark.Rendering
 open Aardvark.UI.Animation
 open System
 open PRo3D.Base
+open Aardvark.Rendering
 open MBrace.FsPickler.Json   
 
 open Aardvark.UI
@@ -124,53 +125,53 @@ module SnapshotAnimation =
             None
         
     
-    let snapshot (fpPath:string) (filename:string) (width : int) (height : int) =
-        let pngName =
-            if filename.IsEmpty() then
-                let now = DateTime.Now
-                System.String.Format(
-                        "{0:0000}{1:00}{2:00}_{3:00}{4:00}{5:00}{6:00}",
-                        now.Year, now.Month, now.Day, now.Hour, now.Minute, now.Second, now.Millisecond)
-            else filename
-        try Utilities.takeScreenshotFromAllViews "http://localhost:54321" width height pngName fpPath ".jpg" with e -> printfn "error: %A" e
+    //let snapshot (fpPath:string) (filename:string) (width : int) (height : int) =
+    //    let pngName =
+    //        if filename.IsEmpty() then
+    //            let now = DateTime.Now
+    //            System.String.Format(
+    //                    "{0:0000}{1:00}{2:00}_{3:00}{4:00}{5:00}{6:00}",
+    //                    now.Year, now.Month, now.Day, now.Hour, now.Minute, now.Second, now.Millisecond)
+    //        else filename
+    //    try Utilities.takeScreenshotFromAllViews "http://localhost:54321" width height pngName fpPath ".jpg" with e -> printfn "error: %A" e
        
     
-    let startSnapshots (scenepath : string) (filename:string) (width : int) (height : int) = 
-        let fpPath = FootPrint.getFootprintsPath scenepath
-        snapshot fpPath filename width height 
+    //let startSnapshots (scenepath : string) (filename:string) (width : int) (height : int) = 
+    //    let fpPath = FootPrint.getFootprintsPath scenepath
+    //    snapshot fpPath filename width height 
 
-    let animateAndScreenshot (scenePath:string) (ex: Extrinsics) (duration : RelativeTime) (name : string) (width : int) (height : int) = 
-      let fpPath = FootPrint.getFootprintsPath scenePath
-      {
-        (CameraAnimations.initial name) with 
-          sample = fun (localTime, globalTime) (state : CameraView) -> // given the state and t since start of the animation, compute a state and the cameraview
-            if localTime < duration then 
+    //let animateAndScreenshot (scenePath:string) (ex: Extrinsics) (duration : RelativeTime) (name : string) (width : int) (height : int) = 
+    //  let fpPath = FootPrint.getFootprintsPath scenePath
+    //  {
+    //    (CameraAnimations.initial name) with 
+    //      sample = fun (localTime, globalTime) (state : CameraView) -> // given the state and t since start of the animation, compute a state and the cameraview
+    //        if localTime < duration then 
                 
-              let now = DateTime.Now
-              let pngName = System.String.Format(
-                                        "{0:0000}{1:00}{2:00}_{3:00}{4:00}{5:00}_{6}",
-                                        now.Year, now.Month, now.Day, now.Hour, now.Minute, now.Second, now.Millisecond)
+    //          let now = DateTime.Now
+    //          let pngName = System.String.Format(
+    //                                    "{0:0000}{1:00}{2:00}_{3:00}{4:00}{5:00}_{6}",
+    //                                    now.Year, now.Month, now.Day, now.Hour, now.Minute, now.Second, now.Millisecond)
                
                
-              //try Utilities.takeScreenshot "http://localhost:54321" width height pngName fpPath with e -> printfn "error: %A" e
+    //          //try Utilities.takeScreenshot "http://localhost:54321" width height pngName fpPath with e -> printfn "error: %A" e
 
-              let rot      = Rot3d.RotateInto(state.Forward, ex.camLookAt) * localTime / duration
-              let forward' = (Rot3d rot).Transform(state.Forward)
+    //          let rot      = Rot3d.RotateInto(state.Forward, ex.camLookAt) * localTime / duration
+    //          let forward' = (Rot3d rot).Transform(state.Forward)
 
-              let uprot     = Rot3d.RotateInto(state.Up, ex.camUp) * localTime / duration
-              let up'       = (Rot3d uprot).Transform(state.Up)
+    //          let uprot     = Rot3d.RotateInto(state.Up, ex.camUp) * localTime / duration
+    //          let up'       = (Rot3d uprot).Transform(state.Up)
               
-              let vec       = ex.position - state.Location
-              let velocity  = vec.Length / duration                  
-              let dir       = vec.Normalized
-              let location' = state.Location + dir * velocity * localTime
+    //          let vec       = ex.position - state.Location
+    //          let velocity  = vec.Length / duration                  
+    //          let dir       = vec.Normalized
+    //          let location' = state.Location + dir * velocity * localTime
 
-              let view = 
-                state 
-                  |> CameraView.withForward forward'
-                  |> CameraView.withUp up'
-                  |> CameraView.withLocation location'
+    //          let view = 
+    //            state 
+    //              |> CameraView.withForward forward'
+    //              |> CameraView.withUp up'
+    //              |> CameraView.withLocation location'
       
-              Some (state,view)
-            else None
-      }
+    //          Some (state,view)
+    //        else None
+    //  }

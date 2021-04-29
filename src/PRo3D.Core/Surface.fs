@@ -18,7 +18,7 @@ open PRo3D.Core.Surface
 open PRo3DCompability
 
 module SurfaceTransformations = 
-
+    /// This is not actually the complete trafo!! TODO rename this
     let fullTrafo' (surf : Surface) (refsys : ReferenceSystem) = 
     
         let north = refsys.northO.Normalized
@@ -99,7 +99,7 @@ module DebugKdTreesX =
                     | Some t ->                 
                         t, cache
                     | None ->                                     
-                        Log.line "cache miss %A- loading kdtree" kd.boundingBox
+                        //Log.line "cache miss %A- loading kdtree" kd.boundingBox
                     
                         let mutable tree = KdTrees.loadKdtree kd.kdtreePath
                         let triangles = kd |> loadTriangles

@@ -10,6 +10,7 @@ open System
 open FSharp.Data.Adaptive
 open Aardvark.Rendering
 open PRo3D.Core
+open PRo3D.Base
 open PRo3D.Navigation2
 
 module Navigation =

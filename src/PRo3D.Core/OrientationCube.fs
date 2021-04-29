@@ -1,7 +1,5 @@
 namespace PRo3D.OrientationCube
-
 open FSharp.Data.Adaptive
-
 open Aardvark.Base
 open Aardvark.Rendering
 open Aardvark.Rendering

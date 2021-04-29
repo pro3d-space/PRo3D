@@ -84,64 +84,22 @@ module SurfaceUtils =
 
     module ObjectFiles =        
         open Aardvark.Geometry
+        open Aardvark.Base.Coder
+
+        // copied from old PRo3D to fix missing kdtrees; why was it deleted in this version?
+        let saveKdTree (path, kdTree : Aardvark.Geometry.KdIntersectionTree) =
+            // serialize
+            use stream = new MemoryStream()
+            use coder = new BinaryWritingCoder(stream)
+            coder.CodeT(ref kdTree)
+      
+            // write to file
+            use fileStream = File.Create(path)
+            //stream.Position <- int64 0
+            stream.Seek(int64 0, SeekOrigin.Begin) |> ignore
+            stream.CopyTo(fileStream)
+            fileStream.Close ()
         
-        let buildKdTrees  (surface : Surface) kdTreePath =
-            Log.line "[OBJ] Please wait while the OBJ file is being loaded." 
-            let obj = Loader.Assimp.load (surface.importPath)  
-            Log.line "[OBJ] The OBJ file was loaded successfully!" 
-            let mutable count = 0
-
-            obj.meshes 
-            |> Array.map(fun x ->
-                let kdPath = sprintf "%s_%i.kd" surface.importPath count          
-                let pos = x.geometry.IndexedAttributes.[DefaultSemantic.Positions] |> unbox<V3f[]>
-    
-                //let indices = x.geometry.IndexArray |> unbox<int[]> potential problem with indices
-                let t = 
-                    pos                      
-                    |> Seq.map(fun x -> x.ToV3d())
-                    |> Seq.chunkBySize 3
-                    |> Seq.filter(fun x -> x.Length = 3)
-                    |> Seq.map(fun x -> Triangle3d x)
-                    |> Seq.filter(fun x -> (IntersectionController.triangleIsNan x |> not)) |> Seq.toArray
-                    |> TriangleSet
-                          
-                Log.startTimed "Building kdtrees for %s" (Path.GetFileName surface.importPath |> Path.GetFileName)
-                let tree = 
-                    KdIntersectionTree(t, 
-                        KdIntersectionTree.BuildFlags.MediumIntersection + KdIntersectionTree.BuildFlags.Hierarchical) //|> PRo3D.Serialization.save kdTreePath                  
-                Log.stop()
-    
-                //saveKdTree (kdPath, tree) |> ignore   // CHECK-merge
-    
-                let kd : KdTrees.LazyKdTree = {
-                    kdTree        = Some (tree.ToConcreteKdIntersectionTree());
-                    affine        = Trafo3d.Identity
-                    boundingBox   = tree.BoundingBox3d
-                    kdtreePath    = kdPath
-                    objectSetPath = ""                  
-                    coordinatesPath = ""
-                    texturePath = ""
-                  } 
-    
-                count <- count + 1
-    
-                kd.boundingBox, (KdTrees.Level0KdTree.LazyKdTree kd)
-            ) 
-            |> Array.toList
-            |> Serialization.save kdTreePath
-
-        let loadKdTrees (surface) (kdTreePath : string) =
-            Serialization.loadAs<List<Box3d*KdTrees.Level0KdTree>> kdTreePath
-              |> List.map(fun kd -> 
-                  match kd with 
-                  | _, KdTrees.Level0KdTree.InCoreKdTree tree -> (tree.boundingBox, (KdTrees.Level0KdTree.InCoreKdTree tree))
-                  | _, KdTrees.Level0KdTree.LazyKdTree tree -> 
-                     let loadedTree = if File.Exists(tree.kdtreePath) then Some (tree.kdtreePath |> KdTrees.loadKdtree) else None
-                     (tree.boundingBox, (KdTrees.Level0KdTree.LazyKdTree {tree with kdTree = loadedTree}))
-              )
-
-
         //TODO TO use loadObject from master
         let loadObject (surface : Surface) : SgSurface =
             Log.line "[OBJ] Please wait while the OBJ file is being loaded." 
@@ -150,17 +108,58 @@ module SurfaceUtils =
             let dir = Path.GetDirectoryName(surface.importPath)
             let filename = Path.GetFileNameWithoutExtension surface.importPath
             let kdTreePath = Path.combine [dir; filename + ".aakd"] //Path.ChangeExtension(s.importPath, name)
+            let mutable count = 0
             let kdTrees = 
-                if File.Exists(kdTreePath) then
-                    try
-                      loadKdTrees surface kdTreePath
-                    with
-                    | err ->
-                      Log.warn "[Surface] Invalid cache. Building KdTrees."
-                      buildKdTrees surface kdTreePath
+                if File.Exists(kdTreePath) |> not then
+                    obj.meshes 
+                    |> Array.map(fun x ->
+                        let kdPath = sprintf "%s_%i.kd" surface.importPath count          
+                        let pos = x.geometry.IndexedAttributes.[DefaultSemantic.Positions] |> unbox<V3f[]>
+                        
+                        //let indices = x.geometry.IndexArray |> unbox<int[]> potential problem with indices
+                        let t = 
+                            pos                      
+                            |> Seq.map(fun x -> x.ToV3d())
+                            |> Seq.chunkBySize 3
+                            |> Seq.filter(fun x -> x.Length = 3)
+                            |> Seq.map(fun x -> Triangle3d x)
+                            |> Seq.filter(fun x -> (IntersectionController.triangleIsNan x |> not)) |> Seq.toArray
+                            |> TriangleSet
+                                              
+                        Log.startTimed "Building kdtrees for %s" (Path.GetFileName surface.importPath |> Path.GetFileName)
+                        let tree = 
+                            KdIntersectionTree(t, 
+                                KdIntersectionTree.BuildFlags.MediumIntersection + KdIntersectionTree.BuildFlags.Hierarchical) //|> PRo3D.Serialization.save kdTreePath                  
+                        Log.stop()
+                        
+                        saveKdTree (kdPath, tree) |> ignore   // CHECK-merge
+                        
+                        let kd : KdTrees.LazyKdTree = {
+                            kdTree        = Some (tree.ToConcreteKdIntersectionTree());
+                            affine        = Trafo3d.Identity
+                            boundingBox   = tree.BoundingBox3d
+                            kdtreePath    = kdPath
+                            objectSetPath = ""                  
+                            coordinatesPath = ""
+                            texturePath = ""
+                          } 
+                        
+                        count <- count + 1
+                        
+                        kd.boundingBox, (KdTrees.Level0KdTree.LazyKdTree kd)
+                    ) 
+                    |> Array.toList
+                    |> Serialization.save kdTreePath
+                
                 else
-                    buildKdTrees surface kdTreePath
-                    
+                  Serialization.loadAs<List<Box3d*KdTrees.Level0KdTree>> kdTreePath
+                    |> List.map(fun kd -> 
+                        match kd with 
+                        | _, KdTrees.Level0KdTree.InCoreKdTree tree -> (tree.boundingBox, (KdTrees.Level0KdTree.InCoreKdTree tree))
+                        | _, KdTrees.Level0KdTree.LazyKdTree tree -> 
+                           let loadedTree = if File.Exists(tree.kdtreePath) then Some (tree.kdtreePath |> KdTrees.loadKdtree) else None
+                           (tree.boundingBox, (KdTrees.Level0KdTree.LazyKdTree {tree with kdTree = loadedTree}))
+                    )
 
             let bb = obj.bounds
             let sg = 
@@ -240,34 +239,6 @@ module SurfaceUtils =
             doc |> layers
                                             
 module SurfaceApp =
-                
-    let updateTrafo (trafo : PRo3D.Core.Surface.SurfaceTrafo) (surfaces : HashMap<string,Surface>) (model : SurfaceModel) = 
-        match surfaces.TryFind(trafo.id) with
-        | Some s -> 
-          let f = (fun _ -> { s with preTransform = trafo.trafo } |> Leaf.Surfaces)
-          let g = Groups.updateLeaf s.guid f model.surfaces
-          Log.line "MeasurementImporter: matched and updated %s" s.name
-          { model with surfaces = g} 
-        | None -> model
-                 
-    let updateTrafos (trafos:IndexList<SurfaceTrafo>) (model:SurfaceModel) =
-        let surfaces = 
-            model.surfaces.flat 
-            |> HashMap.toList 
-            |> List.map(fun (_,v) -> 
-               let surf = v |> Leaf.toSurface
-               (surf.name, surf))
-            |> HashMap.ofList
-        
-        let rec update (p : list<SurfaceTrafo>) (model:SurfaceModel) =
-            match p with
-            | x::rest -> 
-                match rest with
-                | [] -> updateTrafo x surfaces model
-                | _ ->  update rest (updateTrafo x surfaces model) 
-            | _ -> model
-
-        update (trafos |> IndexList.toList) model    
 
     let hmapsingle (k,v) = HashMap.single k v
 

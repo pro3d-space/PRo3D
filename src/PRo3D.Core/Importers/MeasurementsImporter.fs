@@ -147,6 +147,7 @@ module MeasurementsImporter =
             key = id
             geometry = getGeometry (anType, closed)
             projection = Projection.Linear
+            bookmarkId = None
             semantic = Semantic.Horizon0
             points = points
             segments = segments

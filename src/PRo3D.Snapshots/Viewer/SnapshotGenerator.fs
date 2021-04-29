@@ -5,7 +5,7 @@ open Aardvark.Service
 open System
 open Aardvark.Base
 open FSharp.Data.Adaptive
-open Aardvark.Base.Rendering
+open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.UI
 open Aardvark.UI.Primitives
@@ -18,6 +18,7 @@ open PRo3D.Viewer
 open PRo3D.OrientationCube
 open PRo3D.SimulatedViews
 open Adaptify
+open PRo3D.Shading
 
 module SnapshotGenerator =
     let loadData (args  : StartupArgs) 

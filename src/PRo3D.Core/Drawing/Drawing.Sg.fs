@@ -41,7 +41,7 @@ module Sg =
         ]
 
     let discISg color size thickness trafo =
-        Sg.cylinder 30 color size thickness              
+        Sg.cylinder 12 color size thickness              
           |> Sg.noEvents
           |> Sg.uniform "WorldPos" (trafo |> AVal.map(fun (x : Trafo3d) -> x.Forward.C3.XYZ))
           |> Sg.uniform "Size" size
@@ -50,7 +50,7 @@ module Sg =
 
 
     let coneISg color radius height trafo =  
-        Sg.cone 30 color radius height
+        Sg.cone 12 color radius height
            |> Sg.noEvents         
            |> Sg.effect [stableLight]
            |> Sg.trafo(trafo) 
@@ -128,10 +128,7 @@ module Sg =
                 
                 let! dip = x.dipDirection
                 let dipLine = 
-                  alist {
-                      yield center'
-                      yield center' + dip.Normalized * lineLength'
-                  }
+                  AVal.constant [| center'; center' + dip.Normalized * lineLength' |]
                 
                 yield Sg.drawScaledLines dipLine color conf.arrowThickness posTrafo 
                 
@@ -144,11 +141,8 @@ module Sg =
                 //strikes lines
                 let! strike = x.strikeDirection
                 let strikeLine1 =
-                  alist {                                                                
-                      yield center' - strike.Normalized * lineLength'
-                      yield center' + strike.Normalized * lineLength'
-                  }                                            
-                
+                    AVal.constant [| center' - strike.Normalized * lineLength'; center' + strike.Normalized * lineLength'  |]
+
                 //yield Sg.lines strikeLine1 (AVal.constant C4b.Red) conf.arrowThickness posTrafo anno.key
                 yield Sg.drawScaledLines strikeLine1 (AVal.constant C4b.Red) conf.arrowThickness posTrafo
             | None -> ()            
@@ -162,18 +156,39 @@ module Sg =
         drawDns' anno.points (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption anno.dnsResults) conf cl
 
     let getPolylinePoints (a : AdaptiveAnnotation) =
-        alist {                          
-            let! hasSegments = (a.segments |> AList.count) |> AVal.map(fun x -> x > 0)
-            if hasSegments |> not then
-                yield! a.points
-            else
-                for segment in a.segments do
-                    let! startPoint = segment.startPoint
-                    let! endPoint = segment.endPoint
-                    yield  startPoint
-                    yield! segment.points
-                    yield  endPoint
-        }
+        //a.segments.Content 
+        //    |> AVal.bind (fun segments -> 
+        //        if IndexList.isEmpty segments then a.points |> AList.toAVal |> AVal.map IndexList.toArray
+        //        else 
+        //            segments |> IndexList.map (fun s -> 
+                        
+        //            )
+        //    )
+        AVal.custom (fun t -> 
+            let segments = a.segments.Content.GetValue t
+            if IndexList.isEmpty segments then  
+                a.points.Content.GetValue(t) |> IndexList.toArray 
+            else 
+                let points = System.Collections.Generic.List<V3d>()
+                a.segments.Content.GetValue(t) |> IndexList.iter(fun (s : AdaptiveSegment) -> 
+                    points.Add(s.startPoint.GetValue(t))
+                    for s in s.points.Content.GetValue(t) do points.Add(s)
+                    points.Add(s.endPoint.GetValue(t))
+                )
+                points.ToArray()
+        )
+        //alist {                          
+        //    let! hasSegments = (a.segments |> AList.count) |> AVal.map(fun x -> x > 0)
+        //    if hasSegments |> not then
+        //        yield! a.points
+        //    else
+        //        for segment in a.segments do
+        //            let! startPoint = segment.startPoint
+        //            let! endPoint = segment.endPoint
+        //            yield  startPoint
+        //            yield! segment.points
+        //            yield  endPoint
+        //}
     
     let mutable lastHash = -1
 
@@ -235,11 +250,11 @@ module Sg =
     let drawWorkingAnnotation (offset : aval<float>) (anno : aval<Option<AdaptiveAnnotation>>)  = 
     
         let polyPoints =
-            alist {
+            adaptive {
                 let! anno = anno
                 match anno with
-                | Some a -> yield! getPolylinePoints a
-                | None -> ()
+                | Some a -> return! getPolylinePoints a
+                | None -> return [||]
             }
     
         let points = 
@@ -302,8 +317,9 @@ module Sg =
                 yield Sg.drawPointList points (C4b.VRVisGreen |> AVal.constant) size (offset |> AVal.map(fun x -> x * 1.1))
         } 
         |> Sg.set  
+        
 
-    let finishedAnnotation 
+    let finishedAnnotationOld 
         (anno             : AdaptiveAnnotation) 
         (color            : aval<C4b>) 
         (config           : innerViewConfig)
@@ -323,20 +339,7 @@ module Sg =
                     anno.geometry 
                     config.offset
             )
-       
-        let azimuth =
-            adaptive { 
-                let! results = anno.dnsResults 
-                let! x = 
-                    match results with
-                    | AdaptiveSome r -> r.dipAzimuth
-                    | AdaptiveNone   -> AVal.constant Double.NaN
-                
-                return x
-            }
-    
-        let azimuthText = (drawText' view config (azimuth |> AVal.map(fun x -> sprintf "%.2f" x)) anno)
-          
+     
         let texts = 
             anno.text 
             |> AVal.map (String.IsNullOrEmpty >> not) 
@@ -371,11 +374,69 @@ module Sg =
     
         Sg.ofList [
             selectionSg
-            //azimuthText
             pickingLines
             dotsAndText
-        ] |> Sg.onOff anno.visible
+        ] |> optional anno.visible
+
+
+    let finishedAnnotation 
+        (anno             : AdaptiveAnnotation) 
+        (color            : aval<C4b>) 
+        (config           : innerViewConfig)
+        (view             : aval<CameraView>) 
+        (showPoints       : aval<bool>)         
+        (picked           : aval<bool>)
+        (pickingAllowed   : aval<bool>) =
+
+        let points = getPolylinePoints anno      
+        let dots = 
+            showPoints 
+            |> optionalSet (
+                getDotsIsg
+                    anno.points
+                    (anno.thickness.value |> AVal.map(fun x -> x + 0.5))
+                    color
+                    anno.geometry 
+                    config.offset
+            )
+     
+        let texts = 
+            anno.text 
+            |> AVal.map (String.IsNullOrEmpty >> not) 
+            |> optionalSet (drawText view config anno)
+    
+        let dotsAndText = texts |> Sg.set //ASet.union' [dots; texts] |> Sg.set
+            
+        //let selectionColor = AVal.map2(fun x color -> if x then C4b.VRVisGreen else color) picked c
+        let pickingAllowed = // for this particular annotation // whether should fire pick actions
+            AVal.map2 (&&) pickingAllowed anno.visible
+
+        let pickFunc = pickEventsHelper (anno.key |> AVal.constant) pickingAllowed anno.thickness.value anno.modelTrafo
+
+
+        //let pickingLines = 
+        //    Sg.pickableLine 
+        //        points 
+        //        config.offset 
+        //        color
+        //        anno.thickness.value 
+        //        config.pickingTolerance
+        //        anno.modelTrafo 
+        //        true 
+        //        pickFunc
+             
+        let selectionSg = 
+            picked 
+            |> AVal.map (function
+                | true -> OutlineEffect.createForLineOrPoint PRo3D.Base.OutlineEffect.Both (AVal.constant C4b.VRVisGreen) anno.thickness.value 3.0  RenderPass.main anno.modelTrafo points
+                | false -> Sg.empty ) 
+            |> Sg.dynamic
+    
+        Sg.ofList [
+            selectionSg
+            //pickingLines
+            dotsAndText
+        ] |> optional anno.visible
     
     let finishedAnnotationDiscs (anno : AdaptiveAnnotation) (conf:innerViewConfig) (cl : AdaptiveFalseColorsModel) (cam:aval<CameraView>) =
-        optional anno.showDns (drawDns anno conf cl cam) 
-        |> Sg.onOff anno.visible
+        optional (AVal.map2 (&&) anno.visible anno.showDns) (drawDns anno conf cl cam) 

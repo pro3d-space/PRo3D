@@ -126,7 +126,8 @@ module Gui =
             
             let spericalc = 
                 AVal.map2 (fun (a : CameraView) b -> 
-                    CooTransformation.getLatLonAlt(a.Location) b ) cv m.planet
+                    CooTransformation.getLatLonAlt b a.Location
+                ) cv m.planet
             
             let alt2 = 
                 AVal.map2 (fun (a : CameraView) b -> 
@@ -213,6 +214,25 @@ module Gui =
                 ]
             ]                              
         ]
+
+    module CustomGui =
+        let dropDown<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (selected : aval<'a>) (change : 'a -> 'msg) =
+            let names  = Enum.GetNames(typeof<'a>)
+            let values = Enum.GetValues(typeof<'a>) |> unbox<'a[]> 
+            let nv     = Array.zip names values
+
+            let attributes (name : string) (value : 'a) =
+                AttributeMap.ofListCond [
+                    always (attribute "value" name)
+                    onlyWhen (AVal.map ((=) value) selected) (attribute "selected" "selected")
+                ]
+   
+            select [onChange (fun str -> Enum.Parse(typeof<'a>, str) |> unbox<'a> |> change); style "color:black"] [
+                for (name, value) in nv do
+                    if exclude |> HashSet.contains value |> not then
+                        let att = attributes name value
+                        yield Incremental.option att (AList.ofList [text name])
+            ] 
 
     module TopMenu =                       
 
@@ -351,7 +371,9 @@ module Gui =
 
         let jsExportAnnotationsAsCSVDialog =
             "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
-              
+
+        let jsExportAnnotationsAsGeoJSONDialog =
+            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"              
 
         let annotationMenu = //todo move to viewer io gui
             div [ clazz "ui dropdown item"] [
@@ -384,10 +406,37 @@ module Gui =
                     ][
                         text "Export (*.csv)"
                     ]     
+                    div [ 
+                        clazz "ui inverted item"
+                        Dialogs.onSaveFile ExportAsGeoJSON
+                        clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
+                    ][
+                        text "Export (*.json)"
+                    ]     
+                    div [ 
+                        clazz "ui inverted item"
+                        Dialogs.onSaveFile ExportAsGeoJSON_xyz
+                        clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
+                    ][
+                        text "Export xyz (*.json)"
+                    ]                    
                 ]
             ]       
         
-        let menu (m : AdaptiveModel) =             
+        let menu (m : AdaptiveModel) =   
+            let subMenu name menuItems = 
+                div [ clazz "ui dropdown item"] [
+                  text name
+                  i [clazz "dropdown icon"][] 
+                  div [ clazz "menu"] menuItems
+                ]           
+            let menuItem name action =
+                div [ 
+                    clazz "ui inverted item"
+                    onClick (fun _ -> action)
+                ][
+                    text name
+                ]        
 
             div [clazz "menu-bar"] [
                 // menu
@@ -405,6 +454,13 @@ module Gui =
                             
                                 //annotations menu
                                 annotationMenu |> UI.map DrawingMessage;                                                           
+                                Bookmarkings.Bookmarks.UI.menu |> UI.map ViewerAction.BookmarkMessage
+                                subMenu "Change Mode"
+                                        [
+                                          menuItem "PRo3D Core" (ChangeDashboardMode DashboardModes.core)
+                                          menuItem "Surface Comparison" (ChangeDashboardMode DashboardModes.comparison)
+                                          menuItem "Render Only" (ChangeDashboardMode DashboardModes.renderOnly)
+                                        ]                                
                                 
                                 //snapshot menu
                                 SnapshotApp.menuItems ViewerAction.TestHaltonRayCasting 
@@ -423,7 +479,7 @@ module Gui =
                                         div [ clazz "ui item";
                                             Dialogs.onChooseFiles ImportPRo3Dv1Annotations;
                                             clientEvent "onclick" jsOpenOldAnnotationsFileDialogue ][
-                                            text "Import Annotations Groups"
+                                            text "Import v1 Annotations (*.xml)"
                                         ]
                                         //div [ clazz "ui item";
                                         //    Dialogs.onChooseFiles ImportSurfaceTrafo;
@@ -434,7 +490,16 @@ module Gui =
                                         //    Dialogs.onChooseFiles ImportRoverPlacement;
                                         //    clientEvent "onclick" ("top.aardvark.processEvent('__ID__', 'onchoose', top.aardvark.dialog.showOpenDialog({properties: ['openFile']}));") ] [
                                         //    text "Rover Placement"
-                                        //]                                                                                                                                        
+                                        //]          
+                                        div [clazz "ui item"; clientEvent "onclick" "sendCrashDump()"] [
+                                            text "Send log to maintainers"
+                                        ]
+                                        a [style "visibility:hidden"; clazz "invisibleCrashButton"] []
+
+                                        //div [clazz "ui item"; onClick (fun _ ->  ViewerAction.Nop)] [
+                                        //    text "Send Crash Report"
+                                        //    a [attribute "href" "mailto:hs@pro3d.com?attach=C:\\Program Files (x86)\\ProcessExplorer\\procexp64.exe"] [text "go"]
+                                        //]                                                                                                                                                                      
                                     ]
                                 ]
                             ] 
@@ -443,7 +508,7 @@ module Gui =
                 ]
             ]
         
-        let dynamicTop (m:AdaptiveModel) =
+        let dynamicTopMenu (m:AdaptiveModel) =
             adaptive {
                 let! interaction = m.interaction
                 match interaction with
@@ -457,11 +522,18 @@ module Gui =
                         //Html.Layout.boxH [ i [clazz "unhide icon"][] ]
                         Html.Layout.boxH [ GuiEx.iconToggle m.scene.referenceSystem.isVisible "unhide icon" "hide icon" ReferenceSystemAction.ToggleVisible  ]                        
                         ] |> UI.map ReferenceSystemMessage
+                | Interactions.PickAnnotation ->
+                     return Html.Layout.horizontal [
+                        Html.Layout.boxH [text "eps.:"]
+                        Html.Layout.boxH [
+                            Numeric.view' [InputBox] m.scene.config.pickingTolerance |> UI.map (fun x -> (ConfigProperties.Action.SetPickingTolerance x) |> ConfigPropertiesMessage)] 
+                     ]                        
                 | _ -> 
                   return div[][]
             }
             
         let style' = "color: white; font-family:Consolas;"
+
         let scenepath (m:AdaptiveModel) = 
             Incremental.div (AttributeMap.Empty) (
                 alist {
@@ -470,7 +542,7 @@ module Gui =
                         match scenePath with
                         | Some p -> 
                             i [clazz "large folder icon" ; onClick (fun _ -> OpenSceneFileLocation p) ][] 
-                            |> UI.wrapToolTip "open folder" TTAlignment.Bottom
+                            |> UI.wrapToolTip DataPosition.Bottom "open folder"
                         | None -> div[][]  
                           
                     let scenePath = AVal.bindOption m.scene.scenePath "" (fun sp -> AVal.constant sp)
@@ -501,13 +573,14 @@ module Gui =
             | _ -> ""
         
         let topMenuItems (m:AdaptiveModel) = [ 
-            
+            div [style "font-weight: bold;margin-left: 1px; margin-right:1px"] 
+                [Incremental.text (m.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]            
             Navigation.UI.viewNavigationModes m.navigation  |> UI.map NavigationMessage 
               
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large wizard icon"][] ]
-                Html.Layout.boxH [ Html.SemUi.dropDown m.interaction SetInteraction ]                                         
-                Incremental.div  AttributeMap.empty (AList.ofAValSingle (dynamicTop m))
+                Html.Layout.boxH [ CustomGui.dropDown Interactions.hideSet m.interaction SetInteraction ]
+                Incremental.div  AttributeMap.empty (AList.ofAValSingle (dynamicTopMenu m))
                 Html.Layout.boxH [ 
                     div[style "font-style:italic; width:100%; text-align:right"] [
                         Incremental.text (m.interaction |> AVal.map interactionText)
@@ -589,20 +662,6 @@ module Gui =
             |> AVal.map (fun x -> GroupsApp.viewGroupButtons x |> UI.map AnnotationGroupsMessageViewer)            
             
         let annotationUI (m : AdaptiveModel) = 
-            let prop = 
-                m.drawing.annotations.lastSelectedItem
-                |> AVal.bind (fun x -> 
-                    match x with 
-                    | SelectedItem.Group -> annotationGroupProperties m
-                    | _ -> viewAnnotationProperties m
-                )
-            let results = 
-                m.drawing.annotations.lastSelectedItem
-                |> AVal.bind (fun x -> 
-                    match x with 
-                    | SelectedItem.Group -> annotationGroupProperties m
-                    | _ -> viewAnnotationResults m 
-                )
             let buttons = 
                 m.drawing.annotations.lastSelectedItem
                 |> AVal.bind (fun x -> 
@@ -617,21 +676,11 @@ module Gui =
                     Drawing.UI.viewAnnotationGroups m.drawing |> UI.map ViewerAction.DrawingMessage
                    // DrawingApp.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage // CHECK-merge viewAnnotationGroups
                 ]
-                GuiEx.accordion "Properties" "Content" true [
-                    Incremental.div AttributeMap.empty (AList.ofAValSingle prop)                                        
-                ]
                
                 GuiEx.accordion "Actions" "Asterisk" true [
                   Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
                 ]     
                 
-                GuiEx.accordion "Measurements" "Content" true [
-                    Incremental.div AttributeMap.empty (AList.ofAValSingle results)                                        
-                ]
-            
-                GuiEx.accordion "Dip&Strike" "Calculator" false [
-                    Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDipAndStrike m))] 
-               
                 GuiEx.accordion "Dip&Strike ColorLegend" "paint brush" false [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDnSColorLegendUI m))] 
                 ]    
@@ -650,10 +699,10 @@ module Gui =
                       Incremental.div AttributeMap.empty (AList.ofAValSingle (config m))
               ]
               GuiEx.accordion "Coordinate System" "Map Signs" false [
-                  ReferenceSystemApp.UI.view m.scene.referenceSystem m.navigation.camera |> UI.map ReferenceSystemMessage
+                                    ReferenceSystemApp.UI.view m.scene.referenceSystem |> UI.map ReferenceSystemMessage
               ]
               GuiEx.accordion "Camera" "Camera Retro" false [
-                  CameraProperties.view m.navigation.camera
+                  CameraProperties.view m.scene.referenceSystem m.navigation.camera
               ]
           ] 
           
@@ -734,4 +783,167 @@ module Gui =
                   Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
               ]
           ]
+
+    module Pages =
+        let pageRouting viewerDependencies bodyAttributes (m : AdaptiveModel) viewInstrumentView viewRenderView (runtime : IRuntime) request =
+            
+            match Map.tryFind "page" request.queryParams with
+            | Some "instrumentview" ->
+
+                
+                let id = System.Guid.NewGuid().ToString()
+
+                let instrumentViewAttributes =
+                    amap {
+                        let! hor, vert = ViewPlanApp.getInstrumentResolution m.scene.viewPlans
+                        let height = "height:" + (vert/uint32(2)).ToString() + ";" ///uint32(2)
+                        let width = "width:" + (hor/uint32(2)).ToString() + ";" ///uint32(2)
+                        yield style ("background: #1B1C1E;" + height + width)
+                        yield Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Instrument)
+                    } |> AttributeMap.ofAMap
+
+                require (viewerDependencies) (
+                    body [ style "background: #1B1C1E; width:100%; height:100%; overflow-y:auto; overflow-x:auto;"] [
+                      Incremental.div instrumentViewAttributes (
+                        alist {
+                            yield viewInstrumentView runtime id m 
+                            yield textOverlaysInstrumentView m.scene.viewPlans
+                        } )
+                    ]
+                )
+            | Some "render" -> 
+                require (viewerDependencies) (
+
+                    let id = System.Guid.NewGuid().ToString()
+
+                    let onResize (cb : V2i -> 'msg) =
+                        onEvent "onresize" ["{ X: $(document).width(), Y: $(document).height()  }"] (List.head >> Pickler.json.UnPickleOfString >> cb)
+
+                    let onFocus (cb : V2i -> 'msg) =
+                        onEvent "onfocus" ["{ X: $(document).width(), Y: $(document).height()  }"] (List.head >> Pickler.json.UnPickleOfString >> cb)
+
+                    let renderViewAttributes = [ 
+                        style "background: #1B1C1E; height:100%; width:100%"
+                        Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Standard)            
+                        onResize (fun s -> OnResize(s, id))     
+                        onFocus (fun s -> OnResize(s, id))     
+                        onMouseDown (fun button pos -> StartDragging (pos, button))
+                     //   onMouseMove (fun delta -> Dragging delta)
+                        onMouseUp (fun button pos -> EndDragging (pos, button))
+                    ]
+
+                    body renderViewAttributes [ //[ style "background: #1B1C1E; height:100%; width:100%"] [
+                        //div [style "background:#000;"] [
+                        Incremental.div (AttributeMap.ofList[style "background:#000;"]) (
+                            alist {
+                                yield viewRenderView runtime id m
+                                yield textOverlays m.scene.referenceSystem m.navigation.camera.view
+                                yield textOverlaysUserFeedback m.scene
+                                yield dnsColorLegend m
+                                yield scalarsColorLegend m
+                                yield selectionRectangle m
+                                yield PRo3D.Linking.LinkingApp.sceneOverlay m.linkingModel |> UI.map LinkingActions
+                            }
+                        )
+                    ]                
+                )
+            | Some "surfaces" -> 
+                require (viewerDependencies) (
+                    body bodyAttributes
+                        [SurfaceApp.surfaceUI m.scene.surfacesModel |> UI.map SurfaceActions] 
+                )
+            | Some "annotations" -> 
+                require (viewerDependencies) (body bodyAttributes [Annotations.annotationUI m])
+            | Some "validation" -> 
+                require (viewerDependencies) (body bodyAttributes [HeightValidatorApp.viewUI m.heighValidation |> UI.map HeightValidation])
+            | Some "bookmarks" -> 
+                require (viewerDependencies) (body bodyAttributes [Bookmarks.bookmarkUI m])
+            | Some "comparison" -> 
+                require (viewerDependencies) (body bodyAttributes [PRo3D.ComparisonApp.view m.comparisonApp m.scene.surfacesModel
+                                                                    |> UI.map ComparisonMessage])
+            | Some "properties" ->
+                let prop = 
+                    m.drawing.annotations.lastSelectedItem
+                    |> AVal.bind (fun x -> 
+                        match x with 
+                        | SelectedItem.Group -> Annotations.annotationGroupProperties m
+                        | _ -> Annotations.viewAnnotationProperties m
+                    )
+
+                let results = 
+                    m.drawing.annotations.lastSelectedItem
+                    |> AVal.bind (fun x -> 
+                        match x with 
+                        | SelectedItem.Group -> Annotations.annotationGroupProperties m
+                        | _ -> Annotations.viewAnnotationResults m 
+                    )
+
+                let blurg ()=
+                    [
+                        GuiEx.accordion "Properties" "Content" true [
+                                           Incremental.div AttributeMap.empty (AList.ofAValSingle prop)
+                        ]
+                                       
+                        GuiEx.accordion "Measurements" "Content" true [
+                            Incremental.div AttributeMap.empty (AList.ofAValSingle results)                                        
+                        ]
+                        
+                        GuiEx.accordion "Dip&Strike" "Calculator" false [
+                            Incremental.div AttributeMap.empty (AList.ofAValSingle(Annotations.viewDipAndStrike m))]
+                    ]
+
+                require (viewerDependencies) (body bodyAttributes (blurg()))
+            | Some "config" -> 
+                require (viewerDependencies) (body bodyAttributes [Config.configUI m])
+            | Some "viewplanner" -> 
+                require (viewerDependencies) (body bodyAttributes [ViewPlanner.viewPlannerUI m])
+            | Some "minerva" -> 
+               //let pos = m.scene.navigation.camera.view |> AVal.map(fun x -> x.Location)
+                let minervaItems = 
+                    PRo3D.Minerva.MinervaApp.viewFeaturesGui m.minervaModel |> List.map (UI.map MinervaActions)
+
+                let linkingItems =
+                    [
+                        Html.SemUi.accordion "Linked Products" "Image" false [
+                            PRo3D.Linking.LinkingApp.viewSideBar m.linkingModel |> UI.map LinkingActions
+                        ]
+                    ]
+
+                require (viewerDependencies @ Html.semui) (
+                    body bodyAttributes (minervaItems @ linkingItems)
+                )
+            | Some "linking" ->
+                require (viewerDependencies) (
+                    body bodyAttributes [
+                        PRo3D.Linking.LinkingApp.viewHorizontalBar m.minervaModel.session.selection.highlightedFrustra m.linkingModel |> UI.map LinkingActions
+                    ]
+                )
+            //| Some "corr_logs" ->
+            //    CorrelationPanelsApp.viewLogs m.correlationPlot
+            //    |> UI.map CorrelationPanelMessage
+            //| Some "corr_svg" -> 
+            //    CorrelationPanelsApp.viewSvg m.correlationPlot
+            //    |> UI.map CorrelationPanelMessage
+            //| Some "corr_semantics" -> 
+            //    CorrelationPanelsApp.viewSemantics m.correlationPlot
+            //    |> UI.map CorrelationPanelMessage
+            //| Some "corr_mappings" -> 
+            //    require (myCss) (
+            //        body bodyAttributes [
+            //            CorrelationPanelsApp.viewMappings m.correlationPlot |> UI.map CorrelationPanelMessage
+            //        ] )
+            | None -> 
+                require (viewerDependencies) (
+                    body [][                    
+                        TopMenu.getTopMenu m
+                        div[clazz "dockingMainDings"] [
+                            m.scene.dockConfig
+                            |> docking [                                           
+                                style "width:100%; height:100%; background:#F00"
+                                onLayoutChanged UpdateDockConfig ]
+                        ]
+                    ]
+                )
+            | _ -> body[][]
+
     

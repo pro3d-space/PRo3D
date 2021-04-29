@@ -42,6 +42,8 @@ type TabMenu =
 
 type BookmarkAction =
     | AddBookmark 
+    | ImportBookmarks of list<string>
+    | ExportBookmarks of string
     | GroupsMessage   of GroupsAppAction
     | PrintViewParameters of Guid
 
@@ -94,7 +96,7 @@ type ViewerAction =
     | ConfigPropertiesMessage         of ConfigProperties.Action
     | DeleteLast
     | AddSg                           of ISg
-    | PickSurface                     of SceneHit*string
+    | PickSurface                     of SceneHit*string*bool
     | PickObject                      of V3d*Guid
     | SaveScene                       of string
     | SaveAs                          of string
@@ -103,6 +105,7 @@ type ViewerAction =
     | NewScene
     | KeyDown                         of key : Aardvark.Application.Keys
     | KeyUp                           of key : Aardvark.Application.Keys      
+    | ResizeMainControl               of V2i * string
     | SetKind                         of TrafoKind
     | SetInteraction                  of Interactions        
     | SetMode                         of TrafoMode
@@ -120,6 +123,7 @@ type ViewerAction =
     | NoAction                        of string
     | OrientationCube                 of ISg
     | UpdateDockConfig                of DockConfig
+    | ChangeDashboardMode             of DashboardMode
     | AddPage                         of DockElement    
     | ToggleOrientationCube
     | UpdateUserFeedback              of string
@@ -127,16 +131,18 @@ type ViewerAction =
     | Logging                         of string * ViewerAction
     | ThreadsDone                     of string    
     | SnapshotThreadsDone             of string
-    | OnResize                        of V2i
+    | OnResize                        of V2i * string
     | StartDragging                   of V2i * MouseButtons
     | Dragging                        of V2i
     | EndDragging                     of V2i * MouseButtons
+    //| CorrelationPanelMessage         of CorrelationPanelsMessage
     | MakeSnapshot                    of int*int*string
     | ImportSnapshotData              of list<string>
     | SetTextureFiltering             of bool // TODO move to versioned ViewConfigModel in V3
     | UpdatePlacementParameters              of (list<ObjectPlacementParameters> * string)
     | TestHaltonRayCasting            //of list<string>
     | HeightValidation               of HeightValidatorAction
+    | ComparisonMessage              of Comparison.ComparisonAction
     | ObjectPlacementMessage         of (string * ObjectPlacementAction)
     | ExportSnapshotFile             
     | Nop
@@ -348,6 +354,7 @@ type MultiSelectionBox =
 [<ModelType>]
 type Model = { 
     startupArgs          : StartupArgs
+    dashboardMode        : string
     scene                : Scene
     drawing              : PRo3D.Core.Drawing.DrawingModel
     interaction          : Interactions
@@ -378,12 +385,12 @@ type Model = {
     picking          : bool
     ctrlFlag         : bool
     frustum          : Frustum
-    viewPortSize     : V2i
+    viewPortSize     : HashMap<string, V2i>
     overlayFrustum   : Option<Frustum>
     
     minervaModel     : PRo3D.Minerva.MinervaModel
     linkingModel     : PRo3D.Linking.LinkingModel
-
+    comparisonApp    : PRo3D.Comparison.ComparisonApp
     //correlationPlot : CorrelationPanelModel
     //pastCorrelation : Option<CorrelationPanelModel>
             
@@ -396,6 +403,9 @@ type Model = {
     //viewPlans            : ViewPlanModel
  
     arnoldSnapshotThreads: ThreadPool<ViewerAction>
+    showExplorationPoint : bool
+    filterTexture        : bool // TODO move to versioned ViewConfigModel in V3  
+
     heighValidation      : HeightValidatorModel
 }
 
@@ -523,13 +533,13 @@ module Viewer =
                     viewPlans       = ViewPlanModel.initial
                     objectPlacements = HashMap.empty
                 }
-
+            dashboardMode   = DashboardModes.core.name
             navigation      = navInit
 
             startupArgs     = startupArgs            
             drawing         = Drawing.DrawingModel.initialdrawing
             properties      = NoProperties
-            interaction     = Interactions.PlaceValidator
+            interaction     = Interactions.DrawAnnotation
             multiSelectBox  = None
             shiftFlag       = false
             picking         = false
@@ -552,7 +562,7 @@ module Viewer =
             future          = None
 
             tabMenu = TabMenu.Surfaces
-
+            comparisonApp    = PRo3D.ComparisonApp.init
             animations = 
                 { 
                     animations = IndexList.empty
@@ -574,8 +584,11 @@ module Viewer =
             //instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
             viewerMode = ViewerMode.Standard                
             footPrint = ViewPlanModel.initFootPrint
-            viewPortSize = V2i.One
+            viewPortSize = HashMap.empty
 
             arnoldSnapshotThreads = ThreadPool.empty
+            showExplorationPoint = startupArgs.showExplorationPoint
+            filterTexture = startupArgs.magnificationFilter
+                        
             heighValidation = HeightValidatorModel.init()
     }

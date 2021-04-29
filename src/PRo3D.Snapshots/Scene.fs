@@ -292,7 +292,12 @@ module SceneLoader =
           |> SurfaceModel.triggerSgGrouping 
           |> (flip <| Optic.set _surfaceModelLens) m
              
-    let prepareSurfaceModel (runtime : IRuntime) (signature: IFramebufferSignature) (scenePath : option<string>) (model : SurfaceModel) : SurfaceModel =
+    let prepareSurfaceModel 
+        (runtime   : IRuntime) 
+        (signature : IFramebufferSignature) 
+        (scenePath : option<string>) 
+        (model     : SurfaceModel) : SurfaceModel =
+        
         let surfaces = model.surfaces.flat |> Leaf.toSurfaces 
 
         let surfacesList =

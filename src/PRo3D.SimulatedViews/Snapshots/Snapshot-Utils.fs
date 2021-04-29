@@ -9,10 +9,13 @@ open FShade
 open FSharp.Data.Adaptive
 open PRo3D.Core
 open PRo3D.Core.Surface
+open PRo3D.Base
 
 //open Aardvark.GeoSpatial.Opc.Shader
 
 module PlacementUtils =
+
+
     let addSnapshotGroup (m    : SurfaceModel) =
         let groupsModel = GroupsApp.addGroupToRoot m.surfaces "snapshots"
         {m with surfaces = groupsModel}

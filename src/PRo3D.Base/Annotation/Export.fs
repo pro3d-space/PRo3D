@@ -1,4 +1,4 @@
-namespace PRo3D
+namespace PRo3D.Base.Annotation
 
 
 open System
@@ -8,9 +8,13 @@ open FSharp.Data.Adaptive
 
 open Aardvark.Base
 open Aardvark.UI
-open PRo3D.Base.Annotation
 
-module Csv =
+open PRo3D.Base.Annotation.GeoJSON
+open PRo3D.Base
+
+open Chiron
+
+module Export =
     
     type ExportDnS = {
         dipAngle      : float
@@ -22,11 +26,11 @@ module Csv =
         errorMax      : float
         errorStd      : float
         errorSos      : float
-        }
+    }
    
     type ExportAnnotation = {
         key           : Guid
-        geometry      : Geometry
+        geometry      : PRo3D.Base.Annotation.Geometry
         projection    : Projection
         semantic      : Semantic
         color         : string
@@ -59,7 +63,7 @@ module Csv =
         z             : double
     }
 
-    let exportAnnotation (lookUp) (a: Annotation) : ExportAnnotation =
+    let toExportAnnotation (lookUp) (a: Annotation) : ExportAnnotation =
       
         let results = 
             match a.results with
@@ -206,4 +210,96 @@ module Csv =
                     |> Seq.map (Array.map enclose)
                 yield! lines |> Seq.map (Array.join separator)
             }
+
+    module GeoJSON =
+        //let toV2dCoordinate
+        //let toV3dCoordinate (v : V3d) : GeoJSON.V3d = 
+        //    Coordinate.V3d{ X=v.X; Y=v.Y; Z = v.Z }
+
+        let annotationToGeoJsonGeometry (planet : option<Planet>) (a : Annotation) : GeoJSON.GeoJsonGeometry =
+
+            let latLonAltPoints = 
+                match planet with 
+                | Some p ->
+                    a.points 
+                    |> IndexList.map (CooTransformation.getLatLonAlt p)
+                    |> IndexList.map CooTransformation.SphericalCoo.toV3d
+                    |> IndexList.toList
+                | None ->
+                    a.points
+                    |> IndexList.toList
+
+            match a.geometry with
+            | Geometry.Point ->
+                latLonAltPoints |> List.map ThreeDim |> List.head |> GeoJsonGeometry.Point                
+            | Geometry.Line -> 
+                latLonAltPoints |> List.map ThreeDim |> GeoJsonGeometry.LineString
+            | Geometry.Polyline -> 
+                latLonAltPoints |> List.map ThreeDim |> List.singleton |> GeoJsonGeometry.MultiLineString
+            | Geometry.Polygon -> 
+                latLonAltPoints |> List.map ThreeDim |> List.singleton |> GeoJsonGeometry.Polygon
+            | Geometry.DnS -> 
+                latLonAltPoints |> List.map ThreeDim |> List.singleton |> GeoJsonGeometry.Polygon
+            | Geometry.TT ->
+                latLonAltPoints |> List.map ThreeDim |> GeoJsonGeometry.LineString
+            | _ ->
+                Point(V3d.NaN |> ThreeDim)
+                
+            //| Polygon -> 
+            //| DnS ->
+
+        //let toPolygon () =
+        //    let polygon = 
+        //        GeoJsonGeometry.Polygon(
+        //            [
+        //                [
+        //                    Coordinate.V2d{ X=100.0; Y=0.0 }
+        //                    Coordinate.V2d{ X=101.0; Y=0.0 }
+        //                    Coordinate.V2d{ X=101.0; Y=1.0 }
+        //                    Coordinate.V2d{ X=100.0; Y=1.0 }
+        //                    Coordinate.V2d{ X=100.0; Y=0.0 }
+        //                ]                        
+        //                [
+        //                    Coordinate.V2d{ X=100.8; Y=0.8 }
+        //                    Coordinate.V2d{ X=100.8; Y=0.2 }
+        //                    Coordinate.V2d{ X=100.2; Y=0.2 }
+        //                    Coordinate.V2d{ X=100.2; Y=0.8 }
+        //                    Coordinate.V2d{ X=100.8; Y=0.8 }
+        //                ]
+        //            ]
+        //        )
+
+        //    ()
+        
+        let toJson (planet : Planet) (path:string) (annotations : list<Annotation>) : unit = 
+
+            if path.IsEmpty() then ()
+        
+            let geometryCollection =
+                annotations
+                |> List.map(annotationToGeoJsonGeometry (Some planet))
+                |> GeoJsonGeometry.GeometryCollection
+
+            geometryCollection
+            |> Json.serialize 
+            |> Json.formatWith JsonFormattingOptions.Pretty 
+            |> Serialization.writeToFile path
+
+            ()            
+
+        let toJsonXYZ (path:string) (annotations : list<Annotation>) : unit = 
+
+            if path.IsEmpty() then ()
+        
+            let geometryCollection =
+                annotations
+                |> List.map(annotationToGeoJsonGeometry None)
+                |> GeoJsonGeometry.GeometryCollection
+
+            geometryCollection
+            |> Json.serialize 
+            |> Json.formatWith JsonFormattingOptions.Pretty 
+            |> Serialization.writeToFile path
+
+            ()
 

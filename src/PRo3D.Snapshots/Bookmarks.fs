@@ -17,8 +17,10 @@ open PRo3D.Viewer
 open Aether
 open Aether.Operators
 
+open Chiron
+
 module Bookmarks = 
-    
+    let defaultPath = "bookmarks.bm"
     let tryGet (bookmarks : IndexList<Bookmark>) key =
         bookmarks |> Seq.tryFind(fun x -> x.key = key)
 
@@ -35,6 +37,7 @@ module Bookmarks =
             
     let update 
         (bookmarks       : GroupsModel) 
+        (planet          : Planet)
         (act             : BookmarkAction) 
         (navigationModel : Lens<'a,NavigationModel>) 
         (outerModel      : 'a) : ('a * GroupsModel) =
@@ -49,6 +52,31 @@ module Bookmarks =
                 GroupsApp.addLeafToActiveGroup (Leaf.Bookmarks newBm) true bookmarks
             
             outerModel, groups
+        | ImportBookmarks pathList ->
+            match pathList with
+            | filepath :: tail ->
+                match System.IO.File.Exists filepath with
+                | true ->
+                    let bookmarks = 
+                        filepath
+                        |> Serialization.Chiron.readFromFile 
+                        |> Json.parse 
+                        |> Json.deserialize
+
+                    outerModel, bookmarks
+                | false ->
+                    outerModel, bookmarks
+            | [] -> outerModel, bookmarks
+            
+        | ExportBookmarks filepath ->
+            if filepath <> "" then
+                bookmarks
+                  |> Json.serialize 
+                  |> Json.formatWith JsonFormattingOptions.Pretty 
+                  |> Serialization.writeToFile filepath
+                Log.line "[Comparison] Bookmarks exported to %s" (System.IO.Path.GetFullPath filepath)
+                outerModel, bookmarks
+            else outerModel, bookmarks
         | GroupsMessage msg -> 
             match msg with
             | GroupsAppAction.UpdateCam id -> 
@@ -81,6 +109,11 @@ module Bookmarks =
                     Log.line "\"forward\": \"%s\"," (bm.cameraView.Forward.ToString ())
                     Log.line "\"location\": \"%s\"," (bm.cameraView.Location.ToString ())
                     Log.line "\"up\": \"%s\"" (bm.cameraView.Up.ToString ())
+
+                    let lla = CooTransformation.getLatLonAlt planet bm.cameraView.Location |> CooTransformation.SphericalCoo.toV3d
+
+                    Log.line "\"lon lat alt\": \"%s\"" (lla.ToString ())
+
                     outerModel, bookmarks
                 | _ -> outerModel, bookmarks
             | None ->  outerModel, bookmarks
@@ -160,7 +193,15 @@ module Bookmarks =
                                         ([ Incremental.text b.name ] |> AList.ofList)
                                 ]
                                 yield i [clazz "home icon"; 
-                                onClick (fun _ -> lift <| GroupsAppAction.UpdateCam key)][] |> UI.wrapToolTip DataPosition.Bottom "FlyTo"                                          
+                                    onClick (fun _ -> lift <| GroupsAppAction.UpdateCam key)
+                                ][] |> UI.wrapToolTip DataPosition.Bottom "FlyTo"
+
+                                yield i [clazz "print icon"; 
+                                    onClick (fun _ -> PrintViewParameters key)
+                                ][] 
+
+
+                                    //onClick (fun _ -> PrintPosition )][i[clazz "ui icon print"][]
                             } 
                         ) 
                         
@@ -268,12 +309,35 @@ module Bookmarks =
                 ]
             )
 
+        let jsImportBookmarksDialog =
+            "top.aardvark.dialog.showOpenDialog({ title: 'Import Bookmarks', filters: [{ name: 'Bookmarks (*.bm)', extensions: ['bm']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+        let jsExportBookmarksDialog = 
+            "top.aardvark.dialog.showSaveDialog({ title:'Save Bookmarks as', filters:  [{ name: 'Bookmarks (*.bm)', extensions: ['bm'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"            
+           
+        let menu =
+            div [ clazz "ui dropdown item"] [
+                text "Bookmarks"
+                i [clazz "dropdown icon"][] 
+                div [ clazz "menu"] [                    
+                    div [
+                          clazz "ui inverted item"
+                          Dialogs.onChooseFiles ImportBookmarks
+                          clientEvent "onclick" jsImportBookmarksDialog
+                        ] [text "Import"]
+                    div [
+                          clazz "ui inverted item"
+                          Dialogs.onSaveFile ExportBookmarks;
+                          clientEvent "onclick" jsExportBookmarksDialog
+                        ] [text "Export"]
+                ]
+            ]
+
         let viewGUI = 
-         div [clazz "ui buttons inverted"] [
-                    //onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
-                        button [clazz "ui icon button"; onMouseClick (fun _ -> AddBookmark )] [ //
-                                i [clazz "plus icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Add Bookmark"
-                   // )
-                ] 
+           div [clazz "ui buttons inverted"]
+               [
+                      //onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
+                   button [clazz "ui icon button";onMouseClick (fun _ -> AddBookmark )] [ //
+                           i [clazz "plus icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Add Bookmark"
+               ] 
 
        

@@ -33,6 +33,7 @@ open PRo3D.SimulatedViews
 
 open Adaptify.FSharp.Core
 open OpcViewer.Base.Shader
+open PRo3D.Comparison
 
 module ViewerUtils =    
     type Self = Self
@@ -45,20 +46,6 @@ module ViewerUtils =
         let s = typeof<Self>.Assembly.GetManifestResourceStream("PRo3D.Viewer.resources.HueColorMap.png")
         let pi = PixImage.Create(s)
         PixTexture2d(PixImageMipMap [| pi |], true) :> ITexture    
-    
-    let toModSurface (leaf : AdaptiveLeafCase) = 
-         adaptive {
-            let c = leaf
-            match c with 
-                | AdaptiveSurfaces s -> return s
-                | _ -> return c |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
-            }
-             
-    let lookUp guid (table:amap<Guid, AdaptiveLeafCase>) =
-        
-        let entry = table |> AMap.find guid
-
-        entry |> AVal.bind(fun x -> x |> toModSurface)
     
     let addImageCorrectionParameters (surf:aval<AdaptiveSurface>)  (isg:ISg<'a>) =
         
@@ -232,13 +219,14 @@ module ViewerUtils =
         (fp              : AdaptiveFootPrint) 
         (vp              : aval<Option<AdaptiveViewPlan>>) 
         (useHighlighting : aval<bool>)
-        (filterTexture   : aval<bool>) =
+        (filterTexture   : aval<bool>)
+        (comparisonApp   : AdaptiveComparisonApp) =
 
         adaptive {
             let! exists = (blarg |> AMap.keys) |> ASet.contains surface.surface
             if exists then
               
-                let surf = lookUp (surface.surface) blarg
+                let surf = SurfaceUtils.lookUp (surface.surface) blarg
                     //AVal.bind(fun x -> lookUp (x.surface) blarg )
                 
                 let isSelected = AVal.map2(fun x y ->
@@ -311,6 +299,13 @@ module ViewerUtils =
                         return (fppm * fpvm) // * ts.Forward
                     } 
 
+                let measurementsSg =
+                    ComparisonApp.measurementsSg surf
+                                                 (pickBox |> AVal.map (fun x -> x.Size.[x.MajorDim]))
+                                                 trafo
+                                                 refsys
+                                                 comparisonApp
+
                 let structuralOnOff (visible : aval<bool>) (sg : ISg<_>) : ISg<_> = 
                     visible 
                     |> AVal.map (fun visible -> 
@@ -359,7 +354,10 @@ module ViewerUtils =
                             DefaultSurfaces.vertexColor |> toEffect
                         ] 
                         |> Sg.onOff isSelected
-                    )                                
+                    )
+                    |> Sg.andAlso (
+                        measurementsSg
+                    )
                 return surfaceSg
             else
                 return Sg.empty
@@ -440,7 +438,9 @@ module ViewerUtils =
                             sf.globalBB 
                             refSystem 
                             m.footPrint 
-                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting m.filterTexture)
+                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting m.filterTexture
+                            m.comparisonApp
+                        )
                     |> AMap.toASet 
                     |> ASet.map snd                     
                 )                
@@ -504,12 +504,16 @@ module ViewerUtils =
                             surface.globalBB
                             refSystem m.footPrint 
                             (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting filterTexture
+                            m.comparisonApp
                        )
                     |> AMap.toASet 
                     |> ASet.map snd                     
                 )                
             )
+
         //grouped   
+        let last = grouped |> AList.tryLast
+
         alist {        
             let mutable i = 0
             for set in grouped do
@@ -519,43 +523,24 @@ module ViewerUtils =
                     |> Sg.set
                     |> Sg.effect [surfaceEffect]
                     |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-                    |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()                        
+                    |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()
 
                 yield RenderCommand.SceneGraph sg
 
                 //if i = c then //now gets rendered multiple times
                  // assign priorities globally, or for each anno and make sets
-                yield RenderCommand.SceneGraph depthTested
+                let depthTested =
+                    last |> AVal.map (function 
+                        | Some e when System.Object.ReferenceEquals(e,set) -> depthTested 
+                        | _ -> Sg.empty
+                    )
+                yield RenderCommand.SceneGraph (depthTested |> Sg.dynamic)
 
                 yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
-            
+
             yield RenderCommand.SceneGraph overlayed
-            
-        }  
 
-    let renderScreenshot (runtime : IRuntime) (size : V2i) (sg : ISg<ViewerAction>) = 
-        let col = runtime.CreateTexture(size, TextureFormat.Rgba8, 1, 1);
-        let signature = 
-            runtime.CreateFramebufferSignature [
-                DefaultSemantic.Colors, { format = RenderbufferFormat.Rgba8; samples = 1 }
-            ]
-
-        let fbo = 
-            runtime.CreateFramebuffer(
-                signature, 
-                Map.ofList [
-                    DefaultSemantic.Colors, col.GetOutputView()
-                ]
-            )
-
-        let taskclear = runtime.CompileClear(signature,AVal.constant C4f.Black,AVal.constant 1.0)
-        
-        let task = runtime.CompileRender(signature, sg)
-
-        taskclear.Run(null, fbo |> OutputDescription.ofFramebuffer) |> ignore
-        task.Run(null, fbo |> OutputDescription.ofFramebuffer) |> ignore
-        let colorImage = runtime.Download(col)
-        colorImage
+        }
 
 module GaleCrater =
     open PRo3D.Base

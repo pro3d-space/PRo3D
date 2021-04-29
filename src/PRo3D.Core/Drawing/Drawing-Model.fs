@@ -30,7 +30,7 @@ type DrawingAction =
   | StopPicking  
   | StartPickingMulti     
   | StopPickingMulti  
-  | AddPointAdv         of V3d * (V3d -> Option<V3d>) * string
+  | AddPointAdv         of V3d * (V3d -> Option<V3d>) * string * option<Guid>
   | RemoveLastPoint  
   | ClearWorking
   | ClearSelection
@@ -43,8 +43,7 @@ type DrawingAction =
   | Redo                   
   | FlyToAnnotation        of Guid
   //| RemoveAnnotation           of list<Index>*Guid       
-  | Send                   
-  | Export                 
+  | Send                     
   | Nop                    
   | UpVectorChanged        of V3d
   | NorthVectorChanged     of V3d
@@ -53,7 +52,10 @@ type DrawingAction =
   | ExportAsAnnotations    of string
   | AddAnnotations         of list<string>
   | PickAnnotation         of SceneHit * Guid
+  | PickDirectly           of Guid
   | ExportAsCsv            of string
+  | ExportAsGeoJSON        of string
+  | ExportAsGeoJSON_xyz     of string
 
 [<ModelType>]
 type DrawingModel = {

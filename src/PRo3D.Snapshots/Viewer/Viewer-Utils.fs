@@ -4,24 +4,18 @@ open System
 open System.IO
 
 open Aardvark.Base
-open Aardvark.Base.Geometry
 open FSharp.Data.Adaptive
-open FSharp.Data.Adaptive.Operators
-open Aardvark.Rendering
+open FShade
 open Aardvark.Rendering.Effects
+open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.UI
-open Aardvark.UI.Primitives
 open Aardvark.UI.Trafos
-open Aardvark.UI.Animation
 open Aardvark.Rendering.Text
 
-open Aardvark.SceneGraph.Opc
-open Aardvark.SceneGraph.SgPrimitives.Sg
 open Aardvark.GeoSpatial.Opc
 open OpcViewer.Base
 
-open FShade
 open PRo3D
 open PRo3D.Base
 open PRo3D.Core
@@ -31,30 +25,18 @@ open PRo3D.SimulatedViews
 
 open PRo3D.Shading
 open Adaptify.FSharp.Core
-open OpcViewer.Base.Shader
 
 module ViewerUtils =    
+    type Self = Self
 
     //let _surfaceModelLens = Model.Lens.scene |. Scene.Lens.surfacesModel
     //let _flatSurfaces = Scene.Lens.surfacesModel |. SurfaceModel.Lens.surfaces |. GroupsModel.Lens.flat
         
     let colormap = 
         let config = { wantMipMaps = false; wantSrgb = false; wantCompressed = false }
-        FileTexture("resources/HueColorMap.png",config) :> ITexture    
-    
-    //let toModSurface (leaf : AdaptiveLeafCase) = 
-    //     adaptive {
-    //        let c = leaf
-    //        match c with 
-    //            | AdaptiveSurfaces s -> return s
-    //            | _ -> return c |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
-    //        }
-             
-    //let lookUp guid (table:amap<Guid, AdaptiveLeafCase>) =
-        
-    //    let entry = table |> AMap.find guid
-
-    //    entry |> AVal.bind(fun x -> x |> toModSurface)
+        let s = typeof<Self>.Assembly.GetManifestResourceStream("PRo3D.Viewer.resources.HueColorMap.png")
+        let pi = PixImage.Create(s)
+        PixTexture2d(PixImageMipMap [| pi |], true) :> ITexture  
     
     let addImageCorrectionParameters (surf:aval<AdaptiveSurface>)  (isg:ISg<'a>) =
         
@@ -217,18 +199,13 @@ module ViewerUtils =
 
             attr
 
-    let getTextureSampleDescription (doMagnificationFiltering : bool) =
-      let magnificationFilter = 
-          match doMagnificationFiltering with
-          | false -> TextureFilterMode.Point
-          | true -> TextureFilterMode.Linear // HERA/MARS-DL, default for snapshots
-
-      let samplerDescription : SamplerStateDescription -> SamplerStateDescription = 
-          (fun x -> 
-              x.Filter <- new TextureFilter(TextureFilterMode.Linear, magnificationFilter, TextureFilterMode.Linear, true ); 
-              x
-          )
-      samplerDescription
+    let getTextureSamplerDescription (filterTexture : aval<bool>) =
+        filterTexture |> AVal.map (fun filterTexture ->  
+            fun (x : SamplerState) -> 
+                match filterTexture with
+                | false -> { x with Filter = TextureFilter.MinLinearMagPoint }
+                | true -> { x with Filter = TextureFilter.MinMagLinear }  // HERA/MARS-DL, default for snapshots
+        )
 
     let addCullFillMode (surf : aval<AdaptiveSurface>) (sg : ISg) =
         sg 
@@ -311,7 +288,7 @@ module ViewerUtils =
 
     let viewSingleSurfaceSg  (sgSurface       : AdaptiveSgSurface) 
                              (frustum         : aval<Frustum>) 
-                             (isctrl          : aval<bool>) 
+                             (surfacePicking  : aval<bool>) 
                              (useHighlighting : aval<bool>)
                              (scene           : AdaptiveScene)
                              lightViewProj 
@@ -355,8 +332,8 @@ module ViewerUtils =
                 return t
             }
                     
-        let samplerDescription = scene.config.filterTexture 
-                                    |> AVal.map (fun x -> getTextureSampleDescription x)
+        let samplerDescription = getTextureSamplerDescription scene.config.filterTexture 
+                                    
                        
         //let structuralOnOff (visible : aval<bool>) (sg : ISg<_>) : ISg<_> = 
         //    visible 
@@ -381,7 +358,7 @@ module ViewerUtils =
             |> AVal.map (addCullFillMode surf)
             |> Sg.dynamic
             |> Sg.trafo (getModelTrafo surf scene.referenceSystem) //(Transformations.fullTrafo surf refsys)
-            |> Sg.modifySamplerState DefaultSemantic.DiffuseColorTexture samplerDescription
+            |> Sg.modifySamplerState DefaultSemantic.DiffuseColorTexture samplerDescription 
             |> Sg.uniform "selected"      (isSelected) // isSelected
             |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
             |> Sg.uniform "LightDirection" scene.config.shadingApp.lightDirection.value
@@ -405,9 +382,10 @@ module ViewerUtils =
                 SceneEventKind.Click, (
                     fun sceneHit -> 
                       let surfM = surf       |> AVal.force
-                      let name  = surfM.name |> AVal.force                                                  
-                      Log.warn "spawning picksurface %s" name
-                      true, Seq.ofList [PickSurface (sceneHit,name)])
+                      let name  = surfM.name |> AVal.force       
+                      let surfacePicking = surfacePicking |> AVal.force
+                      //Log.warn "spawning picksurface %s" name
+                      true, Seq.ofList [PickSurface (sceneHit, name, surfacePicking)])
                 ]  
             // handle surface visibility
             |> Sg.onOff (surf |> AVal.bind(fun x -> x.isVisible)) // on off variant
@@ -609,35 +587,35 @@ module ViewerUtils =
             for sg in sgs do
                 yield RenderCommand.SceneGraph sg
                 yield RenderCommand.SceneGraph depthTested
-                yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0))
+                yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
             yield RenderCommand.SceneGraph overlayed
             let! debug = m.scene.config.shadingApp.debug
             if debug then yield RenderCommand.SceneGraph debugSg 
         }  
 
-    let renderScreenshot (runtime : IRuntime) (size : V2i) (sg : ISg<ViewerAction>) = 
-        let col = runtime.CreateTexture(size, TextureFormat.Rgba8, 1, 1);
-        let signature = 
-            runtime.CreateFramebufferSignature [
-                DefaultSemantic.Colors, { format = RenderbufferFormat.Rgba8; samples = 1 }
-            ]
+    //let renderScreenshot (runtime : IRuntime) (size : V2i) (sg : ISg<ViewerAction>) = 
+    //    let col = runtime.CreateTexture(size, TextureFormat.Rgba8, 1, 1);
+    //    let signature = 
+    //        runtime.CreateFramebufferSignature [
+    //            DefaultSemantic.Colors, { format = RenderbufferFormat.Rgba8; samples = 1 }
+    //        ]
 
-        let fbo = 
-            runtime.CreateFramebuffer(
-                signature, 
-                Map.ofList [
-                    DefaultSemantic.Colors, col.GetOutputView()
-                ]
-            )
+    //    let fbo = 
+    //        runtime.CreateFramebuffer(
+    //            signature, 
+    //            Map.ofList [
+    //                DefaultSemantic.Colors, col.GetOutputView()
+    //            ]
+    //        )
 
-        let taskclear = runtime.CompileClear(signature,AVal.constant C4f.Black,AVal.constant 1.0)
+    //    let taskclear = runtime.CompileClear(signature,AVal.constant C4f.Black,AVal.constant 1.0)
         
-        let task = runtime.CompileRender(signature, sg)
+    //    let task = runtime.CompileRender(signature, sg)
 
-        taskclear.Run(null, fbo |> OutputDescription.ofFramebuffer) |> ignore
-        task.Run(null, fbo |> OutputDescription.ofFramebuffer) |> ignore
-        let colorImage = runtime.Download(col)
-        colorImage
+    //    taskclear.Run(null, fbo |> OutputDescription.ofFramebuffer) |> ignore
+    //    task.Run(null, fbo |> OutputDescription.ofFramebuffer) |> ignore
+    //    let colorImage = runtime.Download(col)
+    //    colorImage
 
 module GaleCrater =
     open PRo3D.Base

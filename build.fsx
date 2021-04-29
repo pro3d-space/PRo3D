@@ -15,10 +15,14 @@ open Fake.DotNet
 
 open Fake.IO
 open Fake.Api
+open Fake.Tools.Git
+
+
 
 do Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 
 let notes = ReleaseNotes.load "RELEASE_NOTES.md"
+printfn "%A" notes
 
 let outDirs = [ @"bin\Debug\netcoreapp3.1"; @"bin\Release\netcoreapp3.1"]
 let resources = 
@@ -231,18 +235,28 @@ Target.create "CopyJRWRapper" (fun _ ->
 
 
 Target.create "GitHubRelease" (fun _ ->
-    let token =
-        match Environment.environVarOrDefault "github_token" "" with
-        | s when not (System.String.IsNullOrWhiteSpace s) -> s
-        | _ -> failwith "please set the github_token environment variable to a github personal access token with repro access."
+    let newVersion = notes.NugetVersion
+    try
+        Branches.tag "." newVersion
+        let token =
+            match Environment.environVarOrDefault "github_token" "" with
+            | s when not (System.String.IsNullOrWhiteSpace s) -> s
+            | _ -> failwith "please set the github_token environment variable to a github personal access token with repro access."
 
-    let files = System.IO.Directory.EnumerateFiles("bin/publish") 
+        let files = System.IO.Directory.EnumerateFiles("bin/publish") 
 
-    GitHub.createClientWithToken token
-    |> GitHub.draftNewRelease "vrvis" "PRo3D" notes.NugetVersion (notes.SemVer.PreRelease <> None) notes.Notes
-    |> GitHub.uploadFiles files
-    |> GitHub.publishDraft
-    |> Async.RunSynchronously)
+        GitHub.createClientWithToken token
+        |> GitHub.draftNewRelease "vrvis" "PRo3D" notes.NugetVersion (notes.SemVer.PreRelease <> None) notes.Notes
+        |> GitHub.uploadFiles files
+        |> GitHub.publishDraft
+        |> Async.RunSynchronously
+    finally
+        ()
+        //Branches.pushTag "." "origin" newVersion
+        
+)
+
+
 
 #if DEBUG
 do System.Diagnostics.Debugger.Launch() |> ignore
