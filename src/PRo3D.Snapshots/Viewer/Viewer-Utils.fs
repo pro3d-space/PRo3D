@@ -22,7 +22,7 @@ open PRo3D.Core
 open PRo3D.Core.Surface
 open PRo3D.Viewer
 open PRo3D.SimulatedViews
-
+open PRo3D.Comparison
 open PRo3D.Shading
 open Adaptify.FSharp.Core
 
@@ -34,7 +34,7 @@ module ViewerUtils =
         
     let colormap = 
         let config = { wantMipMaps = false; wantSrgb = false; wantCompressed = false }
-        let s = typeof<Self>.Assembly.GetManifestResourceStream("PRo3D.Viewer.resources.HueColorMap.png")
+        let s = typeof<Self>.Assembly.GetManifestResourceStream("PRo3D.SnapshotViewer.resources.HueColorMap.png")
         let pi = PixImage.Create(s)
         PixTexture2d(PixImageMipMap [| pi |], true) :> ITexture  
     
@@ -291,6 +291,7 @@ module ViewerUtils =
                              (surfacePicking  : aval<bool>) 
                              (useHighlighting : aval<bool>)
                              (scene           : AdaptiveScene)
+                             (comparisonApp   : AdaptiveComparisonApp) 
                              lightViewProj 
                              shadowDepth =
         let surf = Scene.lookUp sgSurface.surface scene
@@ -348,6 +349,15 @@ module ViewerUtils =
         let drawShadows =
             AVal.map2 (fun x y -> x && y) isOPC scene.config.shadingApp.useShadows 
 
+        let trafo = getModelTrafo surf scene.referenceSystem
+
+        let measurementsSg =
+            ComparisonApp.measurementsSg surf
+                                         (pickBox |> AVal.map (fun x -> x.Size.[x.MajorDim]))
+                                         trafo
+                                         scene.referenceSystem
+                                         comparisonApp
+
         //let maskColor = placement |> Mod.bind (fun p -> match p with 
         //                                                 | Some p -> p.maskColor.c
         //                                                 | None -> C4b.Green |> Mod.constant
@@ -357,7 +367,7 @@ module ViewerUtils =
             sgSurface.sceneGraph
             |> AVal.map (addCullFillMode surf)
             |> Sg.dynamic
-            |> Sg.trafo (getModelTrafo surf scene.referenceSystem) //(Transformations.fullTrafo surf refsys)
+            |> Sg.trafo trafo //(Transformations.fullTrafo surf refsys)
             |> Sg.modifySamplerState DefaultSemantic.DiffuseColorTexture samplerDescription 
             |> Sg.uniform "selected"      (isSelected) // isSelected
             |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
@@ -399,6 +409,9 @@ module ViewerUtils =
                     DefaultSurfaces.vertexColor |> toEffect
                 ] 
                 |> Sg.onOff isSelected
+            )
+            |> Sg.andAlso (
+                measurementsSg
             )
         sg
        
@@ -443,26 +456,34 @@ module ViewerUtils =
 
     //TODO TO refactor screenshot specific
     let getSurfacesScenegraphs (m:AdaptiveModel) runtime =
+        //avoids kdtree intersections for certain interactions
+        let surfacePicking = 
+            m.interaction 
+            |> AVal.map(fun x -> 
+                match x with
+                | Interactions.PickAnnotation | Interactions.PickLog -> false
+                | _ -> true
+            )
+        let exists id = (m.scene.surfacesModel.surfaces.flat |> AMap.keys) |> ASet.contains id
         let sgGrouped = m.scene.surfacesModel.sgGrouped
         let usehighlighting = true |> AVal.constant //m.scene.config.useSurfaceHighlighting
         let sceneBB = Scene.calculateSceneBoundingBox m.scene true // OPCs do not throw shadows
         let lightViewProj = Shading.ShadingApp.lightViewProjection 
                                 m.scene.config.shadingApp sceneBB m.scene.referenceSystem.up.value
-        let existingSurfIds = (m.scene.surfacesModel.surfaces.flat |> AMap.keys)
         let shadowDepth =      
             (getShadowDepthSg m sceneBB)
                 |> Sg.compile runtime 
                               (Shading.ShadingApp.shadowDepthsignature runtime)
                 |> RenderTask.renderToDepth Shading.ShadingApp.shadowMapSize   
-        let exists id = existingSurfIds |> ASet.contains id
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 
                     |> AMap.filterA (fun x s -> exists x)
                     |> AMap.map(fun _ sf -> 
-                                  viewSingleSurfaceSg sf m.frustum m.ctrlFlag 
+                                  viewSingleSurfaceSg sf m.frustum surfacePicking 
                                                       usehighlighting 
-                                                      m.scene lightViewProj shadowDepth)
+                                                      m.scene m.comparisonApp 
+                                                      lightViewProj shadowDepth)
                     |> AMap.toASet 
                     |> ASet.map snd                     
                 )                
@@ -476,7 +497,7 @@ module ViewerUtils =
                     let sg = 
                         set 
                         |> Sg.set
-                        |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray) //?
+                        |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray) 
                         |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()                        
 
                     yield  sg
@@ -574,12 +595,7 @@ module ViewerUtils =
     let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) 
                        overlayed depthTested (m:AdaptiveModel)
                        runtime =
-        let usehighlighting = true |> AVal.constant //m.scene.config.useSurfaceHighlighting
-        let filterTexture = m.scene.config.filterTexture
 
-        let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
-        let refSystem = m.scene.referenceSystem
-        let exists id = (m.scene.surfacesModel.surfaces.flat |> AMap.keys) |> ASet.contains id
         let sgs = getSurfacesScenegraphs m runtime
         let debugSg = (getFrustumDebugSg m)
         //grouped   

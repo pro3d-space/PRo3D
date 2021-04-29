@@ -66,9 +66,9 @@
     <EmbeddedResource Include="resources\ElementQueries.js" />
     <EmbeddedResource Include="resources\errorReporting.js" />
     <EmbeddedResource Include="resources\ResizeSensor.js" />
-    <None Include="resources\HueColorMap.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+    <EmbeddedResource Include="resources\HueColorMap.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </EmbeddedResource>
     <EmbeddedResource Include="resources\spectrum.js">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </EmbeddedResource>
