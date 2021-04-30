@@ -18,8 +18,20 @@ module SnapshotSettings =
             [   Html.row "Snapshot Settings" []
                 Html.row "Snapshots per Pair of bookmarks :" [ Numeric.view' [InputBox] model.numSnapshots    |> UI.map SetNumSnapshots ]
                 Html.row "Field of View                   :" [ Numeric.view' [InputBox] model.fieldOfView     |> UI.map SetFieldOfView  ]
+                Html.row "Use Object Placement            :" [GuiEx.iconCheckBox model.useObjectPlacements ToggleUseObjectPlacements]
             ]
        )
+
+    let update (model : SnapshotSettings) (message : SnapshotSettingsAction) = //TODO rno move to own file and module
+        match message with
+        | SetNumSnapshots num ->  
+            {model with numSnapshots     = Numeric.update model.numSnapshots  num} 
+        | SetFieldOfView       num -> 
+            {model with fieldOfView     = Numeric.update model.fieldOfView  num}   
+        | SetRenderMask b ->
+            {model with renderMask = b}
+        | ToggleUseObjectPlacements ->
+            {model with useObjectPlacements = not model.useObjectPlacements}
 
     let currentVersion = 0
     let init = 
@@ -43,5 +55,6 @@ module SnapshotSettings =
             numSnapshots    = snapshots
             fieldOfView     = foV
             renderMask      = Some true
+            useObjectPlacements = false
         }
 

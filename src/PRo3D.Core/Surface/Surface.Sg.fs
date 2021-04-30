@@ -136,6 +136,14 @@ module Sg =
                          | _ -> AVal.constant false :> IAdaptiveValue
              ]
 
+        let lodDecider =
+            match useAsyncLoading with
+            | false -> mars
+            | true  ->
+                let noLod a b c d e f =
+                    true
+                noLod
+
         // create level of detail hierarchy (Sg)
         let g = 
             patchHierarchies 
@@ -144,7 +152,7 @@ module Sg =
                     signature
                     runner 
                     h.opcPaths.Opc_DirAbsPath
-                    mars //scene.lodDecider 
+                    lodDecider //mars //scene.lodDecider 
                     scene.useCompressedTextures
                     true
                     ViewerModality.XYZ

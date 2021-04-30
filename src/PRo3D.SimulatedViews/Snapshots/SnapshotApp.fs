@@ -194,21 +194,23 @@ module SnapshotApp =
         // apply surface tranformation to each surface mentioned in the snapshot
         PlacementUtils.applyToModel surfaces surfacesModel transformSurf       
 
-    let menuItems placeAction generateJsonAction = //TODO rno importBookmarkAction =
-      div [ clazz "ui dropdown item"] [
-        text "Snapshots"
-        i [clazz "dropdown icon"][] 
-        div [ clazz "menu"] [
-          div [ clazz "ui item"; onMouseClick (fun _ -> placeAction)][
-              text "Place Objects"
-          ]
-          div [ clazz "ui item";onMouseClick (fun _ -> generateJsonAction)][
-                text "Generate Snapshot File"
-              ]
-          ]
-          //div [ clazz "ui item";
-          //  UI.Dialogs.onChooseFiles  importBookmarkAction;
-          //  clientEvent "onclick" ("parent.aardvark.processEvent('__ID__', 'onchoose', parent.aardvark.dialog.showOpenDialog({properties: ['openFile']}));") ][
-          //  text "Import Bookmark"
-          //]
-      ]
+    let menuItems placeAction generateJsonAction useObjectPlacements = //TODO rno importBookmarkAction =
+        let menuContentList =
+            alist  {
+                let! useObjectPlacements = useObjectPlacements 
+                if useObjectPlacements then
+                    yield 
+                        div [ clazz "ui item"; onMouseClick (fun _ -> placeAction)][
+                            text "Place Objects"
+                        ]
+              
+                yield div [ clazz "ui item";onMouseClick (fun _ -> generateJsonAction)][
+                  text "Generate Snapshot File"
+                ]
+            }
+
+        div [ clazz "ui dropdown item"] [
+            text "Snapshots"
+            i [clazz "dropdown icon"][] 
+            Incremental.div (AttributeMap.ofList [ clazz "menu"]) menuContentList      
+        ]

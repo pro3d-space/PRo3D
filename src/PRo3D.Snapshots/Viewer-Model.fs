@@ -242,19 +242,19 @@ module Scene =
             let! referenceSystem = Json.read "referenceSystem"
             let! bookmarks       = Json.read "bookmarks"
             let! dockConfig      = Json.read "dockConfig"  
-            let! objectPlacementsOld = Json.read "shatterconePlacements"
-            let! objectPlacementsNew = Json.read "objectPlacements"
+            let! objectPlacementsOld = Json.tryRead "shatterconePlacements"
+            let! objectPlacementsNew = Json.tryRead "objectPlacements"
             let objectPlacements =
                 match objectPlacementsOld, objectPlacementsNew with 
-                | [], [] -> 
+                |None, None | Some [], Some [] -> 
                     (surfaceModel.surfaces.flat |> Leaf.toSurfaces)
                         |> HashMap.filter(fun g x -> x.surfaceType = SurfaceType.SurfaceOBJ)
                         |> HashMap.map (fun g x -> (x.name, ObjectPlacementApp.init))
                         |> HashMap.values
                         |> List.ofSeq
-                | lst, [] -> lst
-                | [], lst -> lst 
-                | lst1, lst2 -> lst2
+                | Some lst, Some [] | Some lst, None -> lst
+                | Some [], Some lst | None, Some lst -> lst 
+                | Some lst1, Some lst2 -> lst2
 
 
             return 

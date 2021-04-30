@@ -11,24 +11,32 @@ type SnapshotSettingsAction =
     | SetNumSnapshots of Numeric.Action
     | SetFieldOfView  of Numeric.Action
     | SetRenderMask   of option<bool>
+    | ToggleUseObjectPlacements
 
 [<ModelType>]
 type SnapshotSettings = {
-    version       : int
-    numSnapshots  : NumericInput
-    fieldOfView   : NumericInput
-    renderMask    : option<bool>
+    version              : int
+    numSnapshots         : NumericInput
+    fieldOfView          : NumericInput
+    renderMask           : option<bool>
+    useObjectPlacements  : bool
 } with
     static member read0 = 
         json {
             let! numSnapshots = Json.readWith Ext.fromJson<NumericInput,Ext> "numSnapshots"
             let! fieldOfView  = Json.readWith Ext.fromJson<NumericInput,Ext> "fieldOfView"
             let! renderMask   = Json.tryRead "renderMask"
+            let! useObjectPlacements = Json.tryRead "useObjectPlacements"
+            let useObjectPlacements =
+                match useObjectPlacements with
+                | Some true -> true
+                | _ -> false
             return {  
                 version       = 0
                 numSnapshots  = numSnapshots
                 fieldOfView   = fieldOfView
                 renderMask    = renderMask
+                useObjectPlacements = useObjectPlacements
               }
             }
 
@@ -45,6 +53,8 @@ type SnapshotSettings = {
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "fieldOfView" x.fieldOfView
             if x.renderMask.IsSome then
               do! Json.write "renderMask" x.renderMask
+            if x.useObjectPlacements then
+              do! Json.write "useObjectPlacements" x.useObjectPlacements
             do! Json.write "version" x.version
         }
 

@@ -64,7 +64,7 @@ module Snapshot =
             raise e
 
 
-    let fromViews (camViews : seq<CameraView>) (sp : List<ObjectPlacementParameters>) 
+    let fromViews (camViews : seq<CameraView>) (sp : option<List<ObjectPlacementParameters>>) 
                   (lightDirection : V3d) =
         let foo = Seq.zip camViews [0 .. (Seq.length camViews - 1)]
         seq {
@@ -75,7 +75,7 @@ module Snapshot =
                         sunPosition     = None
                         lightDirection  = Some lightDirection
                         surfaceUpdates  = None
-                        placementParameters    = Some sp
+                        placementParameters    = sp
                         renderMask      = None         
                       }
                //yield {

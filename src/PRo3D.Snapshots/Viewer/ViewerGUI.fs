@@ -465,6 +465,7 @@ module Gui =
                                 //snapshot menu
                                 SnapshotApp.menuItems ViewerAction.TestHaltonRayCasting 
                                                       ViewerAction.ExportSnapshotFile
+                                                      m.scene.config.snapshotSettings.useObjectPlacements
 
                                 //Extras Menu
                                 div [ clazz "ui dropdown item"] [
@@ -707,6 +708,11 @@ module Gui =
               GuiEx.accordion "Lighting" "sun" false [
                   Shading.ShadingApp.view m.scene.config.shadingApp 
                       |> UI.map ConfigProperties.ShadingMessage
+                      |> UI.map ViewerAction.ConfigPropertiesMessage
+              ]
+              GuiEx.accordion "Snapshots" "camera" false [
+                  SnapshotSettings.view m.scene.config.snapshotSettings
+                      |> UI.map ConfigProperties.SnapshotSettingsMessage
                       |> UI.map ViewerAction.ConfigPropertiesMessage
               ]
           ] 

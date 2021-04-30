@@ -685,8 +685,11 @@ module ViewerApp =
                     |> SceneLoader.importObj runtime signature objects 
                     |> ViewerIO.loadLastFootPrint
                     |> updateSceneWithNewSurface     
-                let newScPlacement = HashMap.add newSurface.name ObjectPlacementApp.init m.scene.objectPlacements
-                {m with scene = {m.scene with objectPlacements = newScPlacement}}
+                match m.scene.config.snapshotSettings.useObjectPlacements with
+                | true ->
+                    let newScPlacement = HashMap.add newSurface.name ObjectPlacementApp.init m.scene.objectPlacements
+                    {m with scene = {m.scene with objectPlacements = newScPlacement}}
+                | false -> m
             | None -> m              
         | ImportPRo3Dv1Annotations sl,_,_ ->
             match sl |> List.tryHead with
@@ -1319,29 +1322,32 @@ module ViewerApp =
         //        _bookmarksModel.Set(m, {bmmodel with bookmarks = newGroupsModel})
         //    | None -> m
         | ExportSnapshotFile , _, _ ->
-             let jsonScs = PlacementUtils.generatePlacementParameters m.scene.surfacesModel
-                                                                    m.scene.objectPlacements
-             match jsonScs.IsEmptyOrNull () with
-             | false ->
-                 let bookmarks = m.scene.bookmarks.flat
-                                   |> Leaf.mapToBookmarks
-                 let bmviews =
-                     seq {
-                         for guid, bm in bookmarks do
-                           yield bm.cameraView
-                     }
-                 let intvs = 
-                     bmviews 
-                       |> Seq.pairwise
-                       |> Seq.map (fun (a,b) -> PlacementUtils.interpolateView a b (int m.scene.config.snapshotSettings.numSnapshots.value))
-                 let intvs = seq {for x in intvs do yield! x}
-                 let snapshots = Snapshot.fromViews intvs jsonScs m.scene.config.shadingApp.lightDirection.value
-                 let snapAnimation = SnapshotAnimation.generate snapshots m.scene.config.snapshotSettings.fieldOfView.value true
-                 SnapshotAnimation.writeToFile snapAnimation "snapshots.json"              
-                 m
-             | true ->
-                 Log.warn "No object placement parameters."
-                 m
+            let jsonScs =
+                match m.scene.config.snapshotSettings.useObjectPlacements with
+                | true ->
+                    let placements = PlacementUtils.generatePlacementParameters m.scene.surfacesModel
+                                                                                m.scene.objectPlacements
+                    match placements.IsEmptyOrNull () with
+                    | true -> None
+                    | false -> Some placements
+                | false ->
+                    None
+            let bookmarks = m.scene.bookmarks.flat
+                              |> Leaf.mapToBookmarks
+            let bookmarkViews =
+                seq {
+                    for guid, bm in bookmarks do
+                      yield bm.cameraView
+                }
+            let interpolatedViews = 
+                bookmarkViews 
+                  |> Seq.pairwise
+                  |> Seq.map (fun (a,b) -> PlacementUtils.interpolateView a b (int m.scene.config.snapshotSettings.numSnapshots.value))
+            let interpolatedViews = seq {for x in interpolatedViews do yield! x}
+            let snapshots = Snapshot.fromViews interpolatedViews jsonScs m.scene.config.shadingApp.lightDirection.value
+            let snapAnimation = SnapshotAnimation.generate snapshots m.scene.config.snapshotSettings.fieldOfView.value true
+            SnapshotAnimation.writeToFile snapAnimation "snapshots.json"              
+            m
         | StartDragging _,_,_
         | Dragging _,_,_ 
         | EndDragging _,_,_ -> 
@@ -1361,7 +1367,7 @@ module ViewerApp =
                   match optPlacement with
                   | Some p -> ObjectPlacementApp.update p message
                   | None -> 
-                      Log.line "Could not find guid %s in object placements." str
+                      Log.line "[Viewer] Could not find guid %s in object placements." str
                       ObjectPlacementApp.init
               HashMap.update str updatePlacement m.scene.objectPlacements
           {m with scene = {m.scene with objectPlacements = scPlacements}}   

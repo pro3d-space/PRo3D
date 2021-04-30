@@ -94,15 +94,6 @@ module ObjectPlacementApp =
             maskColor       = maskColor
         }    
     
-    let updateSnapshotSettings (model : SnapshotSettings) (message : SnapshotSettingsAction) = //TODO rno move to own file and module
-        match message with
-        | SetNumSnapshots num ->  
-            {model with numSnapshots     = Numeric.update model.numSnapshots  num} 
-        | SetFieldOfView       num -> 
-            {model with fieldOfView     = Numeric.update model.fieldOfView  num}   
-        | SetRenderMask b ->
-            {model with renderMask = b}
-    
     let update (model : ObjectPlacementApp) (message : ObjectPlacementAction) =
         match message with
         | SetName        str ->  

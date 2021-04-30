@@ -10,6 +10,7 @@ open PRo3D.Base
 open PRo3D.Base.Annotation
 open PRo3D.Core
 open PRo3D.Shading
+open PRo3D.SimulatedViews
 
 
 module ConfigProperties =
@@ -25,6 +26,7 @@ module ConfigProperties =
         | SetOffset                 of Numeric.Action
         | SetPickingTolerance       of Numeric.Action
         | ShadingMessage            of Shading.ShadingAction
+        | SnapshotSettingsMessage   of SnapshotSettingsAction
         | ToggleLodColors
         | ToggleOrientationCube 
         | ToggleSurfaceHighlighting
@@ -61,6 +63,9 @@ module ConfigProperties =
             { model with pickingTolerance = Numeric.update model.pickingTolerance tolerance }
         | ShadingMessage msg ->
             {model with shadingApp = ShadingApp.update model.shadingApp msg}
+        | SnapshotSettingsMessage msg ->
+            {model with snapshotSettings = SnapshotSettings.update model.snapshotSettings msg}
+        | Nop -> model
         | _ -> 
             Log.warn "[ConfigProperties] Unknown action %A" act
             model
