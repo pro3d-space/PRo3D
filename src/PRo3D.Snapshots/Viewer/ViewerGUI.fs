@@ -704,6 +704,11 @@ module Gui =
               GuiEx.accordion "Camera" "Camera Retro" false [
                   CameraProperties.view m.scene.referenceSystem m.navigation.camera
               ]
+              GuiEx.accordion "Lighting" "sun" false [
+                  Shading.ShadingApp.view m.scene.config.shadingApp 
+                      |> UI.map ConfigProperties.ShadingMessage
+                      |> UI.map ViewerAction.ConfigPropertiesMessage
+              ]
           ] 
           
     module ViewPlanner = 

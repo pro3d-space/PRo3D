@@ -9,6 +9,7 @@ open FSharp.Data.Adaptive
 open PRo3D.Base
 open PRo3D.Base.Annotation
 open PRo3D.Core
+open PRo3D.Shading
 
 
 module ConfigProperties =
@@ -58,6 +59,8 @@ module ConfigProperties =
             model // {model with useSurfaceHighlighting = not model.useSurfaceHighlighting}
         | SetPickingTolerance tolerance ->
             { model with pickingTolerance = Numeric.update model.pickingTolerance tolerance }
+        | ShadingMessage msg ->
+            {model with shadingApp = ShadingApp.update model.shadingApp msg}
         | _ -> 
             Log.warn "[ConfigProperties] Unknown action %A" act
             model

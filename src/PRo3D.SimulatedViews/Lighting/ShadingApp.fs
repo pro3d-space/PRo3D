@@ -282,18 +282,18 @@ module ShadingApp =
                 //        (Numeric.view' [Slider] model.shadowFrustum)
                 //          |> UI.map SetShadowFrustum
                 //    ]
-                Html.row "Display Debug Objects: "
-                    [
-                        (Html.SemUi.iconCheckBox model.debug ShadingAction.ToggleDebug)
-                    ]
+                //Html.row "Display Debug Objects: "
+                //    [
+                //        (Html.SemUi.iconCheckBox model.debug ShadingAction.ToggleDebug)
+                //    ]
                 //Html.row "Set Shadow Projection: "
                 //    [
                 //        Html.Layout.boxH [ Html.SemUi.dropDown model.shadowProjection SetShadowProjection ]   
                 //    ]
-                Html.row "Show Light View: "
-                    [
-                        (Html.SemUi.iconCheckBox model.showShadowMap ShadingAction.ToggleShowShadowMap)
-                    ]
+                //Html.row "Show Light View: "
+                //    [
+                //        (Html.SemUi.iconCheckBox model.showShadowMap ShadingAction.ToggleShowShadowMap)
+                //    ]
                 ]
             )
 
