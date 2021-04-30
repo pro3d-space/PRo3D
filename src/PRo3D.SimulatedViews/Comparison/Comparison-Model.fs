@@ -10,7 +10,9 @@ open PRo3D.Core
 open PRo3D.Base
 open Chiron
 
-
+type OriginMode =
+    | ModelOrigin       = 0
+    | BoundingBoxCentre = 1
 
 type SurfaceMeasurements =  {
     /// the dimensions of this surface along x/y/z axes
@@ -82,6 +84,7 @@ type SurfaceComparison = {
 [<ModelType>]
 type ComparisonApp = {
     showMeasurementsSg           : bool
+    originMode                   : OriginMode
     surface1                     : option<string>
     surface2                     : option<string>
     surfaceMeasurements          : SurfaceComparison
@@ -93,6 +96,7 @@ type ComparisonApp = {
                 do! Json.write "surface1"       x.surface1.Value
             if x.surface2.IsSome then 
                 do! Json.write "surface2"       x.surface2.Value 
+            do! Json.write "originMode"         (x.originMode.ToString ())
             do! Json.write "surfaceMeasurements" x.surfaceMeasurements
             do! Json.write "annotationMeasurements" x.annotationMeasurements
         }
@@ -104,4 +108,4 @@ type ComparisonAction =
     | ExportMeasurements of string
     | ToggleVisible
     | AddBookmarkReference of System.Guid
-    | MeasurementMessage
+    | SetOriginMode of OriginMode

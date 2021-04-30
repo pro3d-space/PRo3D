@@ -59,6 +59,7 @@ module ComparisonApp =
 
     let init : ComparisonApp = {   
         showMeasurementsSg   = true
+        originMode           = OriginMode.ModelOrigin
         surface1             = None
         surface2             = None
         surfaceMeasurements  = 
@@ -121,24 +122,27 @@ module ComparisonApp =
             Log.warn "[RayCastSurface] no hit in direction %s" (direction.ToString ())
             None
 
-    let getDimensionsNonOPC (surface : Surface)
-                            (surfaceModel : SurfaceModel) 
-                            (refSystem    : ReferenceSystem)  = 
-        V3d.OOO
-
-    let getDimensionsOPC (surface : Surface)
-                         (surfaceModel : SurfaceModel) 
-                         (refSystem    : ReferenceSystem)  =
+    let getDimensions (surface : Surface)
+                      (surfaceModel : SurfaceModel) 
+                      (refSystem    : ReferenceSystem)
+                      (originMode   : OriginMode) =
         let surfaceFilter (id : Guid) (l : Leaf) (s : SgSurface) = 
             id = surface.guid
         let trafo = SurfaceTransformations.fullTrafo' surface refSystem
-
         let mutable rot = V3d.OOO
         let mutable tra = V3d.OOO
         let mutable sca = V3d.OOO
 
         trafo.Decompose (&sca, &rot, &tra)
-        let origin    = tra
+        let origin =
+            match originMode with
+            | OriginMode.ModelOrigin -> tra
+            | OriginMode.BoundingBoxCentre -> 
+                let sgSurface = HashMap.find surface.guid surfaceModel.sgSurfaces 
+                let boundingBox = sgSurface.globalBB.Transformed trafo
+                boundingBox.Center
+            | _ -> - tra
+        
         let rotation = rot |> Trafo3d.RotationEuler 
                            |> Rot3d.FromTrafo3d
         Log.warn "[DEBUG] calc trafo translation = %s" (tra.ToString ())
@@ -167,6 +171,7 @@ module ComparisonApp =
 
     let updateSurfaceMeasurements (surfaceModel : SurfaceModel) 
                                   (refSystem    : ReferenceSystem) 
+                                  (originMode   : OriginMode)
                                   (surfaceName  : string) =
         let surfaceId = findSurfaceByName surfaceModel surfaceName
         match surfaceId with
@@ -174,12 +179,7 @@ module ComparisonApp =
             let surface = surfaceModel.surfaces.flat |> HashMap.find surfaceId |> Leaf.toSurface
             let axesAngles = getAxesAngles surface refSystem
             let dimensions = 
-                match surface.surfaceType with
-                | SurfaceType.SurfaceOPC ->
-                    getDimensionsOPC surface surfaceModel refSystem
-                | _ ->
-                    getDimensionsOPC surface surfaceModel refSystem
-                    //getDimensionsNonOPC surface surfaceModel refSystem 
+                getDimensions surface surfaceModel refSystem originMode
             {SurfaceMeasurements.init with rollPitchYaw = axesAngles
                                            dimensions   = dimensions
             } |> Some
@@ -198,10 +198,10 @@ module ComparisonApp =
                   s1 s2  annotations bookmarks
             | _,_ -> []
         let measurements1 = Option.bind (fun s1 -> updateSurfaceMeasurements 
-                                                        surfaceModel refSystem s1) 
+                                                        surfaceModel refSystem m.originMode s1) 
                                         m.surface1 
         let measurements2 = Option.bind (fun s2 -> updateSurfaceMeasurements 
-                                                        surfaceModel refSystem s2)
+                                                        surfaceModel refSystem m.originMode s2)
                                         m.surface2
         let surfaceMeasurements = 
             {
@@ -284,8 +284,10 @@ module ComparisonApp =
             m, surfaceModel
         | AddBookmarkReference bookmarkId ->
             m, surfaceModel
-        | MeasurementMessage -> 
-            m , surfaceModel
+        | SetOriginMode originMode -> 
+            let m = {m with originMode = originMode}
+            let m = updateMeasurements m surfaceModel annotations bookmarks refSystem
+            m, surfaceModel
 
     let isSelected (surfaceName : aval<string>) (m : AdaptiveComparisonApp) =
         let showSg = 
@@ -470,8 +472,10 @@ module ComparisonApp =
             br []
             div [clazz "ui buttons inverted"] 
                 [updateButton;exportButton]
-
-
+            br []
+            Html.table [
+              Html.row "Origin   " [Html.SemUi.dropDown m.originMode SetOriginMode]
+            ]
             br []
             Html.table [
                 Html.row "Surface1 " [CustomGui.surfacesDropdown surfaces SelectSurface1 noSelection]
