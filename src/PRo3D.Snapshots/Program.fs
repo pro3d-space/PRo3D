@@ -280,7 +280,7 @@ let main argv =
     
     match startupArgs.hasValidAnimationArgs with
     | true ->
-        Sg.useAsyncLoading <- true // need this for rendering without gui!
+        Sg.useAsyncLoading <- false // need this for rendering without gui!
         SnapshotGenerator.animate runtime mModel mainApp startupArgs |> ignore
         try            
             match startupArgs.exitOnFinish with

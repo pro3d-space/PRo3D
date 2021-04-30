@@ -144,7 +144,7 @@ module SnapshotGenerator =
                         renderRange = RenderRange.fromOptions args.frameId args.frameCount
                         outputFolder = args.outFolder
                         renderMask = args.renderMask
-                        renderDepth = true // args.renderDepth //TODO debug rno
+                        renderDepth = args.renderDepth
                         verbose = args.verbose
                     }
                 SnapshotApp.executeAnimation snapshotApp //mApp mModel args.renderDepth startupArgs.verbose startupArgs.outFolder runtime data

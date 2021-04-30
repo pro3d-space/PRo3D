@@ -138,8 +138,8 @@ module Sg =
 
         let lodDecider =
             match useAsyncLoading with
-            | false -> mars
-            | true  ->
+            | true   -> mars
+            | false  ->
                 let noLod a b c d e f =
                     true
                 noLod

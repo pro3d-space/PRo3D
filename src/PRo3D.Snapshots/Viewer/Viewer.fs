@@ -1345,7 +1345,7 @@ module ViewerApp =
                   |> Seq.map (fun (a,b) -> PlacementUtils.interpolateView a b (int m.scene.config.snapshotSettings.numSnapshots.value))
             let interpolatedViews = seq {for x in interpolatedViews do yield! x}
             let snapshots = Snapshot.fromViews interpolatedViews jsonScs m.scene.config.shadingApp.lightDirection.value
-            let snapAnimation = SnapshotAnimation.generate snapshots m.scene.config.snapshotSettings.fieldOfView.value true
+            let snapAnimation = SnapshotAnimation.generate snapshots m.scene.config.snapshotSettings.fieldOfView.value false //rno hardcoded; could use GUI mask checkbox
             SnapshotAnimation.writeToFile snapAnimation "snapshots.json"              
             m
         | StartDragging _,_,_

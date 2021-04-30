@@ -89,7 +89,6 @@ module Rendering =
     let renderAndSave (filename : string)
                       (verbose  : bool) 
                       (p        : RenderParameters) =
-        PRo3D.Core.Surface.Sg.useAsyncLoading <- true
         match verbose with
         | true -> Report.Verbosity <- 3
         | false -> Report.Verbosity <- -1
