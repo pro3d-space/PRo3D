@@ -108,6 +108,7 @@ module ViewerApp =
     // geologic surfaces
     let _geologicSurfacesModel = Model.scene_ >->  Scene.geologicSurfacesModel_
     let _geologicSurfaces      = _geologicSurfacesModel >-> GeologicSurfacesModel.geologicSurfaces_
+    //let _geologicSurfaceLens = Model.scene_ >-> Scene.geologicSurfacesModel_ >-> GeologicSurfacesModel.geologicSurfaces_
        
     let lookAtData (m: Model) =         
         let bb = m |> Optic.get _sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB) |> Box3d.ofSeq
@@ -829,6 +830,7 @@ module ViewerApp =
                     m
 
             |> ViewerIO.loadMinerva SceneLoader.Minerva.defaultDumpFile SceneLoader.Minerva.defaultCacheFile
+            |> SceneLoader.addGeologicSurfaces
 
         | NewScene,_,_ ->
             let initialModel = Viewer.initial m.messagingMailbox StartupArgs.initArgs //m.minervaModel.minervaMessagingMailbox
@@ -1548,6 +1550,10 @@ module ViewerApp =
             let heightValidation =
                 HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation
 
+            let geologicSurfacesSg = 
+                GeologicSurfacesApp.Sg.view m.scene.geologicSurfacesModel 
+                |> Sg.map GeologicSurfacesMessage 
+
             [exploreCenter; refSystem; viewPlans; homePosition; solText; heightValidation] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
         let minervaSg =
@@ -1580,9 +1586,13 @@ module ViewerApp =
 
         let heightValidationDiscs =
             HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
+
+        let geologicSurfacesSg = 
+            GeologicSurfacesApp.Sg.view m.scene.geologicSurfacesModel 
+            |> Sg.map GeologicSurfacesMessage 
         
         let depthTested = 
-            [linkingSg; annotationSg; minervaSg; heightValidationDiscs] |> Sg.ofList
+            [linkingSg; annotationSg; minervaSg; heightValidationDiscs; geologicSurfacesSg] |> Sg.ofList //; geologicSurfacesSg
 
         let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m
         onBoot "attachResize('__ID__')" (
@@ -1651,6 +1661,7 @@ module ViewerApp =
                 |> ViewerIO.loadLastFootPrint
                 |> ViewerIO.loadMinerva dumpFile cacheFile
                 |> ViewerIO.loadLinking
+                |> SceneLoader.addGeologicSurfaces
             else
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs |> ViewerIO.loadRoverData       
 

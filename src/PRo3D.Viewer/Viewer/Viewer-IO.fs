@@ -245,6 +245,12 @@ module ViewerIO =
             |> Option.defaultValue ViewPlanModel.initFootPrint
        
         { m with footPrint = fp }
+
+          
+    let setFrustum (m:Model) =
+       let near = m.scene.config.nearPlane.value
+       let far = m.scene.config.farPlane.value
+       Frustum.perspective 60.0 near far 1.0
            
     let saveEverything (path:string) (m:Model) =         
 

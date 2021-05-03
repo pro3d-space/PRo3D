@@ -34,9 +34,9 @@ type GeologicSurface = {
     transparency    : NumericInput
     thickness       : NumericInput
 
-    sgGeoSurface    : ISg
+    invertMeshing    : bool
+    sgGeoSurface    : List<(Triangle3d * C4b)> //ISg
 }
-
 
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -53,12 +53,14 @@ module GeologicSurface =
             let cameraView = cameraView |> List.map V3d.Parse
             let cameraView = CameraView(cameraView.[0],cameraView.[1],cameraView.[2],cameraView.[3], cameraView.[4])
 
-            let! points1         = Json.read "points1" //Json.readWith Ext.fromJson<list<V3d>,Ext> "points1"
-            let! points2         = Json.read "points2" //Json.readWith Ext.fromJson<list<V3d>,Ext> "points2"
+            let! points1         = Json.readWith Ext.fromJson<list<V3d>,Ext> "points1" 
+            let! points2         = Json.readWith Ext.fromJson<list<V3d>,Ext> "points2" 
 
             let! color           = Json.readWith Ext.fromJson<ColorInput,Ext> "color"
             let! transparency    = Json.readWith Ext.fromJson<NumericInput,Ext> "transparency"
             let! thickness       = Json.readWith Ext.fromJson<NumericInput,Ext> "thickness"
+
+            let! invertMeshing   = Json.read "invertMeshing"
             
             return 
                 {
@@ -69,14 +71,15 @@ module GeologicSurface =
                     isVisible       = isVisible
                     view            = cameraView
 
-                    points1       = points1       |> Serialization.jsonSerializer.UnPickleOfString
-                    points2       = points2       |> Serialization.jsonSerializer.UnPickleOfString
+                    points1       = points1  |> IndexList.ofList 
+                    points2       = points2  |> IndexList.ofList 
 
                     color        = color
                     transparency = transparency 
                     thickness    = thickness 
 
-                    sgGeoSurface = Sg.empty
+                    invertMeshing = invertMeshing
+                    sgGeoSurface = List.empty 
                 }
         }
 
@@ -88,7 +91,7 @@ type GeologicSurface with
             | 0 -> return! GeologicSurface.read0
             | _ -> 
                 return! v 
-                |> sprintf "don't know version %A  of SceneObject"
+                |> sprintf "don't know version %A  of GeologicSurface"
                 |> Json.error
         }
     static member ToJson(x : GeologicSurface) =
@@ -100,7 +103,7 @@ type GeologicSurface with
             let camView = x.view
             let camView = [camView.Sky; camView.Location; camView.Forward; camView.Up ; camView.Right] |> List.map(fun x -> x.ToString())      
             do! Json.write "view" camView
-            do! Json.write "isVisible" x.isVisible    
+            do! Json.write "isVisible" x.isVisible 
 
             do! Json.writeWith (Ext.toJson<list<V3d>,Ext>) "points1" (x.points1 |> IndexList.toList)
             do! Json.writeWith (Ext.toJson<list<V3d>,Ext>) "points2" (x.points2 |> IndexList.toList)
@@ -108,6 +111,8 @@ type GeologicSurface with
             do! Json.writeWith (Ext.toJson<ColorInput,Ext>) "color" x.color
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "transparency" x.transparency
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "thickness" x.thickness
+
+            do! Json.write "invertMeshing" x.invertMeshing 
         }
 
 
@@ -165,20 +170,20 @@ type GeologicSurfacesModel with
 
 module InitGeologicSurfacesParams =
 
-    let thickness = {
-        value   = 3.0
+    let thickness (value : float)  = {
+        value   = value //3.0
         min     = 1.0
-        max     = 8.0
+        max     = 20.0
         step    = 1.0
         format  = "{0:0}"
     }
 
     let transparency = {
-        value   = 1.0
+        value   = 127.0
         min     = 0.0
-        max     = 1.0
-        step    = 0.01
-        format  = "{0:00}"
+        max     = 255.0
+        step    = 1.0
+        format  = "{0:0}"
     }
 
    

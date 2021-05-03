@@ -1,6 +1,7 @@
 namespace PRo3D.Core
 
 open Aardvark.Base
+open Aardvark.Base
 open Aardvark.Application
 open Aardvark.UI
 open Aardvark.Rendering
@@ -25,10 +26,126 @@ open PRo3D.Base
 
 module GeologicSurfacesUtils = 
 
+    let calcMiddlePart 
+        (start : int) 
+        (stop : int) 
+        (points1 : IndexList<V3d>) 
+        (points2 : IndexList<V3d>) 
+        (color : C4b) =
+        [
+            for i in start..stop do
+                yield Triangle3d(points1.[i], points1.[i+1], points2.[i-start]), color
+                yield Triangle3d(points1.[i+1], points2.[i-start], points2.[i-start + 1]), color
+        ]
+
+    let calcFirstPart 
+        (stop : int) 
+        (points1 : IndexList<V3d>) 
+        (points2 : IndexList<V3d>) 
+        (color : C4b) =
+        [
+            for i in 0..stop do
+                yield Triangle3d(points1.[i], points1.[i+1], points2.[0]), color
+        ]
+
+    let calcLastPart 
+        (start : int) 
+        (stop : int) 
+        (points1 : IndexList<V3d>) 
+        (points2 : IndexList<V3d>) 
+        (color : C4b) =
+        [
+            for i in start..stop do
+                yield Triangle3d(points1.[i], points1.[i+1], points2.[points2.Count-1]), color
+        ]
+
+    let calculateMesh 
+        (points1 : IndexList<V3d>) 
+        (points2 : IndexList<V3d>) 
+        (color : C4b) = 
+        
+            let diff = points1.Count - points2.Count
+            match diff%2 with
+            | 0 -> 
+                let plus = diff/2
+                let firstPart =
+                    [
+                        for i in 0..(plus-1) do
+                            yield Triangle3d(points1.[i], points1.[i+1], points2.[0]), color
+                    ]
+                let endMiddlePart = points1.Count - (plus + 2)
+                let middlePart = 
+                    [
+                        for i in plus..endMiddlePart do
+                            yield Triangle3d(points1.[i], points1.[i+1], points2.[i-plus]), color
+                            yield Triangle3d(points1.[i+1], points2.[i-plus], points2.[i-plus + 1]), color
+                    ]
+                let endPart =
+                    [
+                        for i in (endMiddlePart+1)..(points1.Count - 2) do
+                            yield Triangle3d(points1.[i], points1.[i+1], points2.[points2.Count-1]), color
+                    ]
+
+                firstPart@middlePart@endPart
+
+            | 1 -> 
+                let plusFirst = Math.Ceiling((float)diff/2.0)
+                let plusEnd = diff/2
+                let firstPart =
+                    [
+                        for i in 0..((int)plusFirst-1) do
+                            yield Triangle3d(points1.[i], points1.[i+1], points2.[0]), color
+                    ]
+
+                let endMiddlePart = points1.Count - (plusEnd + 2)
+                let middlePart = 
+                    [
+                        for i in (int)plusFirst..endMiddlePart do
+                            yield Triangle3d(points1.[i], points1.[i+1], points2.[i-(int)plusFirst]), color
+                            yield Triangle3d(points1.[i+1], points2.[i-(int)plusFirst], points2.[i-(int)plusFirst + 1]), color
+                    ]
+                let endPart =
+                    if plusEnd > 0 then
+                        [
+                            for i in endMiddlePart..(points1.Count - 2) do
+                                yield Triangle3d(points1.[i], points1.[i+1], points2.[points2.Count-1]), color
+                        ]
+                    else []
+
+                firstPart@middlePart@endPart
+
+    let getTrianglesForMesh 
+        (points1 : IndexList<V3d>) 
+        (points2 : IndexList<V3d>) 
+        (color : C4b) 
+        (alpha : float) =
+        let colorAlpha = C4b(color.R, color.G, color.B, (byte)alpha) //color.ToC4d() |> fun x -> C4d(x.R, x.G, x.B, alpha).ToC4b()
+        let triangles =
+            if points1.Count > points2.Count then
+                calculateMesh points1 points2 colorAlpha
+            else if points1.Count = points2.Count then
+                calcMiddlePart 0 (points1.Count-2) points1 points2 colorAlpha
+            else
+                calculateMesh points2 points1 colorAlpha
+
+        triangles
+    
+    let invertMeshing (surf : GeologicSurface) =
+        let points2' = surf.points2 |> IndexList.rev
+        let triangles' = 
+                getTrianglesForMesh 
+                    surf.points1 
+                    points2' 
+                    surf.color.c
+                    surf.transparency.value
+        { surf with points2 = points2'; sgGeoSurface = triangles'}
+    
     let mk  (name : string) 
             (points1 : IndexList<V3d> )
             (points2 : IndexList<V3d> ) 
+            (thickness : float)
             (view : CameraView) =  
+            let triangles = getTrianglesForMesh points1 points2 C4b.Cyan 127.0
             {
                 version         = GeologicSurface.current
                 guid            = Guid.NewGuid()
@@ -42,9 +159,10 @@ module GeologicSurfacesUtils =
 
                 color           = { c = C4b.Cyan }
                 transparency    = InitGeologicSurfacesParams.transparency
-                thickness       = InitGeologicSurfacesParams.thickness
+                thickness       = InitGeologicSurfacesParams.thickness (thickness+2.0)
 
-                sgGeoSurface    = Sg.empty
+                invertMeshing   = false
+                sgGeoSurface    = triangles //Sg.empty
             }
 
     let makeGeologicSurfaceFromAnnotations 
@@ -65,6 +183,7 @@ module GeologicSurfacesUtils =
                             ("mesh"+ model.geologicSurfaces.Count.ToString())
                             ann1.points
                             ann2.points
+                            ann1.thickness.value
                             ann1.view )
                 | _,_-> None
 
@@ -86,6 +205,7 @@ module GeologicSurfaceProperties =
         | SetThickness      of Numeric.Action
         | SetTransparency   of Numeric.Action
         | ChangeColor       of ColorPicker.Action
+        | InvertMeshing
 
     let update (model : GeologicSurface) (act : Action) =
         match act with
@@ -96,18 +216,33 @@ module GeologicSurfaceProperties =
         | SetThickness a ->
             { model with thickness = Numeric.update model.thickness a}
         | SetTransparency a ->
-            { model with transparency = Numeric.update model.transparency a}
+            let trans = Numeric.update model.transparency a
+            let col = model.color.c
+            let alphaCol = C4b(col.R, col.G, col.B, (byte)trans.value) 
+            let geoSurf = 
+                model.sgGeoSurface
+                |> List.map(fun tri -> fst(tri), alphaCol)
+            { model with transparency = trans; sgGeoSurface = geoSurf}
         | ChangeColor a ->
-            { model with color = ColorPicker.update model.color a }
+            let col = ColorPicker.update model.color a
+            let alphaCol = C4b(col.c.R, col.c.G, col.c.B, (byte)model.transparency.value) 
+            let geoSurf = 
+                model.sgGeoSurface
+                |> List.map(fun tri -> fst(tri), alphaCol)
+            { model with color = col; sgGeoSurface = geoSurf }
+        | InvertMeshing ->
+            let m = model |> GeologicSurfacesUtils.invertMeshing
+            { m with invertMeshing = not model.invertMeshing }
           
     let view (model : AdaptiveGeologicSurface) =        
       require GuiEx.semui (
         Html.table [               
           Html.row "Name:"          [Html.SemUi.textBox model.name SetName ]
           Html.row "Visible:"       [GuiEx.iconCheckBox model.isVisible ToggleVisible ]
-          Html.row "Thickness:"     [Numeric.view' [NumericInputType.Slider]   model.thickness  |> UI.map SetThickness ]
+          Html.row "Outline thickness:"     [Numeric.view' [NumericInputType.Slider]   model.thickness  |> UI.map SetThickness ]
           Html.row "Transparency:"  [Numeric.view' [NumericInputType.Slider]   model.transparency  |> UI.map SetTransparency ]
           Html.row "Color:"         [ColorPicker.view model.color |> UI.map ChangeColor ]
+          Html.row "Invert meshing:"       [GuiEx.iconCheckBox model.invertMeshing InvertMeshing ]
         ]
       )
  
@@ -273,88 +408,163 @@ module GeologicSurfacesApp =
             div [clazz "ui buttons inverted"] [
                        //onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
                            button [clazz "ui icon button"; onMouseClick (fun _ -> AddGS )] [ //
-                                   i [clazz "plus icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Add Bookmark"
+                                   i [clazz "plus icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "calculate surface"
                       // )
                    ] 
 
-    //module Sg =
+    module StencilAreaMasking =
+   
+      let private writeZFailFront, writeZFailBack = 
+          let front = 
+            { StencilMode.None with
+                DepthFail = StencilOperation.DecrementWrap
+                CompareMask = StencilMask 0xff }
 
-    //    let viewSingleSceneObject 
-    //        (sgSurf : AdaptiveSgSurface) 
-    //        (sceneObjs : amap<Guid,AdaptiveSceneObject>) 
-    //        (refsys : AdaptiveReferenceSystem) 
-    //        (selected : aval<Option<Guid>>) =
+          let back = { front with DepthFail = StencilOperation.IncrementWrap }
+          front, back
+      
 
-    //        adaptive {
-    //            let! exists = (sceneObjs |> AMap.keys) |> ASet.contains sgSurf.surface
-    //            if exists then
+      let private readMaskAndReset = 
+         { StencilMode.None with
+             Comparison = ComparisonFunction.NotEqual
+             CompareMask = StencilMask 0xff
+             Pass = StencilOperation.Zero
+             DepthFail = StencilOperation.Zero
+             Fail = StencilOperation.Zero
+             Reference = 1
+         }
+     
+      let maskSG maskPass sg = 
+        sg
+          |> Sg.pass maskPass
+          |> Sg.stencilModes' writeZFailFront writeZFailBack
+          |> Sg.depthTest (AVal.init DepthTest.None)
+          |> Sg.cullMode (AVal.init CullMode.None)
+          |> Sg.blendMode (AVal.init BlendMode.Blend)
+          |> Sg.fillMode (AVal.init FillMode.Fill)
+          |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Stencil])
+
+      let fillSG areaPass sg =
+        sg
+          |> Sg.pass areaPass
+          |> Sg.stencilMode (AVal.constant (readMaskAndReset))
+          //|> Sg.cullMode (Mod.constant CullMode.CounterClockwise)  // for zpass -> backface-culling
+          |> Sg.depthTest (AVal.constant DepthTest.Less)        // for zpass -> active depth-test
+          //|> Sg.depthTest (AVal.init DepthTest.None)
+          |> Sg.cullMode (AVal.init CullMode.None)
+          |> Sg.blendMode (AVal.init BlendMode.Blend)
+          //|> Sg.fillMode (AVal.init FillMode.Fill)
+          |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Colors; DefaultSemantic.Stencil])
+
+      let stencilAreaSG pass1 pass2 sg =
+        [
+          maskSG pass1 sg   // one pass by using EXT_stencil_two_side :)
+          fillSG pass2 sg
+        ] |> Sg.ofList
+
+     
+      let colorAlpha (color:aval<C4b>) (alpha:aval<float>) : aval<V4f> = 
+          AVal.map2 (fun (c:C4b) a -> c.ToC4f() |> fun x -> C4f(x.R, x.G, x.B, float32 a).ToV4f()) color alpha
+
+    module Sg =
+
+        let getMeshOutline 
+            (points1 : alist<V3d>) 
+            (points2 : alist<V3d>) 
+            (thickness : aval<float>) =
+            let posTrafo1 = points1 |> AList.toAVal |> AVal.map (fun list -> Trafo3d.Translation list.[0])
+            let posTrafo2 = points2 |> AList.toAVal |> AVal.map (fun list -> Trafo3d.Translation list.[0])
+            let posTrafo3 = points1 |> AList.toAVal |> AVal.map (fun list -> Trafo3d.Translation list.[list.Count - 1])
+
+            let pts1 = points1 |> AList.toAVal |> AVal.map (fun list -> list|> IndexList.toArray)
+            let pts2 = points2 |> AList.toAVal |> AVal.map (fun list -> list|> IndexList.toArray)
+
+            let l1 = AVal.map2(fun (list1:IndexList<V3d>) (list2:IndexList<V3d>) -> 
+                                [|list1.[0]; list2.[0]|]) (points1 |> AList.toAVal) (points2 |> AList.toAVal)
+            let l2 = AVal.map2(fun (list1:IndexList<V3d>) (list2:IndexList<V3d>) -> 
+                                [|list1.[list1.Count-1]; list2.[list2.Count-1]|]) (points1 |> AList.toAVal) (points2 |> AList.toAVal)
+           
+            Sg.ofList [
+                Sg.drawLines pts1 (AVal.constant 0.0) (C4b.VRVisGreen |> AVal.constant) thickness posTrafo1
+                Sg.drawLines pts2 (AVal.constant 0.0) (C4b.VRVisGreen |> AVal.constant) thickness posTrafo2
+                Sg.drawLines l1  (AVal.constant 0.0) (C4b.VRVisGreen |> AVal.constant) thickness posTrafo1
+                Sg.drawLines l2 (AVal.constant 0.0) (C4b.VRVisGreen |> AVal.constant) thickness posTrafo3
+            ]
+            
+
+        let viewSingleGeologicSurface 
+            (geoSurface : AdaptiveGeologicSurface) 
+            (id : Guid) 
+            (selected : aval<Option<Guid>>) =
+
+           
+            adaptive {
+                
+                let! selected' = selected
+                let selected =
+                    match selected' with
+                    | Some sel -> sel = id
+                    | None -> false
+                
+                let! triangles = geoSurface.sgGeoSurface
+                let surf =
+                    triangles
+                        |> Aardvark.SceneGraph.IndexedGeometryPrimitives.triangles 
+                        |> Sg.ofIndexedGeometry
+                        |> Sg.effect [
+                          toEffect DefaultSurfaces.stableTrafo
+                          toEffect DefaultSurfaces.vertexColor
+                        ] 
+
+                let selectionSg = 
+                    if selected then
+                        getMeshOutline
+                            geoSurface.points1
+                            geoSurface.points2
+                            geoSurface.thickness.value
+                                
+                        //let outline = 
+                        //    triangles
+                        //    |> Aardvark.SceneGraph.IndexedGeometryPrimitives.triangles 
+                        //    |> Sg.ofIndexedGeometry
+                        //OutlineEffect.createForSg 2 (RenderPass.after "" RenderPassOrder.Arbitrary RenderPass.main) C4f.VRVisGreen outline
+                    else Sg.empty
+
+                return Sg.ofList [
+                    selectionSg //|> Sg.dynamic
+                    surf 
+                ] |> Sg.onOff geoSurface.isVisible
+               
+            } |> Sg.dynamic
+
+        let view (geologicSurfacesModel : AdaptiveGeologicSurfacesModel) =
+            
+            let geologicSurfaces = geologicSurfacesModel.geologicSurfaces
+            let selected = geologicSurfacesModel.selectedGeologicSurface
+
+            let mutable maskPass1 = (RenderPass.after "" RenderPassOrder.Arbitrary RenderPass.main)
+            let mutable maskPass = (RenderPass.after "" RenderPassOrder.Arbitrary maskPass1)
+            let mutable areaPass = RenderPass.after "" RenderPassOrder.Arbitrary maskPass
+
+            let test =
+                geologicSurfaces |> AMap.map( fun id geoSurf ->
+                    let surf = 
+                        viewSingleGeologicSurface
+                            geoSurf
+                            id
+                            selected
+                        |> StencilAreaMasking.stencilAreaSG maskPass areaPass
+
+                    maskPass <- RenderPass.after "" RenderPassOrder.Arbitrary areaPass
+                    areaPass <- RenderPass.after "" RenderPassOrder.Arbitrary maskPass
+
+                    surf
+                    )
+                    |> AMap.toASet 
+                    |> ASet.map snd 
+                    |> Sg.set
                   
-    //                let sceneObj = sceneObjs |> AMap.find sgSurf.surface
-    //                let! so = sceneObj
 
-    //                let! selected' = selected
-    //                let selected =
-    //                    match selected' with
-    //                    | Some sel -> sel = (so.guid |> AVal.force)
-    //                    | None -> false
-
-    //                let trafo =
-    //                    adaptive {
-    //                        let! s = sceneObj
-    //                        let! rSys = refsys.Current
-    //                        let! t = s.preTransform
-    //                        let! fullTrafo = SceneObjectTransformations.fullTrafo s.transformation rSys
-                            
-    //                        let! sc = s.scaling.value
-    //                        return Trafo3d.Scale(sc) * (fullTrafo * t) //(t * fullTrafo)
-    //                    }
-
-    //                let! sgSObj = sgSurf.sceneGraph
-    //                let! bb = sgSurf.globalBB
-    //                let bbTest = trafo |> AVal.map(fun t -> bb.Transformed(t))
-                        
-    //                let surfaceSg =
-    //                    sgSObj
-    //                    |> Sg.noEvents 
-    //                    |> Sg.trafo trafo 
-    //                    |> Sg.noEvents 
-    //                    |> Sg.shader {
-    //                        do! Shader.stableTrafo
-    //                        do! DefaultSurfaces.diffuseTexture
-    //                    }
-    //                    |> Sg.onOff so.isVisible
-    //                    |> Sg.andAlso (
-    //                        (Sg.wireBox (C4b.VRVisGreen |> AVal.constant) bbTest) 
-    //                        |> Sg.noEvents
-    //                        |> Sg.effect [              
-    //                            Shader.stableTrafo |> toEffect 
-    //                            DefaultSurfaces.vertexColor |> toEffect
-    //                        ] 
-    //                        |> Sg.onOff (selected |> AVal.constant)
-    //                        )                      
-                                                        
-    //                return surfaceSg
-    //            else
-    //                return Sg.empty
-    //        } |> Sg.dynamic
-
-    //    let view (sceneObjectsModel : AdaptiveSceneObjectsModel) (refsys : AdaptiveReferenceSystem) =
-    //        let sgSObjs = sceneObjectsModel.sgSceneObjects
-    //        let sceneObjs = sceneObjectsModel.sceneObjects
-    //        let selected = sceneObjectsModel.selectedSceneObject
-
-    //        let test =
-    //            sgSObjs |> AMap.map( fun id sgsobj ->
-    //                viewSingleSceneObject
-    //                    sgsobj
-    //                    sceneObjs
-    //                    refsys
-    //                    selected
-    //                )
-    //                |> AMap.toASet 
-    //                |> ASet.map snd 
-    //                |> Sg.set
-                  
-    //        test
+            test//, RenderPass.after "" RenderPassOrder.Arbitrary areaPass  
     
     
