@@ -77,7 +77,7 @@ type SurfaceComparison = {
             if x.measurements2.IsSome then 
                 do! Json.write "measurements2"  x.measurements2.Value
             if x.comparedMeasurements.IsSome then 
-                do! Json.write "comparedMeasurements"   x.comparedMeasurements.Value
+                do! Json.write "difference"   x.comparedMeasurements.Value
         }
 
 /// Used to compare different attributes of two surfaces.

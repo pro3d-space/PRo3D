@@ -28,7 +28,7 @@ module SnapshotGenerator =
             let hasLoadedOpc = 
                 match args.opcPaths with
                 | Some opcs ->
-                    mApp.updateSync Guid.Empty (ViewerAction.ImportSurface opcs |> Seq.singleton)
+                    mApp.updateSync Guid.Empty (ViewerAction.ImportDiscoveredSurfaces opcs |> Seq.singleton)
                     true
                 | None -> false
             let hasLoadedAny = 
