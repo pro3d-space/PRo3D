@@ -467,6 +467,10 @@ module Gui =
                                         //    text "Rover Placement"
                                         //]
                                         
+                                        div [ clazz "ui item"; 
+                                            clientEvent "onclick" (sprintf "aardvark.electron.shell.openPath('%s')" (Config.configPath.Replace("\\","\\\\")))] [
+                                            text "Open Configuration Folder"
+                                        ]
 
                                         div [clazz "ui item"; clientEvent "onclick" "sendCrashDump()"] [
                                             text "Send log to maintainers"
@@ -490,7 +494,7 @@ module Gui =
                 let! interaction = m.interaction
                 match interaction with
                 | Interactions.DrawAnnotation -> 
-                    return Drawing.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage
+                    return Drawing.UI.viewAnnotationToolsHorizontal Config.colorPaletteStore m.drawing |> UI.map DrawingMessage
                 | Interactions.PlaceRover ->
                     return ViewPlanApp.UI.viewSelectRover m.scene.viewPlans.roverModel |> UI.map RoverMessage
                 | Interactions.PlaceCoordinateSystem -> 
@@ -584,7 +588,7 @@ module Gui =
         let viewAnnotationProperties (model : AdaptiveModel) =
             let view = (fun leaf ->
                 match leaf with
-                  | AdaptiveAnnotations ann -> AnnotationProperties.view ann
+                  | AdaptiveAnnotations ann -> AnnotationProperties.view Config.colorPaletteStore ann
                   | _ -> div[style "font-style:italic"][ text "no annotation selected" ])
             
             model.drawing.annotations |> GroupsApp.viewSelected view AnnotationMessage
@@ -607,7 +611,7 @@ module Gui =
             
         let viewDnSColorLegendUI (model : AdaptiveModel) = 
             model.drawing.dnsColorLegend 
-            |> FalseColorLegendApp.viewDnSLegendProperties DnSColorLegendMessage 
+            |> FalseColorLegendApp.viewDnSLegendProperties Config.colorPaletteStore DnSColorLegendMessage 
             |> AVal.constant
           
         let annotationLeafButtonns' (model : AdaptiveModel) = 
@@ -826,7 +830,7 @@ module Gui =
             | Some "surfaces" -> 
                 require (viewerDependencies) (
                     body bodyAttributes
-                        [SurfaceApp.surfaceUI m.scene.surfacesModel |> UI.map SurfaceActions] 
+                        [SurfaceApp.surfaceUI Config.colorPaletteStore m.scene.surfacesModel |> UI.map SurfaceActions] 
                 )
             | Some "annotations" -> 
                 require (viewerDependencies) (body bodyAttributes [Annotations.annotationUI m])

@@ -88,6 +88,10 @@ let main argv =
     
     let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
     Log.line "Running with AppData: %s" appData
+    Config.configPath <- appData
+
+    Config.colorPaletteStore <- Path.combine [appData; "favoriteColors.js"]
+    Log.line "Color palette favorite colors are stored here: %s" Config.colorPaletteStore
 
 
     let crashDumpFile = "Aardvark.log"
