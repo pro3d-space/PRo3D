@@ -79,39 +79,41 @@ module AnnotationViewer =
             |> Sg.compile runtime signature
             |> RenderTask.renderToColorAndDepth size
 
-        if false then
+        if true then
             win.Mouse.Move.Values.Add(fun (o,p) -> 
+                
                 let r = pickColors.GetValue(AdaptiveToken.Top,RenderToken.Empty)
                 let offset = V3i(p.Position.X,p.Position.Y,0)
-                let boxSize = V2i(10,10)
-                let r = runtime.Download(r,0,0,Box2i.FromMinAndSize(p.Position, V2i(1,1))) |> unbox<PixImage<float32>>
-                let m = r.GetMatrix<C4f>()
-                //let center = m.Size.XY / 2L
-                //let ids = pickIds.GetValue()
-                //let mutable bestDist = Double.MaxValue
-                //let mutable bestId = -1
-                //m.ForeachCoord(fun (c : V2l) ->
-                //    let d = Vec.lengthSquared (c - center)
-                //    if d < bestDist then
-                //        let p = m.[c]
-                //        let id : int = BitConverter.SingleToInt32Bits(p.A)
-                //        if id > 0 && id < ids.Length then
-                //            bestDist <- d
-                //            bestId <- id
-                //)
-                //if bestId > 0 then
-                //    Log.line "hit %A" (id, ids.[bestId]
-                //    transact (fun _ -> selectedAnnotation.Value <- id)
-                let p = m.[0,0]
-                let id : int = BitConverter.SingleToInt32Bits(p.A)
-                let ids = pickIds.GetValue()
-                if id > 0 && id < ids.Length then
-                    Log.line "hit %A" (id, ids.[id])
-                    transact (fun _ -> selectedAnnotation.Value <- id)
-                else 
-                    transact (fun _ -> selectedAnnotation.Value <- -1)
-                //r.SaveAsImage("guh.tiff")
-                ()
+                printfn "rt size: %A" r.Size
+                if p.Position.X < r.Size.X - 1 && p.Position.Y < r.Size.Y - 1 then
+                    let r = runtime.Download(r,0,0,Box2i.FromMinAndSize(p.Position, V2i(1,1))) |> unbox<PixImage<float32>>
+                    let m = r.GetMatrix<C4f>()
+                    //let center = m.Size.XY / 2L
+                    //let ids = pickIds.GetValue()
+                    //let mutable bestDist = Double.MaxValue
+                    //let mutable bestId = -1
+                    //m.ForeachCoord(fun (c : V2l) ->
+                    //    let d = Vec.lengthSquared (c - center)
+                    //    if d < bestDist then
+                    //        let p = m.[c]
+                    //        let id : int = BitConverter.SingleToInt32Bits(p.A)
+                    //        if id > 0 && id < ids.Length then
+                    //            bestDist <- d
+                    //            bestId <- id
+                    //)
+                    //if bestId > 0 then
+                    //    Log.line "hit %A" (id, ids.[bestId]
+                    //    transact (fun _ -> selectedAnnotation.Value <- id)
+                    let p = m.[0,0]
+                    let id : int = BitConverter.SingleToInt32Bits(p.A)
+                    let ids = pickIds.GetValue()
+                    if id > 0 && id < ids.Length then
+                        Log.line "hit %A" (id, ids.[id])
+                        transact (fun _ -> selectedAnnotation.Value <- id)
+                    else 
+                        transact (fun _ -> selectedAnnotation.Value <- -1)
+                    //r.SaveAsImage("guh.tiff")
+                    ()
             )
 
         let overlay = 
@@ -176,7 +178,7 @@ module AnnotationViewer =
         let newDns = 
             fastDns config fc annoSet view |> onOff (AVal.map not showOld)
 
-        Sg.ofSeq [Sg.dynamic sg; Sg.dynamic newSg; Sg.dynamic dnsOld; Sg.dynamic newDns]
+        Sg.ofSeq [Sg.dynamic sg; Sg.dynamic newSg; Sg.dynamic dnsOld; Sg.dynamic newDns; overlay]
 
     let run (scene : OpcScene) (annotations : Annotations) =
 
@@ -195,7 +197,7 @@ module AnnotationViewer =
 
         let serializer = FsPickler.CreateBinarySerializer()
 
-        let showSurface = true
+        let showSurface = false
 
         let sg = 
             if showSurface && runner.IsSome then
@@ -217,7 +219,7 @@ module AnnotationViewer =
 
         let lodVisEnabled = cval true
         let fillMode = cval FillMode.Fill
-        let showOld = cval true
+        let showOld = cval false
 
         win.Keyboard.KeyDown(Keys.PageUp).Values.Add(fun _ -> 
             transact (fun _ -> speed.Value <- speed.Value * 1.5)
