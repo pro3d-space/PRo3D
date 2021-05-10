@@ -129,6 +129,10 @@ module PackedRendering =
                 [<Semantic("Width")>]       w       : float
                 [<Semantic("Id")>]          id      : int
                 [<SourceVertexIndex>]       i       : int
+
+                [<Semantic("PickingTolerance")>] tolerance : float
+                [<Semantic("LineWidth")>] width : float
+                [<Semantic("ObjId")>] obId : int
             }
 
 
@@ -142,6 +146,8 @@ module PackedRendering =
             member x.Colors       : V4d[]   = x?StorageBuffer?Colors
             member x.SelectedId   : int     = x?SelectedId
             member x.PickingTolerance : float = x?PickingTolerance
+
+            member x.MV : M44d = x?MV
 
 
         let indirectLineVertexPicking (v : ThickLineVertex) =
@@ -159,6 +165,20 @@ module PackedRendering =
                     }
             }
 
+        let noIndirectLineVertexPicking (v : ThickLineVertex) =
+            vertex {
+                let width = v.width
+                let pos = uniform.MV * v.pos
+                let p = uniform.ProjTrafo * pos
+                return 
+                    { v with 
+                        c = v.c 
+                        pos = p
+                        w = width + 5.0 + v.tolerance * 5.0
+                        id = v.obId
+                    }
+            }
+
         let indirectLineVertex (v : ThickLineVertex) =
             vertex {
                 let id = drawId()
@@ -169,6 +189,22 @@ module PackedRendering =
                 return 
                     { v with 
                         c = if isSelected then V4d.IOOI else uniform.Colors.[id]; 
+                        pos = p
+                        w = if isSelected then width * 2.0 else width
+                        id = id
+                    }
+            }
+
+        let noIndirectLineVertex (v : ThickLineVertex) =
+            vertex {
+                let id = v.obId
+                let isSelected = id = uniform.SelectedId
+                let width = v.width
+                let pos = uniform.MV * v.pos
+                let p = uniform.ProjTrafo * pos
+                return 
+                    { v with 
+                        c = if isSelected then V4d.IOOI else v.c
                         pos = p
                         w = if isSelected then width * 2.0 else width
                         id = id
@@ -315,7 +351,7 @@ module PackedRendering =
 
 
 
-    let lines (depthOffset : aval<float>) (selectedAnnotation : aval<int>) (selected : aset<Guid>) (annoSet: aset<Guid * AdaptiveAnnotation>) (view : aval<M44d>) =
+    let lines__ (depthOffset : aval<float>) (selectedAnnotation : aval<int>) (selected : aset<Guid>) (annoSet: aset<Guid * AdaptiveAnnotation>) (view : aval<M44d>) =
           let data = 
               AVal.custom (fun t -> 
                   Log.startTimed "mk lines"
@@ -393,6 +429,92 @@ module PackedRendering =
           sg, (instanceAttribs |> AVal.map (fun i -> i.ids )), boundingBox
 
 
+    let linesNoIndirect (depthOffset : aval<float>) (selectedAnnotation : aval<int>) (selected : aset<Guid>) (annoSet: aset<Guid * AdaptiveAnnotation>) (view : aval<M44d>) =
+          let data = 
+              AVal.custom (fun t -> 
+                  Log.startTimed "mk lines"
+                  let annos = annoSet.Content.GetValue(t)
+                  let selected = selected.Content.GetValue(t)
+                  let vertices = List<_>()
+                  let colors = List<_>()
+                  let tolerances = List<float32>()
+                  let lineWidths = List<float32>()
+                  let dcis = List<DrawCallInfo>()
+                  let annoId = List<int>()
+                  let ids = List<System.Guid>()
+                  let mutable b = Box3d.Invalid
+
+                  let mutable modelTrafo = None
+
+                  let mutable oid = 0
+                  for (id,anno) in annos do   
+                      let kind = anno.geometry.GetValue t
+                      let p = PRo3D.Core.Drawing.Sg.getPolylinePoints anno
+                      let ps = p.GetValue(t)
+                      b <- Box3d(b, Box3d(ps))
+                      let offset = 0.0
+                      let color = if HashSet.contains id selected then C4b.VRVisGreen else anno.color.c.GetValue(t)
+                      let thickness = anno.thickness.value.GetValue(t)
+                      let tolerance = 0.0
+                      let modelTrafo = 
+                          match modelTrafo with
+                          | None -> 
+                                let t = anno.modelTrafo.GetValue(t)
+                                modelTrafo <- Some t
+                                t
+                          | Some t -> t
+
+                      let isVisible = anno.visible.GetValue(t)
+
+                      ids.Add(id)
+                      oid <- oid + 1
+
+                      if isVisible then
+                          for i in 0 .. ps.Length - 2 do
+                              vertices.Add(modelTrafo.Backward.TransformPos ps.[i] |> V3f)
+                              vertices.Add(modelTrafo.Backward.TransformPos ps.[i+1] |> V3f)
+                              lineWidths.Add(float32 thickness)
+                              lineWidths.Add(float32 thickness)
+                              annoId.Add(oid)
+                              annoId.Add(oid)
+                              colors.Add(C4f color)
+                              colors.Add(C4f color)
+                              tolerances.Add(float32 tolerance)
+                              tolerances.Add(float32 tolerance)
+
+
+
+                  let r = 
+                      {| points = vertices.ToArray();
+                         drawCallInfos = dcis.ToArray();
+                         lineWidths = lineWidths.ToArray();
+                         colors = colors.ToArray();
+                         tolerances = tolerances.ToArray() 
+                         ids = ids.ToArray()
+                         annoId = annoId.ToArray()
+                         modelTrafo = Option.defaultValue Trafo3d.Identity modelTrafo
+                      |}
+                  Log.stop()
+                  r, b
+              )
+
+          let instanceAttribs = AVal.map fst data
+          let boundingBox = AVal.map snd data
+          let mv = (data, view) ||> AVal.map2 (fun d v -> v * (fst d).modelTrafo.Forward)
+          let sg = 
+              Sg.draw IndexedGeometryMode.LineList
+              |> Sg.vertexAttribute DefaultSemantic.Positions (instanceAttribs |> AVal.map (fun i -> i.points))
+              |> Sg.vertexAttribute (Sym.ofString "LineWidth") (instanceAttribs |> AVal.map (fun i -> i.lineWidths))
+              |> Sg.vertexAttribute (Sym.ofString "ObjId") (instanceAttribs |> AVal.map (fun i -> i.annoId))
+              |> Sg.vertexAttribute DefaultSemantic.Colors (instanceAttribs |> AVal.map (fun i -> i.colors))
+              |> Sg.vertexAttribute (Sym.ofString "PickingTolerance") (instanceAttribs |> AVal.map (fun i -> i.tolerances))
+              |> Sg.uniform "DepthOffset" (depthOffset |> AVal.map (fun depthWorld -> depthWorld / (100.0 - 0.1))) 
+              |> Sg.uniform "MV" mv
+              |> Sg.uniform "SelectedId" selectedAnnotation
+
+          sg, (instanceAttribs |> AVal.map (fun i -> i.ids )), boundingBox
+
+
 
     let pickRenderTarget (runtime : IRuntime) (pickingTolerance : aval<float>) lines (view : aval<CameraView>) (frustum : aval<Frustum>) (viewport : aval<V2i>) =
         let pickColors, pickDepth = 
@@ -406,7 +528,7 @@ module PackedRendering =
             |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
             |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo) //(size |> AVal.map (fun s -> Frustum.perspective 20.0 0.01 10000.0 (s.X / s.Y)))
             |> Sg.shader { 
-                  do! LineShader.indirectLineVertexPicking
+                  do! LineShader.noIndirectLineVertexPicking
                   do! LineShader.thickLine
                   do! PRo3D.Base.Shader.DepthOffset.depthOffsetFS 
                   do! Picking.pickId
@@ -421,7 +543,7 @@ module PackedRendering =
     let packedRender lines =
         lines 
         |> Sg.shader { 
-                do! LineShader.indirectLineVertex
+                do! LineShader.noIndirectLineVertex
                 do! LineShader.thickLine
                 do! PRo3D.Base.Shader.DepthOffset.depthOffsetFS 
         }

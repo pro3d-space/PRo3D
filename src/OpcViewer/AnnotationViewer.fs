@@ -55,7 +55,7 @@ module AnnotationViewer =
 
         let mv = view |> AVal.map (fun c -> (CameraView.viewTrafo c).Forward)
         let points = points (model.selectedLeaves |> ASet.map (fun x -> x.id)) annoSet config.offset mv
-        let lines, pickIds, bb = PackedRendering.lines config.offset selectedAnnotation ASet.empty annoSet mv
+        let lines, pickIds, bb = PackedRendering.linesNoIndirect config.offset selectedAnnotation ASet.empty annoSet mv
 
         let pickColors, pickDepth = 
             //let size = AVal.constant (V2i(128,128))
@@ -70,7 +70,7 @@ module AnnotationViewer =
             |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
             |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo) //(size |> AVal.map (fun s -> Frustum.perspective 20.0 0.01 10000.0 (s.X / s.Y)))
             |> Sg.shader { 
-                  do! LineShader.indirectLineVertexPicking
+                  do! LineShader.noIndirectLineVertexPicking
                   do! LineShader.thickLine
                   do! PRo3D.Base.Shader.DepthOffset.depthOffsetFS 
                   do! Picking.pickId
@@ -133,7 +133,7 @@ module AnnotationViewer =
         let lineSg  =
             lines 
             |> Sg.shader { 
-                  do! LineShader.indirectLineVertex
+                  do! LineShader.noIndirectLineVertex
                   do! LineShader.thickLine
                   do! PRo3D.Base.Shader.DepthOffset.depthOffsetFS 
             }
