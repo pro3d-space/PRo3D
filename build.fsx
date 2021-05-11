@@ -88,6 +88,7 @@ Target.create "Credits" (fun _ ->
 let r = System.Text.RegularExpressions.Regex("let viewerVersion.*=.*\"(.*)\"")
 let test = """let viewerVersion       = "3.1.3" """
 
+
 Target.create "Publish" (fun _ ->
 
     // 0.0 copy version over into source code...
@@ -107,13 +108,26 @@ Target.create "Publish" (fun _ ->
     // 1. publish exe
     "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
         { o with
-            Framework = Some "netcoreapp3.1"
+            Framework = Some "net5.0"
             Runtime = Some "win10-x64"
             Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=true -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
             Configuration = DotNet.BuildConfiguration.Release
             VersionSuffix = Some notes.NugetVersion
-            OutputPath = Some "bin/publish"
+            OutputPath = Some "bin/publish/win-x64"
+        }
+    )
+
+    // 1. publish exe
+    "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
+        { o with
+            Framework = Some "net5.0"
+            Runtime = Some "osx-x64"
+            Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=true -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
+            //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
+            Configuration = DotNet.BuildConfiguration.Release
+            VersionSuffix = Some notes.NugetVersion
+            OutputPath = Some "bin/publish/mac-x64"
         }
     )
 
@@ -126,7 +140,8 @@ Target.create "Publish" (fun _ ->
     //    File.Copy(dll, Path.Combine("bin/publish/",fileName))
 
     // 2, copy licences
-    File.Copy("CREDITS.MD", "bin/publish/CREDITS.MD", true)
+    File.Copy("CREDITS.MD", "bin/publish/win-x64/CREDITS.MD", true)
+    File.Copy("CREDITS.MD", "bin/publish/mac-x64/CREDITS.MD", true)
 
     // 3, resources (currently everything included)
     // copyResources ["bin/publish"] 
