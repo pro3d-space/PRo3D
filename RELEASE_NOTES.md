@@ -1,3 +1,8 @@
+## 3.7.0-prerelease6
+
+- fixed picking issues
+- tried to fix color picker history https://github.com/vrvis/PRo3D/issues/56
+
 ## 3.7.0-prerelease5
 
 - new color correction UI + ordering of operations https://github.com/vrvis/PRo3D/issues/52
