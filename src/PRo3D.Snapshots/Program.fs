@@ -60,7 +60,7 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "3.7.0-prerelease5"
+let viewerVersion       = "3.7.0-prereleaseHERA1"
 let catchDomainErrors   = false
 
 open System.IO

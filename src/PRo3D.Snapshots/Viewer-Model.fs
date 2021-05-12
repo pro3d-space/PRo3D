@@ -139,11 +139,12 @@ type ViewerAction =
     | MakeSnapshot                    of int*int*string
     | ImportSnapshotData              of list<string>
     | SetTextureFiltering             of bool // TODO move to versioned ViewConfigModel in V3
-    | UpdatePlacementParameters              of (list<ObjectPlacementParameters> * string)
+    | UpdatePlacementParameters       of (list<ObjectPlacementParameters> * string)
     | TestHaltonRayCasting            //of list<string>
     | HeightValidation               of HeightValidatorAction
     | ComparisonMessage              of Comparison.ComparisonAction
     | ObjectPlacementMessage         of (string * ObjectPlacementAction)
+    | SetBestLodQuality
     | ExportSnapshotFile             
     | Nop
 

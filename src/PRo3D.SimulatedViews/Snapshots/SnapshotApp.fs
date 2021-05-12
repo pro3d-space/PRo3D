@@ -131,9 +131,9 @@ module SnapshotApp =
             app.mutableApp.updateSync (Guid.NewGuid ()) actions
 
             //TODO rno should be obsolete with snc rendering
-            taskclear.Run (null, fbo) |> ignore
-            task.Run (null, fbo) |> ignore
-            System.Threading.Thread.Sleep(1000)
+            //taskclear.Run (null, fbo) |> ignore
+            //task.Run (null, fbo) |> ignore
+            //System.Threading.Thread.Sleep(1000)
             //TODO end
 
             renderAndSave (sprintf "%s.png" fullPathName) app.verbose parameters
@@ -149,7 +149,7 @@ module SnapshotApp =
 
     let transformAllSurfaces (surfacesModel : SurfaceModel) (surfaceUpdates : list<SnapshotSurfaceUpdate>) =
         let surfaceGuids = HashMap.keys surfacesModel.surfaces.flat 
-        let nrSurfaces = HashSet.count surfaceGuids
+        //let nrSurfaces = HashSet.count surfaceGuids
         let surfaces = surfacesModel.surfaces.flat 
                                 |> HashMap.toList
                                 |> List.map(fun (_,v) -> v |> Leaf.toSurface)
@@ -162,7 +162,7 @@ module SnapshotApp =
                 | _ -> surf.importPath
             String.contains (String.toLowerInvariant name) (String.toLowerInvariant surfName)
 
-        let transformSurf m surf =
+        let transformSurf surfacesModel surf =
             let surfaceUpdate  = 
                 surfaceUpdates
                     |> List.filter (fun s -> hasName surf s.surfname)
@@ -178,11 +178,13 @@ module SnapshotApp =
                     let surf =
                         match upd.trafo with
                         | Some trafo ->
+                            //Log.line "Transforming surface %s with %s" surf.name (trafo.ToString ())
                             {surf with preTransform = trafo}
                         | None -> surf
                     let surf =
                         match upd.translation with
                         | Some tr -> 
+                          //Log.line "Transforming surface %s with %s" surf.name (tr.ToString ())
                           let translation = {surf.transformation.translation with value = tr}
                           {surf with transformation = {surf.transformation with translation = translation}}
                         | None -> surf
@@ -190,9 +192,20 @@ module SnapshotApp =
                 | None -> surf
 
             SurfaceModel.updateSingleSurface updatedSurf surfacesModel
-
         // apply surface tranformation to each surface mentioned in the snapshot
-        PlacementUtils.applyToModel surfaces surfacesModel transformSurf       
+        
+
+
+        let model = 
+            SnapshotUtils.applyToModel surfaces surfacesModel transformSurf       
+
+        //let debug = model.surfaces.flat 
+        //              |> HashMap.toList
+        //              |> List.map(fun (_,v) -> v |> Leaf.toSurface)
+        //              |> List.map (fun s -> sprintf "%s %s" s.name (s.preTransform.ToString ()))
+        //Log.line "%s" (debug.ToString ())
+
+        model
 
     let menuItems placeAction generateJsonAction useObjectPlacements = //TODO rno importBookmarkAction =
         let menuContentList =

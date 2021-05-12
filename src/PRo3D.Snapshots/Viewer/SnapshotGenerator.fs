@@ -93,7 +93,7 @@ module SnapshotGenerator =
         // ADD ACTIONS FOR NEW SNAPSHOT MEMBERS HERE
         actions@sunAction@surfAction@PlacementAction |> List.toSeq    
 
-    let getAnimationActions (anim : SnapshotAnimation) =               
+    let getAnimationActions (anim : SnapshotAnimation) =       
         let setNearplane =
             match anim.nearplane with
             | Some np -> 

@@ -20,10 +20,10 @@ module ViewerSnapshotUtils =
 
 
     let placeAllObjs (m : Model) (snapshotPlacements) filename =
-        let surfacesModel = PlacementUtils.addSnapshotGroup m.scene.surfacesModel
+        let surfacesModel = SnapshotUtils.addSnapshotGroup m.scene.surfacesModel
         let m = Model.withScene {m.scene with surfacesModel = surfacesModel} m
         let snapSgs, snapSurfs = 
-            PlacementUtils.getSurfacesInSnapshotGroup surfacesModel
+            SnapshotUtils.getSurfacesInSnapshotGroup surfacesModel
         let snapshotObjGuids = snapSgs |> List.map fst
         let surfaces = m.scene.surfacesModel.surfaces.flat 
                             |> HashMap.toList
@@ -32,18 +32,18 @@ module ViewerSnapshotUtils =
                             |> List.filter (fun s -> not (List.contains s.guid snapshotObjGuids))
         let placeObjs (m : Model) surf = 
             let surfaceModel = 
-                PlacementUtils.placeMultipleOBJs m.scene.surfacesModel
+                SnapshotUtils.placeMultipleOBJs m.scene.surfacesModel
                                                    snapshotPlacements 
                                                    m.frustum
                                                    filename
                                                    m.scene.referenceSystem
                                                    m.navigation
             Model.withScene {m.scene with surfacesModel = surfaceModel} m
-        let m = PlacementUtils.applyToModel surfaces m placeObjs
+        let m = SnapshotUtils.applyToModel surfaces m placeObjs
         m
 
     let updateObjPlacementsFromGui (m : Model) =
         let snapshotSCParameters = 
-          PlacementUtils.generatePlacementParameters m.scene.surfacesModel
+          SnapshotUtils.generatePlacementParameters m.scene.surfacesModel
                                                     m.scene.objectPlacements
         placeAllObjs m snapshotSCParameters ""

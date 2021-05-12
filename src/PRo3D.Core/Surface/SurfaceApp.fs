@@ -240,7 +240,7 @@ module SurfaceUtils =
                                             
 module SurfaceApp =
 
-    let hmapsingle (k,v) = HashMap.single k v
+    let hmapsingle (k,v) = HashMap.single k v    
 
     let updateSurfaceTrafos (trafos: list<SurfaceTrafo>) (model:SurfaceModel) =
         let surfaces =        

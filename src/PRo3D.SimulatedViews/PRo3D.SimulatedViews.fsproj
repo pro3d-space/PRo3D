@@ -13,6 +13,11 @@
     <OutputPath>..\..\bin\Release\</OutputPath>
   </PropertyGroup>
   <ItemGroup>      
+    <Compile Include="Rabbyte\Drawing\DrawingModel.fs" />      
+    <Compile Include="Rabbyte\Drawing\DrawingApp.fs" />      
+    <Compile Include="Rabbyte\Annotation\AnnotationModel.fs" />      
+    <Compile Include="Rabbyte\Annotation\AnnotationSg.fs" />      
+    <Compile Include="Rabbyte\Annotation\AnnotationApp.fs" />      
     <Compile Include="Lighting\Lighting-Utils.fs" />      
     <Compile Include="Lighting\Shading-Model.fs" />      
     <Compile Include="Lighting\Shaders.fs" />      

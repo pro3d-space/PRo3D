@@ -37,4 +37,5 @@
 \contentsline {subsection}{\numberline {6.1}PRo3D Snapshot Files}{32}{subsection.6.1}%
 \contentsline {subsection}{\numberline {6.2}Arguments and Features}{32}{subsection.6.2}%
 \contentsline {subsection}{\numberline {6.3}Examples}{33}{subsection.6.3}%
-\contentsline {section}{\numberline {7}PRo3D Keyboard Shortcuts}{38}{section.7}%
+\contentsline {section}{\numberline {7}Surface Comparison Extension}{38}{section.7}%
+\contentsline {section}{\numberline {8}PRo3D Keyboard Shortcuts}{40}{section.8}%

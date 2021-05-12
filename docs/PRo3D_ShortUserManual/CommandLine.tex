@@ -3,7 +3,7 @@
 %----------------------------------------------------------------------------------------
 \section{PRo3D Command Line Interface}
 
-PRo3D can produce rendered images in a batch process via the command line. For this process, \emph{snapshot files} are used. They are in the JSON format, and contain transformations for each rendered image. There are two types of snapshot files: One type that only transforms camera parameters, and another that can be used to transform surfaces as well. This section describes the format of these files, and how they can be used with PRo3D to render an arbitrary number of images.
+The PRo3D SnapshotViewer can produce rendered images in a batch process via the command line. For this process, \emph{snapshot files} are used. They are in the JSON format, and contain transformations for each rendered image. There are two types of snapshot files: One type that only transforms camera parameters, and another that can be used to transform surfaces as well. This section describes the format of these files, and how they can be used with PRo3D to render an arbitrary number of images.
 
 %----------------------------------------------------------------------------------------
 %	SubSection: Start Command Line
@@ -50,13 +50,13 @@ Field of view and resolution of the resulting image are only specified once, at 
 The \texttt{--help} flag will provide you with a full list of possible command line arguments for PRo3D. Table \ref{table:args} lists all available arguments.
 
 \begin{lstlisting}
-PRo3D.Viewer.exe --help
+PRo3D.SnapshotViewer.exe --help
 \end{lstlisting}
 
 The simplest way to start the rendering process is to start PRo3D from the command line with only the path to the OPC file(s) and the snapshot file:
 
 \begin{lstlisting}
-PRo3D.Viewer.exe --opcs MyOPCs\firstOpc\;MyOPCs\secondOpc\ --asnap snapshots.JSON
+PRo3D.SnapshotViewer.exe --opcs MyOPCs\firstOpc\;MyOPCs\secondOpc\ --asnap snapshots.JSON
 \end{lstlisting}
 
 The \texttt{--opcs} flag is followed by multiple paths to folders containing OPC surfaces separated with a semi colon. The \texttt{--asnap} flag is followed by the path to a snapshot file in the format described above, and as the examples in section \ref{cl:examples}. Make sure you are in the same directory as the \emph{PRo3D.Viewer.exe} file or specify the path to that file in the command. Paths can be either absolute or relative. The root of relative paths is the directory in which PRo3D.Viewer.exe is located. The flag \texttt{--snap} is used for legacy files which do not contain surface updates, and do not group the view parameters under a \emph{view} entry.\\
@@ -64,7 +64,7 @@ The \texttt{--opcs} flag is followed by multiple paths to folders containing OPC
 To specify an output folder use the \texttt{--out} flag:
 
 \begin{lstlisting}
-PRo3D.Viewer.exe --opcs MyOPCs\firstOpc\;MyOPCs\secondOpc\ --asnap snapshots.JSON --out MyImages\Renderd
+PRo3D.SnapshotViewer.exe --opcs MyOPCs\firstOpc\;MyOPCs\secondOpc\ --asnap snapshots.JSON --out MyImages\Renderd
 \end{lstlisting}
 
 If no output folder is specified, the images will be placed in the folder in which PRo3D.Viewer.exe is located. 

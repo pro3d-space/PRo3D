@@ -1,7 +1,8 @@
 {
   "profiles": {
     "PRo3D.Viewer": {
-      "commandName": "Project"
+      "commandName": "Project",
+      "commandLineArgs": "PRo3D.SnapshotViewer.exe --opc e:\\AardVRVIs\\HeraPhase2\\Data\\Didymain;e:\\AardVRVIs\\HeraPhase2\\Data\\Didymoon --asnap e:\\AardVRVIs\\PRo3D_Bugs\\20210511_RenderingTexture\\PRo3D.json --out tmp --verbose --exitOnFinish"
     }
   }
 }

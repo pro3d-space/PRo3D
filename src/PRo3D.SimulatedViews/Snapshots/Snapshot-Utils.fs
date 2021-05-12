@@ -13,7 +13,7 @@ open PRo3D.Base
 
 //open Aardvark.GeoSpatial.Opc.Shader
 
-module PlacementUtils =
+module SnapshotUtils =
 
 
     let addSnapshotGroup (m    : SurfaceModel) =

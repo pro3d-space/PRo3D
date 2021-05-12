@@ -1,9 +1,9 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.17 (MiKTeX 2.9) (preloaded format=pdflatex 2016.10.5)  13 FEB 2019 08:56
+This is pdfTeX, Version 3.14159265-2.6-1.40.21 (MiKTeX 2.9.7380 64-bit) (preloaded format=pdflatex 2020.4.6)  6 MAY 2021 15:04
 entering extended mode
 **./Start.tex
 (Start.tex
-LaTeX2e <2016/03/31> patch level 3
-Babel <3.9r> and hyphenation patterns for 75 language(s) loaded.
+LaTeX2e <2020-02-02> patch level 5
+L3 programming layer <2020-03-06>
 ! Undefined control sequence.
 l.4 \section
             {Start}
@@ -31,8 +31,8 @@ Missing character: There is no a in font nullfont!
 Missing character: There is no r in font nullfont!
 Missing character: There is no t in font nullfont!
 
-Overfull \hbox (20.0pt too wide) in paragraph at lines 4--5
-[] 
+Overfull \hbox (20.0pt too wide) in paragraph at lines 4--6
+[]
  []
 
 
@@ -42,8 +42,9 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.6 S
+l.7 S
      tart the viewer by clicking the PRo3D.exe and open the Menu in the top ...
+
 You're in trouble here.  Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
@@ -137,7 +138,7 @@ Missing character: There is no e in font nullfont!
 ! Undefined control sequence.
 <write> ...rence `fig:StartMenu' on page \thepage 
                                                   \space undefined\on@line .
-l.6 ...window, shown in Figure~\ref{fig:StartMenu}
+l.7 ...window, shown in Figure~\ref{fig:StartMenu}
                                                   .
 The control sequence at the end of the top line
 of your error message was never \def'ed. If you have
@@ -146,7 +147,7 @@ spelling (e.g., `I\hbox'). Otherwise just continue,
 and I'll forget about whatever was undefined.
 
 
-LaTeX Warning: Reference `fig:StartMenu' on page  undefined on input line 6.
+LaTeX Warning: Reference `fig:StartMenu' on page  undefined on input line 7.
 
 Missing character: There is no . in font nullfont!
 
@@ -156,7 +157,7 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.7 \begin{figure}
+l.8 \begin{figure}
                   [h]
 Your command was ignored.
 Type  I <command> <return>  to replace it with another command,
@@ -166,8 +167,8 @@ Missing character: There is no [ in font nullfont!
 Missing character: There is no h in font nullfont!
 Missing character: There is no ] in font nullfont!
 ! Undefined control sequence.
-l.9     		\includegraphics
-                          [width=1\textwidth]{pics/startAI.png}
+l.10     		\includegraphics
+                           [width=1\textwidth]{pics/startAI.png}
 The control sequence at the end of the top line
 of your error message was never \def'ed. If you have
 misspelled it (e.g., `\hobx'), type `I' and the correct
@@ -185,8 +186,8 @@ Missing character: There is no 1 in font nullfont!
 ! Missing number, treated as zero.
 <to be read again> 
                    ]
-l.9     		\includegraphics[width=1\textwidth]
-                                             {pics/startAI.png}
+l.10     		\includegraphics[width=1\textwidth]
+                                              {pics/startAI.png}
 A number should have been here; I inserted `0'.
 (If you can't figure out why I needed to see a number,
 look up `weird error' in the index to The TeXbook.)
@@ -194,8 +195,8 @@ look up `weird error' in the index to The TeXbook.)
 ! Illegal unit of measure (pt inserted).
 <to be read again> 
                    ]
-l.9     		\includegraphics[width=1\textwidth]
-                                             {pics/startAI.png}
+l.10     		\includegraphics[width=1\textwidth]
+                                              {pics/startAI.png}
 Dimensions can be in units of em, ex, in, pt, pc,
 cm, mm, dd, cc, nd, nc, bp, or sp; but yours is a new one!
 I'll assume that you meant to say pt, for printer's points.
@@ -227,7 +228,7 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.10     	\caption
+l.11     	\caption
                   [Start Menu]{PRo3D Main Menu. }
 You're in trouble here.  Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -264,19 +265,19 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.12    \end{figure}
+l.13    \end{figure}
                     
 Your command was ignored.
 Type  I <command> <return>  to replace it with another command,
 or  <return>  to continue without it.
 
 
-Overfull \hbox (20.0pt too wide) in paragraph at lines 6--13
+Overfull \hbox (20.0pt too wide) in paragraph at lines 7--14
 []
  []
 
 
-Overfull \hbox (10.86105pt too wide) in paragraph at lines 6--13
+Overfull \hbox (10.86105pt too wide) in paragraph at lines 7--14
 []
  []
 
@@ -287,7 +288,7 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.14 Y
+l.15 Y
       ou have two options to start:
 You're in trouble here.  Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -318,7 +319,7 @@ Missing character: There is no r in font nullfont!
 Missing character: There is no t in font nullfont!
 Missing character: There is no : in font nullfont!
 
-Overfull \hbox (20.0pt too wide) in paragraph at lines 14--15
+Overfull \hbox (20.0pt too wide) in paragraph at lines 15--16
 []
  []
 
@@ -391,7 +392,7 @@ Missing character: There is no n in font nullfont!
 ! Undefined control sequence.
 <write> ...ence `sec:addSurface' on page \thepage 
                                                   \space undefined\on@line .
-l.16 ...d in the next Section~\ref{sec:addSurface}
+l.17 ...d in the next Section~\ref{sec:addSurface}
                                                   .
 The control sequence at the end of the top line
 of your error message was never \def'ed. If you have
@@ -400,11 +401,11 @@ spelling (e.g., `I\hbox'). Otherwise just continue,
 and I'll forget about whatever was undefined.
 
 
-LaTeX Warning: Reference `sec:addSurface' on page  undefined on input line 16.
+LaTeX Warning: Reference `sec:addSurface' on page  undefined on input line 17.
 
 Missing character: There is no . in font nullfont!
 
-Overfull \hbox (10.86105pt too wide) in paragraph at lines 16--17
+Overfull \hbox (10.86105pt too wide) in paragraph at lines 17--18
 [] 
  []
 
@@ -451,7 +452,7 @@ Missing character: There is no n in font nullfont!
 ! Undefined control sequence.
 <write> ...rence `sec:loadScene' on page \thepage 
                                                   \space undefined\on@line .
-l.17 ...scribed in the Section~\ref{sec:loadScene}
+l.18 ...scribed in the Section~\ref{sec:loadScene}
                                                   .
 The control sequence at the end of the top line
 of your error message was never \def'ed. If you have
@@ -460,16 +461,16 @@ spelling (e.g., `I\hbox'). Otherwise just continue,
 and I'll forget about whatever was undefined.
 
 
-LaTeX Warning: Reference `sec:loadScene' on page  undefined on input line 17.
+LaTeX Warning: Reference `sec:loadScene' on page  undefined on input line 18.
 
 Missing character: There is no . in font nullfont!
 
-Overfull \hbox (10.86105pt too wide) in paragraph at lines 17--18
+Overfull \hbox (10.86105pt too wide) in paragraph at lines 18--19
 [] 
  []
 
 ! Undefined control sequence.
-l.32 \subsection
+l.33 \subsection
                 {Add Surface}
 The control sequence at the end of the top line
 of your error message was never \def'ed. If you have
@@ -488,7 +489,7 @@ Missing character: There is no a in font nullfont!
 Missing character: There is no c in font nullfont!
 Missing character: There is no e in font nullfont!
 
-Overfull \hbox (20.0pt too wide) in paragraph at lines 32--34
+Overfull \hbox (20.0pt too wide) in paragraph at lines 33--35
 []
  []
 
@@ -557,7 +558,7 @@ Missing character: There is no e in font nullfont!
 ! Undefined control sequence.
 <write> ...rence `fig:StartMenu' on page \thepage 
                                                   \space undefined\on@line .
-l.35 ...ab in the menu (Figure~\ref{fig:StartMenu}
+l.36 ...ab in the menu (Figure~\ref{fig:StartMenu}
                                                   ). Click on the ``OPC'' ta...
 The control sequence at the end of the top line
 of your error message was never \def'ed. If you have
@@ -566,7 +567,7 @@ spelling (e.g., `I\hbox'). Otherwise just continue,
 and I'll forget about whatever was undefined.
 
 
-LaTeX Warning: Reference `fig:StartMenu' on page  undefined on input line 35.
+LaTeX Warning: Reference `fig:StartMenu' on page  undefined on input line 36.
 
 Missing character: There is no ) in font nullfont!
 Missing character: There is no . in font nullfont!
@@ -709,6 +710,7 @@ Missing character: There is no l in font nullfont!
 Missing character: There is no d in font nullfont!
 Missing character: There is no e in font nullfont!
 Missing character: There is no r in font nullfont!
+Missing character: There is no s in font nullfont!
 Missing character: There is no c in font nullfont!
 Missing character: There is no o in font nullfont!
 Missing character: There is no n in font nullfont!
@@ -745,7 +747,7 @@ Missing character: There is no e in font nullfont!
 ! Undefined control sequence.
 <write> ...ence `fig:AddSurface' on page \thepage 
                                                   \space undefined\on@line .
-l.36 ...es as shown in Figure~\ref{fig:AddSurface}
+l.37 ...es as shown in Figure~\ref{fig:AddSurface}
                                                   . Click the ``Select Folde...
 The control sequence at the end of the top line
 of your error message was never \def'ed. If you have
@@ -754,7 +756,7 @@ spelling (e.g., `I\hbox'). Otherwise just continue,
 and I'll forget about whatever was undefined.
 
 
-LaTeX Warning: Reference `fig:AddSurface' on page  undefined on input line 36.
+LaTeX Warning: Reference `fig:AddSurface' on page  undefined on input line 37.
 
 Missing character: There is no . in font nullfont!
 Missing character: There is no C in font nullfont!
@@ -913,7 +915,7 @@ Missing character: There is no e in font nullfont!
 ! Undefined control sequence.
 <write> ...ence `fig:NewSurface' on page \thepage 
                                                   \space undefined\on@line .
-l.36 ...ow as shown in Figure~\ref{fig:NewSurface}
+l.37 ...ow as shown in Figure~\ref{fig:NewSurface}
                                                   , part A.
 The control sequence at the end of the top line
 of your error message was never \def'ed. If you have
@@ -922,7 +924,7 @@ spelling (e.g., `I\hbox'). Otherwise just continue,
 and I'll forget about whatever was undefined.
 
 
-LaTeX Warning: Reference `fig:NewSurface' on page  undefined on input line 36.
+LaTeX Warning: Reference `fig:NewSurface' on page  undefined on input line 37.
 
 Missing character: There is no , in font nullfont!
 Missing character: There is no p in font nullfont!
@@ -966,22 +968,22 @@ Missing character: There is no a in font nullfont!
 Missing character: There is no y in font nullfont!
 Missing character: There is no . in font nullfont!
 
-Overfull \hbox (20.0pt too wide) in paragraph at lines 35--38
+Overfull \hbox (20.0pt too wide) in paragraph at lines 36--39
 []
  []
 
 
-Overfull \hbox (10.86105pt too wide) in paragraph at lines 35--38
+Overfull \hbox (10.86105pt too wide) in paragraph at lines 36--39
 []
  []
 
 
-Overfull \hbox (10.86105pt too wide) in paragraph at lines 35--38
+Overfull \hbox (10.86105pt too wide) in paragraph at lines 36--39
 []
  []
 
 
-Overfull \hbox (10.86105pt too wide) in paragraph at lines 35--38
+Overfull \hbox (10.86105pt too wide) in paragraph at lines 36--39
 []
  []
 
@@ -992,7 +994,7 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.39 	\begin{figure}
+l.40 	\begin{figure}
                     [h]
 Your command was ignored.
 Type  I <command> <return>  to replace it with another command,
@@ -1002,7 +1004,7 @@ Missing character: There is no [ in font nullfont!
 Missing character: There is no h in font nullfont!
 Missing character: There is no ] in font nullfont!
 ! Undefined control sequence.
-l.41     		\includegraphics
+l.42     		\includegraphics
                            [width=1\textwidth]{pics/AddSurface.png}
 The control sequence at the end of the top line
 of your error message was never \def'ed. If you have
@@ -1021,7 +1023,7 @@ Missing character: There is no 1 in font nullfont!
 ! Missing number, treated as zero.
 <to be read again> 
                    ]
-l.41     		\includegraphics[width=1\textwidth]
+l.42     		\includegraphics[width=1\textwidth]
                                               {pics/AddSurface.png}
 A number should have been here; I inserted `0'.
 (If you can't figure out why I needed to see a number,
@@ -1030,7 +1032,7 @@ look up `weird error' in the index to The TeXbook.)
 ! Illegal unit of measure (pt inserted).
 <to be read again> 
                    ]
-l.41     		\includegraphics[width=1\textwidth]
+l.42     		\includegraphics[width=1\textwidth]
                                               {pics/AddSurface.png}
 Dimensions can be in units of em, ex, in, pt, pc,
 cm, mm, dd, cc, nd, nc, bp, or sp; but yours is a new one!
@@ -1066,7 +1068,7 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.42     	\caption
+l.43     	\caption
                   [Add Surface]{Add new surfaces to the scene.}
 You're in trouble here.  Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -1115,14 +1117,14 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.44    \end{figure}
+l.45    \end{figure}
                     
 Your command was ignored.
 Type  I <command> <return>  to replace it with another command,
 or  <return>  to continue without it.
 
 
-Overfull \hbox (20.0pt too wide) in paragraph at lines 39--45
+Overfull \hbox (20.0pt too wide) in paragraph at lines 40--46
 []
  []
 
@@ -1198,7 +1200,7 @@ Missing character: There is no e in font nullfont!
 ! Undefined control sequence.
 <write> ...ence `fig:NewSurface' on page \thepage 
                                                   \space undefined\on@line .
-l.47 ...e in the list (Figure~\ref{fig:NewSurface}
+l.48 ...e in the list (Figure~\ref{fig:NewSurface}
                                                   , B). Click the ``FlyTo'' ...
 The control sequence at the end of the top line
 of your error message was never \def'ed. If you have
@@ -1207,7 +1209,7 @@ spelling (e.g., `I\hbox'). Otherwise just continue,
 and I'll forget about whatever was undefined.
 
 
-LaTeX Warning: Reference `fig:NewSurface' on page  undefined on input line 47.
+LaTeX Warning: Reference `fig:NewSurface' on page  undefined on input line 48.
 
 Missing character: There is no , in font nullfont!
 Missing character: There is no B in font nullfont!
@@ -1304,7 +1306,7 @@ Missing character: There is no e in font nullfont!
 ! Undefined control sequence.
 <write> ...ence `fig:NewSurface' on page \thepage 
                                                   \space undefined\on@line .
-l.47 ...'s properties (Figure~\ref{fig:NewSurface}
+l.48 ...'s properties (Figure~\ref{fig:NewSurface}
                                                   , C) click on the appropri...
 The control sequence at the end of the top line
 of your error message was never \def'ed. If you have
@@ -1313,7 +1315,7 @@ spelling (e.g., `I\hbox'). Otherwise just continue,
 and I'll forget about whatever was undefined.
 
 
-LaTeX Warning: Reference `fig:NewSurface' on page  undefined on input line 47.
+LaTeX Warning: Reference `fig:NewSurface' on page  undefined on input line 48.
 
 Missing character: There is no , in font nullfont!
 Missing character: There is no C in font nullfont!
@@ -1354,17 +1356,17 @@ Missing character: There is no s in font nullfont!
 Missing character: There is no t in font nullfont!
 Missing character: There is no . in font nullfont!
 
-Overfull \hbox (20.0pt too wide) in paragraph at lines 47--48
+Overfull \hbox (20.0pt too wide) in paragraph at lines 48--49
 []
  []
 
 
-Overfull \hbox (10.86105pt too wide) in paragraph at lines 47--48
+Overfull \hbox (10.86105pt too wide) in paragraph at lines 48--49
 []
  []
 
 
-Overfull \hbox (10.86105pt too wide) in paragraph at lines 47--48
+Overfull \hbox (10.86105pt too wide) in paragraph at lines 48--49
 []
  []
 
@@ -1458,7 +1460,7 @@ Missing character: There is no e in font nullfont!
 ! Undefined control sequence.
 <write> ...rence `fig:saveScene' on page \thepage 
                                                   \space undefined\on@line .
-l.49 ...`Save'' button (Figure~\ref{fig:saveScene}
+l.50 ...`Save'' button (Figure~\ref{fig:saveScene}
                                                   ) to save the surfaces and...
 The control sequence at the end of the top line
 of your error message was never \def'ed. If you have
@@ -1467,7 +1469,7 @@ spelling (e.g., `I\hbox'). Otherwise just continue,
 and I'll forget about whatever was undefined.
 
 
-LaTeX Warning: Reference `fig:saveScene' on page  undefined on input line 49.
+LaTeX Warning: Reference `fig:saveScene' on page  undefined on input line 50.
 
 Missing character: There is no ) in font nullfont!
 Missing character: There is no t in font nullfont!
@@ -1588,12 +1590,12 @@ Missing character: There is no e in font nullfont!
 Missing character: There is no r in font nullfont!
 Missing character: There is no . in font nullfont!
 
-Overfull \hbox (20.0pt too wide) in paragraph at lines 49--50
+Overfull \hbox (20.0pt too wide) in paragraph at lines 50--51
 []
  []
 
 
-Overfull \hbox (10.86105pt too wide) in paragraph at lines 49--50
+Overfull \hbox (10.86105pt too wide) in paragraph at lines 50--51
 []
  []
 
@@ -1604,7 +1606,7 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.51 	\begin{figure}
+l.52 	\begin{figure}
                     [h]
 Your command was ignored.
 Type  I <command> <return>  to replace it with another command,
@@ -1614,7 +1616,7 @@ Missing character: There is no [ in font nullfont!
 Missing character: There is no h in font nullfont!
 Missing character: There is no ] in font nullfont!
 ! Undefined control sequence.
-l.53     		\includegraphics
+l.54     		\includegraphics
                            [width=1\textwidth]{pics/saveScene.png}
 The control sequence at the end of the top line
 of your error message was never \def'ed. If you have
@@ -1633,7 +1635,7 @@ Missing character: There is no 1 in font nullfont!
 ! Missing number, treated as zero.
 <to be read again> 
                    ]
-l.53     		\includegraphics[width=1\textwidth]
+l.54     		\includegraphics[width=1\textwidth]
                                               {pics/saveScene.png}
 A number should have been here; I inserted `0'.
 (If you can't figure out why I needed to see a number,
@@ -1642,7 +1644,7 @@ look up `weird error' in the index to The TeXbook.)
 ! Illegal unit of measure (pt inserted).
 <to be read again> 
                    ]
-l.53     		\includegraphics[width=1\textwidth]
+l.54     		\includegraphics[width=1\textwidth]
                                               {pics/saveScene.png}
 Dimensions can be in units of em, ex, in, pt, pc,
 cm, mm, dd, cc, nd, nc, bp, or sp; but yours is a new one!
@@ -1677,8 +1679,8 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.54     	\caption
-                  [Save Scene]{Save the surfaces and settings as scene. }
+l.55     	\caption
+                  [Save Scene]{Save the surfaces and settings as a scene. }
 You're in trouble here.  Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
@@ -1721,6 +1723,7 @@ Missing character: There is no g in font nullfont!
 Missing character: There is no s in font nullfont!
 Missing character: There is no a in font nullfont!
 Missing character: There is no s in font nullfont!
+Missing character: There is no a in font nullfont!
 Missing character: There is no s in font nullfont!
 Missing character: There is no c in font nullfont!
 Missing character: There is no e in font nullfont!
@@ -1734,19 +1737,19 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.56    \end{figure}
+l.57    \end{figure}
                     
 Your command was ignored.
 Type  I <command> <return>  to replace it with another command,
 or  <return>  to continue without it.
 
 
-Overfull \hbox (20.0pt too wide) in paragraph at lines 51--57
+Overfull \hbox (20.0pt too wide) in paragraph at lines 52--58
 []
  []
 
 ! Undefined control sequence.
-l.61 \subsection
+l.62 \subsection
                 {Load Scene}
 The control sequence at the end of the top line
 of your error message was never \def'ed. If you have
@@ -1764,7 +1767,7 @@ Missing character: There is no e in font nullfont!
 Missing character: There is no n in font nullfont!
 Missing character: There is no e in font nullfont!
 
-Overfull \hbox (20.0pt too wide) in paragraph at lines 61--63
+Overfull \hbox (20.0pt too wide) in paragraph at lines 62--64
 []
  []
 
@@ -1845,7 +1848,7 @@ Missing character: There is no e in font nullfont!
 ! Undefined control sequence.
 <write> ...rence `fig:StartMenu' on page \thepage 
                                                   \space undefined\on@line .
-l.64 ...the start menu (Figure~\ref{fig:StartMenu}
+l.65 ...the start menu (Figure~\ref{fig:StartMenu}
                                                   ).
 The control sequence at the end of the top line
 of your error message was never \def'ed. If you have
@@ -1854,7 +1857,7 @@ spelling (e.g., `I\hbox'). Otherwise just continue,
 and I'll forget about whatever was undefined.
 
 
-LaTeX Warning: Reference `fig:StartMenu' on page  undefined on input line 64.
+LaTeX Warning: Reference `fig:StartMenu' on page  undefined on input line 65.
 
 Missing character: There is no ) in font nullfont!
 Missing character: There is no . in font nullfont!
@@ -1938,7 +1941,7 @@ Missing character: There is no e in font nullfont!
 ! Undefined control sequence.
 <write> ...rence `fig:OpenScene' on page \thepage 
                                                   \space undefined\on@line .
-l.65 ...your selection (Figure~\ref{fig:OpenScene}
+l.66 ...your selection (Figure~\ref{fig:OpenScene}
                                                   ).
 The control sequence at the end of the top line
 of your error message was never \def'ed. If you have
@@ -1947,7 +1950,7 @@ spelling (e.g., `I\hbox'). Otherwise just continue,
 and I'll forget about whatever was undefined.
 
 
-LaTeX Warning: Reference `fig:OpenScene' on page  undefined on input line 65.
+LaTeX Warning: Reference `fig:OpenScene' on page  undefined on input line 66.
 
 Missing character: There is no ) in font nullfont!
 Missing character: There is no . in font nullfont!
@@ -1981,7 +1984,7 @@ Missing character: There is no e in font nullfont!
 ! Undefined control sequence.
 <write> ...ence `fig:NewSurface' on page \thepage 
                                                   \space undefined\on@line .
-l.66 ...ene is loaded (Figure~\ref{fig:NewSurface}
+l.67 ...ene is loaded (Figure~\ref{fig:NewSurface}
                                                   ).
 The control sequence at the end of the top line
 of your error message was never \def'ed. If you have
@@ -1990,32 +1993,32 @@ spelling (e.g., `I\hbox'). Otherwise just continue,
 and I'll forget about whatever was undefined.
 
 
-LaTeX Warning: Reference `fig:NewSurface' on page  undefined on input line 66.
+LaTeX Warning: Reference `fig:NewSurface' on page  undefined on input line 67.
 
 Missing character: There is no ) in font nullfont!
 Missing character: There is no . in font nullfont!
 
-Overfull \hbox (20.0pt too wide) in paragraph at lines 64--67
+Overfull \hbox (20.0pt too wide) in paragraph at lines 65--68
 []
  []
 
 
-Overfull \hbox (28.43042pt too wide) in paragraph at lines 64--67
+Overfull \hbox (28.43042pt too wide) in paragraph at lines 65--68
 \OT1/cmr/bx/n/10 Scene
  []
 
 
-Overfull \hbox (10.86105pt too wide) in paragraph at lines 64--67
+Overfull \hbox (10.86105pt too wide) in paragraph at lines 65--68
 []
  []
 
 
-Overfull \hbox (10.86105pt too wide) in paragraph at lines 64--67
+Overfull \hbox (10.86105pt too wide) in paragraph at lines 65--68
 []
  []
 
 
-Overfull \hbox (10.86105pt too wide) in paragraph at lines 64--67
+Overfull \hbox (10.86105pt too wide) in paragraph at lines 65--68
 [] 
  []
 
@@ -2026,7 +2029,7 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.68 \begin{figure}
+l.69 \begin{figure}
                    [h]
 Your command was ignored.
 Type  I <command> <return>  to replace it with another command,
@@ -2036,7 +2039,7 @@ Missing character: There is no [ in font nullfont!
 Missing character: There is no h in font nullfont!
 Missing character: There is no ] in font nullfont!
 ! Undefined control sequence.
-l.70     		\includegraphics
+l.71     		\includegraphics
                            [width=1\textwidth]{pics/OpenScene.png}
 The control sequence at the end of the top line
 of your error message was never \def'ed. If you have
@@ -2055,7 +2058,7 @@ Missing character: There is no 1 in font nullfont!
 ! Missing number, treated as zero.
 <to be read again> 
                    ]
-l.70     		\includegraphics[width=1\textwidth]
+l.71     		\includegraphics[width=1\textwidth]
                                               {pics/OpenScene.png}
 A number should have been here; I inserted `0'.
 (If you can't figure out why I needed to see a number,
@@ -2064,7 +2067,7 @@ look up `weird error' in the index to The TeXbook.)
 ! Illegal unit of measure (pt inserted).
 <to be read again> 
                    ]
-l.70     		\includegraphics[width=1\textwidth]
+l.71     		\includegraphics[width=1\textwidth]
                                               {pics/OpenScene.png}
 Dimensions can be in units of em, ex, in, pt, pc,
 cm, mm, dd, cc, nd, nc, bp, or sp; but yours is a new one!
@@ -2099,8 +2102,9 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.71     	\caption
+l.72     	\caption
                   [Open Scene]{ Open a scene with either the ``Scene -> Open...
+
 You're in trouble here.  Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
@@ -2208,14 +2212,14 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.73    \end{figure}
+l.74    \end{figure}
                     
 Your command was ignored.
 Type  I <command> <return>  to replace it with another command,
 or  <return>  to continue without it.
 
 
-Overfull \hbox (20.0pt too wide) in paragraph at lines 68--74
+Overfull \hbox (20.0pt too wide) in paragraph at lines 69--75
 []
  []
 
@@ -2401,7 +2405,7 @@ Missing character: There is no n in font nullfont!
 Missing character: There is no e in font nullfont!
 Missing character: There is no . in font nullfont!
 
-Overfull \hbox (20.0pt too wide) in paragraph at lines 75--77
+Overfull \hbox (20.0pt too wide) in paragraph at lines 76--78
 []
  []
 
@@ -2412,7 +2416,7 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.78 \begin{figure}
+l.79 \begin{figure}
                    [h]
 Your command was ignored.
 Type  I <command> <return>  to replace it with another command,
@@ -2422,7 +2426,7 @@ Missing character: There is no [ in font nullfont!
 Missing character: There is no h in font nullfont!
 Missing character: There is no ] in font nullfont!
 ! Undefined control sequence.
-l.80     		\includegraphics
+l.81     		\includegraphics
                            [width=1\textwidth]{pics/NewSurfaceAI.png}
 The control sequence at the end of the top line
 of your error message was never \def'ed. If you have
@@ -2441,7 +2445,7 @@ Missing character: There is no 1 in font nullfont!
 ! Missing number, treated as zero.
 <to be read again> 
                    ]
-l.80     		\includegraphics[width=1\textwidth]
+l.81     		\includegraphics[width=1\textwidth]
                                               {pics/NewSurfaceAI.png}
 A number should have been here; I inserted `0'.
 (If you can't figure out why I needed to see a number,
@@ -2450,7 +2454,7 @@ look up `weird error' in the index to The TeXbook.)
 ! Illegal unit of measure (pt inserted).
 <to be read again> 
                    ]
-l.80     		\includegraphics[width=1\textwidth]
+l.81     		\includegraphics[width=1\textwidth]
                                               {pics/NewSurfaceAI.png}
 Dimensions can be in units of em, ex, in, pt, pc,
 cm, mm, dd, cc, nd, nc, bp, or sp; but yours is a new one!
@@ -2488,8 +2492,9 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.81     	\caption
+l.82     	\caption
                   [New Surface]{Loaded surface with open surface features (r...
+
 You're in trouble here.  Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
@@ -2556,14 +2561,14 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.83    \end{figure}
+l.84    \end{figure}
                     
 Your command was ignored.
 Type  I <command> <return>  to replace it with another command,
 or  <return>  to continue without it.
 
 
-Overfull \hbox (20.0pt too wide) in paragraph at lines 78--84
+Overfull \hbox (20.0pt too wide) in paragraph at lines 79--85
 []
  []
 
@@ -2575,11 +2580,11 @@ Overfull \hbox (20.0pt too wide) in paragraph at lines 78--84
 
  
 Here is how much of TeX's memory you used:
- 20 strings out of 493334
- 241 string characters out of 3136672
- 54242 words of memory out of 3000000
- 3649 multiletter control sequences out of 15000+200000
- 3948 words of font info for 15 fonts, out of 3000000 for 9000
+ 31 strings out of 480931
+ 614 string characters out of 2909582
+ 240192 words of memory out of 3000000
+ 16001 multiletter control sequences out of 15000+200000
+ 532646 words of font info for 25 fonts, out of 3000000 for 9000
  1141 hyphenation exceptions out of 8191
- 19i,2n,19p,388b,102s stack positions out of 5000i,500n,10000p,200000b,50000s
+ 17i,2n,15p,389b,100s stack positions out of 5000i,500n,10000p,200000b,50000s
 !  ==> Fatal error occurred, no output PDF file produced!

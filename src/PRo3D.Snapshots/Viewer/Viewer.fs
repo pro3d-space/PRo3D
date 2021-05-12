@@ -1291,7 +1291,7 @@ module ViewerApp =
             { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y) }
         | TestHaltonRayCasting _,_,_->
             let snapshotSCParameters = 
-              PlacementUtils.generatePlacementParameters m.scene.surfacesModel
+              SnapshotUtils.generatePlacementParameters m.scene.surfacesModel
                                                        m.scene.objectPlacements
             let m = 
                 match Seq.isEmpty snapshotSCParameters with
@@ -1325,7 +1325,7 @@ module ViewerApp =
             let jsonScs =
                 match m.scene.config.snapshotSettings.useObjectPlacements with
                 | true ->
-                    let placements = PlacementUtils.generatePlacementParameters m.scene.surfacesModel
+                    let placements = SnapshotUtils.generatePlacementParameters m.scene.surfacesModel
                                                                                 m.scene.objectPlacements
                     match placements.IsEmptyOrNull () with
                     | true -> None
@@ -1342,7 +1342,7 @@ module ViewerApp =
             let interpolatedViews = 
                 bookmarkViews 
                   |> Seq.pairwise
-                  |> Seq.map (fun (a,b) -> PlacementUtils.interpolateView a b (int m.scene.config.snapshotSettings.numSnapshots.value))
+                  |> Seq.map (fun (a,b) -> SnapshotUtils.interpolateView a b (int m.scene.config.snapshotSettings.numSnapshots.value))
             let interpolatedViews = seq {for x in interpolatedViews do yield! x}
             let snapshots = Snapshot.fromViews interpolatedViews jsonScs m.scene.config.shadingApp.lightDirection.value
             let snapAnimation = SnapshotAnimation.generate snapshots m.scene.config.snapshotSettings.fieldOfView.value false //rno hardcoded; could use GUI mask checkbox
@@ -1387,6 +1387,8 @@ module ViewerApp =
                                           surfacesModel = surfacedModel
                             }
             }               
+        | SetBestLodQuality, _, _ ->
+            m
         | _ -> m       
                                    
     let mkBrushISg color size trafo : ISg<Message> =

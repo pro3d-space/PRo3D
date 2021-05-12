@@ -152,7 +152,7 @@ module Sg =
                     signature
                     runner 
                     h.opcPaths.Opc_DirAbsPath
-                    lodDecider //mars //scene.lodDecider 
+                    mars//lodDecider //mars //scene.lodDecider 
                     scene.useCompressedTextures
                     true
                     ViewerModality.XYZ
