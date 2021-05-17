@@ -438,5 +438,25 @@ type ViewConfigModel with
         }
 
 
-
-
+[<ModelType>]
+type FrustumModel = {
+    toggleFocal             : bool
+    focal                   : NumericInput
+    oldFrustum              : Frustum
+    frustum                 : Frustum
+    }
+module FrustumModel =
+    let focal = {
+        value   = 100.0
+        min     = 28.0
+        max     = 100.0
+        step    = 1.0
+        format  = "{0:0}"
+    }
+    let init =
+        {
+            toggleFocal             = false
+            focal                   = focal
+            oldFrustum              = Frustum.perspective 60.0 0.1 10000.0 1.0
+            frustum                 = Frustum.perspective 60.0 0.1 10000.0 1.0
+        }

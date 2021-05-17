@@ -241,6 +241,32 @@ module ViewerApp =
                     else None
         }
 
+    let private animateSkyUp (pos: V3d) (dir: V3d) (up:V3d) (name: string) (model: Model) = 
+        {
+            (CameraAnimations.initial name) with 
+                sample = fun (localTime, globalTime) (state : CameraView) -> // given the state and t since start of the animation, compute a state and the cameraview
+                    if model.shiftFlag then                  
+                        //let rot      = Rot3d.RotateInto(state.Forward, dir) * localTime / duration |> Rot3d |> Trafo3d
+                        //let forward  = rot.Forward.TransformDir state.Forward
+
+                        //let uprot     = Rot3d.RotateInto(state.Up, up) * localTime / duration |> Rot3d |> Trafo3d
+                        //let up        = uprot.Forward.TransformDir state.Up
+                      
+                        let vec       = pos - state.Location
+                        let velocity  = vec.Length / 2.0                  
+                        //let dir       = vec.Normalized
+                        let location  = state.Location + dir * velocity * localTime
+
+                        let view = 
+                            state 
+                            //|> CameraView.withForward forward
+                            //|> CameraView.withUp up
+                            |> CameraView.withLocation location                                                                              
+
+                        Some (state,view)
+                    else None
+        }
+
     let private createAnimation (pos: V3d) (forward: V3d) (up : V3d) (animationsOld: AnimationModel) : AnimationModel =                                    
         animateFowardAndLocation pos forward up 3.5 "ForwardAndLocation2s"
         |> AnimationAction.PushAnimation 
@@ -415,13 +441,14 @@ module ViewerApp =
         (msg       : ViewerAction) =
         //Log.line "[Viewer_update] %A inter:%A pick:%A" msg m.interaction m.picking
         match msg, m.interaction, m.ctrlFlag with
-        | NavigationMessage  msg,_,false when (isGrabbed m |> not) && (not (AnimationApp.shouldAnimate m.animations)) ->                              
+        | NavigationMessage  msg,_,false when (isGrabbed m |> not) && (not (AnimationApp.shouldAnimate m.animations)) -> //&& (m.shiftFlag |> not) ->                              
             let c   = m.scene.config
             let ref = m.scene.referenceSystem
-            let nav = Navigation.update c ref navConf true m.navigation msg               
-             
+            
+            let nav = Navigation.update c ref navConf true m.navigation msg
+                
             //m.scene.navigation.camera.view.Location.ToString() |> NoAction |> ViewerAction |> mailbox.Post
-             
+            
             m 
             |> Optic.set _navigation nav
             |> Optic.set _animationView nav.camera.view
@@ -581,6 +608,22 @@ module ViewerApp =
         | DnSColorLegendMessage msg,_,_ ->
             let cm = FalseColorLegendApp.update m.drawing.dnsColorLegend msg
             { m with drawing = { m.drawing with dnsColorLegend = cm } }
+
+        | FrustumMessage msg,_,_ ->
+            let frustumModel = FrustumProperties.update m.frustumModel msg
+            match msg with
+            | FrustumProperties.Action.ToggleUseFocal ->
+                if frustumModel.toggleFocal then
+                    let fm = {frustumModel with oldFrustum = m.frustum}
+                    { m with frustum = frustumModel.frustum; frustumModel = fm}
+                else
+                    { m with frustum = frustumModel.oldFrustum; frustumModel = frustumModel }
+            | FrustumProperties.Action.UpdateFocal f ->
+                if frustumModel.toggleFocal then
+                    let frustum' = FrustumProperties.updateFrustum frustumModel.focal.value m.frustum.near m.frustum.far 
+                    { m with frustum = frustum'; frustumModel = {frustumModel with frustum = frustum'}}
+                else
+                    { m with frustumModel = frustumModel }
         | ImportSurface sl,_,_ ->                 
             match sl with
             | [] -> m
@@ -905,6 +948,7 @@ module ViewerApp =
 
             let c' = ConfigProperties.update m.scene.config configAction
 
+
             let kind = 
                 match k with
                 | Aardvark.Application.Keys.F1 -> TrafoKind.Translate
@@ -1015,6 +1059,7 @@ module ViewerApp =
                     m                    
                 | _ -> m
 
+          
             match k with
             | Aardvark.Application.Keys.LeftCtrl -> 
                 match m.interaction with
@@ -1593,7 +1638,7 @@ module ViewerApp =
 
         let nav =
             match m.navigation.navigationMode with
-            | NavigationMode.FreeFly -> 
+            | NavigationMode.FreeFly ->
                 FreeFlyController.threads m.navigation.camera
                 |> ThreadPool.map Navigation.FreeFlyAction |> ThreadPool.map NavigationMessage
             | NavigationMode.ArcBall ->

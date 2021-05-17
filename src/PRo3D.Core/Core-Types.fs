@@ -4,6 +4,7 @@ open FSharp.Data.Adaptive
 open Adaptify
 
 open Aardvark.Base
+open Aardvark.UI
 open Aardvark.UI.Primitives
 
 type NavigationMode = 
@@ -22,3 +23,4 @@ type DataPosition =
     | Right  = 1
     | Bottom = 2
     | Left   = 3
+

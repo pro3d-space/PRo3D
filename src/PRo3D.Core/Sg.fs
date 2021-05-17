@@ -188,8 +188,8 @@ module Sg =
 
         let styleX : MarkerStyle = {
             position  = model.origin
-            direction = AVal.constant V3d.IOO
-            color     = AVal.constant C4b.Magenta
+            direction = model.northO //AVal.constant V3d.IOO
+            color     = AVal.constant C4b.Red //C4b.Magenta
             size      = size
             thickness = thickness
             hasArrow  = AVal.constant false
@@ -199,8 +199,8 @@ module Sg =
 
         let styleY : MarkerStyle = {
             position  = model.origin
-            direction = AVal.constant V3d.OIO
-            color     = AVal.constant C4b.Cyan
+            direction = east //AVal.constant V3d.OIO
+            color     = AVal.constant C4b.Green //C4b.Cyan
             size      = size
             thickness = thickness
             hasArrow  = AVal.constant false
@@ -210,8 +210,8 @@ module Sg =
 
         let styleZ : MarkerStyle = {
             position  = model.origin
-            direction = AVal.constant V3d.OOI
-            color     = AVal.constant C4b.Yellow
+            direction = model.up.value //AVal.constant V3d.OOI
+            color     = AVal.constant C4b.Blue //C4b.Yellow
             size      = size
             thickness = thickness
             hasArrow  = AVal.constant false
@@ -265,7 +265,6 @@ module Sg =
               sizeText
               styleUp    |> directionMarker near cam  
               styleNorth |> directionMarker near cam
-              //styleNorth90 |> directionMarker near cam
               styleEast  |> directionMarker near cam
           ]
         
@@ -282,5 +281,14 @@ module Sg =
             //|> Sg.trafo refSysTrafo2   
             //|> Sg.trafo translation
 
-        [refsystem] |> Sg.ofList |> Sg.onOff(model.isVisible)  
+        let currentSystem =
+            model.planet |> AVal.map(fun planet -> 
+                                            match planet with
+                                            | Planet.Mars | Planet.Earth -> refsystem
+                                            | _ -> xyzSystem )
+                                            //| Planet.JPL | Planet.None -> xyzSystem )
+            
+
+        currentSystem |> Sg.dynamic |> Sg.onOff(model.isVisible)   //[refsystem] |> Sg.ofList |> Sg.onOff(model.isVisible)  
+        //[refsystem] |> Sg.ofList |> Sg.onOff(model.isVisible)  
             

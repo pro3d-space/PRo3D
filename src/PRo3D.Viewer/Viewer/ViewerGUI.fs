@@ -133,8 +133,8 @@ module Gui =
                 AVal.map2 (fun (a : CameraView) b -> 
                     CooTransformation.getAltitude a.Location a.Up b ) cv m.planet
             
-            let lon = spericalc |> AVal.map(fun x -> sprintf "%s deg" ((x.longitude).ToString("0.00")))
-            let lat = spericalc |> AVal.map(fun x -> sprintf "%s deg" ((x.latitude).ToString("0.00")))            
+            let lon = spericalc |> AVal.map(fun x -> sprintf "%s deg" ((x.longitude).ToString()))
+            let lat = spericalc |> AVal.map(fun x -> sprintf "%s deg" ((x.latitude).ToString()))            
             let alt2 = alt2 |> AVal.map(fun x -> sprintf "%s m" ((x).ToString("0.00")))            
                                                    
             let style' = "color: white; font-family:Consolas;"
@@ -654,12 +654,12 @@ module Gui =
                    // DrawingApp.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage // CHECK-merge viewAnnotationGroups
                 ]
                 
-                GuiEx.accordion "Actions" "Asterisk" true [
-                  Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
-                ]                    
-               
                 GuiEx.accordion "Dip&Strike ColorLegend" "paint brush" false [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDnSColorLegendUI m))] 
+
+                GuiEx.accordion "Actions" "Asterisk" true [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
+                ] 
                 ]    
 
     module Config =
@@ -669,6 +669,7 @@ module Gui =
               |> AVal.constant
               
         let configUI (m : AdaptiveModel) =
+          
           div[][
               GuiEx.accordion "ViewerConfig" "Settings" true [
                       Incremental.div AttributeMap.empty (AList.ofAValSingle (config m))
@@ -677,7 +678,10 @@ module Gui =
                   ReferenceSystemApp.UI.view m.scene.referenceSystem |> UI.map ReferenceSystemMessage
               ]
               GuiEx.accordion "Camera" "Camera Retro" false [
-                  CameraProperties.view m.scene.referenceSystem m.navigation.camera
+                  CameraProperties.view m.scene.referenceSystem m.navigation.camera //m.navigation.focal
+              ]
+              GuiEx.accordion "Frustum" "Settings" false [
+                  FrustumProperties.view m.frustumModel |> UI.map FrustumMessage
               ]
           ] 
           

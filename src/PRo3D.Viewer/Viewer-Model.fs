@@ -80,6 +80,7 @@ type ViewerAction =
     | RoverMessage                    of RoverApp.Action
     | ViewPlanMessage                 of ViewPlanApp.Action
     | DnSColorLegendMessage           of FalseColorLegendApp.Action
+    | FrustumMessage                  of FrustumProperties.Action
     | SetCamera                       of CameraView        
     | SetCameraAndFrustum             of CameraView * double * double        
     | SetCameraAndFrustum2            of CameraView * Frustum
@@ -340,6 +341,8 @@ type Model = {
     filterTexture        : bool // TODO move to versioned ViewConfigModel in V3
 
     heighValidation      : HeightValidatorModel
+
+    frustumModel         : FrustumModel
 }
 
 
@@ -523,4 +526,6 @@ module Viewer =
             filterTexture = startupArgs.magnificationFilter
 
             heighValidation = HeightValidatorModel.init()
+
+            frustumModel = FrustumModel.init
     }

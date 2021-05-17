@@ -22,12 +22,15 @@ module Navigation =
         //| FreeFlyAction         of CameraController.Message
         | FreeFlyAction         of FreeFlyController.Message
         | SetNavigationMode     of NavigationMode
+      
+       
 
     type smallConfig<'a,'b> = 
         {
             navigationSensitivity : Lens<'a, float>
             up                    : Lens<'b, V3d>
         }
+
 
     let update<'a,'b> (bigConfigA : 'a) (bigConfigB : 'b) (smallConfig : smallConfig<'a,'b>) (switchToArcball : bool) (model : NavigationModel) (act : Action) =
         match act with            
@@ -74,7 +77,7 @@ module Navigation =
                 
                 { model with camera = { model.camera with view = view'}; navigationMode = mode} 
             | _ ->  { model with navigationMode = mode }
-               
+        
     module UI =        
 
         type smallConfig<'ma> = 
