@@ -527,5 +527,5 @@ module Viewer =
 
             heighValidation = HeightValidatorModel.init()
 
-            frustumModel = FrustumModel.init
+            frustumModel = FrustumModel.init 0.1 10000.0
     }

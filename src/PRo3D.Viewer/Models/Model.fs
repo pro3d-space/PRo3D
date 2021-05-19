@@ -453,10 +453,12 @@ module FrustumModel =
         step    = 1.0
         format  = "{0:0}"
     }
-    let init =
+    let hfov = 2.0 * atan(11.84 /(100.0*2.0))
+    
+    let init near far =
         {
             toggleFocal             = false
             focal                   = focal
             oldFrustum              = Frustum.perspective 60.0 0.1 10000.0 1.0
-            frustum                 = Frustum.perspective 60.0 0.1 10000.0 1.0
+            frustum                 = Frustum.perspective (hfov.DegreesFromRadians()) near far 1.0 //Frustum.perspective 60.0 0.1 10000.0 1.0
         }
