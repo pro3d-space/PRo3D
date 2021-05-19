@@ -1323,9 +1323,9 @@ module ViewerApp =
                                                                 m.drawing.annotations
                                                                 m.scene.geologicSurfacesModel
                 
-                m |> Optic.set _geologicSurfacesModel geologicSurfaces'   
+                m |> Optic.set _geologicSurfacesModel geologicSurfaces' 
             | _ ->
-                let geologicSurfaces' = GeologicSurfacesApp.update m.scene.geologicSurfacesModel msg
+                let geologicSurfaces' = GeologicSurfacesApp.update m.navigation.camera.view m.scene.geologicSurfacesModel msg
                 let m' = m |> Optic.set _geologicSurfacesModel geologicSurfaces'  
                 m'
         | _ -> m       

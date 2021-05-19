@@ -14,6 +14,7 @@ open Aardvark.SceneGraph.SgPrimitives
 open Aardvark.UI.Trafos  
 open PRo3D.Core.Surface
 open PRo3D.Core.Drawing
+open OpcViewer.Base
 
 open System
 open System.IO
@@ -139,20 +140,34 @@ module GeologicSurfacesUtils =
                     surf.color.c
                     surf.transparency.value
         { surf with points2 = points2'; sgGeoSurface = triangles'}
+
+    let calcFlytoView (points : IndexList<V3d>) (refSys : ReferenceSystem) =
+        let v3dArray = points.AsList |> List.toArray 
+        let plane = PlaneFitting.planeFit(v3dArray)
+        let dir = -plane.Normal
+        let dist = 
+            points
+            |> IndexList.toList
+            |> List.pairwise
+            |> List.map (fun (a,b) -> Vec.Distance(a,b))
+            |> List.sum 
+        let pos = points.[0] - (dist*0.5) * dir
+        CameraView.lookAt pos dir refSys.up.value 
     
     let mk  (name : string) 
             (points1 : IndexList<V3d> )
             (points2 : IndexList<V3d> ) 
             (thickness : float)
-            (view : CameraView) =  
+            (view : CameraView) = 
             let triangles = getTrianglesForMesh points1 points2 C4b.Cyan 127.0
+            //let view = calcFlytoView (points1 |> IndexList.append points2) refSys
             {
                 version         = GeologicSurface.current
                 guid            = Guid.NewGuid()
                 name            = name
                
                 isVisible       = true
-                view            = view //FreeFlyController.initial.view
+                view            = view 
 
                 points1         = points1  
                 points2         = points2  
@@ -206,8 +221,9 @@ module GeologicSurfaceProperties =
         | SetTransparency   of Numeric.Action
         | ChangeColor       of ColorPicker.Action
         | InvertMeshing
+        | HomePosition     
 
-    let update (model : GeologicSurface) (act : Action) =
+    let update (model : GeologicSurface) (view : CameraView) (act : Action) =
         match act with
         | SetName s ->
             { model with name = s }
@@ -233,6 +249,8 @@ module GeologicSurfaceProperties =
         | InvertMeshing ->
             let m = model |> GeologicSurfacesUtils.invertMeshing
             { m with invertMeshing = not model.invertMeshing }
+        | HomePosition -> 
+             { model with view = view }
           
     let view (model : AdaptiveGeologicSurface) =        
       require GuiEx.semui (
@@ -243,6 +261,7 @@ module GeologicSurfaceProperties =
           Html.row "Transparency:"  [Numeric.view' [NumericInputType.Slider]   model.transparency  |> UI.map SetTransparency ]
           Html.row "Color:"         [ColorPicker.view model.color |> UI.map ChangeColor ]
           Html.row "Invert meshing:"       [GuiEx.iconCheckBox model.invertMeshing InvertMeshing ]
+          Html.row "Set Homeposition:"  [button [clazz "ui button tiny"; onClick (fun _ -> HomePosition )][]]
         ]
       )
  
@@ -257,6 +276,7 @@ type GeologicSurfaceAction =
 module GeologicSurfacesApp = 
 
     let update 
+        (view : CameraView)
         (model : GeologicSurfacesModel) 
         (act : GeologicSurfaceAction) = 
 
@@ -292,7 +312,7 @@ module GeologicSurfacesApp =
                 let geoSurf = model.geologicSurfaces |> HashMap.tryFind id
                 match geoSurf with
                 | Some gs ->
-                    let geoSurf = (GeologicSurfaceProperties.update gs msg)
+                    let geoSurf = (GeologicSurfaceProperties.update gs view msg)
                     let geologicSurfaces = model.geologicSurfaces |> HashMap.alter gs.guid (function | Some _ -> Some geoSurf | None -> None )
                     { model with geologicSurfaces = geologicSurfaces} 
                 | None -> model
