@@ -155,13 +155,7 @@ module ViewerUtils =
             
             return { frustum = frustum; size = sizes; factor = quality; trafo = trafo }
         }
-    
-    let getLodParameters' (surf:Surface) (frustum : Frustum) =
-        let sizes = V2i(1024,768)
-        let quality = surf.quality.value
-        let trafo = surf.preTransform //combine pre and current transform
-            
-        { frustum = frustum; size = sizes; factor = quality; trafo = trafo }
+   
             
     let attributeParameters (surf:aval<AdaptiveSurface>) =
          adaptive {
@@ -222,10 +216,10 @@ module ViewerUtils =
             return Trafo3d.Scale(sc) * (t * fullTrafo )
         }
 
-    let frustum (m:AdaptiveModel) =
-        let near = m.scene.config.nearPlane.value
-        let far = m.scene.config.farPlane.value
-        (Navigation.UI.frustum near far)
+    //let frustum (m:AdaptiveModel) =
+    //    let near = m.scene.config.nearPlane.value
+    //    let far = m.scene.config.farPlane.value
+    //    (Navigation.UI.frustum near far)
 
     let fixAlpha (v : Vertex) =
         fragment {         
@@ -272,6 +266,7 @@ module ViewerUtils =
             //triangleFilterX                |> toEffect
             getFragmentShader surf
             //Shader.OPCFilter.improvedDiffuseTexture |> toEffect
+
             fixAlpha |> toEffect
         
             // selection coloring makes gamma correction pointless. remove if we are happy with markPatchBorders
@@ -510,28 +505,6 @@ module ViewerUtils =
   
     //TODO TO refactor screenshot specific
     let getSurfacesSgWithCamera (m : AdaptiveModel) runtime =
-        // debug rno - working!
-        //let cameraView  = CameraView.LookAt(3.0 * V3d.III, V3d.OOO, V3d.OOI)     
-        //let viewTrafo   = cameraView    |> CameraView.viewTrafo |> AVal.constant
-        //let projTrafo   = Frustum.perspective 60.0 0.1 100.0 1.0  
-        //                    |> Frustum.projTrafo 
-        //                    |> AVal.constant
-        //let col = m.scene.cameraView |> AVal.map (fun v -> 
-        //                                            let v = abs(v.Forward)
-        //                                            C4b(v.X, v.Y, v.Z))
-        ////let col = C4b.Blue |> AVal.constant
-        //Sg.sphere 8 col (2.0 |> AVal.constant)
-        //  |> Sg.noEvents
-        //  |> Sg.shader {
-        //      do! DefaultSurfaces.trafo
-        //      do! DefaultSurfaces.vertexColor
-        //      do! DefaultSurfaces.simpleLighting
-        //  }
-        //  |> Sg.viewTrafo viewTrafo
-        //  |> Sg.projTrafo projTrafo
-        //  |> Sg.trafo (Trafo3d.Identity |> AVal.constant)
-        // end debug rno
-
         let sgs = getSurfacesScenegraphs m runtime
         let camera =
             AVal.map2 (fun v f -> Camera.create v f) m.scene.cameraView m.frustum 

@@ -97,8 +97,8 @@ module ShadingApp =
             normalizeLightDirection = true
             lightDistance    = lightDist
             useLightLocation = false
-            useLighting      = true
-            useShadows       = true
+            useLighting      = false
+            useShadows       = false
             useMask          = false
             ambient          = ambientRange
             ambientShadow    = {ambientRange with value = 0.2}

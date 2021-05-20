@@ -104,9 +104,13 @@ module ViewerApp =
 
     //footprint
     let _footprint = Model.footPrint_
+
+    let sceneBB (m : Model) =
+        let bb = m |> Optic.get _sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB) |> Box3d.ofSeq
+        bb
        
     let lookAtData (m: Model) =         
-        let bb = m |> Optic.get _sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB) |> Box3d.ofSeq
+        let bb = sceneBB m
         let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value             
 
         Optic.set _view view m
@@ -459,8 +463,29 @@ module ViewerApp =
             { m with animations = a } |> Optic.set _view a.cam
         | SetCamera cv,_,false -> Optic.set _view cv m
         | SetCameraAndFrustum (cv, hfov, _),_,false -> m
+        | RecalculateFarPlane, _, _ -> 
+            let far = SnapshotUtils.calculateFarPlane (sceneBB m) m.scene.cameraView.Location
+            let frustum = 
+                m.frustum
+                  |> (Frustum.withFar far)
+            Log.line "[Viewer] Setting far plane to %f" far
+            { m with frustum = frustum }
+        | RecalculateNearFarPlane optMaxNear, _, _->
+            // ray casting for near plane would be better but slow
+            let near, far = SnapshotUtils.calculateNearFarPlane (sceneBB m) m.scene.cameraView.Location optMaxNear
+            let frustum = 
+                m.frustum
+                  |> (Frustum.withNear near)
+                  |> (Frustum.withFar far)
+            match m.startupArgs.verbose with
+            | true ->
+                Log.line "[Viewer] Setting nearplane to %f" near 
+                Log.line "[Viewer] Setting farplane to %f" far
+            | false -> ()
+            { m with frustum = frustum }
         | SetCameraAndFrustum2 (cv,frustum),_,false ->
-            Log.line "[Viewer] Setting camera and frustum."
+
+            //Log.line "[Viewer] Setting camera and frustum."
             //let m = Optic.set _view cv m
             let m =
                 { m with frustum = frustum 
@@ -1146,20 +1171,24 @@ module ViewerApp =
         | TransformAllSurfaces surfaceUpdates,_,_ -> //TODO MarsDL Hera
             match surfaceUpdates.IsEmptyOrNull () with
             | false ->
-                Log.line "[Viewer] Transforming surfaces."
+                if m.startupArgs.verbose then
+                    Log.line "[Viewer] Transforming surfaces."
                 let surfacesModel = 
                     SnapshotApp.transformAllSurfaces m.scene.surfacesModel surfaceUpdates
                 Optic.set _surfacesModel surfacesModel m
             | true ->
-                Log.line "[Viewer] No surface updates found."
+                if m.startupArgs.verbose then
+                    Log.line "[Viewer] No surface updates found."
                 m
         | UpdatePlacementParameters (placementParameters, filename) ,_,_ ->
             match placementParameters.IsEmptyOrNull () with
             | false ->
-                Log.line "[Viewer] Updating object placements."
+                if m.startupArgs.verbose then
+                    Log.line "[Viewer] Updating object placements."
                 ViewerSnapshotUtils.placeAllObjs m placementParameters filename
             | true ->
-                Log.line "[Viewer] No placement updates found."
+                if m.startupArgs.verbose then
+                    Log.line "[Viewer] No placement updates found."
                 m
         //| TransformAllSurfaces (surfaceUpdates,scs),_,_ ->
         //    match surfaceUpdates.IsEmptyOrNull () with

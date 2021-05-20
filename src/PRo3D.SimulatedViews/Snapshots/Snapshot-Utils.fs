@@ -14,7 +14,23 @@ open PRo3D.Base
 //open Aardvark.GeoSpatial.Opc.Shader
 
 module SnapshotUtils =
+    let calculateFarPlane (sceneBB : Box3d) (cameraPosition : V3d)  =
+        let distanceToCenter = (sceneBB.Center -  cameraPosition).Length
+        let maxSizeBB = (sceneBB.Size.[sceneBB.MajorDim])
+        let farplane = distanceToCenter + (1.5 * maxSizeBB)
+        farplane
 
+    let calculateNearFarPlane (sceneBB : Box3d) (cameraPosition : V3d) (overrideNear : option<float>) =
+        let distanceToCenter = (sceneBB.Center -  cameraPosition).Length
+        let contains = sceneBB.Contains cameraPosition
+        let maxSizeBB = (sceneBB.Size.[sceneBB.MajorDim])
+        let nearplane = 
+            match overrideNear with
+            | None ->
+                max 0.01 (distanceToCenter - maxSizeBB)
+            | Some overrideNear -> overrideNear
+        let farplane = distanceToCenter + (1.5 * maxSizeBB)
+        nearplane, farplane
 
     let addSnapshotGroup (m    : SurfaceModel) =
         let groupsModel = GroupsApp.addGroupToRoot m.surfaces "snapshots"

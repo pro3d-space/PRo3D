@@ -21,8 +21,6 @@ open PRo3D.SimulatedViews
 open PRo3D.Core.Surface
 open PRo3D.Navigation2
 
-open PRo3D.SimulatedViews
-
 open Chiron
 
 open Adaptify
@@ -84,6 +82,8 @@ type ViewerAction =
     | SetCamera                       of CameraView        
     | SetCameraAndFrustum             of CameraView * double * double        
     | SetCameraAndFrustum2            of CameraView * Frustum
+    | RecalculateFarPlane
+    | RecalculateNearFarPlane         of option<float>
     | ImportSurface                   of list<string>
     | ImportDiscoveredSurfaces        of list<string>
     | ImportDiscoveredSurfacesThreads of list<string>

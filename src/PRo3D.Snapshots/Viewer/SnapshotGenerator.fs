@@ -60,10 +60,11 @@ module SnapshotGenerator =
                 | _ -> None
         | _ -> None
 
-    let getSnapshotActions (this : Snapshot) frustum filename =
+    let getSnapshotActions (this : Snapshot) recalcNearFar frustum filename =
         let actions = 
             [
-                ViewerAction.SetCameraAndFrustum2 (this.view,frustum); //X
+                ViewerAction.SetCameraAndFrustum2 (this.view,frustum);
+                
                 //ViewerAction.SetMaskObjs this.renderMask
             ]
         let sunAction =
@@ -90,22 +91,18 @@ module SnapshotGenerator =
                     [ViewerAction.UpdatePlacementParameters (sc, filename)] 
                 | true -> []
             | None -> []
+        
+        let recalcNearFarAction =
+            match recalcNearFar with
+            | NearFarRecalculation.Both -> [ViewerAction.RecalculateNearFarPlane None]
+            | NearFarRecalculation.FarPlane -> [ViewerAction.RecalculateFarPlane]
+            | NearFarRecalculation.NoRecalculation -> []
+
         // ADD ACTIONS FOR NEW SNAPSHOT MEMBERS HERE
-        actions@sunAction@surfAction@PlacementAction |> List.toSeq    
+
+        actions@sunAction@surfAction@PlacementAction@recalcNearFarAction |> List.toSeq    
 
     let getAnimationActions (anim : SnapshotAnimation) =       
-        let setNearplane =
-            match anim.nearplane with
-            | Some np -> 
-                [(ConfigProperties.Action.SetNearPlane (Numeric.SetValue np))
-                  |> ViewerAction.ConfigPropertiesMessage]
-            | None -> []
-        let setFarplane =
-            match anim.farplane with
-            | Some fp -> 
-                [(ConfigProperties.Action.SetFarPlane (Numeric.SetValue fp))
-                  |> ViewerAction.ConfigPropertiesMessage]
-            | None -> []
         let lightActions = 
             match anim.lightLocation with
             | Some loc -> 
@@ -118,7 +115,7 @@ module SnapshotGenerator =
                       (Shading.ShadingAction.SetUseLighting true)))                    
                 ]
             | None -> []
-        setNearplane@setFarplane@lightActions |> List.toSeq
+        lightActions |> List.toSeq
       
            
     let animate   (runtime      : IRuntime) 
@@ -149,7 +146,7 @@ module SnapshotGenerator =
                     }
                 SnapshotApp.executeAnimation snapshotApp //mApp mModel args.renderDepth startupArgs.verbose startupArgs.outFolder runtime data
             | None -> 
-                Log.line "[SNAPSHOT] Could not load data."
+                Log.error "[SNAPSHOT] Could not load data."
         | false -> 
-            Log.line "[SNAPSHOT] No valid paths to surfaces found."
+            Log.error "[SNAPSHOT] No valid paths to surfaces found."
             ()

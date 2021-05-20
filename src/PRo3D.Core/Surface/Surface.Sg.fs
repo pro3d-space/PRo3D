@@ -109,7 +109,6 @@ module Sg =
             )
             |> Array.fold (fun a b -> HashMap.union a b) HashMap.empty
         
-        let mars = mars (scene.preTransform)
 
 
         let createShadowContext (f : Aardvark.GeoSpatial.Opc.PatchLod.PatchNode) (scope : Scope) =
@@ -136,13 +135,9 @@ module Sg =
                          | _ -> AVal.constant false :> IAdaptiveValue
              ]
 
-        let lodDecider =
-            match useAsyncLoading with
-            | true   -> mars
-            | false  ->
-                let noLod a b c d e f =
-                    true
-                noLod
+        let lodDecider = mars scene.preTransform
+
+                
 
         // create level of detail hierarchy (Sg)
         let g = 
@@ -152,7 +147,7 @@ module Sg =
                     signature
                     runner 
                     h.opcPaths.Opc_DirAbsPath
-                    mars//lodDecider //mars //scene.lodDecider 
+                    lodDecider //mars //scene.lodDecider 
                     scene.useCompressedTextures
                     true
                     ViewerModality.XYZ

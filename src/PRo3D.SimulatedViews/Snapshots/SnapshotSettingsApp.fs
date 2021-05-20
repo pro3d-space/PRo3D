@@ -22,7 +22,7 @@ module SnapshotSettings =
             ]
        )
 
-    let update (model : SnapshotSettings) (message : SnapshotSettingsAction) = //TODO rno move to own file and module
+    let update (model : SnapshotSettings) (message : SnapshotSettingsAction) = 
         match message with
         | SetNumSnapshots num ->  
             {model with numSnapshots     = Numeric.update model.numSnapshots  num} 

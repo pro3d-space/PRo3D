@@ -166,7 +166,7 @@ type SnapshotAnimation = {
   snapshots     : list<Snapshot>
 }
 with 
-  static member defaultNearplane = 0.01
+  static member defaultNearplane = 0.1
   static member defaultFarplane  = 100000.0
   static member TestData =
       {
@@ -231,13 +231,6 @@ type LegacySnapshot = {
   with
   member this.view = 
     CameraView.look this.location this.forward.Normalized this.up.Normalized
-  member this.toActions frustum =
-      let actions = 
-          [
-              //TODO rno refactor
-              //ViewerAction.SetCameraAndFrustum2 (this.view,frustum);
-          ] |> List.toSeq
-      actions    
   member this.toSnapshot () =
       {
           filename       = this.filename
@@ -340,8 +333,8 @@ with
     {
         fieldOfView   = Some this.fieldOfView
         resolution    = this.resolution
-        nearplane     = Some 0.00001
-        farplane      = Some 1000000.0
+        nearplane     = None
+        farplane      = None
         lightLocation = None
         snapshots     = this.snapshots |> List.map (fun x -> x.toSnapshot ())
         renderMask    = None
@@ -350,8 +343,8 @@ with
     {
         fieldOfView   = Some this.fieldOfView
         resolution    = this.resolution
-        nearplane     = Some 0.01
-        farplane      = Some 1000000.0
+        nearplane     = None
+        farplane      = None
         lightLocation = Some (V3d (0.1842, -0.93675, -0.29759))
         renderMask    = None
         snapshots     = [for s in this.snapshots do yield! s.toSCPlacement ()]

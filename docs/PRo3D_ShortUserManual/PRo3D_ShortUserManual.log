@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.21 (MiKTeX 2.9.7380 64-bit) (preloaded format=pdflatex 2020.4.6)  6 MAY 2021 15:55
+This is pdfTeX, Version 3.14159265-2.6-1.40.21 (MiKTeX 2.9.7380 64-bit) (preloaded format=pdflatex 2020.4.6)  20 MAY 2021 10:10
 entering extended mode
 **./PRo3D_ShortUserManual.tex
 (PRo3D_ShortUserManual.tex
@@ -392,11 +392,7 @@ File: l3backend-pdfmode.def 2020-03-12 L3 backend support: PDF mode
 )
 (PRo3D_ShortUserManual.aux (Introduction.aux) (Start.aux) (ViewerActions.aux)
 (ViewerFeatures.aux) (Minerva.aux) (CommandLine.aux) (SurfaceComparison.aux)
-(KeyboardShortcuts.aux
-
-LaTeX Warning: Label `table:args' multiply defined.
-
-))
+(KeyboardShortcuts.aux))
 \openout1 = `PRo3D_ShortUserManual.aux'.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 173.
@@ -417,7 +413,8 @@ LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 173.
 LaTeX Font Info:    ... okay on input line 173.
 LaTeX Font Info:    Trying to load font information for T1+phv on input line 17
 3.
- (C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/psnfss\t1phv.fd
+
+(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/psnfss\t1phv.fd
 File: t1phv.fd 2020/03/25 scalable font definitions for T1/phv.
 )
 ("D:\Program Files\MiKTeX 2.9\tex/context/base/mkii\supp-pdf.mkii"
@@ -1012,13 +1009,13 @@ Package pdftex.def Info: pics/logosSUM.png  used on input line 261.
 
 
 (SurfaceComparison.tex
-<pics/surfaceComparisonV0.1.PNG, id=664, 437.38406pt x 417.81094pt>
+<pics/surfaceComparisonV0.1.PNG, id=663, 437.38406pt x 417.81094pt>
 File: pics/surfaceComparisonV0.1.PNG Graphic file (type png)
 <use pics/surfaceComparisonV0.1.PNG>
 Package pdftex.def Info: pics/surfaceComparisonV0.1.PNG  used on input line 11.
 
 (pdftex.def)             Requested size: 250.9558pt x 239.7294pt.
-<pics/surfaceComparisonBookmarkMode.PNG, id=666, 316.93407pt x 27.10126pt>
+<pics/surfaceComparisonBookmarkMode.PNG, id=665, 316.93407pt x 27.10126pt>
 File: pics/surfaceComparisonBookmarkMode.PNG Graphic file (type png)
 <use pics/surfaceComparisonBookmarkMode.PNG>
 Package pdftex.def Info: pics/surfaceComparisonBookmarkMode.PNG  used on input 
@@ -1041,21 +1038,6 @@ Package pdftex.def Info: pics/logosSUM.png  used on input line 265.
 \openout2 = `KeyboardShortcuts.aux'.
 
  (KeyboardShortcuts.tex
-! Extra alignment tab has been changed to \cr.
-<recently read> \endtemplate 
-                             
-l.15 			page up/down	    	&
-                             raise/lower navigation sensitivity\\
-You have given more \span or & marks than there were
-in the preamble to the \halign or \valign now in progress.
-So I'll assume that you meant to type \cr instead.
-
-
-Underfull \hbox (badness 1173) in paragraph at lines 15--16
-[]|\T1/phv/m/n/12 raise/lower nav-i-ga-
- []
-
-
 Overfull \hbox (3.08594pt too wide) in paragraph at lines 9--25
 [][] 
  []
@@ -1078,10 +1060,6 @@ Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 273.
 Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 273.
 Package rerunfilecheck Info: File `PRo3D_ShortUserManual.out' has not changed.
 (rerunfilecheck)             Checksum: 431D74866AD09F44F8DEA8B62F3A2896;2602.
-
-
-LaTeX Warning: There were multiply-defined labels.
-
 Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 273.
  ) 
 Here is how much of TeX's memory you used:
@@ -1098,7 +1076,7 @@ type1/urw/courier/ucrr8a.pfb><C:/Users/nowak/AppData/Roaming/MiKTeX/2.9/fonts/t
 ype1/urw/helvetic/uhvb8a.pfb><C:/Users/nowak/AppData/Roaming/MiKTeX/2.9/fonts/t
 ype1/urw/helvetic/uhvr8a.pfb><C:/Users/nowak/AppData/Roaming/MiKTeX/2.9/fonts/t
 ype1/urw/helvetic/uhvro8a.pfb>
-Output written on PRo3D_ShortUserManual.pdf (41 pages, 20192420 bytes).
+Output written on PRo3D_ShortUserManual.pdf (41 pages, 20192422 bytes).
 PDF statistics:
  755 PDF objects out of 1000 (max. 8388607)
  240 named destinations out of 1000 (max. 500000)

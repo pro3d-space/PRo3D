@@ -16,6 +16,11 @@ open PRo3D.Core.Surface
 open PRo3D.Core
 open PRo3D.SimulatedViews.Rendering
 
+type NearFarRecalculation =
+  | Both
+  | FarPlane
+  | NoRecalculation
+
 [<ModelType>]
 type SnapshotApp<'model,'aModel, 'msg> =
   {
@@ -28,7 +33,7 @@ type SnapshotApp<'model,'aModel, 'msg> =
     /// animation actions are applied before rendering images
     getAnimationActions  : SnapshotAnimation -> seq<'msg>
     /// snapshot actions are applied before rendering each corresponding image
-    getSnapshotActions   : Snapshot -> Frustum -> string -> seq<'msg> //snashot -> frustum -> pathname -> actions
+    getSnapshotActions   : Snapshot -> NearFarRecalculation -> Frustum -> string -> seq<'msg> //snashot -> frustum -> pathname -> actions
     runtime              : IRuntime
     /// used to render only a range of images in a SnapshotAnimation
     renderRange          : option<RenderRange>
@@ -39,17 +44,19 @@ type SnapshotApp<'model,'aModel, 'msg> =
     verbose              : bool
   }
 
+
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module SnapshotApp =
     let executeAnimation (app : SnapshotApp<'model,'aModel, 'msg>) =
         
         let resolution = V3i (app.snapshotAnimation.resolution.X, app.snapshotAnimation.resolution.Y, 1)
-        let near, far =
+        let recalcOption, near, far =
             match app.snapshotAnimation.nearplane, app.snapshotAnimation.farplane with
-            | Some n, Some f -> n, f
-            | None, Some f   -> SnapshotAnimation.defaultNearplane, f
-            | Some n, None   -> n, SnapshotAnimation.defaultFarplane
-            | None, None     ->  SnapshotAnimation.defaultNearplane, SnapshotAnimation.defaultFarplane
+            | Some n, Some f -> NearFarRecalculation.NoRecalculation, n, f
+            | None, Some f   -> NearFarRecalculation.NoRecalculation, SnapshotAnimation.defaultNearplane, f
+            | Some n, None   -> NearFarRecalculation.FarPlane, n, SnapshotAnimation.defaultFarplane
+            | None, None     -> NearFarRecalculation.Both, SnapshotAnimation.defaultNearplane, SnapshotAnimation.defaultFarplane
 
         let foV = 
             match app.snapshotAnimation.fieldOfView with
@@ -60,8 +67,9 @@ module SnapshotApp =
                               (float(resolution.X)/float(resolution.Y))
 
 
-        let depth = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Depth24Stencil8, 1, 1);
+        
         let col   = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Rgba8, 1, 1);
+        let depth = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Depth24Stencil8, 1, 1);
 
         let signature = 
             app.runtime.CreateFramebufferSignature [
@@ -127,14 +135,8 @@ module SnapshotApp =
         for i in 0..maxInd do
             let snapshot = snapshots.[i]
             let fullPathName = Path.combine [app.outputFolder;snapshot.filename]
-            let actions = (app.getSnapshotActions snapshot frustum fullPathName)
-            app.mutableApp.updateSync (Guid.NewGuid ()) actions
-
-            //TODO rno should be obsolete with snc rendering
-            //taskclear.Run (null, fbo) |> ignore
-            //task.Run (null, fbo) |> ignore
-            //System.Threading.Thread.Sleep(1000)
-            //TODO end
+            let actions = (app.getSnapshotActions snapshot recalcOption frustum fullPathName)
+            app.mutableApp.updateSync (Guid.NewGuid ()) actions 
 
             renderAndSave (sprintf "%s.png" fullPathName) app.verbose parameters
 
@@ -207,7 +209,7 @@ module SnapshotApp =
 
         model
 
-    let menuItems placeAction generateJsonAction useObjectPlacements = //TODO rno importBookmarkAction =
+    let menuItems placeAction generateJsonAction useObjectPlacements =
         let menuContentList =
             alist  {
                 let! useObjectPlacements = useObjectPlacements 

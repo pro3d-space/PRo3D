@@ -116,7 +116,7 @@ module ComparisonApp =
         match intersected with
         | Some (t,surf), c ->                         
             let hit = ray.GetPointOnRay(t) 
-            Log.warn "ray in direction %s hit surface at %s" (direction.ToString ()) (string hit) // rno debug
+            //Log.warn "ray in direction %s hit surface at %s" (direction.ToString ()) (string hit) // rno debug
             hit |> Some
         |  None, _ ->
             Log.warn "[RayCastSurface] no hit in direction %s" (direction.ToString ())

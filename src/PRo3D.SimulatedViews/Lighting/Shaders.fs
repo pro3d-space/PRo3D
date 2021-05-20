@@ -91,10 +91,9 @@ module Shader =
                     let lightDepth = min tc.Z 1.0
                     (shadowSampler.Sample(tc.XY, lightDepth - 0.000017))
                 let ambient = uniform.AmbientShadow
-                let d = ambient + shadow * (1.0 - ambient) //TODO proper lighting if needed
-
-                let texColor = diffuseSampler.Sample(v.tc,-1.0)
-                return V4d(texColor.XYZ * d, 1.0)
+                let ambientShadow = ambient + shadow * (1.0 - ambient) //TODO proper lighting if needed
+                let texColor = diffuseSampler.Sample(v.tc,-1.0) 
+                return V4d(texColor.XYZ * ambientShadow, 1.0)
             else 
                 return diffuseSampler.Sample(v.tc,-1.0)
         }  
