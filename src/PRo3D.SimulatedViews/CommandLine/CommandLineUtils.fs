@@ -56,10 +56,10 @@ module CommandLineUtils =
                 System.IO.Path.GetFullPath path
             let check = (System.IO.Directory.Exists path) || (System.IO.File.Exists path)
             if not check then
-                Log.line "Could not find path %s" path
+                Log.warn "Could not find path %s" path
             check
         with e ->
-            Log.line "[Arguments] Invalid path: %s" path
+            Log.warn "[Arguments] Invalid path: %s" path
             Log.line "%s" e.Message
             false
 

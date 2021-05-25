@@ -1,18 +1,18 @@
-namespace PRo3D.Base.Annotation
+namespace Rabbyte.Annotation
 
-//open System
-//open Aardvark.Base
-//open FSharp.Data.Adaptive
-//open Aardvark.UI
+open System
+open Aardvark.Base
+open FSharp.Data.Adaptive
+open Aardvark.UI
 
-//open Rabbyte.Drawing
+open Rabbyte.Drawing
 
-//open Adaptify
+open Adaptify
 
-//type ClippingVolumeType = 
-//    | Direction of V3d
-//    | Point of V3d
-//    | Points of IndexList<V3d>
+type ClippingVolumeType = 
+    | Direction of V3d
+    | Point of V3d
+    | Points of IndexList<V3d>
 
 //[<ModelType>]
 //type ExtAnnotation = 

@@ -403,7 +403,7 @@ module ViewerUtils =
                     Shader.stableTrafo |> toEffect 
                     DefaultSurfaces.vertexColor |> toEffect
                 ] 
-                |> Sg.onOff isSelected
+                |> Sg.onOff isSelected 
             )
             |> Sg.andAlso (
                 measurementsSg
@@ -499,7 +499,7 @@ module ViewerUtils =
 
                         //if i = c then //now gets rendered multiple times
                          // assign priorities globally, or for each anno and make sets
-            
+
             }                              
         sgs
   

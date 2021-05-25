@@ -94,7 +94,7 @@ module SnapshotGenerator =
         
         let recalcNearFarAction =
             match recalcNearFar with
-            | NearFarRecalculation.Both -> [ViewerAction.RecalculateNearFarPlane None]
+            | NearFarRecalculation.Both -> [ViewerAction.RecalculateNearFarPlane]
             | NearFarRecalculation.FarPlane -> [ViewerAction.RecalculateFarPlane]
             | NearFarRecalculation.NoRecalculation -> []
 

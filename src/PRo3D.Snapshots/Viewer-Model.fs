@@ -83,7 +83,7 @@ type ViewerAction =
     | SetCameraAndFrustum             of CameraView * double * double        
     | SetCameraAndFrustum2            of CameraView * Frustum
     | RecalculateFarPlane
-    | RecalculateNearFarPlane         of option<float>
+    | RecalculateNearFarPlane         
     | ImportSurface                   of list<string>
     | ImportDiscoveredSurfaces        of list<string>
     | ImportDiscoveredSurfacesThreads of list<string>

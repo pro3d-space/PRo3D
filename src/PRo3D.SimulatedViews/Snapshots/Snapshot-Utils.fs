@@ -20,15 +20,10 @@ module SnapshotUtils =
         let farplane = distanceToCenter + (1.5 * maxSizeBB)
         farplane
 
-    let calculateNearFarPlane (sceneBB : Box3d) (cameraPosition : V3d) (overrideNear : option<float>) =
+    let calculateNearFarPlane (sceneBB : Box3d) (cameraPosition : V3d) =
         let distanceToCenter = (sceneBB.Center -  cameraPosition).Length
-        let contains = sceneBB.Contains cameraPosition
         let maxSizeBB = (sceneBB.Size.[sceneBB.MajorDim])
-        let nearplane = 
-            match overrideNear with
-            | None ->
-                max 0.01 (distanceToCenter - maxSizeBB)
-            | Some overrideNear -> overrideNear
+        let nearplane = max 0.01 (distanceToCenter -  1.5 * maxSizeBB)
         let farplane = distanceToCenter + (1.5 * maxSizeBB)
         nearplane, farplane
 
@@ -152,7 +147,7 @@ module SnapshotUtils =
             String.contains placementParameters.name surf.importPath
               || String.contains surf.importPath placementParameters.name
 
-        let place originalSgs = 
+        let place originalSg = 
             let (sObjsSgs, sObjsSurfs) = getSurfacesInSnapshotGroup surfacesModel
             let transformableSurfs = sObjsSurfs |> List.filter hasName
             // get halton random points on surface (points for debugging)
@@ -208,7 +203,7 @@ module SnapshotUtils =
             let surfs, sgSurfs = 
                 HaltonPlacement.getSgSurfacesWithBBIntersection ((allSurfaces)|> IndexList.ofList) 
                                                                 allObjSgSurfaces 
-                                                                originalSgs
+                                                                originalSg
             surfs, sgSurfs, deleteGuids
 
         match hasName surf with

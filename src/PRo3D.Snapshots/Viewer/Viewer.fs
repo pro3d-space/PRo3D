@@ -105,9 +105,16 @@ module ViewerApp =
     //footprint
     let _footprint = Model.footPrint_
 
+    /// assuming SurfaceSg.globalBB NOT transformed with pretransform
     let sceneBB (m : Model) =
-        let bb = m |> Optic.get _sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB) |> Box3d.ofSeq
-        bb
+        let bb = m |> Optic.get _sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB )
+        let pretrafos = m.scene.surfacesModel.surfaces.flat
+                          |> HashMap.toSeq 
+                          |> Seq.map(fun (_,x) -> (Leaf.toSurface x).preTransform)
+        let bbPretrafos = Seq.zip bb pretrafos
+        let transformedBBs =
+              bbPretrafos |> Seq.map (fun (bb, trafo) -> bb.Transformed trafo)
+        transformedBBs |> Box3d.ofSeq
        
     let lookAtData (m: Model) =         
         let bb = sceneBB m
@@ -470,9 +477,9 @@ module ViewerApp =
                   |> (Frustum.withFar far)
             Log.line "[Viewer] Setting far plane to %f" far
             { m with frustum = frustum }
-        | RecalculateNearFarPlane optMaxNear, _, _->
+        | RecalculateNearFarPlane, _, _->
             // ray casting for near plane would be better but slow
-            let near, far = SnapshotUtils.calculateNearFarPlane (sceneBB m) m.scene.cameraView.Location optMaxNear
+            let near, far = SnapshotUtils.calculateNearFarPlane (sceneBB m) m.scene.cameraView.Location
             let frustum = 
                 m.frustum
                   |> (Frustum.withNear near)
