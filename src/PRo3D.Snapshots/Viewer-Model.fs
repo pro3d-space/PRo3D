@@ -142,7 +142,7 @@ type ViewerAction =
     | UpdatePlacementParameters       of (list<ObjectPlacementParameters> * string)
     | TestHaltonRayCasting            //of list<string>
     | HeightValidation               of HeightValidatorAction
-    | ComparisonMessage              of Comparison.ComparisonAction
+    | ComparisonMessage              of ComparisonAction
     | ObjectPlacementMessage         of (string * ObjectPlacementAction)
     | SetBestLodQuality
     | ExportSnapshotFile             

@@ -18,6 +18,7 @@ type Interactions =
     | PickLog               = 12
     | PlaceValidator        = 13
     | TrueThickness         = 14 // CHECK-merge
+    | SelectArea            = 15
 
 module Interactions =
     let hideSet = 
@@ -31,5 +32,5 @@ module Interactions =
             Interactions.DrawLog            
             Interactions.PickLog            
             Interactions.PlaceValidator
-            Interactions.TrueThickness            
+            Interactions.TrueThickness           
         ] |> HashSet.ofList

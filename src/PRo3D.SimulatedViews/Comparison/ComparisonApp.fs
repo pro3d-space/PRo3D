@@ -18,6 +18,17 @@ open Chiron
 open PRo3D.Base.Annotation
 open Adaptify.FSharp.Core
 
+type ComparisonAction =
+  | SelectSurface1 of string
+  | SelectSurface2 of string
+  | Update
+  | ExportMeasurements of string
+  | ToggleVisible
+  | AddBookmarkReference of System.Guid
+  | SetOriginMode of OriginMode
+  | AreaComparisonMessage of System.Guid * AreaComparisonAction
+  | SelectArea of System.Guid
+
 module CustomGui =
     let dynamicDropdown<'msg when 'msg : equality> (items    : list<aval<string>>)
                                                    (selected : aval<string>) 
@@ -69,6 +80,8 @@ module ComparisonApp =
               comparedMeasurements = None
           }
         annotationMeasurements = []     
+        selectedArea = None
+        comparisonAreas = HashMap.empty
     }
 
     let noSelectionToNone (str : string) =
@@ -284,6 +297,21 @@ module ComparisonApp =
             m, surfaceModel
         | AddBookmarkReference bookmarkId ->
             m, surfaceModel
+        | AreaComparisonMessage (guid, msg) ->
+            let area = m.comparisonAreas
+                          |> HashMap.tryFind guid
+            let m = 
+                match area with
+                | Some area -> 
+                    let area = AreaComparison.update area msg
+                    let areas =
+                        HashMap.add guid area m.comparisonAreas
+                    {m with comparisonAreas = areas}
+                | None -> m
+                           
+
+            m, surfaceModel //TODO rno
+        | SelectArea guid -> {m with selectedArea = Some guid}, surfaceModel
         | SetOriginMode originMode -> 
             let m = {m with originMode = originMode}
             let m = updateMeasurements m surfaceModel annotations bookmarks refSystem

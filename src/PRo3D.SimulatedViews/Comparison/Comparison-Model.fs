@@ -1,7 +1,7 @@
 ﻿namespace PRo3D.Comparison
 
 open Adaptify
-
+open FSharp.Data.Adaptive
 
 open Aardvark.Base
 open PRo3D.Base.Annotation
@@ -80,6 +80,25 @@ type SurfaceComparison = {
                 do! Json.write "difference"   x.comparedMeasurements.Value
         }
 
+[<ModelType>]
+type AreaSelection = {
+    id         : System.Guid
+    dimensions : V3dInput
+    location   : V3d
+    visible    : bool
+}
+
+type VertexStatistics = {
+    avgDistance : float
+    maxDistance : float
+    minDistance : float
+}
+
+type AreaComparison = {
+    area      : AreaSelection
+    stats     : option<VertexStatistics>
+}
+
 /// Used to compare different attributes of two surfaces.
 [<ModelType>]
 type ComparisonApp = {
@@ -89,6 +108,8 @@ type ComparisonApp = {
     surface2                     : option<string>
     surfaceMeasurements          : SurfaceComparison
     annotationMeasurements       : list<AnnotationComparison>
+    selectedArea                 : option<System.Guid>
+    comparisonAreas              : HashMap<System.Guid, AreaComparison>
 } with
     static member ToJson (x:ComparisonApp) =
         json {
@@ -101,11 +122,3 @@ type ComparisonApp = {
             do! Json.write "annotationMeasurements" x.annotationMeasurements
         }
 
-type ComparisonAction =
-    | SelectSurface1 of string
-    | SelectSurface2 of string
-    | Update
-    | ExportMeasurements of string
-    | ToggleVisible
-    | AddBookmarkReference of System.Guid
-    | SetOriginMode of OriginMode

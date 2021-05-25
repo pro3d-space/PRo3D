@@ -42,6 +42,8 @@
     <Compile Include="Comparison\UIExtensions.fs" />      
     <Compile Include="Comparison\CustomGui.fs" />      
     <Compile Include="Comparison\Comparison-Model.fs" />      
+    <Compile Include="Comparison\AreaSelection.fs" />      
+    <Compile Include="Comparison\AreaComparison.fs" />      
     <Compile Include="Comparison\SurfaceMeasurements.fs" />      
     <Compile Include="Comparison\AnnotationComparison.fs" />      
     <Compile Include="Comparison\ComparisonApp.fs" />      
