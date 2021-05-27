@@ -414,6 +414,7 @@ type Surface with
 type Picking =
 | PickMesh of ISg
 | KdTree   of HashMap<Box3d,KdTrees.Level0KdTree>
+| NoPicking
 
 [<ModelType>]
 type SgSurface = {    

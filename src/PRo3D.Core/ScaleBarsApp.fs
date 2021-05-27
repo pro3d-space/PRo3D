@@ -8,7 +8,7 @@ open FSharp.Data.Adaptive
 open Adaptify.FSharp.Core
 open Aardvark.SceneGraph.IO
 open Aardvark.SceneGraph.SgPrimitives
-open Aardvark.Base.Rendering
+open Aardvark.Rendering
 open Aardvark.UI.Trafos  
 open PRo3D.Core.Surface
 
@@ -26,7 +26,7 @@ open PRo3D.Base
 type ScaleBarDrawingAction =
     | SetOrientation of Orientation
     | SetPivot       of Pivot
-    | SetUnit        of Unit
+    | SetUnit        of PRo3D.Core.Unit
     | SetLength      of Numeric.Action
 
 
@@ -67,7 +67,7 @@ module ScaleBarProperties =
         | SetLength      of Numeric.Action
         | SetThickness   of Numeric.Action
         | SetOrientation of Orientation
-        | SetUnit        of Unit
+        | SetUnit        of PRo3D.Core.Unit
         | SetSubdivisions of Numeric.Action
 
     let update (model : ScaleBar) (act : Action) =
@@ -124,7 +124,7 @@ type ScaleBarsAction =
 module ScaleBarUtils = 
 
     let getLengthInMeter 
-        (unit : Unit)
+        (unit : PRo3D.Core.Unit)
         (length : float)  =
             match unit with
             | Unit.Undefined  -> length //todo
@@ -483,7 +483,7 @@ module ScaleBarsApp =
                 let! p1 = segment.startPoint
                 let! p2 = segment.endPoint
                 return Sg.drawLines 
-                        ([p1;p2]|> AList.ofList) 
+                        ([|p1;p2|]|> AVal.constant) 
                         (AVal.constant 0.0) 
                         segment.color 
                         thickness 
@@ -492,7 +492,7 @@ module ScaleBarsApp =
 
         let getP1P2 
             (scaleBar   : AdaptiveScaleBar) =
-            alist {
+            aval {
                 let! position = scaleBar.position
                 let! length = scaleBar.length.value
                 let! unit = scaleBar.unit
@@ -504,8 +504,7 @@ module ScaleBarsApp =
                 let p1 = ScaleBarUtils.getP1 position length' direction alignment
                     
                 let p2 = p1 + direction.Normalized * length'
-                yield p1
-                yield p2
+                return [|p1; p2|]
             }
 
         let viewSingleScaleBarLine 
@@ -531,43 +530,16 @@ module ScaleBarsApp =
 
                 let text = 
                     Sg.text view near (AVal.constant 60.0) scaleBar.position trafo scaleBar.textsize.value scaleBar.text
-
-                let pickFunc = Sg.pickEventsHelper scaleBar.guid (AVal.constant selected) scaleBar.thickness.value trafo
-
                 
                 // do this for all lineparts
                 let sgSegments = 
                     scaleBar.scSegments 
                     |> AList.map( fun seg -> getSgSegmentLine seg scaleBar.thickness.value ) 
                     |> AList.toASet
-                    |> Sg.set
-                   
+                    |> Sg.set            
 
                 let points = getP1P2 scaleBar
-                
-                // add picking
-                //let applicator =
-                //    test 
-                //    |> Sg.pickable' ((pickableContent points edges trafo pickingTolerance) |> AVal.map Pickable.ofShape)
 
-                //(applicator :> ISg) 
-                //|> Sg.noEvents
-                //|> Sg.withEvents [ pickFunc edges ]
-                //|> Sg.trafo trafo
-
-
-                // when picking for each segment is needed
-                //let pickingLines = 
-                //    Sg.pickableLine 
-                //        points 
-                //        config.offset 
-                //        color
-                //        anno.thickness.value 
-                //        config.pickingTolerance
-                //        anno.modelTrafo 
-                //        true 
-                //        pickFunc
-                                 
                 let selectionSg = 
                     if selected then
                         OutlineEffect.createForLineOrPoint PRo3D.Base.OutlineEffect.Line (AVal.constant C4b.VRVisGreen) scaleBar.thickness.value 3.0 RenderPass.main trafo points

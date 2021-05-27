@@ -915,9 +915,7 @@ module SurfaceApp =
               Incremental.div AttributeMap.empty (AList.ofAValSingle item2)
                
             ]
-            yield GuiEx.accordion "Actions" "Asterisk" false [
-                Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
-            ]  
+             
             yield GuiEx.accordion "Transformation" "expand arrows alternate " false [
                 Incremental.div AttributeMap.empty (AList.ofAValSingle(viewTranslationTools model))
             ]  
@@ -928,6 +926,10 @@ module SurfaceApp =
 
             yield GuiEx.accordion "Scalars ColorLegend" "paint brush" true [
                 Incremental.div AttributeMap.empty (AList.ofAValSingle(viewColorLegendTools colorPaletteStore model))
+            ] 
+
+            yield GuiEx.accordion "Actions" "Asterisk" false [
+                Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
             ] 
         ]
     
