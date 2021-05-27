@@ -63,6 +63,7 @@ module SceneLoader =
     let _scaleBarsModelLens = Model.scene_ >-> Scene.scaleBars_
     let _scaleBarsLens = _scaleBarsModelLens >-> ScaleBarsModel.scaleBars_
     let _sceneObjects     = Model.scene_ >-> Scene.sceneObjectsModel_ 
+    let _geologicSurfaceLens = Model.scene_ >-> Scene.geologicSurfacesModel_ >-> GeologicSurfacesModel.geologicSurfaces_
 
     let expandRelativePaths (m:Scene) =               
         match m.scenePath with
@@ -120,6 +121,17 @@ module SceneLoader =
            | None ->
                s
         )
+
+    let addGeologicSurfaces (m:Model) = 
+        m.scene.geologicSurfacesModel.geologicSurfaces
+        |> HashMap.map( fun id surf -> 
+                let triangles = GeologicSurfacesUtils.getTrianglesForMesh 
+                                    surf.points1 
+                                    surf.points2    
+                                    surf.color.c 
+                                    surf.transparency.value
+                { surf with sgGeoSurface = triangles})
+        |> (flip <| Optic.set _geologicSurfaceLens) m
 
     /// appends surfaces to existing surfaces
     let import' (runtime : IRuntime) (signature: IFramebufferSignature)(surfaces : IndexList<Surface>) (model : Model) =

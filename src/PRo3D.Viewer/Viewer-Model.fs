@@ -145,6 +145,7 @@ type ViewerAction =
     | HeightValidation               of HeightValidatorAction
     | ScaleBarsDrawingMessage        of ScaleBarDrawingAction
     | ScaleBarsMessage               of ScaleBarsAction
+    | GeologicSurfacesMessage        of GeologicSurfaceAction
     | Nop
 
 and MailboxState = {
@@ -179,6 +180,7 @@ type Scene = {
     userFeedback      : string
     feedbackThreads   : ThreadPool<ViewerAction> 
     sceneObjectsModel : SceneObjectsModel
+    geologicSurfacesModel : GeologicSurfacesModel
 }
 
 module Scene =
@@ -221,6 +223,7 @@ module Scene =
                     feedbackThreads = ThreadPool.empty
                     scaleBars       = ScaleBarsModel.initial
                     sceneObjectsModel   = SceneObjectsModel.initial
+                    geologicSurfacesModel = GeologicSurfacesModel.initial
                 }
         }
 
@@ -238,31 +241,33 @@ module Scene =
             let! bookmarks       = Json.read "bookmarks"
             let! dockConfig      = Json.read "dockConfig"  
             let! scaleBars       = Json.read "scaleBars" 
-            let! sceneObjectsModel    = Json.read "sceneObjectsModel"  
+            let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
+            let! geologicSurfacesModel  = Json.read "geologicSurfacesModel"
 
             return 
                 {
-                    version         = current
+                    version                 = current
 
-                    cameraView      = cameraView
-                    navigationMode  = navigationMode |> enum<NavigationMode>
-                    exploreCenter   = exploreCenter  |> V3d.Parse
-                    
-                    interaction     = interactionMode |> enum<InteractionMode>
-                    surfacesModel   = surfaceModel
-                    config          = config
-                    scenePath       = scenePath
-                    referenceSystem = referenceSystem
-                    bookmarks       = bookmarks
+                    cameraView              = cameraView
+                    navigationMode          = navigationMode |> enum<NavigationMode>
+                    exploreCenter           = exploreCenter  |> V3d.Parse
+            
+                    interaction             = interactionMode |> enum<InteractionMode>
+                    surfacesModel           = surfaceModel
+                    config                  = config
+                    scenePath               = scenePath
+                    referenceSystem         = referenceSystem
+                    bookmarks               = bookmarks
 
-                    viewPlans       = ViewPlanModel.initial
-                    dockConfig      = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
-                    closedPages     = List.empty
-                    firstImport     = false
-                    userFeedback    = String.Empty
-                    feedbackThreads = ThreadPool.empty
-                    scaleBars       = scaleBars
-                    sceneObjectsModel    = sceneObjectsModel
+                    viewPlans               = ViewPlanModel.initial
+                    dockConfig              = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
+                    closedPages             = List.empty
+                    firstImport             = false
+                    userFeedback            = String.Empty
+                    feedbackThreads         = ThreadPool.empty
+                    scaleBars               = scaleBars
+                    sceneObjectsModel       = sceneObjectsModel
+                    geologicSurfacesModel   = geologicSurfacesModel
                 }
         }
 
@@ -298,6 +303,7 @@ type Scene with
             do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString) 
             do! Json.write "scaleBars" x.scaleBars
             do! Json.write "sceneObjectsModel" x.sceneObjectsModel
+            do! Json.write "geologicSurfacesModel" x.geologicSurfacesModel
         }
 
 [<ModelType>] 
@@ -516,16 +522,17 @@ module Viewer =
                     config          = ViewConfigModel.initial
                     scenePath       = None
 
-                    referenceSystem      = ReferenceSystem.initial                    
-                    bookmarks            = GroupsModel.initial
-                    scaleBars            = ScaleBarsModel.initial
-                    dockConfig           = DockConfigs.core
-                    closedPages          = list.Empty 
-                    firstImport          = true
-                    userFeedback         = ""
-                    feedbackThreads      = ThreadPool.empty
-                    viewPlans            = ViewPlanModel.initial
-                    sceneObjectsModel    = SceneObjectsModel.initial
+                    referenceSystem       = ReferenceSystem.initial                    
+                    bookmarks             = GroupsModel.initial
+                    scaleBars             = ScaleBarsModel.initial
+                    dockConfig            = DockConfigs.core
+                    closedPages           = list.Empty 
+                    firstImport           = true
+                    userFeedback          = ""
+                    feedbackThreads       = ThreadPool.empty
+                    viewPlans             = ViewPlanModel.initial
+                    sceneObjectsModel     = SceneObjectsModel.initial
+                    geologicSurfacesModel = GeologicSurfacesModel.initial
                 }
 
             navigation      = navInit

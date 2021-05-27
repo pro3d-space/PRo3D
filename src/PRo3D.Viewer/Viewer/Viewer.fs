@@ -108,6 +108,10 @@ module ViewerApp =
     // scale bars
     let _scaleBarsModel = Model.scene_  >->  Scene.scaleBars_
     let _scaleBars      = _scaleBarsModel >-> ScaleBarsModel.scaleBars_
+
+    // geologic surfaces
+    let _geologicSurfacesModel = Model.scene_ >->  Scene.geologicSurfacesModel_
+    let _geologicSurfaces      = _geologicSurfacesModel >-> GeologicSurfacesModel.geologicSurfaces_
        
     let lookAtData (m: Model) =         
         let bb = m |> Optic.get _sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB) |> Box3d.ofSeq
@@ -879,6 +883,7 @@ module ViewerApp =
                     m
 
             |> ViewerIO.loadMinerva SceneLoader.Minerva.defaultDumpFile SceneLoader.Minerva.defaultCacheFile
+            |> SceneLoader.addGeologicSurfaces
 
         | NewScene,_,_ ->
             let initialModel = Viewer.initial m.messagingMailbox StartupArgs.initArgs //m.minervaModel.minervaMessagingMailbox
@@ -1374,6 +1379,29 @@ module ViewerApp =
                 let scaleBars' = ScaleBarsApp.update m.scene.scaleBars msg
                 let m' = m |> Optic.set _scaleBarsModel scaleBars'  
                 m'
+        | GeologicSurfacesMessage msg,_,_-> 
+            match msg with
+            | GeologicSurfaceAction.FlyToGS id ->
+                let _gs = m |> Optic.get _geologicSurfaces |> HashMap.tryFind id
+                match _gs with 
+                | Some gs ->
+                    let animationMessage = 
+                        animateFowardAndLocation gs.view.Location gs.view.Forward gs.view.Up 2.0 "ForwardAndLocation2s"
+                    let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
+                    { m with  animations = a'}
+                | None -> m
+
+            | GeologicSurfaceAction.AddGS ->
+                let geologicSurfaces' = 
+                        GeologicSurfacesUtils.makeGeologicSurfaceFromAnnotations 
+                                                                m.drawing.annotations
+                                                                m.scene.geologicSurfacesModel
+                
+                m |> Optic.set _geologicSurfacesModel geologicSurfaces' 
+            | _ ->
+                let geologicSurfaces' = GeologicSurfacesApp.update m.navigation.camera.view m.scene.geologicSurfacesModel msg
+                let m' = m |> Optic.set _geologicSurfacesModel geologicSurfaces'  
+                m'
         | _ -> m       
                                    
     let mkBrushISg color size trafo : ISg<Message> =
@@ -1641,9 +1669,13 @@ module ViewerApp =
 
         let sceneObjects =
             SceneObjectsApp.Sg.view m.scene.sceneObjectsModel m.scene.referenceSystem |> Sg.map SceneObjectsMessage
+
+        let geologicSurfacesSg = 
+            GeologicSurfacesApp.Sg.view m.scene.geologicSurfacesModel 
+            |> Sg.map GeologicSurfacesMessage 
         
         let depthTested = 
-            [linkingSg; annotationSg; minervaSg; heightValidationDiscs; scaleBars; sceneObjects] |> Sg.ofList
+            [linkingSg; annotationSg; minervaSg; heightValidationDiscs; scaleBars; sceneObjects; geologicSurfacesSg] |> Sg.ofList
 
         let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m
         onBoot "attachResize('__ID__')" (
@@ -1713,6 +1745,7 @@ module ViewerApp =
                 |> ViewerIO.loadMinerva dumpFile cacheFile
                 |> ViewerIO.loadLinking
                 |> SceneLoader.addScaleBarSegments
+                |> SceneLoader.addGeologicSurfaces
             else
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs |> ViewerIO.loadRoverData       
 
