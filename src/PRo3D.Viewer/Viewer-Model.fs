@@ -143,7 +143,7 @@ type ViewerAction =
     //| UpdateShatterCones              of list<SnapshotShattercone> // TODO snapshots and shattercone things should be in own apps
     | TestHaltonRayCasting            //of list<string>
     | HeightValidation               of HeightValidatorAction
-    | ComparisonMessage              of Comparison.ComparisonAction
+    | ComparisonMessage              of ComparisonAction
     | Nop
 
 and MailboxState = {

@@ -1023,7 +1023,7 @@ module ViewerApp =
                                                   |> HashMap.map (fun id x -> Leaf.toAnnotation x))
                                               (m.scene.bookmarks.flat
                                                   |> HashMap.map (fun id x -> Leaf.toBookmark x))
-                                              Comparison.ComparisonAction.ToggleVisible
+                                              ComparisonAction.ToggleVisible
                     {m with comparisonApp = comparisonApp
                             scene         = {m.scene with surfacesModel = surfacesModel}
                     }

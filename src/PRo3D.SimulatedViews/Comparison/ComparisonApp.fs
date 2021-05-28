@@ -26,7 +26,8 @@ type ComparisonAction =
   | ToggleVisible
   | AddBookmarkReference of System.Guid
   | SetOriginMode of OriginMode
-  | AreaComparisonMessage of System.Guid * AreaComparisonAction
+  | AddSelectionArea of V3d
+  | AreaSelectionMessage of System.Guid * AreaSelectionAction
   | SelectArea of System.Guid
 
 module CustomGui =
@@ -81,7 +82,7 @@ module ComparisonApp =
           }
         annotationMeasurements = []     
         selectedArea = None
-        comparisonAreas = HashMap.empty
+        areas = HashMap.empty
     }
 
     let noSelectionToNone (str : string) =
@@ -182,6 +183,19 @@ module ComparisonApp =
             Log.error "[Comparison] Could not calculate surface size along axes."
             V3d.OOO
 
+    let updateAreaStatistics (surfaceModel : SurfaceModel) 
+                             (refSystem    : ReferenceSystem) 
+                             (area         : AreaSelection)
+                             (surfaceName  : string) =
+        let surfaceId = findSurfaceByName surfaceModel surfaceName
+        match surfaceId with
+        | Some surfaceId ->
+            let surface = surfaceModel.surfaces.flat |> HashMap.find surfaceId |> Leaf.toSurface
+            let sgSurface = surfaceModel.sgSurfaces |> HashMap.find surfaceId
+      
+            Some (AreaComparison.calculateStatistics surface sgSurface refSystem area )
+        | None -> None
+
     let updateSurfaceMeasurements (surfaceModel : SurfaceModel) 
                                   (refSystem    : ReferenceSystem) 
                                   (originMode   : OriginMode)
@@ -190,6 +204,8 @@ module ComparisonApp =
         match surfaceId with
         | Some surfaceId ->
             let surface = surfaceModel.surfaces.flat |> HashMap.find surfaceId |> Leaf.toSurface
+            let sgSurface = surfaceModel.sgSurfaces |> HashMap.find surfaceId
+          
             let axesAngles = getAxesAngles surface refSystem
             let dimensions = 
                 getDimensions surface surfaceModel refSystem originMode
@@ -204,12 +220,18 @@ module ComparisonApp =
                            (bookmarks    : HashMap<Guid, Bookmark>)
                            (refSystem    : ReferenceSystem) =
         Log.line "[Comparison] Calculating surface measurements..."
-        let annotationMeasurements =
+        let areas, annotationMeasurements =
             match m.surface1, m.surface2 with
             | Some s1, Some s2 ->
-                AnnotationComparison.compareAnnotationMeasurements 
-                  s1 s2  annotations bookmarks
-            | _,_ -> []
+                let areas =   
+                  m.areas
+                    |> HashMap.map (fun g x -> updateAreaStatistics surfaceModel refSystem x s1)
+                    |> HashMap.filter (fun g x -> x.IsSome)
+                    |> HashMap.map (fun g x -> x.Value)
+                areas, AnnotationComparison.compareAnnotationMeasurements 
+                              s1 s2  annotations bookmarks
+              
+            | _,_ -> HashMap.empty, []
         let measurements1 = Option.bind (fun s1 -> updateSurfaceMeasurements 
                                                         surfaceModel refSystem m.originMode s1) 
                                         m.surface1 
@@ -223,10 +245,15 @@ module ComparisonApp =
                 comparedMeasurements =
                     Option.map2 (fun a b -> SurfaceMeasurements.compare a b)
                                 measurements1 measurements2
+                
             }
+
+
+
         Log.line "[Comparison] Finished calculating surface measurements."
         {m with surfaceMeasurements    = surfaceMeasurements 
                 annotationMeasurements = annotationMeasurements
+                areas                  = areas
         }
 
     let toggleVisible (surfaceId1   : option<Guid>) 
@@ -297,19 +324,24 @@ module ComparisonApp =
             m, surfaceModel
         | AddBookmarkReference bookmarkId ->
             m, surfaceModel
-        | AreaComparisonMessage (guid, msg) ->
-            let area = m.comparisonAreas
+        | AddSelectionArea location ->
+            let area = {AreaSelection.init (System.Guid.NewGuid ()) 
+                          with location = location}
+            let areas =
+                HashMap.add area.id area m.areas
+            
+            {m with areas = areas}, surfaceModel
+        | AreaSelectionMessage (guid, msg) ->
+            let area = m.areas
                           |> HashMap.tryFind guid
             let m = 
                 match area with
                 | Some area -> 
-                    let area = AreaComparison.update area msg
+                    let area = AreaSelection.update area msg
                     let areas =
-                        HashMap.add guid area m.comparisonAreas
-                    {m with comparisonAreas = areas}
+                        HashMap.add guid area m.areas
+                    {m with areas = areas}
                 | None -> m
-                           
-
             m, surfaceModel //TODO rno
         | SelectArea guid -> {m with selectedArea = Some guid}, surfaceModel
         | SetOriginMode originMode -> 

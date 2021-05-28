@@ -483,9 +483,11 @@ module ViewerUtils =
                     |> ASet.map snd                     
                 )                
             )
+
+
         //grouped   
         let sgs =
-            alist {        
+            alist {                     
                 let mutable i = 0
                 for set in grouped do
                     i <- i + 1
@@ -496,6 +498,10 @@ module ViewerUtils =
                         |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()                        
 
                     yield  sg
+                
+                //comparison areas
+
+                                
 
                         //if i = c then //now gets rendered multiple times
                          // assign priorities globally, or for each anno and make sets
@@ -568,14 +574,26 @@ module ViewerUtils =
     let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) 
                        overlayed depthTested (m:AdaptiveModel)
                        runtime =
+        let comparisonSg =
+            m.comparisonApp.areas
+                |> AMap.toASet
+                |> ASet.map (fun (g,x) -> AreaSelection.sg x)
+                |> Sg.set
+                |> Sg.noEvents
+                |> Sg.effect [     
+                    Shader.stableTrafo |> toEffect 
+                    DefaultSurfaces.vertexColor |> toEffect
+                ] 
+             
 
-        let sgs = getSurfacesScenegraphs m runtime
+        let sgs = (getSurfacesScenegraphs m runtime)
         let debugSg = (getFrustumDebugSg m)
         //grouped   
         alist {        
             for sg in sgs do
                 yield RenderCommand.SceneGraph sg
                 yield RenderCommand.SceneGraph depthTested
+                yield RenderCommand.SceneGraph comparisonSg
                 yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
             yield RenderCommand.SceneGraph overlayed
             let! debug = m.scene.config.shadingApp.debug

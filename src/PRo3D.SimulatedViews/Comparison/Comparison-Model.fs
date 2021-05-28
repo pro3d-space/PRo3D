@@ -80,24 +80,25 @@ type SurfaceComparison = {
                 do! Json.write "difference"   x.comparedMeasurements.Value
         }
 
-[<ModelType>]
-type AreaSelection = {
-    id         : System.Guid
-    dimensions : V3dInput
-    location   : V3d
-    visible    : bool
-}
-
 type VertexStatistics = {
     avgDistance : float
     maxDistance : float
     minDistance : float
 }
 
-type AreaComparison = {
-    area      : AreaSelection
-    stats     : option<VertexStatistics>
+
+[<ModelType>]
+type AreaSelection = {
+    [<NonAdaptive>]
+    id         : System.Guid
+    dimensions : V3d
+    location   : V3d
+    visible    : bool
+    selectedVertices : IndexList<V3d>
+    [<NonAdaptive>]
+    statistics : option<VertexStatistics>
 }
+
 
 /// Used to compare different attributes of two surfaces.
 [<ModelType>]
@@ -109,7 +110,7 @@ type ComparisonApp = {
     surfaceMeasurements          : SurfaceComparison
     annotationMeasurements       : list<AnnotationComparison>
     selectedArea                 : option<System.Guid>
-    comparisonAreas              : HashMap<System.Guid, AreaComparison>
+    areas                        : HashMap<System.Guid, AreaSelection>
 } with
     static member ToJson (x:ComparisonApp) =
         json {

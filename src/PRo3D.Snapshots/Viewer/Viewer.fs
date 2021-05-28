@@ -433,8 +433,19 @@ module ViewerApp =
 
             { m with heighValidation = heightVal }
         | Interactions.SelectArea, ViewerMode.Standard ->
-            m //TODO rno
-            // add new comparison area
+            match m.ctrlFlag with
+            | true ->
+                let comparisonApp, _ = 
+                    (ComparisonApp.update m.comparisonApp 
+                    m.scene.surfacesModel
+                    m.scene.referenceSystem
+                    (m.drawing.annotations.flat 
+                        |> HashMap.map (fun id x -> Leaf.toAnnotation x))
+                    (m.scene.bookmarks.flat
+                        |> HashMap.map (fun id x -> Leaf.toBookmark x))
+                    (ComparisonAction.AddSelectionArea p))
+                {m with comparisonApp = comparisonApp}
+            | false -> m
         | _ -> m       
 
     let mutable lastHash = -1    

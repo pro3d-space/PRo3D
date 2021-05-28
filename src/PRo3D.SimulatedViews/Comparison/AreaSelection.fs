@@ -21,23 +21,38 @@ type AreaSelectionAction =
     | DimensionsMessage of Aardvark.UI.Vector3d.Action
     | SetLocation of V3d
     | ToggleVisible
+    | UpdateStatistics
 
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module AreaSelection =
+    let init guid : AreaSelection = 
+        {
+            id = guid
+            dimensions = V3d.III * 3.0
+            location   = V3d.OOO
+            visible    = true
+            selectedVertices = IndexList.empty
+            statistics = None
+        }
+
     let update (m : AreaSelection) (action : AreaSelectionAction) =
         match action with
         | DimensionsMessage msg -> m
         | SetLocation location -> m
         | ToggleVisible ->
             {m with visible = not m.visible}
+        | UpdateStatistics -> 
+            m
 
-    let view (area : aval<Box3d>) =
-        (Sg.wireBox (C4b.VRVisGreen |> AVal.constant) area) 
-        |> Sg.noEvents
-        |> Sg.effect [     
-            Shader.stableTrafo' |> toEffect
-            //Shader.stableTrafo |> toEffect 
-            DefaultSurfaces.vertexColor |> toEffect
-        ] 
+
+    let sg (m : AdaptiveAreaSelection) =
+        let box = AVal.map2 (fun c s -> Box3d.FromCenterAndSize (c,s))
+                            m.location m.dimensions 
+         
+        Sg.wireBox (C4b.VRVisGreen |> AVal.constant) box
+          |> Sg.andAlso (Sg.drawPointList m.selectedVertices (C4b.Red |> AVal.constant) (4.0 |> AVal.constant) (0.0 |> AVal.constant))
+          
+
+
 
