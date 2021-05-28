@@ -24,7 +24,7 @@ do Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 let notes = ReleaseNotes.load "RELEASE_NOTES.md"
 printfn "%A" notes
 
-let outDirs = [ @"bin\Debug\netcoreapp3.1"; @"bin\Release\netcoreapp3.1"]
+let outDirs = [ @"bin\Debug\netcoreapp3.1"; @"bin\Release\netcoreapp3.1";  @"bin\Release\net5.0";  @"bin\Debug\net5.0"; ]
 let resources = 
     [
         //"lib\Dependencies\PRo3D.Base\windows"; // currently handled by native dependency injection mechanism 
