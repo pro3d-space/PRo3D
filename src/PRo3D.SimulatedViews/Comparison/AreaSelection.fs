@@ -66,20 +66,42 @@ module AreaSelection =
             m
         | Nop -> m
 
+    let sgPoints (m : AdaptiveAreaSelection) = 
+        Sg.drawPointList m.selectedVertices 
+                         (C4b.Red |> AVal.constant) 
+                         (4.0 |> AVal.constant) 
+                         (0.0 |> AVal.constant)
+
+    let alphaColour =
+        C4b (200uy,200uy,255uy,100uy) 
+          |> AVal.constant 
+        //(C4b (C3b.VRVisGreen, ) |> AVal.constant)
+
+    let sgSphere (m : AdaptiveAreaSelection) = 
+        let radius = m.dimensions |> AVal.map (fun x -> x.X)
+        Sg.sphere 12 alphaColour radius
+          |> Sg.trafo (m.location |> AVal.map (fun x -> Trafo3d.Translation x))
+
 
     let sg (m : AdaptiveAreaSelection) =
-        let createAndTransform center size (rotation : Trafo3d) =
-            let box = Box3d.FromCenterAndSize (center,size)
-            box.Transformed rotation
+        sgPoints m
+          |> Sg.andAlso (sgSphere m)
 
-        let box = AVal.map3 createAndTransform
-                            m.location m.dimensions m.rotation
+    //let sg (m : AdaptiveAreaSelection) =
+    //    let createAndTransform (center : V3d) size (rotation : Trafo3d) =
+    //        let box = Box3d.FromCenterAndSize (V3d.OOO,size)
+    //        let trafo = rotation * (Trafo3d.Translation center)
+    //        box.Transformed trafo
+            
+
+    //    let box = AVal.map3 createAndTransform
+    //                        m.location m.dimensions m.rotation
         
-        Sg.wireBox (C4b.VRVisGreen |> AVal.constant) box
-          |> Sg.andAlso (Sg.drawPointList m.selectedVertices 
-                                         (C4b.Red |> AVal.constant) 
-                                         (4.0 |> AVal.constant) 
-                                         (0.0 |> AVal.constant))
+    //    Sg.wireBox (C4b.VRVisGreen |> AVal.constant) box
+    //      |> Sg.andAlso (Sg.drawPointList m.selectedVertices 
+    //                                     (C4b.Red |> AVal.constant) 
+    //                                     (4.0 |> AVal.constant) 
+    //                                     (0.0 |> AVal.constant))
 
     let view (m : AdaptiveAreaSelection) =
         let xSize = m.dimensions |> AVal.map (fun v -> sprintf "%f" v.X)

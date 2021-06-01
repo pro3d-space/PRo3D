@@ -62,23 +62,32 @@ module AreaComparison =
               |> List.filter (fun t -> t.IsSome)
               |> List.map (fun t -> t.Value)
 
+        let dist = area.dimensions.X
+
+        let findVerticesInSphere (triangles : TriangleSet) =
+            let lst : List<V3d> = List.ofSeq triangles.Position3dList
+            let lst = lst |> List.filter (fun p -> area.location.Distance p < dist)
+            lst
+
         let findVerticesInBox (triangles : TriangleSet) =
             let lst : List<V3d> = List.ofSeq triangles.Position3dList
             let lst = lst |> List.filter (fun p -> areaBoxModelCS.Contains p)
             lst
               
         let vertices = triangles
-                          |> List.map findVerticesInBox
+                          |> List.map findVerticesInSphere
                           |> List.reduce List.append 
                     
         vertices
 
-    let autoRotate (area : AreaSelection) (vertices : List<V3d>) =
-        let plane = PlaneFitting.planeFit(vertices)       
+    let autoRotate (area : AreaSelection) =
+        let plane = PlaneFitting.planeFit(area.selectedVertices |> IndexList.toList)       
         //let box = Box3d.FromCenterAndSize (area.location, area.dimensions)
-        let rotation = Trafo3d.RotateInto (V3d.OOI, plane.Normal)
-        {area with rotation = rotation}
+        //let normal = plane.Normal
+        //let foo = plane.
+        //{area with rotation = rotation}
         //box.Transformed rotation
+        area
         
         
     let calculateStatistics (surface : Surface) (sgSurface : SgSurface) 

@@ -577,14 +577,25 @@ module ViewerUtils =
         let comparisonSg =
             m.comparisonApp.areas
                 |> AMap.toASet
-                |> ASet.map (fun (g,x) -> AreaSelection.sg x)
+                |> ASet.map (fun (g,x) -> AreaSelection.sgSphere x)
+                |> Sg.set
+                |> Sg.noEvents
+                |> Sg.blendMode (AVal.init BlendMode.Blend)
+                |> Sg.effect [     
+                    Shader.stableTrafo |> toEffect 
+                    DefaultSurfaces.vertexColor |> toEffect
+                ] 
+             
+        let comparisonSgPoints =
+            m.comparisonApp.areas
+                |> AMap.toASet
+                |> ASet.map (fun (g,x) -> AreaSelection.sgPoints x)
                 |> Sg.set
                 |> Sg.noEvents
                 |> Sg.effect [     
                     Shader.stableTrafo |> toEffect 
                     DefaultSurfaces.vertexColor |> toEffect
                 ] 
-             
 
         let sgs = (getSurfacesScenegraphs m runtime)
         let debugSg = (getFrustumDebugSg m)
@@ -593,9 +604,10 @@ module ViewerUtils =
             for sg in sgs do
                 yield RenderCommand.SceneGraph sg
                 yield RenderCommand.SceneGraph depthTested
-                yield RenderCommand.SceneGraph comparisonSg
+                yield RenderCommand.SceneGraph comparisonSg //rendered once for each surface :(
                 yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
             yield RenderCommand.SceneGraph overlayed
+            yield RenderCommand.SceneGraph comparisonSgPoints
             let! debug = m.scene.config.shadingApp.debug
             if debug then yield RenderCommand.SceneGraph debugSg 
         }  
