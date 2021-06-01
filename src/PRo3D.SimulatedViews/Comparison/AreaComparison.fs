@@ -72,6 +72,14 @@ module AreaComparison =
                           |> List.reduce List.append 
                     
         vertices
+
+    let autoRotate (area : AreaSelection) (vertices : List<V3d>) =
+        let plane = PlaneFitting.planeFit(vertices)       
+        //let box = Box3d.FromCenterAndSize (area.location, area.dimensions)
+        let rotation = Trafo3d.RotateInto (V3d.OOI, plane.Normal)
+        {area with rotation = rotation}
+        //box.Transformed rotation
+        
         
     let calculateStatistics (surface : Surface) (sgSurface : SgSurface) 
                             (referenceSystem : ReferenceSystem) (area : AreaSelection) =

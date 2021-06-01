@@ -17,18 +17,29 @@ open PRo3D.Base
 open Chiron
 open PRo3D.Base.Annotation
 open Adaptify.FSharp.Core
+open PRo3D.Comparison
+open SurfaceMeasurements
+open AreaSelection
+open ComparisonUtils
 
 type ComparisonAction =
   | SelectSurface1 of string
   | SelectSurface2 of string
-  | Update
+  | UpdateAllMeasurements
+  | UpdateCoordinateSystemMeasurements
+  | UpdateAreaMeasurements
+  | UpdateAnnotationMeasurements
   | ExportMeasurements of string
   | ToggleVisible
   | AddBookmarkReference of System.Guid
   | SetOriginMode of OriginMode
   | AddSelectionArea of V3d
+  | UpdateSelectedArea of AreaSelectionAction
   | AreaSelectionMessage of System.Guid * AreaSelectionAction
   | SelectArea of System.Guid
+  | DeselectArea
+  | StopEditingArea
+  | Nop
 
 module CustomGui =
     let dynamicDropdown<'msg when 'msg : equality> (items    : list<aval<string>>)
@@ -67,7 +78,6 @@ module CustomGui =
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module ComparisonApp =
-    let noSelection = "-None-"
 
     let init : ComparisonApp = {   
         showMeasurementsSg   = true
@@ -82,160 +92,31 @@ module ComparisonApp =
           }
         annotationMeasurements = []     
         selectedArea = None
+        isEditingArea = false
         areas = HashMap.empty
     }
 
-    let noSelectionToNone (str : string) =
-        if str = noSelection then None else Some str
+    let updateAreaStatistics (m            : ComparisonApp) 
+                             (surfaceModel : SurfaceModel) 
+                             (refSystem    : ReferenceSystem) = 
+        match m.surface1, m.surface2 with
+        | Some s1, Some s2 ->
+            let areas =   
+              m.areas
+                |> HashMap.map (fun g x -> updateAreaStatistic surfaceModel refSystem x s1)
+                |> HashMap.filter (fun g x -> x.IsSome)
+                |> HashMap.map (fun g x -> x.Value)
+            areas
+        | _,_ -> HashMap.empty
 
-    let findSurfaceByName (surfaceModel : SurfaceModel) (name : string) =
-        let surfacesWithName = 
-            surfaceModel.surfaces.flat
-              |> HashMap.map (fun x -> Leaf.toSurface)
-              |> HashMap.filter (fun k v -> v.name = name)
-        if surfacesWithName.Count > 0 then
-            surfacesWithName |> HashMap.keys |> HashSet.toList |> List.tryHead
-        else None
-
-    let almostFullTrafo surface refSystem=
-        let incompleteTrafo = SurfaceTransformations.fullTrafo' surface refSystem
-        let sc = surface.scaling.value
-        let t = surface.preTransform
-        Trafo3d.Scale(sc) * (t * incompleteTrafo)
-
-    let getAxesAngles surface refSystem =
-        let trafo = SurfaceTransformations.fullTrafo' surface refSystem
-
-        let mutable rot = V3d.OOO
-        let mutable tra = V3d.OOO
-        let mutable sca = V3d.OOO
-        
-        trafo.Decompose (&sca, &rot, &tra)
-        //let (x : float) = System.Math.Round (rot.X, 15)
-        //let (y : float) = System.Math.Round (rot.Y, 15)
-        //let (z : float) = System.Math.Round (rot.Z, 15)
-        //V3d (x, y, z)
-        rot
-
-    let calculateRayHit (fromLocation : V3d) (direction : V3d)
-                        surfaceModel refSystem surfaceFilter = 
-
-        let mutable cache = HashMap.Empty
-        let ray = new Ray3d (fromLocation, direction)
-        let intersected = SurfaceIntersection.doKdTreeIntersection surfaceModel 
-                                                                   refSystem 
-                                                                   (FastRay3d(ray)) 
-                                                                   surfaceFilter 
-                                                                   cache
-        match intersected with
-        | Some (t,surf), c ->                         
-            let hit = ray.GetPointOnRay(t) 
-            //Log.warn "ray in direction %s hit surface at %s" (direction.ToString ()) (string hit) // rno debug
-            hit |> Some
-        |  None, _ ->
-            Log.warn "[RayCastSurface] no hit in direction %s" (direction.ToString ())
-            None
-
-    let getDimensions (surface : Surface)
-                      (surfaceModel : SurfaceModel) 
-                      (refSystem    : ReferenceSystem)
-                      (originMode   : OriginMode) =
-        let surfaceFilter (id : Guid) (l : Leaf) (s : SgSurface) = 
-            id = surface.guid
-        let trafo = SurfaceTransformations.fullTrafo' surface refSystem
-        let mutable rot = V3d.OOO
-        let mutable tra = V3d.OOO
-        let mutable sca = V3d.OOO
-
-        trafo.Decompose (&sca, &rot, &tra)
-        let origin =
-            match originMode with
-            | OriginMode.ModelOrigin -> tra
-            | OriginMode.BoundingBoxCentre -> 
-                let sgSurface = HashMap.find surface.guid surfaceModel.sgSurfaces 
-                let boundingBox = sgSurface.globalBB.Transformed trafo
-                boundingBox.Center
-            | _ -> - tra
-        
-        let rotation = rot |> Trafo3d.RotationEuler 
-                           |> Rot3d.FromTrafo3d
-        Log.warn "[DEBUG] calc trafo translation = %s" (tra.ToString ())
-        Log.warn "[DEBUG] ref system origin = %s" (refSystem.origin.ToString ())
-        let localZDir = rotation.Transform refSystem.up.value.Normalized
-        let localYDir = rotation.Transform refSystem.north.value.Normalized
-        let localXDir = (localZDir.Cross localYDir).Normalized
-
-        let zDirHit = calculateRayHit origin localZDir surfaceModel refSystem surfaceFilter
-        let minusZDirHit = calculateRayHit origin -localZDir surfaceModel refSystem surfaceFilter
-        let yDirHit = calculateRayHit origin localYDir surfaceModel refSystem surfaceFilter
-        let minusYDirHit = calculateRayHit origin -localYDir surfaceModel refSystem surfaceFilter
-        let xDirHit = calculateRayHit origin localXDir surfaceModel refSystem surfaceFilter
-        let minusXDirHit = calculateRayHit origin -localXDir surfaceModel refSystem surfaceFilter
-
-        let zSize = Option.map2 (fun (a : V3d) b ->  Vec.Distance (a, b)) zDirHit minusZDirHit
-        let ySize = Option.map2 (fun (a : V3d) b ->  Vec.Distance (a, b)) yDirHit minusYDirHit
-        let xSize = Option.map2 (fun (a : V3d) b ->  Vec.Distance (a, b)) xDirHit minusXDirHit
-
-        match xSize, ySize, zSize with
-        | Some x, Some y, Some z ->
-            V3d (x, y, z)
-        | _,_,_ -> 
-            Log.error "[Comparison] Could not calculate surface size along axes."
-            V3d.OOO
-
-    let updateAreaStatistics (surfaceModel : SurfaceModel) 
-                             (refSystem    : ReferenceSystem) 
-                             (area         : AreaSelection)
-                             (surfaceName  : string) =
-        let surfaceId = findSurfaceByName surfaceModel surfaceName
-        match surfaceId with
-        | Some surfaceId ->
-            let surface = surfaceModel.surfaces.flat |> HashMap.find surfaceId |> Leaf.toSurface
-            let sgSurface = surfaceModel.sgSurfaces |> HashMap.find surfaceId
-      
-            Some (AreaComparison.calculateStatistics surface sgSurface refSystem area )
-        | None -> None
-
-    let updateSurfaceMeasurements (surfaceModel : SurfaceModel) 
-                                  (refSystem    : ReferenceSystem) 
-                                  (originMode   : OriginMode)
-                                  (surfaceName  : string) =
-        let surfaceId = findSurfaceByName surfaceModel surfaceName
-        match surfaceId with
-        | Some surfaceId ->
-            let surface = surfaceModel.surfaces.flat |> HashMap.find surfaceId |> Leaf.toSurface
-            let sgSurface = surfaceModel.sgSurfaces |> HashMap.find surfaceId
-          
-            let axesAngles = getAxesAngles surface refSystem
-            let dimensions = 
-                getDimensions surface surfaceModel refSystem originMode
-            {SurfaceMeasurements.init with rollPitchYaw = axesAngles
-                                           dimensions   = dimensions
-            } |> Some
-        | None -> None
-
-    let updateMeasurements (m            : ComparisonApp) 
-                           (surfaceModel : SurfaceModel) 
-                           (annotations  : HashMap<Guid, Annotation.Annotation>) 
-                           (bookmarks    : HashMap<Guid, Bookmark>)
-                           (refSystem    : ReferenceSystem) =
-        Log.line "[Comparison] Calculating surface measurements..."
-        let areas, annotationMeasurements =
-            match m.surface1, m.surface2 with
-            | Some s1, Some s2 ->
-                let areas =   
-                  m.areas
-                    |> HashMap.map (fun g x -> updateAreaStatistics surfaceModel refSystem x s1)
-                    |> HashMap.filter (fun g x -> x.IsSome)
-                    |> HashMap.map (fun g x -> x.Value)
-                areas, AnnotationComparison.compareAnnotationMeasurements 
-                              s1 s2  annotations bookmarks
-              
-            | _,_ -> HashMap.empty, []
-        let measurements1 = Option.bind (fun s1 -> updateSurfaceMeasurements 
+    let updateSurfaceMeasurements (m            : ComparisonApp) 
+                                  (surfaceModel : SurfaceModel) 
+                                  (refSystem    : ReferenceSystem) = 
+        Log.line "[Comparison] Calculating coordinate system measurements..."
+        let measurements1 = Option.bind (fun s1 -> updateSurfaceMeasurement 
                                                         surfaceModel refSystem m.originMode s1) 
                                         m.surface1 
-        let measurements2 = Option.bind (fun s2 -> updateSurfaceMeasurements 
+        let measurements2 = Option.bind (fun s2 -> updateSurfaceMeasurement 
                                                         surfaceModel refSystem m.originMode s2)
                                         m.surface2
         let surfaceMeasurements = 
@@ -245,10 +126,41 @@ module ComparisonApp =
                 comparedMeasurements =
                     Option.map2 (fun a b -> SurfaceMeasurements.compare a b)
                                 measurements1 measurements2
-                
+        
             }
+        Log.line "[Comparison] Finished calculating coordinate system measurements..."
+        surfaceMeasurements
+        
+    let updateAnnotationMeasurements (m            : ComparisonApp) 
+                                     (surfaceModel : SurfaceModel) 
+                                     (annotations  : HashMap<Guid, Annotation.Annotation>) 
+                                     (bookmarks    : HashMap<Guid, Bookmark>)
+                                     (refSystem    : ReferenceSystem) =
+        Log.line "[Comparison] Calculating annotation measurements..."
+        let annotationMeasurements =
+            match m.surface1, m.surface2 with
+            | Some s1, Some s2 ->
+                AnnotationComparison.compareAnnotationMeasurements 
+                                        s1 s2  annotations bookmarks
+      
+            | _,_ -> []
+        Log.line "[Comparison] Finished calculating annotation measurements."
+        annotationMeasurements
+       
 
+    let updateMeasurements (m            : ComparisonApp) 
+                           (surfaceModel : SurfaceModel) 
+                           (annotations  : HashMap<Guid, Annotation.Annotation>) 
+                           (bookmarks    : HashMap<Guid, Bookmark>)
+                           (refSystem    : ReferenceSystem) =
+        Log.line "[Comparison] Calculating surface measurements..."
+        let areas = updateAreaStatistics m surfaceModel refSystem
 
+        let annotationMeasurements =
+            updateAnnotationMeasurements m surfaceModel annotations bookmarks refSystem
+
+        let surfaceMeasurements =
+            updateSurfaceMeasurements m surfaceModel refSystem
 
         Log.line "[Comparison] Finished calculating surface measurements."
         {m with surfaceMeasurements    = surfaceMeasurements 
@@ -256,33 +168,20 @@ module ComparisonApp =
                 areas                  = areas
         }
 
-    let toggleVisible (surfaceId1   : option<Guid>) 
-                      (surfaceId2   : option<Guid>)
-                      (surfaceModel : SurfaceModel) =
-        match surfaceId1, surfaceId2 with
-        | Some id1, Some id2 ->
-            let s1 = surfaceModel.surfaces.flat |> HashMap.find id1
-                                                |> Leaf.toSurface
-            let s2 = surfaceModel.surfaces.flat |> HashMap.find id2
-                                                |> Leaf.toSurface
-            let s1, s2 =
-                match s1.isVisible, s2.isVisible with
-                | true, true | false, false ->
-                    let s1 = {s1 with isVisible = true
-                                      isActive  = true}
-                    let s2 = {s2 with isVisible = false
-                                      isActive  = false}
-                    s1, s2
-                | _, _ ->
-                    let s1 = {s1 with isVisible = not s1.isVisible
-                                      isActive  = not s1.isVisible}
-                    let s2 = {s2 with isVisible = not s2.isVisible
-                                      isActive  = not s2.isVisible}
-                    s1, s2
-            surfaceModel
-              |> SurfaceModel.updateSingleSurface s1
-              |> SurfaceModel.updateSingleSurface s2
-        | _,_ -> surfaceModel
+    let updateArea (m            : ComparisonApp) 
+                   (guid         : System.Guid)
+                   (msg          : AreaSelectionAction) =
+        let area = m.areas
+                      |> HashMap.tryFind guid
+        let m = 
+            match area with
+            | Some area -> 
+                let area = AreaSelection.update area msg
+                let areas =
+                    HashMap.add guid area m.areas
+                {m with areas = areas}
+            | None -> m
+        m //TODO rno
 
     let update (m            : ComparisonApp) 
                (surfaceModel : SurfaceModel) 
@@ -291,9 +190,19 @@ module ComparisonApp =
                (bookmarks    : HashMap<Guid, Bookmark>)
                (msg          : ComparisonAction) =
         match msg with
-        | Update -> 
+        | UpdateAllMeasurements -> 
             let m = updateMeasurements m surfaceModel annotations bookmarks refSystem
             m , surfaceModel
+        | UpdateCoordinateSystemMeasurements ->
+            let surfaceMeasurements = updateSurfaceMeasurements m surfaceModel refSystem
+            {m with surfaceMeasurements = surfaceMeasurements}, surfaceModel
+        | UpdateAreaMeasurements ->
+            let areas = updateAreaStatistics m surfaceModel refSystem
+            {m with areas = areas} , surfaceModel
+        | UpdateAnnotationMeasurements ->
+            let annotationMeasurements = 
+                updateAnnotationMeasurements m surfaceModel annotations bookmarks refSystem
+            {m with annotationMeasurements = annotationMeasurements}, surfaceModel
         | SelectSurface1 str -> 
             let m = {m with surface1 = noSelectionToNone str}
             let m =
@@ -330,24 +239,31 @@ module ComparisonApp =
             let areas =
                 HashMap.add area.id area m.areas
             
-            {m with areas = areas}, surfaceModel
+            {m with areas = areas
+                    selectedArea = Some area.id
+                    isEditingArea = true}, surfaceModel
+        | UpdateSelectedArea msg ->
+            match m.selectedArea with
+            | Some guid ->
+                updateArea m guid msg, surfaceModel
+            | None ->
+                Log.line "[ComparisonApp] No area selected."
+                m, surfaceModel
         | AreaSelectionMessage (guid, msg) ->
-            let area = m.areas
-                          |> HashMap.tryFind guid
-            let m = 
-                match area with
-                | Some area -> 
-                    let area = AreaSelection.update area msg
-                    let areas =
-                        HashMap.add guid area m.areas
-                    {m with areas = areas}
-                | None -> m
-            m, surfaceModel //TODO rno
-        | SelectArea guid -> {m with selectedArea = Some guid}, surfaceModel
+            updateArea m guid msg, surfaceModel
+        | SelectArea guid -> 
+            {m with selectedArea = Some guid}, surfaceModel
+        | DeselectArea -> 
+            {m with selectedArea  = None
+                    isEditingArea = false}, surfaceModel
+        | StopEditingArea ->
+            {m with isEditingArea = false}, surfaceModel
+
         | SetOriginMode originMode -> 
             let m = {m with originMode = originMode}
             let m = updateMeasurements m surfaceModel annotations bookmarks refSystem
             m, surfaceModel
+        | Nop -> m, surfaceModel
 
     let isSelected (surfaceName : aval<string>) (m : AdaptiveComparisonApp) =
         let showSg = 
@@ -463,8 +379,8 @@ module ComparisonApp =
              AVal.map2 (fun (s1 : option<string>) s2 -> 
                             match s1, s2 with
                             | Some s1, Some s2 -> 
-                                GuiEx.accordion "Surface Measurements"  "calculator" true [surfaceMeasurements]
-                            | _,_ -> GuiEx.accordion "Surface Measurements"  "calculator" true []
+                                GuiEx.accordionWithOnClick "Surface Measurements"  "calculator" true [surfaceMeasurements] UpdateCoordinateSystemMeasurements
+                            | _,_ -> GuiEx.accordion "Surface Measurements"  "calculator" true [] 
                        ) m.surface1 m.surface2
             
         //let measurement1 = 
@@ -492,7 +408,7 @@ module ComparisonApp =
 
 
         let updateButton =
-          button [clazz "ui icon button"; onMouseClick (fun _ -> Update )] 
+          button [clazz "ui icon button"; onMouseClick (fun _ -> UpdateAllMeasurements )] 
                   [i [clazz "calculator icon"] []]  |> UI.wrapToolTip DataPosition.Bottom "Update"
         let exportButton = 
           button [clazz "ui icon button"
@@ -525,8 +441,26 @@ module ComparisonApp =
             let content = Incremental.div  ([] |> AttributeMap.ofList) 
                                            (AList.ofAValSingle tables)
             let accordion =
-                GuiEx.accordion header  "calculator" true [content]
+                GuiEx.accordionWithOnClick header  "calculator" true [content] UpdateAnnotationMeasurements
             accordion
+
+        let areaView =
+            let selectedAreaView =
+                alist {
+                    let! guid = m.selectedArea
+                    if guid.IsSome then
+                        let area = AMap.find guid.Value m.areas
+                        let! domNode =  (area |> AVal.map AreaSelection.view)
+                        yield domNode
+                }
+
+            let header = sprintf "Area Comparison"
+            let content = Incremental.div  ([] |> AttributeMap.ofList) 
+                                           selectedAreaView
+            let accordion =
+                GuiEx.accordionWithOnClick header "calculator" true [content] UpdateAreaMeasurements
+            accordion
+
 
         div [][
             br []
@@ -542,8 +476,10 @@ module ComparisonApp =
                 Html.row "Surface2 " [CustomGui.surfacesDropdown surfaces SelectSurface2 noSelection]
             ]
             br []
+            div [] [areaView]
+            br []
             Incremental.div ([] |> AttributeMap.ofList)  
-                           (AList.ofAValSingle surfaceMeasurements)
+                            (AList.ofAValSingle surfaceMeasurements)
             //GuiEx.accordion "Difference" "calculator" true [
             //   Incremental.div ([] |> AttributeMap.ofList)  (AList.ofAValSingle compared)
             //]

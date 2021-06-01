@@ -94,6 +94,7 @@ type AreaSelection = {
     dimensions : V3d
     location   : V3d
     visible    : bool
+    rotation   : Trafo3d
     selectedVertices : IndexList<V3d>
     [<NonAdaptive>]
     statistics : option<VertexStatistics>
@@ -110,6 +111,7 @@ type ComparisonApp = {
     surfaceMeasurements          : SurfaceComparison
     annotationMeasurements       : list<AnnotationComparison>
     selectedArea                 : option<System.Guid>
+    isEditingArea                : bool
     areas                        : HashMap<System.Guid, AreaSelection>
 } with
     static member ToJson (x:ComparisonApp) =

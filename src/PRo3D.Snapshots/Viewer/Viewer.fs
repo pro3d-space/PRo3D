@@ -469,16 +469,35 @@ module ViewerApp =
         (msg       : ViewerAction) =
         //Log.line "[Viewer_update] %A inter:%A pick:%A" msg m.interaction m.picking
         match msg, m.interaction, m.ctrlFlag with
-        | NavigationMessage  msg,_,false when (isGrabbed m |> not) && (not (AnimationApp.shouldAnimate m.animations)) ->                              
-            let c   = m.scene.config
-            let ref = m.scene.referenceSystem
-            let nav = Navigation.update c ref navConf true m.navigation msg               
+        | NavigationMessage  msg,interaction,false when (isGrabbed m |> not) && (not (AnimationApp.shouldAnimate m.animations)) -> 
+            //match m.comparisonApp.isEditingArea with
+            //| false ->
+                let c   = m.scene.config
+                let ref = m.scene.referenceSystem
+                let nav = Navigation.update c ref navConf true m.navigation msg               
              
-            //m.scene.navigation.camera.view.Location.ToString() |> NoAction |> ViewerAction |> mailbox.Post
+                //m.scene.navigation.camera.view.Location.ToString() |> NoAction |> ViewerAction |> mailbox.Post
              
-            m 
-            |> Optic.set _navigation nav
-            |> Optic.set _animationView nav.camera.view
+                m 
+                |> Optic.set _navigation nav
+                |> Optic.set _animationView nav.camera.view
+            //| true -> 
+            //    let msg = 
+            //        match msg with
+            //        | Navigation.FreeFlyAction msg -> Comparison.AreaSelectionAction.TransformAreaFreeFly msg
+            //        | Navigation.ArcBallAction msg -> Comparison.AreaSelectionAction.TransformAreaArcBall msg
+            //        | _ -> Comparison.AreaSelectionAction.Nop
+
+            //    let comparisonApp, _ = ComparisonApp.update m.comparisonApp 
+            //                                                m.scene.surfacesModel
+            //                                                m.scene.referenceSystem
+            //                                                (m.drawing.annotations.flat 
+            //                                                    |> HashMap.map (fun id x -> Leaf.toAnnotation x))
+            //                                                (m.scene.bookmarks.flat
+            //                                                    |> HashMap.map (fun id x -> Leaf.toBookmark x))
+            //                                                (ComparisonAction.UpdateSelectedArea msg)
+            //    {m with comparisonApp = comparisonApp}
+                    
         | AnimationMessage msg,_,_ ->
             let a = AnimationApp.update m.animations msg
             { m with animations = a } |> Optic.set _view a.cam
@@ -984,7 +1003,27 @@ module ViewerApp =
                     let m = { m with drawing = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing drawingAction } |> stash
                     match drawingAction with
                     | Drawing.DrawingAction.Finish -> { m with tabMenu = TabMenu.Annotations }
-                    | _ -> m                     
+                    | _ -> m                   
+                | Interactions.SelectArea ->
+                    let msg = 
+                        match k with
+                        | Aardvark.Application.Keys.Enter -> 
+                            ComparisonAction.StopEditingArea
+                        | Aardvark.Application.Keys.OemMinus -> 
+                            ComparisonAction.UpdateSelectedArea Comparison.AreaSelectionAction.MakeSmaller
+                        | Aardvark.Application.Keys.OemPlus -> 
+                            ComparisonAction.UpdateSelectedArea Comparison.AreaSelectionAction.MakeBigger
+                        | _ -> ComparisonAction.Nop
+
+                    let comparisonApp, _ = ComparisonApp.update  m.comparisonApp 
+                                                                 m.scene.surfacesModel
+                                                                 m.scene.referenceSystem
+                                                                 (m.drawing.annotations.flat 
+                                                                     |> HashMap.map (fun id x -> Leaf.toAnnotation x))
+                                                                 (m.scene.bookmarks.flat
+                                                                     |> HashMap.map (fun id x -> Leaf.toBookmark x))
+                                                                 msg
+                    {m with comparisonApp = comparisonApp}
                 | _ -> m
                                     
             let m =

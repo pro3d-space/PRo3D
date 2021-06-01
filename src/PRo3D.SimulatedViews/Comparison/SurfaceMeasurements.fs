@@ -1,20 +1,117 @@
-﻿namespace PRo3D
+﻿namespace PRo3D.Comparison
 
+open System
 open Aardvark.Base
 open Aardvark.UI
-open PRo3D.Comparison
+
 open FSharp.Data.Adaptive
 open PRo3D.Base
 open Aardvark.UI
 open PRo3D.Core
 open PRo3D.SurfaceUtils
 open PRo3D.Core.Surface
-open PRo3D.Base
-open Aardvark.Rendering
-open Adaptify.FSharp.Core
+open PRo3D.Comparison.ComparisonUtils
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module SurfaceMeasurements =
+
+    let getAxesAngles surface refSystem =
+        let trafo = SurfaceTransformations.fullTrafo' surface refSystem
+
+        let mutable rot = V3d.OOO
+        let mutable tra = V3d.OOO
+        let mutable sca = V3d.OOO
+    
+        trafo.Decompose (&sca, &rot, &tra)
+        //let (x : float) = System.Math.Round (rot.X, 15)
+        //let (y : float) = System.Math.Round (rot.Y, 15)
+        //let (z : float) = System.Math.Round (rot.Z, 15)
+        //V3d (x, y, z)
+        rot
+
+    let calculateRayHit (fromLocation : V3d) (direction : V3d)
+                        surfaceModel refSystem surfaceFilter = 
+
+        let mutable cache = HashMap.Empty
+        let ray = new Ray3d (fromLocation, direction)
+        let intersected = SurfaceIntersection.doKdTreeIntersection surfaceModel 
+                                                                   refSystem 
+                                                                   (FastRay3d(ray)) 
+                                                                   surfaceFilter 
+                                                                   cache
+        match intersected with
+        | Some (t,surf), c ->                         
+            let hit = ray.GetPointOnRay(t) 
+            //Log.warn "ray in direction %s hit surface at %s" (direction.ToString ()) (string hit) // rno debug
+            hit |> Some
+        |  None, _ ->
+            Log.warn "[RayCastSurface] no hit in direction %s" (direction.ToString ())
+            None
+
+    let getDimensions (surface : Surface)
+                      (surfaceModel : SurfaceModel) 
+                      (refSystem    : ReferenceSystem)
+                      (originMode   : OriginMode) =
+        let surfaceFilter (id : Guid) (l : Leaf) (s : SgSurface) = 
+            id = surface.guid
+        let trafo = SurfaceTransformations.fullTrafo' surface refSystem
+        let mutable rot = V3d.OOO
+        let mutable tra = V3d.OOO
+        let mutable sca = V3d.OOO
+
+        trafo.Decompose (&sca, &rot, &tra)
+        let origin =
+            match originMode with
+            | OriginMode.ModelOrigin -> tra
+            | OriginMode.BoundingBoxCentre -> 
+                let sgSurface = HashMap.find surface.guid surfaceModel.sgSurfaces 
+                let boundingBox = sgSurface.globalBB.Transformed trafo
+                boundingBox.Center
+            | _ -> - tra
+    
+        let rotation = rot |> Trafo3d.RotationEuler 
+                           |> Rot3d.FromTrafo3d
+        Log.warn "[DEBUG] calc trafo translation = %s" (tra.ToString ())
+        Log.warn "[DEBUG] ref system origin = %s" (refSystem.origin.ToString ())
+        let localZDir = rotation.Transform refSystem.up.value.Normalized
+        let localYDir = rotation.Transform refSystem.north.value.Normalized
+        let localXDir = (localZDir.Cross localYDir).Normalized
+
+        let zDirHit = calculateRayHit origin localZDir surfaceModel refSystem surfaceFilter
+        let minusZDirHit = calculateRayHit origin -localZDir surfaceModel refSystem surfaceFilter
+        let yDirHit = calculateRayHit origin localYDir surfaceModel refSystem surfaceFilter
+        let minusYDirHit = calculateRayHit origin -localYDir surfaceModel refSystem surfaceFilter
+        let xDirHit = calculateRayHit origin localXDir surfaceModel refSystem surfaceFilter
+        let minusXDirHit = calculateRayHit origin -localXDir surfaceModel refSystem surfaceFilter
+
+        let zSize = Option.map2 (fun (a : V3d) b ->  Vec.Distance (a, b)) zDirHit minusZDirHit
+        let ySize = Option.map2 (fun (a : V3d) b ->  Vec.Distance (a, b)) yDirHit minusYDirHit
+        let xSize = Option.map2 (fun (a : V3d) b ->  Vec.Distance (a, b)) xDirHit minusXDirHit
+
+        match xSize, ySize, zSize with
+        | Some x, Some y, Some z ->
+            V3d (x, y, z)
+        | _,_,_ -> 
+            Log.error "[Comparison] Could not calculate surface size along axes."
+            V3d.OOO
+
+    let updateSurfaceMeasurement  (surfaceModel : SurfaceModel) 
+                                  (refSystem    : ReferenceSystem) 
+                                  (originMode   : OriginMode)
+                                  (surfaceName  : string) =
+        let surfaceId = findSurfaceByName surfaceModel surfaceName
+        match surfaceId with
+        | Some surfaceId ->
+            let surface = surfaceModel.surfaces.flat |> HashMap.find surfaceId |> Leaf.toSurface
+            let sgSurface = surfaceModel.sgSurfaces |> HashMap.find surfaceId
+      
+            let axesAngles = getAxesAngles surface refSystem
+            let dimensions = 
+                getDimensions surface surfaceModel refSystem originMode
+            {SurfaceMeasurements.init with rollPitchYaw = axesAngles
+                                           dimensions   = dimensions
+            } |> Some
+        | None -> None
 
     let compare (m1 : SurfaceMeasurements) 
                 (m2 : SurfaceMeasurements) =

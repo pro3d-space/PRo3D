@@ -18,6 +18,7 @@ open PRo3D.Base.Annotation
 
 
 module AnnotationComparison =
+
     let compareAnnotationMeasurements (surface1     : string)
                                       (surface2     : string)
                                       (annotations  : HashMap<Guid, Annotation>) 
