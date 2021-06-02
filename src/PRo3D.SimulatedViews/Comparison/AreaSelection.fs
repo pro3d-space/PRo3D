@@ -19,7 +19,7 @@ open Aardvark.UI.Primitives
 
 
 type AreaSelectionAction =
-    | SetDimensions of V3d
+    | SetRadius of float
     | SetLocation of V3d
     | ToggleVisible
     | UpdateStatistics
@@ -30,16 +30,24 @@ type AreaSelectionAction =
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module AreaSelection =
+    let areaSelectionColor =
+        C4b (150uy,255uy,150uy,100uy) 
+          |> AVal.constant 
+    let pointSize = 7.0
+    let areaSizeChangeFactor = 0.1
+
     let init guid : AreaSelection = 
         {
             id          = guid
-            dimensions  = V3d.III * 3.0
+            radius      = 8.0
             location    = V3d.OOO
             rotation    = Trafo3d.Identity
             visible     = true
             selectedVertices = IndexList.empty
             statistics  = None
         }
+
+
 
     let updateAreaStatistic  (surfaceModel : SurfaceModel) 
                               (refSystem    : ReferenceSystem) 
@@ -56,9 +64,11 @@ module AreaSelection =
 
     let update (m : AreaSelection) (action : AreaSelectionAction) =
         match action with
-        | MakeBigger -> {m with dimensions = m.dimensions * 1.1}
-        | MakeSmaller -> {m with dimensions = m.dimensions * 0.9}
-        | SetDimensions v -> {m with dimensions = v}
+        | MakeBigger -> 
+            {m with radius = m.radius * (1.0 + areaSizeChangeFactor)}
+        | MakeSmaller -> 
+            {m with radius = m.radius * (1.0 - areaSizeChangeFactor)}
+        | SetRadius r -> {m with radius = r}
         | SetLocation location -> m
         | ToggleVisible ->
             {m with visible = not m.visible}
@@ -69,23 +79,39 @@ module AreaSelection =
     let sgPoints (m : AdaptiveAreaSelection) = 
         Sg.drawPointList m.selectedVertices 
                          (C4b.Red |> AVal.constant) 
-                         (4.0 |> AVal.constant) 
+                         (pointSize |> AVal.constant) 
                          (0.0 |> AVal.constant)
 
-    let alphaColour =
-        C4b (200uy,200uy,255uy,100uy) 
-          |> AVal.constant 
+
         //(C4b (C3b.VRVisGreen, ) |> AVal.constant)
 
-    let sgSphere (m : AdaptiveAreaSelection) = 
-        let radius = m.dimensions |> AVal.map (fun x -> x.X)
-        Sg.sphere 12 alphaColour radius
+    let sgSphere (m : AdaptiveAreaSelection) =  
+        Sg.sphere 12 areaSelectionColor m.radius
           |> Sg.trafo (m.location |> AVal.map (fun x -> Trafo3d.Translation x))
 
 
-    let sg (m : AdaptiveAreaSelection) =
-        sgPoints m
-          |> Sg.andAlso (sgSphere m)
+    let sgAllAreas (areas : amap<System.Guid, AdaptiveAreaSelection>) =
+        areas
+            |> AMap.toASet
+            |> ASet.map (fun (g,x) -> sgSphere x)
+            |> Sg.set
+            |> Sg.noEvents
+            |> Sg.blendMode (AVal.init BlendMode.Blend)
+            |> Sg.effect [     
+                Aardvark.UI.Trafos.Shader.stableTrafo |> toEffect 
+                DefaultSurfaces.vertexColor |> toEffect
+            ] 
+
+    let sgAllPoints (areas : amap<System.Guid, AdaptiveAreaSelection>) =
+        areas
+          |> AMap.toASet
+          |> ASet.map (fun (g,x) -> sgPoints x)
+          |> Sg.set
+          |> Sg.noEvents
+          |> Sg.effect [     
+              Aardvark.UI.Trafos.Shader.stableTrafo |> toEffect 
+              DefaultSurfaces.vertexColor |> toEffect
+          ] 
 
     //let sg (m : AdaptiveAreaSelection) =
     //    let createAndTransform (center : V3d) size (rotation : Trafo3d) =
@@ -104,15 +130,11 @@ module AreaSelection =
     //                                     (0.0 |> AVal.constant))
 
     let view (m : AdaptiveAreaSelection) =
-        let xSize = m.dimensions |> AVal.map (fun v -> sprintf "%f" v.X)
-        let ySize = m.dimensions |> AVal.map (fun v -> sprintf "%f" v.Y)
-        let zSize = m.dimensions |> AVal.map (fun v -> sprintf "%f" v.Z)
+        let radius = m.radius |> AVal.map (fun x -> sprintf "%f" x)
         let location  = m.location |> AVal.map (fun v -> sprintf "%s" (v.ToString ()))
         require GuiEx.semui (
           Html.table [      
-            Html.row "Area size X" [Incremental.text xSize]
-            Html.row "Area size Y" [Incremental.text ySize]
-            Html.row "Area size Z" [Incremental.text zSize]
+            Html.row "Area size X"   [Incremental.text radius]
             Html.row "Area Location" [Incremental.text location]
         ])      
           

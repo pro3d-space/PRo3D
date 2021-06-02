@@ -46,8 +46,8 @@ module AreaComparison =
                               (area : AreaSelection) =
         
 
-        let areaBox = Box3d.FromCenterAndSize (area.location, area.dimensions)
-        let areaBoxModelCS = areaBox.Transformed(surfaceTrafo.Backward)
+        let areaBox = Box3d.FromCenterAndSize (area.location, V3d(area.radius))
+        //let areaBoxModelCS = areaBox.Transformed(surfaceTrafo.Backward)
         //get bbs that are hit
         let treesIntersectingArea =
              kdTree
@@ -62,17 +62,17 @@ module AreaComparison =
               |> List.filter (fun t -> t.IsSome)
               |> List.map (fun t -> t.Value)
 
-        let dist = area.dimensions.X
+        let dist = area.radius
 
         let findVerticesInSphere (triangles : TriangleSet) =
             let lst : List<V3d> = List.ofSeq triangles.Position3dList
             let lst = lst |> List.filter (fun p -> area.location.Distance p < dist)
             lst
 
-        let findVerticesInBox (triangles : TriangleSet) =
-            let lst : List<V3d> = List.ofSeq triangles.Position3dList
-            let lst = lst |> List.filter (fun p -> areaBoxModelCS.Contains p)
-            lst
+        //let findVerticesInBox (triangles : TriangleSet) =
+        //    let lst : List<V3d> = List.ofSeq triangles.Position3dList
+        //    let lst = lst |> List.filter (fun p -> areaBoxModelCS.Contains p)
+        //    lst
               
         let vertices = triangles
                           |> List.map findVerticesInSphere

@@ -91,7 +91,7 @@ type VertexStatistics = {
 type AreaSelection = {
     [<NonAdaptive>]
     id         : System.Guid
-    dimensions : V3d
+    radius     : float
     location   : V3d
     visible    : bool
     rotation   : Trafo3d

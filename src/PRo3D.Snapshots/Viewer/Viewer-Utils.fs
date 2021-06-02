@@ -574,40 +574,23 @@ module ViewerUtils =
     let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) 
                        overlayed depthTested (m:AdaptiveModel)
                        runtime =
-        let comparisonSg =
-            m.comparisonApp.areas
-                |> AMap.toASet
-                |> ASet.map (fun (g,x) -> AreaSelection.sgSphere x)
-                |> Sg.set
-                |> Sg.noEvents
-                |> Sg.blendMode (AVal.init BlendMode.Blend)
-                |> Sg.effect [     
-                    Shader.stableTrafo |> toEffect 
-                    DefaultSurfaces.vertexColor |> toEffect
-                ] 
-             
-        let comparisonSgPoints =
-            m.comparisonApp.areas
-                |> AMap.toASet
-                |> ASet.map (fun (g,x) -> AreaSelection.sgPoints x)
-                |> Sg.set
-                |> Sg.noEvents
-                |> Sg.effect [     
-                    Shader.stableTrafo |> toEffect 
-                    DefaultSurfaces.vertexColor |> toEffect
-                ] 
+        let comparisonSgAreas =  AreaSelection.sgAllAreas m.comparisonApp.areas              
+        let comparisonSgPoints = AreaSelection.sgAllPoints m.comparisonApp.areas
 
         let sgs = (getSurfacesScenegraphs m runtime)
         let debugSg = (getFrustumDebugSg m)
         //grouped   
+        let mutable renderedComparison = false
         alist {        
             for sg in sgs do
                 yield RenderCommand.SceneGraph sg
                 yield RenderCommand.SceneGraph depthTested
-                yield RenderCommand.SceneGraph comparisonSg //rendered once for each surface :(
+                if not renderedComparison then
+                  yield RenderCommand.SceneGraph comparisonSgPoints
+                  yield RenderCommand.SceneGraph comparisonSgAreas 
+                  renderedComparison <- true
                 yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
             yield RenderCommand.SceneGraph overlayed
-            yield RenderCommand.SceneGraph comparisonSgPoints
             let! debug = m.scene.config.shadingApp.debug
             if debug then yield RenderCommand.SceneGraph debugSg 
         }  

@@ -102,9 +102,9 @@ module SurfaceUtils =
         
         //TODO TO use loadObject from master
         let loadObject (surface : Surface) : SgSurface =
-            Log.line "[OBJ] Please wait while the OBJ file is being loaded." 
+            Log.line "[OBJ] Please wait while the file is being loaded..." 
             let obj = Loader.Assimp.load (surface.importPath)  
-            Log.line "[OBJ] The OBJ file was loaded successfully!" 
+            Log.line "[OBJ] The file was loaded successfully!" 
             let dir = Path.GetDirectoryName(surface.importPath)
             let filename = Path.GetFileNameWithoutExtension surface.importPath
             let kdTreePath = Path.combine [dir; filename + ".aakd"] //Path.ChangeExtension(s.importPath, name)
