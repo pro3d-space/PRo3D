@@ -28,6 +28,7 @@ open Adaptify
 open Aether
 open Aether.Operators
 open PRo3D.Minerva
+open PRo3D.Comparison
 
 #nowarn "0686"
 

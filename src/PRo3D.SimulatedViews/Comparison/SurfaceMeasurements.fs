@@ -29,24 +29,7 @@ module SurfaceMeasurements =
         //V3d (x, y, z)
         rot
 
-    let calculateRayHit (fromLocation : V3d) (direction : V3d)
-                        surfaceModel refSystem surfaceFilter = 
 
-        let mutable cache = HashMap.Empty
-        let ray = new Ray3d (fromLocation, direction)
-        let intersected = SurfaceIntersection.doKdTreeIntersection surfaceModel 
-                                                                   refSystem 
-                                                                   (FastRay3d(ray)) 
-                                                                   surfaceFilter 
-                                                                   cache
-        match intersected with
-        | Some (t,surf), c ->                         
-            let hit = ray.GetPointOnRay(t) 
-            //Log.warn "ray in direction %s hit surface at %s" (direction.ToString ()) (string hit) // rno debug
-            hit |> Some
-        |  None, _ ->
-            Log.warn "[RayCastSurface] no hit in direction %s" (direction.ToString ())
-            None
 
     let getDimensions (surface : Surface)
                       (surfaceModel : SurfaceModel) 

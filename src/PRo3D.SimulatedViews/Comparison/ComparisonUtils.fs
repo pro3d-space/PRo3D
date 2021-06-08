@@ -62,3 +62,25 @@ module ComparisonUtils =
               |> SurfaceModel.updateSingleSurface s1
               |> SurfaceModel.updateSingleSurface s2
         | _,_ -> surfaceModel
+
+    let mutable cache = HashMap.Empty
+    let calculateRayHit (fromLocation : V3d) (direction : V3d)
+                        surfaceModel refSystem surfaceFilter = 
+
+    
+        let ray = new Ray3d (fromLocation, direction)
+        let intersected = SurfaceIntersection.doKdTreeIntersection surfaceModel 
+                                                                   refSystem 
+                                                                   (FastRay3d(ray)) 
+                                                                   surfaceFilter 
+                                                                   cache
+        match intersected with
+        | Some (t,surf), c ->       
+            cache <- c
+            let hit = ray.GetPointOnRay(t) 
+            //Log.warn "ray in direction %s hit surface at %s" (direction.ToString ()) (string hit) // rno debug
+            hit |> Some
+        |  None, c ->
+            cache <- c
+            Log.warn "[RayCastSurface] no hit in direction %s" (direction.ToString ())
+            None

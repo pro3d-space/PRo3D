@@ -443,7 +443,7 @@ module ViewerApp =
                         |> HashMap.map (fun id x -> Leaf.toAnnotation x))
                     (m.scene.bookmarks.flat
                         |> HashMap.map (fun id x -> Leaf.toBookmark x))
-                    (ComparisonAction.AddSelectionArea p))
+                    (Comparison.ComparisonAction.AddSelectionArea p))
                 {m with comparisonApp = comparisonApp}
             | false -> m
         | _ -> m       
@@ -1008,12 +1008,12 @@ module ViewerApp =
                     let msg = 
                         match k with
                         | Aardvark.Application.Keys.Enter -> 
-                            ComparisonAction.StopEditingArea
+                            Comparison.ComparisonAction.StopEditingArea
                         | Aardvark.Application.Keys.OemMinus -> 
-                            ComparisonAction.UpdateSelectedArea Comparison.AreaSelectionAction.MakeSmaller
+                            Comparison.ComparisonAction.UpdateSelectedArea Comparison.AreaSelectionAction.MakeSmaller
                         | Aardvark.Application.Keys.OemPlus -> 
-                            ComparisonAction.UpdateSelectedArea Comparison.AreaSelectionAction.MakeBigger
-                        | _ -> ComparisonAction.Nop
+                            Comparison.ComparisonAction.UpdateSelectedArea Comparison.AreaSelectionAction.MakeBigger
+                        | _ -> Comparison.ComparisonAction.Nop
 
                     let comparisonApp, _ = ComparisonApp.update  m.comparisonApp 
                                                                  m.scene.surfacesModel
@@ -1144,7 +1144,7 @@ module ViewerApp =
                                                   |> HashMap.map (fun id x -> Leaf.toAnnotation x))
                                               (m.scene.bookmarks.flat
                                                   |> HashMap.map (fun id x -> Leaf.toBookmark x))
-                                              ComparisonAction.ToggleVisible
+                                              Comparison.ComparisonAction.ToggleVisible
                     {m with comparisonApp = comparisonApp
                             scene         = {m.scene with surfacesModel = surfacesModel}
                     }                    
@@ -1460,7 +1460,7 @@ module ViewerApp =
                       ObjectPlacementApp.init
               HashMap.update str updatePlacement m.scene.objectPlacements
           {m with scene = {m.scene with objectPlacements = scPlacements}}   
-        | ComparisonMessage msg, _, _ ->
+        | ComparisonMessage (msg : PRo3D.Comparison.ComparisonAction), _, _ ->
             let comparisonApp, surfacedModel = 
                 ComparisonApp.update  m.comparisonApp 
                                       m.scene.surfacesModel 
@@ -1770,6 +1770,9 @@ module ViewerApp =
         let animation = 
             AnimationApp.ThreadPool.threads m.animations |> ThreadPool.map AnimationMessage
 
+        let comparison =
+            ComparisonApp.threads m.comparisonApp |> ThreadPool.map ComparisonMessage
+
         let nav =
             match m.navigation.navigationMode with
             | NavigationMode.FreeFly -> 
@@ -1782,7 +1785,7 @@ module ViewerApp =
          
         let minerva = MinervaApp.threads m.minervaModel |> ThreadPool.map MinervaActions
 
-        unionMany [drawing; animation; nav; m.scene.feedbackThreads; minerva]
+        unionMany [drawing; animation; nav; m.scene.feedbackThreads; minerva;comparison]
         
     let loadWaypoints m = 
         match Serialization.fileExists "./waypoints.wps" with

@@ -17,17 +17,6 @@ open Aardvark.UI
 open Aardvark.UI.Primitives
 
 
-
-type AreaSelectionAction =
-    | SetRadius of float
-    | SetLocation of V3d
-    | ToggleVisible
-    | UpdateStatistics
-    | MakeBigger
-    | MakeSmaller
-    | Nop
-
-
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module AreaSelection =
     let areaSelectionColor =
@@ -43,7 +32,8 @@ module AreaSelection =
             location    = V3d.OOO
             rotation    = Trafo3d.Identity
             visible     = true
-            selectedVertices = IndexList.empty
+            verticesSurf1 = IndexList.empty
+            verticesSurf2 = IndexList.empty
             statistics  = None
         }
 
@@ -52,36 +42,46 @@ module AreaSelection =
     let updateAreaStatistic  (surfaceModel : SurfaceModel) 
                               (refSystem    : ReferenceSystem) 
                               (area         : AreaSelection)
-                              (surfaceName  : string) =
-        let surfaceId = ComparisonUtils.findSurfaceByName surfaceModel surfaceName
-        match surfaceId with
-        | Some surfaceId ->
-            let surface = surfaceModel.surfaces.flat |> HashMap.find surfaceId |> Leaf.toSurface
-            let sgSurface = surfaceModel.sgSurfaces |> HashMap.find surfaceId
+                              (surfaceName1  : string) 
+                              (surfaceName2  : string) =
+        let surfaceId1 = ComparisonUtils.findSurfaceByName surfaceModel surfaceName1
+        let surfaceId2 = ComparisonUtils.findSurfaceByName surfaceModel surfaceName2
+        match surfaceId1, surfaceId2 with
+        | Some surfaceId1, Some surfaceId2 ->
+            let surface1 = surfaceModel.surfaces.flat |> HashMap.find surfaceId1 |> Leaf.toSurface
+            let sgSurface1 = surfaceModel.sgSurfaces |> HashMap.find surfaceId1
+            let surface2 = surfaceModel.surfaces.flat |> HashMap.find surfaceId2 |> Leaf.toSurface
+            let sgSurface2 = surfaceModel.sgSurfaces |> HashMap.find surfaceId2
   
-            Some (AreaComparison.calculateStatistics surface sgSurface refSystem area )
-        | None -> None
+            Some (AreaComparison.calculateStatistics surface1 sgSurface1
+                                                     surface2 sgSurface2
+                                                     refSystem area )
+        | _,_ -> None
 
     let update (m : AreaSelection) (action : AreaSelectionAction) =
         match action with
-        | MakeBigger -> 
+        | AreaSelectionAction.MakeBigger -> 
             {m with radius = m.radius * (1.0 + areaSizeChangeFactor)}
-        | MakeSmaller -> 
+        | AreaSelectionAction.MakeSmaller -> 
             {m with radius = m.radius * (1.0 - areaSizeChangeFactor)}
-        | SetRadius r -> {m with radius = r}
-        | SetLocation location -> m
-        | ToggleVisible ->
+        | AreaSelectionAction.SetRadius r -> {m with radius = r}
+        | AreaSelectionAction.SetLocation location -> m
+        | AreaSelectionAction.ToggleVisible ->
             {m with visible = not m.visible}
-        | UpdateStatistics -> 
+        | AreaSelectionAction.UpdateStatistics -> 
             m
-        | Nop -> m
+        | AreaSelectionAction.Nop -> m
 
     let sgPoints (m : AdaptiveAreaSelection) = 
-        Sg.drawPointList m.selectedVertices 
+        Sg.drawPointList m.verticesSurf1 
                          (C4b.Red |> AVal.constant) 
                          (pointSize |> AVal.constant) 
                          (0.0 |> AVal.constant)
-
+            |> Sg.andAlso 
+                (Sg.drawPointList m.verticesSurf2
+                (C4b.Blue |> AVal.constant) 
+                (pointSize |> AVal.constant) 
+                (0.0 |> AVal.constant))
 
         //(C4b (C3b.VRVisGreen, ) |> AVal.constant)
 
@@ -113,6 +113,10 @@ module AreaSelection =
               DefaultSurfaces.vertexColor |> toEffect
           ] 
 
+
+
+
+
     //let sg (m : AdaptiveAreaSelection) =
     //    let createAndTransform (center : V3d) size (rotation : Trafo3d) =
     //        let box = Box3d.FromCenterAndSize (V3d.OOO,size)
@@ -132,11 +136,37 @@ module AreaSelection =
     let view (m : AdaptiveAreaSelection) =
         let radius = m.radius |> AVal.map (fun x -> sprintf "%f" x)
         let location  = m.location |> AVal.map (fun v -> sprintf "%s" (v.ToString ()))
+        let getStatsGui (stats : aval<AdaptiveOptionCase<VertexStatistics, AdaptiveVertexStatistics, AdaptiveVertexStatistics>>) =
+            let content = 
+                alist {
+                    let! stats = stats
+                    let rows = 
+                        match stats with
+                        | AdaptiveSome stats ->
+                            let minDistance = stats.minDistance |> AVal.map (fun x -> sprintf "%f" x)
+                            let avgDistance = stats.avgDistance |> AVal.map (fun x -> sprintf "%f" x)
+                            let maxDistance = stats.maxDistance |> AVal.map (fun x -> sprintf "%f" x)
+                    
+                            [
+                              Html.row "Minimum distance" [Incremental.text minDistance]
+                              Html.row "Average distance" [Incremental.text avgDistance]
+                              Html.row "Maximum distance" [Incremental.text maxDistance]
+                            ]
+                    
+                        | AdaptiveNone -> []
+                    yield Html.table rows
+                }
+            Incremental.div ([] |> AttributeMap.ofList) content
+        let statsGui = getStatsGui m.statistics
         require GuiEx.semui (
-          Html.table [      
-            Html.row "Area size X"   [Incremental.text radius]
-            Html.row "Area Location" [Incremental.text location]
-        ])      
+          div [] [
+              Html.table ([      
+                Html.row "Area size X"   [Incremental.text radius]
+                Html.row "Area Location" [Incremental.text location]
+              ])
+              statsGui
+          ]
+        )      
           
 
 

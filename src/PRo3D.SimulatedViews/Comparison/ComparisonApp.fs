@@ -22,24 +22,7 @@ open SurfaceMeasurements
 open AreaSelection
 open ComparisonUtils
 
-type ComparisonAction =
-  | SelectSurface1 of string
-  | SelectSurface2 of string
-  | UpdateAllMeasurements
-  | UpdateCoordinateSystemMeasurements
-  | UpdateAreaMeasurements
-  | UpdateAnnotationMeasurements
-  | ExportMeasurements of string
-  | ToggleVisible
-  | AddBookmarkReference of System.Guid
-  | SetOriginMode of OriginMode
-  | AddSelectionArea of V3d
-  | UpdateSelectedArea of AreaSelectionAction
-  | AreaSelectionMessage of System.Guid * AreaSelectionAction
-  | SelectArea of System.Guid
-  | DeselectArea
-  | StopEditingArea
-  | Nop
+
 
 module CustomGui =
     let dynamicDropdown<'msg when 'msg : equality> (items    : list<aval<string>>)
@@ -80,6 +63,8 @@ module CustomGui =
 module ComparisonApp =
 
     let init : ComparisonApp = {   
+        threads              = ThreadPool.empty
+        state                = Idle
         showMeasurementsSg   = true
         originMode           = OriginMode.ModelOrigin
         surface1             = None
@@ -96,18 +81,25 @@ module ComparisonApp =
         areas = HashMap.empty
     }
 
+    let threads m =
+        m.threads
+
     let updateAreaStatistics (m            : ComparisonApp) 
                              (surfaceModel : SurfaceModel) 
                              (refSystem    : ReferenceSystem) = 
-        match m.surface1, m.surface2 with
-        | Some s1, Some s2 ->
-            let areas =   
-              m.areas
-                |> HashMap.map (fun g x -> updateAreaStatistic surfaceModel refSystem x s1)
-                |> HashMap.filter (fun g x -> x.IsSome)
-                |> HashMap.map (fun g x -> x.Value)
-            areas
-        | _,_ -> HashMap.empty
+        Log.line "[Comparison] Calculating area statistics..."
+        let m = 
+            match m.surface1, m.surface2 with
+            | Some s1, Some s2 ->
+                let areas =   
+                  m.areas
+                    |> HashMap.map (fun g x -> updateAreaStatistic surfaceModel refSystem x s1 s2)
+                    |> HashMap.filter (fun g x -> x.IsSome)
+                    |> HashMap.map (fun g x -> x.Value)
+                areas
+            | _,_ -> HashMap.empty
+        Log.line "[Comparison] Finished calculating area statistics."
+        m
 
     let updateSurfaceMeasurements (m            : ComparisonApp) 
                                   (surfaceModel : SurfaceModel) 
@@ -183,6 +175,19 @@ module ComparisonApp =
             | None -> m
         m //TODO rno
 
+    let addThread (m : ComparisonApp) (actions : List<ComparisonAction>) = 
+        let id = (System.Guid.NewGuid ()).ToString ()
+        let proclst = 
+          proclist {
+              for a in actions do
+                yield a
+              yield (RemoveThread id)
+          }
+        {m with threads = ThreadPool.add id (proclst) m.threads}
+
+    let removeThread (m : ComparisonApp) id =
+        {m with threads = ThreadPool.remove id m.threads}
+
     let update (m            : ComparisonApp) 
                (surfaceModel : SurfaceModel) 
                (refSystem    : ReferenceSystem)
@@ -190,9 +195,19 @@ module ComparisonApp =
                (bookmarks    : HashMap<Guid, Bookmark>)
                (msg          : ComparisonAction) =
         match msg with
+        | SetState state -> 
+            {m with state = state}, surfaceModel
+        | RemoveThread id ->
+            removeThread m id, surfaceModel
         | UpdateAllMeasurements -> 
-            let m = updateMeasurements m surfaceModel annotations bookmarks refSystem
-            m , surfaceModel
+            let m = {m with state = CalculatingStatistics}
+            let m = addThread m [ASyncUpdateAnnotationMeasurements
+                                 ASyncUpdateAreaMeasurements
+                                 ASyncUpdateCoordinateSystemMeasurements
+                                 ]
+            m, surfaceModel
+            //let m = updateMeasurements m surfaceModel annotations bookmarks refSystem
+            //m , surfaceModel
         | UpdateCoordinateSystemMeasurements ->
             let surfaceMeasurements = updateSurfaceMeasurements m surfaceModel refSystem
             {m with surfaceMeasurements = surfaceMeasurements}, surfaceModel
@@ -203,6 +218,15 @@ module ComparisonApp =
             let annotationMeasurements = 
                 updateAnnotationMeasurements m surfaceModel annotations bookmarks refSystem
             {m with annotationMeasurements = annotationMeasurements}, surfaceModel
+        | ASyncUpdateCoordinateSystemMeasurements ->
+            let m = addThread m [UpdateCoordinateSystemMeasurements]
+            m, surfaceModel
+        | ASyncUpdateAreaMeasurements ->
+            let m = addThread m [UpdateAreaMeasurements]
+            m, surfaceModel
+        | ASyncUpdateAnnotationMeasurements ->
+            let m = addThread m [UpdateAnnotationMeasurements]
+            m, surfaceModel
         | SelectSurface1 str -> 
             let m = {m with surface1 = noSelectionToNone str}
             let m =
@@ -461,6 +485,42 @@ module ComparisonApp =
                 GuiEx.accordionWithOnClick header "calculator" true [content] UpdateAreaMeasurements
             accordion
 
+        let statsGui =
+            [
+                br []
+                div [] [areaView]
+                br []
+                Incremental.div ([] |> AttributeMap.ofList)  
+                                (AList.ofAValSingle surfaceMeasurements)
+                //GuiEx.accordion "Difference" "calculator" true [
+                //   Incremental.div ([] |> AttributeMap.ofList)  (AList.ofAValSingle compared)
+                //]
+                br []
+                annotationComparison
+            ]
+
+        //let statsGuiOrBusyIcon =
+        //    let content = 
+        //        alist {
+        //            let! threads = m.threads
+        //            if threads.store.Count > 0 then
+        //                yield div [style "color: white"] [text (sprintf "threads: %i" threads.store.Count)]
+        //            else
+        //                yield div [] (statsGui ())
+        //        }
+            //let content = 
+            //    alist {
+            //        let! state = m.state
+            //        yield div [style "color: white"] [text (sprintf "state %s" (m.state.ToString ()))]
+            //        match state with
+            //        | ComparisonAppState.CalculatingStatistics -> ()
+            //        | ComparisonAppState.Idle -> 
+            //            yield div [] (statsGui ())
+            //    }
+
+           // Incremental.div ([] |> AttributeMap.ofList) content
+
+
 
         div [][
             br []
@@ -475,14 +535,6 @@ module ComparisonApp =
                 Html.row "Surface1 " [CustomGui.surfacesDropdown surfaces SelectSurface1 noSelection]
                 Html.row "Surface2 " [CustomGui.surfacesDropdown surfaces SelectSurface2 noSelection]
             ]
-            br []
-            div [] [areaView]
-            br []
-            Incremental.div ([] |> AttributeMap.ofList)  
-                            (AList.ofAValSingle surfaceMeasurements)
-            //GuiEx.accordion "Difference" "calculator" true [
-            //   Incremental.div ([] |> AttributeMap.ofList)  (AList.ofAValSingle compared)
-            //]
-            br []
-            annotationComparison
+            div [] statsGui //|> UI.map ComparisonAction
+
         ]

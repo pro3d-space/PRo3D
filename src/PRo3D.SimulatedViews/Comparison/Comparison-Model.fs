@@ -80,6 +80,7 @@ type SurfaceComparison = {
                 do! Json.write "difference"   x.comparedMeasurements.Value
         }
 
+[<ModelType>]
 type VertexStatistics = {
     avgDistance : float
     maxDistance : float
@@ -95,15 +96,55 @@ type AreaSelection = {
     location   : V3d
     visible    : bool
     rotation   : Trafo3d
-    selectedVertices : IndexList<V3d>
-    [<NonAdaptive>]
+    verticesSurf1 : IndexList<V3d>
+    verticesSurf2 : IndexList<V3d>
     statistics : option<VertexStatistics>
 }
+
+type AreaSelectionAction =
+  | SetRadius of float
+  | SetLocation of V3d
+  | ToggleVisible
+  | UpdateStatistics
+  | MakeBigger
+  | MakeSmaller
+  | Nop
+
+type ComparisonAppState =
+    | Idle
+    | CalculatingStatistics
+
+type ComparisonAction =
+  | SetState of ComparisonAppState
+  | SelectSurface1 of string
+  | SelectSurface2 of string
+  | UpdateAllMeasurements
+  | UpdateCoordinateSystemMeasurements
+  | ASyncUpdateCoordinateSystemMeasurements
+  | UpdateAreaMeasurements
+  | ASyncUpdateAreaMeasurements
+  | UpdateAnnotationMeasurements
+  | ASyncUpdateAnnotationMeasurements
+  | ExportMeasurements of string
+  | ToggleVisible
+  | AddBookmarkReference of System.Guid
+  | SetOriginMode of OriginMode
+  | AddSelectionArea of V3d
+  | UpdateSelectedArea of AreaSelectionAction
+  | AreaSelectionMessage of System.Guid * AreaSelectionAction
+  | SelectArea of System.Guid
+  | DeselectArea
+  | StopEditingArea
+  | RemoveThread of string
+  | Nop
+
 
 
 /// Used to compare different attributes of two surfaces.
 [<ModelType>]
 type ComparisonApp = {
+    state                        : ComparisonAppState
+    threads                      : ThreadPool<ComparisonAction>
     showMeasurementsSg           : bool
     originMode                   : OriginMode
     surface1                     : option<string>

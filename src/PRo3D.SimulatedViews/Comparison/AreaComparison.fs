@@ -16,6 +16,7 @@ open PRo3D.Base
 open PRo3D.Core
 open PRo3D.Core.Surface
 open PRo3DCompability
+open PRo3D.Comparison.ComparisonUtils
 
 //open System.Collections.Generic
 
@@ -76,22 +77,27 @@ module AreaComparison =
               
         let vertices = triangles
                           |> List.map findVerticesInSphere
-                          |> List.reduce List.append 
+
+        let vertices = 
+            match vertices with
+            | [] -> []
+            | _ ->
+                vertices
+                   |> List.reduce List.append 
                     
         vertices
 
     let autoRotate (area : AreaSelection) =
-        let plane = PlaneFitting.planeFit(area.selectedVertices |> IndexList.toList)       
+        let plane = PlaneFitting.planeFit(area.verticesSurf1 |> IndexList.toList)       
         //let box = Box3d.FromCenterAndSize (area.location, area.dimensions)
         //let normal = plane.Normal
         //let foo = plane.
         //{area with rotation = rotation}
         //box.Transformed rotation
         area
-        
-        
-    let calculateStatistics (surface : Surface) (sgSurface : SgSurface) 
-                            (referenceSystem : ReferenceSystem) (area : AreaSelection) =
+
+    let calculateVertices (surface : Surface) (sgSurface : SgSurface)
+                          (referenceSystem : ReferenceSystem) (area : AreaSelection) =
         let picking = sgSurface.picking
         let kdTrees =
             match picking with
@@ -105,5 +111,51 @@ module AreaComparison =
             match vertices with
             | Some v -> v |> IndexList.ofList
             | None -> IndexList.empty
-        {area with selectedVertices = vertices}
+        vertices
         
+        
+    let calculateStatistics (surface1 : Surface) (sgSurface1 : SgSurface) 
+                            (surface2 : Surface) (sgSurface2 : SgSurface) 
+                            (referenceSystem : ReferenceSystem) (area : AreaSelection) =
+        let area = 
+            {area with verticesSurf1 = calculateVertices surface1 sgSurface1 referenceSystem area}
+        let area = 
+            {area with verticesSurf2 = calculateVertices surface2 sgSurface2 referenceSystem area}
+        
+        match area.verticesSurf1.IsEmptyOrNull (), area.verticesSurf2.IsEmptyOrNull () with
+        | false, false ->
+            let vertices1 = area.verticesSurf1 |> IndexList.toList
+            let vertices2 = area.verticesSurf2 |> IndexList.toList
+            let s1RayFrom = sgSurface1.globalBB.Center
+            let s2RayFrom = sgSurface2.globalBB.Center
+            
+            let biggerList, smallerList = 
+                if vertices1.Length > vertices2.Length then 
+                  vertices1, vertices2
+                else 
+                  vertices2, vertices1
+
+            let findClosest (point : V3d) = 
+                let distances = 
+                    smallerList |> List.map (fun v -> v.Distance point)
+                let index = distances.MinIndex ()
+                index, distances.[index]
+
+            let closest =
+                biggerList
+                  |> List.map (fun v -> findClosest v)
+
+            let closestDistances =
+                closest |> List.map snd
+            
+            let statistics : VertexStatistics =
+                {
+                    avgDistance = closestDistances |> List.average
+                    maxDistance = closestDistances |> List.max
+                    minDistance = closestDistances |> List.min
+                }
+
+            {area with statistics = Some statistics}
+        | _, _ -> 
+            Log.warn "One surface has no vertices is the selected area."
+            area
