@@ -85,8 +85,21 @@ type VertexStatistics = {
     avgDistance : float
     maxDistance : float
     minDistance : float
+    diffPoints : list<V3d * V3d>
+    distances  : list<float>
 }
 
+
+
+
+type AreaSelectionAction =
+  | SetRadius of float
+  | SetLocation of V3d
+  | ToggleVisible
+  | UpdateStatistics
+  | MakeBigger
+  | MakeSmaller
+  | Nop
 
 [<ModelType>]
 type AreaSelection = {
@@ -100,15 +113,6 @@ type AreaSelection = {
     verticesSurf2 : IndexList<V3d>
     statistics : option<VertexStatistics>
 }
-
-type AreaSelectionAction =
-  | SetRadius of float
-  | SetLocation of V3d
-  | ToggleVisible
-  | UpdateStatistics
-  | MakeBigger
-  | MakeSmaller
-  | Nop
 
 type ComparisonAppState =
     | Idle

@@ -575,7 +575,7 @@ module ViewerUtils =
                        overlayed depthTested (m:AdaptiveModel)
                        runtime =
         let comparisonSgAreas =  AreaSelection.sgAllAreas m.comparisonApp.areas              
-        let comparisonSgPoints = AreaSelection.sgAllPoints m.comparisonApp.areas
+        let comparisonSgPoints = AreaComparison.sgAllDifferences m.comparisonApp.areas
 
         let sgs = (getSurfacesScenegraphs m runtime)
         let debugSg = (getFrustumDebugSg m)
@@ -586,8 +586,8 @@ module ViewerUtils =
                 yield RenderCommand.SceneGraph sg
                 yield RenderCommand.SceneGraph depthTested
                 if not renderedComparison then
-                  yield RenderCommand.SceneGraph comparisonSgPoints
-                  yield RenderCommand.SceneGraph comparisonSgAreas 
+                  yield RenderCommand.SceneGraph (comparisonSgPoints |> Sg.noEvents )
+                  yield RenderCommand.SceneGraph comparisonSgAreas
                   renderedComparison <- true
                 yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
             yield RenderCommand.SceneGraph overlayed

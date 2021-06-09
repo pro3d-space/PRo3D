@@ -1,7 +1,10 @@
 ﻿namespace PRo3D.Comparison
 
 open System
+open Adaptify.FSharp.Core
 open Aardvark.Base
+open Aardvark.Rendering
+open Aardvark.UI
 open Aardvark.VRVis.Opc.KdTrees
 open MBrace.FsPickler
 open Aardvark.Geometry
@@ -113,9 +116,70 @@ module AreaComparison =
             | None -> IndexList.empty
         vertices
         
+    module Instancing = 
+      //let cylinder = IndexedGeometryPrimitives.Cylinder.solidCylinder V3d.OOO V3d.OOI 1.0 1.0 1.0 16 C4b.White
+      let sphere = Sphere3d.FromCenterAndRadius (V3d(0.0), 1.0)
+      let indexedSphere = IndexedGeometryPrimitives.Sphere.solidSubdivisionSphere sphere 12 C4b.White
+      let normals = indexedSphere.IndexedAttributes.Item(Aardvark.Rendering.DefaultSemantic.Normals) |> AVal.constant
+
+      let distToColor (dist : float) (maxDist : float) =
+        let r = clamp 0.0 1.0 (dist / maxDist)
+        C4b(r,1.0 - r,0.0 , 1.0)
+
+      let statisticsToGeometry (stats : AdaptiveVertexStatistics) =
+        let colors = 
+            adaptive {
+                let! distances = stats.distances 
+                let! maxDistance = stats.maxDistance
+                return (distances |> List.map (fun x -> distToColor x maxDistance))
+            }
+
+        let lines =
+            stats.diffPoints 
+              |> AVal.map (fun lst -> lst |> List.map (fun (a,b) -> Line3d(a,b))
+                                          |> Array.ofList)
+
+        let colors = 
+           colors |> AVal.map (fun colors -> colors@colors |> Array.ofSeq :> System.Array)
+        
+        let trafos = stats.diffPoints 
+                        |> AVal.map (fun points -> 
+                                        (points |> List.map fst |> List.map Trafo3d.Translation)
+                                        @(points |> List.map snd |> List.map Trafo3d.Translation)
+                                          |> Array.ofSeq :> System.Array)
+        let instancedAttributes =
+            Map.ofList [
+                string Aardvark.Rendering.DefaultSemantic.Colors, (typeof<C4b>, colors ) 
+                "ModelTrafo", (typeof<Trafo3d>, trafos) 
+            ]
+        instancedAttributes, lines
+
+    let sgDifference (area : AdaptiveAreaSelection) =
+      area.statistics 
+        |> AVal.map (fun stats -> 
+                        match stats with
+                        | AdaptiveSome stats ->
+                            let attributes, lines = Instancing.statisticsToGeometry stats
+                            Instancing.indexedSphere
+                                |> Sg.ofIndexedGeometry
+                                |> Sg.instanced' attributes
+                                |> Sg.andAlso (Sg.lines (C4b.Grey |> AVal.constant) lines)
+                        | AdaptiveNone -> Sg.empty
+      )
+
+    let sgAllDifferences (areas : amap<System.Guid, AdaptiveAreaSelection>) =
+        areas |> AMap.toASet
+              |> ASet.map (fun (g,x) -> (sgDifference x) |> Sg.dynamic)
+              |> Sg.set
+              |> Sg.effect [     
+                  Aardvark.UI.Trafos.Shader.stableTrafo |> toEffect 
+                  DefaultSurfaces.vertexColor |> toEffect
+              ] 
+              |> Sg.noEvents 
         
     let calculateStatistics (surface1 : Surface) (sgSurface1 : SgSurface) 
                             (surface2 : Surface) (sgSurface2 : SgSurface) 
+                            (surfaceModel : SurfaceModel)
                             (referenceSystem : ReferenceSystem) (area : AreaSelection) =
         let area = 
             {area with verticesSurf1 = calculateVertices surface1 sgSurface1 referenceSystem area}
@@ -128,34 +192,77 @@ module AreaComparison =
             let vertices2 = area.verticesSurf2 |> IndexList.toList
             let s1RayFrom = sgSurface1.globalBB.Center
             let s2RayFrom = sgSurface2.globalBB.Center
-            
+
             let biggerList, smallerList = 
                 if vertices1.Length > vertices2.Length then 
                   vertices1, vertices2
                 else 
                   vertices2, vertices1
 
-            let findClosest (point : V3d) = 
-                let distances = 
-                    smallerList |> List.map (fun v -> v.Distance point)
-                let index = distances.MinIndex ()
-                index, distances.[index]
+            let surfaceFilter1 (id : Guid) (l : Leaf) (s : SgSurface) = 
+                id = surface1.guid
 
-            let closest =
-                biggerList
-                  |> List.map (fun v -> findClosest v)
+            let surfaceFilter2 (id : Guid) (l : Leaf) (s : SgSurface) = 
+                id = surface2.guid
 
-            let closestDistances =
-                closest |> List.map snd
-            
-            let statistics : VertexStatistics =
-                {
-                    avgDistance = closestDistances |> List.average
-                    maxDistance = closestDistances |> List.max
-                    minDistance = closestDistances |> List.min
-                }
+            let mutable points = []
 
-            {area with statistics = Some statistics}
+            let calcDistance (point : V3d) =
+                let direction = (point - s1RayFrom).Normalized
+                let ray = new Ray3d (s1RayFrom, direction)
+                let hitInfo1, c = SurfaceIntersection.doKdTreeIntersection surfaceModel 
+                                                                           referenceSystem 
+                                                                           (FastRay3d(ray)) 
+                                                                           surfaceFilter1 
+                                                                           cache
+                cache <- c
+                
+
+                let hitInfo2, c = SurfaceIntersection.doKdTreeIntersection surfaceModel 
+                                                                           referenceSystem 
+                                                                           (FastRay3d(ray)) 
+                                                                           surfaceFilter2 
+                                                                           cache
+
+                cache <- c
+
+                match hitInfo1, hitInfo2 with
+                | Some (t1,surf1), Some (t2,surf2) ->       
+                    let hit1 = ray.GetPointOnRay(t1)                         
+                    let hit2 = ray.GetPointOnRay(t2)     
+                    let dist = hit1.Distance hit2 
+                    points <- points@[hit1, hit2]
+                    Some (dist)
+                |  _, _ ->
+                    Log.line "[RayCastSurface] no hit in direction %s" (direction.ToString ())
+                    None
+
+            let distances =
+                smallerList 
+                  |> List.map calcDistance
+                  |> List.zip [0..(smallerList.Length - 1)]
+                  |> List.filter (fun (i, x) -> x.IsSome)
+                  |> List.map (fun (i,x) -> (i, x.Value))
+
+
+            let distances =
+                distances |> List.map snd
+
+            let maxDistance = distances |> List.max
+
+            let statistics =
+                match distances with
+                | [] -> None
+                | _ -> 
+                    {
+                        avgDistance = distances |> List.average
+                        maxDistance = maxDistance
+                        minDistance = distances |> List.min
+                        distances   = distances
+                        diffPoints  = points
+                    } |> Some
+
+            {area with statistics           = statistics}
         | _, _ -> 
             Log.warn "One surface has no vertices is the selected area."
             area

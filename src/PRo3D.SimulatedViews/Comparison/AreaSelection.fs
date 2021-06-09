@@ -55,6 +55,7 @@ module AreaSelection =
   
             Some (AreaComparison.calculateStatistics surface1 sgSurface1
                                                      surface2 sgSurface2
+                                                     surfaceModel
                                                      refSystem area )
         | _,_ -> None
 

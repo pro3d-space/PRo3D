@@ -84,10 +84,35 @@ module ComparisonApp =
     let threads m =
         m.threads
 
+    let setSurfacesVisibleAndActive (surfaceId1   : option<string>) 
+                                    (surfaceId2   : option<string>)
+                                    (surfaceModel : SurfaceModel) =
+        
+        match surfaceId1, surfaceId2 with
+        | Some id1, Some id2 ->
+            let id1 = findSurfaceByName surfaceModel id1
+            let id2 = findSurfaceByName surfaceModel id2
+            match id1, id2 with
+            | Some id1, Some id2 ->
+                let s1 = surfaceModel.surfaces.flat |> HashMap.find id1
+                                                    |> Leaf.toSurface
+                let s2 = surfaceModel.surfaces.flat |> HashMap.find id2
+                                                    |> Leaf.toSurface
+                let s1 = {s1 with isVisible = true
+                                  isActive  = true}
+                let s2 = {s2 with isVisible = true
+                                  isActive  = true}
+                surfaceModel
+                  |> SurfaceModel.updateSingleSurface s1
+                  |> SurfaceModel.updateSingleSurface s2
+            | _,_ -> surfaceModel
+        | _,_ -> surfaceModel
+
     let updateAreaStatistics (m            : ComparisonApp) 
                              (surfaceModel : SurfaceModel) 
                              (refSystem    : ReferenceSystem) = 
         Log.line "[Comparison] Calculating area statistics..."
+        let surfaceModel = setSurfacesVisibleAndActive m.surface1 m.surface2 surfaceModel
         let m = 
             match m.surface1, m.surface2 with
             | Some s1, Some s2 ->
@@ -105,6 +130,7 @@ module ComparisonApp =
                                   (surfaceModel : SurfaceModel) 
                                   (refSystem    : ReferenceSystem) = 
         Log.line "[Comparison] Calculating coordinate system measurements..."
+        let surfaceModel = setSurfacesVisibleAndActive m.surface1 m.surface2 surfaceModel
         let measurements1 = Option.bind (fun s1 -> updateSurfaceMeasurement 
                                                         surfaceModel refSystem m.originMode s1) 
                                         m.surface1 
@@ -146,6 +172,7 @@ module ComparisonApp =
                            (bookmarks    : HashMap<Guid, Bookmark>)
                            (refSystem    : ReferenceSystem) =
         Log.line "[Comparison] Calculating surface measurements..."
+        let surfaceModel = setSurfacesVisibleAndActive m.surface1 m.surface2 surfaceModel
         let areas = updateAreaStatistics m surfaceModel refSystem
 
         let annotationMeasurements =
