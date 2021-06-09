@@ -49,13 +49,13 @@ module AnnotationViewer =
             }
 
 
-        let selectedAnnotation = cval -1
-
+        let hoveredAnnotation = cval -1
+        let picked = cval None
 
 
         let mv = view |> AVal.map (fun c -> (CameraView.viewTrafo c).Forward)
         let points = points (model.selectedLeaves |> ASet.map (fun x -> x.id)) annoSet config.offset mv
-        let lines, pickIds, bb = PackedRendering.lines config.offset selectedAnnotation ASet.empty annoSet mv
+        let lines, pickIds, bb = PackedRendering.lines config.offset hoveredAnnotation ASet.empty annoSet mv
 
         let pickColors, pickDepth = 
             //let size = AVal.constant (V2i(128,128))
@@ -109,11 +109,23 @@ module AnnotationViewer =
                     let ids = pickIds.GetValue()
                     if id > 0 && id < ids.Length then
                         Log.line "hit %A" (id, ids.[id])
-                        transact (fun _ -> selectedAnnotation.Value <- id)
+                        transact (fun _ -> hoveredAnnotation.Value <- id)
                     else 
-                        transact (fun _ -> selectedAnnotation.Value <- -1)
+                        transact (fun _ -> hoveredAnnotation.Value <- -1)
                     //r.SaveAsImage("guh.tiff")
                     ()
+            )
+
+            win.Mouse.Click.Values.Add(fun b -> 
+                if b = MouseButtons.Right then
+                    let hovered = hoveredAnnotation.GetValue()
+                    let ids = pickIds.GetValue()
+                    transact (fun _ -> 
+                        if hovered > 0 && hovered < ids.Length then
+                            picked.Value <- Some ids.[hovered]
+                        else 
+                            picked.Value <- None
+                    )
             )
 
         let overlay = 
@@ -178,7 +190,29 @@ module AnnotationViewer =
         let newDns = 
             fastDns config fc annoSet view |> onOff (AVal.map not showOld)
 
-        Sg.ofSeq [Sg.dynamic sg; Sg.dynamic newSg; Sg.dynamic dnsOld; Sg.dynamic newDns; overlay]
+        Log.startTimed "[Drawing] creating finished annotation geometry"
+        let selected =              
+            annoSet 
+            |> ASet.map(fun (g,a) -> 
+                let c = UI.mkColor model a
+                let picked = picked |> AVal.map (function | Some v when g = v -> true | _ -> false)
+                let showPoints = 
+                  a.geometry 
+                    |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
+                
+                let vm = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
+                let points = PRo3D.Core.Drawing.Sg.getPolylinePoints a   
+                let width = a.thickness.value |> AVal.map (fun x -> x + 3.0) // 3.0
+                let spheres = PRo3D.Base.Sg.drawSpheresFast vm points width (AVal.constant C4b.VRVisGreen)
+
+                let sg = Sg.finishedAnnotation a c config view showPoints picked (AVal.constant false) :> ISg
+                sg
+                spheres :> ISg
+            )
+            |> Sg.set               
+        Log.stop()
+
+        Sg.ofSeq [Sg.dynamic sg; Sg.dynamic newSg; Sg.dynamic dnsOld; Sg.dynamic newDns; overlay; selected]
 
     let run (scene : OpcScene) (annotations : Annotations) =
 
