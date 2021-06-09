@@ -623,9 +623,10 @@ module SurfaceApp =
                                 |> UI.wrapToolTip DataPosition.Bottom "Toggle IsActive"
             
                                 let! path = s.importPath
+                                let isobj = Path.GetExtension path = ".obj"
                                 //
                                 //  yield i 
-                                if (Directory.Exists path) |> not || (path |> Files.isSurfaceFolder |> not) then
+                                if ((Directory.Exists path) |> not || (path |> Files.isSurfaceFolder |> not)) && (isobj |> not) then
                                     yield i [
                                         clazz "exclamation red icon"
                                         //Dialogs.onChooseDirectory key ChangeImportDirectory;

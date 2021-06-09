@@ -335,7 +335,11 @@ module SceneObjectsApp =
                             let! fullTrafo = SceneObjectTransformations.fullTrafo s.transformation rSys
                             
                             let! sc = s.scaling.value
-                            return Trafo3d.Scale(sc) * (fullTrafo * t) //(t * fullTrafo)
+                            let! flipZ = s.transformation.flipZ
+                            if flipZ then 
+                                return Trafo3d.Scale(sc) * Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * t)
+                            else
+                                return Trafo3d.Scale(sc) * (fullTrafo * t) //(t * fullTrafo)
                         }
 
                     let! sgSObj = sgSurf.sceneGraph
