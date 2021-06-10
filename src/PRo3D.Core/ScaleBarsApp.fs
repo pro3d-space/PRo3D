@@ -540,9 +540,11 @@ module ScaleBarsApp =
 
                 let points = getP1P2 scaleBar
 
+                let vm = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
+
                 let selectionSg = 
                     if selected then
-                        OutlineEffect.createForLineOrPoint PRo3D.Base.OutlineEffect.Line (AVal.constant C4b.VRVisGreen) scaleBar.thickness.value 3.0 RenderPass.main trafo points
+                        OutlineEffect.createForLineOrPoint vm PRo3D.Base.OutlineEffect.Line (AVal.constant C4b.VRVisGreen) scaleBar.thickness.value 3.0 RenderPass.main trafo points
                     else Sg.empty
                     
                         
