@@ -76,6 +76,7 @@ module ComparisonApp =
               comparedMeasurements = None
           }
         annotationMeasurements = []     
+        nrOfCreatedAreas = 0
         selectedArea = None
         isEditingArea = false
         areas = HashMap.empty
@@ -285,7 +286,8 @@ module ComparisonApp =
         | AddBookmarkReference bookmarkId ->
             m, surfaceModel
         | AddSelectionArea location ->
-            let area = {AreaSelection.init (System.Guid.NewGuid ()) 
+            let areaName = sprintf "Area%i" (m.nrOfCreatedAreas + 1)
+            let area = {AreaSelection.init (System.Guid.NewGuid ()) areaName
                           with location = location}
             let areas =
                 HashMap.add area.id area m.areas
@@ -303,10 +305,15 @@ module ComparisonApp =
         | AreaSelectionMessage (guid, msg) ->
             updateArea m guid msg, surfaceModel
         | SelectArea guid -> 
-            {m with selectedArea = Some guid}, surfaceModel
+            {m with selectedArea = guid}, surfaceModel
         | DeselectArea -> 
             {m with selectedArea  = None
                     isEditingArea = false}, surfaceModel
+        | RemoveArea id ->
+            let areas = m.areas.Remove id
+            {m with areas = areas
+                    selectedArea = None
+            }, surfaceModel
         | StopEditingArea ->
             {m with isEditingArea = false}, surfaceModel
 
@@ -349,6 +356,18 @@ module ComparisonApp =
                         ] 
                 )
         sg
+
+    let areaStatisticsSg (m : AdaptiveComparisonApp) =   
+        let sg = AVal.bind (fun s -> 
+                            match s with
+                            | Some s -> 
+                                let a = AMap.tryFind s m.areas
+                                a |> AVal.map (fun a -> 
+                                                  match a with
+                                                  | Some a -> AreaSelection.sgPoints a
+                                                  | None -> Sg.empty)
+                            | None -> (Sg.empty |> AVal.constant)) m.selectedArea
+        sg |> Sg.dynamic
 
     let measurementsSg (surface     : aval<AdaptiveSurface>)
                        (size        : aval<float>)
@@ -495,21 +514,67 @@ module ComparisonApp =
                 GuiEx.accordionWithOnClick header  "calculator" true [content] UpdateAnnotationMeasurements
             accordion
 
+        let areas =
+            let content = 
+                let areas = m.areas |> AMap.toASet |> ASet.toAList
+                alist {
+                    let! selected = m.selectedArea
+                    for key, area in areas do
+                        let! label = area.label
+                        let selected = AVal.map (fun s -> 
+                                                    match s with
+                                                    | Some s -> s = key
+                                                    | None -> false) m.selectedArea
+                        let selectIcon = Html.SemUi.iconToggle selected 
+                                                                "large circle icon" 
+                                                                "large circle outline icon"
+                                                                (SelectArea (Some key))
+                        let visibleIcon = Html.SemUi.iconToggle area.visible 
+                                                               "large hide icon" 
+                                                               "large unhide icon" 
+                                                               (AreaSelectionAction.ToggleVisible)
+                                              |> UI.map (fun x -> AreaSelectionMessage (area.id, x))
+                        let deleteButton =
+                                      i [clazz "large remove icon red";
+                                         attribute "data-content" "Remove Area"; 
+                                         onMouseClick (fun _ -> RemoveArea area.id) ] []  
+                                                         
+
+                        yield (Html.row label [selectIcon;visibleIcon;deleteButton])
+
+                
+                }
+            Incremental.table ([clazz "ui celled striped inverted table unstackable"] |> AttributeMap.ofList) content
+            //tbody
         let areaView =
+            //let createAreaMenu (area : AdaptiveAreaSelection) =
+                //Html.table ([      
+                //  Html.row "Selected Area" []
+                //  //Html.row "Visible"   
+                //  //         [ 
+                //  //    )
+                //  Html.row "Remove"
+                           
+                //])
+              
             let selectedAreaView =
                 alist {
                     let! guid = m.selectedArea
                     if guid.IsSome then
                         let area = AMap.find guid.Value m.areas
+                        //let menu = (area |> AVal.map createAreaMenu)
+                        //let! menu = menu
+                        //yield menu
                         let! domNode =  (area |> AVal.map AreaSelection.view)
                         yield domNode
                 }
+
 
             let header = sprintf "Area Comparison"
             let content = Incremental.div  ([] |> AttributeMap.ofList) 
                                            selectedAreaView
             let accordion =
-                GuiEx.accordionWithOnClick header "calculator" true [content] UpdateAreaMeasurements
+                GuiEx.accordionWithOnClick header "calculator" true [areas;content] UpdateAreaMeasurements
             accordion
 
         let statsGui =

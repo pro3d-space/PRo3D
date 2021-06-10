@@ -25,9 +25,10 @@ module AreaSelection =
     let pointSize = 7.0
     let areaSizeChangeFactor = 0.1
 
-    let init guid : AreaSelection = 
+    let init guid label : AreaSelection = 
         {
             id          = guid
+            label       = label
             radius      = 8.0
             location    = V3d.OOO
             rotation    = Trafo3d.Identity
@@ -134,6 +135,7 @@ module AreaSelection =
     //                                     (4.0 |> AVal.constant) 
     //                                     (0.0 |> AVal.constant))
 
+
     let view (m : AdaptiveAreaSelection) =
         let radius = m.radius |> AVal.map (fun x -> sprintf "%f" x)
         let location  = m.location |> AVal.map (fun v -> sprintf "%s" (v.ToString ()))
@@ -159,15 +161,15 @@ module AreaSelection =
                 }
             Incremental.div ([] |> AttributeMap.ofList) content
         let statsGui = getStatsGui m.statistics
-        require GuiEx.semui (
-          div [] [
-              Html.table ([      
-                Html.row "Area size X"   [Incremental.text radius]
-                Html.row "Area Location" [Incremental.text location]
-              ])
-              statsGui
-          ]
-        )      
+ //       require GuiEx.semui (
+        div [] [
+            Html.table ([      
+              Html.row "Area size X"   [Incremental.text radius]
+              Html.row "Area Location" [Incremental.text location]
+            ])
+            statsGui
+        ]
+ //       )      
           
 
 

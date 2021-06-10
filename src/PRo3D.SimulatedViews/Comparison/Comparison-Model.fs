@@ -105,6 +105,7 @@ type AreaSelectionAction =
 type AreaSelection = {
     [<NonAdaptive>]
     id         : System.Guid
+    label      : string
     radius     : float
     location   : V3d
     visible    : bool
@@ -136,8 +137,9 @@ type ComparisonAction =
   | AddSelectionArea of V3d
   | UpdateSelectedArea of AreaSelectionAction
   | AreaSelectionMessage of System.Guid * AreaSelectionAction
-  | SelectArea of System.Guid
+  | SelectArea of option<(System.Guid)>
   | DeselectArea
+  | RemoveArea of System.Guid
   | StopEditingArea
   | RemoveThread of string
   | Nop
@@ -150,12 +152,13 @@ type ComparisonApp = {
     state                        : ComparisonAppState
     threads                      : ThreadPool<ComparisonAction>
     showMeasurementsSg           : bool
+    nrOfCreatedAreas             : int
     originMode                   : OriginMode
     surface1                     : option<string>
     surface2                     : option<string>
     surfaceMeasurements          : SurfaceComparison
     annotationMeasurements       : list<AnnotationComparison>
-    selectedArea                 : option<System.Guid>
+    selectedArea                 : option<(System.Guid)>
     isEditingArea                : bool
     areas                        : HashMap<System.Guid, AreaSelection>
 } with

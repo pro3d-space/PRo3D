@@ -22,7 +22,7 @@ open PRo3D.SimulatedViews
 open PRo3D.Core.Surface
 open PRo3D.Navigation2
 
-open PRo3D.SimulatedViews
+open PRo3D.Comparison
 
 open Chiron
 
