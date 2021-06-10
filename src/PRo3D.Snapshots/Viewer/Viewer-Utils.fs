@@ -575,7 +575,7 @@ module ViewerUtils =
                        overlayed depthTested (m:AdaptiveModel)
                        runtime =
         let comparisonSgAreas =  AreaSelection.sgAllAreas m.comparisonApp.areas              
-        let areaStatisticsSg = ComparisonApp.areaStatisticsSg m.comparisonApp
+        let areaStatisticsSg = AreaComparison.sgAllDifferences m.comparisonApp.areas
 
         let sgs = (getSurfacesScenegraphs m runtime)
         let debugSg = (getFrustumDebugSg m)

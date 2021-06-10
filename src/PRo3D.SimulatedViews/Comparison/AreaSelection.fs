@@ -29,7 +29,7 @@ module AreaSelection =
         {
             id          = guid
             label       = label
-            radius      = 8.0
+            radius      = 10.0
             location    = V3d.OOO
             rotation    = Trafo3d.Identity
             visible     = true
@@ -88,8 +88,11 @@ module AreaSelection =
         //(C4b (C3b.VRVisGreen, ) |> AVal.constant)
 
     let sgSphere (m : AdaptiveAreaSelection) =  
-        Sg.sphere 12 areaSelectionColor m.radius
-          |> Sg.trafo (m.location |> AVal.map (fun x -> Trafo3d.Translation x))
+        m.visible 
+          |> AVal.map (fun v -> if v then 
+                                  Sg.sphere 12 areaSelectionColor m.radius
+                                    |> Sg.trafo (m.location |> AVal.map (fun x -> Trafo3d.Translation x))
+                                else Sg.empty) |> Sg.dynamic
 
 
     let sgAllAreas (areas : amap<System.Guid, AdaptiveAreaSelection>) =

@@ -530,8 +530,8 @@ module ComparisonApp =
                                                                 "large circle outline icon"
                                                                 (SelectArea (Some key))
                         let visibleIcon = Html.SemUi.iconToggle area.visible 
-                                                               "large hide icon" 
                                                                "large unhide icon" 
+                                                               "large hide icon" 
                                                                (AreaSelectionAction.ToggleVisible)
                                               |> UI.map (fun x -> AreaSelectionMessage (area.id, x))
                         let deleteButton =

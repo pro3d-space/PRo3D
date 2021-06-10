@@ -119,7 +119,7 @@ module AreaComparison =
     module Instancing = 
       //let cylinder = IndexedGeometryPrimitives.Cylinder.solidCylinder V3d.OOO V3d.OOI 1.0 1.0 1.0 16 C4b.White
       let sphere = Sphere3d.FromCenterAndRadius (V3d(0.0), 1.0)
-      let indexedSphere = IndexedGeometryPrimitives.Sphere.solidSubdivisionSphere sphere 12 C4b.White
+      let indexedSphere = IndexedGeometryPrimitives.Sphere.solidSubdivisionSphere sphere 6 C4b.White
       let normals = indexedSphere.IndexedAttributes.Item(Aardvark.Rendering.DefaultSemantic.Normals) |> AVal.constant
 
       let distToColor (dist : float) (maxDist : float) =
@@ -155,17 +155,16 @@ module AreaComparison =
         instancedAttributes, lines
 
     let sgDifference (area : AdaptiveAreaSelection) =
-      area.statistics 
-        |> AVal.map (fun stats -> 
-                        match stats with
-                        | AdaptiveSome stats ->
-                            let attributes, lines = Instancing.statisticsToGeometry stats
-                            Instancing.indexedSphere
-                                |> Sg.ofIndexedGeometry
-                                |> Sg.instanced' attributes
-                                |> Sg.andAlso (Sg.lines (C4b.Grey |> AVal.constant) lines)
-                        | AdaptiveNone -> Sg.empty
-      )
+        AVal.map2 (fun stats visible -> 
+                          match stats, visible with
+                          | AdaptiveSome stats, true ->
+                              let attributes, lines = Instancing.statisticsToGeometry stats
+                              Instancing.indexedSphere
+                                  |> Sg.ofIndexedGeometry
+                                  |> Sg.instanced' attributes
+                                  |> Sg.andAlso (Sg.lines (C4b.Grey |> AVal.constant) lines)
+                          | _,_ -> Sg.empty
+        ) area.statistics area.visible
 
     let sgAllDifferences (areas : amap<System.Guid, AdaptiveAreaSelection>) =
         areas |> AMap.toASet
