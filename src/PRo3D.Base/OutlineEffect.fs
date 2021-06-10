@@ -164,14 +164,14 @@ module OutlineEffect =
         
         // TODO ...Points-Outline is broken! (?not stable with trafo / screenSpaceScaling)
 
-        //let sg = Sg.drawSpheres points pointWidth color
-        let sg = Sg.drawSpheresFast view points pointWidth color
+        //let sg = Sg.drawSpheres points outlineWidth (AVal.constant C4b.Red)
+        let sg = Sg.drawSpheresFast view points outlineWidth (AVal.constant C4b.Red)
         //let sgo = Sg.drawSpheres points outlineWidth (AVal.constant C4b.Red)   // using this instead -> visible broken visualization when point is on the edge of the view-frustrum
 
         let mask = 
             sg
             |> Sg.stencilMode (AVal.constant (write outlineGroup))
-            |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Stencil])
+            |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Stencil;DefaultSemantic.Colors])
             |> Sg.pass pass
             |> Sg.effect [screenSpaceStablePoints]
             

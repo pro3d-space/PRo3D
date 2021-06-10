@@ -718,33 +718,47 @@ module Sg =
 
         type UniformScope with
             member x.Size : float = x?Size
-    
-        let screenSpaceScale (v : Vertex) =
-            vertex {        
-                let loc     = uniform.CameraLocation       
-                let hvp    = float uniform.ViewportSize.X
 
-                let dist = abs v.pos.Z    
+
+        type InstanceVertex = { 
+               [<Position>]            pos   : V4d 
+               [<InstanceTrafo>]       mv : M44d
+           }
+    
+        let screenSpaceScale (v : InstanceVertex) =
+            vertex {   
+                let vp = v.mv * v.pos
+
+                let dist = abs vp.Z   
+                let hvp    = float uniform.ViewportSize.X
                 let scale = dist * uniform.Size / hvp 
 
-                return 
-                    { v with
-                        pos = V4d(v.pos.X * scale, v.pos.Y * scale, v.pos.Z * scale, v.pos.W)
-                    }
+                let vps = v.mv * V4d(v.pos.X * scale, v.pos.Y * scale, v.pos.Z * scale, 1.0)
+
+                return { v with pos = uniform.ProjTrafo * vps }
+                //let loc     = uniform.CameraLocation       
+
+                //let dist = abs v.pos.Z    
+                //let scale = dist * uniform.Size / hvp 
+
+                //return 
+                //    { v with
+                //        pos = V4d(v.pos.X * scale, v.pos.Y * scale, v.pos.Z * scale, v.pos.W)
+                //    }
             }
 
     
     let dotInstanced = 
         Effect.compose [
-            //toEffect ScreenSpaceScale.screenSpaceScale
-            toEffect DefaultSurfaces.stableTrafo
+            //toEffect DefaultSurfaces.instanceTrafo
+            toEffect ScreenSpaceScale.screenSpaceScale
             toEffect DefaultSurfaces.sgColor      
         ]
 
     let drawSpheresFast (view : aval<M44d>) (points : aval<V3d[]>) (size : aval<float>) (color : aval<C4b>) = 
         let mvs = 
             (view, points) ||> AVal.map2 (fun view points ->
-                let mvs = points |> Array.map (fun p -> (view * M44d.Translation(p)) |> M44f)
+                let mvs = points |> Array.map (fun p -> view * M44d.Translation(p) |> M44f)
                 mvs
             )
         let geometry = IndexedGeometryPrimitives.solidSubdivisionSphere Sphere3d.Unit 2 C4b.White
