@@ -91,11 +91,20 @@ module AreaSelection =
         //(C4b (C3b.VRVisGreen, ) |> AVal.constant)
 
     let sgSphere (m : AdaptiveAreaSelection) =  
-        m.visible 
-          |> AVal.map (fun v -> if v then 
-                                  Sg.sphere 12 areaSelectionColor m.radius
-                                    |> Sg.trafo (m.location |> AVal.map (fun x -> Trafo3d.Translation x))
-                                else Sg.empty) |> Sg.dynamic
+        let createSg visible (stats : AdaptiveOptionCase<'a,'b,'b>) =
+            if visible && (AdaptiveOption.toOption stats).IsNone then 
+              Sg.sphere 12 areaSelectionColor m.radius
+                |> Sg.trafo (m.location |> AVal.map (fun x -> Trafo3d.Translation x))
+            else Sg.empty
+
+        (AVal.map2 createSg m.visible m.statistics)
+            |> Sg.dynamic
+
+        //m.visible 
+        //  |> AVal.map (fun v -> if v then 
+        //                          Sg.sphere 12 areaSelectionColor m.radius
+        //                            |> Sg.trafo (m.location |> AVal.map (fun x -> Trafo3d.Translation x))
+        //                        else Sg.empty) |> Sg.dynamic
 
 
     let sgAllAreas (areas : amap<System.Guid, AdaptiveAreaSelection>) =

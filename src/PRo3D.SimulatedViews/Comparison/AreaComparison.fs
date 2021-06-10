@@ -1,6 +1,7 @@
 ﻿namespace PRo3D.Comparison
 
 open System
+open Aardvark.UI.Operators
 open Adaptify.FSharp.Core
 open Aardvark.Base
 open Aardvark.Rendering
@@ -124,7 +125,7 @@ module AreaComparison =
 
       let distToColor (dist : float) (maxDist : float) =
         let r = clamp 0.0 1.0 (dist / maxDist)
-        C4b(r,1.0 - r,0.0 , 1.0)
+        C4b(r,1.0 - r,0.1 , 1.0)
 
       let statisticsToGeometry (stats : AdaptiveVertexStatistics) =
         let colors = 
@@ -153,6 +154,38 @@ module AreaComparison =
                 "ModelTrafo", (typeof<Trafo3d>, trafos) 
             ]
         instancedAttributes, lines
+
+
+
+    let createColorLegend (area : AdaptiveAreaSelection) =
+        let attributes =
+            [        
+                "display"               => "block"; 
+                "width"                 => "55px"; 
+                "height"                => "75%"; 
+                "preserveAspectRatio"   => "xMidYMid meet"; 
+                "viewBox"               => "0 0 5% 100%" 
+                "style"                 => "position:absolute; left: 0%; top: 25%"
+                "pointer-events"        => "None"
+            ] |> AttributeMap.ofList
+
+        let create (colorLegend : AdaptiveFalseColorsModel) = 
+            Incremental.Svg.svg attributes 
+                                (PRo3D.FalseColorLegendApp.Draw.createFalseColorLegendBasics 
+                                  "ScalarLegend" colorLegend)
+        
+        let legend = 
+            AVal.map (fun stats -> 
+                              match stats with
+                              | AdaptiveSome (stats : AdaptiveVertexStatistics) -> 
+                                  create stats.colorLegend
+                              | _ -> 
+                                  div [] []
+            ) area.statistics
+        Incremental.div ([] |> AttributeMap.ofList) (AList.ofAValSingle legend)
+        
+
+
 
     let sgDifference (area : AdaptiveAreaSelection) =
         AVal.map2 (fun stats visible -> 
@@ -255,7 +288,17 @@ module AreaComparison =
                 distances |> List.map snd
 
             let maxDistance = distances |> List.max
-
+            let minDistance = distances |> List.min
+            let floatRange = (maxDistance - minDistance)
+            let legendRange = Range1d.FromMinAndSize (minDistance, floatRange)
+            let fromColor = C4b(0.0, 1.0, 0.1)
+            let toColor   = C4b(1.0, 0.0, 0.1)
+            let legend = {FalseColorsModel.initDefinedScalarsLegend 
+                            legendRange with useFalseColors = true}
+            let legend = {legend with interval = {legend.interval with value = (floatRange * 0.1)}
+                                      lowerColor      = {legend.lowerColor with c = fromColor}
+                                      upperColor      = {legend.upperColor with c = toColor}}
+                                             
             let statistics =
                 match distances with
                 | [] -> None
@@ -263,9 +306,10 @@ module AreaComparison =
                     {
                         avgDistance = distances |> List.average
                         maxDistance = maxDistance
-                        minDistance = distances |> List.min
+                        minDistance = minDistance
                         distances   = distances
                         diffPoints  = points
+                        colorLegend = legend
                     } |> Some
 
             {area with statistics           = statistics}

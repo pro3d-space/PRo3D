@@ -87,6 +87,7 @@ type VertexStatistics = {
     minDistance : float
     diffPoints : list<V3d * V3d>
     distances  : list<float>
+    colorLegend : PRo3D.Base.FalseColorsModel
 }
 
 

@@ -391,6 +391,23 @@ module ComparisonApp =
                                )
         sg |> Sg.dynamic
 
+    let viewLegend (m : AdaptiveComparisonApp) =
+        let legend = 
+            AVal.map (fun s -> 
+                        match s with
+                        | Some s -> 
+                            let a = AMap.tryFind s m.areas
+                            let legend = 
+                                a |> AVal.map (fun a -> 
+                                                  match a with
+                                                  | Some a -> 
+                                                    AreaComparison.createColorLegend a
+                                                  | None -> div[][])
+                            Incremental.div ([] |> AttributeMap.ofList) (AList.ofAValSingle legend)
+                        | None -> div[][]) m.selectedArea
+        Incremental.div ([] |> AttributeMap.ofList) (AList.ofAValSingle legend)
+        
+
     let view (m : AdaptiveComparisonApp) 
              (surfaces : AdaptiveSurfaceModel) =
         let measurementGui (name         : option<string>) 
