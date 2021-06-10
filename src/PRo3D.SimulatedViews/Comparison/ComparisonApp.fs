@@ -534,13 +534,19 @@ module ComparisonApp =
                                                                "large hide icon" 
                                                                (AreaSelectionAction.ToggleVisible)
                                               |> UI.map (fun x -> AreaSelectionMessage (area.id, x))
+                        let resolutionIcon = Html.SemUi.iconToggle area.highResolution 
+                                                               "large arrow up icon" 
+                                                               "large arrow down icon" 
+                                                               (AreaSelectionAction.ToggleResolution)
+                                              |> UI.map (fun x -> AreaSelectionMessage (area.id, x))
                         let deleteButton =
                                       i [clazz "large remove icon red";
                                          attribute "data-content" "Remove Area"; 
                                          onMouseClick (fun _ -> RemoveArea area.id) ] []  
                                                          
 
-                        yield (Html.row label [selectIcon;visibleIcon;deleteButton])
+                        yield (Html.row label [selectIcon;visibleIcon;
+                                               resolutionIcon;deleteButton])
 
                 
                 }

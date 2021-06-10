@@ -96,6 +96,7 @@ type AreaSelectionAction =
   | SetRadius of float
   | SetLocation of V3d
   | ToggleVisible
+  | ToggleResolution
   | UpdateStatistics
   | MakeBigger
   | MakeSmaller
@@ -108,6 +109,7 @@ type AreaSelection = {
     label      : string
     radius     : float
     location   : V3d
+    highResolution : bool
     visible    : bool
     rotation   : Trafo3d
     verticesSurf1 : IndexList<V3d>

@@ -237,12 +237,19 @@ module AreaComparison =
                     None
 
             let distances =
-                smallerList 
-                  |> List.map calcDistance
-                  |> List.zip [0..(smallerList.Length - 1)]
-                  |> List.filter (fun (i, x) -> x.IsSome)
-                  |> List.map (fun (i,x) -> (i, x.Value))
-
+                match area.highResolution with
+                | false ->
+                    smallerList 
+                      |> List.map calcDistance
+                      |> List.zip [0..(smallerList.Length - 1)]
+                      |> List.filter (fun (i, x) -> x.IsSome)
+                      |> List.map (fun (i,x) -> (i, x.Value))
+                | true -> 
+                    biggerList 
+                      |> List.map calcDistance
+                      |> List.zip [0..(biggerList.Length - 1)]
+                      |> List.filter (fun (i, x) -> x.IsSome)
+                      |> List.map (fun (i,x) -> (i, x.Value))
 
             let distances =
                 distances |> List.map snd

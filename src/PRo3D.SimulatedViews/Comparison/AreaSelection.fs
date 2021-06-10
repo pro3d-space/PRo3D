@@ -33,6 +33,7 @@ module AreaSelection =
             location    = V3d.OOO
             rotation    = Trafo3d.Identity
             visible     = true
+            highResolution = false
             verticesSurf1 = IndexList.empty
             verticesSurf2 = IndexList.empty
             statistics  = None
@@ -70,6 +71,8 @@ module AreaSelection =
         | AreaSelectionAction.SetLocation location -> m
         | AreaSelectionAction.ToggleVisible ->
             {m with visible = not m.visible}
+        | AreaSelectionAction.ToggleResolution ->
+            {m with highResolution = not m.highResolution}
         | AreaSelectionAction.UpdateStatistics -> 
             m
         | AreaSelectionAction.Nop -> m
