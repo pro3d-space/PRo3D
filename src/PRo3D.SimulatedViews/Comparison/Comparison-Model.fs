@@ -88,7 +88,13 @@ type VertexStatistics = {
     diffPoints : list<V3d * V3d>
     distances  : list<float>
     colorLegend : PRo3D.Base.FalseColorsModel
-}
+} with
+  static member ToJson (x:VertexStatistics) =
+    json {
+        do! Json.write "minDistance" x.minDistance
+        do! Json.write "avgDistance" x.avgDistance
+        do! Json.write "maxDistance" x.maxDistance
+    }
 
 
 
@@ -116,7 +122,17 @@ type AreaSelection = {
     verticesSurf1 : IndexList<V3d>
     verticesSurf2 : IndexList<V3d>
     statistics : option<VertexStatistics>
-}
+} with
+  static member ToJson (x:AreaSelection) =
+    json {
+        do! Json.write "label"  x.label
+        do! Json.write "radius" x.radius
+        do! Json.write "location" (x.location |> string)
+        do! Json.write "highResolution" x.highResolution
+        do! Json.write "visible" x.visible
+        if x.statistics.IsSome then 
+            do! Json.write "statistics"  x.statistics
+    }
 
 type ComparisonAppState =
     | Idle
@@ -174,5 +190,8 @@ type ComparisonApp = {
             do! Json.write "originMode"         (x.originMode.ToString ())
             do! Json.write "surfaceMeasurements" x.surfaceMeasurements
             do! Json.write "annotationMeasurements" x.annotationMeasurements
+            if HashMap.count x.areas > 0 then
+                let areas = (x.areas |> HashMap.values) |> List.ofSeq
+                do! Json.write "areas" areas
         }
 
