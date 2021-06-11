@@ -580,7 +580,6 @@ module ScaleBarsApp =
                     |> Sg.onOff scaleBar.textVisible
 
                 let pickFunc = Sg.pickEventsHelper scaleBar.guid (AVal.constant selected) scaleBar.thickness.value trafo
-
                
             
                 // do this for all lineparts
@@ -608,7 +607,7 @@ module ScaleBarsApp =
                             |> AList.map( fun seg -> getSgSegmentCylinderMask seg scaleBar.thickness.value ) 
                             |> AList.toASet
                             |> Sg.set
-                        OutlineEffect.createForSg 1 RenderPass.main C4f.VRVisGreen cylinder
+                        OutlineEffect.createForSg 2 RenderPass.main C4f.VRVisGreen cylinder
                     else Sg.empty
                 
                     
