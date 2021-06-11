@@ -60,7 +60,7 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "3.7.0-prerelease-HERA-2"
+let viewerVersion       = "3.7.0 - Snapshots and Comparison"
 let catchDomainErrors   = false
 
 open System.IO

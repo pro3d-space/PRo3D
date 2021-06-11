@@ -294,7 +294,8 @@ module ComparisonApp =
             
             {m with areas = areas
                     selectedArea = Some area.id
-                    isEditingArea = true}, surfaceModel
+                    isEditingArea = true
+                    nrOfCreatedAreas = m.nrOfCreatedAreas + 1}, surfaceModel
         | UpdateSelectedArea msg ->
             match m.selectedArea with
             | Some guid ->
@@ -556,9 +557,11 @@ module ComparisonApp =
                                                                "large arrow down icon" 
                                                                (AreaSelectionAction.ToggleResolution)
                                               |> UI.map (fun x -> AreaSelectionMessage (area.id, x))
+                        //let infoIcon = i [clazz "large info icon "] [] 
+                        //                  |> UI.wrapToolTip DataPosition.Top "Select | Visibility | Resolution | Info | Delete"
                         let deleteButton =
                                       i [clazz "large remove icon red";
-                                         attribute "data-content" "Remove Area"; 
+                                         attribute "data-content" "Delete"; 
                                          onMouseClick (fun _ -> RemoveArea area.id) ] []  
                                                          
 
