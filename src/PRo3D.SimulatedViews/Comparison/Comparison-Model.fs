@@ -85,8 +85,11 @@ type VertexStatistics = {
     avgDistance : float
     maxDistance : float
     minDistance : float
-    diffPoints : list<V3d * V3d>
-    distances  : list<float>
+    diffPoints1 : V3d[]
+    diffPoints2 : V3d[]
+    trafo1      : Trafo3d
+    trafo2      : Trafo3d
+    distances   : list<float>
     colorLegend : PRo3D.Base.FalseColorsModel
 } with
   static member ToJson (x:VertexStatistics) =
@@ -118,7 +121,7 @@ type AreaSelection = {
     location   : V3d
     highResolution : bool
     visible    : bool
-    rotation   : Trafo3d
+    surfaceTrafo   : Trafo3d
     verticesSurf1 : IndexList<V3d>
     verticesSurf2 : IndexList<V3d>
     statistics : option<VertexStatistics>
@@ -134,14 +137,20 @@ type AreaSelection = {
             do! Json.write "statistics"  x.statistics
     }
 
+
 type ComparisonAppState =
     | Idle
     | CalculatingStatistics
+
+type SurfaceGeometryType =
+    | Round = 0
+    | Flat = 1
 
 type ComparisonAction =
   | SetState of ComparisonAppState
   | SelectSurface1 of string
   | SelectSurface2 of string
+  | UpdateDefaultAreaSize of Numeric.Action
   | UpdateAllMeasurements
   | UpdateCoordinateSystemMeasurements
   | ASyncUpdateCoordinateSystemMeasurements
@@ -153,6 +162,7 @@ type ComparisonAction =
   | ToggleVisible
   | AddBookmarkReference of System.Guid
   | SetOriginMode of OriginMode
+  | SetGeometryType of SurfaceGeometryType
   | AddSelectionArea of V3d
   | UpdateSelectedArea of AreaSelectionAction
   | AreaSelectionMessage of System.Guid * AreaSelectionAction
@@ -177,6 +187,8 @@ type ComparisonApp = {
     surface2                     : option<string>
     surfaceMeasurements          : SurfaceComparison
     annotationMeasurements       : list<AnnotationComparison>
+    surfaceGeometryType          : SurfaceGeometryType
+    initialAreaSize              : NumericInput
     selectedArea                 : option<(System.Guid)>
     isEditingArea                : bool
     areas                        : HashMap<System.Guid, AreaSelection>

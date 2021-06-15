@@ -1471,8 +1471,8 @@ module ViewerApp =
                                           |> HashMap.map (fun id x -> Leaf.toBookmark x))
                                       msg              
             {m with comparisonApp = comparisonApp
-                    scene = {m.scene with referenceSystem = 
-                                            {m.scene.referenceSystem with planet = Planet.None}
+                    scene = {m.scene with //referenceSystem = 
+                                          //  {m.scene.referenceSystem with planet = Planet.None}
                                           surfacesModel = surfacedModel
                             }
             }               

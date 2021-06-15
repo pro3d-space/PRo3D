@@ -76,6 +76,14 @@ module ComparisonApp =
               comparedMeasurements = None
           }
         annotationMeasurements = []     
+        surfaceGeometryType = SurfaceGeometryType.Flat
+        initialAreaSize = {
+                              value = 0.1
+                              min   = 0.01
+                              max   = 1000.0 
+                              step  = 0.01
+                              format = "{0:0.00}"
+                          }
         nrOfCreatedAreas = 0
         selectedArea = None
         isEditingArea = false
@@ -119,7 +127,9 @@ module ComparisonApp =
             | Some s1, Some s2 ->
                 let areas =   
                   m.areas
-                    |> HashMap.map (fun g x -> updateAreaStatistic surfaceModel refSystem x s1 s2)
+                    |> HashMap.map (fun g x -> updateAreaStatistic surfaceModel refSystem
+                                                                   m.surfaceGeometryType
+                                                                   x s1 s2)
                     |> HashMap.filter (fun g x -> x.IsSome)
                     |> HashMap.map (fun g x -> x.Value)
                 areas
@@ -285,10 +295,16 @@ module ComparisonApp =
             m, surfaceModel
         | AddBookmarkReference bookmarkId ->
             m, surfaceModel
+        | SetGeometryType typ ->
+            {m with surfaceGeometryType = typ}, surfaceModel
+        | UpdateDefaultAreaSize msg ->
+           let areaSize = Numeric.update m.initialAreaSize msg
+           {m with initialAreaSize = areaSize}, surfaceModel
         | AddSelectionArea location ->
             let areaName = sprintf "Area%i" (m.nrOfCreatedAreas + 1)
             let area = {AreaSelection.init (System.Guid.NewGuid ()) areaName
-                          with location = location}
+                          with location = location
+                               radius     = m.initialAreaSize.value}
             let areas =
                 HashMap.add area.id area m.areas
             
@@ -358,17 +374,17 @@ module ComparisonApp =
                 )
         sg
 
-    let areaStatisticsSg (m : AdaptiveComparisonApp) =   
-        let sg = AVal.bind (fun s -> 
-                            match s with
-                            | Some s -> 
-                                let a = AMap.tryFind s m.areas
-                                a |> AVal.map (fun a -> 
-                                                  match a with
-                                                  | Some a -> AreaSelection.sgPoints a
-                                                  | None -> Sg.empty)
-                            | None -> (Sg.empty |> AVal.constant)) m.selectedArea
-        sg |> Sg.dynamic
+    //let areaStatisticsSg (m : AdaptiveComparisonApp) =   
+    //    let sg = AVal.bind (fun s -> 
+    //                        match s with
+    //                        | Some s -> 
+    //                            let a = AMap.tryFind s m.areas
+    //                            a |> AVal.map (fun a -> 
+    //                                              match a with
+    //                                              | Some a -> AreaSelection.sgPoints a
+    //                                              | None -> Sg.empty)
+    //                        | None -> (Sg.empty |> AVal.constant)) m.selectedArea
+    //    sg |> Sg.dynamic
 
     let measurementsSg (surface     : aval<AdaptiveSurface>)
                        (size        : aval<float>)
@@ -597,10 +613,24 @@ module ComparisonApp =
 
 
             let header = sprintf "Area Comparison"
-            let content = Incremental.div  ([] |> AttributeMap.ofList) 
+            let areaSize = 
+                Html.table [
+                    Html.row "Default Area Radius " 
+                             [Numeric.view' [InputBox] m.initialAreaSize 
+                                |> UI.map UpdateDefaultAreaSize]
+                    Html.row "Surface Type" 
+                             [Html.SemUi.dropDown m.surfaceGeometryType
+                                                  SetGeometryType]
+                ]
+            
+            
+                        
+            let selectedAreaView = Incremental.div  ([] |> AttributeMap.ofList) 
                                            selectedAreaView
             let accordion =
-                GuiEx.accordionWithOnClick header "calculator" true [areas;content] UpdateAreaMeasurements
+                GuiEx.accordionWithOnClick header "calculator" true 
+                                           [areaSize;areas;selectedAreaView] 
+                                           UpdateAreaMeasurements
             accordion
 
         let statsGui =

@@ -22,16 +22,16 @@ module AreaSelection =
     let areaSelectionColor =
         C4b (150uy,255uy,150uy,100uy) 
           |> AVal.constant 
-    let pointSize = 7.0
+    //let pointSize = 7.0
     let areaSizeChangeFactor = 0.1
 
     let init guid label : AreaSelection = 
         {
             id          = guid
             label       = label
-            radius      = 10.0
+            radius      = 1.0
             location    = V3d.OOO
-            rotation    = Trafo3d.Identity
+            surfaceTrafo    = Trafo3d.Identity
             visible     = true
             highResolution = false
             verticesSurf1 = IndexList.empty
@@ -43,6 +43,7 @@ module AreaSelection =
 
     let updateAreaStatistic  (surfaceModel : SurfaceModel) 
                               (refSystem    : ReferenceSystem) 
+                              (surfaceGeometry : SurfaceGeometryType)
                               (area         : AreaSelection)
                               (surfaceName1  : string) 
                               (surfaceName2  : string) =
@@ -58,6 +59,7 @@ module AreaSelection =
             Some (AreaComparison.calculateStatistics surface1 sgSurface1
                                                      surface2 sgSurface2
                                                      surfaceModel
+                                                     surfaceGeometry
                                                      refSystem area )
         | _,_ -> None
 
@@ -77,16 +79,17 @@ module AreaSelection =
             m
         | AreaSelectionAction.Nop -> m
 
-    let sgPoints (m : AdaptiveAreaSelection) = 
-        Sg.drawPointList m.verticesSurf1 
-                         (C4b.Red |> AVal.constant) 
-                         (pointSize |> AVal.constant) 
-                         (0.0 |> AVal.constant)
-            |> Sg.andAlso 
-                (Sg.drawPointList m.verticesSurf2
-                (C4b.Blue |> AVal.constant) 
-                (pointSize |> AVal.constant) 
-                (0.0 |> AVal.constant))
+    //let sgPoints (m : AdaptiveAreaSelection) = 
+    //    let pointSize = m.radius |> AVal.map (fun r -> r * 0.1)
+    //    Sg.drawPointList m.verticesSurf1 
+    //                     (C4b.Red |> AVal.constant) 
+    //                     pointSize
+    //                     (0.0 |> AVal.constant)
+    //        |> Sg.andAlso 
+    //            (Sg.drawPointList m.verticesSurf2
+    //            (C4b.Blue |> AVal.constant) 
+    //            pointSize
+    //            (0.0 |> AVal.constant))
 
         //(C4b (C3b.VRVisGreen, ) |> AVal.constant)
 
@@ -119,16 +122,16 @@ module AreaSelection =
                 DefaultSurfaces.vertexColor |> toEffect
             ] 
 
-    let sgAllPoints (areas : amap<System.Guid, AdaptiveAreaSelection>) =
-        areas
-          |> AMap.toASet
-          |> ASet.map (fun (g,x) -> sgPoints x)
-          |> Sg.set
-          |> Sg.noEvents
-          |> Sg.effect [     
-              Aardvark.UI.Trafos.Shader.stableTrafo |> toEffect 
-              DefaultSurfaces.vertexColor |> toEffect
-          ] 
+    //let sgAllPoints (areas : amap<System.Guid, AdaptiveAreaSelection>) =
+    //    areas
+    //      |> AMap.toASet
+    //      |> ASet.map (fun (g,x) -> sgPoints x)
+    //      |> Sg.set
+    //      |> Sg.noEvents
+    //      |> Sg.effect [     
+    //          Aardvark.UI.Trafos.Shader.stableTrafo |> toEffect 
+    //          DefaultSurfaces.vertexColor |> toEffect
+    //      ] 
 
 
 

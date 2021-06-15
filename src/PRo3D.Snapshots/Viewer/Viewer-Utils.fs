@@ -330,7 +330,7 @@ module ViewerUtils =
                     
         let samplerDescription = getTextureSamplerDescription scene.config.filterTexture 
                                     
-                       
+        
         //let structuralOnOff (visible : aval<bool>) (sg : ISg<_>) : ISg<_> = 
         //    visible 
         //    |> AVal.map (fun visible -> 

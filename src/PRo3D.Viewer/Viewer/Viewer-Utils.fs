@@ -438,7 +438,9 @@ module ViewerUtils =
                             sf.globalBB 
                             refSystem 
                             m.footPrint 
-                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting m.filterTexture
+                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) 
+                            usehighlighting
+                            m.filterTexture
                             m.comparisonApp
                         )
                     |> AMap.toASet 
