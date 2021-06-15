@@ -76,7 +76,7 @@ module ComparisonApp =
               comparedMeasurements = None
           }
         annotationMeasurements = []     
-        surfaceGeometryType = SurfaceGeometryType.Flat
+        surfaceGeometryType = DistanceMode.SurfaceNormal
         initialAreaSize = {
                               value = 0.1
                               min   = 0.01

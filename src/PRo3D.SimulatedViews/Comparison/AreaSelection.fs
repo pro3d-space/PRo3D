@@ -44,7 +44,7 @@ module AreaSelection =
     let updateAreaStatistic  (surfaceModel : SurfaceModel) 
                               (refSystem    : ReferenceSystem) 
                               (pointSizeFactor : float)
-                              (surfaceGeometry : SurfaceGeometryType)
+                              (surfaceGeometry : DistanceMode)
                               (area         : AreaSelection)
                               (surfaceName1  : string) 
                               (surfaceName2  : string) =

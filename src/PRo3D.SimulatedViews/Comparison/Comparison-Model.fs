@@ -142,9 +142,9 @@ type ComparisonAppState =
     | Idle
     | CalculatingStatistics
 
-type SurfaceGeometryType =
-    | Round = 0
-    | Flat = 1
+type DistanceMode =
+    | Spherical = 0
+    | SurfaceNormal = 1
 
 type ComparisonAction =
   | SetState of ComparisonAppState
@@ -162,7 +162,7 @@ type ComparisonAction =
   | ToggleVisible
   | AddBookmarkReference of System.Guid
   | SetOriginMode of OriginMode
-  | SetGeometryType of SurfaceGeometryType
+  | SetGeometryType of DistanceMode
   | AddSelectionArea of V3d
   | UpdateSelectedArea of AreaSelectionAction
   | UpdatePointSizeFactor of Numeric.Action
@@ -188,7 +188,7 @@ type ComparisonApp = {
     surface2                     : option<string>
     surfaceMeasurements          : SurfaceComparison
     annotationMeasurements       : list<AnnotationComparison>
-    surfaceGeometryType          : SurfaceGeometryType
+    surfaceGeometryType          : DistanceMode
     initialAreaSize              : NumericInput
     pointSizeFactor              : NumericInput
     selectedArea                 : option<(System.Guid)>

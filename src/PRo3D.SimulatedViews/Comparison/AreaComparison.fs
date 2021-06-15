@@ -223,7 +223,7 @@ module AreaComparison =
         
     let calculateStatistics (surface1 : Surface) (sgSurface1 : SgSurface) 
                             (surface2 : Surface) (sgSurface2 : SgSurface) 
-                            (surfaceModel : SurfaceModel) (geometryType : SurfaceGeometryType)
+                            (surfaceModel : SurfaceModel) (geometryType : DistanceMode)
                             (pointSizeFactor : float)
                             (referenceSystem : ReferenceSystem) (area : AreaSelection) =
         let area = 
@@ -291,13 +291,23 @@ module AreaComparison =
                 let hitInfo1Neg = sendRay rayNegDir surfaceFilter1
                 let hitInfo2Neg = sendRay rayNegDir surfaceFilter2
 
-                let hit1, ray1 =
-                    if hitInfo1Pos.IsSome then hitInfo1Pos, rayPosDir else
-                        if hitInfo1Neg.IsSome then hitInfo1Neg, rayNegDir else None, rayPosDir
+                let chooseHit hitInfoPos hitInfoNeg =
+               // let hit1, ray1 =
+                    match hitInfoPos, hitInfoNeg with
+                    | Some (v1, surf1), Some (v2, surf2) -> 
+                        if localPoint.Distance(rayPosDir.GetPointOnRay(v1))
+                            < localPoint.Distance(rayNegDir.GetPointOnRay(v2))
+                        then hitInfoPos, rayPosDir
+                        else hitInfoNeg, rayNegDir
+                    | Some h1, None -> hitInfoPos, rayPosDir
+                    | None, Some h2 -> hitInfoNeg, rayNegDir
+                    | None, None -> None, rayPosDir
 
-                let hit2, ray2 =
-                    if hitInfo2Pos.IsSome then hitInfo2Pos, rayPosDir else
-                      if hitInfo2Neg.IsSome then hitInfo2Neg, rayNegDir else None, rayPosDir
+                let hit1, ray1 = chooseHit hitInfo1Pos hitInfo1Neg
+
+                let hit2, ray2 = chooseHit hitInfo2Pos hitInfo2Neg
+                    //if hitInfo2Pos.IsSome then hitInfo2Pos, rayPosDir else
+                    //  if hitInfo2Neg.IsSome then hitInfo2Neg, rayNegDir else None, rayPosDir
 
     
                 match hit1, hit2 with
@@ -313,7 +323,7 @@ module AreaComparison =
 
             let calcDistance localPoint = 
                 match geometryType with
-                | SurfaceGeometryType.Round -> 
+                | DistanceMode.Spherical -> 
                     calcDistanceRound localPoint
                 | _ ->
                     calcDistanceFlat localPoint
