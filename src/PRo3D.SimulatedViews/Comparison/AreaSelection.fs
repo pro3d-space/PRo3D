@@ -43,6 +43,7 @@ module AreaSelection =
 
     let updateAreaStatistic  (surfaceModel : SurfaceModel) 
                               (refSystem    : ReferenceSystem) 
+                              (pointSizeFactor : float)
                               (surfaceGeometry : SurfaceGeometryType)
                               (area         : AreaSelection)
                               (surfaceName1  : string) 
@@ -60,6 +61,7 @@ module AreaSelection =
                                                      surface2 sgSurface2
                                                      surfaceModel
                                                      surfaceGeometry
+                                                     pointSizeFactor
                                                      refSystem area )
         | _,_ -> None
 

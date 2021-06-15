@@ -165,6 +165,7 @@ type ComparisonAction =
   | SetGeometryType of SurfaceGeometryType
   | AddSelectionArea of V3d
   | UpdateSelectedArea of AreaSelectionAction
+  | UpdatePointSizeFactor of Numeric.Action
   | AreaSelectionMessage of System.Guid * AreaSelectionAction
   | SelectArea of option<(System.Guid)>
   | DeselectArea
@@ -189,6 +190,7 @@ type ComparisonApp = {
     annotationMeasurements       : list<AnnotationComparison>
     surfaceGeometryType          : SurfaceGeometryType
     initialAreaSize              : NumericInput
+    pointSizeFactor              : NumericInput
     selectedArea                 : option<(System.Guid)>
     isEditingArea                : bool
     areas                        : HashMap<System.Guid, AreaSelection>

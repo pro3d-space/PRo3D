@@ -136,10 +136,6 @@ module AreaComparison =
                 let! maxDistance = stats.maxDistance
                 return (distances |> List.map (fun x -> distToColor x maxDistance))
             }
-        //let diffPoints1 = AVal.map2 (fun (t : Trafo3d) (p1 : V3d[]) -> t.Forward.TransformedPosArray p1) 
-        //                            stats.trafo1 stats.diffPoints1
-        //let diffPoints2 = AVal.map2 (fun (t : Trafo3d) (p2 : V3d[]) -> t.Forward.TransformedPosArray p2) 
-        //                            stats.trafo2 stats.diffPoints2
 
         let lines =
               AVal.map2 (fun p1 p2 -> (Array.zip p1 p2) 
@@ -228,6 +224,7 @@ module AreaComparison =
     let calculateStatistics (surface1 : Surface) (sgSurface1 : SgSurface) 
                             (surface2 : Surface) (sgSurface2 : SgSurface) 
                             (surfaceModel : SurfaceModel) (geometryType : SurfaceGeometryType)
+                            (pointSizeFactor : float)
                             (referenceSystem : ReferenceSystem) (area : AreaSelection) =
         let area = 
             {area with verticesSurf1 = calculateVertices surface1 sgSurface1 referenceSystem area}
@@ -364,7 +361,7 @@ module AreaComparison =
                                         
                 let trafo1 = SurfaceTransformations.fullTrafo' surface1 referenceSystem
                 let trafo2 = SurfaceTransformations.fullTrafo' surface2 referenceSystem
-                let scaleTrafo = Trafo3d.Scale (area.radius * 0.01)
+                let scaleTrafo = Trafo3d.Scale (area.radius * pointSizeFactor)
                 let trafo1 = scaleTrafo //* (surface1.preTransform * trafo1)
                 let trafo2 = scaleTrafo //* (surface2.preTransform * trafo2)
 

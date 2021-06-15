@@ -84,6 +84,13 @@ module ComparisonApp =
                               step  = 0.01
                               format = "{0:0.00}"
                           }
+        pointSizeFactor = {
+                                     value = 0.01
+                                     min   = 0.001
+                                     max   = 0.1 
+                                     step  = 0.001
+                                     format = "{0:0.000}"
+                            }
         nrOfCreatedAreas = 0
         selectedArea = None
         isEditingArea = false
@@ -128,6 +135,7 @@ module ComparisonApp =
                 let areas =   
                   m.areas
                     |> HashMap.map (fun g x -> updateAreaStatistic surfaceModel refSystem
+                                                                   m.pointSizeFactor.value
                                                                    m.surfaceGeometryType
                                                                    x s1 s2)
                     |> HashMap.filter (fun g x -> x.IsSome)
@@ -300,6 +308,9 @@ module ComparisonApp =
         | UpdateDefaultAreaSize msg ->
            let areaSize = Numeric.update m.initialAreaSize msg
            {m with initialAreaSize = areaSize}, surfaceModel
+        | UpdatePointSizeFactor msg ->
+           let factor = Numeric.update m.pointSizeFactor msg
+           {m with pointSizeFactor = factor}, surfaceModel
         | AddSelectionArea location ->
             let areaName = sprintf "Area%i" (m.nrOfCreatedAreas + 1)
             let area = {AreaSelection.init (System.Guid.NewGuid ()) areaName
@@ -618,6 +629,9 @@ module ComparisonApp =
                     Html.row "Default Area Radius " 
                              [Numeric.view' [InputBox] m.initialAreaSize 
                                 |> UI.map UpdateDefaultAreaSize]
+                    Html.row "Point Size Factor" 
+                             [Numeric.view' [InputBox] m.pointSizeFactor
+                                |> UI.map UpdatePointSizeFactor]
                     Html.row "Surface Type" 
                              [Html.SemUi.dropDown m.surfaceGeometryType
                                                   SetGeometryType]
