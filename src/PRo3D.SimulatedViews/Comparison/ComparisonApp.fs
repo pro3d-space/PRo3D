@@ -303,7 +303,7 @@ module ComparisonApp =
             m, surfaceModel
         | AddBookmarkReference bookmarkId ->
             m, surfaceModel
-        | SetGeometryType typ ->
+        | SetDistanceMode typ ->
             {m with surfaceGeometryType = typ}, surfaceModel
         | UpdateDefaultAreaSize msg ->
            let areaSize = Numeric.update m.initialAreaSize msg
@@ -632,9 +632,9 @@ module ComparisonApp =
                     Html.row "Point Size Factor" 
                              [Numeric.view' [InputBox] m.pointSizeFactor
                                 |> UI.map UpdatePointSizeFactor]
-                    Html.row "Surface Type" 
+                    Html.row "Distance Calculation Mode" 
                              [Html.SemUi.dropDown m.surfaceGeometryType
-                                                  SetGeometryType]
+                                                  SetDistanceMode]
                 ]
             
             

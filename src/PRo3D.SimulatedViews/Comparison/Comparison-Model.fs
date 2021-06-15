@@ -162,7 +162,7 @@ type ComparisonAction =
   | ToggleVisible
   | AddBookmarkReference of System.Guid
   | SetOriginMode of OriginMode
-  | SetGeometryType of DistanceMode
+  | SetDistanceMode of DistanceMode
   | AddSelectionArea of V3d
   | UpdateSelectedArea of AreaSelectionAction
   | UpdatePointSizeFactor of Numeric.Action
