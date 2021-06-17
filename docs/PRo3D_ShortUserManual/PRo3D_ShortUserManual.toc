@@ -39,5 +39,6 @@
 \contentsline {subsection}{\numberline {6.3}Examples}{33}{subsection.6.3}%
 \contentsline {section}{\numberline {7}Surface Comparison Extension}{38}{section.7}%
 \contentsline {subsection}{\numberline {7.1}Comparing Selected Areas}{38}{subsection.7.1}%
-\contentsline {subsection}{\numberline {7.2}Comparing Length Measurements}{42}{subsection.7.2}%
-\contentsline {section}{\numberline {8}PRo3D Keyboard Shortcuts}{43}{section.8}%
+\contentsline {subsection}{\numberline {7.2}Surface Measurements}{42}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Comparing Length Measurements}{43}{subsection.7.3}%
+\contentsline {section}{\numberline {8}PRo3D Keyboard Shortcuts}{44}{section.8}%

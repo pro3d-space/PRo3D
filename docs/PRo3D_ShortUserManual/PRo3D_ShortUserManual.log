@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.21 (MiKTeX 2.9.7380 64-bit) (preloaded format=pdflatex 2020.4.6)  17 JUN 2021 11:59
+This is pdfTeX, Version 3.14159265-2.6-1.40.21 (MiKTeX 2.9.7380 64-bit) (preloaded format=pdflatex 2020.4.6)  17 JUN 2021 13:09
 entering extended mode
 **./PRo3D_ShortUserManual.tex
 (PRo3D_ShortUserManual.tex
@@ -460,7 +460,7 @@ LaTeX Info: Redefining \nameref on input line 173.
 \@outlinefile=\write3
 \openout3 = `PRo3D_ShortUserManual.out'.
 
-<pics/CoverPic.png, id=175, 933.4875pt x 944.7797pt>
+<pics/CoverPic.png, id=179, 933.4875pt x 944.7797pt>
 File: pics/CoverPic.png Graphic file (type png)
 <use pics/CoverPic.png>
 Package pdftex.def Info: pics/CoverPic.png  used on input line 183.
@@ -475,7 +475,7 @@ LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <8> on input line 2.
 LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <6> on input line 2.
-<pics/logosSUM.png, id=225, 212.795pt x 39.14626pt>
+<pics/logosSUM.png, id=229, 212.795pt x 39.14626pt>
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 41.
@@ -505,7 +505,7 @@ Package pdftex.def Info: pics/logosSUM.png  used on input line 237.
 \openout2 = `Introduction.aux'.
 
  (Introduction.tex
-<pics/Features.png, id=238, 1304.7144pt x 339.669pt>
+<pics/Features.png, id=243, 1304.7144pt x 339.669pt>
 File: pics/Features.png Graphic file (type png)
 <use pics/Features.png>
 Package pdftex.def Info: pics/Features.png  used on input line 8.
@@ -531,12 +531,12 @@ Package pdftex.def Info: pics/logosSUM.png  used on input line 241.
 \openout2 = `Start.aux'.
 
  (Start.tex
-<pics/startAI.png, id=249, 952.0368pt x 593.0958pt>
+<pics/startAI.png, id=254, 952.0368pt x 593.0958pt>
 File: pics/startAI.png Graphic file (type png)
 <use pics/startAI.png>
 Package pdftex.def Info: pics/startAI.png  used on input line 10.
 (pdftex.def)             Requested size: 418.25542pt x 260.55571pt.
-<pics/AddSurface.png, id=255, 947.79094pt x 595.47469pt>
+<pics/AddSurface.png, id=260, 947.79094pt x 595.47469pt>
 File: pics/AddSurface.png Graphic file (type png)
 <use pics/AddSurface.png>
 Package pdftex.def Info: pics/AddSurface.png  used on input line 42.
@@ -545,7 +545,7 @@ Package pdftex.def Info: pics/AddSurface.png  used on input line 42.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-<pics/saveScene.png, id=259, 952.30782pt x 595.47469pt>
+<pics/saveScene.png, id=264, 952.30782pt x 595.47469pt>
 File: pics/saveScene.png Graphic file (type png)
 <use pics/saveScene.png>
 Package pdftex.def Info: pics/saveScene.png  used on input line 54.
@@ -561,7 +561,7 @@ Package pdftex.def Info: pics/logosSUM.png  used on input line 57.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-<pics/OpenScene.png, id=272, 949.29657pt x 593.21625pt>
+<pics/OpenScene.png, id=277, 949.29657pt x 593.21625pt>
 File: pics/OpenScene.png Graphic file (type png)
 <use pics/OpenScene.png>
 Package pdftex.def Info: pics/OpenScene.png  used on input line 71.
@@ -569,7 +569,7 @@ Package pdftex.def Info: pics/OpenScene.png  used on input line 71.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-<pics/NewSurfaceAI.png, id=273, 1431.9096pt x 718.8456pt>
+<pics/NewSurfaceAI.png, id=278, 1431.9096pt x 718.8456pt>
 File: pics/NewSurfaceAI.png Graphic file (type png)
 <use pics/NewSurfaceAI.png>
 Package pdftex.def Info: pics/NewSurfaceAI.png  used on input line 81.
@@ -596,12 +596,12 @@ Package pdftex.def Info: pics/logosSUM.png  used on input line 245.
 \openout2 = `ViewerActions.aux'.
 
  (ViewerActions.tex
-<pics/Interactions.png, id=289, 597.73312pt x 247.67531pt>
+<pics/Interactions.png, id=294, 597.73312pt x 247.67531pt>
 File: pics/Interactions.png Graphic file (type png)
 <use pics/Interactions.png>
 Package pdftex.def Info: pics/Interactions.png  used on input line 8.
 (pdftex.def)             Requested size: 418.25542pt x 173.31105pt.
-<pics/exploreCenterAI.png, id=292, 834.9594pt x 746.79pt>
+<pics/exploreCenterAI.png, id=297, 834.9594pt x 746.79pt>
 File: pics/exploreCenterAI.png Graphic file (type png)
 <use pics/exploreCenterAI.png>
 Package pdftex.def Info: pics/exploreCenterAI.png  used on input line 28.
@@ -618,7 +618,7 @@ Package pdftex.def Info: pics/logosSUM.png  used on input line 45.
 
 
  <./pics/Interactions.png>]
-<pics/CoordinateSystem.png, id=300, 663.22781pt x 593.96906pt>
+<pics/CoordinateSystem.png, id=305, 663.22781pt x 593.96906pt>
 File: pics/CoordinateSystem.png Graphic file (type png)
 <use pics/CoordinateSystem.png>
 Package pdftex.def Info: pics/CoordinateSystem.png  used on input line 50.
@@ -627,7 +627,7 @@ Package pdftex.def Info: pics/CoordinateSystem.png  used on input line 50.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-<pics/drawAnnotationsAI.png, id=304, 658.6206pt x 587.3142pt>
+<pics/drawAnnotationsAI.png, id=309, 658.6206pt x 587.3142pt>
 File: pics/drawAnnotationsAI.png Graphic file (type png)
 <use pics/drawAnnotationsAI.png>
 Package pdftex.def Info: pics/drawAnnotationsAI.png  used on input line 67.
@@ -652,7 +652,7 @@ File: pics/logosSUM.png Graphic file (type png)
 Package pdftex.def Info: pics/logosSUM.png  used on input line 86.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
  [12 <./pics/drawAnnotationsAI.png (PNG copy)>]
-<pics/projectionAI.png, id=330, 1024.7886pt x 315.0972pt>
+<pics/projectionAI.png, id=335, 1024.7886pt x 315.0972pt>
 File: pics/projectionAI.png Graphic file (type png)
 <use pics/projectionAI.png>
 Package pdftex.def Info: pics/projectionAI.png  used on input line 91.
@@ -670,12 +670,12 @@ Package pdftex.def Info: pics/logosSUM.png  used on input line 249.
 \openout2 = `ViewerFeatures.aux'.
 
  (ViewerFeatures.tex
-<pics/SurfacesAI.png, id=351, 1442.5092pt x 709.2096pt>
+<pics/SurfacesAI.png, id=356, 1442.5092pt x 709.2096pt>
 File: pics/SurfacesAI.png Graphic file (type png)
 <use pics/SurfacesAI.png>
 Package pdftex.def Info: pics/SurfacesAI.png  used on input line 8.
 (pdftex.def)             Requested size: 418.25542pt x 205.63304pt.
-<pics/SurfaceTranslation.png, id=355, 1438.6247pt x 503.63156pt>
+<pics/SurfaceTranslation.png, id=360, 1438.6247pt x 503.63156pt>
 File: pics/SurfaceTranslation.png Graphic file (type png)
 <use pics/SurfaceTranslation.png>
 Package pdftex.def Info: pics/SurfaceTranslation.png  used on input line 38.
@@ -716,7 +716,7 @@ Overfull \hbox (6.0pt too wide) in paragraph at lines 67--68
  [][][][][][] 
  []
 
-<pics/SurfaceColorCorrection.png, id=373, 1442.38875pt x 684.30656pt>
+<pics/SurfaceColorCorrection.png, id=378, 1442.38875pt x 684.30656pt>
 File: pics/SurfaceColorCorrection.png Graphic file (type png)
 <use pics/SurfaceColorCorrection.png>
 Package pdftex.def Info: pics/SurfaceColorCorrection.png  used on input line 72
@@ -727,7 +727,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 77--78
 
  []
 
-<pics/SurfaceColorLegend.png, id=375, 1440.88312pt x 719.68875pt>
+<pics/SurfaceColorLegend.png, id=380, 1440.88312pt x 719.68875pt>
 File: pics/SurfaceColorLegend.png Graphic file (type png)
 <use pics/SurfaceColorLegend.png>
 Package pdftex.def Info: pics/SurfaceColorLegend.png  used on input line 81.
@@ -740,7 +740,7 @@ File: pics/logosSUM.png Graphic file (type png)
 Package pdftex.def Info: pics/logosSUM.png  used on input line 97.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
 [17 <./pics/SurfaceColorCorrection.png>]
-<pics/AnnotationsAI.png, id=385, 1482.4986pt x 743.4174pt>
+<pics/AnnotationsAI.png, id=390, 1482.4986pt x 743.4174pt>
 File: pics/AnnotationsAI.png Graphic file (type png)
 <use pics/AnnotationsAI.png>
 Package pdftex.def Info: pics/AnnotationsAI.png  used on input line 103.
@@ -771,7 +771,7 @@ File: pics/logosSUM.png Graphic file (type png)
 Package pdftex.def Info: pics/logosSUM.png  used on input line 146.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
 [19]
-<pics/DnsAI.png, id=407, 1441.0638pt x 721.2546pt>
+<pics/DnsAI.png, id=412, 1441.0638pt x 721.2546pt>
 File: pics/DnsAI.png Graphic file (type png)
 <use pics/DnsAI.png>
 Package pdftex.def Info: pics/DnsAI.png  used on input line 151.
@@ -796,7 +796,7 @@ File: pics/logosSUM.png Graphic file (type png)
 Package pdftex.def Info: pics/logosSUM.png  used on input line 270.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
  [22]
-<pics/ViewPlanner1.png, id=430, 1425.1644pt x 744.8628pt>
+<pics/ViewPlanner1.png, id=435, 1425.1644pt x 744.8628pt>
 File: pics/ViewPlanner1.png Graphic file (type png)
 <use pics/ViewPlanner1.png>
 Package pdftex.def Info: pics/ViewPlanner1.png  used on input line 276.
@@ -807,7 +807,7 @@ LaTeX Font Info:    Trying to load font information for T1+pcr on input line 28
 (C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/psnfss\t1pcr.fd
 File: t1pcr.fd 2001/06/04 font definitions for T1/pcr.
 )
-<pics/ViewPlannerGuiAi.png, id=436, 1429.9824pt x 744.8628pt>
+<pics/ViewPlannerGuiAi.png, id=441, 1429.9824pt x 744.8628pt>
 File: pics/ViewPlannerGuiAi.png Graphic file (type png)
 <use pics/ViewPlannerGuiAi.png>
 Package pdftex.def Info: pics/ViewPlannerGuiAi.png  used on input line 295.
@@ -821,7 +821,7 @@ File: pics/logosSUM.png Graphic file (type png)
 Package pdftex.def Info: pics/logosSUM.png  used on input line 306.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
 [23 <./pics/ViewPlanner1.png>]
-<pics/InstrumentView.png, id=448, 1440.13031pt x 743.02594pt>
+<pics/InstrumentView.png, id=453, 1440.13031pt x 743.02594pt>
 File: pics/InstrumentView.png Graphic file (type png)
 <use pics/InstrumentView.png>
 Package pdftex.def Info: pics/InstrumentView.png  used on input line 313.
@@ -845,7 +845,7 @@ Package pdftex.def Info: pics/logosSUM.png  used on input line 253.
 
 
 (Minerva.tex
-<pics/MinervaAI.png, id=460, 1459.3722pt x 742.4538pt>
+<pics/MinervaAI.png, id=465, 1459.3722pt x 742.4538pt>
 File: pics/MinervaAI.png Graphic file (type png)
 <use pics/MinervaAI.png>
 Package pdftex.def Info: pics/MinervaAI.png  used on input line 8.
@@ -858,12 +858,12 @@ Package pdftex.def Info: pics/logosSUM.png  used on input line 40.
 
 
  <./pics/MinervaAI.png>]
-<pics/QueryApp.png, id=473, 1431.09656pt x 743.77875pt>
+<pics/QueryApp.png, id=478, 1431.09656pt x 743.77875pt>
 File: pics/QueryApp.png Graphic file (type png)
 <use pics/QueryApp.png>
 Package pdftex.def Info: pics/QueryApp.png  used on input line 48.
 (pdftex.def)             Requested size: 418.25542pt x 217.38133pt.
-<pics/ListingAI.png, id=474, 1429.0188pt x 743.8992pt>
+<pics/ListingAI.png, id=479, 1429.0188pt x 743.8992pt>
 File: pics/ListingAI.png Graphic file (type png)
 <use pics/ListingAI.png>
 Package pdftex.def Info: pics/ListingAI.png  used on input line 68.
@@ -877,7 +877,7 @@ File: pics/logosSUM.png Graphic file (type png)
 Package pdftex.def Info: pics/logosSUM.png  used on input line 75.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
 [27 <./pics/QueryApp.png>]
-<pics/MultiSelAI.png, id=483, 1275.8064pt x 468.3096pt>
+<pics/MultiSelAI.png, id=488, 1275.8064pt x 468.3096pt>
 File: pics/MultiSelAI.png Graphic file (type png)
 <use pics/MultiSelAI.png>
 Package pdftex.def Info: pics/MultiSelAI.png  used on input line 78.
@@ -887,12 +887,12 @@ File: pics/logosSUM.png Graphic file (type png)
 Package pdftex.def Info: pics/logosSUM.png  used on input line 88.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
  [28 <./pics/ListingAI.png (PNG copy)> <./pics/MultiSelAI.png>]
-<pics/PropertiesAI.png, id=493, 1429.0188pt x 743.8992pt>
+<pics/PropertiesAI.png, id=498, 1429.0188pt x 743.8992pt>
 File: pics/PropertiesAI.png Graphic file (type png)
 <use pics/PropertiesAI.png>
 Package pdftex.def Info: pics/PropertiesAI.png  used on input line 99.
 (pdftex.def)             Requested size: 418.25542pt x 217.723pt.
-<pics/PickMinervaFilter.png, id=496, 1428.83812pt x 740.7675pt>
+<pics/PickMinervaFilter.png, id=501, 1428.83812pt x 740.7675pt>
 File: pics/PickMinervaFilter.png Graphic file (type png)
 <use pics/PickMinervaFilter.png>
 Package pdftex.def Info: pics/PickMinervaFilter.png  used on input line 120.
@@ -901,7 +901,7 @@ Package pdftex.def Info: pics/PickMinervaFilter.png  used on input line 120.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-<pics/PickLinking1.png, id=497, 1431.84938pt x 741.52031pt>
+<pics/PickLinking1.png, id=502, 1431.84938pt x 741.52031pt>
 File: pics/PickLinking1.png Graphic file (type png)
 <use pics/PickLinking1.png>
 Package pdftex.def Info: pics/PickLinking1.png  used on input line 127.
@@ -1009,105 +1009,116 @@ Package pdftex.def Info: pics/logosSUM.png  used on input line 261.
 
 
 (SurfaceComparison.tex
-<pics/surfaceComparison.PNG, id=673, 420.82219pt x 338.76563pt>
+<pics/surfaceComparison.PNG, id=678, 418.56375pt x 254.45062pt>
 File: pics/surfaceComparison.PNG Graphic file (type png)
 <use pics/surfaceComparison.PNG>
 Package pdftex.def Info: pics/surfaceComparison.PNG  used on input line 11.
-(pdftex.def)             Requested size: 250.9558pt x 202.02551pt.
-<pics/surfaceComparisonAreaExpButton.PNG, id=676, 422.32782pt x 110.66344pt>
+(pdftex.def)             Requested size: 250.9558pt x 152.55894pt.
+<pics/surfaceComparisonAreaExpButton.PNG, id=681, 422.32782pt x 69.25874pt>
 File: pics/surfaceComparisonAreaExpButton.PNG Graphic file (type png)
 <use pics/surfaceComparisonAreaExpButton.PNG>
 Package pdftex.def Info: pics/surfaceComparisonAreaExpButton.PNG  used on input
- line 22.
-(pdftex.def)             Requested size: 250.9558pt x 65.76027pt.
+ line 20.
+(pdftex.def)             Requested size: 250.9558pt x 41.15608pt.
 LaTeX Font Info:    Font shape `T1/phv/b/it' in size <10> not available
-(Font)              Font shape `T1/phv/b/sl' tried instead on input line 23.
+(Font)              Font shape `T1/phv/b/sl' tried instead on input line 21.
 LaTeX Font Info:    Font shape `T1/phv/m/it' in size <10> not available
-(Font)              Font shape `T1/phv/m/sl' tried instead on input line 23.
-<pics/surfaceComparisonSelectArea.PNG, id=678, 376.40625pt x 29.35968pt>
+(Font)              Font shape `T1/phv/m/sl' tried instead on input line 21.
+<pics/surfaceComparisonSelectArea.PNG, id=683, 376.40625pt x 29.35968pt>
 File: pics/surfaceComparisonSelectArea.PNG Graphic file (type png)
 <use pics/surfaceComparisonSelectArea.PNG>
 Package pdftex.def Info: pics/surfaceComparisonSelectArea.PNG  used on input li
-ne 33.
+ne 31.
 (pdftex.def)             Requested size: 334.6056pt x 26.10089pt.
-
-
-LaTeX Warning: `h' float specifier changed to `ht'.
-
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 39.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 37.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
-[38
+ [38
 
 
- <./pics/surfaceComparison.PNG> <./pics/surfaceComparisonAreaExpButton.PNG>]
-<pics/surfaceComparisonAreaSphere.PNG, id=690, 348.55219pt x 228.10219pt>
+ <./pics/surfaceComparison.PNG> <./pics/surfaceComparisonAreaExpButton.PNG> <./
+pics/surfaceComparisonSelectArea.PNG>]
+<pics/surfaceComparisonAreaSphere.PNG, id=696, 348.55219pt x 228.10219pt>
 File: pics/surfaceComparisonAreaSphere.PNG Graphic file (type png)
 <use pics/surfaceComparisonAreaSphere.PNG>
 Package pdftex.def Info: pics/surfaceComparisonAreaSphere.PNG  used on input li
-ne 42.
+ne 40.
 (pdftex.def)             Requested size: 250.9558pt x 164.23343pt.
-<pics/surfaceComparisonAreaGui.PNG, id=692, 421.575pt x 362.85562pt>
+<pics/surfaceComparisonAreaGui.PNG, id=698, 421.575pt x 362.85562pt>
 File: pics/surfaceComparisonAreaGui.PNG Graphic file (type png)
 <use pics/surfaceComparisonAreaGui.PNG>
 Package pdftex.def Info: pics/surfaceComparisonAreaGui.PNG  used on input line 
-51.
+49.
 (pdftex.def)             Requested size: 250.9558pt x 216.0042pt.
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 60.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 59.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
-[39 <./pics/surfaceComparisonSelectArea.PNG> <./pics/surfaceComparisonAreaSpher
-e.PNG> <./pics/surfaceComparisonAreaGui.PNG>]
-<pics/surfaceComparisonAreaUpdButton.PNG, id=704, 422.32782pt x 110.66344pt>
+ [39 <./pics/surfaceComparisonAreaSphere.PNG> <./pics/surfaceComparisonAreaGui.
+PNG>]
+<pics/surfaceComparisonAreaUpdButton.PNG, id=710, 422.32782pt x 68.50594pt>
 File: pics/surfaceComparisonAreaUpdButton.PNG Graphic file (type png)
 <use pics/surfaceComparisonAreaUpdButton.PNG>
 Package pdftex.def Info: pics/surfaceComparisonAreaUpdButton.PNG  used on input
- line 71.
-(pdftex.def)             Requested size: 250.9558pt x 65.76027pt.
-<pics/surfaceComparisonArea3DView1.PNG, id=705, 1455.93938pt x 856.70062pt>
+ line 69.
+(pdftex.def)             Requested size: 250.9558pt x 40.70874pt.
+<pics/surfaceComparisonArea3DView1.PNG, id=711, 1455.93938pt x 856.70062pt>
 File: pics/surfaceComparisonArea3DView1.PNG Graphic file (type png)
 <use pics/surfaceComparisonArea3DView1.PNG>
 Package pdftex.def Info: pics/surfaceComparisonArea3DView1.PNG  used on input l
-ine 78.
+ine 76.
 (pdftex.def)             Requested size: 418.25542pt x 246.10997pt.
 
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-<pics/surfaceComparisonArea3DView2.PNG, id=707, 850.67813pt x 687.31781pt>
+<pics/surfaceComparisonArea3DView2.PNG, id=713, 850.67813pt x 687.31781pt>
 File: pics/surfaceComparisonArea3DView2.PNG Graphic file (type png)
 <use pics/surfaceComparisonArea3DView2.PNG>
 Package pdftex.def Info: pics/surfaceComparisonArea3DView2.PNG  used on input l
-ine 87.
+ine 85.
 (pdftex.def)             Requested size: 334.6056pt x 270.34966pt.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 94.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 92.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
 [40 <./pics/surfaceComparisonAreaUpdButton.PNG>]
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 94.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 92.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
  [41 <./pics/surfaceComparisonArea3DView1.PNG> <./pics/surfaceComparisonArea3DV
 iew2.PNG>]
-<pics/surfaceComparisonBookmarkMode.PNG, id=725, 316.93407pt x 27.10126pt>
+<pics/surfaceComparisonSurfaceMeasurements.PNG, id=729, 423.08063pt x 517.935pt
+>
+File: pics/surfaceComparisonSurfaceMeasurements.PNG Graphic file (type png)
+<use pics/surfaceComparisonSurfaceMeasurements.PNG>
+Package pdftex.def Info: pics/surfaceComparisonSurfaceMeasurements.PNG  used on
+ input line 103.
+(pdftex.def)             Requested size: 250.9558pt x 307.21492pt.
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 108.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+ [42
+
+ <./pics/surfaceComparisonSurfaceMeasurements.PNG>]
+<pics/surfaceComparisonBookmarkMode.PNG, id=738, 316.93407pt x 27.10126pt>
 File: pics/surfaceComparisonBookmarkMode.PNG Graphic file (type png)
 <use pics/surfaceComparisonBookmarkMode.PNG>
 Package pdftex.def Info: pics/surfaceComparisonBookmarkMode.PNG  used on input 
-line 101.
+line 115.
 (pdftex.def)             Requested size: 292.77751pt x 25.03766pt.
 )
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 265.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [42
+ [43
 
  <./pics/surfaceComparisonBookmarkMode.PNG>]
 \openout2 = `KeyboardShortcuts.aux'.
@@ -1122,7 +1133,7 @@ File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 269.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [43
+ [44
 
 
 ]
@@ -1134,17 +1145,17 @@ Package atveryend Info: Empty hook `AfterLastShipout' on input line 273.
 Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 273.
 Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 273.
 Package rerunfilecheck Info: File `PRo3D_ShortUserManual.out' has not changed.
-(rerunfilecheck)             Checksum: B4E1B9D6B27142EDD65CE78D7B7666A2;2755.
+(rerunfilecheck)             Checksum: 876E3FEFF778AA46A90F123C339E39BE;2825.
 Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 273.
  ) 
 Here is how much of TeX's memory you used:
- 9200 strings out of 480931
- 139525 string characters out of 2909582
+ 9211 strings out of 480931
+ 139897 string characters out of 2909582
  780630 words of memory out of 3000000
- 24517 multiletter control sequences out of 15000+200000
+ 24524 multiletter control sequences out of 15000+200000
  592836 words of font info for 74 fonts, out of 3000000 for 9000
  1141 hyphenation exceptions out of 8191
- 43i,16n,45p,894b,1992s stack positions out of 5000i,500n,10000p,200000b,50000s
+ 43i,16n,45p,904b,1992s stack positions out of 5000i,500n,10000p,200000b,50000s
 {D:/Program Files/MiKTeX 2.9/fonts/enc/dvips/base/8r.enc}<D:/Program Files/Mi
 KTeX 2.9/fonts/type1/public/amsfonts/cm/cmmi12.pfb><D:/Program Files/MiKTeX 2.9
 /fonts/type1/public/amsfonts/cm/cmsy10.pfb><D:/Program Files/MiKTeX 2.9/fonts/t
@@ -1153,9 +1164,9 @@ r/ucrr8a.pfb><C:/Users/nowak/AppData/Roaming/MiKTeX/2.9/fonts/type1/urw/helveti
 c/uhvb8a.pfb><C:/Users/nowak/AppData/Roaming/MiKTeX/2.9/fonts/type1/urw/helveti
 c/uhvr8a.pfb><C:/Users/nowak/AppData/Roaming/MiKTeX/2.9/fonts/type1/urw/helveti
 c/uhvro8a.pfb>
-Output written on PRo3D_ShortUserManual.pdf (44 pages, 21308449 bytes).
+Output written on PRo3D_ShortUserManual.pdf (45 pages, 21330274 bytes).
 PDF statistics:
- 818 PDF objects out of 1000 (max. 8388607)
- 252 named destinations out of 1000 (max. 500000)
- 535 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 832 PDF objects out of 1000 (max. 8388607)
+ 255 named destinations out of 1000 (max. 500000)
+ 548 words of extra memory for PDF output out of 10000 (max. 10000000)
 

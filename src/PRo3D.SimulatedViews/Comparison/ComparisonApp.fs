@@ -479,35 +479,25 @@ module ComparisonApp =
         //let header = sprintf "Measurements for %s"  name
 
         let surfaceMeasurements =
+             let originModeDropDown =
+                Html.table [
+                  Html.row "Origin   " [Html.SemUi.dropDown m.originMode SetOriginMode]
+                ]
              AVal.map2 (fun (s1 : option<string>) s2 -> 
                             match s1, s2 with
                             | Some s1, Some s2 -> 
-                                GuiEx.accordionWithOnClick "Surface Measurements"  "calculator" true [surfaceMeasurements] UpdateCoordinateSystemMeasurements
-                            | _,_ -> GuiEx.accordion "Surface Measurements"  "calculator" true [] 
+                                GuiEx.accordionWithOnClick "Surface Measurements"  
+                                                           "calculator" 
+                                                           true 
+                                                           [originModeDropDown;surfaceMeasurements] 
+                                                           UpdateCoordinateSystemMeasurements
+                            | _,_ ->
+                                GuiEx.accordion "Surface Measurements"  
+                                                "calculator" 
+                                                true 
+                                                [] 
                        ) m.surface1 m.surface2
             
-        //let measurement1 = 
-        //    (AVal.bind2 (fun (s : option<string>) m -> 
-        //                        measurementGui s (m.measurements1 
-        //               ) m.surface1 m.surfaceMeasurements)
-        //               |> AList.ofAValSingle
-
-        //let measurement2 = 
-        //    (AVal.bind2 (fun (s : option<string>) m -> 
-        //                        measurementGui s (m.measurements2 |> AdaptiveOption.toOption)
-        //               ) m.surface2 m.surfaceMeasurements)
-        //               |> AList.ofAValSingle
-
-        //let compared = 
-        //    m.comparedMeasurements
-        //        |> (AVal.map (fun m -> 
-        //                          match m with
-        //                          | AdaptiveOption.AdaptiveSome m -> 
-        //                              SurfaceMeasurements.view m
-        //                          | AdaptiveOption.AdaptiveNone -> 
-        //                              div [] []
-        //                     )
-        //            ) 
 
 
         let updateButton =
@@ -676,10 +666,6 @@ module ComparisonApp =
             br []
             div [clazz "ui buttons inverted"] 
                 [updateButton;exportButton]
-            br []
-            Html.table [
-              Html.row "Origin   " [Html.SemUi.dropDown m.originMode SetOriginMode]
-            ]
             br []
             Html.table [
                 Html.row "Surface1 " [CustomGui.surfacesDropdown surfaces SelectSurface1 noSelection]
