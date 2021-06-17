@@ -412,7 +412,7 @@ type Model = {
  
     arnoldSnapshotThreads: ThreadPool<ViewerAction>
     showExplorationPoint : bool
-    filterTexture        : bool // TODO move to versioned ViewConfigModel in V3  
+   // filterTexture        : bool //moved to versioned config 
 
     heighValidation      : HeightValidatorModel
 }
@@ -528,7 +528,8 @@ module Viewer =
                         
                     interaction     = InteractionMode.PickOrbitCenter
                     surfacesModel   = SurfaceModel.initial
-                    config          = ViewConfigModel.initial
+                    config          = {ViewConfigModel.initial 
+                                          with filterTexture = startupArgs.magnificationFilter}
                     scenePath       = None
 
                     referenceSystem = ReferenceSystem.initial                    
@@ -596,7 +597,7 @@ module Viewer =
 
             arnoldSnapshotThreads = ThreadPool.empty
             showExplorationPoint = startupArgs.showExplorationPoint
-            filterTexture = startupArgs.magnificationFilter
+            //filterTexture = startupArgs.magnificationFilter
                         
             heighValidation = HeightValidatorModel.init()
     }
