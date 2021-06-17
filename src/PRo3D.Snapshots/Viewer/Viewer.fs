@@ -436,7 +436,7 @@ module ViewerApp =
             match m.ctrlFlag with
             | true ->
                 let comparisonApp, _ = 
-                    (ComparisonApp.update m.comparisonApp 
+                    (ComparisonApp.update m.scene.comparisonApp 
                     m.scene.surfacesModel
                     m.scene.referenceSystem
                     (m.drawing.annotations.flat 
@@ -444,7 +444,7 @@ module ViewerApp =
                     (m.scene.bookmarks.flat
                         |> HashMap.map (fun id x -> Leaf.toBookmark x))
                     (Comparison.ComparisonAction.AddSelectionArea p))
-                {m with comparisonApp = comparisonApp}
+                {m with scene = {m.scene with comparisonApp = comparisonApp}}
             | false -> m
         | _ -> m       
 
@@ -1015,7 +1015,7 @@ module ViewerApp =
                             Comparison.ComparisonAction.UpdateSelectedArea Comparison.AreaSelectionAction.MakeBigger
                         | _ -> Comparison.ComparisonAction.Nop
 
-                    let comparisonApp, _ = ComparisonApp.update  m.comparisonApp 
+                    let comparisonApp, _ = ComparisonApp.update  m.scene.comparisonApp 
                                                                  m.scene.surfacesModel
                                                                  m.scene.referenceSystem
                                                                  (m.drawing.annotations.flat 
@@ -1023,7 +1023,7 @@ module ViewerApp =
                                                                  (m.scene.bookmarks.flat
                                                                      |> HashMap.map (fun id x -> Leaf.toBookmark x))
                                                                  msg
-                    {m with comparisonApp = comparisonApp}
+                    {m with scene = {m.scene with comparisonApp = comparisonApp}}
                 | _ -> m
                                     
             let m =
@@ -1137,7 +1137,7 @@ module ViewerApp =
                     { m with scene = { m.scene with dockConfig = DockConfigs.core } }
                 | Aardvark.Application.Keys.T ->
                     let comparisonApp, surfacesModel = 
-                        ComparisonApp.update  m.comparisonApp 
+                        ComparisonApp.update  m.scene.comparisonApp 
                                               m.scene.surfacesModel 
                                               m.scene.referenceSystem 
                                               (m.drawing.annotations.flat 
@@ -1145,8 +1145,9 @@ module ViewerApp =
                                               (m.scene.bookmarks.flat
                                                   |> HashMap.map (fun id x -> Leaf.toBookmark x))
                                               Comparison.ComparisonAction.ToggleVisible
-                    {m with comparisonApp = comparisonApp
-                            scene         = {m.scene with surfacesModel = surfacesModel}
+                    {m with 
+                            scene         = {m.scene with surfacesModel = surfacesModel
+                                                          comparisonApp = comparisonApp}
                     }                    
                 | _ -> m
 
@@ -1462,7 +1463,7 @@ module ViewerApp =
           {m with scene = {m.scene with objectPlacements = scPlacements}}   
         | ComparisonMessage (msg : PRo3D.Comparison.ComparisonAction), _, _ ->
             let comparisonApp, surfacedModel = 
-                ComparisonApp.update  m.comparisonApp 
+                ComparisonApp.update  m.scene.comparisonApp 
                                       m.scene.surfacesModel 
                                       m.scene.referenceSystem 
                                       (m.drawing.annotations.flat 
@@ -1470,10 +1471,11 @@ module ViewerApp =
                                       (m.scene.bookmarks.flat
                                           |> HashMap.map (fun id x -> Leaf.toBookmark x))
                                       msg              
-            {m with comparisonApp = comparisonApp
+            {m with 
                     scene = {m.scene with //referenceSystem = 
                                           //  {m.scene.referenceSystem with planet = Planet.None}
                                           surfacesModel = surfacedModel
+                                          comparisonApp = comparisonApp
                             }
             }               
         | SetBestLodQuality, _, _ ->
@@ -1771,7 +1773,7 @@ module ViewerApp =
             AnimationApp.ThreadPool.threads m.animations |> ThreadPool.map AnimationMessage
 
         let comparison =
-            ComparisonApp.threads m.comparisonApp |> ThreadPool.map ComparisonMessage
+            ComparisonApp.threads m.scene.comparisonApp |> ThreadPool.map ComparisonMessage
 
         let nav =
             match m.navigation.navigationMode with

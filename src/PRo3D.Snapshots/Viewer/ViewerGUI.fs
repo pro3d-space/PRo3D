@@ -860,7 +860,7 @@ module Gui =
                                 yield textOverlays m.scene.referenceSystem m.navigation.camera.view
                                 yield textOverlaysUserFeedback m.scene
                                 yield dnsColorLegend m
-                                yield (ComparisonApp.viewLegend m.comparisonApp)
+                                yield (ComparisonApp.viewLegend m.scene.comparisonApp)
                                 yield scalarsColorLegend m
                                 yield selectionRectangle m
                                 yield PRo3D.Linking.LinkingApp.sceneOverlay m.linkingModel |> UI.map LinkingActions
@@ -880,7 +880,7 @@ module Gui =
             | Some "bookmarks" -> 
                 require (viewerDependencies) (body bodyAttributes [Bookmarks.bookmarkUI m])
             | Some "comparison" -> 
-                require (viewerDependencies) (body bodyAttributes [PRo3D.ComparisonApp.view m.comparisonApp m.scene.surfacesModel
+                require (viewerDependencies) (body bodyAttributes [PRo3D.ComparisonApp.view m.scene.comparisonApp m.scene.surfacesModel
                                                                     |> UI.map ComparisonMessage])
             | Some "properties" ->
                 let prop = 

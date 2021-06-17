@@ -56,6 +56,7 @@ type AnnotationComparison = {
     static member ToJson (x:AnnotationComparison) =
         json {
             do! Json.write "bookmark" x.bookmarkName
+            do! Json.write "bookmarkId" (x.bookmarkId.ToString ())
             //do! Json.write "bookmarkId" (x.bookmarkId.ToString ())
             if x.measurement1.IsSome then 
                 do! Json.write "measurements1"  x.measurement1.Value
@@ -64,12 +65,32 @@ type AnnotationComparison = {
             if x.difference.IsSome then 
                 do! Json.write "difference"   x.difference.Value
         }
+    static member FromJson (_ : AnnotationComparison) =
+        json {
+            let! bookmarkName = Json.read "bookmarkName"
+            let! bookmarkId = Json.read "bookmarkId"
+                                 
+            return {
+                bookmarkName = bookmarkName 
+                bookmarkId   = bookmarkId |> System.Guid.Parse
+                measurement1 = None
+                measurement2 = None
+                difference   = None
+            }
+           
+        }
       
 type SurfaceComparison = {
     measurements1         : option<SurfaceMeasurements>
     measurements2         : option<SurfaceMeasurements>
     comparedMeasurements  : option<SurfaceMeasurements>
 } with
+    static member init =
+        {
+            measurements1         = None
+            measurements2         = None
+            comparedMeasurements  = None            
+        }
     static member ToJson (x:SurfaceComparison) =
         json {
             if x.measurements1.IsSome then 
@@ -126,16 +147,40 @@ type AreaSelection = {
     verticesSurf2 : IndexList<V3d>
     statistics : option<VertexStatistics>
 } with
-  static member ToJson (x:AreaSelection) =
-    json {
-        do! Json.write "label"  x.label
-        do! Json.write "radius" x.radius
-        do! Json.write "location" (x.location |> string)
-        do! Json.write "highResolution" x.highResolution
-        do! Json.write "visible" x.visible
-        if x.statistics.IsSome then 
-            do! Json.write "statistics"  x.statistics
-    }
+    static member ToJson (x:AreaSelection) =
+        json {
+            do! Json.write "id" x.id
+            do! Json.write "label"  x.label
+            do! Json.write "radius" x.radius
+            do! Json.write "location" (x.location |> string)
+            do! Json.write "highResolution" x.highResolution
+            do! Json.write "visible" x.visible
+            if x.statistics.IsSome then 
+                do! Json.write "statistics"  x.statistics
+        }
+    static member FromJson ( _ : AreaSelection) =
+        json {
+            let! id = Json.read "id"
+            let! label = Json.read "label" 
+            let! radius = Json.read "radius" 
+            let! location = Json.read "location"
+            let! highResolution = Json.read "highResolution"
+            let! visible = Json.read "visible"
+
+            return 
+                {
+                    id = id |> System.Guid.Parse
+                    label = label
+                    radius = radius
+                    location = location |> V3d.Parse
+                    highResolution = highResolution
+                    visible = visible
+                    surfaceTrafo = Trafo3d.Identity
+                    verticesSurf1 = IndexList.empty
+                    verticesSurf2 = IndexList.empty
+                    statistics = None
+                }
+        }
 
 
 type ComparisonAppState =
@@ -201,11 +246,51 @@ type ComparisonApp = {
                 do! Json.write "surface1"       x.surface1.Value
             if x.surface2.IsSome then 
                 do! Json.write "surface2"       x.surface2.Value 
+            do! Json.write "nrOfCreatedAreas"   x.nrOfCreatedAreas
             do! Json.write "originMode"         (x.originMode.ToString ())
+            do! Json.write "distanceMode"         (x.surfaceGeometryType.ToString ())
             do! Json.write "surfaceMeasurements" x.surfaceMeasurements
             do! Json.write "annotationMeasurements" x.annotationMeasurements
-            if HashMap.count x.areas > 0 then
-                let areas = (x.areas |> HashMap.values) |> List.ofSeq
-                do! Json.write "areas" areas
+            let areas = (x.areas |> HashMap.values) |> List.ofSeq
+            do! Json.write "areas" areas
         }
+    static member FromJson ( _ : ComparisonApp) =
+        json {
+    
+            let! nrOfCreatedAreas = Json.read "nrOfCreatedAreas"
+            let! originMode = Json.read "originMode"
+            let! surface1               = Json.tryRead "surface1"              //option<string>
+            let! surface2               = Json.tryRead "surface2"              //option<string>
+            let! annotationMeasurements = Json.read "annotationMeasurements"//list<AnnotationComparison>
+            let! distanceMode           = Json.read "distanceMode"   //DistanceMode
+           
+           
+            //let! selectedArea           = Json.read "selectedArea"          //option<(System.Guid)>
+            //let! isEditingArea          = Json.read "isEditingArea"         //bool
+            let! (areas : list<(AreaSelection)>) = 
+                Json.read "areas"                 //HashMap<System.Guid, AreaSelection>            
 
+            //let! points = Json.readWith Ext.fromJson<list<V3d>,Ext> "points"
+            //let! areas = Json.read "areas"
+            let areas =
+                areas  
+                  |> List.map (fun a -> (a.id, a))
+                  |> HashMap.ofList
+            return {
+                    state                  = ComparisonAppState.Idle
+                    threads                = ThreadPool.empty
+                    showMeasurementsSg     = false
+                    nrOfCreatedAreas       = nrOfCreatedAreas
+                    originMode             = originMode |> OriginMode.Parse
+                    surface1               = surface1
+                    surface2               = surface2
+                    surfaceMeasurements    = SurfaceComparison.init
+                    annotationMeasurements = annotationMeasurements
+                    surfaceGeometryType    = distanceMode |> DistanceMode.Parse
+                    initialAreaSize        = PRo3D.Comparison.Init.areaSize
+                    pointSizeFactor        = Init.pointSizeFactor
+                    selectedArea           = None
+                    isEditingArea          = false
+                    areas                  = areas
+            }
+        }

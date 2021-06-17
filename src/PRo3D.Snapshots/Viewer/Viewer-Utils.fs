@@ -286,7 +286,6 @@ module ViewerUtils =
                              (surfacePicking  : aval<bool>) 
                              (useHighlighting : aval<bool>)
                              (scene           : AdaptiveScene)
-                             (comparisonApp   : AdaptiveComparisonApp) 
                              lightViewProj 
                              shadowDepth =
         let surf = Scene.lookUp sgSurface.surface scene
@@ -351,7 +350,7 @@ module ViewerUtils =
                                          (pickBox |> AVal.map (fun x -> x.Size.[x.MajorDim]))
                                          trafo
                                          scene.referenceSystem
-                                         comparisonApp
+                                         scene.comparisonApp
 
         //let maskColor = placement |> Mod.bind (fun p -> match p with 
         //                                                 | Some p -> p.maskColor.c
@@ -477,7 +476,7 @@ module ViewerUtils =
                     |> AMap.map(fun _ sf -> 
                                   viewSingleSurfaceSg sf m.frustum surfacePicking 
                                                       usehighlighting 
-                                                      m.scene m.comparisonApp 
+                                                      m.scene
                                                       lightViewProj shadowDepth)
                     |> AMap.toASet 
                     |> ASet.map snd                     
@@ -574,8 +573,8 @@ module ViewerUtils =
     let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) 
                        overlayed depthTested (m:AdaptiveModel)
                        runtime =
-        let comparisonSgAreas =  AreaSelection.sgAllAreas m.comparisonApp.areas              
-        let areaStatisticsSg = AreaComparison.sgAllDifferences m.comparisonApp.areas
+        let comparisonSgAreas =  AreaSelection.sgAllAreas m.scene.comparisonApp.areas              
+        let areaStatisticsSg = AreaComparison.sgAllDifferences m.scene.comparisonApp.areas
 
         let sgs = (getSurfacesScenegraphs m runtime)
         let debugSg = (getFrustumDebugSg m)

@@ -77,20 +77,8 @@ module ComparisonApp =
           }
         annotationMeasurements = []     
         surfaceGeometryType = DistanceMode.SurfaceNormal
-        initialAreaSize = {
-                              value = 0.1
-                              min   = 0.01
-                              max   = 1000.0 
-                              step  = 0.01
-                              format = "{0:0.00}"
-                          }
-        pointSizeFactor = {
-                                     value = 0.01
-                                     min   = 0.001
-                                     max   = 0.1 
-                                     step  = 0.001
-                                     format = "{0:0.000}"
-                            }
+        initialAreaSize = Comparison.Init.areaSize
+        pointSizeFactor = Comparison.Init.pointSizeFactor
         nrOfCreatedAreas = 0
         selectedArea = None
         isEditingArea = false

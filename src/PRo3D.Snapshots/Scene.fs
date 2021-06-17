@@ -376,6 +376,7 @@ module SceneLoader =
             |> prepareSurfaceModel runtime signature scene.scenePath
 
         Optic.set _surfaceModelLens sModel m  
+ 
         //with e ->            
         //    Log.error "Could not load selected scenefile %A. It is either outdated or not a valid scene" path
         //    Log.error "exact error %A" e

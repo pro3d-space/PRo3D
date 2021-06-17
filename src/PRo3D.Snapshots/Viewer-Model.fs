@@ -143,7 +143,7 @@ type ViewerAction =
     | UpdatePlacementParameters       of (list<ObjectPlacementParameters> * string)
     | TestHaltonRayCasting            //of list<string>
     | HeightValidation               of HeightValidatorAction
-    | ComparisonMessage              of ComparisonAction
+    | ComparisonMessage              of PRo3D.Comparison.ComparisonAction
     | ObjectPlacementMessage         of (string * ObjectPlacementAction)
     | SetBestLodQuality
     | ExportSnapshotFile             
@@ -181,6 +181,7 @@ type Scene = {
     feedbackThreads       : ThreadPool<ViewerAction> 
     /// placement parameters for objects that will be placed into the scene randomly according to the parameters set in the app
     objectPlacements      : HashMap<String, ObjectPlacementApp>
+    comparisonApp         : PRo3D.Comparison.ComparisonApp
 }
 
 module Scene =
@@ -220,7 +221,7 @@ module Scene =
                     scenePath       = scenePath
                     referenceSystem = referenceSystem
                     bookmarks       = bookmarks
-
+                    
                     viewPlans       = ViewPlanModel.initial
                     dockConfig      = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
                     closedPages     = List.empty
@@ -228,6 +229,7 @@ module Scene =
                     userFeedback    = String.Empty
                     feedbackThreads = ThreadPool.empty
                     objectPlacements = objectPlacements
+                    comparisonApp    = PRo3D.ComparisonApp.init
                 }
         }
 
@@ -246,6 +248,7 @@ module Scene =
             let! dockConfig      = Json.read "dockConfig"  
             let! objectPlacementsOld = Json.tryRead "shatterconePlacements"
             let! objectPlacementsNew = Json.tryRead "objectPlacements"
+            let! (comparisonApp : option<ComparisonApp>) = Json.tryRead "comparisonApp"
             let objectPlacements =
                 match objectPlacementsOld, objectPlacementsNew with 
                 |None, None | Some [], Some [] -> 
@@ -281,6 +284,8 @@ module Scene =
                     userFeedback    = String.Empty
                     feedbackThreads = ThreadPool.empty
                     objectPlacements = objectPlacements |> HashMap.ofList
+                    comparisonApp    = if comparisonApp.IsSome then comparisonApp.Value
+                                       else ComparisonApp.init
                 }
         }
 
@@ -311,7 +316,8 @@ type Scene with
             do! Json.write "referenceSystem" x.referenceSystem
             do! Json.write "bookmarks" x.bookmarks
             do! Json.write "objectPlacements" (x.objectPlacements |> HashMap.toList)
-            do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString)                   
+            do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString)       
+            do! Json.write "comparisonApp" (x.comparisonApp)
         }
 
 [<ModelType>] 
@@ -392,7 +398,7 @@ type Model = {
     
     minervaModel     : PRo3D.Minerva.MinervaModel
     linkingModel     : PRo3D.Linking.LinkingModel
-    comparisonApp    : PRo3D.Comparison.ComparisonApp
+    //comparisonApp    : PRo3D.Comparison.ComparisonApp
     //correlationPlot : CorrelationPanelModel
     //pastCorrelation : Option<CorrelationPanelModel>
             
@@ -534,6 +540,7 @@ module Viewer =
                     feedbackThreads = ThreadPool.empty
                     viewPlans       = ViewPlanModel.initial
                     objectPlacements = HashMap.empty
+                    comparisonApp    = PRo3D.ComparisonApp.init
                 }
             dashboardMode   = DashboardModes.core.name
             navigation      = navInit
@@ -564,7 +571,6 @@ module Viewer =
             future          = None
 
             tabMenu = TabMenu.Surfaces
-            comparisonApp    = PRo3D.ComparisonApp.init
             animations = 
                 { 
                     animations = IndexList.empty

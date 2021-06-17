@@ -2,7 +2,6 @@
 
 open Aardvark.Base
 open Aardvark.UI
-open PRo3D.Comparison
 open FSharp.Data.Adaptive
 open PRo3D.Base
 open Aardvark.UI
@@ -12,6 +11,25 @@ open PRo3D.Core.Surface
 open PRo3D.Base
 open Aardvark.Rendering
 open Adaptify.FSharp.Core
+
+module Init = 
+  let areaSize = 
+      {
+          value = 0.1
+          min   = 0.01
+          max   = 1000.0 
+          step  = 0.01
+          format = "{0:0.00}"
+  
+      }
+  let pointSizeFactor =
+      {
+          value = 0.01
+          min   = 0.001
+          max   = 0.1 
+          step  = 0.001
+          format = "{0:0.000}"
+      }
 
 
 module ComparisonUtils =
