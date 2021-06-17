@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.21 (MiKTeX 2.9.7380 64-bit) (preloaded format=pdflatex 2020.4.6)  11 JUN 2021 14:31
+This is pdfTeX, Version 3.14159265-2.6-1.40.21 (MiKTeX 2.9.7380 64-bit) (preloaded format=pdflatex 2020.4.6)  17 JUN 2021 11:59
 entering extended mode
 **./PRo3D_ShortUserManual.tex
 (PRo3D_ShortUserManual.tex
@@ -1014,72 +1014,93 @@ File: pics/surfaceComparison.PNG Graphic file (type png)
 <use pics/surfaceComparison.PNG>
 Package pdftex.def Info: pics/surfaceComparison.PNG  used on input line 11.
 (pdftex.def)             Requested size: 250.9558pt x 202.02551pt.
-<pics/surfaceComparisonSelectArea.PNG, id=675, 376.40625pt x 29.35968pt>
+<pics/surfaceComparisonAreaExpButton.PNG, id=676, 422.32782pt x 110.66344pt>
+File: pics/surfaceComparisonAreaExpButton.PNG Graphic file (type png)
+<use pics/surfaceComparisonAreaExpButton.PNG>
+Package pdftex.def Info: pics/surfaceComparisonAreaExpButton.PNG  used on input
+ line 22.
+(pdftex.def)             Requested size: 250.9558pt x 65.76027pt.
+LaTeX Font Info:    Font shape `T1/phv/b/it' in size <10> not available
+(Font)              Font shape `T1/phv/b/sl' tried instead on input line 23.
+LaTeX Font Info:    Font shape `T1/phv/m/it' in size <10> not available
+(Font)              Font shape `T1/phv/m/sl' tried instead on input line 23.
+<pics/surfaceComparisonSelectArea.PNG, id=678, 376.40625pt x 29.35968pt>
 File: pics/surfaceComparisonSelectArea.PNG Graphic file (type png)
 <use pics/surfaceComparisonSelectArea.PNG>
 Package pdftex.def Info: pics/surfaceComparisonSelectArea.PNG  used on input li
-ne 26.
+ne 33.
 (pdftex.def)             Requested size: 334.6056pt x 26.10089pt.
+
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 32.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 39.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [38
+[38
 
 
- <./pics/surfaceComparison.PNG> <./pics/surfaceComparisonSelectArea.PNG>]
-<pics/surfaceComparisonAreaSphere.PNG, id=685, 348.55219pt x 228.10219pt>
+ <./pics/surfaceComparison.PNG> <./pics/surfaceComparisonAreaExpButton.PNG>]
+<pics/surfaceComparisonAreaSphere.PNG, id=690, 348.55219pt x 228.10219pt>
 File: pics/surfaceComparisonAreaSphere.PNG Graphic file (type png)
 <use pics/surfaceComparisonAreaSphere.PNG>
 Package pdftex.def Info: pics/surfaceComparisonAreaSphere.PNG  used on input li
-ne 35.
+ne 42.
 (pdftex.def)             Requested size: 250.9558pt x 164.23343pt.
-<pics/surfaceComparisonAreaList.PNG, id=687, 421.575pt x 127.97812pt>
-File: pics/surfaceComparisonAreaList.PNG Graphic file (type png)
-<use pics/surfaceComparisonAreaList.PNG>
-Package pdftex.def Info: pics/surfaceComparisonAreaList.PNG  used on input line
- 44.
-(pdftex.def)             Requested size: 250.9558pt x 76.18404pt.
-<pics/surfaceComparisonArea3DView1.PNG, id=689, 1455.93938pt x 856.70062pt>
+<pics/surfaceComparisonAreaGui.PNG, id=692, 421.575pt x 362.85562pt>
+File: pics/surfaceComparisonAreaGui.PNG Graphic file (type png)
+<use pics/surfaceComparisonAreaGui.PNG>
+Package pdftex.def Info: pics/surfaceComparisonAreaGui.PNG  used on input line 
+51.
+(pdftex.def)             Requested size: 250.9558pt x 216.0042pt.
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 60.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+[39 <./pics/surfaceComparisonSelectArea.PNG> <./pics/surfaceComparisonAreaSpher
+e.PNG> <./pics/surfaceComparisonAreaGui.PNG>]
+<pics/surfaceComparisonAreaUpdButton.PNG, id=704, 422.32782pt x 110.66344pt>
+File: pics/surfaceComparisonAreaUpdButton.PNG Graphic file (type png)
+<use pics/surfaceComparisonAreaUpdButton.PNG>
+Package pdftex.def Info: pics/surfaceComparisonAreaUpdButton.PNG  used on input
+ line 71.
+(pdftex.def)             Requested size: 250.9558pt x 65.76027pt.
+<pics/surfaceComparisonArea3DView1.PNG, id=705, 1455.93938pt x 856.70062pt>
 File: pics/surfaceComparisonArea3DView1.PNG Graphic file (type png)
 <use pics/surfaceComparisonArea3DView1.PNG>
 Package pdftex.def Info: pics/surfaceComparisonArea3DView1.PNG  used on input l
-ine 55.
+ine 78.
 (pdftex.def)             Requested size: 418.25542pt x 246.10997pt.
 
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-<pics/surfaceComparisonArea3DView2.PNG, id=691, 850.67813pt x 687.31781pt>
+<pics/surfaceComparisonArea3DView2.PNG, id=707, 850.67813pt x 687.31781pt>
 File: pics/surfaceComparisonArea3DView2.PNG Graphic file (type png)
 <use pics/surfaceComparisonArea3DView2.PNG>
 Package pdftex.def Info: pics/surfaceComparisonArea3DView2.PNG  used on input l
-ine 64.
+ine 87.
 (pdftex.def)             Requested size: 334.6056pt x 270.34966pt.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 70.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 94.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
-[39 <./pics/surfaceComparisonAreaSphere.PNG> <./pics/surfaceComparisonAreaList.
-PNG>]
+[40 <./pics/surfaceComparisonAreaUpdButton.PNG>]
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 71.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 94.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [40 <./pics/surfaceComparisonArea3DView1.PNG>]
-File: pics/logosSUM.png Graphic file (type png)
-<use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 71.
-(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [41 <./pics/surfaceComparisonArea3DView2.PNG>]
-<pics/surfaceComparisonBookmarkMode.PNG, id=714, 316.93407pt x 27.10126pt>
+ [41 <./pics/surfaceComparisonArea3DView1.PNG> <./pics/surfaceComparisonArea3DV
+iew2.PNG>]
+<pics/surfaceComparisonBookmarkMode.PNG, id=725, 316.93407pt x 27.10126pt>
 File: pics/surfaceComparisonBookmarkMode.PNG Graphic file (type png)
 <use pics/surfaceComparisonBookmarkMode.PNG>
 Package pdftex.def Info: pics/surfaceComparisonBookmarkMode.PNG  used on input 
-line 78.
+line 101.
 (pdftex.def)             Requested size: 292.77751pt x 25.03766pt.
 )
 File: pics/logosSUM.png Graphic file (type png)
@@ -1091,8 +1112,7 @@ Package pdftex.def Info: pics/logosSUM.png  used on input line 265.
  <./pics/surfaceComparisonBookmarkMode.PNG>]
 \openout2 = `KeyboardShortcuts.aux'.
 
-
-(KeyboardShortcuts.tex
+ (KeyboardShortcuts.tex
 Overfull \hbox (3.08594pt too wide) in paragraph at lines 9--25
 [][] 
  []
@@ -1118,22 +1138,24 @@ Package rerunfilecheck Info: File `PRo3D_ShortUserManual.out' has not changed.
 Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 273.
  ) 
 Here is how much of TeX's memory you used:
- 9178 strings out of 480931
- 138876 string characters out of 2909582
+ 9200 strings out of 480931
+ 139525 string characters out of 2909582
  780630 words of memory out of 3000000
- 24501 multiletter control sequences out of 15000+200000
- 588124 words of font info for 71 fonts, out of 3000000 for 9000
+ 24517 multiletter control sequences out of 15000+200000
+ 592836 words of font info for 74 fonts, out of 3000000 for 9000
  1141 hyphenation exceptions out of 8191
- 43i,16n,45p,742b,1992s stack positions out of 5000i,500n,10000p,200000b,50000s
+ 43i,16n,45p,894b,1992s stack positions out of 5000i,500n,10000p,200000b,50000s
 {D:/Program Files/MiKTeX 2.9/fonts/enc/dvips/base/8r.enc}<D:/Program Files/Mi
-KTeX 2.9/fonts/type1/urw/courier/ucrb8a.pfb><D:/Program Files/MiKTeX 2.9/fonts/
-type1/urw/courier/ucrr8a.pfb><C:/Users/nowak/AppData/Roaming/MiKTeX/2.9/fonts/t
-ype1/urw/helvetic/uhvb8a.pfb><C:/Users/nowak/AppData/Roaming/MiKTeX/2.9/fonts/t
-ype1/urw/helvetic/uhvr8a.pfb><C:/Users/nowak/AppData/Roaming/MiKTeX/2.9/fonts/t
-ype1/urw/helvetic/uhvro8a.pfb>
-Output written on PRo3D_ShortUserManual.pdf (44 pages, 21270708 bytes).
+KTeX 2.9/fonts/type1/public/amsfonts/cm/cmmi12.pfb><D:/Program Files/MiKTeX 2.9
+/fonts/type1/public/amsfonts/cm/cmsy10.pfb><D:/Program Files/MiKTeX 2.9/fonts/t
+ype1/urw/courier/ucrb8a.pfb><D:/Program Files/MiKTeX 2.9/fonts/type1/urw/courie
+r/ucrr8a.pfb><C:/Users/nowak/AppData/Roaming/MiKTeX/2.9/fonts/type1/urw/helveti
+c/uhvb8a.pfb><C:/Users/nowak/AppData/Roaming/MiKTeX/2.9/fonts/type1/urw/helveti
+c/uhvr8a.pfb><C:/Users/nowak/AppData/Roaming/MiKTeX/2.9/fonts/type1/urw/helveti
+c/uhvro8a.pfb>
+Output written on PRo3D_ShortUserManual.pdf (44 pages, 21308449 bytes).
 PDF statistics:
- 801 PDF objects out of 1000 (max. 8388607)
- 250 named destinations out of 1000 (max. 500000)
- 525 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 818 PDF objects out of 1000 (max. 8388607)
+ 252 named destinations out of 1000 (max. 500000)
+ 535 words of extra memory for PDF output out of 10000 (max. 10000000)
 
