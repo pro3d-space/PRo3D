@@ -194,6 +194,7 @@ type ViewConfigModel = {
     pickingTolerance        : NumericInput
     lodColoring             : bool
     drawOrientationCube     : bool
+    filterTexture           : bool
     //useSurfaceHighlighting  : bool
     //showExplorationPoint    : bool
     }
@@ -282,6 +283,7 @@ module ViewConfigModel =
         drawOrientationCube = false
         offset              = depthOffset
         pickingTolerance    = initPickingTolerance
+        filterTexture       = false
         //useSurfaceHighlighting = true
         //showExplorationPoint = true
     }
@@ -314,6 +316,7 @@ module ViewConfigModel =
                     drawOrientationCube   = drawOrientationCube
                     offset                = depthOffset
                     pickingTolerance      = initPickingTolerance
+                    filterTexture         = false
                 }
             }
     module V1 =
@@ -345,6 +348,7 @@ module ViewConfigModel =
                     drawOrientationCube   = drawOrientationCube
                     offset                = depthoffset
                     pickingTolerance      = initPickingTolerance
+                    filterTexture         = false
                 }
             }
 
@@ -378,6 +382,41 @@ module ViewConfigModel =
                     drawOrientationCube   = drawOrientationCube
                     offset                = depthoffset
                     pickingTolerance      = pickingTolerance
+                    filterTexture         = false
+                }
+            }
+
+    module V3 = //Snapshot Viewer Scene Compatibility
+        let read = 
+            json {
+                let! nearPlane                     = Json.readWith Ext.fromJson<NumericInput,Ext> "nearPlane"
+                let! farPlane                      = Json.readWith Ext.fromJson<NumericInput,Ext> "farPlane"
+                let! navigationSensitivity         = Json.readWith Ext.fromJson<NumericInput,Ext> "navigationSensitivity"
+                let! arrowLength                   = Json.readWith Ext.fromJson<NumericInput,Ext> "arrowLength"
+                let! arrowThickness                = Json.readWith Ext.fromJson<NumericInput,Ext> "arrowThickness"
+                let! dnsPlaneSize                  = Json.readWith Ext.fromJson<NumericInput,Ext> "dnsPlaneSize"
+                let! (lodColoring : bool)          = Json.read "lodColoring"
+                let! importTriangleSize            = Json.readWith Ext.fromJson<NumericInput,Ext> "importTriangleSize"
+                let! (drawOrientationCube : bool)  = Json.read "drawOrientationCube"                        
+                let! depthoffset                   = Json.readWith Ext.fromJson<NumericInput,Ext> "depthOffset"
+                let! (showExplorationPoint : bool) = Json.read "showExplorationPoint"                        
+                let! (filterTexture : bool)        = Json.read "filterTexture"                        
+                let! (shadingProperties : Shading.ShadingApp) = Json.read "shadingProperties"          
+        
+                return {            
+                    version               = current
+                    nearPlane             = nearPlane
+                    farPlane              = farPlane
+                    navigationSensitivity = navigationSensitivity
+                    arrowLength           = arrowLength
+                    arrowThickness        = arrowThickness
+                    dnsPlaneSize          = dnsPlaneSize
+                    lodColoring           = lodColoring
+                    importTriangleSize    = importTriangleSize      
+                    drawOrientationCube   = drawOrientationCube
+                    offset                = depthoffset
+                    pickingTolerance      = initPickingTolerance
+                    filterTexture         = filterTexture 
                 }
             }
 
@@ -389,6 +428,7 @@ type ViewConfigModel with
             | 0 -> return! ViewConfigModel.V0.read
             | 1 -> return! ViewConfigModel.V1.read
             | 2 -> return! ViewConfigModel.V2.read
+            | 3 -> return! ViewConfigModel.V3.read
             | _ -> return! v |> sprintf "don't know version %A  of ViewConfigModel" |> Json.error
         }
     static member ToJson (x : ViewConfigModel) =

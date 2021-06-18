@@ -440,8 +440,8 @@ module ViewerUtils =
                             m.footPrint 
                             (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) 
                             usehighlighting
-                            m.filterTexture
-                            m.comparisonApp
+                            (false |> AVal.constant)
+                            m.scene.comparisonApp
                         )
                     |> AMap.toASet 
                     |> ASet.map snd                     
@@ -482,6 +482,9 @@ module ViewerUtils =
         let usehighlighting = true |> AVal.constant //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true
 
+        let comparisonSgAreas =  AreaSelection.sgAllAreas m.scene.comparisonApp.areas              
+        let areaStatisticsSg = AreaComparison.sgAllDifferences m.scene.comparisonApp.areas
+
         //avoids kdtree intersections for certain interactions
         let surfacePicking = 
             m.interaction 
@@ -506,7 +509,7 @@ module ViewerUtils =
                             surface.globalBB
                             refSystem m.footPrint 
                             (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting filterTexture
-                            m.comparisonApp
+                            m.scene.comparisonApp
                        )
                     |> AMap.toASet 
                     |> ASet.map snd                     
@@ -515,7 +518,7 @@ module ViewerUtils =
 
         //grouped   
         let last = grouped |> AList.tryLast
-
+        let mutable renderedComparison = false
         alist {        
             let mutable i = 0
             for set in grouped do
@@ -537,6 +540,10 @@ module ViewerUtils =
                         | _ -> Sg.empty
                     )
                 yield RenderCommand.SceneGraph (depthTested |> Sg.dynamic)
+                if not renderedComparison then
+                  yield RenderCommand.SceneGraph (areaStatisticsSg )
+                  yield RenderCommand.SceneGraph comparisonSgAreas
+                  renderedComparison <- true
 
                 yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
 

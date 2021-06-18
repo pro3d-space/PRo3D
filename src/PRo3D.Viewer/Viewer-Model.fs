@@ -139,8 +139,6 @@ type ViewerAction =
     //| CorrelationPanelMessage         of CorrelationPanelsMessage
     | MakeSnapshot                    of int*int*string
     | ImportSnapshotData              of list<string>
-    | SetTextureFiltering             of bool // TODO move to versioned ViewConfigModel in V3
-    //| UpdateShatterCones              of list<SnapshotShattercone> // TODO snapshots and shattercone things should be in own apps
     | TestHaltonRayCasting            //of list<string>
     | HeightValidation               of HeightValidatorAction
     | ComparisonMessage              of ComparisonAction
@@ -176,11 +174,12 @@ type Scene = {
     firstImport       : bool
     userFeedback      : string
     feedbackThreads   : ThreadPool<ViewerAction> 
+    comparisonApp     : PRo3D.Comparison.ComparisonApp
 }
 
 module Scene =
         
-    let current = 0    
+    let current = 1    
     let read0 = 
         json {            
             let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
@@ -216,6 +215,49 @@ module Scene =
                     firstImport     = false
                     userFeedback    = String.Empty
                     feedbackThreads = ThreadPool.empty
+                    comparisonApp    = PRo3D.ComparisonApp.init
+                }
+        }
+
+    let read1 = 
+        json {            
+            let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
+            let! navigationMode  = Json.read "navigationMode"
+            let! exploreCenter   = Json.read "exploreCenter" 
+
+            let! interactionMode = Json.read "interactionMode"
+            let! surfaceModel    = Json.read "surfaceModel"
+            let! config          = Json.read "config"
+            let! scenePath       = Json.read "scenePath"
+            let! referenceSystem = Json.read "referenceSystem"
+            let! bookmarks       = Json.read "bookmarks"
+            let! dockConfig      = Json.read "dockConfig"  
+            let! (comparisonApp : option<ComparisonApp>) = Json.tryRead "comparisonApp"
+
+
+            return 
+                {
+                    version         = current
+
+                    cameraView      = cameraView
+                    navigationMode  = navigationMode |> enum<NavigationMode>
+                    exploreCenter   = exploreCenter  |> V3d.Parse
+            
+                    interaction     = interactionMode |> enum<InteractionMode>
+                    surfacesModel   = surfaceModel
+                    config          = config
+                    scenePath       = scenePath
+                    referenceSystem = referenceSystem
+                    bookmarks       = bookmarks
+
+                    viewPlans       = ViewPlanModel.initial
+                    dockConfig      = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
+                    closedPages     = List.empty
+                    firstImport     = false
+                    userFeedback    = String.Empty
+                    feedbackThreads = ThreadPool.empty
+                    comparisonApp    = if comparisonApp.IsSome then comparisonApp.Value
+                                       else ComparisonApp.init
                 }
         }
 
@@ -227,6 +269,7 @@ type Scene with
             let! v = Json.read "version"
             match v with
             | 0 -> return! Scene.read0
+            | 1 -> return! Scene.read1
             | _ ->
                 return! v 
                 |> sprintf "don't know version %A  of Scene" 
@@ -248,6 +291,7 @@ type Scene with
             do! Json.write "bookmarks" x.bookmarks
 
             do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString)                   
+            do! Json.write "comparisonApp" (x.comparisonApp)
         }
 
 [<ModelType>] 
@@ -328,7 +372,6 @@ type Model = {
     
     minervaModel     : PRo3D.Minerva.MinervaModel
     linkingModel     : PRo3D.Linking.LinkingModel
-    comparisonApp    : PRo3D.Comparison.ComparisonApp
     //correlationPlot : CorrelationPanelModel
     //pastCorrelation : Option<CorrelationPanelModel>
             
@@ -342,7 +385,6 @@ type Model = {
  
     arnoldSnapshotThreads: ThreadPool<ViewerAction>
     showExplorationPoint : bool
-    filterTexture        : bool // TODO move to versioned ViewConfigModel in V3
 
     heighValidation      : HeightValidatorModel
 }
@@ -458,7 +500,7 @@ module Viewer =
                         
                     interaction     = InteractionMode.PickOrbitCenter
                     surfacesModel   = SurfaceModel.initial
-                    config          = ViewConfigModel.initial
+                    config          = ViewConfigModel.initial 
                     scenePath       = None
 
                     referenceSystem = ReferenceSystem.initial                    
@@ -469,6 +511,7 @@ module Viewer =
                     userFeedback    = ""
                     feedbackThreads = ThreadPool.empty
                     viewPlans       = ViewPlanModel.initial
+                    comparisonApp    = PRo3D.ComparisonApp.init
                 }
             dashboardMode   = DashboardModes.core.name
             navigation      = navInit
@@ -499,7 +542,6 @@ module Viewer =
             future          = None
 
             tabMenu = TabMenu.Surfaces
-            comparisonApp    = PRo3D.ComparisonApp.init
             animations = 
                 { 
                     animations = IndexList.empty
@@ -525,7 +567,5 @@ module Viewer =
 
             arnoldSnapshotThreads = ThreadPool.empty
             showExplorationPoint = startupArgs.showExplorationPoint
-            filterTexture = startupArgs.magnificationFilter
-
             heighValidation = HeightValidatorModel.init()
     }

@@ -242,6 +242,9 @@ module Gui =
         let jsImportOBJDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select *.obj files to import', filters: [{ name: 'OBJ (*.obj)', extensions: ['obj']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
+        let jsImportPLYDialog =
+            "top.aardvark.dialog.showOpenDialog({tile: 'Select *.obj files to import', filters: [{ name: 'PLY (*.ply)', extensions: ['ply']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"            
+
         let private importSurface =
             [
                 text "Surfaces"
@@ -259,6 +262,12 @@ module Gui =
                     ][
                         text "Import (*.obj)"
                     ]
+                    div [ clazz "ui inverted item"; 
+                        Dialogs.onChooseFiles ImportObject;
+                        clientEvent "onclick" (jsImportPLYDialog)
+                    ][
+                        text "Import (*.ply)"
+                    ]                    
                 ]
             ]
         
@@ -838,6 +847,7 @@ module Gui =
                                 yield textOverlays m.scene.referenceSystem m.navigation.camera.view
                                 yield textOverlaysUserFeedback m.scene
                                 yield dnsColorLegend m
+                                yield (ComparisonApp.viewLegend m.scene.comparisonApp)
                                 yield scalarsColorLegend m
                                 yield selectionRectangle m
                                 yield PRo3D.Linking.LinkingApp.sceneOverlay m.linkingModel |> UI.map LinkingActions
@@ -857,7 +867,7 @@ module Gui =
             | Some "bookmarks" -> 
                 require (viewerDependencies) (body bodyAttributes [Bookmarks.bookmarkUI m])
             | Some "comparison" -> 
-                require (viewerDependencies) (body bodyAttributes [PRo3D.ComparisonApp.view m.comparisonApp m.scene.surfacesModel
+                require (viewerDependencies) (body bodyAttributes [PRo3D.ComparisonApp.view m.scene.comparisonApp m.scene.surfacesModel
                                                                     |> UI.map ComparisonMessage])
             | Some "properties" ->
                 let prop = 

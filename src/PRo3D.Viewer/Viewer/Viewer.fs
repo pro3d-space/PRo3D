@@ -392,6 +392,20 @@ module ViewerApp =
                     (HeightValidatorAction.PlaceValidator p)
 
             { m with heighValidation = heightVal }
+        | Interactions.SelectArea, ViewerMode.Standard ->
+            match m.ctrlFlag with
+            | true ->
+                let comparisonApp, _ = 
+                    (ComparisonApp.update m.scene.comparisonApp 
+                    m.scene.surfacesModel
+                    m.scene.referenceSystem
+                    (m.drawing.annotations.flat 
+                        |> HashMap.map (fun id x -> Leaf.toAnnotation x))
+                    (m.scene.bookmarks.flat
+                        |> HashMap.map (fun id x -> Leaf.toBookmark x))
+                    (Comparison.ComparisonAction.AddSelectionArea p))
+                {m with scene = {m.scene with comparisonApp = comparisonApp}}
+            | false -> m
         | _ -> m       
 
     let mutable lastHash = -1    
@@ -1016,7 +1030,7 @@ module ViewerApp =
                     { m with scene = { m.scene with dockConfig = DockConfigs.core } }
                 | Aardvark.Application.Keys.T ->
                     let comparisonApp, surfacesModel = 
-                        ComparisonApp.update  m.comparisonApp 
+                        ComparisonApp.update  m.scene.comparisonApp 
                                               m.scene.surfacesModel 
                                               m.scene.referenceSystem 
                                               (m.drawing.annotations.flat 
@@ -1024,8 +1038,9 @@ module ViewerApp =
                                               (m.scene.bookmarks.flat
                                                   |> HashMap.map (fun id x -> Leaf.toBookmark x))
                                               Comparison.ComparisonAction.ToggleVisible
-                    {m with comparisonApp = comparisonApp
-                            scene         = {m.scene with surfacesModel = surfacesModel}
+                    {m with 
+                            scene         = {m.scene with surfacesModel = surfacesModel
+                                                          comparisonApp = comparisonApp}
                     }
                 | _ -> m
 
@@ -1247,8 +1262,6 @@ module ViewerApp =
         | ResizeMainControl(a,id),_,_ -> 
             printfn "resize %A" (a,id)
             { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y); viewPortSize = HashMap.add id a m.viewPortSize }
-        | SetTextureFiltering b,_,_ ->
-            {m with filterTexture = b}
         | StartDragging _,_,_
         | Dragging _,_,_ 
         | EndDragging _,_,_ -> 
@@ -1338,7 +1351,7 @@ module ViewerApp =
         //    m                                            
         | ComparisonMessage msg, _, _ ->
             let comparisonApp, surfacedModel = 
-                ComparisonApp.update  m.comparisonApp 
+                ComparisonApp.update  m.scene.comparisonApp 
                                       m.scene.surfacesModel 
                                       m.scene.referenceSystem 
                                       (m.drawing.annotations.flat 
@@ -1346,10 +1359,11 @@ module ViewerApp =
                                       (m.scene.bookmarks.flat
                                           |> HashMap.map (fun id x -> Leaf.toBookmark x))
                                       msg              
-            {m with comparisonApp = comparisonApp
+            {m with 
                     scene = {m.scene with referenceSystem = 
                                             {m.scene.referenceSystem with planet = Planet.None}
                                           surfacesModel = surfacedModel
+                                          comparisonApp = comparisonApp
                             }
             }
 
@@ -1644,6 +1658,9 @@ module ViewerApp =
         let animation = 
             AnimationApp.ThreadPool.threads m.animations |> ThreadPool.map AnimationMessage
 
+        let comparison =
+            ComparisonApp.threads m.scene.comparisonApp |> ThreadPool.map ComparisonMessage
+
         let nav =
             match m.navigation.navigationMode with
             | NavigationMode.FreeFly -> 
@@ -1656,7 +1673,7 @@ module ViewerApp =
          
         let minerva = MinervaApp.threads m.minervaModel |> ThreadPool.map MinervaActions
 
-        unionMany [drawing; animation; nav; m.scene.feedbackThreads; minerva]
+        unionMany [drawing; animation; nav; m.scene.feedbackThreads; minerva;comparison]
         
     let loadWaypoints m = 
         match Serialization.fileExists "./waypoints.wps" with
