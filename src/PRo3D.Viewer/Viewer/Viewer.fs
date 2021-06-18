@@ -916,7 +916,27 @@ module ViewerApp =
                     let m = { m with drawing = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing drawingAction } |> stash
                     match drawingAction with
                     | Drawing.DrawingAction.Finish -> { m with tabMenu = TabMenu.Annotations }
-                    | _ -> m                     
+                    | _ -> m          
+                | Interactions.SelectArea ->
+                    let msg = 
+                        match k with
+                        | Aardvark.Application.Keys.Enter -> 
+                            Comparison.ComparisonAction.StopEditingArea
+                        | Aardvark.Application.Keys.OemMinus -> 
+                            Comparison.ComparisonAction.UpdateSelectedArea Comparison.AreaSelectionAction.MakeSmaller
+                        | Aardvark.Application.Keys.OemPlus -> 
+                            Comparison.ComparisonAction.UpdateSelectedArea Comparison.AreaSelectionAction.MakeBigger
+                        | _ -> Comparison.ComparisonAction.Nop
+
+                    let comparisonApp, _ = ComparisonApp.update  m.scene.comparisonApp 
+                                                                  m.scene.surfacesModel
+                                                                  m.scene.referenceSystem
+                                                                  (m.drawing.annotations.flat 
+                                                                      |> HashMap.map (fun id x -> Leaf.toAnnotation x))
+                                                                  (m.scene.bookmarks.flat
+                                                                      |> HashMap.map (fun id x -> Leaf.toBookmark x))
+                                                                  msg
+                    {m with scene = {m.scene with comparisonApp = comparisonApp}}                    
                 | _ -> m
                                     
             let m =

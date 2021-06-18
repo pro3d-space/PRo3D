@@ -345,12 +345,12 @@ module ViewerUtils =
 
         let trafo = getModelTrafo surf scene.referenceSystem
 
-        let measurementsSg =
-            ComparisonApp.measurementsSg surf
-                                         (pickBox |> AVal.map (fun x -> x.Size.[x.MajorDim]))
-                                         trafo
-                                         scene.referenceSystem
-                                         scene.comparisonApp
+        //let measurementsSg =
+        //    ComparisonApp.measurementsSg surf
+        //                                 (pickBox |> AVal.map (fun x -> x.Size.[x.MajorDim]))
+        //                                 trafo
+        //                                 scene.referenceSystem
+        //                                 scene.comparisonApp
 
         //let maskColor = placement |> Mod.bind (fun p -> match p with 
         //                                                 | Some p -> p.maskColor.c
@@ -404,9 +404,9 @@ module ViewerUtils =
                 ] 
                 |> Sg.onOff isSelected 
             )
-            |> Sg.andAlso (
-                measurementsSg
-            )
+            //|> Sg.andAlso (
+            //    measurementsSg
+            //)
         sg
        
 
@@ -579,15 +579,13 @@ module ViewerUtils =
         let sgs = (getSurfacesScenegraphs m runtime)
         let debugSg = (getFrustumDebugSg m)
         //grouped   
-        let mutable renderedComparison = false
         alist {        
             for sg in sgs do
                 yield RenderCommand.SceneGraph sg
                 yield RenderCommand.SceneGraph depthTested
-                if not renderedComparison then
-                  yield RenderCommand.SceneGraph (areaStatisticsSg )
-                  yield RenderCommand.SceneGraph comparisonSgAreas
-                  renderedComparison <- true
+                //gets rendered multiple times
+                yield RenderCommand.SceneGraph (areaStatisticsSg )
+                yield RenderCommand.SceneGraph comparisonSgAreas
                 yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
             yield RenderCommand.SceneGraph overlayed
             let! debug = m.scene.config.shadingApp.debug

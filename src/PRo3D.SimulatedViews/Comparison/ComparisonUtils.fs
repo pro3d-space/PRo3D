@@ -100,5 +100,5 @@ module ComparisonUtils =
             hit |> Some
         |  None, c ->
             cache <- c
-            Log.warn "[RayCastSurface] no hit in direction %s" (direction.ToString ())
+            Log.line "[RayCastSurface] no hit in direction %s" (direction.ToString ())
             None

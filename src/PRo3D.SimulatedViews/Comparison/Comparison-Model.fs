@@ -276,6 +276,7 @@ type ComparisonApp = {
                 areas  
                   |> List.map (fun a -> (a.id, a))
                   |> HashMap.ofList
+            PRo3D.Comparison.ComparisonUtils.cache <- HashMap.Empty
             return {
                     state                  = ComparisonAppState.Idle
                     threads                = ThreadPool.empty

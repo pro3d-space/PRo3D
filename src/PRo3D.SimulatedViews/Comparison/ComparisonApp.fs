@@ -268,6 +268,7 @@ module ComparisonApp =
                 | Some s1, Some s2 ->
                     updateMeasurements m surfaceModel annotations bookmarks refSystem
                 | _,_ -> m
+            ComparisonUtils.cache <- HashMap.empty
             m , surfaceModel
         | SelectSurface2 str -> 
             let m = {m with surface2 = noSelectionToNone str}
@@ -276,6 +277,7 @@ module ComparisonApp =
                 | Some s1, Some s2 ->
                     updateMeasurements m surfaceModel annotations bookmarks refSystem
                 | _,_ -> m
+            ComparisonUtils.cache <- HashMap.empty
             m , surfaceModel
         | ExportMeasurements filepath -> 
             m
@@ -385,27 +387,27 @@ module ComparisonApp =
     //                        | None -> (Sg.empty |> AVal.constant)) m.selectedArea
     //    sg |> Sg.dynamic
 
-    let measurementsSg (surface     : aval<AdaptiveSurface>)
-                       (size        : aval<float>)
-                       (trafo       : aval<Trafo3d>) 
-                       (referenceSystem : AdaptiveReferenceSystem)
-                       (m           : AdaptiveComparisonApp) =    
-        let surfaceName = surface |> AVal.bind (fun x -> x.name)
-        let pivot = surface |> AVal.bind (fun x -> x.transformation.pivot)
+    //let measurementsSg (surface     : aval<AdaptiveSurface>)
+    //                   (size        : aval<float>)
+    //                   (trafo       : aval<Trafo3d>) 
+    //                   (referenceSystem : AdaptiveReferenceSystem)
+    //                   (m           : AdaptiveComparisonApp) =    
+    //    let surfaceName = surface |> AVal.bind (fun x -> x.name)
+    //    let pivot = surface |> AVal.bind (fun x -> x.transformation.pivot)
 
-       // let upDir = referenceSystem.up.value |> AVal.map (fun x -> x.Normalized)
-      //  let northDir = referenceSystem.northO |> AVal.map (fun x -> x.Normalized)
-      //  let east   =  AVal.map2 (fun (north : V3d) up -> north.Cross(up).Normalized) northDir upDir
+    //   // let upDir = referenceSystem.up.value |> AVal.map (fun x -> x.Normalized)
+    //  //  let northDir = referenceSystem.northO |> AVal.map (fun x -> x.Normalized)
+    //  //  let east   =  AVal.map2 (fun (north : V3d) up -> north.Cross(up).Normalized) northDir upDir
 
-        let showSg = isSelected surfaceName m
+    //    let showSg = isSelected surfaceName m
 
-        let sg =
-            showSg |> AVal.map (fun show -> 
-                                  match show with
-                                  | true -> defaultCoordinateCross size trafo pivot
-                                  | false -> Sg.empty
-                               )
-        sg |> Sg.dynamic
+    //    let sg =
+    //        showSg |> AVal.map (fun show -> 
+    //                              match show with
+    //                              | true -> defaultCoordinateCross size trafo pivot
+    //                              | false -> Sg.empty
+    //                           )
+    //    sg |> Sg.dynamic
 
     let viewLegend (m : AdaptiveComparisonApp) =
         let legend = 

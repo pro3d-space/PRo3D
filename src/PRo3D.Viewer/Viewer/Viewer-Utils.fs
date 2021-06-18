@@ -299,12 +299,12 @@ module ViewerUtils =
                         return (fppm * fpvm) // * ts.Forward
                     } 
 
-                let measurementsSg =
-                    ComparisonApp.measurementsSg surf
-                                                 (pickBox |> AVal.map (fun x -> x.Size.[x.MajorDim]))
-                                                 trafo
-                                                 refsys
-                                                 comparisonApp
+                //let measurementsSg =
+                //    ComparisonApp.measurementsSg surf
+                //                                 (pickBox |> AVal.map (fun x -> x.Size.[x.MajorDim]))
+                //                                 trafo
+                //                                 refsys
+                //                                 comparisonApp
 
                 let structuralOnOff (visible : aval<bool>) (sg : ISg<_>) : ISg<_> = 
                     visible 
@@ -355,9 +355,9 @@ module ViewerUtils =
                         ] 
                         |> Sg.onOff isSelected
                     )
-                    |> Sg.andAlso (
-                        measurementsSg
-                    )
+                    //|> Sg.andAlso (
+                    //    measurementsSg
+                    //)
                 return surfaceSg
             else
                 return Sg.empty
@@ -520,9 +520,7 @@ module ViewerUtils =
         let last = grouped |> AList.tryLast
         let mutable renderedComparison = false
         alist {        
-            let mutable i = 0
             for set in grouped do
-                i <- i + 1
                 let sg = 
                     set 
                     |> Sg.set
@@ -540,10 +538,8 @@ module ViewerUtils =
                         | _ -> Sg.empty
                     )
                 yield RenderCommand.SceneGraph (depthTested |> Sg.dynamic)
-                if not renderedComparison then
-                  yield RenderCommand.SceneGraph (areaStatisticsSg )
-                  yield RenderCommand.SceneGraph comparisonSgAreas
-                  renderedComparison <- true
+                yield RenderCommand.SceneGraph (areaStatisticsSg )
+                yield RenderCommand.SceneGraph comparisonSgAreas
 
                 yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
 
