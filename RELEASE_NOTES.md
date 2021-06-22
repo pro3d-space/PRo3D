@@ -1,4 +1,4 @@
-## 3.8.0-release
+## 3.8.0-prerelease1
 
 - features:
   - Scalebar integration https://github.com/vrvis/PRo3D/issues/10
