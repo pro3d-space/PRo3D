@@ -88,6 +88,12 @@ Target.create "Credits" (fun _ ->
 let r = System.Text.RegularExpressions.Regex("let viewerVersion.*=.*\"(.*)\"")
 let test = """let viewerVersion       = "3.1.3" """
 
+let aardiumVersion = 
+    let versions = getInstalledPackageVersions()
+    match Map.tryFind "Aardium" versions with
+    | Some v -> v
+    | None -> failwith "no aardium version found"
+
 Target.create "Publish" (fun _ ->
 
     // 0.0 copy version over into source code...
@@ -130,6 +136,14 @@ Target.create "Publish" (fun _ ->
 
     // 3, resources (currently everything included)
     // copyResources ["bin/publish"] 
+    
+    do
+        let url = sprintf "https://www.nuget.org/api/v2/package/Aardium-Win32-x64/%A/" aardiumVersion
+        let tempFile = Path.GetTempFileName()
+        use c = new System.Net.WebClient()
+        c.DownloadFile(url, tempFile)
+        use a = new ZipArchive(File.OpenRead tempFile)
+        a.ExtractToDirectory(Path.Combine("bin", "publish")
 
     File.Move("bin/publish/PRo3D.Viewer.exe", sprintf "bin/publish/PRo3D.Viewer.%s.exe" notes.NugetVersion)
 )

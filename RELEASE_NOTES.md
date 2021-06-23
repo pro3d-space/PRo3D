@@ -1,3 +1,7 @@
+## 3.8.0-prerelease2
+
+- aardium path fix
+
 ## 3.8.0-prerelease1
 
 - features:
