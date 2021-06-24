@@ -66,7 +66,7 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "3.7.0-prerelease5"
+let viewerVersion       = "3.8.0-prerelease2"
 let catchDomainErrors   = false
 
 open System.IO
@@ -87,12 +87,16 @@ let getFreePort() =
    
 [<EntryPoint;STAThread>]
 let main argv = 
+
     let startupArgs = (CommandLine.parseArguments argv)
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
     
     let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
     Log.line "Running with AppData: %s" appData
     Config.configPath <- appData
+
+    let selfPath = System.Environment.GetCommandLineArgs().[0]
+    Log.line "path: %s" selfPath
 
     Config.colorPaletteStore <- Path.combine [appData; "favoriteColors.js"]
     Log.line "Color palette favorite colors are stored here: %s" Config.colorPaletteStore
@@ -110,9 +114,10 @@ let main argv =
 
     let aardiumPath = 
         try
-            let ass = Assembly.GetEntryAssembly().Location |> Path.GetDirectoryName
+            let ass = selfPath |> Path.GetDirectoryName
             if os = OSPlatform.Windows then
                 let exe = Path.Combine(ass, "tools", "Aardium.exe")
+                Log.line "exists? %s" exe
                 if File.Exists exe then
                     Some (Path.Combine(ass, "tools"))
                 else
