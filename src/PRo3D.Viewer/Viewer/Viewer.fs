@@ -300,7 +300,9 @@ module ViewerApp =
         | Interactions.DrawAnnotation, _ -> 
             let m = 
                 match surf.surfaceType with
-                | SurfaceType.SurfaceOBJ -> { m with drawing = { m.drawing with projection = Projection.Linear } } //TODO LF ... why is this happening?
+                | SurfaceType.SurfaceOBJ -> 
+                    m //{ m with drawing = { m.drawing with projection = Projection.Linear } } //TODO LF ... why is this happening? 
+                    // I don't know but it leads to problems so I'm removing it (rno); if it is put back in bookmark projection won't work
                 | _ -> m
             
             let view = 

@@ -45,6 +45,7 @@ type SurfaceAppAction =
 | ColorCorrectionMessage    of ColorCorrectionProperties.Action
 | SetHomePosition           
 | TranslationMessage        of TranslationApp.Action
+| SetPreTrafo               of string
 
 module SurfaceUtils =    
     
@@ -457,6 +458,63 @@ module SurfaceApp =
                     model |> SurfaceModel.updateSingleSurface s'                        
                 | None -> model
             m
+        | SetPreTrafo str -> 
+            //let m = 
+            //    match model.surfaces.singleSelectLeaf, str.Length > 0 with
+            //    | Some s, true -> 
+            //        let surface = model.surfaces.flat |> HashMap.find s |> Leaf.toSurface
+            //        let s' = { surface with preTransform = str |> Trafo3d.Parse}
+            //        model |> SurfaceModel.updateSingleSurface s'             
+            //    | _, _ -> model
+            //m
+
+            match model.surfaces.singleSelectLeaf with
+            | Some id -> 
+                match model.surfaces.flat.TryFind(id) with 
+                | Some s -> 
+                    let trafo = str |> Trafo3d.Parse
+                    let s = s |> Leaf.toSurface
+                    let f = (fun _ -> { s with preTransform = trafo  } |> Leaf.Surfaces)
+                    let g = Groups.updateLeaf s.guid f model.surfaces
+        
+                    let sgs' = 
+                        model.sgSurfaces
+                        |> HashMap.update id (fun x -> 
+                            match x with 
+                            | Some sg ->    
+                                { sg with globalBB = (sg.globalBB.Transformed trafo) } // (Trafo3d.Translation(p))) }  //
+                            | None   -> failwith "surface not found")                             
+                    { model with surfaces = g; sgSurfaces = sgs'} 
+                | None -> model
+            | None -> model
+
+            //match model.surfaces.singleSelectLeaf with
+            //| Some id -> 
+            //    match model.surfaces.flat.TryFind(id) with 
+            //    | Some s -> 
+            //        let trafo = str |> Trafo3d.Parse
+            //        let s = s |> Leaf.toSurface
+            //        let f = (fun _ -> { s with preTransform = trafo  } |> Leaf.Surfaces)
+            //        let g = Groups.updateLeaf s.guid f model.surfaces
+        
+            //        let sgs' = 
+            //            model.sgSurfaces
+            //            |> HashMap.update id (fun x -> 
+            //                match x with 
+            //                | Some sg ->    
+            //                    let pose = Pose.transform Pose.identity trafo
+            //                    let trafo' = { 
+            //                      TrafoController.initial with 
+            //                        pose = pose
+            //                        previewTrafo = trafo
+            //                        mode = TrafoMode.Local 
+            //                    }
+            //                    { sg with trafo = trafo'; globalBB = (sg.globalBB.Transformed trafo'.previewTrafo) } // (Trafo3d.Translation(p))) }  //
+            //                | None   -> failwith "surface not found")                             
+            //        { model with surfaces = g; sgSurfaces = sgs'} 
+            //    | None -> model
+            //| None -> model
+
         | TranslationMessage msg ->  
            
             let m = 
@@ -935,6 +993,7 @@ module SurfaceApp =
             ]  
             yield GuiEx.accordion "Transformation" "expand arrows alternate " false [
                 Incremental.div AttributeMap.empty (AList.ofAValSingle(viewTranslationTools model))
+                //div [] [Html.SemUi.textBox model.debugPreTrafo SetPreTrafo] // debug PreTrafo //  Bug: pretrafo ignored when picking annotation etc.
             ]  
                 
             yield GuiEx.accordion "Color Adaptation" "file image outline" false [

@@ -387,6 +387,7 @@ type SurfaceModel = {
     sgSurfaces      : HashMap<Guid,SgSurface>
     sgGrouped       : IndexList<HashMap<Guid,SgSurface>>
     kdTreeCache     : HashMap<string, ConcreteKdIntersectionTree>
+    debugPreTrafo   : string
 }
 
 module SurfaceModel =
@@ -402,6 +403,7 @@ module SurfaceModel =
                     sgSurfaces  = HashMap.empty
                     sgGrouped   = IndexList.empty
                     kdTreeCache = HashMap.empty
+                    debugPreTrafo = ""
                 }
         }    
  
@@ -421,6 +423,7 @@ module SurfaceModel =
             //sgSurfaceObjs = hmap.Empty
             sgGrouped   = IndexList.Empty
             kdTreeCache = HashMap.Empty
+            debugPreTrafo = ""
         }
    
     //let surfaceModelPickler : Pickler<SurfaceModel> =

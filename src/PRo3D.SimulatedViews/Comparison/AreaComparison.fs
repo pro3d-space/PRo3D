@@ -21,30 +21,56 @@ open PRo3D.Core
 open PRo3D.Core.Surface
 open PRo3DCompability
 open PRo3D.Comparison.ComparisonUtils
+open Aardvark.Geometry
 
 //open System.Collections.Generic
 
 module AreaComparison =
 
-    let getTriangleSet (level0Tree : Level0KdTree) =
-        let toTriangleSet (objectSet : IIntersectableObjectSet) = 
+    let getPositions (level0Tree : Level0KdTree) areaBox (surfaceTrafo : Trafo3d) =
+        let rec toPositionsList (objectSet : IIntersectableObjectSet) = 
             match objectSet with
             | :? Aardvark.Geometry.TriangleSet -> 
-                (objectSet :?> TriangleSet) |> Some
-            | _ -> None
+                let triangleSet = (objectSet :?> TriangleSet) 
+                let lst : List<V3d> = List.ofSeq triangleSet.Position3dList
+                lst |> Some
+            | :? Aardvark.Geometry.KdTreeSet ->
+                let kdTreeSet = (objectSet :?> KdTreeSet)
+                let lst : List<ConcreteKdIntersectionTree> = 
+                    kdTreeSet.ConcreteKdTreeList 
+                        |> List.ofSeq
+                let lst =
+                  lst |> List.map (fun x -> x.KdIntersectionTree.BoundingBox3d, x)
+                let lst = 
+                      lst |> List.filter (fun (box, tree) -> 
+                                            box.Transformed(surfaceTrafo).Intersects areaBox    
+                                          )
+                          |> List.map (fun (box, tree) -> tree)
+                          
+                      
+                let lst = lst 
+                            |> List.map (fun t -> t.Trafo, toPositionsList t.KdIntersectionTree.ObjectSet)
+                            |> List.filter (fun (t, x) -> x.IsSome)
+                            |> List.map (fun (t, x) -> x.Value)
+                let lst = List.concat (Seq.ofList lst)
+                lst |> Some
+            | _ ->
+                Log.warn "[Comparison] Unknown Object Set Type"
+                None
 
-        let triangleSet = 
+        let positions = 
             match level0Tree with
                 | InCoreKdTree kd -> 
-                    (kd.kdTree.KdIntersectionTree.ObjectSet |> toTriangleSet)
+                    (kd.kdTree.KdIntersectionTree.ObjectSet |> toPositionsList)
                 | LazyKdTree kd ->       
                   match kd.kdTree with
                   | Some tree -> 
-                      (tree.KdIntersectionTree.ObjectSet |> toTriangleSet)
+                      (tree.KdIntersectionTree.ObjectSet |> toPositionsList)
                   | None -> 
                       let triangles = (DebugKdTreesX.loadTriangles kd)
-                      Some triangles
-        triangleSet
+                      let lst : List<V3d> = List.ofSeq (triangles.Position3dList)
+                      Some lst
+        positions
 
     let getSurfaceVerticesIn  (kdTree : HashMap<Box3d,KdTrees.Level0KdTree>)
                               (surfaceTrafo : Trafo3d)
@@ -61,25 +87,24 @@ module AreaComparison =
                               x.Transformed(surfaceTrafo).Intersects areaBox    
                            )
 
-        let triangles = 
-            treesIntersectingArea 
-              |> List.map (fun (box, tree) -> getTriangleSet tree)
+        let positions = 
+            treesIntersectingArea
+              |> List.map (fun (box, tree) -> getPositions tree areaBox surfaceTrafo)
               |> List.filter (fun t -> t.IsSome)
               |> List.map (fun t -> t.Value)
 
         let dist = area.radius
 
-        let findVerticesInSphere (triangles : TriangleSet) =
-            let lst : List<V3d> = List.ofSeq triangles.Position3dList
-            let lst = lst |> List.filter (fun p -> area.location.Distance p < dist)
-            lst
+        let findVerticesInSphere (positions : list<V3d>) =
+            let positions = positions |> List.filter (fun p -> area.location.Distance p < dist)
+            positions
 
         //let findVerticesInBox (triangles : TriangleSet) =
         //    let lst : List<V3d> = List.ofSeq triangles.Position3dList
         //    let lst = lst |> List.filter (fun p -> areaBoxModelCS.Contains p)
         //    lst
               
-        let vertices = triangles
+        let vertices = positions
                           |> List.map findVerticesInSphere
 
         let vertices = 
@@ -328,7 +353,7 @@ module AreaComparison =
                 | _ ->
                     calcDistanceFlat localPoint
 
-            let distances =
+            let indexedDistances =
                 match area.highResolution with
                 | false ->
                     smallerList 
@@ -343,16 +368,32 @@ module AreaComparison =
                       |> List.filter (fun (i, x) -> x.IsSome)
                       |> List.map (fun (i,x) -> (i, x.Value))
 
-            let distances =
-                distances |> List.map snd
+            //let distances =
+            //    indexedDistances |> List.map snd
 
-            if distances.IsEmptyOrNull () then 
+            if indexedDistances.IsEmptyOrNull () then 
                 Log.warn "[Comparison] Could not calculate any distances."
                 area
             else
 
-                let maxDistance = distances |> List.max
-                let minDistance = distances |> List.min
+                let maxDistance = indexedDistances |> List.maxBy (fun (i,x) -> x) |> snd
+                let minDistance = indexedDistances |> List.minBy (fun (i,x) -> x) |> snd
+                let avgDistance = indexedDistances |> List.averageBy (fun (i,x) -> x)
+
+                //To deal with holes in meshes we remove outliers
+                // it would be better to let the user choose whether to apply this, because it could remove relevant data
+                let thresh = 8.0 * avgDistance
+                let noOutliersDistances =
+                    indexedDistances |> List.filter (fun (i, d) -> d < thresh)
+                let noOutliersPoints =
+                    points |> List.zip (indexedDistances |> List.map snd)
+                           |> List.filter (fun (d, _) -> d < thresh)
+                           |> List.map snd
+
+                let maxDistance = noOutliersDistances |> List.maxBy (fun (i,x) -> x) |> snd
+                let minDistance = noOutliersDistances |> List.minBy (fun (i,x) -> x) |> snd
+                let avgDistance = noOutliersDistances |> List.averageBy (fun (i,x) -> x)
+
                 let floatRange = (maxDistance - minDistance)
                 let legendRange = Range1d.FromMinAndSize (minDistance, floatRange)
                 let fromColor = C4b(0.0, 1.0, 0.1)
@@ -364,10 +405,10 @@ module AreaComparison =
                                           upperColor      = {legend.upperColor with c = toColor}}
                 let diffPoints1 = 
                     if vertices1.Length > vertices2.Length then 
-                        points |> List.map fst else points |> List.map snd 
+                        noOutliersPoints |> List.map fst else noOutliersPoints |> List.map snd 
                 let diffPoints2 = 
                     if vertices1.Length > vertices2.Length then 
-                        points |> List.map snd else points |> List.map fst 
+                        noOutliersPoints |> List.map snd else noOutliersPoints |> List.map fst 
                                         
                 let trafo1 = SurfaceTransformations.fullTrafo' surface1 referenceSystem
                 let trafo2 = SurfaceTransformations.fullTrafo' surface2 referenceSystem
@@ -377,14 +418,14 @@ module AreaComparison =
 
 
                 let statistics =
-                    match distances with
+                    match noOutliersDistances with
                     | [] -> None
                     | _ -> 
                         {
-                            avgDistance = distances |> List.average
+                            avgDistance = avgDistance
                             maxDistance = maxDistance
                             minDistance = minDistance
-                            distances   = distances
+                            distances   = noOutliersDistances |> List.map snd
                             diffPoints1 = diffPoints1 |> Array.ofList
                             diffPoints2 = diffPoints2 |> Array.ofList
                             trafo1      = trafo1
