@@ -227,7 +227,7 @@ type ScaleBar with
 type ScaleBarsModel = {
     version          : int
     scaleBars        : HashMap<Guid,ScaleBar>
-    selectedScaleBar : Option<Guid> //Option<ScaleBar>
+    selectedScaleBar : Option<Guid> 
 }
 
 module ScaleBarsModel =

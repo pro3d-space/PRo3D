@@ -15,6 +15,7 @@ open Aardvark.Rendering
 open PRo3D
 open PRo3D.Base
 open PRo3D.Base.Annotation
+open PRo3D.Bookmarkings
 open PRo3D.Core
 open PRo3D.Core.Drawing
 open PRo3D.Core.Surface
@@ -77,6 +78,7 @@ type ViewerAction =
     | AnnotationMessage               of AnnotationProperties.Action
     | BookmarkMessage                 of BookmarkAction
     | BookmarkUIMessage               of GroupsAppAction
+    | SequencedBookmarkMessage        of SequencedBookmarksAction
     | RoverMessage                    of RoverApp.Action
     | ViewPlanMessage                 of ViewPlanApp.Action
     | DnSColorLegendMessage           of FalseColorLegendApp.Action
@@ -181,11 +183,12 @@ type Scene = {
     feedbackThreads   : ThreadPool<ViewerAction> 
     sceneObjectsModel : SceneObjectsModel
     geologicSurfacesModel : GeologicSurfacesModel
+    sequencedBookmarks : SequencedBookmarks
 }
 
 module Scene =
         
-    let current = 1    
+    let current = 2   
     let read0 = 
         json {            
             let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
@@ -224,6 +227,7 @@ module Scene =
                     scaleBars       = ScaleBarsModel.initial
                     sceneObjectsModel   = SceneObjectsModel.initial
                     geologicSurfacesModel = GeologicSurfacesModel.initial
+                    sequencedBookmarks = SequencedBookmarks.initial
                 }
         }
 
@@ -268,6 +272,53 @@ module Scene =
                     scaleBars               = scaleBars
                     sceneObjectsModel       = sceneObjectsModel
                     geologicSurfacesModel   = geologicSurfacesModel
+                    sequencedBookmarks = SequencedBookmarks.initial
+                }
+        }
+
+    let read2 = 
+        json {            
+            let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
+            let! navigationMode  = Json.read "navigationMode"
+            let! exploreCenter   = Json.read "exploreCenter" 
+
+            let! interactionMode = Json.read "interactionMode"
+            let! surfaceModel    = Json.read "surfaceModel"
+            let! config          = Json.read "config"
+            let! scenePath       = Json.read "scenePath"
+            let! referenceSystem = Json.read "referenceSystem"
+            let! bookmarks       = Json.read "bookmarks"
+            let! dockConfig      = Json.read "dockConfig"  
+            let! scaleBars       = Json.read "scaleBars" 
+            let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
+            let! geologicSurfacesModel  = Json.read "geologicSurfacesModel"
+            let! sequencedBookmarks     = Json.read "sequencedBookmarks"
+
+            return 
+                {
+                    version                 = current
+
+                    cameraView              = cameraView
+                    navigationMode          = navigationMode |> enum<NavigationMode>
+                    exploreCenter           = exploreCenter  |> V3d.Parse
+            
+                    interaction             = interactionMode |> enum<InteractionMode>
+                    surfacesModel           = surfaceModel
+                    config                  = config
+                    scenePath               = scenePath
+                    referenceSystem         = referenceSystem
+                    bookmarks               = bookmarks
+
+                    viewPlans               = ViewPlanModel.initial
+                    dockConfig              = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
+                    closedPages             = List.empty
+                    firstImport             = false
+                    userFeedback            = String.Empty
+                    feedbackThreads         = ThreadPool.empty
+                    scaleBars               = scaleBars
+                    sceneObjectsModel       = sceneObjectsModel
+                    geologicSurfacesModel   = geologicSurfacesModel
+                    sequencedBookmarks      = sequencedBookmarks
                 }
         }
 
@@ -280,6 +331,7 @@ type Scene with
             match v with
             | 0 -> return! Scene.read0
             | 1 -> return! Scene.read1
+            | 2 -> return! Scene.read2
             | _ ->
                 return! v 
                 |> sprintf "don't know version %A  of Scene" 
@@ -304,6 +356,7 @@ type Scene with
             do! Json.write "scaleBars" x.scaleBars
             do! Json.write "sceneObjectsModel" x.sceneObjectsModel
             do! Json.write "geologicSurfacesModel" x.geologicSurfacesModel
+            do! Json.write "sequencedBookmarks" x.sequencedBookmarks
         }
 
 [<ModelType>] 
@@ -533,6 +586,7 @@ module Viewer =
                     viewPlans             = ViewPlanModel.initial
                     sceneObjectsModel     = SceneObjectsModel.initial
                     geologicSurfacesModel = GeologicSurfacesModel.initial
+                    sequencedBookmarks    = SequencedBookmarks.initial
                 }
 
             navigation      = navInit

@@ -830,6 +830,24 @@ module Gui =
                   Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
               ]
           ]
+
+    module SequencedBookmarks =
+
+        let sequencedBookmarksUI (m : AdaptiveModel) =           
+          div [][
+              yield br []
+              yield SequencedBookmarksApp.UI.viewGUI 
+              yield GuiEx.accordion "SequencedBookmarks" "Write" true [
+                  SequencedBookmarksApp.UI.viewSequencedBookmarks m.scene.sequencedBookmarks
+              ]        
+              yield GuiEx.accordion "Properties" "Content" true [
+                  Incremental.div AttributeMap.empty (AList.ofAValSingle(SequencedBookmarksApp.UI.viewProperties m.scene.sequencedBookmarks)) 
+              ]
+              yield GuiEx.accordion "Animation" "Write" true [
+                SequencedBookmarksApp.UI.viewAnimationGUI
+            ]   
+              
+          ] |> UI.map SequencedBookmarkMessage
     
 
     module Pages =
@@ -912,6 +930,8 @@ module Gui =
                 require (viewerDependencies) (body bodyAttributes [ScaleBars.scaleBarsUI m])
             | Some "geologicSurf" -> 
                 require (viewerDependencies) (body bodyAttributes [GeologicSurfaces.geologicSurfacesUI m])
+            | Some "sequencedBookmarks" -> 
+                require (viewerDependencies) (body bodyAttributes [SequencedBookmarks.sequencedBookmarksUI m])
             | Some "properties" ->
                 let prop = 
                     m.drawing.annotations.lastSelectedItem

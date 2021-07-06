@@ -112,6 +112,10 @@ module ViewerApp =
     // geologic surfaces
     let _geologicSurfacesModel = Model.scene_ >->  Scene.geologicSurfacesModel_
     let _geologicSurfaces      = _geologicSurfacesModel >-> GeologicSurfacesModel.geologicSurfaces_
+
+    // sequenced bookmarks
+    let _sequencedBookmarksModel = Model.scene_ >->  Scene.sequencedBookmarks_
+    let _sequencedBookmarks      = _sequencedBookmarksModel >-> SequencedBookmarks.bookmarks_
        
     let lookAtData (m: Model) =         
         let bb = m |> Optic.get _sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB) |> Box3d.ofSeq
@@ -584,6 +588,9 @@ module ViewerApp =
         | BookmarkUIMessage msg,_,_ ->    
             let bm = GroupsApp.update m.scene.bookmarks msg
             { m with scene = { m.scene with bookmarks = bm }} 
+        | SequencedBookmarkMessage msg,_,_ -> 
+            let m', bm = SequencedBookmarksApp.update m.scene.sequencedBookmarks msg _navigation _animation m
+            { m' with scene = { m.scene with sequencedBookmarks = bm }}
         | RoverMessage msg,_,_ ->
             let roverModel = RoverApp.update m.scene.viewPlans.roverModel msg
             let viewPlanModel = ViewPlanApp.updateViewPlanFroAdaptiveRover roverModel m.scene.viewPlans
@@ -1722,7 +1729,9 @@ module ViewerApp =
          
         let minerva = MinervaApp.threads m.minervaModel |> ThreadPool.map MinervaActions
 
-        unionMany [drawing; animation; nav; m.scene.feedbackThreads; minerva]
+        let sBookmarks = SequencedBookmarksApp.threads m.scene.sequencedBookmarks |> ThreadPool.map SequencedBookmarkMessage
+
+        unionMany [drawing; animation; nav; m.scene.feedbackThreads; minerva; sBookmarks]
         
     let loadWaypoints m = 
         match Serialization.fileExists "./waypoints.wps" with

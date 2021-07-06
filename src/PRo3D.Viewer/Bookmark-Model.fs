@@ -67,3 +67,5 @@ type Bookmark with
             do! Json.write "exploreCenter"  (x.exploreCenter.ToString())
             do! Json.write "navigationMode" (x.navigationMode |> int)
         }
+
+

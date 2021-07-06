@@ -67,3 +67,131 @@ type Bookmark with
             do! Json.write "exploreCenter"  (x.exploreCenter.ToString())
             do! Json.write "navigationMode" (x.navigationMode |> int)
         }
+
+type HarriSchirchWrongBlockingCollection<'a>() =
+    let sema = new System.Threading.SemaphoreSlim(0)
+    let l = obj()
+    let queue = System.Collections.Generic.Queue<'a>()
+    let mutable finished = false
+
+    member x.TakeAsync() =
+        async {
+            do! sema.WaitAsync() |> Async.AwaitTask
+            if finished then return None
+            else
+                return 
+                    lock l (fun _ -> 
+                        queue.Dequeue() |> Some
+                    )
+        }
+
+    member x.Enqueue(v) =
+        lock l (fun _ -> 
+            queue.Enqueue(v)
+        )
+        sema.Release() |> ignore
+
+    member x.CompleteAdding() =
+        finished <- true
+        sema.Release() |> ignore
+
+    member x.Restart() =
+        finished <- false
+        sema.Release() |> ignore
+
+    member x.Start() =
+        finished <- false
+        queue.Clear()
+        sema.Release() |> ignore
+
+    member x.IsCompleted = finished
+
+type SequencedBookmarksPropertiesAction =
+    | SetName           of string
+
+type SequencedBookmarksAction =
+    
+    | FlyToSBM       of Guid
+    | RemoveSBM      of Guid
+    | SelectSBM      of Guid
+    | IsVisible      of Guid
+    | MoveUp         of Guid
+    | MoveDown       of Guid
+    | AddSBookmark  
+    | PropertiesMessage     of SequencedBookmarksPropertiesAction
+    | Play
+    | Pause
+    | Stop
+    | StepForward
+    | StepBackward
+    | AnimationThreadsDone  of string
+    //| ResetBC
+    | AnimStep       of Guid
+
+
+[<ModelType>]
+type SequencedBookmarks = {
+    version          : int
+    bookmarks        : HashMap<Guid,Bookmark>
+    orderList        : List<Guid>
+    selectedBookmark : Option<Guid> 
+
+    [<NonAdaptive>]
+    animationThreads : ThreadPool<SequencedBookmarksAction>
+    [<NonAdaptive>]
+    stopAnimation    : bool
+    [<NonAdaptive>]
+    blockingCollection : HarriSchirchWrongBlockingCollection<SequencedBookmarksAction>
+}
+
+module SequencedBookmarks =
+    
+    let current = 0    
+    let read0 = 
+        json {
+            let! bookmarks = Json.read "bookmarks"
+            let bookmarks = bookmarks |> List.map(fun (a : Bookmark) -> (a.key, a)) |> HashMap.ofList
+            let! orderList = Json.read "orderList"
+            let! selected     = Json.read "selectedBookmark"
+            return 
+                {
+                    version          = current
+                    bookmarks        = bookmarks
+                    orderList        = orderList
+                    selectedBookmark = selected
+                    animationThreads = ThreadPool.Empty
+                    stopAnimation    = true
+                    blockingCollection = new HarriSchirchWrongBlockingCollection<_>()
+                }
+        }  
+
+    let initial =
+        {
+            version          = current
+            bookmarks        = HashMap.Empty
+            orderList        = List.empty
+            selectedBookmark = None
+            animationThreads = ThreadPool.Empty
+            stopAnimation    = true
+            blockingCollection = new HarriSchirchWrongBlockingCollection<_>()
+        }
+
+type SequencedBookmarks with
+    static member FromJson (_ : SequencedBookmarks) =
+        json {
+            let! v = Json.read "version"
+            match v with
+            | 0 -> return! SequencedBookmarks.read0
+            | _ ->
+                return! v
+                |> sprintf "don't know version %A  of SequencedBookmarks"
+                |> Json.error
+        }
+
+    static member ToJson (x : SequencedBookmarks) =
+        json {
+            do! Json.write "version"           x.version
+            do! Json.write "bookmarks"         (x.bookmarks |> HashMap.toList |> List.map snd)
+            do! Json.write "orderList"         x.orderList
+            do! Json.write "selectedBookmark"  x.selectedBookmark
+        }
