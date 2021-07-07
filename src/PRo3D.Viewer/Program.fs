@@ -88,6 +88,14 @@ let getFreePort() =
 [<EntryPoint;STAThread>]
 let main argv = 
 
+    // use this one to get path to self-contained exe (not temp expanded dll)
+    let executeablePath = Process.GetCurrentProcess().MainModule.FileName
+    printf "executeablePath: %s" executeablePath
+    // does not work for self-containted publishes'
+    //let selfPath = System.Environment.GetCommandLineArgs().[0]
+    let selfPath = executeablePath
+
+
     let startupArgs = (CommandLine.parseArguments argv)
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
     
@@ -95,9 +103,7 @@ let main argv =
     Log.line "Running with AppData: %s" appData
     Config.configPath <- appData
 
-    let selfPath = System.Environment.GetCommandLineArgs().[0]
     Log.line "path: %s" selfPath
-
     Config.colorPaletteStore <- Path.combine [appData; "favoriteColors.js"]
     Log.line "Color palette favorite colors are stored here: %s" Config.colorPaletteStore
 
