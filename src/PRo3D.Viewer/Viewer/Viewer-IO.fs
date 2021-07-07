@@ -274,11 +274,11 @@ module ViewerIO =
             //saving minerva session
             let minerva = 
                 try
-                    MinervaApp.update 
-                        m.navigation.camera.view
-                        m.frustum
-                        m.minervaModel
-                        MinervaAction.Save
+                MinervaApp.update 
+                    m.navigation.camera.view
+                    m.frustum
+                    m.minervaModel
+                    MinervaAction.Save
                 with e -> 
                     Log.warn "[Minerva] update failed, could not save, using old model: %A" e
                     m.minervaModel
