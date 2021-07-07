@@ -88,20 +88,22 @@ let getFreePort() =
 [<EntryPoint;STAThread>]
 let main argv = 
 
+    let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
+    Log.line "Running with AppData: %s" appData
+    Config.configPath <- appData
+
     // use this one to get path to self-contained exe (not temp expanded dll)
     let executeablePath = Process.GetCurrentProcess().MainModule.FileName
     printf "executeablePath: %s" executeablePath
     // does not work for self-containted publishes'
     //let selfPath = System.Environment.GetCommandLineArgs().[0]
     let selfPath = executeablePath
-
+    Config.besideExecuteable <- selfPath |> Path.GetDirectoryName
+    
 
     let startupArgs = (CommandLine.parseArguments argv)
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
     
-    let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
-    Log.line "Running with AppData: %s" appData
-    Config.configPath <- appData
 
     Log.line "path: %s" selfPath
     Config.colorPaletteStore <- Path.combine [appData; "favoriteColors.js"]
