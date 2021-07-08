@@ -36,7 +36,7 @@ module Model =
         
         let recent = { model.recent with recentScenes = scenePaths }
 
-        Serialization.save "./recent" recent |> ignore
+        try Serialization.save "./recent" recent |> ignore with e -> Log.warn "could not save recent: %A" e.Message
 
         { model with recent = recent }
 

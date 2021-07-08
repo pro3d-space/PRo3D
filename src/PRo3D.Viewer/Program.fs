@@ -42,6 +42,9 @@ open Suave.Json
 
 open FSharp.Data.Adaptive
 
+open System.Reflection
+open System.Runtime.InteropServices
+
 
 
 [<DataContract>]
@@ -63,10 +66,11 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "3.7.0-prerelease5"
+let viewerVersion       = "3.8.0-prerelease2"
 let catchDomainErrors   = false
 
 open System.IO
+open System.Runtime.InteropServices
 
 let rec allFiles dirs =
     if Seq.isEmpty dirs then Seq.empty else
@@ -83,18 +87,66 @@ let getFreePort() =
    
 [<EntryPoint;STAThread>]
 let main argv = 
-    let startupArgs = (CommandLine.parseArguments argv)
-    System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
-    
+
     let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
     Log.line "Running with AppData: %s" appData
     Config.configPath <- appData
 
+    // use this one to get path to self-contained exe (not temp expanded dll)
+    let executeablePath = Process.GetCurrentProcess().MainModule.FileName
+    printf "executeablePath: %s" executeablePath
+    // does not work for self-containted publishes'
+    //let selfPath = System.Environment.GetCommandLineArgs().[0]
+    let selfPath = executeablePath
+    Config.besideExecuteable <- selfPath |> Path.GetDirectoryName
+    
+
+    let startupArgs = (CommandLine.parseArguments argv)
+    System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
+    
+
+    Log.line "path: %s" selfPath
     Config.colorPaletteStore <- Path.combine [appData; "favoriteColors.js"]
     Log.line "Color palette favorite colors are stored here: %s" Config.colorPaletteStore
 
+    let os = 
+        if RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then
+            OSPlatform.OSX
+        elif RuntimeInformation.IsOSPlatform(OSPlatform.Linux) then
+            OSPlatform.Linux
+        elif RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+            OSPlatform.Windows
+        else 
+            Log.warn "could not detect os platform.. assuming linux"
+            OSPlatform.Linux
 
-    let crashDumpFile = "Aardvark.log"
+    let aardiumPath = 
+        try
+            let ass = selfPath |> Path.GetDirectoryName
+            if os = OSPlatform.Windows then
+                let exe = Path.Combine(ass, "tools", "Aardium.exe")
+                Log.line "exists? %s" exe
+                if File.Exists exe then
+                    Some (Path.Combine(ass, "tools"))
+                else
+                    None
+            elif os = OSPlatform.OSX then
+                let app = Path.Combine(ass, "tools", "Aardium.app")
+                if Directory.Exists app || File.Exists app then
+                    Some (Path.Combine(ass, "tools"))
+                else None
+            else None
+        with _ ->
+            None
+    match aardiumPath with
+    | Some p when true -> 
+        Log.line "init aardium at: %s" p
+        Aardium.initPath p
+    | _ -> 
+        Log.warn "system aardium"; 
+        Aardium.init()
+
+
 
     Aardium.init()      
     
