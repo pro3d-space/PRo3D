@@ -98,7 +98,14 @@ let main argv =
     // does not work for self-containted publishes'
     //let selfPath = System.Environment.GetCommandLineArgs().[0]
     let selfPath = executeablePath
-    Config.besideExecuteable <- selfPath |> Path.GetDirectoryName
+    let workingDirectory =  selfPath |> Path.GetDirectoryName
+    if Directory.Exists workingDirectory then
+        Log.line "setting current directory to: %s" workingDirectory
+        System.Environment.CurrentDirectory <- workingDirectory
+    else  
+        Log.warn "execute"
+    Config.besideExecuteable <- workingDirectory
+    PRo3D.Minerva.Config.besideExecuteable <- workingDirectory
     
 
     let startupArgs = (CommandLine.parseArguments argv)

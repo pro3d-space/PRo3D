@@ -8,4 +8,4 @@ module Config =
   let mutable configPath = "."
   let mutable colorPaletteStore = ".\palettes.js"
 
-  let mutable besideExecuteable = ""
+  let mutable besideExecuteable = "."
