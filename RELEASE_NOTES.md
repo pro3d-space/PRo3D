@@ -1,5 +1,9 @@
 ## 3.8.0-prerelease3
 
+- fixed UNC aardium problem
+
+## 3.8.0-prerelease3
+
 - current directory now set to main entry point location https://github.com/vrvis/PRo3D/issues/63, https://github.com/vrvis/PRo3D/issues/62
 
 ## 3.8.0-prerelease2

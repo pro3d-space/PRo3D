@@ -318,11 +318,13 @@ Target.create "GitHubRelease" (fun _ ->
             | s when not (System.String.IsNullOrWhiteSpace s) -> s
             | _ -> failwith "please set the github_token environment variable to a github personal access token with repro access."
 
-        let files = System.IO.Directory.EnumerateFiles("bin/publish") 
+        //let files = System.IO.Directory.EnumerateFiles("bin/publish") 
+        let release = sprintf "bin/PRo3D.Viewer.%s.zip" notes.NugetVersion
+        let z = System.IO.Compression.ZipFile.CreateFromDirectory("bin/publish", release)
 
         GitHub.createClientWithToken token
         |> GitHub.draftNewRelease "vrvis" "PRo3D" notes.NugetVersion (notes.SemVer.PreRelease <> None) notes.Notes
-        |> GitHub.uploadFiles files
+        |> GitHub.uploadFiles (Seq.singleton release)
         |> GitHub.publishDraft
         |> Async.RunSynchronously
     finally
