@@ -19,7 +19,6 @@ open Aardvark.VRVis.Opc
 open PRo3D.Base
 open PRo3D.Core
 open PRo3D.Core.Surface
-open PRo3DCompability
 open PRo3D.Comparison.ComparisonUtils
 open Aardvark.Geometry
 
