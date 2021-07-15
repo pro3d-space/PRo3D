@@ -844,7 +844,7 @@ module Gui =
                   Incremental.div AttributeMap.empty (AList.ofAValSingle(SequencedBookmarksApp.UI.viewProperties m.scene.sequencedBookmarks)) 
               ]
               yield GuiEx.accordion "Animation" "Write" true [
-                SequencedBookmarksApp.UI.viewAnimationGUI
+                SequencedBookmarksApp.UI.viewAnimationGUI m.scene.sequencedBookmarks
             ]   
               
           ] |> UI.map SequencedBookmarkMessage

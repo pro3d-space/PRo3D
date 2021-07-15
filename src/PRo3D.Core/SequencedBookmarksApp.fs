@@ -102,10 +102,9 @@ module SequencedBookmarksApp =
                 let! action = m.blockingCollection.TakeAsync()
                 Log.line "[animationSB] take async"
                 match action with
-                | Some a -> 
-                    //do! Proc.Sleep 3000
+                | Some a ->
                     yield a
-                    do! Proc.Sleep 3000
+                    do! Proc.Sleep ((int)m.delay.value) //3000
                     ()
                 | None -> ()
 
@@ -306,11 +305,13 @@ module SequencedBookmarksApp =
             | Some bm ->
                 let anim = Optic.get animationModel outerModel
                 let animationMessage = 
-                    animateFowardAndLocation bm.cameraView.Location bm.cameraView.Forward bm.cameraView.Up 2.0 "ForwardAndLocation2s"
+                    animateFowardAndLocation bm.cameraView.Location bm.cameraView.Forward bm.cameraView.Up m'.animationSpeed.value "ForwardAndLocation2s"
                 let anim' = AnimationApp.update anim (AnimationAction.PushAnimation(animationMessage))
                 let newOuterModel = Optic.set animationModel anim' outerModel
                 newOuterModel, m'
             | None -> outerModel, m
+        | SetDelay ms -> outerModel, { m with delay = Numeric.update m.delay ms}
+        | SetAnimationSpeed s -> outerModel, { m with animationSpeed = Numeric.update m.animationSpeed s}
         |_-> outerModel, m
 
 
@@ -413,19 +414,26 @@ module SequencedBookmarksApp =
                 | None -> return empty
             }  
             
-        let viewAnimationGUI = 
-            div [clazz "ui buttons inverted"] [
-                        button [clazz "ui icon button"; onMouseClick (fun _ -> StepBackward )] [ //
-                            i [clazz "step backward icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Back"
-                        button [clazz "ui icon button"; onMouseClick (fun _ -> Play )] [ //
-                            i [clazz "play icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Start Animation"
-                        button [clazz "ui icon button"; onMouseClick (fun _ -> Pause )] [ //
-                            i [clazz "pause icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Pause Animation"
-                        button [clazz "ui icon button"; onMouseClick (fun _ -> Stop )] [ //
-                            i [clazz "stop icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Stop Animation"
-                        button [clazz "ui icon button"; onMouseClick (fun _ -> StepForward )] [ //
-                            i [clazz "step forward icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Forward"
-                    ] 
+        let viewAnimationGUI (model:AdaptiveSequencedBookmarks) = 
+            require GuiEx.semui (
+                Html.table [               
+                  Html.row "Animation:"   [div [clazz "ui buttons inverted"] [
+                                              button [clazz "ui icon button"; onMouseClick (fun _ -> StepBackward )] [ //
+                                                  i [clazz "step backward icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Back"
+                                              button [clazz "ui icon button"; onMouseClick (fun _ -> Play )] [ //
+                                                  i [clazz "play icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Start Animation"
+                                              button [clazz "ui icon button"; onMouseClick (fun _ -> Pause )] [ //
+                                                  i [clazz "pause icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Pause Animation"
+                                              button [clazz "ui icon button"; onMouseClick (fun _ -> Stop )] [ //
+                                                  i [clazz "stop icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Stop Animation"
+                                              button [clazz "ui icon button"; onMouseClick (fun _ -> StepForward )] [ //
+                                                  i [clazz "step forward icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Forward"
+                                          ] ]
+                  Html.row "Duration (s):"   [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]  model.animationSpeed |> UI.map SetAnimationSpeed ]
+                  Html.row "Delay (ms):"  [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]  model.delay |> UI.map SetDelay ]
+                  
+                ]
+              )
             
        
 
