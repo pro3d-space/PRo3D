@@ -176,11 +176,11 @@ module SequencedBookmarks =
 
     let initDelay =
         {
-            value   = 3000.0
-            min     = 100.0
-            max     = 9000.0
-            step    = 10.0
-            format  = "{0:0}"
+            value   = 3.0
+            min     = 0.5
+            max     = 10.0
+            step    = 0.1
+            format  = "{0:0.0}"
         }
 
     let initSpeed =
