@@ -523,7 +523,7 @@ module Gui =
                 let! interaction = m.interaction
                 match interaction with
                 | Interactions.DrawAnnotation -> 
-                    return Drawing.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage
+                    return Drawing.UI.viewAnnotationToolsHorizontal Config.colorPaletteStore m.drawing |> UI.map DrawingMessage
                 | Interactions.PlaceRover ->
                     return ViewPlanApp.UI.viewSelectRover m.scene.viewPlans.roverModel |> UI.map RoverMessage
                 | Interactions.PlaceCoordinateSystem -> 
@@ -618,7 +618,7 @@ module Gui =
         let viewAnnotationProperties (model : AdaptiveModel) =
             let view = (fun leaf ->
                 match leaf with
-                  | AdaptiveAnnotations ann -> AnnotationProperties.view ann
+                  | AdaptiveAnnotations ann -> AnnotationProperties.view Config.colorPaletteStore ann
                   | _ -> div[style "font-style:italic"][ text "no annotation selected" ])
             
             model.drawing.annotations |> GroupsApp.viewSelected view AnnotationMessage
