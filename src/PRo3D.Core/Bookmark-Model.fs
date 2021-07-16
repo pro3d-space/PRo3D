@@ -81,7 +81,9 @@ type HarriSchirchWrongBlockingCollection<'a>() =
             else
                 return 
                     lock l (fun _ -> 
-                        queue.Dequeue() |> Some
+                        if queue.IsEmptyOrNull () then None
+                        else 
+                          queue.Dequeue() |> Some
                     )
         }
 
