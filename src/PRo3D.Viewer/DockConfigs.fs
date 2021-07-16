@@ -80,11 +80,15 @@ module DockConfigs =
                             {id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             {id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             {id = "bookmarks"; title = Some " Bookmarks"; weight = 0.4; deleteInvisible = None; isCloseable = None }
+                            {id = "sequencedBookmarks"; title = Some " SequBookmarks "; weight = 0.4; deleteInvisible = None; isCloseable = None }
+                            {id = "sceneobjects"; title = Some " SceneObjects "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                            // {id = "validation"; title = Some " Validation "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                         ]                          
                         stack 0.5 (Some "properties") [
                             {id = "properties"; title = Some " Properties "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
+                            {id = "scalebars"; title = Some " ScaleBars"; weight = 0.4; deleteInvisible = None; isCloseable = None }
+                            {id = "geologicSurf"; title = Some " GeologicSurfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                         ]
                     ]
                 ]                        

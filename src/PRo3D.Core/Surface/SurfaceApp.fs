@@ -879,7 +879,7 @@ module SurfaceApp =
               | None -> return empty
         }                          
 
-    let viewColorCorrectionTools (model:AdaptiveSurfaceModel) =
+    let viewColorCorrectionTools (paletteFile : string) (model:AdaptiveSurfaceModel) =
         adaptive {
             let! guid = model.surfaces.singleSelectLeaf
             let empty = div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map ColorCorrectionMessage 
@@ -891,7 +891,7 @@ module SurfaceApp =
                     let leaf = model.surfaces.flat |> AMap.find i // TODO to: common - make a map here!
                     let! surf = leaf 
                     let colorCorrection = match surf with | AdaptiveSurfaces s -> s.colorCorrection | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
-                    return ColorCorrectionProperties.view colorCorrection |> UI.map ColorCorrectionMessage
+                    return ColorCorrectionProperties.view paletteFile colorCorrection |> UI.map ColorCorrectionMessage
                   else 
                     return empty
                 | None -> return empty 
@@ -899,7 +899,7 @@ module SurfaceApp =
 
     //TODO LF refactor and simplify, use option.map, bind, default value as described in
     //https://hackmd.io/C3putqB_QNCwpxWO_oKZJQ#Working-with-Optionmap-Optionbind-and-OptiondefaultValue
-    let viewColorLegendTools (model:AdaptiveSurfaceModel) =
+    let viewColorLegendTools (colorPaletteStore : string) (model:AdaptiveSurfaceModel) =
         adaptive {
             let! guid = model.surfaces.singleSelectLeaf
             
@@ -916,7 +916,7 @@ module SurfaceApp =
                       
                       let! scalar = scalar
                       match AdaptiveOption.toOption scalar with // why is AdaptiveSome here not available
-                          | Some s -> return FalseColorLegendApp.UI.viewScalarMappingProperties s.colorLegend |> UI.map ScalarsColorLegendMessage
+                          | Some s -> return FalseColorLegendApp.UI.viewScalarMappingProperties colorPaletteStore s.colorLegend |> UI.map ScalarsColorLegendMessage
                           | None -> return div[ style "font-style:italic"][ text "no scalar in properties selected" ] |> UI.map ScalarsColorLegendMessage 
                     else
                       return div[ style "font-style:italic"][ text "no scalar in properties selected" ] |> UI.map ScalarsColorLegendMessage 
@@ -967,7 +967,7 @@ module SurfaceApp =
             return (GroupsApp.viewGroupButtons ts |> UI.map GroupsMessage)
         } 
     
-    let surfaceUI (model:AdaptiveSurfaceModel) =
+    let surfaceUI (colorPaletteStore : string) (model:AdaptiveSurfaceModel) =
         let item2 = 
             model.surfaces.lastSelectedItem 
                 |> AVal.bind (fun x -> 
@@ -988,20 +988,22 @@ module SurfaceApp =
               Incremental.div AttributeMap.empty (AList.ofAValSingle item2)
                
             ]
-            yield GuiEx.accordion "Actions" "Asterisk" false [
-                Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
-            ]  
+             
             yield GuiEx.accordion "Transformation" "expand arrows alternate " false [
                 Incremental.div AttributeMap.empty (AList.ofAValSingle(viewTranslationTools model))
                 //div [] [Html.SemUi.textBox model.debugPreTrafo SetPreTrafo] // debug PreTrafo //  Bug: pretrafo ignored when picking annotation etc.
             ]  
                 
             yield GuiEx.accordion "Color Adaptation" "file image outline" false [
-                Incremental.div AttributeMap.empty (AList.ofAValSingle(viewColorCorrectionTools model))
+                Incremental.div AttributeMap.empty (AList.ofAValSingle(viewColorCorrectionTools colorPaletteStore model))
             ] 
 
             yield GuiEx.accordion "Scalars ColorLegend" "paint brush" true [
-                Incremental.div AttributeMap.empty (AList.ofAValSingle(viewColorLegendTools model))
+                Incremental.div AttributeMap.empty (AList.ofAValSingle(viewColorLegendTools colorPaletteStore model))
+            ] 
+
+            yield GuiEx.accordion "Actions" "Asterisk" false [
+                Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
             ] 
         ]
     

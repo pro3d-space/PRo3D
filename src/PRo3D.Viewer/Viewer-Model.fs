@@ -15,6 +15,7 @@ open Aardvark.Rendering
 open PRo3D
 open PRo3D.Base
 open PRo3D.Base.Annotation
+open PRo3D.Bookmarkings
 open PRo3D.Core
 open PRo3D.Core.Drawing
 open PRo3D.Core.Surface
@@ -79,9 +80,12 @@ type ViewerAction =
     | AnnotationMessage               of AnnotationProperties.Action
     | BookmarkMessage                 of BookmarkAction
     | BookmarkUIMessage               of GroupsAppAction
+    | SequencedBookmarkMessage        of SequencedBookmarksAction
     | RoverMessage                    of RoverApp.Action
     | ViewPlanMessage                 of ViewPlanApp.Action
     | DnSColorLegendMessage           of FalseColorLegendApp.Action
+    | SceneObjectsMessage             of SceneObjectAction
+    | FrustumMessage                  of FrustumProperties.Action
     | SetCamera                       of CameraView        
     | SetCameraAndFrustum             of CameraView * double * double        
     | SetCameraAndFrustum2            of CameraView * Frustum
@@ -89,6 +93,7 @@ type ViewerAction =
     | ImportDiscoveredSurfaces        of list<string>
     | ImportDiscoveredSurfacesThreads of list<string>
     | ImportObject                    of list<string>
+    | ImportSceneObject               of list<string>
     | ImportPRo3Dv1Annotations        of list<string>
     | ImportSurfaceTrafo              of list<string>
     | ImportRoverPlacement            of list<string>
@@ -142,6 +147,9 @@ type ViewerAction =
     | TestHaltonRayCasting            //of list<string>
     | HeightValidation               of HeightValidatorAction
     | ComparisonMessage              of ComparisonAction
+    | ScaleBarsDrawingMessage        of ScaleBarDrawingAction
+    | ScaleBarsMessage               of ScaleBarsAction
+    | GeologicSurfacesMessage        of GeologicSurfaceAction
     | Nop
 
 and MailboxState = {
@@ -167,6 +175,7 @@ type Scene = {
     scenePath         : Option<string>
     referenceSystem   : ReferenceSystem    
     bookmarks         : GroupsModel
+    scaleBars         : ScaleBarsModel
 
     viewPlans         : ViewPlanModel
     dockConfig        : DockConfig
@@ -175,11 +184,14 @@ type Scene = {
     userFeedback      : string
     feedbackThreads   : ThreadPool<ViewerAction> 
     comparisonApp     : PRo3D.Comparison.ComparisonApp
+    sceneObjectsModel : SceneObjectsModel
+    geologicSurfacesModel : GeologicSurfacesModel
+    sequencedBookmarks : SequencedBookmarks
 }
 
 module Scene =
-        
-    let current = 1    
+         
+    let current = 2   
     let read0 = 
         json {            
             let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
@@ -216,6 +228,10 @@ module Scene =
                     userFeedback    = String.Empty
                     feedbackThreads = ThreadPool.empty
                     comparisonApp    = PRo3D.ComparisonApp.init
+                    scaleBars       = ScaleBarsModel.initial
+                    sceneObjectsModel   = SceneObjectsModel.initial
+                    geologicSurfacesModel = GeologicSurfacesModel.initial
+                    sequencedBookmarks = SequencedBookmarks.initial
                 }
         }
 
@@ -233,31 +249,86 @@ module Scene =
             let! bookmarks       = Json.read "bookmarks"
             let! dockConfig      = Json.read "dockConfig"  
             let! (comparisonApp : option<ComparisonApp>) = Json.tryRead "comparisonApp"
-
+            let! scaleBars       = Json.read "scaleBars" 
+            let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
+            let! geologicSurfacesModel  = Json.read "geologicSurfacesModel"
 
             return 
                 {
-                    version         = current
+                    version                 = current
 
-                    cameraView      = cameraView
-                    navigationMode  = navigationMode |> enum<NavigationMode>
-                    exploreCenter   = exploreCenter  |> V3d.Parse
+                    cameraView              = cameraView
+                    navigationMode          = navigationMode |> enum<NavigationMode>
+                    exploreCenter           = exploreCenter  |> V3d.Parse
             
-                    interaction     = interactionMode |> enum<InteractionMode>
-                    surfacesModel   = surfaceModel
-                    config          = config
-                    scenePath       = scenePath
-                    referenceSystem = referenceSystem
-                    bookmarks       = bookmarks
+                    interaction             = interactionMode |> enum<InteractionMode>
+                    surfacesModel           = surfaceModel
+                    config                  = config
+                    scenePath               = scenePath
+                    referenceSystem         = referenceSystem
+                    bookmarks               = bookmarks
 
-                    viewPlans       = ViewPlanModel.initial
-                    dockConfig      = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
-                    closedPages     = List.empty
-                    firstImport     = false
-                    userFeedback    = String.Empty
-                    feedbackThreads = ThreadPool.empty
+                    viewPlans               = ViewPlanModel.initial
+                    dockConfig              = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
+                    closedPages             = List.empty
+                    firstImport             = false
+                    userFeedback            = String.Empty
+                    feedbackThreads         = ThreadPool.empty
                     comparisonApp    = if comparisonApp.IsSome then comparisonApp.Value
-                                       else ComparisonApp.init
+                                       else ComparisonApp.init                    
+                    scaleBars               = scaleBars
+                    sceneObjectsModel       = sceneObjectsModel
+                    geologicSurfacesModel   = geologicSurfacesModel
+                    sequencedBookmarks = SequencedBookmarks.initial
+                }
+        }
+
+    let read2 = 
+        json {            
+            let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
+            let! navigationMode  = Json.read "navigationMode"
+            let! exploreCenter   = Json.read "exploreCenter" 
+
+            let! interactionMode = Json.read "interactionMode"
+            let! surfaceModel    = Json.read "surfaceModel"
+            let! config          = Json.read "config"
+            let! scenePath       = Json.read "scenePath"
+            let! referenceSystem = Json.read "referenceSystem"
+            let! bookmarks       = Json.read "bookmarks"
+            let! dockConfig      = Json.read "dockConfig"  
+            let! (comparisonApp : option<ComparisonApp>) = Json.tryRead "comparisonApp"
+            let! scaleBars       = Json.read "scaleBars" 
+            let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
+            let! geologicSurfacesModel  = Json.read "geologicSurfacesModel"
+            let! sequencedBookmarks     = Json.read "sequencedBookmarks"
+
+            return 
+                {
+                    version                 = current
+
+                    cameraView              = cameraView
+                    navigationMode          = navigationMode |> enum<NavigationMode>
+                    exploreCenter           = exploreCenter  |> V3d.Parse
+            
+                    interaction             = interactionMode |> enum<InteractionMode>
+                    surfacesModel           = surfaceModel
+                    config                  = config
+                    scenePath               = scenePath
+                    referenceSystem         = referenceSystem
+                    bookmarks               = bookmarks
+
+                    viewPlans               = ViewPlanModel.initial
+                    dockConfig              = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
+                    closedPages             = List.empty
+                    firstImport             = false
+                    userFeedback            = String.Empty
+                    feedbackThreads         = ThreadPool.empty
+                    comparisonApp    = if comparisonApp.IsSome then comparisonApp.Value
+                                       else ComparisonApp.init                                   
+                    scaleBars               = scaleBars
+                    sceneObjectsModel       = sceneObjectsModel
+                    geologicSurfacesModel   = geologicSurfacesModel
+                    sequencedBookmarks      = sequencedBookmarks
                 }
         }
 
@@ -270,6 +341,7 @@ type Scene with
             match v with
             | 0 -> return! Scene.read0
             | 1 -> return! Scene.read1
+            | 2 -> return! Scene.read2
             | _ ->
                 return! v 
                 |> sprintf "don't know version %A  of Scene" 
@@ -288,10 +360,13 @@ type Scene with
             do! Json.write "config" x.config
             do! Json.write "scenePath" x.scenePath
             do! Json.write "referenceSystem" x.referenceSystem
-            do! Json.write "bookmarks" x.bookmarks
-
-            do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString)                   
+            do! Json.write "bookmarks" x.bookmarks    
             do! Json.write "comparisonApp" (x.comparisonApp)
+            do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString) 
+            do! Json.write "scaleBars" x.scaleBars
+            do! Json.write "sceneObjectsModel" x.sceneObjectsModel
+            do! Json.write "geologicSurfacesModel" x.geologicSurfacesModel
+            do! Json.write "sequencedBookmarks" x.sequencedBookmarks
         }
 
 [<ModelType>] 
@@ -374,6 +449,8 @@ type Model = {
     linkingModel     : PRo3D.Linking.LinkingModel
     //correlationPlot : CorrelationPanelModel
     //pastCorrelation : Option<CorrelationPanelModel>
+
+    scaleBarsDrawing     : ScaleBarDrawing
             
     [<TreatAsValue>]
     past : Option<Drawing.DrawingModel> 
@@ -387,6 +464,8 @@ type Model = {
     showExplorationPoint : bool
 
     heighValidation      : HeightValidatorModel
+
+    frustumModel         : FrustumModel
 }
 
 
@@ -443,6 +522,7 @@ module Viewer =
                     {id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                     {id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                     {id = "minerva"; title = Some " Minerva "; weight = 0.4; deleteInvisible = None; isCloseable = None }
+                    {id = "scalebars"; title = Some " ScaleBars "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                   ]                          
                   stack 0.5 (Some "config") [
                     {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
@@ -469,6 +549,7 @@ module Viewer =
                   stack 0.5 None [                        
                     {id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                     {id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
+                    {id = "scalebars"; title = Some " ScaleBars "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                   ]                          
                   stack 0.5 (Some "config") [
                     {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
@@ -503,15 +584,19 @@ module Viewer =
                     config          = ViewConfigModel.initial 
                     scenePath       = None
 
-                    referenceSystem = ReferenceSystem.initial                    
-                    bookmarks       = GroupsModel.initial
-                    dockConfig      = DockConfigs.core
-                    closedPages     = list.Empty 
-                    firstImport     = true
-                    userFeedback    = ""
-                    feedbackThreads = ThreadPool.empty
-                    viewPlans       = ViewPlanModel.initial
-                    comparisonApp    = PRo3D.ComparisonApp.init
+                    referenceSystem       = ReferenceSystem.initial                    
+                    bookmarks             = GroupsModel.initial
+                    scaleBars             = ScaleBarsModel.initial
+                    dockConfig            = DockConfigs.core
+                    closedPages           = list.Empty 
+                    firstImport           = true
+                    userFeedback          = ""
+                    feedbackThreads       = ThreadPool.empty
+                    comparisonApp         = PRo3D.ComparisonApp.init                    
+                    viewPlans             = ViewPlanModel.initial
+                    sceneObjectsModel     = SceneObjectsModel.initial
+                    geologicSurfacesModel = GeologicSurfacesModel.initial
+                    sequencedBookmarks    = SequencedBookmarks.initial
                 }
             dashboardMode   = DashboardModes.core.name
             navigation      = navInit
@@ -538,6 +623,7 @@ module Viewer =
             trafoKind       = TrafoKind.Rotate
             trafoMode       = TrafoMode.Local            
 
+            scaleBarsDrawing = InitScaleBarsParams.initialScaleBarDrawing
             past            = None
             future          = None
 
@@ -568,4 +654,5 @@ module Viewer =
             arnoldSnapshotThreads = ThreadPool.empty
             showExplorationPoint = startupArgs.showExplorationPoint
             heighValidation = HeightValidatorModel.init()
+            frustumModel = FrustumModel.init 0.1 10000.0
     }

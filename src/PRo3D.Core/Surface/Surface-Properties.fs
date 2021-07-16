@@ -153,19 +153,17 @@ module ColorCorrectionProperties =
         | UseGrayScale  ->
             { model with useGrayscale = (not model.useGrayscale) }
 
-    let view (model : AdaptiveColorCorrection) =        
+    let view (paletteFile : string) (model : AdaptiveColorCorrection) =        
       require GuiEx.semui (
         Html.table [        
           Html.row "use color:"           [GuiEx.iconCheckBox model.useColor UseColor ]
-          Html.row "color:"               [ColorPicker.view model.color |> UI.map SetColor ]
+          Html.row "color:"               [ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" model.color |> UI.map SetColor ]
           Html.row "grayscale:"           [GuiEx.iconCheckBox model.useGrayscale UseGrayScale ]
           Html.row "use brightness:"      [GuiEx.iconCheckBox model.useBrightn UseBrightness ]
-          Html.row "set brightness:"      [Numeric.view' [NumericInputType.Slider]   model.brightness  |> UI.map SetBrightness ] 
-          Html.row "use contrast:"        [GuiEx.iconCheckBox model.useContrast UseContrast ] // group.visible (GroupsMessage(Groups.ToggleGroup path))
-          Html.row "set contrast:"        [Numeric.view' [NumericInputType.Slider]   model.contrast  |> UI.map SetContrast ] 
+          Html.row "set brightness:"      [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]   model.brightness  |> UI.map SetBrightness ] 
+          Html.row "use contrast:"        [GuiEx.iconCheckBox model.useContrast UseContrast ] 
+          Html.row "set contrast:"        [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]   model.contrast  |> UI.map SetContrast ] 
           Html.row "use gamma:"           [GuiEx.iconCheckBox model.useGamma UseGamma ]
-          Html.row "set gamma:"           [Numeric.view' [NumericInputType.Slider]   model.gamma  |> UI.map SetGamma ] 
-          
-         
+          Html.row "set gamma:"           [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]   model.gamma  |> UI.map SetGamma ] 
         ]
       )

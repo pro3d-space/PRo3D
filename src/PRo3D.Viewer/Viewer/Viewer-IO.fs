@@ -253,8 +253,10 @@ module ViewerIO =
            //saving scene
             let scenePaths = path |> ScenePaths.create             
             let cameraState = m.navigation.camera.view            
-            let scene = { m.scene with scenePath = Some scenePaths.scene; cameraView = cameraState }
-
+            let scene = { m.scene with scenePath      = Some scenePaths.scene; 
+                                       cameraView     = cameraState;
+                                       exploreCenter  = m.navigation.exploreCenter
+                                       navigationMode = m.navigation.navigationMode}
             scene
             |> Json.serialize 
             |> Json.formatWith JsonFormattingOptions.Pretty

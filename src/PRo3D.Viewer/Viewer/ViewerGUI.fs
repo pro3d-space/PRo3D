@@ -133,8 +133,8 @@ module Gui =
                 AVal.map2 (fun (a : CameraView) b -> 
                     CooTransformation.getAltitude a.Location a.Up b ) cv m.planet
             
-            let lon = spericalc |> AVal.map(fun x -> sprintf "%s deg" ((x.longitude).ToString("0.00")))
-            let lat = spericalc |> AVal.map(fun x -> sprintf "%s deg" ((x.latitude).ToString("0.00")))            
+            let lon = spericalc |> AVal.map(fun x -> sprintf "%s deg" ((x.longitude).ToString()))
+            let lat = spericalc |> AVal.map(fun x -> sprintf "%s deg" ((x.latitude).ToString()))            
             let alt2 = alt2 |> AVal.map(fun x -> sprintf "%s m" ((x).ToString("0.00")))            
                                                    
             let style' = "color: white; font-family:Consolas;"
@@ -241,6 +241,9 @@ module Gui =
            
         let jsImportOBJDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select *.obj files to import', filters: [{ name: 'OBJ (*.obj)', extensions: ['obj']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+        
+        let jsImportSceneObjectDialog =
+            "top.aardvark.dialog.showOpenDialog({tile: 'Select *.obj or *.dae files to import', filters: [{ name: 'OBJ (*.obj)', extensions: ['obj']}, { name: 'DAE (*.dae)', extensions: ['dae']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
         let jsImportPLYDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select *.obj files to import', filters: [{ name: 'PLY (*.ply)', extensions: ['ply']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"            
@@ -268,6 +271,20 @@ module Gui =
                     ][
                         text "Import (*.ply)"
                     ]                    
+                ]
+            ]
+
+        let private importSCeneObject =
+            [
+                text "Scene Objects"
+                i [clazz "dropdown icon"][] 
+                div [ clazz "menu"] [
+                    div [ clazz "ui inverted item"; 
+                        Dialogs.onChooseFiles ImportSceneObject;
+                        clientEvent "onclick" (jsImportSceneObjectDialog)
+                    ][
+                        text "Import (*.obj or *.dae)"
+                    ]
                 ]
             ]
         
@@ -463,14 +480,16 @@ module Gui =
                             
                                 //annotations menu
                                 annotationMenu |> UI.map DrawingMessage;   
-                                Bookmarkings.Bookmarks.UI.menu |> UI.map ViewerAction.BookmarkMessage
                                 subMenu "Change Mode"
                                         [
                                           menuItem "PRo3D Core" (ChangeDashboardMode DashboardModes.core)
                                           menuItem "Surface Comparison" (ChangeDashboardMode DashboardModes.comparison)
                                           menuItem "Render Only" (ChangeDashboardMode DashboardModes.renderOnly)
-                                        ]
-                 
+                                        ]   
+                                
+                                //scene objects
+                                div [ clazz "ui dropdown item"; style "width: 150px"] importSCeneObject
+                                                            
                                 //Extras Menu
                                 div [ clazz "ui dropdown item"] [
                                     text "Extras"
@@ -497,6 +516,10 @@ module Gui =
                                         //    text "Rover Placement"
                                         //]
                                         
+                                        div [ clazz "ui item"; 
+                                            clientEvent "onclick" (sprintf "aardvark.electron.shell.openPath('%s')" (Config.configPath.Replace("\\","\\\\")))] [
+                                            text "Open Configuration Folder"
+                                        ]
 
                                         div [clazz "ui item"; clientEvent "onclick" "sendCrashDump()"] [
                                             text "Send log to maintainers"
@@ -520,7 +543,7 @@ module Gui =
                 let! interaction = m.interaction
                 match interaction with
                 | Interactions.DrawAnnotation -> 
-                    return Drawing.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage
+                    return Drawing.UI.viewAnnotationToolsHorizontal Config.colorPaletteStore m.drawing |> UI.map DrawingMessage
                 | Interactions.PlaceRover ->
                     return ViewPlanApp.UI.viewSelectRover m.scene.viewPlans.roverModel |> UI.map RoverMessage
                 | Interactions.PlaceCoordinateSystem -> 
@@ -535,6 +558,8 @@ module Gui =
                         Html.Layout.boxH [
                             Numeric.view' [InputBox] m.scene.config.pickingTolerance |> UI.map (fun x -> (ConfigProperties.Action.SetPickingTolerance x) |> ConfigPropertiesMessage)] 
                      ]
+                | Interactions.PlaceScaleBar ->
+                    return ScaleBarsDrawing.UI.viewScaleBarToolsHorizontal m.scaleBarsDrawing |> UI.map ScaleBarsDrawingMessage
                 | _ -> 
                   return div[][]
             }
@@ -576,6 +601,8 @@ module Gui =
             | Interactions.PlaceRover            -> "CTRL+click to (1) place rover and (2) pick lookat"
             | Interactions.TrafoControls         -> "not implemented"
             | Interactions.PlaceSurface          -> "not implemented"
+            | Interactions.PlaceScaleBar         -> "CTRL+click to place scale bar"
+            | Interactions.PlaceSceneObject      -> "CTRL+click to place scene object"
             //| Interactions.PickLinking           -> "CTRL+click to place point on surface"
             | _ -> ""
         
@@ -615,7 +642,7 @@ module Gui =
         let viewAnnotationProperties (model : AdaptiveModel) =
             let view = (fun leaf ->
                 match leaf with
-                  | AdaptiveAnnotations ann -> AnnotationProperties.view ann
+                  | AdaptiveAnnotations ann -> AnnotationProperties.view Config.colorPaletteStore ann
                   | _ -> div[style "font-style:italic"][ text "no annotation selected" ])
             
             model.drawing.annotations |> GroupsApp.viewSelected view AnnotationMessage
@@ -638,7 +665,7 @@ module Gui =
             
         let viewDnSColorLegendUI (model : AdaptiveModel) = 
             model.drawing.dnsColorLegend 
-            |> FalseColorLegendApp.viewDnSLegendProperties DnSColorLegendMessage 
+            |> FalseColorLegendApp.viewDnSLegendProperties Config.colorPaletteStore DnSColorLegendMessage 
             |> AVal.constant
           
         let annotationLeafButtonns' (model : AdaptiveModel) = 
@@ -684,13 +711,12 @@ module Gui =
                     Drawing.UI.viewAnnotationGroups m.drawing |> UI.map ViewerAction.DrawingMessage
                    // DrawingApp.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage // CHECK-merge viewAnnotationGroups
                 ]
-                
-                GuiEx.accordion "Actions" "Asterisk" true [
-                  Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
-                ]                    
-               
                 GuiEx.accordion "Dip&Strike ColorLegend" "paint brush" false [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDnSColorLegendUI m))] 
+
+                GuiEx.accordion "Actions" "Asterisk" true [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
+                  ]  
                 ]    
 
     module Config =
@@ -710,6 +736,9 @@ module Gui =
               GuiEx.accordion "Camera" "Camera Retro" false [
                   CameraProperties.view m.scene.referenceSystem m.navigation.camera
               ]
+              GuiEx.accordion "Frustum" "Settings" false [
+                  FrustumProperties.view m.frustumModel |> UI.map FrustumMessage
+              ]
           ] 
           
     module ViewPlanner = 
@@ -725,7 +754,49 @@ module Gui =
               GuiEx.accordion "Properties" "Content" true [
                   Incremental.div AttributeMap.empty (viewPlanProperties m |> AList.ofAValSingle)
               ]
-          ]                
+          ]   
+
+    module SceneObjects =
+        let sceneObjectsUI (m : AdaptiveModel) =             
+          div [][
+              yield GuiEx.accordion "SceneObjects" "Write" true [
+                      SceneObjectsApp.UI.viewSceneObjects m.scene.sceneObjectsModel 
+                  ]
+              yield GuiEx.accordion "Transformation" "expand arrows alternate " false [
+                      Incremental.div AttributeMap.empty (AList.ofAValSingle(SceneObjectsApp.UI.viewTranslationTools m.scene.sceneObjectsModel))
+                  ]  
+             
+          ] |> UI.map SceneObjectsMessage      
+          
+    module ScaleBars = 
+        
+         let scaleBarsUI (m : AdaptiveModel) =             
+           div [][
+               yield GuiEx.accordion "ScaleBars" "Write" true [
+                   ScaleBarsApp.UI.viewScaleBars m.scene.scaleBars
+               ]
+               // Todo: properties
+               yield GuiEx.accordion "Properties" "Content" true [
+                   Incremental.div AttributeMap.empty (AList.ofAValSingle(ScaleBarsApp.UI.viewProperties m.scene.scaleBars)) 
+               ]
+           ]  |> UI.map ScaleBarsMessage    
+
+    module GeologicSurfaces = 
+        
+         let geologicSurfacesUI (m : AdaptiveModel) =           
+           let annos = m.drawing.annotations
+
+           div [][
+               yield br []
+               yield GeologicSurfacesApp.UI.addMesh
+
+               yield GuiEx.accordion "GeologicSurfaces" "Write" true [
+                   GeologicSurfacesApp.UI.viewGeologicSurfaces m.scene.geologicSurfacesModel
+               ]
+               yield GuiEx.accordion "Properties" "Content" true [
+                   Incremental.div AttributeMap.empty (AList.ofAValSingle(GeologicSurfacesApp.UI.viewProperties m.scene.geologicSurfacesModel)) 
+               ]
+           ]  |> UI.map GeologicSurfacesMessage    
 
     module Bookmarks =
         let bookmarkGroupProperties (model : AdaptiveModel) =                                       
@@ -789,6 +860,24 @@ module Gui =
                   Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
               ]
           ]
+
+    module SequencedBookmarks =
+
+        let sequencedBookmarksUI (m : AdaptiveModel) =           
+          div [][
+              yield br []
+              yield SequencedBookmarksApp.UI.viewGUI 
+              yield GuiEx.accordion "SequencedBookmarks" "Write" true [
+                  SequencedBookmarksApp.UI.viewSequencedBookmarks m.scene.sequencedBookmarks
+              ]        
+              yield GuiEx.accordion "Properties" "Content" true [
+                  Incremental.div AttributeMap.empty (AList.ofAValSingle(SequencedBookmarksApp.UI.viewProperties m.scene.sequencedBookmarks)) 
+              ]
+              yield GuiEx.accordion "Animation" "Write" true [
+                SequencedBookmarksApp.UI.viewAnimationGUI
+            ]   
+              
+          ] |> UI.map SequencedBookmarkMessage
     
 
     module Pages =
@@ -858,7 +947,7 @@ module Gui =
             | Some "surfaces" -> 
                 require (viewerDependencies) (
                     body bodyAttributes
-                        [SurfaceApp.surfaceUI m.scene.surfacesModel |> UI.map SurfaceActions] 
+                        [SurfaceApp.surfaceUI Config.colorPaletteStore m.scene.surfacesModel |> UI.map SurfaceActions] 
                 )
             | Some "annotations" -> 
                 require (viewerDependencies) (body bodyAttributes [Annotations.annotationUI m])
@@ -869,6 +958,14 @@ module Gui =
             | Some "comparison" -> 
                 require (viewerDependencies) (body bodyAttributes [PRo3D.ComparisonApp.view m.scene.comparisonApp m.scene.surfacesModel
                                                                     |> UI.map ComparisonMessage])
+            | Some "sceneobjects" -> 
+                require (viewerDependencies) (body bodyAttributes [SceneObjects.sceneObjectsUI m])
+            | Some "scalebars" -> 
+                require (viewerDependencies) (body bodyAttributes [ScaleBars.scaleBarsUI m])
+            | Some "geologicSurf" -> 
+                require (viewerDependencies) (body bodyAttributes [GeologicSurfaces.geologicSurfacesUI m])
+            | Some "sequencedBookmarks" -> 
+                require (viewerDependencies) (body bodyAttributes [SequencedBookmarks.sequencedBookmarksUI m])
             | Some "properties" ->
                 let prop = 
                     m.drawing.annotations.lastSelectedItem

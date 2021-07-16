@@ -104,6 +104,18 @@ module ViewerApp =
 
     //footprint
     let _footprint = Model.footPrint_
+
+    // scale bars
+    let _scaleBarsModel = Model.scene_  >->  Scene.scaleBars_
+    let _scaleBars      = _scaleBarsModel >-> ScaleBarsModel.scaleBars_
+
+    // geologic surfaces
+    let _geologicSurfacesModel = Model.scene_ >->  Scene.geologicSurfacesModel_
+    let _geologicSurfaces      = _geologicSurfacesModel >-> GeologicSurfacesModel.geologicSurfaces_
+
+    // sequenced bookmarks
+    let _sequencedBookmarksModel = Model.scene_ >->  Scene.sequencedBookmarks_
+    let _sequencedBookmarks      = _sequencedBookmarksModel >-> SequencedBookmarks.bookmarks_
        
     let lookAtData (m: Model) =         
         let bb = m |> Optic.get _sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB) |> Box3d.ofSeq
@@ -408,6 +420,14 @@ module ViewerApp =
                     (Comparison.ComparisonAction.AddSelectionArea p))
                 {m with scene = {m.scene with comparisonApp = comparisonApp}}
             | false -> m
+        | Interactions.PlaceScaleBar, _ ->
+            let msg = ScaleBarsAction.AddScaleBar(p, m.scaleBarsDrawing, m.navigation.camera.view)
+            let scm = ScaleBarsApp.update m.scene.scaleBars msg
+            { m with scene = { m.scene with scaleBars = scm } }
+        | Interactions.PlaceSceneObject, ViewerMode.Standard -> 
+            let action = (SceneObjectAction.PlaceSceneObject(p)) 
+            let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel action
+            { m with scene = { m.scene with sceneObjectsModel = sobjs } }
         | _ -> m       
 
     let mutable lastHash = -1    
@@ -584,6 +604,9 @@ module ViewerApp =
         | BookmarkUIMessage msg,_,_ ->    
             let bm = GroupsApp.update m.scene.bookmarks msg
             { m with scene = { m.scene with bookmarks = bm }} 
+        | SequencedBookmarkMessage msg,_,_ -> 
+            let m', bm = SequencedBookmarksApp.update m.scene.sequencedBookmarks msg _navigation _animation m
+            { m' with scene = { m.scene with sequencedBookmarks = bm }}
         | RoverMessage msg,_,_ ->
             let roverModel = RoverApp.update m.scene.viewPlans.roverModel msg
             let viewPlanModel = ViewPlanApp.updateViewPlanFroAdaptiveRover roverModel m.scene.viewPlans
@@ -597,6 +620,38 @@ module ViewerApp =
         | DnSColorLegendMessage msg,_,_ ->
             let cm = FalseColorLegendApp.update m.drawing.dnsColorLegend msg
             { m with drawing = { m.drawing with dnsColorLegend = cm } }
+        | SceneObjectsMessage msg,_,_ -> 
+            let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel msg
+            let animation = 
+                match msg with
+                | SceneObjectAction.FlyToSO id -> 
+                    let sgSo = sobjs.sgSceneObjects |> HashMap.find id
+                    let sceneObj = sobjs.sceneObjects |> HashMap.find id
+                    let superTrafo = SceneObjectTransformations.fullTrafo' sceneObj.transformation m.scene.referenceSystem
+                    let bb = sgSo.globalBB.Transformed(sceneObj.preTransform.Forward * superTrafo.Forward)
+                    let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value    
+                    let animationMessage = 
+                        animateFowardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
+                    let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
+                    a'
+                | _-> m.animations
+                   
+            { m with scene = { m.scene with sceneObjectsModel = sobjs}; animations = animation}
+        | FrustumMessage msg,_,_ ->
+            let frustumModel = FrustumProperties.update m.frustumModel msg
+            match msg with
+            | FrustumProperties.Action.ToggleUseFocal ->
+                if frustumModel.toggleFocal then
+                    let fm = {frustumModel with oldFrustum = m.frustum}
+                    { m with frustum = frustumModel.frustum; frustumModel = fm}
+                else
+                    { m with frustum = frustumModel.oldFrustum; frustumModel = frustumModel }
+            | FrustumProperties.Action.UpdateFocal f ->
+                if frustumModel.toggleFocal then
+                    let frustum' = FrustumProperties.updateFrustum frustumModel.focal.value m.frustum.near m.frustum.far 
+                    { m with frustum = frustum'; frustumModel = {frustumModel with frustum = frustum'}}
+                else
+                    { m with frustumModel = frustumModel }
         | ImportSurface sl,_,_ ->                 
             match sl with
             | [] -> m
@@ -670,6 +725,16 @@ module ViewerApp =
                 |> SceneLoader.importObj runtime signature objects 
                 |> ViewerIO.loadLastFootPrint
                 |> updateSceneWithNewSurface     
+            | None -> m     
+        | ImportSceneObject sl,_,_ -> 
+            match sl |> List.tryHead with
+            | Some path ->  
+                let sceneObjects =                   
+                    path 
+                    |> SceneObjectsUtils.mk 
+                    |> IndexList.single                                
+                m 
+                |> SceneLoader.importSceneObj sceneObjects
             | None -> m              
         | ImportPRo3Dv1Annotations sl,_,_ ->
             match sl |> List.tryHead with
@@ -854,6 +919,7 @@ module ViewerApp =
                     m
 
             |> ViewerIO.loadMinerva SceneLoader.Minerva.defaultDumpFile SceneLoader.Minerva.defaultCacheFile
+            |> SceneLoader.addGeologicSurfaces
 
         | NewScene,_,_ ->
             let oldPlanet = m.scene.referenceSystem.planet
@@ -1389,6 +1455,50 @@ module ViewerApp =
                             }
             }
 
+        //    m 
+        | ScaleBarsDrawingMessage msg,_,_->    
+            let scDrawing = ScaleBarsDrawing.update m.scaleBarsDrawing msg
+            { m with scaleBarsDrawing = scDrawing }
+        | ScaleBarsMessage msg,_,_->  
+            //let _scaleBars = (Model.scene_ >-> Scene.scaleBars_ >-> ScaleBarsModel.scaleBars_)
+            match msg with
+            | ScaleBarsAction.FlyToSB id ->
+                let _sb = m |> Optic.get _scaleBars |> HashMap.tryFind id
+                match _sb with 
+                | Some sb ->
+                    let animationMessage = 
+                        animateFowardAndLocation sb.view.Location sb.view.Forward sb.view.Up 2.0 "ForwardAndLocation2s"
+                    let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
+                    { m with  animations = a'}
+                | None -> m
+            | _ ->
+                //let _scaleBarsModel = (Model.scene_ >-> Scene.scaleBars_ )
+                let scaleBars' = ScaleBarsApp.update m.scene.scaleBars msg
+                let m' = m |> Optic.set _scaleBarsModel scaleBars'  
+                m'
+        | GeologicSurfacesMessage msg,_,_-> 
+            match msg with
+            | GeologicSurfaceAction.FlyToGS id ->
+                let _gs = m |> Optic.get _geologicSurfaces |> HashMap.tryFind id
+                match _gs with 
+                | Some gs ->
+                    let animationMessage = 
+                        animateFowardAndLocation gs.view.Location gs.view.Forward gs.view.Up 2.0 "ForwardAndLocation2s"
+                    let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
+                    { m with  animations = a'}
+                | None -> m
+
+            | GeologicSurfaceAction.AddGS ->
+                let geologicSurfaces' = 
+                        GeologicSurfacesUtils.makeGeologicSurfaceFromAnnotations 
+                                                                m.drawing.annotations
+                                                                m.scene.geologicSurfacesModel
+                
+                m |> Optic.set _geologicSurfacesModel geologicSurfaces' 
+            | _ ->
+                let geologicSurfaces' = GeologicSurfacesApp.update m.navigation.camera.view m.scene.geologicSurfacesModel msg
+                let m' = m |> Optic.set _geologicSurfacesModel geologicSurfaces'  
+                m'
         | _ -> m       
                                    
     let mkBrushISg color size trafo : ISg<Message> =
@@ -1611,6 +1721,7 @@ module ViewerApp =
             let heightValidation =
                 HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation
 
+
             [exploreCenter; refSystem; viewPlans; homePosition; solText; heightValidation] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
         let minervaSg =
@@ -1643,9 +1754,25 @@ module ViewerApp =
 
         let heightValidationDiscs =
             HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
+
+        let scaleBars =
+            ScaleBarsApp.Sg.view
+                m.scene.scaleBars
+                m.navigation.camera.view
+                m.scene.config
+                mrefConfig
+                m.scene.referenceSystem
+            |> Sg.map ScaleBarsMessage
+
+        let sceneObjects =
+            SceneObjectsApp.Sg.view m.scene.sceneObjectsModel m.scene.referenceSystem |> Sg.map SceneObjectsMessage
+
+        let geologicSurfacesSg = 
+            GeologicSurfacesApp.Sg.view m.scene.geologicSurfacesModel 
+            |> Sg.map GeologicSurfacesMessage 
         
         let depthTested = 
-            [linkingSg; annotationSg; minervaSg; heightValidationDiscs] |> Sg.ofList
+            [linkingSg; annotationSg; minervaSg; heightValidationDiscs; scaleBars; sceneObjects; geologicSurfacesSg] |> Sg.ofList
 
         let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m
         onBoot "attachResize('__ID__')" (
@@ -1695,7 +1822,9 @@ module ViewerApp =
          
         let minerva = MinervaApp.threads m.minervaModel |> ThreadPool.map MinervaActions
 
-        unionMany [drawing; animation; nav; m.scene.feedbackThreads; minerva;comparison]
+        let sBookmarks = SequencedBookmarksApp.threads m.scene.sequencedBookmarks |> ThreadPool.map SequencedBookmarkMessage
+
+        unionMany [drawing; animation; nav; m.scene.feedbackThreads; minerva;comparison; sBookmarks]
         
     let loadWaypoints m = 
         match Serialization.fileExists "./waypoints.wps" with
@@ -1717,6 +1846,8 @@ module ViewerApp =
                 |> ViewerIO.loadLastFootPrint
                 |> ViewerIO.loadMinerva dumpFile cacheFile
                 |> ViewerIO.loadLinking
+                |> SceneLoader.addScaleBarSegments
+                |> SceneLoader.addGeologicSurfaces
             else
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs |> ViewerIO.loadRoverData       
 

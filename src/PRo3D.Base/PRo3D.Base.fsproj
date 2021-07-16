@@ -27,7 +27,6 @@
     <Compile Include="Utilities.fs" />
     <Compile Include="OutlineEffect.fs" />
     <Compile Include="Navigation-Model.fs" />
-    <Compile Include="Bookmark-Model.fs" />
     <Compile Include="FalseColors\FalseColors-Model.fs" />
     <Compile Include="FalseColors\FalseColorLegendApp.fs" />
     <Compile Include="Annotation\Annotation-Model.fs" />
