@@ -32,7 +32,9 @@
     <Compile Include="Annotation\RegressionInfo.fs" />
     <Compile Include="Annotation\AnnotationHelpers.fs" />
     <Compile Include="Annotation\Exporters\GeoJSON.fs" />
-    <Compile Include="Annotation\Exporters\Export.fs" />    
+    <Compile Include="Annotation\Exporters\GeoJSON.Export.fs" />
+    <Compile Include="Annotation\Exporters\CSV.fs" />
+    <Compile Include="Annotation\Exporters\CSV.Export.fs" />    
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CSharpUtils\CSharpUtils.csproj" />
