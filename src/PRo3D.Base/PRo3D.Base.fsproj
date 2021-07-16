@@ -29,9 +29,10 @@
     <Compile Include="FalseColors\FalseColors-Model.fs" />
     <Compile Include="FalseColors\FalseColorLegendApp.fs" />
     <Compile Include="Annotation\Annotation-Model.fs" />
+    <Compile Include="Annotation\RegressionInfo.fs" />
     <Compile Include="Annotation\AnnotationHelpers.fs" />
-    <Compile Include="Annotation\GeoJSON.fs" />
-    <Compile Include="Annotation\Export.fs" />
+    <Compile Include="Annotation\Exporters\GeoJSON.fs" />
+    <Compile Include="Annotation\Exporters\Export.fs" />    
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CSharpUtils\CSharpUtils.csproj" />
