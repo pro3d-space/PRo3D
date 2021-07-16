@@ -104,7 +104,7 @@ module SequencedBookmarksApp =
                 match action with
                 | Some a ->
                     yield a
-                    do! Proc.Sleep ((int)m.delay.value * 1000) //3000
+                    do! Proc.Sleep ((int)(m.animationSpeed.value + m.delay.value) * 1000) //3000
                     ()
                 | None -> ()
 
@@ -121,7 +121,7 @@ module SequencedBookmarksApp =
                     yield SequencedBookmarksAction.AnimStep m.orderList.[0]
                 else
                     yield SequencedBookmarksAction.AnimStep m.orderList.[index+1]
-                do! Proc.Sleep ((int)m.delay.value * 1000) //3000
+                do! Proc.Sleep ((int)(m.animationSpeed.value + m.delay.value) * 1000) //3000
                 yield SequencedBookmarksAction.AnimationThreadsDone "animationSBForward"
             | None -> ()
         }
@@ -135,7 +135,7 @@ module SequencedBookmarksApp =
                    yield SequencedBookmarksAction.AnimStep m.orderList.[m.orderList.Length-1]
                else
                    yield SequencedBookmarksAction.AnimStep m.orderList.[index-1] 
-               do! Proc.Sleep ((int)m.delay.value * 1000) //3000
+               do! Proc.Sleep ((int)(m.animationSpeed.value + m.delay.value) * 1000) //3000
                yield SequencedBookmarksAction.AnimationThreadsDone "animationSBBackward"
            | None -> ()
        }
@@ -312,16 +312,16 @@ module SequencedBookmarksApp =
             | None -> outerModel, m
         | SetDelay s -> 
             let delay = Numeric.update m.delay s
-            if delay.value < m.animationSpeed.value then
-                outerModel, { m with delay = delay; animationSpeed = Numeric.update m.animationSpeed s}
-            else
-                outerModel, { m with delay = delay}
+            //if delay.value < m.animationSpeed.value then
+            //    outerModel, { m with delay = delay; animationSpeed = Numeric.update m.animationSpeed s}
+            //else
+            outerModel, { m with delay = delay}
         | SetAnimationSpeed s -> 
             let duration = Numeric.update m.animationSpeed s
-            if m.delay.value < duration.value then
-                outerModel, { m with animationSpeed = duration; delay = Numeric.update m.delay s}
-            else
-                outerModel, { m with animationSpeed = duration}
+            //if m.delay.value < duration.value then
+            //    outerModel, { m with animationSpeed = duration; delay = Numeric.update m.delay s}
+            //else
+            outerModel, { m with animationSpeed = duration}
         |_-> outerModel, m
 
 
