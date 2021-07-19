@@ -119,13 +119,6 @@ module FrustumProperties =
         // http://paulbourke.net/miscellaneous/lens/
         // https://photo.stackexchange.com/questions/41273/how-to-calculate-the-fov-in-degrees-from-focal-length-or-distance
         let hfov = 2.0 * atan(11.84 /(focal*2.0))
-        
-        // taken zoomsteps for hfov and focal range from ExoMarsRover_VariousCameras.xml, MastcamZ LN456
-        //let hfovmin = 7.54.DegreesFromGons()
-        //let hfovmax = 26.49.DegreesFromGons() 
-        //let slope = (hfovmax - hfovmin) / (100.0 - 28.0)
-        //let hfov = hfovmin + slope * (focal + 28.0)
-
         Frustum.perspective (hfov.DegreesFromRadians()) near far 1.0
 
     let update (model : FrustumModel) (act : Action) =

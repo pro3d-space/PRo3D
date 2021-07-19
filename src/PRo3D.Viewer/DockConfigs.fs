@@ -88,6 +88,7 @@ module DockConfigs =
                             {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             {id = "scalebars"; title = Some " ScaleBars"; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             {id = "geologicSurf"; title = Some " GeologicSurfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
+                            //{id = "viewplanner"; title = Some " ViewPlanner "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                         ]
                     ]
                 ]                        
