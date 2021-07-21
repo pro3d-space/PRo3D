@@ -39,7 +39,7 @@ module CooTransformation =
         use archive = new ZipArchive(fs, ZipArchiveMode.Read)
         for e in archive.Entries do
             let path = Path.combine [cooTransformationDir; e.Name]
-            if File.Exists path then
+            if File.Exists path && false then
                 Log.line "[CooTransformation] Skipping installation of %s" e.Name
             else
                 Log.line "[CooTransformation] installing %s" e.Name
