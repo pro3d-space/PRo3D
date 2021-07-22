@@ -81,12 +81,16 @@ let getFreePort() =
 [<EntryPoint;STAThread>]
 let main argv = 
     // check if there are command line arguments, and if they are valid
-    let startupArgs = (CommandLine.parseArguments argv)
+    let startupArgs = (SimulatedViews.CommandLine.parseArguments argv)
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
 
     let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
     Log.line "Running with AppData: %s" appData
 
+    Config.configPath <- appData
+
+    Config.colorPaletteStore <- Path.combine [appData; "favoriteColors.js"]
+    Log.line "Color palette favorite colors are stored here: %s" Config.colorPaletteStore
 
     let crashDumpFile = "Aardvark.log"
 
@@ -168,8 +172,8 @@ let main argv =
 
     Log.startTimed "[Viewer] reading json scene"
 
-    let (mModel, mainApp) = 
-        ViewerApp.start runtime signature messagingMailbox sendQueue startupArgs dumpFile cacheFile
+    let (mainApp, mModel) = 
+        ViewerApp.startAndReturnMModel runtime signature false messagingMailbox sendQueue dumpFile cacheFile
 
     let s = { MailboxState.empty with update = mainApp.update Guid.Empty }
     MailboxAction.InitMailboxState s |> messagingMailbox.Post

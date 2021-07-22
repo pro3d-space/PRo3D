@@ -1,0 +1,74 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <GenerateLenses>True</GenerateLenses>
+  </PropertyGroup>
+
+    <PropertyGroup>
+    <InPublish>False</InPublish>
+  </PropertyGroup>
+  
+  <PropertyGroup Condition="$(InPublish)">
+    <!-- this is replaced by build script-->
+    <PublishSingleFile>true</PublishSingleFile>
+    <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
+    <!--<PublishTrimmed>true</PublishTrimmed>-->
+  </PropertyGroup>
+
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <OutputPath>..\..\bin\Debug\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <OutputPath>..\..\bin\Release\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup>
+    <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Remove="Drawing\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="paket.references" />
+    <Compile Include="Viewer\SnapshotGenerator.fs" />
+    <Compile Include="Program.fs" />
+    <EmbeddedResource Include="resources\ElementQueries.js" />
+    <EmbeddedResource Include="resources\errorReporting.js" />
+    <EmbeddedResource Include="resources\ResizeSensor.js" />
+    <EmbeddedResource Include="resources\HueColorMap.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <EmbeddedResource Include="resources\spectrum.js">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <EmbeddedResource Include="resources\spectrum.css">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <EmbeddedResource Include="resources\jscolor.min.js">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <EmbeddedResource Include="resources\semui-overrides.css" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Reactive" Version="5.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PRo3D.2D3DLinking\PRo3D.Linking.fsproj" />
+    <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
+    <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
+    <ProjectReference Include="..\PRo3D.Minerva\PRo3D.Minerva.fsproj" />
+    <ProjectReference Include="..\PRo3D.SimulatedViews\PRo3D.SimulatedViews.fsproj" />
+    <ProjectReference Include="..\PRo3D.Viewer\PRo3D.Viewer.fsproj" />
+  </ItemGroup>
+    <ItemGroup>
+    <Reference Include="JR.Wrappers">
+      <HintPath>..\..\lib\JR.Wrappers.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>

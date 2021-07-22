@@ -16,6 +16,7 @@ open PRo3D.Core.Surface
 open PRo3D.Core
 open PRo3D.SimulatedViews.Rendering
 
+
 type NearFarRecalculation =
   | Both
   | FarPlane
@@ -28,7 +29,7 @@ type SnapshotApp<'model,'aModel, 'msg> =
     mutableApp           : MutableApp<'model, 'msg>
     /// the adaptive model associated with the mutable app
     adaptiveModel        : 'aModel
-    sceneGraph           : 'aModel -> IRuntime -> ISg<'msg>
+    sceneGraph           : ISg
     snapshotAnimation    : SnapshotAnimation
     /// animation actions are applied before rendering images
     getAnimationActions  : SnapshotAnimation -> seq<'msg>
@@ -48,6 +49,7 @@ type SnapshotApp<'model,'aModel, 'msg> =
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module SnapshotApp =
+
     let executeAnimation (app : SnapshotApp<'model,'aModel, 'msg>) =
         
         let resolution = V3i (app.snapshotAnimation.resolution.X, app.snapshotAnimation.resolution.Y, 1)
@@ -111,7 +113,7 @@ module SnapshotApp =
                     } |> Seq.toList
             | false, _ -> snapshots
 
-        let sg = app.sceneGraph app.adaptiveModel app.runtime
+        let sg = app.sceneGraph
 
         let taskclear = app.runtime.CompileClear(signature,AVal.constant C4f.Black,AVal.constant 1.0)
         let task = app.runtime.CompileRender(signature, sg)

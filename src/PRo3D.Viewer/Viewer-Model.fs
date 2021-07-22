@@ -116,7 +116,9 @@ type ViewerAction =
     | SetMode                         of TrafoMode
     | TransforAdaptiveSurface                of System.Guid * Trafo3d
     | ImportTrafo                     of list<string>
-    //| TransformAllSurfaces            of list<SnapshotSurfaceUpdate>
+    | TransformAllSurfaces            of list<SnapshotSurfaceUpdate>
+    | RecalculateFarPlane
+    | RecalculateNearFarPlane      
     | Translate                       of string * TrafoController.Action
     | Rotate                          of string * TrafoController.Action
     | SurfaceActions                  of SurfaceAppAction

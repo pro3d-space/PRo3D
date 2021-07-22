@@ -315,3 +315,15 @@ module SnapshotUtils =
                         )  
             }
         interp
+
+    /// assuming SurfaceSg.globalBB NOT transformed with pretransform
+    let sceneBB (surfacesModel : SurfaceModel) =
+        let sgSurfaces = surfacesModel.sgSurfaces
+        let bb = sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB )
+        let pretrafos = surfacesModel.surfaces.flat
+                          |> HashMap.toSeq 
+                          |> Seq.map(fun (_,x) -> (Leaf.toSurface x).preTransform)
+        let bbPretrafos = Seq.zip bb pretrafos
+        let transformedBBs =
+              bbPretrafos |> Seq.map (fun (bb, trafo) -> bb.Transformed trafo)
+        transformedBBs |> Box3d.ofSeq

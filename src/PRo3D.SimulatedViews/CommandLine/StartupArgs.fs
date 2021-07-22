@@ -1,5 +1,4 @@
-﻿namespace PRo3D
-open PRo3D.SimulatedViews
+﻿namespace PRo3D.SimulatedViews
 
 type GuiMode =
   | NoGui
@@ -8,7 +7,7 @@ type GuiMode =
   | CompleteGui
 
 
-type StartupArgs = {
+type CLStartupArgs = {
   opcPaths              : option<list<string>>
   objPaths              : option<list<string>>
   snapshotPath          : option<string>

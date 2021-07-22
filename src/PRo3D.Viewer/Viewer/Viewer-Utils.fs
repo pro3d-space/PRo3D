@@ -416,69 +416,7 @@ module ViewerUtils =
             //PRo3D.Base.OtherShader.Shader.footPrintF        |> toEffect
         ]
 
-    //TODO TO refactor screenshot specific
-    let getSurfacesScenegraphs (m:AdaptiveModel) =
-        let sgGrouped = m.scene.surfacesModel.sgGrouped
-        
-      //  let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
-        let usehighlighting = true |> AVal.constant //m.scene.config.useSurfaceHighlighting
-        let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
-        let refSystem = m.scene.referenceSystem
-        let grouped = 
-            sgGrouped |> AList.map(
-                fun x -> ( x 
-                    |> AMap.map(fun _ sf -> 
-                        let bla = m.scene.surfacesModel.surfaces.flat
-                        viewSingleSurfaceSg 
-                            sf 
-                            bla 
-                            m.frustum 
-                            selected 
-                            m.ctrlFlag 
-                            sf.globalBB 
-                            refSystem 
-                            m.footPrint 
-                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) 
-                            usehighlighting
-                            (false |> AVal.constant)
-                            m.scene.comparisonApp
-                        )
-                    |> AMap.toASet 
-                    |> ASet.map snd                     
-                )                
-            )
-        //grouped   
-        let sgs =
-            alist {        
-                let mutable i = 0
-                for set in grouped do
-                    i <- i + 1
-                    let sg = 
-                        set 
-                        |> Sg.set
-                        |> Sg.effect [surfaceEffect]
-                        //|> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-                        |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()                        
-
-                    yield  sg
-
-                        //if i = c then //now gets rendered multiple times
-                         // assign priorities globally, or for each anno and make sets
-            
-            }                              
-        sgs
-  
-    //TODO TO refactor screenshot specific
-    let getSurfacesSgWithCamera (m : AdaptiveModel) =
-        let sgs = getSurfacesScenegraphs m
-        let camera =
-            AVal.map2 (fun v f -> Camera.create v f) m.scene.cameraView m.frustum 
-        sgs 
-            |> ASet.ofAList
-            |> Sg.set
-            |> (camera |> Sg.camera)
-
-    let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
+    let groupedSceneGraphs (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>)  (m:AdaptiveModel) =
         let usehighlighting = true |> AVal.constant //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true
 
@@ -515,10 +453,14 @@ module ViewerUtils =
                     |> ASet.map snd                     
                 )                
             )
+        grouped
 
-        //grouped   
+
+    let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
+        let grouped = groupedSceneGraphs sgGrouped m
+        let comparisonSgAreas =  AreaSelection.sgAllAreas m.scene.comparisonApp.areas              
+        let areaStatisticsSg = AreaComparison.sgAllDifferences m.scene.comparisonApp.areas
         let last = grouped |> AList.tryLast
-        let mutable renderedComparison = false
         alist {        
             for set in grouped do
                 let sg = 
@@ -546,6 +488,48 @@ module ViewerUtils =
             yield RenderCommand.SceneGraph overlayed
 
         }
+
+    let completeSceneGraph sgGrouped overlayed depthTested (m:AdaptiveModel) =
+        let grouped = groupedSceneGraphs sgGrouped m
+        let comparisonSgAreas =  AreaSelection.sgAllAreas m.scene.comparisonApp.areas              
+        let areaStatisticsSg = AreaComparison.sgAllDifferences m.scene.comparisonApp.areas
+        //grouped   
+        let last = grouped |> AList.tryLast
+        let renderCommands = 
+            alist {        
+                for set in grouped do
+                    let sg = 
+                        set 
+                        |> Sg.set
+                        |> Sg.effect [surfaceEffect]
+                        |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
+                        |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()
+
+                    yield Aardvark.SceneGraph.RenderCommand.Render sg
+
+                    //if i = c then //now gets rendered multiple times
+                     // assign priorities globally, or for each anno and make sets
+                    let depthTested =
+                        last |> AVal.map (function 
+                            | Some e when System.Object.ReferenceEquals(e,set) -> depthTested 
+                            | _ -> Sg.empty
+                        )
+                    yield Aardvark.SceneGraph.RenderCommand.Render (depthTested |> Sg.dynamic)
+                    yield Aardvark.SceneGraph.RenderCommand.Render (areaStatisticsSg )
+                    yield Aardvark.SceneGraph.RenderCommand.Render comparisonSgAreas
+
+                    yield Aardvark.SceneGraph.RenderCommand.Clear(~~C4f.Black,Some (AVal.constant 1.0), None)
+
+                yield Aardvark.SceneGraph.RenderCommand.Render overlayed
+
+            }
+        let sg = Sg.execute (Aardvark.SceneGraph.RenderCommand.Ordered renderCommands)
+        let camera =
+            AVal.map2 (fun v f -> Camera.create v f) m.scene.cameraView m.frustum 
+        sg 
+          |> Aardvark.SceneGraph.SgFSharp.Sg.camera camera
+          
+          
 
 module GaleCrater =
     open PRo3D.Base

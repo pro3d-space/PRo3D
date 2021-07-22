@@ -1,8 +1,10 @@
 ﻿namespace PRo3D.SimulatedViews
 
-
+open FSharp.Data.Adaptive
 open Aardvark.Base
 open Aardvark.Rendering
+open Aardvark.SceneGraph.``Sg RuntimeCommand Extensions``
+open Aardvark.UI 
 
 type RenderParameters =
     {
@@ -26,6 +28,9 @@ type RenderRange =
             | _,_ -> None
 
 module Rendering =
+    let renderCommandsToSceneGraph (renderCommands : alist<Aardvark.SceneGraph.RenderCommand>) =
+        Sg.execute (Aardvark.SceneGraph.RenderCommand.Ordered renderCommands)
+
     let render (r : RenderParameters) = 
         r.clearTask.Run(null, r.outputDescription) |> ignore
         r.task.Run(null, r.outputDescription) |> ignore

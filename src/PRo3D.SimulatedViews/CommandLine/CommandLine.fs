@@ -1,7 +1,6 @@
-﻿namespace PRo3D
+﻿namespace PRo3D.SimulatedViews
 
 open Aardvark.Base
-open PRo3D.SimulatedViews
 open PRo3D.CommandLineUtils
 
 module CommandLine =
@@ -31,7 +30,7 @@ module CommandLine =
         Log.line @"PRo3D.Viewer.exe --opc \myOpc\ --obj myObj.obj --asnap mySnapshotFile.json --out tmp --renderDepth --exitOnFinish"
 
     /// parse commandline arguments
-    let parseArguments (argv : array<string>) : StartupArgs =    
+    let parseArguments (argv : array<string>) : CLStartupArgs =    
         let isHelp flag = 
             String.equalsCaseInsensitive flag "--help"
             || (flag |> String.equalsCaseInsensitive "--h")
@@ -39,14 +38,14 @@ module CommandLine =
             || (flag |> String.equalsCaseInsensitive "-help")
         
         match argv with 
-        | argv when Array.isEmpty argv -> { StartupArgs.initArgs with areValid = true}
+        | argv when Array.isEmpty argv -> { CLStartupArgs.initArgs with areValid = true}
         | argv when argv |> Array.length = 1 && argv.[0] |> isHelp ->
             printHelp ()
-            { StartupArgs.initArgs with areValid = false}
+            { CLStartupArgs.initArgs with areValid = false}
 
         | argv when argv |> hasFlag "printJson" ->
             SnapshotAnimation.writeTestAnimation ()
-            { StartupArgs.initArgs with areValid = false}
+            { CLStartupArgs.initArgs with areValid = false}
         | _ ->
             let parseGuiMode argv automated =
                 let mode = parseArg "--gui" argv

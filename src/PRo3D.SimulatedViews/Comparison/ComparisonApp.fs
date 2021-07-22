@@ -263,20 +263,20 @@ module ComparisonApp =
             m, surfaceModel
         | SelectSurface1 str -> 
             let m = {m with surface1 = noSelectionToNone str}
-            let m =
-                match m.surface1, m.surface2 with
-                | Some s1, Some s2 ->
-                    updateMeasurements m surfaceModel annotations bookmarks refSystem
-                | _,_ -> m
+            //let m =
+            //    match m.surface1, m.surface2 with
+            //    | Some s1, Some s2 ->
+            //        updateMeasurements m surfaceModel annotations bookmarks refSystem
+            //    | _,_ -> m
             ComparisonUtils.cache <- HashMap.empty
             m , surfaceModel
         | SelectSurface2 str -> 
             let m = {m with surface2 = noSelectionToNone str}
-            let m =
-                match m.surface1, m.surface2 with
-                | Some s1, Some s2 ->
-                    updateMeasurements m surfaceModel annotations bookmarks refSystem
-                | _,_ -> m
+            //let m =
+            //    match m.surface1, m.surface2 with
+            //    | Some s1, Some s2 ->
+            //        updateMeasurements m surfaceModel annotations bookmarks refSystem
+            //    | _,_ -> m
             ComparisonUtils.cache <- HashMap.empty
             m , surfaceModel
         | ExportMeasurements filepath -> 

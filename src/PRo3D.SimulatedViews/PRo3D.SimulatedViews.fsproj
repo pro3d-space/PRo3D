@@ -22,6 +22,7 @@
     <Compile Include="Lighting\Shading-Model.fs" />      
     <Compile Include="Lighting\Shaders.fs" />      
     <Compile Include="Lighting\ShadingApp.fs" />      
+    <Compile Include="Snapshots\AppUtils.fs" />      
     <Compile Include="Snapshots\JsonUtils.fs" />      
     <Compile Include="Snapshots\SurfaceExtensions.fs" />      
     <Compile Include="Snapshots\RenderingUtils.fs" />      
@@ -55,6 +56,9 @@
     <Compile Include="Viewplanner\FootPrint.fs" />      
     <Compile Include="Viewplanner\RoverPlacementImporter.fs" />      
     <Compile Include="Viewplanner\ViewPlan.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Reactive" Version="5.0.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />

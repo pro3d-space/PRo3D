@@ -1211,25 +1211,40 @@ module ViewerApp =
         | TransforAdaptiveSurface (guid, trafo),_,_ ->
             //transforAdaptiveSurface m guid trafo //TODO moved function?
             m
-        //| TransformAllSurfaces surfaceUpdates,_,_ -> //TODO MarsDL Hera
-        //    match surfaceUpdates.IsEmptyOrNull () with
-        //    | false ->
-        //        transformAllSurfaces m surfaceUpdates
-        //    | true ->
-        //        Log.line "[Viewer] No surface updates found."
-        //        m
-        //| TransformAllSurfaces (surfaceUpdates,scs),_,_ ->
-        //    match surfaceUpdates.IsEmptyOrNull () with
-        //    | false ->
-        //       //transformAllSurfaces m surfaceUpdates
-        //       let ts = m.scene.surfacesModel.surfaces.activeGroup
-        //       let action = SurfaceApp.Action.GroupsMessage(Groups.Groups.Action.ClearGroup ts.path)
-        //       let surfM = SurfaceApp.update m.scene.surfacesModel action m.scene.scenePath m.scene.navigation.camera.view m.scene.referenceSystem 
-        //       let m' = { m with scene = { m.scene with surfacesModel = surfM }}
-        //       ViewerUtils.placeMultipleOBJs2 m' scs
-        //    | true ->
-        //        Log.line "[Viewer] No surface updates found."
-        //        m
+        | TransformAllSurfaces surfaceUpdates,_,_ -> // transforms all surfaces according to snapshot parameters
+            match surfaceUpdates.IsEmptyOrNull () with
+            | false ->
+                //if m.startupArgs.verbose then //TODO add verbose to startup args
+                //    Log.line "[Viewer] Transforming surfaces."
+                let surfacesModel = 
+                    SnapshotApp.transformAllSurfaces m.scene.surfacesModel surfaceUpdates
+                Optic.set _surfacesModel surfacesModel m
+            | true ->
+                //if m.startupArgs.verbose then
+                //    Log.line "[Viewer] No surface updates found."
+                m
+        | RecalculateFarPlane, _, _ -> 
+            let far = SnapshotUtils.calculateFarPlane (SnapshotUtils.sceneBB m.scene.surfacesModel) 
+                                                      m.scene.cameraView.Location
+            let frustum = 
+                m.frustum
+                  |> (Frustum.withFar far)
+            Log.line "[Viewer] Setting far plane to %f" far
+            { m with frustum = frustum }
+        | RecalculateNearFarPlane, _, _->
+            // ray casting for every frame for near plane would be better
+            let near, far = SnapshotUtils.calculateNearFarPlane (SnapshotUtils.sceneBB m.scene.surfacesModel)  
+                                                                m.scene.cameraView.Location
+            let frustum = 
+                m.frustum
+                  |> (Frustum.withNear near)
+                  |> (Frustum.withFar far)
+            //match m.startupArgs.verbose with
+            //| true ->
+            //    Log.line "[Viewer] Setting nearplane to %f" near 
+            //    Log.line "[Viewer] Setting farplane to %f" far
+            //| false -> ()
+            { m with frustum = frustum }
         | Translate (_,b),_,_ ->
             m
             //match _selectedSurface.Get(m) with
@@ -1279,14 +1294,14 @@ module ViewerApp =
             let closedPages = updateClosedPages m mode.dockConfig.content
             let scene = { m.scene with dockConfig = mode.dockConfig
                                                     closedPages = closedPages }
-            let scene = 
-                if mode.name = DashboardModes.comparison.name then
-                    let (refSystem,_) = ReferenceSystemApp.update m.scene.config 
-                                                                    refConfig 
-                                                                    m.scene.referenceSystem 
-                                                                    (SetPlanet Planet.None)
-                    {scene with referenceSystem = refSystem}
-                else scene
+            //et scene = 
+                //if mode.name = DashboardModes.comparison.name then
+                //    let (refSystem,_) = ReferenceSystemApp.update m.scene.config 
+                //                                                    refConfig 
+                //                                                    m.scene.referenceSystem 
+                //                                                    (SetPlanet Planet.None)
+                //    {scene with referenceSystem = refSystem}
+                //else scene
             { m with scene         = scene
                      dashboardMode = mode.name}
             
@@ -1448,8 +1463,8 @@ module ViewerApp =
                                           |> HashMap.map (fun id x -> Leaf.toBookmark x))
                                       msg              
             {m with 
-                    scene = {m.scene with referenceSystem = 
-                                            {m.scene.referenceSystem with planet = Planet.None}
+                    scene = {m.scene with //referenceSystem = 
+                                          //  {m.scene.referenceSystem with planet = Planet.None}
                                           surfacesModel = surfacedModel
                                           comparisonApp = comparisonApp
                             }
@@ -1615,169 +1630,176 @@ module ViewerApp =
             AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
         DomNode.RenderControl((instrumentControlAttributes m), icam, icmds, None) //AttributeMap.Empty
 
+    let createSceneGraphs (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
+         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
+         let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
+
+         let annotations, discs = 
+             DrawingApp.view 
+                 m.scene.config 
+                 mdrawingConfig 
+                 m.navigation.camera.view 
+                 frustum
+                 runtime
+                 (m.viewPortSize |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
+                 (allowAnnotationPicking m)                 
+                 m.drawing
+     
+         let annotationSg = 
+             let ds =
+                 discs
+                 |> Sg.map DrawingMessage
+                 |> Sg.fillMode (AVal.constant FillMode.Fill)
+                 |> Sg.cullMode (AVal.constant CullMode.None)
+
+             let annos = 
+                 annotations
+                 |> Sg.map DrawingMessage
+                 |> Sg.fillMode (AVal.constant FillMode.Fill)
+                 |> Sg.cullMode (AVal.constant CullMode.None)
+
+             //let _, correlationPlanes =
+             //    PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
+             //        m.scene.config.dnsPlaneSize.value
+             //        m.scene.cameraView 
+             //        m.scene.config.nearPlane.value 
+             //        m.correlationPlot 
+             //        m.drawing.dnsColorLegend
+
+             //let _, planes = 
+             //    PRo3D.Correlations.CorrelationPanelsApp.viewFinishedLogs 
+             //        m.scene.config.dnsPlaneSize.value
+             //        m.scene.cameraView 
+             //        m.scene.config.nearPlane.value 
+             //        m.drawing.dnsColorLegend 
+             //        m.correlationPlot 
+             //        (allowLogPicking m)
+
+             //let viewContactOfInterest = 
+             //    PRo3D.Correlations.CorrelationPanelsApp.viewContactOfInterest m.correlationPlot
+         
+             Sg.ofList[ds;annos;]// correlationPlanes; planes; viewContactOfInterest]
+
+         let overlayed =
+                 
+             //let alignment = 
+             //    AlignmentApp.view m.alignment m.scene.navigation.camera.view
+             //        |> Sg.map AlignmentActions
+             //        |> Sg.fillMode (AVal.constant FillMode.Fill)
+             //        |> Sg.cullMode (AVal.constant CullMode.None)
+
+             let near = m.scene.config.nearPlane.value
+
+             let refSystem =
+                 Sg.view
+                     m.scene.config
+                     mrefConfig
+                     m.scene.referenceSystem
+                     m.navigation.camera.view
+                 |> Sg.map ReferenceSystemMessage  
+
+             let exploreCenter =
+                 Navigation.Sg.view m.navigation            
+   
+             let homePosition =
+                 Sg.viewHomePosition m.scene.surfacesModel
+                          
+             let viewPlans =
+                 ViewPlanApp.Sg.view 
+                     m.scene.config 
+                     mrefConfig 
+                     m.scene.viewPlans 
+                     m.navigation.camera.view
+                 |> Sg.map ViewPlanMessage           
+
+             let solText = 
+                 MinervaApp.getSolBillboards m.minervaModel m.navigation.camera.view near |> Sg.map MinervaActions
+         
+             //let correlationLogs, _ =
+             //    PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
+             //        m.scene.config.dnsPlaneSize.value
+             //        m.scene.cameraView 
+             //        near 
+             //        m.correlationPlot 
+             //        m.drawing.dnsColorLegend
+
+             //let finishedLogs, _ =
+             //    PRo3D.Correlations.CorrelationPanelsApp.viewFinishedLogs 
+             //        m.scene.config.dnsPlaneSize.value
+             //        m.scene.cameraView 
+             //        near 
+             //        m.drawing.dnsColorLegend 
+             //        m.correlationPlot 
+             //        (allowLogPicking m)
+
+             let heightValidation =
+                 HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation
+
+
+             [exploreCenter; refSystem; viewPlans; homePosition; solText; heightValidation] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
+
+         let minervaSg =
+             let minervaFeatures = 
+                 MinervaApp.viewFeaturesSg m.minervaModel |> Sg.map MinervaActions 
+
+             let filterLocation =
+                 MinervaApp.viewFilterLocation m.minervaModel |> Sg.map MinervaActions
+
+             Sg.ofList [minervaFeatures] //;filterLocation]
+
+         //let all = m.minervaModel.data.features
+         let selected = 
+             m.minervaModel.session.selection.highlightedFrustra
+             |> AList.ofASet
+             |> AList.toAVal 
+             |> AVal.map (fun x ->
+                 x
+                 |> IndexList.take 500
+             )
+             |> AList.ofAVal
+             |> ASet.ofAList
+ 
+         let linkingSg = 
+             PRo3D.Linking.LinkingApp.view 
+                 m.minervaModel.hoveredProduct 
+                 selected 
+                 m.linkingModel
+             |> Sg.map LinkingActions
+
+         let heightValidationDiscs =
+             HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
+
+         let scaleBars =
+             ScaleBarsApp.Sg.view
+                 m.scene.scaleBars
+                 m.navigation.camera.view
+                 m.scene.config
+                 mrefConfig
+                 m.scene.referenceSystem
+             |> Sg.map ScaleBarsMessage
+
+         let sceneObjects =
+             SceneObjectsApp.Sg.view m.scene.sceneObjectsModel m.scene.referenceSystem |> Sg.map SceneObjectsMessage
+
+         let geologicSurfacesSg = 
+             GeologicSurfacesApp.Sg.view m.scene.geologicSurfacesModel 
+             |> Sg.map GeologicSurfacesMessage 
+ 
+         let depthTested = 
+             [linkingSg; annotationSg; minervaSg; heightValidationDiscs; scaleBars; sceneObjects; geologicSurfacesSg] |> Sg.ofList
+         overlayed, depthTested, cam
+
     let viewRenderView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
-
-        let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
-        let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
-
-        let annotations, discs = 
-            DrawingApp.view 
-                m.scene.config 
-                mdrawingConfig 
-                m.navigation.camera.view 
-                frustum
-                runtime
-                (m.viewPortSize |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
-                (allowAnnotationPicking m)                 
-                m.drawing
-            
-        let annotationSg = 
-            let ds =
-                discs
-                |> Sg.map DrawingMessage
-                |> Sg.fillMode (AVal.constant FillMode.Fill)
-                |> Sg.cullMode (AVal.constant CullMode.None)
-
-            let annos = 
-                annotations
-                |> Sg.map DrawingMessage
-                |> Sg.fillMode (AVal.constant FillMode.Fill)
-                |> Sg.cullMode (AVal.constant CullMode.None)
-
-            //let _, correlationPlanes =
-            //    PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
-            //        m.scene.config.dnsPlaneSize.value
-            //        m.scene.cameraView 
-            //        m.scene.config.nearPlane.value 
-            //        m.correlationPlot 
-            //        m.drawing.dnsColorLegend
-
-            //let _, planes = 
-            //    PRo3D.Correlations.CorrelationPanelsApp.viewFinishedLogs 
-            //        m.scene.config.dnsPlaneSize.value
-            //        m.scene.cameraView 
-            //        m.scene.config.nearPlane.value 
-            //        m.drawing.dnsColorLegend 
-            //        m.correlationPlot 
-            //        (allowLogPicking m)
-
-            //let viewContactOfInterest = 
-            //    PRo3D.Correlations.CorrelationPanelsApp.viewContactOfInterest m.correlationPlot
-                
-            Sg.ofList[ds;annos;]// correlationPlanes; planes; viewContactOfInterest]
-
-        let overlayed =
-                        
-            //let alignment = 
-            //    AlignmentApp.view m.alignment m.scene.navigation.camera.view
-            //        |> Sg.map AlignmentActions
-            //        |> Sg.fillMode (AVal.constant FillMode.Fill)
-            //        |> Sg.cullMode (AVal.constant CullMode.None)
-
-            let near = m.scene.config.nearPlane.value
-
-            let refSystem =
-                Sg.view
-                    m.scene.config
-                    mrefConfig
-                    m.scene.referenceSystem
-                    m.navigation.camera.view
-                |> Sg.map ReferenceSystemMessage  
-
-            let exploreCenter =
-                Navigation.Sg.view m.navigation            
-          
-            let homePosition =
-                Sg.viewHomePosition m.scene.surfacesModel
-                                 
-            let viewPlans =
-                ViewPlanApp.Sg.view 
-                    m.scene.config 
-                    mrefConfig 
-                    m.scene.viewPlans 
-                    m.navigation.camera.view
-                |> Sg.map ViewPlanMessage           
-
-            let solText = 
-                MinervaApp.getSolBillboards m.minervaModel m.navigation.camera.view near |> Sg.map MinervaActions
-                
-            //let correlationLogs, _ =
-            //    PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
-            //        m.scene.config.dnsPlaneSize.value
-            //        m.scene.cameraView 
-            //        near 
-            //        m.correlationPlot 
-            //        m.drawing.dnsColorLegend
-
-            //let finishedLogs, _ =
-            //    PRo3D.Correlations.CorrelationPanelsApp.viewFinishedLogs 
-            //        m.scene.config.dnsPlaneSize.value
-            //        m.scene.cameraView 
-            //        near 
-            //        m.drawing.dnsColorLegend 
-            //        m.correlationPlot 
-            //        (allowLogPicking m)
-
-            let heightValidation =
-                HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation
-
-
-            [exploreCenter; refSystem; viewPlans; homePosition; solText; heightValidation] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
-
-        let minervaSg =
-            let minervaFeatures = 
-                MinervaApp.viewFeaturesSg m.minervaModel |> Sg.map MinervaActions 
-
-            let filterLocation =
-                MinervaApp.viewFilterLocation m.minervaModel |> Sg.map MinervaActions
-
-            Sg.ofList [minervaFeatures] //;filterLocation]
-
-        //let all = m.minervaModel.data.features
-        let selected = 
-            m.minervaModel.session.selection.highlightedFrustra
-            |> AList.ofASet
-            |> AList.toAVal 
-            |> AVal.map (fun x ->
-                x
-                |> IndexList.take 500
-            )
-            |> AList.ofAVal
-            |> ASet.ofAList
-        
-        let linkingSg = 
-            PRo3D.Linking.LinkingApp.view 
-                m.minervaModel.hoveredProduct 
-                selected 
-                m.linkingModel
-            |> Sg.map LinkingActions
-
-        let heightValidationDiscs =
-            HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
-
-        let scaleBars =
-            ScaleBarsApp.Sg.view
-                m.scene.scaleBars
-                m.navigation.camera.view
-                m.scene.config
-                mrefConfig
-                m.scene.referenceSystem
-            |> Sg.map ScaleBarsMessage
-
-        let sceneObjects =
-            SceneObjectsApp.Sg.view m.scene.sceneObjectsModel m.scene.referenceSystem |> Sg.map SceneObjectsMessage
-
-        let geologicSurfacesSg = 
-            GeologicSurfacesApp.Sg.view m.scene.geologicSurfacesModel 
-            |> Sg.map GeologicSurfacesMessage 
-        
-        let depthTested = 
-            [linkingSg; annotationSg; minervaSg; heightValidationDiscs; scaleBars; sceneObjects; geologicSurfacesSg] |> Sg.ofList
+        let overlayed, depthTested, cam = createSceneGraphs runtime id m
 
         let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m
         onBoot "attachResize('__ID__')" (
             DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
         )
+
+    let sceneGraph (runtime : IRuntime) (m: AdaptiveModel) = 
+        let overlayed, depthTested, cam = createSceneGraphs runtime (System.Guid.Empty.ToString ()) m
+        ViewerUtils.completeSceneGraph m.scene.surfacesModel.sgGrouped overlayed depthTested m
         
     let view (runtime : IRuntime) (m: AdaptiveModel) = //(localhost: string)
 
@@ -1832,9 +1854,9 @@ module ViewerApp =
             let wp = Serialization.loadAs<IndexList<WayPoint>> path
             { m with waypoints = wp }
         | None -> m
-    
-    let start (runtime: IRuntime) (signature: IFramebufferSignature)(startEmpty: bool) messagingMailbox sendQueue dumpFile cacheFile =
 
+    let initialModelWithLoadedData (runtime: IRuntime) (signature: IFramebufferSignature) 
+                                   (startEmpty: bool) messagingMailbox dumpFile cacheFile =
         let m = 
             if startEmpty |> not then
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs
@@ -1849,9 +1871,26 @@ module ViewerApp =
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
             else
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs |> ViewerIO.loadRoverData       
-
+                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs |> ViewerIO.loadRoverData      
+        m
+    
+    let start (runtime: IRuntime) (signature: IFramebufferSignature)
+              (startEmpty: bool) messagingMailbox sendQueue dumpFile cacheFile =
+        let m = initialModelWithLoadedData runtime signature startEmpty messagingMailbox dumpFile cacheFile
+     
         App.start {
+            unpersist = Unpersist.instance
+            threads   = threadPool
+            view      = view runtime //localhost
+            update    = update runtime signature sendQueue messagingMailbox
+            initial   = m
+        }
+
+    let startAndReturnMModel (runtime: IRuntime) (signature: IFramebufferSignature)
+                             (startEmpty: bool) messagingMailbox sendQueue dumpFile cacheFile =
+        let m = initialModelWithLoadedData runtime signature startEmpty messagingMailbox dumpFile cacheFile
+        //TODO RNO
+        AppExtension.start' {
             unpersist = Unpersist.instance
             threads   = threadPool
             view      = view runtime //localhost

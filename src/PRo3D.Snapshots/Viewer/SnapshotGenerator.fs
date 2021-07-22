@@ -18,10 +18,9 @@ open PRo3D.Viewer
 open PRo3D.OrientationCube
 open PRo3D.SimulatedViews
 open Adaptify
-open PRo3D.Shading
 
 module SnapshotGenerator =
-    let loadData (args  : StartupArgs) 
+    let loadData (args  : PRo3D.SimulatedViews.CLStartupArgs) 
                  (mApp  : MutableApp<Model, ViewerAction>) =
         match args.snapshotPath, args.snapshotType with
         | Some spath, Some stype ->   
@@ -49,7 +48,7 @@ module SnapshotGenerator =
             Log.warn "[CLI] The snapshot file type was not specified."
             false
 
-    let readAnimation (startupArgs  : StartupArgs) = 
+    let readAnimation (startupArgs  : CLStartupArgs) = 
         match startupArgs.snapshotPath, startupArgs.snapshotType with
         | Some spath, Some stype ->   
                 match stype with
@@ -67,13 +66,13 @@ module SnapshotGenerator =
                 
                 //ViewerAction.SetMaskObjs this.renderMask
             ]
-        let sunAction =
-            match this.lightDirection with
-            | Some p -> [Viewer.ConfigPropertiesMessage 
-                          (ConfigProperties.Action.ShadingMessage 
-                            (Shading.ShadingAction.SetLightDirectionV3d p))
-                        ]
-            | None -> []        
+        //let sunAction = 
+        //    match this.lightDirection with
+        //    | Some p -> [Viewer.ConfigPropertiesMessage 
+        //                  (ConfigProperties.Action.ShadingMessage 
+        //                    (Shading.ShadingAction.SetLightDirectionV3d p))
+        //                ]
+        //    | None -> []        
         let surfAction =
             match this.surfaceUpdates with
             | Some s ->
@@ -83,14 +82,14 @@ module SnapshotGenerator =
                     ]
                 | true -> []
             | None -> []
-        let PlacementAction =
-            match this.placementParameters with
-            | Some sc ->
-                match sc.IsEmptyOrNull () with
-                | false ->
-                    [ViewerAction.UpdatePlacementParameters (sc, filename)] 
-                | true -> []
-            | None -> []
+        //let PlacementAction = // originally for Mars-DL project; not in use
+        //    match this.placementParameters with
+        //    | Some sc ->
+        //        match sc.IsEmptyOrNull () with
+        //        | false ->
+        //            [ViewerAction.UpdatePlacementParameters (sc, filename)] 
+        //        | true -> []
+        //    | None -> []
         
         let recalcNearFarAction =
             match recalcNearFar with
@@ -100,29 +99,29 @@ module SnapshotGenerator =
 
         // ADD ACTIONS FOR NEW SNAPSHOT MEMBERS HERE
 
-        actions@sunAction@surfAction@PlacementAction@recalcNearFarAction |> List.toSeq    
+        actions@surfAction@recalcNearFarAction |> List.toSeq    
 
-    let getAnimationActions (anim : SnapshotAnimation) =       
-        let lightActions = 
-            match anim.lightLocation with
-            | Some loc -> 
-                [
-                    (Viewer.ConfigPropertiesMessage 
-                    (ConfigProperties.Action.ShadingMessage 
-                      (Shading.ShadingAction.SetLightPositionV3d loc)))
-                    (Viewer.ConfigPropertiesMessage 
-                    (ConfigProperties.Action.ShadingMessage 
-                      (Shading.ShadingAction.SetUseLighting true)))                    
-                ]
-            | None -> []
-        lightActions |> List.toSeq
+    //let getAnimationActions (anim : SnapshotAnimation) =       
+    //    let lightActions = 
+    //        match anim.lightLocation with
+    //        | Some loc -> 
+    //            [
+    //                (Viewer.ConfigPropertiesMessage 
+    //                (ConfigProperties.Action.ShadingMessage 
+    //                  (Shading.ShadingAction.SetLightPositionV3d loc)))
+    //                (Viewer.ConfigPropertiesMessage 
+    //                (ConfigProperties.Action.ShadingMessage 
+    //                  (Shading.ShadingAction.SetUseLighting true)))                    
+    //            ]
+    //        | None -> []
+    //    lightActions |> List.toSeq
       
            
     let animate   (runtime      : IRuntime) 
                   (mModel       : AdaptiveModel)
                   (mApp         : MutableApp<Model, ViewerAction>) 
-                  (args         : StartupArgs) =
-        let sg = ViewerUtils.getSurfacesSgWithCamera mModel runtime
+                  (args         : CLStartupArgs) =
+        let sg = PRo3D.ViewerApp.sceneGraph runtime mModel
         let hasLoadedAny = loadData args mApp
         match hasLoadedAny with
         | true ->
@@ -133,9 +132,9 @@ module SnapshotGenerator =
                     {
                         mutableApp = mApp
                         adaptiveModel = mModel
-                        sceneGraph = ViewerUtils.getSurfacesSgWithCamera
+                        sceneGraph = sg
                         snapshotAnimation = data
-                        getAnimationActions = getAnimationActions
+                        getAnimationActions = (fun _ -> Seq.empty)
                         getSnapshotActions = getSnapshotActions
                         runtime = runtime
                         renderRange = RenderRange.fromOptions args.frameId args.frameCount
