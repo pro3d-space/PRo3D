@@ -623,9 +623,10 @@ module SurfaceApp =
                                 |> UI.wrapToolTip DataPosition.Bottom "Toggle IsActive"
             
                                 let! path = s.importPath
+                                let isobj = Path.GetExtension path = ".obj"
                                 //
                                 //  yield i 
-                                if (Directory.Exists path) |> not || (path |> Files.isSurfaceFolder |> not) then
+                                if ((Directory.Exists path) |> not || (path |> Files.isSurfaceFolder |> not)) && (isobj |> not) then
                                     yield i [
                                         clazz "exclamation red icon"
                                         //Dialogs.onChooseDirectory key ChangeImportDirectory;
@@ -915,9 +916,7 @@ module SurfaceApp =
               Incremental.div AttributeMap.empty (AList.ofAValSingle item2)
                
             ]
-            yield GuiEx.accordion "Actions" "Asterisk" false [
-                Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
-            ]  
+             
             yield GuiEx.accordion "Transformation" "expand arrows alternate " false [
                 Incremental.div AttributeMap.empty (AList.ofAValSingle(viewTranslationTools model))
             ]  
@@ -928,6 +927,10 @@ module SurfaceApp =
 
             yield GuiEx.accordion "Scalars ColorLegend" "paint brush" true [
                 Incremental.div AttributeMap.empty (AList.ofAValSingle(viewColorLegendTools colorPaletteStore model))
+            ] 
+
+            yield GuiEx.accordion "Actions" "Asterisk" false [
+                Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
             ] 
         ]
     

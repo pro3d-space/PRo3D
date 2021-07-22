@@ -107,4 +107,34 @@ module CameraProperties =
                 Html.row "Pitch:"       [Incremental.text (pitch |> AVal.map (fun x -> x.ToString("0.00")))]  // same for pitch which relates to dip angle
             ]
         )
+
+module FrustumProperties =
+
+    type Action =
+         | UpdateFocal           of Numeric.Action
+         | ToggleUseFocal
+     
+    
+    let updateFrustum (focal : float) (near : float) (far: float) =
+        // http://paulbourke.net/miscellaneous/lens/
+        // https://photo.stackexchange.com/questions/41273/how-to-calculate-the-fov-in-degrees-from-focal-length-or-distance
+        let hfov = 2.0 * atan(11.84 /(focal*2.0))
+        Frustum.perspective (hfov.DegreesFromRadians()) near far 1.0
+
+    let update (model : FrustumModel) (act : Action) =
+        match act with
+        | ToggleUseFocal ->
+            { model with toggleFocal = not model.toggleFocal}
+        | UpdateFocal f ->
+            { model with focal = Numeric.update model.focal f }
+        
+
+    let view (model : AdaptiveFrustumModel) =    
+        require GuiEx.semui (
+            Html.table [  
+                Html.row "use Focal:"   [GuiEx.iconCheckBox model.toggleFocal ToggleUseFocal]
+                Html.row "Focal (mm):"  [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox] model.focal |> UI.map UpdateFocal ]  
+
+            ]
+        )
     

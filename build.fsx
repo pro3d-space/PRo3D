@@ -17,6 +17,8 @@ open Fake.IO
 open Fake.Api
 open Fake.Tools.Git
 
+open System.IO.Compression
+
 
 
 do Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
@@ -88,6 +90,65 @@ Target.create "Credits" (fun _ ->
 let r = System.Text.RegularExpressions.Regex("let viewerVersion.*=.*\"(.*)\"")
 let test = """let viewerVersion       = "3.1.3" """
 
+(*let getInstalledPackageVersions() =
+    //Build Fake.DotNet.Cli - 5.19.1
+    let regex = Regex @"^([a-zA-Z_0-9]+)[ \t]*([^ ]+)[ \t]*-[ \t]*(.+)$"
+
+    let paketPath = 
+        if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then @".paket/paket.exe"
+        else ".paket/paket"
+
+    let paketPath = System.IO.Path.GetFullPath paketPath
+    let startInfo = new ProcessStartInfo()
+    startInfo.FileName <- paketPath
+    startInfo.Arguments <- "show-installed-packages"
+    startInfo.UseShellExecute <- false
+    startInfo.CreateNoWindow <- true
+    startInfo.RedirectStandardOutput <- true
+    startInfo.RedirectStandardError <- true
+
+    let proc = Process.Start(startInfo)
+    proc.WaitForExit()
+
+    let mutable res = Map.empty
+
+    if proc.ExitCode = 0 then
+        while not proc.StandardOutput.EndOfStream do
+            let line = proc.StandardOutput.ReadLine()
+            let m = regex.Match line
+            if m.Success then
+                let g = m.Groups.[1].Value.Trim().ToLower()
+                match g with
+                | "main" -> 
+                    let n = m.Groups.[2].Value
+                    let v = m.Groups.[3].Value |> SemVer.parse
+                    res <- Map.add n v res
+                | _ ->
+                    ()
+
+    res
+    *)
+
+let aardiumVersion = "2.0.5"
+    //let versions = getInstalledPackageVersions()
+    //match Map.tryFind "Aardium" versions with
+    //| Some v -> v
+    //| None -> failwith "no aardium version found"
+    
+    
+Target.create "test" (fun _ -> 
+    let url = sprintf "https://www.nuget.org/api/v2/package/Aardium-Win32-x64/%s" aardiumVersion
+    printf "url: %s" url
+    let tempFile = Path.GetTempFileName()
+    use c = new System.Net.WebClient()
+    c.DownloadFile(url, tempFile)
+    use a = new ZipArchive(File.OpenRead tempFile)
+    let t = Path.GetTempPath()
+    let tempPath = Path.Combine(t, Guid.NewGuid().ToString())
+    a.ExtractToDirectory(tempPath)
+    let target = Path.Combine("bin", "publish")
+    Shell.copyDir (Path.Combine(target,"tools")) (Path.Combine(tempPath,"tools")) (fun _ -> true)
+)
 
 Target.create "Publish" (fun _ ->
 
@@ -145,6 +206,19 @@ Target.create "Publish" (fun _ ->
 
     // 3, resources (currently everything included)
     // copyResources ["bin/publish"] 
+    
+
+    let url = sprintf "https://www.nuget.org/api/v2/package/Aardium-Win32-x64/%s" aardiumVersion
+    printf "url: %s" url
+    let tempFile = Path.GetTempFileName()
+    use c = new System.Net.WebClient()
+    c.DownloadFile(url, tempFile)
+    use a = new ZipArchive(File.OpenRead tempFile)
+    let t = Path.GetTempPath()
+    let tempPath = Path.Combine(t, Guid.NewGuid().ToString())
+    a.ExtractToDirectory(tempPath)
+    let target = Path.Combine("bin", "publish")
+    Shell.copyDir (Path.Combine(target,"tools")) (Path.Combine(tempPath,"tools")) (fun _ -> true)
 
     File.Move("bin/publish/PRo3D.Viewer.exe", sprintf "bin/publish/PRo3D.Viewer.%s.exe" notes.NugetVersion)
 )
@@ -258,11 +332,13 @@ Target.create "GitHubRelease" (fun _ ->
             | s when not (System.String.IsNullOrWhiteSpace s) -> s
             | _ -> failwith "please set the github_token environment variable to a github personal access token with repro access."
 
-        let files = System.IO.Directory.EnumerateFiles("bin/publish") 
+        //let files = System.IO.Directory.EnumerateFiles("bin/publish") 
+        let release = sprintf "bin/PRo3D.Viewer.%s.zip" notes.NugetVersion
+        let z = System.IO.Compression.ZipFile.CreateFromDirectory("bin/publish", release)
 
         GitHub.createClientWithToken token
         |> GitHub.draftNewRelease "vrvis" "PRo3D" notes.NugetVersion (notes.SemVer.PreRelease <> None) notes.Notes
-        |> GitHub.uploadFiles files
+        |> GitHub.uploadFiles (Seq.singleton release)
         |> GitHub.publishDraft
         |> Async.RunSynchronously
     finally

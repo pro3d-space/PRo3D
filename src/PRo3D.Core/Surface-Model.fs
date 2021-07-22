@@ -194,8 +194,9 @@ type Transformations = {
     yaw                   : NumericInput
     trafo                 : Trafo3d
     pivot                 : V3d
+    flipZ                 : bool
 } with
-    static member current = 0
+    static member current = 1
     static member read0 = 
         json {            
             let! useTranslationArrows = Json.read "useTranslationArrows"
@@ -211,6 +212,27 @@ type Transformations = {
                 yaw                  = yaw                 
                 trafo                = trafo               
                 pivot                = pivot |> V3d.Parse
+                flipZ                = false
+            }
+        }
+
+    static member read1 = 
+        json {            
+            let! useTranslationArrows = Json.read "useTranslationArrows"
+            let! translation          = Json.readWith Ext.fromJson<V3dInput,Ext>     "translation"
+            let! yaw                  = Json.readWith Ext.fromJson<NumericInput,Ext> "yaw"          
+            let! trafo                = Json.readWith Ext.fromJson<Trafo3d,Ext> "trafo"
+            let! pivot                = Json.read "pivot"
+            let! flipZ                = Json.read "flipZ"
+            
+            return {
+                version              = Transformations.current
+                useTranslationArrows = useTranslationArrows
+                translation          = translation
+                yaw                  = yaw                 
+                trafo                = trafo               
+                pivot                = pivot |> V3d.Parse
+                flipZ                = flipZ
             }
         }
 
@@ -219,6 +241,7 @@ type Transformations = {
             let! v = Json.read "version"
             match v with
             | 0 -> return! Transformations.read0
+            | 1 -> return! Transformations.read1
             | _ -> 
                 return! v 
                 |> sprintf "don't know version %A  of Transformations"
@@ -233,6 +256,7 @@ type Transformations = {
             do! Json.writeWith Ext.toJson<NumericInput,Ext> "yaw" x.yaw
             do! Json.writeWith Ext.toJson<Trafo3d,Ext> "trafo" x.trafo
             do! Json.write "pivot" (x.pivot.ToString())
+            do! Json.write "flipZ" x.flipZ
         }
 
 type SurfaceTrafo = {
@@ -414,6 +438,7 @@ type Surface with
 type Picking =
 | PickMesh of ISg
 | KdTree   of HashMap<Box3d,KdTrees.Level0KdTree>
+| NoPicking
 
 [<ModelType>]
 type SgSurface = {    
@@ -544,5 +569,6 @@ module Init =
         trafo                = Trafo3d.Identity
         yaw                  = yaw
         pivot                = V3d.Zero
+        flipZ                = false
     }
     

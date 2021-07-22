@@ -18,8 +18,11 @@ type Interactions =
     | PickLog               = 12
     | PlaceValidator        = 13
     | TrueThickness         = 14 // CHECK-merge
+    | PlaceScaleBar         = 15
+    | PlaceSceneObject      = 16
 
 module Interactions =
+    // excludes interactions from dropdown in topmenu
     let hideSet = 
         [
             Interactions.PlaceRover

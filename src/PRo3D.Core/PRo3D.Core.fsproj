@@ -28,8 +28,11 @@
     <Compile Include="Core-Types.fs" />
     <Compile Include="ReferenceSystem-Model.fs" />
     <Compile Include="Surface-Model.fs" />
+    <Compile Include="SceneObjects-Model.fs" />
     <Compile Include="Bookmark-Model.fs" />
     <Compile Include="Groups-Model.fs" />
+    <Compile Include="ScaleBars-Model.fs" />
+    <Compile Include="GeologicSurface-Model.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="Sg.fs" />
     <Compile Include="UI.fs" />
@@ -49,6 +52,9 @@
     <Compile Include="Drawing\Drawing.IO.fs" />
     <Compile Include="Drawing\PackedRendering.fs" />
     <Compile Include="Drawing\Drawing-App.fs" />
+    <Compile Include="SceneObjectsApp.fs" />
+    <Compile Include="ScaleBarsApp.fs" />
+    <Compile Include="GeologicSurfaceApp.fs" />
     <Compile Include="Validator/HeightValidator-Model.fs" />
     <Compile Include="Validator/HeightValidatorApp.fs" />
     <Compile Include="Importers/MeasurementsImporter.fs" />

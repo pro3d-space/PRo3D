@@ -36,7 +36,7 @@ module Model =
         
         let recent = { model.recent with recentScenes = scenePaths }
 
-        Serialization.save "./recent" recent |> ignore
+        try Serialization.save "./recent" recent |> ignore with e -> Log.warn "could not save recent: %A" e.Message
 
         { model with recent = recent }
 
@@ -60,7 +60,10 @@ module SceneLoader =
     let _flatSurfaces     = Scene.surfacesModel_ >-> SurfaceModel.surfaces_ >-> GroupsModel.flat_
     let _camera           = Model.navigation_ >-> NavigationModel.camera_
     let _cameraView       = _camera >-> CameraControllerState.view_
-
+    let _scaleBarsModelLens = Model.scene_ >-> Scene.scaleBars_
+    let _scaleBarsLens = _scaleBarsModelLens >-> ScaleBarsModel.scaleBars_
+    let _sceneObjects     = Model.scene_ >-> Scene.sceneObjectsModel_ 
+    let _geologicSurfaceLens = Model.scene_ >-> Scene.geologicSurfacesModel_ >-> GeologicSurfacesModel.geologicSurfaces_
 
     let expandRelativePaths (m:Scene) =               
         match m.scenePath with
@@ -119,6 +122,17 @@ module SceneLoader =
                s
         )
 
+    let addGeologicSurfaces (m:Model) = 
+        m.scene.geologicSurfacesModel.geologicSurfaces
+        |> HashMap.map( fun id surf -> 
+                let triangles = GeologicSurfacesUtils.getTrianglesForMesh 
+                                    surf.points1 
+                                    surf.points2    
+                                    surf.color.c 
+                                    surf.transparency.value
+                { surf with sgGeoSurface = triangles})
+        |> (flip <| Optic.set _geologicSurfaceLens) m
+
     /// appends surfaces to existing surfaces
     let import' (runtime : IRuntime) (signature: IFramebufferSignature)(surfaces : IndexList<Surface>) (model : Model) =
             
@@ -171,7 +185,7 @@ module SceneLoader =
             |> List.map snd 
             |> IndexList.ofList
 
-        let allSurfaces = existingSurfaces |> IndexList.append surfaces //????
+        //let allSurfaces = existingSurfaces |> IndexList.append surfaces //????
         let sChildren = surfaces |> IndexList.map Leaf.Surfaces
 
         let m = 
@@ -181,8 +195,8 @@ module SceneLoader =
 
         //handle sg surfaces
         let m = 
-            allSurfaces
-            |> IndexList.filter (fun s -> s.surfaceType = SurfaceType.SurfaceOBJ)
+            surfaces
+            //|> IndexList.filter (fun s -> s.surfaceType = SurfaceType.SurfaceOBJ)
             |> SurfaceUtils.ObjectFiles.createSgObjects runtime signature
             |> HashMap.union m.scene.surfacesModel.sgSurfaces
             |> (flip <| Optic.set (_surfaceModelLens >-> SurfaceModel.sgSurfaces_)) m
@@ -190,6 +204,24 @@ module SceneLoader =
         m.scene.surfacesModel 
           |> SurfaceModel.triggerSgGrouping 
           |> (flip <| Optic.set _surfaceModelLens) m
+
+
+    let importSceneObj (sceneObjs : IndexList<SceneObject>) (m : Model) =
+        
+        let test =
+            sceneObjs |> IndexList.toList |> List.map(fun x -> (x.guid,x))|> HashMap.ofList
+        let m = 
+            m.scene.sceneObjectsModel.sceneObjects 
+            |> HashMap.union test
+            |> (flip <| Optic.set (_sceneObjects >-> SceneObjectsModel.sceneObjects_)) m
+    
+        let m = 
+            sceneObjs
+            |> SceneObjectsUtils.createSgSceneObjects 
+            |> HashMap.union m.scene.sceneObjectsModel.sgSceneObjects
+            |> (flip <| Optic.set (_sceneObjects >-> SceneObjectsModel.sgSceneObjects_)) m
+                      
+        m
              
     let prepareSurfaceModel 
         (runtime   : IRuntime) 
@@ -224,6 +256,30 @@ module SceneLoader =
         model           
         |> SurfaceModel.withSgSurfaces sgs
         |> SurfaceModel.triggerSgGrouping    
+
+    let addScaleBarSegments (m:Model) = 
+        m.scene.scaleBars.scaleBars
+        |> HashMap.map( fun id sb -> 
+                let segments = ScaleBarUtils.updateSegments sb
+                { sb with scSegments = segments})
+        |> (flip <| Optic.set _scaleBarsLens) m
+
+
+    let prepareSceneObjectsModel
+        (model     : SceneObjectsModel) : SceneObjectsModel =
+
+        let sOList =
+            model.sceneObjects
+            |> HashMap.toList 
+            |> List.map snd 
+            |> IndexList.ofList
+
+        let sgSurfaces = 
+             SceneObjectsUtils.createSgSceneObjects sOList
+
+        { model with sgSceneObjects = sgSurfaces }
+
+   
           
     let setFrustum (m:Model) =
        let near = m.scene.config.nearPlane.value
@@ -247,6 +303,14 @@ module SceneLoader =
         }
         |> (flip <| Optic.set _camera) m
 
+    let setNavigation (m : Model) =
+        let navigation' = 
+            { m.navigation with camera          = {m.navigation.camera with view = m.scene.cameraView};
+                                exploreCenter   = m.scene.exploreCenter;
+                                navigationMode  = m.scene.navigationMode }
+        {m with navigation = navigation'}
+        
+
     let loadScene path m runtime signature =
         //try            
         //    //let s = Serialization.loadAs<Scene> path
@@ -265,16 +329,23 @@ module SceneLoader =
             m 
             |> Model.withScene scene
             |> resetControllerState
+            |> setNavigation
 
-        let cameraView = m.scene.cameraView
+        //let cameraView = m.scene.cameraView
 
-        let m = { m with frustum = setFrustum m } |> Optic.set _cameraView cameraView
+        let m = { m with frustum = setFrustum m } //|> Optic.set _cameraView cameraView
 
         let sModel = 
             m.scene.surfacesModel 
             |> prepareSurfaceModel runtime signature scene.scenePath
 
-        Optic.set _surfaceModelLens sModel m  
+        let m = Optic.set _surfaceModelLens sModel m 
+        
+        // add sg scene objects
+        let sOModel = 
+                m.scene.sceneObjectsModel |> prepareSceneObjectsModel 
+        Optic.set _sceneObjects sOModel m  
+
         //with e ->            
         //    Log.error "Could not load selected scenefile %A. It is either outdated or not a valid scene" path
         //    Log.error "exact error %A" e

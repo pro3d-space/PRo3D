@@ -4,3 +4,4 @@ module Config =
 
   let useAsyncIntersections = false
   let sampleCount = 100
+

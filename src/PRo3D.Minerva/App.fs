@@ -654,7 +654,7 @@ module MinervaApp =
         | HoverProduct o ->
             { model with hoveredProduct = o }
         | Save ->
-            let minervaFolder = @".\MinervaData"
+            let minervaFolder = Path.combine [Config.besideExecuteable; "MinervaData"]
 
             if minervaFolder |> System.IO.Directory.Exists |> not then
                 Directory.CreateDirectory(minervaFolder) |> ignore

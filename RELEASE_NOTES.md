@@ -1,3 +1,36 @@
+## 3.8.0-prerelease3
+
+- fixed UNC aardium problem
+
+## 3.8.0-prerelease3
+
+- current directory now set to main entry point location https://github.com/vrvis/PRo3D/issues/63, https://github.com/vrvis/PRo3D/issues/62
+
+## 3.8.0-prerelease2
+
+- aardium path fix
+
+## 3.8.0-prerelease1
+
+- features:
+  - Scalebar integration https://github.com/vrvis/PRo3D/issues/10
+  - Import and Visualization of "SceneObjects" https://github.com/vrvis/PRo3D/issues/13
+  - Geologic Surface Creation https://github.com/vrvis/PRo3D/issues/19
+  - Mastcam-Z Improvements https://github.com/vrvis/PRo3D/issues/53
+  - Adjust Focal Length https://github.com/vrvis/PRo3D/issues/54
+  - Flip Z direction for surfaces and scene objects
+  - Super slow annotations https://github.com/vrvis/PRo3D/issues/60
+- bugfixes:
+  - Update navigationMode and exploreCenter in SaveScene and LoadScene
+  - Import obj
+  - LatLonAlt output sequence changed
+  - isSurfaceFolder is always false for objs (in Surfaces) so the red exclamation icon in the little surface menu is shown
+
+## 3.7.0-prerelease6
+
+- fixed picking issues
+- tried to fix color picker history https://github.com/vrvis/PRo3D/issues/56
+
 ## 3.7.0-prerelease5
 
 - new color correction UI + ordering of operations https://github.com/vrvis/PRo3D/issues/52

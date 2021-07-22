@@ -273,7 +273,11 @@ module ViewerUtils =
                         let! s = surf
                         let! sc = s.scaling.value
                         let! t = s.preTransform
-                        return Trafo3d.Scale(sc) * (t * fullTrafo )
+                        let! flipZ = s.transformation.flipZ
+                        if flipZ then 
+                            return Trafo3d.Scale(sc) * Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * t)
+                        else
+                            return Trafo3d.Scale(sc) * (fullTrafo * t) 
                     }
                     
                 let trafoObj =
