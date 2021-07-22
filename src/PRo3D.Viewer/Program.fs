@@ -96,8 +96,20 @@ let main argv =
     Aardvark.Base.Report.LogFileName <- logFilePath
 
     // use this one to get path to self-contained exe (not temp expanded dll)
-    let executeablePath = Process.GetCurrentProcess().MainModule.FileName
+    let executeablePath = 
+        if RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then
+            System.Environment.GetCommandLineArgs().[0]
+        elif RuntimeInformation.IsOSPlatform(OSPlatform.Linux) then
+            System.Environment.GetCommandLineArgs().[0]
+        elif RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+            Process.GetCurrentProcess().MainModule.FileName
+        else 
+            Log.warn "could not detect os platform.. assuming linux"
+            System.Environment.GetCommandLineArgs().[0]
+    
     printf "executeablePath: %s" executeablePath
+
+    System.Environment.CurrentDirectory <- Path.GetDirectoryName executeablePath
 
 
     // does not work for self-containted publishes'
@@ -144,6 +156,7 @@ let main argv =
                     None
             elif os = OSPlatform.OSX then
                 let app = Path.Combine(ass, "tools", "Aardium.app")
+                Log.line "exists? %A" app
                 if Directory.Exists app || File.Exists app then
                     Some (Path.Combine(ass, "tools"))
                 else None
