@@ -92,9 +92,14 @@ let main argv =
     Log.line "Running with AppData: %s" appData
     Config.configPath <- appData
 
+    let logFilePath = Path.Combine(appData, "PRo3D.log")
+    Aardvark.Base.Report.LogFileName <- logFilePath
+
     // use this one to get path to self-contained exe (not temp expanded dll)
     let executeablePath = Process.GetCurrentProcess().MainModule.FileName
     printf "executeablePath: %s" executeablePath
+
+
     // does not work for self-containted publishes'
     //let selfPath = System.Environment.GetCommandLineArgs().[0]
     let selfPath = executeablePath
@@ -153,9 +158,6 @@ let main argv =
         Log.warn "system aardium"; 
         Aardium.init()
 
-
-
-    Aardium.init()      
     
     Aardvark.Init()
     CooTransformation.initCooTrafo appData

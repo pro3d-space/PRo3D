@@ -56,7 +56,7 @@ module AnnotationViewer =
 
         let mv = view |> AVal.map (fun c -> (CameraView.viewTrafo c).Forward)
         let points = points (model.selectedLeaves |> ASet.map (fun x -> x.id)) annoSet config.offset mv
-        let lines, pickIds, bb = PackedRendering.lines config.offset hoveredAnnotation ASet.empty annoSet mv
+        let lines, pickIds, bb = PackedRendering.linesNoIndirect config.offset hoveredAnnotation ASet.empty annoSet mv
 
         let pickColors, pickDepth = 
             //let size = AVal.constant (V2i(128,128))
