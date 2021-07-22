@@ -3,6 +3,7 @@ namespace PRo3D.Base
 open System
 open Aardvark.Base
 open Aardvark.Rendering
+open Aardvark.UI
 open FSharp.Data.Adaptive
 open Adaptify
 open Aardvark.UI.Primitives
@@ -127,8 +128,9 @@ type SequencedBookmarksAction =
     | StepForward
     | StepBackward
     | AnimationThreadsDone  of string
-    //| ResetBC
     | AnimStep       of Guid
+    | SetDelay       of Numeric.Action
+    | SetAnimationSpeed       of Numeric.Action
 
 
 [<ModelType>]
@@ -144,6 +146,9 @@ type SequencedBookmarks = {
     stopAnimation    : bool
     [<NonAdaptive>]
     blockingCollection : HarriSchirchWrongBlockingCollection<SequencedBookmarksAction>
+
+    delay            : NumericInput
+    animationSpeed   : NumericInput
 }
 
 module SequencedBookmarks =
@@ -151,31 +156,55 @@ module SequencedBookmarks =
     let current = 0    
     let read0 = 
         json {
-            let! bookmarks = Json.read "bookmarks"
-            let bookmarks = bookmarks |> List.map(fun (a : Bookmark) -> (a.key, a)) |> HashMap.ofList
-            let! orderList = Json.read "orderList"
-            let! selected     = Json.read "selectedBookmark"
+            let! bookmarks          = Json.read "bookmarks"
+            let bookmarks           = bookmarks |> List.map(fun (a : Bookmark) -> (a.key, a)) |> HashMap.ofList
+            let! orderList          = Json.read "orderList"
+            let! selected           = Json.read "selectedBookmark"
+            let! delay              = Json.readWith Ext.fromJson<NumericInput,Ext> "delay"
+            let! animationSpeed     = Json.readWith Ext.fromJson<NumericInput,Ext> "animationSpeed"
             return 
                 {
-                    version          = current
-                    bookmarks        = bookmarks
-                    orderList        = orderList
-                    selectedBookmark = selected
-                    animationThreads = ThreadPool.Empty
-                    stopAnimation    = true
-                    blockingCollection = new HarriSchirchWrongBlockingCollection<_>()
+                    version             = current
+                    bookmarks           = bookmarks
+                    orderList           = orderList
+                    selectedBookmark    = selected
+                    animationThreads    = ThreadPool.Empty
+                    stopAnimation       = true
+                    blockingCollection  = new HarriSchirchWrongBlockingCollection<_>()
+                    delay               = delay
+                    animationSpeed      = animationSpeed
                 }
         }  
 
+    let initDelay =
+        {
+            value   = 3.0
+            min     = 0.5
+            max     = 10.0
+            step    = 0.1
+            format  = "{0:0.0}"
+        }
+
+    let initSpeed =
+        {
+            value   = 2.0
+            min     = 0.1
+            max     = 10.0
+            step    = 0.1
+            format  = "{0:0.0}"
+        }
+
     let initial =
         {
-            version          = current
-            bookmarks        = HashMap.Empty
-            orderList        = List.empty
-            selectedBookmark = None
-            animationThreads = ThreadPool.Empty
-            stopAnimation    = true
-            blockingCollection = new HarriSchirchWrongBlockingCollection<_>()
+            version             = current
+            bookmarks           = HashMap.Empty
+            orderList           = List.empty
+            selectedBookmark    = None
+            animationThreads    = ThreadPool.Empty
+            stopAnimation       = true
+            blockingCollection  = new HarriSchirchWrongBlockingCollection<_>()
+            delay               = initDelay
+            animationSpeed      = initSpeed
         }
 
 type SequencedBookmarks with
@@ -192,8 +221,10 @@ type SequencedBookmarks with
 
     static member ToJson (x : SequencedBookmarks) =
         json {
-            do! Json.write "version"           x.version
-            do! Json.write "bookmarks"         (x.bookmarks |> HashMap.toList |> List.map snd)
-            do! Json.write "orderList"         x.orderList
-            do! Json.write "selectedBookmark"  x.selectedBookmark
-        }
+            do! Json.write "version"                                            x.version
+            do! Json.write "bookmarks"                                          (x.bookmarks |> HashMap.toList |> List.map snd)
+            do! Json.write "orderList"                                          x.orderList
+            do! Json.write "selectedBookmark"                                   x.selectedBookmark
+            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "delay"           x.delay
+            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "animationSpeed"  x.animationSpeed
+        }   

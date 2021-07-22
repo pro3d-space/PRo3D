@@ -102,10 +102,9 @@ module SequencedBookmarksApp =
                 let! action = m.blockingCollection.TakeAsync()
                 Log.line "[animationSB] take async"
                 match action with
-                | Some a -> 
-                    //do! Proc.Sleep 3000
+                | Some a ->
                     yield a
-                    do! Proc.Sleep 3000
+                    do! Proc.Sleep ((int)(m.animationSpeed.value + m.delay.value) * 1000) //3000
                     ()
                 | None -> ()
 
@@ -122,7 +121,7 @@ module SequencedBookmarksApp =
                     yield SequencedBookmarksAction.AnimStep m.orderList.[0]
                 else
                     yield SequencedBookmarksAction.AnimStep m.orderList.[index+1]
-                do! Proc.Sleep 3000
+                do! Proc.Sleep ((int)(m.animationSpeed.value + m.delay.value) * 1000) //3000
                 yield SequencedBookmarksAction.AnimationThreadsDone "animationSBForward"
             | None -> ()
         }
@@ -136,7 +135,7 @@ module SequencedBookmarksApp =
                    yield SequencedBookmarksAction.AnimStep m.orderList.[m.orderList.Length-1]
                else
                    yield SequencedBookmarksAction.AnimStep m.orderList.[index-1] 
-               do! Proc.Sleep 3000
+               do! Proc.Sleep ((int)(m.animationSpeed.value + m.delay.value) * 1000) //3000
                yield SequencedBookmarksAction.AnimationThreadsDone "animationSBBackward"
            | None -> ()
        }
@@ -306,11 +305,23 @@ module SequencedBookmarksApp =
             | Some bm ->
                 let anim = Optic.get animationModel outerModel
                 let animationMessage = 
-                    animateFowardAndLocation bm.cameraView.Location bm.cameraView.Forward bm.cameraView.Up 2.0 "ForwardAndLocation2s"
+                    animateFowardAndLocation bm.cameraView.Location bm.cameraView.Forward bm.cameraView.Up m'.animationSpeed.value "ForwardAndLocation2s"
                 let anim' = AnimationApp.update anim (AnimationAction.PushAnimation(animationMessage))
                 let newOuterModel = Optic.set animationModel anim' outerModel
                 newOuterModel, m'
             | None -> outerModel, m
+        | SetDelay s -> 
+            let delay = Numeric.update m.delay s
+            //if delay.value < m.animationSpeed.value then
+            //    outerModel, { m with delay = delay; animationSpeed = Numeric.update m.animationSpeed s}
+            //else
+            outerModel, { m with delay = delay}
+        | SetAnimationSpeed s -> 
+            let duration = Numeric.update m.animationSpeed s
+            //if m.delay.value < duration.value then
+            //    outerModel, { m with animationSpeed = duration; delay = Numeric.update m.delay s}
+            //else
+            outerModel, { m with animationSpeed = duration}
         |_-> outerModel, m
 
 
@@ -413,19 +424,26 @@ module SequencedBookmarksApp =
                 | None -> return empty
             }  
             
-        let viewAnimationGUI = 
-            div [clazz "ui buttons inverted"] [
-                        button [clazz "ui icon button"; onMouseClick (fun _ -> StepBackward )] [ //
-                            i [clazz "step backward icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Back"
-                        button [clazz "ui icon button"; onMouseClick (fun _ -> Play )] [ //
-                            i [clazz "play icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Start Animation"
-                        button [clazz "ui icon button"; onMouseClick (fun _ -> Pause )] [ //
-                            i [clazz "pause icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Pause Animation"
-                        button [clazz "ui icon button"; onMouseClick (fun _ -> Stop )] [ //
-                            i [clazz "stop icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Stop Animation"
-                        button [clazz "ui icon button"; onMouseClick (fun _ -> StepForward )] [ //
-                            i [clazz "step forward icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Forward"
-                    ] 
+        let viewAnimationGUI (model:AdaptiveSequencedBookmarks) = 
+            require GuiEx.semui (
+                Html.table [               
+                  Html.row "Animation:"   [div [clazz "ui buttons inverted"] [
+                                              button [clazz "ui icon button"; onMouseClick (fun _ -> StepBackward )] [ //
+                                                  i [clazz "step backward icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Back"
+                                              button [clazz "ui icon button"; onMouseClick (fun _ -> Play )] [ //
+                                                  i [clazz "play icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Start Animation"
+                                              button [clazz "ui icon button"; onMouseClick (fun _ -> Pause )] [ //
+                                                  i [clazz "pause icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Pause Animation"
+                                              button [clazz "ui icon button"; onMouseClick (fun _ -> Stop )] [ //
+                                                  i [clazz "stop icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Stop Animation"
+                                              button [clazz "ui icon button"; onMouseClick (fun _ -> StepForward )] [ //
+                                                  i [clazz "step forward icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Forward"
+                                          ] ]
+                  Html.row "Duration (s):"   [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]  model.animationSpeed |> UI.map SetAnimationSpeed ]
+                  Html.row "Delay (s):"  [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]  model.delay |> UI.map SetDelay ]
+                  
+                ]
+              )
             
        
 
