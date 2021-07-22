@@ -167,7 +167,7 @@ let main argv =
     Aardvark.Rendering.GL.RuntimeConfig.SupressSparseBuffers <- true
     //app.ShaderCachePath <- None
 
-    PRo3D.Core.Drawing.DrawingApp.usePackedAnnotationRendering <- false
+    PRo3D.Core.Drawing.DrawingApp.usePackedAnnotationRendering <- true
     Sg.hackRunner <- runtime.CreateLoadRunner 1 |> Some
 
     Serialization.init()
@@ -298,11 +298,11 @@ let main argv =
        // prefix "/instrument" >=> MutableApp.toWebPart runtime instrumentApp
 
         path "/crash.txt" >=> Suave.Writers.setMimeType "text/plain" >=> request (fun r -> 
-            Files.sendFile "Aardvark.log" false
+            Files.sendFile logFilePath false
         )
 
         path "/minilog.txt" >=> Suave.Writers.setMimeType "text/plain" >=> request (fun r -> 
-            use s = File.Open("Aardvark.log", FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+            use s = File.Open(logFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
             use r = new StreamReader(s)
             let log = 
                 seq {
@@ -379,13 +379,20 @@ let main argv =
     
     let titlestr = "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH"
 
-    
+    Log.line "full url: %s" uri
+
+    System.Threading.Thread.Sleep(100)
     Aardium.run {
         url uri   //"http://localhost:4321/?page=main"
         width 1280
         height 800
         debug true
         title titlestr
+
+
+        windowoptions {|  minWidth = 180; minHeight = 180; title = "PRo3D.Viewer";|}
+        hideDock true
+        autoclose true
     }
 
     CooTransformation.deInitCooTrafo ()

@@ -2,7 +2,7 @@ STORAGE: NONE
 RESTRICTION: || (== net50) (== netcoreapp2.0) (== netcoreapp3.1) (== netstandard2.0)
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    Aardium (2.0.5)
+    Aardium (2.0.8)
       FSharp.Core (>= 4.7)
       FSys (>= 0.0.1 < 0.1)
     Aardvark.Application (5.1.11)
