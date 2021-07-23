@@ -585,3 +585,16 @@ module GaleCrater =
             )
         surfaces
 
+
+
+module Keyboard =
+    open Aardvark.Application
+    open System.Runtime.InteropServices
+
+    let isMac = RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
+
+    let (|Modifier|_|) (k : Keys) =
+        if k = Keys.LeftCtrl then Some Modifier
+        elif k = Keys.LeftAlt then Some Modifier
+        elif int k = 70 && isMac then Some Modifier
+        else None
