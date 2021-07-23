@@ -41,8 +41,9 @@ module SequencedBookmarksProperties =
         )
 
 module SequencedBookmarksApp = 
+    let mutable collectedViews = List.Empty
 
-    let private animateFowardAndLocation (pos: V3d) (dir: V3d) (up:V3d) (duration: RelativeTime) (name: string) = 
+    let private animateFowardAndLocation (pos: V3d) (dir: V3d) (up:V3d) (duration: RelativeTime) (name: string) (record : bool) = 
         {
             (CameraAnimations.initial name) with 
                 sample = fun (localTime, globalTime) (state : CameraView) -> // given the state and t since start of the animation, compute a state and the cameraview
@@ -57,13 +58,13 @@ module SequencedBookmarksApp =
                         let velocity  = vec.Length / duration                  
                         let dir       = vec.Normalized
                         let location  = state.Location + dir * velocity * localTime
-
                         let view = 
                             state 
                             |> CameraView.withForward forward
                             |> CameraView.withUp up
-                            |> CameraView.withLocation location                                                                              
-
+                            |> CameraView.withLocation location      
+                        if record then
+                          collectedViews <- collectedViews@[view]
                         Some (state,view)
                     else None
         }
@@ -181,6 +182,9 @@ module SequencedBookmarksApp =
             { m with selectedBookmark = Some a.key }
         | None, _ -> m
 
+    let bookmarkAnimationToViews (m : SequencedBookmarks) =
+        for v in collectedViews do
+            Log.line "%s" (v.ToString ())
 
     let update 
         (m               : SequencedBookmarks) 
@@ -207,7 +211,8 @@ module SequencedBookmarksApp =
             | Some bm ->
                 let anim = Optic.get animationModel outerModel
                 let animationMessage = 
-                    animateFowardAndLocation bm.cameraView.Location bm.cameraView.Forward bm.cameraView.Up 2.0 "ForwardAndLocation2s"
+                    animateFowardAndLocation bm.cameraView.Location bm.cameraView.Forward
+                                             bm.cameraView.Up 2.0 "ForwardAndLocation2s" m.isRecording
                 let anim' = AnimationApp.update anim (AnimationAction.PushAnimation(animationMessage))
                 let newOuterModel = Optic.set animationModel anim' outerModel
                 newOuterModel, m
@@ -305,7 +310,9 @@ module SequencedBookmarksApp =
             | Some bm ->
                 let anim = Optic.get animationModel outerModel
                 let animationMessage = 
-                    animateFowardAndLocation bm.cameraView.Location bm.cameraView.Forward bm.cameraView.Up m'.animationSpeed.value "ForwardAndLocation2s"
+                    animateFowardAndLocation bm.cameraView.Location bm.cameraView.Forward 
+                                             bm.cameraView.Up m'.animationSpeed.value 
+                                             "ForwardAndLocation2s" m.isRecording
                 let anim' = AnimationApp.update anim (AnimationAction.PushAnimation(animationMessage))
                 let newOuterModel = Optic.set animationModel anim' outerModel
                 newOuterModel, m'
@@ -322,6 +329,12 @@ module SequencedBookmarksApp =
             //    outerModel, { m with animationSpeed = duration; delay = Numeric.update m.delay s}
             //else
             outerModel, { m with animationSpeed = duration}
+        | StartRecording -> 
+            collectedViews <- List.empty
+            outerModel, {m with isRecording = true}
+        | StopRecording -> 
+            bookmarkAnimationToViews m
+            outerModel, {m with isRecording = false}
         |_-> outerModel, m
 
 
@@ -402,15 +415,29 @@ module SequencedBookmarksApp =
                      
                 } )
 
-        let viewGUI = 
+        let viewGUI  (model : AdaptiveSequencedBookmarks) = 
+            let startRecordingButton =
+                button [clazz "ui icon button"; onMouseClick (fun _ -> StartRecording )] [ //
+                        i [clazz "red circle icon"] [] ] 
+                    |> UI.wrapToolTip DataPosition.Bottom "Start recording for batch rendering"
+
+            let stopRecordingButton = 
+                button [clazz "ui icon button"; onMouseClick (fun _ -> StopRecording )] [ //
+                        i [clazz "red stop icon"] [] ] 
+                    |> UI.wrapToolTip DataPosition.Bottom "Stop recording for batch rendering"
+
+            let recordingButton =
+                model.isRecording |> AVal.map (fun r -> if r then stopRecordingButton else startRecordingButton)
+
             div [clazz "ui buttons inverted"] [
                         //onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
                             button [clazz "ui icon button"; onMouseClick (fun _ -> AddSBookmark )] [ //
                                     i [clazz "plus icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Add Bookmark"
+                            Incremental.div ([] |> AttributeMap.ofList) (AList.ofAValSingle recordingButton)
                         // )
                     ] 
 
-        let viewProperties (model:AdaptiveSequencedBookmarks) =
+        let viewProperties (model : AdaptiveSequencedBookmarks) =
             adaptive {
                 let! selBm = model.selectedBookmark
                 let empty = div[ style "font-style:italic"][ text "no bookmark selected" ] |> UI.map SequencedBookmarksAction.PropertiesMessage 

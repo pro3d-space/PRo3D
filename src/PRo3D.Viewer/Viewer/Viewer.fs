@@ -605,7 +605,24 @@ module ViewerApp =
             let bm = GroupsApp.update m.scene.bookmarks msg
             { m with scene = { m.scene with bookmarks = bm }} 
         | SequencedBookmarkMessage msg,_,_ -> 
-            let m', bm = SequencedBookmarksApp.update m.scene.sequencedBookmarks msg _navigation _animation m
+            let m', bm = SequencedBookmarksApp.update m.scene.sequencedBookmarks 
+                                                      msg _navigation _animation m
+            match msg with
+            | PRo3D.Base.SequencedBookmarksAction.StopRecording -> 
+                let snapshots = 
+                    Snapshot.fromViews 
+                        SequencedBookmarksApp.collectedViews None None
+                let snapshotAnimation =
+                    SnapshotAnimation.generate 
+                        snapshots 
+                        (m.frustum |> Frustum.horizontalFieldOfViewInDegrees |> Some)
+                        (m.scene.config.nearPlane.value |> Some)
+                        (m.scene.config.farPlane.value |> Some)
+                        None
+                // TODO RNO
+                SnapshotAnimation.writeToFile snapshotAnimation "batchRendering.json"
+            | _ -> ()
+              
             { m' with scene = { m.scene with sequencedBookmarks = bm }}
         | RoverMessage msg,_,_ ->
             let roverModel = RoverApp.update m.scene.viewPlans.roverModel msg

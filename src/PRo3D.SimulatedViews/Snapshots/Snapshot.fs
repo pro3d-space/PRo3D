@@ -65,7 +65,7 @@ module Snapshot =
 
 
     let fromViews (camViews : seq<CameraView>) (sp : option<List<ObjectPlacementParameters>>) 
-                  (lightDirection : V3d) =
+                  (lightDirection : option<V3d>) =
         let foo = Seq.zip camViews [0 .. (Seq.length camViews - 1)]
         seq {
             for (v, i) in foo do
@@ -73,7 +73,7 @@ module Snapshot =
                         filename        = sprintf "%06i" i
                         camera          = v |> toSnapshotCamera
                         sunPosition     = None
-                        lightDirection  = Some lightDirection
+                        lightDirection  = lightDirection
                         surfaceUpdates  = None
                         placementParameters    = sp
                         renderMask      = None         

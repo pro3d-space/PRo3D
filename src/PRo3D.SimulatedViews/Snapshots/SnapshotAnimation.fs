@@ -71,15 +71,17 @@ module SnapshotAnimation =
             Log.line "%s" e.StackTrace 
             raise e
 
-    let generate (snapshots : seq<Snapshot>) (foV : float) (renderMask : bool) =
+    let generate (snapshots : seq<Snapshot>) (foV : option<float>) 
+                 (nearplane : option<float>) (farplane : option<float>)
+                 (renderMask : option<bool>) =
         {
-            fieldOfView = Some foV //Some 30.0
+            fieldOfView = foV //Some 30.0
             resolution  = V2i(4096)
-            nearplane   = Some 0.01
-            farplane    = Some 100.0
+            nearplane   = nearplane //Some 0.01
+            farplane    = farplane //Some 100.0
             lightLocation = None
             snapshots   = snapshots |> Seq.toList
-            renderMask  = Some renderMask
+            renderMask  = renderMask
         }
 
     let readTestAnimation () =

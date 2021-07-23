@@ -131,6 +131,8 @@ type SequencedBookmarksAction =
     | AnimStep       of Guid
     | SetDelay       of Numeric.Action
     | SetAnimationSpeed       of Numeric.Action
+    | StartRecording
+    | StopRecording
 
 
 [<ModelType>]
@@ -149,6 +151,8 @@ type SequencedBookmarks = {
 
     delay            : NumericInput
     animationSpeed   : NumericInput
+
+    isRecording      : bool
 }
 
 module SequencedBookmarks =
@@ -173,6 +177,7 @@ module SequencedBookmarks =
                     blockingCollection  = new HarriSchirchWrongBlockingCollection<_>()
                     delay               = delay
                     animationSpeed      = animationSpeed
+                    isRecording         = false
                 }
         }  
 
@@ -205,6 +210,7 @@ module SequencedBookmarks =
             blockingCollection  = new HarriSchirchWrongBlockingCollection<_>()
             delay               = initDelay
             animationSpeed      = initSpeed
+            isRecording         = false
         }
 
 type SequencedBookmarks with
