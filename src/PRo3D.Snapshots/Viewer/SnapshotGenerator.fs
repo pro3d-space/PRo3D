@@ -24,6 +24,13 @@ module SnapshotGenerator =
                  (mApp  : MutableApp<Model, ViewerAction>) =
         match args.snapshotPath, args.snapshotType with
         | Some spath, Some stype ->   
+            let hasLaodedScene = 
+                match args.scenePath with
+                | Some sp ->
+                    mApp.updateSync Guid.Empty (ViewerAction.LoadScene sp |> Seq.singleton)
+                    true
+                | None -> false
+
             let hasLoadedOpc = 
                 match args.opcPaths with
                 | Some opcs ->
@@ -39,7 +46,7 @@ module SnapshotGenerator =
                                                        |> Seq.singleton)
                     true
                 | None -> 
-                    hasLoadedOpc
+                    hasLoadedOpc || hasLaodedScene
             hasLoadedAny
         | None , _ -> 
             Log.warn "[CLI] No snapshot file path was specified."

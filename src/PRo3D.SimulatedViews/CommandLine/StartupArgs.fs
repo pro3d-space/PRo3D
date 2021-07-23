@@ -10,6 +10,7 @@ type GuiMode =
 type CLStartupArgs = {
   opcPaths              : option<list<string>>
   objPaths              : option<list<string>>
+  scenePath             : option<string>
   snapshotPath          : option<string>
   outFolder             : string
   snapshotType          : option<SnapshotType>
@@ -28,12 +29,13 @@ type CLStartupArgs = {
   frameCount            : option<int> // how many frames to render
 } with 
   member args.hasValidAnimationArgs =
-      (args.opcPaths.IsSome || args.objPaths.IsSome)
+      (args.opcPaths.IsSome || args.objPaths.IsSome || args.scenePath.IsSome)
           && args.snapshotType.IsSome && args.areValid
   static member initArgs =
     {
         opcPaths              = None
         objPaths              = None
+        scenePath             = None
         snapshotPath          = None
         snapshotType          = None
         guiMode               = GuiMode.CompleteGui

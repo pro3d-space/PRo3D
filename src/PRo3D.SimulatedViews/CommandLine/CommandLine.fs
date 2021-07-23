@@ -72,6 +72,9 @@ module CommandLine =
                 let oneOpc              = parseMultiple "--opc" ';' argv 
                 let manyOpcs            = parseMultiple "--opcs" ';' argv
                 let objs                = parseMultiple "--obj" ';' argv
+                let scene               = parseArg "--scn" argv
+                let sceneOk =
+                   scene |> Option.map (fun s -> checkPath s)
                 let snapshot            = parseArg "--snap" argv 
                 let animationSnapshot   = parseArg "--asnap" argv 
                 let outFolder           = checkAndCreateDir (parseArg "--out" argv)
@@ -96,11 +99,14 @@ module CommandLine =
                 let verbose = (argv |> Array.contains "--verbose")
 
                 let ok = 
-                    match (checkPaths opcs), (checkPaths objs) with
-                    | Some c, Some j -> Some (c && j)
-                    | Some c, None -> Some c
-                    | None, Some j -> Some j
-                    | None, None -> None
+                    match (checkPaths opcs), (checkPaths objs), sceneOk with
+                    | Some c, Some j, None -> Some (c && j)
+                    | Some c, None, None -> Some c
+                    | None, Some j, None -> Some j
+                    | _, _, Some s -> sceneOk
+                    | _,_,_ -> Some false
+                    
+
 
                 //let check = Option.map2 (fun c1 p -> c1 && (checkPath p)) check snapshot
                 let sPath, sType, snapPathValid = 
@@ -124,6 +130,7 @@ module CommandLine =
                         {
                             opcPaths              = opcs
                             objPaths              = objs
+                            scenePath             = scene
                             snapshotPath          = sPath
                             snapshotType          = sType
                             guiMode               = guiMode
@@ -142,10 +149,11 @@ module CommandLine =
                             frameCount            = frameCount
                         }
                     | None -> 
-                        Log.line "[Arguments] Starting PRo3D in GUI-Mode."
+                        Log.line "[Arguments] Invalid command line arguments."
                         {
                             opcPaths              = None
                             objPaths              = None
+                            scenePath             = None
                             snapshotPath          = None
                             snapshotType          = None
                             guiMode               = guiMode
