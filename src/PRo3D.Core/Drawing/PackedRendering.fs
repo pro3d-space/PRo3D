@@ -467,7 +467,6 @@ module PackedRendering =
                       let isVisible = anno.visible.GetValue(t)
 
                       ids.Add(id)
-                      oid <- oid + 1
 
                       if isVisible then
                           for i in 0 .. ps.Length - 2 do
@@ -482,6 +481,7 @@ module PackedRendering =
                               tolerances.Add(float32 tolerance)
                               tolerances.Add(float32 tolerance)
 
+                      oid <- oid + 1
 
 
                   let r = 
