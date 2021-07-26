@@ -256,27 +256,40 @@ module Gui =
                     ][
                         text "Import OPCs"
                     ]
-                    div [ clazz "ui inverted item"; 
-                        Dialogs.onChooseFiles ImportObject;
-                        clientEvent "onclick" (jsImportOBJDialog)
-                    ][
-                        text "Import (*.obj)"
-                    ]
+                    if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) then
+                        div [ clazz "ui inverted item"; 
+                            Dialogs.onChooseFiles ImportObject;
+                            clientEvent "onclick" (jsImportOBJDialog)
+                        ][
+                            text "Import (*.obj)"
+                        ]
                 ]
             ]
 
         let private importSCeneObject =
             [
-                text "Scene Objects"
-                i [clazz "dropdown icon"][] 
-                div [ clazz "menu"] [
-                    div [ clazz "ui inverted item"; 
-                        Dialogs.onChooseFiles ImportSceneObject;
-                        clientEvent "onclick" (jsImportSceneObjectDialog)
-                    ][
-                        text "Import (*.obj or *.dae)"
+                if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then
+                    text "Scene Objects"
+                    i [clazz "dropdown icon"][] 
+                    div [ clazz "menu"] [
+                        (*div [ clazz "ui inverted item"; 
+                            Dialogs.onChooseFiles ImportSceneObject;
+                            clientEvent "onclick" (jsImportSceneObjectDialog)
+                        ][
+                            text "Currently unavailable"
+                        ] *)
                     ]
-                ]
+                else
+                    text "Scene Objects"
+                    i [clazz "dropdown icon"][] 
+                    div [ clazz "menu"] [
+                        div [ clazz "ui inverted item"; 
+                            Dialogs.onChooseFiles ImportSceneObject;
+                            clientEvent "onclick" (jsImportSceneObjectDialog)
+                        ][
+                            text "Import (*.obj or *.dae)"
+                        ]
+                    ]
             ]
         
         let private scene (m:AdaptiveModel) =
