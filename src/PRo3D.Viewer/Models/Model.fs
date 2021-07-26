@@ -81,6 +81,7 @@ type StartupArgs = {
     verbose               : bool
     startEmpty            : bool
     useAsyncLoading       : bool
+    serverMode            : bool
     magnificationFilter   : bool
     remoteApp             : bool
 } with 
@@ -105,6 +106,7 @@ type StartupArgs = {
           magnificationFilter   = false
           outFolder             = ""
           remoteApp             = false
+          serverMode            = false
       }
 
 
