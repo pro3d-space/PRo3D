@@ -155,9 +155,10 @@ module DipAndStrike =
                         stdev = std
                         sumOfSquares = sos
                     }
+                regressionInfo = linRegression
             }
             Some dns
-        | _ -> None 
+        | _ -> None
         
     let recalculateDnSAzimuth (anno:Annotation) (up:V3d) (north : V3d) =
     

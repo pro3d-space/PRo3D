@@ -424,6 +424,17 @@ module DrawingApp =
             GeoJSONExport.writeGeoJSON_XYZ path annotations
             
             model
+        | ExportAsAttitude path, _, _ ->
+            let annotations =
+                model.annotations.flat
+                |> Leaf.toAnnotations
+                |> HashMap.toList 
+                |> List.map snd
+                |> List.filter(fun a -> a.visible)
+
+            AttitudeExport.writeAttitudeJson path annotations
+
+            model
         | LegacySaveVersioned, _,_ ->
             let path = "./annotations.json"
             let pathgGrouping = "./annotations.grouping"

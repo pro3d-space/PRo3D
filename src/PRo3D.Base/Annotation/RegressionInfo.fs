@@ -1,6 +1,8 @@
 namespace Aardvark.Geometry
+
 open Aardvark.Base
 open Chiron
+open PRo3D.Base
 
 module internal FDistr = 
     let private ds = [| 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 15; 20; 25; 30; 35; 40; 45; 50; 55; 60; 70; 80; 90; 100; 200; 400; 500; 600; 700; 800; 900; 1000; 10000 |]
@@ -1486,6 +1488,7 @@ module internal FDistr =
 
 type RegressionInfo3d =
     {
+        version         : int
         Plane           : Plane3d
         PlaneToWorld    : Trafo3d
         Eigenvalues     : V3d
@@ -1493,15 +1496,17 @@ type RegressionInfo3d =
         HyperbolicAxes  : V3d
     }
 
-    member x.Center = x.PlaneToWorld.Forward.C3.XYZ
-    member x.Normal = x.PlaneToWorld.Forward.C2.XYZ
-    member x.Axis0 = x.PlaneToWorld.Forward.C0.XYZ
-    member x.Axis1 = x.PlaneToWorld.Forward.C1.XYZ
+    static member current = 0
+    member x.Center    = x.PlaneToWorld.Forward.C3.XYZ
+    member x.Normal    = x.PlaneToWorld.Forward.C2.XYZ
+    member x.Axis0     = x.PlaneToWorld.Forward.C0.XYZ
+    member x.Axis1     = x.PlaneToWorld.Forward.C1.XYZ
     member x.Ellipsoid = 
         let e = Euclidean3d.FromTrafo3d(x.PlaneToWorld, 1E-8)
         Ellipsoid3d(e, x.Eigenvalues)
 
-    member x.ToJson(?name : string, ?uid : string, ?points : seq<V3d>) =
+  
+    member x.ToJsonAttitude(?name : string, ?uid : string, ?points : seq<V3d>) =
         let center = x.Center
 
         let inline n v = Json.Number (decimal v)
@@ -1538,7 +1543,41 @@ type RegressionInfo3d =
                 | None -> ()
 
             ]
-        )
+        )   
+
+    static member private readV0 = 
+        json {
+        //version         : int
+        //Plane           : Plane3d
+        //PlaneToWorld    : Trafo3d
+        //Eigenvalues     : V3d
+        //AngularErrors   : V2d
+        //HyperbolicAxes  : V3d
+
+            let! plane           = Json.read "Plane"
+            let! planeToWorld    = Json.read "PlaneToWorld"
+            let! eigenvalues     = Json.read "Eigenvalues"
+            let! angularErrors   = Json.read "AngularErrors"
+            let! hyperbolicAxes  = Json.read "HyperbolicAxes"
+           
+            return {
+                version        = RegressionInfo3d.current
+                Plane          = plane          |> Json.parsePlane3d
+                PlaneToWorld   = planeToWorld   |> Trafo3d.Parse
+                Eigenvalues    = eigenvalues    |> V3d.Parse
+                AngularErrors  = angularErrors  |> V2d.Parse                    
+                HyperbolicAxes = hyperbolicAxes |> V3d.Parse                    
+            }
+        }
+
+    static member FromJson(_ : RegressionInfo3d) = 
+        json {
+            let! v = Json.read "version"
+            match v with            
+              | 0 -> return! RegressionInfo3d.readV0
+              | _ -> return! v |> sprintf "don't know version %A  of RegressionInfo3d" |> Json.error
+        }
+        
 
 
 [<AutoOpen>]
@@ -1595,6 +1634,7 @@ module LinearRegressionExtensions =
                             atan2 n.Z n.Y
                         ) 
                     Some {
+                        version         = RegressionInfo3d.current
                         Plane           = Plane3d(Vec.normalize trafo.Forward.C2.XYZ, trafo.Forward.C3.XYZ)
                         PlaneToWorld    = trafo
                         Eigenvalues     = ev

@@ -14,29 +14,28 @@ open Chiron
 type Ext = Ext
  
 module Json = 
-  let writeFloat name (floatValue : double)  = 
-    json {
-      if floatValue.IsNaN() then      
-        do! Json.writeNone name
-      else
-        do! Json.write name floatValue
-    }
-
-  let readFloat name : Json<double> = 
-    json {
-      let! v = Json.tryRead name
-      return 
-        match v with
-        | Some k -> k
-        | None -> Double.NaN      
-    }
-
-  let parsePlane3d (s:string) =        
-
-    let x = s.NestedBracketSplitLevelOne() |> Seq.toArray
-    let n = x.[0] |> V3d.Parse
-    let p = float(x.[1]) //|> Double.Parse
-    Plane3d(n, p)
+    let writeFloat name (floatValue : double)  = 
+        json {
+            if floatValue.IsNaN() then      
+               do! Json.writeNone name
+            else
+               do! Json.write name floatValue
+        }
+    
+    let readFloat name : Json<double> = 
+        json {
+            let! v = Json.tryRead name
+            return 
+                match v with
+                | Some k -> k
+                | None -> Double.NaN      
+        }
+    
+    let parsePlane3d (s:string) =
+        let x = s.NestedBracketSplitLevelOne() |> Seq.toArray
+        let n = x.[0] |> V3d.Parse
+        let p = float(x.[1]) //|> Double.Parse
+        Plane3d(n, p)
 
 module Ext =
     let inline fromJsonDefaults (a: ^a, _: ^b) =
