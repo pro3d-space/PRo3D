@@ -67,7 +67,7 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "3.8.0-prerelease4"
+let viewerVersion       = "4.0.0-prerelease1"
 let catchDomainErrors   = false
 
 open System.IO
@@ -90,11 +90,11 @@ let getFreePort() =
 let main argv = 
 
     let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
-    Log.line "Running with AppData: %s" appData
     Config.configPath <- appData
 
     let logFilePath = Path.Combine(appData, "PRo3D.log")
     Aardvark.Base.Report.LogFileName <- logFilePath
+    Log.line "Running with AppData: %s" appData
 
     // use this one to get path to self-contained exe (not temp expanded dll)
     let executeablePath = 
@@ -182,6 +182,7 @@ let main argv =
         cooTrafoInitialized <- true
 
         //use app = new VulkanApplication()
+        Glfw.Config.hideCocoaMenuBar <- true
         use app = new OpenGlApplication()
         let runtime = app.Runtime    
 

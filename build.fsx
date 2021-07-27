@@ -184,7 +184,7 @@ Target.create "Publish" (fun _ ->
         { o with
             Framework = Some "net5.0"
             Runtime = Some "osx-x64"
-            Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=true -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
+            Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
             Configuration = DotNet.BuildConfiguration.Release
             VersionSuffix = Some notes.NugetVersion
@@ -207,20 +207,21 @@ Target.create "Publish" (fun _ ->
     // 3, resources (currently everything included)
     // copyResources ["bin/publish"] 
     
+    if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX)   then ()
+    else
+        let url = sprintf "https://www.nuget.org/api/v2/package/Aardium-Win32-x64/%s" aardiumVersion
+        printf "url: %s" url
+        let tempFile = Path.GetTempFileName()
+        use c = new System.Net.WebClient()
+        c.DownloadFile(url, tempFile)
+        use a = new ZipArchive(File.OpenRead tempFile)
+        let t = Path.GetTempPath()
+        let tempPath = Path.Combine(t, Guid.NewGuid().ToString())
+        a.ExtractToDirectory(tempPath)
+        let target = Path.Combine("bin", "publish")
+        Shell.copyDir (Path.Combine(target,"tools")) (Path.Combine(tempPath,"tools")) (fun _ -> true)
 
-    let url = sprintf "https://www.nuget.org/api/v2/package/Aardium-Win32-x64/%s" aardiumVersion
-    printf "url: %s" url
-    let tempFile = Path.GetTempFileName()
-    use c = new System.Net.WebClient()
-    c.DownloadFile(url, tempFile)
-    use a = new ZipArchive(File.OpenRead tempFile)
-    let t = Path.GetTempPath()
-    let tempPath = Path.Combine(t, Guid.NewGuid().ToString())
-    a.ExtractToDirectory(tempPath)
-    let target = Path.Combine("bin", "publish")
-    Shell.copyDir (Path.Combine(target,"tools")) (Path.Combine(tempPath,"tools")) (fun _ -> true)
-
-    File.Move("bin/publish/PRo3D.Viewer.exe", sprintf "bin/publish/PRo3D.Viewer.%s.exe" notes.NugetVersion)
+        File.Move("bin/publish/PRo3D.Viewer.exe", sprintf "bin/publish/PRo3D.Viewer.%s.exe" notes.NugetVersion)
 )
 
 "Credits" ==> "Publish"

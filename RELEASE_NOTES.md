@@ -1,3 +1,7 @@
+## 4.0.0-prerelease1
+
+mac support
+
 ## 3.8.0-prerelease3
 
 - fixed UNC aardium problem
