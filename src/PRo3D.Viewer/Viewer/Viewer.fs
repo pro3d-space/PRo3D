@@ -46,8 +46,6 @@ open PRo3D.Linking
 open Aether
 open Aether.Operators
 
-open PRo3D.Core.Surface
-
 type UserFeedback<'a> = {
     id      : string
     text    : string
@@ -467,8 +465,10 @@ module ViewerApp =
         | SetCamera cv,_,false -> Optic.set _view cv m
         | SetCameraAndFrustum (cv, hfov, _),_,false -> m
         | SetCameraAndFrustum2 (cv,frustum),_,false ->
-            let m = Optic.set _view cv m
-            { m with frustum = frustum }
+            if m.startupArgs.verbose then Log.line "[Viewer] Setting camera and frustum."
+            //let m = Optic.set _view cv m
+            { m with frustum = frustum 
+                     scene   = {m.scene with cameraView = cv}}
         | AnnotationGroupsMessageViewer msg,_,_ ->
             let ag = m.drawing.annotations 
                 
@@ -1814,7 +1814,7 @@ module ViewerApp =
             DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
         )
 
-    let sceneGraph (runtime : IRuntime) (m: AdaptiveModel) = 
+    let sceneGraph (runtime : IRuntime) (m: AdaptiveModel) =             
         let overlayed, depthTested, cam = createSceneGraphs runtime (System.Guid.Empty.ToString ()) m
         ViewerUtils.completeSceneGraph m.scene.surfacesModel.sgGrouped overlayed depthTested m
         
@@ -1904,9 +1904,10 @@ module ViewerApp =
         }
 
     let startAndReturnMModel (runtime: IRuntime) (signature: IFramebufferSignature)
-                             (startEmpty: bool) messagingMailbox sendQueue dumpFile cacheFile =
-        let m = initialModelWithLoadedData runtime signature startEmpty messagingMailbox dumpFile cacheFile
-        //TODO RNO
+                             (startupArgs : StartupArgs) messagingMailbox sendQueue dumpFile cacheFile =
+        let m = initialModelWithLoadedData runtime signature startupArgs.startEmpty messagingMailbox dumpFile cacheFile
+        let m = {m with startupArgs = startupArgs}
+        
         AppExtension.start' {
             unpersist = Unpersist.instance
             threads   = threadPool

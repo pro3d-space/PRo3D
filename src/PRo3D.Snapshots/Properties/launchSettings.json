@@ -1,7 +1,8 @@
 {
   "profiles": {
     "PRo3D.Viewer": {
-      "commandName": "Project"
+      "commandName": "Project",
+      "commandLineArgs": "--scn e:\\AardVRVIs\\Pancam\\TestScenes\\bookmarkSnapshots.pro3d --asnap e:\\AardVRVIs\\Pancam\\TestScenes\\batchRendering.json --out tmp --verbose"
     }
   }
 }

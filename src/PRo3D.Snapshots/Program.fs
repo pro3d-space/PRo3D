@@ -81,6 +81,8 @@ let getFreePort() =
 [<EntryPoint;STAThread>]
 let main argv = 
     // check if there are command line arguments, and if they are valid
+    Aardvark.Rendering.GL.Config.UseNewRenderTask <- true
+    Sg.useAsyncLoading <- false 
     let startupArgs = (SimulatedViews.CommandLine.parseArguments argv)
     match startupArgs.hasValidAnimationArgs with
     | true ->
@@ -137,7 +139,7 @@ let main argv =
                     do! webSocket.send Text s true
             }        
 
-        Sg.useAsyncLoading <- (argv |> Array.contains "-sync" |> not)
+        //Sg.useAsyncLoading <- (argv |> Array.contains "-sync" |> not)
         let startEmpty = (argv |> Array.contains "-empty")
 
         UI.enabletoolTips <- (argv |> Array.contains "-notooltips" |> not)
@@ -174,8 +176,17 @@ let main argv =
 
         Log.startTimed "[Viewer] reading json scene"
 
+        let viewerArgs : StartupArgs = 
+            {
+              verbose = startupArgs.verbose
+              showExplorationPoint = startupArgs.showExplorationPoint
+              startEmpty = false
+              useAsyncLoading = false
+              magnificationFilter = startupArgs.magnificationFilter
+            }
+
         let (mainApp, mModel) = 
-            ViewerApp.startAndReturnMModel runtime signature false messagingMailbox sendQueue dumpFile cacheFile
+            ViewerApp.startAndReturnMModel runtime signature viewerArgs messagingMailbox sendQueue dumpFile cacheFile
 
         let s = { MailboxState.empty with update = mainApp.update Guid.Empty }
         MailboxAction.InitMailboxState s |> messagingMailbox.Post

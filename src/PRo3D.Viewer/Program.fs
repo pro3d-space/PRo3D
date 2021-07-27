@@ -83,7 +83,6 @@ let getFreePort() =
    
 [<EntryPoint;STAThread>]
 let main argv = 
-    let startupArgs = (CommandLine.parseArguments argv)
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
     
     let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]

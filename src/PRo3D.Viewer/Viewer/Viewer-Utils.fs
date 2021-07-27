@@ -529,7 +529,27 @@ module ViewerUtils =
         sg 
           |> Aardvark.SceneGraph.SgFSharp.Sg.camera camera
           
-          
+    let debugSg (m:AdaptiveModel) = //(runtime : IRuntime) (signature : IFramebufferSignature) =
+      let sg = 
+          Sg.box (AVal.constant C4b.Blue) 
+                 (AVal.constant (Box3d.FromCenterAndSize (V3d.OOO, V3d(10.0))))
+              |> Sg.effect [
+                      DefaultSurfaces.trafo                 |> toEffect
+                      DefaultSurfaces.vertexColor           |> toEffect
+                      DefaultSurfaces.simpleLighting        |> toEffect
+                  ]  
+
+      let rc = Aardvark.SceneGraph.RenderCommand.Render sg
+      let sg = Sg.execute (Aardvark.SceneGraph.RenderCommand.Ordered (AList.single rc))
+      let camera =
+          AVal.map2 (fun v f -> Camera.create v f) m.scene.cameraView m.frustum 
+      let sg = 
+          sg 
+            |> Aardvark.SceneGraph.SgFSharp.Sg.camera camera
+      sg
+
+      
+      //cn :> ISg
 
 module GaleCrater =
     open PRo3D.Base

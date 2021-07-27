@@ -15,6 +15,7 @@ open FSharp.Data.Adaptive
 open PRo3D.Core.Surface
 open PRo3D.Core
 open PRo3D.SimulatedViews.Rendering
+open Aardvark.UI
 
 
 type NearFarRecalculation =
@@ -29,7 +30,7 @@ type SnapshotApp<'model,'aModel, 'msg> =
     mutableApp           : MutableApp<'model, 'msg>
     /// the adaptive model associated with the mutable app
     adaptiveModel        : 'aModel
-    sceneGraph           : ISg
+    sceneGraph           : ISg //IRuntime -> 'aModel -> ISg
     snapshotAnimation    : SnapshotAnimation
     /// animation actions are applied before rendering images
     getAnimationActions  : SnapshotAnimation -> seq<'msg>
@@ -113,10 +114,11 @@ module SnapshotApp =
                     } |> Seq.toList
             | false, _ -> snapshots
 
-        let sg = app.sceneGraph
+        let sg = app.sceneGraph //app.runtime app.adaptiveModel
 
         let taskclear = app.runtime.CompileClear(signature,AVal.constant C4f.Black,AVal.constant 1.0)
         let task = app.runtime.CompileRender(signature, sg)
+        
         let (size, depth) = 
             match app.renderDepth with 
             | true -> Some app.snapshotAnimation.resolution, Some depth
@@ -138,6 +140,7 @@ module SnapshotApp =
             let snapshot = snapshots.[i]
             let fullPathName = Path.combine [app.outputFolder;snapshot.filename]
             let actions = (app.getSnapshotActions snapshot recalcOption frustum fullPathName)
+            if app.verbose then Log.line "[Snapshots] Updating parameters for next frame."
             app.mutableApp.updateSync (Guid.NewGuid ()) actions 
 
             renderAndSave (sprintf "%s.png" fullPathName) app.verbose parameters

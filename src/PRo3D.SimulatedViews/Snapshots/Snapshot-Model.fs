@@ -143,7 +143,8 @@ with
     json {
       do! Json.write            "filename"           x.filename
       do! Json.write            "view"               x.camera
-      do! Json.writeOption      "lightDirection"     x.lightDirection
+      if x.lightDirection.IsSome then
+        do! Json.writeOption      "lightDirection"     x.lightDirection
       if x.sunPosition.IsSome then
         do! Json.writeOption      "sunPosition"        x.sunPosition 
       if x.surfaceUpdates.IsSome then

@@ -67,6 +67,7 @@ type StartupArgs = {
     startEmpty            : bool
     useAsyncLoading       : bool
     magnificationFilter   : bool
+    verbose               : bool
 } with 
     static member initArgs =
       {
@@ -74,6 +75,7 @@ type StartupArgs = {
           startEmpty            = false
           useAsyncLoading       = false
           magnificationFilter   = false
+          verbose               = false
       }
 
 

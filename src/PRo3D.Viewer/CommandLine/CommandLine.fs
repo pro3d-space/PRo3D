@@ -10,13 +10,15 @@ module CommandLine =
 
         let useAsyncLoading     = (argv |> hasFlag "sync" |> not)
         let startEmpty          = (argv |> hasFlag "empty")
+        let verbose             = (argv |> hasFlag "verbose")
         let magFilter           = not (argv |> hasFlag "noMagFilter")
         let showExplorationCentre = (argv |> Array.contains "--excentre")
         let args = 
             {
                 startEmpty            = startEmpty
-                useAsyncLoading       = false
+                useAsyncLoading       = useAsyncLoading
                 magnificationFilter   = magFilter
                 showExplorationPoint  = showExplorationCentre
+                verbose               = verbose
             }
         args

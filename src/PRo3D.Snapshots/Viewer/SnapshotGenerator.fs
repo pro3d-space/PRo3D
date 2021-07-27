@@ -128,7 +128,9 @@ module SnapshotGenerator =
                   (mModel       : AdaptiveModel)
                   (mApp         : MutableApp<Model, ViewerAction>) 
                   (args         : CLStartupArgs) =
-        let sg = PRo3D.ViewerApp.sceneGraph runtime mModel
+        let sg = //ViewerUtils.debugSg (mModel)
+            PRo3D.ViewerApp.sceneGraph runtime mModel
+
         let hasLoadedAny = loadData args mApp
         match hasLoadedAny with
         | true ->
