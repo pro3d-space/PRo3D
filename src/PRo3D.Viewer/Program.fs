@@ -16,6 +16,7 @@ open Aardvark.VRVis
 open Aardvark.VRVis.Opc
 open Aardvark.GeoSpatial.Opc
 open OpcViewer.Base
+open Aardvark.Rendering
 
 open PRo3D
 open PRo3D.Base
@@ -41,6 +42,11 @@ open Suave.Json
 
 open FSharp.Data.Adaptive
 
+open System.Reflection
+open System.Runtime.InteropServices
+
+
+
 [<DataContract>]
 type Calc =
    { 
@@ -60,26 +66,94 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "3.3.0"
+let viewerVersion       = "3.8.0-prerelease3"
 let catchDomainErrors   = false
 
 open System.IO
+open System.Runtime.InteropServices
 
 let rec allFiles dirs =
     if Seq.isEmpty dirs then Seq.empty else
         seq { yield! dirs |> Seq.collect Directory.EnumerateFiles
               yield! dirs |> Seq.collect Directory.EnumerateDirectories |> allFiles }
+
+
+let getFreePort() =
+    let l = System.Net.Sockets.TcpListener(Net.IPAddress.Loopback, 0)
+    l.Start()
+    let ep = l.LocalEndpoint |> unbox<Net.IPEndPoint>
+    l.Stop()
+    ep.Port
    
 [<EntryPoint;STAThread>]
 let main argv = 
+
+    let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
+    Log.line "Running with AppData: %s" appData
+    Config.configPath <- appData
+
+    // use this one to get path to self-contained exe (not temp expanded dll)
+    let executeablePath = Process.GetCurrentProcess().MainModule.FileName
+    printf "executeablePath: %s" executeablePath
+    // does not work for self-containted publishes'
+    //let selfPath = System.Environment.GetCommandLineArgs().[0]
+    let selfPath = executeablePath
+    let workingDirectory =  selfPath |> Path.GetDirectoryName
+    if Directory.Exists workingDirectory then
+        Log.line "setting current directory to: %s" workingDirectory
+        System.Environment.CurrentDirectory <- workingDirectory
+    else  
+        Log.warn "execute"
+    Config.besideExecuteable <- workingDirectory
+    PRo3D.Minerva.Config.besideExecuteable <- workingDirectory
+    
+
     let startupArgs = (CommandLine.parseArguments argv)
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
     
-    let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
-    Log.line "Running with AppData: %s" appData
+
+    Log.line "path: %s" selfPath
+    Config.colorPaletteStore <- Path.combine [appData; "favoriteColors.js"]
+    Log.line "Color palette favorite colors are stored here: %s" Config.colorPaletteStore
+
+    let os = 
+        if RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then
+            OSPlatform.OSX
+        elif RuntimeInformation.IsOSPlatform(OSPlatform.Linux) then
+            OSPlatform.Linux
+        elif RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+            OSPlatform.Windows
+        else 
+            Log.warn "could not detect os platform.. assuming linux"
+            OSPlatform.Linux
+
+    let aardiumPath = 
+        try
+            let ass = selfPath |> Path.GetDirectoryName
+            if os = OSPlatform.Windows then
+                let exe = Path.Combine(ass, "tools", "Aardium.exe")
+                Log.line "exists? %s" exe
+                if File.Exists exe then
+                    Some (Path.Combine(ass, "tools"))
+                else
+                    None
+            elif os = OSPlatform.OSX then
+                let app = Path.Combine(ass, "tools", "Aardium.app")
+                if Directory.Exists app || File.Exists app then
+                    Some (Path.Combine(ass, "tools"))
+                else None
+            else None
+        with _ ->
+            None
+    match aardiumPath with
+    | Some p when true -> 
+        Log.line "init aardium at: %s" p
+        Aardium.initPath p
+    | _ -> 
+        Log.warn "system aardium"; 
+        Aardium.init()
 
 
-    let crashDumpFile = "Aardvark.log"
 
     Aardium.init()      
     
@@ -93,7 +167,7 @@ let main argv =
     Aardvark.Rendering.GL.RuntimeConfig.SupressSparseBuffers <- true
     //app.ShaderCachePath <- None
 
-    Sg.hackRunner <- runtime.CreateLoadRunner 2 |> Some
+    Sg.hackRunner <- runtime.CreateLoadRunner 1 |> Some
 
     Serialization.init()
     
@@ -122,7 +196,7 @@ let main argv =
                 do! webSocket.send Text s true
         }        
 
-    PatchLod.useAsyncLoading <- (argv |> Array.contains "-sync" |> not)
+    Sg.useAsyncLoading <- (argv |> Array.contains "-sync" |> not)
     let startEmpty = (argv |> Array.contains "-empty")
 
     UI.enabletoolTips <- (argv |> Array.contains "-notooltips" |> not)
@@ -197,7 +271,25 @@ let main argv =
     if catchDomainErrors then
         AppDomain.CurrentDomain.UnhandledException.AddHandler(UnhandledExceptionEventHandler(domainError))
 
-    WebPart.startServerLocalhost 54322 [
+
+    let setCORSHeaders =
+        Suave.Writers.setHeader  "Access-Control-Allow-Origin" "*"
+        >=> Suave.Writers.setHeader "Access-Control-Allow-Headers" "content-type"
+    
+    let allow_cors : WebPart =
+        choose [
+            OPTIONS >=>
+                fun context ->
+                    context |> (
+                        setCORSHeaders
+                        >=> OK "CORS approved" )
+        ]
+
+    let port = getFreePort()
+    let uri = sprintf "http://localhost:%d" port
+
+    WebPart.startServerLocalhost port [
+        allow_cors
         MutableApp.toWebPart' runtime false mainApp
         path "/websocket" >=> handShake ws
         Reflection.assemblyWebPart typeof<EmbeddedRessource>.Assembly
@@ -232,6 +324,9 @@ let main argv =
         //Suave.Files.browseHome        
     ] |> ignore
 
+
+    Log.line "serving at: %s" uri
+
         
     //WebPart.startServer 4322 [
     //    MutableApp.toWebPart' runtime false instrumentApp        
@@ -256,7 +351,7 @@ let main argv =
               mainApp.update Guid.Empty (ViewerAction.SetCameraAndFrustum2 (v.view,frustum) |> Seq.singleton)
 
     let remoteApp = 
-        App.start (PRo3D.RemoteControlApp.app "http://localhost:54322" send)
+        App.start (PRo3D.RemoteControlApp.app uri send)
 
     let takeScreenshot (shot:Shot) =   
         let act = CaptureShot shot |> Seq.singleton
@@ -280,7 +375,7 @@ let main argv =
 
     
     Aardium.run {
-        url "http://localhost:54322/"   //"http://localhost:4321/?page=main"
+        url uri   //"http://localhost:4321/?page=main"
         width 1280
         height 800
         debug true

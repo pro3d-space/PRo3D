@@ -3,6 +3,7 @@ namespace PRo3D.Base
 open System
 open Aardvark.Base
 open FSharp.Data.Adaptive
+open Aardvark.Rendering
 open Aardvark.UI
 
 open PRo3D

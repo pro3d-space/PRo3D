@@ -219,6 +219,7 @@ module Calculations =
         |> List.pairwise
         |> List.map (fun (a,b) -> Vec.Distance(a,b))
         |> List.sum
+
     
     let getSegmentDistance (s:Segment) = 
         getDistance
@@ -240,10 +241,12 @@ module Calculations =
         let count = model.points.Count
         let dist = Vec.Distance(model.points.[0], model.points.[count-1])
         let wayLength =
-            if model.segments.IsEmpty then
+            if not model.segments.IsEmpty then
                 computeWayLength model.segments
             else
-                dist
+                model.points 
+                |> IndexList.toList 
+                |> getDistance
     
         let heights = 
             model.points 

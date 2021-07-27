@@ -18,12 +18,12 @@ open PRo3D.Core.Drawing
 
 module UI =
 
-    let viewAnnotationToolsHorizontal (model:AdaptiveDrawingModel) =
+    let viewAnnotationToolsHorizontal (paletteFile : string) (model:AdaptiveDrawingModel) =
         Html.Layout.horizontal [
             Html.Layout.boxH [ i [clazz "large Write icon"][] ]
             Html.Layout.boxH [ Html.SemUi.dropDown model.geometry SetGeometry ]
             Html.Layout.boxH [ Html.SemUi.dropDown model.projection SetProjection ]
-            Html.Layout.boxH [ ColorPicker.view model.color |> UI.map ChangeColor; div[][] ]
+            Html.Layout.boxH [ ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" model.color |> UI.map ChangeColor; div[][] ]
             Html.Layout.boxH [ Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ]
         //  Html.Layout.boxH [ Html.SemUi.dropDown model.semantic SetSemantic ]                
         ]
@@ -89,8 +89,10 @@ module UI =
                     yield clazz "cube middle aligned icon"
                     yield onClick (multiSelect)
 
+                    let! guh = model.selectedLeaves.Content
                     let! c = mkColor model a
-                    yield style (sprintf "color: %s" (Html.ofC4b c))
+                    let s = style (sprintf "color: %s" (Html.ofC4b c))
+                    yield s
                 } |> AttributeMap.ofAMap
             
             let headerColor = 
@@ -141,8 +143,9 @@ module UI =
                             ]
                             yield Incremental.i visibleIcon AList.empty 
                                 |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
-                            yield i [clazz "home icon"; onClick (fun _ -> FlyToAnnotation a.key)][] 
-                                |> UI.wrapToolTip DataPosition.Bottom "FlyTo"
+                            yield 
+                                i [clazz "home icon"; onClick (fun _ -> FlyToAnnotation a.key)][] 
+                                    |> UI.wrapToolTip DataPosition.Bottom "FlyTo" 
                         } 
                     )
 

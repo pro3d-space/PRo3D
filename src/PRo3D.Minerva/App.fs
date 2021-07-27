@@ -6,7 +6,7 @@ open System.Net.Sockets
 open Aardvark.Base
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
-open Aardvark.Base.Rendering
+open Aardvark.Rendering
 open Aardvark.Rendering.Text 
 open Aardvark.Geometry
 open Aardvark.SceneGraph
@@ -654,7 +654,7 @@ module MinervaApp =
         | HoverProduct o ->
             { model with hoveredProduct = o }
         | Save ->
-            let minervaFolder = @".\MinervaData"
+            let minervaFolder = Path.combine [Config.besideExecuteable; "MinervaData"]
 
             if minervaFolder |> System.IO.Directory.Exists |> not then
                 Directory.CreateDirectory(minervaFolder) |> ignore

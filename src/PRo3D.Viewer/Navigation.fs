@@ -8,8 +8,7 @@ open Aardvark.UI.Primitives
 open System
 
 open FSharp.Data.Adaptive
-open Aardvark.Base.Rendering
-open Aardvark.Base.Camera
+open Aardvark.Rendering
 open PRo3D.Core
 open PRo3D.Navigation2
 

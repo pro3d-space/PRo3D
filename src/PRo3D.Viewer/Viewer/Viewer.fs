@@ -13,7 +13,7 @@ open Aardvark.Base
 open Aardvark.Base.Geometry
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
-open Aardvark.Base.Rendering
+open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.Rendering.Text
 open Aardvark.UI
@@ -65,7 +65,7 @@ module UserFeedback =
             msg     = ViewerAction.NoAction ""
         }
 
-    let createWorker (feedback: UserFeedback<'a>) =
+    let createWorker (feedback: UserFeedback<ViewerAction>) =
         proclist {
             yield UpdateUserFeedback ""
             yield UpdateUserFeedback feedback.text
@@ -104,6 +104,14 @@ module ViewerApp =
 
     //footprint
     let _footprint = Model.footPrint_
+
+    // scale bars
+    let _scaleBarsModel = Model.scene_  >->  Scene.scaleBars_
+    let _scaleBars      = _scaleBarsModel >-> ScaleBarsModel.scaleBars_
+
+    // geologic surfaces
+    let _geologicSurfacesModel = Model.scene_ >->  Scene.geologicSurfacesModel_
+    let _geologicSurfaces      = _geologicSurfacesModel >-> GeologicSurfacesModel.geologicSurfaces_
        
     let lookAtData (m: Model) =         
         let bb = m |> Optic.get _sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB) |> Box3d.ofSeq
@@ -159,12 +167,13 @@ module ViewerApp =
 
     let mdrawingConfig : DrawingApp.MSmallConfig<AdaptiveViewConfigModel> =
         {            
-            getNearPlane       = fun x -> x.nearPlane.value
-            getHfov            = fun (x:AdaptiveViewConfigModel) -> ((AVal.init 60.0) :> aval<float>)
-            getArrowThickness  = fun (x:AdaptiveViewConfigModel) -> x.arrowThickness.value
-            getArrowLength     = fun (x:AdaptiveViewConfigModel) -> x.arrowLength.value
-            getDnsPlaneSize    = fun (x:AdaptiveViewConfigModel) -> x.dnsPlaneSize.value
-            getOffset          = fun (x:AdaptiveViewConfigModel) -> AVal.constant(0.1)//x.offset.value
+            getNearPlane        = fun x -> x.nearPlane.value
+            getHfov             = fun (x:AdaptiveViewConfigModel) -> ((AVal.init 60.0) :> aval<float>)
+            getArrowThickness   = fun (x:AdaptiveViewConfigModel) -> x.arrowThickness.value
+            getArrowLength      = fun (x:AdaptiveViewConfigModel) -> x.arrowLength.value
+            getDnsPlaneSize     = fun (x:AdaptiveViewConfigModel) -> x.dnsPlaneSize.value
+            getOffset           = fun (x:AdaptiveViewConfigModel) -> AVal.constant(0.1)//x.offset.value
+            getPickingTolerance = fun (x:AdaptiveViewConfigModel) -> x.pickingTolerance.value
         }
 
     let navConf : Navigation.smallConfig<ViewConfigModel, ReferenceSystem> =
@@ -391,6 +400,14 @@ module ViewerApp =
                     (HeightValidatorAction.PlaceValidator p)
 
             { m with heighValidation = heightVal }
+        | Interactions.PlaceScaleBar, _ ->
+            let msg = ScaleBarsAction.AddScaleBar(p, m.scaleBarsDrawing, m.navigation.camera.view)
+            let scm = ScaleBarsApp.update m.scene.scaleBars msg
+            { m with scene = { m.scene with scaleBars = scm } }
+        | Interactions.PlaceSceneObject, ViewerMode.Standard -> 
+            let action = (SceneObjectAction.PlaceSceneObject(p)) 
+            let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel action
+            { m with scene = { m.scene with sceneObjectsModel = sobjs } }
         | _ -> m       
 
     let mutable lastHash = -1    
@@ -503,7 +520,7 @@ module ViewerApp =
                     | None ->
                         match surf with
                         | Some s ->
-                            let bb = s.globalBB.Transformed(surface.preTransform.Forward * superTrafo.Forward)
+                            let bb = s.globalBB.Transformed(superTrafo.Forward)
                             let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value    
                             let animationMessage = 
                                 animateFowardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
@@ -528,7 +545,7 @@ module ViewerApp =
             | Some selected ->                             
                 let f = (fun x ->
                     let a = x |> Leaf.toAnnotation
-                    let a = AnnotationProperties.update a msg 
+                    let a = AnnotationProperties.update a m.scene.referenceSystem.planet msg
 
                     //update true thickness computation on dip angle change
                     let a = 
@@ -549,7 +566,7 @@ module ViewerApp =
         | BookmarkMessage msg,_,_ ->  
             Log.warn "[Viewer] bookmarks animation %A" m.navigation.camera.view.Location
 
-            let m', bm = Bookmarks.update m.scene.bookmarks msg _navigation m
+            let m', bm = Bookmarks.update m.scene.bookmarks m.scene.referenceSystem.planet msg _navigation m
             let animation = 
                 match msg with
                 | BookmarkAction.GroupsMessage k ->
@@ -580,6 +597,38 @@ module ViewerApp =
         | DnSColorLegendMessage msg,_,_ ->
             let cm = FalseColorLegendApp.update m.drawing.dnsColorLegend msg
             { m with drawing = { m.drawing with dnsColorLegend = cm } }
+        | SceneObjectsMessage msg,_,_ -> 
+            let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel msg
+            let animation = 
+                match msg with
+                | SceneObjectAction.FlyToSO id -> 
+                    let sgSo = sobjs.sgSceneObjects |> HashMap.find id
+                    let sceneObj = sobjs.sceneObjects |> HashMap.find id
+                    let superTrafo = SceneObjectTransformations.fullTrafo' sceneObj.transformation m.scene.referenceSystem
+                    let bb = sgSo.globalBB.Transformed(sceneObj.preTransform.Forward * superTrafo.Forward)
+                    let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value    
+                    let animationMessage = 
+                        animateFowardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
+                    let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
+                    a'
+                | _-> m.animations
+                   
+            { m with scene = { m.scene with sceneObjectsModel = sobjs}; animations = animation}
+        | FrustumMessage msg,_,_ ->
+            let frustumModel = FrustumProperties.update m.frustumModel msg
+            match msg with
+            | FrustumProperties.Action.ToggleUseFocal ->
+                if frustumModel.toggleFocal then
+                    let fm = {frustumModel with oldFrustum = m.frustum}
+                    { m with frustum = frustumModel.frustum; frustumModel = fm}
+                else
+                    { m with frustum = frustumModel.oldFrustum; frustumModel = frustumModel }
+            | FrustumProperties.Action.UpdateFocal f ->
+                if frustumModel.toggleFocal then
+                    let frustum' = FrustumProperties.updateFrustum frustumModel.focal.value m.frustum.near m.frustum.far 
+                    { m with frustum = frustum'; frustumModel = {frustumModel with frustum = frustum'}}
+                else
+                    { m with frustumModel = frustumModel }
         | ImportSurface sl,_,_ ->                 
             match sl with
             | [] -> m
@@ -651,6 +700,16 @@ module ViewerApp =
                 |> SceneLoader.importObj runtime signature objects 
                 |> ViewerIO.loadLastFootPrint
                 |> updateSceneWithNewSurface     
+            | None -> m     
+        | ImportSceneObject sl,_,_ -> 
+            match sl |> List.tryHead with
+            | Some path ->  
+                let sceneObjects =                   
+                    path 
+                    |> SceneObjectsUtils.mk 
+                    |> IndexList.single                                
+                m 
+                |> SceneLoader.importSceneObj sceneObjects
             | None -> m              
         | ImportPRo3Dv1Annotations sl,_,_ ->
             match sl |> List.tryHead with
@@ -736,7 +795,7 @@ module ViewerApp =
                 m
             else 
                 m
-        | ViewerAction.PickSurface (p,name), _ ,true ->
+        | ViewerAction.PickSurface (p,name,true), _ ,true ->
             let fray = p.globalRay.Ray
             let r = fray.Ray
             let rayHash = r.GetHashCode()              
@@ -795,7 +854,7 @@ module ViewerApp =
                             m
 
                     Log.stop()
-                    Log.line "done intersecting"
+                    Log.line "[PickSurface] done intersecting"
                      
                     result
             else m
@@ -824,6 +883,7 @@ module ViewerApp =
                     m
 
             |> ViewerIO.loadMinerva SceneLoader.Minerva.defaultDumpFile SceneLoader.Minerva.defaultCacheFile
+            |> SceneLoader.addGeologicSurfaces
 
         | NewScene,_,_ ->
             let initialModel = Viewer.initial m.messagingMailbox StartupArgs.initArgs //m.minervaModel.minervaMessagingMailbox
@@ -831,7 +891,10 @@ module ViewerApp =
         | KeyDown k, _, _ ->
             let m =
                 match k with
-                | Aardvark.Application.Keys.LeftShift -> { m with shiftFlag = true}
+                | Aardvark.Application.Keys.LeftShift -> 
+                    let m = { m with shiftFlag = true}
+                    Log.line "[Viewer] ShiftFlag %A" m.shiftFlag
+                    m
                 | _ -> m
           
             let drawingAction =
@@ -1005,8 +1068,12 @@ module ViewerApp =
         | KeyUp k, _,_ ->               
             let m =
                 match k with
-                | Aardvark.Application.Keys.LeftShift -> { m with shiftFlag = false}
+                | Aardvark.Application.Keys.LeftShift -> 
+                    let m = { m with shiftFlag = false}
+                    Log.line "[Viewer] ShiftFlag %A" m.shiftFlag
+                    m                    
                 | _ -> m
+
             match k with
             | Aardvark.Application.Keys.LeftCtrl -> 
                 match m.interaction with
@@ -1052,7 +1119,7 @@ module ViewerApp =
             //Log.line "config message %A" a
             let c' = ConfigProperties.update m.scene.config a
             let m = Optic.set (Model.scene_ >-> Scene.config_) c' m
-            
+    
             match a with                   
             | ConfigProperties.Action.SetNearPlane _ | ConfigProperties.Action.SetFarPlane _ ->
                 let fov = m.frustum |> Frustum.horizontalFieldOfViewInDegrees
@@ -1060,7 +1127,7 @@ module ViewerApp =
                 let f' = Frustum.perspective fov c'.nearPlane.value c'.farPlane.value asp                    
 
                 { m with frustum = f' }
-                | _ -> m
+            | _ -> m
         | SetMode d,_,_ -> 
             { m with trafoMode = d }
         | SetKind d,_,_ -> 
@@ -1186,9 +1253,12 @@ module ViewerApp =
                 { m with overlayFrustum = None; linkingModel = linking' } //navigation = { m.navigation with camera = camera' }}
             | _ -> 
                 { m with linkingModel = PRo3D.Linking.LinkingApp.update m.linkingModel a }
-        | OnResize a,_,_ ->              
+        | OnResize (a,id),_,_ ->              
             Log.line "[RenderControl Resized] %A" a
-            { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y) }
+            { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y); viewPortSize = HashMap.add id a m.viewPortSize }
+        | ResizeMainControl(a,id),_,_ -> 
+            printfn "resize %A" (a,id)
+            { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y); viewPortSize = HashMap.add id a m.viewPortSize }
         | SetTextureFiltering b,_,_ ->
             {m with filterTexture = b}
        // | TestHaltonRayCasting _,_,_->
@@ -1288,7 +1358,50 @@ module ViewerApp =
             { m with heighValidation = HeightValidatorApp.update m.heighValidation m.scene.referenceSystem.up.value m.scene.referenceSystem.north.value a }
         //| _ -> 
         //    Log.warn "[Viewer] don't know message %A. ignoring it." msg
-        //    m                                            
+        //    m 
+        | ScaleBarsDrawingMessage msg,_,_->    
+            let scDrawing = ScaleBarsDrawing.update m.scaleBarsDrawing msg
+            { m with scaleBarsDrawing = scDrawing }
+        | ScaleBarsMessage msg,_,_->  
+            //let _scaleBars = (Model.scene_ >-> Scene.scaleBars_ >-> ScaleBarsModel.scaleBars_)
+            match msg with
+            | ScaleBarsAction.FlyToSB id ->
+                let _sb = m |> Optic.get _scaleBars |> HashMap.tryFind id
+                match _sb with 
+                | Some sb ->
+                    let animationMessage = 
+                        animateFowardAndLocation sb.view.Location sb.view.Forward sb.view.Up 2.0 "ForwardAndLocation2s"
+                    let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
+                    { m with  animations = a'}
+                | None -> m
+            | _ ->
+                //let _scaleBarsModel = (Model.scene_ >-> Scene.scaleBars_ )
+                let scaleBars' = ScaleBarsApp.update m.scene.scaleBars msg
+                let m' = m |> Optic.set _scaleBarsModel scaleBars'  
+                m'
+        | GeologicSurfacesMessage msg,_,_-> 
+            match msg with
+            | GeologicSurfaceAction.FlyToGS id ->
+                let _gs = m |> Optic.get _geologicSurfaces |> HashMap.tryFind id
+                match _gs with 
+                | Some gs ->
+                    let animationMessage = 
+                        animateFowardAndLocation gs.view.Location gs.view.Forward gs.view.Up 2.0 "ForwardAndLocation2s"
+                    let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
+                    { m with  animations = a'}
+                | None -> m
+
+            | GeologicSurfaceAction.AddGS ->
+                let geologicSurfaces' = 
+                        GeologicSurfacesUtils.makeGeologicSurfaceFromAnnotations 
+                                                                m.drawing.annotations
+                                                                m.scene.geologicSurfacesModel
+                
+                m |> Optic.set _geologicSurfacesModel geologicSurfaces' 
+            | _ ->
+                let geologicSurfaces' = GeologicSurfacesApp.update m.navigation.camera.view m.scene.geologicSurfacesModel msg
+                let m' = m |> Optic.set _geologicSurfacesModel geologicSurfaces'  
+                m'
         | _ -> m       
                                    
     let mkBrushISg color size trafo : ISg<Message> =
@@ -1301,7 +1414,7 @@ module ViewerApp =
         |> Sg.noEvents
         |> Sg.trafo(trafo)
     
-    let renderControlAttributes (m: AdaptiveModel) = 
+    let renderControlAttributes (id : string) (m: AdaptiveModel) = 
         let renderControlAtts (model: AdaptiveNavigationModel) =
             amap {
                 let! state = model.navigationMode
@@ -1326,7 +1439,17 @@ module ViewerApp =
                 onKeyDown (KeyDown)
                 onKeyUp   (KeyUp)        
                 clazz "mainrendercontrol"
-              //  onResize  (OnResize)
+                onEvent "resizeControl"  [] (
+                    fun p -> 
+                        match p with
+                        | w::h::[] -> 
+                            let w : int = Pickler.json.UnPickleOfString w
+                            let h : int = Pickler.json.UnPickleOfString h
+                            printfn "%A" (w,h)
+                            ResizeMainControl(V2i(w,h),id)
+                        | _ -> Nop 
+                )
+                //onResize  (fun s -> OnResize(s,id))
             ] 
         ]            
 
@@ -1361,12 +1484,16 @@ module ViewerApp =
             | _ -> false
         ) m.ctrlFlag m.interaction
 
-    let viewInstrumentView (m: AdaptiveModel) = 
+    let viewInstrumentView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
+        let frustum = m.frustum 
         let annotationsI, discsI = 
             DrawingApp.view 
                 m.scene.config 
                 mdrawingConfig 
                 (m.scene.viewPlans.instrumentCam)
+                frustum
+                runtime
+                (m.viewPortSize |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
                 (allowAnnotationPicking m)
                 m.drawing
 
@@ -1391,8 +1518,21 @@ module ViewerApp =
             AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
         DomNode.RenderControl((instrumentControlAttributes m), icam, icmds, None) //AttributeMap.Empty
 
-    let viewRenderView (m: AdaptiveModel) = 
-        let annotations, discs = DrawingApp.view m.scene.config mdrawingConfig m.navigation.camera.view (allowAnnotationPicking m) m.drawing  
+    let viewRenderView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
+
+        let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
+        let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
+
+        let annotations, discs = 
+            DrawingApp.view 
+                m.scene.config 
+                mdrawingConfig 
+                m.navigation.camera.view 
+                frustum
+                runtime
+                (m.viewPortSize |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
+                (allowAnnotationPicking m)                 
+                m.drawing
             
         let annotationSg = 
             let ds =
@@ -1463,9 +1603,6 @@ module ViewerApp =
 
             let solText = 
                 MinervaApp.getSolBillboards m.minervaModel m.navigation.camera.view near |> Sg.map MinervaActions
-
-            let viewportFilteredText = 
-                MinervaApp.viewPortLabels m.minervaModel m.navigation.camera.view (ViewerUtils.frustum m) |> Sg.map MinervaActions
                 
             //let correlationLogs, _ =
             //    PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
@@ -1486,6 +1623,7 @@ module ViewerApp =
 
             let heightValidation =
                 HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation
+
 
             [exploreCenter; refSystem; viewPlans; homePosition; solText; heightValidation] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
@@ -1519,148 +1657,49 @@ module ViewerApp =
 
         let heightValidationDiscs =
             HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
+
+        let scaleBars =
+            ScaleBarsApp.Sg.view
+                m.scene.scaleBars
+                m.navigation.camera.view
+                m.scene.config
+                mrefConfig
+                m.scene.referenceSystem
+            |> Sg.map ScaleBarsMessage
+
+        let sceneObjects =
+            SceneObjectsApp.Sg.view m.scene.sceneObjectsModel m.scene.referenceSystem |> Sg.map SceneObjectsMessage
+
+        let geologicSurfacesSg = 
+            GeologicSurfacesApp.Sg.view m.scene.geologicSurfacesModel 
+            |> Sg.map GeologicSurfacesMessage 
         
         let depthTested = 
-            [linkingSg; annotationSg; minervaSg; heightValidationDiscs] |> Sg.ofList
+            [linkingSg; annotationSg; minervaSg; heightValidationDiscs; scaleBars; sceneObjects; geologicSurfacesSg] |> Sg.ofList
 
-        let cmds    = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m
-        let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
-        let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
-        DomNode.RenderControl((renderControlAttributes m), cam, cmds, None)
+        let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m
+        onBoot "attachResize('__ID__')" (
+            DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
+        )
+        
+    let view (runtime : IRuntime) (m: AdaptiveModel) = //(localhost: string)
 
-    let view (m: AdaptiveModel) = //(localhost: string)
-       
         let viewerDependencies = [
             { kind = Stylesheet;  name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.css" }
             { kind = Stylesheet;  name = "semui-overrides"; url = "semui-overrides.css" }
             { kind = Script;      name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.js" }
             { kind = Script;      name = "errorReporting";  url = "./errorReporting.js"  }
+
+            { kind = Script;      name = "resize";  url = "./ResizeSensor.js"  }
+            { kind = Script;      name = "resizeElem";  url = "./ElementQueries.js"  }
         ]
         
         let bodyAttributes = [style "background: #1B1C1E; height:100%; overflow-y:scroll; overflow-x:hidden;"] //overflow-y : visible
 
-        let onResize (cb : V2i -> 'msg) =
-            onEvent "onresize" ["{ X: $(document).width(), Y: $(document).height()  }"] (List.head >> Pickler.json.UnPickleOfString >> cb)
-
-        let onFocus (cb : V2i -> 'msg) =
-            onEvent "onfocus" ["{ X: $(document).width(), Y: $(document).height()  }"] (List.head >> Pickler.json.UnPickleOfString >> cb)
-
-        let renderViewAttributes = [ 
-            style "background: #1B1C1E; height:100%; width:100%"
-            Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Standard)            
-            onResize OnResize     
-            onFocus OnResize
-            onMouseDown (fun button pos -> StartDragging (pos, button))
-         //   onMouseMove (fun delta -> Dragging delta)
-            onMouseUp (fun button pos -> EndDragging (pos, button))
-        ]
-        //let renderViewAttributes =
-        //    amap {
-        //        yield style "background: #1B1C1E; height:100%; width:100%"
-        //        yield onClick (fun _ -> SwitchViewerMode ViewerMode.Standard)
-        //    } |> AttributeMap.ofAMap
-       
-        let instrumentViewAttributes =
-            amap {
-                let! hor, vert = ViewPlanApp.getInstrumentResolution m.scene.viewPlans
-                let height = "height:" + (vert/uint32(2)).ToString() + ";" ///uint32(2)
-                let width = "width:" + (hor/uint32(2)).ToString() + ";" ///uint32(2)
-                yield style ("background: #1B1C1E;" + height + width)
-                yield Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Instrument)
-            } |> AttributeMap.ofAMap
-
-        page (fun request -> 
-            match Map.tryFind "page" request.queryParams with
-            | Some "instrumentview" ->
-                require (viewerDependencies) (
-                    body [ style "background: #1B1C1E; width:100%; height:100%; overflow-y:auto; overflow-x:auto;"] [
-                      Incremental.div instrumentViewAttributes (
-                        alist {
-                            yield viewInstrumentView m 
-                            yield Viewer.Gui.textOverlaysInstrumentView m.scene.viewPlans
-                        } )
-                    ]
-                )
-            | Some "render" -> 
-                require (viewerDependencies) (
-                    body renderViewAttributes [ //[ style "background: #1B1C1E; height:100%; width:100%"] [
-                        //div [style "background:#000;"] [
-                        Incremental.div (AttributeMap.ofList[style "background:#000;"]) (
-                            alist {
-                                yield viewRenderView m
-                                yield Viewer.Gui.textOverlays m.scene.referenceSystem m.navigation.camera.view
-                                yield Viewer.Gui.textOverlaysUserFeedback m.scene
-                                yield Viewer.Gui.dnsColorLegend m
-                                yield Viewer.Gui.scalarsColorLegend m
-                                yield Viewer.Gui.selectionRectangle m
-                                yield PRo3D.Linking.LinkingApp.sceneOverlay m.linkingModel |> UI.map LinkingActions
-                            }
-                        )
-                    ]                
-                )
-            | Some "surfaces" -> 
-                require (viewerDependencies) (
-                    body bodyAttributes
-                        [SurfaceApp.surfaceUI m.scene.surfacesModel |> UI.map SurfaceActions] 
-                )
-            | Some "annotations" -> 
-                require (viewerDependencies) (body bodyAttributes [Gui.Annotations.annotationUI m])
-            | Some "validation" -> 
-                require (viewerDependencies) (body bodyAttributes [HeightValidatorApp.viewUI m.heighValidation |> UI.map HeightValidation])
-            | Some "bookmarks" -> 
-                require (viewerDependencies) (body bodyAttributes [Gui.Bookmarks.bookmarkUI m])
-            | Some "config" -> 
-                require (viewerDependencies) (body bodyAttributes [Gui.Config.configUI m])
-            | Some "viewplanner" -> 
-                require (viewerDependencies) (body bodyAttributes [Gui.ViewPlanner.viewPlannerUI m])
-            | Some "minerva" -> 
-               //let pos = m.scene.navigation.camera.view |> AVal.map(fun x -> x.Location)
-                let minervaItems = 
-                    PRo3D.Minerva.MinervaApp.viewFeaturesGui m.minervaModel |> List.map (UI.map MinervaActions)
-
-                let linkingItems =
-                    [
-                        Html.SemUi.accordion "Linked Products" "Image" false [
-                            LinkingApp.viewSideBar m.linkingModel |> UI.map LinkingActions
-                        ]
-                    ]
-
-                require (viewerDependencies @ Html.semui) (
-                    body bodyAttributes (minervaItems @ linkingItems)
-                )
-            | Some "linking" ->
-                require (viewerDependencies) (
-                    body bodyAttributes [
-                        LinkingApp.viewHorizontalBar m.minervaModel.session.selection.highlightedFrustra m.linkingModel |> UI.map LinkingActions
-                    ]
-                )
-            //| Some "corr_logs" ->
-            //    CorrelationPanelsApp.viewLogs m.correlationPlot
-            //    |> UI.map CorrelationPanelMessage
-            //| Some "corr_svg" -> 
-            //    CorrelationPanelsApp.viewSvg m.correlationPlot
-            //    |> UI.map CorrelationPanelMessage
-            //| Some "corr_semantics" -> 
-            //    CorrelationPanelsApp.viewSemantics m.correlationPlot
-            //    |> UI.map CorrelationPanelMessage
-            //| Some "corr_mappings" -> 
-            //    require (myCss) (
-            //        body bodyAttributes [
-            //            CorrelationPanelsApp.viewMappings m.correlationPlot |> UI.map CorrelationPanelMessage
-            //        ] )
-            | None -> 
-                require (viewerDependencies) (
-                    body [][                    
-                        Gui.TopMenu.getTopMenu m
-                        div[clazz "dockingMainDings"] [
-                            m.scene.dockConfig
-                            |> docking [                                           
-                                style "width:100%; height:100%; background:#F00"
-                                onLayoutChanged UpdateDockConfig ]
-                        ]
-                    ]
-                )
-            | _ -> body[][])                                            
+        page (
+            fun request -> 
+                Gui.Pages.pageRouting viewerDependencies bodyAttributes m viewInstrumentView viewRenderView runtime request
+        )
                    
     let threadPool (m: Model) =
         let unionMany xs = List.fold ThreadPool.union ThreadPool.empty xs
@@ -1705,13 +1744,15 @@ module ViewerApp =
                 |> ViewerIO.loadLastFootPrint
                 |> ViewerIO.loadMinerva dumpFile cacheFile
                 |> ViewerIO.loadLinking
+                |> SceneLoader.addScaleBarSegments
+                |> SceneLoader.addGeologicSurfaces
             else
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs |> ViewerIO.loadRoverData       
 
         App.start {
             unpersist = Unpersist.instance
             threads   = threadPool
-            view      = view //localhost
+            view      = view runtime //localhost
             update    = update runtime signature sendQueue messagingMailbox
             initial   = m
         }

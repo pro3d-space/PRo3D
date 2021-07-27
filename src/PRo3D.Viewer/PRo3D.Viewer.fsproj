@@ -50,12 +50,13 @@
     <Compile Include="Scene.fs" />
 
     <Compile Include="LensConfigs.fs" />
+
+    <Compile Include="AnnotationRendering.fs" />
     <Compile Include="Viewer\Viewer-Utils.fs" />
     <Compile Include="Viewer\ViewerGUI.fs" />
     <Compile Include="Viewer\Viewer-IO.fs" />
     <Compile Include="Viewer\SceneConverter.fs" />
     <Compile Include="Viewer\Viewer.fs" />
-    <Compile Include="Viewer\NoGuiViewer.fs" />
     <Compile Include="CommandLine\CommandLineUtils.fs" />
     <Compile Include="CommandLine\CommandLine.fs" />
     <Compile Include="RemoteControlModel.fs" />
@@ -73,6 +74,8 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </EmbeddedResource>
     <EmbeddedResource Include="resources\semui-overrides.css" />
+    <EmbeddedResource Include="resources\ElementQueries.js" />
+	<EmbeddedResource Include="resources\ResizeSensor.js" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.2D3DLinking\PRo3D.Linking.fsproj" />

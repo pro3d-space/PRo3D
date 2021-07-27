@@ -8,7 +8,7 @@ open FSharp.Data.Adaptive
 open Aardvark.Base
 open Aardvark.UI
 open Aardvark.UI.Primitives
-open Aardvark.Base.Rendering
+open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.SceneGraph.IO
 open Aardvark.SceneGraph.Opc
@@ -224,34 +224,6 @@ module SurfaceUtils =
             doc |> layers
                                             
 module SurfaceApp =
-                
-    let updateTrafo (trafo : PRo3D.Core.Surface.SurfaceTrafo) (surfaces : HashMap<string,Surface>) (model : SurfaceModel) = 
-        match surfaces.TryFind(trafo.id) with
-        | Some s -> 
-          let f = (fun _ -> { s with preTransform = trafo.trafo } |> Leaf.Surfaces)
-          let g = Groups.updateLeaf s.guid f model.surfaces
-          Log.line "MeasurementImporter: matched and updated %s" s.name
-          { model with surfaces = g} 
-        | None -> model
-                 
-    let updateTrafos (trafos:IndexList<SurfaceTrafo>) (model:SurfaceModel) =
-        let surfaces = 
-            model.surfaces.flat 
-            |> HashMap.toList 
-            |> List.map(fun (_,v) -> 
-               let surf = v |> Leaf.toSurface
-               (surf.name, surf))
-            |> HashMap.ofList
-        
-        let rec update (p : list<SurfaceTrafo>) (model:SurfaceModel) =
-            match p with
-            | x::rest -> 
-                match rest with
-                | [] -> updateTrafo x surfaces model
-                | _ ->  update rest (updateTrafo x surfaces model) 
-            | _ -> model
-
-        update (trafos |> IndexList.toList) model    
 
     let hmapsingle (k,v) = HashMap.single k v
 
@@ -637,7 +609,7 @@ module SurfaceApp =
                                    Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
                                 ]                             
             
-                                yield i [clazz "home icon"; onClick (fun _ -> FlyToSurface key) ][]
+                                yield i [clazz "home icon"; onClick (fun _ -> FlyToSurface key) ][] 
                                     |> UI.wrapToolTip DataPosition.Bottom "Fly to surface"                                                     
             
                                 yield i [clazz "folder icon"; onClick (fun _ -> OpenFolder key) ][] 
@@ -651,9 +623,10 @@ module SurfaceApp =
                                 |> UI.wrapToolTip DataPosition.Bottom "Toggle IsActive"
             
                                 let! path = s.importPath
+                                let isobj = Path.GetExtension path = ".obj"
                                 //
                                 //  yield i 
-                                if (Directory.Exists path) |> not || (path |> Files.isSurfaceFolder |> not) then
+                                if ((Directory.Exists path) |> not || (path |> Files.isSurfaceFolder |> not)) && (isobj |> not) then
                                     yield i [
                                         clazz "exclamation red icon"
                                         //Dialogs.onChooseDirectory key ChangeImportDirectory;
@@ -834,7 +807,7 @@ module SurfaceApp =
               | None -> return empty
         }                          
 
-    let viewColorCorrectionTools (model:AdaptiveSurfaceModel) =
+    let viewColorCorrectionTools (paletteFile : string) (model:AdaptiveSurfaceModel) =
         adaptive {
             let! guid = model.surfaces.singleSelectLeaf
             let empty = div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map ColorCorrectionMessage 
@@ -846,7 +819,7 @@ module SurfaceApp =
                     let leaf = model.surfaces.flat |> AMap.find i // TODO to: common - make a map here!
                     let! surf = leaf 
                     let colorCorrection = match surf with | AdaptiveSurfaces s -> s.colorCorrection | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
-                    return ColorCorrectionProperties.view colorCorrection |> UI.map ColorCorrectionMessage
+                    return ColorCorrectionProperties.view paletteFile colorCorrection |> UI.map ColorCorrectionMessage
                   else 
                     return empty
                 | None -> return empty 
@@ -854,7 +827,7 @@ module SurfaceApp =
 
     //TODO LF refactor and simplify, use option.map, bind, default value as described in
     //https://hackmd.io/C3putqB_QNCwpxWO_oKZJQ#Working-with-Optionmap-Optionbind-and-OptiondefaultValue
-    let viewColorLegendTools (model:AdaptiveSurfaceModel) =
+    let viewColorLegendTools (colorPaletteStore : string) (model:AdaptiveSurfaceModel) =
         adaptive {
             let! guid = model.surfaces.singleSelectLeaf
             
@@ -871,7 +844,7 @@ module SurfaceApp =
                       
                       let! scalar = scalar
                       match AdaptiveOption.toOption scalar with // why is AdaptiveSome here not available
-                          | Some s -> return FalseColorLegendApp.UI.viewScalarMappingProperties s.colorLegend |> UI.map ScalarsColorLegendMessage
+                          | Some s -> return FalseColorLegendApp.UI.viewScalarMappingProperties colorPaletteStore s.colorLegend |> UI.map ScalarsColorLegendMessage
                           | None -> return div[ style "font-style:italic"][ text "no scalar in properties selected" ] |> UI.map ScalarsColorLegendMessage 
                     else
                       return div[ style "font-style:italic"][ text "no scalar in properties selected" ] |> UI.map ScalarsColorLegendMessage 
@@ -922,7 +895,7 @@ module SurfaceApp =
             return (GroupsApp.viewGroupButtons ts |> UI.map GroupsMessage)
         } 
     
-    let surfaceUI (model:AdaptiveSurfaceModel) =
+    let surfaceUI (colorPaletteStore : string) (model:AdaptiveSurfaceModel) =
         let item2 = 
             model.surfaces.lastSelectedItem 
                 |> AVal.bind (fun x -> 
@@ -943,19 +916,21 @@ module SurfaceApp =
               Incremental.div AttributeMap.empty (AList.ofAValSingle item2)
                
             ]
-            yield GuiEx.accordion "Actions" "Asterisk" false [
-                Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
-            ]  
+             
             yield GuiEx.accordion "Transformation" "expand arrows alternate " false [
                 Incremental.div AttributeMap.empty (AList.ofAValSingle(viewTranslationTools model))
             ]  
                 
             yield GuiEx.accordion "Color Adaptation" "file image outline" false [
-                Incremental.div AttributeMap.empty (AList.ofAValSingle(viewColorCorrectionTools model))
+                Incremental.div AttributeMap.empty (AList.ofAValSingle(viewColorCorrectionTools colorPaletteStore model))
             ] 
 
             yield GuiEx.accordion "Scalars ColorLegend" "paint brush" true [
-                Incremental.div AttributeMap.empty (AList.ofAValSingle(viewColorLegendTools model))
+                Incremental.div AttributeMap.empty (AList.ofAValSingle(viewColorLegendTools colorPaletteStore model))
+            ] 
+
+            yield GuiEx.accordion "Actions" "Asterisk" false [
+                Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
             ] 
         ]
     

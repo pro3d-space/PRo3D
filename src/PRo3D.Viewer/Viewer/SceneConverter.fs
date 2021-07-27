@@ -55,7 +55,7 @@ module SceneLoading =
     open System.IO
     open PRo3D.Viewer
     open Aardvark.Base
-    open Aardvark.Base.Rendering
+    open Aardvark.Rendering
 
     [<RequireQualifiedAccess>]
     type SceneLoadResult = 
@@ -130,6 +130,7 @@ module SceneLoading =
                 |> ViewerIO.loadAnnotations  
                 |> ViewerIO.loadCorrelations
                 |> ViewerIO.loadLastFootPrint
+                |> SceneLoader.addScaleBarSegments
                 |> Choice1Of2 
             with e -> 
                 let error = sprintf "[PRo3D] SceneLoading.loadScene failed: %A" e.Message

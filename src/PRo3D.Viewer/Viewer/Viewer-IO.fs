@@ -5,6 +5,7 @@ open System.IO
 
 open Aardvark
 open Aardvark.Base
+open Aardvark.Rendering
 
 open PRo3D
 open PRo3D.Base
@@ -252,8 +253,10 @@ module ViewerIO =
            //saving scene
             let scenePaths = path |> ScenePaths.create             
             let cameraState = m.navigation.camera.view            
-            let scene = { m.scene with scenePath = Some scenePaths.scene; cameraView = cameraState }
-
+            let scene = { m.scene with scenePath      = Some scenePaths.scene; 
+                                       cameraView     = cameraState;
+                                       exploreCenter  = m.navigation.exploreCenter
+                                       navigationMode = m.navigation.navigationMode}
             scene
             |> Json.serialize 
             |> Json.formatWith JsonFormattingOptions.Pretty
@@ -270,11 +273,15 @@ module ViewerIO =
             
             //saving minerva session
             let minerva = 
+                try
                 MinervaApp.update 
                     m.navigation.camera.view
                     m.frustum
                     m.minervaModel
                     MinervaAction.Save
+                with e -> 
+                    Log.warn "[Minerva] update failed, could not save, using old model: %A" e
+                    m.minervaModel
 
             //saving correlations session                        
             

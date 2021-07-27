@@ -30,7 +30,8 @@
     <Compile Include="FalseColors\FalseColorLegendApp.fs" />
     <Compile Include="Annotation\Annotation-Model.fs" />
     <Compile Include="Annotation\AnnotationHelpers.fs" />
-    <Compile Include="Annotation\Csv.fs" />
+    <Compile Include="Annotation\GeoJSON.fs" />
+    <Compile Include="Annotation\Export.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CSharpUtils\CSharpUtils.csproj" />

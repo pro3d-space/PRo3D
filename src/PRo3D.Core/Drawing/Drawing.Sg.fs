@@ -7,7 +7,7 @@ open Aardvark.Application
 open Aardvark.UI
 
 open FSharp.Data.Adaptive
-open Aardvark.Base.Rendering
+open Aardvark.Rendering
 open Aardvark.Application
 open Aardvark.SceneGraph
 open Aardvark.SceneGraph.Opc
@@ -32,37 +32,38 @@ module Sg =
       //TODO TO refactor formatting
     //open PRo3D.Surfaces.Mutable.SgSurfaceModule
 
+    let stableLight = 
+        Effect.compose [
+            //do! Shader.screenSpaceScale
+            toEffect Shader.StableTrafo.stableTrafo
+            toEffect DefaultSurfaces.vertexColor
+            toEffect Shader.StableLight.stableLight
+        ]
+
     let discISg color size thickness trafo =
-        Sg.cylinder 30 color size thickness              
+        Sg.cylinder 12 color size thickness              
           |> Sg.noEvents
           |> Sg.uniform "WorldPos" (trafo |> AVal.map(fun (x : Trafo3d) -> x.Forward.C3.XYZ))
           |> Sg.uniform "Size" size
-          |> Sg.shader {
-              //do! Shader.screenSpaceScale
-              do! Shader.StableTrafo.stableTrafo
-              do! DefaultSurfaces.vertexColor
-              do! Shader.StableLight.stableLight
-          }
+          |> Sg.effect [stableLight]
           |> Sg.trafo(trafo)
-    
+
+
     let coneISg color radius height trafo =  
-        Sg.cone 30 color radius height
+        Sg.cone 12 color radius height
            |> Sg.noEvents         
-           |> Sg.shader {                   
-               do! Shader.StableTrafo.stableTrafo
-               do! DefaultSurfaces.vertexColor
-               do! Shader.StableLight.stableLight
-           }
+           |> Sg.effect [stableLight]
            |> Sg.trafo(trafo) 
            
     type innerViewConfig =
         {
-            nearPlane       : aval<float>
-            hfov            : aval<float>                
-            arrowThickness  : aval<float>
-            arrowLength     : aval<float>
-            dnsPlaneSize    : aval<float>
-            offset          : aval<float>
+            nearPlane        : aval<float>
+            hfov             : aval<float>                
+            arrowThickness   : aval<float>
+            arrowLength      : aval<float>
+            dnsPlaneSize     : aval<float>
+            offset           : aval<float>
+            pickingTolerance : aval<float>
         }
     
     let drawTrueThicknessPlane (planeScale : aval<float>) (dnsResults : aval<option<AdaptiveDipAndStrikeResults>>) (cl : AdaptiveFalseColorsModel) =                         
@@ -127,10 +128,7 @@ module Sg =
                 
                 let! dip = x.dipDirection
                 let dipLine = 
-                  alist {
-                      yield center'
-                      yield center' + dip.Normalized * lineLength'
-                  }
+                  AVal.constant [| center'; center' + dip.Normalized * lineLength' |]
                 
                 yield Sg.drawScaledLines dipLine color conf.arrowThickness posTrafo 
                 
@@ -143,11 +141,8 @@ module Sg =
                 //strikes lines
                 let! strike = x.strikeDirection
                 let strikeLine1 =
-                  alist {                                                                
-                      yield center' - strike.Normalized * lineLength'
-                      yield center' + strike.Normalized * lineLength'
-                  }                                            
-                
+                    AVal.constant [| center' - strike.Normalized * lineLength'; center' + strike.Normalized * lineLength'  |]
+
                 //yield Sg.lines strikeLine1 (AVal.constant C4b.Red) conf.arrowThickness posTrafo anno.key
                 yield Sg.drawScaledLines strikeLine1 (AVal.constant C4b.Red) conf.arrowThickness posTrafo
             | None -> ()            
@@ -161,18 +156,39 @@ module Sg =
         drawDns' anno.points (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption anno.dnsResults) conf cl
 
     let getPolylinePoints (a : AdaptiveAnnotation) =
-        alist {                          
-            let! hasSegments = (a.segments |> AList.count) |> AVal.map(fun x -> x > 0)
-            if hasSegments |> not then
-                yield! a.points
-            else
-                for segment in a.segments do
-                    let! startPoint = segment.startPoint
-                    let! endPoint = segment.endPoint
-                    yield  startPoint
-                    yield! segment.points
-                    yield  endPoint
-        }
+        //a.segments.Content 
+        //    |> AVal.bind (fun segments -> 
+        //        if IndexList.isEmpty segments then a.points |> AList.toAVal |> AVal.map IndexList.toArray
+        //        else 
+        //            segments |> IndexList.map (fun s -> 
+                        
+        //            )
+        //    )
+        AVal.custom (fun t -> 
+            let segments = a.segments.Content.GetValue t
+            if IndexList.isEmpty segments then  
+                a.points.Content.GetValue(t) |> IndexList.toArray 
+            else 
+                let points = System.Collections.Generic.List<V3d>()
+                a.segments.Content.GetValue(t) |> IndexList.iter(fun (s : AdaptiveSegment) -> 
+                    points.Add(s.startPoint.GetValue(t))
+                    for s in s.points.Content.GetValue(t) do points.Add(s)
+                    points.Add(s.endPoint.GetValue(t))
+                )
+                points.ToArray()
+        )
+        //alist {                          
+        //    let! hasSegments = (a.segments |> AList.count) |> AVal.map(fun x -> x > 0)
+        //    if hasSegments |> not then
+        //        yield! a.points
+        //    else
+        //        for segment in a.segments do
+        //            let! startPoint = segment.startPoint
+        //            let! endPoint = segment.endPoint
+        //            yield  startPoint
+        //            yield! segment.points
+        //            yield  endPoint
+        //}
     
     let mutable lastHash = -1
 
@@ -191,14 +207,17 @@ module Sg =
                 let modelTrafo = model |> AVal.force
                 let pixelWidth = pixelWidth |> AVal.force                        
         
+                Log.line "[AnnotationPicking] pickable hit"
+
                 let rayHash = sceneHit.globalRay.Ray.Ray.GetHashCode()
 
                 if (rayHash = lastHash) then
-                    Log.warn "rayHash took over"
+                    Log.warn "[AnnotationPicking] detected duplicate picking interaction (rayhash)"
                     true, Seq.empty
                 else
-
                     if lines.Length > 0 && currentlyActive then
+                        Log.line "[AnnotationPicking] Pixel picking in progress"
+
                         let reallyHit = 
                              // TODO hs/to real horrorshow here!
                              lines 
@@ -219,9 +238,10 @@ module Sg =
                         // TODO hs/to picking refactoring (search for this string in order to find connected parts)
                         if reallyHit then
                             lastHash <- rayHash
-                            Log.warn "[AnnotationPicking] picked %A" id
+                            Log.line "[AnnotationPicking] pixel picked %A" id
                             true, Seq.ofList [ PickAnnotation (sceneHit, (id)) ]
-                        else 
+                        else
+                            Log.line "[AnnotationPicking] no pixel picking hit"
                             true, Seq.empty // if no pick continue anyways. we are no blocker geometry
                     else 
                         true, Seq.empty
@@ -230,11 +250,11 @@ module Sg =
     let drawWorkingAnnotation (offset : aval<float>) (anno : aval<Option<AdaptiveAnnotation>>)  = 
     
         let polyPoints =
-            alist {
+            adaptive {
                 let! anno = anno
                 match anno with
-                | Some a -> yield! getPolylinePoints a
-                | None -> ()
+                | Some a -> return! getPolylinePoints a
+                | None -> return [||]
             }
     
         let points = 
@@ -268,13 +288,20 @@ module Sg =
     let drawText (view : aval<CameraView>) (conf: innerViewConfig) (anno : AdaptiveAnnotation) = 
         drawText' view conf anno.text anno
     
-    let optional (sg : ISg<_>) (m : aval<bool>) : aset<ISg<_>> =
+    let optionalSet (sg : ISg<_>) (m : aval<bool>) : aset<ISg<_>> =
         adaptive {
             let! m = m 
             if m then return sg
             else return Sg.empty
         } |> ASet.ofAValSingle
-    
+
+    let optional (m : aval<bool>) (sg : ISg<_>)  : ISg<_> =
+        adaptive {
+            let! m = m 
+            if m then return sg
+            else return Sg.empty
+        } |> Sg.dynamic
+
     let getDotsIsg (points : alist<V3d>) (size:aval<float>) (color : aval<C4b>) (geometry: aval<Geometry>) (offset : aval<float>) =
         aset {
             let! geometry = geometry
@@ -290,45 +317,33 @@ module Sg =
                 yield Sg.drawPointList points (C4b.VRVisGreen |> AVal.constant) size (offset |> AVal.map(fun x -> x * 1.1))
         } 
         |> Sg.set  
+        
 
-    let finishedAnnotation 
-        (anno       : AdaptiveAnnotation) 
-        (c          : aval<C4b>) 
-        (conf       : innerViewConfig)
-        (view       : aval<CameraView>) 
-        (showPoints : aval<bool>) 
-        (picked     : aval<bool>)
-        (pickingAllowed : aval<bool>) =
+    let finishedAnnotationOld 
+        (anno             : AdaptiveAnnotation) 
+        (color            : aval<C4b>) 
+        (config           : innerViewConfig)
+        (view             : aval<CameraView>) 
+        (showPoints       : aval<bool>)         
+        (picked           : aval<bool>)
+        (pickingAllowed   : aval<bool>) =
 
         let points = getPolylinePoints anno      
         let dots = 
             showPoints 
-            |> optional (
+            |> optionalSet (
                 getDotsIsg
                     anno.points
-                    (anno.thickness.value |> AVal.map(fun x -> x+0.5)) 
-                    c 
+                    (anno.thickness.value |> AVal.map(fun x -> x + 0.5))
+                    color
                     anno.geometry 
-                    conf.offset
+                    config.offset
             )
-       
-        let azimuth =
-            adaptive { 
-                let! results = anno.dnsResults 
-                let! x = 
-                    match results with
-                    | AdaptiveSome r -> r.dipAzimuth
-                    | AdaptiveNone   -> AVal.constant Double.NaN
-                
-                return x
-            }
-    
-        let azimuthText = (drawText' view conf (azimuth |> AVal.map(fun x -> sprintf "%.2f" x)) anno)
-          
+     
         let texts = 
             anno.text 
             |> AVal.map (String.IsNullOrEmpty >> not) 
-            |> optional (drawText view conf anno)
+            |> optionalSet (drawText view config anno)
     
         let dotsAndText = ASet.union' [dots; texts] |> Sg.set
             
@@ -338,24 +353,97 @@ module Sg =
 
         let pickFunc = pickEventsHelper (anno.key |> AVal.constant) pickingAllowed anno.thickness.value anno.modelTrafo
 
-        let pickingLines = Sg.pickableLine points conf.offset c anno.thickness.value anno.modelTrafo true pickFunc
+
+        let pickingLines = 
+            Sg.pickableLine 
+                points 
+                config.offset 
+                color
+                anno.thickness.value 
+                config.pickingTolerance
+                anno.modelTrafo 
+                true 
+                pickFunc
+
+        let vm = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
              
         let selectionSg = 
             picked 
             |> AVal.map (function
-                | true -> OutlineEffect.createForLineOrPoint PRo3D.Base.OutlineEffect.Both (AVal.constant C4b.VRVisGreen) anno.thickness.value 3.0  RenderPass.main anno.modelTrafo points
+                | true -> OutlineEffect.createForLineOrPoint vm PRo3D.Base.OutlineEffect.Both (AVal.constant C4b.VRVisGreen) anno.thickness.value 3.0  RenderPass.main anno.modelTrafo points
                 | false -> Sg.empty ) 
             |> Sg.dynamic
     
         Sg.ofList [
             selectionSg
-            //azimuthText
             pickingLines
             dotsAndText
-        ] |> Sg.onOff anno.visible
+        ] |> optional anno.visible
+
+
+    let finishedAnnotation 
+        (anno             : AdaptiveAnnotation) 
+        (color            : aval<C4b>) 
+        (config           : innerViewConfig)
+        (view             : aval<CameraView>) 
+        (showPoints       : aval<bool>)         
+        (picked           : aval<bool>)
+        (pickingAllowed   : aval<bool>) =
+ 
+        //let dots = 
+        //    showPoints 
+        //    |> optionalSet (
+        //        getDotsIsg
+        //            anno.points
+        //            (anno.thickness.value |> AVal.map(fun x -> x + 0.5))
+        //            color
+        //            anno.geometry 
+        //            config.offset
+        //    )
+     
+        let texts = 
+            anno.text 
+            |> AVal.map (String.IsNullOrEmpty >> not) 
+            |> optionalSet (drawText view config anno)
+    
+        let dotsAndText = texts |> Sg.set //ASet.union' [dots; texts] |> Sg.set
+            
+        //let selectionColor = AVal.map2(fun x color -> if x then C4b.VRVisGreen else color) picked c
+        let pickingAllowed = // for this particular annotation // whether should fire pick actions
+            AVal.map2 (&&) pickingAllowed anno.visible
+
+        //let pickFunc = pickEventsHelper (anno.key |> AVal.constant) pickingAllowed anno.thickness.value anno.modelTrafo
+
+
+        //let pickingLines = 
+        //    Sg.pickableLine 
+        //        points 
+        //        config.offset 
+        //        color
+        //        anno.thickness.value 
+        //        config.pickingTolerance
+        //        anno.modelTrafo 
+        //        true 
+        //        pickFunc
+             
+        let vm = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
+
+        let selectionSg = 
+            picked 
+            |> AVal.map (function
+                | true -> 
+                    
+                    let points = getPolylinePoints anno     
+                    OutlineEffect.createForLineOrPoint vm PRo3D.Base.OutlineEffect.Both (AVal.constant C4b.VRVisGreen) anno.thickness.value 3.0  RenderPass.main anno.modelTrafo points
+                | false -> Sg.empty ) 
+            |> Sg.dynamic
+    
+        Sg.ofList [
+            selectionSg
+            //pickingLines
+            //dotsAndText
+            (texts |> Sg.set)
+        ] |> optional anno.visible
     
     let finishedAnnotationDiscs (anno : AdaptiveAnnotation) (conf:innerViewConfig) (cl : AdaptiveFalseColorsModel) (cam:aval<CameraView>) =
-        anno.showDns 
-        |> optional (drawDns anno conf cl cam) 
-        |> Sg.set 
-        |> Sg.onOff anno.visible
+        optional (AVal.map2 (&&) anno.visible anno.showDns) (drawDns anno conf cl cam) 

@@ -7,8 +7,9 @@ open Aardvark.Base
 open Aardvark.Base.Geometry
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
-open Aardvark.Base.Rendering
-open Aardvark.Base.Rendering.Effects
+open FShade
+open Aardvark.Rendering.Effects
+open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.UI
 open Aardvark.UI.Primitives
@@ -16,12 +17,12 @@ open Aardvark.UI.Trafos
 open Aardvark.UI.Animation
 open Aardvark.Rendering.Text
 
+
 open Aardvark.SceneGraph.Opc
 open Aardvark.SceneGraph.SgPrimitives.Sg
 open Aardvark.GeoSpatial.Opc
 open OpcViewer.Base
 
-open FShade
 open PRo3D
 open PRo3D.Base
 open PRo3D.Core
@@ -225,7 +226,7 @@ module ViewerUtils =
         (blarg           : amap<Guid, AdaptiveLeafCase>) // TODO v5: to get your naming right!!
         (frustum         : aval<Frustum>) 
         (selectedId      : aval<Option<Guid>>)
-        (isctrl          : aval<bool>) 
+        (surfacePicking  : aval<bool>)
         (globalBB        : aval<Box3d>) 
         (refsys          : AdaptiveReferenceSystem)
         (fp              : AdaptiveFootPrint) 
@@ -272,7 +273,11 @@ module ViewerUtils =
                         let! s = surf
                         let! sc = s.scaling.value
                         let! t = s.preTransform
-                        return Trafo3d.Scale(sc) * (t * fullTrafo )
+                        let! flipZ = s.transformation.flipZ
+                        if flipZ then 
+                            return Trafo3d.Scale(sc) * Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * t)
+                        else
+                            return Trafo3d.Scale(sc) * (fullTrafo * t) 
                     }
                     
                 let trafoObj =
@@ -281,18 +286,14 @@ module ViewerUtils =
                         let! t = s.preTransform
                         return t
                     }
+
                 
-                let! filterTexture = filterTexture
-                
-                let magnificationFilter = 
-                    match filterTexture with
-                    | false -> TextureFilterMode.Point
-                    | true -> TextureFilterMode.Linear // HERA/MARS-DL, default for snapshots
-                
-                let samplerDescription : SamplerStateDescription -> SamplerStateDescription = 
-                    (fun x -> 
-                        x.Filter <- new TextureFilter(TextureFilterMode.Linear, magnificationFilter, TextureFilterMode.Linear, true ); 
-                        x
+                let samplerDescription : aval<SamplerState -> SamplerState> = 
+                    filterTexture |> AVal.map (fun filterTexture ->  
+                        fun (x : SamplerState) -> 
+                            match filterTexture with
+                            | false -> { x with Filter = TextureFilter.MinLinearMagPoint }
+                            | true -> { x with Filter = TextureFilter.MinMagLinear }  // HERA/MARS-DL, default for snapshots
                     )
                         
                 let footprintVisible = //AVal.map2 (fun (vp:Option<AdaptiveViewPlan>) vis -> (vp.IsSome && vis)) vp, fp.isVisible
@@ -320,13 +321,13 @@ module ViewerUtils =
                         if visible then sg else Sg.empty
                     )
                     |> Sg.dynamic
-
-                let test =             
+                
+                let surfaceSg =
                     surface.sceneGraph
                     |> AVal.map createSg
                     |> Sg.dynamic
                     |> Sg.trafo trafo //(Transformations.fullTrafo surf refsys)
-                    |> Sg.modifySamplerState (DefaultSemantic.DiffuseColorTexture)(AVal.constant(samplerDescription))
+                    |> Sg.modifySamplerState DefaultSemantic.DiffuseColorTexture samplerDescription
                     |> Sg.uniform "selected"      (isSelected) // isSelected
                     |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
                     |> addAttributeFalsecolorMappingParameters surf
@@ -346,9 +347,10 @@ module ViewerUtils =
                         SceneEventKind.Click, (
                            fun sceneHit -> 
                              let surfM = surf       |> AVal.force
-                             let name  = surfM.name |> AVal.force                                                  
-                             Log.warn "spawning picksurface %s" name
-                             true, Seq.ofList [PickSurface (sceneHit,name)])
+                             let name  = surfM.name |> AVal.force        
+                             let surfacePicking = surfacePicking |> AVal.force
+                             //Log.warn "[SurfacePicking] spawning picksurface action %s" name //TODO remove spanwning altogether when interaction is not "PickSurface"
+                             true, Seq.ofList [PickSurface (sceneHit, name, surfacePicking)])
                        ]  
                     // handle surface visibility
                     |> Sg.onOff (surf |> AVal.bind(fun x -> x.isVisible)) // on off variant
@@ -361,9 +363,8 @@ module ViewerUtils =
                             DefaultSurfaces.vertexColor |> toEffect
                         ] 
                         |> Sg.onOff isSelected
-                    )
-                
-                return test
+                    )                                
+                return surfaceSg
             else
                 return Sg.empty
         } |> Sg.dynamic
@@ -372,6 +373,7 @@ module ViewerUtils =
         let near = m.scene.config.nearPlane.value
         let far = m.scene.config.farPlane.value
         (Navigation.UI.frustum near far)
+
 
     let fixAlpha (v : Vertex) =
         fragment {         
@@ -433,9 +435,16 @@ module ViewerUtils =
                 fun x -> ( x 
                     |> AMap.map(fun _ sf -> 
                         let bla = m.scene.surfacesModel.surfaces.flat
-                        viewSingleSurfaceSg sf bla m.frustum selected m.ctrlFlag 
-                                            sf.globalBB refSystem m.footPrint 
-                                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting m.filterTexture)
+                        viewSingleSurfaceSg 
+                            sf 
+                            bla 
+                            m.frustum 
+                            selected 
+                            m.ctrlFlag 
+                            sf.globalBB 
+                            refSystem 
+                            m.footPrint 
+                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting m.filterTexture)
                     |> AMap.toASet 
                     |> ASet.map snd                     
                 )                
@@ -475,22 +484,39 @@ module ViewerUtils =
         let usehighlighting = true |> AVal.constant //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true
 
+        //avoids kdtree intersections for certain interactions
+        let surfacePicking = 
+            m.interaction 
+            |> AVal.map(fun x -> 
+                match x with
+                | Interactions.PickAnnotation | Interactions.PickLog -> false
+                | _ -> true
+            )
+
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 
-                    |> AMap.map(fun _ sf -> 
-                        let bla = m.scene.surfacesModel.surfaces.flat
-                        viewSingleSurfaceSg sf bla m.frustum selected m.ctrlFlag sf.globalBB 
-                                            refSystem m.footPrint 
-                                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting filterTexture
+                    |> AMap.map(fun _ surface ->                         
+                        viewSingleSurfaceSg 
+                            surface 
+                            m.scene.surfacesModel.surfaces.flat
+                            m.frustum 
+                            selected 
+                            surfacePicking
+                            surface.globalBB
+                            refSystem m.footPrint 
+                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting filterTexture
                        )
                     |> AMap.toASet 
                     |> ASet.map snd                     
                 )                
             )
+
         //grouped   
+        let last = grouped |> AList.tryLast
+
         alist {        
             let mutable i = 0
             for set in grouped do
@@ -500,43 +526,24 @@ module ViewerUtils =
                     |> Sg.set
                     |> Sg.effect [surfaceEffect]
                     |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-                    |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()                        
+                    |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()
 
                 yield RenderCommand.SceneGraph sg
 
                 //if i = c then //now gets rendered multiple times
                  // assign priorities globally, or for each anno and make sets
-                yield RenderCommand.SceneGraph depthTested
+                let depthTested =
+                    last |> AVal.map (function 
+                        | Some e when System.Object.ReferenceEquals(e,set) -> depthTested 
+                        | _ -> Sg.empty
+                    )
+                yield RenderCommand.SceneGraph (depthTested |> Sg.dynamic)
 
-                yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0))
-            
+                yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
+
             yield RenderCommand.SceneGraph overlayed
-            
-        }  
 
-    let renderScreenshot (runtime : IRuntime) (size : V2i) (sg : ISg<ViewerAction>) = 
-        let col = runtime.CreateTexture(size, TextureFormat.Rgba8, 1, 1);
-        let signature = 
-            runtime.CreateFramebufferSignature [
-                DefaultSemantic.Colors, { format = RenderbufferFormat.Rgba8; samples = 1 }
-            ]
-
-        let fbo = 
-            runtime.CreateFramebuffer(
-                signature, 
-                Map.ofList [
-                    DefaultSemantic.Colors, col.GetOutputView()
-                ]
-            )
-
-        let taskclear = runtime.CompileClear(signature,AVal.constant C4f.Black,AVal.constant 1.0)
-        
-        let task = runtime.CompileRender(signature, sg)
-
-        taskclear.Run(null, fbo |> OutputDescription.ofFramebuffer) |> ignore
-        task.Run(null, fbo |> OutputDescription.ofFramebuffer) |> ignore
-        let colorImage = runtime.Download(col)
-        colorImage
+        }
 
 module GaleCrater =
     open PRo3D.Base

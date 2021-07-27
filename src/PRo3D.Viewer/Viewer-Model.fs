@@ -10,6 +10,7 @@ open Aardvark.Application
 open Aardvark.SceneGraph
 open Aardvark.UI.Trafos
 open Aardvark.UI.Animation
+open Aardvark.Rendering
 
 open PRo3D
 open PRo3D.Base
@@ -79,6 +80,8 @@ type ViewerAction =
     | RoverMessage                    of RoverApp.Action
     | ViewPlanMessage                 of ViewPlanApp.Action
     | DnSColorLegendMessage           of FalseColorLegendApp.Action
+    | SceneObjectsMessage             of SceneObjectAction
+    | FrustumMessage                  of FrustumProperties.Action
     | SetCamera                       of CameraView        
     | SetCameraAndFrustum             of CameraView * double * double        
     | SetCameraAndFrustum2            of CameraView * Frustum
@@ -86,6 +89,7 @@ type ViewerAction =
     | ImportDiscoveredSurfaces        of list<string>
     | ImportDiscoveredSurfacesThreads of list<string>
     | ImportObject                    of list<string>
+    | ImportSceneObject               of list<string>
     | ImportPRo3Dv1Annotations        of list<string>
     | ImportSurfaceTrafo              of list<string>
     | ImportRoverPlacement            of list<string>
@@ -94,7 +98,7 @@ type ViewerAction =
     | ConfigPropertiesMessage         of ConfigProperties.Action
     | DeleteLast
     | AddSg                           of ISg
-    | PickSurface                     of SceneHit*string
+    | PickSurface                     of SceneHit*string*bool
     | PickObject                      of V3d*Guid
     | SaveScene                       of string
     | SaveAs                          of string
@@ -103,6 +107,7 @@ type ViewerAction =
     | NewScene
     | KeyDown                         of key : Aardvark.Application.Keys
     | KeyUp                           of key : Aardvark.Application.Keys      
+    | ResizeMainControl               of V2i * string
     | SetKind                         of TrafoKind
     | SetInteraction                  of Interactions        
     | SetMode                         of TrafoMode
@@ -127,7 +132,7 @@ type ViewerAction =
     | Logging                         of string * ViewerAction
     | ThreadsDone                     of string    
     | SnapshotThreadsDone             of string
-    | OnResize                        of V2i
+    | OnResize                        of V2i * string
     | StartDragging                   of V2i * MouseButtons
     | Dragging                        of V2i
     | EndDragging                     of V2i * MouseButtons
@@ -138,6 +143,9 @@ type ViewerAction =
     //| UpdateShatterCones              of list<SnapshotShattercone> // TODO snapshots and shattercone things should be in own apps
     | TestHaltonRayCasting            //of list<string>
     | HeightValidation               of HeightValidatorAction
+    | ScaleBarsDrawingMessage        of ScaleBarDrawingAction
+    | ScaleBarsMessage               of ScaleBarsAction
+    | GeologicSurfacesMessage        of GeologicSurfaceAction
     | Nop
 
 and MailboxState = {
@@ -163,6 +171,7 @@ type Scene = {
     scenePath         : Option<string>
     referenceSystem   : ReferenceSystem    
     bookmarks         : GroupsModel
+    scaleBars         : ScaleBarsModel
 
     viewPlans         : ViewPlanModel
     dockConfig        : DockConfig
@@ -170,11 +179,13 @@ type Scene = {
     firstImport       : bool
     userFeedback      : string
     feedbackThreads   : ThreadPool<ViewerAction> 
+    sceneObjectsModel : SceneObjectsModel
+    geologicSurfacesModel : GeologicSurfacesModel
 }
 
 module Scene =
         
-    let current = 0    
+    let current = 1    
     let read0 = 
         json {            
             let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
@@ -210,6 +221,53 @@ module Scene =
                     firstImport     = false
                     userFeedback    = String.Empty
                     feedbackThreads = ThreadPool.empty
+                    scaleBars       = ScaleBarsModel.initial
+                    sceneObjectsModel   = SceneObjectsModel.initial
+                    geologicSurfacesModel = GeologicSurfacesModel.initial
+                }
+        }
+
+    let read1 = 
+        json {            
+            let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
+            let! navigationMode  = Json.read "navigationMode"
+            let! exploreCenter   = Json.read "exploreCenter" 
+
+            let! interactionMode = Json.read "interactionMode"
+            let! surfaceModel    = Json.read "surfaceModel"
+            let! config          = Json.read "config"
+            let! scenePath       = Json.read "scenePath"
+            let! referenceSystem = Json.read "referenceSystem"
+            let! bookmarks       = Json.read "bookmarks"
+            let! dockConfig      = Json.read "dockConfig"  
+            let! scaleBars       = Json.read "scaleBars" 
+            let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
+            let! geologicSurfacesModel  = Json.read "geologicSurfacesModel"
+
+            return 
+                {
+                    version                 = current
+
+                    cameraView              = cameraView
+                    navigationMode          = navigationMode |> enum<NavigationMode>
+                    exploreCenter           = exploreCenter  |> V3d.Parse
+            
+                    interaction             = interactionMode |> enum<InteractionMode>
+                    surfacesModel           = surfaceModel
+                    config                  = config
+                    scenePath               = scenePath
+                    referenceSystem         = referenceSystem
+                    bookmarks               = bookmarks
+
+                    viewPlans               = ViewPlanModel.initial
+                    dockConfig              = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
+                    closedPages             = List.empty
+                    firstImport             = false
+                    userFeedback            = String.Empty
+                    feedbackThreads         = ThreadPool.empty
+                    scaleBars               = scaleBars
+                    sceneObjectsModel       = sceneObjectsModel
+                    geologicSurfacesModel   = geologicSurfacesModel
                 }
         }
 
@@ -221,6 +279,7 @@ type Scene with
             let! v = Json.read "version"
             match v with
             | 0 -> return! Scene.read0
+            | 1 -> return! Scene.read1
             | _ ->
                 return! v 
                 |> sprintf "don't know version %A  of Scene" 
@@ -241,7 +300,10 @@ type Scene with
             do! Json.write "referenceSystem" x.referenceSystem
             do! Json.write "bookmarks" x.bookmarks
 
-            do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString)                   
+            do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString) 
+            do! Json.write "scaleBars" x.scaleBars
+            do! Json.write "sceneObjectsModel" x.sceneObjectsModel
+            do! Json.write "geologicSurfacesModel" x.geologicSurfacesModel
         }
 
 [<ModelType>] 
@@ -288,7 +350,7 @@ type Model = {
     startupArgs          : StartupArgs
     scene                : Scene
     drawing              : PRo3D.Core.Drawing.DrawingModel
-    interaction          : Interactions
+    interaction          : Interactions    
     recent               : Recent
     waypoints            : IndexList<WayPoint>
 
@@ -316,7 +378,7 @@ type Model = {
     picking          : bool
     ctrlFlag         : bool
     frustum          : Frustum
-    viewPortSize     : V2i
+    viewPortSize     : HashMap<string, V2i>
     overlayFrustum   : Option<Frustum>
     
     minervaModel     : PRo3D.Minerva.MinervaModel
@@ -324,6 +386,8 @@ type Model = {
 
     //correlationPlot : CorrelationPanelModel
     //pastCorrelation : Option<CorrelationPanelModel>
+
+    scaleBarsDrawing     : ScaleBarDrawing
             
     [<TreatAsValue>]
     past : Option<Drawing.DrawingModel> 
@@ -338,6 +402,8 @@ type Model = {
     filterTexture        : bool // TODO move to versioned ViewConfigModel in V3
 
     heighValidation      : HeightValidatorModel
+
+    frustumModel         : FrustumModel
 }
 
 
@@ -394,6 +460,7 @@ module Viewer =
                     {id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                     {id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                     {id = "minerva"; title = Some " Minerva "; weight = 0.4; deleteInvisible = None; isCloseable = None }
+                    {id = "scalebars"; title = Some " ScaleBars "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                   ]                          
                   stack 0.5 (Some "config") [
                     {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
@@ -420,6 +487,7 @@ module Viewer =
                   stack 0.5 None [                        
                     {id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                     {id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
+                    {id = "scalebars"; title = Some " ScaleBars "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                   ]                          
                   stack 0.5 (Some "config") [
                     {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
@@ -454,14 +522,17 @@ module Viewer =
                     config          = ViewConfigModel.initial
                     scenePath       = None
 
-                    referenceSystem = ReferenceSystem.initial                    
-                    bookmarks       = GroupsModel.initial
-                    dockConfig      = DockConfigs.core
-                    closedPages     = list.Empty 
-                    firstImport     = true
-                    userFeedback    = ""
-                    feedbackThreads = ThreadPool.empty
-                    viewPlans       = ViewPlanModel.initial
+                    referenceSystem       = ReferenceSystem.initial                    
+                    bookmarks             = GroupsModel.initial
+                    scaleBars             = ScaleBarsModel.initial
+                    dockConfig            = DockConfigs.core
+                    closedPages           = list.Empty 
+                    firstImport           = true
+                    userFeedback          = ""
+                    feedbackThreads       = ThreadPool.empty
+                    viewPlans             = ViewPlanModel.initial
+                    sceneObjectsModel     = SceneObjectsModel.initial
+                    geologicSurfacesModel = GeologicSurfacesModel.initial
                 }
 
             navigation      = navInit
@@ -488,6 +559,7 @@ module Viewer =
             trafoKind       = TrafoKind.Rotate
             trafoMode       = TrafoMode.Local            
 
+            scaleBarsDrawing = InitScaleBarsParams.initialScaleBarDrawing
             past            = None
             future          = None
 
@@ -514,11 +586,12 @@ module Viewer =
             //instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
             viewerMode = ViewerMode.Standard                
             footPrint = ViewPlanModel.initFootPrint
-            viewPortSize = V2i.One
+            viewPortSize = HashMap.empty
 
             arnoldSnapshotThreads = ThreadPool.empty
             showExplorationPoint = startupArgs.showExplorationPoint
             filterTexture = startupArgs.magnificationFilter
 
             heighValidation = HeightValidatorModel.init()
+            frustumModel = FrustumModel.init 0.1 10000.0
     }

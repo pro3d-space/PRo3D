@@ -4,6 +4,7 @@ open Aardvark.Base
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
 
+open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.UI
 
@@ -32,6 +33,7 @@ module Sg =
     //            }
     //            |> Sg.trafo(trafo)
 
+    //TODO refactor: confusing use of variable names and transformations, seems very complicated for a line with a label
     let directionMarker (near:aval<float>) (cam:aval<CameraView>) (style : MarkerStyle) =
         aset{
            
@@ -43,12 +45,7 @@ module Sg =
 
             //let scaledLength = dir * length
             let al = 
-                alist {
-                    let! p = style.position
-                    let! length = scaledLength
-                    yield p
-                    yield p + length
-                }
+                (style.position, scaledLength) ||> AVal.map2 (fun p length -> [| p; p + length |])
 
             let posTrafo =
                 style.position |> AVal.map(fun d -> Trafo3d.Translation(d))
@@ -121,31 +118,18 @@ module Sg =
 
 
         let upV = 
-            alist {
-                let! udir = model.up.value
-                let! position = position
-                yield position
-                yield position + udir.Normalized
-                }
+            (model.up.value, position) ||> AVal.map2 (fun udir position -> [| position; position + udir.Normalized |])
+
                 
         let northV = 
-            alist {
-                let! ndir = model.north.value
-                let! position = position
-                yield position
-                yield position + ndir.Normalized
-                }
+            (model.north.value, position) ||> AVal.map2 (fun ndir position -> [| position; position + ndir.Normalized |])
 
         let eastV = 
-            alist {
-                let! edir = east
-                let! position = position
-                yield position
-                yield position + edir.Normalized
-                }
+            (east, position) ||> AVal.map2 (fun edir position -> [| position; position + edir.Normalized |])
+
 
         let nLabelPos = AVal.map2(fun l r -> l + r) position model.north.value
-        let nPosTrafo =nLabelPos |> AVal.map(fun d -> Trafo3d.Translation(d))
+        let nPosTrafo = nLabelPos |> AVal.map(fun d -> Trafo3d.Translation(d))
         let label = Sg.text cam near (AVal.constant 60.0) nLabelPos nPosTrafo (AVal.constant 0.05) (AVal.constant "N")
 
         Sg.ofList [
@@ -204,8 +188,8 @@ module Sg =
 
         let styleX : MarkerStyle = {
             position  = model.origin
-            direction = AVal.constant V3d.IOO
-            color     = AVal.constant C4b.Magenta
+            direction = model.northO //AVal.constant V3d.IOO
+            color     = AVal.constant C4b.Red //C4b.Magenta
             size      = size
             thickness = thickness
             hasArrow  = AVal.constant false
@@ -215,8 +199,8 @@ module Sg =
 
         let styleY : MarkerStyle = {
             position  = model.origin
-            direction = AVal.constant V3d.OIO
-            color     = AVal.constant C4b.Cyan
+            direction = east //AVal.constant V3d.OIO
+            color     = AVal.constant C4b.Green //C4b.Cyan
             size      = size
             thickness = thickness
             hasArrow  = AVal.constant false
@@ -226,34 +210,14 @@ module Sg =
 
         let styleZ : MarkerStyle = {
             position  = model.origin
-            direction = AVal.constant V3d.OOI
-            color     = AVal.constant C4b.Yellow
+            direction = model.up.value //AVal.constant V3d.OOI
+            color     = AVal.constant C4b.Blue //C4b.Yellow
             size      = size
             thickness = thickness
             hasArrow  = AVal.constant false
             text      = AVal.constant (Some "Z")
             fix       = AVal.constant false
         }
-
-        //test
-        //let n90 =
-        //    adaptive {
-        //        let! up = model.up.value
-        //        let! n = model.north.value
-        //        let! o = model.origin
-        //        return updateVectorInDegree up n o 90.0
-        //    }
-                 
-        //let styleNorth90 : MarkerStyle = {
-        //    position  = model.origin
-        //    direction =  n90 //AVal.constant(V3d(19417.0692,323595.2722,-323129.0951))//
-        //    color     = AVal.constant C4b.Yellow
-        //    size      = size
-        //    thickness = thickness
-        //    hasArrow  = AVal.constant true
-        //    text      = AVal.constant (Some "90°")
-        //    fix       = AVal.constant false
-        //}
 
         let refSysTrafo2 =
           adaptive {
@@ -298,5 +262,14 @@ module Sg =
             //|> Sg.trafo refSysTrafo2   
             //|> Sg.trafo translation
 
-        [refsystem] |> Sg.ofList |> Sg.onOff(model.isVisible)  
+        let currentSystem =
+            model.planet |> AVal.map(fun planet -> 
+                                            match planet with
+                                            | Planet.Mars | Planet.Earth -> refsystem
+                                            | _ -> xyzSystem )
+            
+
+        currentSystem |> Sg.dynamic |> Sg.onOff(model.isVisible)
+        //[refsystem] |> Sg.ofList |> Sg.onOff(model.isVisible)  
+ 
             

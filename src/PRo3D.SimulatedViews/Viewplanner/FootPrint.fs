@@ -8,7 +8,7 @@ namespace PRo3D.SimulatedViews
 //open Aardvark.VRVis
 //open FSharp.Data.Adaptive
 //open Aardvark.SceneGraph.SgPrimitives
-//open Aardvark.Base.Rendering
+//open Aardvark.Rendering
 
 //open System
 //open System.Diagnostics

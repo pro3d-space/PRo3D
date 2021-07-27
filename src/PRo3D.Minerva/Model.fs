@@ -20,6 +20,7 @@ open PRo3D.Base
 
 module Config =
     let mutable ShowMinervaErrors = false
+    let mutable besideExecuteable = "."
 
 type FeatureId = FeatureId of string
 
