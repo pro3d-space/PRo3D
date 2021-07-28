@@ -21,7 +21,7 @@ Planetary geology is the most elaborately supported use-case of PRo3D, however w
 
 PRo3D is **free** for academic use. When used for publications, we kindly ask to reference PRo3D and [PRo3D Homepage](http://pro3d.space). For commercial use, and or customization, please contact science@vrvis.at.
 
-A list of third party licences can be found in the CREDITS file which is also included in releases. As mentioned also beside the resources, PRo3D uses and deploys [SPICE](https://naif.jpl.nasa.gov/naif/toolkit.html) kernels. Credits go to NASA's Navigation and Ancillary Information Facility (NAIF).
+A list of third party software licences can be found in the CREDITS file which is also included in releases. As mentioned also beside the resources, PRo3D uses and deploys [SPICE](https://naif.jpl.nasa.gov/naif/toolkit.html) kernels. Credits go to NASA's Navigation and Ancillary Information Facility (NAIF).
 
 # Technology & System Requirements
 
