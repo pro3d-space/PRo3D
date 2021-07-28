@@ -256,7 +256,7 @@ module Gui =
                     ][
                         text "Import OPCs"
                     ]
-                    if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) then
+                    if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) || true then
                         div [ clazz "ui inverted item"; 
                             Dialogs.onChooseFiles ImportObject;
                             clientEvent "onclick" (jsImportOBJDialog)
@@ -268,7 +268,7 @@ module Gui =
 
         let private importSCeneObject =
             [
-                if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then
+                if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) && false then
                     text "Scene Objects"
                     i [clazz "dropdown icon"][] 
                     div [ clazz "menu"] [
