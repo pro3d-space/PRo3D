@@ -565,7 +565,7 @@ module Gui =
         )
             
         let interactionText (i : Interactions) =
-            let ctrl = if RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then "⌘" else "⌘"
+            let ctrl = if RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then "CMD" else "CTRL"
             match i with 
             | Interactions.PickExploreCenter     -> sprintf "%s+click to place arcball center" ctrl
             | Interactions.PlaceCoordinateSystem -> sprintf "%s+click to place coordinate cross" ctrl
