@@ -538,7 +538,7 @@ module DrawingApp =
                                 let m = r.GetMatrix<C4f>()
                                 let allowed = pickingAllowed.GetValue()
                                 let p = m.[0,0]
-                                let id : int = BitConverter.SingleToInt32Bits(p.A)
+                                let id : int = floor p.A |> int //BitConverter.SingleToInt32Bits(p.A)
                                 let ids = pickIds.GetValue()
                                 if id > 0 && id < ids.Length  && allowed then
                                     //Log.line "hoverhit %A" (id, ids.[id])

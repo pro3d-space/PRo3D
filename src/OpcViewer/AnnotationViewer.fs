@@ -106,7 +106,7 @@ module AnnotationViewer =
                     //    Log.line "hit %A" (id, ids.[bestId]
                     //    transact (fun _ -> selectedAnnotation.Value <- id)
                     let p = m.[0,0]
-                    let id : int = BitConverter.SingleToInt32Bits(p.A)
+                    let id : int = int (floor p.A) //BitConverter.SingleToInt32Bits(p.A)
                     let ids = pickIds.GetValue()
                     if id > 0 && id < ids.Length then
                         Log.line "hit %A" (id, ids.[id])

@@ -324,7 +324,7 @@ module PackedRendering =
         let pickId (v : Vertex) = 
             fragment {
                 let i = v.id
-                return V4d(v.c.X, v.c.Y, v.c.Z, intBitsToFloat i)
+                return V4d(v.c.X, v.c.Y, v.c.Z, float i)
             }
         
 
