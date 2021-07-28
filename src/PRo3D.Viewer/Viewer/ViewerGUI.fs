@@ -1,10 +1,12 @@
-namespace PRo3D.Viewer
+﻿namespace PRo3D.Viewer
 
 open Aardvark.Service
 
 open System
 open System.Diagnostics
 open System.IO
+open System.Runtime.InteropServices
+
 
 open Aardvark.Base
 open Aardvark.Base.Geometry
@@ -256,40 +258,27 @@ module Gui =
                     ][
                         text "Import OPCs"
                     ]
-                    if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) || true then
-                        div [ clazz "ui inverted item"; 
-                            Dialogs.onChooseFiles ImportObject;
-                            clientEvent "onclick" (jsImportOBJDialog)
-                        ][
-                            text "Import (*.obj)"
-                        ]
+                    div [ clazz "ui inverted item"; 
+                        Dialogs.onChooseFiles ImportObject;
+                        clientEvent "onclick" (jsImportOBJDialog)
+                    ][
+                        text "Import (*.obj)"
+                    ]
                 ]
             ]
 
         let private importSCeneObject =
             [
-                if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) && false then
-                    text "Scene Objects"
-                    i [clazz "dropdown icon"][] 
-                    div [ clazz "menu"] [
-                        (*div [ clazz "ui inverted item"; 
-                            Dialogs.onChooseFiles ImportSceneObject;
-                            clientEvent "onclick" (jsImportSceneObjectDialog)
-                        ][
-                            text "Currently unavailable"
-                        ] *)
+                text "Scene Objects"
+                i [clazz "dropdown icon"][] 
+                div [ clazz "menu"] [
+                    div [ clazz "ui inverted item"; 
+                        Dialogs.onChooseFiles ImportSceneObject;
+                        clientEvent "onclick" (jsImportSceneObjectDialog)
+                    ][
+                        text "Import (*.obj or *.dae)"
                     ]
-                else
-                    text "Scene Objects"
-                    i [clazz "dropdown icon"][] 
-                    div [ clazz "menu"] [
-                        div [ clazz "ui inverted item"; 
-                            Dialogs.onChooseFiles ImportSceneObject;
-                            clientEvent "onclick" (jsImportSceneObjectDialog)
-                        ][
-                            text "Import (*.obj or *.dae)"
-                        ]
-                    ]
+                ]
             ]
         
         let private scene (m:AdaptiveModel) =
@@ -576,17 +565,18 @@ module Gui =
         )
             
         let interactionText (i : Interactions) =
+            let ctrl = if RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then "⌘" else "⌘"
             match i with 
-            | Interactions.PickExploreCenter     -> "CTRL+click to place arcball center"
-            | Interactions.PlaceCoordinateSystem -> "CTRL+click to place coordinate cross"
-            | Interactions.DrawAnnotation        -> "CTRL+click to pick point on surface"
-            | Interactions.PickAnnotation        -> "CTRL+click on annotation to select"
-            | Interactions.PickSurface           -> "CTRL+click on surface to select"
-            | Interactions.PlaceRover            -> "CTRL+click to (1) place rover and (2) pick lookat"
+            | Interactions.PickExploreCenter     -> sprintf "%s+click to place arcball center" ctrl
+            | Interactions.PlaceCoordinateSystem -> sprintf "%s+click to place coordinate cross" ctrl
+            | Interactions.DrawAnnotation        -> sprintf "%s+click to pick point on surface" ctrl
+            | Interactions.PickAnnotation        -> sprintf "%s+click on annotation to select" ctrl
+            | Interactions.PickSurface           -> sprintf "%s+click on surface to select" ctrl
+            | Interactions.PlaceRover            -> sprintf "%s+click to (1) place rover and (2) pick lookat" ctrl
             | Interactions.TrafoControls         -> "not implemented"
             | Interactions.PlaceSurface          -> "not implemented"
-            | Interactions.PlaceScaleBar         -> "CTRL+click to place scale bar"
-            | Interactions.PlaceSceneObject      -> "CTRL+click to place scene object"
+            | Interactions.PlaceScaleBar         -> sprintf "%s+click to place scale bar" ctrl
+            | Interactions.PlaceSceneObject      -> sprintf "%s+click to place scene object" ctrl
             //| Interactions.PickLinking           -> "CTRL+click to place point on surface"
             | _ -> ""
         
