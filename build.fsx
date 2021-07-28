@@ -31,7 +31,7 @@ let resources =
     [
         //"lib\Dependencies\PRo3D.Base\windows"; // currently handled by native dependency injection mechanism 
         //"lib/groupmappings"
-        ./lib/Native/JR.Wrappers/mac/
+        //"./lib/Native/JR.Wrappers/mac/"
     ]
 
 
