@@ -881,6 +881,7 @@ module Gui =
     
 
     module Pages =
+        let mutable renderViewportSizeId = System.Guid.NewGuid().ToString()
         let pageRouting viewerDependencies bodyAttributes (m : AdaptiveModel) viewInstrumentView viewRenderView (runtime : IRuntime) request =
             
             match Map.tryFind "page" request.queryParams with
@@ -910,7 +911,7 @@ module Gui =
             | Some "render" -> 
                 require (viewerDependencies) (
 
-                    let id = System.Guid.NewGuid().ToString()
+                    renderViewportSizeId <- System.Guid.NewGuid().ToString()
 
                     let onResize (cb : V2i -> 'msg) =
                         onEvent "onresize" ["{ X: $(document).width(), Y: $(document).height()  }"] (List.head >> Pickler.json.UnPickleOfString >> cb)
@@ -921,8 +922,8 @@ module Gui =
                     let renderViewAttributes = [ 
                         style "background: #1B1C1E; height:100%; width:100%"
                         Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Standard)            
-                        onResize (fun s -> OnResize(s, id))     
-                        onFocus (fun s -> OnResize(s, id))     
+                        onResize (fun s -> OnResize(s, renderViewportSizeId))     
+                        onFocus (fun s -> OnResize(s, renderViewportSizeId))     
                         onMouseDown (fun button pos -> StartDragging (pos, button))
                      //   onMouseMove (fun delta -> Dragging delta)
                         onMouseUp (fun button pos -> EndDragging (pos, button))
@@ -932,7 +933,7 @@ module Gui =
                         //div [style "background:#000;"] [
                         Incremental.div (AttributeMap.ofList[style "background:#000;"]) (
                             alist {
-                                yield viewRenderView runtime id m
+                                yield viewRenderView runtime renderViewportSizeId m
                                 yield textOverlays m.scene.referenceSystem m.navigation.camera.view
                                 yield textOverlaysUserFeedback m.scene
                                 yield dnsColorLegend m

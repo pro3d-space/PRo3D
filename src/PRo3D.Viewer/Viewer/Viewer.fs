@@ -462,11 +462,15 @@ module ViewerApp =
         | AnimationMessage msg,_,_ ->
             let a = AnimationApp.update m.animations msg
             { m with animations = a } |> Optic.set _view a.cam
+        | SetRenderViewportSize size, _, _ ->
+            let viewPortSize = HashMap.add PRo3D.Viewer.Gui.Pages.renderViewportSizeId size m.viewPortSize
+            {m with viewPortSize = viewPortSize}
         | SetCamera cv,_,false -> Optic.set _view cv m
         | SetCameraAndFrustum (cv, hfov, _),_,false -> m
         | SetCameraAndFrustum2 (cv,frustum),_,false ->
             if m.startupArgs.verbose then Log.line "[Viewer] Setting camera and frustum."
             //let m = Optic.set _view cv m
+            
             { m with frustum = frustum 
                      scene   = {m.scene with cameraView = cv}}
         | AnnotationGroupsMessageViewer msg,_,_ ->
@@ -1647,7 +1651,8 @@ module ViewerApp =
             AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
         DomNode.RenderControl((instrumentControlAttributes m), icam, icmds, None) //AttributeMap.Empty
 
-    let createSceneGraphs (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
+
+    let createSceneGraphs (runtime : IRuntime) (id : string) (useSceneCamera : bool) (m: AdaptiveModel) = 
          let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
          let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
 
@@ -1655,7 +1660,7 @@ module ViewerApp =
              DrawingApp.view 
                  m.scene.config 
                  mdrawingConfig 
-                 m.navigation.camera.view 
+                 (if useSceneCamera then m.scene.cameraView else m.navigation.camera.view )
                  frustum
                  runtime
                  (m.viewPortSize |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
@@ -1712,7 +1717,7 @@ module ViewerApp =
                      m.scene.config
                      mrefConfig
                      m.scene.referenceSystem
-                     m.navigation.camera.view
+                     (if useSceneCamera then m.scene.cameraView else m.navigation.camera.view )
                  |> Sg.map ReferenceSystemMessage  
 
              let exploreCenter =
@@ -1726,7 +1731,7 @@ module ViewerApp =
                      m.scene.config 
                      mrefConfig 
                      m.scene.viewPlans 
-                     m.navigation.camera.view
+                     (if useSceneCamera then m.scene.cameraView else m.navigation.camera.view )
                  |> Sg.map ViewPlanMessage           
 
              let solText = 
@@ -1803,20 +1808,23 @@ module ViewerApp =
              |> Sg.map GeologicSurfacesMessage 
  
          let depthTested = 
-             [linkingSg; annotationSg; minervaSg; heightValidationDiscs; scaleBars; sceneObjects; geologicSurfacesSg] |> Sg.ofList
+             [linkingSg; annotationSg; minervaSg; heightValidationDiscs; scaleBars; sceneObjects; geologicSurfacesSg] 
+                |> Sg.ofList
          overlayed, depthTested, cam
 
     let viewRenderView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
-        let overlayed, depthTested, cam = createSceneGraphs runtime id m
+        let overlayed, depthTested, cam = createSceneGraphs runtime id false m
 
         let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m
         onBoot "attachResize('__ID__')" (
             DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
         )
 
-    let sceneGraph (runtime : IRuntime) (m: AdaptiveModel) =             
-        let overlayed, depthTested, cam = createSceneGraphs runtime (System.Guid.Empty.ToString ()) m
-        ViewerUtils.completeSceneGraph m.scene.surfacesModel.sgGrouped overlayed depthTested m
+    let sceneGraph (viewportSize : V2i) (frustum : Frustum) (runtime : IRuntime) (m: AdaptiveModel) =             
+        let overlayed, depthTested, cam = createSceneGraphs runtime (System.Guid.Empty.ToString ()) true m
+
+        ViewerUtils.completeSceneGraph m.scene.surfacesModel.sgGrouped 
+                                       overlayed depthTested viewportSize frustum m
         
     let view (runtime : IRuntime) (m: AdaptiveModel) = //(localhost: string)
 

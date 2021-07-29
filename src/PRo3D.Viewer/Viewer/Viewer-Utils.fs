@@ -489,12 +489,41 @@ module ViewerUtils =
 
         }
 
-    let completeSceneGraph sgGrouped overlayed depthTested (m:AdaptiveModel) =
+    let completeSceneGraph sgGrouped overlayed depthTested (viewportSize : V2i ) frustum (m:AdaptiveModel) =
         let grouped = groupedSceneGraphs sgGrouped m
+        let pass0 = RenderPass.main
+        let pass1 = RenderPass.after "pass1" RenderPassOrder.Arbitrary pass0
+        let depthTested = 
+          depthTested 
+            |> Sg.uniform "ViewportSize" (AVal.constant viewportSize)
+            |> Sg.pass pass1
+
+        //let overlayed = 
+        //  overlayed |> Sg.uniform "ViewportSize" (AVal.constant viewportSize)
         let comparisonSgAreas =  AreaSelection.sgAllAreas m.scene.comparisonApp.areas              
-        let areaStatisticsSg = AreaComparison.sgAllDifferences m.scene.comparisonApp.areas
-        //grouped   
+        let areaStatisticsSg = AreaComparison.sgAllDifferences m.scene.comparisonApp.areas 
+        let debugSg =
+            Sg.box (AVal.constant C4b.Blue) 
+                   (AVal.constant (Box3d.FromCenterAndSize (V3d.OOO, V3d(10.0))))
+                |> Sg.effect [
+                        DefaultSurfaces.trafo                 |> toEffect
+                        DefaultSurfaces.vertexColor           |> toEffect
+                        DefaultSurfaces.simpleLighting        |> toEffect
+                    ] 
         let last = grouped |> AList.tryLast
+        let surfaceSgs = 
+          aset {
+            for set in grouped do
+              let sg = 
+                  set 
+                  |> Sg.set
+                  |> Sg.effect [surfaceEffect]
+                  |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
+                  |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()
+              yield sg
+          } |> Sg.set
+            |> Sg.pass pass0
+
         let renderCommands = 
             alist {        
                 for set in grouped do
@@ -505,30 +534,55 @@ module ViewerUtils =
                         |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
                         |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()
 
-                    yield Aardvark.SceneGraph.RenderCommand.Render sg
+                    yield RenderCommand.Render sg
 
                     //if i = c then //now gets rendered multiple times
                      // assign priorities globally, or for each anno and make sets
                     let depthTested =
                         last |> AVal.map (function 
-                            | Some e when System.Object.ReferenceEquals(e,set) -> depthTested 
+                            | Some e when System.Object.ReferenceEquals(e,set) -> 
+                                depthTested 
                             | _ -> Sg.empty
                         )
-                    yield Aardvark.SceneGraph.RenderCommand.Render (depthTested |> Sg.dynamic)
-                    yield Aardvark.SceneGraph.RenderCommand.Render (areaStatisticsSg )
-                    yield Aardvark.SceneGraph.RenderCommand.Render comparisonSgAreas
+                    
+                    yield RenderCommand.Render (depthTested |> Sg.dynamic)
+                    //yield Aardvark.SceneGraph.RenderCommand.Render (areaStatisticsSg )
+                    //yield Aardvark.SceneGraph.RenderCommand.Render comparisonSgAreas
 
-                    yield Aardvark.SceneGraph.RenderCommand.Clear(~~C4f.Black,Some (AVal.constant 1.0), None)
+                    yield RenderCommand.Clear(~~C4f.Black,Some (AVal.constant 1.0), None)
 
-                yield Aardvark.SceneGraph.RenderCommand.Render overlayed
-
+                yield RenderCommand.Render overlayed
             }
-        let sg = Sg.execute (Aardvark.SceneGraph.RenderCommand.Ordered renderCommands)
+
+        //let renderCommands = (AList.single (RenderCommand.Render depthTested))
+
+        //let sg = Sg.execute (RenderCommand.Ordered renderCommands)
+        let sg = surfaceSgs
+                  |> Sg.andAlso depthTested
+
+        let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum 
+        
         let camera =
-            AVal.map2 (fun v f -> Camera.create v f) m.scene.cameraView m.frustum 
+              //AVal.map2 (fun v f -> Camera.create v f) m.navigation.camera.view frustum 
+            AVal.map2 (fun v f -> Camera.create v f) m.scene.cameraView frustum 
+        
         sg 
+          //|> Sg.viewTrafo (m.scene.cameraView |> AVal.map CameraView.viewTrafo)
+          //|> Sg.projTrafo' (Frustum.projTrafo frustum)
           |> Aardvark.SceneGraph.SgFSharp.Sg.camera camera
           
+          
+
+
+
+
+
+
+
+
+
+
+
     let debugSg (m:AdaptiveModel) = //(runtime : IRuntime) (signature : IFramebufferSignature) =
       let sg = 
           Sg.box (AVal.constant C4b.Blue) 

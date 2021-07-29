@@ -30,7 +30,7 @@ type SnapshotApp<'model,'aModel, 'msg> =
     mutableApp           : MutableApp<'model, 'msg>
     /// the adaptive model associated with the mutable app
     adaptiveModel        : 'aModel
-    sceneGraph           : ISg //IRuntime -> 'aModel -> ISg
+    sceneGraph           : IRuntime -> 'aModel -> ISg
     snapshotAnimation    : SnapshotAnimation
     /// animation actions are applied before rendering images
     getAnimationActions  : SnapshotAnimation -> seq<'msg>
@@ -50,24 +50,43 @@ type SnapshotApp<'model,'aModel, 'msg> =
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module SnapshotApp =
+    let defaultFoV = 30.0
 
-    let executeAnimation (app : SnapshotApp<'model,'aModel, 'msg>) =
-        
-        let resolution = V3i (app.snapshotAnimation.resolution.X, app.snapshotAnimation.resolution.Y, 1)
+    let calculateFrustumRecalcNearFar (snapshotAnimation : SnapshotAnimation)  = 
+        let resolution = V3i (snapshotAnimation.resolution.X, snapshotAnimation.resolution.Y, 1)
         let recalcOption, near, far =
-            match app.snapshotAnimation.nearplane, app.snapshotAnimation.farplane with
+            match snapshotAnimation.nearplane, snapshotAnimation.farplane with
             | Some n, Some f -> NearFarRecalculation.NoRecalculation, n, f
             | None, Some f   -> NearFarRecalculation.NoRecalculation, SnapshotAnimation.defaultNearplane, f
             | Some n, None   -> NearFarRecalculation.FarPlane, n, SnapshotAnimation.defaultFarplane
             | None, None     -> NearFarRecalculation.Both, SnapshotAnimation.defaultNearplane, SnapshotAnimation.defaultFarplane
 
         let foV = 
-            match app.snapshotAnimation.fieldOfView with
+            match snapshotAnimation.fieldOfView with
             | Some fov -> fov
-            | None -> 30.0
+            | None -> defaultFoV
         let frustum =
           Frustum.perspective foV near far 
                               (float(resolution.X)/float(resolution.Y))
+        frustum, recalcOption, near, far
+
+    let executeAnimation (app : SnapshotApp<'model,'aModel, 'msg>) =
+        let frustum, recalcOption, near, far = calculateFrustumRecalcNearFar app.snapshotAnimation
+        let resolution = V3i (app.snapshotAnimation.resolution.X, app.snapshotAnimation.resolution.Y, 1)
+        //let recalcOption, near, far =
+        //    match app.snapshotAnimation.nearplane, app.snapshotAnimation.farplane with
+        //    | Some n, Some f -> NearFarRecalculation.NoRecalculation, n, f
+        //    | None, Some f   -> NearFarRecalculation.NoRecalculation, SnapshotAnimation.defaultNearplane, f
+        //    | Some n, None   -> NearFarRecalculation.FarPlane, n, SnapshotAnimation.defaultFarplane
+        //    | None, None     -> NearFarRecalculation.Both, SnapshotAnimation.defaultNearplane, SnapshotAnimation.defaultFarplane
+
+        //let foV = 
+        //    match app.snapshotAnimation.fieldOfView with
+        //    | Some fov -> fov
+        //    | None -> defaultFoV
+        //let frustum =
+        //  Frustum.perspective foV near far 
+        //                      (float(resolution.X)/float(resolution.Y))
 
 
         
@@ -114,7 +133,7 @@ module SnapshotApp =
                     } |> Seq.toList
             | false, _ -> snapshots
 
-        let sg = app.sceneGraph //app.runtime app.adaptiveModel
+        let sg = app.sceneGraph app.runtime app.adaptiveModel
 
         let taskclear = app.runtime.CompileClear(signature,AVal.constant C4f.Black,AVal.constant 1.0)
         let task = app.runtime.CompileRender(signature, sg)

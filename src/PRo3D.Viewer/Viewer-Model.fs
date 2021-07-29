@@ -88,6 +88,7 @@ type ViewerAction =
     | SetCamera                       of CameraView        
     | SetCameraAndFrustum             of CameraView * double * double        
     | SetCameraAndFrustum2            of CameraView * Frustum
+    | SetRenderViewportSize           of V2i
     | ImportSurface                   of list<string>
     | ImportDiscoveredSurfaces        of list<string>
     | ImportDiscoveredSurfacesThreads of list<string>

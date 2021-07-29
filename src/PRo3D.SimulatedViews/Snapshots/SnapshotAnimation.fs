@@ -76,7 +76,7 @@ module SnapshotAnimation =
                  (renderMask : option<bool>) =
         {
             fieldOfView = foV //Some 30.0
-            resolution  = V2i(4096)
+            resolution  = V2i(1032)
             nearplane   = nearplane //Some 0.01
             farplane    = farplane //Some 100.0
             lightLocation = None

@@ -70,7 +70,6 @@ module SnapshotGenerator =
         let actions = 
             [
                 ViewerAction.SetCameraAndFrustum2 (this.view,frustum);
-                
                 //ViewerAction.SetMaskObjs this.renderMask
             ]
         //let sunAction = 
@@ -108,7 +107,8 @@ module SnapshotGenerator =
 
         actions@surfAction@recalcNearFarAction |> List.toSeq    
 
-    //let getAnimationActions (anim : SnapshotAnimation) =       
+    let getAnimationActions (anim : SnapshotAnimation) =       
+        Seq.singleton (ViewerAction.SetRenderViewportSize anim.resolution)
     //    let lightActions = 
     //        match anim.lightLocation with
     //        | Some loc -> 
@@ -128,8 +128,6 @@ module SnapshotGenerator =
                   (mModel       : AdaptiveModel)
                   (mApp         : MutableApp<Model, ViewerAction>) 
                   (args         : CLStartupArgs) =
-        let sg = //ViewerUtils.debugSg (mModel)
-            PRo3D.ViewerApp.sceneGraph runtime mModel
 
         let hasLoadedAny = loadData args mApp
         match hasLoadedAny with
@@ -137,13 +135,20 @@ module SnapshotGenerator =
             let data = readAnimation args
             match data with
             | Some data ->
+                let foV = 
+                    match data.fieldOfView with
+                    | Some fov -> fov
+                    | None -> SnapshotApp.defaultFoV
+                let frustum,_,_,_ = SnapshotApp.calculateFrustumRecalcNearFar data
+                let sg = //ViewerUtils.debugSg (mModel)
+                    (PRo3D.ViewerApp.sceneGraph data.resolution frustum) 
                 let snapshotApp : SnapshotApp<Model, AdaptiveModel, ViewerAction> = 
                     {
                         mutableApp = mApp
                         adaptiveModel = mModel
                         sceneGraph = sg
                         snapshotAnimation = data
-                        getAnimationActions = (fun _ -> Seq.empty)
+                        getAnimationActions = getAnimationActions
                         getSnapshotActions = getSnapshotActions
                         runtime = runtime
                         renderRange = RenderRange.fromOptions args.frameId args.frameCount
