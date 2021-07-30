@@ -1578,8 +1578,6 @@ type RegressionInfo3d =
               | _ -> return! v |> sprintf "don't know version %A  of RegressionInfo3d" |> Json.error
         }
         
-
-
 [<AutoOpen>]
 module LinearRegressionExtensions =
 
@@ -1649,3 +1647,7 @@ module LinearRegressionExtensions =
             | Some r -> r
             | None -> failwith "regression failed"
 
+[<AutoOpen>]
+module LinearRegression3d =
+    let create (v3dArray : array<V3d>) =
+        (new LinearRegression3d(v3dArray)).TryGetRegressionInfo()

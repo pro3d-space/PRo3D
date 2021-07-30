@@ -13,10 +13,28 @@ open PRo3D.Base
 open Aardvark.Geometry
 
 module AttitudeExport =
-    let toJson (dns : DipAndStrikeResults) (name : option<string>) (uid : option<string>) (points : option<seq<V3d>>) (regInfo : RegressionInfo3d) =
+    let toJson 
+        (dns     : DipAndStrikeResults) 
+        (name    : option<string>) 
+        (uid     : option<string>) 
+        (up      : V3d) 
+        (points  : option<seq<V3d>>)
+        (regInfo : RegressionInfo3d) =
+
         let center = regInfo.Center
 
-        let inline n v = Json.Number (decimal v)
+        let inline n v =
+            Json.Number (decimal v)
+
+        let x1 = regInfo.Normal |> Vec.cross up
+        let rake = x1 |> Vec.dot regInfo.Axis1 |> acos
+
+        //let dip = (regInfo.Normal.Z / regInfo.Normal.Length) |> acos
+        //let strike = ((regInfo.Normal.X / regInfo.Normal.Y) - (Math.PI / 2.0)) |> atan
+        //Log.line "dip export reg %A std %A" (dip |> degrees) dns.dipAngle
+        //Log.line "strike export reg %A std %A" (strike |> degrees) dns.strikeAzimuth
+
+        //let strike = regInfo.Normal.X / regInfo.Normal.Y
 
         Json.Object (
             Map.ofList [
@@ -42,7 +60,7 @@ module AttitudeExport =
 
                 "strike", n dns.strikeAzimuth
                 "dip", n dns.dipAngle
-                "rake", n Double.NaN
+                "rake", n rake
 
                 "disabled", Json.Bool false
 
@@ -58,27 +76,35 @@ module AttitudeExport =
             ]
         )   
 
-    let tryToJson (dns : option<DipAndStrikeResults>) (name : option<string>) (uid : string) (points : seq<V3d>) =
+    let tryToJson (dns : option<DipAndStrikeResults>) (name : option<string>) (uid : string) (up : V3d) (points : seq<V3d>) =
         match dns with
         | Some d -> 
             match d.regressionInfo with 
             | Some r -> 
-                (toJson d (name) (Some uid) (Some (points)) r) |> Some
+                (toJson d (name) (Some uid) up (Some (points)) r) |> Some
             | None -> 
-                Log.warn "[Attitude] annotation %A does not have dns results with regression info" uid
-                None
+                let linRegression = points |> Seq.toArray |> LinearRegression3d.create 
+
+                Log.warn "[Attitude] annotation %A does not have regression info, recomputing" uid
+                let d' = { d with regressionInfo = linRegression }
+                match d'.regressionInfo with 
+                | Some r1 -> 
+                    (toJson d' (name) (Some uid) up (Some (points)) r1) |> Some                
+                | None ->
+                    Log.warn "[Attitude] recomputation failed %A" uid
+                    None
         | None -> 
             Log.warn "[Attitude] annotation %A does not have dns results" uid
             None
 
-    let writeAttitudeJson (path:string) (annotations : list<Annotation>) : unit = 
+    let writeAttitudeJson (path:string) (up : V3d) (annotations : list<Annotation>) : unit = 
 
         if path.IsEmpty() then ()
         
         let attitudePlanes =
             annotations
             |> List.choose (fun x -> 
-                tryToJson x.dnsResults (Some "blurg") (x.key.ToString()) (x.points |> IndexList.toSeq)
+                tryToJson x.dnsResults (Some x.text) (x.key.ToString()) up (x.points |> IndexList.toSeq)
             )
             //|> List.map(fun x ->
              

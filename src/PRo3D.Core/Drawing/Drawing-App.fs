@@ -432,7 +432,7 @@ module DrawingApp =
                 |> List.map snd
                 |> List.filter(fun a -> a.visible)
 
-            AttitudeExport.writeAttitudeJson path annotations
+            AttitudeExport.writeAttitudeJson path (smallConfig.up.Get(bigConfig)) annotations
 
             model
         | LegacySaveVersioned, _,_ ->
