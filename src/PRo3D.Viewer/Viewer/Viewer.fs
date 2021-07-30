@@ -1758,7 +1758,8 @@ module ViewerApp =
                  HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation
 
 
-             [exploreCenter; refSystem; viewPlans; homePosition; solText; heightValidation] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
+             [exploreCenter; refSystem; viewPlans; homePosition; solText; heightValidation] 
+                |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
          let minervaSg =
              let minervaFeatures = 
