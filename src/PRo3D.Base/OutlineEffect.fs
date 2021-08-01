@@ -87,7 +87,7 @@ module OutlineEffect =
                 do! DefaultSurfaces.sgColor
             }
         
-        [ mask; outline ] |> Sg.ofList
+        [ outline ;mask  ] |> Sg.ofList
  
     let createForLine 
         (points: aval<V3d[]>) 

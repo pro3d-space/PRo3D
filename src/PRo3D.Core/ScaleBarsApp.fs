@@ -43,7 +43,8 @@ module ScaleBarsDrawing =
         | SetPivot mode ->
             { model with alignment = mode } 
         | SetLength a -> 
-            { model with length = Numeric.update model.length a }
+            let rLength = Numeric.update model.length a
+            { model with length = { rLength with value = Math.Round(rLength.value) } }
         | _-> model
 
     module UI =
@@ -69,6 +70,9 @@ module ScaleBarProperties =
         | SetOrientation of Orientation
         | SetUnit        of PRo3D.Core.Unit
         | SetSubdivisions of Numeric.Action
+        | TogglePriority
+        | ToggleShowPivot
+        | SetPivotSize   of Numeric.Action
 
     let update (model : ScaleBar) (act : Action) =
         match act with
@@ -81,9 +85,9 @@ module ScaleBarProperties =
         | ToggleVisible ->
             { model with isVisible = not model.isVisible }
         | SetLength a ->
-            let length' =  Numeric.update model.length a
-            let text' = length'.value.ToString() + model.unit.ToString()
-            { model with length = length'; text = text'}
+            let rLength = Numeric.update model.length a
+            let text' = Math.Round(rLength.value).ToString() + model.unit.ToString()
+            { model with length = { rLength with value = Math.Round(rLength.value) }; text = text'}
         | SetThickness a ->
             { model with thickness = Numeric.update model.thickness a}
         | SetOrientation mode ->
@@ -93,6 +97,12 @@ module ScaleBarProperties =
             { model with unit = mode; text = text'} 
         | SetSubdivisions a ->
             { model with subdivisions = Numeric.update model.subdivisions a}
+        | TogglePriority ->
+            { model with priority = not model.priority }
+        | ToggleShowPivot ->
+            { model with showPivot = not model.showPivot }
+        | SetPivotSize a ->
+            { model with pivotSize = Numeric.update model.pivotSize a}
           
     let view (model : AdaptiveScaleBar) =        
       require GuiEx.semui (
@@ -106,6 +116,9 @@ module ScaleBarProperties =
           Html.row "Subdivisions:"  [Numeric.view' [NumericInputType.InputBox]   model.subdivisions  |> UI.map SetSubdivisions ]
           Html.row "Orientation:"   [Html.SemUi.dropDown model.orientation SetOrientation]
           Html.row "Unit:"          [Html.SemUi.dropDown model.unit SetUnit]
+          Html.row "Priority:"      [GuiEx.iconCheckBox model.priority TogglePriority ]
+          Html.row "PivotVisible:"  [GuiEx.iconCheckBox model.showPivot ToggleShowPivot ]
+          Html.row "PivotSize:"     [Numeric.view' [NumericInputType.InputBox]   model.pivotSize  |> UI.map SetPivotSize ]
           //Html.row "Pivot:"         [Html.SemUi.dropDown model.alignment SetPivot]
         ]
       )
@@ -154,6 +167,20 @@ module ScaleBarUtils =
             | Pivot.Middle -> position - direction.Normalized * length * 0.5
             |_-> position
 
+    //let getTextpos = 
+    //    adaptive {
+    //        let! orientation = scaleBar.orientation
+    //        let! view = scaleBar.view
+    //        let direction = ScaleBarUtils.getDirectionVec orientation view
+    //        let! alignment = scaleBar.alignment
+    //        let! position = scaleBar.position
+    //        let! length = scaleBar.length.value
+
+    //        match alignment with
+    //        | Pivot.Left -> position - 
+    //        | Pivot.Right ->
+    //        | Pivot.Middle ->
+    //    }
 
     let getSegments 
         (position : V3d) 
@@ -198,6 +225,7 @@ module ScaleBarUtils =
             let direction = getDirectionVec drawing.orientation view
             let segments = getSegments position length direction drawing.alignment ((int)subdivisions.value)
             let text = drawing.length.value.ToString() + drawing.unit.ToString()
+            let thickness = length / 20.0
 
             {
                 version         = ScaleBar.current
@@ -213,10 +241,14 @@ module ScaleBarUtils =
                 scSegments      = segments
                 orientation     = drawing.orientation
                 alignment       = drawing.alignment //Pivot.Left
-                thickness       = InitScaleBarsParams.thickness
+                thickness       = InitScaleBarsParams.thickness thickness
                 length          = drawing.length //{InitScaleBarsParams.length with value = length} //
                 unit            = drawing.unit
                 subdivisions    = subdivisions
+                priority        = true
+
+                showPivot       = true
+                pivotSize       = InitScaleBarsParams.pivot
                 
                 view            = view //FreeFlyController.initial.view
                 transformation  = Init.transformations
@@ -530,6 +562,9 @@ module ScaleBarsApp =
 
                 let text = 
                     Sg.text view near (AVal.constant 60.0) scaleBar.position trafo scaleBar.textsize.value scaleBar.text
+
+                let drawingPosition =
+                    Sg.dot (AVal.constant C4b.Yellow) (AVal.constant 3.0)  scaleBar.position
                 
                 // do this for all lineparts
                 let sgSegments = 
@@ -546,12 +581,13 @@ module ScaleBarsApp =
                     if selected then
                         OutlineEffect.createForLineOrPoint vm PRo3D.Base.OutlineEffect.Line (AVal.constant C4b.VRVisGreen) scaleBar.thickness.value 3.0 RenderPass.main trafo points
                     else Sg.empty
-                    
+
                         
                 return Sg.ofList [
-                        selectionSg //|> Sg.dynamic
-                        sgSegments
                         text
+                        drawingPosition
+                        sgSegments
+                        selectionSg //|> Sg.dynamic
                     ] |> Sg.onOff scaleBar.isVisible
                 
             } |> Sg.dynamic
@@ -560,77 +596,128 @@ module ScaleBarsApp =
             (scaleBar   : AdaptiveScaleBar) 
             (view       : aval<CameraView>)
             (near       : aval<float>)
-            (selected   : aval<Option<Guid>>) =
+            (selected   : aval<Option<Guid>>) 
+            (priority   : bool) =
 
             adaptive {
                 
-                let! selected' = selected
-                let selected =
-                    match selected' with
-                    | Some sel -> sel = (scaleBar.guid |> AVal.force)
-                    | None -> false
+                let! sbPriority = scaleBar.priority
+                if sbPriority = priority then
+                    let! selected' = selected
+                    let selected =
+                        match selected' with
+                        | Some sel -> sel = (scaleBar.guid |> AVal.force)
+                        | None -> false
 
             
-                let trafo =
-                    adaptive {
-                        let! pos = scaleBar.position
-                        return (Trafo3d.Translation pos)
-                    }
+                    let trafo =
+                        adaptive {
+                            let! pos = scaleBar.position
+                            return (Trafo3d.Translation pos)
+                        }
 
-                let text = 
-                    Sg.text view near (AVal.constant 60.0) scaleBar.position trafo scaleBar.textsize.value scaleBar.text
-                    |> Sg.onOff scaleBar.textVisible
+                    let textpos = 
+                        adaptive {
+                            let! orientation = scaleBar.orientation
+                            let! view = scaleBar.view
+                            let direction = ScaleBarUtils.getDirectionVec orientation view
+                            let! alignment = scaleBar.alignment
+                            let! position = scaleBar.position
 
-                let pickFunc = Sg.pickEventsHelper scaleBar.guid (AVal.constant selected) scaleBar.thickness.value trafo
+                            match alignment with
+                            | Pivot.Left   -> return position - direction.Normalized * 0.25
+                            | Pivot.Right  -> return position + direction.Normalized *0.25
+                            | Pivot.Middle -> return position - view.Forward *0.25
+                            | _            -> return position
+                        }
+
+                    let textTrafo =
+                        adaptive {
+                            let! pos = textpos
+                            return (Trafo3d.Translation pos)
+                        }
+               
+                    let pivot =
+                        Sg.dot (AVal.constant C4b.Yellow) scaleBar.pivotSize.value scaleBar.position
+                        |> Sg.onOff scaleBar.showPivot
+
+                    let text = 
+                        Sg.text view near (AVal.constant 60.0) textpos textTrafo scaleBar.textsize.value scaleBar.text
+                        |> Sg.onOff scaleBar.textVisible
+
+                    let pickFunc = Sg.pickEventsHelper scaleBar.guid (AVal.constant selected) scaleBar.thickness.value trafo
+            
+                    // do this for all lineparts
+                    let sgSegments = 
+                        scaleBar.scSegments 
+                        |> AList.map( fun seg -> getSgSegmentCylinder seg scaleBar.thickness.value ) 
+                        |> AList.toASet
+                        |> Sg.set
                
             
-                // do this for all lineparts
-                let sgSegments = 
-                    scaleBar.scSegments 
-                    |> AList.map( fun seg -> getSgSegmentCylinder seg scaleBar.thickness.value ) 
-                    |> AList.toASet
-                    |> Sg.set
-               
-            
-                // add picking
-                //let applicator =
-                //    test 
-                //    |> Sg.pickable' ((pickableContent points edges trafo pickingTolerance) |> AVal.map Pickable.ofShape)
+                    // add picking
+                    //let applicator =
+                    //    test 
+                    //    |> Sg.pickable' ((pickableContent points edges trafo pickingTolerance) |> AVal.map Pickable.ofShape)
 
-                //(applicator :> ISg) 
-                //|> Sg.noEvents
-                //|> Sg.withEvents [ pickFunc edges ]
-                //|> Sg.trafo trafo
+                    //(applicator :> ISg) 
+                    //|> Sg.noEvents
+                    //|> Sg.withEvents [ pickFunc edges ]
+                    //|> Sg.trafo trafo
                              
-                let selectionSg = 
-                    if selected then
-                        let cylinder = 
-                            scaleBar.scSegments 
-                            |> AList.map( fun seg -> getSgSegmentCylinderMask seg scaleBar.thickness.value ) 
-                            |> AList.toASet
-                            |> Sg.set
-                        OutlineEffect.createForSg 2 RenderPass.main C4f.VRVisGreen cylinder
-                    else Sg.empty
+                    let selectionSg = 
+                        if selected then
+                            let cylinder = 
+                                scaleBar.scSegments 
+                                |> AList.map( fun seg -> getSgSegmentCylinderMask seg scaleBar.thickness.value ) 
+                                |> AList.toASet
+                                |> Sg.set
+                            OutlineEffect.createForSg 2 RenderPass.main C4f.VRVisGreen cylinder
+                        else Sg.empty
                 
                     
-                return Sg.ofList [
-                        selectionSg //|> Sg.dynamic
-                        sgSegments
-                        text
-                    ] |> Sg.onOff scaleBar.isVisible
+                    return Sg.ofList [
+                            //text
+                            pivot
+                            
+                            sgSegments
+                            selectionSg //|> Sg.dynamic
+                            text
+                        ] |> Sg.onOff scaleBar.isVisible
+                else
+                    return Sg.empty
             
             } |> Sg.dynamic
 
+        let getPriorityScaleBars
+            (priority : bool)
+            (scaleBars : amap<Guid,AdaptiveScaleBar>) =
+                seq {
+                    let test =
+                        scaleBars 
+                        |> AMap.toASet
+                        |> ASet.toAList
+                        |> AList.map snd 
+                        |> AList.map( fun x -> x.priority
+                                                |> AVal.map(fun pr -> match (pr = priority) with
+                                                                        | true ->  Some x
+                                                                        | false -> None
+                                                                )
+                                                        )
+                    yield test
+                } 
+                |> AList.concat
+
         let view 
-            (scaleBarsModel : AdaptiveScaleBarsModel) 
+            (scaleBarsModel : AdaptiveScaleBarsModel)
             (view : aval<CameraView>)
+            (priority : bool)
             (mbigConfig : 'ma)
-            (minnerConfig : MInnerConfig<'ma>)
-            (refsys : AdaptiveReferenceSystem) =
+            (minnerConfig : MInnerConfig<'ma>) =
 
             let near      = minnerConfig.getNearDistance   mbigConfig
 
-            let scaleBars = scaleBarsModel.scaleBars
+            let scaleBars = scaleBarsModel.scaleBars //|> getPriorityScaleBars priority
             let selected = scaleBarsModel.selectedScaleBar
 
             let test =
@@ -641,9 +728,11 @@ module ScaleBarsApp =
                         //refsys
                         near
                         selected
-                    )
+                        priority
+                    ) 
                     |> AMap.toASet 
-                    |> ASet.map snd 
+                    |> ASet.map snd
+                    
                     |> Sg.set
                   
             test

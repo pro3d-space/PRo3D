@@ -112,6 +112,11 @@ type ScaleBar = {
     unit            : Unit //Formatting.Len //
     subdivisions    : NumericInput
 
+    showPivot       : bool
+    pivotSize       : NumericInput
+
+    priority        : bool
+
     view            : CameraView
     transformation  : Transformations
     preTransform    : Trafo3d
@@ -126,10 +131,94 @@ type ScaleBarDrawing = {
     unit            : Unit //Formatting.Len //
 }
 
+module InitScaleBarsParams =
+
+    let translationInput = {
+        value   = 0.0
+        min     = -10000000.0
+        max     = 10000000.0
+        step    = 0.01
+        format  = "{0:0.00}"
+    }
+
+    let yaw = {
+        value   = 0.0
+        min     = -180.0
+        max     = +180.0
+        step    = 0.01
+        format  = "{0:0.00}"
+    }
+
+    let initTranslation (v : V3d) = {
+        x     = { translationInput with value = v.X }
+        y     = { translationInput with value = v.Y }
+        z     = { translationInput with value = v.Z }
+        value = v    
+    }
+
+    let transformations = {
+        version              = Transformations.current
+        useTranslationArrows = false
+        translation          = initTranslation (V3d.OOO)
+        trafo                = Trafo3d.Identity
+        yaw                  = yaw
+        pivot                = V3d.Zero
+        flipZ                = false
+    }
+
+    let thickness (current : float) = {
+        value   = current //0.03
+        min     = 0.001
+        max     = 1.0
+        step    = 0.001
+        format  = "{0:0.000}"
+    }
+
+    let length = {
+        value   = 1.0
+        min     = 0.0
+        max     = 10000.0
+        step    = 1.0
+        format  = "{0:0}"
+    }
+    
+    let text = {
+        value   = 0.05
+        min     = 0.001
+        max     = 5.0
+        step    = 0.001
+        format  = "{0:0.000}"
+    }
+
+    let subdivisions = {
+        value   = 5.0
+        min     = 1.0
+        max     = 1000.0
+        step    = 1.0
+        format  = "{0:0}"
+    }
+
+    let pivot = {
+        value   = 7.0
+        min     = 0.1
+        max     = 15.0
+        step    = 0.1
+        format  = "{0:0.0}"
+    }
+
+    let initialScaleBarDrawing = {
+        orientation     = Orientation.Horizontal
+        alignment       = Pivot.Left
+        thickness       = thickness (length.value/20.0)
+        length          = length
+        unit            = Unit.m //Formatting.Len length.value
+    }
+
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module ScaleBar =    
     
-    let current = 0   
+    let current = 1   
     let read0 =
         json {
             let! guid            = Json.read "guid"
@@ -177,6 +266,72 @@ module ScaleBar =
                     length          = length   
                     unit            = unit |> enum<Unit> //Unit
                     subdivisions    = subdivisions
+                    priority        = true
+
+                    showPivot       = true
+                    pivotSize       = InitScaleBarsParams.pivot
+
+                    view            = view
+                    transformation  = transformation
+                    preTransform    = preTransform |> Trafo3d.Parse
+                }
+        }
+
+    let read1 =
+        json {
+            let! guid            = Json.read "guid"
+            let! name            = Json.read "name"
+
+            let! text           = Json.read "text"
+            let! textSize       = Json.readWith Ext.fromJson<NumericInput,Ext> "textsize"
+            let! textVisible    = Json.read "textVisible"
+
+            let! isVisible       = Json.read "isVisible"
+            let! position        = Json.read "position"
+            //let! scSegments      = Json.read "scSegments"
+
+            let! orientation     = Json.read "orientation"
+            let! alignment       = Json.read "alignment"
+            let! thickness       = Json.readWith Ext.fromJson<NumericInput,Ext> "thickness"
+            let! length          = Json.readWith Ext.fromJson<NumericInput,Ext> "length"
+            let! unit            = Json.read "unit"
+            let! subdivisions    = Json.readWith Ext.fromJson<NumericInput,Ext> "subdivisions"
+            let! priority        = Json.read "priority"
+
+            let! showPivot       = Json.read "showPivot"
+            let! pivotSize       = Json.readWith Ext.fromJson<NumericInput,Ext> "pivotSize"
+            
+            let! (view : list<string>) = Json.read "view"
+            
+            let view = view |> List.map V3d.Parse
+            let view = CameraView(view.[0],view.[1],view.[2],view.[3], view.[4])
+
+            let! transformation  = Json.read "transformation"
+            let! preTransform    = Json.read "preTransform"
+
+            return 
+                {
+                    version       = current
+                    guid            = guid |> Guid
+                    name            = name
+                    
+                    text            = text      
+                    textsize        = textSize  
+                    textVisible     = textVisible
+
+                    isVisible       = isVisible
+                    position        = position |> V3d.Parse
+                    scSegments      = IndexList.empty //scSegments  |> Serialization.jsonSerializer.UnPickleOfString
+                    orientation     = orientation |> enum<Orientation>
+                    alignment       = alignment   |> enum<Pivot>
+                    thickness       = thickness     
+                    length          = length   
+                    unit            = unit |> enum<Unit> //Unit
+                    subdivisions    = subdivisions
+                    priority        = priority
+
+                    showPivot       = showPivot
+                    pivotSize       = pivotSize
 
                     view            = view
                     transformation  = transformation
@@ -190,6 +345,7 @@ type ScaleBar with
             let! v = Json.read "version"
             match v with 
             | 0 -> return! ScaleBar.read0
+            | 1 -> return! ScaleBar.read1
             | _ -> 
                 return! v 
                 |> sprintf "don't know version %A  of ScaleBar"
@@ -214,6 +370,10 @@ type ScaleBar with
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "length" x.length
             do! Json.write "unit" (x.unit |> int)
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "subdivisions" x.subdivisions
+            do! Json.write "priority" x.priority    
+
+            do! Json.write "showPivot" x.showPivot  
+            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "pivotSize" x.pivotSize
 
             let camView = x.view
             let camView = [camView.Sky; camView.Location; camView.Forward; camView.Up ; camView.Right] |> List.map(fun x -> x.ToString())      
@@ -275,82 +435,4 @@ type ScaleBarsModel with
             do! Json.write "selectedScaleBar"  x.selectedScaleBar
         }
 
-module InitScaleBarsParams =
 
-    let translationInput = {
-        value   = 0.0
-        min     = -10000000.0
-        max     = 10000000.0
-        step    = 0.01
-        format  = "{0:0.00}"
-    }
-
-    let yaw = {
-        value   = 0.0
-        min     = -180.0
-        max     = +180.0
-        step    = 0.01
-        format  = "{0:0.00}"
-    }
-
-    let initTranslation (v : V3d) = {
-        x     = { translationInput with value = v.X }
-        y     = { translationInput with value = v.Y }
-        z     = { translationInput with value = v.Z }
-        value = v    
-    }
-
-    let transformations = {
-        version              = Transformations.current
-        useTranslationArrows = false
-        translation          = initTranslation (V3d.OOO)
-        trafo                = Trafo3d.Identity
-        yaw                  = yaw
-        pivot                = V3d.Zero
-        flipZ                = false
-    }
-
-    let thickness = {
-        value   = 0.03
-        min     = 0.001
-        max     = 1.0
-        step    = 0.001
-        format  = "{0:0.000}"
-    }
-
-    let length = {
-        value   = 1.0
-        min     = 0.0
-        max     = 10000.0
-        step    = 1.0
-        format  = "{0:0}"
-    }
-    
-    let text = {
-        value   = 0.05
-        min     = 0.01
-        max     = 5.0
-        step    = 0.01
-        format  = "{0:0.00}"
-    }
-
-    let subdivisions = {
-        value   = 5.0
-        min     = 1.0
-        max     = 1000.0
-        step    = 1.0
-        format  = "{0:0}"
-    }
-
-    let initialScaleBarDrawing = {
-        orientation     = Orientation.Horizontal
-        alignment       = Pivot.Left
-        thickness       = thickness
-        length          = length
-        unit            = Unit.m //Formatting.Len length.value
-    }
-
-   
-
-
-   
