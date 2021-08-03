@@ -48,6 +48,20 @@ let main argv =
                 lodDecider       =  DefaultMetrics.mars2 
             }
 
+        let scene =
+            { 
+                useCompressedTextures = true
+                preTransform     = Trafo3d.Identity
+                patchHierarchies = 
+                        System.IO.Directory.GetDirectories(@"F:\pro3d\data\20200220_DinosaurQuarry2") 
+                        |> Seq.collect System.IO.Directory.GetDirectories
+                boundingBox      = Box3d.Parse("[[-15.699694740, 4.338130733, -0.514935397], [-4.960646670, 36.914955133, 5.004174588]]") 
+                near             = 0.1
+                far              = 10000.0
+                speed            = 5.0
+                lodDecider       =  DefaultMetrics.mars2 
+            }
+
         //let scene =
         //    { 
         //        useCompressedTextures = true
@@ -65,6 +79,7 @@ let main argv =
         Aardvark.Rendering.GL.Config.UseNewRenderTask <- true
 
         let annotations = @"I:\OPC\Shaler_OPCs_2019\crazy2.pro3d.ann"
+        let annotations = @"F:\pro3d\data\20200220_DinosaurQuarry2\strangetest.pro3d.ann"
         //let annotations = @"F:\pro3d\data\20200220_DinosaurQuarry2\notrafo.pro3d.ann"
 
         let annotations = 

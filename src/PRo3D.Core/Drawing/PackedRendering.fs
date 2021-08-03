@@ -517,25 +517,32 @@ module PackedRendering =
 
 
     let pickRenderTarget (runtime : IRuntime) (pickingTolerance : aval<float>) lines (view : aval<CameraView>) (frustum : aval<Frustum>) (viewport : aval<V2i>) =
-        let pickColors, pickDepth = 
+        let pickColors = 
             let signature =
                 runtime.CreateFramebufferSignature [
                     DefaultSemantic.Colors, { format = RenderbufferFormat.Rgba32f; samples = 1 }
                     DefaultSemantic.Depth, { format = RenderbufferFormat.Depth24Stencil8; samples = 1 }
                 ]
 
-            lines
-            |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
-            |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo) //(size |> AVal.map (fun s -> Frustum.perspective 20.0 0.01 10000.0 (s.X / s.Y)))
-            |> Sg.shader { 
-                  do! LineShader.noIndirectLineVertexPicking
-                  do! LineShader.thickLine
-                  do! PRo3D.Base.Shader.DepthOffset.depthOffsetFS 
-                  do! Picking.pickId
-            }
-            |> Sg.uniform "PickingTolerance" (pickingTolerance |> AVal.map (fun p -> p * 2.0))
-            |> Sg.compile runtime signature
-            |> RenderTask.renderToColorAndDepth viewport
+            let pickColors = 
+                lines
+                |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
+                |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo) //(size |> AVal.map (fun s -> Frustum.perspective 20.0 0.01 10000.0 (s.X / s.Y)))
+                |> Sg.shader { 
+                      do! LineShader.noIndirectLineVertexPicking
+                      do! LineShader.thickLine
+                      do! PRo3D.Base.Shader.DepthOffset.depthOffsetFS 
+                      do! Picking.pickId
+                }
+                |> Sg.uniform "PickingTolerance" (pickingTolerance |> AVal.map (fun p -> p * 2.0))
+                |> Sg.compile runtime signature
+
+            let cleared = RenderTask.ofList [
+                runtime.CompileClear(signature, C4f(0.0f,0.0f,0.0f,-1.0f))
+                pickColors
+            ] 
+
+            cleared |> RenderTask.renderToColor viewport
 
         pickColors
 

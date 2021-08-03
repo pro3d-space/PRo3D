@@ -533,14 +533,15 @@ module DrawingApp =
                        simple SceneEventKind.Move (fun (evt : SceneHit) -> 
                             try
                                 let r = pickRenderTarget.GetValue(AdaptiveToken.Top,RenderToken.Empty)
-                                let offset = evt.event.evtPixel
-                                let r = runtime.Download(r,0,0,Box2i.FromMinAndSize(offset, V2i(1,1))) |> unbox<PixImage<float32>>
+                                let offset = V2i(clamp 0 (r.Size.X - 1) evt.event.evtPixel.X, clamp 0 (r.Size.Y - 1) evt.event.evtPixel.Y)
+                                let box = Box2i.FromMinAndSize(offset, V2i(1,1))
+                                let r = runtime.Download(r, 0, 0, box) |> unbox<PixImage<float32>>
                                 let m = r.GetMatrix<C4f>()
                                 let allowed = pickingAllowed.GetValue()
                                 let p = m.[0,0]
                                 let id : int = floor p.A |> int //BitConverter.SingleToInt32Bits(p.A)
                                 let ids = pickIds.GetValue()
-                                if id > 0 && id < ids.Length  && allowed then
+                                if id >= 0 && id < ids.Length  && allowed then
                                     //Log.line "hoverhit %A" (id, ids.[id])
                                     transact (fun _ -> hoveredAnnotation.Value <- id)
                                     Seq.empty

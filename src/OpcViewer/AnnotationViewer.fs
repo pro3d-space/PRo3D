@@ -58,7 +58,7 @@ module AnnotationViewer =
         let points = points (model.selectedLeaves |> ASet.map (fun x -> x.id)) annoSet config.offset mv
         let lines, pickIds, bb = PackedRendering.linesNoIndirect config.offset hoveredAnnotation (picked |> AVal.map Option.toList |> ASet.ofAVal) annoSet mv
 
-        let pickColors, pickDepth = 
+        let pickColors = 
             //let size = AVal.constant (V2i(128,128))
             let size = win.Sizes
             let signature =
@@ -67,18 +67,25 @@ module AnnotationViewer =
                     DefaultSemantic.Depth, { format = RenderbufferFormat.Depth24Stencil8; samples = 1 }
                 ]
 
-            lines
-            |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
-            |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo) //(size |> AVal.map (fun s -> Frustum.perspective 20.0 0.01 10000.0 (s.X / s.Y)))
-            |> Sg.shader { 
-                  do! LineShader.noIndirectLineVertexPicking
-                  do! LineShader.thickLine
-                  do! PRo3D.Base.Shader.DepthOffset.depthOffsetFS 
-                  do! Picking.pickId
-            }
-            |> Sg.uniform "PickingTolerance" config.pickingTolerance
-            |> Sg.compile runtime signature
-            |> RenderTask.renderToColorAndDepth size
+            let pickColors = 
+                lines
+                |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
+                |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo) //(size |> AVal.map (fun s -> Frustum.perspective 20.0 0.01 10000.0 (s.X / s.Y)))
+                |> Sg.shader { 
+                      do! LineShader.noIndirectLineVertexPicking
+                      do! LineShader.thickLine
+                      do! PRo3D.Base.Shader.DepthOffset.depthOffsetFS 
+                      do! Picking.pickId
+                }
+                |> Sg.uniform "PickingTolerance" config.pickingTolerance
+                |> Sg.compile runtime signature
+
+            let cleared = RenderTask.ofList [
+                runtime.CompileClear(signature, C4f(0.0f,0.0f,0.0f,-1.0f))
+                pickColors
+            ] 
+
+            cleared |> RenderTask.renderToColor size
 
         if true then
             win.Mouse.Move.Values.Add(fun (o,p) -> 
@@ -108,7 +115,8 @@ module AnnotationViewer =
                     let p = m.[0,0]
                     let id : int = int (floor p.A) //BitConverter.SingleToInt32Bits(p.A)
                     let ids = pickIds.GetValue()
-                    if id > 0 && id < ids.Length then
+                    printfn "id: %A" id
+                    if id >= 0 && id < ids.Length then
                         Log.line "hit %A" (id, ids.[id])
                         transact (fun _ -> hoveredAnnotation.Value <- id)
                     else 
@@ -232,7 +240,7 @@ module AnnotationViewer =
 
         let serializer = FsPickler.CreateBinarySerializer()
 
-        let showSurface = false
+        let showSurface = true
 
         let sg = 
             if showSurface && runner.IsSome then
