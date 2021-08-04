@@ -5,7 +5,7 @@
   </PropertyGroup>
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
     <GenerateLenses>True</GenerateLenses>
   </PropertyGroup>
   
@@ -15,7 +15,7 @@
   
   <PropertyGroup Condition="$(InPublish)">
     <!-- this is replaced by build script-->
-    <PublishSingleFile>true</PublishSingleFile>
+    <!-- <PublishSingleFile>true</PublishSingleFile> -->
     <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
     <!--<PublishTrimmed>true</PublishTrimmed>-->
   </PropertyGroup>

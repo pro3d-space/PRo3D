@@ -597,6 +597,27 @@ module SurfaceApp =
             
                 let headerText = 
                     AVal.map2 (fun a b -> sprintf "%.0f|%s" a b) (s.priority.value) s.name
+
+
+                let folder = "todo" // help - how do i get scenePath here @ThomasOrtner - is this even possible?
+                    //s.Current |> AVal.map (fun sf  ->
+                    //    Files.getSurfaceFolder sf scenePath 
+                    //)
+                    //let surf = id |> SurfaceModel.getSurface model
+                    //match surf with
+                    //| Some s -> 
+                    //    match s with 
+                    //    | Leaf.Surfaces sf ->
+                    //        let path = Files.getSurfaceFolder sf scenePath
+                    //        match path with
+                    //        | Some p -> 
+                    //            Process.Start("explorer.exe", p) |> ignore
+                    //            model
+                    //        | None -> model
+                    //    | _ -> failwith "can only contain surfaces"
+                    //| None -> model
+
+                //[clientEvent "onclick" (sprintf "aardvark.electron.shell.showItemInFolder('%s');" (Helpers.escape path)) ] <---- this is the way to go for "reveal in explorer/finder"
             
                 let bgc = sprintf "color: %s" (Html.ofC4b c)
                 yield div [clazz "item"; style infoc] [

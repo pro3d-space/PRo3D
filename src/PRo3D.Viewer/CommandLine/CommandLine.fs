@@ -22,6 +22,8 @@ module CommandLine =
         Log.line @"--excentre                          show exploration centre"
         Log.line @"--refsystem                         show reference system"
         Log.line @"--noMagFilter                       turn off linear texture magnification filtering"
+        Log.line @"--runRemoteControl                  turn on remote control app"
+        Log.line @"--server                            do not spawn aardium browser"
                  
         Log.line @"--snap [path\snapshot.json]         path to a snapshot file containing camera views (old format)"
         Log.line @""
@@ -80,6 +82,8 @@ module CommandLine =
                 let renderDepth         = (argv |> hasFlag "renderDepth")
                 let useAsyncLoading     = (argv |> hasFlag "sync" |> not)
                 let startEmpty          = (argv |> hasFlag "empty")
+                let remoteApp           = (argv |> hasFlag "remoteControl")
+                let server              = (argv |> hasFlag "server") 
                 let magFilter           = not (argv |> hasFlag "noMagFilter")
                 let opcs = 
                     match oneOpc, manyOpcs with
@@ -110,9 +114,11 @@ module CommandLine =
                     | _, _ -> None, None, true
                 Log.line "[Arguments] Exit on finish%s" (b2str exitOnFinish)
                 Log.line "[Arguments] Render depth%s" (b2str renderDepth)
+                Log.line "[Arguments] Server mode: %s" (b2str server)
                 Log.line "[Arguments] Using linear magnification filtering%s" (b2str magFilter)
                 Log.line "[Arguments] Show exploration centre%s" (b2str showExplorationCentre)
                 Log.line "[Arguments] Show reference system%s" (b2str showReferenceSystem)
+                Log.line "[Arguments] Remote control app%s" (b2str remoteApp)
                 Log.line "[Arguments] Output folder: %s" outFolder
                 let args = 
                     match ok with
@@ -135,6 +141,8 @@ module CommandLine =
                             startEmpty            = startEmpty
                             useAsyncLoading       = false
                             magnificationFilter   = magFilter
+                            remoteApp             = remoteApp
+                            serverMode            = server
                         }
                     | None -> 
                         Log.line "[Arguments] Starting PRo3D in GUI-Mode."
@@ -154,6 +162,8 @@ module CommandLine =
                             startEmpty            = startEmpty
                             useAsyncLoading       = useAsyncLoading
                             magnificationFilter   = false
+                            remoteApp             = false
+                            serverMode            = server
                         }
                 args
             sargs

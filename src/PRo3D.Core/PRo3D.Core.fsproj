@@ -10,11 +10,6 @@
     <InPublish>False</InPublish>
   </PropertyGroup>
 
-  <PropertyGroup Condition="$(InPublish)">
-    <!-- this is replaced by build script-->
-    <PublishSingleFile>true</PublishSingleFile>
-    <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
-  </PropertyGroup>
   
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>..\..\bin\Debug\</OutputPath>

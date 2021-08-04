@@ -26,11 +26,12 @@ do Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 let notes = ReleaseNotes.load "RELEASE_NOTES.md"
 printfn "%A" notes
 
-let outDirs = [ @"bin\Debug\netcoreapp3.1"; @"bin\Release\netcoreapp3.1"]
+let outDirs = [ @"bin\Debug\netcoreapp3.1"; @"bin\Release\netcoreapp3.1";  @"bin\Release\net5.0";  @"bin\Debug\net5.0"; ]
 let resources = 
     [
         //"lib\Dependencies\PRo3D.Base\windows"; // currently handled by native dependency injection mechanism 
         //"lib/groupmappings"
+        //"./lib/Native/JR.Wrappers/mac/"
     ]
 
 
@@ -169,13 +170,26 @@ Target.create "Publish" (fun _ ->
     // 1. publish exe
     "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
         { o with
-            Framework = Some "netcoreapp3.1"
+            Framework = Some "net5.0"
             Runtime = Some "win10-x64"
             Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=true -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
             Configuration = DotNet.BuildConfiguration.Release
             VersionSuffix = Some notes.NugetVersion
-            OutputPath = Some "bin/publish"
+            OutputPath = Some "bin/publish/win-x64"
+        }
+    )
+
+    // 1. publish exe
+    "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
+        { o with
+            Framework = Some "net5.0"
+            Runtime = Some "osx-x64"
+            Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
+            //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
+            Configuration = DotNet.BuildConfiguration.Release
+            VersionSuffix = Some notes.NugetVersion
+            OutputPath = Some "bin/publish/mac-x64"
         }
     )
 
@@ -188,25 +202,27 @@ Target.create "Publish" (fun _ ->
     //    File.Copy(dll, Path.Combine("bin/publish/",fileName))
 
     // 2, copy licences
-    File.Copy("CREDITS.MD", "bin/publish/CREDITS.MD", true)
+    File.Copy("CREDITS.MD", "bin/publish/win-x64/CREDITS.MD", true)
+    File.Copy("CREDITS.MD", "bin/publish/mac-x64/CREDITS.MD", true)
 
     // 3, resources (currently everything included)
     // copyResources ["bin/publish"] 
     
+    if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX)   then ()
+    else
+        let url = sprintf "https://www.nuget.org/api/v2/package/Aardium-Win32-x64/%s" aardiumVersion
+        printf "url: %s" url
+        let tempFile = Path.GetTempFileName()
+        use c = new System.Net.WebClient()
+        c.DownloadFile(url, tempFile)
+        use a = new ZipArchive(File.OpenRead tempFile)
+        let t = Path.GetTempPath()
+        let tempPath = Path.Combine(t, Guid.NewGuid().ToString())
+        a.ExtractToDirectory(tempPath)
+        let target = Path.Combine("bin", "publish")
+        Shell.copyDir (Path.Combine(target,"tools")) (Path.Combine(tempPath,"tools")) (fun _ -> true)
 
-    let url = sprintf "https://www.nuget.org/api/v2/package/Aardium-Win32-x64/%s" aardiumVersion
-    printf "url: %s" url
-    let tempFile = Path.GetTempFileName()
-    use c = new System.Net.WebClient()
-    c.DownloadFile(url, tempFile)
-    use a = new ZipArchive(File.OpenRead tempFile)
-    let t = Path.GetTempPath()
-    let tempPath = Path.Combine(t, Guid.NewGuid().ToString())
-    a.ExtractToDirectory(tempPath)
-    let target = Path.Combine("bin", "publish")
-    Shell.copyDir (Path.Combine(target,"tools")) (Path.Combine(tempPath,"tools")) (fun _ -> true)
-
-    File.Move("bin/publish/PRo3D.Viewer.exe", sprintf "bin/publish/PRo3D.Viewer.%s.exe" notes.NugetVersion)
+        File.Move("bin/publish/PRo3D.Viewer.exe", sprintf "bin/publish/PRo3D.Viewer.%s.exe" notes.NugetVersion)
 )
 
 "Credits" ==> "Publish"
