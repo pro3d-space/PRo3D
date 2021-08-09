@@ -1,3 +1,7 @@
+## 4.0.0-prerelease2
+
+mac support
+
 ## 4.0.0-prerelease1
 
 mac support
