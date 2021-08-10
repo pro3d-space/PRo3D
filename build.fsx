@@ -172,7 +172,7 @@ Target.create "Publish" (fun _ ->
         { o with
             Framework = Some "net5.0"
             Runtime = Some "win10-x64"
-            Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=true -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
+            Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
             Configuration = DotNet.BuildConfiguration.Release
             VersionSuffix = Some notes.NugetVersion
@@ -205,6 +205,10 @@ Target.create "Publish" (fun _ ->
     File.Copy("CREDITS.MD", "bin/publish/win-x64/CREDITS.MD", true)
     File.Copy("CREDITS.MD", "bin/publish/mac-x64/CREDITS.MD", true)
 
+    File.Copy("data/runtime/vcruntime140.dll", "bin/publish/win-x64/vcruntime140.dll")
+    File.Copy("data/runtime/vcruntime140_1.dll", "bin/publish/win-x64/vcruntime140_1.dll")
+    File.Copy("data/runtime/msvcp140.dll", "bin/publish/win-x64/msvcp140.dll")
+
     // 3, resources (currently everything included)
     // copyResources ["bin/publish"] 
     
@@ -220,9 +224,10 @@ Target.create "Publish" (fun _ ->
         let tempPath = Path.Combine(t, Guid.NewGuid().ToString())
         a.ExtractToDirectory(tempPath)
         let target = Path.Combine("bin", "publish")
-        Shell.copyDir (Path.Combine(target,"tools")) (Path.Combine(tempPath,"tools")) (fun _ -> true)
+        Shell.copyDir (Path.Combine(target, "mac-x64", "tools")) (Path.Combine(tempPath, "tools")) (fun _ -> true)
+        Shell.copyDir (Path.Combine(target, "win-x64", "tools")) (Path.Combine(tempPath, "tools")) (fun _ -> true)
 
-        File.Move("bin/publish/PRo3D.Viewer.exe", sprintf "bin/publish/PRo3D.Viewer.%s.exe" notes.NugetVersion)
+        File.Move("bin/publish/win-x64/PRo3D.Viewer.exe", sprintf "bin/publish/win-x64/PRo3D.Viewer.%s.exe" notes.NugetVersion)
 )
 
 "Credits" ==> "Publish"
@@ -336,7 +341,7 @@ Target.create "GitHubRelease" (fun _ ->
 
         //let files = System.IO.Directory.EnumerateFiles("bin/publish") 
         let release = sprintf "bin/PRo3D.Viewer.%s.zip" notes.NugetVersion
-        let z = System.IO.Compression.ZipFile.CreateFromDirectory("bin/publish", release)
+        //let z = System.IO.Compression.ZipFile.CreateFromDirectory("bin/publish", release)
 
         GitHub.createClientWithToken token
         |> GitHub.draftNewRelease "vrvis" "PRo3D" notes.NugetVersion (notes.SemVer.PreRelease <> None) notes.Notes
@@ -355,7 +360,7 @@ Target.create "GitHubRelease" (fun _ ->
 do System.Diagnostics.Debugger.Launch() |> ignore
 #endif
 
-"Publish" ==> "GithubRelease"
+//"Publish" ==> "GithubRelease"
 
 entry()
 

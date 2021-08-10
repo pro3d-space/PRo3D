@@ -67,7 +67,7 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "4.0.0-prerelease1"
+let viewerVersion       = "4.0.0-prerelease2"
 let catchDomainErrors   = false
 
 open System.IO
@@ -108,15 +108,14 @@ let main argv =
             Log.warn "could not detect os platform.. assuming linux"
             System.Environment.GetCommandLineArgs().[0]
     
-    printf "executeablePath: %s" executeablePath
+    printf "ExecuteablePath: %s" executeablePath
 
-    System.Environment.CurrentDirectory <- Path.GetDirectoryName executeablePath
-
+    let asdfasdf= typeof<Aardvark.SceneGraph.IO.Loader.Animation>.IsAutoLayout;
+    Aardvark.Base.IntrospectionProperties.BundleEntryPoint <- executeablePath
 
     // does not work for self-containted publishes'
     //let selfPath = System.Environment.GetCommandLineArgs().[0]
-    let selfPath = executeablePath
-    let workingDirectory =  selfPath |> Path.GetDirectoryName
+    let workingDirectory =  executeablePath |> Path.GetDirectoryName
     if Directory.Exists workingDirectory then
         Log.line "setting current directory to: %s" workingDirectory
         System.Environment.CurrentDirectory <- workingDirectory
@@ -130,7 +129,7 @@ let main argv =
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
     
 
-    Log.line "path: %s" selfPath
+    Log.line "path: %s, current dir: %s" executeablePath System.Environment.CurrentDirectory
     Config.colorPaletteStore <- Path.combine [appData; "favoriteColors.js"]
     Log.line "Color palette favorite colors are stored here: %s" Config.colorPaletteStore
 
@@ -148,7 +147,7 @@ let main argv =
     if not startupArgs.serverMode then
         let aardiumPath = 
             try
-                let ass = selfPath |> Path.GetDirectoryName
+                let ass = workingDirectory
                 if os = OSPlatform.Windows then
                     let exe = Path.Combine(ass, "tools", "Aardium.exe")
                     Log.line "exists? %s" exe
