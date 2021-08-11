@@ -89,9 +89,15 @@ let getFreePort() =
 [<EntryPoint;STAThread>]
 let main argv = 
 
+    // ensure appdata is here
+    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create) |> printfn "ApplicationData: %s"
+    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.Create) |> printfn "LocalApplicationData: %s"
+
+
     let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
     Config.configPath <- appData
 
+    if not (Directory.Exists appData) then  ignore (Directory.CreateDirectory appData)
     let logFilePath = Path.Combine(appData, "PRo3D.log")
     Aardvark.Base.Report.LogFileName <- logFilePath
     Log.line "Running with AppData: %s" appData
