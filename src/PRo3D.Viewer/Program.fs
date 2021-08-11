@@ -110,8 +110,8 @@ let main argv =
     
     printf "ExecuteablePath: %s" executeablePath
 
-    let asdfasdf= typeof<Aardvark.SceneGraph.IO.Loader.Animation>.IsAutoLayout;
-    Aardvark.Base.IntrospectionProperties.BundleEntryPoint <- executeablePath
+    //let asdfasdf= typeof<Aardvark.SceneGraph.IO.Loader.Animation>.IsAutoLayout;
+    //Aardvark.Base.IntrospectionProperties.BundleEntryPoint <- executeablePath
 
     // does not work for self-containted publishes'
     //let selfPath = System.Environment.GetCommandLineArgs().[0]

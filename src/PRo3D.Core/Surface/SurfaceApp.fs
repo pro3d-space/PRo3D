@@ -26,6 +26,7 @@ open PRo3D.Core
 open PRo3D.Core.Surface
 
 open Adaptify.FSharp.Core
+open Aardvark.Base.Coder
 
 type SurfaceAppAction =
 | SurfacePropertiesMessage  of SurfaceProperties.Action
@@ -85,6 +86,19 @@ module SurfaceUtils =
     module ObjectFiles =        
         open Aardvark.Geometry
         
+        let saveKdTree (path, kdTree : Aardvark.Geometry.KdIntersectionTree) =
+            // serialize
+            use stream = new MemoryStream()
+            use coder = new BinaryWritingCoder(stream)
+            coder.CodeT(ref kdTree)
+            
+            // write to file
+            use fileStream = File.Create(path)
+            //stream.Position <- int64 0
+            stream.Seek(int64 0, SeekOrigin.Begin) |> ignore
+            stream.CopyTo(fileStream)
+            fileStream.Close ()
+
         //TODO TO use loadObject from master
         let loadObject (surface : Surface) : SgSurface =
             Log.line "[OBJ] Please wait while the OBJ file is being loaded." 
@@ -117,7 +131,7 @@ module SurfaceUtils =
                                 KdIntersectionTree.BuildFlags.MediumIntersection + KdIntersectionTree.BuildFlags.Hierarchical) //|> PRo3D.Serialization.save kdTreePath                  
                         Log.stop()
                         
-                        //saveKdTree (kdPath, tree) |> ignore   // CHECK-merge
+                        saveKdTree (kdPath, tree) |> ignore
                         
                         let kd : KdTrees.LazyKdTree = {
                             kdTree        = Some (tree.ToConcreteKdIntersectionTree());
@@ -137,7 +151,7 @@ module SurfaceUtils =
                     |> Serialization.save kdTreePath
                 
                 else
-                  Serialization.loadAs<List<Box3d*KdTrees.Level0KdTree>> kdTreePath
+                    Serialization.loadAs<List<Box3d*KdTrees.Level0KdTree>> kdTreePath
                     |> List.map(fun kd -> 
                         match kd with 
                         | _, KdTrees.Level0KdTree.InCoreKdTree tree -> (tree.boundingBox, (KdTrees.Level0KdTree.InCoreKdTree tree))
