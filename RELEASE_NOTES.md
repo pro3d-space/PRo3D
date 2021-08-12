@@ -1,4 +1,4 @@
-## 4.0.0-beta1
+## 4.0.0-prerelease3
 
 - added missing c libs on windows
 

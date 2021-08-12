@@ -67,7 +67,7 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "4.0.0-prerelease2"
+let viewerVersion       = "4.0.0-prerelease3"
 let catchDomainErrors   = false
 
 open System.IO
@@ -91,6 +91,8 @@ let main argv =
 
     let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
     Config.configPath <- appData
+
+    if not (Directory.Exists appData) then Directory.CreateDirectory(appData) |> ignore
 
     let logFilePath = Path.Combine(appData, "PRo3D.log")
     Aardvark.Base.Report.LogFileName <- logFilePath
