@@ -553,7 +553,7 @@ module DrawingApp =
                        Sg.onMouseDown (fun b p -> 
                             let id = hoveredAnnotation.GetValue()
                             let ids = pickIds.GetValue()
-                            if id > 0 && id < ids.Length then
+                            if id >= 0 && id < ids.Length then
                                 Log.line "clickhit %A" (id, ids.[id])
                                 DrawingAction.PickDirectly(ids.[id])
                             else 

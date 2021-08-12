@@ -1,6 +1,14 @@
+## 4.0.0-prerelease3
+
+- added missing c libs on windows
+
+## 4.0.0-prerelease2
+
+- mac support
+
 ## 4.0.0-prerelease1
 
-mac support
+- mac support
 
 ## 3.8.0-prerelease3
 

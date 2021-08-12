@@ -1,0 +1,10 @@
+TF(0001)
+Settings
+(
+	ModuleName("InternationalisationRegistry")
+	Language("Default")
+	BaseModules(  )
+)
+Translations
+(
+)

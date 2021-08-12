@@ -1,0 +1,702 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- This file provides all information required to simulate platform sensors and instruments in platform reference frame.
+    As actually the exact ExoMars Rover calibration isn't available, yet, the specifications in this file are based on measurements in a CAD model of the rover (EXM ROVER MODULE R27 SIMPLIFIED.stl, partly directly measured using 3D Tool.exe, partly scaled measures in printed rover profiles). The accuracy of the measures is estimated to be about +/- 2cm.
+    The ExoMars rover platform can be equipped with ANY (also non-ExoMars Rover) instruments for simulation purposes!
+    -->
+            
+<InstrumentPlatform type="InstrumentPlatformInitFile" version="2">
+
+    <!-- Meta info describing the mission and the units of the data -->
+    <GeneralData>
+        <Mission>ExoMars</Mission>
+        <Platform>ExoMarsRover_VariousCameras</Platform>
+        <CoordinateSystem>Cartesian</CoordinateSystem>
+        <CoordinatesUnit>Meter</CoordinatesUnit>
+        <AngleUnit>Gon</AngleUnit> 
+        <CCDUnit>Pixel</CCDUnit>
+    </GeneralData>
+    
+    <Platform>
+        <ReferenceFrame>RB</ReferenceFrame>
+        <!-- coordinates of platform wheels/stands etc. touching the ground in platform frame (only relevant for platform simulation/placement in a 3D scene, e.g. using PRo3D) -->
+        <PointsOnGround>(0.556, 0.78, -0.312), (0.045, 0.78, -0.312), (-0.588, 0.78, -0.312), (0.556, -0.78, -0.312), (0.045, -0.78, -0.312), (-0.588, -0.78, -0.312)</PointsOnGround>
+        <BoundingBox>
+            <Origin>-0.880, -0.810, -0.312</Origin>
+            <!-- edge vectors indicate direction and length of a bounding box's edge */ -->
+            <Edge1>1.760, 0.000, 0.000</Edge1>
+            <Edge2>0.000, 1.620, 0.000</Edge2>
+            <Edge3>0.000, 0.000, 0.960</Edge3>
+        </BoundingBox>
+        <VrmlFile></VrmlFile>
+		<VrmlScale></VrmlScale>
+    </Platform>
+    
+    <ReferenceFrames>
+        <RB>
+            <!-- Rover Body coordinate system (RB) is defined in D21.5100.1 "ExoMars PanCam Geometric Calibration Document Version 1.0" by JR as follows:
+                •	The origin is located in the lander baseplate surface and at the geometric centre of the Rover vehicle hold down points.
+                •	The x-axis lies in the direction of travel.
+                •	The z-axis lies vertically upwards, with contrary sign to the gravity vector.
+                •	The y-axis is perpendicular to the other axes (right-handed system) and lies left to the Rover. -->
+            <ParentFrame>
+                <!-- 
+                Depending on the usage of the IntrumentPlatform.dll, the parent frame of the highest level platform-fixed refence frame can vary:
+                a) Usage for interactive platform placement in PRo3D: parent frame = Ground frame as defined below
+                b) Usage for instrument / platform simulation independent of PRo3D: parent frame can be defined by a transformation handed over as function parameter; see InstrumentPlatform.h for details
+                -->
+                
+                <!-- The ground frame is per definition a right hand coordinate system, located at a user selected point on the surface. The positive orientation of the x-axis is defined by the platform LookAt vector, the perpendicular Up vector describes the positive direction of the z-axis. The ground frame can be used for platform simulation/placement in a 3D scene, e.g. using PRo3D. -->
+                <Name>Ground</Name>
+                <!-- 4x4 matrix (row-major affine transformation) from reference to parent frame -->
+                <HelmertTransf>(1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0.312, 1)</HelmertTransf>
+            </ParentFrame>                
+        </RB>
+        
+        <PTU>
+            <!-- PTU frame (PTU) is defined in D21.5100.1 "ExoMars PanCam Geometric Calibration Document Version 1.0" by JR as follows:
+                The OB will be mounted on top of the Pan and Tilt Unit (PTU), at the top of the mast. The coordinate system of the PTU is described as follows:
+                •	The origin of the PTU is located just below the Pan and Tilt Mechanism (PTM) and it is defined by the intersection of the Pan axis (vertical axis) and the Tilt axis (horizontal axis). This intersection will be fixed w.r.t. the top of the mast for the case that the axes do not intersect.
+                •	The PTU z-axis will be parallel to the Pan axis of rotation (vertical upwards).
+                •	The PTU y-axis will be parallel to the Tilt axis of rotation (horizontal sideways).
+                •	The PTU x-axis will complete the orthogonal right-handed set (horizontal).
+                The Pan and Tilt angles are then defined by the Euler rotations, where Pan is the first rotation (around the z-axis), Tilt is the second rotation (around the y axis), and there is no possibility for rotation around the x-axis. The geometrical relationship between the OB and the PTU can nominally be described as a linear translation between frames when the values of Pan and Tilt angles are zero. Otherwise (due to construction errors), this relationship will be described by a 3d Helmert transformation, consisting of a translation vector and a rotation matrix (scale factor equal 1). 
+                -->
+            <ParentFrame>
+                <Name>RB</Name>
+                <!-- 4x4 matrix (row-major affine transformation) from reference to parent frame -->            
+                <!-- <HelmertTransf>(1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0.185, 0.00, 1.764, 1)</HelmertTransf> -->
+                <HelmertTransf>(1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0.185, 0.00, 2.000, 1)</HelmertTransf>
+            </ParentFrame>    
+            <DegreesOfFreedom>
+                <Rotation>
+                    <Identifier>Pan Axis</Identifier>
+                    <Description>vertical axis</Description>
+                    <!-- 3D coordinates of the first point of the axis -->
+                    <XYZ1>0.000, 0.000, -0.400</XYZ1> 
+                    <!-- 3D coordinates of the second point of the axis -->
+                    <XYZ2>0.000, 0.000, 0.000</XYZ2>
+                    <!-- Rotation range of axis (gon) -->
+                    <Range>0, 400</Range>
+                </Rotation>
+            </DegreesOfFreedom>
+        </PTU>
+        
+        <SB>
+            <!-- Stereo bench reference frame (SB) is defined in D21.5100.1 "ExoMars PanCam Geometric Calibration Document Version 1.0" by JR as follows:
+                The OB (optical bench) will accommodate three cameras: WACL, WACR, HRC. For this purpose, the WACs and HRC will be mounted with their optical axes on a horizontal reference plane and the WACs´ optical axes will be physically co-aligned with the HRC optical axis . The coordinate system of the OB (stereo bench reference Frame, SB) is attached to the stereo WACs and is defined as follows:
+                •	The origin is located at the middle of the segment linking the optical centres of the left and right WACs.
+                •	The direction of the y-axis is defined by this linking segment.
+                •	The x-axis is the projection  of the left WAC optical axis on the plane perpendicular to the y-axis that goes through the origin.
+                •	The z-axis completes the orthogonal, right-handed set. -->
+            <ParentFrame>
+                <Name>PTU</Name>
+                <!-- 4x4 matrix (row-major affine transformation) from reference to parent frame -->            
+                <HelmertTransf>(1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1)</HelmertTransf>
+            </ParentFrame>   
+            <DegreesOfFreedom>
+                <Rotation>                  
+                    <Identifier>Tilt Axis</Identifier>
+                    <Description>horizontal axis</Description>
+                    <!-- 3D coordinates of the first point of the axis -->
+                    <XYZ1>0.000, 0.25, 0.000</XYZ1>
+                    <!-- 3D coordinates of the second point of the axis -->
+                    <XYZ2>0.000, -0.25, 0.000</XYZ2> 
+                    <!-- Rotation range of axis (gon) -->
+                    <Range>-115.56, 100</Range>
+                </Rotation>                    
+            </DegreesOfFreedom>
+        </SB>
+
+        <WACL_PanCam> 
+            <!-- WACL frame is to be defined:
+                • +Z axis:
+                • +X axis:
+                • +Y axis:
+                • the origin of this frame is located -->
+            <ParentFrame>
+                <Name>SB</Name>
+                <!-- 4x4 matrix (row-major affine transformation) from reference to parent frame. PanCam WAC baseline: 0.5m. -->            
+                <HelmertTransf>(1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0.000, 0.250, 0.000, 1)</HelmertTransf>
+            </ParentFrame>                 
+        </WACL_PanCam>
+                
+        <WACL_AUPE>
+            <!-- WACL frame is to be defined:
+                • +Z axis:
+                • +X axis:
+                • +Y axis:
+                • the origin of this frame is located -->
+            <ParentFrame>
+                <Name>SB</Name>
+                <!-- 4x4 matrix (row-major affine transformation) from reference to parent frame -->            
+                <HelmertTransf>(1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0.000, 0.247, 0.000, 1)</HelmertTransf>
+            </ParentFrame>                 
+        </WACL_AUPE>
+        
+        <MSL_Mastcam-100>
+            <!-- MSL_Mastcam-100 frame is to be defined:
+                • +Z axis:
+                • +X axis:
+                • +Y axis:
+                • the origin of this frame is located -->
+            <ParentFrame>
+                <Name>SB</Name>
+                <!-- 4x4 matrix (row-major affine transformation) from reference to parent frame. SL Mastcam baseline: ~24.5 cm -->          
+                <HelmertTransf>(1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0.000, 0.1225, 0.000, 1)</HelmertTransf>
+            </ParentFrame>                 
+        </MSL_Mastcam-100>        
+        
+        <MastcamZL>
+            <!-- MSL_Mastcam-100 frame is to be defined:
+                • +Z axis:
+                • +X axis:
+                • +Y axis:
+                • the origin of this frame is located -->
+            <ParentFrame>
+                <Name>SB</Name>
+                <!-- 4x4 matrix (row-major affine transformation) from reference to parent frame. SL Mastcam baseline: ~24.5 cm -->          
+                <HelmertTransf>(1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0.000, 0.1225, 0.000, 1)</HelmertTransf>
+            </ParentFrame>                 
+        </MastcamZL>
+        
+    </ReferenceFrames>    
+    
+    <Instruments>
+        <!-- EXM PanCam WACs & HRC: information on PanCam sensors' calibration taken from:
+        PanCam on the ExoMars 2018 Rover: A Stereo, Multispectral and High-Resolution Camera System to Investigate the Surface of Mars. N. Schmitz, R. Jaumann, A.J. Coates, A.D. Griffiths, C.E. Leff, B.K. Hancock, J.-L. Josset, D.P. Barnes, L. Tyler, M. Gunn, G. Paar, A. Bauer, C.R. Cousins, F. Trauthan, H. Michaelis, H. Mosebach, S. Gutruf, A. Koncz, B. Pforte, J. Kachlicki, R. Terzer & the ExoMars PanCam team. -->
+        
+        <!-- PanCam WACL (calibration estimates) -->
+        <WACL_PanCam>
+            <!-- PanCam WAC camera specifications: 
+            Sensor Resolution: 1024x1024. focal length: 22mm. focus range: 0.85m-infinity. filters: 11 (available center-wavelength for ExoMars PanCam: Blue C01 640 nm, Green C02 540 nm, Red C03 440 nm), monochrome imager. FoV: 32.28° (35.87gon). sensor size (derived from focal legth, resolution & FoV): ~12.73um.
+                estimated (not calibrated!) FocalLengthPx: derived from FoV and sensor size (in px): 1769.2
+                estimated (not calibrated!) Principal Point: Resolution/2 = 512x512 -->
+            <Intrinsics>
+                <!-- image dimensions in px (PRo3D: for correct image size rendering) -->
+                <Resolution>1024, 1024</Resolution>
+                <ZoomStep>
+                    <!-- focal length in mm (PRo3D: as user information) -->
+                    <FocalLength>22</FocalLength>
+                    <Filter>
+                        <!-- filter id -->
+                        <FilterID>all</FilterID> 
+                        <!-- focal lengths per pixel (PRo3D: optional/not used) -->
+                        <FocalLengthPx>1769.2, 1769.2</FocalLengthPx>
+                        <!-- angle (gon) for camera horizontal FoV-->
+                        <HorizontalFoV>35.87</HorizontalFoV>
+                        <!-- angle (gon) for camera vertical FoV--> 
+                        <VerticalFoV>35.87</VerticalFoV> 
+                        <!-- pixel coordinates of the principal point -->
+                        <PrinciplePoint>512, 512</PrinciplePoint>
+                        <GeometricDistortion>
+                            <Method></Method>
+                            <!-- tangential & radial distortion coefficients -->
+                            <Coefficients></Coefficients>
+                        </GeometricDistortion>
+                    </Filter>
+                </ZoomStep>
+            </Intrinsics>
+            <RelativeOrientation>
+                <ReferenceFrame>WACL_PanCam</ReferenceFrame>
+                <!-- 3D camera coordinates (meters) -->
+                <XYZPosition>0.000, 0.000, 0.000</XYZPosition> 
+                <!-- 3D components of the camera up vector -->            
+                <CamUpVector>0.000, 0.000, 1.000</CamUpVector>
+                <!-- 3D components of the camera look at vector -->
+                <CamLookAtVector>1.000, 0.000, 0.000</CamLookAtVector>
+                <BoundingBox>
+                    <Origin>-0.050, -0.025, -0.025</Origin>
+                    <!-- edge vectors indicate direction and length of a bounding box's edge */ -->
+                    <Edge1>0.100, 0.000, 0.000</Edge1>
+                    <Edge2>0.000, 0.050, 0.000</Edge2>
+                    <Edge3>0.000, 0.000, 0.050</Edge3>
+                </BoundingBox>
+            </RelativeOrientation>
+        </WACL_PanCam>
+    
+        <!-- PanCam WACR (calibration estimates) -->
+        <WACR_PanCam>
+            <!-- PanCam WAC camera specifications: 
+            Sensor Resolution: 1024x1024. focal length: 22mm. focus range: 0.85m-infinity. filters: 11 (available center-wavelength for ExoMars PanCam: Blue C01 640 nm, Green C02 540 nm, Red C03 440 nm), monochrome imager. FoV: 32.28° (35.87gon). sensor size (derived from focal legth, resolution & FoV): ~12.73um.
+                estimated (not calibrated!) FocalLengthPx: derived from FoV and sensor size (in px): 1769.2
+                estimated (not calibrated!) Principal Point: Resolution/2 = 512x512 -->
+            <Intrinsics>
+                <!-- image dimensions in px (PRo3D: for correct image size rendering) -->
+                <Resolution>1024, 1024</Resolution>
+                <ZoomStep>
+                    <!-- focal length in mm (PRo3D: as user information) -->
+                    <FocalLength>22</FocalLength>
+                    <Filter>
+                        <!-- filter id -->
+                        <FilterID>all</FilterID> 
+                        <!-- focal lengths per pixel (PRo3D: optional/not used) -->
+                        <FocalLengthPx>1769.2, 1769.2</FocalLengthPx>
+                        <!-- angle (gon) for camera horizontal FoV-->
+                        <HorizontalFoV>35.87</HorizontalFoV>
+                        <!-- angle (gon) for camera vertical FoV--> 
+                        <VerticalFoV>35.87</VerticalFoV> 
+                        <!-- pixel coordinates of the principal point -->
+                        <PrinciplePoint>512, 512</PrinciplePoint>
+                        <GeometricDistortion>
+                            <Method></Method>
+                            <!-- tangential & radial distortion coefficients -->
+                            <Coefficients></Coefficients>
+                        </GeometricDistortion>
+                    </Filter>
+                </ZoomStep>
+            </Intrinsics>
+            <RelativeOrientation>
+                <ReferenceFrame>WACL_PanCam</ReferenceFrame>
+                <!-- 3D camera coordinates (meters) -->
+                <XYZPosition>0.000, -0.500, 0.000</XYZPosition> 
+                <!-- 3D components of the camera up vector -->            
+                <CamUpVector>0.000, 0.000, 1.000</CamUpVector>
+                <!-- 3D components of the camera look at vector -->
+                <CamLookAtVector>1.000, 0.000, 0.000</CamLookAtVector>
+                <BoundingBox>
+                    <Origin>-0.050, -0.525, -0.025</Origin>
+                    <!-- edge vectors indicate direction and length of a bounding box's edge */ -->
+                    <Edge1>0.100, 0.000, 0.000</Edge1>
+                    <Edge2>0.000, 0.050, 0.000</Edge2>
+                    <Edge3>0.000, 0.000, 0.050</Edge3>
+                </BoundingBox>
+            </RelativeOrientation>
+        </WACR_PanCam>
+        
+        <!-- PanCam HRC (calibration estimates) -->
+        <HRC_PanCam>
+            <!-- PanCam HRC camera specifications: 
+            Sensor Resolution: 1024x1024. Pixel size: ~15um. Sensor size: 15.35x15.35mm. focal length: ~180mm (auto focus). focus range: 0.98m-infinity. aperture: f/16. FoV: 4.88°(5.42gon). filters: RGB (monochrome imager). -->
+            <Intrinsics>
+                <!-- image dimensions in px (PRo3D: for correct image size rendering) -->
+                <Resolution>1024, 1024</Resolution>
+                <ZoomStep>
+                    <!-- focal length in mm (PRo3D: as user information) -->
+                    <FocalLength>180</FocalLength>
+                    <Filter>
+                        <!-- filter id -->
+                        <FilterID>RGB</FilterID>
+                        <!-- focal lengths per pixel (PRo3D: optional/not used) -->
+                        <FocalLengthPx>12015.0, 12015.0</FocalLengthPx>
+                        <!-- angle (gon) for camera horizontal FoV-->
+                        <HorizontalFoV>5.42</HorizontalFoV>
+                        <!-- angle (gon) for camera vertical FoV--> 
+                        <VerticalFoV>5.42</VerticalFoV>
+                        <!-- pixel coordinates of the principal point -->
+                        <PrinciplePoint>512.000, 512.000</PrinciplePoint>
+                        <GeometricDistortion>
+                            <Method></Method><!-- OpenCV, etc. -->
+                            <!-- tangential & radial distortion coefficients -->
+                            <Coefficients></Coefficients>
+                        </GeometricDistortion>
+                    </Filter>
+                </ZoomStep>
+            </Intrinsics>
+            <RelativeOrientation>
+                <ReferenceFrame>WACL_PanCam</ReferenceFrame>
+                <!-- 3D camera coordinates (meters) -->
+                <XYZPosition>0.000, -0.400, 0.000</XYZPosition> 
+                <!-- 3D components of the camera up vector -->            
+                <CamUpVector>0.000, 0.000, 1.000</CamUpVector>
+                <!-- 3D components of the camera look at vector -->
+                <CamLookAtVector>1.000, 0.000, 0.000</CamLookAtVector>
+                <BoundingBox>
+                    <Origin>-0.050, -0.425, -0.025</Origin>
+                    <!-- edge vectors indicate direction and length of a bounding box's edge */ -->
+                    <Edge1>0.100, 0.000, 0.000</Edge1>
+                    <Edge2>0.000, 0.050, 0.000</Edge2>
+                    <Edge3>0.000, 0.000, 0.050</Edge3>
+                </BoundingBox>
+            </RelativeOrientation>
+        </HRC_PanCam>
+        
+        <!-- Left Wide Angle Camera (AUPE), as calibrated during SAFER field trial in Chile -->        
+        <WACL_AUPE>
+            <!-- AUPE WAC camera specifications: 
+            Sensor Resolution: 2452 x 2056. Pixel size: 3.54um. Sensor size: 8.45x7.09mm. focal length: 12mm. aperture: f/1.4. field of view: 39°x33°. -->
+            <Intrinsics>
+                <!-- image dimensions in px (PRo3D: for correct image size rendering) -->
+                <Resolution>1024, 1024</Resolution><!-- binning! -->
+                <ZoomStep>
+                    <!-- focal length in mm (PRo3D: as user information) -->
+                    <FocalLength>12</FocalLength>
+                    <Filter>
+                        <!-- filter id -->
+                        <FilterID>all</FilterID> 
+                        <!-- focal lengths per pixel (PRo3D: optional/not used) -->
+                        <FocalLengthPx>1382.911, 1382.911</FocalLengthPx>
+                        <!-- angle (gon) for camera horizontal FoV-->
+                        <HorizontalFoV>37.000</HorizontalFoV> <!-- adapted with respect to reduced sensor size due to binning & cut offs for AUPE -->
+                        <!-- angle (gon) for camera vertical FoV--> 
+                        <VerticalFoV>37.000</VerticalFoV> <!-- adapted with respect to reduced sensor size due to binning & cut offs for AUPE -->
+                        <!-- pixel coordinates of the principal point -->
+                        <PrinciplePoint>512, 512</PrinciplePoint>
+                        <GeometricDistortion>
+                            <Method></Method>
+                            <!-- tangential & radial distortion coefficients -->
+                            <Coefficients></Coefficients>
+                        </GeometricDistortion>
+                    </Filter>
+                </ZoomStep>
+            </Intrinsics>
+            <RelativeOrientation>
+                <ReferenceFrame>WACL_AUPE</ReferenceFrame>
+                <!-- 3D camera coordinates (meters) -->
+                <XYZPosition>0.000, 0.000, 0.000</XYZPosition> 
+                <!-- 3D components of the camera up vector -->            
+                <CamUpVector>0.000, 0.000, 1.000</CamUpVector>
+                <!-- 3D components of the camera look at vector -->
+                <CamLookAtVector>1.000, 0.000, 0.000</CamLookAtVector>
+                <BoundingBox>
+                    <Origin>-0.050, -0.025, -0.025</Origin>
+                    <!-- edge vectors indicate direction and length of a bounding box's edge */ -->
+                    <Edge1>0.100, 0.000, 0.000</Edge1>
+                    <Edge2>0.000, 0.050, 0.000</Edge2>
+                    <Edge3>0.000, 0.000, 0.050</Edge3>
+                </BoundingBox>
+            </RelativeOrientation>
+        </WACL_AUPE>
+        
+        <!-- Right Wide Angle Camera (AUPE), as calibrated during SAFER field trial in Chile -->
+        <WACR_AUPE>
+            <!-- AUPE WAC camera specifications: 
+            Sensor Resolution: 2452 x 2056. Pixel size: 3.54um. Sensor size: 8.45x7.09mm. focal length: 12mm. aperture: f/1.4. field of view: 39°x33°. -->
+            <Intrinsics>
+                <!-- image dimensions in px (PRo3D: for correct image size rendering) -->
+                <Resolution>1024, 1024</Resolution><!-- binning! -->
+                <ZoomStep>
+                    <!-- focal length in mm (PRo3D: as user information) -->
+                    <FocalLength>12</FocalLength>
+                    <Filter>
+                        <!-- filter id -->
+                        <FilterID>all</FilterID> 
+                        <!-- focal lengths per pixel (PRo3D: optional/not used) -->
+                        <FocalLengthPx>1382.911, 1382.911</FocalLengthPx>
+                        <!-- angle (gon) for camera horizontal FoV-->
+                        <HorizontalFoV>37.000</HorizontalFoV> <!-- adapted with respect to reduced sensor size due to binning & cut offs for AUPE -->
+                        <!-- angle (gon) for camera vertical FoV--> 
+                        <VerticalFoV>37.000</VerticalFoV> <!-- adapted with respect to reduced sensor size due to binning & cut offs for AUPE -->
+                        <!-- pixel coordinates of the principal point -->
+                        <PrinciplePoint>512, 512</PrinciplePoint>
+                        <GeometricDistortion>
+                            <Method></Method><!--  -->
+                            <!-- tangential & radial distortion coefficients -->
+                            <Coefficients></Coefficients>
+                        </GeometricDistortion>                        
+                    </Filter>
+                </ZoomStep>
+            </Intrinsics>
+            <RelativeOrientation>
+                <ReferenceFrame>WACL_AUPE</ReferenceFrame>
+                <!-- 3D camera coordinates (meters) -->
+                <XYZPosition>0.000, -0.494, 0.000</XYZPosition> 
+                <!-- 3D components of the camera up vector -->            
+                <CamUpVector>0.000, 0.000, 1.000</CamUpVector>
+                <!-- 3D components of the camera look at vector -->
+                <CamLookAtVector>1.000, 0.000, 0.000</CamLookAtVector>
+                <BoundingBox>
+                    <Origin>-0.050, -0.519, -0.025</Origin>
+                    <!-- edge vectors indicate direction and length of a bounding box's edge */ -->
+                    <Edge1>0.100, 0.000, 0.000</Edge1>
+                    <Edge2>0.000, 0.050, 0.000</Edge2>
+                    <Edge3>0.000, 0.000, 0.050</Edge3>
+                </BoundingBox>
+            </RelativeOrientation>
+        </WACR_AUPE>
+        
+        <!-- High Resolution Camera (AUPE), as calibrated during SAFER field trial in Chile -->
+        <HRC_AUPE>
+            <!-- AUPE HRC camera specifications: 
+            Sensor Resolution: 1388 x 1038. Pixel size: 4.65um. Sensor size: 6.45x4.83mm. focal length: 17-102mm. aperture: f/2. field of view: variable. -->
+            <Intrinsics>
+                <!-- image dimensions in px (PRo3D: for correct image size rendering) -->
+                <Resolution>1024, 1024</Resolution>
+                <ZoomStep>
+                    <!-- focal length in mm (PRo3D: as user information) -->
+                    <FocalLength>75</FocalLength>
+                    <Filter>
+                        <!-- filter id -->
+                        <FilterID>RGB</FilterID>
+                        <!-- focal lengths per pixel (PRo3D: optional/not used) -->
+                        <FocalLengthPx>12700.664, 12700.664</FocalLengthPx>
+                        <!-- angle (gon) for camera horizontal FoV-->
+                        <HorizontalFoV>4.03917</HorizontalFoV>
+                        <!-- angle (gon) for camera vertical FoV--> 
+                        <VerticalFoV>4.03917</VerticalFoV>
+                        <!-- pixel coordinates of the principal point -->
+                        <PrinciplePoint>450.000, 400.000</PrinciplePoint>
+                        <GeometricDistortion>
+                            <Method></Method><!-- OpenCV, etc. -->
+                            <!-- tangential & radial distortion coefficients -->
+                            <Coefficients></Coefficients>
+                        </GeometricDistortion>
+                    </Filter>
+                </ZoomStep>
+            </Intrinsics>
+            <RelativeOrientation>
+                <ReferenceFrame>WACL_AUPE</ReferenceFrame>
+                <!-- 3D camera coordinates (meters) -->
+                <XYZPosition>0.000, -0.394, 0.000</XYZPosition> 
+                <!-- 3D components of the camera up vector -->            
+                <CamUpVector>0.000, 0.000, 1.000</CamUpVector>
+                <!-- 3D components of the camera look at vector -->
+                <CamLookAtVector>1.000, 0.000, 0.000</CamLookAtVector>
+                <BoundingBox>
+                    <Origin>-0.050, -0.419, -0.025</Origin>
+                    <!-- edge vectors indicate direction and length of a bounding box's edge */ -->
+                    <Edge1>0.100, 0.000, 0.000</Edge1>
+                    <Edge2>0.000, 0.050, 0.000</Edge2>
+                    <Edge3>0.000, 0.000, 0.050</Edge3>
+                </BoundingBox>
+            </RelativeOrientation>
+        </HRC_AUPE>
+
+        <!-- MastcamZL -->
+        <MastcamZL>
+             <!-- original MastcamZ camera specifications: 
+            Sensor Resolution: 1600 x 1200 (FoV covered area: 1600x1200 ToBeChecked!). Pixel size: 7.4um. focus range: 1-2m to infinity. Sensor size: 11.84x8.88mm. focal length: 28 - 100mm. aperture: f/8 - f/10. field of view: 23x18° - 6x5° (26.5x20gon - 7.53x5.65gon). 8 Filter steps plus visually clear for RGB (Bayer pattern).
+            Information taken from: MASTCAM-Z: A GEOLOGIC, STEREOSCOPIC, AND MULTISPECTRAL INVESTIGATION ON THE NASA MARS-2020 ROVER. J. F. Bell, J. N. Maki, G.L. Mehall, M.A. Ravine, M.A. Caplinger, and the Mastcam-Z Science Team. -->
+            <Intrinsics>
+                <!-- image dimensions in px (PRo3D: for correct image size rendering) -->
+                <Resolution>1600, 1200</Resolution>
+                <ZoomStep>
+                    <!-- focal length in mm (PRo3D: as user information) -->
+                    <FocalLength>28</FocalLength>
+                    <Filter>
+                        <!-- filter id -->
+                        <FilterID>RGB (visually clear)</FilterID>
+                        <!-- focal lengths per pixel (PRo3D: optional/not used) -->
+                        <FocalLengthPx>3790, 3790</FocalLengthPx>
+                        <!-- angle (gon) for camera horizontal FoV (PRo3D: viewing frustrum) -->
+                        <HorizontalFoV>26.49</HorizontalFoV>
+                        <!-- angle (gon) for camera vertical FoV (PRo3D: viewing frustrum) --> 
+                        <VerticalFoV>19.99</VerticalFoV> 
+                        <!-- pixel coordinates of the principal point -->
+                        <PrinciplePoint>800, 600</PrinciplePoint> <!-- estimated -->
+                        <GeometricDistortion>
+                            <Method></Method> <!-- OpenCV, etc. -->
+                            <!-- tangential & radial distortion coefficients -->
+                            <Coefficients></Coefficients>
+                        </GeometricDistortion>
+                    </Filter>
+                </ZoomStep>
+                <ZoomStep>
+                    <!-- focal length in mm (PRo3D: as user information) -->
+                    <FocalLength>100</FocalLength>
+                    <Filter>
+                        <!-- filter id -->
+                        <FilterID>RGB (visually clear)</FilterID>
+                        <!-- focal lengths per pixel (PRo3D: optional/not used) -->
+                        <FocalLengthPx>13500, 13500</FocalLengthPx>
+                        <!-- angle (gon) for camera horizontal FoV (PRo3D: viewing frustrum) -->
+                        <HorizontalFoV>7.54</HorizontalFoV>
+                        <!-- angle (gon) for camera vertical FoV (PRo3D: viewing frustrum) --> 
+                        <VerticalFoV>5.66</VerticalFoV> 
+                        <!-- pixel coordinates of the principal point -->
+                        <PrinciplePoint>800, 600</PrinciplePoint> <!-- estimated -->
+                        <GeometricDistortion>
+                            <Method></Method> <!-- OpenCV, etc. -->
+                            <!-- tangential & radial distortion coefficients -->
+                            <Coefficients></Coefficients>
+                        </GeometricDistortion>
+                    </Filter>
+                </ZoomStep>
+            </Intrinsics>
+            <RelativeOrientation>
+                <ReferenceFrame>MastcamZL</ReferenceFrame>
+                <!-- 3D camera coordinates (meters) -->
+                <XYZPosition>0.000, 0.000, 0.000</XYZPosition> 
+                <!-- 3D components of the camera up vector -->            
+                <CamUpVector>0.000, 0.000, 1.000</CamUpVector>
+                <!-- 3D components of the camera look at vector -->
+                <CamLookAtVector>1.000, 0.000, 0.000</CamLookAtVector>
+                <BoundingBox>
+                    <Origin>-0.050, -0.025, -0.025</Origin>
+                    <!-- edge vectors indicate direction and length of a bounding box's edge */ -->
+                    <Edge1>0.100, 0.000, 0.000</Edge1>
+                    <Edge2>0.000, 0.050, 0.000</Edge2>
+                    <Edge3>0.000, 0.000, 0.050</Edge3>
+                </BoundingBox>
+            </RelativeOrientation>
+        </MastcamZL>
+        
+        <!-- MastcamZR -->
+        <MastcamZR>
+             <!-- original MastcamZ camera specifications see above with MastcamZL -->
+            <Intrinsics>
+                <!-- image dimensions in px (PRo3D: for correct image size rendering) -->
+                <Resolution>1600, 1200</Resolution>
+                <ZoomStep>
+                    <!-- focal length in mm (PRo3D: as user information) -->
+                    <FocalLength>28</FocalLength>
+                    <Filter>
+                        <!-- filter id -->
+                        <FilterID>RGB (visually clear)</FilterID>
+                        <!-- focal lengths per pixel (PRo3D: optional/not used) -->
+                        <FocalLengthPx>3790, 3790</FocalLengthPx>
+                        <!-- angle (gon) for camera horizontal FoV (PRo3D: viewing frustrum) -->
+                        <HorizontalFoV>26.49</HorizontalFoV>
+                        <!-- angle (gon) for camera vertical FoV (PRo3D: viewing frustrum) --> 
+                        <VerticalFoV>19.99</VerticalFoV> 
+                        <!-- pixel coordinates of the principal point -->
+                        <PrinciplePoint>800, 600</PrinciplePoint> <!-- estimated -->
+                        <GeometricDistortion>
+                            <Method></Method> <!-- OpenCV, etc. -->
+                            <!-- tangential & radial distortion coefficients -->
+                            <Coefficients></Coefficients>
+                        </GeometricDistortion>
+                    </Filter>
+                </ZoomStep>
+                <ZoomStep>
+                    <!-- focal length in mm (PRo3D: as user information) -->
+                    <FocalLength>100</FocalLength>
+                    <Filter>
+                        <!-- filter id -->
+                        <FilterID>RGB (visually clear)</FilterID>
+                        <!-- focal lengths per pixel (PRo3D: optional/not used) -->
+                        <FocalLengthPx>13500, 13500</FocalLengthPx>
+                        <!-- angle (gon) for camera horizontal FoV (PRo3D: viewing frustrum) -->
+                        <HorizontalFoV>7.54</HorizontalFoV>
+                        <!-- angle (gon) for camera vertical FoV (PRo3D: viewing frustrum) --> 
+                        <VerticalFoV>5.66</VerticalFoV> 
+                        <!-- pixel coordinates of the principal point -->
+                        <PrinciplePoint>800, 600</PrinciplePoint> <!-- estimated -->
+                        <GeometricDistortion>
+                            <Method></Method> <!-- OpenCV, etc. -->
+                            <!-- tangential & radial distortion coefficients -->
+                            <Coefficients></Coefficients>
+                        </GeometricDistortion>
+                    </Filter>
+                </ZoomStep>
+            </Intrinsics>
+            <RelativeOrientation>
+                <ReferenceFrame>MastcamZL</ReferenceFrame>
+                <!-- 3D camera coordinates (meters) -->
+                <XYZPosition>0.000, -0.245, 0.000</XYZPosition> 
+                <!-- 3D components of the camera up vector -->
+                <CamUpVector>0.000, 0.000, 1.000</CamUpVector>
+                <!-- 3D components of the camera look at vector -->
+                <CamLookAtVector>1.000, 0.000, 0.000</CamLookAtVector>
+                <BoundingBox>
+                    <Origin>-0.050, -0.270, -0.025</Origin>
+                    <!-- edge vectors indicate direction and length of a bounding box's edge */ -->
+                    <Edge1>0.100, 0.000, 0.000</Edge1>
+                    <Edge2>0.000, 0.050, 0.000</Edge2>
+                    <Edge3>0.000, 0.000, 0.050</Edge3>
+                </BoundingBox>
+            </RelativeOrientation>
+        </MastcamZR>
+        
+        <!-- MSL Mastcam 100mm -->        
+        <MSL_Mastcam-100>
+             <!-- original MSL Mastcam left camera specifications: 
+            Sensor Resolution: 1600 x 1200 (FoV covered area: 1200x1200). Pixel size: 7.4um. focus range: 2.1m-infinity. Sensor size: 11.84x8.88mm. focal length: 100mm. aperture: f/10. field of view: 5.1x5.1° (5.67x5.67gon). Filter steps [nm]: 440, 525, 550, 800, 905, 935, 1035, and 440(neutral density) plus visually clear for RGB (Bayer pattern).
+            Information taken from: https://msl-scicorner.jpl.nasa.gov/Instruments/Mastcam/ -->
+            <Intrinsics>
+                <!-- image dimensions in px (PRo3D: for correct image size rendering) -->
+                <Resolution>1200, 1200</Resolution>
+                <ZoomStep>
+                    <!-- focal length in mm (PRo3D: as user information) -->
+                    <FocalLength>100</FocalLength>
+                    <Filter>
+                        <!-- filter id -->
+                        <FilterID>RGB (visually clear)</FilterID>
+                        <!-- focal lengths per pixel (PRo3D: optional/not used) -->
+                        <FocalLengthPx>13450.736, 13450.734</FocalLengthPx>
+                        <!-- angle (gon) for camera horizontal FoV (PRo3D: viewing frustrum) -->
+                        <HorizontalFoV>5.67</HorizontalFoV>
+                        <!-- angle (gon) for camera vertical FoV (PRo3D: viewing frustrum) --> 
+                        <VerticalFoV>5.67</VerticalFoV> 
+                        <!-- pixel coordinates of the principal point -->
+                        <PrinciplePoint>600, 600</PrinciplePoint> <!-- estimated -->
+                        <GeometricDistortion>
+                            <Method></Method> <!-- OpenCV, etc. -->
+                            <!-- tangential & radial distortion coefficients -->
+                            <Coefficients></Coefficients>
+                        </GeometricDistortion>
+                    </Filter>
+                </ZoomStep>
+            </Intrinsics>
+            <RelativeOrientation>
+                <ReferenceFrame>MSL_Mastcam-100</ReferenceFrame>
+                <!-- 3D camera coordinates (meters) -->
+                <XYZPosition>0.000, 0.000, 0.000</XYZPosition> 
+                <!-- 3D components of the camera up vector -->            
+                <CamUpVector>0.000, 0.000, 1.000</CamUpVector>
+                <!-- 3D components of the camera look at vector -->
+                <CamLookAtVector>1.000, 0.000, 0.000</CamLookAtVector>
+                <BoundingBox>
+                    <Origin>-0.050, -0.025, -0.025</Origin>
+                    <!-- edge vectors indicate direction and length of a bounding box's edge */ -->
+                    <Edge1>0.100, 0.000, 0.000</Edge1>
+                    <Edge2>0.000, 0.050, 0.000</Edge2>
+                    <Edge3>0.000, 0.000, 0.050</Edge3>
+                </BoundingBox>
+            </RelativeOrientation>
+        </MSL_Mastcam-100>
+        
+        <!-- MSL Mastcam 34mm -->
+        <MSL_Mastcam-34>
+            <!-- original MSL Mastcam left camera specifications: 
+            Sensor Resolution: 1600 x 1200 (FoV covered area: 1200x1200). Pixel size: 7.4um. focus range: 2.1m-infinity. Sensor size: 11.84x8.88mm. focal length: 34mm. aperture: f/8. field of view: 15x15° (16.5x16.5gon). Filter steps [nm]: 440, 525, 550, 675, 750, 865, 1034, and 880(neutral density) plus visually clear for RGB (Bayer pattern). -->
+            <Intrinsics>
+                <!-- image dimensions in px (PRo3D: for correct image size rendering) -->
+                <Resolution>1200, 1200</Resolution>
+                <ZoomStep>
+                    <!-- focal length in mm (PRo3D: as user information) -->
+                    <FocalLength>34</FocalLength>
+                    <Filter>
+                        <!-- filter id -->
+                        <FilterID>RGB (visually clear)</FilterID>
+                        <!-- focal lengths per pixel (PRo3D: optional/not used) -->
+                        <FocalLengthPx>4640.961, 4640.961</FocalLengthPx>
+                        <!-- angle (gon) for camera horizontal FoV (PRo3D: viewing frustrum) -->
+                        <HorizontalFoV>16.370</HorizontalFoV> 
+                        <!-- angle (gon) for camera vertical FoV (PRo3D: viewing frustrum) -->
+                        <VerticalFoV>16.370</VerticalFoV> 
+                        <!-- pixel coordinates of the principal point -->
+                        <PrinciplePoint>600, 600</PrinciplePoint><!-- estimated value -->
+                        <GeometricDistortion>
+                            <Method></Method><!-- OpenCV -->
+                            <!-- tangential & radial distortion coefficients -->
+                            <Coefficients></Coefficients>
+                        </GeometricDistortion>
+                    </Filter>
+                </ZoomStep>
+            </Intrinsics>
+            <RelativeOrientation>
+                <ReferenceFrame>MSL_Mastcam-100</ReferenceFrame>
+                <!-- 3D camera coordinates (meters) -->
+                <XYZPosition>0.000, -0.245, 0.000</XYZPosition> 
+                <!-- 3D components of the camera up vector -->
+                <CamUpVector>0.000, 0.000, 1.000</CamUpVector>
+                <!-- 3D components of the camera look at vector -->
+                <CamLookAtVector>1.000, 0.000, 0.000</CamLookAtVector>
+                <BoundingBox>
+                    <Origin>-0.050, -0.270, -0.025</Origin>
+                    <!-- edge vectors indicate direction and length of a bounding box's edge */ -->
+                    <Edge1>0.100, 0.000, 0.000</Edge1>
+                    <Edge2>0.000, 0.050, 0.000</Edge2>
+                    <Edge3>0.000, 0.000, 0.050</Edge3>
+                </BoundingBox>
+            </RelativeOrientation>
+        </MSL_Mastcam-34>        
+        
+        <!-- penetrating radar-->
+        <!-- <WISDOM></WISDOM> -->
+        
+        <!-- Close UP Imager microscope-->
+        <!-- <CLUPI></CLUPI> -->
+        
+        <!-- Infrared Spectrometer-->
+        <!-- <ISEM></ISEM> -->
+        
+        <!-- Drill-->        
+        <!-- <DRILL></DRILL> -->
+        
+        <!-- Rover Inspection Mirror-->        
+        <!-- <RIM></RIM> -->
+    </Instruments>
+
+</InstrumentPlatform>

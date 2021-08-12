@@ -1,0 +1,13 @@
+TF(0001)
+Settings
+(
+	ModuleName("Progress")
+	Language("Default")
+	BaseModules(  )
+)
+Translations
+(
+""=""
+"Startup"="Startup"
+"Total Runtime: %1%s"="Total Runtime: %1%s"
+)
