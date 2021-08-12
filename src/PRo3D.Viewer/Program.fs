@@ -89,6 +89,11 @@ let getFreePort() =
 [<EntryPoint;STAThread>]
 let main argv = 
 
+    // ensure appdata is here
+    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create) |> printfn "ApplicationData: %s"
+    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.Create) |> printfn "LocalApplicationData: %s"
+
+
     let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
     Config.configPath <- appData
 
