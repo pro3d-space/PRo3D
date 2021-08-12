@@ -360,7 +360,7 @@ Target.create "GitHubRelease" (fun _ ->
 do System.Diagnostics.Debugger.Launch() |> ignore
 #endif
 
-//"Publish" ==> "GithubRelease"
+"Publish" ==> "GithubRelease"
 
 entry()
 
