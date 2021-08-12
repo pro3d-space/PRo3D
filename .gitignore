@@ -73,3 +73,5 @@ src\Aardvark.OpcViewer.psess
 **/.vs/**
 
 .ionide
+/*.DS_Store
+/bin/*.DS_Store
