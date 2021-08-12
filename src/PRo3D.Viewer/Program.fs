@@ -427,7 +427,7 @@ let main argv =
                 title titlestr
 
 
-                windowoptions {|  minWidth = 180; minHeight = 180; title = "PRo3D.Viewer";|}
+                windowoptions {|  minWidth = 180; minHeight = 180; title = titlestr;|}
                 hideDock true
                 autoclose true
             }
