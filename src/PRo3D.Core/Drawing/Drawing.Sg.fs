@@ -324,6 +324,7 @@ module Sg =
         (color            : aval<C4b>) 
         (config           : innerViewConfig)
         (view             : aval<CameraView>) 
+        (viewportSize     : aval<V2i>)
         (showPoints       : aval<bool>)         
         (picked           : aval<bool>)
         (pickingAllowed   : aval<bool>) =
@@ -370,7 +371,7 @@ module Sg =
         let selectionSg = 
             picked 
             |> AVal.map (function
-                | true -> OutlineEffect.createForLineOrPoint vm PRo3D.Base.OutlineEffect.Both (AVal.constant C4b.VRVisGreen) anno.thickness.value 3.0  RenderPass.main anno.modelTrafo points
+                | true -> OutlineEffect.createForLineOrPoint vm viewportSize PRo3D.Base.OutlineEffect.Both (AVal.constant C4b.VRVisGreen) anno.thickness.value 3.0  RenderPass.main anno.modelTrafo points
                 | false -> Sg.empty ) 
             |> Sg.dynamic
     
@@ -386,6 +387,7 @@ module Sg =
         (color            : aval<C4b>) 
         (config           : innerViewConfig)
         (view             : aval<CameraView>) 
+        (viewportSize     : aval<V2i>)
         (showPoints       : aval<bool>)         
         (picked           : aval<bool>)
         (pickingAllowed   : aval<bool>) =
@@ -434,7 +436,7 @@ module Sg =
                 | true -> 
                     
                     let points = getPolylinePoints anno     
-                    OutlineEffect.createForLineOrPoint vm PRo3D.Base.OutlineEffect.Both (AVal.constant C4b.VRVisGreen) anno.thickness.value 3.0  RenderPass.main anno.modelTrafo points
+                    OutlineEffect.createForLineOrPoint vm viewportSize PRo3D.Base.OutlineEffect.Both (AVal.constant C4b.VRVisGreen) anno.thickness.value 3.0  RenderPass.main anno.modelTrafo points
                 | false -> Sg.empty ) 
             |> Sg.dynamic
     

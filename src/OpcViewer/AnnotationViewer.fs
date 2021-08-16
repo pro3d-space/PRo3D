@@ -130,7 +130,7 @@ module AnnotationViewer =
                     let hovered = hoveredAnnotation.GetValue()
                     let ids = pickIds.GetValue()
                     transact (fun _ -> 
-                        if hovered > 0 && hovered < ids.Length then
+                        if hovered >= 0 && hovered < ids.Length then
                             picked.Value <- Some ids.[hovered]
                         else 
                             picked.Value <- None
@@ -178,9 +178,9 @@ module AnnotationViewer =
                   a.geometry 
                     |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
     
-                let sg = Sg.finishedAnnotationOld a c config view showPoints picked (AVal.constant false)
+                let sg = Sg.finishedAnnotationOld a c config view win.Sizes showPoints picked (AVal.constant false)
                 sg :> ISg
-            )
+            ) 
             |> Sg.set 
             |> onOff showOld
 
@@ -211,10 +211,10 @@ module AnnotationViewer =
                 
                 let vm = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
                 let points = PRo3D.Core.Drawing.Sg.getPolylinePoints a   
-                let width = a.thickness.value |> AVal.map (fun x -> x + 6.0) // 3.0
-                let spheres = PRo3D.Base.Sg.drawSpheresFast vm points width (AVal.constant C4b.Blue)
+                let width = a.thickness.value |> AVal.map (fun x -> x + 3.0) // 3.0
+                let spheres = PRo3D.Base.Sg.drawSpheresFast vm win.Sizes points width (AVal.constant C4b.Blue)
 
-                let sg = Sg.finishedAnnotation a c config view showPoints picked (AVal.constant false) :> ISg
+                let sg = Sg.finishedAnnotation a c config view win.Sizes showPoints picked (AVal.constant false) :> ISg
                 sg
                 //spheres :> ISg
             )

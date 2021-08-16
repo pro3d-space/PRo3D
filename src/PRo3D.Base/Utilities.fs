@@ -747,6 +747,22 @@ module Sg =
                 //    }
             }
 
+        let projTrafo (v : InstanceVertex) =
+            vertex {   
+                let vp = v.mv * v.pos
+                return { v with pos = uniform.ProjTrafo * vp; }
+            }
+
+        type Vertex = {
+            [<Position>]                pos     : V4d
+            [<Semantic("LightDir")>]    ldir    : V3d
+        }
+
+        let lightDir (v : Vertex) = 
+            vertex {
+                return { v with ldir = -v.pos.XYZ |> Vec.normalize }
+            }
+
     
     let dotInstanced = 
         Effect.compose [
@@ -755,20 +771,47 @@ module Sg =
             toEffect DefaultSurfaces.sgColor      
         ]
 
-    let drawSpheresFast (view : aval<M44d>) (points : aval<V3d[]>) (size : aval<float>) (color : aval<C4b>) = 
+    let dotInstancedNoScaling = 
+        Effect.compose [
+            //toEffect DefaultSurfaces.instanceTrafo
+            toEffect ScreenSpaceScale.projTrafo
+            toEffect ScreenSpaceScale.lightDir
+            toEffect DefaultSurfaces.sgColor   
+            toEffect DefaultSurfaces.stableHeadlight
+        ]
+
+    let drawSpheresFast (view : aval<M44d>) (viewportSize : aval<V2i>) (points : aval<V3d[]>) (size : aval<float>) (color : aval<C4b>) = 
+        
+        // the original pro3d scaling scheme as used in OPCViewer
+        // to match all other code, semantically translated from here: https://github.com/aardvark-platform/OpcViewer/blob/b45eb33b532d3fcc1b0242b64dd0191eabda6df6/src/OPCViewer.Base/Shaders.fs
+        
         let mvs = 
-            (view, points) ||> AVal.map2 (fun view points ->
-                let mvs = points |> Array.map (fun p -> view * M44d.Translation(p) |> M44f)
+            AVal.custom (fun t -> 
+                let view = view.GetValue(t)
+                let points = points.GetValue(t)
+                let viewportSize = viewportSize.GetValue(t)
+                let size = size.GetValue(t)
+
+                let loc = -view.C3.XYZ
+                let hvp = float viewportSize.X
+
+                let mvs = 
+                    points |> Array.map (fun p -> 
+                        let dist = (p - loc).Length
+                        let scale = (dist * size) / hvp
+                        view * M44d.Translation(p) * M44d.Scale(scale) |> M44f
+                    )
                 mvs
             )
-        let geometry = IndexedGeometryPrimitives.solidSubdivisionSphere Sphere3d.Unit 2 C4b.White
+
+        let geometry = IndexedGeometryPrimitives.solidSubdivisionSphere Sphere3d.Unit 4 C4b.White
         Sg.ofIndexedGeometryInstancedA geometry (mvs |> AVal.map Array.length)
         |> Sg.noEvents
         |> Sg.instanceAttribute DefaultSemantic.InstanceTrafo mvs
         |> Sg.viewTrafo' Trafo3d.Identity
         |> Sg.uniform "Color" color
         |> Sg.uniform "Size" size
-        |> Sg.effect [dotInstanced]
+        |> Sg.effect [dotInstancedNoScaling]
 
     let stablePoints (trafo : aval<Trafo3d>) (positions : aval<V3d[]>) =
         positions 

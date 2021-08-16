@@ -510,6 +510,7 @@ module ScaleBarsApp =
         let viewSingleScaleBarLine 
             (scaleBar   : AdaptiveScaleBar) 
             (view       : aval<CameraView>)
+            (viewportSize : aval<V2i>)
             (near       : aval<float>)
             (selected   : aval<Option<Guid>>) =
 
@@ -544,7 +545,7 @@ module ScaleBarsApp =
 
                 let selectionSg = 
                     if selected then
-                        OutlineEffect.createForLineOrPoint vm PRo3D.Base.OutlineEffect.Line (AVal.constant C4b.VRVisGreen) scaleBar.thickness.value 3.0 RenderPass.main trafo points
+                        OutlineEffect.createForLineOrPoint vm viewportSize PRo3D.Base.OutlineEffect.Line (AVal.constant C4b.VRVisGreen) scaleBar.thickness.value 3.0 RenderPass.main trafo points
                     else Sg.empty
                     
                         
