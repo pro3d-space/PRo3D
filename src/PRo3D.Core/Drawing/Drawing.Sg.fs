@@ -371,7 +371,7 @@ module Sg =
         let selectionSg = 
             picked 
             |> AVal.map (function
-                | true -> OutlineEffect.createForLineOrPoint vm viewportSize PRo3D.Base.OutlineEffect.Both (AVal.constant C4b.VRVisGreen) anno.thickness.value 3.0  RenderPass.main anno.modelTrafo points
+                | true -> OutlineEffect.createForLineOrPoint view viewportSize PRo3D.Base.OutlineEffect.Both (AVal.constant C4b.VRVisGreen) anno.thickness.value 3.0  RenderPass.main anno.modelTrafo points
                 | false -> Sg.empty ) 
             |> Sg.dynamic
     
@@ -436,7 +436,7 @@ module Sg =
                 | true -> 
                     
                     let points = getPolylinePoints anno     
-                    OutlineEffect.createForLineOrPoint vm viewportSize PRo3D.Base.OutlineEffect.Both (AVal.constant C4b.VRVisGreen) anno.thickness.value 3.0  RenderPass.main anno.modelTrafo points
+                    OutlineEffect.createForLineOrPoint view viewportSize PRo3D.Base.OutlineEffect.Both (AVal.constant C4b.VRVisGreen) anno.thickness.value 3.0  RenderPass.main anno.modelTrafo points
                 | false -> Sg.empty ) 
             |> Sg.dynamic
     

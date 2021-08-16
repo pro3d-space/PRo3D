@@ -545,7 +545,7 @@ module ScaleBarsApp =
 
                 let selectionSg = 
                     if selected then
-                        OutlineEffect.createForLineOrPoint vm viewportSize PRo3D.Base.OutlineEffect.Line (AVal.constant C4b.VRVisGreen) scaleBar.thickness.value 3.0 RenderPass.main trafo points
+                        OutlineEffect.createForLineOrPoint view viewportSize PRo3D.Base.OutlineEffect.Line (AVal.constant C4b.VRVisGreen) scaleBar.thickness.value 3.0 RenderPass.main trafo points
                     else Sg.empty
                     
                         

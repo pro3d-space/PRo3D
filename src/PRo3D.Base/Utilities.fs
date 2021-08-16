@@ -780,26 +780,30 @@ module Sg =
             toEffect DefaultSurfaces.stableHeadlight
         ]
 
-    let drawSpheresFast (view : aval<M44d>) (viewportSize : aval<V2i>) (points : aval<V3d[]>) (size : aval<float>) (color : aval<C4b>) = 
+    let drawSpheresFast (view : aval<CameraView>) (viewportSize : aval<V2i>) (points : aval<V3d[]>) (size : aval<float>) (color : aval<C4b>) = 
         
         // the original pro3d scaling scheme as used in OPCViewer
         // to match all other code, semantically translated from here: https://github.com/aardvark-platform/OpcViewer/blob/b45eb33b532d3fcc1b0242b64dd0191eabda6df6/src/OPCViewer.Base/Shaders.fs
-        
+        // larger screen space scaling efforts neeed to be taken to improve on this one: https://github.com/pro3d-space/PRo3D/issues/90
+
         let mvs = 
             AVal.custom (fun t -> 
                 let view = view.GetValue(t)
                 let points = points.GetValue(t)
                 let viewportSize = viewportSize.GetValue(t)
-                let size = size.GetValue(t)
+                let size = size.GetValue(t) 
 
-                let loc = -view.C3.XYZ
+                let loc = view.Location
                 let hvp = float viewportSize.X
+
+                // should be computed outside once.
+                let mv = (view |> CameraView.viewTrafo).Forward
 
                 let mvs = 
                     points |> Array.map (fun p -> 
-                        let dist = (p - loc).Length
-                        let scale = (dist * size) / hvp
-                        view * M44d.Translation(p) * M44d.Scale(scale) |> M44f
+                        let dist = Vec.length (p - loc)
+                        let scale = dist * size / hvp
+                        mv * M44d.Translation(p) * M44d.Scale(scale) |> M44f
                     )
                 mvs
             )

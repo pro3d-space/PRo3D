@@ -212,7 +212,7 @@ module AnnotationViewer =
                 let vm = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
                 let points = PRo3D.Core.Drawing.Sg.getPolylinePoints a   
                 let width = a.thickness.value |> AVal.map (fun x -> x + 3.0) // 3.0
-                let spheres = PRo3D.Base.Sg.drawSpheresFast vm win.Sizes points width (AVal.constant C4b.Blue)
+                //let spheres = PRo3D.Base.Sg.drawSpheresFast vm win.Sizes points width (AVal.constant C4b.Blue)
 
                 let sg = Sg.finishedAnnotation a c config view win.Sizes showPoints picked (AVal.constant false) :> ISg
                 sg

@@ -153,7 +153,7 @@ module OutlineEffect =
         ]
 
     let createForPoints
-        (view : aval<M44d>)
+        (view : aval<CameraView>)
         (viewportSize : aval<V2i>)
         (points : aval<V3d[]>) 
         (outlineGroup: int)
@@ -181,7 +181,7 @@ module OutlineEffect =
             |> Sg.stencilMode (AVal.constant (read outlineGroup))
             |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Colors; DefaultSemantic.Depth])
             |> Sg.pass outlinePass
-            //|> Sg.depthTest (AVal.constant DepthTest.LessOrEqual)
+            |> Sg.depthTest (AVal.constant DepthTest.None)
             |> Sg.uniform "LineWidth" outlineWidth
             |> Sg.effect [outlineShader]
 
@@ -194,7 +194,7 @@ module OutlineEffect =
 
 
 
-    let createForLineOrPoint (view : aval<M44d>) (viewportSize : aval<V2i>) (mode: PointOrLine) (color: aval<C4b>) (width: aval<float>) (outlineWidth: float) (pass: RenderPass) (trafo: aval<Trafo3d>) (points: aval<V3d[]>) =
+    let createForLineOrPoint (view : aval<CameraView>) (viewportSize : aval<V2i>) (mode: PointOrLine) (color: aval<C4b>) (width: aval<float>) (outlineWidth: float) (pass: RenderPass) (trafo: aval<Trafo3d>) (points: aval<V3d[]>) =
             
         let outlinePass = RenderPass.after "outline" RenderPassOrder.Arbitrary pass
         let outlineWidth = width |> AVal.map (fun x -> x + outlineWidth) // 3.0
