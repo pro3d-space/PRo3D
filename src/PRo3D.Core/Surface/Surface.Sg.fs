@@ -55,7 +55,7 @@ module Sg =
         let closest = bb.GetClosestPointOn(campPos)
         let dist    = (closest - campPos).Length
 
-        //// super agressive to prune out far away stuf
+        //// super agressive to prune out far away stuff, too aggresive !!!
         //if not isActive || (campPos - bb.Center).Length > p.info.GlobalBoundingBox.Size.[p.info.GlobalBoundingBox.Size.MajorDim] * 1.5 
         //    then false
         //else
