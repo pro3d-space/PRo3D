@@ -1,3 +1,8 @@
+## 4.0.0-prerelease4
+
+- fixed crash with goto animation and arc ball controller
+- changed lod metric to also work with Victoria Crater dataset
+
 ## 4.0.0-prerelease3
 
 - added missing c libs on windows
