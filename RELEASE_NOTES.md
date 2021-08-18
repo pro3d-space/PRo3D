@@ -1,19 +1,16 @@
 ## 4.0.0-prerelease4
 
 - fixed crash with goto animation and arc ball controller
-- changed lod metric to also work with Victoria Crater dataset
+- fixed screen space scaling of annoation spheres
+- changed lod metric to omit aggresive culling
+- added missing c libs on windows
+- mac support (unofficial, testing only)
 
 ## 4.0.0-prerelease3
 
-- added missing c libs on windows
-
 ## 4.0.0-prerelease2
 
-- mac support
-
 ## 4.0.0-prerelease1
-
-- mac support
 
 ## 3.8.0-prerelease3
 
