@@ -509,7 +509,6 @@ module ScaleBarsApp =
 
         let getSgSegmentLine
             (segment : AdaptivescSegment) 
-            //(trafo : aval<Trafo3d>)
             (thickness : aval<float>) =
             adaptive {
                 let! p1 = segment.startPoint
@@ -553,7 +552,6 @@ module ScaleBarsApp =
                     | Some sel -> sel = (scaleBar.guid |> AVal.force)
                     | None -> false
 
-                
                 let trafo =
                     adaptive {
                         let! pos = scaleBar.position
@@ -581,21 +579,18 @@ module ScaleBarsApp =
                     if selected then
                         OutlineEffect.createForLineOrPoint vm PRo3D.Base.OutlineEffect.Line (AVal.constant C4b.VRVisGreen) scaleBar.thickness.value 3.0 RenderPass.main trafo points
                     else Sg.empty
-
                         
                 return Sg.ofList [
                         text
                         drawingPosition
                         sgSegments
-                        selectionSg //|> Sg.dynamic
+                        selectionSg 
                     ] |> Sg.onOff scaleBar.isVisible
                 
             } |> Sg.dynamic
 
         let viewSingleScaleBarCylinder
             (scaleBar   : AdaptiveScaleBar) 
-            (view       : aval<CameraView>)
-            (near       : aval<float>)
             (selected   : aval<Option<Guid>>) 
             (priority   : bool) =
 
@@ -609,62 +604,19 @@ module ScaleBarsApp =
                         | Some sel -> sel = (scaleBar.guid |> AVal.force)
                         | None -> false
 
-            
-                    let trafo =
-                        adaptive {
-                            let! pos = scaleBar.position
-                            return (Trafo3d.Translation pos)
-                        }
-
-                    let textpos = 
-                        adaptive {
-                            let! orientation = scaleBar.orientation
-                            let! view = scaleBar.view
-                            let direction = ScaleBarUtils.getDirectionVec orientation view
-                            let! alignment = scaleBar.alignment
-                            let! position = scaleBar.position
-
-                            match alignment with
-                            | Pivot.Left   -> return position - direction.Normalized * 0.25
-                            | Pivot.Right  -> return position + direction.Normalized *0.25
-                            | Pivot.Middle -> return position - view.Forward *0.25
-                            | _            -> return position
-                        }
-
-                    let textTrafo =
-                        adaptive {
-                            let! pos = textpos
-                            return (Trafo3d.Translation pos)
-                        }
-               
                     let pivot =
                         Sg.dot (AVal.constant C4b.Yellow) scaleBar.pivotSize.value scaleBar.position
                         |> Sg.onOff scaleBar.showPivot
-
-                    let text = 
-                        Sg.text view near (AVal.constant 60.0) textpos textTrafo scaleBar.textsize.value scaleBar.text
-                        |> Sg.onOff scaleBar.textVisible
-
-                    let pickFunc = Sg.pickEventsHelper scaleBar.guid (AVal.constant selected) scaleBar.thickness.value trafo
-            
+                   
                     // do this for all lineparts
                     let sgSegments = 
                         scaleBar.scSegments 
                         |> AList.map( fun seg -> getSgSegmentCylinder seg scaleBar.thickness.value ) 
                         |> AList.toASet
                         |> Sg.set
-               
-            
-                    // add picking
-                    //let applicator =
-                    //    test 
-                    //    |> Sg.pickable' ((pickableContent points edges trafo pickingTolerance) |> AVal.map Pickable.ofShape)
+                    
+                    let outlinePass = RenderPass.after "outline" RenderPassOrder.Arbitrary RenderPass.main
 
-                    //(applicator :> ISg) 
-                    //|> Sg.noEvents
-                    //|> Sg.withEvents [ pickFunc edges ]
-                    //|> Sg.trafo trafo
-                             
                     let selectionSg = 
                         if selected then
                             let cylinder = 
@@ -672,50 +624,24 @@ module ScaleBarsApp =
                                 |> AList.map( fun seg -> getSgSegmentCylinderMask seg scaleBar.thickness.value ) 
                                 |> AList.toASet
                                 |> Sg.set
-                            OutlineEffect.createForSg 2 RenderPass.main C4f.VRVisGreen cylinder
+                            OutlineEffect.createForSg 1 outlinePass C4f.VRVisGreen cylinder
                         else Sg.empty
                 
                     
                     return Sg.ofList [
-                            //text
                             pivot
-                            
                             sgSegments
-                            selectionSg //|> Sg.dynamic
-                            text
+                            selectionSg
                         ] |> Sg.onOff scaleBar.isVisible
                 else
                     return Sg.empty
             
             } |> Sg.dynamic
 
-        let getPriorityScaleBars
-            (priority : bool)
-            (scaleBars : amap<Guid,AdaptiveScaleBar>) =
-                seq {
-                    let test =
-                        scaleBars 
-                        |> AMap.toASet
-                        |> ASet.toAList
-                        |> AList.map snd 
-                        |> AList.map( fun x -> x.priority
-                                                |> AVal.map(fun pr -> match (pr = priority) with
-                                                                        | true ->  Some x
-                                                                        | false -> None
-                                                                )
-                                                        )
-                    yield test
-                } 
-                |> AList.concat
 
         let view 
             (scaleBarsModel : AdaptiveScaleBarsModel)
-            (view : aval<CameraView>)
-            (priority : bool)
-            (mbigConfig : 'ma)
-            (minnerConfig : MInnerConfig<'ma>) =
-
-            let near      = minnerConfig.getNearDistance   mbigConfig
+            (priority : bool) =
 
             let scaleBars = scaleBarsModel.scaleBars //|> getPriorityScaleBars priority
             let selected = scaleBarsModel.selectedScaleBar
@@ -724,17 +650,76 @@ module ScaleBarsApp =
                 scaleBars |> AMap.map( fun id sb ->
                     viewSingleScaleBarCylinder
                         sb
-                        view
-                        //refsys
-                        near
                         selected
                         priority
                     ) 
                     |> AMap.toASet 
                     |> ASet.map snd
-                    
                     |> Sg.set
                   
+            test
+
+        let viewSingleScaleBarText
+            (scaleBar   : AdaptiveScaleBar) 
+            (view       : aval<CameraView>)
+            (near       : aval<float>) =
+
+            adaptive {
+
+                let textpos = 
+                    adaptive {
+                        let! orientation = scaleBar.orientation
+                        let! view = scaleBar.view
+                        let direction = ScaleBarUtils.getDirectionVec orientation view
+                        let! alignment = scaleBar.alignment
+                        let! position = scaleBar.position
+
+                        match alignment with
+                        | Pivot.Left   -> return position - direction.Normalized * 0.25
+                        | Pivot.Right  -> return position + direction.Normalized *0.25
+                        | Pivot.Middle -> return position - view.Forward *0.25
+                        | _            -> return position
+                    }
+
+                let textTrafo =
+                    adaptive {
+                        let! pos = textpos
+                        return (Trafo3d.Translation pos)
+                    }
+
+                let text = 
+                    Sg.text view near (AVal.constant 60.0) textpos textTrafo scaleBar.textsize.value scaleBar.text
+                    |> Sg.onOff scaleBar.textVisible
+
+                    
+                return Sg.ofList [
+                        text
+                    ] |> Sg.onOff scaleBar.isVisible
+        
+            } |> Sg.dynamic
+
+       
+
+        let viewText 
+            (scaleBarsModel : AdaptiveScaleBarsModel)
+            (view : aval<CameraView>)
+            (mbigConfig : 'ma)
+            (minnerConfig : MInnerConfig<'ma>) =
+
+            let near      = minnerConfig.getNearDistance mbigConfig
+            let scaleBars = scaleBarsModel.scaleBars 
+
+            let test =
+                scaleBars |> AMap.map( fun id sb ->
+                    viewSingleScaleBarText
+                        sb
+                        view
+                        near
+                    ) 
+                    |> AMap.toASet 
+                    |> ASet.map snd
+                    |> Sg.set
+              
             test
     
     

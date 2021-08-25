@@ -201,7 +201,7 @@ module InitScaleBarsParams =
     let pivot = {
         value   = 7.0
         min     = 0.1
-        max     = 15.0
+        max     = 30.0
         step    = 0.1
         format  = "{0:0.0}"
     }

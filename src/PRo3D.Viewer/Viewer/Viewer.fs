@@ -1627,14 +1627,18 @@ module ViewerApp =
             let scaleBars =
                 ScaleBarsApp.Sg.view
                     m.scene.scaleBars
-                    m.navigation.camera.view
                     false
+                |> Sg.map ScaleBarsMessage
+
+            let scaleBarsText =
+                ScaleBarsApp.Sg.viewText
+                    m.scene.scaleBars
+                    m.navigation.camera.view
                     m.scene.config
                     mrefConfig
                 |> Sg.map ScaleBarsMessage
 
-
-            [exploreCenter; refSystem; viewPlans; homePosition; solText; heightValidation; scaleBars] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
+            [exploreCenter; refSystem; viewPlans; homePosition; solText; heightValidation; scaleBarsText; scaleBars] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
         let minervaSg =
             let minervaFeatures = 
@@ -1666,15 +1670,11 @@ module ViewerApp =
 
         let heightValidationDiscs =
             HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
-
         
         let scaleBars =
             ScaleBarsApp.Sg.view
                 m.scene.scaleBars
-                m.navigation.camera.view
                 true
-                m.scene.config
-                mrefConfig
             |> Sg.map ScaleBarsMessage
 
         let sceneObjects =
