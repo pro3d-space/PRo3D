@@ -138,7 +138,7 @@ type ViewerAction =
     | StartImportMessaging            of list<string>
     | Logging                         of string * ViewerAction
     | ThreadsDone                     of string    
-    | SnapshotThreadsDone             of string
+    | SnapshotThreadDone             of string
     | OnResize                        of V2i * string
     | StartDragging                   of V2i * MouseButtons
     | Dragging                        of V2i
@@ -146,6 +146,7 @@ type ViewerAction =
     //| CorrelationPanelMessage         of CorrelationPanelsMessage
     | MakeSnapshot                    of int*int*string
     | ImportSnapshotData              of list<string>
+    | CheckSnapshotsProcess          of string * System.Diagnostics.Process
     | TestHaltonRayCasting            //of list<string>
     | HeightValidation               of HeightValidatorAction
     | ComparisonMessage              of ComparisonAction
@@ -462,7 +463,7 @@ type Model = {
     footPrint            : FootPrint 
     //viewPlans            : ViewPlanModel
  
-    arnoldSnapshotThreads: ThreadPool<ViewerAction>
+    snapshotThreads      : ThreadPool<ViewerAction>
     showExplorationPoint : bool
 
     heighValidation      : HeightValidatorModel
@@ -653,7 +654,7 @@ module Viewer =
             footPrint = ViewPlanModel.initFootPrint
             viewPortSize = HashMap.empty
 
-            arnoldSnapshotThreads = ThreadPool.empty
+            snapshotThreads = ThreadPool.empty
             showExplorationPoint = startupArgs.showExplorationPoint
             heighValidation = HeightValidatorModel.init()
             frustumModel = FrustumModel.init 0.1 10000.0

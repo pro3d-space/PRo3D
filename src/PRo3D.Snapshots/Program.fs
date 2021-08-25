@@ -257,41 +257,41 @@ let main argv =
 
         Log.line "serving at: %s" uri
         // screenshot app
-        let send msg =
-            match msg with
-              | RemoteAction.SetCameraView cv ->
-                  mainApp.update Guid.Empty (ViewerAction.SetCamera cv |> Seq.singleton)
-              | RemoteAction.SetView v ->                                
-                  Log.line "Setting View %A" v
-                  let frustum = Frustum.perspective v.fovH v.near v.far (float v.resolution.X / float v.resolution.Y)
-                  let frustum = { 
-                      frustum with 
-                          left   = frustum.left   - v.principalPoint.X
-                          right  = frustum.right  - v.principalPoint.X
-                          top    = frustum.top    - v.principalPoint.Y
-                          bottom = frustum.bottom - v.principalPoint.Y
-                      }
-                  mainApp.update Guid.Empty (ViewerAction.SetCameraAndFrustum2 (v.view,frustum) |> Seq.singleton)
+        //let send msg =
+        //    match msg with
+        //      | RemoteAction.SetCameraView cv ->
+        //          mainApp.update Guid.Empty (ViewerAction.SetCamera cv |> Seq.singleton)
+        //      | RemoteAction.SetView v ->                                
+        //          Log.line "Setting View %A" v
+        //          let frustum = Frustum.perspective v.fovH v.near v.far (float v.resolution.X / float v.resolution.Y)
+        //          let frustum = { 
+        //              frustum with 
+        //                  left   = frustum.left   - v.principalPoint.X
+        //                  right  = frustum.right  - v.principalPoint.X
+        //                  top    = frustum.top    - v.principalPoint.Y
+        //                  bottom = frustum.bottom - v.principalPoint.Y
+        //              }
+        //          mainApp.update Guid.Empty (ViewerAction.SetCameraAndFrustum2 (v.view,frustum) |> Seq.singleton)
 
-        let remoteApp = 
-             App.start (PRo3D.RemoteControlApp.app uri send)
+        //let remoteApp = 
+        //     App.start (PRo3D.RemoteControlApp.app uri send)
 
-        let takeScreenshot (shot:Shot) =   
-            let act = CaptureShot shot |> Seq.singleton
-            remoteApp.update Guid.Empty act
-            { result = shot.folder }
+        //let takeScreenshot (shot:Shot) =   
+        //    let act = CaptureShot shot |> Seq.singleton
+        //    remoteApp.update Guid.Empty act
+        //    { result = shot.folder }
 
-        let takePlatformShot (shot:PlatformShot) =   
-            let act = CapturePlatform shot |> Seq.singleton
-            remoteApp.update Guid.Empty act
-            { result = shot.folder }
+        //let takePlatformShot (shot:PlatformShot) =   
+        //    let act = CapturePlatform shot |> Seq.singleton
+        //    remoteApp.update Guid.Empty act
+        //    { result = shot.folder }
 
-        WebPart.startServerLocalhost 12346 [ 
-            MutableApp.toWebPart runtime (remoteApp)
-            POST >=> path "/shots" >=> mapJson takeScreenshot
-            POST >=> path "/platformshots" >=> mapJson takePlatformShot
-            Suave.Files.browseHome
-        ] |> ignore
+        //WebPart.startServerLocalhost 12346 [ 
+        //    MutableApp.toWebPart runtime (remoteApp)
+        //    POST >=> path "/shots" >=> mapJson takeScreenshot
+        //    POST >=> path "/platformshots" >=> mapJson takePlatformShot
+        //    Suave.Files.browseHome
+        //] |> ignore
 
         let titlestr = "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH"
     

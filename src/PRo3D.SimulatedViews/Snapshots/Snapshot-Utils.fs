@@ -10,10 +10,54 @@ open FSharp.Data.Adaptive
 open PRo3D.Core
 open PRo3D.Core.Surface
 open PRo3D.Base
+open System.Diagnostics
+open System.Threading.Tasks
 
 //open Aardvark.GeoSpatial.Opc.Shader
 
 module SnapshotUtils =
+        
+    let runProcess filename args startDir = 
+        let timer = Stopwatch.StartNew()
+        let procStartInfo = 
+            ProcessStartInfo(
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                FileName = filename,
+                Arguments = args
+            )
+        match startDir with | Some d -> procStartInfo.WorkingDirectory <- d | _ -> ()
+        
+        let outputs = System.Collections.Generic.List<string>()
+        let errors = System.Collections.Generic.List<string>()
+        let outputHandler f (_sender:obj) (args:DataReceivedEventArgs) = f args.Data
+        let p = new Process(StartInfo = procStartInfo)
+        let outHandler = outputHandler (fun s -> outputs.Add(s); printfn "%s" s)
+        let errHandler = outputHandler (fun s -> errors.Add(s); printfn "%s" s)
+        p.OutputDataReceived.AddHandler(DataReceivedEventHandler (outHandler))
+        p.ErrorDataReceived.AddHandler(DataReceivedEventHandler (errHandler))
+        let started = 
+            try
+                p.Start()
+            with | ex ->
+                ex.Data.Add("filename", filename)
+                reraise()
+        if not started then
+            failwithf "Failed to start process %s" filename
+        printfn "Started %s with pid %i" p.ProcessName p.Id
+        p.BeginOutputReadLine()
+        p.BeginErrorReadLine()
+        //p.WaitForExit()
+            
+        //timer.Stop()
+        //printfn "Finished %s after %A milliseconds" filename timer.ElapsedMilliseconds
+        //let cleanOut l = l |> Seq.filter (fun o -> String.IsNullOrEmpty o |> not)
+        //cleanOut outputs, cleanOut errors
+        p
+        
+        
+
     let calculateFarPlane (sceneBB : Box3d) (cameraPosition : V3d)  =
         let distanceToCenter = (sceneBB.Center -  cameraPosition).Length
         let maxSizeBB = (sceneBB.Size.[sceneBB.MajorDim])

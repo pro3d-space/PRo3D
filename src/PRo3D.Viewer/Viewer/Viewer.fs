@@ -609,25 +609,55 @@ module ViewerApp =
             let bm = GroupsApp.update m.scene.bookmarks msg
             { m with scene = { m.scene with bookmarks = bm }} 
         | SequencedBookmarkMessage msg,_,_ -> 
-            let m', bm = SequencedBookmarksApp.update m.scene.sequencedBookmarks 
+            let m, bm = SequencedBookmarksApp.update m.scene.sequencedBookmarks 
                                                       msg _navigation _animation m
-            match msg with
-            | PRo3D.Base.SequencedBookmarksAction.StopRecording -> 
-                let snapshots = 
-                    Snapshot.fromViews 
-                        SequencedBookmarksApp.collectedViews None None
-                let snapshotAnimation =
-                    SnapshotAnimation.generate 
-                        snapshots 
-                        (m.frustum |> Frustum.horizontalFieldOfViewInDegrees |> Some)
-                        (m.scene.config.nearPlane.value |> Some)
-                        (m.scene.config.farPlane.value |> Some)
-                        None
-                // TODO RNO
-                SnapshotAnimation.writeToFile snapshotAnimation "batchRendering.json"
-            | _ -> ()
+
+            let m = 
+                match msg with
+                | PRo3D.Base.SequencedBookmarksAction.StopRecording -> 
+                    let snapshots = 
+                        Snapshot.fromViews 
+                            SequencedBookmarksApp.collectedViews None None
+                    let snapshotAnimation =
+                        SnapshotAnimation.generate 
+                            snapshots 
+                            (m.frustum |> Frustum.horizontalFieldOfViewInDegrees |> Some)
+                            (m.scene.config.nearPlane.value |> Some)
+                            (m.scene.config.farPlane.value |> Some)
+                            None
+                    // TODO RNO
+                    let filename = "batchRendering.json"
+                    Log.line "[Viewer] Writing snapshot JSON file to %s" (System.IO.Path.GetFullPath filename)
+                
+                    SnapshotAnimation.writeToFile snapshotAnimation filename
+                    match m.scene.scenePath with
+                    | Some scenePath -> 
+                        let args = sprintf "--scn %s --asnap %s --out tmp --exitOnFinish" scenePath filename
+                        let p = SnapshotUtils.runProcess "PRo3D.Snapshots.exe" args None
+                        let id = System.Guid.NewGuid () |> string
+                        let proclst =
+                            proclist {
+                                for i in 1..100 do
+                                    do! Proc.Sleep 2000
+                                    yield CheckSnapshotsProcess (id,p)
+                            }              
+                        {m with snapshotThreads = ThreadPool.add id proclst m.snapshotThreads}
+                    | None -> m
+                | _ -> m
               
-            { m' with scene = { m.scene with sequencedBookmarks = bm }}
+            {m with scene = { m.scene with sequencedBookmarks = bm }}
+        | CheckSnapshotsProcess (id, p), _, _ ->
+            let hasExited = p.HasExited
+            let m = 
+                match hasExited with
+                | true -> 
+                    Log.warn "[Snapshots] Finished."
+                    {m with snapshotThreads = ThreadPool.remove id m.snapshotThreads}
+                | false ->
+                    Log.warn "[Snapshots] Still running."
+                    m
+            m
+
         | RoverMessage msg,_,_ ->
             let roverModel = RoverApp.update m.scene.viewPlans.roverModel msg
             let viewPlanModel = ViewPlanApp.updateViewPlanFroAdaptiveRover roverModel m.scene.viewPlans
@@ -1340,9 +1370,9 @@ module ViewerApp =
             { m with scene = { m.scene with userFeedback = text } }
         | ThreadsDone id,_,_ ->  
             { m with scene = { m.scene with userFeedback = ""; feedbackThreads = ThreadPool.remove id m.scene.feedbackThreads;} }
-        | SnapshotThreadsDone id,_,_ ->  
+        | SnapshotThreadDone id,_,_ ->  
             let _m = 
-                { m with arnoldSnapshotThreads = ThreadPool.remove id m.arnoldSnapshotThreads }
+                { m with snapshotThreads = ThreadPool.remove id m.snapshotThreads }
             _m
             //  _m.shutdown ()
                 
@@ -1872,7 +1902,7 @@ module ViewerApp =
 
         let sBookmarks = SequencedBookmarksApp.threads m.scene.sequencedBookmarks |> ThreadPool.map SequencedBookmarkMessage
 
-        unionMany [drawing; animation; nav; m.scene.feedbackThreads; minerva;comparison; sBookmarks]
+        unionMany [drawing; animation; nav; m.scene.feedbackThreads; minerva;comparison; sBookmarks; m.snapshotThreads]
         
     let loadWaypoints m = 
         match Serialization.fileExists "./waypoints.wps" with
