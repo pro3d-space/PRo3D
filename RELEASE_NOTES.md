@@ -1,3 +1,8 @@
+## 4.0.1
+
+* updated CooTrafo build to release - should fix missing ucrtbase
+
+
 ## 4.0.0-prerelease6
 
 * updated CooTrafo build to release - should fix missing ucrtbase
