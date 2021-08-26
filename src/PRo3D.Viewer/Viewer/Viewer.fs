@@ -1677,6 +1677,7 @@ module ViewerApp =
         let depthTested = 
             [linkingSg; annotationSg; minervaSg; heightValidationDiscs; scaleBars; sceneObjects; geologicSurfacesSg] |> Sg.ofList
 
+        //render OPCs in priority groups
         let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m
         onBoot "attachResize('__ID__')" (
             DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)

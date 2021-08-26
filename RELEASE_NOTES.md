@@ -1,14 +1,22 @@
-## 4.0.0-prerelease3
+## 4.0.0-prerelease6
 
+* updated CooTrafo build to release - should fix missing ucrtbase
+
+## 4.0.0-prerelease5
+
+## 4.0.0-prerelease4
+
+- fixed crash with goto animation and arc ball controller
+- fixed screen space scaling of annotation spheres
+- changed lod metric to omit aggressive culling
 - added missing c libs on windows
+- mac support (unofficial, testing only)
+
+## 4.0.0-prerelease3
 
 ## 4.0.0-prerelease2
 
-- mac support
-
 ## 4.0.0-prerelease1
-
-- mac support
 
 ## 3.8.0-prerelease3
 

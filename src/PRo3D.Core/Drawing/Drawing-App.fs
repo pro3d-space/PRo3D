@@ -512,8 +512,8 @@ module DrawingApp =
                       a.geometry 
                         |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
                 
-                    let sg = Sg.finishedAnnotation a c config view showPoints picked pickingAllowed
-                    sg
+                    let sg = Sg.finishedAnnotation a c config view viewport showPoints picked pickingAllowed
+                    sg 
                 )
                 |> Sg.set               
             Log.stop()
@@ -593,7 +593,7 @@ module DrawingApp =
                         a.geometry 
                             |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
                       
-                    let sg = Sg.finishedAnnotationOld a c config view showPoints picked pickingAllowed
+                    let sg = Sg.finishedAnnotationOld a c config view viewport showPoints picked pickingAllowed
                     sg
                  )
                 |> Sg.set               
