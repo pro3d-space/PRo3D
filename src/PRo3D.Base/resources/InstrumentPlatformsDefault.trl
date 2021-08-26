@@ -1,0 +1,11 @@
+TF(0001)
+Settings
+(
+	ModuleName("InstrumentPlatforms")
+	Language("Default")
+	BaseModules(  )
+)
+Translations
+(
+"Successfully loaded %1% %2%."="Successfully loaded %1% %2%."
+)

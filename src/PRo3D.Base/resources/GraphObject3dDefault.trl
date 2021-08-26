@@ -1,0 +1,10 @@
+TF(0001)
+Settings
+(
+	ModuleName("GraphObject3d")
+	Language("Default")
+	BaseModules(  )
+)
+Translations
+(
+)

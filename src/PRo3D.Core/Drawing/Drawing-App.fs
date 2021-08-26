@@ -512,8 +512,8 @@ module DrawingApp =
                       a.geometry 
                         |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
                 
-                    let sg = Sg.finishedAnnotation a c config view showPoints picked pickingAllowed
-                    sg
+                    let sg = Sg.finishedAnnotation a c config view viewport showPoints picked pickingAllowed
+                    sg 
                 )
                 |> Sg.set               
             Log.stop()
@@ -553,7 +553,7 @@ module DrawingApp =
                        Sg.onMouseDown (fun b p -> 
                             let id = hoveredAnnotation.GetValue()
                             let ids = pickIds.GetValue()
-                            if id > 0 && id < ids.Length then
+                            if id >= 0 && id < ids.Length then
                                 Log.line "clickhit %A" (id, ids.[id])
                                 DrawingAction.PickDirectly(ids.[id])
                             else 
@@ -593,7 +593,7 @@ module DrawingApp =
                         a.geometry 
                             |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
                       
-                    let sg = Sg.finishedAnnotationOld a c config view showPoints picked pickingAllowed
+                    let sg = Sg.finishedAnnotationOld a c config view viewport showPoints picked pickingAllowed
                     sg
                  )
                 |> Sg.set               
