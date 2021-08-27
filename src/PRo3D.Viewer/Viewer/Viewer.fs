@@ -221,36 +221,10 @@ module ViewerApp =
         let sel = Optic.get _selectedSurface model |> Option.bind(fun x -> Optic.get _sgSurfaces model |> HashMap.tryFind x)
         match sel with
         | Some s -> s.trafo.grabbed.IsSome
-        | None -> false    
-
-    let private animateFowardAndLocation (pos: V3d) (dir: V3d) (up:V3d) (duration: RelativeTime) (name: string) = 
-        {
-            (CameraAnimations.initial name) with 
-                sample = fun (localTime, globalTime) (state : CameraView) -> // given the state and t since start of the animation, compute a state and the cameraview
-                    if localTime < duration then                  
-                        let rot      = Rot3d.RotateInto(state.Forward, dir) * localTime / duration |> Rot3d |> Trafo3d
-                        let forward  = rot.Forward.TransformDir state.Forward
-
-                        let uprot     = Rot3d.RotateInto(state.Up, up) * localTime / duration |> Rot3d |> Trafo3d
-                        let up        = uprot.Forward.TransformDir state.Up
-                      
-                        let vec       = pos - state.Location
-                        let velocity  = vec.Length / duration                  
-                        let dir       = vec.Normalized
-                        let location  = state.Location + dir * velocity * localTime
-
-                        let view = 
-                            state 
-                            |> CameraView.withForward forward
-                            |> CameraView.withUp up
-                            |> CameraView.withLocation location                                                                              
-
-                        Some (state,view)
-                    else None
-        }
+        | None -> false       
 
     let private createAnimation (pos: V3d) (forward: V3d) (up : V3d) (animationsOld: AnimationModel) : AnimationModel =                                    
-        animateFowardAndLocation pos forward up 3.5 "ForwardAndLocation2s"
+        CameraAnimations.animateForwardAndLocation pos forward up 3.5 "ForwardAndLocation2s"
         |> AnimationAction.PushAnimation 
         |> AnimationApp.update animationsOld
 
@@ -465,7 +439,7 @@ module ViewerApp =
                     //AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
 
                     let animationMessage = 
-                        animateFowardAndLocation a.view.Location a.view.Forward a.view.Up 2.0 "ForwardAndLocation2s"
+                        CameraAnimations.animateForwardAndLocation a.view.Location a.view.Forward a.view.Up 2.0 "ForwardAndLocation2s"
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     { m with  animations = a'}
                 | None -> m
@@ -515,7 +489,7 @@ module ViewerApp =
                     match (surface.homePosition) with
                     | Some hp ->                        
                         let animationMessage = 
-                            animateFowardAndLocation hp.Location hp.Forward hp.Up 2.0 "ForwardAndLocation2s"
+                            CameraAnimations.animateForwardAndLocation hp.Location hp.Forward hp.Up 2.0 "ForwardAndLocation2s"
                         AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     | None ->
                         match surf with
@@ -523,7 +497,7 @@ module ViewerApp =
                             let bb = s.globalBB.Transformed(superTrafo.Forward)
                             let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value    
                             let animationMessage = 
-                                animateFowardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
+                                CameraAnimations.animateForwardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
                             let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                             a'
                         | None -> m.animations
@@ -608,7 +582,7 @@ module ViewerApp =
                     let bb = sgSo.globalBB.Transformed(sceneObj.preTransform.Forward * superTrafo.Forward)
                     let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value    
                     let animationMessage = 
-                        animateFowardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
+                        CameraAnimations.animateForwardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     a'
                 | _-> m.animations
@@ -1370,7 +1344,7 @@ module ViewerApp =
                 match _sb with 
                 | Some sb ->
                     let animationMessage = 
-                        animateFowardAndLocation sb.view.Location sb.view.Forward sb.view.Up 2.0 "ForwardAndLocation2s"
+                        CameraAnimations.animateForwardAndLocation sb.view.Location sb.view.Forward sb.view.Up 2.0 "ForwardAndLocation2s"
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     { m with  animations = a'}
                 | None -> m
@@ -1386,7 +1360,7 @@ module ViewerApp =
                 match _gs with 
                 | Some gs ->
                     let animationMessage = 
-                        animateFowardAndLocation gs.view.Location gs.view.Forward gs.view.Up 2.0 "ForwardAndLocation2s"
+                        CameraAnimations.animateForwardAndLocation gs.view.Location gs.view.Forward gs.view.Up 2.0 "ForwardAndLocation2s"
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     { m with  animations = a'}
                 | None -> m
