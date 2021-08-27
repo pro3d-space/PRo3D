@@ -1,3 +1,10 @@
+## 4.1.0
+
+- using methods as described in `Quinn, D. P., & Ehlmann, B. L. (2019). A PCA‐based framework for determining remotely sensed geological surface orientations and their statistical quality. Earth and Space Science, 6(8), 1378-1408.`
+  - using new method for plane fitting
+  - added angular error measures
+  - added export of dip and strike annotations as json for attitude integration (annotions>export>attitude planes (*.json))
+
 ## 4.0.1
 
 - fixed "flyto animation does not reach destination" issue
