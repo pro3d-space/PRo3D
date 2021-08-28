@@ -519,27 +519,32 @@ module ViewerUtils =
 
         alist {        
             let mutable i = 0
-            for set in grouped do
-                i <- i + 1
-                let sg = 
-                    set 
-                    |> Sg.set
-                    |> Sg.effect [surfaceEffect]
-                    |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-                    |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()
+            let! noSurfaces = grouped |> AList.isEmpty
+            // show annotations, geologicSurfaces... also if no surface is loaded
+            if noSurfaces then
+                yield RenderCommand.SceneGraph (aval{return depthTested} |> Sg.dynamic)
+            else 
+                for set in grouped do
+                    i <- i + 1
+                    let sg = 
+                        set 
+                        |> Sg.set
+                        |> Sg.effect [surfaceEffect]
+                        |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
+                        |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()
 
-                yield RenderCommand.SceneGraph sg
+                    yield RenderCommand.SceneGraph sg
 
-                //if i = c then //now gets rendered multiple times
-                 // assign priorities globally, or for each anno and make sets
-                let depthTested =
-                    last |> AVal.map (function 
-                        | Some e when System.Object.ReferenceEquals(e,set) -> depthTested 
-                        | _ -> Sg.empty
-                    )
-                yield RenderCommand.SceneGraph (depthTested |> Sg.dynamic)
+                    //if i = c then //now gets rendered multiple times
+                     // assign priorities globally, or for each anno and make sets
+                    let depthTested =
+                        last |> AVal.map (function 
+                            | Some e when System.Object.ReferenceEquals(e,set) -> depthTested 
+                            | _ -> Sg.empty
+                        )
+                    yield RenderCommand.SceneGraph (depthTested |> Sg.dynamic)
 
-                yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
+                    yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
 
             yield RenderCommand.SceneGraph overlayed
 
