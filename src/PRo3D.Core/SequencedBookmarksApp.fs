@@ -42,6 +42,13 @@ module SequencedBookmarksProperties =
 
 module SequencedBookmarksApp = 
     let mutable collectedViews = List.Empty
+    let mutable (snapshotProcess : option<System.Diagnostics.Process>) = None
+    let disposeSnapshotProcess () =
+        match snapshotProcess with
+        | Some p -> 
+            Log.warn "[Snapshots] Snapshot service still running. Cancelling snapshot service."
+            p.Kill ()
+        | None -> ()
 
     let private animateFowardAndLocation (pos: V3d) (dir: V3d) (up:V3d) (duration: RelativeTime) (name: string) (record : bool) = 
         {
@@ -182,16 +189,11 @@ module SequencedBookmarksApp =
             { m with selectedBookmark = Some a.key }
         | None, _ -> m
 
-    let bookmarkAnimationToViews (m : SequencedBookmarks) =
-        for v in collectedViews do
-            Log.line "%s" (v.ToString ())
-
     let update 
         (m               : SequencedBookmarks) 
         (act             : SequencedBookmarksAction) 
         (navigationModel : Lens<'a,NavigationModel>) 
         (animationModel  : Lens<'a,AnimationModel>)     
-        //(outerModel      : 'a) : SequencedBookmarks =
         (outerModel      : 'a) : ('a * SequencedBookmarks) =
 
         match act with
@@ -333,8 +335,17 @@ module SequencedBookmarksApp =
             collectedViews <- List.empty
             outerModel, {m with isRecording = true}
         | StopRecording -> 
-            bookmarkAnimationToViews m
             outerModel, {m with isRecording = false}
+        | ToggleGenerateOnStop ->
+            outerModel, {m with generateOnStop = not m.generateOnStop}
+        | GenerateSnapshots -> 
+            outerModel, {m with isGenerating = true}
+        | CancelSnapshots ->
+            outerModel, {m with isCancelled = true}
+        | SetResolutionX msg ->
+            outerModel, {m with resolutionX = Numeric.update m.resolutionX msg}
+        | SetResolutionY msg ->
+            outerModel, {m with resolutionY = Numeric.update m.resolutionY msg}
         |_-> outerModel, m
 
 
@@ -471,7 +482,60 @@ module SequencedBookmarksApp =
                   
                 ]
               )
-            
+
+        let viewSnapshotGUI (model:AdaptiveSequencedBookmarks) = 
+            let generateButton = 
+                button [clazz "ui icon button"; onMouseClick (fun _ -> GenerateSnapshots )] [ //
+                    i [clazz "camera icon"] [] ] 
+                //button [clazz "ui button"; onMouseClick (fun _ -> GenerateSnapshots )] 
+                //        [text "Generate Snapshots"]
+                    
+            let cancelButton = 
+                button [clazz "ui icon button"; onMouseClick (fun _ -> CancelSnapshots )] [ //
+                    i [clazz "icons"] [
+                        i [clazz "camera icon"] [] 
+                        i [clazz "stop icon"] []  
+                    ] |> UI.wrapToolTip DataPosition.Bottom "Cancel generating images"
+                ]
+                //button [clazz "ui button"; onMouseClick (fun _ -> CancelSnapshots )] 
+                //        [text "Cancel Generation"]
+                    
+
+            let togglingButton =
+                Incremental.div (AttributeMap.ofList [])
+                                (model.isGenerating |> AVal.map (fun b -> if b then cancelButton else  generateButton)
+                                    |> AList.ofAValSingle)
+                    
+            require GuiEx.semui (
+                div [] [
+                    Html.table [            
+                        Html.row "Image generation:" 
+                            [
+                                div [style "display: inline-block; vertical-align: middle"] [
+                                    togglingButton]
+                                div [style "display: inline-block"] [
+                                    i [clazz "info icon"] [] 
+                                        |> UI.wrapToolTip DataPosition.Bottom "Create images of the recorded animation sequence."
+                                ]
+                                
+                            ]
+                        
+                        Html.row "Generate images after recording:"  
+                            [
+                                GuiEx.iconCheckBox model.generateOnStop ToggleGenerateOnStop; 
+                                    i [clazz "info icon"] [] 
+                                        |> UI.wrapToolTip DataPosition.Bottom "Automatically starts image generation with default parameters when clicking on the red stop recording button."
+                            ]                        
+
+                        Html.row "Image Resolution:"  
+                            [
+                                Numeric.view' [NumericInputType.InputBox]  model.resolutionX |> UI.map SetResolutionX 
+                                Numeric.view' [NumericInputType.InputBox]  model.resolutionY |> UI.map SetResolutionY
+                            ]
+      
+                    ]
+                ]
+            )            
        
 
   

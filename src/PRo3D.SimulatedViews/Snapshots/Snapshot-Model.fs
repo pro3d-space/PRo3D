@@ -7,6 +7,8 @@ open Aardvark.UI
 
 open Adaptify
 open Chiron
+open PRo3D.Base.Json
+
 
 type SnapshotType = 
   | Camera
@@ -66,9 +68,9 @@ with
   static member private readV0 = 
       json {
         let! opcname    = Json.read "opcname"
-        let! trafo       = Json.parseOption (Json.tryRead "trafo") Trafo3d.Parse
+        let! trafo       = PRo3D.Base.Json.parseOption (Json.tryRead "trafo") Trafo3d.Parse
         let! visible     = Json.tryRead "visible"
-        let! translation = Json.parseOption (Json.tryRead "translation") V3d.Parse
+        let! translation = PRo3D.Base.Json.parseOption (Json.tryRead "translation") V3d.Parse
         
         let res = {
             surfname = opcname
@@ -85,9 +87,9 @@ with
   static member ToJson (x : SnapshotSurfaceUpdate) =
     json {
       do! Json.write        "opcname"  (x.surfname.ToString())
-      do! Json.writeOption  "trafo"     x.trafo
+      do! PRo3D.Base.Json.writeOption  "trafo"     x.trafo
       do! Json.write  "visible"   x.visible
-      do! Json.writeOption "translation" x.translation
+      do! PRo3D.Base.Json.writeOption "translation" x.translation
     }
 
 type Snapshot = {
@@ -119,8 +121,8 @@ with
       json {
         let! filename       = Json.read "filename"
         let! view           = Json.read "view"
-        let! sunPosition    = Json.parseOption (Json.tryRead "sunPosition") V3d.Parse
-        let! lightDirection    = Json.parseOption (Json.tryRead "lightDirection") V3d.Parse
+        let! sunPosition    = PRo3D.Base.Json.parseOption (Json.tryRead "sunPosition") V3d.Parse
+        let! lightDirection    = PRo3D.Base.Json.parseOption (Json.tryRead "lightDirection") V3d.Parse
         let! surfaceUpdates = Json.tryRead "surfaceUpdates"
         let! placementParameters   = Json.tryRead "shattercones"
         let! renderMask     = Json.tryRead "renderMask"
@@ -144,13 +146,13 @@ with
       do! Json.write            "filename"           x.filename
       do! Json.write            "view"               x.camera
       if x.lightDirection.IsSome then
-        do! Json.writeOption      "lightDirection"     x.lightDirection
+        do! PRo3D.Base.Json.writeOption      "lightDirection"     x.lightDirection
       if x.sunPosition.IsSome then
-        do! Json.writeOption      "sunPosition"        x.sunPosition 
+        do! PRo3D.Base.Json.writeOption      "sunPosition"        x.sunPosition 
       if x.surfaceUpdates.IsSome then
-        do! Json.writeOptionList  "surfaceUpdates"     x.surfaceUpdates (fun x n -> Json.write n x)
+        do! PRo3D.Base.Json.writeOptionList  "surfaceUpdates"     x.surfaceUpdates (fun x n -> Json.write n x)
       if x.placementParameters.IsSome then
-        do! Json.writeOptionList  "shattercones"       x.placementParameters (fun x n -> Json.write n x)
+        do! PRo3D.Base.Json.writeOptionList  "shattercones"       x.placementParameters (fun x n -> Json.write n x)
       if x.renderMask.IsSome then
         do! Json.write            "renderMask"         x.renderMask 
     }  
@@ -211,14 +213,14 @@ with
   static member ToJson (x : SnapshotAnimation) =
       json {
           do! Json.write              "version"        0
-          do! Json.writeOptionFloat   "fieldOfView"    x.fieldOfView
+          do! PRo3D.Base.Json.writeOptionFloat   "fieldOfView"    x.fieldOfView
           do! Json.write              "resolution"     (x.resolution.ToString ())
           if x.lightLocation.IsSome then
-            do! Json.writeOption        "lightLocation"  (x.lightLocation)
-          do! Json.writeOptionFloat   "nearplane"      (x.nearplane)
-          do! Json.writeOptionFloat   "farplane"       (x.farplane )
+            do! PRo3D.Base.Json.writeOption        "lightLocation"  (x.lightLocation)
+          do! PRo3D.Base.Json.writeOptionFloat   "nearplane"      (x.nearplane)
+          do! PRo3D.Base.Json.writeOptionFloat   "farplane"       (x.farplane )
           if x.renderMask.IsSome then
-            do! Json.writeOptionBool "renderMask" x.renderMask
+            do! PRo3D.Base.Json.writeOptionBool "renderMask" x.renderMask
           do! Json.write              "snapshots"      x.snapshots
       }  
 

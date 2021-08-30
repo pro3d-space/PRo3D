@@ -146,7 +146,7 @@ type ViewerAction =
     //| CorrelationPanelMessage         of CorrelationPanelsMessage
     | MakeSnapshot                    of int*int*string
     | ImportSnapshotData              of list<string>
-    | CheckSnapshotsProcess          of string * System.Diagnostics.Process
+    | CheckSnapshotsProcess          of string
     | TestHaltonRayCasting            //of list<string>
     | HeightValidation               of HeightValidatorAction
     | ComparisonMessage              of ComparisonAction

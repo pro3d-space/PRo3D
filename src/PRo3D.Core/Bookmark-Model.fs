@@ -133,6 +133,11 @@ type SequencedBookmarksAction =
     | SetAnimationSpeed       of Numeric.Action
     | StartRecording
     | StopRecording
+    | GenerateSnapshots
+    | CancelSnapshots
+    | ToggleGenerateOnStop
+    | SetResolutionX of Numeric.Action
+    | SetResolutionY of Numeric.Action
 
 
 [<ModelType>]
@@ -153,34 +158,23 @@ type SequencedBookmarks = {
     animationSpeed   : NumericInput
 
     isRecording      : bool
-}
+    generateOnStop   : bool
+    isGenerating     : bool
+    isCancelled      : bool
+    resolutionX      : NumericInput
+    resolutionY      : NumericInput
+  //  snapshotProcess  : option<System.Diagnostics.Process>
+  }
+//} with interface IDisposable with 
+//            member this.Dispose () = 
+//                match this.snapshotProcess with
+//                | Some p -> 
+//                    do printfn "disposing process"
+//                    p.Kill ()
+//                | None -> ()
+                
 
 module SequencedBookmarks =
-    
-    let current = 0    
-    let read0 = 
-        json {
-            let! bookmarks          = Json.read "bookmarks"
-            let bookmarks           = bookmarks |> List.map(fun (a : Bookmark) -> (a.key, a)) |> HashMap.ofList
-            let! orderList          = Json.read "orderList"
-            let! selected           = Json.read "selectedBookmark"
-            let! delay              = Json.readWith Ext.fromJson<NumericInput,Ext> "delay"
-            let! animationSpeed     = Json.readWith Ext.fromJson<NumericInput,Ext> "animationSpeed"
-            return 
-                {
-                    version             = current
-                    bookmarks           = bookmarks
-                    orderList           = orderList
-                    selectedBookmark    = selected
-                    animationThreads    = ThreadPool.Empty
-                    stopAnimation       = true
-                    blockingCollection  = new HarriSchirchWrongBlockingCollection<_>()
-                    delay               = delay
-                    animationSpeed      = animationSpeed
-                    isRecording         = false
-                }
-        }  
-
     let initDelay =
         {
             value   = 3.0
@@ -199,6 +193,58 @@ module SequencedBookmarks =
             format  = "{0:0.0}"
         }
 
+    let initResolution =
+        {
+            value   = 1024.0
+            min     = 1.0
+            max     = 5000.0
+            step    = 1.0
+            format  = "{0:0.0}"
+        }
+    
+    let current = 0    
+    let read0 = 
+        json {
+            let! bookmarks          = Json.read "bookmarks"
+            let bookmarks           = bookmarks |> List.map(fun (a : Bookmark) -> (a.key, a)) |> HashMap.ofList
+            let! orderList          = Json.read "orderList"
+            let! selected           = Json.read "selectedBookmark"
+            let! delay              = Json.readWith Ext.fromJson<NumericInput,Ext> "delay"
+            let! animationSpeed     = Json.readWith Ext.fromJson<NumericInput,Ext> "animationSpeed"
+            let! generateOnStop     = Json.tryRead "generateOnStop"
+            let generateOnStop =
+                match generateOnStop with
+                | Some g -> g
+                | None -> false
+                
+            let! resolution = Json.parseOption (Json.tryRead "resolution") V2i.Parse 
+            let resolution =
+                match resolution with
+                | Some r -> r
+                | None -> V2i (initResolution.value)
+            return 
+                {
+                    version             = current
+                    bookmarks           = bookmarks
+                    orderList           = orderList
+                    selectedBookmark    = selected
+                    animationThreads    = ThreadPool.Empty
+                    stopAnimation       = true
+                    blockingCollection  = new HarriSchirchWrongBlockingCollection<_>()
+                    delay               = delay
+                    animationSpeed      = animationSpeed
+                    isRecording         = false
+                    isCancelled         = false
+                    isGenerating        = false
+                    generateOnStop      = generateOnStop
+                    resolutionX         = {initResolution with value = float resolution.X}
+                    resolutionY         = {initResolution with value = float resolution.Y}
+                    //snapshotProcess     = None
+                }
+        }  
+
+
+
     let initial =
         {
             version             = current
@@ -211,6 +257,12 @@ module SequencedBookmarks =
             delay               = initDelay
             animationSpeed      = initSpeed
             isRecording         = false
+            isCancelled         = false
+            isGenerating        = false
+            generateOnStop      = false
+            resolutionX         = initResolution
+            resolutionY         = initResolution
+            //snapshotProcess     = None
         }
 
 type SequencedBookmarks with
@@ -226,6 +278,7 @@ type SequencedBookmarks with
         }
 
     static member ToJson (x : SequencedBookmarks) =
+        let resolution = (V2i(x.resolutionX.value, x.resolutionY.value))
         json {
             do! Json.write "version"                                            x.version
             do! Json.write "bookmarks"                                          (x.bookmarks |> HashMap.toList |> List.map snd)
@@ -233,4 +286,6 @@ type SequencedBookmarks with
             do! Json.write "selectedBookmark"                                   x.selectedBookmark
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "delay"           x.delay
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "animationSpeed"  x.animationSpeed
+            do! Json.write "generateOnStop"                                     x.generateOnStop
+            do! Json.write "resolution"                                         (resolution.ToString ())
         }   

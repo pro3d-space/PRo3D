@@ -190,7 +190,7 @@ let main argv =
 
     let mainApp = 
         ViewerApp.start runtime signature startEmpty messagingMailbox sendQueue dumpFile cacheFile
-
+    
     let s = { MailboxState.empty with update = mainApp.update Guid.Empty }
     MailboxAction.InitMailboxState s |> messagingMailbox.Post
     
@@ -322,6 +322,7 @@ let main argv =
         title titlestr
     }
 
+    SequencedBookmarksApp.disposeSnapshotProcess ()
     CooTransformation.deInitCooTrafo ()
     0
  

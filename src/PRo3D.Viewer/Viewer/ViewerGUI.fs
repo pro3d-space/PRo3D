@@ -875,8 +875,10 @@ module Gui =
               ]
               yield GuiEx.accordion "Animation" "Write" true [
                 SequencedBookmarksApp.UI.viewAnimationGUI m.scene.sequencedBookmarks
-            ]   
-              
+              ]   
+              yield GuiEx.accordion "Snapshots" "Write" true [
+                  SequencedBookmarksApp.UI.viewSnapshotGUI m.scene.sequencedBookmarks
+              ]                 
           ] |> UI.map SequencedBookmarkMessage
     
 

@@ -610,53 +610,88 @@ module ViewerApp =
             { m with scene = { m.scene with bookmarks = bm }} 
         | SequencedBookmarkMessage msg,_,_ -> 
             let m, bm = SequencedBookmarksApp.update m.scene.sequencedBookmarks 
-                                                      msg _navigation _animation m
+                                                      msg _navigation _animation 
+                                                      m
+            let filename = "batchRendering.json"
+            let path = (System.IO.Path.GetFullPath filename)
 
+            let generateJson () = 
+                let snapshots = 
+                    Snapshot.fromViews 
+                        SequencedBookmarksApp.collectedViews None None
+                let snapshotAnimation =
+                    SnapshotAnimation.generate 
+                        snapshots 
+                        (m.frustum |> Frustum.horizontalFieldOfViewInDegrees |> Some)
+                        (m.scene.config.nearPlane.value |> Some)
+                        (m.scene.config.farPlane.value |> Some)
+                        (V2i (m.scene.sequencedBookmarks.resolutionX.value, m.scene.sequencedBookmarks.resolutionY.value))
+                        None    
+                SnapshotAnimation.writeToFile snapshotAnimation filename
+
+            let generateSnapshots () = 
+                match m.scene.scenePath with
+                | Some scenePath -> 
+                    let args = sprintf "--scn %s --asnap %s --out tmp --exitOnFinish" scenePath filename
+                    SequencedBookmarksApp.snapshotProcess <- Some (SnapshotUtils.runProcess "PRo3D.Snapshots.exe" args None)
+                    let id = System.Guid.NewGuid () |> string
+                    let proclst =
+                        proclist {
+                            for i in 1..2000 do
+                                do! Proc.Sleep 5000
+                                yield CheckSnapshotsProcess id
+                        }              
+                    {m with snapshotThreads = ThreadPool.add id proclst m.snapshotThreads}
+                | None -> m
             let m = 
                 match msg with
                 | PRo3D.Base.SequencedBookmarksAction.StopRecording -> 
-                    let snapshots = 
-                        Snapshot.fromViews 
-                            SequencedBookmarksApp.collectedViews None None
-                    let snapshotAnimation =
-                        SnapshotAnimation.generate 
-                            snapshots 
-                            (m.frustum |> Frustum.horizontalFieldOfViewInDegrees |> Some)
-                            (m.scene.config.nearPlane.value |> Some)
-                            (m.scene.config.farPlane.value |> Some)
-                            None
-                    // TODO RNO
-                    let filename = "batchRendering.json"
-                    Log.line "[Viewer] Writing snapshot JSON file to %s" (System.IO.Path.GetFullPath filename)
-                
-                    SnapshotAnimation.writeToFile snapshotAnimation filename
-                    match m.scene.scenePath with
-                    | Some scenePath -> 
-                        let args = sprintf "--scn %s --asnap %s --out tmp --exitOnFinish" scenePath filename
-                        let p = SnapshotUtils.runProcess "PRo3D.Snapshots.exe" args None
-                        let id = System.Guid.NewGuid () |> string
-                        let proclst =
-                            proclist {
-                                for i in 1..100 do
-                                    do! Proc.Sleep 2000
-                                    yield CheckSnapshotsProcess (id,p)
-                            }              
-                        {m with snapshotThreads = ThreadPool.add id proclst m.snapshotThreads}
-                    | None -> m
+                    generateJson ()
+                    Log.line "[Viewer] Writing snapshot JSON file to %s" path
+                    let m = shortFeedback "Saved snapshot JSON file." m
+
+                    let m = 
+                        match m.scene.sequencedBookmarks.generateOnStop with
+                        | true -> 
+                            let m = generateSnapshots ()
+                            let m = shortFeedback "Snapshot generation started." m
+                            m
+                        | false -> m
+                    m
+                | PRo3D.Base.SequencedBookmarksAction.GenerateSnapshots -> 
+                    let m = shortFeedback "Snapshot generation started." m
+                    generateJson ()
+                    let m = generateSnapshots ()
+                    m
                 | _ -> m
               
             {m with scene = { m.scene with sequencedBookmarks = bm }}
-        | CheckSnapshotsProcess (id, p), _, _ ->
-            let hasExited = p.HasExited
-            let m = 
-                match hasExited with
-                | true -> 
-                    Log.warn "[Snapshots] Finished."
-                    {m with snapshotThreads = ThreadPool.remove id m.snapshotThreads}
-                | false ->
-                    Log.warn "[Snapshots] Still running."
-                    m
-            m
+        | CheckSnapshotsProcess id, _, _ ->
+            match SequencedBookmarksApp.snapshotProcess with 
+            | Some p -> 
+                let m = 
+                    match p.HasExited , m.scene.sequencedBookmarks.isCancelled with
+                    | true, _ -> 
+                        Log.warn "[Snapshots] Snapshot generation finished."
+                        let m = shortFeedback "Snapshot generation finished." m 
+                        let m = {m with snapshotThreads = ThreadPool.remove id m.snapshotThreads
+                                        scene = {m.scene with sequencedBookmarks = {m.scene.sequencedBookmarks with isGenerating = false}}
+                                }
+                        m
+                    | false, false ->
+                        Log.warn "[Snapshots] Snapshot generation in progress. Closing PRo3D will cancel the generation."
+                        m
+                    | false, true ->
+                        Log.warn "[Snapshots] Snapshot generation cancelled."
+                        p.Kill ()
+                        let m = shortFeedback "Snapshot generation cencelled." m 
+                        let m = {m with snapshotThreads = ThreadPool.remove id m.snapshotThreads
+                                        scene = {m.scene with sequencedBookmarks = {m.scene.sequencedBookmarks with isGenerating = false
+                                                                                                                    isCancelled  = false}}
+                                }
+                        m
+                m
+            | None -> m
 
         | RoverMessage msg,_,_ ->
             let roverModel = RoverApp.update m.scene.viewPlans.roverModel msg
@@ -1929,7 +1964,7 @@ module ViewerApp =
             else
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs |> ViewerIO.loadRoverData      
         m
-    
+
     let start (runtime: IRuntime) (signature: IFramebufferSignature)
               (startEmpty: bool) messagingMailbox sendQueue dumpFile cacheFile =
         let m = initialModelWithLoadedData runtime signature startEmpty messagingMailbox dumpFile cacheFile
