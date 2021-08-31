@@ -1577,6 +1577,16 @@ type RegressionInfo3d =
               | 0 -> return! RegressionInfo3d.readV0
               | _ -> return! v |> sprintf "don't know version %A  of RegressionInfo3d" |> Json.error
         }
+
+    static member ToJson (x : RegressionInfo3d) =
+        json {
+            do! Json.write "version"          x.version
+            do! Json.write "Plane"           (x.Plane.ToString())
+            do! Json.write "PlaneToWorld"    (x.PlaneToWorld.ToString())
+            do! Json.write "Eigenvalues"     (x.Eigenvalues.ToString())
+            do! Json.write "AngularErrors"   (x.AngularErrors.ToString())
+            do! Json.write "HyperbolicAxes"  (x.HyperbolicAxes.ToString())
+        }
         
 [<AutoOpen>]
 module LinearRegressionExtensions =

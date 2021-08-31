@@ -209,6 +209,7 @@ with
             let! v = Json.read "version"
             match v with            
               | 0 -> return! DipAndStrikeResults.readV0
+              | 1 -> return! DipAndStrikeResults.readV1
               | _ -> return! v |> sprintf "don't know version %A  of DipAndStrikeResults" |> Json.error
         }
     static member ToJson (x : DipAndStrikeResults) =
@@ -222,6 +223,7 @@ with
             do! Json.write "strikeAzimuth"    x.strikeAzimuth  
             do! Json.write "centerOfMass"     (x.centerOfMass.ToString())
             do! Json.write "error"            x.error
+            do! Json.write "regressionInfo"   x.regressionInfo
         }
 
     static member initial =
