@@ -632,7 +632,7 @@ module ViewerApp =
             let generateSnapshots () = 
                 match m.scene.scenePath with
                 | Some scenePath -> 
-                    let args = sprintf "--scn %s --asnap %s --out tmp --exitOnFinish" scenePath filename
+                    let args = sprintf "--scn %s --asnap %s --out images --exitOnFinish" scenePath filename
                     SequencedBookmarksApp.snapshotProcess <- Some (SnapshotUtils.runProcess "PRo3D.Snapshots.exe" args None)
                     let id = System.Guid.NewGuid () |> string
                     let proclst =
@@ -684,7 +684,7 @@ module ViewerApp =
                     | false, true ->
                         Log.warn "[Snapshots] Snapshot generation cancelled."
                         p.Kill ()
-                        let m = shortFeedback "Snapshot generation cencelled." m 
+                        let m = shortFeedback "Snapshot generation cancelled." m 
                         let m = {m with snapshotThreads = ThreadPool.remove id m.snapshotThreads
                                         scene = {m.scene with sequencedBookmarks = {m.scene.sequencedBookmarks with isGenerating = false
                                                                                                                     isCancelled  = false}}

@@ -427,24 +427,12 @@ module SequencedBookmarksApp =
                 } )
 
         let viewGUI  (model : AdaptiveSequencedBookmarks) = 
-            let startRecordingButton =
-                button [clazz "ui icon button"; onMouseClick (fun _ -> StartRecording )] [ //
-                        i [clazz "red circle icon"] [] ] 
-                    |> UI.wrapToolTip DataPosition.Bottom "Start recording for batch rendering"
-
-            let stopRecordingButton = 
-                button [clazz "ui icon button"; onMouseClick (fun _ -> StopRecording )] [ //
-                        i [clazz "red stop icon"] [] ] 
-                    |> UI.wrapToolTip DataPosition.Bottom "Stop recording for batch rendering"
-
-            let recordingButton =
-                model.isRecording |> AVal.map (fun r -> if r then stopRecordingButton else startRecordingButton)
 
             div [clazz "ui buttons inverted"] [
                         //onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
                             button [clazz "ui icon button"; onMouseClick (fun _ -> AddSBookmark )] [ //
                                     i [clazz "plus icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Add Bookmark"
-                            Incremental.div ([] |> AttributeMap.ofList) (AList.ofAValSingle recordingButton)
+                            
                         // )
                     ] 
 
@@ -484,43 +472,44 @@ module SequencedBookmarksApp =
               )
 
         let viewSnapshotGUI (model:AdaptiveSequencedBookmarks) = 
+            let startRecordingButton =
+                button [clazz "ui icon button"; onMouseClick (fun _ -> StartRecording )] [ 
+                        i [clazz "red circle icon"] [] ] 
+                    |> UI.wrapToolTip DataPosition.Bottom "Start recording for batch rendering"
+
+            let stopRecordingButton = 
+                button [clazz "ui icon button"; onMouseClick (fun _ -> StopRecording )] [ 
+                        i [clazz "red stop icon"] [] ] 
+                    |> UI.wrapToolTip DataPosition.Bottom "Stop recording for batch rendering"
+
+            let recordingButton =
+                model.isRecording |> AVal.map (fun r -> if r then stopRecordingButton else startRecordingButton)
+                                  |> AList.ofAValSingle
+
             let generateButton = 
-                button [clazz "ui icon button"; onMouseClick (fun _ -> GenerateSnapshots )] [ //
+                button [clazz "ui icon button"; onMouseClick (fun _ -> GenerateSnapshots )] [ 
                     i [clazz "camera icon"] [] ] 
-                //button [clazz "ui button"; onMouseClick (fun _ -> GenerateSnapshots )] 
-                //        [text "Generate Snapshots"]
-                    
+                    |> UI.wrapToolTip DataPosition.Bottom "Create images of the recorded animation sequence."
+
             let cancelButton = 
-                button [clazz "ui icon button"; onMouseClick (fun _ -> CancelSnapshots )] [ //
-                    i [clazz "icons"] [
-                        i [clazz "camera icon"] [] 
-                        i [clazz "stop icon"] []  
-                    ] |> UI.wrapToolTip DataPosition.Bottom "Cancel generating images"
-                ]
-                //button [clazz "ui button"; onMouseClick (fun _ -> CancelSnapshots )] 
-                //        [text "Cancel Generation"]
-                    
+                button [clazz "ui icon button"; onMouseClick (fun _ -> CancelSnapshots )] 
+                       [i [clazz "remove icon"] []]
+                            |> UI.wrapToolTip DataPosition.Bottom "Cancel generating images"
+               
 
             let togglingButton =
-                Incremental.div (AttributeMap.ofList [])
-                                (model.isGenerating |> AVal.map (fun b -> if b then cancelButton else  generateButton)
-                                    |> AList.ofAValSingle)
+                model.isGenerating |> AVal.map (fun b -> if b then cancelButton else  generateButton)
+                                   |> AList.ofAValSingle
                     
             require GuiEx.semui (
                 div [] [
                     Html.table [            
                         Html.row "Image generation:" 
                             [
-                                div [style "display: inline-block; vertical-align: middle"] [
-                                    togglingButton]
-                                div [style "display: inline-block"] [
-                                    i [clazz "info icon"] [] 
-                                        |> UI.wrapToolTip DataPosition.Bottom "Create images of the recorded animation sequence."
-                                ]
-                                
+                                Incremental.div ([] |> AttributeMap.ofList) (AList.concat [recordingButton;togglingButton])          
                             ]
                         
-                        Html.row "Generate images after recording:"  
+                        Html.row "Always generate images after recording:"  
                             [
                                 GuiEx.iconCheckBox model.generateOnStop ToggleGenerateOnStop; 
                                     i [clazz "info icon"] [] 
