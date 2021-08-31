@@ -633,6 +633,7 @@ module ViewerApp =
                 match m.scene.scenePath with
                 | Some scenePath -> 
                     let args = sprintf "--scn %s --asnap %s --out images --exitOnFinish" scenePath filename
+                    Log.line "[Viewer] Starting snapshot rendering with arguments: %s" args
                     SequencedBookmarksApp.snapshotProcess <- Some (SnapshotUtils.runProcess "PRo3D.Snapshots.exe" args None)
                     let id = System.Guid.NewGuid () |> string
                     let proclst =

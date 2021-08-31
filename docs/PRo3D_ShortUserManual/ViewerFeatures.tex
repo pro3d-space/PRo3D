@@ -189,6 +189,61 @@ To add a new bookmark click the ``+'' button on top of the page. The new bookmar
 To view the bookmark's properties and actions click on the bookmark's name. Clicking the ``house'' button beside the bookmark's name triggers a FlyTo. For multiselection click on the bookmark's square icons.
 
 %----------------------------------------------------------------------------------------
+%	SubSection: Bookmarks
+%----------------------------------------------------------------------------------------
+\subsection{Sequenced Bookmarks}
+\label{sec:sequenced_bookmarks}
+
+Sequenced bookmarks can be used to create, view, and record camera flight paths between bookmarks (Figure \ref{fig:seqBookmarks}). 
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.5\textwidth]{pics/SequencedBookmarks.png}
+\caption[Viewer Features Bookmarks]{The sequenced bookmarks tab.}
+\label{fig:seqBookmarks}
+\end{figure}
+
+Add bookmarks by clicking on the button with the plus icon at the top. In the list of bookmarks (Figure \ref{fig:seqBookmarks_list}) you can (buttons from left to right) move the camera to the bookmark, delete the bookmark, and move the bookmark up and down in the list. Clicking on the label of a bookmark selects it. The selected bookmark is highlighted in yellow.
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.8\textwidth]{pics/SequencedBookmarks_list.png}
+	\caption[Viewer Features Bookmarks]{The list of all sequenced bookmarks.}
+	\label{fig:seqBookmarks_list}
+\end{figure}
+
+You can find the properties of the selected bookmark (Figure \ref{fig:seqBookmarks_properties}) below the list of bookmarks. Here you can the change the bookmark's name.
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.8\textwidth]{pics/SequencedBookmarks_properties.png}
+	\caption[Viewer Features Bookmarks]{The properties of the selected bookmark.}
+	\label{fig:seqBookmarks_properties}
+\end{figure}
+
+You can animate the camera according to the list of bookmarks by clicking the play button in the \emph{Animation} section (Figure \ref{fig:seqBookmarks_animation}). You can change how fast the camera animation is by changing the value of the \emph{duration}. The duration determines how long it takes the camera to move from one bookmark to the next. The \emph{delay} determines how long the camera stops at each bookmark before moving to the next one.
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.8\textwidth]{pics/SequencedBookmarks_animation.png}
+	\caption[Viewer Features Bookmarks]{The animation controls. Buttons from left to right: Move to previous bookmark, start camera animation along all bookmarks, pause camera animation, sop camera animation, move camera to next bookmark.}
+	\label{fig:seqBookmarks_animation}
+\end{figure}
+
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.8\textwidth]{pics/SequencedBookmarks_snapshots.png}
+	\caption[Viewer Features Bookmarks]{Creating images from sequenced bookmarks. Record camera animations are generate images.}
+	\label{fig:seqBookmarks_snapshots}
+\end{figure}
+
+In the \emph{snapshots} section (Figure \ref{fig:seqBookmarks_snapshots}) you can record camera animations. The red button changes to a \emph{stop} button when you start recording. If you now use the animation controls (Figure \ref{fig:seqBookmarks_animation}) to animate the camera, the camera movement is recorded. Once you click on the red stop button, a JSON file with the recorded camera animation is saved in your PRo3D folder. To start rendering images with the saved file, click on the button with the camera icon next to the red record button. PRo3D will start rendering the images in the background. You can change the resolution of the rendered images (Figure \ref{fig:seqBookmarks_snapshots}), but only before you start the process. 
+
+The path to the JSON file is displayed in PRo3D's console window. There are more options for generating images you can use if you edit the JSON file PRo3D creates, and start the generation process via the command line (Section \ref{sec:CLI}). The process started from inside PRo3D uses default parameters for most settings.
+
+Generating images takes some time. You can track the progress in PRo3D's console window. Closing PRo3D before all images are generated will cancel the generation process. 
+%----------------------------------------------------------------------------------------
 %	SubSection: Viewer Configuration
 %----------------------------------------------------------------------------------------
 \subsection{Viewer Configuration}
