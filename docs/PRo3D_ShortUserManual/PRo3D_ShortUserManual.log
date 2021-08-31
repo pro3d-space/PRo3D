@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.20 (MiKTeX 2.9.7250 64-bit) (preloaded format=pdflatex 2020.1.22)  31 AUG 2021 11:33
+This is pdfTeX, Version 3.14159265-2.6-1.40.20 (MiKTeX 2.9.7250 64-bit) (preloaded format=pdflatex 2020.1.22)  31 AUG 2021 15:39
 entering extended mode
 **./PRo3D_ShortUserManual.tex
 (PRo3D_ShortUserManual.tex
@@ -892,51 +892,51 @@ ine 236.
 (pdftex.def)             Requested size: 334.6056pt x 101.9413pt.
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 249.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 254.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
 
 [22 <./pics/SequencedBookmarks_properties.png> <./pics/SequencedBookmarks_anima
 tion.png> <./pics/SequencedBookmarks_snapshots.png>]
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 282.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 294.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
  [23]
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 325.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 324.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
  [24]
 <pics/ViewPlanner1.png, id=473, 1425.1644pt x 744.8628pt>
 File: pics/ViewPlanner1.png Graphic file (type png)
 <use pics/ViewPlanner1.png>
-Package pdftex.def Info: pics/ViewPlanner1.png  used on input line 331.
+Package pdftex.def Info: pics/ViewPlanner1.png  used on input line 330.
 (pdftex.def)             Requested size: 418.25542pt x 218.59605pt.
 LaTeX Font Info:    Trying to load font information for T1+pcr on input line 33
-5.
+4.
 
 ("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/psnfss\t1pcr.fd"
 File: t1pcr.fd 2001/06/04 font definitions for T1/pcr.
 )
 LaTeX Font Info:    Font shape `T1/pcr/bx/n' in size <12> not available
-(Font)              Font shape `T1/pcr/b/n' tried instead on input line 335.
+(Font)              Font shape `T1/pcr/b/n' tried instead on input line 334.
 <pics/ViewPlannerGuiAi.png, id=479, 1429.9824pt x 744.8628pt>
 File: pics/ViewPlannerGuiAi.png Graphic file (type png)
 <use pics/ViewPlannerGuiAi.png>
-Package pdftex.def Info: pics/ViewPlannerGuiAi.png  used on input line 350.
+Package pdftex.def Info: pics/ViewPlannerGuiAi.png  used on input line 349.
 (pdftex.def)             Requested size: 418.25542pt x 217.85728pt.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 361.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 360.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
 [25 <./pics/ViewPlanner1.png>]
 <pics/InstrumentView.png, id=491, 1440.13031pt x 743.02594pt>
 File: pics/InstrumentView.png Graphic file (type png)
 <use pics/InstrumentView.png>
-Package pdftex.def Info: pics/InstrumentView.png  used on input line 368.
+Package pdftex.def Info: pics/InstrumentView.png  used on input line 367.
 (pdftex.def)             Requested size: 418.25542pt x 215.78946pt.
 
 
@@ -1262,7 +1262,7 @@ KTeX 2.9/fonts/type1/urw/courier/ucrr8a.pfb><C:/Users/rnowak/AppData/Local/Prog
 rams/MiKTeX 2.9/fonts/type1/urw/helvetic/uhvb8a.pfb><C:/Users/rnowak/AppData/Lo
 cal/Programs/MiKTeX 2.9/fonts/type1/urw/helvetic/uhvr8a.pfb><C:/Users/rnowak/Ap
 pData/Local/Programs/MiKTeX 2.9/fonts/type1/urw/helvetic/uhvro8a.pfb>
-Output written on PRo3D_ShortUserManual.pdf (47 pages, 21382247 bytes).
+Output written on PRo3D_ShortUserManual.pdf (47 pages, 21382106 bytes).
 PDF statistics:
  869 PDF objects out of 1000 (max. 8388607)
  263 named destinations out of 1000 (max. 500000)
