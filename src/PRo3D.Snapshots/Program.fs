@@ -183,6 +183,8 @@ let main argv =
               startEmpty = false
               useAsyncLoading = false
               magnificationFilter = startupArgs.magnificationFilter
+              serverMode = false
+              remoteApp  = false
             }
 
         let (mainApp, mModel) = 

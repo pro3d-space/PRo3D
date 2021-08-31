@@ -132,7 +132,7 @@ let main argv =
     PRo3D.Minerva.Config.besideExecuteable <- workingDirectory
     
 
-    let startupArgs = (CommandLine.parseArguments argv)
+    let startupArgs = (PRo3D.CommandLine.parseArguments argv)
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
     
 
