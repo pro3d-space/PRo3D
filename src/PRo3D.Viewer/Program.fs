@@ -435,7 +435,6 @@ let main argv =
     finally
         if cooTrafoInitialized then
             CooTransformation.deInitCooTrafo ()
-        SequencedBookmarksApp.disposeSnapshotProcess ()
         for d in disposables do
             d.Dispose()
     0

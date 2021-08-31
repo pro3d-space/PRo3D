@@ -43,12 +43,6 @@ module SequencedBookmarksProperties =
 module SequencedBookmarksApp = 
     let mutable collectedViews = List.Empty
     let mutable (snapshotProcess : option<System.Diagnostics.Process>) = None
-    let disposeSnapshotProcess () =
-        match snapshotProcess with
-        | Some p -> 
-            Log.warn "[Snapshots] Snapshot service still running. Cancelling snapshot service."
-            p.Kill ()
-        | None -> ()
 
     let private animateFowardAndLocation (pos: V3d) (dir: V3d) (up:V3d) (duration: RelativeTime) (name: string) (record : bool) = 
         {

@@ -680,7 +680,6 @@ module ViewerApp =
                                 }
                         m
                     | false, false ->
-                        Log.warn "[Snapshots] Snapshot generation in progress. Closing PRo3D will cancel the generation."
                         m
                     | false, true ->
                         Log.warn "[Snapshots] Snapshot generation cancelled."
