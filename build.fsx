@@ -17,6 +17,8 @@ open Fake.IO
 open Fake.Api
 open Fake.Tools.Git
 
+open System.IO.Compression
+
 
 
 do Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
@@ -24,11 +26,12 @@ do Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 let notes = ReleaseNotes.load "RELEASE_NOTES.md"
 printfn "%A" notes
 
-let outDirs = [ @"bin\Debug\netcoreapp3.1"; @"bin\Release\netcoreapp3.1"]
+let outDirs = [ @"bin\Debug\netcoreapp3.1"; @"bin\Release\netcoreapp3.1";  @"bin\Release\net5.0";  @"bin\Debug\net5.0"; ]
 let resources = 
     [
         //"lib\Dependencies\PRo3D.Base\windows"; // currently handled by native dependency injection mechanism 
         //"lib/groupmappings"
+        //"./lib/Native/JR.Wrappers/mac/"
     ]
 
 
@@ -88,6 +91,66 @@ Target.create "Credits" (fun _ ->
 let r = System.Text.RegularExpressions.Regex("let viewerVersion.*=.*\"(.*)\"")
 let test = """let viewerVersion       = "3.1.3" """
 
+(*let getInstalledPackageVersions() =
+    //Build Fake.DotNet.Cli - 5.19.1
+    let regex = Regex @"^([a-zA-Z_0-9]+)[ \t]*([^ ]+)[ \t]*-[ \t]*(.+)$"
+
+    let paketPath = 
+        if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then @".paket/paket.exe"
+        else ".paket/paket"
+
+    let paketPath = System.IO.Path.GetFullPath paketPath
+    let startInfo = new ProcessStartInfo()
+    startInfo.FileName <- paketPath
+    startInfo.Arguments <- "show-installed-packages"
+    startInfo.UseShellExecute <- false
+    startInfo.CreateNoWindow <- true
+    startInfo.RedirectStandardOutput <- true
+    startInfo.RedirectStandardError <- true
+
+    let proc = Process.Start(startInfo)
+    proc.WaitForExit()
+
+    let mutable res = Map.empty
+
+    if proc.ExitCode = 0 then
+        while not proc.StandardOutput.EndOfStream do
+            let line = proc.StandardOutput.ReadLine()
+            let m = regex.Match line
+            if m.Success then
+                let g = m.Groups.[1].Value.Trim().ToLower()
+                match g with
+                | "main" -> 
+                    let n = m.Groups.[2].Value
+                    let v = m.Groups.[3].Value |> SemVer.parse
+                    res <- Map.add n v res
+                | _ ->
+                    ()
+
+    res
+    *)
+
+let aardiumVersion = "2.0.5"
+    //let versions = getInstalledPackageVersions()
+    //match Map.tryFind "Aardium" versions with
+    //| Some v -> v
+    //| None -> failwith "no aardium version found"
+    
+    
+Target.create "test" (fun _ -> 
+    let url = sprintf "https://www.nuget.org/api/v2/package/Aardium-Win32-x64/%s" aardiumVersion
+    printf "url: %s" url
+    let tempFile = Path.GetTempFileName()
+    use c = new System.Net.WebClient()
+    c.DownloadFile(url, tempFile)
+    use a = new ZipArchive(File.OpenRead tempFile)
+    let t = Path.GetTempPath()
+    let tempPath = Path.Combine(t, Guid.NewGuid().ToString())
+    a.ExtractToDirectory(tempPath)
+    let target = Path.Combine("bin", "publish")
+    Shell.copyDir (Path.Combine(target,"tools")) (Path.Combine(tempPath,"tools")) (fun _ -> true)
+)
+
 Target.create "Publish" (fun _ ->
 
     // 0.0 copy version over into source code...
@@ -107,13 +170,26 @@ Target.create "Publish" (fun _ ->
     // 1. publish exe
     "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
         { o with
-            Framework = Some "netcoreapp3.1"
-            Runtime = Some "win10-x64"
-            Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=true -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
+            Framework = Some "net5.0"
+            Runtime = Some "win10-x64" //-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true
+            Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
             Configuration = DotNet.BuildConfiguration.Release
             VersionSuffix = Some notes.NugetVersion
-            OutputPath = Some "bin/publish"
+            OutputPath = Some "bin/publish/win-x64"
+        }
+    )
+
+    // 1. publish exe
+    "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
+        { o with
+            Framework = Some "net5.0"
+            Runtime = Some "osx-x64"
+            Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
+            //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
+            Configuration = DotNet.BuildConfiguration.Release
+            VersionSuffix = Some notes.NugetVersion
+            OutputPath = Some "bin/publish/mac-x64"
         }
     )
 
@@ -126,12 +202,32 @@ Target.create "Publish" (fun _ ->
     //    File.Copy(dll, Path.Combine("bin/publish/",fileName))
 
     // 2, copy licences
-    File.Copy("CREDITS.MD", "bin/publish/CREDITS.MD", true)
+    File.Copy("CREDITS.MD", "bin/publish/win-x64/CREDITS.MD", true)
+    File.Copy("CREDITS.MD", "bin/publish/mac-x64/CREDITS.MD", true)
+
+    File.Copy("data/runtime/vcruntime140.dll", "bin/publish/win-x64/vcruntime140.dll")
+    File.Copy("data/runtime/vcruntime140_1.dll", "bin/publish/win-x64/vcruntime140_1.dll")
+    File.Copy("data/runtime/msvcp140.dll", "bin/publish/win-x64/msvcp140.dll")
 
     // 3, resources (currently everything included)
     // copyResources ["bin/publish"] 
+    
+    if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX)   then ()
+    else
+        let url = sprintf "https://www.nuget.org/api/v2/package/Aardium-Win32-x64/%s" aardiumVersion
+        printf "url: %s" url
+        let tempFile = Path.GetTempFileName()
+        use c = new System.Net.WebClient()
+        c.DownloadFile(url, tempFile)
+        use a = new ZipArchive(File.OpenRead tempFile)
+        let t = Path.GetTempPath()
+        let tempPath = Path.Combine(t, Guid.NewGuid().ToString())
+        a.ExtractToDirectory(tempPath)
+        let target = Path.Combine("bin", "publish")
+        Shell.copyDir (Path.Combine(target, "mac-x64", "tools")) (Path.Combine(tempPath, "tools")) (fun _ -> true)
+        Shell.copyDir (Path.Combine(target, "win-x64", "tools")) (Path.Combine(tempPath, "tools")) (fun _ -> true)
 
-    File.Move("bin/publish/PRo3D.Viewer.exe", sprintf "bin/publish/PRo3D.Viewer.%s.exe" notes.NugetVersion)
+        File.Move("bin/publish/win-x64/PRo3D.Viewer.exe", sprintf "bin/publish/win-x64/PRo3D.Viewer.%s.exe" notes.NugetVersion)
 )
 
 "Credits" ==> "Publish"
@@ -237,19 +333,25 @@ Target.create "CopyJRWRapper" (fun _ ->
 Target.create "GitHubRelease" (fun _ ->
     let newVersion = notes.NugetVersion
     try
-        Branches.tag "." newVersion
-        let token =
-            match Environment.environVarOrDefault "github_token" "" with
-            | s when not (System.String.IsNullOrWhiteSpace s) -> s
-            | _ -> failwith "please set the github_token environment variable to a github personal access token with repro access."
+        try
+            Branches.tag "." newVersion
+            let token =
+                match Environment.environVarOrDefault "github_token" "" with
+                | s when not (System.String.IsNullOrWhiteSpace s) -> s
+                | _ -> failwith "please set the github_token environment variable to a github personal access token with repro access."
 
-        let files = System.IO.Directory.EnumerateFiles("bin/publish") 
+            //let files = System.IO.Directory.EnumerateFiles("bin/publish") 
+            let release = sprintf "bin/PRo3D.Viewer.%s.zip" notes.NugetVersion
+            let z = System.IO.Compression.ZipFile.CreateFromDirectory("bin/publish/win-x64", release)
 
-        GitHub.createClientWithToken token
-        |> GitHub.draftNewRelease "vrvis" "PRo3D" notes.NugetVersion (notes.SemVer.PreRelease <> None) notes.Notes
-        |> GitHub.uploadFiles files
-        |> GitHub.publishDraft
-        |> Async.RunSynchronously
+            GitHub.createClientWithToken token
+            |> GitHub.draftNewRelease "vrvis" "PRo3D" notes.NugetVersion (notes.SemVer.PreRelease <> None) notes.Notes
+            |> GitHub.uploadFiles (Seq.singleton release)
+            //|> GitHub.publishDraft
+            |> Async.RunSynchronously
+            |> ignore
+        with e -> 
+            Branches.deleteTag "." newVersion
     finally
         ()
         //Branches.pushTag "." "origin" newVersion

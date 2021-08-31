@@ -49,15 +49,16 @@ module AnnotationViewer =
             }
 
 
-        let selectedAnnotation = cval -1
-
+        //let selectedAnnotation = cval -1
+        let hoveredAnnotation = cval -1
+        let picked = cval None
 
 
         let mv = view |> AVal.map (fun c -> (CameraView.viewTrafo c).Forward)
         let points = points (model.selectedLeaves |> ASet.map (fun x -> x.id)) annoSet config.offset mv
-        let lines, pickIds, bb = PackedRendering.lines config.offset selectedAnnotation ASet.empty annoSet mv
+        let lines, pickIds, bb = PackedRendering.linesNoIndirect config.offset hoveredAnnotation (picked |> AVal.map Option.toList |> ASet.ofAVal) annoSet mv
 
-        let pickColors, pickDepth = 
+        let pickColors = 
             //let size = AVal.constant (V2i(128,128))
             let size = win.Sizes
             let signature =
@@ -66,18 +67,25 @@ module AnnotationViewer =
                     DefaultSemantic.Depth, { format = RenderbufferFormat.Depth24Stencil8; samples = 1 }
                 ]
 
-            lines
-            |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
-            |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo) //(size |> AVal.map (fun s -> Frustum.perspective 20.0 0.01 10000.0 (s.X / s.Y)))
-            |> Sg.shader { 
-                  do! LineShader.indirectLineVertexPicking
-                  do! LineShader.thickLine
-                  do! PRo3D.Base.Shader.DepthOffset.depthOffsetFS 
-                  do! Picking.pickId
-            }
-            |> Sg.uniform "PickingTolerance" config.pickingTolerance
-            |> Sg.compile runtime signature
-            |> RenderTask.renderToColorAndDepth size
+            let pickColors = 
+                lines
+                |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
+                |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo) //(size |> AVal.map (fun s -> Frustum.perspective 20.0 0.01 10000.0 (s.X / s.Y)))
+                |> Sg.shader { 
+                      do! LineShader.noIndirectLineVertexPicking
+                      do! LineShader.thickLine
+                      do! PRo3D.Base.Shader.DepthOffset.depthOffsetFS 
+                      do! Picking.pickId
+                }
+                |> Sg.uniform "PickingTolerance" config.pickingTolerance
+                |> Sg.compile runtime signature
+
+            let cleared = RenderTask.ofList [
+                runtime.CompileClear(signature, C4f(0.0f,0.0f,0.0f,-1.0f))
+                pickColors
+            ] 
+
+            cleared |> RenderTask.renderToColor size
 
         if true then
             win.Mouse.Move.Values.Add(fun (o,p) -> 
@@ -105,15 +113,28 @@ module AnnotationViewer =
                     //    Log.line "hit %A" (id, ids.[bestId]
                     //    transact (fun _ -> selectedAnnotation.Value <- id)
                     let p = m.[0,0]
-                    let id : int = BitConverter.SingleToInt32Bits(p.A)
+                    let id : int = int (floor p.A) //BitConverter.SingleToInt32Bits(p.A)
                     let ids = pickIds.GetValue()
-                    if id > 0 && id < ids.Length then
+                    printfn "id: %A" id
+                    if id >= 0 && id < ids.Length then
                         Log.line "hit %A" (id, ids.[id])
-                        transact (fun _ -> selectedAnnotation.Value <- id)
+                        transact (fun _ -> hoveredAnnotation.Value <- id)
                     else 
-                        transact (fun _ -> selectedAnnotation.Value <- -1)
+                        transact (fun _ -> hoveredAnnotation.Value <- -1)
                     //r.SaveAsImage("guh.tiff")
                     ()
+            )
+
+            win.Mouse.Click.Values.Add(fun b -> 
+                if b = MouseButtons.Right then
+                    let hovered = hoveredAnnotation.GetValue()
+                    let ids = pickIds.GetValue()
+                    transact (fun _ -> 
+                        if hovered >= 0 && hovered < ids.Length then
+                            picked.Value <- Some ids.[hovered]
+                        else 
+                            picked.Value <- None
+                    )
             )
 
         let overlay = 
@@ -133,7 +154,7 @@ module AnnotationViewer =
         let lineSg  =
             lines 
             |> Sg.shader { 
-                  do! LineShader.indirectLineVertex
+                  do! LineShader.noIndirectLineVertex
                   do! LineShader.thickLine
                   do! PRo3D.Base.Shader.DepthOffset.depthOffsetFS 
             }
@@ -157,9 +178,9 @@ module AnnotationViewer =
                   a.geometry 
                     |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
     
-                let sg = Sg.finishedAnnotationOld a c config view showPoints picked (AVal.constant false)
+                let sg = Sg.finishedAnnotationOld a c config view win.Sizes showPoints picked (AVal.constant false)
                 sg :> ISg
-            )
+            ) 
             |> Sg.set 
             |> onOff showOld
 
@@ -178,7 +199,29 @@ module AnnotationViewer =
         let newDns = 
             fastDns config fc annoSet view |> onOff (AVal.map not showOld)
 
-        Sg.ofSeq [Sg.dynamic sg; Sg.dynamic newSg; Sg.dynamic dnsOld; Sg.dynamic newDns; overlay]
+        Log.startTimed "[Drawing] creating finished annotation geometry"
+        let selected =              
+            annoSet 
+            |> ASet.map(fun (g,a) -> 
+                let c = UI.mkColor model a
+                let picked = picked |> AVal.map (function | Some v when g = v -> true | _ -> false)
+                let showPoints = 
+                  a.geometry 
+                    |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
+                
+                let vm = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
+                let points = PRo3D.Core.Drawing.Sg.getPolylinePoints a   
+                let width = a.thickness.value |> AVal.map (fun x -> x + 3.0) // 3.0
+                //let spheres = PRo3D.Base.Sg.drawSpheresFast vm win.Sizes points width (AVal.constant C4b.Blue)
+
+                let sg = Sg.finishedAnnotation a c config view win.Sizes showPoints picked (AVal.constant false) :> ISg
+                sg
+                //spheres :> ISg
+            )
+            |> Sg.set               
+        Log.stop()
+
+        Sg.ofSeq [Sg.dynamic sg; Sg.dynamic newSg; Sg.dynamic dnsOld; Sg.dynamic newDns; overlay; selected]
 
     let run (scene : OpcScene) (annotations : Annotations) =
 
@@ -197,7 +240,7 @@ module AnnotationViewer =
 
         let serializer = FsPickler.CreateBinarySerializer()
 
-        let showSurface = false
+        let showSurface = true
 
         let sg = 
             if showSurface && runner.IsSome then

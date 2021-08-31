@@ -66,7 +66,9 @@ type StartupArgs = {
     showExplorationPoint  : bool
     startEmpty            : bool
     useAsyncLoading       : bool
+    serverMode            : bool
     magnificationFilter   : bool
+    remoteApp             : bool
     verbose               : bool
 } with 
     static member initArgs =
@@ -75,6 +77,8 @@ type StartupArgs = {
           startEmpty            = false
           useAsyncLoading       = false
           magnificationFilter   = false
+          remoteApp             = false
+          serverMode            = false
           verbose               = false
       }
 

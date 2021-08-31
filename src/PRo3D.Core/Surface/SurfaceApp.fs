@@ -26,6 +26,7 @@ open PRo3D.Core
 open PRo3D.Core.Surface
 
 open Adaptify.FSharp.Core
+open Aardvark.Base.Coder
 
 type SurfaceAppAction =
 | SurfacePropertiesMessage  of SurfaceProperties.Action
@@ -85,22 +86,20 @@ module SurfaceUtils =
 
     module ObjectFiles =        
         open Aardvark.Geometry
-        open Aardvark.Base.Coder
-
-        // copied from old PRo3D to fix missing kdtrees; why was it deleted in this version?
+        
         let saveKdTree (path, kdTree : Aardvark.Geometry.KdIntersectionTree) =
             // serialize
             use stream = new MemoryStream()
             use coder = new BinaryWritingCoder(stream)
             coder.CodeT(ref kdTree)
-      
+            
             // write to file
             use fileStream = File.Create(path)
             //stream.Position <- int64 0
             stream.Seek(int64 0, SeekOrigin.Begin) |> ignore
             stream.CopyTo(fileStream)
             fileStream.Close ()
-        
+
         //TODO TO use loadObject from master
         let loadObject (surface : Surface) : SgSurface =
             Log.line "[OBJ] Please wait while the file is being loaded..." 
@@ -133,7 +132,7 @@ module SurfaceUtils =
                                 KdIntersectionTree.BuildFlags.MediumIntersection + KdIntersectionTree.BuildFlags.Hierarchical) //|> PRo3D.Serialization.save kdTreePath                  
                         Log.stop()
                         
-                        saveKdTree (kdPath, tree) |> ignore   // CHECK-merge
+                        saveKdTree (kdPath, tree) |> ignore
                         
                         let kd : KdTrees.LazyKdTree = {
                             kdTree        = Some (tree.ToConcreteKdIntersectionTree());
@@ -153,7 +152,7 @@ module SurfaceUtils =
                     |> Serialization.save kdTreePath
                 
                 else
-                  Serialization.loadAs<List<Box3d*KdTrees.Level0KdTree>> kdTreePath
+                    Serialization.loadAs<List<Box3d*KdTrees.Level0KdTree>> kdTreePath
                     |> List.map(fun kd -> 
                         match kd with 
                         | _, KdTrees.Level0KdTree.InCoreKdTree tree -> (tree.boundingBox, (KdTrees.Level0KdTree.InCoreKdTree tree))
@@ -670,6 +669,27 @@ module SurfaceApp =
             
                 let headerText = 
                     AVal.map2 (fun a b -> sprintf "%.0f|%s" a b) (s.priority.value) s.name
+
+
+                let folder = "todo" // help - how do i get scenePath here @ThomasOrtner - is this even possible?
+                    //s.Current |> AVal.map (fun sf  ->
+                    //    Files.getSurfaceFolder sf scenePath 
+                    //)
+                    //let surf = id |> SurfaceModel.getSurface model
+                    //match surf with
+                    //| Some s -> 
+                    //    match s with 
+                    //    | Leaf.Surfaces sf ->
+                    //        let path = Files.getSurfaceFolder sf scenePath
+                    //        match path with
+                    //        | Some p -> 
+                    //            Process.Start("explorer.exe", p) |> ignore
+                    //            model
+                    //        | None -> model
+                    //    | _ -> failwith "can only contain surfaces"
+                    //| None -> model
+
+                //[clientEvent "onclick" (sprintf "aardvark.electron.shell.showItemInFolder('%s');" (Helpers.escape path)) ] <---- this is the way to go for "reveal in explorer/finder"
             
                 let bgc = sprintf "color: %s" (Html.ofC4b c)
                 yield div [clazz "item"; style infoc] [
@@ -696,9 +716,10 @@ module SurfaceApp =
                                 |> UI.wrapToolTip DataPosition.Bottom "Toggle IsActive"
             
                                 let! path = s.importPath
+                                let isobj = Path.GetExtension path = ".obj"
                                 //
                                 //  yield i 
-                                if (Directory.Exists path) |> not || (path |> Files.isSurfaceFolder |> not) then
+                                if ((Directory.Exists path) |> not || (path |> Files.isSurfaceFolder |> not)) && (isobj |> not) then
                                     yield i [
                                         clazz "exclamation red icon"
                                         //Dialogs.onChooseDirectory key ChangeImportDirectory;

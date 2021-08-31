@@ -38,7 +38,8 @@ module Sg =
     let mutable hackRunner : Option<Load.Runner> = None
     let mutable useAsyncLoading = true
 
-    let mars 
+    
+    let lodDeciderMars 
         (preTrafo    : Trafo3d)
         (self        : AdaptiveToken) 
         (viewTrafo   : aval<Trafo3d>)
@@ -56,15 +57,16 @@ module Sg =
         let closest = bb.GetClosestPointOn(campPos)
         let dist    = (closest - campPos).Length
 
-        // super agressive to prune out far away stuf
-        if not isActive || (campPos - bb.Center).Length > p.info.GlobalBoundingBox.Size.[p.info.GlobalBoundingBox.Size.MajorDim] * 1.5 then false
-        else
+        //// super agressive to prune out far away stuff, too aggresive !!!
+        //if not isActive || (campPos - bb.Center).Length > p.info.GlobalBoundingBox.Size.[p.info.GlobalBoundingBox.Size.MajorDim] * 1.5 
+        //    then false
+        //else
 
-            let unitPxSize = lodParams.frustum.right / (float lodParams.size.X / 2.0)
-            let px = (lodParams.frustum.near * p.triangleSize) / dist // (pow dist 1.2) // (added pow 1.2 here... discuss)
+        let unitPxSize = lodParams.frustum.right / (float lodParams.size.X / 2.0)
+        let px = (lodParams.frustum.near * p.triangleSize) / dist // (pow dist 1.2) // (added pow 1.2 here... discuss)
 
-                //    Log.warn "%f to %f - avgSize: %f" px (unitPxSize * lodParams.factor) p.triangleSize
-            px > unitPxSize * (exp lodParams.factor)
+            //    Log.warn "%f to %f - avgSize: %f" px (unitPxSize * lodParams.factor) p.triangleSize
+        px > unitPxSize * (exp lodParams.factor)
 
     let createPlainSceneGraph (runtime : IRuntime) (signature : IFramebufferSignature) (scene : OpcScene) (createKdTrees)
         : (ISg * list<PatchHierarchy> * HashMap<Box3d, KdTrees.Level0KdTree>) =
@@ -134,10 +136,8 @@ module Sg =
                          | Some _ -> AVal.constant true :> IAdaptiveValue
                          | _ -> AVal.constant false :> IAdaptiveValue
              ]
-
-        let lodDecider = mars scene.preTransform
-
-                
+     
+        let lodDeciderMars = lodDeciderMars (scene.preTransform)
 
         // create level of detail hierarchy (Sg)
         let g = 
@@ -147,7 +147,7 @@ module Sg =
                     signature
                     runner 
                     h.opcPaths.Opc_DirAbsPath
-                    lodDecider //mars //scene.lodDecider 
+                    lodDeciderMars //scene.lodDecider 
                     scene.useCompressedTextures
                     true
                     ViewerModality.XYZ

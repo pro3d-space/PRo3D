@@ -153,6 +153,8 @@ module OutlineEffect =
         ]
 
     let createForPoints
+        (view : aval<CameraView>)
+        (viewportSize : aval<V2i>)
         (points : aval<V3d[]>) 
         (outlineGroup: int)
         (color: aval<C4b>) 
@@ -163,32 +165,36 @@ module OutlineEffect =
         
         // TODO ...Points-Outline is broken! (?not stable with trafo / screenSpaceScaling)
 
-        let sg = Sg.drawSpheres points pointWidth color
+        //let sg = Sg.drawSpheres points outlineWidth (AVal.constant C4b.Red)
+        let sg = Sg.drawSpheresFast view viewportSize points outlineWidth (AVal.constant C4b.Red)
         //let sgo = Sg.drawSpheres points outlineWidth (AVal.constant C4b.Red)   // using this instead -> visible broken visualization when point is on the edge of the view-frustrum
 
         let mask = 
             sg
             |> Sg.stencilMode (AVal.constant (write outlineGroup))
-            |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Stencil])
+            |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Stencil;DefaultSemantic.Depth])
             |> Sg.pass pass
             |> Sg.effect [screenSpaceStablePoints]
             
         let outline = 
             sg //sgo
             |> Sg.stencilMode (AVal.constant (read outlineGroup))
-            |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Colors])
+            |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Colors; DefaultSemantic.Depth])
             |> Sg.pass outlinePass
             |> Sg.depthTest (AVal.constant DepthTest.None)
             |> Sg.uniform "LineWidth" outlineWidth
             |> Sg.effect [outlineShader]
-        [mask; outline] |> Sg.ofList 
+
+        [mask; (*outline;*) sg |> Sg.pass outlinePass] |> Sg.ofList 
         
     type PointOrLine = 
         | Point
         | Line
         | Both
 
-    let createForLineOrPoint (mode: PointOrLine) (color: aval<C4b>) (width: aval<float>) (outlineWidth: float) (pass: RenderPass) (trafo: aval<Trafo3d>) (points: aval<V3d[]>) =
+
+
+    let createForLineOrPoint (view : aval<CameraView>) (viewportSize : aval<V2i>) (mode: PointOrLine) (color: aval<C4b>) (width: aval<float>) (outlineWidth: float) (pass: RenderPass) (trafo: aval<Trafo3d>) (points: aval<V3d[]>) =
             
         let outlinePass = RenderPass.after "outline" RenderPassOrder.Arbitrary pass
         let outlineWidth = width |> AVal.map (fun x -> x + outlineWidth) // 3.0
@@ -201,11 +207,11 @@ module OutlineEffect =
             | _, 0  -> yield Sg.empty
             | _, 1
             | Point, _ -> 
-                yield createForPoints points outlineGroup color width outlineWidth pass outlinePass
+                yield createForPoints view viewportSize points outlineGroup color width outlineWidth pass outlinePass
             | Line, _ ->
                 yield createForLine points outlineGroup trafo color width outlineWidth pass outlinePass
             | Both, _ -> 
-                yield createForPoints points outlineGroup color width outlineWidth pass outlinePass
+                yield createForPoints view  viewportSize points outlineGroup color width outlineWidth pass outlinePass
                 yield createForLine points outlineGroup trafo color width outlineWidth pass outlinePass
         } 
         |> Sg.set

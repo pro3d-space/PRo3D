@@ -71,3 +71,7 @@ src\Aardvark.OpcViewer.psess
 /instruments/InstrumentPlatforms/.vs/InstrumentPlatforms/v16/*.suo
 /instruments/InstrumentPlatforms/.vs/InstrumentPlatforms/DesignTimeBuild/*.v2
 **/.vs/**
+
+.ionide
+/*.DS_Store
+/bin/*.DS_Store

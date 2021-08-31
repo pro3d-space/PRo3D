@@ -30,8 +30,12 @@ module ViewerIO =
 
     //rover data
     let loadRoverData (m:Model) =
+      try
       let vps = ViewPlanApp.loadRoverData m.scene.viewPlans m.scene.scenePath
       { m with scene = { m.scene with viewPlans = vps } }
+      with e ->
+        Log.warn "[Rover Data] could not load rover data: %A" e.Message
+        m
     
     
     //let getAnnotationPath_depr (scenePath:string) = 
@@ -273,11 +277,15 @@ module ViewerIO =
             
             //saving minerva session
             let minerva = 
+                try
                 MinervaApp.update 
                     m.navigation.camera.view
                     m.frustum
                     m.minervaModel
                     MinervaAction.Save
+                with e -> 
+                    Log.warn "[Minerva] update failed, could not save, using old model: %A" e
+                    m.minervaModel
 
             //saving correlations session                        
             

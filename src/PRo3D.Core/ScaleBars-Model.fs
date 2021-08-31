@@ -307,6 +307,7 @@ module InitScaleBarsParams =
         trafo                = Trafo3d.Identity
         yaw                  = yaw
         pivot                = V3d.Zero
+        flipZ                = false
     }
 
     let thickness = {

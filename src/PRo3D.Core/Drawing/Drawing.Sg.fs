@@ -324,6 +324,7 @@ module Sg =
         (color            : aval<C4b>) 
         (config           : innerViewConfig)
         (view             : aval<CameraView>) 
+        (viewportSize     : aval<V2i>)
         (showPoints       : aval<bool>)         
         (picked           : aval<bool>)
         (pickingAllowed   : aval<bool>) =
@@ -364,11 +365,13 @@ module Sg =
                 anno.modelTrafo 
                 true 
                 pickFunc
+
+        let vm = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
              
         let selectionSg = 
             picked 
             |> AVal.map (function
-                | true -> OutlineEffect.createForLineOrPoint PRo3D.Base.OutlineEffect.Both (AVal.constant C4b.VRVisGreen) anno.thickness.value 3.0  RenderPass.main anno.modelTrafo points
+                | true -> OutlineEffect.createForLineOrPoint view viewportSize PRo3D.Base.OutlineEffect.Both (AVal.constant C4b.VRVisGreen) anno.thickness.value 3.0  RenderPass.main anno.modelTrafo points
                 | false -> Sg.empty ) 
             |> Sg.dynamic
     
@@ -384,21 +387,21 @@ module Sg =
         (color            : aval<C4b>) 
         (config           : innerViewConfig)
         (view             : aval<CameraView>) 
+        (viewportSize     : aval<V2i>)
         (showPoints       : aval<bool>)         
         (picked           : aval<bool>)
         (pickingAllowed   : aval<bool>) =
-
-        let points = getPolylinePoints anno      
-        let dots = 
-            showPoints 
-            |> optionalSet (
-                getDotsIsg
-                    anno.points
-                    (anno.thickness.value |> AVal.map(fun x -> x + 0.5))
-                    color
-                    anno.geometry 
-                    config.offset
-            )
+ 
+        //let dots = 
+        //    showPoints 
+        //    |> optionalSet (
+        //        getDotsIsg
+        //            anno.points
+        //            (anno.thickness.value |> AVal.map(fun x -> x + 0.5))
+        //            color
+        //            anno.geometry 
+        //            config.offset
+        //    )
      
         let texts = 
             anno.text 
@@ -411,7 +414,7 @@ module Sg =
         let pickingAllowed = // for this particular annotation // whether should fire pick actions
             AVal.map2 (&&) pickingAllowed anno.visible
 
-        let pickFunc = pickEventsHelper (anno.key |> AVal.constant) pickingAllowed anno.thickness.value anno.modelTrafo
+        //let pickFunc = pickEventsHelper (anno.key |> AVal.constant) pickingAllowed anno.thickness.value anno.modelTrafo
 
 
         //let pickingLines = 
@@ -425,17 +428,23 @@ module Sg =
         //        true 
         //        pickFunc
              
+        let vm = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
+
         let selectionSg = 
             picked 
             |> AVal.map (function
-                | true -> OutlineEffect.createForLineOrPoint PRo3D.Base.OutlineEffect.Both (AVal.constant C4b.VRVisGreen) anno.thickness.value 3.0  RenderPass.main anno.modelTrafo points
+                | true -> 
+                    
+                    let points = getPolylinePoints anno     
+                    OutlineEffect.createForLineOrPoint view viewportSize PRo3D.Base.OutlineEffect.Both (AVal.constant C4b.VRVisGreen) anno.thickness.value 3.0  RenderPass.main anno.modelTrafo points
                 | false -> Sg.empty ) 
             |> Sg.dynamic
     
         Sg.ofList [
             selectionSg
             //pickingLines
-            dotsAndText
+            //dotsAndText
+            (texts |> Sg.set)
         ] |> optional anno.visible
     
     let finishedAnnotationDiscs (anno : AdaptiveAnnotation) (conf:innerViewConfig) (cl : AdaptiveFalseColorsModel) (cam:aval<CameraView>) =

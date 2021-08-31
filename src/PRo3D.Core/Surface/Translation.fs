@@ -27,6 +27,7 @@ module TranslationApp =
     type Action =
         | SetTranslation   of Vector3d.Action
         | SetYaw           of Numeric.Action
+        | FlipZ            
         | ToggleVisible
     
 
@@ -38,6 +39,9 @@ module TranslationApp =
         | SetYaw a ->    
             let yaw = Numeric.update model.yaw a
             { model with yaw = yaw }
+        | FlipZ ->
+            //let trafo' = model.trafo * Trafo3d.Scale(1.0, 1.0, -1.0)
+            { model with flipZ = (not model.flipZ)} //; trafo = trafo' }
         | ToggleVisible   -> 
             { model with useTranslationArrows = not model.useTranslationArrows}
 
@@ -59,5 +63,6 @@ module TranslationApp =
                     Html.row "Translation (m):" [viewV3dInput model.translation |> UI.map SetTranslation ]
                     Html.row "Pivot Point:" [Incremental.text (model.pivot |> AVal.map (fun x -> x.ToString ()))]
                     Html.row "Yaw (deg):" [Numeric.view' [InputBox] model.yaw |> UI.map SetYaw]
+                    Html.row "flip Z:"    [GuiEx.iconCheckBox model.flipZ FlipZ ]
                 ]
             )

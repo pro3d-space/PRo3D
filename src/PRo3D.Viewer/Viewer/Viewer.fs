@@ -1031,7 +1031,7 @@ module ViewerApp =
                 | Aardvark.Application.Keys.Enter    -> DrawingAction.Finish
                 | Aardvark.Application.Keys.Back     -> DrawingAction.RemoveLastPoint
                 | Aardvark.Application.Keys.Escape   -> DrawingAction.ClearWorking
-                | Aardvark.Application.Keys.LeftCtrl -> 
+                | Keyboard.Modifier -> 
                     match m.interaction with 
                     | Interactions.DrawAnnotation -> DrawingAction.StartDrawing
                     | Interactions.PickAnnotation -> DrawingAction.StartPicking
@@ -1048,7 +1048,7 @@ module ViewerApp =
 
             let m =
                 match k with 
-                | Aardvark.Application.Keys.LeftCtrl ->
+                | Keyboard.Modifier ->
                     match m.interaction with
                     | Interactions.PickMinervaProduct -> 
                         { m with minervaModel = { m.minervaModel with picking = true }; ctrlFlag = true}
@@ -1238,7 +1238,7 @@ module ViewerApp =
                 | _ -> m
 
             match k with
-            | Aardvark.Application.Keys.LeftCtrl -> 
+            | Keyboard.Modifier -> 
                 match m.interaction with
                 | Interactions.DrawAnnotation -> 
                     let view = m.navigation.camera.view
@@ -1882,6 +1882,7 @@ module ViewerApp =
     let viewRenderView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
         let overlayed, depthTested, cam = createSceneGraphs runtime id false m
 
+        //render OPCs in priority groups
         let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m
         onBoot "attachResize('__ID__')" (
             DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)

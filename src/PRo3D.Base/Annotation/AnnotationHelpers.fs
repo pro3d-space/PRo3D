@@ -244,7 +244,9 @@ module Calculations =
             if not model.segments.IsEmpty then
                 computeWayLength model.segments
             else
-                model.points |> IndexList.toList |> getDistance
+                model.points 
+                |> IndexList.toList 
+                |> getDistance
     
         let heights = 
             model.points 

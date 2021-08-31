@@ -21,6 +21,8 @@ Planetary geology is the most elaborately supported use-case of PRo3D, however w
 
 PRo3D is **free** for academic use. When used for publications, we kindly ask to reference PRo3D and [PRo3D Homepage](http://pro3d.space). For commercial use, and or customization, please contact science@vrvis.at.
 
+A list of third party software licences can be found in the CREDITS file which is also included in releases. As mentioned also beside the resources, PRo3D uses and deploys [SPICE](https://naif.jpl.nasa.gov/naif/toolkit.html) kernels. Credits go to NASA's Navigation and Ancillary Information Facility (NAIF).
+
 # Technology & System Requirements
 
 PRo3D is based on the functional-first libraries of the [The Aardvark Platform](https://aardvarkians.com/), available on [github](https://github.com/aardvark-platform). In December, we will finish the final bits for mac os finally making the application fully cross-platform.
@@ -52,10 +54,10 @@ Demo data and the pre-built application versions can be found on our [PRo3D Rele
 
 for contributions and when compiling from source windows is the recommended platform. Currently we use few native libraries which are not yet compiled for mac/linux delaying full cross-platform support.
 
-* install [dotnet 3.1 sdk](https://dotnet.microsoft.com/download)
+* install [dotnet 5.0 sdk](https://dotnet.microsoft.com/download)
 * `git clone git@github.com:vrvis/PRo3D.git`
-* run `build.cmd`
-* `dotnet run PRo3D.Viewer` or open `/src/PRo3D.sln` with Visual Studio 2019
+* run `build.cmd` or `./build.sh`
+* `dotnet run --project src/PRo3D.Viewer/PRo3D.Viewer.fsproj` or open `/src/PRo3D.sln` with Visual Studio 2019
 
 A reconstruction of the Cape Desire outcrop at the rim of Victoria crater can be found [here](http://download.vrvis.at/realtime/PRo3D/CapeDesire/Cape_Desire_RGB.zip). For loading the data please watch the video-based introduction to PRo3D can be found in the [Getting Started](http://www.pro3d.space/#started) section of [PRo3D.space](http://www.pro3d.space)
 

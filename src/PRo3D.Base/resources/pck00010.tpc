@@ -1,0 +1,10 @@
+\begindata
+
+KERNELS_TO_LOAD= ( 'pck00010-base.tpc' )
+BODY499_PGR_POSITIVE_LON= 'EAST'
+
+\begintext
+
+There seems to be an inconsistency in the SPICE kernels. All bodies with pro-grade rotation should have positive longitude to the West. Exceptions are Sun, Earth and Moon. It seems, that Mars (BODY499) has been added to the exceptions but SPICE has not been adapted accordingly. Therefore, we override the variable BODY499_PGR_POSITIVE_LON.
+See for example https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/pgrrec_c.html
+

@@ -510,6 +510,7 @@ module ScaleBarsApp =
         let viewSingleScaleBarLine 
             (scaleBar   : AdaptiveScaleBar) 
             (view       : aval<CameraView>)
+            (viewportSize : aval<V2i>)
             (near       : aval<float>)
             (selected   : aval<Option<Guid>>) =
 
@@ -540,9 +541,11 @@ module ScaleBarsApp =
 
                 let points = getP1P2 scaleBar
 
+                let vm = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
+
                 let selectionSg = 
                     if selected then
-                        OutlineEffect.createForLineOrPoint PRo3D.Base.OutlineEffect.Line (AVal.constant C4b.VRVisGreen) scaleBar.thickness.value 3.0 RenderPass.main trafo points
+                        OutlineEffect.createForLineOrPoint view viewportSize PRo3D.Base.OutlineEffect.Line (AVal.constant C4b.VRVisGreen) scaleBar.thickness.value 3.0 RenderPass.main trafo points
                     else Sg.empty
                     
                         
@@ -580,7 +583,6 @@ module ScaleBarsApp =
                     |> Sg.onOff scaleBar.textVisible
 
                 let pickFunc = Sg.pickEventsHelper scaleBar.guid (AVal.constant selected) scaleBar.thickness.value trafo
-
                
             
                 // do this for all lineparts
@@ -608,7 +610,7 @@ module ScaleBarsApp =
                             |> AList.map( fun seg -> getSgSegmentCylinderMask seg scaleBar.thickness.value ) 
                             |> AList.toASet
                             |> Sg.set
-                        OutlineEffect.createForSg 1 RenderPass.main C4f.VRVisGreen cylinder
+                        OutlineEffect.createForSg 2 RenderPass.main C4f.VRVisGreen cylinder
                     else Sg.empty
                 
                     

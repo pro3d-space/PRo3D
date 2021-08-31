@@ -258,6 +258,28 @@ module Shader =
             }
         }
 
+    //type InstancedVertex = 
+    //    {
+    //        [<Semantic("MV")>]
+    //        mv : M44d
+    //        [<Position>]
+    //        pos : V4d
+    //        [<Color>]
+    //        c : V4d
+    //    }
+
+    //let stableMVTrafo (v : InstancedVertex) =
+    //    vertex {
+    //        let vp = v.mv * v.pos
+    //        let p = uniform.ProjTrafo * vp
+    //        let color : V4d = uniform?Color
+    //        return { 
+    //            v with 
+    //                pos = p
+    //                c = color
+    //        }
+    //    }
+
     let pointSpriteFragment (v : PointVertex) =
         fragment {
             let tc = v.tc
@@ -688,6 +710,112 @@ module Sg =
         } 
         |> Sg.set
         |> Sg.effect [dotShader]
+
+
+    module ScreenSpaceScale =
+    
+        open Aardvark.Rendering.Effects
+
+        type UniformScope with
+            member x.Size : float = x?Size
+
+
+        type InstanceVertex = { 
+               [<Position>]            pos   : V4d 
+               [<InstanceTrafo>]       mv : M44d
+           }
+    
+        let screenSpaceScale (v : InstanceVertex) =
+            vertex {   
+                let vp = v.mv * v.pos
+
+                let dist = abs vp.Z   
+                let hvp    = float uniform.ViewportSize.X
+                let scale = dist * uniform.Size / hvp 
+
+                let vps = v.mv * V4d(v.pos.X * scale, v.pos.Y * scale, v.pos.Z * scale, 1.0)
+
+                return { v with pos = uniform.ProjTrafo * vps }
+                //let loc     = uniform.CameraLocation       
+
+                //let dist = abs v.pos.Z    
+                //let scale = dist * uniform.Size / hvp 
+
+                //return 
+                //    { v with
+                //        pos = V4d(v.pos.X * scale, v.pos.Y * scale, v.pos.Z * scale, v.pos.W)
+                //    }
+            }
+
+        let projTrafo (v : InstanceVertex) =
+            vertex {   
+                let vp = v.mv * v.pos
+                return { v with pos = uniform.ProjTrafo * vp; }
+            }
+
+        type Vertex = {
+            [<Position>]                pos     : V4d
+            [<Semantic("LightDir")>]    ldir    : V3d
+        }
+
+        let lightDir (v : Vertex) = 
+            vertex {
+                return { v with ldir = -v.pos.XYZ |> Vec.normalize }
+            }
+
+    
+    let dotInstanced = 
+        Effect.compose [
+            //toEffect DefaultSurfaces.instanceTrafo
+            toEffect ScreenSpaceScale.screenSpaceScale
+            toEffect DefaultSurfaces.sgColor      
+        ]
+
+    let dotInstancedNoScaling = 
+        Effect.compose [
+            //toEffect DefaultSurfaces.instanceTrafo
+            toEffect ScreenSpaceScale.projTrafo
+            toEffect ScreenSpaceScale.lightDir
+            toEffect DefaultSurfaces.sgColor   
+            toEffect DefaultSurfaces.stableHeadlight
+        ]
+
+    let drawSpheresFast (view : aval<CameraView>) (viewportSize : aval<V2i>) (points : aval<V3d[]>) (size : aval<float>) (color : aval<C4b>) = 
+        
+        // the original pro3d scaling scheme as used in OPCViewer
+        // to match all other code, semantically translated from here: https://github.com/aardvark-platform/OpcViewer/blob/b45eb33b532d3fcc1b0242b64dd0191eabda6df6/src/OPCViewer.Base/Shaders.fs
+        // larger screen space scaling efforts neeed to be taken to improve on this one: https://github.com/pro3d-space/PRo3D/issues/90
+
+        let mvs = 
+            AVal.custom (fun t -> 
+                let view = view.GetValue(t)
+                let points = points.GetValue(t)
+                let viewportSize = viewportSize.GetValue(t)
+                let size = size.GetValue(t) 
+
+                let loc = view.Location
+                let hvp = float viewportSize.X
+
+                // should be computed outside once.
+                let mv = (view |> CameraView.viewTrafo).Forward
+
+                let mvs = 
+                    points |> Array.map (fun p -> 
+                        let dist = Vec.length (p - loc)
+                        let scale = dist * size / hvp
+                        mv * M44d.Translation(p) * M44d.Scale(scale) |> M44f
+                    )
+                mvs
+            )
+
+        let geometry = IndexedGeometryPrimitives.solidSubdivisionSphere Sphere3d.Unit 4 C4b.White
+        Sg.ofIndexedGeometryInstancedA geometry (mvs |> AVal.map Array.length)
+        |> Sg.noEvents
+        |> Sg.instanceAttribute DefaultSemantic.InstanceTrafo mvs
+        |> Sg.viewTrafo' Trafo3d.Identity
+        |> Sg.uniform "Color" color
+        |> Sg.uniform "Size" size
+        |> Sg.effect [dotInstancedNoScaling]
 
     let stablePoints (trafo : aval<Trafo3d>) (positions : aval<V3d[]>) =
         positions 
