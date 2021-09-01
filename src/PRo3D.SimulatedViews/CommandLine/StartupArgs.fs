@@ -14,7 +14,6 @@ type CLStartupArgs = {
   snapshotPath          : option<string>
   outFolder             : string
   snapshotType          : option<SnapshotType>
-  guiMode               : GuiMode
   showExplorationPoint  : bool
   showReferenceSystem   : bool
   renderDepth           : bool
@@ -38,7 +37,6 @@ type CLStartupArgs = {
         scenePath             = None
         snapshotPath          = None
         snapshotType          = None
-        guiMode               = GuiMode.CompleteGui
         showExplorationPoint  = true
         showReferenceSystem   = true
         renderDepth           = false

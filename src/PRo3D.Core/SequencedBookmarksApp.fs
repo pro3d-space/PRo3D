@@ -469,12 +469,12 @@ module SequencedBookmarksApp =
             let startRecordingButton =
                 button [clazz "ui icon button"; onMouseClick (fun _ -> StartRecording )] [ 
                         i [clazz "red circle icon"] [] ] 
-                    |> UI.wrapToolTip DataPosition.Bottom "Start recording for batch rendering"
+                    
 
             let stopRecordingButton = 
                 button [clazz "ui icon button"; onMouseClick (fun _ -> StopRecording )] [ 
                         i [clazz "red stop icon"] [] ] 
-                    |> UI.wrapToolTip DataPosition.Bottom "Stop recording for batch rendering"
+                    
 
             let recordingButton =
                 model.isRecording |> AVal.map (fun r -> if r then stopRecordingButton else startRecordingButton)
@@ -483,24 +483,27 @@ module SequencedBookmarksApp =
             let generateButton = 
                 button [clazz "ui icon button"; onMouseClick (fun _ -> GenerateSnapshots )] [ 
                     i [clazz "camera icon"] [] ] 
-                    |> UI.wrapToolTip DataPosition.Bottom "Create images of the recorded animation sequence."
+                    
 
             let cancelButton = 
                 button [clazz "ui icon button"; onMouseClick (fun _ -> CancelSnapshots )] 
                        [i [clazz "remove icon"] []]
-                            |> UI.wrapToolTip DataPosition.Bottom "Cancel generating images"
+                            
                
 
-            let togglingButton =
+            let generateToggleButton =
                 model.isGenerating |> AVal.map (fun b -> if b then cancelButton else  generateButton)
                                    |> AList.ofAValSingle
                     
             require GuiEx.semui (
                 div [] [
                     Html.table [            
-                        Html.row "Image generation:" 
+                        Html.row "Record camera animation:" [
+                                Incremental.div ([] |> AttributeMap.ofList) recordingButton          
+                            ]
+                        Html.row "Generate images:" 
                             [
-                                Incremental.div ([] |> AttributeMap.ofList) (AList.concat [recordingButton;togglingButton])          
+                                Incremental.div ([] |> AttributeMap.ofList) generateToggleButton         
                             ]
                         
                         Html.row "Always generate images after recording:"  

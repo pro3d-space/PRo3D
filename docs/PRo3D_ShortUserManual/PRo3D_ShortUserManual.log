@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.20 (MiKTeX 2.9.7250 64-bit) (preloaded format=pdflatex 2020.1.22)  31 AUG 2021 15:39
+This is pdfTeX, Version 3.14159265-2.6-1.40.20 (MiKTeX 2.9.7250 64-bit) (preloaded format=pdflatex 2020.1.22)  1 SEP 2021 10:18
 entering extended mode
 **./PRo3D_ShortUserManual.tex
 (PRo3D_ShortUserManual.tex
@@ -847,11 +847,11 @@ Underfull \hbox (badness 10000) in paragraph at lines 156--157
 
  []
 
-<pics/SequencedBookmarks.png, id=423, 417.81094pt x 551.05875pt>
+<pics/SequencedBookmarks.png, id=423, 423.08063pt x 579.66562pt>
 File: pics/SequencedBookmarks.png Graphic file (type png)
 <use pics/SequencedBookmarks.png>
 Package pdftex.def Info: pics/SequencedBookmarks.png  used on input line 201.
-(pdftex.def)             Requested size: 209.1277pt x 275.82298pt.
+(pdftex.def)             Requested size: 209.1277pt x 286.52408pt.
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 204.
@@ -884,15 +884,15 @@ File: pics/logosSUM.png Graphic file (type png)
 Package pdftex.def Info: pics/logosSUM.png  used on input line 231.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
 [21 <./pics/SequencedBookmarks.png> <./pics/SequencedBookmarks_list.png>]
-<pics/SequencedBookmarks_snapshots.png, id=445, 420.06938pt x 127.97812pt>
+<pics/SequencedBookmarks_snapshots.png, id=445, 421.575pt x 159.59625pt>
 File: pics/SequencedBookmarks_snapshots.png Graphic file (type png)
 <use pics/SequencedBookmarks_snapshots.png>
 Package pdftex.def Info: pics/SequencedBookmarks_snapshots.png  used on input l
 ine 236.
-(pdftex.def)             Requested size: 334.6056pt x 101.9413pt.
+(pdftex.def)             Requested size: 334.6056pt x 126.67383pt.
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 254.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 248.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
 
 [22 <./pics/SequencedBookmarks_properties.png> <./pics/SequencedBookmarks_anima
@@ -1248,7 +1248,7 @@ Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 273.
 Here is how much of TeX's memory you used:
  9183 strings out of 492448
  141838 string characters out of 3119512
- 606630 words of memory out of 3000000
+ 607630 words of memory out of 3000000
  12969 multiletter control sequences out of 15000+200000
  63825 words of font info for 63 fonts, out of 3000000 for 9000
  1141 hyphenation exceptions out of 8191
@@ -1262,7 +1262,7 @@ KTeX 2.9/fonts/type1/urw/courier/ucrr8a.pfb><C:/Users/rnowak/AppData/Local/Prog
 rams/MiKTeX 2.9/fonts/type1/urw/helvetic/uhvb8a.pfb><C:/Users/rnowak/AppData/Lo
 cal/Programs/MiKTeX 2.9/fonts/type1/urw/helvetic/uhvr8a.pfb><C:/Users/rnowak/Ap
 pData/Local/Programs/MiKTeX 2.9/fonts/type1/urw/helvetic/uhvro8a.pfb>
-Output written on PRo3D_ShortUserManual.pdf (47 pages, 21382106 bytes).
+Output written on PRo3D_ShortUserManual.pdf (47 pages, 21384690 bytes).
 PDF statistics:
  869 PDF objects out of 1000 (max. 8388607)
  263 named destinations out of 1000 (max. 500000)

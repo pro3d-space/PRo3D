@@ -629,21 +629,27 @@ module ViewerApp =
                         None    
                 SnapshotAnimation.writeToFile snapshotAnimation filename
 
-            let generateSnapshots () = 
-                match m.scene.scenePath with
-                | Some scenePath -> 
-                    let args = sprintf "--scn %s --asnap %s --out images --exitOnFinish" scenePath filename
-                    Log.line "[Viewer] Starting snapshot rendering with arguments: %s" args
-                    SequencedBookmarksApp.snapshotProcess <- Some (SnapshotUtils.runProcess "PRo3D.Snapshots.exe" args None)
-                    let id = System.Guid.NewGuid () |> string
-                    let proclst =
-                        proclist {
-                            for i in 1..2000 do
-                                do! Proc.Sleep 5000
-                                yield CheckSnapshotsProcess id
-                        }              
-                    {m with snapshotThreads = ThreadPool.add id proclst m.snapshotThreads}
-                | None -> m
+            let generateSnapshots () =
+                if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform
+                        (System.Runtime.InteropServices.OSPlatform.Windows) then
+                    match m.scene.scenePath with
+                    | Some scenePath -> 
+                        let args = sprintf "--scn %s --asnap %s --out images --exitOnFinish" scenePath filename
+                        Log.line "[Viewer] Starting snapshot rendering with arguments: %s" args
+                        SequencedBookmarksApp.snapshotProcess <- Some (SnapshotUtils.runProcess "PRo3D.Snapshots.exe" args None)
+                        let id = System.Guid.NewGuid () |> string
+                        let proclst =
+                            proclist {
+                                for i in 0..2000 do
+                                    do! Proc.Sleep 5000
+                                    yield CheckSnapshotsProcess id
+                            }              
+                        {m with snapshotThreads = ThreadPool.add id proclst m.snapshotThreads}
+                    | None -> 
+                        m
+                else 
+                    Log.warn "[Viewer] This feature is only available for Windows."
+                    m
             let m = 
                 match msg with
                 | PRo3D.Base.SequencedBookmarksAction.StopRecording -> 
