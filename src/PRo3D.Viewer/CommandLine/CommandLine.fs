@@ -162,7 +162,7 @@ module CommandLine =
                             startEmpty            = startEmpty
                             useAsyncLoading       = useAsyncLoading
                             magnificationFilter   = false
-                            remoteApp             = false
+                            remoteApp             = remoteApp
                             serverMode            = server
                         }
                 args
