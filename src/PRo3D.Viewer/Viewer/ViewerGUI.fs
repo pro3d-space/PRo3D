@@ -726,6 +726,9 @@ module Gui =
               GuiEx.accordion "Frustum" "Settings" false [
                   FrustumProperties.view m.frustumModel |> UI.map FrustumMessage
               ]
+              GuiEx.accordion "Screenshots" "Settings" false [
+                  ScreenshotApp.view m.screenshotApp |> UI.map ScreenshotAppMessage
+              ]
           ] 
           
     module ViewPlanner = 

@@ -13,6 +13,8 @@
     <OutputPath>..\..\bin\Release\</OutputPath>
   </PropertyGroup>
   <ItemGroup>      
+    <Compile Include="Screenshots\Screenshot-Model.fs" />      
+    <Compile Include="Screenshots\ScreenshotApp.fs" />      
     <Compile Include="Viewplanner\FootPrint-Model.fs" />      
     <Compile Include="Viewplanner\Rover-Model.fs" />      
     <Compile Include="Viewplanner\Rover.fs" />      

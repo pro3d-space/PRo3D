@@ -277,10 +277,13 @@ let main argv =
 
         //Log.line "[Viewer] scene: %A" loadedScnx
 
-        let mainApp = 
-            ViewerApp.start runtime signature startEmpty messagingMailbox sendQueue dumpFile cacheFile
+        let port = getFreePort()
+        let uri = sprintf "http://localhost:%d" port
 
-        let s = { MailboxState.empty with update = mainApp.update Guid.Empty }
+        let mainApp = 
+            ViewerApp.start runtime signature startEmpty messagingMailbox sendQueue dumpFile cacheFile uri
+
+        let s = { MailboxState.empty with update = mainApp.update Guid.Empty}
         MailboxAction.InitMailboxState s |> messagingMailbox.Post
     
     
@@ -314,8 +317,7 @@ let main argv =
                             >=> OK "CORS approved" )
             ]
 
-        let port = getFreePort()
-        let uri = sprintf "http://localhost:%d" port
+
 
         let suaveServer = 
             WebPart.startServerLocalhost port [
