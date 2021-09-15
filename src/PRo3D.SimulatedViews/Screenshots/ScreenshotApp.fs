@@ -42,14 +42,23 @@ module ScreenshotApp =
         Log.line "[Screenshots] URL: %s" url
         url
 
+    
     let mutable imgNr = 0
+    let rec findFreeName (m : ScreenshotApp) = 
+        let filename = sprintf "img%03i.%s" imgNr (imageFormatToString m.imageFormat)
+        let filenamepath = Path.combine [m.outputPath;filename]        
+        if not (File.Exists filenamepath) then
+            filenamepath
+        else 
+            imgNr <- imgNr + 1
+            findFreeName m
+    
     let makeScreenshot (m : ScreenshotApp) =
         let wc = new System.Net.WebClient()
         let url = createUrl m wc
-
-        let filename = sprintf "img%03i.%s" imgNr (imageFormatToString m.imageFormat)
+        let filenamepath = findFreeName m 
         imgNr <- imgNr + 1
-        let filenamepath = Path.combine [m.outputPath;filename]        
+        
 
         wc.DownloadFile(url, filenamepath)
         Log.line "[Screenshot] Screenshot saved to %s" filenamepath
