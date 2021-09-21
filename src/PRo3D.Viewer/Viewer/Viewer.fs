@@ -37,7 +37,6 @@ open PRo3D.Bookmarkings
 
 open PRo3D.Core.Surface
 open PRo3D.Viewer
-open PRo3D.OrientationCube
 
 open PRo3D.SimulatedViews
 open PRo3D.Minerva
@@ -1597,9 +1596,10 @@ module ViewerApp =
 
             let heightValidation =
                 HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation
+            
+            let orientationCube = PRo3D.OrientationCube.Sg.view m.navigation.camera.view m.scene.config m.scene.referenceSystem
 
-
-            [exploreCenter; refSystem; viewPlans; homePosition; solText; heightValidation] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
+            [exploreCenter; refSystem; viewPlans; homePosition; solText; heightValidation; orientationCube] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
         let minervaSg =
             let minervaFeatures = 

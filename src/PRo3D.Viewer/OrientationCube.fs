@@ -65,9 +65,13 @@ module Shader =
 module Sg =    
     
     let loadCubeModel (filename : string) =
-        Aardvark.SceneGraph.IO.Loader.Assimp.load filename
-        |> Sg.adapter
-        |> Sg.noEvents
+        if System.IO.File.Exists filename then
+            Aardvark.SceneGraph.IO.Loader.Assimp.load filename
+            |> Sg.adapter
+            |> Sg.noEvents
+        else 
+            Log.warn "[OrientationCube] Cannot display orientation cube. Resource %s not found." filename
+            Sg.empty
     
     let orthoOrientation (camView : aval<CameraView>) (refSys:AdaptiveReferenceSystem) (model : ISg<'msg>) = // (model:ISg<obj>) = //
         let viewTrafo =
@@ -133,11 +137,12 @@ module Sg =
         }
         |> Sg.pass (RenderPass.after "cube" RenderPassOrder.Arbitrary RenderPass.main)
 
-    //let view (camView : aval<CameraView>) (config:AdaptiveViewConfigModel) (refSys:AdaptiveReferenceSystem) =
-    //    aset {
-    //        let! draw = config.drawOrientationCube
-    //        yield match draw with
-    //                | true ->  loadCubeModel "../../data/rotationcube/rotationcube.dae"
-    //                            |> orthoOrientation camView refSys
-    //                |_-> Sg.empty
-    //        }  |> Sg.set
+    let view (camView : aval<CameraView>) (config:AdaptiveViewConfigModel) (refSys:AdaptiveReferenceSystem) =
+        let path = Path.combine [Config.besideExecuteable;"resources";"rotationcube";"rotationcube.dae"]
+        aset {
+            let! draw = config.drawOrientationCube
+            yield match draw with
+                    | true ->  loadCubeModel path//"../../data/rotationcube/rotationcube.dae"
+                                |> orthoOrientation camView refSys
+                    |_-> Sg.empty
+            }  |> Sg.set
