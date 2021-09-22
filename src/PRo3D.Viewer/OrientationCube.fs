@@ -73,7 +73,7 @@ module Sg =
             Log.warn "[OrientationCube] Cannot display orientation cube. Resource %s not found." filename
             Sg.empty
     
-    let orthoOrientation (camView : aval<CameraView>) (refSys:AdaptiveReferenceSystem) (model : ISg<'msg>) = // (model:ISg<obj>) = //
+    let orthoOrientation (camView : aval<CameraView>) (refSys:AdaptiveReferenceSystem) (model : ISg<'msg>) = 
         let viewTrafo =
             camView
             |> AVal.map ( fun cv ->
@@ -83,31 +83,27 @@ module Sg =
        
         let orthoTrafo =
             let d = 3.0
-            //let t = V3d((-d+1.0), -d+1.0, 0.0)
             let min = V3d(-d, -d, -d*2.0)
             let max = V3d(d, d, d*2.0)
             let fr = Frustum.ortho (Box3d(min, max))
             AVal.constant (Frustum.projTrafo fr)
-
-        let northAngle = 
-            adaptive {
-                let! cam = camView
-                let! n = refSys.north.value
-                let! offset = refSys.noffset.value
-                let Vn = (Vec.Cross(cam.Forward.Normalized, n.OYO)).Normalized
-                //((Va x Vb) . Vn) / (Va . Vb)
-                let angle = (Vec.Dot((Vec.Cross(cam.Forward.Normalized, n.OYO)), Vn)) / (Vec.Dot(cam.Forward.Normalized, n.OYO)) //.OYO
-                //return angle + offset
-                let nangle = (angle + offset) % 360.0
-                return nangle //(nangle + 360.0) % 360.0 
-            }
    
+        let rotateIntoUp = (refSys.up.value |> AVal.map ( fun u ->  Trafo3d.RotateInto(V3d.ZAxis, u)))
+        let rotateIntoNorth = 
+            adaptive {
+                let! north = refSys.northO 
+                let! toUp = rotateIntoUp
+                let originalNorthFace = -1.0 * V3d.XAxis
+                let rotatedNorthFace = toUp.Forward.TransformDir originalNorthFace
+                let remainingRotation = Trafo3d.RotateInto (rotatedNorthFace, north)
+                return remainingRotation
+            }
 
         model
         |> Sg.trafo (AVal.constant (Trafo3d.Scale(0.5,0.5, -0.5)))
         |> Sg.trafo (AVal.constant (Trafo3d.RotationXInDegrees(90.0)))
-        |> Sg.trafo (refSys.up.value |> AVal.map ( fun u ->  Trafo3d.RotateInto(V3d.ZAxis, u)))
-        |> Sg.trafo (northAngle |> AVal.map ( fun n -> (Trafo3d.RotationXInDegrees(n))))
+        |> Sg.trafo rotateIntoUp
+        |> Sg.trafo rotateIntoNorth
         |> Sg.viewTrafo viewTrafo
         |> Sg.projTrafo orthoTrafo
         |> Sg.shader {
