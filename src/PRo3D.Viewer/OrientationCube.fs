@@ -99,8 +99,18 @@ module Sg =
                 return remainingRotation
             }
 
+        let scaling = 
+            refSys.planet 
+                |> AVal.map (fun p -> 
+                                match p with
+                                | Base.Planet.Mars | Base.Planet.Earth ->
+                                    Trafo3d.Scale(0.5,0.5, -0.5)
+                                | _  ->
+                                    Trafo3d.Scale(0.5,-0.5, 0.5)
+                )
+
         model
-        |> Sg.trafo (AVal.constant (Trafo3d.Scale(0.5,0.5, -0.5)))
+        |> Sg.trafo scaling //(AVal.constant (Trafo3d.Scale(0.5,0.5, -0.5))) //TODO rno None/Spherical
         |> Sg.trafo (AVal.constant (Trafo3d.RotationXInDegrees(90.0)))
         |> Sg.trafo rotateIntoUp
         |> Sg.trafo rotateIntoNorth
@@ -134,9 +144,18 @@ module Sg =
         |> Sg.pass (RenderPass.after "cube" RenderPassOrder.Arbitrary RenderPass.main)
 
     let view (camView : aval<CameraView>) (config:AdaptiveViewConfigModel) (refSys:AdaptiveReferenceSystem) =
-        let path = Path.combine [Config.besideExecuteable;"resources";"rotationcube";"rotationcube.dae"]
+        let path = 
+            refSys.planet |> AVal.map (fun p -> 
+                match p with
+                | Base.Planet.Mars | Base.Planet.Earth ->
+                    Path.combine [Config.besideExecuteable;"resources";"rotationcube";"rotationcube.dae"]
+                | _  ->
+                    Path.combine [Config.besideExecuteable;"resources";"rotationcubeXYZ";"rotationcube.dae"]
+                
+            )
         aset {
             let! draw = config.drawOrientationCube
+            let! path = path
             yield match draw with
                     | true ->  loadCubeModel path//"../../data/rotationcube/rotationcube.dae"
                                 |> orthoOrientation camView refSys
