@@ -226,7 +226,9 @@ let main argv =
             }        
 
         Sg.useAsyncLoading <- (argv |> Array.contains "-sync" |> not)
-        let startEmpty = (argv |> Array.contains "-empty")
+        //let startEmpty = (argv |> Array.contains "-empty")
+        let startEmpty = not (argv |> Array.contains "-loadRecent")
+        Log.line "[StartupArgs] -empty currently default, use -loadRecent instead. startEmpty = %b" startEmpty
 
         UI.enabletoolTips <- (argv |> Array.contains "-notooltips" |> not)
 
