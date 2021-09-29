@@ -1,4 +1,4 @@
-## 4.0.2
+## 4.0.3
 
 * fixed arcball crash
 * macbook pro amd graphics support
