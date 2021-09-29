@@ -1,3 +1,9 @@
+## 4.0.2
+
+* fixed arcball crash
+* macbook pro amd graphics support
+* removed automatic recent loading
+
 ## 4.0.1
 
 * updated CooTrafo build to release - should fix missing ucrtbase

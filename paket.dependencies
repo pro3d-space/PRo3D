@@ -30,9 +30,9 @@ nuget Aardvark.GPGPU                        ~> 5.1.15
 nuget Aardvark.Geometry.Intersection        ~> 5.1.11
 nuget Aardvark.Geometry.PointTree           ~> 5.1.11
 
-nuget Aardvark.Service                      ~> 5.1.9
-nuget Aardvark.UI                           ~> 5.1.9
-nuget Aardvark.UI.Primitives                ~> 5.1.9
+nuget Aardvark.Service                      ~> 5.1.10
+nuget Aardvark.UI                           ~> 5.1.10
+nuget Aardvark.UI.Primitives                ~> 5.1.10
 
 nuget Adaptify.MSBuild                      ~> 1.0.6
 nuget Adaptify.Core                         ~> 1.0.6
