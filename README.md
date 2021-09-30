@@ -41,10 +41,16 @@ RAM: 16GB
 
 _technological constraints:_
 
-OS/Runtime: Windows 10 (64bit, v10.0.17763), .NET Core 3.1 (linux and mac versions are in development)
+OS/Runtime: Windows 10 (64bit, v10.0.17763)
 Graphics: NVIDIA Kepler Architecture (GTX 6*) or greater
 
 PRo3D's performance may vary with the size and type of datasets and the selected quality settings for surface rendering. PRo3D may as well run on machines beneath the required specification. Most of the time, PRo3D also runs on AMD cards, but it is not guaranteed.
+
+## Beta-stage mac osx support
+
+While mac osx support is still experimental, pro3d generally works on macOS Big Sur and newer.
+On intel macs we require a dedicated graphics card - although not perfect pro3d now also works on M1 based macs.
+The more memory the better, same as for windows.
 
 # Getting started from pre-built binaries
 
@@ -52,7 +58,7 @@ Demo data and the pre-built application versions can be found on our [PRo3D Rele
 
 # Getting started with from source
 
-for contributions and when compiling from source windows is the recommended platform. Currently we use few native libraries which are not yet compiled for mac/linux delaying full cross-platform support.
+for contributions and when compiling from source windows is the recommended platform but it can be run on osx with .net 5.0 as well.
 
 * install [dotnet 5.0 sdk](https://dotnet.microsoft.com/download)
 * `git clone git@github.com:vrvis/PRo3D.git`
