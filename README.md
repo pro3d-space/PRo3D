@@ -52,6 +52,11 @@ While mac osx support is still experimental, PRo3D generally works on macOS Big 
 On intel macs we require a dedicated graphics card - although not perfect PRo3D now also works on M1 based macs.
 The more memory the better, same as for windows.
 
+We tested the build on:
+- intel mac book pro 2017 
+- iMac 2017, with Radeon Pro560, 4GB
+- mac mini 2020 M1
+
 # Getting started from pre-built binaries
 
 Demo data and the pre-built application versions can be found on our [PRo3D Release Page](https://hackmd.io/@A2KmRrUKS4qQoCFA51Eocw/BJzMnBzoP). A video-based introduction to PRo3D can be found in the [Getting Started](http://www.pro3d.space/#started) section of [PRo3D.space](http://www.pro3d.space)
