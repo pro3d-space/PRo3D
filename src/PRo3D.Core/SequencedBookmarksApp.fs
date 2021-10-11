@@ -43,6 +43,7 @@ module SequencedBookmarksProperties =
 module SequencedBookmarksApp = 
     let mutable collectedViews = List.Empty
     let mutable (snapshotProcess : option<System.Diagnostics.Process>) = None
+    let mutable timestamps = List<TimeSpan>.Empty
 
     let private animateFowardAndLocation (pos: V3d) (dir: V3d) (up:V3d) (duration: RelativeTime) (name: string) (record : bool) = 
         {
@@ -66,6 +67,7 @@ module SequencedBookmarksApp =
                             |> CameraView.withLocation location      
                         if record then
                           collectedViews <- collectedViews@[view]
+                          timestamps <- timestamps@[System.DateTime.Now.TimeOfDay]
                         Some (state,view)
                     else None
         }
@@ -92,27 +94,45 @@ module SequencedBookmarksApp =
     //        do! Proc.Sleep 3000
     //        yield SequencedBookmarksAction.AnimationThreadsDone "animationSBPlay"
     //    } 
+    let findDelayOrDefault (m : SequencedBookmarks) (id : Guid) =
+        match HashMap.tryFind id m.animationInfo with
+        | Some info -> 
+            info.delay.value
+        | None ->
+            Log.warn "[Sequenced Bookmarks] No animation info found for bookmark %s" (id |> string)
+            2.0
 
     let createWorkerPlay (m : SequencedBookmarks) =
         proclist {
 
             if m.stopAnimation then
                 for i in 0 .. (m.orderList.Length-1) do
+
                     m.blockingCollection.Enqueue (SequencedBookmarksAction.AnimStep m.orderList.[i])
+                    
 
             while not m.blockingCollection.IsCompleted do
                 let! action = m.blockingCollection.TakeAsync()
                 Log.line "[animationSB] take async"
                 match action with
-                | Some a ->
-                    yield a
-                    do! Proc.Sleep ((int)(m.animationSpeed.value + m.delay.value) * 1000) //3000
+                | Some (SequencedBookmarksAction.AnimStep id) -> 
+                    let delay = findDelayOrDefault m id
+                    yield (SequencedBookmarksAction.AnimStep id)
+                    do! Proc.Sleep ((int)(m.animationSpeed.value + delay) * 1000) //3000
                     ()
+                | Some a ->
+                    Log.line "[Sequenced Bookmarks] Animation step with default delay."
+                    yield a
+                    do! Proc.Sleep ((int)(m.animationSpeed.value + 1.0) * 1000) //3000
+                    ()
+
                 | None -> ()
 
             //do! Proc.Sleep 3000
             yield SequencedBookmarksAction.AnimationThreadsDone "animationSBPlay"
         } 
+
+
 
     let createWorkerForward (m : SequencedBookmarks) =
          proclist {
@@ -123,7 +143,9 @@ module SequencedBookmarksApp =
                     yield SequencedBookmarksAction.AnimStep m.orderList.[0]
                 else
                     yield SequencedBookmarksAction.AnimStep m.orderList.[index+1]
-                do! Proc.Sleep ((int)(m.animationSpeed.value + m.delay.value) * 1000) //3000
+                let delay = findDelayOrDefault m id
+                  
+                do! Proc.Sleep ((int)(m.animationSpeed.value + delay) * 1000) //3000
                 yield SequencedBookmarksAction.AnimationThreadsDone "animationSBForward"
             | None -> ()
         }
@@ -137,7 +159,8 @@ module SequencedBookmarksApp =
                    yield SequencedBookmarksAction.AnimStep m.orderList.[m.orderList.Length-1]
                else
                    yield SequencedBookmarksAction.AnimStep m.orderList.[index-1] 
-               do! Proc.Sleep ((int)(m.animationSpeed.value + m.delay.value) * 1000) //3000
+               let delay = findDelayOrDefault m id
+               do! Proc.Sleep ((int)(m.animationSpeed.value + delay) * 1000) //3000
                yield SequencedBookmarksAction.AnimationThreadsDone "animationSBBackward"
            | None -> ()
        }
@@ -197,6 +220,9 @@ module SequencedBookmarksApp =
                 getNewBookmark nav.camera.view nav.navigationMode nav.exploreCenter m.bookmarks.Count
             let oderList' = m.orderList@[newSBm.key]
             let m = {m with bookmarks = m.bookmarks |> HashMap.add newSBm.key newSBm;
+                            animationInfo = m.animationInfo 
+                                                |> HashMap.add newSBm.key 
+                                                               {bookmark = newSBm.key; delay = SequencedBookmarks.initDelay}
                             orderList = oderList';
                             selectedBookmark = Some newSBm.key}
             outerModel, m
@@ -313,12 +339,20 @@ module SequencedBookmarksApp =
                 let newOuterModel = Optic.set animationModel anim' outerModel
                 newOuterModel, m'
             | None -> outerModel, m
-        | SetDelay s -> 
-            let delay = Numeric.update m.delay s
-            //if delay.value < m.animationSpeed.value then
-            //    outerModel, { m with delay = delay; animationSpeed = Numeric.update m.animationSpeed s}
-            //else
-            outerModel, { m with delay = delay}
+        | SetDelay (id, s) -> 
+            let updInfo (info : option<BookmarkAnimationInfo>) =
+                match info with
+                | Some info -> 
+                    let delay = Numeric.update info.delay s
+                    let info = {info with delay = delay}
+                    info 
+                | None -> {bookmark = id; delay = Numeric.init} 
+            let infos = HashMap.update id updInfo m.animationInfo
+                //if delay.value < m.animationSpeed.value then
+                //    outerModel, { m with delay = delay; animationSpeed = Numeric.update m.animationSpeed s}
+                //else
+            outerModel, { m with animationInfo = infos}
+
         | SetAnimationSpeed s -> 
             let duration = Numeric.update m.animationSpeed s
             //if m.delay.value < duration.value then
@@ -430,17 +464,39 @@ module SequencedBookmarksApp =
                         // )
                     ] 
 
+        let viewDelay (animationInfo : option<AdaptiveBookmarkAnimationInfo>) = 
+            match animationInfo with
+            | Some animationInfo ->
+                let delayGui = 
+                    animationInfo.bookmark 
+                        |> AVal.map (fun bm -> 
+                                        require GuiEx.semui (
+                                            Html.table [  
+                                                Html.row "Delay (s):"  [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]  
+                                                                                      animationInfo.delay 
+                                                                            |> UI.map (fun x -> SetDelay (bm, x) )]
+                                            ]))
+                        |> AList.ofAValSingle
+                Incremental.div ([] |> AttributeMap.ofList) delayGui
+            | None -> div [] []
+
         let viewProperties (model : AdaptiveSequencedBookmarks) =
             adaptive {
                 let! selBm = model.selectedBookmark
+                //let! delay = HashMap.tryFind selBm. model.animationInfo
                 let empty = div[ style "font-style:italic"][ text "no bookmark selected" ] |> UI.map SequencedBookmarksAction.PropertiesMessage 
                 
                 match selBm with
                 | Some id -> 
                     let! scB = model.bookmarks |> AMap.tryFind id 
                     match scB with
-                    | Some s -> return (SequencedBookmarksProperties.view s |> UI.map SequencedBookmarksAction.PropertiesMessage)
-                    | None -> return empty
+                    | Some s -> 
+                        let bmProps = (SequencedBookmarksProperties.view s |> UI.map SequencedBookmarksAction.PropertiesMessage)
+                        let! info = AMap.tryFind id model.animationInfo
+                        let delayGui = viewDelay info
+                        return div [] [bmProps;delayGui]
+                    | None -> 
+                        return empty
                 | None -> return empty
             }  
             
@@ -460,7 +516,7 @@ module SequencedBookmarksApp =
                                                   i [clazz "step forward icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Forward"
                                           ] ]
                   Html.row "Duration (s):"   [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]  model.animationSpeed |> UI.map SetAnimationSpeed ]
-                  Html.row "Delay (s):"  [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]  model.delay |> UI.map SetDelay ]
+                  //Html.row "Delay (s):"  [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]  model.delay |> UI.map SetDelay ]
                   
                 ]
               )

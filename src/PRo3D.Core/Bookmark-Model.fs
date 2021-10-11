@@ -129,7 +129,7 @@ type SequencedBookmarksAction =
     | StepBackward
     | AnimationThreadsDone  of string
     | AnimStep       of Guid
-    | SetDelay       of Numeric.Action
+    | SetDelay       of Guid * Numeric.Action
     | SetAnimationSpeed       of Numeric.Action
     | StartRecording
     | StopRecording
@@ -139,11 +139,35 @@ type SequencedBookmarksAction =
     | SetResolutionX of Numeric.Action
     | SetResolutionY of Numeric.Action
 
+[<ModelType>]
+type BookmarkAnimationInfo =
+    {
+        bookmark : Guid
+        delay    : NumericInput
+    }
+    with 
+       static member FromJson( _ : BookmarkAnimationInfo) =
+           json {
+               let! bookmark = Json.read "bookmark"
+               let! delay    = Json.readWith Ext.fromJson<NumericInput,Ext> "delay"
+
+               return {
+                    bookmark = bookmark
+                    delay    = delay
+               }
+           }
+
+       static member ToJson(x : BookmarkAnimationInfo) =
+           json {
+               do! Json.write "bookmark"    x.bookmark
+               do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "delay" x.delay
+           }
 
 [<ModelType>]
 type SequencedBookmarks = {
     version          : int
     bookmarks        : HashMap<Guid,Bookmark>
+    animationInfo    : HashMap<Guid, BookmarkAnimationInfo>
     orderList        : List<Guid>
     selectedBookmark : Option<Guid> 
 
@@ -154,7 +178,7 @@ type SequencedBookmarks = {
     [<NonAdaptive>]
     blockingCollection : HarriSchirchWrongBlockingCollection<SequencedBookmarksAction>
 
-    delay            : NumericInput
+   //delay            : NumericInput
     animationSpeed   : NumericInput
 
     isRecording      : bool
@@ -207,9 +231,18 @@ module SequencedBookmarks =
         json {
             let! bookmarks          = Json.read "bookmarks"
             let bookmarks           = bookmarks |> List.map(fun (a : Bookmark) -> (a.key, a)) |> HashMap.ofList
+            let! (animationInfo : option<list<BookmarkAnimationInfo>>) = Json.tryRead "animationInfo"
+            let animationInfo =
+                match animationInfo with
+                | Some animationInfo ->
+                    animationInfo 
+                        |> List.map (fun (a : BookmarkAnimationInfo) -> (a.bookmark, a))
+                        |> HashMap.ofList
+                        
+                | None -> bookmarks |> HashMap.map (fun id bm -> {bookmark = id; delay = initDelay})
             let! orderList          = Json.read "orderList"
             let! selected           = Json.read "selectedBookmark"
-            let! delay              = Json.readWith Ext.fromJson<NumericInput,Ext> "delay"
+           // let! delay              = Json.readWith Ext.fromJson<NumericInput,Ext> "delay"
             let! animationSpeed     = Json.readWith Ext.fromJson<NumericInput,Ext> "animationSpeed"
             let! generateOnStop     = Json.tryRead "generateOnStop"
             let generateOnStop =
@@ -226,12 +259,13 @@ module SequencedBookmarks =
                 {
                     version             = current
                     bookmarks           = bookmarks
+                    animationInfo       = animationInfo
                     orderList           = orderList
                     selectedBookmark    = selected
                     animationThreads    = ThreadPool.Empty
                     stopAnimation       = true
                     blockingCollection  = new HarriSchirchWrongBlockingCollection<_>()
-                    delay               = delay
+                    //delay               = delay
                     animationSpeed      = animationSpeed
                     isRecording         = false
                     isCancelled         = false
@@ -249,12 +283,13 @@ module SequencedBookmarks =
         {
             version             = current
             bookmarks           = HashMap.Empty
+            animationInfo       = HashMap.Empty
             orderList           = List.empty
             selectedBookmark    = None
             animationThreads    = ThreadPool.Empty
             stopAnimation       = true
             blockingCollection  = new HarriSchirchWrongBlockingCollection<_>()
-            delay               = initDelay
+            //delay               = initDelay
             animationSpeed      = initSpeed
             isRecording         = false
             isCancelled         = false
@@ -284,7 +319,8 @@ type SequencedBookmarks with
             do! Json.write "bookmarks"                                          (x.bookmarks |> HashMap.toList |> List.map snd)
             do! Json.write "orderList"                                          x.orderList
             do! Json.write "selectedBookmark"                                   x.selectedBookmark
-            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "delay"           x.delay
+            do! Json.write "animationInfo"                                      (x.animationInfo |> HashMap.toList |> List.map snd)
+            //do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "delay"           x.delay
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "animationSpeed"  x.animationSpeed
             do! Json.write "generateOnStop"                                     x.generateOnStop
             do! Json.write "resolution"                                         (resolution.ToString ())
