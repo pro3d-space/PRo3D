@@ -22,8 +22,10 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="ChironExt.fs" />
     <Compile Include="GuiEx.fs" />
+    <Compile Include="Dialogs.fs" />
     <Compile Include="CooTransformation.fs" />
-    <Compile Include="Serialization.fs" />    
+    <Compile Include="Serialization.fs" />
+    <Compile Include="PlatformIndependent.fs" />    
     <Compile Include="Utilities.fs" />
     <Compile Include="OutlineEffect.fs" />
     <Compile Include="Navigation-Model.fs" />

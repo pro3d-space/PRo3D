@@ -374,6 +374,12 @@ module SequencedBookmarksApp =
             outerModel, {m with resolutionX = Numeric.update m.resolutionX msg}
         | SetResolutionY msg ->
             outerModel, {m with resolutionY = Numeric.update m.resolutionY msg}
+        | SetOutputPath str -> 
+            let str = 
+                match str with
+                | [] -> "Please click to select output path"
+                | head::tail -> head
+            outerModel, {m with outputPath = str}
         |_-> outerModel, m
 
 
@@ -499,6 +505,8 @@ module SequencedBookmarksApp =
                         return empty
                 | None -> return empty
             }  
+
+        
             
         let viewAnimationGUI (model:AdaptiveSequencedBookmarks) = 
             require GuiEx.semui (
@@ -574,8 +582,15 @@ module SequencedBookmarksApp =
                                 Numeric.view' [NumericInputType.InputBox]  model.resolutionX |> UI.map SetResolutionX 
                                 Numeric.view' [NumericInputType.InputBox]  model.resolutionY |> UI.map SetResolutionY
                             ]
+
+
       
                     ]
+                    div [   style "word-break: break-all"
+                            
+                            Dialogs.onChooseFiles SetOutputPath;
+                            clientEvent "onclick" (Dialogs.jsSelectPathDialog)
+                    ] [Incremental.text model.outputPath]
                 ]
             )            
        

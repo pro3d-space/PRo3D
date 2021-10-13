@@ -138,6 +138,7 @@ type SequencedBookmarksAction =
     | ToggleGenerateOnStop
     | SetResolutionX of Numeric.Action
     | SetResolutionY of Numeric.Action
+    | SetOutputPath of list<string>
 
 [<ModelType>]
 type BookmarkAnimationInfo =
@@ -187,6 +188,8 @@ type SequencedBookmarks = {
     isCancelled      : bool
     resolutionX      : NumericInput
     resolutionY      : NumericInput
+
+    outputPath       : string
   //  snapshotProcess  : option<System.Diagnostics.Process>
   }
 //} with interface IDisposable with 
@@ -255,6 +258,12 @@ module SequencedBookmarks =
                 match resolution with
                 | Some r -> r
                 | None -> V2i (initResolution.value)
+            let! (outputPath : option<string>) = Json.tryRead "outputPath"
+            let outputPath = 
+                match outputPath with
+                | Some p -> 
+                    if p = "" then PlatformIndependent.getPathBesideExecutable () else p
+                | None -> PlatformIndependent.getPathBesideExecutable ()
             return 
                 {
                     version             = current
@@ -273,6 +282,7 @@ module SequencedBookmarks =
                     generateOnStop      = generateOnStop
                     resolutionX         = {initResolution with value = float resolution.X}
                     resolutionY         = {initResolution with value = float resolution.Y}
+                    outputPath          = outputPath
                     //snapshotProcess     = None
                 }
         }  
@@ -297,6 +307,7 @@ module SequencedBookmarks =
             generateOnStop      = false
             resolutionX         = initResolution
             resolutionY         = initResolution
+            outputPath          = ""
             //snapshotProcess     = None
         }
 
@@ -324,4 +335,5 @@ type SequencedBookmarks with
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "animationSpeed"  x.animationSpeed
             do! Json.write "generateOnStop"                                     x.generateOnStop
             do! Json.write "resolution"                                         (resolution.ToString ())
+            do! Json.write "outputPath"                                         x.outputPath
         }   

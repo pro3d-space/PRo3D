@@ -599,7 +599,7 @@ module Viewer =
                     viewPlans             = ViewPlanModel.initial
                     sceneObjectsModel     = SceneObjectsModel.initial
                     geologicSurfacesModel = GeologicSurfacesModel.initial
-                    sequencedBookmarks    = SequencedBookmarks.initial
+                    sequencedBookmarks    = {SequencedBookmarks.initial with outputPath = Config.besideExecuteable}
                 }
             dashboardMode   = DashboardModes.core.name
             navigation      = navInit
