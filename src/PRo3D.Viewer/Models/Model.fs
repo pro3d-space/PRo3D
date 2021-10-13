@@ -84,6 +84,9 @@ type StartupArgs = {
     serverMode            : bool
     magnificationFilter   : bool
     remoteApp             : bool
+    useMapping            : string
+    data_samples          : string
+    backgroundColor       : string
 } with 
     member args.hasValidAnimationArgs =
         (args.opcPaths.IsSome || args.objPaths.IsSome)
@@ -107,6 +110,9 @@ type StartupArgs = {
           outFolder             = ""
           remoteApp             = false
           serverMode            = false
+          data_samples          = "4"
+          backgroundColor       = "#222222"
+          useMapping            = "true"
       }
 
 

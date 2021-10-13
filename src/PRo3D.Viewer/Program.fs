@@ -133,6 +133,14 @@ let main argv =
     
 
     let startupArgs = (CommandLine.parseArguments argv)
+
+    // --noMapping --samples 8 --backgroundColor red
+    Config.data_samples <- startupArgs.data_samples
+    Config.backgroundColor <- startupArgs.backgroundColor
+    Config.useMapping <- startupArgs.useMapping
+
+    Log.line "render control config: %A" (Config.data_samples, Config.backgroundColor, Config.useMapping)
+
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
     
 

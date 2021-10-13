@@ -1431,9 +1431,9 @@ module ViewerApp =
             renderControlAtts m.navigation
 
             AttributeMap.ofList [
-                attribute "style" "width:100%; height: 100%; float:left; background-color: #222222"
-                attribute "data-samples" "4"
-                attribute "useMapping" "true"
+                attribute "style" (sprintf "width:100%%; height: 100%%; float:left; background-color: %s" Config.backgroundColor)
+                attribute "data-samples" Config.data_samples
+                attribute "useMapping" Config.useMapping
                 //attribute "showFPS" "true"        
                 //attribute "data-renderalways" "true"
                 onKeyDown (KeyDown)
@@ -1457,8 +1457,8 @@ module ViewerApp =
         AttributeMap.unionMany [
             AttributeMap.ofList [
                 attribute "style" "width:100%; height: 100%; float:left; background-color: #222222"
-                attribute "data-samples" "4"
-                attribute "useMapping" "true"
+                attribute "data-samples" Config.data_samples
+                attribute "useMapping" Config.useMapping
                 onKeyDown (KeyDown)
                 onKeyUp (KeyUp)
             ] 
