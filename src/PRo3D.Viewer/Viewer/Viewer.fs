@@ -126,10 +126,10 @@ module ViewerApp =
     let lookAtSurface (m: Model) id =
         let surf = m |> Optic.get _sgSurfaces |> HashMap.tryFind id
         match surf with
-            | Some s ->
-                let bb = s.globalBB
-                m |> lookAtBoundingBox s.globalBB
-            | None -> m
+        | Some s ->
+            let bb = s.globalBB
+            m |> lookAtBoundingBox s.globalBB
+        | None -> m
 
     let logScreen timeout m text = 
       let feedback = 
@@ -144,12 +144,7 @@ module ViewerApp =
     let stash (model : Model) =
         { model with past = Some model.drawing; future = None }
        
-    let refConfig : ReferenceSystemConfig<ViewConfigModel> =
-        { 
-            arrowLength    = ViewConfigModel.arrowLength_    >-> NumericInput.value_
-            arrowThickness = ViewConfigModel.arrowThickness_ >-> NumericInput.value_
-            nearPlane      = ViewConfigModel.nearPlane_      >-> NumericInput.value_
-        }
+    
 
     let mrefConfig : MInnerConfig<AdaptiveViewConfigModel> =
         {
@@ -182,11 +177,7 @@ module ViewerApp =
             up                    = ReferenceSystem.up_ >-> V3dInput.value_  |> Aether.toBase
         }
 
-    let updateCameraUp (m: Model) =
-        let cam = m.navigation.camera
-        let view' = CameraView.lookAt cam.view.Location (cam.view.Location + cam.view.Forward) m.scene.referenceSystem.up.value
-        let cam' = { cam with view = view' }
-        Optic.set _camera cam' m    
+        
     
     let mutable cache = HashMap.Empty
 
@@ -208,12 +199,19 @@ module ViewerApp =
             | true -> 
                 let refAction = ReferenceSystemAction.InferCoordSystem(fullBb.Center)
                 let (refSystem',_)= 
-                    ReferenceSystemApp.update m.scene.config refConfig (m.scene.referenceSystem) refAction
+                    ReferenceSystemApp.update 
+                        m.scene.config 
+                        LenseConfigs.referenceSystemConfig 
+                        (m.scene.referenceSystem) 
+                        refAction
+
                 let navigation' =  { m.navigation with exploreCenter = fullBb.Center} 
                 { m with 
                     navigation = navigation'
                     scene = { m.scene with referenceSystem = refSystem'; firstImport = false }
-                } |> updateCameraUp |> lookAtBoundingBox v.globalBB
+                } 
+                |> SceneLoader.updateCameraUp 
+                |> lookAtBoundingBox v.globalBB
             | _-> m     
         | None -> m
 
@@ -298,13 +296,16 @@ module ViewerApp =
                       
             let refAction = ReferenceSystemAction.InferCoordSystem(p)
             let (refSystem',_) = 
-                ReferenceSystemApp.update m.scene.config refConfig (m.scene.referenceSystem) refAction  
-                      
-            //let origin = new V3d(m.overlayFrustum.right * 0.5, m.overlayFrustum.bottom * 0.5, 1.0)
-            //let os = { refSystem' with origin = origin }
+                p 
+                |> ReferenceSystemAction.InferCoordSystem
+                |> ReferenceSystemApp.update 
+                    m.scene.config 
+                    LenseConfigs.referenceSystemConfig 
+                    m.scene.referenceSystem
+                                                 
             let m = { m with scene = { m.scene with referenceSystem = refSystem' }} 
             //update camera upvector
-            updateCameraUp m
+            SceneLoader.updateCameraUp m
         | Interactions.PickExploreCenter, ViewerMode.Standard ->
             let c   = m.scene.config
             let ref = m.scene.referenceSystem
@@ -1069,12 +1070,19 @@ module ViewerApp =
 
             { m with interaction = t } //|> UserFeedback.queueFeedback feedback
         | ReferenceSystemMessage a,_,_ ->                                
-            let refsystem',_ = ReferenceSystemApp.update m.scene.config refConfig m.scene.referenceSystem a                
+            let refsystem',_ = 
+                ReferenceSystemApp.update
+                    m.scene.config 
+                    LenseConfigs.referenceSystemConfig 
+                    m.scene.referenceSystem 
+                    a
+                    
             let _refSystem = (Model.scene_ >-> Scene.referenceSystem_)
             let m' = m |> Optic.set _refSystem refsystem'                        
             match a with 
             | ReferenceSystemAction.SetUp _ | ReferenceSystemAction.SetPlanet _ ->
-                m' |> updateCameraUp
+                m' 
+                |> SceneLoader.updateCameraUp
             | ReferenceSystemAction.SetNOffset _ -> //update annotation results
                 let flat = 
                     m'.drawing.annotations.flat

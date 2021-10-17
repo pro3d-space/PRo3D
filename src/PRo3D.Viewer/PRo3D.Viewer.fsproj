@@ -39,6 +39,7 @@
     <Compile Include="Config.fs" />
     <Compile Include="Models\Model.fs" />
     <Compile Include="Models\VersionedModel.fs" />
+    <Compile Include="Models\Lenses.fs" />
     <Compile Include="Utilities.fs" />
     <Compile Include="OrientationCube.fs" />
     <Compile Include="Navigation-Model.fs" />
