@@ -262,8 +262,20 @@ module ViewerUtils =
                         let! scaleFactor = surface.scaling.value
                         let! preTransform = surface.preTransform
                         let! flipZ = surface.transformation.flipZ
+                        let! sketchFab = surface.transformation.isSketchFab
                         if flipZ then 
                             return Trafo3d.Scale(scaleFactor) * Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * preTransform)
+                        else if sketchFab then
+                            let! pivot = refsys.origin
+
+                            return Trafo3d.Translation(-pivot) *
+                                Trafo3d.Scale(1.0, 1.0, -1.0) *
+                                Trafo3d.RotationZ((90.0).RadiansFromDegrees()) 
+                            
+                            //Trafo3d.Scale(scaleFactor) * 
+                            //    Trafo3d.RotationZ((90.0).RadiansFromDegrees()) * 
+                            //    Trafo3d.Scale(1.0, 1.0, -1.0) * 
+                            //    (fullTrafo * preTransform)
                         else
                             return Trafo3d.Scale(scaleFactor) * (fullTrafo * preTransform)
                     }

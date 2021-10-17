@@ -664,8 +664,8 @@ module ViewerApp =
                 }
                     
                 m |> UserFeedback.queueFeedback feedback
-        | ImportObject sl,_,_ -> 
-            match sl |> List.tryHead with
+        | ImportObject (objPaths),_,_ -> 
+            match objPaths |> List.tryHead with
             | Some path ->  
                 let objects =                   
                     path 
