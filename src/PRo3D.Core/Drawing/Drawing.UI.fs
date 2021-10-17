@@ -164,20 +164,7 @@ module UI =
                 
     let rec viewTree path (group : AdaptiveNode) (model : AdaptiveGroupsModel) (lookup : amap<Guid, AdaptiveAnnotation>) : DomNode<DrawingAction> =
                                                   
-        let activeIcon =
-            adaptive {
-                let! s = model.activeGroup    
-                let active = s.id
-                let! group  =  group.key
-
-                return if (active = group) then "circle icon" else "circle thin icon"
-            }
-                                      
-        let setActiveAction = 
-            GroupsAppAction.SetActiveGroup (group.key |> AVal.force, path, group.name |> AVal.force)
-            |> GroupsMessage
-
-        let setActiveAttributes = GroupsApp.clickIconAttributes activeIcon setActiveAction
+        let setActiveAttributes = GroupsApp.setActiveGroupAttributeMap path model group GroupsMessage
                        
         let color = sprintf "color: %s" (Html.ofC4b C4b.White)
         let desc =
