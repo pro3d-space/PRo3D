@@ -119,8 +119,11 @@ module ReferenceSystemApp =
         | InferCoordSystem p ->
             let planet = inferCoordinateSystem p
             let m = updateCoordSystem p planet model
-            {m with origin = p 
-                    planet = planet}, bigConfig
+            {
+                m with 
+                    origin = p 
+                    planet = planet
+            }, bigConfig
         | UpdateUpNorth p ->
             updateCoordSystem p model.planet model, bigConfig
         | SetUp up ->    
@@ -149,7 +152,6 @@ module ReferenceSystemApp =
         | SetPlanet p ->      
             let m' = updateCoordSystem model.origin p model
             { m' with planet = p }, bigConfig
-
     
     module UI =
 

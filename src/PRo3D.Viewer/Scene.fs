@@ -335,15 +335,19 @@ module SceneLoader =
 
         let m = { m with frustum = setFrustum m } //|> Optic.set _cameraView cameraView
 
-        let sModel = 
+        let surfaceModel = 
             m.scene.surfacesModel 
             |> prepareSurfaceModel runtime signature scene.scenePath
 
-        let m = Optic.set _surfaceModelLens sModel m 
+        let m = Optic.set _surfaceModelLens surfaceModel m 
         
+        // scene.referenceSystem.pl
+
         // add sg scene objects
         let sOModel = 
-                m.scene.sceneObjectsModel |> prepareSceneObjectsModel 
+            m.scene.sceneObjectsModel 
+            |> prepareSceneObjectsModel 
+
         Optic.set _sceneObjects sOModel m  
 
         //with e ->            

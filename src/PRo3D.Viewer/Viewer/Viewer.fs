@@ -849,12 +849,12 @@ module ViewerApp =
         | LoadScene path,_,_ ->                
 
             match SceneLoading.loadScene m runtime signature path with
-                | SceneLoading.SceneLoadResult.Loaded(newModel,converted,path) -> 
-                    Log.line "[PRo3D] loaded scene: %s" path
-                    newModel
-                | SceneLoading.SceneLoadResult.Error(msg,exn) -> 
-                    Log.error "[PRo3D] could not load file: %s, error: %s" path msg
-                    m
+            | SceneLoading.SceneLoadResult.Loaded(newModel,converted,path) -> 
+                Log.line "[PRo3D] loaded scene: %s" path
+                newModel
+            | SceneLoading.SceneLoadResult.Error(msg,exn) -> 
+                Log.error "[PRo3D] could not load file: %s, error: %s" path msg
+                m
 
             |> ViewerIO.loadMinerva SceneLoader.Minerva.defaultDumpFile SceneLoader.Minerva.defaultCacheFile
             |> SceneLoader.addGeologicSurfaces
