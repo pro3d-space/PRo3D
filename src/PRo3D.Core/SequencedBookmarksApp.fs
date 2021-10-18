@@ -582,15 +582,15 @@ module SequencedBookmarksApp =
                                 Numeric.view' [NumericInputType.InputBox]  model.resolutionX |> UI.map SetResolutionX 
                                 Numeric.view' [NumericInputType.InputBox]  model.resolutionY |> UI.map SetResolutionY
                             ]
-
+                        Html.row "Output Path" [div [   style "word-break: break-all"
+                                
+                                                        Dialogs.onChooseFiles SetOutputPath;
+                                                        clientEvent "onclick" (Dialogs.jsSelectPathDialog)
+                                               ] [i [clazz "write icon"] []; Incremental.text model.outputPath]]
 
       
                     ]
-                    div [   style "word-break: break-all"
-                            
-                            Dialogs.onChooseFiles SetOutputPath;
-                            clientEvent "onclick" (Dialogs.jsSelectPathDialog)
-                    ] [Incremental.text model.outputPath]
+
                 ]
             )            
        
