@@ -11,6 +11,7 @@ type Planet =
 | Mars  = 1
 | None  = 2
 | JPL   = 3
+| XZY   = 4
 
 module CooTransformation = 
 
@@ -66,7 +67,7 @@ module CooTransformation =
 
     let getLatLonAlt (planet:Planet) (p:V3d) : SphericalCoo = 
         match planet with
-        | Planet.None | Planet.JPL ->
+        | Planet.None | Planet.JPL | Planet.XZY ->
             { latitude = nan; longitude = nan; altitude = nan; radian = 0.0 }
         | _ ->
             let lat = ref init
@@ -103,7 +104,7 @@ module CooTransformation =
 
     let getXYZFromLatLonAlt (sc:SphericalCoo) (planet:Planet) : V3d = 
         match planet with
-        | Planet.None | Planet.JPL -> V3d.NaN
+        | Planet.None | Planet.JPL | Planet.XZY -> V3d.NaN
         | _ ->
             let pX = ref init
             let pY = ref init
@@ -118,14 +119,14 @@ module CooTransformation =
 
     let getHeight (p:V3d) (up:V3d) (planet:Planet) = 
         match planet with
-        | Planet.None | Planet.JPL -> (p * up).Length // p.Z //
+        | Planet.None | Planet.JPL | Planet.XZY -> (p * up).Length // p.Z //
         | _ ->
             let sc = getLatLonAlt planet p
             sc.altitude
 
     let getAltitude (p:V3d) (up:V3d) (planet:Planet) = 
         match planet with
-        | Planet.None | Planet.JPL -> (p * up).Z // p.Z //
+        | Planet.None | Planet.JPL | Planet.XZY -> (p * up).Z // p.Z //
         | _ ->
             let sc = getLatLonAlt planet p
             sc.altitude
@@ -136,8 +137,9 @@ module CooTransformation =
 
     let getUpVector (p:V3d) (planet:Planet) = 
         match planet with
-        | Planet.None -> V3d.ZAxis
-        | Planet.JPL -> -V3d.ZAxis
+        | Planet.None ->  V3d.ZAxis
+        | Planet.JPL  -> -V3d.ZAxis
+        | Planet.XZY  ->  V3d.YAxis
         | _ ->
             let sc = getLatLonAlt planet p
             let height = sc.altitude + 100.0

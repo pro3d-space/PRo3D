@@ -219,7 +219,7 @@ module ViewerUtils =
                     selectedScalar  = scalar'//scalar  |> Option.map(fun x -> x.index |> AVal.force)
                 }
 
-            attr
+            attr    
         
     let viewSingleSurfaceSg 
         (surface         : AdaptiveSgSurface) 
@@ -255,6 +255,8 @@ module ViewerUtils =
                 let triangleFilter = 
                     surf |> AVal.bind(fun s -> s.triangleSize.value)
                 
+                
+
                 let trafo =
                     adaptive {
                         let! fullTrafo = SurfaceTransformations.fullTrafo surf refsys
@@ -266,11 +268,17 @@ module ViewerUtils =
                         if flipZ then 
                             return Trafo3d.Scale(scaleFactor) * Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * preTransform)
                         else if sketchFab then
-                            let! pivot = refsys.origin
+                            let! bb = globalBB
 
-                            return Trafo3d.Translation(-pivot) *
-                                Trafo3d.Scale(1.0, 1.0, -1.0) *
-                                Trafo3d.RotationZ((90.0).RadiansFromDegrees()) 
+                            return 
+                                //Trafo3d.Translation(-bb.Center) *
+                                Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OOI, V3d.OIO)
+                                //PRo3D.Core.Sg.switchYZTrafo * Trafo3d.RotationZ((-90.0).RadiansFromDegrees())
+                                
+                                //Trafo3d.Scale(1.0, 1.0, -1.0) *
+                                //blurg *
+                                //Trafo3d.Translation(-bb.Center)
+                                
                             
                             //Trafo3d.Scale(scaleFactor) * 
                             //    Trafo3d.RotationZ((90.0).RadiansFromDegrees()) * 
@@ -544,7 +552,8 @@ module ViewerUtils =
                 //if i = c then //now gets rendered multiple times
                  // assign priorities globally, or for each anno and make sets
                 let depthTested =
-                    last |> AVal.map (function 
+                    last 
+                    |> AVal.map (function 
                         | Some e when System.Object.ReferenceEquals(e,set) -> depthTested 
                         | _ -> Sg.empty
                     )
@@ -595,8 +604,6 @@ module GaleCrater =
                     x
             )
         surfaces
-
-
 
 module Keyboard =
     open Aardvark.Application

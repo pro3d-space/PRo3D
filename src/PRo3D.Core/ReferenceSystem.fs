@@ -99,7 +99,7 @@ module ReferenceSystemApp =
         let up = upVector p planet
         let n  = 
             match planet with 
-            | Planet.None | Planet.JPL -> V3d.IOO 
+            | Planet.None | Planet.JPL | Planet.XZY -> V3d.IOO
             | _ -> northVector up
 
         let no = 

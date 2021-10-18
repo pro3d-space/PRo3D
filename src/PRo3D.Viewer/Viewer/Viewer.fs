@@ -292,9 +292,7 @@ module ViewerApp =
             let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig bc view m.shiftFlag m.drawing msg
             //Log.stop()
             { m with drawing = drawing } |> stash
-        | Interactions.PlaceCoordinateSystem, ViewerMode.Standard -> 
-                      
-            let refAction = ReferenceSystemAction.InferCoordSystem(p)
+        | Interactions.PlaceCoordinateSystem, ViewerMode.Standard ->                                   
             let (refSystem',_) = 
                 p 
                 |> ReferenceSystemAction.InferCoordSystem
@@ -303,7 +301,7 @@ module ViewerApp =
                     LenseConfigs.referenceSystemConfig 
                     m.scene.referenceSystem
                                                  
-            let m = { m with scene = { m.scene with referenceSystem = refSystem' }} 
+            //let m = { m with scene = { m.scene with referenceSystem = refSystem' }} 
             //update camera upvector
             SceneLoader.updateCameraUp m
         | Interactions.PickExploreCenter, ViewerMode.Standard ->

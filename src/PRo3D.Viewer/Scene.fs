@@ -379,6 +379,7 @@ module SceneLoader =
             | (Planet.Mars, Planet.Mars)   -> Planet.Mars
             | (Planet.None, Planet.None)   -> Planet.None
             | (Planet.None, Planet.JPL)    -> Planet.JPL
+            | (Planet.None, Planet.XZY)    -> Planet.XZY
             | _ ->
                 Log.warn "[Scene] found reference system does not align with suggested system"
                 Log.warn "[Scene] changing to %A" inferredSystem
