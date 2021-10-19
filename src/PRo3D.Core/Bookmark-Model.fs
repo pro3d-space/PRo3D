@@ -136,6 +136,7 @@ type SequencedBookmarksAction =
     | GenerateSnapshots
     | CancelSnapshots
     | ToggleGenerateOnStop
+    | ToggleRenderStillFrames
     | SetResolutionX of Numeric.Action
     | SetResolutionY of Numeric.Action
     | SetOutputPath of list<string>
@@ -188,6 +189,7 @@ type SequencedBookmarks = {
     isCancelled      : bool
     resolutionX      : NumericInput
     resolutionY      : NumericInput
+    renderStillFrames : bool
 
     outputPath       : string
   //  snapshotProcess  : option<System.Diagnostics.Process>
@@ -199,6 +201,12 @@ type SequencedBookmarks = {
 //                    do printfn "disposing process"
 //                    p.Kill ()
 //                | None -> ()
+
+type FrameRepetition =
+    {
+        index       : int
+        repetitions : int
+    }
                 
 
 module SequencedBookmarks =
@@ -264,6 +272,12 @@ module SequencedBookmarks =
                 | Some p -> 
                     if p = "" then PlatformIndependent.getPathBesideExecutable () else p
                 | None -> PlatformIndependent.getPathBesideExecutable ()
+            let! renderStillFrames = Json.tryRead "renderStillFrames"
+            let renderStillFrames =
+                match renderStillFrames with
+                | Some b -> b
+                | None   -> false
+                
             return 
                 {
                     version             = current
@@ -283,6 +297,7 @@ module SequencedBookmarks =
                     resolutionX         = {initResolution with value = float resolution.X}
                     resolutionY         = {initResolution with value = float resolution.Y}
                     outputPath          = outputPath
+                    renderStillFrames   = renderStillFrames
                     //snapshotProcess     = None
                 }
         }  
@@ -308,6 +323,7 @@ module SequencedBookmarks =
             resolutionX         = initResolution
             resolutionY         = initResolution
             outputPath          = ""
+            renderStillFrames   = false
             //snapshotProcess     = None
         }
 
@@ -336,4 +352,5 @@ type SequencedBookmarks with
             do! Json.write "generateOnStop"                                     x.generateOnStop
             do! Json.write "resolution"                                         (resolution.ToString ())
             do! Json.write "outputPath"                                         x.outputPath
+            do! Json.write "renderStillFrames"                                  x.renderStillFrames
         }   

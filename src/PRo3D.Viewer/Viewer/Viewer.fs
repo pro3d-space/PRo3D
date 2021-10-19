@@ -617,8 +617,15 @@ module ViewerApp =
 
             let generateJson () = 
                 let snapshots = 
-                    Snapshot.fromViews 
-                        SequencedBookmarksApp.collectedViews None None SequencedBookmarksApp.names
+                    match bm.renderStillFrames with
+                    | false ->
+                        Snapshot.fromViews 
+                            SequencedBookmarksApp.collectedViews None None SequencedBookmarksApp.names None
+                    | true -> 
+                        let stillFrames = SequencedBookmarksApp.calculateNrOfStillFrames bm
+                        Snapshot.fromViews 
+                            SequencedBookmarksApp.collectedViews None None SequencedBookmarksApp.names 
+                                                                 (stillFrames |> Some)
                 let snapshotAnimation =
                     SnapshotAnimation.generate 
                         snapshots 

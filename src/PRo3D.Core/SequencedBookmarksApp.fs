@@ -45,8 +45,10 @@ module SequencedBookmarksApp =
     let mutable (snapshotProcess : option<System.Diagnostics.Process>) = None
     let mutable timestamps = List<TimeSpan>.Empty
     let mutable names = List<string>.Empty
+    let mutable stillFrames = List<int * Guid>.Empty
 
-    let private animateFowardAndLocation (pos: V3d) (dir: V3d) (up:V3d) (duration: RelativeTime) (name: string) (record : bool) (bmName : string) = 
+    let private animateFowardAndLocation (pos: V3d) (dir: V3d) (up:V3d) (duration: RelativeTime) 
+                                         (name: string) (record : bool) (bmName : string) (bmId : Guid) = 
         {
             (CameraAnimations.initial name) with 
                 sample = fun (localTime, globalTime) (state : CameraView) -> // given the state and t since start of the animation, compute a state and the cameraview
@@ -69,7 +71,10 @@ module SequencedBookmarksApp =
                         if record then
                           collectedViews <- collectedViews@[view]
                           timestamps <- timestamps@[System.DateTime.Now.TimeOfDay]
+                          if names.Length > 0 && (List.last names) != bmName then
+                            stillFrames <- stillFrames@[collectedViews.Length - 1, bmId]
                           names <- names@[bmName]
+
                         Some (state,view)
                     else None
         }
@@ -97,6 +102,8 @@ module SequencedBookmarksApp =
     //        yield SequencedBookmarksAction.AnimationThreadsDone "animationSBPlay"
     //    } 
 
+    /// Calculates the frames per second of recorded views based on timestamps
+    /// recorded at the same time each view was animated.
     let calculateFpsOfCurrentTimestamps () =
         let millisPerFrame = 
             timestamps 
@@ -111,6 +118,38 @@ module SequencedBookmarksApp =
         //Log.line "FPS = %i" fps
         fps
 
+    /// Calculate the number of indentical frames that should be generated for
+    /// a given bookmark. The number of frames is based on the FPS of the recorded
+    /// views and on the delay set for the bookmark.
+    let calculateNrOfStillFrames (m : SequencedBookmarks) =
+        let fps = calculateFpsOfCurrentTimestamps () 
+        let toNrOfFrames (index, id) =
+            // take delay of previous bookmark
+            match List.tryFindIndex (fun x -> x = id) m.orderList with
+            | Some ind -> 
+                match List.tryItem (ind - 1) m.orderList with
+                | Some nextId -> 
+                    match m.animationInfo.TryFind nextId with
+                    | Some info ->
+                        (index, int (info.delay.value * (float fps)))
+                            |> Some
+                    | None -> None
+                | None -> None
+            | None -> None
+
+        let nrOfFrames =    
+            stillFrames
+                |> List.map toNrOfFrames
+                |> List.filter Option.isSome
+                |> List.map (fun x -> x.Value)
+        let nrOfFrames = 
+            nrOfFrames 
+                |> List.map (fun (ind, count) -> (ind, {index = ind;repetitions=count}))
+                |> HashMap.ofList
+        nrOfFrames
+
+    /// Returns the delay of a bookmark if its id is found in animationInfo. 
+    /// Otherwise returns a default value.
     let findDelayOrDefault (m : SequencedBookmarks) (id : Guid) =
         match HashMap.tryFind id m.animationInfo with
         | Some info -> 
@@ -118,6 +157,7 @@ module SequencedBookmarksApp =
         | None ->
             Log.warn "[Sequenced Bookmarks] No animation info found for bookmark %s" (id |> string)
             2.0
+
 
     let createWorkerPlay (m : SequencedBookmarks) =
         proclist {
@@ -251,7 +291,8 @@ module SequencedBookmarksApp =
                 let anim = Optic.get animationModel outerModel
                 let animationMessage = 
                     animateFowardAndLocation bm.cameraView.Location bm.cameraView.Forward
-                                             bm.cameraView.Up 2.0 "ForwardAndLocation2s" m.isRecording bm.name
+                                             bm.cameraView.Up 2.0 "ForwardAndLocation2s" m.isRecording 
+                                             bm.name bm.key
                 let anim' = AnimationApp.update anim (AnimationAction.PushAnimation(animationMessage))
                 let newOuterModel = Optic.set animationModel anim' outerModel
                 newOuterModel, m
@@ -351,7 +392,7 @@ module SequencedBookmarksApp =
                 let animationMessage = 
                     animateFowardAndLocation bm.cameraView.Location bm.cameraView.Forward 
                                              bm.cameraView.Up m'.animationSpeed.value 
-                                             "ForwardAndLocation2s" m.isRecording bm.name
+                                             "ForwardAndLocation2s" m.isRecording bm.name bm.key
                 let anim' = AnimationApp.update anim (AnimationAction.PushAnimation(animationMessage))
                 let newOuterModel = Optic.set animationModel anim' outerModel
                 newOuterModel, m'
@@ -378,11 +419,16 @@ module SequencedBookmarksApp =
             outerModel, { m with animationSpeed = duration}
         | StartRecording -> 
             collectedViews <- List.empty
+            timestamps <- List<TimeSpan>.Empty
+            names <- List<string>.Empty
+            stillFrames <- List<int * Guid>.Empty
             outerModel, {m with isRecording = true}
         | StopRecording -> 
             outerModel, {m with isRecording = false}
         | ToggleGenerateOnStop ->
             outerModel, {m with generateOnStop = not m.generateOnStop}
+        | ToggleRenderStillFrames ->
+            outerModel, {m with renderStillFrames = not m.renderStillFrames}
         | GenerateSnapshots -> 
             outerModel, {m with isGenerating = true}
         | CancelSnapshots ->
@@ -592,7 +638,13 @@ module SequencedBookmarksApp =
                                 GuiEx.iconCheckBox model.generateOnStop ToggleGenerateOnStop; 
                                     i [clazz "info icon"] [] 
                                         |> UI.wrapToolTip DataPosition.Bottom "Automatically starts image generation with default parameters when clicking on the red stop recording button."
-                            ]                        
+                            ]     
+                            
+                        Html.row "Generate still frames" [GuiEx.iconCheckBox model.renderStillFrames ToggleRenderStillFrames;
+                                                i [clazz "info icon"] [] 
+                                                    |> UI.wrapToolTip DataPosition.Bottom ""
+                        
+                        ]
 
                         Html.row "Image Resolution:"  
                             [

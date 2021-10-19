@@ -2,6 +2,7 @@
 
 open Aardvark.Base
 open Aardvark.Rendering
+open FSharp.Data.Adaptive
 open Aardvark.UI.Animation
 open System
 open PRo3D.Base
@@ -64,33 +65,39 @@ module Snapshot =
             raise e
 
 
+    /// Creates snapshots based on camera views.
     let fromViews (camViews : seq<CameraView>) (sp : option<List<ObjectPlacementParameters>>) 
-                  (lightDirection : option<V3d>) (nameSuffix : list<string>) =
+                  (lightDirection : option<V3d>) (nameSuffix : list<string>) 
+                  (stillFrames : option<HashMap<int, FrameRepetition>>) 
+                  =
         let zipped = Seq.zip camViews [0 .. (Seq.length camViews - 1)] 
                     |> Seq.zip nameSuffix
-
+        let mutable addToIndex = 0
         seq {
             for (s, (v, i)) in zipped do
-               let name = sprintf "%06i_%s" i s
+               let name = sprintf "%06i_%s" (i + addToIndex) s
                let name = String.replace "#" "" name
-
-               yield {
-                        filename        = name
-                        camera          = v |> toSnapshotCamera
-                        sunPosition     = None
-                        lightDirection  = lightDirection
-                        surfaceUpdates  = None
-                        placementParameters    = sp
-                        renderMask      = None         
-                      }
-               //yield {
-               //         filename        = sprintf "%06i_mask" i
-               //         camera          = v |> toSnapshotCamera
-               //         sunPosition     = None
-               //         lightDirection  = Some lightDirection
-               //         surfaceUpdates  = None
-               //         shattercones    = None
-               //         renderMask      = Some true     
-               //      }
+               let frame = {
+                   filename        = name
+                   camera          = v |> toSnapshotCamera
+                   sunPosition     = None
+                   lightDirection  = lightDirection
+                   surfaceUpdates  = None
+                   placementParameters = sp
+                   renderMask      = None         
+                 }
+               match stillFrames with
+               | None ->  yield frame
+               | Some stillFrames -> 
+                    // create identical views with new names
+                    if HashMap.containsKey i stillFrames then
+                        let frameRepetition = HashMap.find i stillFrames
+                        let untilFrame = i + addToIndex + frameRepetition.repetitions
+                        for j in i+addToIndex..untilFrame do
+                            let name = sprintf "%06i_%s_stillImage" j s
+                            let name = String.replace "#" "" name
+                            yield {frame with filename = name}
+                        addToIndex <- addToIndex + frameRepetition.repetitions
+                    else yield frame
             }
 
