@@ -616,22 +616,9 @@ module ViewerApp =
             let path = (System.IO.Path.GetFullPath filename)
 
             let generateJson () = 
-                let millisPerFrame = 
-                    SequencedBookmarksApp.timestamps 
-                            |> List.pairwise
-                            |> List.map (fun (first, second) -> second - first)
-                            |> List.map (fun time -> time.TotalMilliseconds)
-                //Log.line "%s" (millisPerFrame |> List.map (fun a -> sprintf "%f" a)
-                //                   |> List.reduce (fun a b -> sprintf "%s, %s" a b))
-                              
-                let mediumMpf = millisPerFrame |> List.map (fun x -> x |> round |> int)
-                                               |> List.sort
-                                               |> List.item ((millisPerFrame.Length / 2))
-                let fps = 1000 / mediumMpf
-                Log.line "FPS = %i" fps
                 let snapshots = 
                     Snapshot.fromViews 
-                        SequencedBookmarksApp.collectedViews None None
+                        SequencedBookmarksApp.collectedViews None None SequencedBookmarksApp.names
                 let snapshotAnimation =
                     SnapshotAnimation.generate 
                         snapshots 

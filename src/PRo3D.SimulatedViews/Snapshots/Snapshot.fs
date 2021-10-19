@@ -65,12 +65,17 @@ module Snapshot =
 
 
     let fromViews (camViews : seq<CameraView>) (sp : option<List<ObjectPlacementParameters>>) 
-                  (lightDirection : option<V3d>) =
-        let foo = Seq.zip camViews [0 .. (Seq.length camViews - 1)]
+                  (lightDirection : option<V3d>) (nameSuffix : list<string>) =
+        let zipped = Seq.zip camViews [0 .. (Seq.length camViews - 1)] 
+                    |> Seq.zip nameSuffix
+
         seq {
-            for (v, i) in foo do
+            for (s, (v, i)) in zipped do
+               let name = sprintf "%06i_%s" i s
+               let name = String.replace "#" "" name
+
                yield {
-                        filename        = sprintf "%06i" i
+                        filename        = name
                         camera          = v |> toSnapshotCamera
                         sunPosition     = None
                         lightDirection  = lightDirection

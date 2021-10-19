@@ -44,8 +44,9 @@ module SequencedBookmarksApp =
     let mutable collectedViews = List.Empty
     let mutable (snapshotProcess : option<System.Diagnostics.Process>) = None
     let mutable timestamps = List<TimeSpan>.Empty
+    let mutable names = List<string>.Empty
 
-    let private animateFowardAndLocation (pos: V3d) (dir: V3d) (up:V3d) (duration: RelativeTime) (name: string) (record : bool) = 
+    let private animateFowardAndLocation (pos: V3d) (dir: V3d) (up:V3d) (duration: RelativeTime) (name: string) (record : bool) (bmName : string) = 
         {
             (CameraAnimations.initial name) with 
                 sample = fun (localTime, globalTime) (state : CameraView) -> // given the state and t since start of the animation, compute a state and the cameraview
@@ -68,6 +69,7 @@ module SequencedBookmarksApp =
                         if record then
                           collectedViews <- collectedViews@[view]
                           timestamps <- timestamps@[System.DateTime.Now.TimeOfDay]
+                          names <- names@[bmName]
                         Some (state,view)
                     else None
         }
@@ -94,6 +96,21 @@ module SequencedBookmarksApp =
     //        do! Proc.Sleep 3000
     //        yield SequencedBookmarksAction.AnimationThreadsDone "animationSBPlay"
     //    } 
+
+    let calculateFpsOfCurrentTimestamps () =
+        let millisPerFrame = 
+            timestamps 
+                    |> List.pairwise
+                    |> List.map (fun (first, second) -> second - first)
+                    |> List.map (fun time -> time.TotalMilliseconds)
+                  
+        let mediumMpf = millisPerFrame |> List.map (fun x -> x |> round |> int)
+                                       |> List.sort
+                                       |> List.item ((millisPerFrame.Length / 2))
+        let fps = 1000 / mediumMpf
+        //Log.line "FPS = %i" fps
+        fps
+
     let findDelayOrDefault (m : SequencedBookmarks) (id : Guid) =
         match HashMap.tryFind id m.animationInfo with
         | Some info -> 
@@ -234,7 +251,7 @@ module SequencedBookmarksApp =
                 let anim = Optic.get animationModel outerModel
                 let animationMessage = 
                     animateFowardAndLocation bm.cameraView.Location bm.cameraView.Forward
-                                             bm.cameraView.Up 2.0 "ForwardAndLocation2s" m.isRecording
+                                             bm.cameraView.Up 2.0 "ForwardAndLocation2s" m.isRecording bm.name
                 let anim' = AnimationApp.update anim (AnimationAction.PushAnimation(animationMessage))
                 let newOuterModel = Optic.set animationModel anim' outerModel
                 newOuterModel, m
@@ -334,7 +351,7 @@ module SequencedBookmarksApp =
                 let animationMessage = 
                     animateFowardAndLocation bm.cameraView.Location bm.cameraView.Forward 
                                              bm.cameraView.Up m'.animationSpeed.value 
-                                             "ForwardAndLocation2s" m.isRecording
+                                             "ForwardAndLocation2s" m.isRecording bm.name
                 let anim' = AnimationApp.update anim (AnimationAction.PushAnimation(animationMessage))
                 let newOuterModel = Optic.set animationModel anim' outerModel
                 newOuterModel, m'
@@ -582,6 +599,7 @@ module SequencedBookmarksApp =
                                 Numeric.view' [NumericInputType.InputBox]  model.resolutionX |> UI.map SetResolutionX 
                                 Numeric.view' [NumericInputType.InputBox]  model.resolutionY |> UI.map SetResolutionY
                             ]
+
                         Html.row "Output Path" [div [   style "word-break: break-all"
                                 
                                                         Dialogs.onChooseFiles SetOutputPath;

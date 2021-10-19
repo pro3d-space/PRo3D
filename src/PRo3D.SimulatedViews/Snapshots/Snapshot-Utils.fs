@@ -26,7 +26,9 @@ module SnapshotUtils =
                 FileName = filename,
                 Arguments = args
             )
-        match startDir with | Some d -> procStartInfo.WorkingDirectory <- d | _ -> ()
+        match startDir with 
+        | Some d -> procStartInfo.WorkingDirectory <- d 
+        | _ -> ()
         let p = new Process(StartInfo = procStartInfo)
         let started = 
             try
