@@ -424,7 +424,9 @@ module SequencedBookmarksApp =
             stillFrames <- List<int * Guid>.Empty
             outerModel, {m with isRecording = true}
         | StopRecording -> 
-            outerModel, {m with isRecording = false}
+            outerModel, {m with isRecording = false
+                                currentFps  = Some (calculateFpsOfCurrentTimestamps ())
+                        }
         | ToggleGenerateOnStop ->
             outerModel, {m with generateOnStop = not m.generateOnStop}
         | ToggleRenderStillFrames ->
@@ -621,7 +623,14 @@ module SequencedBookmarksApp =
             let generateToggleButton =
                 model.isGenerating |> AVal.map (fun b -> if b then cancelButton else  generateButton)
                                    |> AList.ofAValSingle
-                    
+            
+            let fpsText =
+                model.currentFps |> AVal.map (fun fps -> 
+                                            match fps with
+                                            | Some fps -> sprintf "%i" fps
+                                            | None -> "No frames recorded."
+                                         )
+
             require GuiEx.semui (
                 div [] [
                     Html.table [            
@@ -642,7 +651,7 @@ module SequencedBookmarksApp =
                             
                         Html.row "Generate still frames" [GuiEx.iconCheckBox model.renderStillFrames ToggleRenderStillFrames;
                                                 i [clazz "info icon"] [] 
-                                                    |> UI.wrapToolTip DataPosition.Bottom ""
+                                                    |> UI.wrapToolTip DataPosition.Bottom "Renders the appropriate number of identical images when the camera is standing still."
                         
                         ]
 
@@ -651,6 +660,8 @@ module SequencedBookmarksApp =
                                 Numeric.view' [NumericInputType.InputBox]  model.resolutionX |> UI.map SetResolutionX 
                                 Numeric.view' [NumericInputType.InputBox]  model.resolutionY |> UI.map SetResolutionY
                             ]
+
+                        Html.row "Current FPS" [Incremental.text fpsText]
 
                         Html.row "Output Path" [div [   style "word-break: break-all"
                                 

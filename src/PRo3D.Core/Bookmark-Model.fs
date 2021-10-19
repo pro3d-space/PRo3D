@@ -190,7 +190,7 @@ type SequencedBookmarks = {
     resolutionX      : NumericInput
     resolutionY      : NumericInput
     renderStillFrames : bool
-
+    currentFps       : Option<int>
     outputPath       : string
   //  snapshotProcess  : option<System.Diagnostics.Process>
   }
@@ -277,6 +277,8 @@ module SequencedBookmarks =
                 match renderStillFrames with
                 | Some b -> b
                 | None   -> false
+
+
                 
             return 
                 {
@@ -298,6 +300,7 @@ module SequencedBookmarks =
                     resolutionY         = {initResolution with value = float resolution.Y}
                     outputPath          = outputPath
                     renderStillFrames   = renderStillFrames
+                    currentFps          = None
                     //snapshotProcess     = None
                 }
         }  
@@ -324,6 +327,7 @@ module SequencedBookmarks =
             resolutionY         = initResolution
             outputPath          = ""
             renderStillFrames   = false
+            currentFps          = None
             //snapshotProcess     = None
         }
 
