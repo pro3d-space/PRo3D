@@ -158,6 +158,41 @@ module SequencedBookmarksApp =
             Log.warn "[Sequenced Bookmarks] No animation info found for bookmark %s" (id |> string)
             2.0
 
+    let calcMatrixDistances (m : SequencedBookmarks) =
+        let matrixDist (bm1 : Guid) (bm2 : Guid) =
+            let bm1 = HashMap.tryFind bm1 m.bookmarks
+            let bm2 = HashMap.tryFind bm2 m.bookmarks
+            match bm1, bm2 with
+            | Some bm1, Some bm2 ->
+                let distance = bm1.cameraView.ViewTrafo.Forward.Distance2 
+                                bm2.cameraView.ViewTrafo.Forward
+                distance |> Some
+            | _ ,_ -> None
+
+        m.orderList
+            |> List.pairwise
+            |> List.map (fun (a,b) -> a, matrixDist a b)
+            |> List.filter (fun (a, x) -> x.IsSome)
+            |> List.map (fun (a, x) -> a, x.Value)
+            |> HashMap.ofList
+
+    let speedToDuration (m : SequencedBookmarks) (id : Guid) =
+        let speed = m.animationSpeed.value
+        let distances = calcMatrixDistances m
+        match distances.IsEmpty with
+        | true -> None
+        | false ->
+            let min = Seq.min (HashMap.values distances)
+            let max = Seq.max (HashMap.values distances)
+            let range = Range1d.FromMinAndSize (min, (max - min))
+            let duration = 
+                HashMap.tryFind id distances
+                    |> Option.map (fun d -> 
+                                    let x = 1.0 - (d - min) / max
+                                    (x + 0.5) * speed)
+            duration
+
+
 
     let createWorkerPlay (m : SequencedBookmarks) =
         proclist {
@@ -384,18 +419,31 @@ module SequencedBookmarksApp =
             m.blockingCollection.CompleteAdding() 
             outerModel, { m with stopAnimation = true}
         | AnimStep id ->
-            let m' = selectSBookmark m id 
-            let _bm = m'.bookmarks |> HashMap.tryFind id
+            let m = selectSBookmark m id 
+            let _bm = m.bookmarks |> HashMap.tryFind id
             match _bm with 
             | Some bm ->
                 let anim = Optic.get animationModel outerModel
+                let duration = 
+                    match m.useSpeed with
+                    | true -> 
+                        let duration = speedToDuration m bm.key
+                        if duration.IsSome then 
+                            Log.line "duration = %f" duration.Value
+                            duration.Value
+                        else 
+                            Log.line "[SequencedBookmarks] Could not calculation uniform speed. Using duration."
+                            m.animationSpeed.value
+                    | false -> 
+                        m.animationSpeed.value
+                
                 let animationMessage = 
                     animateFowardAndLocation bm.cameraView.Location bm.cameraView.Forward 
-                                             bm.cameraView.Up m'.animationSpeed.value 
+                                             bm.cameraView.Up duration 
                                              "ForwardAndLocation2s" m.isRecording bm.name bm.key
                 let anim' = AnimationApp.update anim (AnimationAction.PushAnimation(animationMessage))
                 let newOuterModel = Optic.set animationModel anim' outerModel
-                newOuterModel, m'
+                newOuterModel, m
             | None -> outerModel, m
         | SetDelay (id, s) -> 
             let updInfo (info : option<BookmarkAnimationInfo>) =
@@ -431,6 +479,8 @@ module SequencedBookmarksApp =
             outerModel, {m with generateOnStop = not m.generateOnStop}
         | ToggleRenderStillFrames ->
             outerModel, {m with renderStillFrames = not m.renderStillFrames}
+        | ToggleUseSpeed ->
+            outerModel, {m with useSpeed = not m.useSpeed}
         | GenerateSnapshots -> 
             outerModel, {m with isGenerating = true}
         | CancelSnapshots ->
@@ -571,7 +621,15 @@ module SequencedBookmarksApp =
                 | None -> return empty
             }  
 
-        
+        let toggleSpeedDuration (model:AdaptiveSequencedBookmarks) (isSpeed : bool) =
+            let gui = 
+                model.useSpeed |> AVal.map (fun b ->
+                                    match b, isSpeed with
+                                    | true, false | false, true -> div [] []
+                                    | false, false 
+                                    | true, true -> Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]  model.animationSpeed |> UI.map SetAnimationSpeed
+                ) |> AList.ofAValSingle
+            Incremental.div AttributeMap.empty gui
             
         let viewAnimationGUI (model:AdaptiveSequencedBookmarks) = 
             require GuiEx.semui (
@@ -588,7 +646,9 @@ module SequencedBookmarksApp =
                                               button [clazz "ui icon button"; onMouseClick (fun _ -> StepForward )] [ //
                                                   i [clazz "step forward icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Forward"
                                           ] ]
-                  Html.row "Duration (s):"   [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]  model.animationSpeed |> UI.map SetAnimationSpeed ]
+                  Html.row "Duration (s):"   [toggleSpeedDuration model false]
+                  Html.row "Use uniform speed" [GuiEx.iconCheckBox model.useSpeed ToggleUseSpeed]
+                  Html.row "Speed:" [toggleSpeedDuration model true]
                   //Html.row "Delay (s):"  [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]  model.delay |> UI.map SetDelay ]
                   
                 ]

@@ -137,6 +137,7 @@ type SequencedBookmarksAction =
     | CancelSnapshots
     | ToggleGenerateOnStop
     | ToggleRenderStillFrames
+    | ToggleUseSpeed
     | SetResolutionX of Numeric.Action
     | SetResolutionY of Numeric.Action
     | SetOutputPath of list<string>
@@ -192,6 +193,7 @@ type SequencedBookmarks = {
     renderStillFrames : bool
     currentFps       : Option<int>
     outputPath       : string
+    useSpeed         : bool
   //  snapshotProcess  : option<System.Diagnostics.Process>
   }
 //} with interface IDisposable with 
@@ -277,7 +279,11 @@ module SequencedBookmarks =
                 match renderStillFrames with
                 | Some b -> b
                 | None   -> false
-
+            let! useSpeed = Json.tryRead "useSpeed"
+            let useSpeed =
+                match useSpeed with
+                | Some b -> b
+                | None   -> true
 
                 
             return 
@@ -301,6 +307,7 @@ module SequencedBookmarks =
                     outputPath          = outputPath
                     renderStillFrames   = renderStillFrames
                     currentFps          = None
+                    useSpeed            = useSpeed
                     //snapshotProcess     = None
                 }
         }  
@@ -328,6 +335,7 @@ module SequencedBookmarks =
             outputPath          = ""
             renderStillFrames   = false
             currentFps          = None
+            useSpeed            = true
             //snapshotProcess     = None
         }
 
@@ -357,4 +365,5 @@ type SequencedBookmarks with
             do! Json.write "resolution"                                         (resolution.ToString ())
             do! Json.write "outputPath"                                         x.outputPath
             do! Json.write "renderStillFrames"                                  x.renderStillFrames
+            do! Json.write "useSpeed"                                           x.useSpeed
         }   
