@@ -79,7 +79,7 @@ module UserFeedback =
         { m with scene = { m.scene with feedbackThreads = ThreadPool.add fb.id (fb |> createWorker) m.scene.feedbackThreads }}
 
 module ViewerApp =         
-                     
+    let dataSamples = 4
     // surfaces
     let _surfacesModel   = Model.scene_  >-> Scene.surfacesModel_
     let _sgSurfaces      = _surfacesModel  >-> SurfaceModel.sgSurfaces_
@@ -860,8 +860,8 @@ module ViewerApp =
             |> SceneLoader.addGeologicSurfaces
 
         | NewScene,_,_ ->
-            let initialModel = Viewer.initial m.messagingMailbox StartupArgs.initArgs //m.minervaModel.minervaMessagingMailbox
-            { initialModel with recent = m.recent } |> ViewerIO.loadRoverData
+            let initialModel = Viewer.initial m.messagingMailbox StartupArgs.initArgs m.screenshotApp.url dataSamples
+            { initialModel with recent          = m.recent} |> ViewerIO.loadRoverData
         | KeyDown k, _, _ ->
             let m =
                 match k with
@@ -1376,6 +1376,15 @@ module ViewerApp =
                 let geologicSurfaces' = GeologicSurfacesApp.update m.navigation.camera.view m.scene.geologicSurfacesModel msg
                 let m' = m |> Optic.set _geologicSurfacesModel geologicSurfaces'  
                 m'
+        | ScreenshotAppMessage msg, _ , _ ->
+            let screenshotApp = ScreenshotApp.update m.screenshotApp msg
+            let m = {m with screenshotApp = screenshotApp}
+
+            match msg with
+            | ScreenshotAppAction.CreateScreenshot -> 
+                shortFeedback "Screenshot saved" m
+            | _ -> m
+            
         | _ -> m       
                                    
     let mkBrushISg color size trafo : ISg<Message> =
@@ -1406,7 +1415,7 @@ module ViewerApp =
 
             AttributeMap.ofList [
                 attribute "style" "width:100%; height: 100%; float:left; background-color: #222222"
-                attribute "data-samples" "8"
+                attribute "data-samples" (sprintf "%i" dataSamples)
                 attribute "useMapping" "true"
                 //attribute "showFPS" "true"        
                 //attribute "data-renderalways" "true"
@@ -1664,7 +1673,6 @@ module ViewerApp =
             { kind = Stylesheet;  name = "semui-overrides"; url = "semui-overrides.css" }
             { kind = Script;      name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.js" }
             { kind = Script;      name = "errorReporting";  url = "./errorReporting.js"  }
-
             { kind = Script;      name = "resize";  url = "./ResizeSensor.js"  }
             { kind = Script;      name = "resizeElem";  url = "./ElementQueries.js"  }
         ]
@@ -1706,11 +1714,12 @@ module ViewerApp =
             { m with waypoints = wp }
         | None -> m
     
-    let start (runtime: IRuntime) (signature: IFramebufferSignature)(startEmpty: bool) messagingMailbox sendQueue dumpFile cacheFile =
+    let start (runtime: IRuntime) (signature: IFramebufferSignature)(startEmpty: bool) 
+               messagingMailbox sendQueue dumpFile cacheFile url =
 
         let m = 
             if startEmpty |> not then
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs
+                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs url dataSamples
                 |> SceneLoader.loadLastScene runtime signature
                 |> SceneLoader.loadLogBrush
                 |> ViewerIO.loadRoverData                
@@ -1722,7 +1731,8 @@ module ViewerApp =
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
             else
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs |> ViewerIO.loadRoverData       
+                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs url dataSamples 
+                    |> ViewerIO.loadRoverData       
 
         App.start {
             unpersist = Unpersist.instance

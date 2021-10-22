@@ -21,20 +21,22 @@
 \contentsline {subsubsection}{\numberline {4.4.1}ViewerConfig}{21}{subsubsection.4.4.1}%
 \contentsline {subsubsection}{\numberline {4.4.2}Coordinate System}{21}{subsubsection.4.4.2}%
 \contentsline {subsubsection}{\numberline {4.4.3}Camera}{21}{subsubsection.4.4.3}%
-\contentsline {subsection}{\numberline {4.5}Grouping}{21}{subsection.4.5}%
+\contentsline {subsubsection}{\numberline {4.4.4}Frustum}{21}{subsubsection.4.4.4}%
+\contentsline {subsubsection}{\numberline {4.4.5}Screenshots}{22}{subsubsection.4.4.5}%
+\contentsline {subsection}{\numberline {4.5}Grouping}{22}{subsection.4.5}%
 \contentsline {subsubsection}{\numberline {4.5.1}Group Actions}{22}{subsubsection.4.5.1}%
-\contentsline {subsubsection}{\numberline {4.5.2}Leaf Actions}{22}{subsubsection.4.5.2}%
-\contentsline {subsection}{\numberline {4.6}View Planner}{23}{subsection.4.6}%
-\contentsline {section}{\numberline {5}Minerva}{26}{section.5}%
-\contentsline {subsection}{\numberline {5.1}Start Minerva}{26}{subsection.5.1}%
-\contentsline {subsection}{\numberline {5.2}Minerva Features}{26}{subsection.5.2}%
-\contentsline {subsubsection}{\numberline {5.2.1}Visplore}{26}{subsubsection.5.2.1}%
-\contentsline {subsubsection}{\numberline {5.2.2}QueryApp}{27}{subsubsection.5.2.2}%
-\contentsline {subsubsection}{\numberline {5.2.3}Product Listing and Selection}{28}{subsubsection.5.2.3}%
-\contentsline {subsubsection}{\numberline {5.2.4}Product Properties}{29}{subsubsection.5.2.4}%
-\contentsline {subsection}{\numberline {5.3}Picking Actions}{29}{subsection.5.3}%
-\contentsline {section}{\numberline {6}PRo3D Command Line Interface}{32}{section.6}%
-\contentsline {subsection}{\numberline {6.1}PRo3D Snapshot Files}{32}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}Arguments and Features}{32}{subsection.6.2}%
-\contentsline {subsection}{\numberline {6.3}Examples}{33}{subsection.6.3}%
-\contentsline {section}{\numberline {7}PRo3D Keyboard Shortcuts}{38}{section.7}%
+\contentsline {subsubsection}{\numberline {4.5.2}Leaf Actions}{23}{subsubsection.4.5.2}%
+\contentsline {subsection}{\numberline {4.6}View Planner}{24}{subsection.4.6}%
+\contentsline {section}{\numberline {5}Minerva}{27}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Start Minerva}{27}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Minerva Features}{27}{subsection.5.2}%
+\contentsline {subsubsection}{\numberline {5.2.1}Visplore}{27}{subsubsection.5.2.1}%
+\contentsline {subsubsection}{\numberline {5.2.2}QueryApp}{28}{subsubsection.5.2.2}%
+\contentsline {subsubsection}{\numberline {5.2.3}Product Listing and Selection}{29}{subsubsection.5.2.3}%
+\contentsline {subsubsection}{\numberline {5.2.4}Product Properties}{30}{subsubsection.5.2.4}%
+\contentsline {subsection}{\numberline {5.3}Picking Actions}{30}{subsection.5.3}%
+\contentsline {section}{\numberline {6}PRo3D Command Line Interface}{33}{section.6}%
+\contentsline {subsection}{\numberline {6.1}PRo3D Snapshot Files}{33}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Arguments and Features}{33}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Examples}{34}{subsection.6.3}%
+\contentsline {section}{\numberline {7}PRo3D Keyboard Shortcuts}{39}{section.7}%

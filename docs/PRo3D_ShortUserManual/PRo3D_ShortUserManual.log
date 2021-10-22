@@ -1,87 +1,92 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.21 (MiKTeX 2.9.7380 64-bit) (preloaded format=pdflatex 2020.4.6)  15 JUN 2020 14:23
+This is pdfTeX, Version 3.14159265-2.6-1.40.20 (MiKTeX 2.9.7250 64-bit) (preloaded format=pdflatex 2020.1.22)  15 SEP 2021 10:02
 entering extended mode
 **./PRo3D_ShortUserManual.tex
 (PRo3D_ShortUserManual.tex
-LaTeX2e <2020-02-02> patch level 5
-L3 programming layer <2020-03-06>
-("D:\Program Files\MiKTeX 2.9\tex/latex/base\article.cls"
-Document Class: article 2019/12/20 v1.4l Standard LaTeX document class
-("D:\Program Files\MiKTeX 2.9\tex/latex/base\size12.clo"
-File: size12.clo 2019/12/20 v1.4l Standard LaTeX file (size option)
+LaTeX2e <2019-10-01> patch level 3
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/base\article.cls"
+Document Class: article 2019/10/25 v1.4k Standard LaTeX document class
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/base\size12.clo"
+File: size12.clo 2019/10/25 v1.4k Standard LaTeX file (size option)
 )
-\c@part=\count167
-\c@section=\count168
-\c@subsection=\count169
-\c@subsubsection=\count170
-\c@paragraph=\count171
-\c@subparagraph=\count172
-\c@figure=\count173
-\c@table=\count174
-\abovecaptionskip=\skip47
-\belowcaptionskip=\skip48
-\bibindent=\dimen134
+\c@part=\count80
+\c@section=\count81
+\c@subsection=\count82
+\c@subsubsection=\count83
+\c@paragraph=\count84
+\c@subparagraph=\count85
+\c@figure=\count86
+\c@table=\count87
+\abovecaptionskip=\skip41
+\belowcaptionskip=\skip42
+\bibindent=\dimen102
 )
-("D:\Program Files\MiKTeX 2.9\tex/latex/vmargin\vmargin.sty"
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/vmargin\vmargin.s
+ty"
 Package: vmargin 2004/07/15 V2.5 set document margins (VK)
 
 Package: vmargin 2004/07/15 V2.5 set document margins (VK)
-\PaperWidth=\dimen135
-\PaperHeight=\dimen136
-) ("D:\Program Files\MiKTeX 2.9\tex/latex/base\t1enc.sty"
+\PaperWidth=\dimen103
+\PaperHeight=\dimen104
+) ("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/base\t1enc.sty"
 Package: t1enc 1994/06/01 Standard LaTeX package
 )
-("D:\Program Files\MiKTeX 2.9\tex/latex/base\inputenc.sty"
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/base\inputenc.sty
+"
 Package: inputenc 2018/08/11 v1.3c Input encoding file
-\inpenc@prehook=\toks15
-\inpenc@posthook=\toks16
-
-("D:\Program Files\MiKTeX 2.9\tex/latex/base\latin1.def"
+\inpenc@prehook=\toks14
+\inpenc@posthook=\toks15
+ ("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/base\latin1.def"
 File: latin1.def 2018/08/11 v1.3c Input encoding file
 ))
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/psnfss\times.sty
-Package: times 2020/03/25 PSNFSS-v9.3 (SPQR) 
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/psnfss\times.sty"
+Package: times 2005/04/12 PSNFSS-v9.2a (SPQR) 
 )
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/fancyhdr\fancyhdr.sty
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/fancyhdr\fancyhdr
+.sty"
 Package: fancyhdr 2019/01/31 v3.10 Extensive control of page headers and footer
 s
-\f@nch@headwidth=\skip49
-\f@nch@O@elh=\skip50
-\f@nch@O@erh=\skip51
-\f@nch@O@olh=\skip52
-\f@nch@O@orh=\skip53
-\f@nch@O@elf=\skip54
-\f@nch@O@erf=\skip55
-\f@nch@O@olf=\skip56
-\f@nch@O@orf=\skip57
+\f@nch@headwidth=\skip43
+\f@nch@O@elh=\skip44
+\f@nch@O@erh=\skip45
+\f@nch@O@olh=\skip46
+\f@nch@O@orh=\skip47
+\f@nch@O@elf=\skip48
+\f@nch@O@erf=\skip49
+\f@nch@O@olf=\skip50
+\f@nch@O@orf=\skip51
 )
-("D:\Program Files\MiKTeX 2.9\tex/latex/xcolor\xcolor.sty"
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/xcolor\xcolor.sty
+"
 Package: xcolor 2016/05/11 v2.12 LaTeX color extensions (UK)
 
-("D:\Program Files\MiKTeX 2.9\tex/latex/graphics-cfg\color.cfg"
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/graphics-cfg\colo
+r.cfg"
 File: color.cfg 2016/01/02 v1.6 sample color configuration
 )
 Package xcolor Info: Driver file: pdftex.def on input line 225.
 
-("D:\Program Files\MiKTeX 2.9\tex/latex/graphics-def\pdftex.def"
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/graphics-def\pdft
+ex.def"
 File: pdftex.def 2018/01/08 v1.0l Graphics/color driver for pdftex
 )
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/colortbl\colortbl.sty
-Package: colortbl 2020/01/04 v1.0e Color table columns (DPC)
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/colortbl\colortbl
+.sty"
+Package: colortbl 2018/12/12 v1.0d Color table columns (DPC)
 
-("D:\Program Files\MiKTeX 2.9\tex/latex/tools\array.sty"
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/tools\array.sty"
 Package: array 2019/08/31 v2.4l Tabular extension package (FMi)
-\col@sep=\dimen137
-\ar@mcellbox=\box45
-\extrarowheight=\dimen138
-\NC@list=\toks17
-\extratabsurround=\skip58
-\backup@length=\skip59
-\ar@cellbox=\box46
+\col@sep=\dimen105
+\ar@mcellbox=\box27
+\extrarowheight=\dimen106
+\NC@list=\toks16
+\extratabsurround=\skip52
+\backup@length=\skip53
+\ar@cellbox=\box28
 )
-\everycr=\toks18
-\minrowclearance=\skip60
+\everycr=\toks17
+\minrowclearance=\skip54
 )
-\rownum=\count175
+\rownum=\count88
 Package xcolor Info: Model `cmy' substituted by `cmy0' on input line 1348.
 Package xcolor Info: Model `hsb' substituted by `rgb' on input line 1352.
 Package xcolor Info: Model `RGB' extended on input line 1364.
@@ -92,305 +97,350 @@ Package xcolor Info: Model `HSB' substituted by `hsb' on input line 1369.
 Package xcolor Info: Model `Gray' substituted by `gray' on input line 1370.
 Package xcolor Info: Model `wave' substituted by `hsb' on input line 1371.
 )
-("D:\Program Files\MiKTeX 2.9\tex/latex/tools\longtable.sty"
-Package: longtable 2020/01/07 v4.13 Multi-page Table package (DPC)
-\LTleft=\skip61
-\LTright=\skip62
-\LTpre=\skip63
-\LTpost=\skip64
-\LTchunksize=\count176
-\LTcapwidth=\dimen139
-\LT@head=\box47
-\LT@firsthead=\box48
-\LT@foot=\box49
-\LT@lastfoot=\box50
-\LT@cols=\count177
-\LT@rows=\count178
-\c@LT@tables=\count179
-\c@LT@chunks=\count180
-\LT@p@ftn=\toks19
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/tools\longtable.s
+ty"
+Package: longtable 2019/02/06 v4.12 Multi-page Table package (DPC)
+\LTleft=\skip55
+\LTright=\skip56
+\LTpre=\skip57
+\LTpost=\skip58
+\LTchunksize=\count89
+\LTcapwidth=\dimen107
+\LT@head=\box29
+\LT@firsthead=\box30
+\LT@foot=\box31
+\LT@lastfoot=\box32
+\LT@cols=\count90
+\LT@rows=\count91
+\c@LT@tables=\count92
+\c@LT@chunks=\count93
+\LT@p@ftn=\toks18
 )
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/booktabs\booktabs.sty
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/booktabs\booktabs
+.sty"
 Package: booktabs 2020/01/12 v1.61803398 Publication quality tables
-\heavyrulewidth=\dimen140
-\lightrulewidth=\dimen141
-\cmidrulewidth=\dimen142
-\belowrulesep=\dimen143
-\belowbottomsep=\dimen144
-\aboverulesep=\dimen145
-\abovetopsep=\dimen146
-\cmidrulesep=\dimen147
-\cmidrulekern=\dimen148
-\defaultaddspace=\dimen149
-\@cmidla=\count181
-\@cmidlb=\count182
-\@aboverulesep=\dimen150
-\@belowrulesep=\dimen151
-\@thisruleclass=\count183
-\@lastruleclass=\count184
-\@thisrulewidth=\dimen152
+\heavyrulewidth=\dimen108
+\lightrulewidth=\dimen109
+\cmidrulewidth=\dimen110
+\belowrulesep=\dimen111
+\belowbottomsep=\dimen112
+\aboverulesep=\dimen113
+\abovetopsep=\dimen114
+\cmidrulesep=\dimen115
+\cmidrulekern=\dimen116
+\defaultaddspace=\dimen117
+\@cmidla=\count94
+\@cmidlb=\count95
+\@aboverulesep=\dimen118
+\@belowrulesep=\dimen119
+\@thisruleclass=\count96
+\@lastruleclass=\count97
+\@thisrulewidth=\dimen120
 )
-("D:\Program Files\MiKTeX 2.9\tex/latex/tools\tabularx.sty"
-Package: tabularx 2020/01/15 v2.11c `tabularx' package (DPC)
-\TX@col@width=\dimen153
-\TX@old@table=\dimen154
-\TX@old@col=\dimen155
-\TX@target=\dimen156
-\TX@delta=\dimen157
-\TX@cols=\count185
-\TX@ftn=\toks20
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/tools\tabularx.st
+y"
+Package: tabularx 2016/02/03 v2.11b `tabularx' package (DPC)
+\TX@col@width=\dimen121
+\TX@old@table=\dimen122
+\TX@old@col=\dimen123
+\TX@target=\dimen124
+\TX@delta=\dimen125
+\TX@cols=\count98
+\TX@ftn=\toks19
 )
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/wallpaper\wallpaper.sty
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/wallpaper\wallpap
+er.sty"
 Package: wallpaper 2005/01/18, v1.01 easy wallpaper formatting (MHFW)
 
-("D:\Program Files\MiKTeX 2.9\tex/latex/base\ifthen.sty"
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/base\ifthen.sty"
 Package: ifthen 2014/09/29 v1.1c Standard LaTeX ifthen package (DPC)
-)
-("D:\Program Files\MiKTeX 2.9\tex/latex/tools\calc.sty"
+) ("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/tools\calc.sty"
 Package: calc 2017/05/25 v4.3 Infix arithmetic (KKT,FJ)
-\calc@Acount=\count186
-\calc@Bcount=\count187
-\calc@Adimen=\dimen158
-\calc@Bdimen=\dimen159
-\calc@Askip=\skip65
-\calc@Bskip=\skip66
+\calc@Acount=\count99
+\calc@Bcount=\count100
+\calc@Adimen=\dimen126
+\calc@Bdimen=\dimen127
+\calc@Askip=\skip59
+\calc@Bskip=\skip60
 LaTeX Info: Redefining \setlength on input line 80.
 LaTeX Info: Redefining \addtolength on input line 81.
-\calc@Ccount=\count188
-\calc@Cskip=\skip67
+\calc@Ccount=\count101
+\calc@Cskip=\skip61
 )
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/eso-pic\eso-pic.sty
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/eso-pic\eso-pic.s
+ty"
 Package: eso-pic 2018/04/12 v2.0h eso-pic (RN)
 
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/generic/atbegshi\atbegshi.sty
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/atbegshi\atbegs
+hi.sty"
 Package: atbegshi 2019/12/05 v1.19 At begin shipout hook (HO)
 
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/generic/infwarerr\infwarerr.sty
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/infwarerr\infwa
+rerr.sty"
 Package: infwarerr 2019/12/03 v1.5 Providing info/warning/error messages (HO)
-) (C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/generic/ltxcmds\ltxcmds.sty
+)
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/ltxcmds\ltxcmds
+.sty"
 Package: ltxcmds 2019/12/15 v1.24 LaTeX kernel commands for general use (HO)
 )
-("D:\Program Files\MiKTeX 2.9\tex/generic/iftex\iftex.sty"
-Package: iftex 2020/03/06 v1.0d TeX engine tests
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/iftex\iftex.sty
+"
+Package: iftex 2019/11/07 v1.0c TeX engine tests
 ))
-("D:\Program Files\MiKTeX 2.9\tex/latex/graphics\keyval.sty"
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/graphics\keyval.s
+ty"
 Package: keyval 2014/10/28 v1.15 key=value parser (DPC)
-\KV@toks@=\toks21
+\KV@toks@=\toks20
 ))
-("D:\Program Files\MiKTeX 2.9\tex/latex/graphics\graphicx.sty"
-Package: graphicx 2019/11/30 v1.2a Enhanced LaTeX Graphics (DPC,SPQR)
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/graphics\graphicx
+.sty"
+Package: graphicx 2017/06/01 v1.1a Enhanced LaTeX Graphics (DPC,SPQR)
 
-("D:\Program Files\MiKTeX 2.9\tex/latex/graphics\graphics.sty"
-Package: graphics 2019/11/30 v1.4a Standard LaTeX Graphics (DPC,SPQR)
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/graphics\graphics
+.sty"
+Package: graphics 2019/11/01 v1.3d Standard LaTeX Graphics (DPC,SPQR)
 
-("D:\Program Files\MiKTeX 2.9\tex/latex/graphics\trig.sty"
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/graphics\trig.sty
+"
 Package: trig 2016/01/03 v1.10 sin cos tan (DPC)
 )
-("D:\Program Files\MiKTeX 2.9\tex/latex/graphics-cfg\graphics.cfg"
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/graphics-cfg\grap
+hics.cfg"
 File: graphics.cfg 2016/06/04 v1.11 sample graphics configuration
 )
 Package graphics Info: Driver file: pdftex.def on input line 105.
 )
-\Gin@req@height=\dimen160
-\Gin@req@width=\dimen161
+\Gin@req@height=\dimen128
+\Gin@req@width=\dimen129
 )
-\wpXoffset=\skip68
-\wpYoffset=\skip69
-\tileXoffset=\skip70
-\tileYoffset=\skip71
-\tilewidth=\skip72
-\tileheight=\skip73
-\tileX=\skip74
-\tileY=\skip75
+\wpXoffset=\skip62
+\wpYoffset=\skip63
+\tileXoffset=\skip64
+\tileYoffset=\skip65
+\tilewidth=\skip66
+\tileheight=\skip67
+\tileX=\skip68
+\tileY=\skip69
 )
-("D:\Program Files\MiKTeX 2.9\tex/latex/listings\listings.sty"
-\lst@mode=\count189
-\lst@gtempboxa=\box51
-\lst@token=\toks22
-\lst@length=\count190
-\lst@currlwidth=\dimen162
-\lst@column=\count191
-\lst@pos=\count192
-\lst@lostspace=\dimen163
-\lst@width=\dimen164
-\lst@newlines=\count193
-\lst@lineno=\count194
-\lst@maxwidth=\dimen165
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/listings\listings
+.sty"
+\lst@mode=\count102
+\lst@gtempboxa=\box33
+\lst@token=\toks21
+\lst@length=\count103
+\lst@currlwidth=\dimen130
+\lst@column=\count104
+\lst@pos=\count105
+\lst@lostspace=\dimen131
+\lst@width=\dimen132
+\lst@newlines=\count106
+\lst@lineno=\count107
+\lst@maxwidth=\dimen133
 
-("D:\Program Files\MiKTeX 2.9\tex/latex/listings\lstmisc.sty"
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/listings\lstmisc.
+sty"
 File: lstmisc.sty 2020/03/24 1.8d (Carsten Heinz)
-\c@lstnumber=\count195
-\lst@skipnumbers=\count196
-\lst@framebox=\box52
+\c@lstnumber=\count108
+\lst@skipnumbers=\count109
+\lst@framebox=\box34
 )
-("D:\Program Files\MiKTeX 2.9\tex/latex/listings\listings.cfg"
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/listings\listings
+.cfg"
 File: listings.cfg 2020/03/24 1.8d listings configuration
 ))
 Package: listings 2020/03/24 1.8d (Carsten Heinz)
 
-("D:\Program Files\MiKTeX 2.9\tex/latex/listings\lstlang1.sty"
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/listings\lstlang1
+.sty"
 File: lstlang1.sty 2020/03/24 1.8d listings language file
 )
-("D:\Program Files\MiKTeX 2.9\tex/latex/listings\lstmisc.sty"
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/listings\lstmisc.
+sty"
 File: lstmisc.sty 2020/03/24 1.8d (Carsten Heinz)
 )
-("D:\Program Files\MiKTeX 2.9\tex/latex/ms\everyshi.sty"
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/ms\everyshi.sty"
 Package: everyshi 2001/05/15 v3.00 EveryShipout Package (MS)
 )
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/wrapfig\wrapfig.sty
-\wrapoverhang=\dimen166
-\WF@size=\dimen167
-\c@WF@wrappedlines=\count197
-\WF@box=\box53
-\WF@everypar=\toks23
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/wrapfig\wrapfig.s
+ty"
+\wrapoverhang=\dimen134
+\WF@size=\dimen135
+\c@WF@wrappedlines=\count110
+\WF@box=\box35
+\WF@everypar=\toks22
 Package: wrapfig 2003/01/31  v 3.6
 )
-("D:\Program Files\MiKTeX 2.9\tex/latex/hyperref\hyperref.sty"
-Package: hyperref 2020/01/14 v7.00d Hypertext links for LaTeX
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/hyperref\hyperref
+.sty"
+Package: hyperref 2019/11/10 v7.00c Hypertext links for LaTeX
 
-("D:\Program Files\MiKTeX 2.9\tex/latex/pdftexcmds\pdftexcmds.sty"
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/pdftexcmds\pdftex
+cmds.sty"
 Package: pdftexcmds 2019/11/24 v0.31 Utility functions of pdfTeX for LuaTeX (HO
 )
 Package pdftexcmds Info: \pdf@primitive is available.
 Package pdftexcmds Info: \pdf@ifprimitive is available.
 Package pdftexcmds Info: \pdfdraftmode found.
 )
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/generic/kvsetkeys\kvsetkeys.sty
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/kvsetkeys\kvset
+keys.sty"
 Package: kvsetkeys 2019/12/15 v1.18 Key value parser (HO)
 )
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/generic/kvdefinekeys\kvdefinekey
-s.sty
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/kvdefinekeys\kv
+definekeys.sty"
 Package: kvdefinekeys 2019-12-19 v1.6 Define keys (HO)
 )
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/generic/pdfescape\pdfescape.sty
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/pdfescape\pdfes
+cape.sty"
 Package: pdfescape 2019/12/09 v1.15 Implements pdfTeX's escape features (HO)
-) (C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/hycolor\hycolor.sty
-Package: hycolor 2020-01-27 v1.10 Color options for hyperref/bookmark (HO)
 )
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/letltxmacro\letltxmacro.st
-y
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/hycolor\hycolor.s
+ty"
+Package: hycolor 2019/12/15 v1.9 Color options for hyperref/bookmark (HO)
+
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/hycolor\xcolor-pa
+tch.sty"
+Package: xcolor-patch 2019/12/15 xcolor patch
+
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/oberdiek\hopatch.
+sty"
+Package: hopatch 2016/05/16 v1.3 Wrapper for package hooks (HO)
+)))
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/letltxmacro\letlt
+xmacro.sty"
 Package: letltxmacro 2019/12/03 v1.6 Let assignment for LaTeX macros (HO)
-) (C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/auxhook\auxhook.sty
+)
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/auxhook\auxhook.s
+ty"
 Package: auxhook 2019-12-17 v1.6 Hooks for auxiliary files (HO)
 )
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/kvoptions\kvoptions.sty
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/kvoptions\kvoptio
+ns.sty"
 Package: kvoptions 2019/11/29 v3.13 Key value format for package options (HO)
 )
-\@linkdim=\dimen168
-\Hy@linkcounter=\count198
-\Hy@pagecounter=\count199
+\@linkdim=\dimen136
+\Hy@linkcounter=\count111
+\Hy@pagecounter=\count112
 
-("D:\Program Files\MiKTeX 2.9\tex/latex/hyperref\pd1enc.def"
-File: pd1enc.def 2020/01/14 v7.00d Hyperref: PDFDocEncoding definition (HO)
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/hyperref\pd1enc.d
+ef"
+File: pd1enc.def 2019/11/10 v7.00c Hyperref: PDFDocEncoding definition (HO)
 Now handling font encoding PD1 ...
 ... no UTF-8 mapping file for font encoding PD1
 )
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/generic/intcalc\intcalc.sty
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/intcalc\intcalc
+.sty"
 Package: intcalc 2019/12/15 v1.3 Expandable calculations with integers (HO)
 )
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/generic/etexcmds\etexcmds.sty
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/etexcmds\etexcm
+ds.sty"
 Package: etexcmds 2019/12/15 v1.7 Avoid name clashes with e-TeX commands (HO)
 )
-\Hy@SavedSpaceFactor=\count266
+\Hy@SavedSpaceFactor=\count113
 
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/00miktex\hyperref
+.cfg"
+File: hyperref.cfg 2002/06/06 v1.2 hyperref configuration of TeXLive
+)
 
 Package hyperref Warning: Invalid value `000'
 (hyperref)                for option `pdfborder'.
-(hyperref)                Option setting is ignored on input line 4421.
+(hyperref)                Option setting is ignored on input line 4409.
 
 
 Package hyperref Warning: Unexpected value for option `pdftex'
-(hyperref)                is ignored on input line 4421.
+(hyperref)                is ignored on input line 4409.
 
-Package hyperref Info: Hyper figures OFF on input line 4547.
-Package hyperref Info: Link nesting OFF on input line 4552.
-Package hyperref Info: Hyper index ON on input line 4555.
-Package hyperref Info: Plain pages OFF on input line 4562.
-Package hyperref Info: Backreferencing OFF on input line 4567.
+Package hyperref Info: Hyper figures OFF on input line 4535.
+Package hyperref Info: Link nesting OFF on input line 4540.
+Package hyperref Info: Hyper index ON on input line 4543.
+Package hyperref Info: Plain pages OFF on input line 4550.
+Package hyperref Info: Backreferencing OFF on input line 4555.
 Package hyperref Info: Implicit mode ON; LaTeX internals redefined.
-Package hyperref Info: Bookmarks ON on input line 4800.
-\c@Hy@tempcnt=\count267
-("D:\Program Files\MiKTeX 2.9\tex/latex/url\url.sty"
-\Urlmuskip=\muskip16
+Package hyperref Info: Bookmarks ON on input line 4788.
+\c@Hy@tempcnt=\count114
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/url\url.sty"
+\Urlmuskip=\muskip10
 Package: url 2013/09/16  ver 3.4  Verb mode for urls, etc.
 )
-LaTeX Info: Redefining \url on input line 5159.
-\XeTeXLinkMargin=\dimen169
+LaTeX Info: Redefining \url on input line 5147.
+\XeTeXLinkMargin=\dimen137
 
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/generic/bitset\bitset.sty
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/bitset\bitset.s
+ty"
 Package: bitset 2019/12/09 v1.3 Handle bit-vector datatype (HO)
 
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/generic/bigintcalc\bigintcalc.st
-y
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/bigintcalc\bigi
+ntcalc.sty"
 Package: bigintcalc 2019/12/15 v1.5 Expandable calculations on big integers (HO
 )
 ))
-\Fld@menulength=\count268
-\Field@Width=\dimen170
-\Fld@charsize=\dimen171
-Package hyperref Info: Hyper figures OFF on input line 6430.
-Package hyperref Info: Link nesting OFF on input line 6435.
-Package hyperref Info: Hyper index ON on input line 6438.
-Package hyperref Info: backreferencing OFF on input line 6445.
-Package hyperref Info: Link coloring OFF on input line 6450.
-Package hyperref Info: Link coloring with OCG OFF on input line 6455.
-Package hyperref Info: PDF/A mode OFF on input line 6460.
-LaTeX Info: Redefining \ref on input line 6500.
-LaTeX Info: Redefining \pageref on input line 6504.
-\Hy@abspage=\count269
-\c@Item=\count270
-\c@Hfootnote=\count271
+\Fld@menulength=\count115
+\Field@Width=\dimen138
+\Fld@charsize=\dimen139
+Package hyperref Info: Hyper figures OFF on input line 6418.
+Package hyperref Info: Link nesting OFF on input line 6423.
+Package hyperref Info: Hyper index ON on input line 6426.
+Package hyperref Info: backreferencing OFF on input line 6433.
+Package hyperref Info: Link coloring OFF on input line 6438.
+Package hyperref Info: Link coloring with OCG OFF on input line 6443.
+Package hyperref Info: PDF/A mode OFF on input line 6448.
+LaTeX Info: Redefining \ref on input line 6488.
+LaTeX Info: Redefining \pageref on input line 6492.
+\Hy@abspage=\count116
+\c@Item=\count117
+\c@Hfootnote=\count118
 )
 Package hyperref Info: Driver: hpdftex.
- ("D:\Program Files\MiKTeX 2.9\tex/latex/hyperref\hpdftex.def"
-File: hpdftex.def 2020/01/14 v7.00d Hyperref driver for pdfTeX
 
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/atveryend\atveryend.sty
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/hyperref\hpdftex.
+def"
+File: hpdftex.def 2019/11/10 v7.00c Hyperref driver for pdfTeX
+
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/atveryend\atverye
+nd.sty"
 Package: atveryend 2019-12-11 v1.11 Hooks at the very end of document (HO)
 Package atveryend Info: \enddocument detected (standard20110627).
 )
-\Fld@listcount=\count272
-\c@bookmark@seq@number=\count273
+\Fld@listcount=\count119
+\c@bookmark@seq@number=\count120
 
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/rerunfilecheck\rerunfilech
-eck.sty
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/rerunfilecheck\re
+runfilecheck.sty"
 Package: rerunfilecheck 2019/12/05 v1.9 Rerun checks for auxiliary files (HO)
 
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/generic/uniquecounter\uniquecoun
-ter.sty
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/uniquecounter\u
+niquecounter.sty"
 Package: uniquecounter 2019/12/15 v1.4 Provide unlimited unique counter (HO)
 )
 Package uniquecounter Info: New unique counter `rerunfilecheck' on input line 2
 86.
 )
-\Hy@SectionHShift=\skip76
+\Hy@SectionHShift=\skip70
 )
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/multirow\multirow.sty
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/multirow\multirow
+.sty"
 Package: multirow 2019/05/31 v2.5 Span multiple rows of a table
-\multirow@colwidth=\skip77
-\multirow@cntb=\count274
-\multirow@dima=\skip78
-\bigstrutjot=\dimen172
+\multirow@colwidth=\skip71
+\multirow@cntb=\count121
+\multirow@dima=\skip72
+\bigstrutjot=\dimen140
 )
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/ccaption\ccaption.sty
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/ccaption\ccaption
+.sty"
 Package: ccaption 2011/08/07 v3.2c Extended captioning and new floats
-\@contcwidth=\skip79
-\@contindw=\skip80
-\abovelegendskip=\skip81
-\belowlegendskip=\skip82
-\c@newflo@tctr=\count275
+\@contcwidth=\skip73
+\@contindw=\skip74
+\abovelegendskip=\skip75
+\belowlegendskip=\skip76
+\c@newflo@tctr=\count122
 )
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/psnfss\helvet.sty
-Package: helvet 2020/03/25 PSNFSS-v9.3 (WaS) 
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/psnfss\helvet.sty
+"
+Package: helvet 2005/04/12 PSNFSS-v9.2a (WaS) 
 )
 Package hyperref Info: Option `colorlinks' set `true' on input line 94.
-
-("D:\Program Files\MiKTeX 2.9\tex/latex/l3backend\l3backend-pdfmode.def"
-File: l3backend-pdfmode.def 2020-03-12 L3 backend support: PDF mode
-\l__kernel_color_stack_int=\count276
-\l__pdf_internal_box=\box54
-)
-(PRo3D_ShortUserManual.aux (Introduction.aux) (Start.aux) (ViewerActions.aux)
+ (PRo3D_ShortUserManual.aux (Introduction.aux) (Start.aux) (ViewerActions.aux) 
 (ViewerFeatures.aux) (Minerva.aux) (CommandLine.aux) (KeyboardShortcuts.aux
 
 LaTeX Warning: Label `table:args' multiply defined.
@@ -400,13 +450,11 @@ LaTeX Warning: Label `table:args' multiply defined.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 173.
 LaTeX Font Info:    ... okay on input line 173.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 173.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 173.
 LaTeX Font Info:    ... okay on input line 173.
 LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 173.
 LaTeX Font Info:    ... okay on input line 173.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 173.
-LaTeX Font Info:    ... okay on input line 173.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 173.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 173.
 LaTeX Font Info:    ... okay on input line 173.
 LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 173.
 LaTeX Font Info:    ... okay on input line 173.
@@ -416,44 +464,48 @@ LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 173.
 LaTeX Font Info:    ... okay on input line 173.
 LaTeX Font Info:    Trying to load font information for T1+phv on input line 17
 3.
- (C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/psnfss\t1phv.fd
-File: t1phv.fd 2020/03/25 scalable font definitions for T1/phv.
+ ("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/psnfss\t1phv.fd"
+File: t1phv.fd 2001/06/04 scalable font definitions for T1/phv.
 )
-("D:\Program Files\MiKTeX 2.9\tex/context/base/mkii\supp-pdf.mkii"
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/context/base/mkii\supp-
+pdf.mkii"
 [Loading MPS to PDF converter (version 2006.09.02).]
-\scratchcounter=\count277
-\scratchdimen=\dimen173
-\scratchbox=\box55
-\nofMPsegments=\count278
-\nofMParguments=\count279
-\everyMPshowfont=\toks24
-\MPscratchCnt=\count280
-\MPscratchDim=\dimen174
-\MPnumerator=\count281
-\makeMPintoPDFobject=\count282
-\everyMPtoPDFconversion=\toks25
-) ("D:\Program Files\MiKTeX 2.9\tex/latex/epstopdf-pkg\epstopdf-base.sty"
-Package: epstopdf-base 2020-01-24 v2.11 Base part for package epstopdf
+\scratchcounter=\count123
+\scratchdimen=\dimen141
+\scratchbox=\box36
+\nofMPsegments=\count124
+\nofMParguments=\count125
+\everyMPshowfont=\toks23
+\MPscratchCnt=\count126
+\MPscratchDim=\dimen142
+\MPnumerator=\count127
+\makeMPintoPDFobject=\count128
+\everyMPtoPDFconversion=\toks24
+)
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/epstopdf-pkg\epst
+opdf-base.sty"
+Package: epstopdf-base 2019-12-09 v2.10 Base part for package epstopdf
 Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 4
 85.
 )
-\AtBeginShipoutBox=\box56
-\c@lstlisting=\count283
-
-ABD: EveryShipout initializing macros
+\AtBeginShipoutBox=\box37
+\c@lstlisting=\count129
+ ABD: EveryShipout initializing macros
 Package hyperref Info: Link coloring ON on input line 173.
 
-("D:\Program Files\MiKTeX 2.9\tex/latex/hyperref\nameref.sty"
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/hyperref\nameref.
+sty"
 Package: nameref 2019/09/16 v2.46 Cross-referencing by name of section
 
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/refcount\refcount.sty
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/refcount\refcount
+.sty"
 Package: refcount 2019/12/15 v3.6 Data extraction from label references (HO)
 )
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/generic/gettitlestring\gettitles
-tring.sty
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/generic/gettitlestring\
+gettitlestring.sty"
 Package: gettitlestring 2019/12/15 v1.6 Cleanup title references (HO)
 )
-\c@section@level=\count284
+\c@section@level=\count130
 )
 LaTeX Info: Redefining \ref on input line 173.
 LaTeX Info: Redefining \pageref on input line 173.
@@ -462,29 +514,33 @@ LaTeX Info: Redefining \nameref on input line 173.
 \@outlinefile=\write3
 \openout3 = `PRo3D_ShortUserManual.out'.
 
-<pics/CoverPic.png, id=163, 933.4875pt x 944.7797pt>
+LaTeX Font Info:    Font shape `T1/phv/bx/sc' in size <24.88> not available
+(Font)              Font shape `T1/phv/b/sc' tried instead on input line 180.
+<pics/CoverPic.png, id=171, 933.4875pt x 944.7797pt>
 File: pics/CoverPic.png Graphic file (type png)
 <use pics/CoverPic.png>
 Package pdftex.def Info: pics/CoverPic.png  used on input line 183.
 (pdftex.def)             Requested size: 418.25542pt x 423.31609pt.
- [1
 
-{C:/Users/nowak/AppData/Local/MiKTeX/2.9/pdftex/config/pdftex.map} <./pics/Cove
-rPic.png>] (PRo3D_ShortUserManual.toc
+[1
+
+{C:/Users/rnowak/AppData/Local/MiKTeX/2.9/pdftex/config/pdftex.map} <./pics/Cov
+erPic.png>]
+LaTeX Font Info:    Font shape `T1/phv/bx/n' in size <17.28> not available
+(Font)              Font shape `T1/phv/b/n' tried instead on input line 234.
+ (PRo3D_ShortUserManual.toc
+LaTeX Font Info:    Font shape `T1/phv/bx/n' in size <12> not available
+(Font)              Font shape `T1/phv/b/n' tried instead on input line 1.
 LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <12> on input line 2.
 LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <8> on input line 2.
 LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <6> on input line 2.
-)
-\tf@toc=\write4
-\openout4 = `PRo3D_ShortUserManual.toc'.
-
-<pics/logosSUM.png, id=213, 212.795pt x 39.14626pt>
+<pics/logosSUM.png, id=221, 212.795pt x 39.14626pt>
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 237.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 41.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
 
 
@@ -497,27 +553,35 @@ pdfTeX warning (ext4): destination with the same identifier (name{page.1}) has
 been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.237 \newpage
-               [1 <./pics/logosSUM.png>]
+l.41 ...berline {6.3}Examples}{34}{subsection.6.3}
+                                                  % [1 <./pics/logosSUM.png>])
+\tf@toc=\write4
+\openout4 = `PRo3D_ShortUserManual.toc'.
+
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 237.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [2]
+
+[2]
 \openout2 = `Introduction.aux'.
 
  (Introduction.tex
-<pics/Features.png, id=223, 1304.7144pt x 339.669pt>
+<pics/Features.png, id=233, 1304.7144pt x 339.669pt>
 File: pics/Features.png Graphic file (type png)
 <use pics/Features.png>
 Package pdftex.def Info: pics/Features.png  used on input line 8.
 (pdftex.def)             Requested size: 418.25542pt x 108.88806pt.
-LaTeX Font Info:    Trying to load font information for TS1+phv on input line 3
+LaTeX Font Info:    Font shape `T1/phv/bx/n' in size <14.4> not available
+(Font)              Font shape `T1/phv/b/n' tried instead on input line 17.
+LaTeX Font Info:    Trying to load font information for OMS+phv on input line 3
 3.
 
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/psnfss\ts1phv.fd
-File: ts1phv.fd 2020/03/25 scalable font definitions for TS1/phv.
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/psnfss\omsphv.fd"
+File: omsphv.fd 
 )
+LaTeX Font Info:    Font shape `OMS/phv/m/n' in size <12> not available
+(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 33.
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 35.
@@ -533,12 +597,14 @@ Package pdftex.def Info: pics/logosSUM.png  used on input line 241.
 \openout2 = `Start.aux'.
 
  (Start.tex
-<pics/startAI.png, id=234, 952.0368pt x 593.0958pt>
+<pics/startAI.png, id=245, 952.0368pt x 593.0958pt>
 File: pics/startAI.png Graphic file (type png)
 <use pics/startAI.png>
 Package pdftex.def Info: pics/startAI.png  used on input line 10.
 (pdftex.def)             Requested size: 418.25542pt x 260.55571pt.
-<pics/AddSurface.png, id=240, 947.79094pt x 595.47469pt>
+LaTeX Font Info:    Font shape `T1/phv/bx/n' in size <10> not available
+(Font)              Font shape `T1/phv/b/n' tried instead on input line 11.
+<pics/AddSurface.png, id=251, 947.79094pt x 595.47469pt>
 File: pics/AddSurface.png Graphic file (type png)
 <use pics/AddSurface.png>
 Package pdftex.def Info: pics/AddSurface.png  used on input line 42.
@@ -547,7 +613,7 @@ Package pdftex.def Info: pics/AddSurface.png  used on input line 42.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-<pics/saveScene.png, id=244, 952.30782pt x 595.47469pt>
+<pics/saveScene.png, id=255, 952.30782pt x 595.47469pt>
 File: pics/saveScene.png Graphic file (type png)
 <use pics/saveScene.png>
 Package pdftex.def Info: pics/saveScene.png  used on input line 54.
@@ -563,7 +629,7 @@ Package pdftex.def Info: pics/logosSUM.png  used on input line 57.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-<pics/OpenScene.png, id=257, 949.29657pt x 593.21625pt>
+<pics/OpenScene.png, id=268, 949.29657pt x 593.21625pt>
 File: pics/OpenScene.png Graphic file (type png)
 <use pics/OpenScene.png>
 Package pdftex.def Info: pics/OpenScene.png  used on input line 71.
@@ -571,7 +637,7 @@ Package pdftex.def Info: pics/OpenScene.png  used on input line 71.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-<pics/NewSurfaceAI.png, id=258, 1431.9096pt x 718.8456pt>
+<pics/NewSurfaceAI.png, id=269, 1431.9096pt x 718.8456pt>
 File: pics/NewSurfaceAI.png Graphic file (type png)
 <use pics/NewSurfaceAI.png>
 Package pdftex.def Info: pics/NewSurfaceAI.png  used on input line 81.
@@ -598,12 +664,12 @@ Package pdftex.def Info: pics/logosSUM.png  used on input line 245.
 \openout2 = `ViewerActions.aux'.
 
  (ViewerActions.tex
-<pics/Interactions.png, id=274, 597.73312pt x 247.67531pt>
+<pics/Interactions.png, id=285, 597.73312pt x 247.67531pt>
 File: pics/Interactions.png Graphic file (type png)
 <use pics/Interactions.png>
 Package pdftex.def Info: pics/Interactions.png  used on input line 8.
 (pdftex.def)             Requested size: 418.25542pt x 173.31105pt.
-<pics/exploreCenterAI.png, id=277, 834.9594pt x 746.79pt>
+<pics/exploreCenterAI.png, id=288, 834.9594pt x 746.79pt>
 File: pics/exploreCenterAI.png Graphic file (type png)
 <use pics/exploreCenterAI.png>
 Package pdftex.def Info: pics/exploreCenterAI.png  used on input line 28.
@@ -620,7 +686,7 @@ Package pdftex.def Info: pics/logosSUM.png  used on input line 45.
 
 
  <./pics/Interactions.png>]
-<pics/CoordinateSystem.png, id=285, 663.22781pt x 593.96906pt>
+<pics/CoordinateSystem.png, id=296, 663.22781pt x 593.96906pt>
 File: pics/CoordinateSystem.png Graphic file (type png)
 <use pics/CoordinateSystem.png>
 Package pdftex.def Info: pics/CoordinateSystem.png  used on input line 50.
@@ -629,7 +695,7 @@ Package pdftex.def Info: pics/CoordinateSystem.png  used on input line 50.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-<pics/drawAnnotationsAI.png, id=289, 658.6206pt x 587.3142pt>
+<pics/drawAnnotationsAI.png, id=300, 658.6206pt x 587.3142pt>
 File: pics/drawAnnotationsAI.png Graphic file (type png)
 <use pics/drawAnnotationsAI.png>
 Package pdftex.def Info: pics/drawAnnotationsAI.png  used on input line 67.
@@ -654,7 +720,7 @@ File: pics/logosSUM.png Graphic file (type png)
 Package pdftex.def Info: pics/logosSUM.png  used on input line 86.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
  [12 <./pics/drawAnnotationsAI.png (PNG copy)>]
-<pics/projectionAI.png, id=315, 1024.7886pt x 315.0972pt>
+<pics/projectionAI.png, id=326, 1024.7886pt x 315.0972pt>
 File: pics/projectionAI.png Graphic file (type png)
 <use pics/projectionAI.png>
 Package pdftex.def Info: pics/projectionAI.png  used on input line 91.
@@ -672,12 +738,12 @@ Package pdftex.def Info: pics/logosSUM.png  used on input line 249.
 \openout2 = `ViewerFeatures.aux'.
 
  (ViewerFeatures.tex
-<pics/SurfacesAI.png, id=336, 1442.5092pt x 709.2096pt>
+<pics/SurfacesAI.png, id=347, 1442.5092pt x 709.2096pt>
 File: pics/SurfacesAI.png Graphic file (type png)
 <use pics/SurfacesAI.png>
 Package pdftex.def Info: pics/SurfacesAI.png  used on input line 8.
 (pdftex.def)             Requested size: 418.25542pt x 205.63304pt.
-<pics/SurfaceTranslation.png, id=340, 1438.6247pt x 503.63156pt>
+<pics/SurfaceTranslation.png, id=351, 1438.6247pt x 503.63156pt>
 File: pics/SurfaceTranslation.png Graphic file (type png)
 <use pics/SurfaceTranslation.png>
 Package pdftex.def Info: pics/SurfaceTranslation.png  used on input line 38.
@@ -718,7 +784,7 @@ Overfull \hbox (6.0pt too wide) in paragraph at lines 67--68
  [][][][][][] 
  []
 
-<pics/SurfaceColorCorrection.png, id=358, 1442.38875pt x 684.30656pt>
+<pics/SurfaceColorCorrection.png, id=369, 1442.38875pt x 684.30656pt>
 File: pics/SurfaceColorCorrection.png Graphic file (type png)
 <use pics/SurfaceColorCorrection.png>
 Package pdftex.def Info: pics/SurfaceColorCorrection.png  used on input line 72
@@ -729,7 +795,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 77--78
 
  []
 
-<pics/SurfaceColorLegend.png, id=360, 1440.88312pt x 719.68875pt>
+<pics/SurfaceColorLegend.png, id=371, 1440.88312pt x 719.68875pt>
 File: pics/SurfaceColorLegend.png Graphic file (type png)
 <use pics/SurfaceColorLegend.png>
 Package pdftex.def Info: pics/SurfaceColorLegend.png  used on input line 81.
@@ -742,7 +808,7 @@ File: pics/logosSUM.png Graphic file (type png)
 Package pdftex.def Info: pics/logosSUM.png  used on input line 97.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
 [17 <./pics/SurfaceColorCorrection.png>]
-<pics/AnnotationsAI.png, id=370, 1482.4986pt x 743.4174pt>
+<pics/AnnotationsAI.png, id=381, 1482.4986pt x 743.4174pt>
 File: pics/AnnotationsAI.png Graphic file (type png)
 <use pics/AnnotationsAI.png>
 Package pdftex.def Info: pics/AnnotationsAI.png  used on input line 103.
@@ -773,7 +839,7 @@ File: pics/logosSUM.png Graphic file (type png)
 Package pdftex.def Info: pics/logosSUM.png  used on input line 146.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
 [19]
-<pics/DnsAI.png, id=392, 1441.0638pt x 721.2546pt>
+<pics/DnsAI.png, id=403, 1441.0638pt x 721.2546pt>
 File: pics/DnsAI.png Graphic file (type png)
 <use pics/DnsAI.png>
 Package pdftex.def Info: pics/DnsAI.png  used on input line 151.
@@ -788,31 +854,43 @@ File: pics/logosSUM.png Graphic file (type png)
 Package pdftex.def Info: pics/logosSUM.png  used on input line 204.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
 [20 <./pics/DnsAI.png (PNG copy)>]
-File: pics/logosSUM.png Graphic file (type png)
-<use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 243.
-(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [21]
-File: pics/logosSUM.png Graphic file (type png)
-<use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 270.
-(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [22]
-<pics/ViewPlanner1.png, id=415, 1425.1644pt x 744.8628pt>
-File: pics/ViewPlanner1.png Graphic file (type png)
-<use pics/ViewPlanner1.png>
-Package pdftex.def Info: pics/ViewPlanner1.png  used on input line 276.
-(pdftex.def)             Requested size: 418.25542pt x 218.59605pt.
-LaTeX Font Info:    Trying to load font information for T1+pcr on input line 28
-0.
+LaTeX Font Info:    Trying to load font information for T1+pcr on input line 23
+2.
 
-(C:\Users\nowak\AppData\Roaming\MiKTeX\2.9\tex/latex/psnfss\t1pcr.fd
+("C:\Users\rnowak\AppData\Local\Programs\MiKTeX 2.9\tex/latex/psnfss\t1pcr.fd"
 File: t1pcr.fd 2001/06/04 font definitions for T1/pcr.
 )
-<pics/ViewPlannerGuiAi.png, id=421, 1429.9824pt x 744.8628pt>
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 233.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+[21]
+<pics/screenshots.PNG, id=422, 271.76532pt x 140.02313pt>
+File: pics/screenshots.PNG Graphic file (type png)
+<use pics/screenshots.PNG>
+Package pdftex.def Info: pics/screenshots.PNG  used on input line 236.
+(pdftex.def)             Requested size: 250.9558pt x 129.30783pt.
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 283.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+ [22 <./pics/screenshots.PNG>]
+File: pics/logosSUM.png Graphic file (type png)
+<use pics/logosSUM.png>
+Package pdftex.def Info: pics/logosSUM.png  used on input line 289.
+(pdftex.def)             Requested size: 163.0831pt x 30.0pt.
+ [23]
+<pics/ViewPlanner1.png, id=434, 1425.1644pt x 744.8628pt>
+File: pics/ViewPlanner1.png Graphic file (type png)
+<use pics/ViewPlanner1.png>
+Package pdftex.def Info: pics/ViewPlanner1.png  used on input line 295.
+(pdftex.def)             Requested size: 418.25542pt x 218.59605pt.
+LaTeX Font Info:    Font shape `T1/pcr/bx/n' in size <12> not available
+(Font)              Font shape `T1/pcr/b/n' tried instead on input line 299.
+<pics/ViewPlannerGuiAi.png, id=440, 1429.9824pt x 744.8628pt>
 File: pics/ViewPlannerGuiAi.png Graphic file (type png)
 <use pics/ViewPlannerGuiAi.png>
-Package pdftex.def Info: pics/ViewPlannerGuiAi.png  used on input line 295.
+Package pdftex.def Info: pics/ViewPlannerGuiAi.png  used on input line 314.
 (pdftex.def)             Requested size: 418.25542pt x 217.85728pt.
 
 
@@ -820,13 +898,13 @@ LaTeX Warning: `h' float specifier changed to `ht'.
 
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 306.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 325.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
-[23 <./pics/ViewPlanner1.png>]
-<pics/InstrumentView.png, id=433, 1440.13031pt x 743.02594pt>
+[24 <./pics/ViewPlanner1.png>]
+<pics/InstrumentView.png, id=453, 1440.13031pt x 743.02594pt>
 File: pics/InstrumentView.png Graphic file (type png)
 <use pics/InstrumentView.png>
-Package pdftex.def Info: pics/InstrumentView.png  used on input line 313.
+Package pdftex.def Info: pics/InstrumentView.png  used on input line 332.
 (pdftex.def)             Requested size: 418.25542pt x 215.78946pt.
 
 
@@ -837,17 +915,17 @@ File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 253.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [24 <./pics/ViewPlannerGuiAi.png>]
+ [25 <./pics/ViewPlannerGuiAi.png>]
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 253.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [25 <./pics/InstrumentView.png>]
+ [26 <./pics/InstrumentView.png>]
 \openout2 = `Minerva.aux'.
 
 
 (Minerva.tex
-<pics/MinervaAI.png, id=445, 1459.3722pt x 742.4538pt>
+<pics/MinervaAI.png, id=464, 1459.3722pt x 742.4538pt>
 File: pics/MinervaAI.png Graphic file (type png)
 <use pics/MinervaAI.png>
 Package pdftex.def Info: pics/MinervaAI.png  used on input line 8.
@@ -856,16 +934,16 @@ File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 40.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [26
+ [27
 
 
  <./pics/MinervaAI.png>]
-<pics/QueryApp.png, id=458, 1431.09656pt x 743.77875pt>
+<pics/QueryApp.png, id=477, 1431.09656pt x 743.77875pt>
 File: pics/QueryApp.png Graphic file (type png)
 <use pics/QueryApp.png>
 Package pdftex.def Info: pics/QueryApp.png  used on input line 48.
 (pdftex.def)             Requested size: 418.25542pt x 217.38133pt.
-<pics/ListingAI.png, id=459, 1429.0188pt x 743.8992pt>
+<pics/ListingAI.png, id=478, 1429.0188pt x 743.8992pt>
 File: pics/ListingAI.png Graphic file (type png)
 <use pics/ListingAI.png>
 Package pdftex.def Info: pics/ListingAI.png  used on input line 68.
@@ -878,8 +956,8 @@ File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 75.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
-[27 <./pics/QueryApp.png>]
-<pics/MultiSelAI.png, id=468, 1275.8064pt x 468.3096pt>
+[28 <./pics/QueryApp.png>]
+<pics/MultiSelAI.png, id=487, 1275.8064pt x 468.3096pt>
 File: pics/MultiSelAI.png Graphic file (type png)
 <use pics/MultiSelAI.png>
 Package pdftex.def Info: pics/MultiSelAI.png  used on input line 78.
@@ -888,13 +966,13 @@ File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 88.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [28 <./pics/ListingAI.png (PNG copy)> <./pics/MultiSelAI.png>]
-<pics/PropertiesAI.png, id=478, 1429.0188pt x 743.8992pt>
+ [29 <./pics/ListingAI.png (PNG copy)> <./pics/MultiSelAI.png>]
+<pics/PropertiesAI.png, id=497, 1429.0188pt x 743.8992pt>
 File: pics/PropertiesAI.png Graphic file (type png)
 <use pics/PropertiesAI.png>
 Package pdftex.def Info: pics/PropertiesAI.png  used on input line 99.
 (pdftex.def)             Requested size: 418.25542pt x 217.723pt.
-<pics/PickMinervaFilter.png, id=481, 1428.83812pt x 740.7675pt>
+<pics/PickMinervaFilter.png, id=500, 1428.83812pt x 740.7675pt>
 File: pics/PickMinervaFilter.png Graphic file (type png)
 <use pics/PickMinervaFilter.png>
 Package pdftex.def Info: pics/PickMinervaFilter.png  used on input line 120.
@@ -903,7 +981,7 @@ Package pdftex.def Info: pics/PickMinervaFilter.png  used on input line 120.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-<pics/PickLinking1.png, id=482, 1431.84938pt x 741.52031pt>
+<pics/PickLinking1.png, id=501, 1431.84938pt x 741.52031pt>
 File: pics/PickLinking1.png Graphic file (type png)
 <use pics/PickLinking1.png>
 Package pdftex.def Info: pics/PickLinking1.png  used on input line 127.
@@ -926,18 +1004,18 @@ File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 139.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
-[29 <./pics/PropertiesAI.png (PNG copy)>])
+[30 <./pics/PropertiesAI.png (PNG copy)>])
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 257.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [30 <./pics/PickMinervaFilter.png>]
+ [31 <./pics/PickMinervaFilter.png>]
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 257.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
 
-[31 <./pics/PickLinking1.png>]
+[32 <./pics/PickLinking1.png>]
 \openout2 = `CommandLine.aux'.
 
  (CommandLine.tex
@@ -949,7 +1027,7 @@ File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 60.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
-[32
+[33
 
 
 ]
@@ -986,27 +1064,27 @@ File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 101.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
-[33] (snapshot.JSON
+[34] (snapshot.JSON
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 35.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [34]) (snapshot2.JSON) (snapshot3.JSON
+ [35]) (snapshot2.JSON) (snapshot3.JSON
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 9.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [35]
+ [36]
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 42.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [36]))
+ [37]))
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 261.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [37]
+ [38]
 \openout2 = `KeyboardShortcuts.aux'.
 
 
@@ -1020,7 +1098,7 @@ File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
 Package pdftex.def Info: pics/logosSUM.png  used on input line 265.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
- [38
+ [39
 
 
 ]
@@ -1032,7 +1110,7 @@ Package atveryend Info: Empty hook `AfterLastShipout' on input line 269.
 Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 269.
 Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 269.
 Package rerunfilecheck Info: File `PRo3D_ShortUserManual.out' has not changed.
-(rerunfilecheck)             Checksum: 5273898E148281FBDA330CC4A8FE9412;2538.
+(rerunfilecheck)             Checksum: D9033619B7BB3903B28553C843D4C27D;2676.
 
 
 LaTeX Warning: There were multiply-defined labels.
@@ -1040,22 +1118,24 @@ LaTeX Warning: There were multiply-defined labels.
 Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 269.
  ) 
 Here is how much of TeX's memory you used:
- 9098 strings out of 480931
- 136161 string characters out of 2909582
- 780630 words of memory out of 3000000
- 24451 multiletter control sequences out of 15000+200000
- 588124 words of font info for 71 fonts, out of 3000000 for 9000
+ 9038 strings out of 492448
+ 137284 string characters out of 3119512
+ 606630 words of memory out of 3000000
+ 12871 multiletter control sequences out of 15000+200000
+ 59113 words of font info for 60 fonts, out of 3000000 for 9000
  1141 hyphenation exceptions out of 8191
- 43i,16n,45p,742b,1992s stack positions out of 5000i,500n,10000p,200000b,50000s
-{D:/Program Files/MiKTeX 2.9/fonts/enc/dvips/base/8r.enc}<D:/Program Files/Mi
-KTeX 2.9/fonts/type1/urw/courier/ucrb8a.pfb><D:/Program Files/MiKTeX 2.9/fonts/
-type1/urw/courier/ucrr8a.pfb><C:/Users/nowak/AppData/Roaming/MiKTeX/2.9/fonts/t
-ype1/urw/helvetic/uhvb8a.pfb><C:/Users/nowak/AppData/Roaming/MiKTeX/2.9/fonts/t
-ype1/urw/helvetic/uhvr8a.pfb><C:/Users/nowak/AppData/Roaming/MiKTeX/2.9/fonts/t
-ype1/urw/helvetic/uhvro8a.pfb>
-Output written on PRo3D_ShortUserManual.pdf (39 pages, 20175251 bytes).
+ 43i,16n,45p,742b,1974s stack positions out of 5000i,500n,10000p,200000b,50000s
+{C:/Users/rnowak/AppData/Local/Programs/MiKTeX 2.9/fonts/enc/dvips/base/8r.en
+c}<C:/Users/rnowak/AppData/Local/Programs/MiKTeX 2.9/fonts/type1/public/amsfont
+s/cm/cmsy10.pfb><C:/Users/rnowak/AppData/Local/Programs/MiKTeX 2.9/fonts/type1/
+urw/courier/ucrb8a.pfb><C:/Users/rnowak/AppData/Local/Programs/MiKTeX 2.9/fonts
+/type1/urw/courier/ucrr8a.pfb><C:/Users/rnowak/AppData/Local/Programs/MiKTeX 2.
+9/fonts/type1/urw/helvetic/uhvb8a.pfb><C:/Users/rnowak/AppData/Local/Programs/M
+iKTeX 2.9/fonts/type1/urw/helvetic/uhvr8a.pfb><C:/Users/rnowak/AppData/Local/Pr
+ograms/MiKTeX 2.9/fonts/type1/urw/helvetic/uhvro8a.pfb>
+Output written on PRo3D_ShortUserManual.pdf (40 pages, 20190700 bytes).
 PDF statistics:
- 734 PDF objects out of 1000 (max. 8388607)
- 235 named destinations out of 1000 (max. 500000)
- 466 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 755 PDF objects out of 1000 (max. 8388607)
+ 239 named destinations out of 1000 (max. 500000)
+ 487 words of extra memory for PDF output out of 10000 (max. 10000000)
 
