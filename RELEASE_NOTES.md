@@ -1,3 +1,7 @@
+## 4.1.0-prerelease2
+
+- fixed broken priority rendering
+
 ## 4.1.0-prerelease1
 
 - using methods as described in `Quinn, D. P., & Ehlmann, B. L. (2019). A PCA‐based framework for determining remotely sensed geological surface orientations and their statistical quality. Earth and Space Science, 6(8), 1378-1408.`

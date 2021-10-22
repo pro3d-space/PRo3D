@@ -305,7 +305,8 @@ module SurfaceApp =
               
         { model with surfaces = { model.surfaces with flat = flat' } }
 
-   
+
+
     let update 
         (model     : SurfaceModel) 
         (action    : SurfaceAppAction) 
@@ -685,16 +686,7 @@ module SurfaceApp =
             let! s = model.activeGroup
             let color = sprintf "color: %s" (Html.ofC4b C4b.White)                
             let children = AList.collecti (fun i v -> viewTree (i::path) v model) group.subNodes    
-
-            let activeIcon =
-                adaptive {                    
-                    let! group  =  group.key
-                    return if (s.id = group) then "circle icon" else "circle thin icon"
-                }
-
-            let setActive = GroupsAppAction.SetActiveGroup (group.key |> AVal.force, path, group.name |> AVal.force)
-            let activeAttributes = 
-                GroupsApp.clickIconAttributes activeIcon (GroupsMessage setActive)
+            let activeAttributes = GroupsApp.setActiveGroupAttributeMap path model group GroupsMessage
                                    
             let toggleIcon = 
                 AVal.constant "unhide icon" //group.visible |> AVal.map(fun toggle -> if toggle then "unhide icon" else "hide icon")                
