@@ -125,6 +125,7 @@ module Gui =
                     | Planet.Earth -> "Earth (ellipsoid)"
                     | Planet.JPL   -> "JPL Rover Frame"
                     | Planet.None  -> "None xyz"          
+                    | Planet.XZY   -> "XZY"
                     | _ -> "[TextOverlays] missing enum"
                 )  
             

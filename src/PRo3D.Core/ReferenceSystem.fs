@@ -97,16 +97,17 @@ module ReferenceSystemApp =
 
     let updateCoordSystem (p:V3d) (planet:Planet) (model : ReferenceSystem) = 
         let up = upVector p planet
-        let n  = 
+        let north  = 
             match planet with 
-            | Planet.None | Planet.JPL | Planet.XZY -> V3d.IOO
+            | Planet.None | Planet.JPL -> V3d.IOO
+            | Planet.XZY -> V3d.OIO
             | _ -> northVector up
 
         let no = 
-            Rot3d.Rotation(up, model.noffset.value |> Double.radiansFromDegrees).Transform(n) //updateVectorInDegree up n model.origin model.noffset.value 
+            Rot3d.Rotation(up, model.noffset.value |> Double.radiansFromDegrees).Transform(north) //updateVectorInDegree up n model.origin model.noffset.value 
         { 
             model with 
-                north  = ReferenceSystem.setV3d n
+                north  = ReferenceSystem.setV3d north
                 up     = ReferenceSystem.setV3d up
                 northO = no 
                 planet = planet

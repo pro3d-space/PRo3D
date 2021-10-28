@@ -139,7 +139,7 @@ module CooTransformation =
         match planet with
         | Planet.None ->  V3d.ZAxis
         | Planet.JPL  -> -V3d.ZAxis
-        | Planet.XZY  ->  V3d.YAxis
+        | Planet.XZY  ->  V3d.ZAxis
         | _ ->
             let sc = getLatLonAlt planet p
             let height = sc.altitude + 100.0
