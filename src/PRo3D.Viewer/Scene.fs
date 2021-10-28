@@ -367,24 +367,9 @@ module SceneLoader =
         let centerPoint = 
             if (fullBoundingBox.IsEmpty || fullBoundingBox.IsInvalid) then V3d.Zero else fullBoundingBox.Center
 
-        let inferredSystem = 
-            ReferenceSystemApp.inferCoordinateSystem centerPoint
-
-        let actualSystem = m.scene.referenceSystem.planet
-
-        //only possible to infer ellipsoid systems or none
         let suggestedSystem = 
-            match (inferredSystem, actualSystem) with
-            | (Planet.Earth, Planet.Earth) -> Planet.Earth
-            | (Planet.Mars, Planet.Mars)   -> Planet.Mars
-            | (Planet.None, Planet.None)   -> Planet.None
-            | (Planet.None, Planet.JPL)    -> Planet.JPL
-            | (Planet.None, Planet.XZY)    -> Planet.XZY
-            | _ ->
-                Log.warn "[Scene] found reference system does not align with suggested system"
-                Log.warn "[Scene] changing to %A" inferredSystem
-                inferredSystem
-       
+            Planet.suggestedSystem centerPoint m.scene.referenceSystem.planet
+        
         let (suggestedReferenceSystem,_) = 
             suggestedSystem
             |> SetPlanet

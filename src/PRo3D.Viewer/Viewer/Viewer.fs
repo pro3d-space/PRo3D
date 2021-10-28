@@ -301,7 +301,7 @@ module ViewerApp =
                     LenseConfigs.referenceSystemConfig 
                     m.scene.referenceSystem
                                                  
-            //let m = { m with scene = { m.scene with referenceSystem = refSystem' }} 
+            let m = { m with scene = { m.scene with referenceSystem = refSystem' }} 
             //update camera upvector
             SceneLoader.updateCameraUp m
         | Interactions.PickExploreCenter, ViewerMode.Standard ->
@@ -817,6 +817,9 @@ module ViewerApp =
                         | Some (t,surf), c ->                         
                             cache <- c
                             let hit = r.GetPointOnRay(t)
+
+                            Log.line "[PickSurface] surface hit at %A" hit
+
                             let cameraLocation = m.navigation.camera.view.Location 
                             let hitF = hitF cameraLocation
                    

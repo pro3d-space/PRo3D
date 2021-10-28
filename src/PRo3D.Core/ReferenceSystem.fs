@@ -77,24 +77,7 @@ module ReferenceSystemApp =
     let northVector (up:V3d) =
         let east = V3d.OOI.Cross(up)
         up.Cross(east)
-
-    let inferCoordinateSystem (p : V3d) = //TODO rno
-        // earth radius min max [6,357; 6,378]
-        // mars equatorial radius [3396] 
-        
-        let earthRadiusRange = Range1d(5500000.0, 7000000.0)
-        let marsRadiusRange = Range1d(2500000.0, 4000000.0)
-
-        let distanceToOrigin = p.Length
-        let coordinateSystem = 
-            match distanceToOrigin with
-            | d when marsRadiusRange.Contains(d) -> Planet.Mars
-            | d when earthRadiusRange.Contains(d) -> Planet.Earth            
-            | _ -> Planet.None
-
-        Log.warn "[ReferenceSystem] Inferred Coordinate System: %s" (coordinateSystem.ToString ())
-        coordinateSystem
-
+    
     let updateCoordSystem (p:V3d) (planet:Planet) (model : ReferenceSystem) = 
         let up = upVector p planet
         let north  = 
@@ -111,23 +94,20 @@ module ReferenceSystemApp =
                 up     = ReferenceSystem.setV3d up
                 northO = no 
                 planet = planet
+                origin = p
         }
 
     let update<'a> 
-        (bigConfig : 'a) 
-        (config : ReferenceSystemConfig<'a>) 
-        (model : ReferenceSystem) 
-        (act : ReferenceSystemAction) =
+        (bigConfig  : 'a) 
+        (config     : ReferenceSystemConfig<'a>) 
+        (model      : ReferenceSystem) 
+        (act        : ReferenceSystemAction) =
 
         match act with
         | InferCoordSystem p ->
-            let planet = inferCoordinateSystem p
+            let planet = Planet.suggestedSystem p model.planet
             let m = updateCoordSystem p planet model
-            {
-                m with 
-                    origin = p 
-                    planet = planet
-            }, bigConfig
+            m, bigConfig
         | UpdateUpNorth p ->
             updateCoordSystem p model.planet model, bigConfig
         | SetUp up ->    

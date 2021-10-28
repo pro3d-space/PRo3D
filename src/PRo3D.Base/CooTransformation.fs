@@ -13,6 +13,38 @@ type Planet =
 | JPL   = 3
 | XZY   = 4
 
+module Planet =
+    let inferCoordinateSystem (p : V3d) = //TODO rno
+        // earth radius min max [6,357; 6,378]
+        // mars equatorial radius [3396] 
+        
+        let earthRadiusRange = Range1d(5500000.0, 7000000.0)
+        let marsRadiusRange = Range1d(2500000.0, 4000000.0)
+
+        let distanceToOrigin = p.Length
+        let coordinateSystem = 
+            match distanceToOrigin with
+            | d when marsRadiusRange.Contains(d) -> Planet.Mars
+            | d when earthRadiusRange.Contains(d) -> Planet.Earth            
+            | _ -> Planet.None
+
+        Log.warn "[ReferenceSystem] Inferred Coordinate System: %s" (coordinateSystem.ToString ())
+        coordinateSystem
+
+    let suggestedSystem p currentSystem = 
+        let inferredSystem = inferCoordinateSystem p
+
+        match (inferredSystem, currentSystem) with
+        | (Planet.Earth, Planet.Earth) -> Planet.Earth
+        | (Planet.Mars, Planet.Mars)   -> Planet.Mars
+        | (Planet.None, Planet.None)   -> Planet.None
+        | (Planet.None, Planet.JPL)    -> Planet.JPL
+        | (Planet.None, Planet.XZY)    -> Planet.XZY
+        | _ ->
+            Log.warn "[Scene] found reference system does not align with suggested system"
+            Log.warn "[Scene] changing to %A" inferredSystem
+            inferredSystem
+
 module CooTransformation = 
 
     type private Self = Self

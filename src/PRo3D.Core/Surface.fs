@@ -189,7 +189,7 @@ module SurfaceIntersection =
                                     if surf.transformation.flipZ then 
                                         Trafo3d.Scale(1.0, 1.0, -1.0).Forward * (fullTrafo.Forward * surf.preTransform.Forward)
                                     else if surf.transformation.isSketchFab then
-                                        Trafo3d.RotationZ((-90.0).RadiansFromDegrees()).Forward * Sg.switchYZTrafo.Forward
+                                        Sg.switchYZTrafo.Forward
                                     else
                                         (fullTrafo.Forward * surf.preTransform.Forward)
 
@@ -205,7 +205,7 @@ module SurfaceIntersection =
                                     if surf.transformation.flipZ then
                                         Trafo3d.Scale(1.0, 1.0, -1.0).Backward * surf.preTransform.Backward * fullTrafo.Backward
                                     else if surf.transformation.isSketchFab then
-                                        Sg.switchYZTrafo.Backward * Trafo3d.RotationZ((-90.0).RadiansFromDegrees()).Backward
+                                        Sg.switchYZTrafo.Backward
                                     else
                                         surf.preTransform.Backward * fullTrafo.Backward
 

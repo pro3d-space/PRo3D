@@ -267,23 +267,8 @@ module ViewerUtils =
                         let! sketchFab = surface.transformation.isSketchFab
                         if flipZ then 
                             return Trafo3d.Scale(scaleFactor) * Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * preTransform)
-                        else if sketchFab then
-                            let! bb = globalBB
-
-                            return 
-                                //Trafo3d.Translation(-bb.Center) *
-                                Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OOI, V3d.OIO)
-                                //PRo3D.Core.Sg.switchYZTrafo * Trafo3d.RotationZ((-90.0).RadiansFromDegrees())
-                                
-                                //Trafo3d.Scale(1.0, 1.0, -1.0) *
-                                //blurg *
-                                //Trafo3d.Translation(-bb.Center)
-                                
-                            
-                            //Trafo3d.Scale(scaleFactor) * 
-                            //    Trafo3d.RotationZ((90.0).RadiansFromDegrees()) * 
-                            //    Trafo3d.Scale(1.0, 1.0, -1.0) * 
-                            //    (fullTrafo * preTransform)
+                        else if sketchFab then                            
+                            return Sg.switchYZTrafo
                         else
                             return Trafo3d.Scale(scaleFactor) * (fullTrafo * preTransform)
                     }
