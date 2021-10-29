@@ -318,9 +318,9 @@ module Sg =
         } 
         |> Sg.set  
         
-
+    [<ObsoleteAttribute("Old way of drawing annotations. Use finishedAnnotation instead")>]
     let finishedAnnotationOld 
-        (anno             : AdaptiveAnnotation) 
+        (anno             : AdaptiveAnnotation)
         (color            : aval<C4b>) 
         (config           : innerViewConfig)
         (view             : aval<CameraView>) 
@@ -347,13 +347,11 @@ module Sg =
             |> optionalSet (drawText view config anno)
     
         let dotsAndText = ASet.union' [dots; texts] |> Sg.set
-            
-        //let selectionColor = AVal.map2(fun x color -> if x then C4b.VRVisGreen else color) picked c
+                    
         let pickingAllowed = // for this particular annotation // whether should fire pick actions
             AVal.map2 (&&) pickingAllowed anno.visible
 
         let pickFunc = pickEventsHelper (anno.key |> AVal.constant) pickingAllowed anno.thickness.value anno.modelTrafo
-
 
         let pickingLines = 
             Sg.pickableLine 
@@ -371,8 +369,19 @@ module Sg =
         let selectionSg = 
             picked 
             |> AVal.map (function
-                | true -> OutlineEffect.createForLineOrPoint view viewportSize PRo3D.Base.OutlineEffect.Both (AVal.constant C4b.VRVisGreen) anno.thickness.value 3.0  RenderPass.main anno.modelTrafo points
-                | false -> Sg.empty ) 
+                | true -> 
+                    OutlineEffect.createForLineOrPoint 
+                        view 
+                        viewportSize 
+                        PRo3D.Base.OutlineEffect.Both 
+                        (AVal.constant C4b.VRVisGreen) 
+                        anno.thickness.value 
+                        3.0  
+                        RenderPass.main 
+                        anno.modelTrafo 
+                        points
+                | false -> Sg.empty 
+            )
             |> Sg.dynamic
     
         Sg.ofList [

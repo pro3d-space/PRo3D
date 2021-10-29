@@ -505,11 +505,6 @@ module DrawingApp =
                 pickingTolerance = msmallConfig.getPickingTolerance mbigConfig
             }
        
-
-
-
-
-
         if usePackedAnnotationRendering then
 
             Log.startTimed "[Drawing] creating finished annotation geometry"
@@ -576,10 +571,10 @@ module DrawingApp =
 
             let overlay = 
                 Sg.ofList [
-                 // brush model.hoverPosition; 
-                  annotations
-                  Sg.ofSeq [packedLines; packedPoints]
-                  Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
+                    // brush model.hoverPosition; 
+                    annotations
+                    Sg.ofSeq [packedLines; packedPoints]
+                    Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
                 ]
 
             //let depthTest = 
@@ -601,7 +596,7 @@ module DrawingApp =
                     let picked = UI.isSingleSelect model.annotations a
                     let showPoints = 
                         a.geometry 
-                            |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
+                        |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
                       
                     let sg = Sg.finishedAnnotationOld a c config view viewport showPoints picked pickingAllowed
                     sg

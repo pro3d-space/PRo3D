@@ -365,11 +365,12 @@ type Annotation = {
     results        : Option<AnnotationResults>
     dnsResults     : Option<DipAndStrikeResults>
                    
-    visible        : bool
-    showDns        : bool
-    text           : string
-    textsize       : NumericInput
-    manualDipAngle : NumericInput
+    visible          : bool
+    showDns          : bool
+    text             : string
+    textsize         : NumericInput
+    manualDipAngle   : NumericInput
+    manualDipAzimuth : NumericInput
                  
     surfaceName    : string
     view           : CameraView
@@ -378,11 +379,19 @@ type Annotation = {
     semanticType   : SemanticType
 }
 with 
-    static member current = 3
+    static member current = 4
     static member initialManualDipAngle = {
         value   = Double.NaN
-        min     = 0.0
+        min     = -90.0
         max     = 90.0
+        step    = 0.1
+        format  = "{0:0.0}"
+    }
+
+    static member initialmanualDipAzimuth = {
+        value   = Double.NaN
+        min     = 0.0
+        max     = 360.0
         step    = 0.1
         format  = "{0:0.0}"
     }
@@ -417,29 +426,31 @@ with
             let cameraView = CameraView(cameraView.[0],cameraView.[1],cameraView.[2],cameraView.[3], cameraView.[4])
             
             return {
-              version      = Annotation.current
-              key          = key           |> Guid.Parse
-              modelTrafo   = modelTrafo    |> Trafo3d.Parse        
-              geometry     = geometry      |> enum<Geometry>
-              projection   = projection    |> enum<Projection>
-              semantic     = semantic      |> enum<Semantic>
-              points       = points        |> Serialization.jsonSerializer.UnPickleOfString
-              segments     = segments      |> Serialization.jsonSerializer.UnPickleOfString
-              color        = color
-              thickness    = thickness      
-              results      = results    
-              dnsResults   = dnsResults         
-              visible      = visible 
-              showDns      = showDns   
-              text         = text      
-              textsize     = textSize         
-              surfaceName  = surfaceName
-              view         = cameraView
-              semanticId   = SemanticId ""
-              semanticType = SemanticType.Undefined
-              manualDipAngle = Annotation.initialManualDipAngle
+                version          = Annotation.current
+                key              = key           |> Guid.Parse
+                modelTrafo       = modelTrafo    |> Trafo3d.Parse        
+                geometry         = geometry      |> enum<Geometry>
+                projection       = projection    |> enum<Projection>
+                semantic         = semantic      |> enum<Semantic>
+                points           = points        |> Serialization.jsonSerializer.UnPickleOfString
+                segments         = segments      |> Serialization.jsonSerializer.UnPickleOfString
+                color            = color
+                thickness        = thickness      
+                results          = results    
+                dnsResults       = dnsResults         
+                visible          = visible 
+                showDns          = showDns   
+                text             = text      
+                textsize         = textSize         
+                surfaceName      = surfaceName
+                view             = cameraView
+                semanticId       = SemanticId ""
+                semanticType     = SemanticType.Undefined
+                manualDipAngle   = Annotation.initialManualDipAngle
+                manualDipAzimuth = Annotation.initialmanualDipAzimuth
             }
         }
+
     static member private readV1 =
         json {
             let! key          = Json.read "key"
@@ -473,29 +484,31 @@ with
             let! semanticType  = Json.read "semanticType"
             
             return {
-                version        = Annotation.current
-                key            = key           |> Guid.Parse
-                modelTrafo     = modelTrafo    |> Trafo3d.Parse        
-                geometry       = geometry      |> enum<Geometry>
-                projection     = projection    |> enum<Projection>
-                semantic       = semantic      |> enum<Semantic>
-                points         = points        |> Serialization.jsonSerializer.UnPickleOfString
-                segments       = segments      |> Serialization.jsonSerializer.UnPickleOfString
-                color          = color
-                thickness      = thickness      
-                results        = results    
-                dnsResults     = dnsResults         
-                visible        = visible 
-                showDns        = showDns   
-                text           = text      
-                textsize       = textSize         
-                surfaceName    = surfaceName
-                view           = cameraView 
-                semanticId     = semanticId |> SemanticId
-                semanticType   = semanticType |> enum<SemanticType>
-                manualDipAngle = Annotation.initialManualDipAngle
+                version          = Annotation.current
+                key              = key           |> Guid.Parse
+                modelTrafo       = modelTrafo    |> Trafo3d.Parse        
+                geometry         = geometry      |> enum<Geometry>
+                projection       = projection    |> enum<Projection>
+                semantic         = semantic      |> enum<Semantic>
+                points           = points        |> Serialization.jsonSerializer.UnPickleOfString
+                segments         = segments      |> Serialization.jsonSerializer.UnPickleOfString
+                color            = color
+                thickness        = thickness      
+                results          = results    
+                dnsResults       = dnsResults         
+                visible          = visible 
+                showDns          = showDns   
+                text             = text      
+                textsize         = textSize         
+                surfaceName      = surfaceName
+                view             = cameraView 
+                semanticId       = semanticId |> SemanticId
+                semanticType     = semanticType |> enum<SemanticType>
+                manualDipAngle   = Annotation.initialManualDipAngle
+                manualDipAzimuth = Annotation.initialmanualDipAzimuth
             }
         }
+
     static member private readV2 =
         json {
             let! key          = Json.read "key"
@@ -529,27 +542,28 @@ with
             let! semanticType  = Json.read "semanticType"
             
             return {
-                version      = Annotation.current
-                key          = key           |> Guid.Parse
-                modelTrafo   = modelTrafo    |> Trafo3d.Parse        
-                geometry     = geometry      |> enum<Geometry>
-                projection   = projection    |> enum<Projection>
-                semantic     = semantic      |> enum<Semantic>
-                points       = points        |> IndexList.ofList
-                segments     = segments      |> IndexList.ofList
-                color        = color
-                thickness    = thickness
-                results      = results
-                dnsResults   = dnsResults
-                visible      = visible
-                showDns      = showDns
-                text         = text
-                textsize     = textSize
-                surfaceName  = surfaceName
-                view         = cameraView
-                semanticId   = semanticId   |> SemanticId
-                semanticType = semanticType |> enum<SemanticType>
-                manualDipAngle = Annotation.initialManualDipAngle
+                version          = Annotation.current
+                key              = key           |> Guid.Parse
+                modelTrafo       = modelTrafo    |> Trafo3d.Parse        
+                geometry         = geometry      |> enum<Geometry>
+                projection       = projection    |> enum<Projection>
+                semantic         = semantic      |> enum<Semantic>
+                points           = points        |> IndexList.ofList
+                segments         = segments      |> IndexList.ofList
+                color            = color
+                thickness        = thickness
+                results          = results
+                dnsResults       = dnsResults
+                visible          = visible
+                showDns          = showDns
+                text             = text
+                textsize         = textSize
+                surfaceName      = surfaceName
+                view             = cameraView
+                semanticId       = semanticId   |> SemanticId
+                semanticType     = semanticType |> enum<SemanticType>
+                manualDipAngle   = Annotation.initialManualDipAngle
+                manualDipAzimuth = Annotation.initialmanualDipAzimuth
             }
         }
 
@@ -588,27 +602,89 @@ with
             let! manualDipAngle = Json.readWith Ext.fromJson<NumericInput,Ext> "manualDipAngle"
             
             return {
-                version        = Annotation.current
-                key            = key           |> Guid.Parse
-                modelTrafo     = modelTrafo    |> Trafo3d.Parse        
-                geometry       = geometry      |> enum<Geometry>
-                projection     = projection    |> enum<Projection>
-                semantic       = semantic      |> enum<Semantic>
-                points         = points        |> IndexList.ofList
-                segments       = segments      |> IndexList.ofList
-                color          = color
-                thickness      = thickness
-                results        = results
-                dnsResults     = dnsResults
-                visible        = visible
-                showDns        = showDns
-                text           = text
-                textsize       = textSize
-                surfaceName    = surfaceName
-                view           = cameraView
-                semanticId     = semanticId   |> SemanticId
-                semanticType   = semanticType |> enum<SemanticType>
-                manualDipAngle = manualDipAngle
+                version          = Annotation.current
+                key              = key           |> Guid.Parse
+                modelTrafo       = modelTrafo    |> Trafo3d.Parse        
+                geometry         = geometry      |> enum<Geometry>
+                projection       = projection    |> enum<Projection>
+                semantic         = semantic      |> enum<Semantic>
+                points           = points        |> IndexList.ofList
+                segments         = segments      |> IndexList.ofList
+                color            = color
+                thickness        = thickness
+                results          = results
+                dnsResults       = dnsResults
+                visible          = visible
+                showDns          = showDns
+                text             = text
+                textsize         = textSize
+                surfaceName      = surfaceName
+                view             = cameraView
+                semanticId       = semanticId   |> SemanticId
+                semanticType     = semanticType |> enum<SemanticType>
+                manualDipAngle   = manualDipAngle
+                manualDipAzimuth = Annotation.initialmanualDipAzimuth
+            }
+        }
+
+    static member private readV4 =
+        json {
+            let! key          = Json.read "key"
+            let! modelTrafo   = Json.read "modelTrafo" //|> Trafo3d.Parse
+            let! geometry     = Json.read "geometry"
+            let! projection   = Json.read "projection"
+            let! semantic     = Json.read "semantic"
+            
+            let! points   = Json.readWith Ext.fromJson<list<V3d>,Ext> "points"
+            let! segments = Json.read "segments"
+            
+            let! color        = Json.readWith Ext.fromJson<ColorInput,Ext> "color"
+            let! thickness    = Json.readWith Ext.fromJson<NumericInput,Ext> "thickness"
+            
+            let! results      = Json.read "results"
+            let! dnsResults   = Json.read "dnsResults"
+            
+            let! visible  = Json.read "visible"
+            let! showDns  = Json.read "showDns"
+            let! text     = Json.read "text"
+            let! textSize = Json.readWith Ext.fromJson<NumericInput,Ext> "textsize"
+            
+            let! surfaceName = Json.read "surfaceName"
+            
+            let! (cameraView : list<string>) = Json.read "view"
+            
+            let cameraView = cameraView |> List.map V3d.Parse
+            let cameraView = CameraView(cameraView.[0],cameraView.[1],cameraView.[2],cameraView.[3], cameraView.[4])
+            
+            let! semanticId    = Json.read "semanticId"
+            let! semanticType  = Json.read "semanticType"
+    
+            let! manualDipAngle = Json.readWith Ext.fromJson<NumericInput,Ext> "manualDipAngle"
+            let! manualDipAzimuth = Json.readWith Ext.fromJson<NumericInput,Ext> "manualDipAzimuth"
+            
+            return {
+                version          = Annotation.current
+                key              = key           |> Guid.Parse
+                modelTrafo       = modelTrafo    |> Trafo3d.Parse        
+                geometry         = geometry      |> enum<Geometry>
+                projection       = projection    |> enum<Projection>
+                semantic         = semantic      |> enum<Semantic>
+                points           = points        |> IndexList.ofList
+                segments         = segments      |> IndexList.ofList
+                color            = color
+                thickness        = thickness
+                results          = results
+                dnsResults       = dnsResults
+                visible          = visible
+                showDns          = showDns
+                text             = text
+                textsize         = textSize
+                surfaceName      = surfaceName
+                view             = cameraView
+                semanticId       = semanticId   |> SemanticId
+                semanticType     = semanticType |> enum<SemanticType>
+                manualDipAngle   = manualDipAngle
+                manualDipAzimuth = manualDipAzimuth
             }
         }
 
@@ -620,6 +696,7 @@ with
             | 1 -> return! Annotation.readV1
             | 2 -> return! Annotation.readV2
             | 3 -> return! Annotation.readV3
+            | 4 -> return! Annotation.readV4
             | _ -> return! v |> sprintf "don't know version %A of Annotation" |> Json.error
         }
     
@@ -644,13 +721,16 @@ with
             do! Json.write "surfaceName"    x.surfaceName
             
             let camView = x.view
-            let camView = [camView.Sky; camView.Location; camView.Forward; camView.Up ; camView.Right] |> List.map(fun x -> x.ToString())      
+            let camView = 
+                [camView.Sky; camView.Location; camView.Forward; camView.Up ; camView.Right] 
+                |> List.map(fun x -> x.ToString())
+
             do! Json.write "view" camView
             do! Json.write "semanticId" (x.semanticId.ToString())
             do! Json.write "semanticType" (x.semanticType |> int)
 
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "manualDipAngle" (x.manualDipAngle)
-          
+            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "manualDipAzimuth" (x.manualDipAzimuth)          
         }
 
 module Annotation =
@@ -670,47 +750,8 @@ module Annotation =
             max     = 5.0
             step    = 0.01
             format  = "{0:0.00}"
-        }
-
-        let manualDipAngle = {
-            value   = Double.NaN
-            min     = 0.0
-            max     = 90.0
-            step    = 0.1
-            format  = "{0:0.0}"
-        }
-                
-    let mk projection geometry color thickness surfaceName : Annotation = //TODO refactor: check if make and mk do the same ... remove one
-        {
-             version     = Annotation.current
-             key         = Guid.NewGuid()
-             geometry    = geometry
-             semantic    = Semantic.None
-             points      = IndexList.Empty
-             segments    = IndexList.Empty //[]
-             color       = color
-             thickness   = thickness
-             results     = None
-             dnsResults  = None            
-             projection  = projection
-             visible     = true
-             text        = ""
-             textsize    = Initial.texts
-             modelTrafo  = Trafo3d.Identity
-             showDns     = 
-                 match geometry with 
-                 | Geometry.DnS -> true 
-                 | _ -> false 
-             surfaceName  = surfaceName
-             semanticId   = SemanticId ""
-             semanticType = SemanticType.Undefined
-             view         = FreeFlyController.initial.view
-             manualDipAngle = Initial.manualDipAngle
-        }
-
-    let initial =
-        mk Projection.Viewpoint Geometry.Polyline { c = C4b.Magenta } Initial.thickness ""
-      
+        }        
+          
     let thickness = [1.0; 2.0; 3.0; 4.0; 5.0; 1.0; 1.0]
     let color = 
         [
@@ -723,30 +764,41 @@ module Annotation =
             new C4b(153,142,195) 
         ]
     
-    let make (projection) (geometry) (color) (thickness) (surfName) : Annotation  =       
+    let make 
+        (projection) 
+        (geometry) 
+        (color) 
+        (thickness) 
+        (surfName) 
+        : Annotation  =
+
         {
-            version     = Annotation.current
-            key         = Guid.NewGuid()
-            geometry    = geometry
-            semantic    = Semantic.None
-            points      = IndexList.Empty
-            segments    = IndexList.Empty //[]
-            color       = color
-            thickness   = thickness
-            results     = None
-            dnsResults  = None
-            projection  = projection
-            visible     = true
-            text        = ""
-            textsize    = Initial.texts
-            modelTrafo  = Trafo3d.Identity
-            showDns     = 
+            version          = Annotation.current
+            key              = Guid.NewGuid()
+            geometry         = geometry
+            semantic         = Semantic.None
+            points           = IndexList.Empty
+            segments         = IndexList.Empty //[]
+            color            = color
+            thickness        = thickness
+            results          = None
+            dnsResults       = None
+            projection       = projection
+            visible          = true
+            text             = ""
+            textsize         = Initial.texts
+            modelTrafo       = Trafo3d.Identity
+            showDns          = 
                 match geometry with 
-                | Geometry.DnS -> true 
+                | Geometry.DnS | Geometry.TT -> true                 
                 | _ -> false
-            surfaceName = surfName
-            view         = FreeFlyController.initial.view
-            semanticId   = SemanticId ""
-            semanticType = SemanticType.Undefined
-            manualDipAngle = Initial.manualDipAngle
+            surfaceName      = surfName
+            view             = FreeFlyController.initial.view
+            semanticId       = SemanticId ""
+            semanticType     = SemanticType.Undefined
+            manualDipAngle   = Annotation.initialManualDipAngle
+            manualDipAzimuth = Annotation.initialmanualDipAzimuth 
         }
+
+    let initial =
+        make Projection.Viewpoint Geometry.Polyline { c = C4b.Magenta } Initial.thickness ""
