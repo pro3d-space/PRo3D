@@ -78,12 +78,13 @@ module DrawingApp =
         //    | _  -> plane.Normal
     
         //let plane = Plane3d(planeNormal, plane.Distance)
+
+        //dip vector 
+        let dip = north //strike.Cross(planeNormal).Normalized
         
         //strike
         let strike = north.Cross(up).Normalized
     
-        //dip vector 
-        let dip = north //strike.Cross(planeNormal).Normalized
     
         //dip plane incline .. maximum dip angle
         //let v = strike.Cross(up).Normalized
@@ -95,11 +96,11 @@ module DrawingApp =
     
         //Log.line "%A" distances2
     
-        let centerOfMass = V3d.Divide(points |> IndexList.sum, (float)points.Count)
+        let centerOfMass = p0 //V3d.Divide(points |> IndexList.sum, (float)points.Count)
 
         let dns = {
             version         = DipAndStrikeResults.current
-            plane           = plane
+            plane           = Plane3d(up, p0)
             dipAngle        = Math.Acos(v.Dot(dip)).DegreesFromRadians()
             dipDirection    = dip
             strikeDirection = strike
