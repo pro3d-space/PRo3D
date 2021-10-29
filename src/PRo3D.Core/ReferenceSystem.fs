@@ -106,15 +106,19 @@ module ReferenceSystemApp =
             | _ -> northVector up
 
         let no = Rot3d.Rotation(up, model.noffset.value |> Double.radiansFromDegrees).Transform(n) //updateVectorInDegree up n model.origin model.noffset.value 
-        { model with north = ReferenceSystem.setV3d n
-                     up = ReferenceSystem.setV3d up
-                     northO = no }
+        { 
+            model with 
+                north = ReferenceSystem.setV3d n
+                up = ReferenceSystem.setV3d up
+                northO = no 
+        }
 
     let update<'a> 
         (bigConfig : 'a) 
         (config : ReferenceSystemConfig<'a>) 
         (model : ReferenceSystem) 
         (act : ReferenceSystemAction) =
+
         match act with
         | InferCoordSystem p ->
             let planet = inferCoordinateSystem p

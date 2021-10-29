@@ -64,6 +64,62 @@ module DrawingApp =
                 { a with segments = IndexList.add newSegment a.segments }
         | _ -> { a with points = a.points |> IndexList.add firstP }
 
+    let calculateManualDipAndStrikeResults (up : V3d) (north : V3d) (annotation : Annotation) =
+        
+        let p0 = annotation.points.[0]
+        let p1 = annotation.points.[1]
+
+        let dir = (p1 - p0) |>  Vec.normalize
+
+        //correct plane orientation - check if normals point in same direction           
+        //let planeNormal = 
+        //    match signedOrientation up plane with
+        //    | -1 -> -plane.Normal
+        //    | _  -> plane.Normal
+    
+        //let plane = Plane3d(planeNormal, plane.Distance)
+        
+        //strike
+        let strike = north.Cross(up).Normalized
+    
+        //dip vector 
+        let dip = north //strike.Cross(planeNormal).Normalized
+    
+        //dip plane incline .. maximum dip angle
+        //let v = strike.Cross(up).Normalized
+    
+        //let distances2 = 
+        //    points
+        //    |> IndexList.toList
+        //    |> List.map(fun x -> (plane.Height x).Abs())
+    
+        //Log.line "%A" distances2
+    
+        let centerOfMass = V3d.Divide(points |> IndexList.sum, (float)points.Count)
+
+        let dns = {
+            version         = DipAndStrikeResults.current
+            plane           = plane
+            dipAngle        = Math.Acos(v.Dot(dip)).DegreesFromRadians()
+            dipDirection    = dip
+            strikeDirection = strike
+            dipAzimuth      = computeAzimuth v north up
+            strikeAzimuth   = computeAzimuth strike north up
+            centerOfMass    = centerOfMass //(new Box3d(points)).Center //[@LF] this is not the center of mass (sum over points / no of points)
+            error           = 
+                { 
+                    version      = Statistics.current
+                    average      = nan
+                    min          = nan
+                    max          = nan
+                    stdev        = nan
+                    sumOfSquares = nan
+                }
+            regressionInfo = None
+        }
+        Some dns        
+        
+
     let getFinishedAnnotation up north planet (view:CameraView) (model : DrawingModel) =
         match model.working with
         | Some w ->  
@@ -75,6 +131,9 @@ module DrawingApp =
             let dns = 
                 w.points 
                 |> DipAndStrike.calculateDipAndStrikeResults (up) (north)
+
+            let manualDnsResults = calculateManualDipAndStrikeResults up north w
+                
                 //match w.points.Count with 
                 //    | x when x > 2 ->
                 //        //let up = 
@@ -85,7 +144,7 @@ module DrawingApp =
 
             let w =
                 match w.geometry with 
-                | Geometry.TT -> { w with manualDipAngle = { w.manualDipAngle with value = 0.0 }}
+                | Geometry.TT -> { w with manualDipAngle = { w.manualDipAngle with value = 0.0 }; dnsResults = manualDnsResults }
                 | _ -> w
 
             let results = Calculations.calculateAnnotationResults w up north planet

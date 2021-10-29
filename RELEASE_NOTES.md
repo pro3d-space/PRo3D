@@ -1,3 +1,7 @@
+## 4.4.0-prerelease1
+
+- true thickness stuff
+
 ## 4.2.0-prerelease1
 
 - static screen-shot service that can be found in the `config` tab

@@ -127,15 +127,14 @@ module DipAndStrike =
             //dip plane incline .. maximum dip angle
             let v = strike.Cross(up).Normalized
     
-            let distances2 = 
-                points
-                |> IndexList.toList
-                |> List.map(fun x -> (plane.Height x).Abs())
+            //let distances2 = 
+            //    points
+            //    |> IndexList.toList
+            //    |> List.map(fun x -> (plane.Height x).Abs())
     
-            Log.line "%A" distances2
+            //Log.line "%A" distances2
     
             let centerOfMass = V3d.Divide(points |> IndexList.sum, (float)points.Count)
-
 
             let dns = {
                 version         = DipAndStrikeResults.current
@@ -148,17 +147,18 @@ module DipAndStrike =
                 centerOfMass    = centerOfMass //(new Box3d(points)).Center //[@LF] this is not the center of mass (sum over points / no of points)
                 error           = 
                     { 
-                        version = Statistics.current
-                        average = avg
-                        min = min
-                        max = max
-                        stdev = std
+                        version      = Statistics.current
+                        average      = avg
+                        min          = min
+                        max          = max
+                        stdev        = std
                         sumOfSquares = sos
                     }
                 regressionInfo = linRegression
             }
-            Some dns
-        | _ -> None
+            Some dns        
+        | _ -> 
+            None
         
     let recalculateDnSAzimuth (anno:Annotation) (up:V3d) (north : V3d) =
     

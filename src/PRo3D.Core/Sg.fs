@@ -149,7 +149,7 @@ module Sg =
         let thickness = minnerConfig.getArrowThickness mbigConfig
         let near      = minnerConfig.getNearDistance   mbigConfig
 
-        let east = AVal.map2(fun (l:V3d) (r:V3d) -> r.Cross(l) ) model.up.value model.northO // model.north.value
+        let east = AVal.map2(fun (up:V3d) (n:V3d) -> n.Cross(up) ) model.up.value model.northO // model.north.value
 
         let size = model.selectedScale |> AVal.map scaleToSize
 
