@@ -92,11 +92,11 @@ with
     static member current = 0
     static member private readV0 = 
         json {
-            let! average      = Json.read "average"
-            let! min          = Json.read "min"
-            let! max          = Json.read "max"
-            let! stdev        = Json.read "stdev"
-            let! sumOfSquares = Json.read "sumOfSquares"
+            let! average      = Json.readFloat "average"
+            let! min          = Json.readFloat "min"
+            let! max          = Json.readFloat "max"
+            let! stdev        = Json.readFloat "stdev"
+            let! sumOfSquares = Json.readFloat "sumOfSquares"
             
             return {
                 version      = Statistics.current
@@ -116,13 +116,13 @@ with
             | _ -> return! v |> sprintf "don't know version %A  of Statistics" |> Json.error
         }
     static member ToJson (x : Statistics) =
-        json {          
-            do! Json.write "sumOfSquares" x.sumOfSquares            
-            do! Json.write "stdev" x.stdev            
-            do! Json.write "max" x.max            
-            do! Json.write "min" x.min                                 
-            do! Json.write "average" x.average             
-            do! Json.write "version" x.version
+        json {              
+            do! Json.write      "version"      Statistics.current
+            do! Json.writeFloat "sumOfSquares" x.sumOfSquares
+            do! Json.writeFloat "stdev"        x.stdev
+            do! Json.writeFloat "max"          x.max
+            do! Json.writeFloat "min"          x.min
+            do! Json.writeFloat "average"      x.average
         }
 
 module Statistics =
@@ -382,7 +382,7 @@ with
     static member current = 4
     static member initialManualDipAngle = {
         value   = Double.NaN
-        min     = -90.0
+        min     = 0.0
         max     = 90.0
         step    = 0.1
         format  = "{0:0.0}"

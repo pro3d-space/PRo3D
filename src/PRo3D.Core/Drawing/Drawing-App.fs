@@ -75,8 +75,8 @@ module DrawingApp =
                 | Geometry.TT -> 
                     { 
                         w with 
-                            manualDipAngle   = { w.manualDipAngle   with value = 33.0 }
-                            manualDipAzimuth = { w.manualDipAzimuth with value = 0.0 } 
+                            manualDipAngle   = { w.manualDipAngle   with value = 0.0 }
+                            manualDipAzimuth = { w.manualDipAzimuth with value = 45.0 }
                     }
                 | _-> w 
         

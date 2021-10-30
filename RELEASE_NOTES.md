@@ -1,6 +1,7 @@
 ## 4.4.0-prerelease1
 
-- true thickness stuff
+- added dip azimuth to true thickness tool
+- improved true thickness computation via point over plane height
 
 ## 4.2.0-prerelease1
 

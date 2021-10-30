@@ -10,6 +10,8 @@ open FSharp.Data.Adaptive
 open Adaptify.FSharp.Core
 open Aardvark.Geometry
 
+//TODO refactor: AnnotationHelpers.fs is a very unspecific file name ... divide functions better into modules
+
 module DipAndStrike =   
       
     let projectOntoPlane (x:V3d) (n:V3d) = (x - (x * n)).Normalized
@@ -73,39 +75,47 @@ module DipAndStrike =
          horP.Height(plane.Normal).Sign()
     
     let calculateManualDipAndStrikeResults (up : V3d) (north : V3d) (annotation : Annotation) =
+        Log.startTimed "[Annotation] computing manual dns"
         
-        let p0 = annotation.points.[0]
-
+        let up = up |> Vec.normalize
+        let north = north |> Vec.normalize
+        
         //apply dip azimuth rotation
         let dipDirection = 
             north 
-            |> Trafo3d.Rotation(up, ((annotation.manualDipAzimuth.value).RadiansFromDegrees())).Forward.TransformDir
+            |> Trafo3d.Rotation(up, ((-annotation.manualDipAzimuth.value).RadiansFromDegrees())).Forward.TransformDir
+            |> Vec.normalize
         
         //strike
-        let strikeDirection = up.Cross(dipDirection).Normalized
+        let strikeDirection = dipDirection.Cross(up) |> Vec.normalize
 
-
-        //apply dip angle rotation
+        //apply dip angle rotation along negative strike direction because dipping angles can only dip down
         let dipDirection = 
             dipDirection
             |> Trafo3d.Rotation(-strikeDirection, ((annotation.manualDipAngle.value).RadiansFromDegrees())).Forward.TransformDir
+            |> Vec.normalize
     
         //dip plane incline .. maximum dip angle
-        let v = strikeDirection.Cross(up).Normalized            
+        let v = strikeDirection.Cross(up) |> Vec.normalize
+
+        let p0 = annotation.points.[0]
+        let p1 = annotation.points.[1]
+        let planeNormal = dipDirection.Cross(strikeDirection) |> Vec.normalize
+
+        let dippingPlane = Plane3d(planeNormal, p0)
 
         Log.line "north %A" north
         Log.line "dip   %A" dipDirection
         Log.line "v     %A" v
+        Log.line "true  %A" (dippingPlane.Height(p1))
 
-        let planeNormal = dipDirection.Cross(strikeDirection)
-
-        let alpha = Math.Asin (Vec.dot up dipDirection)
-        Log.line "alpha     %A" (alpha.DegreesFromRadians())
-        ()
+        let alpha = -(Math.Asin (Vec.dot up dipDirection)).DegreesFromRadians()
+        Log.line "alpha     %A" alpha
+        
         let dns = {
             version         = DipAndStrikeResults.current
-            plane           = Plane3d(planeNormal, p0)
-            dipAngle        = Math.Acos(v.Dot(dipDirection)).DegreesFromRadians()
+            plane           = dippingPlane
+            dipAngle        = alpha
             dipDirection    = dipDirection
             strikeDirection = strikeDirection
             dipAzimuth      = computeAzimuth dipDirection north up
@@ -122,6 +132,9 @@ module DipAndStrike =
                 }
             regressionInfo = None
         }
+
+        Log.stop()
+
         Some dns
 
     let calculateDipAndStrikeResults (up:V3d) (north : V3d) (points:IndexList<V3d>) =
@@ -302,36 +315,36 @@ module Calculations =
         ] 
         |> List.sum
                                                                
-    let calcResultsLine (model:Annotation) (upVec:V3d) (northVec:V3d) (planet:Planet) : AnnotationResults =
-        let count = model.points.Count
-        let dist = Vec.Distance(model.points.[0], model.points.[count-1])
+    let calcResultsLine (annotation : Annotation) (upVec:V3d) (northVec:V3d) (planet:Planet) : AnnotationResults =
+        let count = annotation.points.Count
+        let dist = Vec.Distance(annotation.points.[0], annotation.points.[count-1])
         let wayLength =
-            if not model.segments.IsEmpty then
-                computeWayLength model.segments
+            if not annotation.segments.IsEmpty then
+                computeWayLength annotation.segments
             else
-                model.points 
+                annotation.points 
                 |> IndexList.toList 
                 |> getDistance
     
         let heights = 
-            model.points 
+            annotation.points 
             // |> IndexList.map(fun x -> model.modelTrafo.Forward.TransformPos(x))
             |> IndexList.map(fun p -> getHeightDelta2 p upVec planet ) 
             |> IndexList.toList
     
         let hcount = heights.Length
     
-        let line    = new Line3d(model.points.[0], model.points.[count-1])
+        let line    = new Line3d(annotation.points.[0], annotation.points.[count-1])
         let bearing = DipAndStrike.bearing upVec northVec line.Direction.Normalized
         let slope   = DipAndStrike.pitch upVec line.Direction.Normalized
     
         let verticalThickness = (heights |> List.max) - (heights |> List.min)
 
         let trueThickness =
-            match model.geometry with
-            | Geometry.TT when (model.manualDipAngle.value.IsNaN()) |> not ->
-                Log.error "[AnnotationHelpers] insert true thickness stuff here"
-                (Math.Cos (model.manualDipAngle.value.RadiansFromDegrees())) * verticalThickness
+            match (annotation.geometry, annotation.dnsResults) with
+            | (Geometry.TT, Some dns) when (annotation.manualDipAngle.value.IsNaN()) |> not ->
+                let p1 = annotation.points.[1]
+                (dns.plane.Height(p1))
             | _ -> Double.NaN
 
         {   

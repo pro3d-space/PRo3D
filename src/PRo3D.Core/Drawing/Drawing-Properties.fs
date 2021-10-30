@@ -49,7 +49,7 @@ module AnnotationProperties =
 
             (v |> Vec.dot up.Normalized)
             
-    let update (model : Annotation) (planet : Planet) (act : Action) =
+    let update (referenceSystem : ReferenceSystem) (model : Annotation) (act : Action) =
         match act with
         | SetGeometry mode ->
             { model with geometry = mode }
@@ -73,19 +73,24 @@ module AnnotationProperties =
             match model.geometry with
             | Geometry.Point -> 
                 match model.points |> IndexList.tryFirst with 
-                | Some p -> 
+                | Some firstPoint -> 
                     Log.line "--- Printing Point Coordinates ---"
-                    Log.line "XYZ: %A" p
-                    Log.line "LatLonAlt: %A" (CooTransformation.getLatLonAlt planet p|> CooTransformation.SphericalCoo.toV3d)
+                    Log.line "XYZ: %A" firstPoint
+                    Log.line "LatLonAlt: %A" (CooTransformation.getLatLonAlt referenceSystem.planet firstPoint |> CooTransformation.SphericalCoo.toV3d)
                     Log.line "--- Done ---"
                 | None -> failwith "[DrawingProperties] point geometry without point is invalid"
             | _ -> ()
             
             model
         | SetManualDippingAngle a ->                
-            { model with manualDipAngle = Numeric.update model.manualDipAngle a}
+            let model = { model with manualDipAngle = Numeric.update model.manualDipAngle a }
+            let dnsResults = DipAndStrike.calculateManualDipAndStrikeResults referenceSystem.up.value referenceSystem.northO model
+            { model with dnsResults = dnsResults }
         | SetManualDippingAzimuth a ->
-            { model with manualDipAzimuth = Numeric.update model.manualDipAzimuth a }
+            let model ={ model with manualDipAzimuth = Numeric.update model.manualDipAzimuth a }
+            let dnsResults = DipAndStrike.calculateManualDipAndStrikeResults referenceSystem.up.value referenceSystem.northO model            
+            { model with dnsResults = dnsResults }
+
 
     let view (paletteFile : string) (model : AdaptiveAnnotation) = 
 
