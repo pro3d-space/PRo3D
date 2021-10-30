@@ -26,6 +26,7 @@ module AnnotationProperties =
     | ToggleShowDns
     | PrintPosition   
     | SetManualDippingAngle of Numeric.Action
+    | SetManualDippingAzimuth of Numeric.Action
        
     let horizontalDistance (points:list<V3d>) (up:V3d) = 
         match points.Length with
@@ -82,9 +83,9 @@ module AnnotationProperties =
             
             model
         | SetManualDippingAngle a ->                
-            let annotation = { model with manualDipAngle = Numeric.update model.manualDipAngle a }            
-
-            annotation
+            { model with manualDipAngle = Numeric.update model.manualDipAngle a}
+        | SetManualDippingAzimuth a ->
+            { model with manualDipAzimuth = Numeric.update model.manualDipAzimuth a }
 
     let view (paletteFile : string) (model : AdaptiveAnnotation) = 
 
@@ -100,6 +101,7 @@ module AnnotationProperties =
                 Html.row "Visible:"     [GuiEx.iconCheckBox model.visible ToggleVisible ]
                 Html.row "Show DnS:"    [GuiEx.iconCheckBox model.showDns ToggleShowDns ]
                 Html.row "Dip Angle:"   [Numeric.view' [InputBox] model.manualDipAngle |> UI.map SetManualDippingAngle]
+                Html.row "Dip Azimuth:" [Numeric.view' [InputBox] model.manualDipAzimuth |> UI.map SetManualDippingAzimuth]
             ]
 
         )

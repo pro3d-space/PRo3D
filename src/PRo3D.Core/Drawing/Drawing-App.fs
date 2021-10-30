@@ -64,62 +64,7 @@ module DrawingApp =
                 { a with segments = IndexList.add newSegment a.segments }
         | _ -> { a with points = a.points |> IndexList.add firstP }
 
-    let calculateManualDipAndStrikeResults (up : V3d) (north : V3d) (annotation : Annotation) =
-        
-        let p0 = annotation.points.[0]
-        let p1 = annotation.points.[1]
-
-        let dir = (p1 - p0) |>  Vec.normalize
-
-        //correct plane orientation - check if normals point in same direction           
-        //let planeNormal = 
-        //    match signedOrientation up plane with
-        //    | -1 -> -plane.Normal
-        //    | _  -> plane.Normal
     
-        //let plane = Plane3d(planeNormal, plane.Distance)
-
-        //dip vector 
-        let dip = north //strike.Cross(planeNormal).Normalized
-        
-        //strike
-        let strike = north.Cross(up).Normalized
-    
-    
-        //dip plane incline .. maximum dip angle
-        //let v = strike.Cross(up).Normalized
-    
-        //let distances2 = 
-        //    points
-        //    |> IndexList.toList
-        //    |> List.map(fun x -> (plane.Height x).Abs())
-    
-        //Log.line "%A" distances2
-    
-        let centerOfMass = p0 //V3d.Divide(points |> IndexList.sum, (float)points.Count)
-
-        let dns = {
-            version         = DipAndStrikeResults.current
-            plane           = Plane3d(up, p0)
-            dipAngle        = Math.Acos(v.Dot(dip)).DegreesFromRadians()
-            dipDirection    = dip
-            strikeDirection = strike
-            dipAzimuth      = computeAzimuth v north up
-            strikeAzimuth   = computeAzimuth strike north up
-            centerOfMass    = centerOfMass //(new Box3d(points)).Center //[@LF] this is not the center of mass (sum over points / no of points)
-            error           = 
-                { 
-                    version      = Statistics.current
-                    average      = nan
-                    min          = nan
-                    max          = nan
-                    stdev        = nan
-                    sumOfSquares = nan
-                }
-            regressionInfo = None
-        }
-        Some dns        
-        
 
     let getFinishedAnnotation up north planet (view:CameraView) (model : DrawingModel) =
         match model.working with
@@ -127,26 +72,21 @@ module DrawingApp =
             let w = 
                 match w.geometry with
                 | Geometry.Polygon -> closePolyline w
+                | Geometry.TT -> 
+                    { 
+                        w with 
+                            manualDipAngle   = { w.manualDipAngle   with value = 33.0 }
+                            manualDipAzimuth = { w.manualDipAzimuth with value = 0.0 } 
+                    }
                 | _-> w 
         
             let dns = 
-                w.points 
-                |> DipAndStrike.calculateDipAndStrikeResults (up) (north)
-
-            let manualDnsResults = calculateManualDipAndStrikeResults up north w
-                
-                //match w.points.Count with 
-                //    | x when x > 2 ->
-                //        //let up = 
-                //        //let north = up.Cross(V3d.OOI.Cross(up))
-                //        let result = w.points |> DipAndStrike.calculateDipAndStrikeResults (up) (north)
-                //        Some result //more acc. by using segments as well?
-                //    | _ -> None 
-
-            let w =
                 match w.geometry with 
-                | Geometry.TT -> { w with manualDipAngle = { w.manualDipAngle with value = 0.0 }; dnsResults = manualDnsResults }
-                | _ -> w
+                | Geometry.TT -> 
+                    DipAndStrike.calculateManualDipAndStrikeResults up north w
+                | _ ->
+                    w.points 
+                    |> DipAndStrike.calculateDipAndStrikeResults (up) (north)                        
 
             let results = Calculations.calculateAnnotationResults w up north planet
 

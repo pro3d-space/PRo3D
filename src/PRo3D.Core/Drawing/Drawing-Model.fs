@@ -114,7 +114,7 @@ module DrawingModel =
 
         working     = None
         projection  = Projection.Linear
-        geometry    = Geometry.Polyline
+        geometry    = Geometry.TT
         semantic    = Semantic.Horizon3
 
         annotations = GroupsModel.initial

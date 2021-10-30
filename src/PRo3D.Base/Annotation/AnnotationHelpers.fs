@@ -14,8 +14,8 @@ module DipAndStrike =
       
     let projectOntoPlane (x:V3d) (n:V3d) = (x - (x * n)).Normalized
     
-    let computeAzimuth (dir:V3d) (north:V3d) (planeNormal:V3d) =
-        let east = north.Cross(planeNormal)
+    let computeAzimuth (dir:V3d) (north:V3d) (up:V3d) =
+        let east = north.Cross(up)
         let eastWestPlane = new Plane3d(east, 0.0) //separates west (-) from east  (+)
         let northSouthPlane = new Plane3d(north, 0.0) //separates sout (-) from north  (+)
     
@@ -70,8 +70,60 @@ module DipAndStrike =
       
     let signedOrientation up (plane : Plane3d) =
          let horP = new Plane3d(up, V3d.Zero)                
-         horP.Height(plane.Normal).Sign()                 
+         horP.Height(plane.Normal).Sign()
     
+    let calculateManualDipAndStrikeResults (up : V3d) (north : V3d) (annotation : Annotation) =
+        
+        let p0 = annotation.points.[0]
+
+        //apply dip azimuth rotation
+        let dipDirection = 
+            north 
+            |> Trafo3d.Rotation(up, ((annotation.manualDipAzimuth.value).RadiansFromDegrees())).Forward.TransformDir
+        
+        //strike
+        let strikeDirection = up.Cross(dipDirection).Normalized
+
+
+        //apply dip angle rotation
+        let dipDirection = 
+            dipDirection
+            |> Trafo3d.Rotation(-strikeDirection, ((annotation.manualDipAngle.value).RadiansFromDegrees())).Forward.TransformDir
+    
+        //dip plane incline .. maximum dip angle
+        let v = strikeDirection.Cross(up).Normalized            
+
+        Log.line "north %A" north
+        Log.line "dip   %A" dipDirection
+        Log.line "v     %A" v
+
+        let planeNormal = dipDirection.Cross(strikeDirection)
+
+        let alpha = Math.Asin (Vec.dot up dipDirection)
+        Log.line "alpha     %A" (alpha.DegreesFromRadians())
+        ()
+        let dns = {
+            version         = DipAndStrikeResults.current
+            plane           = Plane3d(planeNormal, p0)
+            dipAngle        = Math.Acos(v.Dot(dipDirection)).DegreesFromRadians()
+            dipDirection    = dipDirection
+            strikeDirection = strikeDirection
+            dipAzimuth      = computeAzimuth dipDirection north up
+            strikeAzimuth   = computeAzimuth strikeDirection north up
+            centerOfMass    = p0
+            error           = 
+                { 
+                    version      = Statistics.current
+                    average      = nan
+                    min          = nan
+                    max          = nan
+                    stdev        = nan
+                    sumOfSquares = nan
+                }
+            regressionInfo = None
+        }
+        Some dns
+
     let calculateDipAndStrikeResults (up:V3d) (north : V3d) (points:IndexList<V3d>) =
     
         let points = points |> IndexList.filter(fun x -> not x.IsNaN)
@@ -189,7 +241,7 @@ module DipAndStrike =
                     strikeAzimuth = computeAzimuth strike north up 
                 } |> Some
                 
-            | _ -> Some dns //TODO TO check if this shouldnt be none
+            | _ -> None //TODO TO check if this shouldnt be none
         | _-> None
 
     let viewUI (model : AdaptiveAnnotation) =
