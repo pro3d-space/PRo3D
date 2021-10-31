@@ -3,11 +3,13 @@
 - added dip azimuth to true thickness tool
 - improved true thickness computation via point over plane height
 
+## 4.3.0-prerelease1
+
+- added xzy coordinate system and `sketchfab` transformation to support models created out of agisoft
 ## 4.2.0-prerelease1
 
 - static screen-shot service that can be found in the `config` tab
 - coordinate systems are inferred automatically mostly to distinguish between elipsoid (Mars, Earth) and Euclidean (None, JPL) / Rover Frame Systems
-
 ## 4.1.0-prerelease2
 
 - fixed broken priority rendering

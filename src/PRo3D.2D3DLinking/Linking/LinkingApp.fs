@@ -8,6 +8,7 @@ open Aardvark.Base
 open Aardvark.Rendering
 open Aardvark.Rendering.Text 
 open FSharp.Data.Adaptive
+open FSharp.Data.Adaptive.Operators
 open Aardvark.SceneGraph
 open Aardvark.Application
 

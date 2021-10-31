@@ -309,10 +309,10 @@ module SceneObjectsApp =
     module Sg =
 
         let viewSingleSceneObject 
-            (sgSurf : AdaptiveSgSurface) 
-            (sceneObjs : amap<Guid,AdaptiveSceneObject>) 
-            (refsys : AdaptiveReferenceSystem) 
-            (selected : aval<Option<Guid>>) =
+            (sgSurf     : AdaptiveSgSurface) 
+            (sceneObjs  : amap<Guid,AdaptiveSceneObject>) 
+            (refsys     : AdaptiveReferenceSystem) 
+            (selected   : aval<Option<Guid>>) =
 
             adaptive {
                 let! exists = (sceneObjs |> AMap.keys) |> ASet.contains sgSurf.surface
@@ -336,7 +336,11 @@ module SceneObjectsApp =
                             
                             let! sc = s.scaling.value
                             let! flipZ = s.transformation.flipZ
+                            let! sketchFab = s.transformation.isSketchFab
+
                             if flipZ then 
+                                return Trafo3d.Scale(sc) * Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * t)
+                            else if sketchFab then
                                 return Trafo3d.Scale(sc) * Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * t)
                             else
                                 return Trafo3d.Scale(sc) * (fullTrafo * t) //(t * fullTrafo)

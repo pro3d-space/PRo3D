@@ -117,7 +117,17 @@ module Gui =
 
     let textOverlays (m : AdaptiveReferenceSystem) (cv : aval<CameraView>) = 
         div [js "oncontextmenu" "event.preventDefault();"] [ 
-            let planet = m.planet |> AVal.map(fun x -> sprintf "%s" (x.ToString()))  
+            let planet = 
+                m.planet 
+                |> AVal.map(fun x -> 
+                    match x with
+                    | Planet.Mars  -> "Mars (IAU ellipsoid)"
+                    | Planet.Earth -> "Earth (ellipsoid)"
+                    | Planet.JPL   -> "JPL Rover Frame"
+                    | Planet.None  -> "None xyz"          
+                    | Planet.XZY   -> "XZY"
+                    | _ -> "[TextOverlays] missing enum"
+                )  
             
             let pnb = pitchAndBearing m cv
             
@@ -131,13 +141,28 @@ module Gui =
                     CooTransformation.getLatLonAlt b a.Location
                 ) cv m.planet
             
-            let alt2 = 
+            let altitude = 
                 AVal.map2 (fun (a : CameraView) b -> 
                     CooTransformation.getAltitude a.Location a.Up b ) cv m.planet
             
-            let lon = spericalc |> AVal.map(fun x -> sprintf "%s deg" ((x.longitude).ToString()))
-            let lat = spericalc |> AVal.map(fun x -> sprintf "%s deg" ((x.latitude).ToString()))            
-            let alt2 = alt2 |> AVal.map(fun x -> sprintf "%s m" ((x).ToString("0.00")))            
+            let lon = 
+                spericalc 
+                |> AVal.map(fun x -> 
+                    if x.longitude.IsNaN() then
+                        sprintf "not available"
+                    else
+                        sprintf "%s deg" ((x.longitude).ToString())
+                )
+            let lat = 
+                spericalc 
+                |> AVal.map(fun x -> 
+                    if x.latitude.IsNaN() then
+                        sprintf "not available"
+                    else
+                        sprintf "%s deg" ((x.latitude).ToString())
+                ) 
+                
+            let alt2 = altitude |> AVal.map(fun x -> sprintf "%s m" ((x).ToString("0.00")))            
                                                    
             let style' = "color: white; font-family:Consolas;"
             

@@ -219,7 +219,7 @@ module ViewerUtils =
                     selectedScalar  = scalar'//scalar  |> Option.map(fun x -> x.index |> AVal.force)
                 }
 
-            attr
+            attr    
         
     let viewSingleSurfaceSg 
         (surface         : AdaptiveSgSurface) 
@@ -255,6 +255,8 @@ module ViewerUtils =
                 let triangleFilter = 
                     surf |> AVal.bind(fun s -> s.triangleSize.value)
                 
+                
+
                 let trafo =
                     adaptive {
                         let! fullTrafo = SurfaceTransformations.fullTrafo surf refsys
@@ -262,8 +264,11 @@ module ViewerUtils =
                         let! scaleFactor = surface.scaling.value
                         let! preTransform = surface.preTransform
                         let! flipZ = surface.transformation.flipZ
+                        let! sketchFab = surface.transformation.isSketchFab
                         if flipZ then 
                             return Trafo3d.Scale(scaleFactor) * Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * preTransform)
+                        else if sketchFab then                            
+                            return Sg.switchYZTrafo
                         else
                             return Trafo3d.Scale(scaleFactor) * (fullTrafo * preTransform)
                     }
@@ -532,7 +537,8 @@ module ViewerUtils =
                 //if i = c then //now gets rendered multiple times
                  // assign priorities globally, or for each anno and make sets
                 let depthTested =
-                    last |> AVal.map (function 
+                    last 
+                    |> AVal.map (function 
                         | Some e when System.Object.ReferenceEquals(e,set) -> depthTested 
                         | _ -> Sg.empty
                     )
@@ -583,8 +589,6 @@ module GaleCrater =
                     x
             )
         surfaces
-
-
 
 module Keyboard =
     open Aardvark.Application

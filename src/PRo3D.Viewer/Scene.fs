@@ -56,13 +56,15 @@ module SceneLoader =
         let defaultCacheFile = @".\MinervaData\dump.cache"
 
         
-    let _surfaceModelLens = Model.scene_ >-> Scene.surfacesModel_
-    let _flatSurfaces     = Scene.surfacesModel_ >-> SurfaceModel.surfaces_ >-> GroupsModel.flat_
-    let _camera           = Model.navigation_ >-> NavigationModel.camera_
-    let _cameraView       = _camera >-> CameraControllerState.view_
-    let _scaleBarsModelLens = Model.scene_ >-> Scene.scaleBars_
-    let _scaleBarsLens = _scaleBarsModelLens >-> ScaleBarsModel.scaleBars_
-    let _sceneObjects     = Model.scene_ >-> Scene.sceneObjectsModel_ 
+    let _surfaceModelLens    = Model.scene_ >-> Scene.surfacesModel_
+    let _referenceSystemLens = Model.scene_ >-> Scene.referenceSystem_
+    let _scaleBarsModelLens  = Model.scene_ >-> Scene.scaleBars_
+    let _scaleBarsLens       = _scaleBarsModelLens >-> ScaleBarsModel.scaleBars_
+    let _sceneObjects        = Model.scene_ >-> Scene.sceneObjectsModel_ 
+
+    let _camera              = Model.navigation_ >-> NavigationModel.camera_
+    let _cameraView          = _camera >-> CameraControllerState.view_
+    let _flatSurfaces        = Scene.surfacesModel_ >-> SurfaceModel.surfaces_ >-> GroupsModel.flat_
     let _geologicSurfaceLens = Model.scene_ >-> Scene.geologicSurfacesModel_ >-> GeologicSurfacesModel.geologicSurfaces_
 
     let expandRelativePaths (m:Scene) =               
@@ -303,13 +305,26 @@ module SceneLoader =
         }
         |> (flip <| Optic.set _camera) m
 
-    let setNavigation (m : Model) =
+    let updateNavigation (m : Model) =
         let navigation' = 
-            { m.navigation with camera          = {m.navigation.camera with view = m.scene.cameraView};
-                                exploreCenter   = m.scene.exploreCenter;
-                                navigationMode  = m.scene.navigationMode }
-        {m with navigation = navigation'}
-        
+            { 
+                m.navigation with 
+                    camera          = { m.navigation.camera with view = m.scene.cameraView }
+                    exploreCenter   = m.scene.exploreCenter;
+                    navigationMode  = m.scene.navigationMode 
+            }
+        { m with navigation = navigation' }
+     
+    let updateCameraUp (m: Model) =
+        let cam = m.navigation.camera
+        let view' = 
+            CameraView.lookAt 
+                cam.view.Location 
+                (cam.view.Location + cam.view.Forward) 
+                m.scene.referenceSystem.up.value
+
+        let cam' = { cam with view = view' }
+        Optic.set _camera cam' m
 
     let loadScene path m runtime signature =
         //try            
@@ -329,21 +344,50 @@ module SceneLoader =
             m 
             |> Model.withScene scene
             |> resetControllerState
-            |> setNavigation
+            |> updateNavigation
 
         //let cameraView = m.scene.cameraView
 
         let m = { m with frustum = setFrustum m } //|> Optic.set _cameraView cameraView
 
-        let sModel = 
+
+        let surfaceModel = 
             m.scene.surfacesModel 
             |> prepareSurfaceModel runtime signature scene.scenePath
 
-        let m = Optic.set _surfaceModelLens sModel m 
+        let m = m |> Optic.set _surfaceModelLens surfaceModel
+
+        //inferring coordinate system on scene load
+        let fullBoundingBox = 
+            surfaceModel.sgSurfaces             
+            |> HashMap.toSeq 
+            |> Seq.map(fun (_,sgSurface) -> sgSurface.globalBB) 
+            |> Box3d.ofSeq
+
+        let centerPoint = 
+            if (fullBoundingBox.IsEmpty || fullBoundingBox.IsInvalid) then V3d.Zero else fullBoundingBox.Center
+
+        let suggestedSystem = 
+            Planet.suggestedSystem centerPoint m.scene.referenceSystem.planet
         
+        let (suggestedReferenceSystem,_) = 
+            suggestedSystem
+            |> SetPlanet
+            |> ReferenceSystemApp.update 
+                m.scene.config 
+                LenseConfigs.referenceSystemConfig 
+                m.scene.referenceSystem
+                
+        let m = 
+            m
+            |> Optic.set _referenceSystemLens suggestedReferenceSystem
+            |> updateCameraUp
+
         // add sg scene objects
         let sOModel = 
-                m.scene.sceneObjectsModel |> prepareSceneObjectsModel 
+            m.scene.sceneObjectsModel 
+            |> prepareSceneObjectsModel 
+
         Optic.set _sceneObjects sOModel m  
 
         //with e ->            

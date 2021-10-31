@@ -74,7 +74,7 @@ module ReferenceSystem =
             let! scaleChart    = Json.read "scaleChart"
             let! selectedScale = Json.read "selectedScale"
             let! planet        = Json.read "planet"
-
+            
             return 
                 {
                     version       = current
