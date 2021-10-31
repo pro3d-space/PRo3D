@@ -277,6 +277,27 @@ module Calculations =
 
     //let getHeightDelta (p:V3d) (upVec:V3d) = (p * upVec).Length
     
+    let verticalDistance (points:list<V3d>) (up:V3d) = 
+        match points.Length with
+        | 1 -> 0.0
+        | _ -> 
+            let a = points |> List.head
+            let b = points |> List.last
+            let v = (b - a)
+
+            (v |> Vec.dot up.Normalized)
+
+    let horizontalDistance (points:list<V3d>) (up:V3d) = 
+        match points.Length with
+        | 1 -> 0.0
+        | _ -> 
+            let a = points |> List.head
+            let b = points |> List.last
+            let v = (a - b)
+            let vertical = (v |> Vec.dot up.Normalized)
+
+            (v.LengthSquared - (vertical |> Fun.Square)) |> Fun.Sqrt
+
     let getHeightDelta2 (p:V3d) (upVec:V3d) (planet:Planet) = 
         CooTransformation.getHeight p upVec planet
     

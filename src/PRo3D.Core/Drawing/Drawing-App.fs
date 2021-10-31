@@ -76,7 +76,7 @@ module DrawingApp =
                     { 
                         w with 
                             manualDipAngle   = { w.manualDipAngle   with value = 0.0 }
-                            manualDipAzimuth = { w.manualDipAzimuth with value = 45.0 }
+                            manualDipAzimuth = { w.manualDipAzimuth with value = 0.0 }
                     }
                 | _-> w 
         
@@ -378,8 +378,6 @@ module DrawingApp =
                 { model with annotations = annotations }
 
             | _ -> model        
-
-
         | AddAnnotations path, _,_ ->
             match path |> List.tryHead with
             | Some p -> 
@@ -392,6 +390,7 @@ module DrawingApp =
         | ExportAsAnnotations path, _, _ ->
             Drawing.IO.saveVersioned model path
         | ExportAsCsv p, _, _ ->           
+            let up = smallConfig.up.Get(bigConfig)
             let lookups = GroupsApp.updateGroupsLookup model.annotations
             let annotations =
                 model.annotations.flat
@@ -400,7 +399,7 @@ module DrawingApp =
                 |> List.map snd
                 |> List.filter(fun a -> a.visible)                            
 
-            CSVExport.writeCSV lookups p annotations
+            CSVExport.writeCSV lookups up p annotations
                         
             model      
         | ExportAsGeoJSON path, _, _ ->           

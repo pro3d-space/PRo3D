@@ -11,7 +11,7 @@ type Planet =
 | Mars  = 1
 | None  = 2
 | JPL   = 3
-| XZY   = 4
+| ENU   = 4
 
 module Planet =
     let inferCoordinateSystem (p : V3d) = //TODO rno
@@ -39,7 +39,7 @@ module Planet =
         | (Planet.Mars, Planet.Mars)   -> Planet.Mars
         | (Planet.None, Planet.None)   -> Planet.None
         | (Planet.None, Planet.JPL)    -> Planet.JPL
-        | (Planet.None, Planet.XZY)    -> Planet.XZY
+        | (Planet.None, Planet.ENU)    -> Planet.ENU
         | _ ->
             Log.warn "[Scene] found reference system does not align with suggested system"
             Log.warn "[Scene] changing to %A" inferredSystem
@@ -99,7 +99,7 @@ module CooTransformation =
 
     let getLatLonAlt (planet:Planet) (p:V3d) : SphericalCoo = 
         match planet with
-        | Planet.None | Planet.JPL | Planet.XZY ->
+        | Planet.None | Planet.JPL | Planet.ENU ->
             { latitude = nan; longitude = nan; altitude = nan; radian = 0.0 }
         | _ ->
             let lat = ref init
@@ -136,7 +136,7 @@ module CooTransformation =
 
     let getXYZFromLatLonAlt (sc:SphericalCoo) (planet:Planet) : V3d = 
         match planet with
-        | Planet.None | Planet.JPL | Planet.XZY -> V3d.NaN
+        | Planet.None | Planet.JPL | Planet.ENU -> V3d.NaN
         | _ ->
             let pX = ref init
             let pY = ref init
@@ -151,14 +151,14 @@ module CooTransformation =
 
     let getHeight (p:V3d) (up:V3d) (planet:Planet) = 
         match planet with
-        | Planet.None | Planet.JPL | Planet.XZY -> (p * up).Length // p.Z //
+        | Planet.None | Planet.JPL | Planet.ENU -> (p * up).Length // p.Z //
         | _ ->
             let sc = getLatLonAlt planet p
             sc.altitude
 
     let getAltitude (p:V3d) (up:V3d) (planet:Planet) = 
         match planet with
-        | Planet.None | Planet.JPL | Planet.XZY -> (p * up).Z // p.Z //
+        | Planet.None | Planet.JPL | Planet.ENU -> (p * up).Z // p.Z //
         | _ ->
             let sc = getLatLonAlt planet p
             sc.altitude
@@ -171,7 +171,7 @@ module CooTransformation =
         match planet with
         | Planet.None ->  V3d.ZAxis
         | Planet.JPL  -> -V3d.ZAxis
-        | Planet.XZY  ->  V3d.ZAxis
+        | Planet.ENU  ->  V3d.ZAxis
         | _ ->
             let sc = getLatLonAlt planet p
             let height = sc.altitude + 100.0

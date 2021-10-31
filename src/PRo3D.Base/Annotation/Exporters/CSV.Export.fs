@@ -25,41 +25,45 @@ module CSVExport =
     }
    
     type ExportAnnotation = {
-        key           : Guid
-        geometry      : PRo3D.Base.Annotation.Geometry
-        projection    : Projection
-        semantic      : Semantic
-        color         : string
-        thickness     : float        
+        key                : Guid
+        geometry           : PRo3D.Base.Annotation.Geometry
+        projection         : Projection
+        semantic           : Semantic
+        color              : string
+        thickness          : float        
 
-        points        : int
-        height        : float
-        heightDelta   : float
-        length        : float
-        wayLength     : float        
-        dipAngle      : float
-        dipAzimuth    : float
-        strikeAzimuth : float
+        points             : int
+        height             : float
+        heightDelta        : float
+        length             : float
+        wayLength          : float        
+        dipAngle           : float
+        dipAzimuth         : float
+        strikeAzimuth      : float
 
-        manualDip     : float
-        trueThickness : float
+        manualDip          : float
+        trueThickness      : float
+        bearing            : float
+        slope              : float
+        verticalDistance   : float
+        horizontalDistance : float
 
-        errorAvg      : float
-        errorMin      : float
-        errorMax      : float
-        errorStd      : float
-        sumOfSquares  : float
+        errorAvg           : float
+        errorMin           : float
+        errorMax           : float
+        errorStd           : float
+        sumOfSquares       : float
 
-        text          : string
-        groupName     : string
-        surfaceName   : string
+        text               : string
+        groupName          : string
+        surfaceName        : string
 
-        x             : double
-        y             : double
-        z             : double
+        x                  : double
+        y                  : double
+        z                  : double
     }
 
-    let toExportAnnotation (lookUp) (a: Annotation) : ExportAnnotation =
+    let toExportAnnotation (lookUp) upVector (a: Annotation) : ExportAnnotation =
       
         let results = 
             match a.results with
@@ -107,9 +111,16 @@ module CSVExport =
             //|> IndexList.map a.modelTrafo.Forward.TransformPos 
             |> IndexList.toArray
         
+        let verticalDistance = 
+            Calculations.verticalDistance (points |> Array.toList) upVector
+
+        let horizontalDistance = 
+            Calculations.horizontalDistance (points |> Array.toList) upVector
+
         let c = Box3d(points).Center
         
         {   
+            //non-measurement
             key           = a.key
             geometry      = a.geometry
             projection    = a.projection
@@ -117,38 +128,50 @@ module CSVExport =
             color         = a.color.ToString()
             thickness     = a.thickness.value
             points        = a.points.Count
+            manualDip     = a.manualDipAngle.value
+            text          = a.text;
+            groupName     = lookUp |> HashMap.tryFind a.key |> Option.defaultValue("")
+            surfaceName   = a.surfaceName
+                        
+            //distances and orientations
+            height        = results.height //
+            heightDelta   = results.heightDelta //
+            length        = results.length //
+            wayLength     = results.wayLength //
+            trueThickness = results.trueThickness //
+            bearing       = results.bearing //
+            slope         = results.slope //
+
+            horizontalDistance = horizontalDistance //
+            verticalDistance   = verticalDistance //
             
+            //dns
+            dipAngle      = dnsResults.dipAngle //
+            dipAzimuth    = dnsResults.dipAzimuth //
+            strikeAzimuth = dnsResults.strikeAzimuth //
             
-            height        = results.height
-            heightDelta   = results.heightDelta
-            length        = results.length
-            wayLength     = results.wayLength
-            dipAngle      = dnsResults.dipAngle
-            dipAzimuth    = dnsResults.dipAzimuth
-            strikeAzimuth = dnsResults.strikeAzimuth
-            
+            //error measures
             errorAvg     = dnsResults.errorAvg
             errorMin     = dnsResults.errorMin 
             errorMax     = dnsResults.errorMax
             errorStd     = dnsResults.errorStd
             sumOfSquares = dnsResults.errorSos
-
-            manualDip     = a.manualDipAngle.value
-            trueThickness = results.trueThickness
             
-            text          = a.text;
-            groupName     = lookUp |> HashMap.tryFind a.key |> Option.defaultValue("")
-            surfaceName   = a.surfaceName
-            
+            //position
             x             = c.X;
             y             = c.Y;
             z             = c.Z;
         }
 
-    let writeCSV lookUp (path : string) (annotations : list<Annotation>) =
+    let writeCSV 
+        lookUp 
+        upVector
+        (path : string) 
+        (annotations : list<Annotation>) =
+
         let csvTable = 
             annotations 
-            |> List.map (toExportAnnotation lookUp)
+            |> List.map (toExportAnnotation lookUp upVector)
             |> CSV.Seq.csv "," true id
 
         if path.IsEmptyOrNull() |> not then 

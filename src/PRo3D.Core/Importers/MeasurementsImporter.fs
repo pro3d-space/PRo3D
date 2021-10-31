@@ -125,12 +125,12 @@ module MeasurementsImporter =
         let trafo = getTrafo (m.Element(xname "LocalToGlobal")) * t
 
         let points = 
-          getPoints (m.Element(xname "Points")) anType 
+            getPoints (m.Element(xname "Points")) anType 
             |> IndexList.ofArray 
             |> IndexList.map trafo.Forward.TransformPos
 
         let segments = 
-          getSegments(m, anType)
+            getSegments(m, anType)
             |> IndexList.ofList 
             |> IndexList.map (
                 fun s -> 
@@ -156,9 +156,10 @@ module MeasurementsImporter =
             dnsResults       = None
             modelTrafo       = trafo 
             visible          = true 
-            showDns          = false
+            showDns          = true
             text             = ""
             textsize         = textsize
+            showText         = true
             surfaceName      = ""
             view             = FreeFlyController.initial.view
             semanticId       = SemanticId ""

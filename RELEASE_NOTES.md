@@ -1,11 +1,15 @@
 ## 4.4.0-prerelease1
 
-- added dip azimuth to true thickness tool
-- improved true thickness computation via point over plane height
+- added dip azimuth to true thickness tool [#17](https://github.com/pro3d-space/PRo3D/issues/17)
+  - improved true thickness computation via point over plane height
+- merged xzy coordinate system and renamed it to ENU (East North Up) [#117](https://github.com/pro3d-space/PRo3D/issues/117)
+- added missing calculation numbers of measurements to csv export (slope, bearing, vertical distance, horizontal distance) [#100](https://github.com/pro3d-space/PRo3D/issues/100)
+- added `showText`flag to annotations to show or hide text [#114](https://github.com/pro3d-space/PRo3D/issues/114)
 
 ## 4.3.0-prerelease1
 
 - added xzy coordinate system and `sketchfab` transformation to support models created out of agisoft
+
 ## 4.2.0-prerelease1
 
 - static screen-shot service that can be found in the `config` tab

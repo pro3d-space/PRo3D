@@ -343,7 +343,7 @@ module Sg =
      
         let texts = 
             anno.text 
-            |> AVal.map (String.IsNullOrEmpty >> not) 
+            |> AVal.map2 (fun show text -> (String.IsNullOrEmpty text) || show ) anno.showText
             |> optionalSet (drawText view config anno)
     
         let dotsAndText = ASet.union' [dots; texts] |> Sg.set
@@ -414,7 +414,7 @@ module Sg =
      
         let texts = 
             anno.text 
-            |> AVal.map (String.IsNullOrEmpty >> not) 
+            |> AVal.map2 (fun show text -> (String.IsNullOrEmpty text) || show ) anno.showText
             |> optionalSet (drawText view config anno)
     
         let dotsAndText = texts |> Sg.set //ASet.union' [dots; texts] |> Sg.set

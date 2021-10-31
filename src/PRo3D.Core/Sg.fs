@@ -316,7 +316,7 @@ module Sg =
             |> AVal.map(fun planet -> 
                 match planet with
                 | Planet.Mars | Planet.Earth -> refsystem
-                | Planet.XZY -> refsystem2
+                | Planet.ENU -> refsystem2
                 | _ -> xyzSystem 
             )
             

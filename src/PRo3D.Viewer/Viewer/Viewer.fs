@@ -526,7 +526,7 @@ module ViewerApp =
                            let up = m.scene.referenceSystem.up.value
                            let north = m.scene.referenceSystem.north.value
                            let planet = m.scene.referenceSystem.planet
-                           Log.error "[Viewer] updating TT results"
+                           
                            let results = Calculations.calcResultsLine a up north planet |> Some
                            { a with results = results }
                         else

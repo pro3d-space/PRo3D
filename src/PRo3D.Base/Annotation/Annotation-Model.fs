@@ -369,6 +369,7 @@ type Annotation = {
     showDns          : bool
     text             : string
     textsize         : NumericInput
+    showText         : bool
     manualDipAngle   : NumericInput
     manualDipAzimuth : NumericInput
                  
@@ -379,7 +380,7 @@ type Annotation = {
     semanticType   : SemanticType
 }
 with 
-    static member current = 4
+    static member current = 5
     static member initialManualDipAngle = {
         value   = Double.NaN
         min     = 0.0
@@ -415,8 +416,10 @@ with
             
             let! visible      = Json.read "visible"
             let! showDns      = Json.read "showDns"
+            
             let! text         = Json.read "text"
-            let! textSize     = Json.readWith Ext.fromJson<NumericInput,Ext> "textsize"
+            
+            let! textSize     = Json.readWith Ext.fromJson<NumericInput,Ext> "textsize"            
             
             let! surfaceName  = Json.read "surfaceName"
             
@@ -441,7 +444,8 @@ with
                 visible          = visible 
                 showDns          = showDns   
                 text             = text      
-                textsize         = textSize         
+                textsize         = textSize
+                showText         = true
                 surfaceName      = surfaceName
                 view             = cameraView
                 semanticId       = SemanticId ""
@@ -500,6 +504,7 @@ with
                 showDns          = showDns   
                 text             = text      
                 textsize         = textSize         
+                showText         = true
                 surfaceName      = surfaceName
                 view             = cameraView 
                 semanticId       = semanticId |> SemanticId
@@ -558,6 +563,7 @@ with
                 showDns          = showDns
                 text             = text
                 textsize         = textSize
+                showText         = true
                 surfaceName      = surfaceName
                 view             = cameraView
                 semanticId       = semanticId   |> SemanticId
@@ -618,6 +624,7 @@ with
                 showDns          = showDns
                 text             = text
                 textsize         = textSize
+                showText         = true
                 surfaceName      = surfaceName
                 view             = cameraView
                 semanticId       = semanticId   |> SemanticId
@@ -679,6 +686,70 @@ with
                 showDns          = showDns
                 text             = text
                 textsize         = textSize
+                showText         = true
+                surfaceName      = surfaceName
+                view             = cameraView
+                semanticId       = semanticId   |> SemanticId
+                semanticType     = semanticType |> enum<SemanticType>
+                manualDipAngle   = manualDipAngle
+                manualDipAzimuth = manualDipAzimuth
+            }
+        }
+
+    static member private readV5 =
+        json {
+            let! key          = Json.read "key"
+            let! modelTrafo   = Json.read "modelTrafo" //|> Trafo3d.Parse
+            let! geometry     = Json.read "geometry"
+            let! projection   = Json.read "projection"
+            let! semantic     = Json.read "semantic"
+            
+            let! points   = Json.readWith Ext.fromJson<list<V3d>,Ext> "points"
+            let! segments = Json.read "segments"
+            
+            let! color        = Json.readWith Ext.fromJson<ColorInput,Ext> "color"
+            let! thickness    = Json.readWith Ext.fromJson<NumericInput,Ext> "thickness"
+            
+            let! results      = Json.read "results"
+            let! dnsResults   = Json.read "dnsResults"
+            
+            let! visible  = Json.read "visible"
+            let! showDns  = Json.read "showDns"
+            let! text     = Json.read "text"
+            let! textSize = Json.readWith Ext.fromJson<NumericInput,Ext> "textsize"
+            let! showText = Json.read "showText"
+            
+            let! surfaceName = Json.read "surfaceName"
+            
+            let! (cameraView : list<string>) = Json.read "view"
+            
+            let cameraView = cameraView |> List.map V3d.Parse
+            let cameraView = CameraView(cameraView.[0],cameraView.[1],cameraView.[2],cameraView.[3], cameraView.[4])
+            
+            let! semanticId    = Json.read "semanticId"
+            let! semanticType  = Json.read "semanticType"
+    
+            let! manualDipAngle = Json.readWith Ext.fromJson<NumericInput,Ext> "manualDipAngle"
+            let! manualDipAzimuth = Json.readWith Ext.fromJson<NumericInput,Ext> "manualDipAzimuth"
+            
+            return {
+                version          = Annotation.current
+                key              = key           |> Guid.Parse
+                modelTrafo       = modelTrafo    |> Trafo3d.Parse        
+                geometry         = geometry      |> enum<Geometry>
+                projection       = projection    |> enum<Projection>
+                semantic         = semantic      |> enum<Semantic>
+                points           = points        |> IndexList.ofList
+                segments         = segments      |> IndexList.ofList
+                color            = color
+                thickness        = thickness
+                results          = results
+                dnsResults       = dnsResults
+                visible          = visible
+                showDns          = showDns
+                text             = text
+                textsize         = textSize
+                showText         = showText
                 surfaceName      = surfaceName
                 view             = cameraView
                 semanticId       = semanticId   |> SemanticId
@@ -697,6 +768,7 @@ with
             | 2 -> return! Annotation.readV2
             | 3 -> return! Annotation.readV3
             | 4 -> return! Annotation.readV4
+            | 5 -> return! Annotation.readV5
             | _ -> return! v |> sprintf "don't know version %A of Annotation" |> Json.error
         }
     
@@ -712,13 +784,14 @@ with
             do! Json.write "segments"   (x.segments |> IndexList.toList)
             do! Json.writeWith (Ext.toJson<ColorInput,Ext>) "color" x.color
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "thickness" x.thickness
-            do! Json.write "results"       x.results
-            do! Json.write "dnsResults"    x.dnsResults
-            do! Json.write "visible"    x.visible
-            do! Json.write "showDns"    x.showDns
-            do! Json.write "text"    x.text
+            do! Json.write "results"     x.results
+            do! Json.write "dnsResults"  x.dnsResults
+            do! Json.write "visible"     x.visible
+            do! Json.write "showDns"     x.showDns
+            do! Json.write "text"        x.text
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "textsize" x.textsize
-            do! Json.write "surfaceName"    x.surfaceName
+            do! Json.write "showText"    x.showText
+            do! Json.write "surfaceName" x.surfaceName
             
             let camView = x.view
             let camView = 
@@ -744,7 +817,7 @@ module Annotation =
             format  = "{0:0}"
         }
         
-        let texts = {
+        let textSize = {
             value   = 0.05
             min     = 0.01
             max     = 5.0
@@ -786,7 +859,8 @@ module Annotation =
             projection       = projection
             visible          = true
             text             = ""
-            textsize         = Initial.texts
+            textsize         = Initial.textSize
+            showText         = true
             modelTrafo       = Trafo3d.Identity
             showDns          = 
                 match geometry with 

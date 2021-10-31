@@ -24,31 +24,11 @@ module AnnotationProperties =
     | SetTextSize     of Numeric.Action
     | ToggleVisible
     | ToggleShowDns
+    | ToggleShowText
     | PrintPosition   
     | SetManualDippingAngle of Numeric.Action
     | SetManualDippingAzimuth of Numeric.Action
-       
-    let horizontalDistance (points:list<V3d>) (up:V3d) = 
-        match points.Length with
-        | 1 -> 0.0
-        | _ -> 
-            let a = points |> List.head
-            let b = points |> List.last
-            let v = (a - b)
-            let vertical = (v |> Vec.dot up.Normalized)
-
-            (v.LengthSquared - (vertical |> Fun.Square)) |> Fun.Sqrt
-
-    let verticalDistance (points:list<V3d>) (up:V3d) = 
-        match points.Length with
-        | 1 -> 0.0
-        | _ -> 
-            let a = points |> List.head
-            let b = points |> List.last
-            let v = (b - a)
-
-            (v |> Vec.dot up.Normalized)
-            
+        
     let update (referenceSystem : ReferenceSystem) (model : Annotation) (act : Action) =
         match act with
         | SetGeometry mode ->
@@ -66,7 +46,9 @@ module AnnotationProperties =
         | ToggleVisible ->
             { model with visible = (not model.visible) }
         | ToggleShowDns ->
-            { model with showDns = (not model.showDns) }
+            { model with showDns = (not model.showDns) } 
+        | ToggleShowText ->
+            { model with showText = (not model.showText) }
         | ChangeColor a ->
             { model with color = ColorPicker.update model.color a }
         | PrintPosition ->            
@@ -103,6 +85,7 @@ module AnnotationProperties =
                 Html.row "Color:"       [ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" model.color |> UI.map ChangeColor ]
                 Html.row "Text:"        [Html.SemUi.textBox model.text SetText ]
                 Html.row "TextSize:"    [Numeric.view' [InputBox] model.textsize |> UI.map SetTextSize ]
+                Html.row "Show Text:"   [GuiEx.iconCheckBox model.showText ToggleShowText ]
                 Html.row "Visible:"     [GuiEx.iconCheckBox model.visible ToggleVisible ]
                 Html.row "Show DnS:"    [GuiEx.iconCheckBox model.showDns ToggleShowDns ]
                 Html.row "Dip Angle:"   [Numeric.view' [InputBox] model.manualDipAngle |> UI.map SetManualDippingAngle]
@@ -129,20 +112,10 @@ module AnnotationProperties =
         let bearing       = AVal.bindOption results Double.NaN (fun a -> a.bearing)
         let slope         = AVal.bindOption results Double.NaN (fun a -> a.slope)
         let trueThickness = AVal.bindOption results Double.NaN (fun a -> a.trueThickness)
-
-        let pos = 
-            AVal.map( 
-                fun x -> 
-                    match x with 
-                    | Geometry.Point -> 
-                        let points = model.points |> AList.force |> IndexList.toArray
-                        points.[0].ToString()
-                    | _ -> "" 
-            ) model.geometry
-        
+ 
         // TODO refactor: why so complicated to list stuff?, not incremental
-        let vertDist = AVal.map( fun u -> verticalDistance   (model.points |> AList.force |> IndexList.toList) u ) up 
-        let horDist  = AVal.map( fun u -> horizontalDistance (model.points |> AList.force |> IndexList.toList) u ) up
+        let vertDist = AVal.map( fun u -> Calculations.verticalDistance   (model.points |> AList.force |> IndexList.toList) u ) up 
+        let horDist  = AVal.map( fun u -> Calculations.horizontalDistance (model.points |> AList.force |> IndexList.toList) u ) up
 
         //apparent thickness
         //vertical thickness

@@ -83,7 +83,7 @@ module ReferenceSystemApp =
         let north  = 
             match planet with 
             | Planet.None | Planet.JPL -> V3d.IOO
-            | Planet.XZY -> V3d.OIO
+            | Planet.ENU -> V3d.OIO
             | _ -> northVector up
 
         let no = 
