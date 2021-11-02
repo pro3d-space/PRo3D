@@ -510,7 +510,7 @@ module Viewer =
     //        noText    = ""
     //     }
 
-    let initial msgBox (startupArgs : StartupArgs) url samples : Model = 
+    let initial msgBox (startupArgs : StartupArgs) url (samples : string) : Model = 
         {     
             scene = 
                 {

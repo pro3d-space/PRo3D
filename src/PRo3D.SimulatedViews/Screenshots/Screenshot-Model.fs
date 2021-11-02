@@ -13,7 +13,7 @@ type ImageFormat =
 type ScreenshotApp = {
     width       : NumericInput
     height      : NumericInput
-    samples     : int
+    samples     : string
     url         : string
     imageFormat : ImageFormat
     outputPath  : string

@@ -859,7 +859,7 @@ module ViewerApp =
             |> SceneLoader.addGeologicSurfaces
 
         | NewScene,_,_ ->
-            let initialModel = Viewer.initial m.messagingMailbox StartupArgs.initArgs m.screenshotApp.url dataSamples
+            let initialModel = Viewer.initial m.messagingMailbox StartupArgs.initArgs m.screenshotApp.url Config.data_samples
             { initialModel with recent          = m.recent} |> ViewerIO.loadRoverData
         | KeyDown k, _, _ ->
             let m =
@@ -1726,7 +1726,7 @@ module ViewerApp =
 
         let m = 
             if startEmpty |> not then
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs url dataSamples
+                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs url Config.data_samples
                 |> SceneLoader.loadLastScene runtime signature
                 |> SceneLoader.loadLogBrush
                 |> ViewerIO.loadRoverData                
@@ -1738,7 +1738,7 @@ module ViewerApp =
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
             else
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs url dataSamples 
+                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs url Config.data_samples 
                     |> ViewerIO.loadRoverData       
 
         App.start {

@@ -14,7 +14,7 @@ module ScreenshotApp =
         | ImageFormat.PNG  -> "png"
         | _ -> "png"
 
-    let init url outputPath samples =
+    let init url outputPath (samples : string) =
         let (initNumeric : NumericInput) = 
             {
                 min = 1.0
@@ -36,7 +36,7 @@ module ScreenshotApp =
     let createUrl (m : ScreenshotApp) (wc : System.Net.WebClient) =
         let stats = ScreenshotUtilities.Utilities.downloadClientStatistics m.url wc
         let renderingNodeId = stats.[0].name
-        let url = sprintf "%s/rendering/screenshot/%s?w=%i&h=%i&samples=%i&fmt=%s" 
+        let url = sprintf "%s/rendering/screenshot/%s?w=%i&h=%i&samples=%s&fmt=%s" 
                           m.url renderingNodeId (int m.width.value) (int m.height.value)
                           m.samples (imageFormatToString m.imageFormat)
         Log.line "[Screenshots] URL: %s" url
