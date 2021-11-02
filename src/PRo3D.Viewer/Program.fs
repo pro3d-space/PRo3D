@@ -135,11 +135,8 @@ let main argv =
     let startupArgs = (CommandLine.parseArguments argv)
 
     // --noMapping --samples 8 --backgroundColor red
-    Config.data_samples <- startupArgs.data_samples
     Config.backgroundColor <- startupArgs.backgroundColor
     Config.useMapping <- startupArgs.useMapping
-
-    Log.line "render control config: %A" (Config.data_samples, Config.backgroundColor, Config.useMapping)
 
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
     
@@ -199,6 +196,25 @@ let main argv =
         Glfw.Config.hideCocoaMenuBar <- true
         use app = new OpenGlApplication()
         let runtime = app.Runtime    
+
+        match startupArgs.data_samples with
+        | None -> 
+            if runtime.Context.Driver.renderer.Contains("Intel(R) Iris(R) Xe Graphics") then
+                Log.warn "intel iris workaround active - multisampling must be disabled, see:  https://github.com/pro3d-space/PRo3D/issues/116"
+                Config.data_samples <- "1"
+                Config.disableMultisampling <- true
+            else 
+                Config.data_samples <- "4"
+        | Some v -> 
+            if runtime.Context.Driver.renderer.Contains("Intel(R) Iris(R) Xe Graphics") then
+                Log.warn "you specified number of samples %s, this is not recommended on intel iris graphics and might lead to problems, see: https://github.com/pro3d-space/PRo3D/issues/116" v
+            Config.data_samples <- v
+
+        
+        Log.line "render control config: %A" (Config.data_samples, Config.backgroundColor, Config.useMapping)
+    
+
+
 
         Aardvark.Rendering.GL.RuntimeConfig.SupressSparseBuffers <- true
         //app.ShaderCachePath <- None

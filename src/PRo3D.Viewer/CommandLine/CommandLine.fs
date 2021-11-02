@@ -153,7 +153,7 @@ module CommandLine =
                             remoteApp             = remoteApp
                             serverMode            = server
                             useMapping            = if noMapping then "false" else "true"
-                            data_samples          = match samples with Some s -> s | None -> StartupArgs.initArgs.data_samples
+                            data_samples          = samples
                             backgroundColor       = match backgroundColor with Some b -> b | None -> StartupArgs.initArgs.backgroundColor
 
                         }
@@ -178,7 +178,7 @@ module CommandLine =
                             remoteApp             = false
                             serverMode            = server
                             useMapping            = if noMapping then "false" else "true"
-                            data_samples          = match samples with Some s -> s | None -> StartupArgs.initArgs.data_samples
+                            data_samples          = samples
                             backgroundColor       = match backgroundColor with Some b -> b  | None -> StartupArgs.initArgs.backgroundColor
                         }
                 args

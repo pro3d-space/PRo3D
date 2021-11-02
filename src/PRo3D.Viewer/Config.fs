@@ -14,3 +14,5 @@ module Config =
   let mutable useMapping = "true"
 
   let mutable backgroundColor = "#222222"
+
+  let mutable disableMultisampling = false

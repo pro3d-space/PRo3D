@@ -1677,8 +1677,16 @@ module ViewerApp =
         let depthTested = 
             [linkingSg; annotationSg; minervaSg; heightValidationDiscs; scaleBars; sceneObjects; geologicSurfacesSg] |> Sg.ofList
 
+
+        // workaround for https://github.com/pro3d-space/PRo3D/issues/116
+        let disableMultisampling s = 
+            if Config.disableMultisampling then
+                s |> Sg.uniform "Antialias" (AVal.constant true)
+            else    
+                s
+
         //render OPCs in priority groups
-        let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m
+        let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped (disableMultisampling overlayed) (disableMultisampling depthTested) m
         onBoot "attachResize('__ID__')" (
             DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
         )

@@ -85,7 +85,7 @@ type StartupArgs = {
     magnificationFilter   : bool
     remoteApp             : bool
     useMapping            : string
-    data_samples          : string
+    data_samples          : Option<string>
     backgroundColor       : string
 } with 
     member args.hasValidAnimationArgs =
@@ -110,7 +110,7 @@ type StartupArgs = {
           outFolder             = ""
           remoteApp             = false
           serverMode            = false
-          data_samples          = "4"
+          data_samples          = None
           backgroundColor       = "#222222"
           useMapping            = "true"
       }
