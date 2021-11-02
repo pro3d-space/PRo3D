@@ -8,6 +8,7 @@ open PRo3D.Base
 
 open FSharp.Data.Adaptive
 open Adaptify.FSharp.Core
+open Aardvark.Geometry
 
 module DipAndStrike =   
       
@@ -61,7 +62,7 @@ module DipAndStrike =
             let mutable plane = PlaneFitting.planeFit(v3dArray)
                     
             let distances = 
-              points 
+                points 
                 |> IndexList.toList
                 |> List.map(fun x -> (plane.Height x))
     
@@ -83,7 +84,16 @@ module DipAndStrike =
             //let p = v3dArray.[0]
            // let up = p.Normalized        
     
-            let plane = PlaneFitting.planeFit(v3dArray)
+            let linRegression = (new LinearRegression3d(v3dArray)).TryGetRegressionInfo()
+
+            Log.line "[AnnotationHelpers.fs] %A" linRegression
+
+            let plane = 
+                match linRegression with
+                | Some lr -> lr.Plane
+                | None ->
+                    Log.line "[dns computation] linear regression failed, fallback to evd"
+                    PlaneFitting.planeFit(v3dArray)
     
             let distances = 
                 points 
@@ -124,6 +134,9 @@ module DipAndStrike =
     
             Log.line "%A" distances2
     
+            let centerOfMass = V3d.Divide(points |> IndexList.sum, (float)points.Count)
+
+
             let dns = {
                 version         = DipAndStrikeResults.current
                 plane           = plane
@@ -132,7 +145,7 @@ module DipAndStrike =
                 strikeDirection = strike
                 dipAzimuth      = computeAzimuth v north up
                 strikeAzimuth   = computeAzimuth strike north up
-                centerOfMass    = (new Box3d(points)).Center //[@LF] this is not the center of mass (sum over points / no of points)
+                centerOfMass    = centerOfMass //(new Box3d(points)).Center //[@LF] this is not the center of mass (sum over points / no of points)
                 error           = 
                     { 
                         version = Statistics.current
@@ -142,9 +155,10 @@ module DipAndStrike =
                         stdev = std
                         sumOfSquares = sos
                     }
+                regressionInfo = linRegression
             }
             Some dns
-        | _ -> None 
+        | _ -> None
         
     let recalculateDnSAzimuth (anno:Annotation) (up:V3d) (north : V3d) =
     
@@ -220,7 +234,6 @@ module Calculations =
         |> List.map (fun (a,b) -> Vec.Distance(a,b))
         |> List.sum
 
-    
     let getSegmentDistance (s:Segment) = 
         getDistance
             [

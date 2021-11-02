@@ -12,6 +12,7 @@ open PRo3D.Base
 open Chiron
 
 open Adaptify
+open Aardvark.Geometry
 
 #nowarn "0686"
 
@@ -148,31 +149,59 @@ type DipAndStrikeResults = {
     strikeAzimuth   : float
     centerOfMass    : V3d
     error           : Statistics
+    regressionInfo  : option<RegressionInfo3d>
 }
 with 
-    static member current = 0
+    static member current = 1
     static member private readV0 = 
         json {
-          let! plane           = Json.read "plane"
-          let! dipAngle        = Json.read "dipAngle"
-          let! dipDirection    = Json.read "dipDirection"
-          let! strikeDirection = Json.read "strikeDirection"
-          let! dipAzimuth      = Json.read "dipAzimuth"
-          let! strikeAzimuth   = Json.read "strikeAzimuth"
-          let! centerOfMass    = Json.read "centerOfMass"
-          let! error           = Json.read "error"
-        
-          return {
-              version         = DipAndStrikeResults.current
-              plane           = plane |> Json.parsePlane3d //plane |> Plane3d.Parse
-              dipAngle        = dipAngle
-              dipDirection    = dipDirection |> V3d.Parse
-              strikeDirection = strikeDirection |> V3d.Parse
-              dipAzimuth      = dipAzimuth
-              strikeAzimuth   = strikeAzimuth
-              centerOfMass    = centerOfMass |> V3d.Parse
-              error           = error
-          }
+            let! plane           = Json.read "plane"
+            let! dipAngle        = Json.read "dipAngle"
+            let! dipDirection    = Json.read "dipDirection"
+            let! strikeDirection = Json.read "strikeDirection"
+            let! dipAzimuth      = Json.read "dipAzimuth"
+            let! strikeAzimuth   = Json.read "strikeAzimuth"
+            let! centerOfMass    = Json.read "centerOfMass"
+            let! error           = Json.read "error"
+            
+            return {
+                version         = DipAndStrikeResults.current
+                plane           = plane |> Json.parsePlane3d //plane |> Plane3d.Parse
+                dipAngle        = dipAngle
+                dipDirection    = dipDirection |> V3d.Parse
+                strikeDirection = strikeDirection |> V3d.Parse
+                dipAzimuth      = dipAzimuth
+                strikeAzimuth   = strikeAzimuth
+                centerOfMass    = centerOfMass |> V3d.Parse
+                error           = error
+                regressionInfo  = None
+            }
+        }
+
+    static member private readV1 = 
+        json {
+            let! plane           = Json.read "plane"
+            let! dipAngle        = Json.read "dipAngle"
+            let! dipDirection    = Json.read "dipDirection"
+            let! strikeDirection = Json.read "strikeDirection"
+            let! dipAzimuth      = Json.read "dipAzimuth"
+            let! strikeAzimuth   = Json.read "strikeAzimuth"
+            let! centerOfMass    = Json.read "centerOfMass"
+            let! error           = Json.read "error"
+            let! regressionInfo  = Json.read "regressionInfo"
+            
+            return {
+                version         = DipAndStrikeResults.current
+                plane           = plane |> Json.parsePlane3d //plane |> Plane3d.Parse
+                dipAngle        = dipAngle
+                dipDirection    = dipDirection |> V3d.Parse
+                strikeDirection = strikeDirection |> V3d.Parse
+                dipAzimuth      = dipAzimuth
+                strikeAzimuth   = strikeAzimuth
+                centerOfMass    = centerOfMass |> V3d.Parse
+                error           = error
+                regressionInfo  = regressionInfo
+            }
         }
     
     static member FromJson(_ : DipAndStrikeResults) = 
@@ -180,6 +209,7 @@ with
             let! v = Json.read "version"
             match v with            
               | 0 -> return! DipAndStrikeResults.readV0
+              | 1 -> return! DipAndStrikeResults.readV1
               | _ -> return! v |> sprintf "don't know version %A  of DipAndStrikeResults" |> Json.error
         }
     static member ToJson (x : DipAndStrikeResults) =
@@ -193,6 +223,7 @@ with
             do! Json.write "strikeAzimuth"    x.strikeAzimuth  
             do! Json.write "centerOfMass"     (x.centerOfMass.ToString())
             do! Json.write "error"            x.error
+            do! Json.write "regressionInfo"   x.regressionInfo
         }
 
     static member initial =
@@ -206,6 +237,7 @@ with
             strikeAzimuth   = Double.NaN  
             centerOfMass    = V3d.NaN  
             error           = Statistics.initial
+            regressionInfo  = None
         }  
 
 

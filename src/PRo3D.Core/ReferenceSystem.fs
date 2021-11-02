@@ -79,7 +79,25 @@ module ReferenceSystemApp =
     let northVector (up:V3d) =
         let east = V3d.OOI.Cross(up)
         up.Cross(east)
-    
+
+    let inferCoordinateSystem (p : V3d) = //TODO rno
+        // earth radius min max [6,357; 6,378]
+        // mars equatorial radius [3396] 
+        let earthLower = 5500000.0
+        let earthUpper = 7000000.0
+        let marsLower  = 2500000.0
+        let marsUpper  = 4000000.0
+
+        let distanceToOrigin = p.Length
+        let coordinateSystem = 
+            match distanceToOrigin with
+            | d when d > marsLower && d < marsUpper -> Planet.Mars
+            | d when d > earthLower && d < earthUpper -> Planet.Earth
+            | _ -> Planet.None
+
+        Log.warn "[ReferenceSystem] Inferred Coordinate System: %s" (coordinateSystem.ToString ())
+        coordinateSystem
+
     let updateCoordSystem (p:V3d) (planet:Planet) (model : ReferenceSystem) = 
         let up = upVector p planet
         let n  = 
@@ -88,9 +106,10 @@ module ReferenceSystemApp =
             | _ -> northVector up
 
         let no = Rot3d.Rotation(up, model.noffset.value |> Double.radiansFromDegrees).Transform(n) //updateVectorInDegree up n model.origin model.noffset.value 
-        { model with north = ReferenceSystem.setV3d n; up = ReferenceSystem.setV3d up; northO = no }
+        { model with north = ReferenceSystem.setV3d n
+                     up = ReferenceSystem.setV3d up
+                     northO = no }
 
-   
     let update<'a> 
         (bigConfig : 'a) 
         (config : ReferenceSystemConfig<'a>) 
@@ -98,8 +117,10 @@ module ReferenceSystemApp =
         (act : ReferenceSystemAction) =
         match act with
         | InferCoordSystem p ->
-            let m' = updateCoordSystem p model.planet model
-            { m' with origin = p }, bigConfig
+            let planet = inferCoordinateSystem p
+            let m = updateCoordSystem p planet model
+            {m with origin = p 
+                    planet = planet}, bigConfig
         | UpdateUpNorth p ->
             updateCoordSystem p model.planet model, bigConfig
         | SetUp up ->    

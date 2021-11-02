@@ -409,34 +409,48 @@ module Gui =
                         clazz "ui inverted item"; onMouseClick (fun _ -> Clear)
                     ][
                         text "Clear"
-                    ]                
-                    div [ 
-                        clazz "ui inverted item"
-                        Dialogs.onSaveFile ExportAsAnnotations
-                        clientEvent "onclick" jsExportAnnotationsFileDialog
-                    ][
-                        text "Export (*.pro3d.ann)"
-                    ]
-                    div [ 
-                        clazz "ui inverted item"
-                        Dialogs.onSaveFile ExportAsCsv
-                        clientEvent "onclick" jsExportAnnotationsAsCSVDialog
-                    ][
-                        text "Export (*.csv)"
-                    ]     
-                    div [ 
-                        clazz "ui inverted item"
-                        Dialogs.onSaveFile ExportAsGeoJSON
-                        clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                    ][
-                        text "Export (*.json)"
-                    ]     
-                    div [ 
-                        clazz "ui inverted item"
-                        Dialogs.onSaveFile ExportAsGeoJSON_xyz
-                        clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                    ][
-                        text "Export xyz (*.json)"
+                    ]      
+                    div [ clazz "ui dropdown item"] [
+                        text "Export"
+                        i [clazz "dropdown icon"][] 
+                        div [ clazz "menu"] [
+                    
+                            div [ 
+                                clazz "ui inverted item"
+                                Dialogs.onSaveFile ExportAsAnnotations
+                                clientEvent "onclick" jsExportAnnotationsFileDialog
+                            ][
+                                text "all as 'PRo3D' annotations (*.pro3d.ann)"
+                            ]
+                            div [ 
+                                clazz "ui inverted item"
+                                Dialogs.onSaveFile ExportAsCsv
+                                clientEvent "onclick" jsExportAnnotationsAsCSVDialog
+                            ][
+                                text "visible as table (*.csv)"
+                            ]     
+                            div [ 
+                                clazz "ui inverted item"
+                                Dialogs.onSaveFile ExportAsGeoJSON
+                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
+                            ][
+                                text "visible as GeoJSON (*.json)"
+                            ]     
+                            div [ 
+                                clazz "ui inverted item"
+                                Dialogs.onSaveFile ExportAsGeoJSON_xyz
+                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
+                            ][
+                                text "visible as GeoJSON xyz (*.json)"
+                            ]
+                            div [ 
+                                clazz "ui inverted item"
+                                Dialogs.onSaveFile ExportAsAttitude
+                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
+                            ][
+                                text "dns as 'Attitude' planes (*.json)"
+                            ]
+                        ]
                     ]
                 ]
             ]       
@@ -711,6 +725,9 @@ module Gui =
               ]
               GuiEx.accordion "Frustum" "Settings" false [
                   FrustumProperties.view m.frustumModel |> UI.map FrustumMessage
+              ]
+              GuiEx.accordion "Screenshots" "Settings" false [
+                  ScreenshotApp.view m.screenshotApp |> UI.map ScreenshotAppMessage
               ]
           ] 
           
