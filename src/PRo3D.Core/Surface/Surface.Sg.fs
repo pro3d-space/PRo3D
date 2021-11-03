@@ -137,17 +137,17 @@ module Sg =
         else bb
     
     let combineLeafBBs (hierarchies : list<PatchHierarchy>) =
-      hierarchies
+        hierarchies
         |> List.map(fun d -> d.tree |> QTree.getLeaves)
         |> Seq.map (fun p -> p |> Seq.map(fun d -> assertInvalidBB d.info.GlobalBoundingBox)) 
         |> Seq.concat
-        |> Box3d.ofSeq
+        |> Box3d
     
     let combineRootBBs (hierarchies : list<PatchHierarchy>) =
-      hierarchies
+        hierarchies
         |> List.map(fun d -> d.tree |> QTree.getRoot)                  
         |> Seq.map (fun p -> assertInvalidBB p.info.GlobalBoundingBox)
-        |> Box3d.ofSeq
+        |> Box3d
        
     let createSgSurface (s : Surface) sg (bb : Box3d) (kd : HashMap<Box3d,KdTrees.Level0KdTree>) = 
     

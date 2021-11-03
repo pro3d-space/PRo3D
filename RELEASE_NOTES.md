@@ -1,3 +1,7 @@
+## 4.4.1-prerelease1
+
+- fixed "box sequence must not be empty" exception when loading a scene with surfaces that have faulty paths
+
 ## 4.4.0-prerelease1
 
 - added dip azimuth to true thickness tool [#17](https://github.com/pro3d-space/PRo3D/issues/17)
@@ -14,6 +18,7 @@
 
 - static screen-shot service that can be found in the `config` tab
 - coordinate systems are inferred automatically mostly to distinguish between elipsoid (Mars, Earth) and Euclidean (None, JPL) / Rover Frame Systems
+
 ## 4.1.0-prerelease2
 
 - fixed broken priority rendering

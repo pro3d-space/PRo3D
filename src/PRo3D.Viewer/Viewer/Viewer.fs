@@ -114,7 +114,7 @@ module ViewerApp =
     let _geologicSurfaces      = _geologicSurfacesModel >-> GeologicSurfacesModel.geologicSurfaces_
        
     let lookAtData (m: Model) =         
-        let bb = m |> Optic.get _sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB) |> Box3d.ofSeq
+        let bb = m |> Optic.get _sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB) |> Box3d
         let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value             
 
         Optic.set _view view m
@@ -192,7 +192,8 @@ module ViewerApp =
             let fullBb = 
                 sgSurfaces 
                 |> List.map(fun x -> x.globalBB) 
-                |> List.fold(fun a b -> Box3d.extendBy a b) v.globalBB
+                |> Box3d
+                |> Box3d.extendBy(v.globalBB)                            
 
             // useful default viewpoint after 2nd import
             match m.scene.firstImport with                  

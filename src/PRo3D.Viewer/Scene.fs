@@ -357,16 +357,16 @@ module SceneLoader =
 
         let m = m |> Optic.set _surfaceModelLens surfaceModel
 
-        //inferring coordinate system on scene load
         let fullBoundingBox = 
             surfaceModel.sgSurfaces             
             |> HashMap.toSeq 
             |> Seq.map(fun (_,sgSurface) -> sgSurface.globalBB) 
-            |> Box3d.ofSeq
+            |> Box3d        
 
         let centerPoint = 
             if (fullBoundingBox.IsEmpty || fullBoundingBox.IsInvalid) then V3d.Zero else fullBoundingBox.Center
 
+        //inferring coordinate system on scene load
         let suggestedSystem = 
             Planet.suggestedSystem centerPoint m.scene.referenceSystem.planet
         

@@ -24,17 +24,7 @@ type Self = Self
 module Box3d =
     let extendBy (box:Aardvark.Base.Box3d) (b:Aardvark.Base.Box3d) =
         box.ExtendBy(b)
-        box
-
-    let ofSeq (bs:seq<Aardvark.Base.Box3d>) =
-        let box = 
-            match bs |> Seq.tryHead with
-            | Some b -> b
-            | None -> failwith "box sequence must not be empty"
-                    
-        for b in bs do
-            box.ExtendBy(b)
-        box
+        box    
 
 module Double =
     let degreesFromRadians (d:float) =
