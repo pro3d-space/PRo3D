@@ -55,7 +55,8 @@ type DrawingAction =
   | PickDirectly           of Guid
   | ExportAsCsv            of string
   | ExportAsGeoJSON        of string
-  | ExportAsGeoJSON_xyz     of string
+  | ExportAsGeoJSON_xyz    of string
+  | ExportAsAttitude       of string
 
 [<ModelType>]
 type DrawingModel = {

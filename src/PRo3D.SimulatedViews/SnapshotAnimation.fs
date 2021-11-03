@@ -413,40 +413,4 @@ module SnapshotAnimation =
     
     let startSnapshots (scenepath : string) (filename:string) (width : int) (height : int) = 
         let fpPath = FootPrint.getFootprintsPath scenepath
-        snapshot fpPath filename width height 
-
-    let animateAndScreenshot (scenePath:string) (ex: Extrinsics) (duration : RelativeTime) (name : string) (width : int) (height : int) = 
-      let fpPath = FootPrint.getFootprintsPath scenePath
-      {
-        (CameraAnimations.initial name) with 
-          sample = fun (localTime, globalTime) (state : CameraView) -> // given the state and t since start of the animation, compute a state and the cameraview
-            if localTime < duration then 
-                
-              let now = DateTime.Now
-              let pngName = System.String.Format(
-                                        "{0:0000}{1:00}{2:00}_{3:00}{4:00}{5:00}_{6}",
-                                        now.Year, now.Month, now.Day, now.Hour, now.Minute, now.Second, now.Millisecond)
-               
-               
-              //try Utilities.takeScreenshot "http://localhost:54321" width height pngName fpPath with e -> printfn "error: %A" e
-
-              let rot      = Rot3d.RotateInto(state.Forward, ex.camLookAt) * localTime / duration
-              let forward' = (Rot3d rot).Transform(state.Forward)
-
-              let uprot     = Rot3d.RotateInto(state.Up, ex.camUp) * localTime / duration
-              let up'       = (Rot3d uprot).Transform(state.Up)
-              
-              let vec       = ex.position - state.Location
-              let velocity  = vec.Length / duration                  
-              let dir       = vec.Normalized
-              let location' = state.Location + dir * velocity * localTime
-
-              let view = 
-                state 
-                  |> CameraView.withForward forward'
-                  |> CameraView.withUp up'
-                  |> CameraView.withLocation location'
-      
-              Some (state,view)
-            else None
-      }
+        snapshot fpPath filename width height     

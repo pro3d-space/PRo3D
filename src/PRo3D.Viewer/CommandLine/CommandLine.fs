@@ -24,6 +24,9 @@ module CommandLine =
         Log.line @"--noMagFilter                       turn off linear texture magnification filtering"
         Log.line @"--runRemoteControl                  turn on remote control app"
         Log.line @"--server                            do not spawn aardium browser"
+        Log.line @"--noMapping                         use mapped render target"
+        Log.line @"--backgroundColor cssColor          use another background color"
+        Log.line @"--samples count                     specify multisampling count"
                  
         Log.line @"--snap [path\snapshot.json]         path to a snapshot file containing camera views (old format)"
         Log.line @""
@@ -85,6 +88,11 @@ module CommandLine =
                 let remoteApp           = (argv |> hasFlag "remoteControl")
                 let server              = (argv |> hasFlag "server") 
                 let magFilter           = not (argv |> hasFlag "noMagFilter")
+
+                let samples             = parseArg "--samples" argv
+                let backgroundColor     = parseArg "--backgroundColor" argv
+                let noMapping          = argv |> hasFlag "noMapping"
+
                 let opcs = 
                     match oneOpc, manyOpcs with
                     | Some opc, Some opcs -> opcs@opc |> Some
@@ -120,6 +128,7 @@ module CommandLine =
                 Log.line "[Arguments] Show reference system%s" (b2str showReferenceSystem)
                 Log.line "[Arguments] Remote control app%s" (b2str remoteApp)
                 Log.line "[Arguments] Output folder: %s" outFolder
+                Log.line "[Arguments] render control config %A" (samples, backgroundColor, noMapping)
                 let args = 
                     match ok with
                     | Some surfPathsValid -> 
@@ -143,6 +152,10 @@ module CommandLine =
                             magnificationFilter   = magFilter
                             remoteApp             = remoteApp
                             serverMode            = server
+                            useMapping            = if noMapping then "false" else "true"
+                            data_samples          = samples
+                            backgroundColor       = match backgroundColor with Some b -> b | None -> StartupArgs.initArgs.backgroundColor
+
                         }
                     | None -> 
                         Log.line "[Arguments] Starting PRo3D in GUI-Mode."
@@ -164,6 +177,9 @@ module CommandLine =
                             magnificationFilter   = false
                             remoteApp             = false
                             serverMode            = server
+                            useMapping            = if noMapping then "false" else "true"
+                            data_samples          = samples
+                            backgroundColor       = match backgroundColor with Some b -> b  | None -> StartupArgs.initArgs.backgroundColor
                         }
                 args
             sargs
