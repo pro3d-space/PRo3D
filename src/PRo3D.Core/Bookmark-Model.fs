@@ -130,7 +130,7 @@ type SequencedBookmarksAction =
     | AnimationThreadsDone  of string
     | AnimStep       of Guid
     | SetDelay       of Guid * Numeric.Action
-    | SetAnimationSpeed       of Numeric.Action
+    | SetDuration    of Guid * Numeric.Action
     | StartRecording
     | StopRecording
     | GenerateSnapshots
@@ -147,16 +147,19 @@ type BookmarkAnimationInfo =
     {
         bookmark : Guid
         delay    : NumericInput
+        duration : NumericInput
     }
     with 
        static member FromJson( _ : BookmarkAnimationInfo) =
            json {
                let! bookmark = Json.read "bookmark"
                let! delay    = Json.readWith Ext.fromJson<NumericInput,Ext> "delay"
+               let! duration = Json.readWith Ext.fromJson<NumericInput,Ext> "duration"
 
                return {
                     bookmark = bookmark
                     delay    = delay
+                    duration = duration
                }
            }
 
@@ -164,6 +167,7 @@ type BookmarkAnimationInfo =
            json {
                do! Json.write "bookmark"    x.bookmark
                do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "delay" x.delay
+               do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "duration" x.delay
            }
 
 [<ModelType>]
@@ -182,8 +186,7 @@ type SequencedBookmarks = {
     blockingCollection : HarriSchirchWrongBlockingCollection<SequencedBookmarksAction>
 
    //delay            : NumericInput
-    animationSpeed   : NumericInput
-
+    //animationSpeed   : NumericInput
     isRecording      : bool
     generateOnStop   : bool
     isGenerating     : bool
@@ -193,7 +196,7 @@ type SequencedBookmarks = {
     renderStillFrames : bool
     currentFps       : Option<int>
     outputPath       : string
-    useSpeed         : bool
+    
   //  snapshotProcess  : option<System.Diagnostics.Process>
   }
 //} with interface IDisposable with 
@@ -221,7 +224,7 @@ module SequencedBookmarks =
             format  = "{0:0.0}"
         }
 
-    let initSpeed =
+    let initDuration =
         {
             value   = 2.0
             min     = 0.1
@@ -252,7 +255,13 @@ module SequencedBookmarks =
                         |> List.map (fun (a : BookmarkAnimationInfo) -> (a.bookmark, a))
                         |> HashMap.ofList
                         
-                | None -> bookmarks |> HashMap.map (fun id bm -> {bookmark = id; delay = initDelay})
+                | None -> 
+                    bookmarks 
+                        |> HashMap.map (fun id bm -> 
+                                                {bookmark = id
+                                                 delay = initDelay
+                                                 duration = initDuration}
+                                       )
             let! orderList          = Json.read "orderList"
             let! selected           = Json.read "selectedBookmark"
            // let! delay              = Json.readWith Ext.fromJson<NumericInput,Ext> "delay"
@@ -279,11 +288,6 @@ module SequencedBookmarks =
                 match renderStillFrames with
                 | Some b -> b
                 | None   -> false
-            let! useSpeed = Json.tryRead "useSpeed"
-            let useSpeed =
-                match useSpeed with
-                | Some b -> b
-                | None   -> true
 
                 
             return 
@@ -297,7 +301,7 @@ module SequencedBookmarks =
                     stopAnimation       = true
                     blockingCollection  = new HarriSchirchWrongBlockingCollection<_>()
                     //delay               = delay
-                    animationSpeed      = animationSpeed
+                    //animationSpeed      = animationSpeed
                     isRecording         = false
                     isCancelled         = false
                     isGenerating        = false
@@ -307,7 +311,6 @@ module SequencedBookmarks =
                     outputPath          = outputPath
                     renderStillFrames   = renderStillFrames
                     currentFps          = None
-                    useSpeed            = useSpeed
                     //snapshotProcess     = None
                 }
         }  
@@ -325,7 +328,6 @@ module SequencedBookmarks =
             stopAnimation       = true
             blockingCollection  = new HarriSchirchWrongBlockingCollection<_>()
             //delay               = initDelay
-            animationSpeed      = initSpeed
             isRecording         = false
             isCancelled         = false
             isGenerating        = false
@@ -335,7 +337,6 @@ module SequencedBookmarks =
             outputPath          = ""
             renderStillFrames   = false
             currentFps          = None
-            useSpeed            = true
             //snapshotProcess     = None
         }
 
@@ -360,10 +361,9 @@ type SequencedBookmarks with
             do! Json.write "selectedBookmark"                                   x.selectedBookmark
             do! Json.write "animationInfo"                                      (x.animationInfo |> HashMap.toList |> List.map snd)
             //do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "delay"           x.delay
-            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "animationSpeed"  x.animationSpeed
+            //do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "animationSpeed"  x.animationSpeed
             do! Json.write "generateOnStop"                                     x.generateOnStop
             do! Json.write "resolution"                                         (resolution.ToString ())
             do! Json.write "outputPath"                                         x.outputPath
             do! Json.write "renderStillFrames"                                  x.renderStillFrames
-            do! Json.write "useSpeed"                                           x.useSpeed
         }   
