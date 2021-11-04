@@ -464,6 +464,8 @@ module SequencedBookmarksApp =
             outerModel, {m with generateOnStop = not m.generateOnStop}
         | ToggleRenderStillFrames ->
             outerModel, {m with renderStillFrames = not m.renderStillFrames}
+        | ToggleUpdateJsonBeforeRendering ->
+            outerModel, {m with updateJsonBeforeRendering = not m.updateJsonBeforeRendering}
         | GenerateSnapshots -> 
             outerModel, {m with isGenerating = true}
         | CancelSnapshots ->
@@ -666,11 +668,33 @@ module SequencedBookmarksApp =
                                             | Some fps -> sprintf "%i" fps
                                             | None -> "No frames recorded."
                                          )
+            let updateJsonButton =
+                let info =
+                    i [clazz "info icon"] [] 
+                    |> UI.wrapToolTip DataPosition.Bottom "Only available if \"Alllow JSON Editing\" is selected. Updates the settings for image generation in the JSON file. Manual changes to the JSON file will be overwritten!"
+                let onlyButton = 
+                    model.updateJsonBeforeRendering
+                        |> AVal.map (fun b ->
+                                        match b with
+                                        | false ->  button [onMouseClick (fun _ -> UpdateJson)] [text "Update"]
+                                        | true  -> div [] []
+                                    )
+                let alst = 
+                    alist {
+                            let! b = onlyButton
+                            yield b
+                            yield info
+                          }
+
+                Incremental.div ([] |> AttributeMap.ofList ) alst
+                
+
 
             require GuiEx.semui (
                 div [] [
                     Html.table [            
-                        Html.row "Record camera animation:" [
+                        Html.row "Record camera animation:" 
+                            [
                                 Incremental.div ([] |> AttributeMap.ofList) recordingButton          
                             ]
                         Html.row "Generate images:" 
@@ -685,11 +709,21 @@ module SequencedBookmarksApp =
                                         |> UI.wrapToolTip DataPosition.Bottom "Automatically starts image generation with default parameters when clicking on the red stop recording button."
                             ]     
                             
-                        Html.row "Generate still frames" [GuiEx.iconCheckBox model.renderStillFrames ToggleRenderStillFrames;
-                                                i [clazz "info icon"] [] 
-                                                    |> UI.wrapToolTip DataPosition.Bottom "Renders the appropriate number of identical images when the camera is standing still."
-                        
-                        ]
+                        Html.row "Generate still frames" 
+                            [GuiEx.iconCheckBox model.renderStillFrames ToggleRenderStillFrames;
+                                    i [clazz "info icon"] [] 
+                                        |> UI.wrapToolTip DataPosition.Bottom "Renders the appropriate number of identical images when the camera is standing still."
+                            ]
+                        Html.row "Allow JSON Editing" 
+                            [GuiEx.iconCheckBox (model.updateJsonBeforeRendering |> AVal.map not) ToggleUpdateJsonBeforeRendering;
+                                i [clazz "info icon"] [] 
+                                    |> UI.wrapToolTip DataPosition.Bottom "If selected, the JSON file will NOT be updated before rendering. If you change settings in the user interface after recording, they will not be reflected in the JSON file."
+                            ]
+                        Html.row "Update JSON" 
+                            [
+                                updateJsonButton
+                                
+                            ]
 
                         Html.row "Image Resolution:"  
                             [
@@ -699,13 +733,12 @@ module SequencedBookmarksApp =
 
                         Html.row "Current FPS" [Incremental.text fpsText]
                         Html.row "FPS Setting" [Html.SemUi.dropDown model.fpsSetting SetFpsSetting]
-                        Html.row "Output Path" [div [   style "word-break: break-all"
-                                
-                                                        Dialogs.onChooseFiles SetOutputPath;
-                                                        clientEvent "onclick" (Dialogs.jsSelectPathDialog)
-                                               ] [i [clazz "write icon"] []; Incremental.text model.outputPath]]
-
-      
+                        Html.row "Output Path" 
+                            [
+                                div [   style "word-break: break-all"
+                                        Dialogs.onChooseFiles SetOutputPath;
+                                        clientEvent "onclick" (Dialogs.jsSelectPathDialog)
+                                    ] [i [clazz "write icon"] []; Incremental.text model.outputPath]]
                     ]
 
                 ]

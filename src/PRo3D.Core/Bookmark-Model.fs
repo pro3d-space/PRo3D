@@ -148,6 +148,8 @@ type SequencedBookmarksAction =
     | SetResolutionY of Numeric.Action
     | SetOutputPath of list<string>
     | SetFpsSetting of FPSSetting
+    | UpdateJson
+    | ToggleUpdateJsonBeforeRendering
 
 
 
@@ -206,6 +208,7 @@ type SequencedBookmarks = {
     currentFps       : Option<int>
     outputPath       : string
     fpsSetting       : FPSSetting
+    updateJsonBeforeRendering : bool
   //  snapshotProcess  : option<System.Diagnostics.Process>
   }
 //} with interface IDisposable with 
@@ -296,6 +299,16 @@ module SequencedBookmarks =
                 match renderStillFrames with
                 | Some b -> b
                 | None   -> false
+            let! updateJsonBeforeRendering = Json.tryRead "updateJsonBeforeRendering"
+            let updateJsonBeforeRendering =
+                match updateJsonBeforeRendering with
+                | Some b -> b
+                | None   -> false
+            let! (fpsSetting : option<string>) = Json.tryRead "fpsSetting"
+            let fpsSetting =
+                match fpsSetting with
+                | Some s -> FPSSetting.Parse (s)
+                | None   -> FPSSetting.Full
 
                 
             return 
@@ -308,8 +321,6 @@ module SequencedBookmarks =
                     animationThreads    = ThreadPool.Empty
                     stopAnimation       = true
                     blockingCollection  = new HarriSchirchWrongBlockingCollection<_>()
-                    //delay               = delay
-                    //animationSpeed      = animationSpeed
                     isRecording         = false
                     isCancelled         = false
                     isGenerating        = false
@@ -319,8 +330,8 @@ module SequencedBookmarks =
                     outputPath          = outputPath
                     renderStillFrames   = renderStillFrames
                     currentFps          = None
-                    fpsSetting          = FPSSetting.Full
-                    //snapshotProcess     = None
+                    fpsSetting          = fpsSetting
+                    updateJsonBeforeRendering = updateJsonBeforeRendering
                 }
         }  
 
@@ -347,6 +358,7 @@ module SequencedBookmarks =
             renderStillFrames   = false
             currentFps          = None
             fpsSetting          = FPSSetting.Full
+            updateJsonBeforeRendering = true
             //snapshotProcess     = None
         }
 
@@ -376,4 +388,6 @@ type SequencedBookmarks with
             do! Json.write "resolution"                                         (resolution.ToString ())
             do! Json.write "outputPath"                                         x.outputPath
             do! Json.write "renderStillFrames"                                  x.renderStillFrames
+            do! Json.write "updateJsonBeforeRendering"                          x.updateJsonBeforeRendering
+            do! Json.write "fpsSetting"                                         (x.fpsSetting.ToString ())
         }   

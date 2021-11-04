@@ -676,8 +676,14 @@ module ViewerApp =
                     m
                 | PRo3D.Base.SequencedBookmarksAction.GenerateSnapshots -> 
                     let m = shortFeedback "Snapshot generation started." m
-                    generateJson ()
+                    match m.scene.sequencedBookmarks.updateJsonBeforeRendering with
+                    | true -> generateJson ()
+                    | false -> ()
                     let m = generateSnapshots ()
+                    m
+                | PRo3D.Base.SequencedBookmarksAction.UpdateJson ->
+                    generateJson ()
+                    let m = shortFeedback "Saved snapshot JSON file." m
                     m
                 | _ -> m
               
