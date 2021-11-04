@@ -394,7 +394,8 @@ module SequencedBookmarksApp =
             outerModel, { m with animationThreads = ThreadPool.start ( m |> createWorkerBackward) m.animationThreads}//; stopAnimation = false}
         | AnimationThreadsDone id ->  
             let m' = 
-                { m with animationThreads = ThreadPool.remove id m.animationThreads }
+                { m with animationThreads = ThreadPool.remove id m.animationThreads 
+                         stopAnimation = true}
             outerModel, m'
         | Pause ->
             m.blockingCollection.CompleteAdding() 
