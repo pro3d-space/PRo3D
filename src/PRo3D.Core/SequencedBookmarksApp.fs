@@ -105,48 +105,54 @@ module SequencedBookmarksApp =
     /// Calculates the frames per second of recorded views based on timestamps
     /// recorded at the same time each view was animated.
     let calculateFpsOfCurrentTimestamps () =
-        let millisPerFrame = 
-            timestamps 
-                    |> List.pairwise
-                    |> List.map (fun (first, second) -> second - first)
-                    |> List.map (fun time -> time.TotalMilliseconds)
+        match timestamps with
+        | [] -> None
+        | timestamps ->
+            let millisPerFrame = 
+                timestamps 
+                        |> List.pairwise
+                        |> List.map (fun (first, second) -> second - first)
+                        |> List.map (fun time -> time.TotalMilliseconds)
                   
-        let mediumMpf = millisPerFrame |> List.map (fun x -> x |> round |> int)
-                                       |> List.sort
-                                       |> List.item ((millisPerFrame.Length / 2))
-        let fps = 1000 / mediumMpf
-        //Log.line "FPS = %i" fps
-        fps
+            let mediumMpf = millisPerFrame |> List.map (fun x -> x |> round |> int)
+                                           |> List.sort
+                                           |> List.item ((millisPerFrame.Length / 2))
+            let fps = 1000 / mediumMpf
+            //Log.line "FPS = %i" fps
+            fps |> Some
 
     /// Calculate the number of indentical frames that should be generated for
     /// a given bookmark. The number of frames is based on the FPS of the recorded
     /// views and on the delay set for the bookmark.
     let calculateNrOfStillFrames (m : SequencedBookmarks) =
         let fps = calculateFpsOfCurrentTimestamps () 
-        let toNrOfFrames (index, id) =
-            // take delay of previous bookmark
-            match List.tryFindIndex (fun x -> x = id) m.orderList with
-            | Some ind -> 
-                match List.tryItem (ind - 1) m.orderList with
-                | Some nextId -> 
-                    match m.animationInfo.TryFind nextId with
-                    | Some info ->
-                        (index, int (info.delay.value * (float fps)))
-                            |> Some
+        match fps with
+        | Some fps ->
+            let toNrOfFrames (index, id) =
+                // take delay of previous bookmark
+                match List.tryFindIndex (fun x -> x = id) m.orderList with
+                | Some ind -> 
+                    match List.tryItem (ind - 1) m.orderList with
+                    | Some nextId -> 
+                        match m.animationInfo.TryFind nextId with
+                        | Some info ->
+                            (index, int (info.delay.value * (float fps)))
+                                |> Some
+                        | None -> None
                     | None -> None
                 | None -> None
-            | None -> None
-
-        let nrOfFrames =    
-            stillFrames
-                |> List.map toNrOfFrames
-                |> List.filter Option.isSome
-                |> List.map (fun x -> x.Value)
-        let nrOfFrames = 
-            nrOfFrames 
-                |> List.map (fun (ind, count) -> (ind, {index = ind;repetitions=count}))
-                |> HashMap.ofList
-        nrOfFrames
+            
+            let nrOfFrames =    
+                stillFrames
+                    |> List.map toNrOfFrames
+                    |> List.filter Option.isSome
+                    |> List.map (fun x -> x.Value)
+            let nrOfFrames = 
+                nrOfFrames 
+                    |> List.map (fun (ind, count) -> (ind, {index = ind;repetitions=count}))
+                    |> HashMap.ofList
+            nrOfFrames
+        | None -> HashMap.empty
 
     /// Returns the delay of a bookmark if its id is found in animationInfo. 
     /// Otherwise returns a default value.
@@ -451,7 +457,7 @@ module SequencedBookmarksApp =
             outerModel, {m with isRecording = true}
         | StopRecording -> 
             outerModel, {m with isRecording = false
-                                currentFps  = Some (calculateFpsOfCurrentTimestamps ())
+                                currentFps  = calculateFpsOfCurrentTimestamps ()
                         }
         | ToggleGenerateOnStop ->
             outerModel, {m with generateOnStop = not m.generateOnStop}
@@ -471,6 +477,8 @@ module SequencedBookmarksApp =
                 | [] -> "Please click to select output path"
                 | head::tail -> head
             outerModel, {m with outputPath = str}
+        | SetFpsSetting setting ->
+            outerModel, {m with fpsSetting = setting}
         |_-> outerModel, m
 
 
@@ -605,15 +613,15 @@ module SequencedBookmarksApp =
                 Html.table [               
                   Html.row "Animation:"   [div [clazz "ui buttons inverted"] [
                                               button [clazz "ui icon button"; onMouseClick (fun _ -> StepBackward )] [ //
-                                                  i [clazz "step backward icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Back"
+                                                  i [clazz "step backward icon"] [] ] 
                                               button [clazz "ui icon button"; onMouseClick (fun _ -> Play )] [ //
-                                                  i [clazz "play icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Start Animation"
+                                                  i [clazz "play icon"] [] ] 
                                               button [clazz "ui icon button"; onMouseClick (fun _ -> Pause )] [ //
-                                                  i [clazz "pause icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Pause Animation"
+                                                  i [clazz "pause icon"] [] ] 
                                               button [clazz "ui icon button"; onMouseClick (fun _ -> Stop )] [ //
-                                                  i [clazz "stop icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Stop Animation"
+                                                  i [clazz "stop icon"] [] ] 
                                               button [clazz "ui icon button"; onMouseClick (fun _ -> StepForward )] [ //
-                                                  i [clazz "step forward icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Forward"
+                                                  i [clazz "step forward icon"] [] ] 
                                           ] ]
                   //Html.row "Duration (s):"   [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]  model.animationSpeed |> UI.map SetAnimationSpeed ]
                   //Html.row "Delay (s):"  [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]  model.delay |> UI.map SetDelay ]
@@ -689,7 +697,7 @@ module SequencedBookmarksApp =
                             ]
 
                         Html.row "Current FPS" [Incremental.text fpsText]
-
+                        Html.row "FPS Setting" [Html.SemUi.dropDown model.fpsSetting SetFpsSetting]
                         Html.row "Output Path" [div [   style "word-break: break-all"
                                 
                                                         Dialogs.onChooseFiles SetOutputPath;

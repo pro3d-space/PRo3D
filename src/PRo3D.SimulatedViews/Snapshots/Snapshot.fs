@@ -69,35 +69,43 @@ module Snapshot =
     let fromViews (camViews : seq<CameraView>) (sp : option<List<ObjectPlacementParameters>>) 
                   (lightDirection : option<V3d>) (nameSuffix : list<string>) 
                   (stillFrames : option<HashMap<int, FrameRepetition>>) 
+                  (fpsSetting : FPSSetting)
                   =
         let zipped = Seq.zip camViews [0 .. (Seq.length camViews - 1)] 
                     |> Seq.zip nameSuffix
         let mutable addToIndex = 0
         seq {
             for (s, (v, i)) in zipped do
-               let name = sprintf "%06i_%s" (i + addToIndex) s
-               let name = String.replace "#" "" name
-               let frame = {
-                   filename        = name
-                   camera          = v |> toSnapshotCamera
-                   sunPosition     = None
-                   lightDirection  = lightDirection
-                   surfaceUpdates  = None
-                   placementParameters = sp
-                   renderMask      = None         
-                 }
-               match stillFrames with
-               | None ->  yield frame
-               | Some stillFrames -> 
-                    // create identical views with new names
-                    if HashMap.containsKey i stillFrames then
-                        let frameRepetition = HashMap.find i stillFrames
-                        let untilFrame = i + addToIndex + frameRepetition.repetitions
-                        for j in i+addToIndex..untilFrame do
-                            let name = sprintf "%06i_%s_stillImage" j s
-                            let name = String.replace "#" "" name
-                            yield {frame with filename = name}
-                        addToIndex <- addToIndex + frameRepetition.repetitions
-                    else yield frame
+                if fpsSetting = FPSSetting.Full || (fpsSetting = FPSSetting.Half && (i % 2 = 0)) then
+                    let name = sprintf "%06i_%s" (i + addToIndex) s
+                    let name = String.replace "#" "" name
+                    let frame = {
+                        filename        = name
+                        camera          = v |> toSnapshotCamera
+                        sunPosition     = None
+                        lightDirection  = lightDirection
+                        surfaceUpdates  = None
+                        placementParameters = sp
+                        renderMask      = None         
+                      }
+                    match stillFrames with
+                    | None ->  yield frame
+                    | Some stillFrames -> 
+                         // create identical views with new names
+                         if HashMap.containsKey i stillFrames then
+                             let frameRepetition = HashMap.find i stillFrames
+                             let repetitions =
+                                if (fpsSetting = FPSSetting.Half) then frameRepetition.repetitions / 2
+                                else frameRepetition.repetitions
+                             let untilFrame = i + addToIndex + repetitions
+                             for j in i+addToIndex..untilFrame do
+                                 let name = sprintf "%06i_%s_stillImage" j s
+                                 let name = String.replace "#" "" name
+                                 yield {frame with filename = name}
+                             addToIndex <- addToIndex + frameRepetition.repetitions
+                         else yield frame
+                if (fpsSetting = FPSSetting.Half) && (i % 2 = 1) then
+                    addToIndex <- addToIndex - 1
+
             }
 

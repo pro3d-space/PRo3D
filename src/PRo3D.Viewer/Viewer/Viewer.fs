@@ -620,12 +620,14 @@ module ViewerApp =
                     match bm.renderStillFrames with
                     | false ->
                         Snapshot.fromViews 
-                            SequencedBookmarksApp.collectedViews None None SequencedBookmarksApp.names None
+                            SequencedBookmarksApp.collectedViews None None SequencedBookmarksApp.names 
+                                                                 None m.scene.sequencedBookmarks.fpsSetting
                     | true -> 
                         let stillFrames = SequencedBookmarksApp.calculateNrOfStillFrames bm
                         Snapshot.fromViews 
                             SequencedBookmarksApp.collectedViews None None SequencedBookmarksApp.names 
-                                                                 (stillFrames |> Some)
+                                                                 (stillFrames |> Some) 
+                                                                 m.scene.sequencedBookmarks.fpsSetting
                 let snapshotAnimation =
                     SnapshotAnimation.generate 
                         snapshots 

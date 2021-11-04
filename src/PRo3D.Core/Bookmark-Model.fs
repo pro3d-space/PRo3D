@@ -109,6 +109,10 @@ type HarriSchirchWrongBlockingCollection<'a>() =
 
     member x.IsCompleted = finished
 
+type FPSSetting =
+    | Full = 0
+    | Half = 1
+
 type SequencedBookmarksPropertiesAction =
     | SetName           of string
 
@@ -141,6 +145,9 @@ type SequencedBookmarksAction =
     | SetResolutionX of Numeric.Action
     | SetResolutionY of Numeric.Action
     | SetOutputPath of list<string>
+    | SetFpsSetting of FPSSetting
+
+
 
 [<ModelType>]
 type BookmarkAnimationInfo =
@@ -167,7 +174,7 @@ type BookmarkAnimationInfo =
            json {
                do! Json.write "bookmark"    x.bookmark
                do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "delay" x.delay
-               do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "duration" x.delay
+               do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "duration" x.duration
            }
 
 [<ModelType>]
@@ -196,7 +203,7 @@ type SequencedBookmarks = {
     renderStillFrames : bool
     currentFps       : Option<int>
     outputPath       : string
-    
+    fpsSetting       : FPSSetting
   //  snapshotProcess  : option<System.Diagnostics.Process>
   }
 //} with interface IDisposable with 
@@ -218,7 +225,7 @@ module SequencedBookmarks =
     let initDelay =
         {
             value   = 3.0
-            min     = 0.5
+            min     = 0.0
             max     = 10.0
             step    = 0.1
             format  = "{0:0.0}"
@@ -228,7 +235,7 @@ module SequencedBookmarks =
         {
             value   = 2.0
             min     = 0.1
-            max     = 10.0
+            max     = 20.0
             step    = 0.1
             format  = "{0:0.0}"
         }
@@ -265,7 +272,6 @@ module SequencedBookmarks =
             let! orderList          = Json.read "orderList"
             let! selected           = Json.read "selectedBookmark"
            // let! delay              = Json.readWith Ext.fromJson<NumericInput,Ext> "delay"
-            let! animationSpeed     = Json.readWith Ext.fromJson<NumericInput,Ext> "animationSpeed"
             let! generateOnStop     = Json.tryRead "generateOnStop"
             let generateOnStop =
                 match generateOnStop with
@@ -311,6 +317,7 @@ module SequencedBookmarks =
                     outputPath          = outputPath
                     renderStillFrames   = renderStillFrames
                     currentFps          = None
+                    fpsSetting          = FPSSetting.Full
                     //snapshotProcess     = None
                 }
         }  
@@ -337,6 +344,7 @@ module SequencedBookmarks =
             outputPath          = ""
             renderStillFrames   = false
             currentFps          = None
+            fpsSetting          = FPSSetting.Full
             //snapshotProcess     = None
         }
 
