@@ -12,9 +12,9 @@ open Aardvark.Geometry
 
 //TODO refactor: AnnotationHelpers.fs is a very unspecific file name ... divide functions better into modules
 
-module DipAndStrike =   
-      
-    let projectOntoPlane (x:V3d) (n:V3d) = (x - (x * n)).Normalized
+module Calculations =
+
+    //let getHeightDelta (p:V3d) (upVec:V3d) = (p * upVec).Length
     
     let computeAzimuth (dir:V3d) (north:V3d) (up:V3d) =
         let east = north.Cross(up)
@@ -43,6 +43,161 @@ module DipAndStrike =
     let pitch (up:V3d) (dir:V3d) =
         let ground = new Plane3d(up.Normalized, 0.0)
         Math.Asin(ground.Height(dir)).DegreesFromRadians()
+
+    let verticalDistance (points:list<V3d>) (up:V3d) = 
+        match points.Length with
+        | 1 -> 0.0
+        | _ -> 
+            let a = points |> List.head
+            let b = points |> List.last
+            let v = (b - a)
+
+            (v |> Vec.dot up.Normalized)
+
+    let horizontalDistance (points:list<V3d>) (up:V3d) = 
+        match points.Length with
+        | 1 -> 0.0
+        | _ -> 
+            let a = points |> List.head
+            let b = points |> List.last
+            let v = (a - b)
+            let vertical = (v |> Vec.dot up.Normalized)
+
+            (v.LengthSquared - (vertical |> Fun.Square)) |> Fun.Sqrt
+
+    let getHeightDelta2 (p:V3d) (upVec:V3d) (planet:Planet) = 
+        CooTransformation.getHeight p upVec planet
+    
+    let calcResultsPoint (model:Annotation) (upVec:V3d) (planet:Planet) : AnnotationResults =            
+        { 
+            version       = AnnotationResults.current
+            height        = Double.NaN
+            heightDelta   = Double.NaN
+            avgAltitude   = CooTransformation.getAltitude model.points.[0] upVec planet
+            length        = Double.NaN
+            wayLength     = Double.NaN
+            bearing       = Double.NaN
+            slope         = Double.NaN
+            trueThickness = Double.NaN
+        }
+    
+    let getDistance (points:list<V3d>) = 
+        points
+        |> List.pairwise
+        |> List.map (fun (a,b) -> Vec.Distance(a,b))
+        |> List.sum
+
+    let getSegmentDistance (s:Segment) = 
+        getDistance
+            [
+                yield s.startPoint
+                for p in s.points do
+                    yield p
+                yield s.endPoint 
+            ] 
+    
+    let computeWayLength (segments:IndexList<Segment>) = 
+        [ 
+            for s in segments do
+                yield getSegmentDistance s
+        ] 
+        |> List.sum
+                                                               
+    let calcResultsLine (annotation : Annotation) (upVec:V3d) (northVec:V3d) (planet:Planet) : AnnotationResults =
+        let count = annotation.points.Count
+        let dist = Vec.Distance(annotation.points.[0], annotation.points.[count-1])
+        let wayLength =
+            if not annotation.segments.IsEmpty then
+                computeWayLength annotation.segments
+            else
+                annotation.points 
+                |> IndexList.toList 
+                |> getDistance
+    
+        let heights = 
+            annotation.points 
+            // |> IndexList.map(fun x -> model.modelTrafo.Forward.TransformPos(x))
+            |> IndexList.map(fun p -> getHeightDelta2 p upVec planet ) 
+            |> IndexList.toList
+    
+        let hcount = heights.Length
+    
+        let line    = new Line3d(annotation.points.[0], annotation.points.[count-1])
+        let bearing = bearing upVec northVec line.Direction.Normalized
+        let slope   = pitch upVec line.Direction.Normalized
+    
+        let verticalThickness = (heights |> List.max) - (heights |> List.min)
+
+        let trueThickness =
+            match (annotation.geometry, annotation.dnsResults) with
+            | (Geometry.TT, Some dns) when (annotation.manualDipAngle.value.IsNaN()) |> not ->
+                let p1 = annotation.points.[1]
+                (dns.plane.Height(p1))
+            | _ -> Double.NaN
+
+        {   
+            version       = AnnotationResults.current
+            height        = verticalThickness
+            heightDelta   = Fun.Abs (heights.[hcount-1] - heights.[0])
+            avgAltitude   = (heights |> List.average)
+            length        = dist
+            wayLength     = wayLength
+            bearing       = bearing
+            slope         = slope
+            trueThickness = trueThickness
+        }
+    
+    let calculateAnnotationResults (model:Annotation) (upVec:V3d) (northVec:V3d) (planet:Planet) : AnnotationResults =
+        match model.points.Count with
+        | x when x > 1 -> calcResultsLine model upVec northVec planet
+        | _ -> calcResultsPoint model upVec planet
+    
+    let reCalcBearing (model:Annotation) (upVec:V3d) (northVec:V3d) = 
+        match model.results with 
+        | Some r ->
+            let count = model.points.Count
+            match count with
+            | x when x > 1 ->
+                let line = new Line3d(model.points.[0], model.points.[count-1])
+                let bearing = bearing upVec northVec line.Direction.Normalized
+                Some {r with bearing = bearing }
+            | _ -> Some r
+        | None -> None
+
+    let reCalculateDnSAzimuth (anno:Annotation) (up:V3d) (north : V3d) =
+        
+        let points = anno.points |> IndexList.filter(fun x -> not x.IsNaN)
+        match anno.dnsResults with
+        | Some dns ->
+            match points.Count with 
+            | x when x > 2 ->       
+                let mutable plane = dns.plane
+                
+                //correct plane orientation - check if normals point in same direction
+                let height = Plane3d(up, V3d.Zero).Height(plane.Normal)
+                plane.Normal <-
+                    match height.Sign() with
+                    | -1 -> -plane.Normal
+                    | _  -> plane.Normal                
+        
+                //strike
+                let strike = up.Cross(plane.Normal).Normalized
+        
+                //dip plane incline .. maximum dip angle
+                let v = strike.Cross(up).Normalized
+        
+                { 
+                    dns with
+                        dipAzimuth = computeAzimuth v north up; 
+                        strikeAzimuth = computeAzimuth strike north up 
+                } |> Some
+                
+            | _ -> None //TODO TO check if this shouldnt be none
+        | _-> None
+
+module DipAndStrike =   
+      
+    let projectOntoPlane (x:V3d) (n:V3d) = (x - (x * n)).Normalized
     
     let computeStandardDeviation avg (input : List<float>) =
     
@@ -118,8 +273,8 @@ module DipAndStrike =
             dipAngle        = alpha
             dipDirection    = dipDirection
             strikeDirection = strikeDirection
-            dipAzimuth      = computeAzimuth dipDirection north up
-            strikeAzimuth   = computeAzimuth strikeDirection north up
+            dipAzimuth      = Calculations.computeAzimuth dipDirection north up
+            strikeAzimuth   = Calculations.computeAzimuth strikeDirection north up
             centerOfMass    = p0
             error           = 
                 { 
@@ -207,8 +362,8 @@ module DipAndStrike =
                 dipAngle        = Math.Acos(v.Dot(dip)).DegreesFromRadians()
                 dipDirection    = dip
                 strikeDirection = strike
-                dipAzimuth      = computeAzimuth v north up
-                strikeAzimuth   = computeAzimuth strike north up
+                dipAzimuth      = Calculations.computeAzimuth v north up
+                strikeAzimuth   = Calculations.computeAzimuth strike north up
                 centerOfMass    = centerOfMass //(new Box3d(points)).Center //[@LF] this is not the center of mass (sum over points / no of points)
                 error           = 
                     { 
@@ -225,38 +380,6 @@ module DipAndStrike =
         | _ -> 
             None
         
-    let recalculateDnSAzimuth (anno:Annotation) (up:V3d) (north : V3d) =
-    
-        let points = anno.points |> IndexList.filter(fun x -> not x.IsNaN)
-        match anno.dnsResults with
-        | Some dns ->
-            match points.Count with 
-            | x when x > 2 ->       
-                let mutable plane = 
-                    points.AsArray |> PlaneFitting.planeFit
-                
-                //correct plane orientation - check if normals point in same direction
-                let height = Plane3d(up, V3d.Zero).Height(plane.Normal)
-                plane.Normal <-
-                    match height.Sign() with
-                    | -1 -> -plane.Normal
-                    | _  -> plane.Normal                
-    
-                //strike
-                let strike = up.Cross(plane.Normal).Normalized
-    
-                //dip plane incline .. maximum dip angle
-                let v = strike.Cross(up).Normalized
-    
-                { 
-                  dns with
-                    dipAzimuth = computeAzimuth v north up; 
-                    strikeAzimuth = computeAzimuth strike north up 
-                } |> Some
-                
-            | _ -> None //TODO TO check if this shouldnt be none
-        | _-> None
-
     let viewUI (model : AdaptiveAnnotation) =
 
         let results = AVal.map AdaptiveOption.toOption model.dnsResults
@@ -273,127 +396,5 @@ module DipAndStrike =
 
         )
 
-module Calculations =
 
-    //let getHeightDelta (p:V3d) (upVec:V3d) = (p * upVec).Length
-    
-    let verticalDistance (points:list<V3d>) (up:V3d) = 
-        match points.Length with
-        | 1 -> 0.0
-        | _ -> 
-            let a = points |> List.head
-            let b = points |> List.last
-            let v = (b - a)
-
-            (v |> Vec.dot up.Normalized)
-
-    let horizontalDistance (points:list<V3d>) (up:V3d) = 
-        match points.Length with
-        | 1 -> 0.0
-        | _ -> 
-            let a = points |> List.head
-            let b = points |> List.last
-            let v = (a - b)
-            let vertical = (v |> Vec.dot up.Normalized)
-
-            (v.LengthSquared - (vertical |> Fun.Square)) |> Fun.Sqrt
-
-    let getHeightDelta2 (p:V3d) (upVec:V3d) (planet:Planet) = 
-        CooTransformation.getHeight p upVec planet
-    
-    let calcResultsPoint (model:Annotation) (upVec:V3d) (planet:Planet) : AnnotationResults =            
-        { 
-            version       = AnnotationResults.current
-            height        = Double.NaN
-            heightDelta   = Double.NaN
-            avgAltitude   = CooTransformation.getAltitude model.points.[0] upVec planet
-            length        = Double.NaN
-            wayLength     = Double.NaN
-            bearing       = Double.NaN
-            slope         = Double.NaN
-            trueThickness = Double.NaN
-        }
-    
-    let getDistance (points:list<V3d>) = 
-        points
-        |> List.pairwise
-        |> List.map (fun (a,b) -> Vec.Distance(a,b))
-        |> List.sum
-
-    let getSegmentDistance (s:Segment) = 
-        getDistance
-            [
-                yield s.startPoint
-                for p in s.points do
-                    yield p
-                yield s.endPoint 
-            ] 
-    
-    let computeWayLength (segments:IndexList<Segment>) = 
-        [ 
-            for s in segments do
-                yield getSegmentDistance s
-        ] 
-        |> List.sum
-                                                               
-    let calcResultsLine (annotation : Annotation) (upVec:V3d) (northVec:V3d) (planet:Planet) : AnnotationResults =
-        let count = annotation.points.Count
-        let dist = Vec.Distance(annotation.points.[0], annotation.points.[count-1])
-        let wayLength =
-            if not annotation.segments.IsEmpty then
-                computeWayLength annotation.segments
-            else
-                annotation.points 
-                |> IndexList.toList 
-                |> getDistance
-    
-        let heights = 
-            annotation.points 
-            // |> IndexList.map(fun x -> model.modelTrafo.Forward.TransformPos(x))
-            |> IndexList.map(fun p -> getHeightDelta2 p upVec planet ) 
-            |> IndexList.toList
-    
-        let hcount = heights.Length
-    
-        let line    = new Line3d(annotation.points.[0], annotation.points.[count-1])
-        let bearing = DipAndStrike.bearing upVec northVec line.Direction.Normalized
-        let slope   = DipAndStrike.pitch upVec line.Direction.Normalized
-    
-        let verticalThickness = (heights |> List.max) - (heights |> List.min)
-
-        let trueThickness =
-            match (annotation.geometry, annotation.dnsResults) with
-            | (Geometry.TT, Some dns) when (annotation.manualDipAngle.value.IsNaN()) |> not ->
-                let p1 = annotation.points.[1]
-                (dns.plane.Height(p1))
-            | _ -> Double.NaN
-
-        {   
-            version       = AnnotationResults.current
-            height        = verticalThickness
-            heightDelta   = Fun.Abs (heights.[hcount-1] - heights.[0])
-            avgAltitude   = (heights |> List.average)
-            length        = dist
-            wayLength     = wayLength
-            bearing       = bearing
-            slope         = slope
-            trueThickness = trueThickness
-        }
-    
-    let calculateAnnotationResults (model:Annotation) (upVec:V3d) (northVec:V3d) (planet:Planet) : AnnotationResults =
-        match model.points.Count with
-        | x when x > 1 -> calcResultsLine model upVec northVec planet
-        | _ -> calcResultsPoint model upVec planet
-    
-    let recalcBearing (model:Annotation) (upVec:V3d) (northVec:V3d) = 
-        match model.results with 
-        | Some r ->
-            let count = model.points.Count
-            match count with
-            | x when x > 1 ->
-                let line = new Line3d(model.points.[0], model.points.[count-1])
-                let bearing = DipAndStrike.bearing upVec northVec line.Direction.Normalized
-                Some {r with bearing = bearing }
-            | _ -> Some r
-        | None -> None
 
