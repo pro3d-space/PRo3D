@@ -388,7 +388,8 @@ module SequencedBookmarksApp =
                 m.blockingCollection.Start()
             else
                 m.blockingCollection.Restart() 
-            outerModel, { m with animationThreads   = ThreadPool.start ( m |> createWorkerPlay) m.animationThreads; stopAnimation = true}
+            outerModel, { m with animationThreads   = ThreadPool.start ( m |> createWorkerPlay) m.animationThreads
+                                 stopAnimation = true}
         | StepForward -> 
             outerModel, { m with animationThreads = ThreadPool.start ( m |> createWorkerForward) m.animationThreads} //; stopAnimation = false}
         | StepBackward -> 
@@ -627,9 +628,6 @@ module SequencedBookmarksApp =
                                               button [clazz "ui icon button"; onMouseClick (fun _ -> StepForward )] [ //
                                                   i [clazz "step forward icon"] [] ] 
                                           ] ]
-                  //Html.row "Duration (s):"   [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]  model.animationSpeed |> UI.map SetAnimationSpeed ]
-                  //Html.row "Delay (s):"  [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]  model.delay |> UI.map SetDelay ]
-                  
                 ]
               )
 
@@ -694,23 +692,22 @@ module SequencedBookmarksApp =
             require GuiEx.semui (
                 div [] [
                     Html.table [            
-                        Html.row "Record camera animation:" 
+                        Html.row "Record Camera Animation:" 
                             [
                                 Incremental.div ([] |> AttributeMap.ofList) recordingButton          
                             ]
-                        Html.row "Generate images:" 
+                        Html.row "Generate Images:" 
                             [
                                 Incremental.div ([] |> AttributeMap.ofList) generateToggleButton         
                             ]
-                        
-                        Html.row "Always generate images after recording:"  
-                            [
-                                GuiEx.iconCheckBox model.generateOnStop ToggleGenerateOnStop; 
-                                    i [clazz "info icon"] [] 
-                                        |> UI.wrapToolTip DataPosition.Bottom "Automatically starts image generation with default parameters when clicking on the red stop recording button."
-                            ]     
+                        //Html.row "Always generate images after recording:"  
+                        //    [
+                        //        GuiEx.iconCheckBox model.generateOnStop ToggleGenerateOnStop; 
+                        //            i [clazz "info icon"] [] 
+                        //                |> UI.wrapToolTip DataPosition.Bottom "Automatically starts image generation with default parameters when clicking on the red stop recording button."
+                        //    ]     
                             
-                        Html.row "Generate still frames" 
+                        Html.row "Generate Still Frames" 
                             [GuiEx.iconCheckBox model.renderStillFrames ToggleRenderStillFrames;
                                     i [clazz "info icon"] [] 
                                         |> UI.wrapToolTip DataPosition.Bottom "Renders the appropriate number of identical images when the camera is standing still."

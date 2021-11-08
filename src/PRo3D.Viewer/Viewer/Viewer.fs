@@ -641,11 +641,20 @@ module ViewerApp =
             let generateSnapshots () =
                 if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform
                         (System.Runtime.InteropServices.OSPlatform.Windows) then
-                    match m.scene.scenePath with
-                    | Some scenePath -> 
+                    let scenePath = 
+                        match m.scene.scenePath with
+                        | Some scenePath -> scenePath
+                        | _ -> "snapshotScene.pro3d" 
+                    let m = {m with scene = {m.scene with scenePath = scenePath |> Some}}
+                    Log.line "[Snapshots] Saving scene as %s." scenePath
+                    let m = m |> ViewerIO.saveEverything scenePath
+
+                    let exeName = "PRo3D.Snapshots.exe"
+                    match File.Exists exeName with
+                    | true -> 
                         let args = sprintf "--scn %s --asnap %s --out images --exitOnFinish" scenePath filename
                         Log.line "[Viewer] Starting snapshot rendering with arguments: %s" args
-                        SequencedBookmarksApp.snapshotProcess <- Some (SnapshotUtils.runProcess "PRo3D.Snapshots.exe" args None)
+                        SequencedBookmarksApp.snapshotProcess <- Some (SnapshotUtils.runProcess exeName args None)
                         let id = System.Guid.NewGuid () |> string
                         let proclst =
                             proclist {
@@ -654,8 +663,10 @@ module ViewerApp =
                                     yield CheckSnapshotsProcess id
                             }              
                         {m with snapshotThreads = ThreadPool.add id proclst m.snapshotThreads}
-                    | None -> 
+                    | false -> 
+                        Log.warn "[Snapshots] Could not find %s" exeName
                         m
+
                 else 
                     Log.warn "[Viewer] This feature is only available for Windows."
                     m

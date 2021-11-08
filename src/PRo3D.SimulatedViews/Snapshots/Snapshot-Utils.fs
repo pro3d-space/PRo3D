@@ -40,9 +40,6 @@ module SnapshotUtils =
             failwithf "Failed to start process %s" filename
         printfn "Started %s with pid %i" p.ProcessName p.Id
         p            
-         
-         
-
 
     let calculateFarPlane (sceneBB : Box3d) (cameraPosition : V3d)  =
         let distanceToCenter = (sceneBB.Center -  cameraPosition).Length
