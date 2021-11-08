@@ -190,7 +190,8 @@ module SequencedBookmarksApp =
                     let delay = findDelayOrDefault m id
                     let duration = findDurationOrDefault m id
                     yield (SequencedBookmarksAction.AnimStep id)
-                    do! Proc.Sleep ((int)(duration + delay) * 1000) //3000
+                    let millis = (duration + delay) * 1000.0
+                    do! Proc.Sleep (int millis) //3000
                     ()
                 | Some a ->
                     Log.line "[Sequenced Bookmarks] Animation step with default delay."
