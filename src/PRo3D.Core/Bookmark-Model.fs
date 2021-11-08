@@ -227,6 +227,11 @@ type FrameRepetition =
                 
 
 module SequencedBookmarks =
+    let defaultOutputPath () = 
+        let p = 
+            Path.combine [(PlatformIndependent.getPathBesideExecutable ());"images"]
+        p
+
     let initDelay =
         {
             value   = 3.0
@@ -289,11 +294,13 @@ module SequencedBookmarks =
                 | Some r -> r
                 | None -> V2i (initResolution.value)
             let! (outputPath : option<string>) = Json.tryRead "outputPath"
+            
             let outputPath = 
                 match outputPath with
                 | Some p -> 
-                    if p = "" then PlatformIndependent.getPathBesideExecutable () else p
-                | None -> PlatformIndependent.getPathBesideExecutable ()
+                    if p = "" then defaultOutputPath () else p
+                | None -> defaultOutputPath ()
+                    
             let! renderStillFrames = Json.tryRead "renderStillFrames"
             let renderStillFrames =
                 match renderStillFrames with
@@ -354,7 +361,7 @@ module SequencedBookmarks =
             generateOnStop      = false
             resolutionX         = initResolution
             resolutionY         = initResolution
-            outputPath          = ""
+            outputPath          = defaultOutputPath () 
             renderStillFrames   = false
             currentFps          = None
             fpsSetting          = FPSSetting.Full

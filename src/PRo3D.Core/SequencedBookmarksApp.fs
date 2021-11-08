@@ -479,7 +479,7 @@ module SequencedBookmarksApp =
         | SetOutputPath str -> 
             let str = 
                 match str with
-                | [] -> "Please click to select output path"
+                | [] -> SequencedBookmarks.defaultOutputPath ()
                 | head::tail -> head
             outerModel, {m with outputPath = str}
         | SetFpsSetting setting ->
