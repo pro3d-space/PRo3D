@@ -88,14 +88,14 @@ module CameraProperties =
                 let! up = refSystem.up.value
                 let! north = refSystem.northO //model.north.value 
                 let! view = camera.view
-                return DipAndStrike.bearing up north view.Forward
+                return Calculations.bearing up north view.Forward
             }
 
         let pitch = 
             adaptive {
                 let! up = refSystem.up.value
                 let! view = camera.view
-                return DipAndStrike.pitch up view.Forward
+                return Calculations.pitch up view.Forward
             }
 
         require GuiEx.semui (

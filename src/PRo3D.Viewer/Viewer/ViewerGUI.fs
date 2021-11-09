@@ -48,7 +48,7 @@ module Gui =
           let! north = r.northO//r.north.value   
           let! v     = view
         
-          return (DipAndStrike.pitch up v.Forward, DipAndStrike.bearing up north v.Forward)
+          return (Calculations.pitch up v.Forward, Calculations.bearing up north v.Forward)
         }
     
     let dnsColorLegend (m : AdaptiveModel) =
