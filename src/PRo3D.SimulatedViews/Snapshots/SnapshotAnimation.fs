@@ -30,6 +30,7 @@ module SnapshotAnimation =
             |> Serialization.writeToFile (Path.combine [dirpath; "snapshots.json"])
 
     let writeToFile (animation : SnapshotAnimation) (filepath : string) =
+        Log.line "[Snapshots] Writing JSON %s" filepath
         animation
             |> Json.serialize 
             |> Json.formatWith JsonFormattingOptions.Pretty 

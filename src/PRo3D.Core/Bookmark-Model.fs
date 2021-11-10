@@ -228,8 +228,13 @@ type FrameRepetition =
 
 module SequencedBookmarks =
     let defaultOutputPath () = 
+        let exePath = PlatformIndependent.getPathBesideExecutable ()
+        let folderPath =
+            match System.IO.Path.HasExtension exePath with
+            | true -> System.IO.Path.GetDirectoryName exePath
+            | false -> exePath
         let p = 
-            Path.combine [(PlatformIndependent.getPathBesideExecutable ());"images"]
+            Path.combine [folderPath;"images"]
         p
 
     let initDelay =

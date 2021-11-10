@@ -116,8 +116,17 @@ module SequencedBookmarksApp =
                   
             let mediumMpf = millisPerFrame |> List.map (fun x -> x |> round |> int)
                                            |> List.sort
-                                           |> List.item ((millisPerFrame.Length / 2))
-            let fps = 1000 / mediumMpf
+                                           |> List.item ((millisPerFrame.Length / 2))   
+            
+
+            let fps = 
+                if mediumMpf > 0 then 
+                    1000 / mediumMpf
+                else
+                    Log.line "Medium FPS 0. Number of recorded Frames: %d" timestamps.Length
+                    let debugMillis = millisPerFrame |> List.fold (fun a b -> a + ";" + (string b)) ""
+                    Log.line "[Debug] Millis per frame %s" debugMillis  
+                    0
             //Log.line "FPS = %i" fps
             fps |> Some
 
@@ -459,8 +468,12 @@ module SequencedBookmarksApp =
             stillFrames <- List<int * Guid>.Empty
             outerModel, {m with isRecording = true}
         | StopRecording -> 
+            let currentFps  = 
+                if timestamps.Length > 0 then
+                    calculateFpsOfCurrentTimestamps ()
+                else m.currentFps
             outerModel, {m with isRecording = false
-                                currentFps  = calculateFpsOfCurrentTimestamps ()
+                                currentFps  = currentFps           
                         }
         | ToggleGenerateOnStop ->
             outerModel, {m with generateOnStop = not m.generateOnStop}

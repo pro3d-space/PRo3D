@@ -67,7 +67,7 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "4.0.2 - Sequenced Bookmarks Prerelease 2"
+let viewerVersion       = "4.0.2 - Sequenced Bookmarks Prerelease 3"
 let catchDomainErrors   = false
 
 open System.IO

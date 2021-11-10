@@ -431,14 +431,17 @@ module ViewerApp =
     let mutable lastHash = -1    
     let mutable rememberCam = FreeFlyController.initial.view
 
-    let private shortFeedback (text: string) (m: Model) = 
+    let private feedback (text: string) (duration : int) (m: Model) = 
         let feedback = {
             id      = System.Guid.NewGuid().ToString()
             text    = text
-            timeout = 3000
+            timeout = duration
             msg     = ViewerAction.NoAction ""
         }
         m |> UserFeedback.queueFeedback feedback
+
+    let private shortFeedback (text: string) (m: Model) = 
+        feedback text 3000 m
 
     let update 
         (runtime   : IRuntime) 
@@ -616,43 +619,61 @@ module ViewerApp =
             let path = (System.IO.Path.GetFullPath filename)
 
             let generateJson () = 
-                let snapshots = 
-                    match bm.renderStillFrames with
-                    | false ->
-                        Snapshot.fromViews 
-                            SequencedBookmarksApp.collectedViews None None SequencedBookmarksApp.names 
-                                                                 None m.scene.sequencedBookmarks.fpsSetting
-                    | true -> 
-                        let stillFrames = SequencedBookmarksApp.calculateNrOfStillFrames bm
-                        Snapshot.fromViews 
-                            SequencedBookmarksApp.collectedViews None None SequencedBookmarksApp.names 
-                                                                 (stillFrames |> Some) 
-                                                                 m.scene.sequencedBookmarks.fpsSetting
-                let snapshotAnimation =
-                    SnapshotAnimation.generate 
-                        snapshots 
-                        (m.frustum |> Frustum.horizontalFieldOfViewInDegrees |> Some)
-                        (m.scene.config.nearPlane.value |> Some)
-                        (m.scene.config.farPlane.value |> Some)
-                        (V2i (m.scene.sequencedBookmarks.resolutionX.value, m.scene.sequencedBookmarks.resolutionY.value))
-                        None    
-                SnapshotAnimation.writeToFile snapshotAnimation filename
+                if SequencedBookmarksApp.timestamps.Length > 0 then
+                    let snapshots = 
+                        match bm.renderStillFrames with
+                        | false ->
+                            Snapshot.fromViews 
+                                SequencedBookmarksApp.collectedViews None None SequencedBookmarksApp.names 
+                                                                     None m.scene.sequencedBookmarks.fpsSetting
+                        | true -> 
+                            let stillFrames = SequencedBookmarksApp.calculateNrOfStillFrames bm
+                            Snapshot.fromViews 
+                                SequencedBookmarksApp.collectedViews None None SequencedBookmarksApp.names 
+                                                                     (stillFrames |> Some) 
+                                                                     m.scene.sequencedBookmarks.fpsSetting
+                    let snapshotAnimation =
+                        SnapshotAnimation.generate 
+                            snapshots 
+                            (m.frustum |> Frustum.horizontalFieldOfViewInDegrees |> Some)
+                            (m.scene.config.nearPlane.value |> Some)
+                            (m.scene.config.farPlane.value |> Some)
+                            (V2i (m.scene.sequencedBookmarks.resolutionX.value, m.scene.sequencedBookmarks.resolutionY.value))
+                            None    
+                    SnapshotAnimation.writeToFile snapshotAnimation filename
+                else 
+                    Log.line "[Viewer] No frames recorded. Saving current frame."
+                    let snapshots = 
+                        [{
+                            filename        = "CurrentFrame.png"
+                            camera          = m.scene.cameraView |> Snapshot.toSnapshotCamera
+                            sunPosition     = None
+                            lightDirection  = None
+                            surfaceUpdates  = None
+                            placementParameters = None
+                            renderMask      = None         
+                          }]
+                    let snapshotAnimation =
+                        SnapshotAnimation.generate 
+                            (snapshots)
+                            (m.frustum |> Frustum.horizontalFieldOfViewInDegrees |> Some)
+                            (m.scene.config.nearPlane.value |> Some)
+                            (m.scene.config.farPlane.value |> Some)
+                            (V2i (m.scene.sequencedBookmarks.resolutionX.value, m.scene.sequencedBookmarks.resolutionY.value))
+                            None    
+                    SnapshotAnimation.writeToFile snapshotAnimation filename
 
-            let generateSnapshots () =
+
+
+            let generateSnapshots scenePath =
                 if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform
                         (System.Runtime.InteropServices.OSPlatform.Windows) then
-                    let scenePath = 
-                        match m.scene.scenePath with
-                        | Some scenePath -> scenePath
-                        | _ -> "snapshotScene.pro3d" 
-                    let m = {m with scene = {m.scene with scenePath = scenePath |> Some}}
-                    Log.line "[Snapshots] Saving scene as %s." scenePath
-                    let m = m |> ViewerIO.saveEverything scenePath
-
+                    
+                    
                     let exeName = "PRo3D.Snapshots.exe"
                     match File.Exists exeName with
                     | true -> 
-                        let args = sprintf "--scn %s --asnap %s --out %s --exitOnFinish" 
+                        let args = sprintf "--scn %s --asnap %s --out \"%s\" --exitOnFinish" 
                                     scenePath filename m.scene.sequencedBookmarks.outputPath
                         Log.line "[Viewer] Starting snapshot rendering with arguments: %s" args
                         SequencedBookmarksApp.snapshotProcess <- Some (SnapshotUtils.runProcess exeName args None)
@@ -672,28 +693,41 @@ module ViewerApp =
                     Log.warn "[Viewer] This feature is only available for Windows."
                     m
             let m = 
+                let save m =
+                    let scenePath = 
+                        match m.scene.scenePath with
+                        | Some scenePath -> scenePath
+                        | _ -> "snapshotScene.pro3d" 
+                    let m = {m with scene = {m.scene with scenePath = scenePath |> Some}}
+                    Log.line "[Snapshots] Saving scene as %s." scenePath
+                    let m = m |> ViewerIO.saveEverything scenePath
+                    m, scenePath
+                
                 match msg with
                 | PRo3D.Base.SequencedBookmarksAction.StopRecording -> 
-                    generateJson ()
-                    Log.line "[Viewer] Writing snapshot JSON file to %s" path
-                    let m = shortFeedback "Saved snapshot JSON file." m
+                        let m, scenePath = save m
+                        generateJson ()
+                        Log.line "[Viewer] Writing snapshot JSON file to %s" path
+                        let m = shortFeedback "Saved snapshot JSON file." m
 
-                    let m = 
-                        match m.scene.sequencedBookmarks.generateOnStop with
-                        | true -> 
-                            let m = generateSnapshots ()
-                            let m = shortFeedback "Snapshot generation started." m
-                            m
-                        | false -> m
-                    m
+                        let m = 
+                            match m.scene.sequencedBookmarks.generateOnStop with
+                            | true -> 
+                                let m = generateSnapshots scenePath
+                                let m = shortFeedback "Snapshot generation started." m
+                                m
+                            | false -> m
+                        m
                 | PRo3D.Base.SequencedBookmarksAction.GenerateSnapshots -> 
+                    let m, scenePath = save m
                     let m = shortFeedback "Snapshot generation started." m
                     match m.scene.sequencedBookmarks.updateJsonBeforeRendering with
                     | true -> generateJson ()
                     | false -> ()
-                    let m = generateSnapshots ()
+                    let m = generateSnapshots scenePath
                     m
                 | PRo3D.Base.SequencedBookmarksAction.UpdateJson ->
+                    let m, scenePath = save m
                     generateJson ()
                     let m = shortFeedback "Saved snapshot JSON file." m
                     m
