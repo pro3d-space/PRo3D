@@ -615,9 +615,8 @@ module ViewerApp =
             let m, bm = SequencedBookmarksApp.update m.scene.sequencedBookmarks 
                                                       msg _navigation _animation 
                                                       m
-            let filename = "batchRendering.json"
-            let path = (System.IO.Path.GetFullPath filename)
-
+            
+            let jsonPathName = Path.combine [bm.outputPath;"batchRendering.json"]
             let generateJson () = 
                 if SequencedBookmarksApp.timestamps.Length > 0 then
                     let snapshots = 
@@ -631,16 +630,17 @@ module ViewerApp =
                             Snapshot.fromViews 
                                 SequencedBookmarksApp.collectedViews None None SequencedBookmarksApp.names 
                                                                      (stillFrames |> Some) 
-                                                                     m.scene.sequencedBookmarks.fpsSetting
+                                                                     bm.fpsSetting
                     let snapshotAnimation =
                         SnapshotAnimation.generate 
                             snapshots 
                             (m.frustum |> Frustum.horizontalFieldOfViewInDegrees |> Some)
                             (m.scene.config.nearPlane.value |> Some)
                             (m.scene.config.farPlane.value |> Some)
-                            (V2i (m.scene.sequencedBookmarks.resolutionX.value, m.scene.sequencedBookmarks.resolutionY.value))
+                            (V2i (bm.resolutionX.value, bm.resolutionY.value))
                             None    
-                    SnapshotAnimation.writeToFile snapshotAnimation filename
+                    
+                    SnapshotAnimation.writeToFile snapshotAnimation jsonPathName
                 else 
                     Log.line "[Viewer] No frames recorded. Saving current frame."
                     let snapshots = 
@@ -661,7 +661,7 @@ module ViewerApp =
                             (m.scene.config.farPlane.value |> Some)
                             (V2i (m.scene.sequencedBookmarks.resolutionX.value, m.scene.sequencedBookmarks.resolutionY.value))
                             None    
-                    SnapshotAnimation.writeToFile snapshotAnimation filename
+                    SnapshotAnimation.writeToFile snapshotAnimation jsonPathName
 
 
 
@@ -673,8 +673,8 @@ module ViewerApp =
                     let exeName = "PRo3D.Snapshots.exe"
                     match File.Exists exeName with
                     | true -> 
-                        let args = sprintf "--scn %s --asnap %s --out \"%s\" --exitOnFinish" 
-                                    scenePath filename m.scene.sequencedBookmarks.outputPath
+                        let args = sprintf "--scn \"%s\" --asnap \"%s\" --out \"%s\" --exitOnFinish" 
+                                    scenePath jsonPathName m.scene.sequencedBookmarks.outputPath
                         Log.line "[Viewer] Starting snapshot rendering with arguments: %s" args
                         SequencedBookmarksApp.snapshotProcess <- Some (SnapshotUtils.runProcess exeName args None)
                         let id = System.Guid.NewGuid () |> string
@@ -707,7 +707,7 @@ module ViewerApp =
                 | PRo3D.Base.SequencedBookmarksAction.StopRecording -> 
                         let m, scenePath = save m
                         generateJson ()
-                        Log.line "[Viewer] Writing snapshot JSON file to %s" path
+                        Log.line "[Viewer] Writing snapshot JSON file to %s" jsonPathName
                         let m = shortFeedback "Saved snapshot JSON file." m
 
                         let m = 

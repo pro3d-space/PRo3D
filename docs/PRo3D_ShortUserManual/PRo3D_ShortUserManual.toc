@@ -18,11 +18,11 @@
 \contentsline {subsection}{\numberline {4.2}Annotations}{18}{subsection.4.2}%
 \contentsline {subsection}{\numberline {4.3}Bookmarks}{20}{subsection.4.3}%
 \contentsline {subsection}{\numberline {4.4}Sequenced Bookmarks}{21}{subsection.4.4}%
-\contentsline {subsection}{\numberline {4.5}Viewer Configuration}{23}{subsection.4.5}%
-\contentsline {subsubsection}{\numberline {4.5.1}ViewerConfig}{23}{subsubsection.4.5.1}%
+\contentsline {subsection}{\numberline {4.5}Viewer Configuration}{24}{subsection.4.5}%
+\contentsline {subsubsection}{\numberline {4.5.1}ViewerConfig}{24}{subsubsection.4.5.1}%
 \contentsline {subsubsection}{\numberline {4.5.2}Coordinate System}{24}{subsubsection.4.5.2}%
-\contentsline {subsubsection}{\numberline {4.5.3}Camera}{24}{subsubsection.4.5.3}%
-\contentsline {subsection}{\numberline {4.6}Grouping}{24}{subsection.4.6}%
+\contentsline {subsubsection}{\numberline {4.5.3}Camera}{25}{subsubsection.4.5.3}%
+\contentsline {subsection}{\numberline {4.6}Grouping}{25}{subsection.4.6}%
 \contentsline {subsubsection}{\numberline {4.6.1}Group Actions}{25}{subsubsection.4.6.1}%
 \contentsline {subsubsection}{\numberline {4.6.2}Leaf Actions}{25}{subsubsection.4.6.2}%
 \contentsline {subsection}{\numberline {4.7}View Planner}{26}{subsection.4.7}%
