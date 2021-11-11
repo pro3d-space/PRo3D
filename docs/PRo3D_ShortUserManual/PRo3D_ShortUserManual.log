@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.20 (MiKTeX 2.9.7250 64-bit) (preloaded format=pdflatex 2020.1.22)  11 NOV 2021 10:39
+This is pdfTeX, Version 3.14159265-2.6-1.40.20 (MiKTeX 2.9.7250 64-bit) (preloaded format=pdflatex 2020.1.22)  11 NOV 2021 11:00
 entering extended mode
 **./PRo3D_ShortUserManual.tex
 (PRo3D_ShortUserManual.tex
@@ -897,7 +897,7 @@ LaTeX Font Info:    Font shape `T1/phv/b/it' in size <12> not available
 (Font)              Font shape `T1/phv/b/sl' tried instead on input line 247.
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 250.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 249.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
 [22 <./pics/SequencedBookmarks_list.png> <./pics/SequencedBookmarks_properties.
 png>]
@@ -908,7 +908,7 @@ m-ages. Larger im-ages take longer
 
 File: pics/logosSUM.png Graphic file (type png)
 <use pics/logosSUM.png>
-Package pdftex.def Info: pics/logosSUM.png  used on input line 266.
+Package pdftex.def Info: pics/logosSUM.png  used on input line 265.
 (pdftex.def)             Requested size: 163.0831pt x 30.0pt.
 [23 <./pics/SequencedBookmarks_snapshots.png>]
 File: pics/logosSUM.png Graphic file (type png)
@@ -1262,7 +1262,7 @@ Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 273.
 Here is how much of TeX's memory you used:
  9187 strings out of 492448
  141659 string characters out of 3119512
- 606630 words of memory out of 3000000
+ 607630 words of memory out of 3000000
  12965 multiletter control sequences out of 15000+200000
  66681 words of font info for 65 fonts, out of 3000000 for 9000
  1141 hyphenation exceptions out of 8191
@@ -1277,7 +1277,7 @@ rams/MiKTeX 2.9/fonts/type1/urw/helvetic/uhvb8a.pfb><C:/Users/rnowak/AppData/Lo
 cal/Programs/MiKTeX 2.9/fonts/type1/urw/helvetic/uhvbo8a.pfb><C:/Users/rnowak/A
 ppData/Local/Programs/MiKTeX 2.9/fonts/type1/urw/helvetic/uhvr8a.pfb><C:/Users/
 rnowak/AppData/Local/Programs/MiKTeX 2.9/fonts/type1/urw/helvetic/uhvro8a.pfb>
-Output written on PRo3D_ShortUserManual.pdf (48 pages, 21411985 bytes).
+Output written on PRo3D_ShortUserManual.pdf (48 pages, 21412005 bytes).
 PDF statistics:
  883 PDF objects out of 1000 (max. 8388607)
  271 named destinations out of 1000 (max. 500000)
