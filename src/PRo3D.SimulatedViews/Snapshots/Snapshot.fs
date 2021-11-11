@@ -64,6 +64,10 @@ module Snapshot =
             Log.line "%s" e.StackTrace 
             raise e
 
+    let cleanName name =
+        let name = String.replace "#" "" name
+        let name = String.replace " " "_" name
+        name
 
     /// Creates snapshots based on camera views.
     let fromViews (camViews : seq<CameraView>) (sp : option<List<ObjectPlacementParameters>>) 
@@ -78,7 +82,7 @@ module Snapshot =
             for (s, (v, i)) in zipped do
                 if fpsSetting = FPSSetting.Full || (fpsSetting = FPSSetting.Half && (i % 2 = 0)) then
                     let name = sprintf "%06i_%s" (i + addToIndex) s
-                    let name = String.replace "#" "" name
+                    let name = cleanName name
                     let frame = {
                         filename        = name
                         camera          = v |> toSnapshotCamera
@@ -100,7 +104,7 @@ module Snapshot =
                              let untilFrame = i + addToIndex + repetitions
                              for j in i+addToIndex..untilFrame do
                                  let name = sprintf "%06i_%s_stillImage" j s
-                                 let name = String.replace "#" "" name
+                                 let name = cleanName name
                                  yield {frame with filename = name}
                              addToIndex <- addToIndex + frameRepetition.repetitions
                          else yield frame
