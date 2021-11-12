@@ -1080,25 +1080,46 @@ module ViewerApp =
                     a
                     
             let _refSystem = (Model.scene_ >-> Scene.referenceSystem_)
-            let m' = m |> Optic.set _refSystem refsystem'                        
-            match a with 
-            | ReferenceSystemAction.SetUp _ | ReferenceSystemAction.SetPlanet _ ->
-                m' 
-                |> SceneLoader.updateCameraUp
-            | ReferenceSystemAction.SetNOffset _ -> //update annotation results
-                let flat = 
-                    m'.drawing.annotations.flat
-                    |> HashMap.map(fun _ v ->
-                        let a = v |> Leaf.toAnnotation
-                        let results    = Calculations.reCalcBearing a refsystem'.up.value refsystem'.northO  
-                        let dnsResults = Calculations.reCalculateDnSAzimuth a refsystem'.up.value refsystem'.northO
-                        { a with results = results; dnsResults = dnsResults } 
-                        |> Leaf.Annotations
-                    )
-                m' 
-                |> Optic.set _flat flat                     
-            | _ -> 
-                m'
+            let m = 
+                m 
+                |> Optic.set _refSystem refsystem'
+                |> SceneLoader.updateCameraUp            
+
+            //changing the reference system also requires adaptation of angular measurement values
+            Log.startTimed "[Viewer.fs] recalculating angular values in annos"
+            let flat = 
+                m.drawing.annotations.flat
+                |> HashMap.map(fun _ v ->
+                    let a = v |> Leaf.toAnnotation
+                    let results    = Calculations.reCalcBearing a refsystem'.up.value refsystem'.northO                   
+                    let dnsResults = DipAndStrike.reCalculateDipAndStrikeResults refsystem'.up.value refsystem'.northO a
+                    { a with results = results; dnsResults = dnsResults } 
+                    |> Leaf.Annotations
+                )
+            Log.stop()
+            
+            m
+            |> Optic.set _flat flat            
+            
+
+            //match a with 
+            //| ReferenceSystemAction.SetUp _ | ReferenceSystemAction.SetPlanet _ ->
+            //    m' 
+            //    |> SceneLoader.updateCameraUp
+            //| ReferenceSystemAction.SetNOffset _ -> //update annotation results
+            //    let flat = 
+            //        m'.drawing.annotations.flat
+            //        |> HashMap.map(fun _ v ->
+            //            let a = v |> Leaf.toAnnotation
+            //            let results    = Calculations.reCalcBearing a refsystem'.up.value refsystem'.northO                         
+            //            let dnsResults = DipAndStrike.reCalculateDipAndStrikeResults refsystem'.up.value refsystem'.northO a
+            //            { a with results = results; dnsResults = dnsResults } 
+            //            |> Leaf.Annotations
+            //        )
+            //    m' 
+            //    |> Optic.set _flat flat                     
+            //| _ -> 
+            //    m'
         | ConfigPropertiesMessage a,_,_ -> 
             //Log.line "config message %A" a
             let c' = ConfigProperties.update m.scene.config a

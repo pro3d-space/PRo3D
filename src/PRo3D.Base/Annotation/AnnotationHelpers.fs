@@ -164,37 +164,6 @@ module Calculations =
             | _ -> Some r
         | None -> None
 
-    let reCalculateDnSAzimuth (anno:Annotation) (up:V3d) (north : V3d) =
-        
-        let points = anno.points |> IndexList.filter(fun x -> not x.IsNaN)
-        match anno.dnsResults with
-        | Some dns ->
-            match points.Count with 
-            | x when x > 2 ->       
-                let mutable plane = dns.plane
-                
-                //correct plane orientation - check if normals point in same direction
-                let height = Plane3d(up, V3d.Zero).Height(plane.Normal)
-                plane.Normal <-
-                    match height.Sign() with
-                    | -1 -> -plane.Normal
-                    | _  -> plane.Normal                
-        
-                //strike
-                let strike = up.Cross(plane.Normal).Normalized
-        
-                //dip plane incline .. maximum dip angle
-                let v = strike.Cross(up).Normalized
-        
-                { 
-                    dns with
-                        dipAzimuth = computeAzimuth v north up; 
-                        strikeAzimuth = computeAzimuth strike north up 
-                } |> Some
-                
-            | _ -> None //TODO TO check if this shouldnt be none
-        | _-> None
-
 module DipAndStrike =   
       
     let projectOntoPlane (x:V3d) (n:V3d) = (x - (x * n)).Normalized
@@ -229,8 +198,7 @@ module DipAndStrike =
          let horP = new Plane3d(up, V3d.Zero)                
          horP.Height(plane.Normal).Sign()
     
-    let calculateManualDipAndStrikeResults (up : V3d) (north : V3d) (annotation : Annotation) =
-        Log.startTimed "[Annotation] computing manual dns"
+    let calculateManualDipAndStrikeResults (up : V3d) (north : V3d) (annotation : Annotation) =        
         
         let up = up |> Vec.normalize
         let north = north |> Vec.normalize
@@ -254,18 +222,13 @@ module DipAndStrike =
         let v = strikeDirection.Cross(up) |> Vec.normalize
 
         let p0 = annotation.points.[0]
-        let p1 = annotation.points.[1]
+        
         let planeNormal = dipDirection.Cross(strikeDirection) |> Vec.normalize
 
-        let dippingPlane = Plane3d(planeNormal, p0)
+        let dippingPlane = Plane3d(planeNormal, p0)        
 
-        Log.line "north %A" north
-        Log.line "dip   %A" dipDirection
-        Log.line "v     %A" v
-        Log.line "true  %A" (dippingPlane.Height(p1))
-
-        let alpha = -(Math.Asin (Vec.dot up dipDirection)).DegreesFromRadians()
-        Log.line "alpha     %A" alpha
+        //reconstructing dip angle from dot product (must equal manualDipAngle)
+        let alpha = -(Math.Asin (Vec.dot up dipDirection)).DegreesFromRadians()        
         
         let dns = {
             version         = DipAndStrikeResults.current
@@ -335,8 +298,6 @@ module DipAndStrike =
                 match signedOrientation up plane with
                 | -1 -> -plane.Normal
                 | _  -> plane.Normal
-    
-            //let plane = Plane3d(planeNormal, plane.Distance)
             
             //strike
             let strike = up.Cross(planeNormal).Normalized
@@ -345,14 +306,7 @@ module DipAndStrike =
             let dip = strike.Cross(planeNormal).Normalized
     
             //dip plane incline .. maximum dip angle
-            let v = strike.Cross(up).Normalized
-    
-            //let distances2 = 
-            //    points
-            //    |> IndexList.toList
-            //    |> List.map(fun x -> (plane.Height x).Abs())
-    
-            //Log.line "%A" distances2
+            let v = strike.Cross(up).Normalized                       
     
             let centerOfMass = V3d.Divide(points |> IndexList.sum, (float)points.Count)
 
@@ -379,19 +333,89 @@ module DipAndStrike =
             Some dns        
         | _ -> 
             None
+    
+    let reCalculateDipAndStrikeResults (up : V3d) (north : V3d) (annotation : Annotation) =        
+        match (annotation.geometry, annotation.dnsResults) with
+        | Geometry.DnS, Some dnsResults ->
+            let up = up |> Vec.normalize
+            let north = north |> Vec.normalize
         
+            let plane = dnsResults.plane
+
+            //correct plane orientation - check if normals point in same direction           
+            let planeNormal = 
+                match signedOrientation up plane with
+                | -1 -> -plane.Normal
+                | _  -> plane.Normal
+            
+            //strike
+            let strike = up.Cross(planeNormal).Normalized
+    
+            //dip vector 
+            let dip = strike.Cross(planeNormal).Normalized
+    
+            //dip plane incline .. maximum dip angle
+            let v = strike.Cross(up).Normalized                                       
+
+            let dns = 
+                {
+                    dnsResults with
+                        dipAngle        = Math.Acos(v.Dot(dip)).DegreesFromRadians()
+                        dipDirection    = dip
+                        strikeDirection = strike
+                        dipAzimuth      = Calculations.computeAzimuth v north up
+                        strikeAzimuth   = Calculations.computeAzimuth strike north up
+                }
+            
+            Some dns 
+        | Geometry.TT, Some _ ->
+            calculateManualDipAndStrikeResults up north annotation
+        | _ ->
+            None
+            
+    let reCalculateDnSAzimuth (anno:Annotation) (up:V3d) (north : V3d) =
+        
+        let points = anno.points |> IndexList.filter(fun x -> not x.IsNaN)
+        match anno.dnsResults with
+        | Some dns ->
+            match points.Count with 
+            | x when x > 2 ->       
+                let plane = dns.plane
+                
+                //correct plane orientation - check if normals point in same direction
+                let height = Plane3d(up, V3d.Zero).Height(plane.Normal)
+                let planeNormal =
+                    match height.Sign() with
+                    | -1 -> -plane.Normal
+                    | _  -> plane.Normal                
+        
+                //strike
+                let strike = up.Cross(planeNormal).Normalized
+        
+                //dip plane incline .. maximum dip angle
+                let v = strike.Cross(up).Normalized
+        
+                { 
+                    dns with
+                        dipAzimuth = Calculations.computeAzimuth v north up; 
+                        strikeAzimuth = Calculations.computeAzimuth strike north up 
+                } |> Some
+                
+            | _ -> None //TODO TO check if this shouldnt be none
+        | _-> None
+
     let viewUI (model : AdaptiveAnnotation) =
 
-        let results = AVal.map AdaptiveOption.toOption model.dnsResults
-        let da   = AVal.bindOption results Double.NaN (fun a -> a.dipAngle)
-        let daz  = AVal.bindOption results Double.NaN (fun a -> a.dipAzimuth)
-        let staz = AVal.bindOption results Double.NaN (fun a -> a.strikeAzimuth)
+        let results       = AVal.map AdaptiveOption.toOption model.dnsResults
+        let dipAngle      = AVal.bindOption results Double.NaN (fun a -> a.dipAngle)
+        let dipAzimuth    = AVal.bindOption results Double.NaN (fun a -> a.dipAzimuth)
+        let strikeAzimuth = AVal.bindOption results Double.NaN (fun a -> a.strikeAzimuth)
         
         require GuiEx.semui (
             Html.table [ 
-                Html.row "Dipping Angle:"       [Incremental.text (da   |> AVal.map  (fun d -> sprintf "%.2f deg" (d)))]
-                Html.row "Dipping Orientation:" [Incremental.text (daz  |> AVal.map  (fun d -> sprintf "%.2f deg" (d)))]
-                Html.row "Strike Orientation:"  [Incremental.text (staz |> AVal.map  (fun d -> sprintf "%.2f deg" (d)))]
+                Html.row "Dipping Angle:"       [Incremental.text (dipAngle      |> AVal.map  (fun d -> sprintf "%.2f deg" (d)))]
+                Html.row "Dipping Orientation:" [Incremental.text (dipAzimuth    |> AVal.map  (fun d -> sprintf "%.2f deg" (d)))]
+                Html.row "Strike Orientation:"  [Incremental.text (strikeAzimuth |> AVal.map  (fun d -> sprintf "%.2f deg" (d)))]
             ]
 
         )

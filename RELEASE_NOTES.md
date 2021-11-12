@@ -1,3 +1,7 @@
+## 4.4.2-prerelease1
+
+- added recalculation of all angular values dependent on north and up (dip and strike angle and azimuth, bearing, slope)
+
 ## 4.4.1-prerelease1
 
 - fixed "box sequence must not be empty" exception when loading a scene with surfaces that have faulty paths
