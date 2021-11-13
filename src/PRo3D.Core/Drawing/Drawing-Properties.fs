@@ -103,15 +103,16 @@ module AnnotationProperties =
 
     let viewResults (model : AdaptiveAnnotation) (up:aval<V3d>) =   
         
-        let results       = AVal.map AdaptiveOption.toOption model.results
-        let height        = AVal.bindOption results Double.NaN (fun a -> a.height)
-        let heightD       = AVal.bindOption results Double.NaN (fun a -> a.heightDelta)
-        let alt           = AVal.bindOption results Double.NaN (fun a -> a.avgAltitude)
-        let length        = AVal.bindOption results Double.NaN (fun a -> a.length)
-        let wLength       = AVal.bindOption results Double.NaN (fun a -> a.wayLength)
-        let bearing       = AVal.bindOption results Double.NaN (fun a -> a.bearing)
-        let slope         = AVal.bindOption results Double.NaN (fun a -> a.slope)
-        let trueThickness = AVal.bindOption results Double.NaN (fun a -> a.trueThickness)
+        let results           = AVal.map AdaptiveOption.toOption model.results
+        let height            = AVal.bindOption results Double.NaN (fun a -> a.height)
+        let heightD           = AVal.bindOption results Double.NaN (fun a -> a.heightDelta)
+        let alt               = AVal.bindOption results Double.NaN (fun a -> a.avgAltitude)
+        let length            = AVal.bindOption results Double.NaN (fun a -> a.length)
+        let wLength           = AVal.bindOption results Double.NaN (fun a -> a.wayLength)
+        let bearing           = AVal.bindOption results Double.NaN (fun a -> a.bearing)
+        let slope             = AVal.bindOption results Double.NaN (fun a -> a.slope)
+        let trueThickness     = AVal.bindOption results Double.NaN (fun a -> a.trueThickness)
+        let verticalThickness = AVal.bindOption results Double.NaN (fun a -> a.verticalThickness)
  
         // TODO refactor: why so complicated to list stuff?, not incremental
         let vertDist = AVal.map( fun u -> Calculations.verticalDistance   (model.points |> AList.force |> IndexList.toList) u ) up 
@@ -140,6 +141,7 @@ module AnnotationProperties =
                 yield Html.row "Vertical Distance:"     [Incremental.text (vertDist  |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield Html.row "Horizontal Distance:"   [Incremental.text (horDist   |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield Html.row "True Thickness:"        [Incremental.text (trueThickness |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
+                yield Html.row "Vertical Thickness:"    [Incremental.text (verticalThickness |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
             ]
         )
        

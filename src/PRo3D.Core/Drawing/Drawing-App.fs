@@ -62,10 +62,9 @@ module DrawingApp =
                     ]
                 let newSegment = { startPoint = firstP; endPoint = lastP; points = IndexList.ofList points }
                 { a with segments = IndexList.add newSegment a.segments }
-        | _ -> { a with points = a.points |> IndexList.add firstP }
-
+        | _ -> 
+            { a with points = a.points |> IndexList.add firstP }
     
-
     let getFinishedAnnotation up north planet (view:CameraView) (model : DrawingModel) =
         match model.working with
         | Some w ->  
@@ -88,9 +87,11 @@ module DrawingApp =
                     w.points 
                     |> DipAndStrike.calculateDipAndStrikeResults (up) (north)                        
 
+            let w = { w with dnsResults = dns }
+
             let results = Calculations.calculateAnnotationResults w up north planet
 
-            Some { w with dnsResults = dns ; results = Some results; view = view }
+            Some { w with results = Some results; view = view }
         | None -> None
 
     let finishAndAppendAndSend up north planet (view:CameraView) (model : DrawingModel) (bc : BlockingCollection<string>) = 

@@ -68,18 +68,8 @@ module CSVExport =
         let results = 
             match a.results with
             | Some r -> r
-            | None ->  
-                { 
-                    version       = AnnotationResults.current
-                    height        = Double.NaN
-                    heightDelta   = Double.NaN
-                    avgAltitude   = Double.NaN
-                    length        = Double.NaN
-                    wayLength     = Double.NaN
-                    bearing       = Double.NaN
-                    slope         = Double.NaN
-                    trueThickness = Double.NaN
-                }
+            | None -> AnnotationResults.initial
+                
         
         let dnsResults = 
             match a.dnsResults with

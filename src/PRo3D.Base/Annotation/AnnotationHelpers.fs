@@ -69,17 +69,7 @@ module Calculations =
         CooTransformation.getHeight p upVec planet
     
     let calcResultsPoint (model:Annotation) (upVec:V3d) (planet:Planet) : AnnotationResults =            
-        { 
-            version       = AnnotationResults.current
-            height        = Double.NaN
-            heightDelta   = Double.NaN
-            avgAltitude   = CooTransformation.getAltitude model.points.[0] upVec planet
-            length        = Double.NaN
-            wayLength     = Double.NaN
-            bearing       = Double.NaN
-            slope         = Double.NaN
-            trueThickness = Double.NaN
-        }
+        { AnnotationResults.initial with avgAltitude = CooTransformation.getAltitude model.points.[0] upVec planet }       
     
     let getDistance (points:list<V3d>) = 
         points
@@ -126,25 +116,34 @@ module Calculations =
         let bearing = bearing upVec northVec line.Direction.Normalized
         let slope   = pitch upVec line.Direction.Normalized
     
-        let verticalThickness = (heights |> List.max) - (heights |> List.min)
+        let height = (heights |> List.max) - (heights |> List.min)
 
-        let trueThickness =
+        let trueThickness, verticalThickness =
             match (annotation.geometry, annotation.dnsResults) with
             | (Geometry.TT, Some dns) when (annotation.manualDipAngle.value.IsNaN()) |> not ->
                 let p1 = annotation.points.[1]
-                (dns.plane.Height(p1))
-            | _ -> Double.NaN
+                let planeHeight = dns.plane.Height(p1)
+
+                let rayUp, rayDown = Ray3d(p1, upVec), Ray3d(p1, upVec)
+
+                let pointOnPlaneUp = rayUp.Intersect(dns.plane)
+                let pointOnPlaneDown = rayDown.Intersect(dns.plane)
+                let verticalDistance = (min (Vec.distance p1 pointOnPlaneUp) (Vec.distance p1 pointOnPlaneDown)) * (planeHeight.Sign() |> float)
+
+                planeHeight, verticalDistance
+            | _ -> Double.NaN, Double.NaN
 
         {   
-            version       = AnnotationResults.current
-            height        = verticalThickness
-            heightDelta   = Fun.Abs (heights.[hcount-1] - heights.[0])
-            avgAltitude   = (heights |> List.average)
-            length        = dist
-            wayLength     = wayLength
-            bearing       = bearing
-            slope         = slope
-            trueThickness = trueThickness
+            version           = AnnotationResults.current
+            height            = height
+            heightDelta       = Fun.Abs (heights.[hcount-1] - heights.[0])
+            avgAltitude       = (heights |> List.average)
+            length            = dist
+            wayLength         = wayLength
+            bearing           = bearing
+            slope             = slope
+            trueThickness     = trueThickness
+            verticalThickness = verticalThickness
         }
     
     let calculateAnnotationResults (model:Annotation) (upVec:V3d) (northVec:V3d) (planet:Planet) : AnnotationResults =

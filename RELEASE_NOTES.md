@@ -1,3 +1,7 @@
+## 4.4.3-prerelease1
+
+- added vertical thickness computation for TT (True Thickness) annotation tool
+
 ## 4.4.2-prerelease1
 
 - added recalculation of all angular values dependent on north and up (dip and strike angle and azimuth, bearing, slope)
