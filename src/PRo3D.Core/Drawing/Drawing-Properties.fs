@@ -115,8 +115,8 @@ module AnnotationProperties =
         let verticalThickness = AVal.bindOption results Double.NaN (fun a -> a.verticalThickness)
  
         // TODO refactor: why so complicated to list stuff?, not incremental
-        let vertDist = AVal.map( fun u -> Calculations.verticalDistance   (model.points |> AList.force |> IndexList.toList) u ) up 
-        let horDist  = AVal.map( fun u -> Calculations.horizontalDistance (model.points |> AList.force |> IndexList.toList) u ) up
+        let vertDist = AVal.map( fun u -> Calculations.verticalDelta   (model.points |> AList.force |> IndexList.toList) u ) up 
+        let horDist  = AVal.map( fun u -> Calculations.horizontalDelta (model.points |> AList.force |> IndexList.toList) u ) up
 
         //apparent thickness
         //vertical thickness

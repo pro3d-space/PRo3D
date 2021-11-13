@@ -1,3 +1,8 @@
+## 4.4.4-prerelease1
+
+- added csv export for vertical thickness computation
+- added csv export of angular error values for dns computation
+
 ## 4.4.3-prerelease1
 
 - added vertical thickness computation for TT (True Thickness) annotation tool

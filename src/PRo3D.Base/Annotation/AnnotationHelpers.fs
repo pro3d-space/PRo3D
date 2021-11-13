@@ -44,7 +44,8 @@ module Calculations =
         let ground = new Plane3d(up.Normalized, 0.0)
         Math.Asin(ground.Height(dir)).DegreesFromRadians()
 
-    let verticalDistance (points:list<V3d>) (up:V3d) = 
+    //computes the distance between the first and the last point projected onto the upvector
+    let verticalDelta (points:list<V3d>) (up:V3d) = 
         match points.Length with
         | 1 -> 0.0
         | _ -> 
@@ -54,7 +55,8 @@ module Calculations =
 
             (v |> Vec.dot up.Normalized)
 
-    let horizontalDistance (points:list<V3d>) (up:V3d) = 
+    //computes the distance between the first and the last point in the horizontal plane
+    let horizontalDelta (points:list<V3d>) (up:V3d) = 
         match points.Length with
         | 1 -> 0.0
         | _ -> 

@@ -22,6 +22,9 @@ module CSVExport =
         errorMax      : float
         errorStd      : float
         errorSos      : float
+
+        minAngularError    : float
+        maxAngularError    : float
     }
    
     type ExportAnnotation = {
@@ -45,14 +48,18 @@ module CSVExport =
         trueThickness      : float
         bearing            : float
         slope              : float
-        verticalDistance   : float
-        horizontalDistance : float
+        verticalDelta      : float
+        verticalThickness  : float
+        horizontalDelta    : float
 
         errorAvg           : float
         errorMin           : float
         errorMax           : float
         errorStd           : float
         sumOfSquares       : float
+
+        minAngularError    : float
+        maxAngularError    : float
 
         text               : string
         groupName          : string
@@ -71,29 +78,50 @@ module CSVExport =
             | None -> AnnotationResults.initial
                 
         
+
+
         let dnsResults = 
             match a.dnsResults with
-            | Some x -> 
-                { 
-                    dipAngle      = x.dipAngle
-                    dipAzimuth    = x.dipAzimuth
-                    strikeAzimuth = x.strikeAzimuth
-                    errorAvg      = x.error.average
-                    errorMin      = x.error.min
-                    errorMax      = x.error.max
-                    errorStd      = x.error.stdev
-                    errorSos      = x.error.sumOfSquares
-                }
+            | Some x ->                 
+                match x.regressionInfo with
+                | Some regInfo ->
+                    { 
+                        dipAngle        = x.dipAngle
+                        dipAzimuth      = x.dipAzimuth
+                        strikeAzimuth   = x.strikeAzimuth
+                        errorAvg        = x.error.average
+                        errorMin        = x.error.min
+                        errorMax        = x.error.max
+                        errorStd        = x.error.stdev
+                        errorSos        = x.error.sumOfSquares
+                        minAngularError = (Constant.DegreesPerRadian * regInfo.AngularErrors.X)
+                        maxAngularError = (Constant.DegreesPerRadian * regInfo.AngularErrors.Y)
+                    }
+                | None ->
+                    { 
+                        dipAngle        = x.dipAngle
+                        dipAzimuth      = x.dipAzimuth
+                        strikeAzimuth   = x.strikeAzimuth
+                        errorAvg        = x.error.average
+                        errorMin        = x.error.min
+                        errorMax        = x.error.max
+                        errorStd        = x.error.stdev
+                        errorSos        = x.error.sumOfSquares
+                        minAngularError = Double.NaN
+                        maxAngularError = Double.NaN
+                    }
             | None -> 
                 { 
-                    dipAngle      = Double.NaN
-                    dipAzimuth    = Double.NaN
-                    strikeAzimuth = Double.NaN
-                    errorAvg      = Double.NaN
-                    errorMin      = Double.NaN
-                    errorMax      = Double.NaN
-                    errorStd      = Double.NaN
-                    errorSos      = Double.NaN
+                    dipAngle        = Double.NaN
+                    dipAzimuth      = Double.NaN
+                    strikeAzimuth   = Double.NaN
+                    errorAvg        = Double.NaN
+                    errorMin        = Double.NaN
+                    errorMax        = Double.NaN
+                    errorStd        = Double.NaN
+                    errorSos        = Double.NaN
+                    minAngularError = Double.NaN
+                    maxAngularError = Double.NaN
                 }
         
         let points = 
@@ -101,39 +129,40 @@ module CSVExport =
             //|> IndexList.map a.modelTrafo.Forward.TransformPos 
             |> IndexList.toArray
         
-        let verticalDistance = 
-            Calculations.verticalDistance (points |> Array.toList) upVector
+        let verticalDelta = 
+            Calculations.verticalDelta (points |> Array.toList) upVector
 
-        let horizontalDistance = 
-            Calculations.horizontalDistance (points |> Array.toList) upVector
+        let horizontalDelta = 
+            Calculations.horizontalDelta (points |> Array.toList) upVector
 
         let c = Box3d(points).Center
         
         {   
             //non-measurement
-            key           = a.key
-            geometry      = a.geometry
-            projection    = a.projection
-            semantic      = a.semantic
-            color         = a.color.ToString()
-            thickness     = a.thickness.value
-            points        = a.points.Count
-            manualDip     = a.manualDipAngle.value
-            text          = a.text;
-            groupName     = lookUp |> HashMap.tryFind a.key |> Option.defaultValue("")
-            surfaceName   = a.surfaceName
+            key               = a.key
+            geometry          = a.geometry
+            projection        = a.projection
+            semantic          = a.semantic
+            color             = a.color.ToString()
+            thickness         = a.thickness.value
+            points            = a.points.Count
+            manualDip         = a.manualDipAngle.value
+            text              = a.text;
+            groupName         = lookUp |> HashMap.tryFind a.key |> Option.defaultValue("")
+            surfaceName       = a.surfaceName
                         
             //distances and orientations
-            height        = results.height //
-            heightDelta   = results.heightDelta //
-            length        = results.length //
-            wayLength     = results.wayLength //
-            trueThickness = results.trueThickness //
-            bearing       = results.bearing //
-            slope         = results.slope //
+            height            = results.height //
+            heightDelta       = results.heightDelta //
+            length            = results.length //
+            wayLength         = results.wayLength //
+            trueThickness     = results.trueThickness //
+            verticalThickness = results.verticalThickness //
+            bearing           = results.bearing //
+            slope             = results.slope //
 
-            horizontalDistance = horizontalDistance //
-            verticalDistance   = verticalDistance //
+            horizontalDelta = horizontalDelta //
+            verticalDelta   = verticalDelta //
             
             //dns
             dipAngle      = dnsResults.dipAngle //
@@ -146,11 +175,15 @@ module CSVExport =
             errorMax     = dnsResults.errorMax
             errorStd     = dnsResults.errorStd
             sumOfSquares = dnsResults.errorSos
+
+            //pca measures
+            minAngularError = dnsResults.minAngularError
+            maxAngularError = dnsResults.maxAngularError            
             
             //position
-            x             = c.X;
-            y             = c.Y;
-            z             = c.Z;
+            x = c.X;
+            y = c.Y;
+            z = c.Z;
         }
 
     let writeCSV 
