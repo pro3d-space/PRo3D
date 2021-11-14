@@ -93,7 +93,6 @@ let main argv =
     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create) |> printfn "ApplicationData: %s"
     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.Create) |> printfn "LocalApplicationData: %s"
 
-
     let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
     Config.configPath <- appData
 
@@ -284,8 +283,7 @@ let main argv =
             ViewerApp.start runtime signature startEmpty messagingMailbox sendQueue dumpFile cacheFile uri
 
         let s = { MailboxState.empty with update = mainApp.update Guid.Empty}
-        MailboxAction.InitMailboxState s |> messagingMailbox.Post
-    
+        MailboxAction.InitMailboxState s |> messagingMailbox.Post            
     
         //let domainError (sender:obj) (args:UnhandledExceptionEventArgs) =
         //    let e = args.ExceptionObject :?> Exception;

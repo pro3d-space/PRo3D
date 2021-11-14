@@ -387,13 +387,17 @@ module FootPrint =
                                 | None -> ""
                 
                
-                let pngName = System.String.Format(
-                                        "{0:0000}{1:00}{2:00}_{3:00}{4:00}{5:00}_{6}_{7}",
-                                        now.Year, now.Month, now.Day, now.Hour, now.Minute, now.Second, roverName, instrumentName)
+                let pngName = 
+                    System.String.Format(
+                        "{0:0000}{1:00}{2:00}_{3:00}{4:00}{5:00}_{6}_{7}",
+                        now.Year, now.Month, now.Day, now.Hour, now.Minute, now.Second, roverName, instrumentName
+                    )
 
-                let svxName = System.String.Format(
-                                    "{0:0000}{1:00}{2:00}_{3:00}{4:00}{5:00}_{6}_{7}.svx",
-                                    now.Year, now.Month, now.Day, now.Hour, now.Minute, now.Second, roverName, instrumentName)
+                let svxName = 
+                    System.String.Format(
+                        "{0:0000}{1:00}{2:00}_{3:00}{4:00}{5:00}_{6}_{7}.svx",
+                        now.Year, now.Month, now.Day, now.Hour, now.Minute, now.Second, roverName, instrumentName
+                    )
 
                 let width, height =
                         match v.selectedInstrument with
@@ -409,15 +413,18 @@ module FootPrint =
                     path = fpPath
                     name = pngName
                 }
+
                 let calibration = {
                     instrumentPlatformXmlFileName       = v.rover.id + ".xml"
                     instrumentPlatformXmlFileVersion    = 1.0
                 }
+
                 let roverInfo = {
                     position = v.position
                     lookAtPosition = v.lookAt
                     placementTrafo = v.roverTrafo
                 }
+
                 let panAx = v.rover.axes.TryFind "Pan Axis" |> Option.map(fun x -> x.angle.value )
                 let panVal = match panAx with | Some av -> av | None -> 1.0
 
@@ -427,10 +434,12 @@ module FootPrint =
                     panAxis = panVal
                     tiltAxis = tiltVal
                 }
+
                 let focal =
-                        match v.selectedInstrument with
-                                | Some i -> i.focal.value
-                                | None -> 1.0
+                    match v.selectedInstrument with
+                    | Some i -> i.focal.value
+                    | None -> 1.0
+
                 let referenceFrameInfo = {
                     name = "Ground"
                     parentFrameName = ""
@@ -442,10 +451,12 @@ module FootPrint =
                     focalLength         = focal
                     referenceFrameInfo  = referenceFrameInfo
                 }
+
                 let acquisition = {
                     roverInfo       = roverInfo
                     instrumentInfo  = instrumentinfo
                 }
+
                 let simulatedViewData =
                     {
                         fileInfo    = fileInfo
@@ -453,7 +464,11 @@ module FootPrint =
                         acquisition = acquisition
                     }
                 //Serialization.save (Path.Combine(fpPath, svxName)) simulatedViewData |> ignore
-                let json = simulatedViewData |> Json.serialize |> Json.formatWith JsonFormattingOptions.Pretty |> Serialization.writeToFile (Path.Combine(fpPath, svxName))
+                let json = 
+                    simulatedViewData 
+                    |> Json.serialize 
+                    |> Json.formatWith JsonFormattingOptions.Pretty 
+                    |> Serialization.writeToFile (Path.Combine(fpPath, svxName))
                 //Serialization.writeToFile (Path.Combine(fpPath, svxName)) json 
                 vp
             | None -> vp 

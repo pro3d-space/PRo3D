@@ -24,15 +24,22 @@ type Interactions =
 module Interactions =
     // excludes interactions from dropdown in topmenu
     let hideSet = 
-        [
-            Interactions.PlaceRover
-            Interactions.TrafoControls
-            Interactions.PlaceSurface
-            Interactions.PickMinervaProduct
-            Interactions.PickMinervaFilter
-            Interactions.PickLinking
-            Interactions.DrawLog            
-            Interactions.PickLog            
-            Interactions.PlaceValidator
-            Interactions.TrueThickness            
+        [            
+            //Interactions.PickExploreCenter    
+            //Interactions.PlaceCoordinateSystem
+            //Interactions.DrawAnnotation       
+            //Interactions.PlaceRover           
+            Interactions.TrafoControls        
+            Interactions.PlaceSurface         
+            //Interactions.PickAnnotation       
+            //Interactions.PickSurface          
+            Interactions.PickMinervaProduct   
+            Interactions.PickMinervaFilter    
+            Interactions.PickLinking          
+            Interactions.DrawLog              
+            Interactions.PickLog              
+            Interactions.PlaceValidator       
+            Interactions.TrueThickness        
+            //Interactions.PlaceScaleBar        
+            //Interactions.PlaceSceneObject     
         ] |> HashSet.ofList

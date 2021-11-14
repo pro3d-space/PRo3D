@@ -447,70 +447,9 @@ module Viewer =
         let init = Optic.set (NavigationModel.camera_ >-> CameraControllerState.zoomFactor_) 0.0008 init
         init        
 
-    let sceneElm = {id = "scene"; title = (Some "Scene"); weight = 0.4; deleteInvisible = None; isCloseable = None }
-    
-    let dockConfigFull = 
-      config {
-          content (                    
-              horizontal 1.0 [                                                        
-                stack 0.7 None [
-                    {id = "render"; title = Some " Main View "; weight = 0.6; deleteInvisible = None; isCloseable = None}
-                    {id = "instrumentview"; title = Some " Instrument View "; weight = 0.6; deleteInvisible = None; isCloseable = None}
-                ]                            
-                vertical 0.3 [
-                  stack 0.5 (Some "surfaces") [                    
-                    {id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                    {id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                    {id = "minerva"; title = Some " Minerva "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                    {id = "scalebars"; title = Some " ScaleBars "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                  ]                          
-                  stack 0.5 (Some "config") [
-                    {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                    {id = "bookmarks"; title = Some " Bookmarks"; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                    {id = "viewplanner"; title = Some " ViewPlanner "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                    {id = "corr_mappings"; title = Some " RockTypes "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                    {id = "corr_semantics"; title = Some " Semantics "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                  ]
-                ]
-              ]              
-          )
-          appName "PRo3D"
-          useCachedConfig false
-      }
+    let sceneElm = {id = "scene"; title = (Some "Scene"); weight = 0.4; deleteInvisible = None; isCloseable = None }   
 
-    let dockConfigCore = 
-      config {
-          content (                        
-              horizontal 1.0 [                                                        
-                stack 0.7 None [
-                    {id = "render"; title = Some " Main View "; weight = 0.6; deleteInvisible = None; isCloseable = None}                       
-                ]                            
-                vertical 0.3 [
-                  stack 0.5 None [                        
-                    {id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                    {id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                    {id = "scalebars"; title = Some " ScaleBars "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                  ]                          
-                  stack 0.5 (Some "config") [
-                    {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                    {id = "bookmarks"; title = Some " Bookmarks"; weight = 0.4; deleteInvisible = None; isCloseable = None }  
-                    {id = "scaletools"; title = Some " Scale Tools"; weight = 0.4; deleteInvisible = None; isCloseable = None }                       
-                  ]
-                ]
-              ]                        
-          )
-          appName "PRo3D"
-          useCachedConfig false
-      }
-
-    //let initFeedback = 
-    //     {  loadScene = "loading Scene..."
-    //        saveScene = "saveing Scene..."
-    //        loadOpcs  = "load opcs..."
-    //        noText    = ""
-    //     }
-
-    let initial msgBox (startupArgs : StartupArgs) url samples : Model = 
+    let initialModel msgBox (startupArgs : StartupArgs) url samples : Model = 
         {     
             scene = 
                 {
@@ -527,7 +466,7 @@ module Viewer =
                     referenceSystem       = ReferenceSystem.initial                    
                     bookmarks             = GroupsModel.initial
                     scaleBars             = ScaleBarsModel.initial
-                    dockConfig            = DockConfigs.core
+                    dockConfig            = DockConfigs.viewPlanner
                     closedPages           = list.Empty 
                     firstImport           = true
                     userFeedback          = ""

@@ -95,7 +95,8 @@ module RoverProvider =
             axis
 
     let toAxes (axes : InstrumentPlatforms.SAxis[]) : list<Axis> =
-        axes |> Array.mapi(fun i x->
+        axes 
+        |> Array.mapi(fun i x ->
             { 
                 index        = i
                 id           = x.m_pcAxisId.ToStrAnsi()
@@ -104,14 +105,16 @@ module RoverProvider =
                 endPoint     = x.m_oEndPoint.ToV3d()
 
                 angle = {
-                            value  = x.m_fCurrentAngle.DegreesFromGons()
-                            min    = x.m_fMinAngle.DegreesFromGons()
-                            max    = x.m_fMaxAngle.DegreesFromGons()
-                            step   = 0.1
-                            format = "{0:0.0}"
-                        }
-
-            }) |> Array.map axisHack |> Array.toList
+                    value  = x.m_fCurrentAngle.DegreesFromGons()
+                    min    = x.m_fMinAngle.DegreesFromGons()
+                    max    = x.m_fMaxAngle.DegreesFromGons()
+                    step   = 0.1
+                    format = "{0:0.0}"
+                }
+            }
+        ) 
+        |> Array.map axisHack
+        |> Array.toList
 
     let toRover (platform : InstrumentPlatforms.SPlatform) =
         let wheels = 
@@ -191,10 +194,10 @@ module RoverApp =
           | 0 ->
             let r'         = p |> RoverProvider.toRover
             let r''        = { r' with axes = r'.axes |> HashMap.map(fun x y -> RoverProvider.shiftOutput y shift) }
-            let rovers'    = m.rovers |> HashMap.alter r''.id (Option.map(fun _ -> r''))
-            let platforms' = m.platforms |> HashMap.alter r''.id (Option.map(fun _ -> p))
+            let rovers    = m.rovers |> HashMap.alter r''.id (Option.map(fun _ -> r''))
+            let platforms = m.platforms |> HashMap.alter r''.id (Option.map(fun _ -> p))
 
-            { m with rovers = rovers'; platforms = platforms' }
+            { m with rovers = rovers; platforms = platforms }
           | _ -> 
             Log.error "encountered %d from update platform" error
             m
