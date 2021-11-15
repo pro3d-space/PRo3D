@@ -66,7 +66,7 @@ module Snapshot =
 
     let cleanName name =
         let name = String.replace "#" "" name
-        let name = String.replace " " "_" name
+//        let name = String.replace " " "_" name
         name
 
     /// Creates snapshots based on camera views.

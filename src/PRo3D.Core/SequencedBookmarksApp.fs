@@ -117,16 +117,16 @@ module SequencedBookmarksApp =
             let mediumMpf = millisPerFrame |> List.map (fun x -> x |> round |> int)
                                            |> List.sort
                                            |> List.item ((millisPerFrame.Length / 2))   
-            
 
             let fps = 
                 if mediumMpf > 0 then 
                     1000 / mediumMpf
                 else
-                    Log.line "Medium FPS 0. Number of recorded Frames: %d" timestamps.Length
+                    Log.line "[Debug] Medium FPS 0. Number of recorded Frames: %d" timestamps.Length
                     let debugMillis = millisPerFrame |> List.fold (fun a b -> a + ";" + (string b)) ""
                     Log.line "[Debug] Millis per frame %s" debugMillis  
-                    0
+                    Log.line "[Debug] Using default value"  
+                    60
             //Log.line "FPS = %i" fps
             fps |> Some
 
@@ -250,7 +250,7 @@ module SequencedBookmarksApp =
        }
 
     let getNewBookmark (camState : CameraView) (navigationMode : NavigationMode) (exploreCenter : V3d) (count:int) =
-        let name = sprintf "Bookmark #%d" count //todo to make useful unique names
+        let name = sprintf "Bookmark_%d" count //todo to make useful unique names
         {
             version        = Bookmark.current
             key            = System.Guid.NewGuid()

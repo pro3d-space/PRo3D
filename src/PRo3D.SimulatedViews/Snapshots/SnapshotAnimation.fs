@@ -23,7 +23,13 @@ module SnapshotAnimation =
         SnapshotAnimation.TestData
     //////////////////////    
 
+    let existsOrCreate dirname =
+        if not (System.IO.Directory.Exists dirname) then
+            System.IO.Directory.CreateDirectory dirname |> ignore
+            Log.line "Created directory %s" dirname
+
     let writeToDir (animation : SnapshotAnimation) (dirpath : string) =
+        existsOrCreate dirpath
         animation
             |> Json.serialize 
             |> Json.formatWith JsonFormattingOptions.Pretty 
@@ -31,6 +37,7 @@ module SnapshotAnimation =
 
     let writeToFile (animation : SnapshotAnimation) (filepath : string) =
         Log.line "[Snapshots] Writing JSON %s" filepath
+        existsOrCreate (System.IO.Path.GetDirectoryName filepath)
         animation
             |> Json.serialize 
             |> Json.formatWith JsonFormattingOptions.Pretty 
