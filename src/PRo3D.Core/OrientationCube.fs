@@ -141,7 +141,7 @@ module Sg =
         }
         |> Sg.pass (RenderPass.after "cube" RenderPassOrder.Arbitrary RenderPass.main)
 
-    let view (camView : aval<CameraView>) (config:AdaptiveViewConfigModel) (refSys:AdaptiveReferenceSystem) =
+    let view (camView : aval<CameraView>) (config : AdaptiveViewConfigModel) (refSys:AdaptiveReferenceSystem) =
         let path = 
             refSys.planet |> AVal.map (fun p -> 
                 match p with

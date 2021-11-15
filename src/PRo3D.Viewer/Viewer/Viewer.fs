@@ -34,7 +34,6 @@ open PRo3D.Core
 open PRo3D.Core.Drawing
 open PRo3D.Navigation2
 open PRo3D.Bookmarkings
-
 open PRo3D.Core.Surface
 open PRo3D.Viewer
 
@@ -1997,7 +1996,8 @@ module ViewerApp =
         | None -> m
 
     let initialModelWithLoadedData (runtime: IRuntime) (signature: IFramebufferSignature) 
-                                   (startEmpty: bool) messagingMailbox dumpFile cacheFile =
+                                   (startEmpty: bool) messagingMailbox dumpFile cacheFile 
+                                   url =
         let m = 
             if startEmpty |> not then
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs url dataSamples
@@ -2018,7 +2018,7 @@ module ViewerApp =
 
     let start (runtime: IRuntime) (signature: IFramebufferSignature)
               (startEmpty: bool) messagingMailbox sendQueue dumpFile cacheFile url =
-        let m = initialModelWithLoadedData runtime signature startEmpty messagingMailbox dumpFile cacheFile
+        let m = initialModelWithLoadedData runtime signature startEmpty messagingMailbox dumpFile cacheFile url
      
         App.start {
             unpersist = Unpersist.instance
@@ -2029,8 +2029,8 @@ module ViewerApp =
         }
 
     let startAndReturnMModel (runtime: IRuntime) (signature: IFramebufferSignature)
-                             (startupArgs : StartupArgs) messagingMailbox sendQueue dumpFile cacheFile =
-        let m = initialModelWithLoadedData runtime signature startupArgs.startEmpty messagingMailbox dumpFile cacheFile
+                             (startupArgs : StartupArgs) messagingMailbox sendQueue dumpFile cacheFile url =
+        let m = initialModelWithLoadedData runtime signature startupArgs.startEmpty messagingMailbox dumpFile cacheFile url
         let m = {m with startupArgs = startupArgs}
         
         AppExtension.start' {

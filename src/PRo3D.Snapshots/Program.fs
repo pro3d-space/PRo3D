@@ -158,8 +158,11 @@ let startApplication (startupArgs : CLStartupArgs) =
             remoteApp  = false
             }
 
+        let port = getFreePort()
+        let uri = sprintf "http://localhost:%d" port
+
         let (mainApp, mModel) = 
-            ViewerApp.startAndReturnMModel runtime signature viewerArgs messagingMailbox sendQueue dumpFile cacheFile
+            ViewerApp.startAndReturnMModel runtime signature viewerArgs messagingMailbox sendQueue dumpFile cacheFile uri
 
         let s = { MailboxState.empty with update = mainApp.update Guid.Empty }
         MailboxAction.InitMailboxState s |> messagingMailbox.Post
@@ -188,8 +191,7 @@ let startApplication (startupArgs : CLStartupArgs) =
                             >=> OK "CORS approved" )
             ]
 
-        let port = getFreePort()
-        let uri = sprintf "http://localhost:%d" port
+
         let suaveServer = 
             WebPart.startServerLocalhost port [
                 allow_cors

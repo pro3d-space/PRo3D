@@ -226,7 +226,7 @@ module ViewerUtils =
             let! exists = (surfacesMap |> AMap.keys) |> ASet.contains surface.surface
             if exists then
               
-                let surf = lookUp (surface.surface) surfacesMap
+                let surf = SurfaceUtils.lookUp (surface.surface) surfacesMap
                     //AVal.bind(fun x -> lookUp (x.surface) blarg )
                 
                 let isSelected = AVal.map2(fun x y ->

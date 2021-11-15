@@ -28,6 +28,7 @@
     <Compile Include="Groups-Model.fs" />
     <Compile Include="ScaleBars-Model.fs" />
     <Compile Include="GeologicSurface-Model.fs" />
+    <Compile Include="ViewConfigModel.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="Sg.fs" />
     <Compile Include="UI.fs" />
