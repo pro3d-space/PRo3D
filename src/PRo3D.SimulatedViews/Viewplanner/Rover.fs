@@ -113,7 +113,7 @@ module RoverProvider =
                 }
             }
         ) 
-        |> Array.map axisHack
+        //|> Array.map axisHack
         |> Array.toList
 
     let toRover (platform : InstrumentPlatforms.SPlatform) =
@@ -193,7 +193,7 @@ module RoverApp =
         match error with
           | 0 ->
             let r'         = p |> RoverProvider.toRover
-            let r''        = { r' with axes = r'.axes |> HashMap.map(fun x y -> RoverProvider.shiftOutput y shift) }
+            let r''        = { r' with axes = r'.axes } //|> HashMap.map(fun x y -> RoverProvider.shiftOutput y shift) }
             let rovers    = m.rovers |> HashMap.alter r''.id (Option.map(fun _ -> r''))
             let platforms = m.platforms |> HashMap.alter r''.id (Option.map(fun _ -> p))
 

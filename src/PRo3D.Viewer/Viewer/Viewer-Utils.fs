@@ -223,7 +223,7 @@ module ViewerUtils =
         
     let viewSingleSurfaceSg 
         (surface         : AdaptiveSgSurface) 
-        (surfacesMap     : amap<Guid, AdaptiveLeafCase>) // TODO v5: to get your naming right!!
+        (surfacesMap     : amap<Guid, AdaptiveLeafCase>)
         (frustum         : aval<Frustum>) 
         (selectedId      : aval<Option<Guid>>)
         (surfacePicking  : aval<bool>)
@@ -290,7 +290,8 @@ module ViewerUtils =
 
                 
                 let samplerDescription : aval<SamplerState -> SamplerState> = 
-                    filterTexture |> AVal.map (fun filterTexture ->  
+                    filterTexture 
+                    |> AVal.map (fun filterTexture ->  
                         fun (x : SamplerState) -> 
                             match filterTexture with
                             | false -> { x with Filter = TextureFilter.MinLinearMagPoint }
@@ -335,7 +336,7 @@ module ViewerUtils =
                     |> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
                     |> addImageCorrectionParameters surf
                     |> Sg.uniform "footprintVisible" footprintVisible
-                    |> Sg.uniform "instrumentMVP" footprintMatrix
+                    |> Sg.uniform "footprintProj" footprintMatrix
                     |> Sg.uniform "projMVP" fp.projectionMatrix
                     |> Sg.uniform "globalToLocal" fp.globalToLocalPos
                     |> Sg.uniform "instViewMVP" fp.instViewMatrix
@@ -419,8 +420,9 @@ module ViewerUtils =
             OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
          //   PRo3D.Base.Shader.falseColorLegend2 |> toEffect
             PRo3D.Base.Shader.mapColorAdaption  |> toEffect            
-            //PRo3D.Base.OtherShader.Shader.footprintV        |> toEffect //TODO reactivate viewplanner
-            //PRo3D.Base.OtherShader.Shader.footPrintF        |> toEffect
+            PRo3D.Base.Shader.footprintV        |> toEffect //TODO reactivate viewplanner
+            PRo3D.Base.Shader.footPrintF        |> toEffect
+            
         ]
 
     //TODO TO refactor screenshot specific
