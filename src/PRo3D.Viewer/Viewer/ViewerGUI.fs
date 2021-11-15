@@ -135,7 +135,7 @@ module Gui =
                 AVal.map2 (fun (a : CameraView) b -> 
                     CooTransformation.getAltitude a.Location a.Up b ) cv m.planet
             
-            let lon = spericalc |> AVal.map(fun x -> sprintf "%s deg" ((x.longitude).ToString()))
+            let lon = spericalc |> AVal.map(fun x -> sprintf "%s deg" ((360.0 - x.longitude).ToString()))
             let lat = spericalc |> AVal.map(fun x -> sprintf "%s deg" ((x.latitude).ToString()))            
             let alt2 = alt2 |> AVal.map(fun x -> sprintf "%s m" ((x).ToString("0.00")))            
                                                    

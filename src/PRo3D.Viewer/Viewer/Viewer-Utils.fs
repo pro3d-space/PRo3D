@@ -420,8 +420,8 @@ module ViewerUtils =
             OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
          //   PRo3D.Base.Shader.falseColorLegend2 |> toEffect
             PRo3D.Base.Shader.mapColorAdaption  |> toEffect            
-            PRo3D.Base.Shader.footprintV        |> toEffect //TODO reactivate viewplanner
-            PRo3D.Base.Shader.footPrintF        |> toEffect
+            //PRo3D.Base.Shader.footprintV        |> toEffect //TODO reactivate viewplanner
+            //PRo3D.Base.Shader.footPrintF        |> toEffect
             
         ]
 
