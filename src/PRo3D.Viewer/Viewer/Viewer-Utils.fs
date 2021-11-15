@@ -210,7 +210,7 @@ module ViewerUtils =
         
     let viewSingleSurfaceSg 
         (surface         : AdaptiveSgSurface) 
-        (blarg           : amap<Guid, AdaptiveLeafCase>) // TODO v5: to get your naming right!!
+        (surfacesMap     : amap<Guid, AdaptiveLeafCase>) // TODO v5: to get your naming right!!
         (frustum         : aval<Frustum>) 
         (selectedId      : aval<Option<Guid>>)
         (surfacePicking  : aval<bool>)
@@ -223,10 +223,10 @@ module ViewerUtils =
         (comparisonApp   : AdaptiveComparisonApp) =
 
         adaptive {
-            let! exists = (blarg |> AMap.keys) |> ASet.contains surface.surface
+            let! exists = (surfacesMap |> AMap.keys) |> ASet.contains surface.surface
             if exists then
               
-                let surf = SurfaceUtils.lookUp (surface.surface) blarg
+                let surf = lookUp (surface.surface) surfacesMap
                     //AVal.bind(fun x -> lookUp (x.surface) blarg )
                 
                 let isSelected = AVal.map2(fun x y ->
@@ -239,11 +239,28 @@ module ViewerUtils =
                     |> Sg.noEvents 
                     |> Sg.cullMode(surf |> AVal.bind(fun x -> x.cullMode))
                     |> Sg.fillMode(surf |> AVal.bind(fun x -> x.fillMode))
+                                                
+                let triangleFilter = 
+                    surf |> AVal.bind(fun s -> s.triangleSize.value)
                 
+                let trafo =
+                    adaptive {
+                        let! fullTrafo = SurfaceTransformations.fullTrafo surf refsys
+                        let! surface = surf
+                        let! scaleFactor = surface.scaling.value
+                        let! preTransform = surface.preTransform
+                        let! flipZ = surface.transformation.flipZ
+                        if flipZ then 
+                            return Trafo3d.Scale(scaleFactor) * Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * preTransform)
+                        else
+                            return Trafo3d.Scale(scaleFactor) * (fullTrafo * preTransform)
+                    }
+
                 let pickable = 
-                    AVal.map2( fun (a:Box3d) (b:Trafo3d) -> 
+                    (globalBB, trafo)
+                    ||>  AVal.map2( fun (a:Box3d) (b:Trafo3d) -> 
                         { shape = PickShape.Box (a.Transformed(b)); trafo = Trafo3d.Identity }
-                    ) globalBB (SurfaceTransformations.fullTrafo surf refsys)
+                    ) 
                 
                 let pickBox = 
                     pickable 
@@ -251,22 +268,6 @@ module ViewerUtils =
                         match k.shape with
                         | PickShape.Box bb -> bb
                         | _ -> Box3d.Invalid)
-                
-                let triangleFilter = 
-                    surf |> AVal.bind(fun s -> s.triangleSize.value)
-                
-                let trafo =
-                    adaptive {
-                        let! fullTrafo = SurfaceTransformations.fullTrafo surf refsys
-                        let! s = surf
-                        let! sc = s.scaling.value
-                        let! t = s.preTransform
-                        let! flipZ = s.transformation.flipZ
-                        if flipZ then 
-                            return Trafo3d.Scale(sc) * Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * t)
-                        else
-                            return Trafo3d.Scale(sc) * (fullTrafo * t) 
-                    }
                     
                 let trafoObj =
                    adaptive {

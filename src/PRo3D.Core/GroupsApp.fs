@@ -568,6 +568,26 @@ module GroupsApp =
             yield onClick (fun _ -> action)
         } |> AttributeMap.ofAMap
 
+    let activeIcon (model : AdaptiveGroupsModel)
+                   (group : AdaptiveNode) =
+        adaptive { 
+            let! activeGroup = model.activeGroup
+            let! group  =  group.key
+            return if (activeGroup.id = group) then "circle icon" else "circle thin icon"
+        }
+
+    let setActiveGroupAttributeMap (path : list<Index>)
+                                   (model : AdaptiveGroupsModel)
+                                   (group : AdaptiveNode) 
+                                   (msg : GroupsAppAction -> 'a) =
+        amap {
+            let! name = group.name
+            let setActive = GroupsAppAction.SetActiveGroup (group.key |> AVal.force, path, name)
+            let! icon = activeIcon model group
+            yield clazz icon
+            yield onClick (fun _ -> (msg setActive))
+        } |> AttributeMap.ofAMap
+
     let viewSelectionButtons =
         // Html.table [
         div[][

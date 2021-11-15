@@ -153,6 +153,7 @@ type ViewerAction =
     | ScaleBarsDrawingMessage        of ScaleBarDrawingAction
     | ScaleBarsMessage               of ScaleBarsAction
     | GeologicSurfacesMessage        of GeologicSurfaceAction
+    | ScreenshotAppMessage           of ScreenshotAppAction
     | Nop
 
 and MailboxState = {
@@ -469,6 +470,7 @@ type Model = {
     heighValidation      : HeightValidatorModel
 
     frustumModel         : FrustumModel
+    screenshotApp        : ScreenshotApp
 }
 
 
@@ -573,7 +575,7 @@ module Viewer =
     //        noText    = ""
     //     }
 
-    let initial msgBox (startupArgs : StartupArgs) : Model = 
+    let initial msgBox (startupArgs : StartupArgs) url samples : Model = 
         {     
             scene = 
                 {
@@ -658,4 +660,5 @@ module Viewer =
             showExplorationPoint = startupArgs.showExplorationPoint
             heighValidation = HeightValidatorModel.init()
             frustumModel = FrustumModel.init 0.1 10000.0
+            screenshotApp = ScreenshotApp.init url Config.configPath samples
     }

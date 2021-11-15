@@ -63,11 +63,15 @@ module Shader =
 module Sg =    
     
     let loadCubeModel (filename : string) =
-        Aardvark.SceneGraph.IO.Loader.Assimp.load filename
-        |> Sg.adapter
-        |> Sg.noEvents
+        if System.IO.File.Exists filename then
+            Aardvark.SceneGraph.IO.Loader.Assimp.load filename
+            |> Sg.adapter
+            |> Sg.noEvents
+        else 
+            Log.warn "[OrientationCube] Cannot display orientation cube. Resource %s not found." filename
+            Sg.empty
     
-    let orthoOrientation (camView : aval<CameraView>) (refSys:AdaptiveReferenceSystem) (model : ISg<'msg>) = // (model:ISg<obj>) = //
+    let orthoOrientation (camView : aval<CameraView>) (refSys:AdaptiveReferenceSystem) (model : ISg<'msg>) = 
         let viewTrafo =
             camView
             |> AVal.map ( fun cv ->
@@ -77,31 +81,37 @@ module Sg =
        
         let orthoTrafo =
             let d = 3.0
-            //let t = V3d((-d+1.0), -d+1.0, 0.0)
             let min = V3d(-d, -d, -d*2.0)
             let max = V3d(d, d, d*2.0)
             let fr = Frustum.ortho (Box3d(min, max))
             AVal.constant (Frustum.projTrafo fr)
-
-        let northAngle = 
-            adaptive {
-                let! cam = camView
-                let! n = refSys.north.value
-                let! offset = refSys.noffset.value
-                let Vn = (Vec.Cross(cam.Forward.Normalized, n.OYO)).Normalized
-                //((Va x Vb) . Vn) / (Va . Vb)
-                let angle = (Vec.Dot((Vec.Cross(cam.Forward.Normalized, n.OYO)), Vn)) / (Vec.Dot(cam.Forward.Normalized, n.OYO)) //.OYO
-                //return angle + offset
-                let nangle = (angle + offset) % 360.0
-                return nangle //(nangle + 360.0) % 360.0 
-            }
    
+        let rotateIntoUp = (refSys.up.value |> AVal.map ( fun u ->  Trafo3d.RotateInto(V3d.ZAxis, u)))
+        let rotateIntoNorth = 
+            adaptive {
+                let! north = refSys.northO 
+                let! toUp = rotateIntoUp
+                let originalNorthFace = -1.0 * V3d.XAxis
+                let rotatedNorthFace = toUp.Forward.TransformDir originalNorthFace
+                let remainingRotation = Trafo3d.RotateInto (rotatedNorthFace, north)
+                return remainingRotation
+            }
+
+        let scaling = 
+            refSys.planet 
+                |> AVal.map (fun p -> 
+                                match p with
+                                | Base.Planet.Mars | Base.Planet.Earth ->
+                                    Trafo3d.Scale(0.5,0.5, -0.5)
+                                | _  ->
+                                    Trafo3d.Scale(0.5,-0.5, 0.5)
+                )
 
         model
-        |> Sg.trafo (AVal.constant (Trafo3d.Scale(0.5,0.5, -0.5)))
+        |> Sg.trafo scaling //(AVal.constant (Trafo3d.Scale(0.5,0.5, -0.5))) //TODO rno None/Spherical
         |> Sg.trafo (AVal.constant (Trafo3d.RotationXInDegrees(90.0)))
-        |> Sg.trafo (refSys.up.value |> AVal.map ( fun u ->  Trafo3d.RotateInto(V3d.ZAxis, u)))
-        |> Sg.trafo (northAngle |> AVal.map ( fun n -> (Trafo3d.RotationXInDegrees(n))))
+        |> Sg.trafo rotateIntoUp
+        |> Sg.trafo rotateIntoNorth
         |> Sg.viewTrafo viewTrafo
         |> Sg.projTrafo orthoTrafo
         |> Sg.shader {
@@ -131,11 +141,21 @@ module Sg =
         }
         |> Sg.pass (RenderPass.after "cube" RenderPassOrder.Arbitrary RenderPass.main)
 
-    //let view (camView : aval<CameraView>) (config:AdaptiveViewConfigModel) (refSys:AdaptiveReferenceSystem) =
-    //    aset {
-    //        let! draw = config.drawOrientationCube
-    //        yield match draw with
-    //                | true ->  loadCubeModel "../../data/rotationcube/rotationcube.dae"
-    //                            |> orthoOrientation camView refSys
-    //                |_-> Sg.empty
-    //        }  |> Sg.set
+    let view (camView : aval<CameraView>) (config:AdaptiveViewConfigModel) (refSys:AdaptiveReferenceSystem) =
+        let path = 
+            refSys.planet |> AVal.map (fun p -> 
+                match p with
+                | Base.Planet.Mars | Base.Planet.Earth ->
+                    Path.combine [Config.besideExecuteable;"resources";"rotationcube";"rotationcube.dae"]
+                | _  ->
+                    Path.combine [Config.besideExecuteable;"resources";"rotationcubeXYZ";"rotationcube.dae"]
+                
+            )
+        aset {
+            let! draw = config.drawOrientationCube
+            let! path = path
+            yield match draw with
+                    | true ->  loadCubeModel path//"../../data/rotationcube/rotationcube.dae"
+                                |> orthoOrientation camView refSys
+                    |_-> Sg.empty
+            }  |> Sg.set

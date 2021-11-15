@@ -37,7 +37,6 @@ open PRo3D.Bookmarkings
 
 open PRo3D.Core.Surface
 open PRo3D.Viewer
-open PRo3D.OrientationCube
 
 open PRo3D.SimulatedViews
 open PRo3D.Minerva
@@ -77,7 +76,7 @@ module UserFeedback =
         { m with scene = { m.scene with feedbackThreads = ThreadPool.add fb.id (fb |> createWorker) m.scene.feedbackThreads }}
 
 module ViewerApp =         
-                     
+    let dataSamples = 4
     // surfaces
     let _surfacesModel   = Model.scene_  >-> Scene.surfacesModel_
     let _sgSurfaces      = _surfacesModel  >-> SurfaceModel.sgSurfaces_
@@ -223,36 +222,10 @@ module ViewerApp =
         let sel = Optic.get _selectedSurface model |> Option.bind(fun x -> Optic.get _sgSurfaces model |> HashMap.tryFind x)
         match sel with
         | Some s -> s.trafo.grabbed.IsSome
-        | None -> false    
-
-    let private animateFowardAndLocation (pos: V3d) (dir: V3d) (up:V3d) (duration: RelativeTime) (name: string) = 
-        {
-            (CameraAnimations.initial name) with 
-                sample = fun (localTime, globalTime) (state : CameraView) -> // given the state and t since start of the animation, compute a state and the cameraview
-                    if localTime < duration then                  
-                        let rot      = Rot3d.RotateInto(state.Forward, dir) * localTime / duration |> Rot3d |> Trafo3d
-                        let forward  = rot.Forward.TransformDir state.Forward
-
-                        let uprot     = Rot3d.RotateInto(state.Up, up) * localTime / duration |> Rot3d |> Trafo3d
-                        let up        = uprot.Forward.TransformDir state.Up
-                      
-                        let vec       = pos - state.Location
-                        let velocity  = vec.Length / duration                  
-                        let dir       = vec.Normalized
-                        let location  = state.Location + dir * velocity * localTime
-
-                        let view = 
-                            state 
-                            |> CameraView.withForward forward
-                            |> CameraView.withUp up
-                            |> CameraView.withLocation location                                                                              
-
-                        Some (state,view)
-                    else None
-        }
+        | None -> false       
 
     let private createAnimation (pos: V3d) (forward: V3d) (up : V3d) (animationsOld: AnimationModel) : AnimationModel =                                    
-        animateFowardAndLocation pos forward up 3.5 "ForwardAndLocation2s"
+        CameraAnimations.animateForwardAndLocation pos forward up 3.5 "ForwardAndLocation2s"
         |> AnimationAction.PushAnimation 
         |> AnimationApp.update animationsOld
 
@@ -492,7 +465,7 @@ module ViewerApp =
                     //AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
 
                     let animationMessage = 
-                        animateFowardAndLocation a.view.Location a.view.Forward a.view.Up 2.0 "ForwardAndLocation2s"
+                        CameraAnimations.animateForwardAndLocation a.view.Location a.view.Forward a.view.Up 2.0 "ForwardAndLocation2s"
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     { m with  animations = a'}
                 | None -> m
@@ -542,7 +515,7 @@ module ViewerApp =
                     match (surface.homePosition) with
                     | Some hp ->                        
                         let animationMessage = 
-                            animateFowardAndLocation hp.Location hp.Forward hp.Up 2.0 "ForwardAndLocation2s"
+                            CameraAnimations.animateForwardAndLocation hp.Location hp.Forward hp.Up 2.0 "ForwardAndLocation2s"
                         AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     | None ->
                         match surf with
@@ -550,7 +523,7 @@ module ViewerApp =
                             let bb = s.globalBB.Transformed(superTrafo.Forward)
                             let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value    
                             let animationMessage = 
-                                animateFowardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
+                                CameraAnimations.animateForwardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
                             let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                             a'
                         | None -> m.animations
@@ -784,7 +757,7 @@ module ViewerApp =
                     let bb = sgSo.globalBB.Transformed(sceneObj.preTransform.Forward * superTrafo.Forward)
                     let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value    
                     let animationMessage = 
-                        animateFowardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
+                        CameraAnimations.animateForwardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     a'
                 | _-> m.animations
@@ -1076,7 +1049,7 @@ module ViewerApp =
 
         | NewScene,_,_ ->
             let oldPlanet = m.scene.referenceSystem.planet
-            let m = Viewer.initial m.messagingMailbox StartupArgs.initArgs //m.minervaModel.minervaMessagingMailbox
+            let m = Viewer.initial m.messagingMailbox StartupArgs.initArgs m.screenshotApp.url dataSamples
             let (refSystem,_) = ReferenceSystemApp.update m.scene.config 
                                                           refConfig 
                                                           ReferenceSystem.initial
@@ -1635,7 +1608,7 @@ module ViewerApp =
                 match _sb with 
                 | Some sb ->
                     let animationMessage = 
-                        animateFowardAndLocation sb.view.Location sb.view.Forward sb.view.Up 2.0 "ForwardAndLocation2s"
+                        CameraAnimations.animateForwardAndLocation sb.view.Location sb.view.Forward sb.view.Up 2.0 "ForwardAndLocation2s"
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     { m with  animations = a'}
                 | None -> m
@@ -1651,7 +1624,7 @@ module ViewerApp =
                 match _gs with 
                 | Some gs ->
                     let animationMessage = 
-                        animateFowardAndLocation gs.view.Location gs.view.Forward gs.view.Up 2.0 "ForwardAndLocation2s"
+                        CameraAnimations.animateForwardAndLocation gs.view.Location gs.view.Forward gs.view.Up 2.0 "ForwardAndLocation2s"
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     { m with  animations = a'}
                 | None -> m
@@ -1667,6 +1640,15 @@ module ViewerApp =
                 let geologicSurfaces' = GeologicSurfacesApp.update m.navigation.camera.view m.scene.geologicSurfacesModel msg
                 let m' = m |> Optic.set _geologicSurfacesModel geologicSurfaces'  
                 m'
+        | ScreenshotAppMessage msg, _ , _ ->
+            let screenshotApp = ScreenshotApp.update m.screenshotApp msg
+            let m = {m with screenshotApp = screenshotApp}
+
+            match msg with
+            | ScreenshotAppAction.CreateScreenshot -> 
+                shortFeedback "Screenshot saved" m
+            | _ -> m
+            
         | _ -> m       
                                    
     let mkBrushISg color size trafo : ISg<Message> =
@@ -1697,7 +1679,7 @@ module ViewerApp =
 
             AttributeMap.ofList [
                 attribute "style" "width:100%; height: 100%; float:left; background-color: #222222"
-                attribute "data-samples" "4"
+                attribute "data-samples" (sprintf "%i" dataSamples)
                 attribute "useMapping" "true"
                 //attribute "showFPS" "true"        
                 //attribute "data-renderalways" "true"
@@ -1722,7 +1704,7 @@ module ViewerApp =
         AttributeMap.unionMany [
             AttributeMap.ofList [
                 attribute "style" "width:100%; height: 100%; float:left; background-color: #222222"
-                attribute "data-samples" "4"
+                attribute "data-samples" "8"
                 attribute "useMapping" "true"
                 onKeyDown (KeyDown)
                 onKeyUp (KeyUp)
@@ -1889,8 +1871,9 @@ module ViewerApp =
              let heightValidation =
                  HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation
 
-
-             [exploreCenter; refSystem; viewPlans; homePosition; solText; heightValidation] 
+             let orientationCube = PRo3D.OrientationCube.Sg.view m.navigation.camera.view 
+                                                                 m.scene.config m.scene.referenceSystem
+             [exploreCenter; refSystem; viewPlans; homePosition; solText; heightValidation;orientationCube] 
                 |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
          let minervaSg =
@@ -1967,7 +1950,6 @@ module ViewerApp =
             { kind = Stylesheet;  name = "semui-overrides"; url = "semui-overrides.css" }
             { kind = Script;      name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.js" }
             { kind = Script;      name = "errorReporting";  url = "./errorReporting.js"  }
-
             { kind = Script;      name = "resize";  url = "./ResizeSensor.js"  }
             { kind = Script;      name = "resizeElem";  url = "./ElementQueries.js"  }
         ]
@@ -2018,7 +2000,7 @@ module ViewerApp =
                                    (startEmpty: bool) messagingMailbox dumpFile cacheFile =
         let m = 
             if startEmpty |> not then
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs
+                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs url dataSamples
                 |> SceneLoader.loadLastScene runtime signature
                 |> SceneLoader.loadLogBrush
                 |> ViewerIO.loadRoverData                
@@ -2030,11 +2012,12 @@ module ViewerApp =
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
             else
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs |> ViewerIO.loadRoverData      
-        m
+                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs url dataSamples 
+                    |> ViewerIO.loadRoverData     
+        m  
 
     let start (runtime: IRuntime) (signature: IFramebufferSignature)
-              (startEmpty: bool) messagingMailbox sendQueue dumpFile cacheFile =
+              (startEmpty: bool) messagingMailbox sendQueue dumpFile cacheFile url =
         let m = initialModelWithLoadedData runtime signature startEmpty messagingMailbox dumpFile cacheFile
      
         App.start {

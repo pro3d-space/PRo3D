@@ -398,11 +398,10 @@ module DrawingApp =
                 |> Leaf.toAnnotations
                 |> HashMap.toList 
                 |> List.map snd
-                |> List.filter(fun a -> a.visible)
-                |> List.map (Export.toExportAnnotation lookups)
-            
-            let csvTable = Export.Seq.csv "," true id annotations
-            if p.IsEmptyOrNull() |> not then Export.Seq.write (p) csvTable
+                |> List.filter(fun a -> a.visible)                            
+
+            CSVExport.writeCSV lookups p annotations
+                        
             model      
         | ExportAsGeoJSON path, _, _ ->           
             let planet = smallConfig.planet.Get(bigConfig)            
@@ -413,7 +412,7 @@ module DrawingApp =
                 |> List.map snd
                 |> List.filter(fun a -> a.visible)
                
-            Export.GeoJSON.toJson planet path annotations
+            GeoJSONExport.writeGeoJSON planet path annotations
 
             model
         | ExportAsGeoJSON_xyz path, _, _ ->                       
@@ -425,8 +424,19 @@ module DrawingApp =
                 |> List.map snd
                 |> List.filter(fun a -> a.visible)
                
-            Export.GeoJSON.toJsonXYZ path annotations
+            GeoJSONExport.writeGeoJSON_XYZ path annotations
             
+            model
+        | ExportAsAttitude path, _, _ ->
+            let annotations =
+                model.annotations.flat
+                |> Leaf.toAnnotations
+                |> HashMap.toList 
+                |> List.map snd
+                |> List.filter(fun a -> a.visible)
+
+            AttitudeExport.writeAttitudeJson path (smallConfig.up.Get(bigConfig)) annotations
+
             model
         | LegacySaveVersioned, _,_ ->
             let path = "./annotations.json"

@@ -217,17 +217,7 @@ module Bookmarks =
             let! active = model.activeGroup
             let color = sprintf "color: %s" (Html.ofC4b C4b.White)                
             
-
-            let icon =
-                adaptive {                    
-                    let! group  =  group.key
-                    return if (active.id = group) then "circle icon" else "circle thin icon"
-                }
-                      
-            let map = 
-                GroupsApp.clickIconAttributes 
-                    icon 
-                    (BookmarkAction.GroupsMessage(GroupsAppAction.SetActiveGroup (group.key |> AVal.force, path, group.name |> AVal.force)))
+            let map = GroupsApp.setActiveGroupAttributeMap path model group GroupsMessage
                
             let desc =
                 div [style color] [       

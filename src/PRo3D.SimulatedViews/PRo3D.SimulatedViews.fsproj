@@ -49,6 +49,8 @@
     <Compile Include="Comparison\SurfaceMeasurements.fs" />      
     <Compile Include="Comparison\AnnotationComparison.fs" />      
     <Compile Include="Comparison\ComparisonApp.fs" />      
+    <Compile Include="Screenshots\Screenshot-Model.fs" />      
+    <Compile Include="Screenshots\ScreenshotApp.fs" />      
     <Compile Include="Viewplanner\FootPrint-Model.fs" />      
     <Compile Include="Viewplanner\Rover-Model.fs" />      
     <Compile Include="Viewplanner\Rover.fs" />      

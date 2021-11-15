@@ -171,7 +171,12 @@ module SurfaceIntersection =
                 | Picking.KdTree kd ->
                     if kd.IsEmpty then Log.error "no kdtree loaded for %s" surf.name; None
                     else                    
-                        let superTrafo = SurfaceTransformations.fullTrafo' surf refSys
+                        //if flipZ then 
+                        //    return Trafo3d.Scale(scaleFactor) * Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * preTransform)
+                        //else
+                        //    return Trafo3d.Scale(scaleFactor) * (fullTrafo * preTransform)
+
+                        let fullTrafo = SurfaceTransformations.fullTrafo' surf refSys
                         //get bbs that are hit
                         let hitBoxes =
                             kd
@@ -179,15 +184,28 @@ module SurfaceIntersection =
                             |> List.filter(fun x -> 
                                 let mutable t = 0.0
                                 let r' = r.Ray //combine pre and current transform
-                                x.Transformed(surf.preTransform.Forward * superTrafo.Forward).Intersects(r', &t)
+
+                                let trafo = 
+                                    if surf.transformation.flipZ then 
+                                        Trafo3d.Scale(1.0, 1.0, -1.0).Forward * (fullTrafo.Forward * surf.preTransform.Forward)
+                                    else
+                                        (fullTrafo.Forward * surf.preTransform.Forward)
+
+                                x.Transformed(trafo).Intersects(r', &t)
                             )
                         //intersect corresponding kdtrees
                         let closestHit =
                             hitBoxes
                             |> List.choose(fun key -> 
                                 //Log.line "intersection: %s; pr: %f" surf.name surf.priority.value                                                             
-                                //let ray = r.Ray.Transformed(surf.preTransform.Backward) |> FastRay3d  //combine pre and current transform                     
-                                let ray = r.Ray.Transformed(surf.preTransform.Backward * superTrafo.Backward) |> FastRay3d
+                                //let ray = r.Ray.Transformed(surf.preTransform.Backward) |> FastRay3d  //combine pre and current transform         
+                                let backward = 
+                                    if surf.transformation.flipZ then
+                                        Trafo3d.Scale(1.0, 1.0, -1.0).Backward * surf.preTransform.Backward * fullTrafo.Backward
+                                    else
+                                        surf.preTransform.Backward * fullTrafo.Backward
+
+                                let ray = r.Ray.Transformed(backward) |> FastRay3d
                                 let hit, c = 
                                   kd |> DebugKdTreesX.intersectKdTrees key surf cache ray
                                 cache <- c
