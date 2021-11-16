@@ -47,9 +47,9 @@
     <Compile Include="Navigation.fs" />  
     <Compile Include="ViewconfigApp.fs" />
     <Compile Include="DockConfigs.fs" />
+    <Compile Include="Traverse-Model.fs" />
     <Compile Include="Viewer-Model.fs" />
     <Compile Include="Bookmarks.fs" />
-    <Compile Include="Traverse-Model.fs" />
     <Compile Include="TraverseApp.fs" />
     <Compile Include="Scene.fs" />
 

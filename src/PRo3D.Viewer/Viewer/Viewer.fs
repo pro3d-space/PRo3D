@@ -1038,9 +1038,14 @@ module ViewerApp =
                 | Aardvark.Application.Keys.F1 -> Interactions.PickExploreCenter
                 | Aardvark.Application.Keys.F2 -> Interactions.DrawAnnotation
                 | Aardvark.Application.Keys.F3 -> Interactions.PickAnnotation
-                | Aardvark.Application.Keys.F4 -> Interactions.PlaceCoordinateSystem
-                //| Aardvark.Application.Keys.F6 -> Interactions.DrawLog
+                | Aardvark.Application.Keys.F4 -> Interactions.PlaceCoordinateSystem                
                 | _ -> m.interaction
+
+            let m =
+                match k with 
+                | Aardvark.Application.Keys.F1 ->
+                    let b = TraverseApp.update 
+
             { m with scene = { m.scene with config = c' }; interaction = interaction'}                               
         | KeyUp k, _,_ ->               
             let m =

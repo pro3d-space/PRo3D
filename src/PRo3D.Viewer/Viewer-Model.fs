@@ -174,6 +174,8 @@ type Scene = {
     bookmarks         : GroupsModel
     scaleBars         : ScaleBarsModel
 
+    traverse          : Traverse
+
     viewPlans         : ViewPlanModel
     dockConfig        : DockConfig
     closedPages       : list<DockElement>
@@ -186,7 +188,7 @@ type Scene = {
 
 module Scene =
         
-    let current = 1    
+    let current = 2 //20211611 ... added traverse
     let read0 = 
         json {            
             let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
@@ -203,28 +205,30 @@ module Scene =
 
             return 
                 {
-                    version         = current
-
-                    cameraView      = cameraView
-                    navigationMode  = navigationMode |> enum<NavigationMode>
-                    exploreCenter   = exploreCenter  |> V3d.Parse
-                    
-                    interaction     = interactionMode |> enum<InteractionMode>
-                    surfacesModel   = surfaceModel
-                    config          = config
-                    scenePath       = scenePath
-                    referenceSystem = referenceSystem
-                    bookmarks       = bookmarks
-
-                    viewPlans       = ViewPlanModel.initial
-                    dockConfig      = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
-                    closedPages     = List.empty
-                    firstImport     = false
-                    userFeedback    = String.Empty
-                    feedbackThreads = ThreadPool.empty
-                    scaleBars       = ScaleBarsModel.initial
-                    sceneObjectsModel   = SceneObjectsModel.initial
+                    version               = current
+                                          
+                    cameraView            = cameraView
+                    navigationMode        = navigationMode |> enum<NavigationMode>
+                    exploreCenter         = exploreCenter  |> V3d.Parse
+                                          
+                    interaction           = interactionMode |> enum<InteractionMode>
+                    surfacesModel         = surfaceModel
+                    config                = config
+                    scenePath             = scenePath
+                    referenceSystem       = referenceSystem
+                    bookmarks             = bookmarks
+                                          
+                    viewPlans             = ViewPlanModel.initial
+                    dockConfig            = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
+                    closedPages           = List.empty
+                    firstImport           = false
+                    userFeedback          = String.Empty
+                    feedbackThreads       = ThreadPool.empty
+                    scaleBars             = ScaleBarsModel.initial
+                    sceneObjectsModel     = SceneObjectsModel.initial
                     geologicSurfacesModel = GeologicSurfacesModel.initial
+
+                    traverse              = Traverse.initial
                 }
         }
 
@@ -269,6 +273,55 @@ module Scene =
                     scaleBars               = scaleBars
                     sceneObjectsModel       = sceneObjectsModel
                     geologicSurfacesModel   = geologicSurfacesModel
+
+                    traverse              = Traverse.initial
+                }
+        }
+
+    let read2 = 
+        json {            
+            let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
+            let! navigationMode  = Json.read "navigationMode"
+            let! exploreCenter   = Json.read "exploreCenter" 
+
+            let! interactionMode = Json.read "interactionMode"
+            let! surfaceModel    = Json.read "surfaceModel"
+            let! config          = Json.read "config"
+            let! scenePath       = Json.read "scenePath"
+            let! referenceSystem = Json.read "referenceSystem"
+            let! bookmarks       = Json.read "bookmarks"
+            let! dockConfig      = Json.read "dockConfig"  
+            let! scaleBars       = Json.read "scaleBars" 
+            let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
+            let! geologicSurfacesModel  = Json.read "geologicSurfacesModel"
+            let! traverse       = Json.read "traverse"
+
+            return 
+                {
+                    version                 = current
+
+                    cameraView              = cameraView
+                    navigationMode          = navigationMode |> enum<NavigationMode>
+                    exploreCenter           = exploreCenter  |> V3d.Parse
+            
+                    interaction             = interactionMode |> enum<InteractionMode>
+                    surfacesModel           = surfaceModel
+                    config                  = config
+                    scenePath               = scenePath
+                    referenceSystem         = referenceSystem
+                    bookmarks               = bookmarks
+
+                    viewPlans               = ViewPlanModel.initial
+                    dockConfig              = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
+                    closedPages             = List.empty
+                    firstImport             = false
+                    userFeedback            = String.Empty
+                    feedbackThreads         = ThreadPool.empty
+                    scaleBars               = scaleBars
+                    sceneObjectsModel       = sceneObjectsModel
+                    geologicSurfacesModel   = geologicSurfacesModel
+
+                    traverse              = traverse
                 }
         }
 
@@ -281,6 +334,7 @@ type Scene with
             match v with
             | 0 -> return! Scene.read0
             | 1 -> return! Scene.read1
+            | 2 -> return! Scene.read2
             | _ ->
                 return! v 
                 |> sprintf "don't know version %A  of Scene" 
@@ -305,6 +359,8 @@ type Scene with
             do! Json.write "scaleBars" x.scaleBars
             do! Json.write "sceneObjectsModel" x.sceneObjectsModel
             do! Json.write "geologicSurfacesModel" x.geologicSurfacesModel
+
+            do! Json.write "traverse" x.traverse
         }
 
 [<ModelType>] 
