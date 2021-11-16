@@ -49,6 +49,8 @@
     <Compile Include="DockConfigs.fs" />
     <Compile Include="Viewer-Model.fs" />
     <Compile Include="Bookmarks.fs" />
+    <Compile Include="Traverse-Model.fs" />
+    <Compile Include="TraverseApp.fs" />
     <Compile Include="Scene.fs" />
 
     <Compile Include="LensConfigs.fs" />
