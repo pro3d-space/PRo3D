@@ -47,36 +47,61 @@ module SequencedBookmarksApp =
     let mutable names = List<string>.Empty
     let mutable stillFrames = List<int * Guid>.Empty
 
+
+
     let private animateFowardAndLocation (pos: V3d) (dir: V3d) (up:V3d) (duration: RelativeTime) 
                                          (name: string) (record : bool) (bmName : string) (bmId : Guid) = 
+        let transformLocationForwardUp (pos: V3d) (dir: V3d) (up:V3d) (duration : RelativeTime) (localTime : RelativeTime) (state : CameraView) =
+            let rot      = Rot3d.RotateInto(state.Forward, dir) * localTime / duration |> Rot3d |> Trafo3d
+            let forward  = rot.Forward.TransformDir state.Forward
+
+            let uprot     = Rot3d.RotateInto(state.Up, up) * localTime / duration |> Rot3d |> Trafo3d
+            let up        = uprot.Forward.TransformDir state.Up
+              
+            let vec       = pos - state.Location
+            let velocity  = vec.Length / duration                  
+            let dir       = vec.Normalized
+            let location  = state.Location + dir * velocity * localTime
+            
+            let view = 
+                state 
+                |> CameraView.withForward forward
+                |> CameraView.withUp up
+                |> CameraView.withLocation location
+
+            if record then
+                collectedViews <- collectedViews@[view]
+                timestamps <- timestamps@[System.DateTime.Now.TimeOfDay]
+                if names.Length > 0 && (List.last names) != bmName then
+                    stillFrames <- stillFrames@[collectedViews.Length - 1, bmId]
+                names <- names@[bmName]
+
+            view
+
         Log.line "[Sequenced Bookmarks] Creating Animation for bookmark %s, duration = %f" bmName duration
         {
             (CameraAnimations.initial name) with 
                 sample = fun (localTime, globalTime) (state : CameraView) -> // given the state and t since start of the animation, compute a state and the cameraview
-                    if localTime < duration then                  
-                        let rot      = Rot3d.RotateInto(state.Forward, dir) * localTime / duration |> Rot3d |> Trafo3d
-                        let forward  = rot.Forward.TransformDir state.Forward
+                    let cameraChange = not (state.Location.ApproximateEquals(pos) 
+                                                && state.Forward.ApproximateEquals(dir) 
+                                                && state.Up.ApproximateEquals(up))       
+                    if cameraChange then
+                        if localTime < duration then          
+                            let view = transformLocationForwardUp pos dir up duration localTime state
 
-                        let uprot     = Rot3d.RotateInto(state.Up, up) * localTime / duration |> Rot3d |> Trafo3d
-                        let up        = uprot.Forward.TransformDir state.Up
-                      
-                        let vec       = pos - state.Location
-                        let velocity  = vec.Length / duration                  
-                        let dir       = vec.Normalized
-                        let location  = state.Location + dir * velocity * localTime
-                        let view = 
-                            state 
-                            |> CameraView.withForward forward
-                            |> CameraView.withUp up
-                            |> CameraView.withLocation location      
-                        if record then
-                          collectedViews <- collectedViews@[view]
-                          timestamps <- timestamps@[System.DateTime.Now.TimeOfDay]
-                          if names.Length > 0 && (List.last names) != bmName then
-                            stillFrames <- stillFrames@[collectedViews.Length - 1, bmId]
-                          names <- names@[bmName]
+                            Some (state,view)
+                        else 
+                            if state.Location.IsNaN |> not then
+                                //on the last iteration set current position to endpoint - localtime = duration
+                                let view = 
+                                    transformLocationForwardUp pos dir up duration duration state
 
-                        Some (state,view)
+                                let state =
+                                    state
+                                    |> CameraView.withLocation V3d.NaN
+
+                                Some (state , view)
+                            else None
                     else None
         }
 
