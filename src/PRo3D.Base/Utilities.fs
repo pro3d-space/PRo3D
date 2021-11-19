@@ -510,15 +510,15 @@ module Shader =
     type FootPrintVertex =
         {
             [<Position>]                pos     : V4d            
-            [<WorldPosition>]           wp      : V4d
-            [<TexCoord>]                tc      : V2d
+            //[<WorldPosition>]           wp      : V4d
+            //[<TexCoord>]                tc      : V2d
             [<Color>]                   c       : V4d
-            [<Normal>]                  n       : V3d
-            [<SourceVertexIndex>]       sv      : int
-            [<Semantic("Scalar")>]      scalar  : float
-            [<Semantic("LightDir")>]    ldir    : V3d
-            [<Semantic("Tex0")>]        tc0     : V4d
-            [<Semantic("Tex1")>]        tc1     : V4d
+            //[<Normal>]                  n       : V3d
+            //[<SourceVertexIndex>]       sv      : int
+            //[<Semantic("Scalar")>]      scalar  : float
+            //[<Semantic("LightDir")>]    ldir    : V3d
+            [<Semantic("FootPrintProj")>] tc0     : V4d
+            //[<Semantic("Tex1")>]        tc1     : V4d
 
         }
 
@@ -537,43 +537,46 @@ module Shader =
             //let vp = uniform.ModelViewTrafo * v.pos
             //let p = uniform.ProjTrafo * vp
             
-            let footprintProjM  : M44d   = uniform?footprintProj
-            let textureProjM    : M44d   = uniform?textureProj
+            let footprintProjM  : M44d   = uniform?FootprintModelViewProj // was proj * view (earlier there was pretransform in it?)
+            //let textureProjM    : M44d   = uniform?textureProj
             
             return { 
                 v with 
-                    tc0 = footprintProjM * v.wp; 
-                    tc1 = textureProjM   * v.wp; 
-                    sv  = 0
+                    tc0 = footprintProjM * v.pos; 
+                    //sv = 0
+                    //tc1 = textureProjM   * v.wp; 
             } //v.pos
         }
 
     let footPrintF (v : FootPrintVertex) =
-        fragment {           
+        fragment {     
+            let mutable color = v.c
             if uniform?footprintVisible then
-                let fpt = v.tc0.XY / v.tc0.W
-                let tt  = v.tc1.XY / v.tc1.W
-                let col = 
-                    if (fpt.X > -1.0 && fpt.X < 1.0 && fpt.Y > -1.0 && fpt.Y < 1.0 && tt.X > -1.0 && tt.X < 1.0 && tt.Y > -1.0 && tt.Y < 1.0 ) then
-                        let tt1 = (tt + 1.0)/2.0
-                        //let tt2 = (tt * 2.0) - 1.0
-                        V4d(1.0, 0.0, 0.0, 1.0) * (footprintmap.Sample(tt1))
-                    elif fpt.X > -1.0 && fpt.X < 1.0 && fpt.Y > -1.0 && fpt.Y < 1.0 then
-                        V4d(1.0, 0.0, 0.0, 1.0)
-                    elif tt.X > -1.0 && tt.X < 1.0 && tt.Y > -1.0 && tt.Y < 1.0 then
-                        let tt1 = (tt + 1.0)/2.0
-                        footprintmap.Sample(tt1)
-                    else
-                        v.c 
+                let fpt = v.tc0.XYZ / v.tc0.W
+                //let tt  = v.tc1.XY / v.tc1.W
+                //let col = 
+                //    if (fpt.X > -1.0 && fpt.X < 1.0 && fpt.Y > -1.0 && fpt.Y < 1.0 && tt.X > -1.0 && tt.X < 1.0 && tt.Y > -1.0 && tt.Y < 1.0 ) then
+                //        let tt1 = (tt + 1.0)/2.0
+                //        //let tt2 = (tt * 2.0) - 1.0
+                //        V4d(1.0, 0.0, 0.0, 1.0) * (footprintmap.Sample(tt1))
+                //    elif fpt.X > -1.0 && fpt.X < 1.0 && fpt.Y > -1.0 && fpt.Y < 1.0 then
+                //        V4d(1.0, 0.0, 0.0, 1.0)
+                //    elif tt.X > -1.0 && tt.X < 1.0 && tt.Y > -1.0 && tt.Y < 1.0 then
+                //        let tt1 = (tt + 1.0)/2.0
+                //        footprintmap.Sample(tt1)
+                //    else
+                //        v.c 
+                if fpt.X > -1.0 && fpt.X < 1.0 && fpt.Y > -1.0 && fpt.Y < 1.0 && fpt.Z > -1.0 && fpt.Z < 1.0 then   
+                    color.X <- 1.0
                         
                
-                if (v.tc0.Z <= 0.0) || (v.tc1.Z <= 0.0) then
-                    return v.c
-                else
-                    return col 
+            //    if (v.tc0.Z <= 0.0) || (v.tc1.Z <= 0.0) then
+            //        return v.c
+            //    else
+            //        return col 
                         
-            else
-            return v.c
+            //else
+            return color
         }
 
 module Sg =    

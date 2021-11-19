@@ -496,8 +496,8 @@ module FootPrint =
             {
                 vpId             = id
                 isVisible        = true
-                projectionMatrix = projectionTrafo.Forward
-                instViewMatrix   = testview.ViewTrafo.Forward //model.instrumentCam.view.ViewTrafo.Forward
+                projectionMatrix = (model.instrumentFrustum |> Frustum.projTrafo).Forward
+                instViewMatrix   = model.instrumentCam.ViewTrafo.Forward
                 projTex          = tex
                 globalToLocalPos = roverpos //transformenExt.position
             }
@@ -532,7 +532,7 @@ module ViewPlanModel =
         vpId                = None
         isVisible           = false
         projectionMatrix    = M44d.Identity
-        instViewMatrix    = M44d.Identity
+        instViewMatrix      = M44d.Identity
         projTex             = initPixTex
         globalToLocalPos    = V3d.OOO
     }
