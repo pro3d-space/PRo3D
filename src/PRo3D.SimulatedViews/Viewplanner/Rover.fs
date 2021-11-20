@@ -108,7 +108,7 @@ module RoverProvider =
                     value  = x.m_fCurrentAngle.DegreesFromGons()
                     min    = x.m_fMinAngle.DegreesFromGons()
                     max    = x.m_fMaxAngle.DegreesFromGons()
-                    step   = 0.1
+                    step   = 1.0
                     format = "{0:0.0}"
                 }
             }

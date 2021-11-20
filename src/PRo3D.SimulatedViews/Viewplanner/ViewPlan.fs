@@ -297,7 +297,7 @@ module ViewPlanApp =
                 instrumentFrustum = ifrustum 
             }
             
-            Log.line "%A" model.instrumentCam.ViewTrafo
+            //Log.line "%A" model.instrumentCam.ViewTrafo
             
             let f = FootPrint.updateFootprint i vp.position m'
             f,m'
@@ -845,11 +845,11 @@ module ViewPlanApp =
                             yield div[][Incremental.text axis.id; text "(deg)"]
                             //yield Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox] axis.angle |> UI.map (fun x -> ChangeAngle (axis.id |> AVal.force,x))
                             let! id = axis.id
-                            let! value = axis.angle.value
-                            let! max = axis.angle.max
-                            let! min = axis.angle.min
+                            //let! value = axis.angle.value
+                            //let! max = axis.angle.max
+                            //let! min = axis.angle.min
                             //yield Numeric.view' [InputBox] axis.angle |> UI.map (fun x -> ChangeAngle (id,x))
-                            yield Utilities.PRo3DNumeric.view' [NumericInputType.Slider; NumericInputType.InputBox] axis.angle |> UI.map (fun x -> ChangeAngle (id,x))
+                            yield Utilities.PRo3DNumeric.viewContinuously [NumericInputType.Slider; NumericInputType.InputBox] axis.angle |> UI.map (fun x -> ChangeAngle (id,x))
                             //if (value <= max) && (value >= min) then                    
                             //    yield Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox] axis.angle |> UI.map (fun x -> ChangeAngle (id,x))
                             //else

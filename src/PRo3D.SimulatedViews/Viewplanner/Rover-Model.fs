@@ -483,22 +483,21 @@ module FootPrint =
         let res = V2i((int)instrument.intrinsics.horizontalResolution, (int)instrument.intrinsics.verticalResolution)
         //let image = PixImage<byte>(Col.Format.RGB,res).ToPixImage(Col.Format.RGB)
        
-        let pi = PixImage<byte>(Col.Format.RGBA, res)
-        pi.GetMatrix<C4b>().SetByCoord(fun (c : V2l) -> C4b.White) |> ignore
-        let tex = PixTexture2d(PixImageMipMap [| (pi.ToPixImage(Col.Format.RGBA)) |], true) :> ITexture
-        
-        let projectionTrafo = model.instrumentFrustum |> Frustum.projTrafo
-        
-        let location = model.instrumentCam.Location - roverpos //transformenExt.position
-        let testview = model.instrumentCam.WithLocation location
+        // reactivate if texture based footprint is needed in the future
+        //let pi = PixImage<byte>(Col.Format.RGBA, res)
+        //pi.GetMatrix<C4b>().SetByCoord(fun (c : V2l) -> 
+        //    let c = V2i c
+        //    if c.X < 5 || c.X > res.X - 5 || c.Y < 5 || c.Y > res.Y - 5 then C4b.Red else C4b(0,0,0,0)
+        //) |> ignore
+        //let tex = PixTexture2d(PixImageMipMap [| (pi.ToPixImage(Col.Format.RGBA)) |], true) :> ITexture
 
         let fp = 
-            {
+            { 
                 vpId             = id
                 isVisible        = true
                 projectionMatrix = (model.instrumentFrustum |> Frustum.projTrafo).Forward
                 instViewMatrix   = model.instrumentCam.ViewTrafo.Forward
-                projTex          = tex
+                projTex          = DefaultTextures.blackTex.GetValue()
                 globalToLocalPos = roverpos //transformenExt.position
             }
         fp //{ model with footPrint = fp }

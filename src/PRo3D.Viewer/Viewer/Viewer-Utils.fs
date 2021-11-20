@@ -314,7 +314,7 @@ module ViewerUtils =
                             //return (vp.IsSome && visible)
                     }
                 
-                let footprintMatrix = 
+                let footprintViewProj = 
                     adaptive {
                         let! fppm = fp.projectionMatrix
                         let! fpvm = fp.instViewMatrix
@@ -343,13 +343,9 @@ module ViewerUtils =
                     |> addAttributeFalsecolorMappingParameters surf
                     |> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
                     |> addImageCorrectionParameters surf
-                    |> Sg.uniform "footprintVisible" footprintVisible
-                    |> Sg.uniform "FootprintVP" footprintMatrix
-                    |> Sg.applyFootprint footprintMatrix
+                    |> Sg.uniform "FootprintVisible" footprintVisible
+                    |> Sg.applyFootprint footprintViewProj
                     |> Sg.noEvents
-                    |> Sg.uniform "projMVP" fp.projectionMatrix
-                    |> Sg.uniform "globalToLocal" fp.globalToLocalPos
-                    |> Sg.uniform "instViewMVP" fp.instViewMatrix
                     |> Sg.texture (Sym.ofString "FootPrintTexture") fp.projTex
                     |> Sg.LodParameters( getLodParameters surf refsys frustum )
                     |> Sg.AttributeParameters( attributeParameters surf )

@@ -95,7 +95,7 @@ module Utilities =
       let formatNumber (format : string) (value : float) =
           String.Format(Globalization.CultureInfo.InvariantCulture, format, value)
   
-      let numericField<'msg> ( f : Action -> seq<'msg> ) ( atts : AttributeMap<'msg> ) ( model : AdaptiveNumericInput ) inputType =         
+      let numericField''<'msg> (continuousUpdate : bool) (f : Action -> seq<'msg>) ( atts : AttributeMap<'msg> ) ( model : AdaptiveNumericInput ) inputType =         
   
           let tryParseAndClamp min max fallback (s: string) =
               let parsed = 0.0
@@ -121,6 +121,8 @@ module Utilities =
                   match inputType with
                       | Slider ->   
                           yield "type" => "range"
+                          if continuousUpdate then
+                            yield onInput' (tryParseAndClamp min max value >> SetValue >> f) 
                           yield onChange' (tryParseAndClamp min max value >> SetValue >> f)   // continous updates for slider
                       | InputBox -> 
                           yield "type" => "number"
@@ -139,7 +141,15 @@ module Utilities =
   
           Incremental.input (AttributeMap.ofAMap attributes |> AttributeMap.union atts)
   
+      let numericField f atts model inputType = numericField'' false f atts model inputType
+
       let numericField' = numericField (Seq.singleton) AttributeMap.empty
+
+      let viewContinuously (inputTypes : list<NumericInputType>) (model : AdaptiveNumericInput) : DomNode<Action> =
+          inputTypes 
+              |> List.map (numericField'' true (Seq.singleton) AttributeMap.empty model) 
+              |> List.intersperse (text " ") 
+              |> div []
   
       let view' (inputTypes : list<NumericInputType>) (model : AdaptiveNumericInput) : DomNode<Action> =
           inputTypes 
@@ -525,8 +535,8 @@ module Shader =
     let private footprintmap =
         sampler2d {
             texture uniform?FootPrintTexture
-            filter Filter.MinMagMipLinear
-            borderColor C4f.Black
+            filter Filter.MinMagMipPoint
+            borderColor (C4f(0.0,0.0,0.0,0.0))
             addressU WrapMode.Border
             addressV WrapMode.Border
             addressW WrapMode.Border
@@ -551,31 +561,23 @@ module Shader =
     let footPrintF (v : FootPrintVertex) =
         fragment {     
             let mutable color = v.c
-            if uniform?footprintVisible then
+            if uniform?FootprintVisible then
                 let fpt = v.tc0.XYZ / v.tc0.W
-                //let tt  = v.tc1.XY / v.tc1.W
-                //let col = 
-                //    if (fpt.X > -1.0 && fpt.X < 1.0 && fpt.Y > -1.0 && fpt.Y < 1.0 && tt.X > -1.0 && tt.X < 1.0 && tt.Y > -1.0 && tt.Y < 1.0 ) then
-                //        let tt1 = (tt + 1.0)/2.0
-                //        //let tt2 = (tt * 2.0) - 1.0
-                //        V4d(1.0, 0.0, 0.0, 1.0) * (footprintmap.Sample(tt1))
-                //    elif fpt.X > -1.0 && fpt.X < 1.0 && fpt.Y > -1.0 && fpt.Y < 1.0 then
-                //        V4d(1.0, 0.0, 0.0, 1.0)
-                //    elif tt.X > -1.0 && tt.X < 1.0 && tt.Y > -1.0 && tt.Y < 1.0 then
-                //        let tt1 = (tt + 1.0)/2.0
-                //        footprintmap.Sample(tt1)
-                //    else
-                //        v.c 
+
+                // enable this code to use texture based border (and patterns on etc if needed)
+                //if fpt.X > -1.0 && fpt.X < 1.0 && fpt.Y > -1.0 && fpt.Y < 1.0 && fpt.Z > -1.0 && fpt.Z < 1.0 then   
+                //    let s = footprintmap.Sample(fpt.XY * 0.5 + V2d.II * 0.5)
+                //    color.XYZ <- color.XYZ * (1.0 - s.W) + s.XYZ * s.W
+
+                // TODO: more efficient formuation e.g. using step
                 if fpt.X > -1.0 && fpt.X < 1.0 && fpt.Y > -1.0 && fpt.Y < 1.0 && fpt.Z > -1.0 && fpt.Z < 1.0 then   
-                    color.X <- 1.0
+                    let threshold = 0.05
+                    let X = fpt.X < -1.0 + threshold || fpt.X > 1.0 - threshold
+                    let Y = fpt.Y < -1.0 + threshold || fpt.Y > 1.0 - threshold
+                    let Z = fpt.Z < -1.0 + threshold 
+                    if X || Y || Z then  
+                        color.X <- 1.0
                         
-               
-            //    if (v.tc0.Z <= 0.0) || (v.tc1.Z <= 0.0) then
-            //        return v.c
-            //    else
-            //        return col 
-                        
-            //else
             return color
         }
 
