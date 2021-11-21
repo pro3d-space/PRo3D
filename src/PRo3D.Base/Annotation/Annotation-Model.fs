@@ -244,38 +244,40 @@ with
         
 [<ModelType>]
 type AnnotationResults = {
-    version         : int
-    height          : float
-    heightDelta     : float
-    avgAltitude     : float
-    length          : float
-    wayLength       : float
-    bearing         : float
-    slope           : float
-    trueThickness   : float
+    version           : int
+    height            : float
+    heightDelta       : float
+    avgAltitude       : float
+    length            : float
+    wayLength         : float
+    bearing           : float
+    slope             : float
+    trueThickness     : float
+    verticalThickness : float
 }
 with 
-    static member current = 1
+    static member current = 2
     static member private readV0 =
         json {      
-            let! height     = Json.readFloat "height"     
-            let! heightDelta= Json.readFloat "heightDelta"
-            let! avgAltitude= Json.readFloat "avgAltitude"
-            let! length     = Json.readFloat "length"     
-            let! wayLength  = Json.readFloat "wayLength"  
-            let! bearing    = Json.readFloat "bearing"    
-            let! slope      = Json.readFloat "slope"
+            let! height      = Json.readFloat "height"     
+            let! heightDelta = Json.readFloat "heightDelta"
+            let! avgAltitude = Json.readFloat "avgAltitude"
+            let! length      = Json.readFloat "length"     
+            let! wayLength   = Json.readFloat "wayLength"  
+            let! bearing     = Json.readFloat "bearing"    
+            let! slope       = Json.readFloat "slope"
             
             return {
-              version     = AnnotationResults.current    
-              height      = height     
-              heightDelta = heightDelta
-              avgAltitude = avgAltitude
-              length      = length     
-              wayLength   = wayLength  
-              bearing     = bearing    
-              slope       = slope            
-              trueThickness = Double.NaN
+                version           = AnnotationResults.current    
+                height            = height     
+                heightDelta       = heightDelta
+                avgAltitude       = avgAltitude
+                length            = length     
+                wayLength         = wayLength  
+                bearing           = bearing    
+                slope             = slope            
+                trueThickness     = Double.NaN
+                verticalThickness = Double.NaN
             }
         }
 
@@ -291,52 +293,83 @@ with
             let! trueThickness  = Json.readFloat "trueThickness"
             
             return {
-                version       = AnnotationResults.current    
-                height        = height     
-                heightDelta   = heightDelta
-                avgAltitude   = avgAltitude
-                length        = length
-                wayLength     = wayLength  
-                bearing       = bearing
-                slope         = slope
-                trueThickness = trueThickness
+                version           = AnnotationResults.current    
+                height            = height     
+                heightDelta       = heightDelta
+                avgAltitude       = avgAltitude
+                length            = length
+                wayLength         = wayLength  
+                bearing           = bearing
+                slope             = slope
+                trueThickness     = trueThickness
+                verticalThickness = Double.NaN
             }
         }
+
+    static member private readV2 =
+        json {      
+            let! height             = Json.readFloat "height"     
+            let! heightDelta        = Json.readFloat "heightDelta"
+            let! avgAltitude        = Json.readFloat "avgAltitude"
+            let! length             = Json.readFloat "length"     
+            let! wayLength          = Json.readFloat "wayLength"  
+            let! bearing            = Json.readFloat "bearing"    
+            let! slope              = Json.readFloat "slope"
+            let! trueThickness      = Json.readFloat "trueThickness"
+            let! verticalThickness  = Json.readFloat "verticalThickness"
+            
+            return {
+                version           = AnnotationResults.current    
+                height            = height     
+                heightDelta       = heightDelta
+                avgAltitude       = avgAltitude
+                length            = length
+                wayLength         = wayLength  
+                bearing           = bearing
+                slope             = slope
+                trueThickness     = trueThickness
+                verticalThickness = verticalThickness
+            }
+        }
+
     static member FromJson(_: AnnotationResults) =
         json {
             let! v = Json.read "version"
             match v with 
             | 0 -> return! AnnotationResults.readV0
             | 1 -> return! AnnotationResults.readV1
+            | 2 -> return! AnnotationResults.readV2
             | _ -> return! v |> sprintf "don't know version %A  of AnnotationResults" |> Json.error
         }
     
     static member ToJson (x : AnnotationResults) =
         json {
-            do! Json.write      "version"       x.version     
-            do! Json.writeFloat "height"        x.height      
-            do! Json.writeFloat "heightDelta"   x.heightDelta       
-            do! Json.writeFloat "avgAltitude"   x.avgAltitude 
-            do! Json.writeFloat "length"        x.length            
-            do! Json.writeFloat "wayLength"     x.wayLength       
-            do! Json.writeFloat "bearing"       x.bearing     
-            do! Json.writeFloat "slope"         x.slope       
-            do! Json.writeFloat "trueThickness" x.trueThickness
+            do! Json.write      "version"           x.version
+            do! Json.writeFloat "height"            x.height      
+            do! Json.writeFloat "heightDelta"       x.heightDelta       
+            do! Json.writeFloat "avgAltitude"       x.avgAltitude 
+            do! Json.writeFloat "length"            x.length            
+            do! Json.writeFloat "wayLength"         x.wayLength       
+            do! Json.writeFloat "bearing"           x.bearing     
+            do! Json.writeFloat "slope"             x.slope       
+            do! Json.writeFloat "trueThickness"     x.trueThickness
+            do! Json.writeFloat "verticalThickness" x.verticalThickness
         }
 
 module AnnotationResults =    
     
     let initial = 
         {
-            version       = AnnotationResults.current
-            height        = Double.NaN
-            heightDelta   = Double.NaN
-            avgAltitude   = Double.NaN
-            length        = Double.NaN
-            wayLength     = Double.NaN
-            bearing       = Double.NaN
-            slope         = Double.NaN
-            trueThickness = Double.NaN
+            version           = AnnotationResults.current
+            height            = Double.NaN
+            heightDelta       = Double.NaN
+            avgAltitude       = Double.NaN
+            length            = Double.NaN
+            wayLength         = Double.NaN
+            bearing           = Double.NaN
+            slope             = Double.NaN
+            trueThickness     = Double.NaN
+            verticalThickness = Double.NaN
         }  
 
 type SemanticId = SemanticId of string

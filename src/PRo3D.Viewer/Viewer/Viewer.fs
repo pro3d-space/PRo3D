@@ -1096,9 +1096,11 @@ module ViewerApp =
                 m.drawing.annotations.flat
                 |> HashMap.map(fun _ v ->
                     let a = v |> Leaf.toAnnotation
-                    let results    = Calculations.reCalcBearing a refsystem'.up.value refsystem'.northO                   
+                    let results = Calculations.calculateAnnotationResults a refsystem'.up.value refsystem'.northO refsystem'.planet
+                    
+                    //Calculations.reCalcBearing a refsystem'.up.value refsystem'.northO                   
                     let dnsResults = DipAndStrike.reCalculateDipAndStrikeResults refsystem'.up.value refsystem'.northO a
-                    { a with results = results; dnsResults = dnsResults } 
+                    { a with results = Some results; dnsResults = dnsResults } 
                     |> Leaf.Annotations
                 )
             Log.stop()

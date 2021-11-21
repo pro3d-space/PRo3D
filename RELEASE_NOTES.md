@@ -1,3 +1,12 @@
+## 4.4.4-prerelease1
+
+- added csv export for vertical thickness computation
+- added csv export of angular error values for dns computation
+
+## 4.4.3-prerelease1
+
+- added vertical thickness computation for TT (True Thickness) annotation tool
+
 ## 4.4.2-prerelease1
 
 - added recalculation of all angular values dependent on north and up (dip and strike angle and azimuth, bearing, slope)
