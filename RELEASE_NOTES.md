@@ -1,3 +1,10 @@
+## 4.5.0-prerelease1
+
+- added traverse loading and visualization (dots, text, lines)
+- added local reference frames according to rover poses
+- added flyto animation according to rover poses
+- added list gui for sols and traverse visibility flags
+
 ## 4.4.4-prerelease1
 
 - added csv export for vertical thickness computation
