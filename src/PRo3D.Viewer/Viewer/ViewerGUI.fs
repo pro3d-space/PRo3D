@@ -151,7 +151,7 @@ module Gui =
                     if x.longitude.IsNaN() then
                         sprintf "not available"
                     else
-                        sprintf "%s deg" ((x.longitude).ToString())
+                        sprintf "%s deg" ((360.0 - x.longitude).ToString())
                 )
             let lat = 
                 spericalc 
@@ -724,65 +724,76 @@ module Gui =
                    // DrawingApp.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage // CHECK-merge viewAnnotationGroups
                 ]
                 GuiEx.accordion "Dip&Strike ColorLegend" "paint brush" false [
-                    Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDnSColorLegendUI m))] 
-
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDnSColorLegendUI m))
+                ] 
                 GuiEx.accordion "Actions" "Asterisk" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
-                  ]  
-                ]    
+                ]
+            ]    
 
     module Config =
         let config (model : AdaptiveModel) = 
             ConfigProperties.view model.scene.config 
-              |> UI.map ConfigPropertiesMessage 
-              |> AVal.constant
+            |> UI.map ConfigPropertiesMessage
+            |> AVal.constant
               
         let configUI (m : AdaptiveModel) =
-          div[][
-              GuiEx.accordion "ViewerConfig" "Settings" true [
-                      Incremental.div AttributeMap.empty (AList.ofAValSingle (config m))
-              ]
-              GuiEx.accordion "Coordinate System" "Map Signs" false [
-                  ReferenceSystemApp.UI.view m.scene.referenceSystem |> UI.map ReferenceSystemMessage
-              ]
-              GuiEx.accordion "Camera" "Camera Retro" false [
-                  CameraProperties.view m.scene.referenceSystem m.navigation.camera
-              ]
-              GuiEx.accordion "Frustum" "Settings" false [
-                  FrustumProperties.view m.frustumModel |> UI.map FrustumMessage
-              ]
-              GuiEx.accordion "Screenshots" "Settings" false [
-                  ScreenshotApp.view m.screenshotApp |> UI.map ScreenshotAppMessage
-              ]
-          ] 
+            div[][
+                GuiEx.accordion "ViewerConfig" "Settings" true [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle (config m))
+                ]
+                GuiEx.accordion "Coordinate System" "Map Signs" false [
+                    ReferenceSystemApp.UI.view m.scene.referenceSystem |> UI.map ReferenceSystemMessage
+                ]
+                GuiEx.accordion "Camera" "Camera Retro" false [
+                    CameraProperties.view m.scene.referenceSystem m.navigation.camera
+                ]
+                GuiEx.accordion "Frustum" "Settings" false [
+                    FrustumProperties.view m.frustumModel |> UI.map FrustumMessage
+                ]
+                GuiEx.accordion "Screenshots" "Settings" false [
+                    ScreenshotApp.view m.screenshotApp |> UI.map ScreenshotAppMessage
+                ]
+            ] 
           
-    module ViewPlanner = 
+    module ViewPlanner =
         let viewPlanProperties (model : AdaptiveModel) =
               //model.scene.viewPlans |> ViewPlan.UI.viewRoverProperties ViewPlanMessage 
               model.scene.viewPlans |> ViewPlanApp.UI.viewRoverProperties ViewPlanMessage model.footPrint.isVisible
         
         let viewPlannerUI (m : AdaptiveModel) =             
-          div [][
-              GuiEx.accordion "ViewPlans" "Write" true [
-                  ViewPlanApp.UI.viewViewPlans m.scene.viewPlans |> UI.map ViewPlanMessage
-              ]
-              GuiEx.accordion "Properties" "Content" true [
-                  Incremental.div AttributeMap.empty (viewPlanProperties m |> AList.ofAValSingle)
-              ]
-          ]   
+            div [][
+                GuiEx.accordion "ViewPlans" "Write" true [
+                    ViewPlanApp.UI.viewViewPlans m.scene.viewPlans |> UI.map ViewPlanMessage
+                ]
+                GuiEx.accordion "Properties" "Content" true [
+                    Incremental.div AttributeMap.empty (viewPlanProperties m |> AList.ofAValSingle)
+                ]
+            ]
 
     module SceneObjects =
         let sceneObjectsUI (m : AdaptiveModel) =             
-          div [][
-              yield GuiEx.accordion "SceneObjects" "Write" true [
-                      SceneObjectsApp.UI.viewSceneObjects m.scene.sceneObjectsModel 
-                  ]
-              yield GuiEx.accordion "Transformation" "expand arrows alternate " false [
-                      Incremental.div AttributeMap.empty (AList.ofAValSingle(SceneObjectsApp.UI.viewTranslationTools m.scene.sceneObjectsModel))
-                  ]  
-             
-          ] |> UI.map SceneObjectsMessage      
+            div [][
+                yield GuiEx.accordion "SceneObjects" "Write" true [
+                        SceneObjectsApp.UI.viewSceneObjects m.scene.sceneObjectsModel 
+                    ]
+                yield GuiEx.accordion "Transformation" "expand arrows alternate " false [
+                        Incremental.div AttributeMap.empty (AList.ofAValSingle(SceneObjectsApp.UI.viewTranslationTools m.scene.sceneObjectsModel))
+                    ]  
+               
+            ] |> UI.map SceneObjectsMessage      
           
+    module Traverse =
+        let traverseUI (m : AdaptiveModel) =
+            div [][
+                yield GuiEx.accordion "Sols" "road" true [
+                    TraverseApp.UI.viewSolList m.scene.referenceSystem m.scene.traverse
+                ]
+                yield GuiEx.accordion "Traverse" "Content" true [
+                    TraverseApp.UI.viewTraverseProperties m.scene.traverse
+                ]
+            ] |> UI.map TraverseMessage
+
     module ScaleBars = 
         
          let scaleBarsUI (m : AdaptiveModel) =             
@@ -955,6 +966,8 @@ module Gui =
                 require (viewerDependencies) (body bodyAttributes [SceneObjects.sceneObjectsUI m])
             | Some "scalebars" -> 
                 require (viewerDependencies) (body bodyAttributes [ScaleBars.scaleBarsUI m])
+            | Some "traverse" -> 
+                require (viewerDependencies) (body bodyAttributes [Traverse.traverseUI m])
             | Some "geologicSurf" -> 
                 require (viewerDependencies) (body bodyAttributes [GeologicSurfaces.geologicSurfacesUI m])
             | Some "properties" ->

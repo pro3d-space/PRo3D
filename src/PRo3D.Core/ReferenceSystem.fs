@@ -69,8 +69,7 @@ module ReferenceSystemApp =
         let pz = m31*x + m32*y + m33*z + m34
 
         V3d(px, py, pz)
-    
-   
+       
     let upVector (point:V3d) (planet) = 
         CooTransformation.getUpVector point planet //point.Normalized
     

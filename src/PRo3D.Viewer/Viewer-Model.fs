@@ -147,6 +147,7 @@ type ViewerAction =
     | ScaleBarsMessage               of ScaleBarsAction
     | GeologicSurfacesMessage        of GeologicSurfaceAction
     | ScreenshotAppMessage           of ScreenshotAppAction
+    | TraverseMessage                of TraverseAction
     | Nop
 
 and MailboxState = {
@@ -321,7 +322,7 @@ module Scene =
                     sceneObjectsModel       = sceneObjectsModel
                     geologicSurfacesModel   = geologicSurfacesModel
 
-                    traverse              = traverse
+                    traverse                = traverse
                 }
         }
 
@@ -583,7 +584,7 @@ module Viewer =
                     referenceSystem       = ReferenceSystem.initial                    
                     bookmarks             = GroupsModel.initial
                     scaleBars             = ScaleBarsModel.initial
-                    dockConfig            = DockConfigs.core
+                    dockConfig            = DockConfigs.traverse
                     closedPages           = list.Empty 
                     firstImport           = true
                     userFeedback          = ""
@@ -591,6 +592,8 @@ module Viewer =
                     viewPlans             = ViewPlanModel.initial
                     sceneObjectsModel     = SceneObjectsModel.initial
                     geologicSurfacesModel = GeologicSurfacesModel.initial
+
+                    traverse              = Traverse.initial
                 }
             navigation      = navInit
 

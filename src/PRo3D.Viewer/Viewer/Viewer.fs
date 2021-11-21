@@ -432,7 +432,7 @@ module ViewerApp =
             | Drawing.FlyToAnnotation id ->
                 let _a = m |> Optic.get _flat |> HashMap.tryFind id |> Option.map Leaf.toAnnotation
                 match _a with 
-                | Some a ->                                                
+                | Some a ->
                     
                     //let animationMessage = 
                     //    animateFowardAndLocation hp.Location hp.Forward hp.Up 2.0 "ForwardAndLocation2s"
@@ -477,7 +477,6 @@ module ViewerApp =
                 { m with drawing = drawing; } |> stash
         | SurfaceActions msg,_,_ ->
             
-
             let view = m.navigation.camera.view
             let s = SurfaceApp.update m.scene.surfacesModel msg m.scene.scenePath view m.scene.referenceSystem
             let animation = 
@@ -1030,7 +1029,7 @@ module ViewerApp =
                     //{ m with waypoints = waypoints }                                                                                  
                     m |> shortFeedback "Saved logbrush"
                 | Aardvark.Application.Keys.F8 ->
-                    { m with scene = { m.scene with dockConfig = DockConfigs.core } }
+                    { m with scene = { m.scene with dockConfig = DockConfigs.traverse } }
                 | _ -> m
 
             let interaction' = 
@@ -1043,8 +1042,10 @@ module ViewerApp =
 
             let m =
                 match k with 
-                | Aardvark.Application.Keys.F1 ->
-                    let b = TraverseApp.update 
+                | Aardvark.Application.Keys.F6 ->
+                    let t = TraverseApp.update m.scene.traverse (TraverseAction.LoadTraverse @".\M20_waypoints.json")
+                    { m with scene = { m.scene with traverse = t }}
+                | _ -> m
 
             { m with scene = { m.scene with config = c' }; interaction = interaction'}                               
         | KeyUp k, _,_ ->               
@@ -1403,11 +1404,11 @@ module ViewerApp =
 
             | GeologicSurfaceAction.AddGS ->
                 let geologicSurfaces' = 
-                        GeologicSurfacesUtils.makeGeologicSurfaceFromAnnotations 
-                                                                m.drawing.annotations
-                                                                m.scene.geologicSurfacesModel
+                    GeologicSurfacesUtils.makeGeologicSurfaceFromAnnotations
+                        m.drawing.annotations
+                        m.scene.geologicSurfacesModel
                 
-                m |> Optic.set _geologicSurfacesModel geologicSurfaces' 
+                m |> Optic.set _geologicSurfacesModel geologicSurfaces'
             | _ ->
                 let geologicSurfaces' = GeologicSurfacesApp.update m.navigation.camera.view m.scene.geologicSurfacesModel msg
                 let m' = m |> Optic.set _geologicSurfacesModel geologicSurfaces'  
@@ -1420,7 +1421,17 @@ module ViewerApp =
             | ScreenshotAppAction.CreateScreenshot -> 
                 shortFeedback "Screenshot saved" m
             | _ -> m
-            
+        | TraverseMessage msg, _ , _ ->
+            let animation =
+                match msg with
+                | FlyToSol (forward, up, location) ->
+                    let animationMessage = 
+                        CameraAnimations.animateForwardAndLocation location forward up 2.0 "ForwardAndLocation2s"
+                    AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))                    
+                | _ ->
+                    m.animations
+
+            { m with scene = { m.scene with traverse = TraverseApp.update m.scene.traverse msg }; animations = animation }
         | _ -> m       
                                    
     let mkBrushISg color size trafo : ISg<Message> =
@@ -1640,11 +1651,27 @@ module ViewerApp =
             //        m.correlationPlot 
             //        (allowLogPicking m)
 
+            let traverse = 
+                [ 
+                    TraverseApp.viewLines m.scene.traverse
+                ]
+                |> Sg.ofList
+                |> Sg.map TraverseMessage
+
+            
+
             let heightValidation =
-                HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation
+                HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation            
 
-
-            [exploreCenter; refSystem; viewPlans; homePosition; solText; heightValidation] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
+            [
+                exploreCenter; 
+                refSystem; 
+                viewPlans; 
+                homePosition; 
+                solText; 
+                heightValidation
+                traverse
+            ] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
         let minervaSg =
             let minervaFeatures = 
@@ -1693,8 +1720,28 @@ module ViewerApp =
             GeologicSurfacesApp.Sg.view m.scene.geologicSurfacesModel 
             |> Sg.map GeologicSurfacesMessage 
         
+        let traverse = 
+            [ 
+                TraverseApp.Sg.view 
+                    m.navigation.camera.view 
+                    m.scene.config.nearPlane.value 
+                    m.scene.referenceSystem
+                    m.scene.traverse                
+            ]
+            |> Sg.ofList
+            |> Sg.map TraverseMessage
+
         let depthTested = 
-            [linkingSg; annotationSg; minervaSg; heightValidationDiscs; scaleBars; sceneObjects; geologicSurfacesSg] |> Sg.ofList
+            [
+                linkingSg; 
+                annotationSg; 
+                minervaSg; 
+                heightValidationDiscs; 
+                scaleBars; 
+                sceneObjects; 
+                geologicSurfacesSg
+                traverse
+            ] |> Sg.ofList
 
         //render OPCs in priority groups
         let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m

@@ -127,10 +127,8 @@ module Sg =
             fix       = AVal.constant false
         }
 
-
         let upV = 
             (model.up.value, position) ||> AVal.map2 (fun udir position -> [| position; position + udir.Normalized |])
-
                 
         let northV = 
             (model.north.value, position) ||> AVal.map2 (fun ndir position -> [| position; position + ndir.Normalized |])

@@ -149,6 +149,21 @@ module CooTransformation =
             
             V3d(!pX, !pY, !pZ)
 
+    let getXYZFromLatLonAlt' (coordinate :V3d) (planet:Planet) : V3d = 
+        match planet with
+        | Planet.None | Planet.JPL | Planet.ENU -> V3d.NaN
+        | _ ->
+            let pX = ref init
+            let pY = ref init
+            let pZ = ref init
+            let error = 
+                CooTransformation.LatLonAlt2Xyz(planet.ToString(), coordinate.X, coordinate.Y, coordinate.Z, pX, pY, pZ )
+            
+            if error <> 0 then
+                Log.line "cootrafo errorcode %A" error
+            
+            V3d(!pX, !pY, !pZ)
+
     let getHeight (p:V3d) (up:V3d) (planet:Planet) = 
         match planet with
         | Planet.None | Planet.JPL | Planet.ENU -> (p * up).Length // p.Z //
