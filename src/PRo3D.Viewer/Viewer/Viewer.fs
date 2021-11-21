@@ -313,14 +313,14 @@ module ViewerApp =
         | Interactions.PlaceRover, ViewerMode.Standard ->
             let ref = m.scene.referenceSystem 
 
-            let addPointMsg = ViewPlanApp.Action.AddPoint(p,ref,cache,(Optic.get _surfacesModel m))
+            let addPointMsg = ViewPlanApp.Action.AddPoint(p, ref, cache, (Optic.get _surfacesModel m))
 
-            let outerModel, viewPlans' = 
-              ViewPlanApp.update m.scene.viewPlans addPointMsg _navigation _footprint m.scene.scenePath m 
+            let outerModel, viewPlans = 
+                ViewPlanApp.update m.scene.viewPlans addPointMsg _navigation _footprint m.scene.scenePath m
 
             let m' = 
                 { m with 
-                    scene = { m.scene with viewPlans = viewPlans'}  // CHECK-merge
+                    scene = { m.scene with viewPlans = viewPlans}  // CHECK-merge
                     footPrint = outerModel.footPrint 
                 }
             match m.scene.viewPlans.working with
@@ -861,7 +861,7 @@ module ViewerApp =
             |> SceneLoader.addGeologicSurfaces
 
         | NewScene,_,_ ->
-            let initialModel = Viewer.initial m.messagingMailbox StartupArgs.initArgs m.screenshotApp.url dataSamples
+            let initialModel = Viewer.initialModel m.messagingMailbox StartupArgs.initArgs m.screenshotApp.url dataSamples
             { initialModel with recent          = m.recent} |> ViewerIO.loadRoverData
         | KeyDown k, _, _ ->
             let m =
@@ -1544,7 +1544,7 @@ module ViewerApp =
              |> Sg.cullMode (AVal.constant CullMode.None)
 
         // instrument view control
-        let icmds    = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed discsInst m // m.scene.surfacesModel.sgGrouped overlayed discs m
+        let icmds    = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed discsInst false m // m.scene.surfacesModel.sgGrouped overlayed discs m
         let icam = 
             AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
         DomNode.RenderControl((instrumentControlAttributes m), icam, icmds, None) //AttributeMap.Empty
@@ -1747,7 +1747,7 @@ module ViewerApp =
             ] |> Sg.ofList
 
         //render OPCs in priority groups
-        let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m
+        let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested true m
         onBoot "attachResize('__ID__')" (
             DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
         )
@@ -1805,7 +1805,7 @@ module ViewerApp =
 
         let m = 
             if startEmpty |> not then
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs url dataSamples
+                PRo3D.Viewer.Viewer.initialModel messagingMailbox StartupArgs.initArgs url dataSamples
                 |> SceneLoader.loadLastScene runtime signature
                 |> SceneLoader.loadLogBrush
                 |> ViewerIO.loadRoverData                
@@ -1817,7 +1817,7 @@ module ViewerApp =
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
             else
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs url dataSamples 
+                PRo3D.Viewer.Viewer.initialModel messagingMailbox StartupArgs.initArgs url dataSamples 
                     |> ViewerIO.loadRoverData       
 
         App.start {

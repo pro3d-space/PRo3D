@@ -796,105 +796,102 @@ module Gui =
 
     module ScaleBars = 
         
-         let scaleBarsUI (m : AdaptiveModel) =             
-           div [][
-               yield GuiEx.accordion "ScaleBars" "Write" true [
-                   ScaleBarsApp.UI.viewScaleBars m.scene.scaleBars
-               ]
-               // Todo: properties
-               yield GuiEx.accordion "Properties" "Content" true [
-                   Incremental.div AttributeMap.empty (AList.ofAValSingle(ScaleBarsApp.UI.viewProperties m.scene.scaleBars)) 
-               ]
-           ]  |> UI.map ScaleBarsMessage    
+        let scaleBarsUI (m : AdaptiveModel) =             
+            div [][
+                yield GuiEx.accordion "ScaleBars" "Write" true [
+                    ScaleBarsApp.UI.viewScaleBars m.scene.scaleBars
+                ]
+                // Todo: properties
+                yield GuiEx.accordion "Properties" "Content" true [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(ScaleBarsApp.UI.viewProperties m.scene.scaleBars)) 
+                ]
+            ] |> UI.map ScaleBarsMessage
 
     module GeologicSurfaces = 
         
-         let geologicSurfacesUI (m : AdaptiveModel) =           
-           let annos = m.drawing.annotations
+        let geologicSurfacesUI (m : AdaptiveModel) =           
+            let annos = m.drawing.annotations
 
-           div [][
-               yield br []
-               yield GeologicSurfacesApp.UI.addMesh
+            div [][
+                yield br []
+                yield GeologicSurfacesApp.UI.addMesh
 
-               yield GuiEx.accordion "GeologicSurfaces" "Write" true [
-                   GeologicSurfacesApp.UI.viewGeologicSurfaces m.scene.geologicSurfacesModel
-               ]
-               yield GuiEx.accordion "Properties" "Content" true [
-                   Incremental.div AttributeMap.empty (AList.ofAValSingle(GeologicSurfacesApp.UI.viewProperties m.scene.geologicSurfacesModel)) 
-               ]
-           ]  |> UI.map GeologicSurfacesMessage    
+                yield GuiEx.accordion "GeologicSurfaces" "Write" true [
+                    GeologicSurfacesApp.UI.viewGeologicSurfaces m.scene.geologicSurfacesModel
+                ]
+                yield GuiEx.accordion "Properties" "Content" true [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(GeologicSurfacesApp.UI.viewProperties m.scene.geologicSurfacesModel)) 
+                ]
+            ]  |> UI.map GeologicSurfacesMessage    
 
     module Bookmarks =
         let bookmarkGroupProperties (model : AdaptiveModel) =                                       
             GroupsApp.viewUI model.scene.bookmarks 
-              |> UI.map BookmarkUIMessage 
-              |> AVal.constant
+            |> UI.map BookmarkUIMessage 
+            |> AVal.constant
                 
         let viewBookmarkProperties (model : AdaptiveModel) = 
-          let view = (fun leaf ->
-              match leaf with
+            let view = (fun leaf ->
+                match leaf with
                 | AdaptiveBookmarks bm -> Bookmarks.UI.view bm
                 | _ -> div[style "font-style:italic"][ text "no bookmark selected" ])
     
-          model.scene.bookmarks |> GroupsApp.viewSelected view BookmarkUIMessage
+            model.scene.bookmarks |> GroupsApp.viewSelected view BookmarkUIMessage
         
         let bookmarksLeafButtonns (model : AdaptiveModel) = 
-          let ts = model.scene.bookmarks.activeChild
-          let sel = model.scene.bookmarks.singleSelectLeaf
-          adaptive {  
-              let! ts = ts
-              let! sel = sel
-              match sel with
-                  | Some _ -> return (GroupsApp.viewLeafButtons ts |> UI.map BookmarkUIMessage)
-                  | None -> return div[style "font-style:italic"][ text "no bookmark selected" ]            
-          } 
+            let ts = model.scene.bookmarks.activeChild
+            let sel = model.scene.bookmarks.singleSelectLeaf
+            adaptive {  
+                let! ts = ts
+                let! sel = sel
+                match sel with
+                | Some _ -> return (GroupsApp.viewLeafButtons ts |> UI.map BookmarkUIMessage)
+                | None -> return div[style "font-style:italic"][ text "no bookmark selected" ]
+            } 
         
         let bookmarksGroupButtons (model : AdaptiveModel) = 
-          let ts = model.scene.bookmarks.activeGroup
-          adaptive {  
-              let! ts = ts
-              return (GroupsApp.viewGroupButtons ts |> UI.map BookmarkUIMessage)
-          } 
+            let ts = model.scene.bookmarks.activeGroup
+            adaptive {  
+                let! ts = ts
+                return (GroupsApp.viewGroupButtons ts |> UI.map BookmarkUIMessage)
+            } 
         
         let bookmarkUI (m : AdaptiveModel) = 
-          let item2 = 
-              m.scene.bookmarks.lastSelectedItem 
-                  |> AVal.bind (fun x -> 
-                      match x with 
-                        | SelectedItem.Group -> bookmarkGroupProperties m
-                        | _ -> viewBookmarkProperties m 
-                  )
-          let buttons =
-              m.scene.bookmarks.lastSelectedItem 
-                  |> AVal.bind (fun x -> 
-                      match x with 
-                        | SelectedItem.Group -> bookmarksGroupButtons m
-                        | _ -> bookmarksLeafButtonns m 
-                  )
-          div [][
-              br []
-              Bookmarks.UI.viewGUI |> UI.map BookmarkMessage
+            let item2 = 
+                m.scene.bookmarks.lastSelectedItem 
+                |> AVal.bind (fun x -> 
+                    match x with 
+                    | SelectedItem.Group -> bookmarkGroupProperties m
+                    | _ -> viewBookmarkProperties m 
+                )
+            let buttons =
+                m.scene.bookmarks.lastSelectedItem 
+                |> AVal.bind (fun x -> 
+                    match x with 
+                    | SelectedItem.Group -> bookmarksGroupButtons m
+                    | _ -> bookmarksLeafButtonns m 
+                )
+            div [][
+                br []
+                Bookmarks.UI.viewGUI |> UI.map BookmarkMessage
       
-              GuiEx.accordion "Bookmarks" "Write" true [
-                  //Groups.viewSelectionButtons |> UI.map BookmarkUIMessage
-                  Bookmarks.viewBookmarksGroups m.scene.bookmarks |> UI.map BookmarkMessage
-              ]                
-              GuiEx.accordion "Properties" "Content" true [
-                  Incremental.div AttributeMap.empty ( item2 |> AList.ofAValSingle)
-              ] 
-              GuiEx.accordion "Actions" "Asterisk" true [
-                  Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
-              ]
-          ]
+                GuiEx.accordion "Bookmarks" "Write" true [
+                    //Groups.viewSelectionButtons |> UI.map BookmarkUIMessage
+                    Bookmarks.viewBookmarksGroups m.scene.bookmarks |> UI.map BookmarkMessage
+                ]                
+                GuiEx.accordion "Properties" "Content" true [
+                    Incremental.div AttributeMap.empty ( item2 |> AList.ofAValSingle)
+                ] 
+                GuiEx.accordion "Actions" "Asterisk" true [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
+                ]
+            ]
     
-
     module Pages =
         let pageRouting viewerDependencies bodyAttributes (m : AdaptiveModel) viewInstrumentView viewRenderView (runtime : IRuntime) request =
             
             match Map.tryFind "page" request.queryParams with
             | Some "instrumentview" ->
-
-                
                 let id = System.Guid.NewGuid().ToString()
 
                 let instrumentViewAttributes =

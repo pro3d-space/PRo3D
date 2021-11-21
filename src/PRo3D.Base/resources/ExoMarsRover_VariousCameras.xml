@@ -77,7 +77,7 @@
                     <!-- 3D coordinates of the second point of the axis -->
                     <XYZ2>0.000, 0.000, 0.000</XYZ2>
                     <!-- Rotation range of axis (gon) -->
-                    <Range>0, 400</Range>
+                    <Range>-0, 400</Range>
                 </Rotation>
             </DegreesOfFreedom>
         </PTU>

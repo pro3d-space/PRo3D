@@ -23,8 +23,32 @@ open PRo3D
 open PRo3D.Base
 open PRo3D.Core
 open PRo3D.Core.Surface
+open Aardvark.GeoSpatial.Opc.PatchLod
+open Aardvark.Base.Ag
+
+
+
+module FootprintSg = 
+    open Aardvark.SceneGraph.Sg
+    
+    type FootprintApplicator(vp : aval<M44d>, child : ISg)  =
+        inherit AbstractApplicator(child)
+        member x.ViewProj = vp
+
+    [<Rule>]
+    type FootprintSem() =
+        member x.FootprintVP(n : FootprintApplicator, scope : Ag.Scope) =
+            n.Child?FootprintVP <- n.ViewProj
+
 
 module Sg =
+
+    
+    type Ag.Scope with
+        member x.FootprintVP : aval<M44d> = x?FootprintVP
+
+    let applyFootprint (v : aval<M44d>) (sg : ISg) = 
+        FootprintSg.FootprintApplicator(v, sg) :> ISg
 
     type SgHelper = {
         surf   : Surface
@@ -111,11 +135,20 @@ module Sg =
         
         let lodDeciderMars = lodDeciderMars (scene.preTransform)
 
+
+        let map = 
+            Map.ofList [
+                "FootprintModelViewProj", fun scope (patch : RenderPatch) -> 
+                    let viewTrafo = scope |> unbox<aval<M44d>>
+                    let r = AVal.map2 (fun viewTrafo (model : Trafo3d) -> viewTrafo * model.Forward) viewTrafo patch.trafo 
+                    r :> IAdaptiveValue
+            ]
+
         // create level of detail hierarchy (Sg)
         let g = 
             patchHierarchies 
             |> List.map (fun h ->                                  
-                Sg.patchLod 
+                Sg.patchLod' 
                     signature
                     runner 
                     h.opcPaths.Opc_DirAbsPath
@@ -126,8 +159,14 @@ module Sg =
                     //PatchLod.CoordinatesMapping.Local
                     useAsyncLoading
                     (PatchLod.toRoseTree h.tree)
+                    map
+                    (fun n s -> 
+                        let vp = s.FootprintVP
+                        vp :> obj
+                    )
             )
-            |> SgFSharp.Sg.ofList                
+            |> SgFSharp.Sg.ofList  
+
                                                 
         g, patchHierarchies, kdTrees
     

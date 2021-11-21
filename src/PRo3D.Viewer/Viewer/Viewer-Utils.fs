@@ -223,16 +223,17 @@ module ViewerUtils =
         
     let viewSingleSurfaceSg 
         (surface         : AdaptiveSgSurface) 
-        (surfacesMap     : amap<Guid, AdaptiveLeafCase>) // TODO v5: to get your naming right!!
+        (surfacesMap     : amap<Guid, AdaptiveLeafCase>)
         (frustum         : aval<Frustum>) 
         (selectedId      : aval<Option<Guid>>)
         (surfacePicking  : aval<bool>)
         (globalBB        : aval<Box3d>) 
         (refsys          : AdaptiveReferenceSystem)
         (fp              : AdaptiveFootPrint) 
-        (vp              : aval<Option<AdaptiveViewPlan>>) 
+        (vp              : aval<AdaptiveOptionCase<ViewPlan, AdaptiveViewPlan, AdaptiveViewPlan>>) 
         (useHighlighting : aval<bool>)
-        (filterTexture   : aval<bool>) =
+        (filterTexture   : aval<bool>)
+        (allowFootprint  : bool) =
 
         adaptive {
             let! exists = (surfacesMap |> AMap.keys) |> ASet.contains surface.surface
@@ -295,7 +296,8 @@ module ViewerUtils =
 
                 
                 let samplerDescription : aval<SamplerState -> SamplerState> = 
-                    filterTexture |> AVal.map (fun filterTexture ->  
+                    filterTexture 
+                    |> AVal.map (fun filterTexture ->  
                         fun (x : SamplerState) -> 
                             match filterTexture with
                             | false -> { x with Filter = TextureFilter.MinLinearMagPoint }
@@ -304,19 +306,26 @@ module ViewerUtils =
                         
                 let footprintVisible = //AVal.map2 (fun (vp:Option<AdaptiveViewPlan>) vis -> (vp.IsSome && vis)) vp, fp.isVisible
                     adaptive {
-                        let! vp = vp
-                        let! visible = fp.isVisible
-                        let! id = fp.vpId
-                        return (vp.IsSome && visible)
+                        if not allowFootprint then return false
+                        else
+                            let! vp = vp
+                            match vp with
+                            | AdaptiveSome vp -> 
+                                return! vp.isVisible 
+                            | _ -> 
+                                return false
+                            //let! visible = fp.isVisible
+                            //let! id = fp.vpId
+                            //return (vp.IsSome && visible)
                     }
                 
-                let footprintMatrix = 
+                let footprintViewProj = 
                     adaptive {
                         let! fppm = fp.projectionMatrix
                         let! fpvm = fp.instViewMatrix
-                        let! s = surf
-                        let! ts = s.preTransform
-                        let! t = trafo
+                        //let! s = surf
+                        //let! ts = s.preTransform
+                        //let! t = trafo
                         //return (t.Forward * fpvm * fppm) //* t.Forward 
                         return (fppm * fpvm) // * ts.Forward
                     } 
@@ -339,11 +348,9 @@ module ViewerUtils =
                     |> addAttributeFalsecolorMappingParameters surf
                     |> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
                     |> addImageCorrectionParameters surf
-                    |> Sg.uniform "footprintVisible" footprintVisible
-                    |> Sg.uniform "instrumentMVP" footprintMatrix
-                    |> Sg.uniform "projMVP" fp.projectionMatrix
-                    |> Sg.uniform "globalToLocal" fp.globalToLocalPos
-                    |> Sg.uniform "instViewMVP" fp.instViewMatrix
+                    |> Sg.uniform "FootprintVisible" footprintVisible
+                    |> Sg.applyFootprint footprintViewProj
+                    |> Sg.noEvents
                     |> Sg.texture (Sym.ofString "FootPrintTexture") fp.projTex
                     |> Sg.LodParameters( getLodParameters surf refsys frustum )
                     |> Sg.AttributeParameters( attributeParameters surf )
@@ -380,6 +387,12 @@ module ViewerUtils =
         let far = m.scene.config.farPlane.value
         (Navigation.UI.frustum near far)
 
+    type Vertex = {
+        [<Position>]        pos     : V4d
+        [<Color>]           c       : V4d
+        [<TexCoord>]        tc      : V2d
+        [<Semantic("FootPrintProj")>] tc0     : V4d
+    }
 
     let fixAlpha (v : Vertex) =
         fragment {         
@@ -408,10 +421,26 @@ module ViewerUtils =
                 yield input.P1
                 yield input.P2
         }
+         
+
+    let stableTrafo (v : Vertex) =
+          vertex {
+              let vp = uniform.ModelViewProjTrafo * v.pos
+
+              return 
+                  { v with
+                      pos = vp
+                      c = v.c
+                  }
+          }
+
 
     let surfaceEffect =
         Effect.compose [
-            Shader.stableTrafo             |> toEffect
+            PRo3D.Base.Shader.footprintV   |> toEffect 
+
+            stableTrafo             |> toEffect
+
             triangleFilterX                |> toEffect
             Shader.OPCFilter.improvedDiffuseTexture |> toEffect
             fixAlpha |> toEffect
@@ -424,8 +453,10 @@ module ViewerUtils =
             OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
          //   PRo3D.Base.Shader.falseColorLegend2 |> toEffect
             PRo3D.Base.Shader.mapColorAdaption  |> toEffect            
-            //PRo3D.Base.OtherShader.Shader.footprintV        |> toEffect //TODO reactivate viewplanner
-            //PRo3D.Base.OtherShader.Shader.footPrintF        |> toEffect
+            
+            
+            PRo3D.Base.Shader.footPrintF        |> toEffect
+            
         ]
 
     //TODO TO refactor screenshot specific
@@ -450,7 +481,9 @@ module ViewerUtils =
                             sf.globalBB 
                             refSystem 
                             m.footPrint 
-                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting m.filterTexture)
+                            m.scene.viewPlans.selectedViewPlan
+                            usehighlighting m.filterTexture
+                            true)
                     |> AMap.toASet 
                     |> ASet.map snd                     
                 )                
@@ -486,7 +519,7 @@ module ViewerUtils =
             |> Sg.set
             |> (camera |> Sg.camera)
 
-    let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) : alist<RenderCommand<ViewerAction>> =
+    let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (allowFootprint : bool) (m:AdaptiveModel) : alist<RenderCommand<ViewerAction>> =
         let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true
 
@@ -512,8 +545,11 @@ module ViewerUtils =
                             selected 
                             surfacePicking
                             surface.globalBB
-                            refSystem m.footPrint 
-                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting filterTexture
+                            refSystem 
+                            m.footPrint 
+                            m.scene.viewPlans.selectedViewPlan
+                            usehighlighting filterTexture
+                            allowFootprint
                        )
                     |> AMap.toASet 
                     |> ASet.map snd                     

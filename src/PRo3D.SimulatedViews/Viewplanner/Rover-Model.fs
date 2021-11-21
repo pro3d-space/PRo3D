@@ -387,13 +387,17 @@ module FootPrint =
                                 | None -> ""
                 
                
-                let pngName = System.String.Format(
-                                        "{0:0000}{1:00}{2:00}_{3:00}{4:00}{5:00}_{6}_{7}",
-                                        now.Year, now.Month, now.Day, now.Hour, now.Minute, now.Second, roverName, instrumentName)
+                let pngName = 
+                    System.String.Format(
+                        "{0:0000}{1:00}{2:00}_{3:00}{4:00}{5:00}_{6}_{7}",
+                        now.Year, now.Month, now.Day, now.Hour, now.Minute, now.Second, roverName, instrumentName
+                    )
 
-                let svxName = System.String.Format(
-                                    "{0:0000}{1:00}{2:00}_{3:00}{4:00}{5:00}_{6}_{7}.svx",
-                                    now.Year, now.Month, now.Day, now.Hour, now.Minute, now.Second, roverName, instrumentName)
+                let svxName = 
+                    System.String.Format(
+                        "{0:0000}{1:00}{2:00}_{3:00}{4:00}{5:00}_{6}_{7}.svx",
+                        now.Year, now.Month, now.Day, now.Hour, now.Minute, now.Second, roverName, instrumentName
+                    )
 
                 let width, height =
                         match v.selectedInstrument with
@@ -409,15 +413,18 @@ module FootPrint =
                     path = fpPath
                     name = pngName
                 }
+
                 let calibration = {
                     instrumentPlatformXmlFileName       = v.rover.id + ".xml"
                     instrumentPlatformXmlFileVersion    = 1.0
                 }
+
                 let roverInfo = {
                     position = v.position
                     lookAtPosition = v.lookAt
                     placementTrafo = v.roverTrafo
                 }
+
                 let panAx = v.rover.axes.TryFind "Pan Axis" |> Option.map(fun x -> x.angle.value )
                 let panVal = match panAx with | Some av -> av | None -> 1.0
 
@@ -427,10 +434,12 @@ module FootPrint =
                     panAxis = panVal
                     tiltAxis = tiltVal
                 }
+
                 let focal =
-                        match v.selectedInstrument with
-                                | Some i -> i.focal.value
-                                | None -> 1.0
+                    match v.selectedInstrument with
+                    | Some i -> i.focal.value
+                    | None -> 1.0
+
                 let referenceFrameInfo = {
                     name = "Ground"
                     parentFrameName = ""
@@ -442,10 +451,12 @@ module FootPrint =
                     focalLength         = focal
                     referenceFrameInfo  = referenceFrameInfo
                 }
+
                 let acquisition = {
                     roverInfo       = roverInfo
                     instrumentInfo  = instrumentinfo
                 }
+
                 let simulatedViewData =
                     {
                         fileInfo    = fileInfo
@@ -453,7 +464,11 @@ module FootPrint =
                         acquisition = acquisition
                     }
                 //Serialization.save (Path.Combine(fpPath, svxName)) simulatedViewData |> ignore
-                let json = simulatedViewData |> Json.serialize |> Json.formatWith JsonFormattingOptions.Pretty |> Serialization.writeToFile (Path.Combine(fpPath, svxName))
+                let json = 
+                    simulatedViewData 
+                    |> Json.serialize 
+                    |> Json.formatWith JsonFormattingOptions.Pretty 
+                    |> Serialization.writeToFile (Path.Combine(fpPath, svxName))
                 //Serialization.writeToFile (Path.Combine(fpPath, svxName)) json 
                 vp
             | None -> vp 
@@ -468,22 +483,21 @@ module FootPrint =
         let res = V2i((int)instrument.intrinsics.horizontalResolution, (int)instrument.intrinsics.verticalResolution)
         //let image = PixImage<byte>(Col.Format.RGB,res).ToPixImage(Col.Format.RGB)
        
-        let pi = PixImage<byte>(Col.Format.RGBA, res)
-        pi.GetMatrix<C4b>().SetByCoord(fun (c : V2l) -> C4b.White) |> ignore
-        let tex = PixTexture2d(PixImageMipMap [| (pi.ToPixImage(Col.Format.RGBA)) |], true) :> ITexture
-        
-        let projectionTrafo = model.instrumentFrustum |> Frustum.projTrafo
-        
-        let location = model.instrumentCam.Location - roverpos //transformenExt.position
-        let testview = model.instrumentCam.WithLocation location
+        // reactivate if texture based footprint is needed in the future
+        //let pi = PixImage<byte>(Col.Format.RGBA, res)
+        //pi.GetMatrix<C4b>().SetByCoord(fun (c : V2l) -> 
+        //    let c = V2i c
+        //    if c.X < 5 || c.X > res.X - 5 || c.Y < 5 || c.Y > res.Y - 5 then C4b.Red else C4b(0,0,0,0)
+        //) |> ignore
+        //let tex = PixTexture2d(PixImageMipMap [| (pi.ToPixImage(Col.Format.RGBA)) |], true) :> ITexture
 
         let fp = 
-            {
+            { 
                 vpId             = id
                 isVisible        = true
-                projectionMatrix = projectionTrafo.Forward
-                instViewMatrix   = testview.ViewTrafo.Forward //model.instrumentCam.view.ViewTrafo.Forward
-                projTex          = tex
+                projectionMatrix = (model.instrumentFrustum |> Frustum.projTrafo).Forward
+                instViewMatrix   = model.instrumentCam.ViewTrafo.Forward
+                projTex          = DefaultTextures.blackTex.GetValue()
                 globalToLocalPos = roverpos //transformenExt.position
             }
         fp //{ model with footPrint = fp }
@@ -517,7 +531,7 @@ module ViewPlanModel =
         vpId                = None
         isVisible           = false
         projectionMatrix    = M44d.Identity
-        instViewMatrix    = M44d.Identity
+        instViewMatrix      = M44d.Identity
         projTex             = initPixTex
         globalToLocalPos    = V3d.OOO
     }

@@ -66,8 +66,6 @@ module CooTransformation =
             Log.line "[CooTransformation] no instrument dir found, creating one"
             Directory.CreateDirectory cooTransformationDir |> ignore
 
-
-
         use fs = typeof<Self>.Assembly.GetManifestResourceStream("PRo3D.Base.resources.CooTransformationConfig.zip")
         use archive = new ZipArchive(fs, ZipArchiveMode.Read)
         for e in archive.Entries do
@@ -90,7 +88,13 @@ module CooTransformation =
         if errorCode <> 0 then 
             failwithf "[CooTransformation] could not initialize library, config dir: %s, return code: %d" configDir errorCode
         else 
-            Log.line "Successfully initialized CooTrafo"
+            Log.line "[CooTransformation] Successfully initialized CooTrafo"
+        
+        let error = JR.InstrumentPlatforms.Init(configDir,logDir)
+        if error <> 0 then 
+            Log.error "[InstrumentPlatforms] Instrument dll return error %d" error
+        else
+            Log.line "[InstrumentPlatforms] Instrument dll sucessfully initialized"
 
     let deInitCooTrafo () = 
         Log.line "[CooTransformation] shutting down..."
