@@ -1,3 +1,7 @@
+## 4.6.0-prerelease1
+
+- revived viewplanner and footprint projection
+
 ## 4.5.0-prerelease1
 
 - added traverse loading and visualization (dots, text, lines)
