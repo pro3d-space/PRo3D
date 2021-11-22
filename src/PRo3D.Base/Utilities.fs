@@ -117,23 +117,23 @@ module Utilities =
   
                   let! min = model.min
                   let! max = model.max
-                  let! value = model.value
                   match inputType with
                       | Slider ->   
                           yield "type" => "range"
                           if continuousUpdate then
-                            yield onInput' (tryParseAndClamp min max value >> SetValue >> f) 
-                          yield onChange' (tryParseAndClamp min max value >> SetValue >> f)   // continous updates for slider
+                            yield onInput' (fun s -> s |> tryParseAndClamp min max (model.value |> AVal.force) |> SetValue |> f) 
+                          yield onChange' (fun s -> s |> tryParseAndClamp min max (model.value |> AVal.force) |> SetValue |> f)   // continous updates for slider
                       | InputBox -> 
                           yield "type" => "number"
-                          yield onChange' (tryParseAndClamp min max value >> SetValue >> f)  // batch updates for input box (to let user type)
+                          yield onChange' (fun s -> s |> tryParseAndClamp min max (model.value |> AVal.force) |> SetValue |> f)  // batch updates for input box (to let user type)
   
                   let! step = model.step
-                  yield onWheel' (fun d -> value + d.Y * step |> clamp min max |> SetValue |> f)
-  
                   yield "step" => sprintf "%f" step
                   yield "min"  => sprintf "%f" min
                   yield "max"  => sprintf "%f" max
+  
+                  let! value = model.value
+                  yield onWheel' (fun d -> value + d.Y * step |> clamp min max |> SetValue |> f)
   
                   let! format = model.format
                   yield "value" => formatNumber format value
