@@ -107,7 +107,16 @@ let main argv =
     Log.line "Running with AppData: %s" appData
 
     // use this one to get path to self-contained exe (not temp expanded dll)
-    let executeablePath = PlatformIndependent.getPathBesideExecutable ()
+    let executeablePath = 
+        if RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then
+            System.Environment.GetCommandLineArgs().[0]
+        elif RuntimeInformation.IsOSPlatform(OSPlatform.Linux) then
+            System.Environment.GetCommandLineArgs().[0]
+        elif RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+            Process.GetCurrentProcess().MainModule.FileName
+        else 
+            Log.warn "could not detect os platform.. assuming linux"
+            System.Environment.GetCommandLineArgs().[0]
     
     printf "ExecuteablePath: %s" executeablePath
 
@@ -126,7 +135,7 @@ let main argv =
     PRo3D.Minerva.Config.besideExecuteable <- workingDirectory
     
 
-    let startupArgs = (PRo3D.CommandLine.parseArguments argv)
+    let startupArgs = (CommandLine.parseArguments argv)
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
     
 
@@ -430,6 +439,7 @@ let main argv =
     finally
         if cooTrafoInitialized then
             CooTransformation.deInitCooTrafo ()
+        
         for d in disposables do
             d.Dispose()
     0

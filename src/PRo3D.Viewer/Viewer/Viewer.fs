@@ -34,6 +34,7 @@ open PRo3D.Core
 open PRo3D.Core.Drawing
 open PRo3D.Navigation2
 open PRo3D.Bookmarkings
+
 open PRo3D.Core.Surface
 open PRo3D.Viewer
 
@@ -43,6 +44,8 @@ open PRo3D.Linking
  
 open Aether
 open Aether.Operators
+
+open PRo3D.Core.Surface
 
 type UserFeedback<'a> = {
     id      : string
@@ -108,10 +111,6 @@ module ViewerApp =
     // geologic surfaces
     let _geologicSurfacesModel = Model.scene_ >->  Scene.geologicSurfacesModel_
     let _geologicSurfaces      = _geologicSurfacesModel >-> GeologicSurfacesModel.geologicSurfaces_
-
-    // sequenced bookmarks
-    let _sequencedBookmarksModel = Model.scene_ >->  Scene.sequencedBookmarks_
-    let _sequencedBookmarks      = _sequencedBookmarksModel >-> SequencedBookmarks.bookmarks_
        
     let lookAtData (m: Model) =         
         let bb = m |> Optic.get _sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB) |> Box3d
@@ -281,9 +280,7 @@ module ViewerApp =
         | Interactions.DrawAnnotation, _ -> 
             let m = 
                 match surf.surfaceType with
-                | SurfaceType.SurfaceOBJ -> 
-                    m //{ m with drawing = { m.drawing with projection = Projection.Linear } } //TODO LF ... why is this happening? 
-                    // I don't know but it leads to problems so I'm removing it (rno); if it is put back in bookmark projection won't work
+                | SurfaceType.SurfaceOBJ -> { m with drawing = { m.drawing with projection = Projection.Linear } } //TODO LF ... why is this happening?
                 | _ -> m
             
             let view = 
@@ -291,7 +288,7 @@ module ViewerApp =
                 | ViewerMode.Standard -> m.navigation.camera.view
                 | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam 
 
-            let msg = DrawingAction.AddPointAdv(p, hitFunction, surf.name, m.scene.bookmarks.singleSelectLeaf)
+            let msg = DrawingAction.AddPointAdv(p, hitFunction, surf.name, None)
             let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig bc view m.shiftFlag m.drawing msg
             //Log.stop()
             { m with drawing = drawing } |> stash
@@ -376,20 +373,6 @@ module ViewerApp =
                     (HeightValidatorAction.PlaceValidator p)
 
             { m with heighValidation = heightVal }
-        | Interactions.SelectArea, ViewerMode.Standard ->
-            match m.ctrlFlag with
-            | true ->
-                let comparisonApp, _ = 
-                    (ComparisonApp.update m.scene.comparisonApp 
-                    m.scene.surfacesModel
-                    m.scene.referenceSystem
-                    (m.drawing.annotations.flat 
-                        |> HashMap.map (fun id x -> Leaf.toAnnotation x))
-                    (m.scene.bookmarks.flat
-                        |> HashMap.map (fun id x -> Leaf.toBookmark x))
-                    (Comparison.ComparisonAction.AddSelectionArea p))
-                {m with scene = {m.scene with comparisonApp = comparisonApp}}
-            | false -> m
         | Interactions.PlaceScaleBar, _ ->
             let msg = ScaleBarsAction.AddScaleBar(p, m.scaleBarsDrawing, m.navigation.camera.view)
             let scm = ScaleBarsApp.update m.scene.scaleBars msg
@@ -403,17 +386,14 @@ module ViewerApp =
     let mutable lastHash = -1    
     let mutable rememberCam = FreeFlyController.initial.view
 
-    let private feedback (text: string) (duration : int) (m: Model) = 
+    let private shortFeedback (text: string) (m: Model) = 
         let feedback = {
             id      = System.Guid.NewGuid().ToString()
             text    = text
-            timeout = duration
+            timeout = 3000
             msg     = ViewerAction.NoAction ""
         }
         m |> UserFeedback.queueFeedback feedback
-
-    let private shortFeedback (text: string) (m: Model) = 
-        feedback text 3000 m
 
     let update 
         (runtime   : IRuntime) 
@@ -437,17 +417,11 @@ module ViewerApp =
         | AnimationMessage msg,_,_ ->
             let a = AnimationApp.update m.animations msg
             { m with animations = a } |> Optic.set _view a.cam
-        | SetRenderViewportSize size, _, _ ->
-            let viewPortSize = HashMap.add PRo3D.Viewer.Gui.Pages.renderViewportSizeId size m.viewPortSize
-            {m with viewPortSize = viewPortSize}
         | SetCamera cv,_,false -> Optic.set _view cv m
         | SetCameraAndFrustum (cv, hfov, _),_,false -> m
         | SetCameraAndFrustum2 (cv,frustum),_,false ->
-            if m.startupArgs.verbose then Log.line "[Viewer] Setting camera and frustum."
-            //let m = Optic.set _view cv m
-            
-            { m with frustum = frustum 
-                     scene   = {m.scene with cameraView = cv}}
+            let m = Optic.set _view cv m
+            { m with frustum = frustum }
         | AnnotationGroupsMessageViewer msg,_,_ ->
             let ag = m.drawing.annotations 
                 
@@ -562,7 +536,7 @@ module ViewerApp =
                 Optic.set _annotations a m
             | None -> m       
         | BookmarkMessage msg,_,_ ->  
-            //Log.warn "[Viewer] bookmarks animation %A" m.navigation.camera.view.Location
+            Log.warn "[Viewer] bookmarks animation %A" m.navigation.camera.view.Location
 
             let m', bm = Bookmarks.update m.scene.bookmarks m.scene.referenceSystem.planet msg _navigation m
             let animation = 
@@ -582,155 +556,6 @@ module ViewerApp =
         | BookmarkUIMessage msg,_,_ ->    
             let bm = GroupsApp.update m.scene.bookmarks msg
             { m with scene = { m.scene with bookmarks = bm }} 
-        | SequencedBookmarkMessage msg,_,_ -> 
-            let m, bm = SequencedBookmarksApp.update m.scene.sequencedBookmarks 
-                                                      msg _navigation _animation 
-                                                      m
-            
-            let jsonPathName = Path.combine [bm.outputPath;"batchRendering.json"]
-            let generateJson () = 
-                if SequencedBookmarksApp.timestamps.Length > 0 then
-                    let snapshots = 
-                        match bm.renderStillFrames with
-                        | false ->
-                            Snapshot.fromViews 
-                                SequencedBookmarksApp.collectedViews None None SequencedBookmarksApp.names 
-                                                                     None m.scene.sequencedBookmarks.fpsSetting
-                        | true -> 
-                            let stillFrames = SequencedBookmarksApp.calculateNrOfStillFrames bm
-                            Snapshot.fromViews 
-                                SequencedBookmarksApp.collectedViews None None SequencedBookmarksApp.names 
-                                                                     (stillFrames |> Some) 
-                                                                     bm.fpsSetting
-                    let snapshotAnimation =
-                        SnapshotAnimation.generate 
-                            snapshots 
-                            (m.frustum |> Frustum.horizontalFieldOfViewInDegrees |> Some)
-                            (m.scene.config.nearPlane.value |> Some)
-                            (m.scene.config.farPlane.value |> Some)
-                            (V2i (bm.resolutionX.value, bm.resolutionY.value))
-                            None    
-                    
-                    SnapshotAnimation.writeToFile snapshotAnimation jsonPathName
-                else 
-                    Log.line "[Viewer] No frames recorded. Saving current frame."
-                    let snapshots = 
-                        [{
-                            filename        = "CurrentFrame.png"
-                            camera          = m.scene.cameraView |> Snapshot.toSnapshotCamera
-                            sunPosition     = None
-                            lightDirection  = None
-                            surfaceUpdates  = None
-                            placementParameters = None
-                            renderMask      = None         
-                          }]
-                    let snapshotAnimation =
-                        SnapshotAnimation.generate 
-                            (snapshots)
-                            (m.frustum |> Frustum.horizontalFieldOfViewInDegrees |> Some)
-                            (m.scene.config.nearPlane.value |> Some)
-                            (m.scene.config.farPlane.value |> Some)
-                            (V2i (m.scene.sequencedBookmarks.resolutionX.value, m.scene.sequencedBookmarks.resolutionY.value))
-                            None    
-                    SnapshotAnimation.writeToFile snapshotAnimation jsonPathName
-
-
-
-            let generateSnapshots scenePath =
-                if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform
-                        (System.Runtime.InteropServices.OSPlatform.Windows) then
-                    
-                    
-                    let exeName = "PRo3D.Snapshots.exe"
-                    match File.Exists exeName with
-                    | true -> 
-                        let args = sprintf "--scn \"%s\" --asnap \"%s\" --out \"%s\" --exitOnFinish" 
-                                    scenePath jsonPathName m.scene.sequencedBookmarks.outputPath
-                        Log.line "[Viewer] Starting snapshot rendering with arguments: %s" args
-                        SequencedBookmarksApp.snapshotProcess <- Some (SnapshotUtils.runProcess exeName args None)
-                        let id = System.Guid.NewGuid () |> string
-                        let proclst =
-                            proclist {
-                                for i in 0..2000 do
-                                    do! Proc.Sleep 5000
-                                    yield CheckSnapshotsProcess id
-                            }              
-                        {m with snapshotThreads = ThreadPool.add id proclst m.snapshotThreads}
-                    | false -> 
-                        Log.warn "[Snapshots] Could not find %s" exeName
-                        m
-
-                else 
-                    Log.warn "[Viewer] This feature is only available for Windows."
-                    m
-            let m = 
-                let save m =
-                    let scenePath = 
-                        match m.scene.scenePath with
-                        | Some scenePath -> scenePath
-                        | _ -> "snapshotScene.pro3d" 
-                    let m = {m with scene = {m.scene with scenePath = scenePath |> Some}}
-                    Log.line "[Snapshots] Saving scene as %s." scenePath
-                    let m = m |> ViewerIO.saveEverything scenePath
-                    m, scenePath
-                
-                match msg with
-                | PRo3D.Base.SequencedBookmarksAction.StopRecording -> 
-                        let m, scenePath = save m
-                        generateJson ()
-                        Log.line "[Viewer] Writing snapshot JSON file to %s" jsonPathName
-                        let m = shortFeedback "Saved snapshot JSON file." m
-
-                        let m = 
-                            match m.scene.sequencedBookmarks.generateOnStop with
-                            | true -> 
-                                let m = generateSnapshots scenePath
-                                let m = shortFeedback "Snapshot generation started." m
-                                m
-                            | false -> m
-                        m
-                | PRo3D.Base.SequencedBookmarksAction.GenerateSnapshots -> 
-                    let m, scenePath = save m
-                    let m = shortFeedback "Snapshot generation started." m
-                    match m.scene.sequencedBookmarks.updateJsonBeforeRendering with
-                    | true -> generateJson ()
-                    | false -> ()
-                    let m = generateSnapshots scenePath
-                    m
-                | PRo3D.Base.SequencedBookmarksAction.UpdateJson ->
-                    let m, scenePath = save m
-                    generateJson ()
-                    let m = shortFeedback "Saved snapshot JSON file." m
-                    m
-                | _ -> m
-              
-            {m with scene = { m.scene with sequencedBookmarks = bm }}
-        | CheckSnapshotsProcess id, _, _ ->
-            match SequencedBookmarksApp.snapshotProcess with 
-            | Some p -> 
-                let m = 
-                    match p.HasExited , m.scene.sequencedBookmarks.isCancelled with
-                    | true, _ -> 
-                        Log.warn "[Snapshots] Snapshot generation finished."
-                        let m = shortFeedback "Snapshot generation finished." m 
-                        let m = {m with snapshotThreads = ThreadPool.remove id m.snapshotThreads
-                                        scene = {m.scene with sequencedBookmarks = {m.scene.sequencedBookmarks with isGenerating = false}}
-                                }
-                        m
-                    | false, false ->
-                        m
-                    | false, true ->
-                        Log.warn "[Snapshots] Snapshot generation cancelled."
-                        p.Kill ()
-                        let m = shortFeedback "Snapshot generation cancelled." m 
-                        let m = {m with snapshotThreads = ThreadPool.remove id m.snapshotThreads
-                                        scene = {m.scene with sequencedBookmarks = {m.scene.sequencedBookmarks with isGenerating = false
-                                                                                                                    isCancelled  = false}}
-                                }
-                        m
-                m
-            | None -> m
-
         | RoverMessage msg,_,_ ->
             let roverModel = RoverApp.update m.scene.viewPlans.roverModel msg
             let viewPlanModel = ViewPlanApp.updateViewPlanFroAdaptiveRover roverModel m.scene.viewPlans
@@ -839,11 +664,9 @@ module ViewerApp =
         | ImportObject (objPaths),_,_ -> 
             match objPaths |> List.tryHead with
             | Some path ->  
-                let newSurface = 
+                let objects =                   
                     path 
                     |> SurfaceUtils.mk SurfaceType.SurfaceOBJ m.scene.config.importTriangleSize.value
-                let objects =                   
-                  newSurface
                     |> IndexList.single                                
                 m 
                 |> SceneLoader.importObj runtime signature objects 
@@ -980,18 +803,7 @@ module ViewerApp =
                             | Projection.Sky -> 
                                 let up = m.scene.referenceSystem.up.value
                                 FastRay3d(p + (up * 5000.0), -up)  
-                            | Projection.Bookmark ->
-                                match m.scene.bookmarks.singleSelectLeaf with
-                                | Some bm -> 
-                                    let bm = m.scene.bookmarks.flat 
-                                                |> HashMap.find bm
-                                                |> Leaf.toBookmark
-                                    let dir = (p - bm.cameraView.Location).Normalized
-                                    FastRay3d(bm.cameraView.Location, dir)
-                                | None -> 
-                                    Log.warn "[Projection] No bookmark selected. Please select a bookmark."
-                                    FastRay3d()
-                            | _ -> Log.error "[Projection] projection started without proj mode"; FastRay3d()
+                            | _ -> Log.error "projection started without proj mode"; FastRay3d()
                    
                         match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem ray surfaceFilter cache with
                         | Some (t,surf), c ->                             
@@ -1049,16 +861,8 @@ module ViewerApp =
             |> SceneLoader.addGeologicSurfaces
 
         | NewScene,_,_ ->
-            let oldPlanet = m.scene.referenceSystem.planet
-            let m = Viewer.initial m.messagingMailbox StartupArgs.initArgs m.screenshotApp.url dataSamples
-            let (refSystem,_) = 
-                ReferenceSystemApp.update 
-                    m.scene.config 
-                    refConfig 
-                    ReferenceSystem.initial
-                    (SetPlanet oldPlanet)
-            let m = {m with scene = {m.scene with referenceSystem = refSystem}}
-            { m with recent = m.recent } |> ViewerIO.loadRoverData
+            let initialModel = Viewer.initial m.messagingMailbox StartupArgs.initArgs m.screenshotApp.url dataSamples
+            { initialModel with recent          = m.recent} |> ViewerIO.loadRoverData
         | KeyDown k, _, _ ->
             let m =
                 match k with
@@ -1113,27 +917,7 @@ module ViewerApp =
                     let m = { m with drawing = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing drawingAction } |> stash
                     match drawingAction with
                     | Drawing.DrawingAction.Finish -> { m with tabMenu = TabMenu.Annotations }
-                    | _ -> m          
-                | Interactions.SelectArea ->
-                    let msg = 
-                        match k with
-                        | Aardvark.Application.Keys.Enter -> 
-                            Comparison.ComparisonAction.StopEditingArea
-                        | Aardvark.Application.Keys.OemMinus -> 
-                            Comparison.ComparisonAction.UpdateSelectedArea Comparison.AreaSelectionAction.MakeSmaller
-                        | Aardvark.Application.Keys.OemPlus -> 
-                            Comparison.ComparisonAction.UpdateSelectedArea Comparison.AreaSelectionAction.MakeBigger
-                        | _ -> Comparison.ComparisonAction.Nop
-
-                    let comparisonApp, _ = 
-                        ComparisonApp.update  
-                            m.scene.comparisonApp 
-                            m.scene.surfacesModel
-                            m.scene.referenceSystem
-                            (m.drawing.annotations.flat |> HashMap.map (fun id x -> Leaf.toAnnotation x))
-                            (m.scene.bookmarks.flat |> HashMap.map (fun id x -> Leaf.toBookmark x))
-                            msg
-                    {m with scene = {m.scene with comparisonApp = comparisonApp}}                    
+                    | _ -> m                     
                 | _ -> m
                                     
             let m =
@@ -1151,7 +935,7 @@ module ViewerApp =
                 match k with 
                 | Aardvark.Application.Keys.PageUp   -> ConfigProperties.Action.SetNavigationSensitivity (Numeric.Action.SetValue (sensitivity + 0.5))
                 | Aardvark.Application.Keys.PageDown -> ConfigProperties.Action.SetNavigationSensitivity (Numeric.Action.SetValue (sensitivity - 0.5))
-                | _ -> ConfigProperties.Action.Nop
+                | _ -> ConfigProperties.Action.SetNavigationSensitivity (Numeric.Action.SetValue (sensitivity))
 
             let c' = ConfigProperties.update m.scene.config configAction
 
@@ -1245,20 +1029,6 @@ module ViewerApp =
                     m |> shortFeedback "Saved logbrush"
                 | Aardvark.Application.Keys.F8 ->
                     { m with scene = { m.scene with dockConfig = DockConfigs.traverse } }
-                | Aardvark.Application.Keys.T ->
-                    let comparisonApp, surfacesModel = 
-                        ComparisonApp.update  m.scene.comparisonApp 
-                                              m.scene.surfacesModel 
-                                              m.scene.referenceSystem 
-                                              (m.drawing.annotations.flat 
-                                                  |> HashMap.map (fun id x -> Leaf.toAnnotation x))
-                                              (m.scene.bookmarks.flat
-                                                  |> HashMap.map (fun id x -> Leaf.toBookmark x))
-                                              Comparison.ComparisonAction.ToggleVisible
-                    {m with 
-                            scene         = {m.scene with surfacesModel = surfacesModel
-                                                          comparisonApp = comparisonApp}
-                    }
                 | _ -> m
 
             let interaction' = 
@@ -1377,40 +1147,25 @@ module ViewerApp =
         | TransforAdaptiveSurface (guid, trafo),_,_ ->
             //transforAdaptiveSurface m guid trafo //TODO moved function?
             m
-        | TransformAllSurfaces surfaceUpdates,_,_ -> // transforms all surfaces according to snapshot parameters
-            match surfaceUpdates.IsEmptyOrNull () with
-            | false ->
-                //if m.startupArgs.verbose then //TODO add verbose to startup args
-                //    Log.line "[Viewer] Transforming surfaces."
-                let surfacesModel = 
-                    SnapshotApp.transformAllSurfaces m.scene.surfacesModel surfaceUpdates
-                Optic.set _surfacesModel surfacesModel m
-            | true ->
-                //if m.startupArgs.verbose then
-                //    Log.line "[Viewer] No surface updates found."
-                m
-        | RecalculateFarPlane, _, _ -> 
-            let far = SnapshotUtils.calculateFarPlane (SnapshotUtils.sceneBB m.scene.surfacesModel) 
-                                                      m.scene.cameraView.Location
-            let frustum = 
-                m.frustum
-                  |> (Frustum.withFar far)
-            Log.line "[Viewer] Setting far plane to %f" far
-            { m with frustum = frustum }
-        | RecalculateNearFarPlane, _, _->
-            // ray casting for every frame for near plane would be better
-            let near, far = SnapshotUtils.calculateNearFarPlane (SnapshotUtils.sceneBB m.scene.surfacesModel)  
-                                                                m.scene.cameraView.Location
-            let frustum = 
-                m.frustum
-                  |> (Frustum.withNear near)
-                  |> (Frustum.withFar far)
-            //match m.startupArgs.verbose with
-            //| true ->
-            //    Log.line "[Viewer] Setting nearplane to %f" near 
-            //    Log.line "[Viewer] Setting farplane to %f" far
-            //| false -> ()
-            { m with frustum = frustum }
+        //| TransformAllSurfaces surfaceUpdates,_,_ -> //TODO MarsDL Hera
+        //    match surfaceUpdates.IsEmptyOrNull () with
+        //    | false ->
+        //        transformAllSurfaces m surfaceUpdates
+        //    | true ->
+        //        Log.line "[Viewer] No surface updates found."
+        //        m
+        //| TransformAllSurfaces (surfaceUpdates,scs),_,_ ->
+        //    match surfaceUpdates.IsEmptyOrNull () with
+        //    | false ->
+        //       //transformAllSurfaces m surfaceUpdates
+        //       let ts = m.scene.surfacesModel.surfaces.activeGroup
+        //       let action = SurfaceApp.Action.GroupsMessage(Groups.Groups.Action.ClearGroup ts.path)
+        //       let surfM = SurfaceApp.update m.scene.surfacesModel action m.scene.scenePath m.scene.navigation.camera.view m.scene.referenceSystem 
+        //       let m' = { m with scene = { m.scene with surfacesModel = surfM }}
+        //       ViewerUtils.placeMultipleOBJs2 m' scs
+        //    | true ->
+        //        Log.line "[Viewer] No surface updates found."
+        //        m
         | Translate (_,b),_,_ ->
             m
             //match _selectedSurface.Get(m) with
@@ -1456,21 +1211,6 @@ module ViewerApp =
         | UpdateDockConfig dcf,_,_ ->
             let closedPages = updateClosedPages m dcf.content
             { m with scene = { m.scene with dockConfig = dcf; closedPages = closedPages } }
-        | ChangeDashboardMode mode, _,_ ->
-            let closedPages = updateClosedPages m mode.dockConfig.content
-            let scene = { m.scene with dockConfig = mode.dockConfig
-                                                    closedPages = closedPages }
-            //et scene = 
-                //if mode.name = DashboardModes.comparison.name then
-                //    let (refSystem,_) = ReferenceSystemApp.update m.scene.config 
-                //                                                    refConfig 
-                //                                                    m.scene.referenceSystem 
-                //                                                    (SetPlanet Planet.None)
-                //    {scene with referenceSystem = refSystem}
-                //else scene
-            { m with scene         = scene
-                     dashboardMode = mode.name}
-            
         | AddPage de,_,_ -> 
             let closedPages = m.scene.closedPages |> List.filter(fun x -> x.id <> de.id)                
             let cont = addDockElement m.scene.dockConfig.content de
@@ -1485,11 +1225,11 @@ module ViewerApp =
             { m with scene = { m.scene with userFeedback = text } }
         | ThreadsDone id,_,_ ->  
             { m with scene = { m.scene with userFeedback = ""; feedbackThreads = ThreadPool.remove id m.scene.feedbackThreads;} }
-        | SnapshotThreadDone id,_,_ ->  
-            let _m = 
-                { m with snapshotThreads = ThreadPool.remove id m.snapshotThreads }
-            _m
-            //  _m.shutdown ()
+        //| SnapshotThreadsDone id,_,_ ->  
+        //    let _m = 
+        //        { m with arnoldSnapshotThreads = ThreadPool.remove id m.arnoldSnapshotThreads }
+        //    _m
+        //    //  _m.shutdown ()
                 
         | MinervaActions a,_,_ ->
             let currentView = m.navigation.camera.view
@@ -1531,6 +1271,19 @@ module ViewerApp =
         | ResizeMainControl(a,id),_,_ -> 
             printfn "resize %A" (a,id)
             { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y); viewPortSize = HashMap.add id a m.viewPortSize }
+        //| SetTextureFiltering b,_,_ ->
+        //    {m with filterTexture = b}
+       // | TestHaltonRayCasting _,_,_->
+            //ViewerUtils.placeMultipleOBJs2 m [SnapshotShattercone.TestData] // TODO MarsDL put in own app
+        //| UpdateShatterCones shatterCones,_,_ -> // TODO MarsDL put in own app
+        //// TODO: LAURA
+        //    match shatterCones.IsEmptyOrNull () with
+        //    | false ->
+        //        let m' = addOrClearSnapshotGroup m
+        //        ViewerUtils.placeMultipleOBJs2 m' shatterCones
+        //    | true ->
+        //        Log.line "[Viewer] No shattercone updates found."
+        //        m
         | StartDragging _,_,_
         | Dragging _,_,_ 
         | EndDragging _,_,_ -> 
@@ -1617,25 +1370,6 @@ module ViewerApp =
             { m with heighValidation = HeightValidatorApp.update m.heighValidation m.scene.referenceSystem.up.value m.scene.referenceSystem.north.value a }
         //| _ -> 
         //    Log.warn "[Viewer] don't know message %A. ignoring it." msg
-        //    m                                            
-        | ComparisonMessage msg, _, _ ->
-            let comparisonApp, surfacedModel = 
-                ComparisonApp.update  m.scene.comparisonApp 
-                                      m.scene.surfacesModel 
-                                      m.scene.referenceSystem 
-                                      (m.drawing.annotations.flat 
-                                          |> HashMap.map (fun id x -> Leaf.toAnnotation x))
-                                      (m.scene.bookmarks.flat
-                                          |> HashMap.map (fun id x -> Leaf.toBookmark x))
-                                      msg              
-            {m with 
-                    scene = {m.scene with //referenceSystem = 
-                                          //  {m.scene.referenceSystem with planet = Planet.None}
-                                          surfacesModel = surfacedModel
-                                          comparisonApp = comparisonApp
-                            }
-            }
-
         //    m 
         | ScaleBarsDrawingMessage msg,_,_->    
             let scDrawing = ScaleBarsDrawing.update m.scaleBarsDrawing msg
@@ -1765,8 +1499,7 @@ module ViewerApp =
         // drawing app needs pickable stuff. however whether annotations are pickable depends on 
         // outer application state. we consider annotations to pickable if they are visible
         // and we are in "pick annotation" mode.
-        m.interaction 
-        |> AVal.map (function  
+        m.interaction |> AVal.map (function  
             | Interactions.PickAnnotation -> true
             | Interactions.DrawLog -> true
             | _ -> false
@@ -1816,59 +1549,59 @@ module ViewerApp =
             AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
         DomNode.RenderControl((instrumentControlAttributes m), icam, icmds, None) //AttributeMap.Empty
 
+    let viewRenderView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
 
-    let createSceneGraphs (runtime : IRuntime) (id : string) (useSceneCamera : bool) (m: AdaptiveModel) = 
-         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
-         let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
+        let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
+        let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
 
-         let annotations, discs = 
-             DrawingApp.view 
-                 m.scene.config 
-                 mdrawingConfig 
-                 (if useSceneCamera then m.scene.cameraView else m.navigation.camera.view )
-                 frustum
-                 runtime
-                 (m.viewPortSize |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
-                 (allowAnnotationPicking m)                 
-                 m.drawing
-     
-         let annotationSg = 
-             let ds =
-                 discs
-                 |> Sg.map DrawingMessage
-                 |> Sg.fillMode (AVal.constant FillMode.Fill)
-                 |> Sg.cullMode (AVal.constant CullMode.None)
+        let annotations, discs = 
+            DrawingApp.view 
+                m.scene.config 
+                mdrawingConfig 
+                m.navigation.camera.view 
+                frustum
+                runtime
+                (m.viewPortSize |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
+                (allowAnnotationPicking m)                 
+                m.drawing
+            
+        let annotationSg = 
+            let ds =
+                discs
+                |> Sg.map DrawingMessage
+                |> Sg.fillMode (AVal.constant FillMode.Fill)
+                |> Sg.cullMode (AVal.constant CullMode.None)
 
-             let annos = 
-                 annotations
-                 |> Sg.map DrawingMessage
-                 |> Sg.fillMode (AVal.constant FillMode.Fill)
-                 |> Sg.cullMode (AVal.constant CullMode.None)
+            let annos = 
+                annotations
+                |> Sg.map DrawingMessage
+                |> Sg.fillMode (AVal.constant FillMode.Fill)
+                |> Sg.cullMode (AVal.constant CullMode.None)
 
-             //let _, correlationPlanes =
-             //    PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
-             //        m.scene.config.dnsPlaneSize.value
-             //        m.scene.cameraView 
-             //        m.scene.config.nearPlane.value 
-             //        m.correlationPlot 
-             //        m.drawing.dnsColorLegend
+            //let _, correlationPlanes =
+            //    PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
+            //        m.scene.config.dnsPlaneSize.value
+            //        m.scene.cameraView 
+            //        m.scene.config.nearPlane.value 
+            //        m.correlationPlot 
+            //        m.drawing.dnsColorLegend
 
-             //let _, planes = 
-             //    PRo3D.Correlations.CorrelationPanelsApp.viewFinishedLogs 
-             //        m.scene.config.dnsPlaneSize.value
-             //        m.scene.cameraView 
-             //        m.scene.config.nearPlane.value 
-             //        m.drawing.dnsColorLegend 
-             //        m.correlationPlot 
-             //        (allowLogPicking m)
+            //let _, planes = 
+            //    PRo3D.Correlations.CorrelationPanelsApp.viewFinishedLogs 
+            //        m.scene.config.dnsPlaneSize.value
+            //        m.scene.cameraView 
+            //        m.scene.config.nearPlane.value 
+            //        m.drawing.dnsColorLegend 
+            //        m.correlationPlot 
+            //        (allowLogPicking m)
 
-             //let viewContactOfInterest = 
-             //    PRo3D.Correlations.CorrelationPanelsApp.viewContactOfInterest m.correlationPlot
-         
-             Sg.ofList[ds;annos;]// correlationPlanes; planes; viewContactOfInterest]
+            //let viewContactOfInterest = 
+            //    PRo3D.Correlations.CorrelationPanelsApp.viewContactOfInterest m.correlationPlot
+                
+            Sg.ofList[ds;annos;]// correlationPlanes; planes; viewContactOfInterest]
 
-         let overlayed =
-             
+        let overlayed =
+                        
             //let alignment = 
             //    AlignmentApp.view m.alignment m.scene.navigation.camera.view
             //        |> Sg.map AlignmentActions
@@ -1890,7 +1623,7 @@ module ViewerApp =
           
             let homePosition =
                 Sg.viewHomePosition m.scene.surfacesModel
-                      
+                                 
             let viewPlans =
                 ViewPlanApp.Sg.view 
                     m.scene.config 
@@ -1943,96 +1676,81 @@ module ViewerApp =
                 traverse
             ] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
-         let minervaSg =
-             let minervaFeatures = 
-                 MinervaApp.viewFeaturesSg m.minervaModel |> Sg.map MinervaActions 
-         
-             let filterLocation =
-                 MinervaApp.viewFilterLocation m.minervaModel |> Sg.map MinervaActions
-         
-             Sg.ofList [minervaFeatures] //;filterLocation]
-         
-         //let all = m.minervaModel.data.features
-         let selected = 
-             m.minervaModel.session.selection.highlightedFrustra
-             |> AList.ofASet
-             |> AList.toAVal 
-             |> AVal.map (fun x ->
-                 x
-                 |> IndexList.take 500
-             )
-             |> AList.ofAVal
-             |> ASet.ofAList
-         
-         let linkingSg = 
-             PRo3D.Linking.LinkingApp.view 
-                 m.minervaModel.hoveredProduct 
-                 selected 
-                 m.linkingModel
-             |> Sg.map LinkingActions
-         
-         let heightValidationDiscs =
-             HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
-         
-         let scaleBars =
-             ScaleBarsApp.Sg.view
-                 m.scene.scaleBars
-                 m.navigation.camera.view
-                 m.scene.config
-                 mrefConfig
-                 m.scene.referenceSystem
-             |> Sg.map ScaleBarsMessage
-         
-         let sceneObjects =
-             SceneObjectsApp.Sg.view m.scene.sceneObjectsModel m.scene.referenceSystem |> Sg.map SceneObjectsMessage
-         
-         let geologicSurfacesSg = 
-             GeologicSurfacesApp.Sg.view m.scene.geologicSurfacesModel 
-             |> Sg.map GeologicSurfacesMessage 
-         
-         let traverse = 
-             [ 
-                 TraverseApp.Sg.view 
-                     m.navigation.camera.view 
-                     m.scene.config.nearPlane.value 
-                     m.scene.referenceSystem
-                     m.scene.traverse                
-             ]
-             |> Sg.ofList
-             |> Sg.map TraverseMessage
-         
-         let depthTested = 
-             [
-                 linkingSg; 
-                 annotationSg; 
-                 minervaSg; 
-                 heightValidationDiscs; 
-                 scaleBars; 
-                 sceneObjects; 
-                 geologicSurfacesSg
-                 traverse
-             ] |> Sg.ofList
+        let minervaSg =
+            let minervaFeatures = 
+                MinervaApp.viewFeaturesSg m.minervaModel |> Sg.map MinervaActions 
 
-        //render OPCs in priority groups
-         let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested true m
-         onBoot "attachResize('__ID__')" (
-             DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
-         )
+            let filterLocation =
+                MinervaApp.viewFilterLocation m.minervaModel |> Sg.map MinervaActions
 
-    let viewRenderView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
-        let overlayed, depthTested, cam = createSceneGraphs runtime id false m
+            Sg.ofList [minervaFeatures] //;filterLocation]
+
+        //let all = m.minervaModel.data.features
+        let selected = 
+            m.minervaModel.session.selection.highlightedFrustra
+            |> AList.ofASet
+            |> AList.toAVal 
+            |> AVal.map (fun x ->
+                x
+                |> IndexList.take 500
+            )
+            |> AList.ofAVal
+            |> ASet.ofAList
+        
+        let linkingSg = 
+            PRo3D.Linking.LinkingApp.view 
+                m.minervaModel.hoveredProduct 
+                selected 
+                m.linkingModel
+            |> Sg.map LinkingActions
+
+        let heightValidationDiscs =
+            HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
+
+        let scaleBars =
+            ScaleBarsApp.Sg.view
+                m.scene.scaleBars
+                m.navigation.camera.view
+                m.scene.config
+                mrefConfig
+                m.scene.referenceSystem
+            |> Sg.map ScaleBarsMessage
+
+        let sceneObjects =
+            SceneObjectsApp.Sg.view m.scene.sceneObjectsModel m.scene.referenceSystem |> Sg.map SceneObjectsMessage
+
+        let geologicSurfacesSg = 
+            GeologicSurfacesApp.Sg.view m.scene.geologicSurfacesModel 
+            |> Sg.map GeologicSurfacesMessage 
+        
+        let traverse = 
+            [ 
+                TraverseApp.Sg.view 
+                    m.navigation.camera.view 
+                    m.scene.config.nearPlane.value 
+                    m.scene.referenceSystem
+                    m.scene.traverse                
+            ]
+            |> Sg.ofList
+            |> Sg.map TraverseMessage
+
+        let depthTested = 
+            [
+                linkingSg; 
+                annotationSg; 
+                minervaSg; 
+                heightValidationDiscs; 
+                scaleBars; 
+                sceneObjects; 
+                geologicSurfacesSg
+                traverse
+            ] |> Sg.ofList
 
         //render OPCs in priority groups
         let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested true m
         onBoot "attachResize('__ID__')" (
             DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
         )
-
-    let sceneGraph (viewportSize : V2i) (frustum : Frustum) (runtime : IRuntime) (m: AdaptiveModel) =             
-        let overlayed, depthTested, cam = createSceneGraphs runtime (System.Guid.Empty.ToString ()) true m
-
-        ViewerUtils.completeSceneGraph m.scene.surfacesModel.sgGrouped 
-                                       overlayed depthTested viewportSize frustum m
         
     let view (runtime : IRuntime) (m: AdaptiveModel) = //(localhost: string)
 
@@ -2061,9 +1779,6 @@ module ViewerApp =
         let animation = 
             AnimationApp.ThreadPool.threads m.animations |> ThreadPool.map AnimationMessage
 
-        let comparison =
-            ComparisonApp.threads m.scene.comparisonApp |> ThreadPool.map ComparisonMessage
-
         let nav =
             match m.navigation.navigationMode with
             | NavigationMode.FreeFly -> 
@@ -2076,9 +1791,7 @@ module ViewerApp =
          
         let minerva = MinervaApp.threads m.minervaModel |> ThreadPool.map MinervaActions
 
-        let sBookmarks = SequencedBookmarksApp.threads m.scene.sequencedBookmarks |> ThreadPool.map SequencedBookmarkMessage
-
-        unionMany [drawing; animation; nav; m.scene.feedbackThreads; minerva;comparison; sBookmarks; m.snapshotThreads]
+        unionMany [drawing; animation; nav; m.scene.feedbackThreads; minerva]
         
     let loadWaypoints m = 
         match Serialization.fileExists "./waypoints.wps" with
@@ -2086,13 +1799,13 @@ module ViewerApp =
             let wp = Serialization.loadAs<IndexList<WayPoint>> path
             { m with waypoints = wp }
         | None -> m
+    
+    let start (runtime: IRuntime) (signature: IFramebufferSignature)(startEmpty: bool) 
+               messagingMailbox sendQueue dumpFile cacheFile url =
 
-    let initialModelWithLoadedData (runtime: IRuntime) (signature: IFramebufferSignature) 
-                                   (startEmpty: bool) messagingMailbox dumpFile cacheFile 
-                                   url =
         let m = 
             if startEmpty |> not then
-                PRo3D.Viewer.Viewer.initialModel messagingMailbox StartupArgs.initArgs url dataSamples
+                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs url dataSamples
                 |> SceneLoader.loadLastScene runtime signature
                 |> SceneLoader.loadLogBrush
                 |> ViewerIO.loadRoverData                
@@ -2104,36 +1817,10 @@ module ViewerApp =
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
             else
-                PRo3D.Viewer.Viewer.initialModel messagingMailbox StartupArgs.initArgs url dataSamples 
-                    |> ViewerIO.loadRoverData     
-        m  
+                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs url dataSamples 
+                    |> ViewerIO.loadRoverData       
 
-    let start (runtime: IRuntime) (signature: IFramebufferSignature)
-              (startEmpty: bool) messagingMailbox sendQueue dumpFile cacheFile url =
-        let m = initialModelWithLoadedData runtime signature startEmpty messagingMailbox dumpFile cacheFile url
-     
         App.start {
-            unpersist = Unpersist.instance
-            threads   = threadPool
-            view      = view runtime //localhost
-            update    = update runtime signature sendQueue messagingMailbox
-            initial   = m
-        }
-
-    let startAndReturnMModel 
-        (runtime     : IRuntime)
-        (signature   : IFramebufferSignature)
-        (startupArgs : StartupArgs) 
-        messagingMailbox 
-        sendQueue 
-        dumpFile 
-        cacheFile 
-        url =
-
-        let m = initialModelWithLoadedData runtime signature startupArgs.startEmpty messagingMailbox dumpFile cacheFile url
-        let m = {m with startupArgs = startupArgs}
-        
-        AppExtension.start' {
             unpersist = Unpersist.instance
             threads   = threadPool
             view      = view runtime //localhost

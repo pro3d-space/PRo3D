@@ -33,7 +33,6 @@ open PRo3D.SimulatedViews
 
 open Adaptify.FSharp.Core
 open OpcViewer.Base.Shader
-open PRo3D.Comparison
 
 module ViewerUtils =    
     type Self = Self
@@ -46,6 +45,20 @@ module ViewerUtils =
         let s = typeof<Self>.Assembly.GetManifestResourceStream("PRo3D.Viewer.resources.HueColorMap.png")
         let pi = PixImage.Create(s)
         PixTexture2d(PixImageMipMap [| pi |], true) :> ITexture    
+    
+    let toModSurface (leaf : AdaptiveLeafCase) = 
+         adaptive {
+            let c = leaf
+            match c with 
+                | AdaptiveSurfaces s -> return s
+                | _ -> return c |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
+            }
+             
+    let lookUp guid (table:amap<Guid, AdaptiveLeafCase>) =
+        
+        let entry = table |> AMap.find guid
+
+        entry |> AVal.bind(fun x -> x |> toModSurface)
     
     let addImageCorrectionParameters (surf:aval<AdaptiveSurface>)  (isg:ISg<'a>) =
         
@@ -220,14 +233,13 @@ module ViewerUtils =
         (vp              : aval<AdaptiveOptionCase<ViewPlan, AdaptiveViewPlan, AdaptiveViewPlan>>) 
         (useHighlighting : aval<bool>)
         (filterTexture   : aval<bool>)
-        (allowFootprint  : bool)        
-        (comparisonApp   : AdaptiveComparisonApp) =
+        (allowFootprint  : bool) =
 
         adaptive {
             let! exists = (surfacesMap |> AMap.keys) |> ASet.contains surface.surface
             if exists then
               
-                let surf = SurfaceUtils.lookUp (surface.surface) surfacesMap
+                let surf = lookUp (surface.surface) surfacesMap
                     //AVal.bind(fun x -> lookUp (x.surface) blarg )
                 
                 let isSelected = AVal.map2(fun x y ->
@@ -318,13 +330,6 @@ module ViewerUtils =
                         return (fppm * fpvm) // * ts.Forward
                     } 
 
-                //let measurementsSg =
-                //    ComparisonApp.measurementsSg surf
-                //                                 (pickBox |> AVal.map (fun x -> x.Size.[x.MajorDim]))
-                //                                 trafo
-                //                                 refsys
-                //                                 comparisonApp
-
                 let structuralOnOff (visible : aval<bool>) (sg : ISg<_>) : ISg<_> = 
                     visible 
                     |> AVal.map (fun visible -> 
@@ -371,10 +376,7 @@ module ViewerUtils =
                             DefaultSurfaces.vertexColor |> toEffect
                         ] 
                         |> Sg.onOff isSelected
-                    )
-                    //|> Sg.andAlso (
-                    //    measurementsSg
-                    //)
+                    )                                
                 return surfaceSg
             else
                 return Sg.empty
@@ -457,7 +459,11 @@ module ViewerUtils =
             
         ]
 
-    let groupedSceneGraphs (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>)  (m:AdaptiveModel) =
+    //TODO TO refactor screenshot specific
+    let getSurfacesScenegraphs (m:AdaptiveModel) =
+        let sgGrouped = m.scene.surfacesModel.sgGrouped
+        
+      //  let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
         let usehighlighting = true |> AVal.constant //m.scene.config.useSurfaceHighlighting
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
@@ -495,16 +501,13 @@ module ViewerUtils =
                         //|> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
                         |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()                        
 
-        
+                    yield  sg
 
                         //if i = c then //now gets rendered multiple times
                          // assign priorities globally, or for each anno and make sets
-                    yield sg
+            
             }                              
         sgs
-
-    //let comparisonSgAreas =  AreaSelection.sgAllAreas m.scene.comparisonApp.areas              
-    //let areaStatisticsSg = AreaComparison.sgAllDifferences m.scene.comparisonApp.areas
   
     //TODO TO refactor screenshot specific
     let getSurfacesSgWithCamera (m : AdaptiveModel) =
@@ -547,22 +550,17 @@ module ViewerUtils =
                             m.scene.viewPlans.selectedViewPlan
                             usehighlighting filterTexture
                             allowFootprint
-                            m.scene.comparisonApp
                        )
                     |> AMap.toASet 
                     |> ASet.map snd                     
                 )                
             )
-        grouped
 
-
-    let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
-        let grouped = groupedSceneGraphs sgGrouped m
-        let comparisonSgAreas =  AreaSelection.sgAllAreas m.scene.comparisonApp.areas              
-        let areaStatisticsSg = AreaComparison.sgAllDifferences m.scene.comparisonApp.areas
+        //grouped   
         let last = grouped |> AList.tryLast
-        alist {        
-            for set in grouped do
+
+        alist {                    
+            for set in grouped do            
                 let sg = 
                     set 
                     |> Sg.set
@@ -581,50 +579,12 @@ module ViewerUtils =
                         | _ -> Sg.empty
                     )
                 yield RenderCommand.SceneGraph (depthTested |> Sg.dynamic)
-                yield RenderCommand.SceneGraph (areaStatisticsSg )
-                yield RenderCommand.SceneGraph comparisonSgAreas
 
                 yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
 
             yield RenderCommand.SceneGraph overlayed
 
         }
-
-    let completeSceneGraph sgGrouped overlayed depthTested (viewportSize : V2i ) frustum (m:AdaptiveModel) =
-        let grouped = groupedSceneGraphs sgGrouped m
-        //let pass0 = RenderPass.main
-        //let pass1 = RenderPass.after "pass1" RenderPassOrder.Arbitrary pass0
-
-        let comparisonSgAreas =  AreaSelection.sgAllAreas m.scene.comparisonApp.areas              
-        let areaStatisticsSg = AreaComparison.sgAllDifferences m.scene.comparisonApp.areas 
-
-        let last = grouped |> AList.tryLast
-        let surfaceSgs = 
-          aset {
-            for set in grouped do
-              let sg = 
-                  set 
-                  |> Sg.set
-                  |> Sg.effect [surfaceEffect]
-                  |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-                  |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()
-              yield sg
-          } |> Sg.set
-           // |> Sg.pass pass0
-
-        let sg = surfaceSgs
-                  |> Sg.andAlso depthTested
-                  |> Sg.andAlso overlayed
-
-        let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum 
-        
-        let camera =
-            //AVal.map2 (fun v f -> Camera.create v f) m.navigation.camera.view frustum 
-            AVal.map2 (fun v f -> Camera.create v f) m.scene.cameraView frustum 
-        
-        sg 
-          |> Aardvark.SceneGraph.SgFSharp.Sg.camera camera
-
 
 module GaleCrater =
     open PRo3D.Base

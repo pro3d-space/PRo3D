@@ -66,5 +66,5 @@ type Model =
         planePoints          : Option<IndexList<V3d>>
         pickingActive        : bool
         linkingModel         : LinkingModel
-        minervaModel         : MinervaModel
+        minervaModel         : MinervaModel        
     }

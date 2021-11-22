@@ -484,6 +484,8 @@ type Model = {
 
     frustumModel         : FrustumModel
     screenshotApp        : ScreenshotApp
+
+    filterTexture        : bool
 }
 
 
@@ -527,7 +529,7 @@ module Viewer =
 
     let sceneElm = {id = "scene"; title = (Some "Scene"); weight = 0.4; deleteInvisible = None; isCloseable = None }   
 
-    let initialModel msgBox (startupArgs : StartupArgs) url samples : Model = 
+    let initial msgBox (startupArgs : StartupArgs) url samples : Model = 
         {     
             scene = 
                 {
@@ -615,4 +617,6 @@ module Viewer =
             heighValidation = HeightValidatorModel.init()
             frustumModel = FrustumModel.init 0.1 10000.0
             screenshotApp = ScreenshotApp.init url Config.configPath samples
+
+            filterTexture = false
     }
