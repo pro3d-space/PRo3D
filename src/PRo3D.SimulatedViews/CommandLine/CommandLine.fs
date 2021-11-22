@@ -130,6 +130,8 @@ module CommandLine =
                             magnificationFilter   = magFilter
                             frameId               = frameId
                             frameCount            = frameCount
+                            remoteApp             = false
+                            serverMode            = false
                         }
                     | None -> 
                         Log.line "[Arguments] Invalid command line arguments."
@@ -152,6 +154,8 @@ module CommandLine =
                             magnificationFilter   = false
                             frameId               = None
                             frameCount            = None
+                            remoteApp             = false
+                            serverMode            = false
                         }
                 args
             sargs

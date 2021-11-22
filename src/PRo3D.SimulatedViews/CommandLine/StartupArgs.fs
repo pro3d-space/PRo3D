@@ -26,6 +26,8 @@ type CLStartupArgs = {
   magnificationFilter   : bool
   frameId               : option<int> // at whicht frame to start rendering
   frameCount            : option<int> // how many frames to render
+  remoteApp             : bool
+  serverMode            : bool
 } with 
   member args.hasValidAnimationArgs =
       (args.opcPaths.IsSome || args.objPaths.IsSome || args.scenePath.IsSome)
@@ -50,4 +52,6 @@ type CLStartupArgs = {
         outFolder             = ""
         frameId               = None // at whicht frame to start rendering
         frameCount            = None // how many frames to render
+        remoteApp             = false
+        serverMode            = false
     }

@@ -314,7 +314,7 @@ module Scene =
             let! scaleBars       = Json.read "scaleBars" 
             let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
             let! geologicSurfacesModel  = Json.read "geologicSurfacesModel"
-            let! sequencedBookmarks     = Json.read "sequencedBookmarks"
+            let! sequencedBookmarks     = Json.tryRead "sequencedBookmarks"
 
             return 
                 {
@@ -342,12 +342,10 @@ module Scene =
                     geologicSurfacesModel   = geologicSurfacesModel
 
                     traverse                = traverse
-                    sequencedBookmarks      = sequencedBookmarks
+                    sequencedBookmarks      = if sequencedBookmarks.IsSome then sequencedBookmarks.Value else SequencedBookmarks.initial
                     comparisonApp           = if comparisonApp.IsSome then comparisonApp.Value else ComparisonApp.init
                 }
         }
-
-
 
 type Scene with
     static member FromJson (_ : Scene) =
