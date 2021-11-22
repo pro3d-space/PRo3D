@@ -7,6 +7,8 @@ open Adaptify
 open Chiron
 open PRo3D.Base
 
+#nowarn "0686"
+
 type SnapshotSettingsAction =
     | SetNumSnapshots of Numeric.Action
     | SetFieldOfView  of Numeric.Action

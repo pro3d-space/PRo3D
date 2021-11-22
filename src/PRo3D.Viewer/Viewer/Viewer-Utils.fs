@@ -499,7 +499,7 @@ module ViewerUtils =
 
                         //if i = c then //now gets rendered multiple times
                          // assign priorities globally, or for each anno and make sets
-            
+                    yield sg
             }                              
         sgs
 

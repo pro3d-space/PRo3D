@@ -7,6 +7,8 @@ open Adaptify
 open Chiron
 open PRo3D.Base
 
+#nowarn "0686"
+
 module internal PlacementInit =
     let count = {
         value   = float 1

@@ -5,6 +5,8 @@ open Aardvark.UI
 open Chiron
 open PRo3D.Base
 
+#nowarn "0686"
+
 type ShadowProjection =
     | Orthographic = 0
     | Perspective = 1
