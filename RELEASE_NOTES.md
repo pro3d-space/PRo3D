@@ -1,6 +1,8 @@
 ## 4.6.0-prerelease1
 
 - revived viewplanner and footprint projection
+- fixed triangle filter (was in projective space)
+- added sequenced bookmarks (from other branch)
 
 ## 4.5.0-prerelease1
 
