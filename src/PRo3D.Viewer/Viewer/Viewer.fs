@@ -1868,150 +1868,156 @@ module ViewerApp =
              Sg.ofList[ds;annos;]// correlationPlanes; planes; viewContactOfInterest]
 
          let overlayed =
-                 
-             //let alignment = 
-             //    AlignmentApp.view m.alignment m.scene.navigation.camera.view
-             //        |> Sg.map AlignmentActions
-             //        |> Sg.fillMode (AVal.constant FillMode.Fill)
-             //        |> Sg.cullMode (AVal.constant CullMode.None)
+             
+            //let alignment = 
+            //    AlignmentApp.view m.alignment m.scene.navigation.camera.view
+            //        |> Sg.map AlignmentActions
+            //        |> Sg.fillMode (AVal.constant FillMode.Fill)
+            //        |> Sg.cullMode (AVal.constant CullMode.None)
 
-             let near = m.scene.config.nearPlane.value
+            let near = m.scene.config.nearPlane.value
 
-             let refSystem =
-                 Sg.view
-                     m.scene.config
-                     mrefConfig
-                     m.scene.referenceSystem
-                     (if useSceneCamera then m.scene.cameraView else m.navigation.camera.view )
-                 |> Sg.map ReferenceSystemMessage  
+            let refSystem =
+                Sg.view
+                    m.scene.config
+                    mrefConfig
+                    m.scene.referenceSystem
+                    m.navigation.camera.view
+                |> Sg.map ReferenceSystemMessage  
 
-             let exploreCenter =
-                 Navigation.Sg.view m.navigation            
-   
-             let homePosition =
-                 Sg.viewHomePosition m.scene.surfacesModel
-                          
-             let viewPlans =
-                 ViewPlanApp.Sg.view 
-                     m.scene.config 
-                     mrefConfig 
-                     m.scene.viewPlans 
-                     (if useSceneCamera then m.scene.cameraView else m.navigation.camera.view )
-                 |> Sg.map ViewPlanMessage           
+            let exploreCenter =
+                Navigation.Sg.view m.navigation            
+          
+            let homePosition =
+                Sg.viewHomePosition m.scene.surfacesModel
+                      
+            let viewPlans =
+                ViewPlanApp.Sg.view 
+                    m.scene.config 
+                    mrefConfig 
+                    m.scene.viewPlans 
+                    m.navigation.camera.view
+                |> Sg.map ViewPlanMessage           
 
-             let solText = 
-                 MinervaApp.getSolBillboards m.minervaModel m.navigation.camera.view near |> Sg.map MinervaActions
-         
-             //let correlationLogs, _ =
-             //    PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
-             //        m.scene.config.dnsPlaneSize.value
-             //        m.scene.cameraView 
-             //        near 
-             //        m.correlationPlot 
-             //        m.drawing.dnsColorLegend
+            let solText = 
+                MinervaApp.getSolBillboards m.minervaModel m.navigation.camera.view near |> Sg.map MinervaActions
+                
+            //let correlationLogs, _ =
+            //    PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
+            //        m.scene.config.dnsPlaneSize.value
+            //        m.scene.cameraView 
+            //        near 
+            //        m.correlationPlot 
+            //        m.drawing.dnsColorLegend
 
-             //let finishedLogs, _ =
-             //    PRo3D.Correlations.CorrelationPanelsApp.viewFinishedLogs 
-             //        m.scene.config.dnsPlaneSize.value
-             //        m.scene.cameraView 
-             //        near 
-             //        m.drawing.dnsColorLegend 
-             //        m.correlationPlot 
-             //        (allowLogPicking m)
+            //let finishedLogs, _ =
+            //    PRo3D.Correlations.CorrelationPanelsApp.viewFinishedLogs 
+            //        m.scene.config.dnsPlaneSize.value
+            //        m.scene.cameraView 
+            //        near 
+            //        m.drawing.dnsColorLegend 
+            //        m.correlationPlot 
+            //        (allowLogPicking m)
 
-             let traverse = 
+            let traverse = 
                 [ 
                     TraverseApp.viewLines m.scene.traverse
                 ]
                 |> Sg.ofList
                 |> Sg.map TraverseMessage
-            
-             let heightValidation =
-                 HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation            
-             
-             let orientationCube = PRo3D.OrientationCube.Sg.view m.navigation.camera.view m.scene.config m.scene.referenceSystem
-             
-             [
-                 exploreCenter; 
-                 refSystem; 
-                 viewPlans; 
-                 homePosition; 
-                 solText; 
-                 heightValidation
-                 traverse
-             ] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
-             
-             //let minervaSg =
-             //    let minervaFeatures = 
-             //        MinervaApp.viewFeaturesSg m.minervaModel |> Sg.map MinervaActions 
-             
-             //    let filterLocation =
-             //        MinervaApp.viewFilterLocation m.minervaModel |> Sg.map MinervaActions
-             
-             //    Sg.ofList [minervaFeatures] //;filterLocation]
-             
-             ////let all = m.minervaModel.data.features
-             //let selected = 
-             //    m.minervaModel.session.selection.highlightedFrustra
-             //    |> AList.ofASet
-             //    |> AList.toAVal 
-             //    |> AVal.map (fun x ->
-             //        x
-             //        |> IndexList.take 500
-             //    )
-             //    |> AList.ofAVal
-             //    |> ASet.ofAList
-             
-             //let linkingSg = 
-             //    PRo3D.Linking.LinkingApp.view 
-             //        m.minervaModel.hoveredProduct 
-             //        selected 
-             //        m.linkingModel
-             //    |> Sg.map LinkingActions
-             
-             //let heightValidationDiscs =
-             //    HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
-             
-             //let scaleBars =
-             //    ScaleBarsApp.Sg.view
-             //        m.scene.scaleBars
-             //        m.navigation.camera.view
-             //        m.scene.config
-             //        mrefConfig
-             //        m.scene.referenceSystem
-             //    |> Sg.map ScaleBarsMessage
-             
-             //let sceneObjects =
-             //    SceneObjectsApp.Sg.view m.scene.sceneObjectsModel m.scene.referenceSystem |> Sg.map SceneObjectsMessage
-             
-             //let geologicSurfacesSg = 
-             //   GeologicSurfacesApp.Sg.view m.scene.geologicSurfacesModel 
-             //   |> Sg.map GeologicSurfacesMessage 
-             
-             //let traverse = 
-             //    [ 
-             //        TraverseApp.Sg.view 
-             //            m.navigation.camera.view 
-             //            m.scene.config.nearPlane.value 
-             //            m.scene.referenceSystem
-             //            m.scene.traverse                
-             //    ]
-             //    |> Sg.ofList
-             //    |> Sg.map TraverseMessage
-             
-             //let depthTested = 
-             //    [
-             //        linkingSg; 
-             //        annotationSg; 
-             //        minervaSg; 
-             //        heightValidationDiscs; 
-             //        scaleBars; 
-             //        sceneObjects; 
-             //        geologicSurfacesSg
-             //        traverse
-             //    ] |> Sg.ofList
 
-             //depthTested
+            
+
+            let heightValidation =
+                HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation            
+            
+            let orientationCube = PRo3D.OrientationCube.Sg.view m.navigation.camera.view m.scene.config m.scene.referenceSystem
+
+            [
+                exploreCenter; 
+                refSystem; 
+                viewPlans; 
+                homePosition; 
+                solText; 
+                heightValidation
+                traverse
+            ] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
+
+         let minervaSg =
+             let minervaFeatures = 
+                 MinervaApp.viewFeaturesSg m.minervaModel |> Sg.map MinervaActions 
+         
+             let filterLocation =
+                 MinervaApp.viewFilterLocation m.minervaModel |> Sg.map MinervaActions
+         
+             Sg.ofList [minervaFeatures] //;filterLocation]
+         
+         //let all = m.minervaModel.data.features
+         let selected = 
+             m.minervaModel.session.selection.highlightedFrustra
+             |> AList.ofASet
+             |> AList.toAVal 
+             |> AVal.map (fun x ->
+                 x
+                 |> IndexList.take 500
+             )
+             |> AList.ofAVal
+             |> ASet.ofAList
+         
+         let linkingSg = 
+             PRo3D.Linking.LinkingApp.view 
+                 m.minervaModel.hoveredProduct 
+                 selected 
+                 m.linkingModel
+             |> Sg.map LinkingActions
+         
+         let heightValidationDiscs =
+             HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
+         
+         let scaleBars =
+             ScaleBarsApp.Sg.view
+                 m.scene.scaleBars
+                 m.navigation.camera.view
+                 m.scene.config
+                 mrefConfig
+                 m.scene.referenceSystem
+             |> Sg.map ScaleBarsMessage
+         
+         let sceneObjects =
+             SceneObjectsApp.Sg.view m.scene.sceneObjectsModel m.scene.referenceSystem |> Sg.map SceneObjectsMessage
+         
+         let geologicSurfacesSg = 
+             GeologicSurfacesApp.Sg.view m.scene.geologicSurfacesModel 
+             |> Sg.map GeologicSurfacesMessage 
+         
+         let traverse = 
+             [ 
+                 TraverseApp.Sg.view 
+                     m.navigation.camera.view 
+                     m.scene.config.nearPlane.value 
+                     m.scene.referenceSystem
+                     m.scene.traverse                
+             ]
+             |> Sg.ofList
+             |> Sg.map TraverseMessage
+         
+         let depthTested = 
+             [
+                 linkingSg; 
+                 annotationSg; 
+                 minervaSg; 
+                 heightValidationDiscs; 
+                 scaleBars; 
+                 sceneObjects; 
+                 geologicSurfacesSg
+                 traverse
+             ] |> Sg.ofList
+
+        //render OPCs in priority groups
+         let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested true m
+         onBoot "attachResize('__ID__')" (
+             DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
+         )
 
     let viewRenderView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
         let overlayed, depthTested, cam = createSceneGraphs runtime id false m
