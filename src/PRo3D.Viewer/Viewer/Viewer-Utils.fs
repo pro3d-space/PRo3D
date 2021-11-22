@@ -391,6 +391,7 @@ module ViewerUtils =
         [<Position>]        pos     : V4d
         [<Color>]           c       : V4d
         [<TexCoord>]        tc      : V2d
+        [<Semantic("ViewSpacePos")>] vp : V4d
         [<Semantic("FootPrintProj")>] tc0     : V4d
     }
 
@@ -401,9 +402,9 @@ module ViewerUtils =
 
     let triangleFilterX (input : Triangle<Vertex>) =
         triangle {
-            let p0 = input.P0.pos.XYZ
-            let p1 = input.P1.pos.XYZ
-            let p2 = input.P2.pos.XYZ
+            let p0 = input.P0.vp.XYZ
+            let p1 = input.P1.vp.XYZ
+            let p2 = input.P2.vp.XYZ
 
             let maxSize = uniform?TriangleSize
 
@@ -425,12 +426,14 @@ module ViewerUtils =
 
     let stableTrafo (v : Vertex) =
           vertex {
-              let vp = uniform.ModelViewProjTrafo * v.pos
+              let p = uniform.ModelViewProjTrafo * v.pos
+
 
               return 
                   { v with
-                      pos = vp
+                      pos = p
                       c = v.c
+                      vp = uniform.ModelViewTrafo * v.pos
                   }
           }
 
