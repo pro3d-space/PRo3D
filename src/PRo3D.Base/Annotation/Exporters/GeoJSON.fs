@@ -173,8 +173,9 @@ module GeoJSON =
             }
         
     type GeoJsonFeature = {
-        geometry:GeoJsonGeometry
-        bbox: Option<List<float>>
+        geometry   : GeoJsonGeometry
+        bbox       : Option<List<float>>
+        properties : Map<string, string>
     }
     with    
         static member ToJson (gf: GeoJsonFeature) =
@@ -190,13 +191,19 @@ module GeoJSON =
             json{
                 let! g = Json.read "geometry"
                 let! (b:Option<List<float>>) = Json.tryRead "bbox"
-                return {geometry = g;bbox =b}
+                let! properties = Json.tryRead "properties"
+                let properties =
+                    match properties with
+                    | Some (x : Map<string, string>) -> x
+                    | None -> Map.empty
+
+                return {geometry = g;bbox = b; properties = properties}
             }
                     
     type GeoJsonFeatureCollection = {
-        features : List<GeoJsonFeature>
-        bbox     : Option<List<float>>
-        // properties: Option<properties>
+        features   : List<GeoJsonFeature>
+        bbox       : Option<List<float>>
+        //properties : Option<List<string * string>>
     }
     with            
         static member ToJson (x: GeoJsonFeatureCollection) =

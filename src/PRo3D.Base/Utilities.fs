@@ -24,17 +24,7 @@ type Self = Self
 module Box3d =
     let extendBy (box:Aardvark.Base.Box3d) (b:Aardvark.Base.Box3d) =
         box.ExtendBy(b)
-        box
-
-    let ofSeq (bs:seq<Aardvark.Base.Box3d>) =
-        let box = 
-            match bs |> Seq.tryHead with
-            | Some b -> b
-            | None -> failwith "box sequence must not be empty"
-                    
-        for b in bs do
-            box.ExtendBy(b)
-        box
+        box    
 
 module Double =
     let degreesFromRadians (d:float) =
@@ -639,7 +629,6 @@ module Sg =
             toEffect Shader.DepthOffset.depthOffsetFS 
         ]
 
-
     let private drawStableLinesHelper (edges: aval<Line3d[]>) (offset: aval<float>) (color: aval<C4b>) (width: aval<float>) = 
         edges
         |> Sg.lines color
@@ -653,15 +642,19 @@ module Sg =
         drawStableLinesHelper edges offset color width
         |> Sg.trafo trafo
         
-
     let scaledLines = 
         Effect.compose [
             toEffect DefaultSurfaces.stableTrafo
             toEffect DefaultSurfaces.vertexColor
             toEffect DefaultSurfaces.thickLine
         ]
-                               
-    let drawScaledLines (points: aval<V3d[]>) (color: aval<C4b>) (width: aval<float>) (trafo: aval<Trafo3d>) : ISg<_> = 
+
+    let drawScaledLines 
+        (points: aval<V3d[]>) 
+        (color: aval<C4b>) 
+        (width: aval<float>) 
+        (trafo: aval<Trafo3d>) : ISg<_> = 
+
         let edges = edgeLines false points trafo     
         let size = edges |> AVal.map (fun line -> (float (line.Length)) * 100.0)
                                                             
@@ -672,7 +665,25 @@ module Sg =
         |> Sg.uniform "Size" size
         |> Sg.effect [scaledLines]                            
         |> Sg.trafo trafo
-        |> Sg.uniform "LineWidth" width      
+        |> Sg.uniform "LineWidth" width
+
+    let drawSingleLine
+        (pointA    : aval<V3d>)
+        (pointB    : aval<V3d>)
+        (color     : aval<C4b>)        
+        (width     : aval<float>)
+        (trafo     : aval<Trafo3d>) =
+
+        let line = AVal.map2(fun a b -> Line3d(a,b) |> Array.singleton) pointA pointB
+
+        line
+        |> Sg.lines color
+        |> Sg.noEvents
+        //|> Sg.uniform "WorldPos" (trafo |> AVal.map(fun (x : Trafo3d) -> x.Forward.C3.XYZ))
+        //|> Sg.uniform "Size" thickness
+        |> Sg.effect [scaledLines]                            
+        |> Sg.trafo trafo
+        |> Sg.uniform "LineWidth" width
 
     let private pickableContent
         (points            : aval<V3d[]>) 

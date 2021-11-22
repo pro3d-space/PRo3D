@@ -48,7 +48,7 @@ module Gui =
           let! north = r.northO//r.north.value   
           let! v     = view
         
-          return (DipAndStrike.pitch up v.Forward, DipAndStrike.bearing up north v.Forward)
+          return (Calculations.pitch up v.Forward, Calculations.bearing up north v.Forward)
         }
     
     let dnsColorLegend (m : AdaptiveModel) =
@@ -117,7 +117,17 @@ module Gui =
 
     let textOverlays (m : AdaptiveReferenceSystem) (cv : aval<CameraView>) = 
         div [js "oncontextmenu" "event.preventDefault();"] [ 
-            let planet = m.planet |> AVal.map(fun x -> sprintf "%s" (x.ToString()))  
+            let planet = 
+                m.planet 
+                |> AVal.map(fun x -> 
+                    match x with
+                    | Planet.Mars  -> "Mars (IAU ellipsoid)"
+                    | Planet.Earth -> "Earth (ellipsoid)"
+                    | Planet.JPL   -> "JPL Rover Frame"
+                    | Planet.None  -> "None xyz"          
+                    | Planet.ENU   -> "ENU"
+                    | _ -> "[TextOverlays] missing enum"
+                )  
             
             let pnb = pitchAndBearing m cv
             
@@ -131,13 +141,28 @@ module Gui =
                     CooTransformation.getLatLonAlt b a.Location
                 ) cv m.planet
             
-            let alt2 = 
+            let altitude = 
                 AVal.map2 (fun (a : CameraView) b -> 
                     CooTransformation.getAltitude a.Location a.Up b ) cv m.planet
             
-            let lon = spericalc |> AVal.map(fun x -> sprintf "%s deg" ((360.0 - x.longitude).ToString()))
-            let lat = spericalc |> AVal.map(fun x -> sprintf "%s deg" ((x.latitude).ToString()))            
-            let alt2 = alt2 |> AVal.map(fun x -> sprintf "%s m" ((x).ToString("0.00")))            
+            let lon = 
+                spericalc 
+                |> AVal.map(fun x -> 
+                    if x.longitude.IsNaN() then
+                        sprintf "not available"
+                    else
+                        sprintf "%s deg" ((360.0 - x.longitude).ToString())
+                )
+            let lat = 
+                spericalc 
+                |> AVal.map(fun x -> 
+                    if x.latitude.IsNaN() then
+                        sprintf "not available"
+                    else
+                        sprintf "%s deg" ((x.latitude).ToString())
+                ) 
+                
+            let alt2 = altitude |> AVal.map(fun x -> sprintf "%s m" ((x).ToString("0.00")))            
                                                    
             let style' = "color: white; font-family:Consolas;"
             
@@ -699,39 +724,39 @@ module Gui =
                    // DrawingApp.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage // CHECK-merge viewAnnotationGroups
                 ]
                 GuiEx.accordion "Dip&Strike ColorLegend" "paint brush" false [
-                    Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDnSColorLegendUI m))] 
-
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDnSColorLegendUI m))
+                ] 
                 GuiEx.accordion "Actions" "Asterisk" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
-                  ]  
-                ]    
+                ]
+            ]    
 
     module Config =
         let config (model : AdaptiveModel) = 
             ConfigProperties.view model.scene.config 
-              |> UI.map ConfigPropertiesMessage 
-              |> AVal.constant
+            |> UI.map ConfigPropertiesMessage
+            |> AVal.constant
               
         let configUI (m : AdaptiveModel) =
-          div[][
-              GuiEx.accordion "ViewerConfig" "Settings" true [
-                      Incremental.div AttributeMap.empty (AList.ofAValSingle (config m))
-              ]
-              GuiEx.accordion "Coordinate System" "Map Signs" false [
-                  ReferenceSystemApp.UI.view m.scene.referenceSystem |> UI.map ReferenceSystemMessage
-              ]
-              GuiEx.accordion "Camera" "Camera Retro" false [
-                  CameraProperties.view m.scene.referenceSystem m.navigation.camera
-              ]
-              GuiEx.accordion "Frustum" "Settings" false [
-                  FrustumProperties.view m.frustumModel |> UI.map FrustumMessage
-              ]
-              GuiEx.accordion "Screenshots" "Settings" false [
-                  ScreenshotApp.view m.screenshotApp |> UI.map ScreenshotAppMessage
-              ]
-          ] 
+            div[][
+                GuiEx.accordion "ViewerConfig" "Settings" true [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle (config m))
+                ]
+                GuiEx.accordion "Coordinate System" "Map Signs" false [
+                    ReferenceSystemApp.UI.view m.scene.referenceSystem |> UI.map ReferenceSystemMessage
+                ]
+                GuiEx.accordion "Camera" "Camera Retro" false [
+                    CameraProperties.view m.scene.referenceSystem m.navigation.camera
+                ]
+                GuiEx.accordion "Frustum" "Settings" false [
+                    FrustumProperties.view m.frustumModel |> UI.map FrustumMessage
+                ]
+                GuiEx.accordion "Screenshots" "Settings" false [
+                    ScreenshotApp.view m.screenshotApp |> UI.map ScreenshotAppMessage
+                ]
+            ] 
           
-    module ViewPlanner = 
+    module ViewPlanner =
         let viewPlanProperties (model : AdaptiveModel) =
               //model.scene.viewPlans |> ViewPlan.UI.viewRoverProperties ViewPlanMessage 
               model.scene.viewPlans |> ViewPlanApp.UI.viewRoverProperties ViewPlanMessage model.footPrint.isVisible
@@ -744,20 +769,31 @@ module Gui =
                 GuiEx.accordion "Properties" "Content" true [
                     Incremental.div AttributeMap.empty (viewPlanProperties m |> AList.ofAValSingle)
                 ]
-            ]   
+            ]
 
     module SceneObjects =
         let sceneObjectsUI (m : AdaptiveModel) =             
             div [][
                 yield GuiEx.accordion "SceneObjects" "Write" true [
-                    SceneObjectsApp.UI.viewSceneObjects m.scene.sceneObjectsModel 
-                ]
+                        SceneObjectsApp.UI.viewSceneObjects m.scene.sceneObjectsModel 
+                    ]
                 yield GuiEx.accordion "Transformation" "expand arrows alternate " false [
-                    Incremental.div AttributeMap.empty (AList.ofAValSingle(SceneObjectsApp.UI.viewTranslationTools m.scene.sceneObjectsModel))
-                ] 
+                        Incremental.div AttributeMap.empty (AList.ofAValSingle(SceneObjectsApp.UI.viewTranslationTools m.scene.sceneObjectsModel))
+                    ]  
                
             ] |> UI.map SceneObjectsMessage      
           
+    module Traverse =
+        let traverseUI (m : AdaptiveModel) =
+            div [][
+                yield GuiEx.accordion "Sols" "road" true [
+                    TraverseApp.UI.viewSolList m.scene.referenceSystem m.scene.traverse
+                ]
+                yield GuiEx.accordion "Traverse" "Content" true [
+                    TraverseApp.UI.viewTraverseProperties m.scene.traverse
+                ]
+            ] |> UI.map TraverseMessage
+
     module ScaleBars = 
         
         let scaleBarsUI (m : AdaptiveModel) =             
@@ -927,6 +963,8 @@ module Gui =
                 require (viewerDependencies) (body bodyAttributes [SceneObjects.sceneObjectsUI m])
             | Some "scalebars" -> 
                 require (viewerDependencies) (body bodyAttributes [ScaleBars.scaleBarsUI m])
+            | Some "traverse" -> 
+                require (viewerDependencies) (body bodyAttributes [Traverse.traverseUI m])
             | Some "geologicSurf" -> 
                 require (viewerDependencies) (body bodyAttributes [GeologicSurfaces.geologicSurfacesUI m])
             | Some "properties" ->

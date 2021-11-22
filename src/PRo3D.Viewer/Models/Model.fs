@@ -318,6 +318,8 @@ module ViewConfigModel =
         //useSurfaceHighlighting = true
         //showExplorationPoint = true
     }
+
+    
        
     module V0 =
         let read = 

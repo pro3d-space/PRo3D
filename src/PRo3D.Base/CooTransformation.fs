@@ -11,6 +11,39 @@ type Planet =
 | Mars  = 1
 | None  = 2
 | JPL   = 3
+| ENU   = 4
+
+module Planet =
+    let inferCoordinateSystem (p : V3d) = //TODO rno
+        // earth radius min max [6,357; 6,378]
+        // mars equatorial radius [3396] 
+        
+        let earthRadiusRange = Range1d(5500000.0, 7000000.0)
+        let marsRadiusRange = Range1d(2500000.0, 4000000.0)
+
+        let distanceToOrigin = p.Length
+        let coordinateSystem = 
+            match distanceToOrigin with
+            | d when marsRadiusRange.Contains(d) -> Planet.Mars
+            | d when earthRadiusRange.Contains(d) -> Planet.Earth            
+            | _ -> Planet.None
+
+        Log.warn "[ReferenceSystem] Inferred Coordinate System: %s" (coordinateSystem.ToString ())
+        coordinateSystem
+
+    let suggestedSystem p currentSystem = 
+        let inferredSystem = inferCoordinateSystem p
+
+        match (inferredSystem, currentSystem) with
+        | (Planet.Earth, Planet.Earth) -> Planet.Earth
+        | (Planet.Mars, Planet.Mars)   -> Planet.Mars
+        | (Planet.None, Planet.None)   -> Planet.None
+        | (Planet.None, Planet.JPL)    -> Planet.JPL
+        | (Planet.None, Planet.ENU)    -> Planet.ENU
+        | _ ->
+            Log.warn "[Scene] found reference system does not align with suggested system"
+            Log.warn "[Scene] changing to %A" inferredSystem
+            inferredSystem
 
 module CooTransformation = 
 
@@ -70,7 +103,7 @@ module CooTransformation =
 
     let getLatLonAlt (planet:Planet) (p:V3d) : SphericalCoo = 
         match planet with
-        | Planet.None | Planet.JPL ->
+        | Planet.None | Planet.JPL | Planet.ENU ->
             { latitude = nan; longitude = nan; altitude = nan; radian = 0.0 }
         | _ ->
             let lat = ref init
@@ -107,7 +140,7 @@ module CooTransformation =
 
     let getXYZFromLatLonAlt (sc:SphericalCoo) (planet:Planet) : V3d = 
         match planet with
-        | Planet.None | Planet.JPL -> V3d.NaN
+        | Planet.None | Planet.JPL | Planet.ENU -> V3d.NaN
         | _ ->
             let pX = ref init
             let pY = ref init
@@ -120,16 +153,31 @@ module CooTransformation =
             
             V3d(!pX, !pY, !pZ)
 
+    let getXYZFromLatLonAlt' (coordinate :V3d) (planet:Planet) : V3d = 
+        match planet with
+        | Planet.None | Planet.JPL | Planet.ENU -> V3d.NaN
+        | _ ->
+            let pX = ref init
+            let pY = ref init
+            let pZ = ref init
+            let error = 
+                CooTransformation.LatLonAlt2Xyz(planet.ToString(), coordinate.X, coordinate.Y, coordinate.Z, pX, pY, pZ )
+            
+            if error <> 0 then
+                Log.line "cootrafo errorcode %A" error
+            
+            V3d(!pX, !pY, !pZ)
+
     let getHeight (p:V3d) (up:V3d) (planet:Planet) = 
         match planet with
-        | Planet.None | Planet.JPL -> (p * up).Length // p.Z //
+        | Planet.None | Planet.JPL | Planet.ENU -> (p * up).Length // p.Z //
         | _ ->
             let sc = getLatLonAlt planet p
             sc.altitude
 
     let getAltitude (p:V3d) (up:V3d) (planet:Planet) = 
         match planet with
-        | Planet.None | Planet.JPL -> (p * up).Z // p.Z //
+        | Planet.None | Planet.JPL | Planet.ENU -> (p * up).Z // p.Z //
         | _ ->
             let sc = getLatLonAlt planet p
             sc.altitude
@@ -140,8 +188,9 @@ module CooTransformation =
 
     let getUpVector (p:V3d) (planet:Planet) = 
         match planet with
-        | Planet.None -> V3d.ZAxis
-        | Planet.JPL -> -V3d.ZAxis
+        | Planet.None ->  V3d.ZAxis
+        | Planet.JPL  -> -V3d.ZAxis
+        | Planet.ENU  ->  V3d.ZAxis
         | _ ->
             let sc = getLatLonAlt planet p
             let height = sc.altitude + 100.0

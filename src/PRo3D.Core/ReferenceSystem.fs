@@ -19,9 +19,7 @@ open PRo3D
 
 module ReferenceSystemApp =
 
-    //open Aardvark.UI.ChoiceModule
-   
-    
+    //open Aardvark.UI.ChoiceModule       
 
     let updateVectorInDegree (up:V3d) (point:V3d) (origin:V3d) (theta:float) =
         //https://sites.google.com/site/glennmurray/Home/rotation-matrices-and-formulas
@@ -71,56 +69,45 @@ module ReferenceSystemApp =
         let pz = m31*x + m32*y + m33*z + m34
 
         V3d(px, py, pz)
-    
-   
+       
     let upVector (point:V3d) (planet) = 
         CooTransformation.getUpVector point planet //point.Normalized
     
     let northVector (up:V3d) =
         let east = V3d.OOI.Cross(up)
         up.Cross(east)
-
-    let inferCoordinateSystem (p : V3d) = //TODO rno
-        // earth radius min max [6,357; 6,378]
-        // mars equatorial radius [3396] 
-        let earthLower = 5500000.0
-        let earthUpper = 7000000.0
-        let marsLower  = 2500000.0
-        let marsUpper  = 4000000.0
-
-        let distanceToOrigin = p.Length
-        let coordinateSystem = 
-            match distanceToOrigin with
-            | d when d > marsLower && d < marsUpper -> Planet.Mars
-            | d when d > earthLower && d < earthUpper -> Planet.Earth
-            | _ -> Planet.None
-
-        Log.warn "[ReferenceSystem] Inferred Coordinate System: %s" (coordinateSystem.ToString ())
-        coordinateSystem
-
+    
     let updateCoordSystem (p:V3d) (planet:Planet) (model : ReferenceSystem) = 
         let up = upVector p planet
-        let n  = 
+        let north  = 
             match planet with 
-            | Planet.None | Planet.JPL -> V3d.IOO 
+            | Planet.None | Planet.JPL -> V3d.IOO
+            | Planet.ENU -> V3d.OIO
             | _ -> northVector up
 
-        let no = Rot3d.Rotation(up, model.noffset.value |> Double.radiansFromDegrees).Transform(n) //updateVectorInDegree up n model.origin model.noffset.value 
-        { model with north = ReferenceSystem.setV3d n
-                     up = ReferenceSystem.setV3d up
-                     northO = no }
+        let no = 
+            Rot3d.Rotation(up, model.noffset.value |> Double.radiansFromDegrees).Transform(north) //updateVectorInDegree up n model.origin model.noffset.value 
+        { 
+            model with 
+                north  = ReferenceSystem.setV3d north
+                up     = ReferenceSystem.setV3d up
+                northO = no 
+                planet = planet
+                origin = p
+        }
 
     let update<'a> 
-        (bigConfig : 'a) 
-        (config : ReferenceSystemConfig<'a>) 
-        (model : ReferenceSystem) 
-        (act : ReferenceSystemAction) =
+        (bigConfig  : 'a) 
+        (config     : ReferenceSystemConfig<'a>) 
+        (model      : ReferenceSystem) 
+        (act        : ReferenceSystemAction) =
+
+
         match act with
         | InferCoordSystem p ->
-            let planet = inferCoordinateSystem p
+            let planet = Planet.suggestedSystem p model.planet
             let m = updateCoordSystem p planet model
-            {m with origin = p 
-                    planet = planet}, bigConfig
+            m, bigConfig
         | UpdateUpNorth p ->
             updateCoordSystem p model.planet model, bigConfig
         | SetUp up ->    
@@ -149,7 +136,6 @@ module ReferenceSystemApp =
         | SetPlanet p ->      
             let m' = updateCoordSystem model.origin p model
             { m' with planet = p }, bigConfig
-
     
     module UI =
 
