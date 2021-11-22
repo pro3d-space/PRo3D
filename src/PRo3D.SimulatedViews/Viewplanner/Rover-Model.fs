@@ -173,6 +173,27 @@ type Axis = {
     angle        : NumericInput
 }
 
+module Axis =
+
+    module Mapping =
+        let to180 (v : float) = 
+            if v > 180.0 then -(360.0-v)
+            else v
+
+        let from180 (v : float) =
+            if v < 0.0 then 360.0 + v
+            else v
+
+    open Mapping
+
+    let to180 (v : Axis) =
+        if Fun.ApproximateEquals(v.angle.min, 0.0) && Fun.ApproximateEquals(v.angle.max, 360.0) then
+            { v with angle = { v.angle with value = to180 v.angle.value; min = -180.0; max = 180.0 } }
+        else 
+            v
+
+        
+
 [<ModelType>]
 type Rover = {
     id               : string

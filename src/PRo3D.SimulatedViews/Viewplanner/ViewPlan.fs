@@ -416,12 +416,14 @@ module ViewPlanApp =
                 outerModel, { model with selectedViewPlan = Some newVp; viewPlans = viewPlans }
             | None -> outerModel, model    
 
+
         | ChangeAngle (id,a) -> 
             match model.selectedViewPlan with
             | Some vp -> 
                 match vp.rover.axes.TryFind id with
                 | Some ax -> 
                     let angle = Utilities.PRo3DNumeric.update ax.angle a
+                    //printfn "numeric angle: %A" angle
                     let ax' = { ax with angle = angle } 
 
                     let rover = { vp.rover with axes = (vp.rover.axes |> HashMap.update id (fun _ -> ax')) }
@@ -430,10 +432,12 @@ module ViewPlanApp =
                     let angleUpdate = { 
                       roverId = vp'.rover.id
                       axisId = ax'.id ; 
-                      angle = ax'.angle.value 
+                      angle = Axis.Mapping.from180 ax'.angle.value 
                     }
 
                     let roverModel' = RoverApp.updateAnglePlatform angleUpdate model.roverModel
+
+
                     let fp = Optic.get footprint outerModel
                     let fp', m' = updateRovers model roverModel' vp' fp
                     let newOuterModel = Optic.set footprint fp' outerModel
@@ -844,12 +848,12 @@ module ViewPlanApp =
                         for axis in (r.axes |> RoverApp.mapTolist) do
                             yield div[][Incremental.text axis.id; text "(deg)"]
                             //yield Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox] axis.angle |> UI.map (fun x -> ChangeAngle (axis.id |> AVal.force,x))
-                            let! id = axis.id
                             //let! value = axis.angle.value
                             //let! max = axis.angle.max
                             //let! min = axis.angle.min
                             //yield Numeric.view' [InputBox] axis.angle |> UI.map (fun x -> ChangeAngle (id,x))
-                            yield Utilities.PRo3DNumeric.viewContinuously [NumericInputType.Slider; NumericInputType.InputBox] axis.angle |> UI.map (fun x -> ChangeAngle (id,x))
+
+                            yield Utilities.PRo3DNumeric.viewContinuously [NumericInputType.Slider; NumericInputType.InputBox] axis.angle |> UI.map (fun x -> ChangeAngle (axis.id.GetValue(),x))
                             //if (value <= max) && (value >= min) then                    
                             //    yield Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox] axis.angle |> UI.map (fun x -> ChangeAngle (id,x))
                             //else

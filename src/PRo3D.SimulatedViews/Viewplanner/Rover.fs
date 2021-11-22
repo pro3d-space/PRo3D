@@ -97,6 +97,11 @@ module RoverProvider =
     let toAxes (axes : InstrumentPlatforms.SAxis[]) : list<Axis> =
         axes 
         |> Array.mapi(fun i x ->
+
+            // tweak min/max if full 360 degrees is possible to map to -180..180
+            let minAngles = x.m_fMinAngle.DegreesFromGons()
+            let maxAngles = x.m_fMaxAngle.DegreesFromGons()
+
             { 
                 index        = i
                 id           = x.m_pcAxisId.ToStrAnsi()
@@ -106,12 +111,12 @@ module RoverProvider =
 
                 angle = {
                     value  = x.m_fCurrentAngle.DegreesFromGons()
-                    min    = x.m_fMinAngle.DegreesFromGons()
-                    max    = x.m_fMaxAngle.DegreesFromGons()
+                    min    = minAngles
+                    max    = maxAngles
                     step   = 1.0
                     format = "{0:0.0}"
                 }
-            }
+            } |> Axis.to180
         ) 
         //|> Array.map axisHack
         |> Array.toList

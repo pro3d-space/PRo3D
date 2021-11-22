@@ -1028,7 +1028,7 @@ module ViewerApp =
                     //{ m with waypoints = waypoints }                                                                                  
                     m |> shortFeedback "Saved logbrush"
                 | Aardvark.Application.Keys.F8 ->
-                    { m with scene = { m.scene with dockConfig = DockConfigs.traverse } }
+                    { m with scene = { m.scene with dockConfig = DockConfigs.viewPlanner } }
                 | _ -> m
 
             let interaction' = 
