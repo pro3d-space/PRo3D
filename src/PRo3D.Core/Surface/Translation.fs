@@ -27,7 +27,8 @@ module TranslationApp =
     type Action =
         | SetTranslation   of Vector3d.Action
         | SetYaw           of Numeric.Action
-        | FlipZ            
+        | FlipZ    
+        | ToggleSketchFab
         | ToggleVisible
     
 
@@ -44,7 +45,8 @@ module TranslationApp =
             { model with flipZ = (not model.flipZ)} //; trafo = trafo' }
         | ToggleVisible   -> 
             { model with useTranslationArrows = not model.useTranslationArrows}
-
+        | ToggleSketchFab   -> 
+            { model with isSketchFab = not model.isSketchFab }
    
     module UI =
         
@@ -61,8 +63,9 @@ module TranslationApp =
                 Html.table [  
                     //Html.row "Visible:" [GuiEx.iconCheckBox model.useTranslationArrows ToggleVisible ]
                     Html.row "Translation (m):" [viewV3dInput model.translation |> UI.map SetTranslation ]
+                    Html.row "Yaw (deg):"       [Numeric.view' [InputBox] model.yaw |> UI.map SetYaw]
+                    Html.row "flip Z:"          [GuiEx.iconCheckBox model.flipZ FlipZ ]
+                    Html.row "sketchFab:"       [GuiEx.iconCheckBox model.isSketchFab ToggleSketchFab ]
                     Html.row "Pivot Point:" [Incremental.text (model.pivot |> AVal.map (fun x -> x.ToString ()))]
-                    Html.row "Yaw (deg):" [Numeric.view' [InputBox] model.yaw |> UI.map SetYaw]
-                    Html.row "flip Z:"    [GuiEx.iconCheckBox model.flipZ FlipZ ]
                 ]
             )

@@ -125,12 +125,12 @@ module MeasurementsImporter =
         let trafo = getTrafo (m.Element(xname "LocalToGlobal")) * t
 
         let points = 
-          getPoints (m.Element(xname "Points")) anType 
+            getPoints (m.Element(xname "Points")) anType 
             |> IndexList.ofArray 
             |> IndexList.map trafo.Forward.TransformPos
 
         let segments = 
-          getSegments(m, anType)
+            getSegments(m, anType)
             |> IndexList.ofList 
             |> IndexList.map (
                 fun s -> 
@@ -143,28 +143,30 @@ module MeasurementsImporter =
         Log.line "TrafoImporter: Found %A in xml" id
 
         {
-            version = Annotation.current
-            key = id
-            geometry = getGeometry (anType, closed)
-            projection = Projection.Linear
-            bookmarkId = None
-            semantic = Semantic.Horizon0
-            points = points
-            segments = segments
-            color = { c = color }
-            thickness = style.thickness
-            results = None
-            dnsResults = None
-            modelTrafo = trafo 
-            visible = true 
-            showDns = false
-            text = ""
-            textsize = textsize
-            surfaceName = ""
-            view = FreeFlyController.initial.view
-            semanticId = SemanticId ""
-            semanticType = SemanticType.Undefined
-            manualDipAngle = Annotation.initial.manualDipAngle
+            version          = Annotation.current
+            key              = id
+            geometry         = getGeometry (anType, closed)
+            projection       = Projection.Linear
+            semantic         = Semantic.Horizon0
+            points           = points
+            segments         = segments
+            color            = { c = color }
+            thickness        = style.thickness
+            results          = None
+            dnsResults       = None
+            modelTrafo       = trafo 
+            visible          = true 
+            showDns          = true
+            text             = ""
+            textsize         = textsize
+            showText         = true
+            surfaceName      = ""
+            view             = FreeFlyController.initial.view
+            semanticId       = SemanticId ""
+            semanticType     = SemanticType.Undefined
+            manualDipAngle   = Annotation.initial.manualDipAngle
+            manualDipAzimuth = Annotation.initial.manualDipAzimuth
+            bookmarkId       = None
         }        
         
 

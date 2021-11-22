@@ -154,6 +154,7 @@ type ViewerAction =
     | ScaleBarsMessage               of ScaleBarsAction
     | GeologicSurfacesMessage        of GeologicSurfaceAction
     | ScreenshotAppMessage           of ScreenshotAppAction
+    | TraverseMessage                of TraverseAction
     | Nop
 
 and MailboxState = {
@@ -181,6 +182,8 @@ type Scene = {
     bookmarks         : GroupsModel
     scaleBars         : ScaleBarsModel
 
+    traverse          : Traverse
+
     viewPlans         : ViewPlanModel
     dockConfig        : DockConfig
     closedPages       : list<DockElement>
@@ -194,8 +197,8 @@ type Scene = {
 }
 
 module Scene =
-         
-    let current = 2   
+        
+    let current = 2 //20211611 ... added traverse and sequenced bookmarks and comparison app
     let read0 = 
         json {            
             let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
@@ -212,30 +215,33 @@ module Scene =
 
             return 
                 {
-                    version         = current
-
-                    cameraView      = cameraView
-                    navigationMode  = navigationMode |> enum<NavigationMode>
-                    exploreCenter   = exploreCenter  |> V3d.Parse
-                    
-                    interaction     = interactionMode |> enum<InteractionMode>
-                    surfacesModel   = surfaceModel
-                    config          = config
-                    scenePath       = scenePath
-                    referenceSystem = referenceSystem
-                    bookmarks       = bookmarks
-
-                    viewPlans       = ViewPlanModel.initial
-                    dockConfig      = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
-                    closedPages     = List.empty
-                    firstImport     = false
-                    userFeedback    = String.Empty
-                    feedbackThreads = ThreadPool.empty
-                    comparisonApp    = PRo3D.ComparisonApp.init
-                    scaleBars       = ScaleBarsModel.initial
-                    sceneObjectsModel   = SceneObjectsModel.initial
+                    version               = current
+                                          
+                    cameraView            = cameraView
+                    navigationMode        = navigationMode |> enum<NavigationMode>
+                    exploreCenter         = exploreCenter  |> V3d.Parse
+                                          
+                    interaction           = interactionMode |> enum<InteractionMode>
+                    surfacesModel         = surfaceModel
+                    config                = config
+                    scenePath             = scenePath
+                    referenceSystem       = referenceSystem
+                    bookmarks             = bookmarks
+                                          
+                    viewPlans             = ViewPlanModel.initial
+                    dockConfig            = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
+                    closedPages           = List.empty
+                    firstImport           = false
+                    userFeedback          = String.Empty
+                    feedbackThreads       = ThreadPool.empty
+                    scaleBars             = ScaleBarsModel.initial
+                    sceneObjectsModel     = SceneObjectsModel.initial
                     geologicSurfacesModel = GeologicSurfacesModel.initial
-                    sequencedBookmarks = SequencedBookmarks.initial
+
+                    traverse              = Traverse.initial
+                    sequencedBookmarks    = SequencedBookmarks.initial
+
+                    comparisonApp         = ComparisonApp.init
                 }
         }
 
@@ -283,7 +289,10 @@ module Scene =
                     scaleBars               = scaleBars
                     sceneObjectsModel       = sceneObjectsModel
                     geologicSurfacesModel   = geologicSurfacesModel
-                    sequencedBookmarks = SequencedBookmarks.initial
+
+                    traverse                = Traverse.initial
+
+                    sequencedBookmarks      = SequencedBookmarks.initial
                 }
         }
 
@@ -292,7 +301,8 @@ module Scene =
             let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
             let! navigationMode  = Json.read "navigationMode"
             let! exploreCenter   = Json.read "exploreCenter" 
-
+            
+            let! traverse       = Json.read "traverse"
             let! interactionMode = Json.read "interactionMode"
             let! surfaceModel    = Json.read "surfaceModel"
             let! config          = Json.read "config"
@@ -327,12 +337,13 @@ module Scene =
                     firstImport             = false
                     userFeedback            = String.Empty
                     feedbackThreads         = ThreadPool.empty
-                    comparisonApp    = if comparisonApp.IsSome then comparisonApp.Value
-                                       else ComparisonApp.init                                   
                     scaleBars               = scaleBars
                     sceneObjectsModel       = sceneObjectsModel
                     geologicSurfacesModel   = geologicSurfacesModel
+
+                    traverse                = traverse
                     sequencedBookmarks      = sequencedBookmarks
+                    comparisonApp           = if comparisonApp.IsSome then comparisonApp.Value else ComparisonApp.init
                 }
         }
 
@@ -370,6 +381,8 @@ type Scene with
             do! Json.write "scaleBars" x.scaleBars
             do! Json.write "sceneObjectsModel" x.sceneObjectsModel
             do! Json.write "geologicSurfacesModel" x.geologicSurfacesModel
+
+            do! Json.write "traverse" x.traverse
             do! Json.write "sequencedBookmarks" x.sequencedBookmarks
         }
 
@@ -512,70 +525,9 @@ module Viewer =
         let init = Optic.set (NavigationModel.camera_ >-> CameraControllerState.zoomFactor_) 0.0008 init
         init        
 
-    let sceneElm = {id = "scene"; title = (Some "Scene"); weight = 0.4; deleteInvisible = None; isCloseable = None }
-    
-    let dockConfigFull = 
-      config {
-          content (                    
-              horizontal 1.0 [                                                        
-                stack 0.7 None [
-                    {id = "render"; title = Some " Main View "; weight = 0.6; deleteInvisible = None; isCloseable = None}
-                    {id = "instrumentview"; title = Some " Instrument View "; weight = 0.6; deleteInvisible = None; isCloseable = None}
-                ]                            
-                vertical 0.3 [
-                  stack 0.5 (Some "surfaces") [                    
-                    {id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                    {id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                    {id = "minerva"; title = Some " Minerva "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                    {id = "scalebars"; title = Some " ScaleBars "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                  ]                          
-                  stack 0.5 (Some "config") [
-                    {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                    {id = "bookmarks"; title = Some " Bookmarks"; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                    {id = "viewplanner"; title = Some " ViewPlanner "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                    {id = "corr_mappings"; title = Some " RockTypes "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                    {id = "corr_semantics"; title = Some " Semantics "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                  ]
-                ]
-              ]              
-          )
-          appName "PRo3D"
-          useCachedConfig false
-      }
+    let sceneElm = {id = "scene"; title = (Some "Scene"); weight = 0.4; deleteInvisible = None; isCloseable = None }   
 
-    let dockConfigCore = 
-      config {
-          content (                        
-              horizontal 1.0 [                                                        
-                stack 0.7 None [
-                    {id = "render"; title = Some " Main View "; weight = 0.6; deleteInvisible = None; isCloseable = None}                       
-                ]                            
-                vertical 0.3 [
-                  stack 0.5 None [                        
-                    {id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                    {id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                    {id = "scalebars"; title = Some " ScaleBars "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                  ]                          
-                  stack 0.5 (Some "config") [
-                    {id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                    {id = "bookmarks"; title = Some " Bookmarks"; weight = 0.4; deleteInvisible = None; isCloseable = None }  
-                    {id = "scaletools"; title = Some " Scale Tools"; weight = 0.4; deleteInvisible = None; isCloseable = None }                       
-                  ]
-                ]
-              ]                        
-          )
-          appName "PRo3D"
-          useCachedConfig false
-      }
-
-    //let initFeedback = 
-    //     {  loadScene = "loading Scene..."
-    //        saveScene = "saveing Scene..."
-    //        loadOpcs  = "load opcs..."
-    //        noText    = ""
-    //     }
-
-    let initial msgBox (startupArgs : StartupArgs) url samples : Model = 
+    let initialModel msgBox (startupArgs : StartupArgs) url samples : Model = 
         {     
             scene = 
                 {
@@ -592,7 +544,7 @@ module Viewer =
                     referenceSystem       = ReferenceSystem.initial                    
                     bookmarks             = GroupsModel.initial
                     scaleBars             = ScaleBarsModel.initial
-                    dockConfig            = DockConfigs.core
+                    dockConfig            = DockConfigs.viewPlanner                    
                     closedPages           = list.Empty 
                     firstImport           = true
                     userFeedback          = ""
@@ -601,6 +553,8 @@ module Viewer =
                     viewPlans             = ViewPlanModel.initial
                     sceneObjectsModel     = SceneObjectsModel.initial
                     geologicSurfacesModel = GeologicSurfacesModel.initial
+
+                    traverse              = Traverse.initial
                     sequencedBookmarks    = SequencedBookmarks.initial //with outputPath = Config.besideExecuteable}
                 }
             dashboardMode   = DashboardModes.core.name

@@ -7,6 +7,8 @@ open Aardvark.UI
 open Chiron
 open PRo3D.Base
 
+#nowarn "0686"
+
 [<ModelType>]
 type ViewConfigModel = {
     [<NonAdaptive>]

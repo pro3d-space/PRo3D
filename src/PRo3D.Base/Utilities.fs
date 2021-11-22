@@ -24,17 +24,7 @@ type Self = Self
 module Box3d =
     let extendBy (box:Aardvark.Base.Box3d) (b:Aardvark.Base.Box3d) =
         box.ExtendBy(b)
-        box
-
-    let ofSeq (bs:seq<Aardvark.Base.Box3d>) =
-        let box = 
-            match bs |> Seq.tryHead with
-            | Some b -> b
-            | None -> failwith "box sequence must not be empty"
-                    
-        for b in bs do
-            box.ExtendBy(b)
-        box
+        box    
 
 module Double =
     let degreesFromRadians (d:float) =
@@ -95,7 +85,7 @@ module Utilities =
       let formatNumber (format : string) (value : float) =
           String.Format(Globalization.CultureInfo.InvariantCulture, format, value)
   
-      let numericField<'msg> ( f : Action -> seq<'msg> ) ( atts : AttributeMap<'msg> ) ( model : AdaptiveNumericInput ) inputType =         
+      let numericField''<'msg> (continuousUpdate : bool) (f : Action -> seq<'msg>) ( atts : AttributeMap<'msg> ) ( model : AdaptiveNumericInput ) inputType =         
   
           let tryParseAndClamp min max fallback (s: string) =
               let parsed = 0.0
@@ -121,6 +111,8 @@ module Utilities =
                   match inputType with
                       | Slider ->   
                           yield "type" => "range"
+                          if continuousUpdate then
+                            yield onInput' (tryParseAndClamp min max value >> SetValue >> f) 
                           yield onChange' (tryParseAndClamp min max value >> SetValue >> f)   // continous updates for slider
                       | InputBox -> 
                           yield "type" => "number"
@@ -139,7 +131,15 @@ module Utilities =
   
           Incremental.input (AttributeMap.ofAMap attributes |> AttributeMap.union atts)
   
+      let numericField f atts model inputType = numericField'' false f atts model inputType
+
       let numericField' = numericField (Seq.singleton) AttributeMap.empty
+
+      let viewContinuously (inputTypes : list<NumericInputType>) (model : AdaptiveNumericInput) : DomNode<Action> =
+          inputTypes 
+              |> List.map (numericField'' true (Seq.singleton) AttributeMap.empty model) 
+              |> List.intersperse (text " ") 
+              |> div []
   
       let view' (inputTypes : list<NumericInputType>) (model : AdaptiveNumericInput) : DomNode<Action> =
           inputTypes 
@@ -507,6 +507,70 @@ module Shader =
             |> mapGamma
         }
 
+    type FootPrintVertex =
+        {
+            [<Position>]                pos     : V4d            
+            //[<WorldPosition>]           wp      : V4d
+            //[<TexCoord>]                tc      : V2d
+            [<Color>]                   c       : V4d
+            //[<Normal>]                  n       : V3d
+            //[<SourceVertexIndex>]       sv      : int
+            //[<Semantic("Scalar")>]      scalar  : float
+            //[<Semantic("LightDir")>]    ldir    : V3d
+            [<Semantic("FootPrintProj")>] tc0     : V4d
+            //[<Semantic("Tex1")>]        tc1     : V4d
+
+        }
+
+    let private footprintmap =
+        sampler2d {
+            texture uniform?FootPrintTexture
+            filter Filter.MinMagMipPoint
+            borderColor (C4f(0.0,0.0,0.0,0.0))
+            addressU WrapMode.Border
+            addressV WrapMode.Border
+            addressW WrapMode.Border
+        }  
+
+    let footprintV (v : FootPrintVertex) =
+        vertex {
+            //let vp = uniform.ModelViewTrafo * v.pos
+            //let p = uniform.ProjTrafo * vp
+            
+            let footprintProjM  : M44d   = uniform?FootprintModelViewProj // was proj * view (earlier there was pretransform in it?)
+            //let textureProjM    : M44d   = uniform?textureProj
+            
+            return { 
+                v with 
+                    tc0 = footprintProjM * v.pos; 
+                    //sv = 0
+                    //tc1 = textureProjM   * v.wp; 
+            } //v.pos
+        }
+
+    let footPrintF (v : FootPrintVertex) =
+        fragment {     
+            let mutable color = v.c
+            if uniform?FootprintVisible then
+                let fpt = v.tc0.XYZ / v.tc0.W
+
+                // enable this code to use texture based border (and patterns on etc if needed)
+                //if fpt.X > -1.0 && fpt.X < 1.0 && fpt.Y > -1.0 && fpt.Y < 1.0 && fpt.Z > -1.0 && fpt.Z < 1.0 then   
+                //    let s = footprintmap.Sample(fpt.XY * 0.5 + V2d.II * 0.5)
+                //    color.XYZ <- color.XYZ * (1.0 - s.W) + s.XYZ * s.W
+
+                // TODO: more efficient formuation e.g. using step
+                if fpt.X > -1.0 && fpt.X < 1.0 && fpt.Y > -1.0 && fpt.Y < 1.0 && fpt.Z > -1.0 && fpt.Z < 1.0 then   
+                    let threshold = 0.05
+                    let X = fpt.X < -1.0 + threshold || fpt.X > 1.0 - threshold
+                    let Y = fpt.Y < -1.0 + threshold || fpt.Y > 1.0 - threshold
+                    let Z = fpt.Z < -1.0 + threshold 
+                    if X || Y || Z then  
+                        color.X <- 1.0
+                        
+            return color
+        }
+
 module Sg =    
 
     let colorPointsEffect = 
@@ -565,7 +629,6 @@ module Sg =
             toEffect Shader.DepthOffset.depthOffsetFS 
         ]
 
-
     let private drawStableLinesHelper (edges: aval<Line3d[]>) (offset: aval<float>) (color: aval<C4b>) (width: aval<float>) = 
         edges
         |> Sg.lines color
@@ -579,15 +642,19 @@ module Sg =
         drawStableLinesHelper edges offset color width
         |> Sg.trafo trafo
         
-
     let scaledLines = 
         Effect.compose [
             toEffect DefaultSurfaces.stableTrafo
             toEffect DefaultSurfaces.vertexColor
             toEffect DefaultSurfaces.thickLine
         ]
-                               
-    let drawScaledLines (points: aval<V3d[]>) (color: aval<C4b>) (width: aval<float>) (trafo: aval<Trafo3d>) : ISg<_> = 
+
+    let drawScaledLines 
+        (points: aval<V3d[]>) 
+        (color: aval<C4b>) 
+        (width: aval<float>) 
+        (trafo: aval<Trafo3d>) : ISg<_> = 
+
         let edges = edgeLines false points trafo     
         let size = edges |> AVal.map (fun line -> (float (line.Length)) * 100.0)
                                                             
@@ -598,7 +665,25 @@ module Sg =
         |> Sg.uniform "Size" size
         |> Sg.effect [scaledLines]                            
         |> Sg.trafo trafo
-        |> Sg.uniform "LineWidth" width      
+        |> Sg.uniform "LineWidth" width
+
+    let drawSingleLine
+        (pointA    : aval<V3d>)
+        (pointB    : aval<V3d>)
+        (color     : aval<C4b>)        
+        (width     : aval<float>)
+        (trafo     : aval<Trafo3d>) =
+
+        let line = AVal.map2(fun a b -> Line3d(a,b) |> Array.singleton) pointA pointB
+
+        line
+        |> Sg.lines color
+        |> Sg.noEvents
+        //|> Sg.uniform "WorldPos" (trafo |> AVal.map(fun (x : Trafo3d) -> x.Forward.C3.XYZ))
+        //|> Sg.uniform "Size" thickness
+        |> Sg.effect [scaledLines]                            
+        |> Sg.trafo trafo
+        |> Sg.uniform "LineWidth" width
 
     let private pickableContent
         (points            : aval<V3d[]>) 

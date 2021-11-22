@@ -182,6 +182,7 @@ module InitSceneObjectParams =
         yaw                  = yaw
         pivot                = V3d.Zero
         flipZ                = false
+        isSketchFab          = false
     }
 
     let initNoffset = {

@@ -147,15 +147,15 @@ let startApplication (startupArgs : CLStartupArgs) =
 
         //Log.startTimed "[Viewer] reading json scene"
 
-        let viewerArgs : StartupArgs = 
+        let viewerArgs : PRo3D.StartupArgs = 
             {
-            verbose = startupArgs.verbose
-            showExplorationPoint = startupArgs.showExplorationPoint
-            startEmpty = false
-            useAsyncLoading = false
-            magnificationFilter = startupArgs.magnificationFilter
-            serverMode = false
-            remoteApp  = false
+                verbose = startupArgs.verbose
+                showExplorationPoint = startupArgs.showExplorationPoint
+                startEmpty = false
+                useAsyncLoading = false
+                magnificationFilter = startupArgs.magnificationFilter
+                serverMode = false
+                remoteApp  = false
             }
 
         let port = getFreePort()

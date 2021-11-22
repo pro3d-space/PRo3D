@@ -1,3 +1,43 @@
+## 4.6.0-prerelease1
+
+- revived viewplanner and footprint projection
+
+## 4.5.0-prerelease1
+
+- added traverse loading and visualization (dots, text, lines)
+- added local reference frames according to rover poses
+- added flyto animation according to rover poses
+- added list gui for sols and traverse visibility flags
+
+## 4.4.4-prerelease1
+
+- added csv export for vertical thickness computation
+- added csv export of angular error values for dns computation
+
+## 4.4.3-prerelease1
+
+- added vertical thickness computation for TT (True Thickness) annotation tool
+
+## 4.4.2-prerelease1
+
+- added recalculation of all angular values dependent on north and up (dip and strike angle and azimuth, bearing, slope)
+
+## 4.4.1-prerelease1
+
+- fixed "box sequence must not be empty" exception when loading a scene with surfaces that have faulty paths
+
+## 4.4.0-prerelease1
+
+- added dip azimuth to true thickness tool [#17](https://github.com/pro3d-space/PRo3D/issues/17)
+  - improved true thickness computation via point over plane height
+- merged xzy coordinate system and renamed it to ENU (East North Up) [#117](https://github.com/pro3d-space/PRo3D/issues/117)
+- added missing calculation numbers of measurements to csv export (slope, bearing, vertical distance, horizontal distance) [#100](https://github.com/pro3d-space/PRo3D/issues/100)
+- added `showText`flag to annotations to show or hide text [#114](https://github.com/pro3d-space/PRo3D/issues/114)
+
+## 4.3.0-prerelease1
+
+- added xzy coordinate system and `sketchfab` transformation to support models created out of agisoft
+
 ## 4.2.0-prerelease1
 
 - static screen-shot service that can be found in the `config` tab

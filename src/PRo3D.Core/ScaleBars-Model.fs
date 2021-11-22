@@ -308,6 +308,7 @@ module InitScaleBarsParams =
         yaw                  = yaw
         pivot                = V3d.Zero
         flipZ                = false
+        isSketchFab          = false
     }
 
     let thickness = {

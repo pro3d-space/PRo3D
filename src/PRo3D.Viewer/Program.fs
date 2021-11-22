@@ -67,7 +67,7 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "4.2.0-prerelease1-withSequencedBookmarks"
+let viewerVersion       = "4.6.0-prerelease1"
 let catchDomainErrors   = false
 
 open System.IO
@@ -93,6 +93,9 @@ let main argv =
     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create) |> printfn "ApplicationData: %s"
     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.Create) |> printfn "LocalApplicationData: %s"
 
+    //let geojson = System.IO.File.ReadAllText @"D:\CloudStation\_WORK\_2021\20211014_AZTravels\M20_waypoints.json"
+    //let featurecollection_des : PRo3D.Base.Annotation.GeoJSON.GeoJsonFeatureCollection = geojson |> Json.parse |> Json.deserialize
+    //Log.line "%A" featurecollection_des
 
     let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
     Config.configPath <- appData
@@ -275,8 +278,7 @@ let main argv =
             ViewerApp.start runtime signature startEmpty messagingMailbox sendQueue dumpFile cacheFile uri
 
         let s = { MailboxState.empty with update = mainApp.update Guid.Empty}
-        MailboxAction.InitMailboxState s |> messagingMailbox.Post
-    
+        MailboxAction.InitMailboxState s |> messagingMailbox.Post            
     
         //let domainError (sender:obj) (args:UnhandledExceptionEventArgs) =
         //    let e = args.ExceptionObject :?> Exception;

@@ -353,4 +353,4 @@ module SnapshotUtils =
         let bbPretrafos = Seq.zip bb pretrafos
         let transformedBBs =
               bbPretrafos |> Seq.map (fun (bb, trafo) -> bb.Transformed trafo)
-        transformedBBs |> Box3d.ofSeq
+        transformedBBs |> Box3d

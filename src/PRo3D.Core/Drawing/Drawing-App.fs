@@ -62,35 +62,36 @@ module DrawingApp =
                     ]
                 let newSegment = { startPoint = firstP; endPoint = lastP; points = IndexList.ofList points }
                 { a with segments = IndexList.add newSegment a.segments }
-        | _ -> { a with points = a.points |> IndexList.add firstP }
-
+        | _ -> 
+            { a with points = a.points |> IndexList.add firstP }
+    
     let getFinishedAnnotation up north planet (view:CameraView) (model : DrawingModel) =
         match model.working with
         | Some w ->  
             let w = 
                 match w.geometry with
                 | Geometry.Polygon -> closePolyline w
+                | Geometry.TT -> 
+                    { 
+                        w with 
+                            manualDipAngle   = { w.manualDipAngle   with value = 0.0 }
+                            manualDipAzimuth = { w.manualDipAzimuth with value = 0.0 }
+                    }
                 | _-> w 
         
             let dns = 
-                w.points 
-                |> DipAndStrike.calculateDipAndStrikeResults (up) (north)
-                //match w.points.Count with 
-                //    | x when x > 2 ->
-                //        //let up = 
-                //        //let north = up.Cross(V3d.OOI.Cross(up))
-                //        let result = w.points |> DipAndStrike.calculateDipAndStrikeResults (up) (north)
-                //        Some result //more acc. by using segments as well?
-                //    | _ -> None 
-
-            let w =
                 match w.geometry with 
-                | Geometry.TT -> { w with manualDipAngle = { w.manualDipAngle with value = 0.0 }}
-                | _ -> w
+                | Geometry.TT -> 
+                    DipAndStrike.calculateManualDipAndStrikeResults up north w
+                | _ ->
+                    w.points 
+                    |> DipAndStrike.calculateDipAndStrikeResults (up) (north)                        
+
+            let w = { w with dnsResults = dns }
 
             let results = Calculations.calculateAnnotationResults w up north planet
 
-            Some { w with dnsResults = dns ; results = Some results; view = view }
+            Some { w with results = Some results; view = view }
         | None -> None
 
     let finishAndAppendAndSend up north planet (view:CameraView) (model : DrawingModel) (bc : BlockingCollection<string>) = 
@@ -151,7 +152,7 @@ module DrawingApp =
                     //annotation states should be immutable after creation
                     //(Annotation.make model.projection model.geometry model.semantic surfaceName)  
                     //    with points = IndexList.ofList [p]; modelTrafo = Trafo3d.Translation p
-                    (Annotation.mk model.projection bookmarkId model.geometry model.color model.thickness surfaceName)
+                    (Annotation.make model.projection None model.geometry model.color model.thickness surfaceName)
                         with points = IndexList.ofList [p]; modelTrafo = Trafo3d.Translation p
                 }, None
       
@@ -378,8 +379,6 @@ module DrawingApp =
                 { model with annotations = annotations }
 
             | _ -> model        
-
-
         | AddAnnotations path, _,_ ->
             match path |> List.tryHead with
             | Some p -> 
@@ -392,6 +391,7 @@ module DrawingApp =
         | ExportAsAnnotations path, _, _ ->
             Drawing.IO.saveVersioned model path
         | ExportAsCsv p, _, _ ->           
+            let up = smallConfig.up.Get(bigConfig)
             let lookups = GroupsApp.updateGroupsLookup model.annotations
             let annotations =
                 model.annotations.flat
@@ -400,7 +400,7 @@ module DrawingApp =
                 |> List.map snd
                 |> List.filter(fun a -> a.visible)                            
 
-            CSVExport.writeCSV lookups p annotations
+            CSVExport.writeCSV lookups up p annotations
                         
             model      
         | ExportAsGeoJSON path, _, _ ->           
@@ -505,11 +505,6 @@ module DrawingApp =
                 pickingTolerance = msmallConfig.getPickingTolerance mbigConfig
             }
        
-
-
-
-
-
         if usePackedAnnotationRendering then
 
             Log.startTimed "[Drawing] creating finished annotation geometry"
@@ -576,10 +571,10 @@ module DrawingApp =
 
             let overlay = 
                 Sg.ofList [
-                 // brush model.hoverPosition; 
-                  annotations
-                  Sg.ofSeq [packedLines; packedPoints]
-                  Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
+                    // brush model.hoverPosition; 
+                    annotations
+                    Sg.ofSeq [packedLines; packedPoints]
+                    Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
                 ]
 
             //let depthTest = 
@@ -601,7 +596,7 @@ module DrawingApp =
                     let picked = UI.isSingleSelect model.annotations a
                     let showPoints = 
                         a.geometry 
-                            |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
+                        |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
                       
                     let sg = Sg.finishedAnnotationOld a c config view viewport showPoints picked pickingAllowed
                     sg
