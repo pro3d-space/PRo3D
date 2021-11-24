@@ -349,6 +349,7 @@ module ViewerUtils =
                     |> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
                     |> addImageCorrectionParameters surf
                     |> Sg.uniform "FootprintVisible" footprintVisible
+                    |> Sg.uniform "FootprintModelViewProj" (M44d.Identity |> AVal.constant)
                     |> Sg.applyFootprint footprintViewProj
                     |> Sg.noEvents
                     |> Sg.texture (Sym.ofString "FootPrintTexture") fp.projTex
