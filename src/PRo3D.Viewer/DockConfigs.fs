@@ -69,7 +69,7 @@ module DockConfigs =
                     vertical 0.3 [
                         stack 0.5 (Some "surfaces") [                    
                             { id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }                            
+                            { id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             { id = "scalebars"; title = Some " ScaleBars "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             { id = "instrumentview"; title = Some " Instrument View "; weight = 0.6; deleteInvisible = None; isCloseable = None}
                         ]                          
@@ -77,8 +77,9 @@ module DockConfigs =
                             { id = "config"; title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             { id = "bookmarks"; title = Some " Bookmarks"; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             { id = "sequencedBookmarks"; title = Some " SequBookmarks "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "viewplanner"; title = Some " ViewPlanner "; weight = 0.4; deleteInvisible = None; isCloseable = None }                    
-                            { id = "traverse";   title = Some " Traverse"; weight = 0.4; deleteInvisible = None; isCloseable = None }              
+                            { id = "viewplanner"; title = Some " Viewplans "; weight = 0.4; deleteInvisible = None; isCloseable = None }
+                            { id = "properties"; title = Some " Properties "; weight = 0.4; deleteInvisible = None; isCloseable = None }
+                            { id = "traverse";   title = Some " Traverse"; weight = 0.4; deleteInvisible = None; isCloseable = None }
                         ]
                     ]
                 ]              

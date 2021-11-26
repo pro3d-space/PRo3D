@@ -1169,7 +1169,7 @@ module ViewerApp =
                     { m with scene = { m.scene with traverse = t }}
                 | _ -> m
 
-            { m with scene = { m.scene with config = c' }; interaction = interaction'}                               
+            { m with scene = { m.scene with config = c' }; interaction = interaction'}
         | KeyUp k, _,_ ->               
             let m =
                 match k with

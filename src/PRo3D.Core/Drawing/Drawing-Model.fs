@@ -16,47 +16,47 @@ open PRo3D.Base.Annotation
 open PRo3D.Core
 
 type DrawingAction =
-  | SetSemantic         of Semantic
-  | ChangeColor         of ColorPicker.Action
-  | ChangeThickness     of Numeric.Action
-  | SetGeometry         of Geometry
-  | SetProjection       of Projection
-  | SetExportPath       of string
-  | Move                of V3d
-  | Exit            
-  | StartDrawing            
-  | StopDrawing   
-  | StartPicking            
-  | StopPicking  
-  | StartPickingMulti     
-  | StopPickingMulti  
-  | AddPointAdv         of V3d * (V3d -> Option<V3d>) * string * option<Guid>
-  | RemoveLastPoint  
-  | ClearWorking
-  | ClearSelection
-  | Clear
-  | LegacySaveVersioned
-  | LegacyLoadVersioned
-  | SetSegment             of int * Segment
-  | Finish                   
-  | Undo                   
-  | Redo                   
-  | FlyToAnnotation        of Guid
-  //| RemoveAnnotation           of list<Index>*Guid       
-  | Send                     
-  | Nop                    
-  | UpVectorChanged        of V3d
-  | NorthVectorChanged     of V3d
-  | GroupsMessage          of GroupsAppAction
-  | DnsColorLegendMessage  of FalseColorLegendApp.Action  
-  | ExportAsAnnotations    of string
-  | AddAnnotations         of list<string>
-  | PickAnnotation         of SceneHit * Guid
-  | PickDirectly           of Guid
-  | ExportAsCsv            of string
-  | ExportAsGeoJSON        of string
-  | ExportAsGeoJSON_xyz    of string
-  | ExportAsAttitude       of string
+| SetSemantic         of Semantic
+| ChangeColor         of ColorPicker.Action
+| ChangeThickness     of Numeric.Action
+| SetGeometry         of Geometry
+| SetProjection       of Projection
+| SetExportPath       of string
+| Move                of V3d
+| Exit            
+| StartDrawing            
+| StopDrawing   
+| StartPicking            
+| StopPicking  
+| StartPickingMulti     
+| StopPickingMulti  
+| AddPointAdv         of V3d * (V3d -> Option<V3d>) * string * option<Guid>
+| RemoveLastPoint  
+| ClearWorking
+| ClearSelection
+| Clear
+| LegacySaveVersioned
+| LegacyLoadVersioned
+| SetSegment             of int * Segment
+| Finish                   
+| Undo                   
+| Redo                   
+| FlyToAnnotation        of Guid
+//| RemoveAnnotation           of list<Index>*Guid       
+| Send                     
+| Nop                    
+| UpVectorChanged        of V3d
+| NorthVectorChanged     of V3d
+| GroupsMessage          of GroupsAppAction
+| DnsColorLegendMessage  of FalseColorLegendApp.Action  
+| ExportAsAnnotations    of string
+| AddAnnotations         of list<string>
+| PickAnnotation         of SceneHit * Guid
+| PickDirectly           of Guid
+| ExportAsCsv            of string
+| ExportAsGeoJSON        of string
+| ExportAsGeoJSON_xyz    of string
+| ExportAsAttitude       of string
 
 [<ModelType>]
 type DrawingModel = {
@@ -94,15 +94,15 @@ type DrawingModel = {
 module DrawingModel =
     
     let tryGet (ans:IndexList<Annotation>) key = 
-            ans |> Seq.tryFind(fun x -> x.key = key)
+        ans |> Seq.tryFind(fun x -> x.key = key)
 
     let tryGet' (ans:HashSet<Annotation>) key = 
-            ans |> Seq.tryFind(fun x -> x.key = key)
+        ans |> Seq.tryFind(fun x -> x.key = key)
 
     let update (ans:IndexList<Annotation>) (ann : Annotation) =
         ans.AsList 
-            |> List.updateIf (fun x -> x.key = ann.key) (fun x -> ann) 
-            |> IndexList.ofList
+        |> List.updateIf (fun x -> x.key = ann.key) (fun x -> ann) 
+        |> IndexList.ofList
 
     let initialdrawing : DrawingModel = {
         hoverPosition = None
@@ -114,14 +114,14 @@ module DrawingModel =
 
         working     = None
         projection  = Projection.Linear
-        geometry    = Geometry.TT
+        geometry    = Geometry.Line
         semantic    = Semantic.Horizon3
 
         annotations = GroupsModel.initial
 
         exportPath  = Some @"."
         
-        pendingIntersections    = ThreadPool.empty            
+        pendingIntersections = ThreadPool.empty
 
         past    = None
         future  = None
