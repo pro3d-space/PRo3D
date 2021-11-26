@@ -150,6 +150,8 @@ type Instrument = {
 type AxisAngleUpdate = {
     roverId : string
     axisId  : string
+    shiftedAngle : bool  // whether angle was shifted from [0,360] to [0,180]
+    invertedAngle : bool // whether angle should be artifically negated
     angle   : double
 }
 
@@ -165,30 +167,37 @@ type Axis = {
     description  : string
     startPoint   : V3d
     endPoint     : V3d
-    //minAngle     : double
-    //maxAngle     : double
-    //currentAngle : double
 
     index        : int
     angle        : NumericInput
+
+    degreesMapped  : bool
+    degreesNegated : bool
 }
 
 module Axis =
 
     module Mapping =
-        let to180 (v : float) = 
-            if v > 180.0 then -(360.0-v)
-            else v
+        let to180 (min : float) (max : float) (v : float) = 
+            if Fun.ApproximateEquals(min, 0.0) && Fun.ApproximateEquals(max, 360.0) then 
+                if v > 180.0 then -(360.0-v)
+                else v
+            else 
+                v
 
-        let from180 (v : float) =
-            if v < 0.0 then 360.0 + v
-            else v
+        let from180 (min : float) (max : float) (v : float) =
+            if Fun.ApproximateEquals(min, 0.0) && Fun.ApproximateEquals(max, 360.0) then 
+                if v < 0.0 then 360.0 + v
+                else v
+            else 
+                v
 
     open Mapping
 
     let to180 (v : Axis) =
-        if Fun.ApproximateEquals(v.angle.min, 0.0) && Fun.ApproximateEquals(v.angle.max, 360.0) then
-            { v with angle = { v.angle with value = to180 v.angle.value; min = -180.0; max = 180.0 } }
+        if v.degreesMapped then
+            let angle = to180 v.angle.min v.angle.max v.angle.value
+            { v with angle = { v.angle with value = (if v.degreesNegated then -angle else angle); min = -180.0; max = 180.0 } }
         else 
             v
 

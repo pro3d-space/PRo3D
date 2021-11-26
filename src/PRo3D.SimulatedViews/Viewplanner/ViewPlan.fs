@@ -432,7 +432,9 @@ module ViewPlanApp =
                     let angleUpdate = { 
                       roverId = vp'.rover.id
                       axisId = ax'.id ; 
-                      angle = Axis.Mapping.from180 ax'.angle.value 
+                      angle = Axis.Mapping.from180 ax'.angle.min ax'.angle.max ax'.angle.value
+                      shiftedAngle = ax'.degreesMapped
+                      invertedAngle = ax'.degreesNegated
                     }
 
                     let roverModel' = RoverApp.updateAnglePlatform angleUpdate model.roverModel
