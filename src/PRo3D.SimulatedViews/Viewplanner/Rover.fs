@@ -98,9 +98,11 @@ module RoverProvider =
         axes 
         |> Array.mapi(fun i x ->
 
-            // tweak min/max if full 360 degrees is possible to map to -180..180
+
             let minAngles = x.m_fMinAngle.DegreesFromGons()
             let maxAngles = x.m_fMaxAngle.DegreesFromGons()
+            let angle = x.m_fCurrentAngle.DegreesFromGons()
+            let fullRound = Fun.ApproximateEquals(minAngles, 0.0) && Fun.ApproximateEquals(maxAngles, 360.0)
 
             { 
                 index        = i
@@ -109,8 +111,11 @@ module RoverProvider =
                 startPoint   = x.m_oStartPoint.ToV3d()
                 endPoint     = x.m_oEndPoint.ToV3d()
 
+                degreesMapped = fullRound
+                degreesNegated = fullRound
+
                 angle = {
-                    value  = x.m_fCurrentAngle.DegreesFromGons()
+                    value  = angle
                     min    = minAngles
                     max    = maxAngles
                     step   = 1.0
@@ -225,15 +230,16 @@ module RoverApp =
         let a = r.axes |> HashMap.find up.axisId
         let mutable pAxes = InstrumentPlatforms.UnMarshalArray<InstrumentPlatforms.SAxis>(p.m_poPlatformAxes)
 
-        //let up = { up with angle = -up.angle}
-
         // push new angles to platform (deg to gon!!!)               
-        let angle, shift = if (up.axisId = "Pan Axis"  && (up.angle < 0.0)) then 
-                                (up.angle + 360.0), true 
-                            else
-                                up.angle, false
+        let angle, shift = 
+            let angle = if up.invertedAngle then -up.angle else up.angle
+            // https://github.com/pro3d-space/PRo3D/issues/135
+            if up.shiftedAngle  && angle < 0.0 then 
+                angle + 360.0, true 
+            else
+                angle, false
 
-        pAxes.[a.index].m_fCurrentAngle <- angle.GonsFromDegrees() //up.angle.GonsFromDegrees()
+        pAxes.[a.index].m_fCurrentAngle <- angle.GonsFromDegrees()
         InstrumentPlatforms.MarshalArray(pAxes, p.m_poPlatformAxes)        
         
         updateRoversAndPlatforms p m shift
