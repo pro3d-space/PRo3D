@@ -57,7 +57,7 @@
     <Compile Include="Viewplanner\ViewPlan-Model.fs" />      
     <Compile Include="Viewplanner\FootPrint.fs" />      
     <Compile Include="Viewplanner\RoverPlacementImporter.fs" />      
-    <Compile Include="Viewplanner\ViewPlan.fs" />
+    <Compile Include="Viewplanner\ViewPlanApp.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="System.Reactive" Version="5.0.0" />

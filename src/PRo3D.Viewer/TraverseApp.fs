@@ -57,6 +57,9 @@ module TraverseApp =
 
     let update (model : Traverse) (action : TraverseAction) : Traverse = 
         match action with
+        | PlaceRoverAtSol _ ->
+            //Action handled in composing app
+            model
         | LoadTraverse path ->
             if System.IO.File.Exists path then
                 Log.line "[Traverse] Loading %s" path
@@ -118,7 +121,7 @@ module TraverseApp =
     let computeSolRotation (sol : Sol) (referenceSystem : ReferenceSystem) : Trafo3d =
         let north = referenceSystem.northO
         let up = referenceSystem.up.value
-        let east = Vec.cross up north                
+        let east = Vec.cross up north
         
         let yawRotation    = Trafo3d.RotationInDegrees(up, -sol.yaw)
         let pitchRotation  = Trafo3d.RotationInDegrees(east, sol.pitch)
@@ -126,13 +129,31 @@ module TraverseApp =
 
         yawRotation * pitchRotation * rollRotation
 
-    let computeSolFlyToParameters (sol : Sol) (referenceSystem : ReferenceSystem) : V3d * V3d * V3d =
+    let computeSolFlyToParameters
+        (sol : Sol) 
+        (referenceSystem : ReferenceSystem) 
+        : V3d * V3d * V3d =
+
         let rotation = computeSolRotation sol referenceSystem
 
         let north = rotation.Forward.TransformDir referenceSystem.northO
         let up    = rotation.Forward.TransformDir referenceSystem.up.value
 
         north, up, (sol.location + 2.0 * up)
+
+    let computeSolViewplanParameters
+        (sol : Sol)
+        (referenceSystem : ReferenceSystem)
+        : (string * Trafo3d * V3d * ReferenceSystem) = 
+
+        let rotTrafo = computeSolRotation sol referenceSystem
+
+        //let loc =(sol.location + sol.location.Normalized * 0.5)
+        //let locTranslation = Trafo3d.Translation(loc)        
+
+        let name = sprintf "Sol %d" sol.solNumber
+
+        name, rotTrafo, sol.location, referenceSystem
 
     module Sg =
         let view view near (refSystem : AdaptiveReferenceSystem) (model : AdaptiveTraverse) : ISg<TraverseAction> = 
@@ -181,13 +202,13 @@ module TraverseApp =
 
         let viewSolList (refSystem : AdaptiveReferenceSystem) (m : AdaptiveTraverse) =
 
-            let itemAttributes =
+            let listAttributes =
                 amap {
                     yield clazz "ui divided list inverted segment"
-                    yield style "overflow-y : visible"
+                    yield style "overflow-y : hidden"
                 } |> AttributeMap.ofAMap
 
-            Incremental.div itemAttributes (
+            Incremental.div listAttributes (
                 alist {
 
                     let! selected = m.selectedSol
@@ -208,6 +229,8 @@ module TraverseApp =
                         let! c = color
                         let bgc = sprintf "color: %s" (Html.ofC4b c)
                         
+                        //if (sol.solNumber = 238) then
+                        //items
                         yield div [clazz "item"; style white] [
                             i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc][]
                             div [clazz "content"; style white] [                     
@@ -224,6 +247,8 @@ module TraverseApp =
                                         let! refSystem = refSystem.Current
                                         yield i [clazz "home icon"; onClick (fun _ -> FlyToSol (computeSolFlyToParameters sol refSystem)) ][]
                                             |> UI.wrapToolTip DataPosition.Bottom "Fly to Sol"
+                                        yield i [clazz "location arrow icon"; onClick (fun _ -> PlaceRoverAtSol (computeSolViewplanParameters sol refSystem)) ][]
+                                            |> UI.wrapToolTip DataPosition.Bottom "Make Viewplan"
                                     } 
                                 )                                     
                             ]

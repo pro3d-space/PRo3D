@@ -223,6 +223,16 @@ type RoverModel = {
     //currentAngle       : NumericInput
 }
 
+module RoverModel =
+    let initial = {
+        rovers = HashMap.Empty
+        platforms = HashMap.Empty
+        selectedRover = None
+        //selectedInstrument = None
+        //selectedAxis = None
+        //currentAngle = currentAngle
+    }
+
 type XMLScheme = {
     xmlType    : string
     version     : float
@@ -327,7 +337,6 @@ with
       do! Json.write      "layers"   x.layers
     }
 
-
 type Acquisition = {
     roverInfo           : RoverInfo
     instrumentInfo      : InstrumentInfo
@@ -371,31 +380,117 @@ type FootPrint = {
 
 [<ModelType>]
 type ViewPlan = {
+    version             : int
     [<NonAdaptive>]
     id                  : Guid
     name                : string
     position            : V3d
     lookAt              : V3d
-    viewerState         : CameraControllerState
+    viewerState         : CameraView
     vectorsVisible      : bool
     rover               : Rover
     roverTrafo          : Trafo3d
     isVisible           : bool
     selectedInstrument  : option<Instrument>
     selectedAxis        : option<Axis>
-    currentAngle        : NumericInput
+    currentAngle        : NumericInput    
 }
+
+module ViewPlan =
+    let current = 0
+    let initialAngle = {
+        value = 0.0
+        min =  0.0
+        max = 90.0
+        step = 0.1
+        format = "{0:0.0}"
+    }
+
+    //let initial = {
+    //    version = current
+    //    id                  = Guid.Empty
+    //    name                = ""
+    //    position            = V3d.NaN
+    //    lookAt              = V3d.NaN
+    //    viewerState         = CameraView.ofTrafo Trafo3d.Identity
+    //    vectorsVisible      = false
+    //    rover               = ...
+    //    roverTrafo          = Trafo3d.Identity
+    //    isVisible           = false
+    //    selectedInstrument  = None
+    //    selectedAxis        = None
+    //    currentAngle        = initialAngle
+    
+    //}
+    
 
 [<ModelType>]
 type ViewPlanModel = {
+    version             : int
     viewPlans           : HashMap<Guid,ViewPlan>
     selectedViewPlan    : Option<ViewPlan>
     working             : list<V3d> // pos + lookAt
     roverModel          : RoverModel
     instrumentCam       : CameraView
     instrumentFrustum   : Frustum
-    footPrint           : FootPrint 
+    footPrint           : FootPrint
+    
 }
+
+module ViewPlanModel = 
+    let current = 0 
+           
+    let initPixTex = 
+        let res = V2i((int)1024, (int)1024)
+        let pi = PixImage<byte>(Col.Format.RGBA, res)
+        pi.GetMatrix<C4b>().SetByCoord(fun (c : V2l) -> C4b.White) |> ignore
+        PixTexture2d(PixImageMipMap [| (pi.ToPixImage(Col.Format.RGBA)) |], true) :> ITexture
+
+    let initFootPrint = {
+        vpId                = None
+        isVisible           = false
+        projectionMatrix    = M44d.Identity
+        instViewMatrix      = M44d.Identity
+        projTex             = initPixTex
+        globalToLocalPos    = V3d.OOO
+    }
+
+    let initial = {
+        version           = current
+        viewPlans         = HashMap.Empty
+        selectedViewPlan  = None
+        working           = list.Empty
+        roverModel        = RoverModel.initial
+        instrumentCam     = CameraView.lookAt V3d.Zero V3d.One V3d.OOI
+        instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
+        footPrint         = initFootPrint        
+    }
+
+    let readV0 = 
+        json {                           
+
+            //let! viewPlans       = Json.read "viewPlans"            
+
+            return {
+                version           = current
+                viewPlans         = HashMap.empty//viewPlans |> HashMap.ofList 
+                selectedViewPlan  = None
+                working           = list.Empty
+                roverModel        = RoverModel.initial
+                instrumentCam     = CameraView.lookAt V3d.Zero V3d.One V3d.OOI
+                instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
+                footPrint         = initFootPrint                
+            }
+        }    
+
+type ViewPlanModel with
+    static member FromJson(_:ViewPlanModel) = 
+        json {
+            let! v = Json.read "version"
+            match v with
+            | 0 -> return! ViewPlanModel.readV0
+            | _ -> return! v |> sprintf "don't know version %d of Traverse" |> Json.error
+        }
 
 module FootPrint = 
         
@@ -408,100 +503,101 @@ module FootPrint =
         let fpPath = getFootprintsPath scenePath
 
         match vp.selectedViewPlan with
-            | Some v -> 
-                let now = DateTime.Now
-                let roverName = v.rover.id
-                let instrumentName = 
-                    match v.selectedInstrument with
-                                | Some i -> i.id
-                                | None -> ""
-                
-               
-                let pngName = 
-                    System.String.Format(
-                        "{0:0000}{1:00}{2:00}_{3:00}{4:00}{5:00}_{6}_{7}",
-                        now.Year, now.Month, now.Day, now.Hour, now.Minute, now.Second, roverName, instrumentName
-                    )
+        | Some v -> 
+            let now = DateTime.Now
+            let roverName = v.rover.id
+            let instrumentName = 
+                match v.selectedInstrument with
+                | Some i -> i.id
+                | None -> ""
+                       
+            let pngName = 
+                System.String.Format(
+                    "{0:0000}{1:00}{2:00}_{3:00}{4:00}{5:00}_{6}_{7}",
+                    now.Year, now.Month, now.Day, now.Hour, now.Minute, now.Second, roverName, instrumentName
+                )
 
-                let svxName = 
-                    System.String.Format(
-                        "{0:0000}{1:00}{2:00}_{3:00}{4:00}{5:00}_{6}_{7}.svx",
-                        now.Year, now.Month, now.Day, now.Hour, now.Minute, now.Second, roverName, instrumentName
-                    )
+            let svxName = 
+                System.String.Format(
+                    "{0:0000}{1:00}{2:00}_{3:00}{4:00}{5:00}_{6}_{7}.svx",
+                    now.Year, now.Month, now.Day, now.Hour, now.Minute, now.Second, roverName, instrumentName
+                )
 
-                let width, height =
-                        match v.selectedInstrument with
-                                | Some i -> let horRes = i.intrinsics.horizontalResolution/uint32(2)
-                                            let vertRes = i.intrinsics.verticalResolution/uint32(2)
-                                            int(horRes), int(vertRes)
-                                | None -> 512, 512
-                // save png file
-                try Utilities.takeScreenshotFromAllViews "http://localhost:54322" width height pngName fpPath ".png" with e -> printfn "error: %A" e
-               
-                let fileInfo = {
-                    fileType = "PNGImage"
-                    path = fpPath
-                    name = pngName
+            let width, height =
+                match v.selectedInstrument with
+                | Some i -> 
+                    let horRes = i.intrinsics.horizontalResolution/uint32(2)
+                    let vertRes = i.intrinsics.verticalResolution/uint32(2)
+                    int(horRes), int(vertRes)
+                | None -> 
+                    512, 512
+            // save png file
+            try Utilities.takeScreenshotFromAllViews "http://localhost:54322" width height pngName fpPath ".png" with e -> printfn "error: %A" e
+           
+            let fileInfo = {
+                fileType = "PNGImage"
+                path = fpPath
+                name = pngName
+            }
+
+            let calibration = {
+                instrumentPlatformXmlFileName       = v.rover.id + ".xml"
+                instrumentPlatformXmlFileVersion    = 1.0
+            }
+
+            let roverInfo = {
+                position = v.position
+                lookAtPosition = v.lookAt
+                placementTrafo = v.roverTrafo
+            }
+
+            let panAx = v.rover.axes.TryFind "Pan Axis" |> Option.map(fun x -> x.angle.value )
+            let panVal = match panAx with | Some av -> av | None -> 1.0
+
+            let tiltAx = v.rover.axes.TryFind "Tilt Axis" |> Option.map(fun x -> x.angle.value )
+            let tiltVal = match tiltAx with | Some av -> av | None -> 1.0
+            let angles = {
+                panAxis = panVal
+                tiltAxis = tiltVal
+            }
+
+            let focal =
+                match v.selectedInstrument with
+                | Some i -> i.focal.value
+                | None -> 1.0
+
+            let referenceFrameInfo = {
+                name = "Ground"
+                parentFrameName = ""
+            }
+
+            let instrumentinfo = {
+                camIdentifier       = instrumentName
+                angles              = angles
+                focalLength         = focal
+                referenceFrameInfo  = referenceFrameInfo
+            }
+
+            let acquisition = {
+                roverInfo       = roverInfo
+                instrumentInfo  = instrumentinfo
+            }
+
+            let simulatedViewData =
+                {
+                    fileInfo    = fileInfo
+                    calibration = calibration
+                    acquisition = acquisition
                 }
-
-                let calibration = {
-                    instrumentPlatformXmlFileName       = v.rover.id + ".xml"
-                    instrumentPlatformXmlFileVersion    = 1.0
-                }
-
-                let roverInfo = {
-                    position = v.position
-                    lookAtPosition = v.lookAt
-                    placementTrafo = v.roverTrafo
-                }
-
-                let panAx = v.rover.axes.TryFind "Pan Axis" |> Option.map(fun x -> x.angle.value )
-                let panVal = match panAx with | Some av -> av | None -> 1.0
-
-                let tiltAx = v.rover.axes.TryFind "Tilt Axis" |> Option.map(fun x -> x.angle.value )
-                let tiltVal = match tiltAx with | Some av -> av | None -> 1.0
-                let angles = {
-                    panAxis = panVal
-                    tiltAxis = tiltVal
-                }
-
-                let focal =
-                    match v.selectedInstrument with
-                    | Some i -> i.focal.value
-                    | None -> 1.0
-
-                let referenceFrameInfo = {
-                    name = "Ground"
-                    parentFrameName = ""
-                }
-
-                let instrumentinfo = {
-                    camIdentifier       = instrumentName
-                    angles              = angles
-                    focalLength         = focal
-                    referenceFrameInfo  = referenceFrameInfo
-                }
-
-                let acquisition = {
-                    roverInfo       = roverInfo
-                    instrumentInfo  = instrumentinfo
-                }
-
-                let simulatedViewData =
-                    {
-                        fileInfo    = fileInfo
-                        calibration = calibration
-                        acquisition = acquisition
-                    }
-                //Serialization.save (Path.Combine(fpPath, svxName)) simulatedViewData |> ignore
-                let json = 
-                    simulatedViewData 
-                    |> Json.serialize 
-                    |> Json.formatWith JsonFormattingOptions.Pretty 
-                    |> Serialization.writeToFile (Path.Combine(fpPath, svxName))
-                //Serialization.writeToFile (Path.Combine(fpPath, svxName)) json 
-                vp
-            | None -> vp 
+            //Serialization.save (Path.Combine(fpPath, svxName)) simulatedViewData |> ignore
+            let json = 
+                simulatedViewData 
+                |> Json.serialize 
+                |> Json.formatWith JsonFormattingOptions.Pretty 
+                |> Serialization.writeToFile (Path.Combine(fpPath, svxName))
+            //Serialization.writeToFile (Path.Combine(fpPath, svxName)) json 
+            vp
+        | None -> vp
     
     let updateFootprint (instrument:Instrument) (roverpos:V3d) (model:ViewPlanModel) =
         
@@ -531,49 +627,6 @@ module FootPrint =
                 globalToLocalPos = roverpos //transformenExt.position
             }
         fp //{ model with footPrint = fp }
-
-module ViewPlanModel =
-    let currentAngle = 
-        {
-            value = 0.0
-            min =  0.0
-            max = 90.0
-            step = 0.1
-            format = "{0:0.0}"
-        }
-
-    let initRoverModel = {
-        rovers = HashMap.Empty
-        platforms = HashMap.Empty
-        selectedRover = None
-        //selectedInstrument = None
-        //selectedAxis = None
-        //currentAngle = currentAngle
-        }
     
-    let initPixTex = 
-        let res = V2i((int)1024, (int)1024)
-        let pi = PixImage<byte>(Col.Format.RGBA, res)
-        pi.GetMatrix<C4b>().SetByCoord(fun (c : V2l) -> C4b.White) |> ignore
-        PixTexture2d(PixImageMipMap [| (pi.ToPixImage(Col.Format.RGBA)) |], true) :> ITexture
-
-    let initFootPrint = {
-        vpId                = None
-        isVisible           = false
-        projectionMatrix    = M44d.Identity
-        instViewMatrix      = M44d.Identity
-        projTex             = initPixTex
-        globalToLocalPos    = V3d.OOO
-    }
-
-    let initial = {
-        viewPlans         = HashMap.Empty
-        selectedViewPlan  = None
-        working           = list.Empty
-        roverModel        = initRoverModel
-        instrumentCam     = CameraView.lookAt V3d.Zero V3d.One V3d.OOI
-        instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
-        footPrint         = initFootPrint
-    }
 
   

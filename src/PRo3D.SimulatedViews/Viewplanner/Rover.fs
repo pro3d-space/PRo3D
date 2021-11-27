@@ -187,7 +187,8 @@ module RoverProvider =
         let rover = platform |> toRover        
         
         rover, platform
-        
+       
+//TODO Refactor better distinction between RoverApp and ViewPlanApp responsibilities
 module RoverApp = 
     open FSharp.Data.Adaptive
 
@@ -244,7 +245,6 @@ module RoverApp =
         
         updateRoversAndPlatforms p m shift
             
-
     let updateRovers (r : Rover) (m : RoverModel) = 
         let rovers' = 
             m.rovers 
@@ -256,6 +256,7 @@ module RoverApp =
         { m with selectedRover = Some r; rovers = rovers' }
 
     let update (m : RoverModel) (a:Action) =
+        Log.line "RoverApp %A" (a.GetType())
         match a with
           | SelectRover r      -> { m with selectedRover = r }
           

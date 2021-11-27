@@ -32,7 +32,7 @@ open Aether.Operators
 module ViewPlanApp = 
         
     type Action =
-    | CreateNewViewplan of (Trafo3d * V3d * ReferenceSystem) //trafo and position and refSystem
+    | CreateNewViewplan of (string * Trafo3d * V3d * ReferenceSystem) //name and trafo and position and refSystem
     | AddPoint          of V3d*ReferenceSystem*HashMap<string, ConcreteKdIntersectionTree>*SurfaceModel     
     | SelectViewPlan    of Guid
     | FlyToViewPlan     of Guid
@@ -47,7 +47,9 @@ module ViewPlanApp =
     | SaveFootPrint
     | OpenFootprintFolder
             
-    let loadRoverData (model : ViewPlanModel) (path : Option<string>) =      
+    let loadRoverData 
+        (model : ViewPlanModel) 
+        (path : Option<string>) =      
         match path with
         | Some _ ->            
             let names = RoverProvider.platformNames()    
@@ -73,24 +75,58 @@ module ViewPlanApp =
             { model with roverModel = roverModel }
         | _ -> model
 
-    let updateViewPlans (vp:ViewPlan) (vps:HashMap<Guid,ViewPlan>) =
+    let updateViewPlans 
+        (vp:ViewPlan) 
+        (vps:HashMap<Guid,ViewPlan>) =
         vps |> HashMap.alter vp.id (function | Some _ -> Some vp | None -> None )
     
-    let updateViewPlanFroAdaptiveRover (roverModel:RoverModel) (vp:ViewPlanModel) =
+    let updateViewPlanFroAdaptiveRover 
+        (roverModel:RoverModel) 
+        (vp:ViewPlanModel) =
         // update rover model
         let m = {vp with roverModel = roverModel}
         // update selected view plan and viewplans
         match vp.selectedViewPlan with
         | Some v -> 
-            // TODO v5: refactor
-            failwith "unsure what this does"
+            // TODO v5: refactor            
             let viewPlans = updateViewPlans v (vp.viewPlans)
             let m = { m with viewPlans = viewPlans |> HashMap.map (fun _ _ -> v) }
             
             match roverModel.selectedRover with
             | Some r -> { m with selectedViewPlan = Some { v with rover = r }}
             | None -> m
-        | None -> m 
+        | None -> m     
+
+    let getPlaneNormalSign 
+        (v1:V3d) 
+        (v2:V3d) =
+        let sign = Vec.Dot(v2, v1)
+        (sign <= 0.0)
+
+    let decomposeRoverTrafo
+        (roverTrafo : Trafo3d) =
+
+        let forward = roverTrafo.Forward.UpperLeftM33().C0
+        let right   = roverTrafo.Forward.UpperLeftM33().C1
+        let up      = roverTrafo.Forward.UpperLeftM33().C2
+
+        forward, right, up
+
+
+    let hitF 
+        (p : V3d) 
+        (dir:V3d) 
+        (refSystem : ReferenceSystem) 
+        (cache : HashMap<string, ConcreteKdIntersectionTree>) 
+        (surfaceModel:SurfaceModel) = 
+        
+        let mutable cache = cache
+        let ray = FastRay3d(p, dir)  
+                 
+        match SurfaceIntersection.doKdTreeIntersection 
+            surfaceModel refSystem ray (fun id l surf -> l.active) cache with
+        | Some (t,_), _ -> ray.Ray.GetPointOnRay(t) |> Some
+        | None, _ -> None
 
     let getInstrumentResolution (vp:AdaptiveViewPlanModel) =
         adaptive {
@@ -110,32 +146,37 @@ module ViewPlanApp =
             | AdaptiveNone -> return fail
         } 
         
-    let trafoFromTranslatedBase (position:V3d) (tilt:V3d) (forward:V3d) (right:V3d) : Trafo3d =  
-        let rotTrafo =  Trafo3d.FromOrthoNormalBasis( forward.Normalized, right.Normalized, tilt.Normalized )
-        (rotTrafo * Trafo3d.Translation(position)) 
+    let trafoFromTranslatedBase
+        (position   : V3d) 
+        (tilt       : V3d) 
+        (forward    : V3d) 
+        (right      : V3d) 
+        : Trafo3d =
 
-    let getPlaneNormalSign (v1:V3d) (v2:V3d) =
-        let sign = Vec.Dot(v2, v1)
-        (sign <= 0.0)
-
-    let hitF (p : V3d) (dir:V3d) (refSystem : ReferenceSystem) 
-        (cache : HashMap<string, ConcreteKdIntersectionTree>) (surfaceModel:SurfaceModel) = 
+        let rotTrafo =  Trafo3d.FromOrthoNormalBasis(forward.Normalized, right.Normalized, tilt.Normalized)
+        (rotTrafo * Trafo3d.Translation(position))
+           
+    let initialPlacementTrafo' 
+        (position:V3d) 
+        (forward : V3d) 
+        (up:V3d) : Trafo3d =
         
-        let mutable cache = cache
-        let ray = FastRay3d(p, dir)  
-                 
-        match SurfaceIntersection.doKdTreeIntersection 
-            surfaceModel refSystem ray (fun id l surf -> l.active) cache with
-        | Some (t,_), _ -> ray.Ray.GetPointOnRay(t) |> Some
-        | None, _ -> None
-       
-    let initialPlacementTrafo (position:V3d) (lookAt:V3d) (up:V3d) : Trafo3d =
-        let forward = (lookAt - position).Normalized
+        let forward = forward.Normalized
+        let up = up.Normalized
+
         let n = Vec.Cross(forward, up.Normalized).Normalized
         let tilt = Vec.Cross(n, forward).Normalized
-        let right = Vec.Cross(tilt, forward).Normalized
-        
+        let right = Vec.Cross(tilt, forward).Normalized        
+
         trafoFromTranslatedBase position tilt forward right
+
+    let initialPlacementTrafo 
+        (position:V3d) 
+        (lookAt:V3d) 
+        (up:V3d) : Trafo3d =
+        let forward = (lookAt - position).Normalized
+
+        initialPlacementTrafo' position forward up                        
         
     let calculateSurfaceContactPoint 
         (roverWheel:V3d) 
@@ -153,8 +194,12 @@ module ViewPlanApp =
         let p = plane.Point;
         (x - plane.Normal.Dot(x - p) * plane.Normal);
     
-    let calculateRoverPlacement (working:list<V3d>) (wheels:list<V3d>) (up:V3d) : Trafo3d = 
-        let forward = (working.[1] - working.[0]).Normalized
+    let calculateRoverPlacement 
+        (working:list<V3d>) 
+        (wheels:list<V3d>) 
+        (up:V3d) : Trafo3d = 
+        let forward = (working.[1] - working.[0]).Normalized        
+
         // projects intersection points along the lookAt vector onto a plane
         let plane1 = new Plane3d(forward, working.[1]);
         let planeIntersectionPoints = wheels |> List.map(fun x -> nearestPoint x plane1) |> List.toArray
@@ -173,11 +218,26 @@ module ViewPlanApp =
         | false -> 
             trafoFromTranslatedBase working.[0] newTiltVec forward newRightVec
 
-    let createViewPlanFromTrafo        
+    let placementTrafoFromSolTrafo 
+        position 
+        (refSystem : ReferenceSystem) 
+        (rotTrafo : Trafo3d) = 
+        let north = refSystem.northO
+        let up = refSystem.up.value
+        let east = Vec.cross up north
+
+        let forward = rotTrafo.Forward.TransformDir north
+        let tilt = rotTrafo.Forward.TransformDir up
+        let right = rotTrafo.Forward.TransformDir east
+
+        trafoFromTranslatedBase position tilt forward right
+
+    let createViewPlanFromTrafo     
+        (name              : string)
         (rover             : Rover) 
-        (ref               : ReferenceSystem) 
-        (camState          : CameraControllerState) 
-        (placementTrafo    : Trafo3d)
+        (ref               : ReferenceSystem)
+        (cameraView        : CameraView) 
+        (rotationTrafo     : Trafo3d)
         (placementLocation : V3d) =
                                                         
         let angle =  {
@@ -187,20 +247,23 @@ module ViewPlanApp =
             step = 1.0
             format = "{0:0.0}"
         }
+
+        let trafo = placementTrafoFromSolTrafo placementLocation ref rotationTrafo // (rotationTrafo * Trafo3d.Translation(placementLocation))
         
         let newViewPlan = {
+            version            = ViewPlan.current
             id                 = Guid.NewGuid()
-            name               = rover.id
+            name               = name
             position           = placementLocation
-            lookAt             = (ref.northO |> placementTrafo.Forward.TransposedTransformDir)
-            viewerState        = camState
+            lookAt             = ref.northO//(ref.northO |> rotationTrafo.Forward.TransposedTransformDir)
+            viewerState        = cameraView
             vectorsVisible     = true
             rover              = rover
-            roverTrafo         = placementTrafo
+            roverTrafo         = trafo
             isVisible          = true
             selectedInstrument = None
             selectedAxis       = None
-            currentAngle       = angle
+            currentAngle       = angle            
         }
         
         newViewPlan    
@@ -209,7 +272,7 @@ module ViewPlanApp =
         (working      : list<V3d>) 
         (rover        : Rover) 
         (ref          : ReferenceSystem) 
-        (camState     : CameraControllerState) 
+        (cameraView   : CameraView)
         (kdTree       : HashMap<string, ConcreteKdIntersectionTree>) 
         (surfaceModel : SurfaceModel) =
         
@@ -221,7 +284,7 @@ module ViewPlanApp =
         //ray casting for surface intersection with rover wheels
         let surfaceIntersectionPoints = 
             rover.wheelPositions 
-            |> List.choose(fun x -> calculateSurfaceContactPoint x ref kdTree initTrafo surfaceModel)                 
+            |> List.choose(fun x -> calculateSurfaceContactPoint x ref kdTree initTrafo surfaceModel)
         
         let placementTrafo = //initTrafo
             if (surfaceIntersectionPoints.Length > 2) then
@@ -238,28 +301,29 @@ module ViewPlanApp =
         }
         
         let newViewPlan = {
+            version        = ViewPlan.current
             id             = Guid.NewGuid()
             name           = rover.id
             position       = position
             lookAt         = lookAt
-            viewerState    = camState
+            viewerState    = cameraView
             vectorsVisible = true
             rover          = rover
             roverTrafo     = placementTrafo
             isVisible      = true
             selectedInstrument = None
             selectedAxis   = None
-            currentAngle   = angle
+            currentAngle   = angle            
         }
         
         newViewPlan
 
     let createViewPlanFromFile 
-        (data:HashMap<string,string>) 
-        (model:ViewPlanModel) 
-        (rover:Rover)
-        (ref:ReferenceSystem) 
-        (camState:CameraControllerState) =
+        (data       : HashMap<string,string>) 
+        (model      : ViewPlanModel) 
+        (rover      : Rover)
+        (ref        : ReferenceSystem) 
+        (cameraView : CameraView) =
 
         let pos = 
           V3d((data |> HashMap.find "X").ToFloat(), 
@@ -277,43 +341,48 @@ module ViewPlanApp =
         let forward' = pos + forward
         let trafo = initialPlacementTrafo pos forward' ref.up.value
         let angle = {
-            value = 0.0
-            min =  -90.0
-            max = 90.0
-            step = 1.0
+            value  = 0.0
+            min    = -90.0
+            max    = 90.0
+            step   = 1.0
             format = "{0:0.0}"
         }
 
         let newViewPlan = {
-            id = Guid.NewGuid()
-            name = rover.id
-            position = pos
-            lookAt = forward
-            viewerState = camState
-            vectorsVisible = true
-            rover = rover
-            roverTrafo = trafo
-            isVisible = true
+            version            = ViewPlan.current
+            id                 = Guid.NewGuid()
+            name               = rover.id
+            position           = pos
+            lookAt             = forward
+            viewerState        = cameraView
+            vectorsVisible     = true
+            rover              = rover
+            roverTrafo         = trafo
+            isVisible          = true
             selectedInstrument = None
-            selectedAxis = None
-            currentAngle = angle
+            selectedAxis       = None
+            currentAngle       = angle         
         }
 
         { model with 
-            viewPlans = HashMap.add newViewPlan.id newViewPlan model.viewPlans
-            working = List.Empty
+            viewPlans        = HashMap.add newViewPlan.id newViewPlan model.viewPlans
+            working          = List.Empty
             selectedViewPlan = Some newViewPlan 
         }
 
-    let removeViewPlan (vps:HashMap<_,ViewPlan>) (id:Guid) = 
+    let removeViewPlan 
+        (vps:HashMap<_,ViewPlan>) 
+        (id:Guid) = 
         HashMap.remove id vps //vps |> HashSet.filter (fun x -> x.id <> id)   
     
-    let transformExtrinsics (vp:ViewPlan) (ex:Extrinsics) =
+    let transformExtrinsics 
+        (vp:ViewPlan) 
+        (ex:Extrinsics) =
         { 
-          ex with 
-            position  = vp.roverTrafo.Forward.TransformPos ex.position
-            camLookAt = vp.roverTrafo.Forward.TransformDir ex.camLookAt
-            camUp     = vp.roverTrafo.Forward.TransformDir ex.camUp
+            ex with 
+                position  = vp.roverTrafo.Forward.TransformPos ex.position
+                camLookAt = vp.roverTrafo.Forward.TransformDir ex.camLookAt
+                camUp     = vp.roverTrafo.Forward.TransformDir ex.camUp
         }
 
     let updateInstrumentCam 
@@ -349,7 +418,13 @@ module ViewPlanApp =
                     instrumentCam     = CameraView.lookAt V3d.Zero V3d.One V3d.OOI
                     instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0 }
       
-    let updateRovers (model:ViewPlanModel) (roverModel:RoverModel) (vp:ViewPlan) (fp:FootPrint)  : (FootPrint * ViewPlanModel)=
+    let updateRovers 
+        (model      : ViewPlanModel) 
+        (roverModel : RoverModel) 
+        (vp         : ViewPlan) 
+        (fp         : FootPrint)
+        : (FootPrint * ViewPlanModel) =
+
         let r = roverModel.rovers  |> HashMap.find vp.rover.id
         let i = 
             match vp.selectedInstrument with
@@ -368,25 +443,28 @@ module ViewPlanApp =
 
     //let update (model : ViewPlanModel) (camState:CameraControllerState) (action : Action) =
     let update 
-        (model      : ViewPlanModel) 
-        (action     : Action) 
-        (navigation : Lens<'a,NavigationModel>)
-        (footprint  : Lens<'a,FootPrint>) 
-        (scenepath  : Option<string>)
-        (outerModel :'a)
+        (model       : ViewPlanModel) 
+        (action      : Action) 
+        (_navigation : Lens<'a,NavigationModel>)
+        (_footprint  : Lens<'a,FootPrint>) 
+        (scenepath   : Option<string>)
+        (outerModel  :'a)
         : ('a * ViewPlanModel) = 
         
+        Log.line "ViewplanApp %A" (action.GetType())
+
         match action with
-        | CreateNewViewplan (trafo, position, refSystem) ->
+        | CreateNewViewplan (name, trafo, position, refSystem) ->
             match model.roverModel.selectedRover with
             | Some rover -> 
-                let navigation = Optic.get navigation outerModel
+                let navigation = Optic.get _navigation outerModel
 
-                let vp = createViewPlanFromTrafo rover refSystem navigation.camera trafo position
+                let vp = createViewPlanFromTrafo name rover refSystem navigation.camera.view trafo position
 
                 outerModel, { model with viewPlans = HashMap.add vp.id vp model.viewPlans; working = List.Empty; selectedViewPlan = Some vp }
             | None ->
                 outerModel, model
+
         | AddPoint (p,ref,kdTree,surfaceModel) ->
             match model.roverModel.selectedRover with
             | Some r -> 
@@ -395,46 +473,57 @@ module ViewPlanApp =
                     outerModel, {model with working = [p]} // first point (position)
                 | false -> // second point (lookAt)
                     let w = List.append model.working [p]
-                    let navigation = Optic.get navigation outerModel
-                    let vp = createViewPlanFromPlacement w r ref navigation.camera kdTree surfaceModel
+                    let navigation = Optic.get _navigation outerModel
+                    let vp = createViewPlanFromPlacement w r ref navigation.camera.view kdTree surfaceModel
+
                     outerModel, { model with viewPlans = HashMap.add vp.id vp model.viewPlans; working = List.Empty; selectedViewPlan = Some vp }
             | None -> 
                 outerModel, model
 
         | SelectViewPlan id ->
-            let vp = model.viewPlans |> HashMap.tryFind id
-            let fp = Optic.get footprint outerModel
-            let vp', m , om =
-                match vp, model.selectedViewPlan with
-                | Some a, Some b -> 
-                    if a.id = b.id then 
+            let viewPlanToSelect = model.viewPlans |> HashMap.tryFind id
+            let fp = Optic.get _footprint outerModel
+            let vp, m , om =
+                match viewPlanToSelect, model.selectedViewPlan with
+                | Some current, Some old -> 
+                    if current.id = old.id then 
                         None, model, outerModel
                     else 
-                        let fp', m' = updateInstrumentCam a model fp
-                        let newOuterModel = Optic.set footprint fp' outerModel
-                        Some a, m', newOuterModel
+                        let fp', m' = updateInstrumentCam current model fp
+                        let newOuterModel = Optic.set _footprint fp' outerModel
+                        Some current, m', newOuterModel
                 | Some a, None -> 
                     let fp', m' = updateInstrumentCam a model fp
-                    let newOuterModel = Optic.set footprint fp' outerModel
+                    let newOuterModel = Optic.set _footprint fp' outerModel
                     Some a, m', newOuterModel
                 | None, _ -> 
                     None, model, outerModel
                 
-            om, { m with selectedViewPlan = vp' }
+            om, { m with selectedViewPlan = vp }
 
         | FlyToViewPlan id -> 
             let vp = model.viewPlans |> HashMap.tryFind id
             match vp with
             | Some v-> 
-                let nav = Optic.get navigation outerModel
-                let nav' = { nav with camera = v.viewerState }
-                let newOuterModel = Optic.set navigation nav' outerModel
+                let forward, _, up = decomposeRoverTrafo v.roverTrafo
+
+                let nav = Optic.get _navigation outerModel
+                let cameraView = 
+                    nav.camera.view 
+                    |> CameraView.withForward forward
+                    |> CameraView.withLocation v.position
+                    |> CameraView.withUp up
+
+                let nav' = { nav with camera = { nav.camera with view = cameraView }}
+                let newOuterModel = Optic.set _navigation nav' outerModel
                 (newOuterModel, model)
             | _ -> 
                 (outerModel, model)
 
         | IsVisible id ->         
-            let viewPlans =  model.viewPlans |> HashMap.alter id (function None -> None | Some o -> Some { o with isVisible = not o.isVisible }) //.map(fun x -> if x.id = id then { x with isVisible = not x.isVisible } else x)
+            let viewPlans =  
+                model.viewPlans 
+                |> HashMap.alter id (function None -> None | Some o -> Some { o with isVisible = not o.isVisible }) //.map(fun x -> if x.id = id then { x with isVisible = not x.isVisible } else x)
             outerModel, { model with viewPlans = viewPlans }
 
         | RemoveViewPlan id ->
@@ -450,9 +539,9 @@ module ViewPlanApp =
             match model.selectedViewPlan with
             | Some vp -> 
                 let newVp         = { vp with selectedInstrument = i }
-                let fp            = Optic.get footprint outerModel
+                let fp            = Optic.get _footprint outerModel
                 let fp', m'       = updateInstrumentCam newVp model fp
-                let newOuterModel = Optic.set footprint fp' outerModel
+                let newOuterModel = Optic.set _footprint fp' outerModel
 
                 let viewPlans = model.viewPlans |> HashMap.add newVp.id newVp 
 
@@ -475,29 +564,28 @@ module ViewPlanApp =
                 | Some ax -> 
                     let angle = Utilities.PRo3DNumeric.update ax.angle a
                     //printfn "numeric angle: %A" angle
-                    let ax' = { ax with angle = angle } 
+                    let ax' = { ax with angle = angle }
 
                     let rover = { vp.rover with axes = (vp.rover.axes |> HashMap.update id (fun _ -> ax')) }
-                    let vp' = { vp with rover = rover; currentAngle = angle }
+                    let vp' = { vp with rover = rover; currentAngle = angle; }
 
                     let angleUpdate = { 
-                      roverId = vp'.rover.id
-                      axisId = ax'.id ; 
-                      angle = Axis.Mapping.from180 ax'.angle.min ax'.angle.max ax'.angle.value
-                      shiftedAngle = ax'.degreesMapped
-                      invertedAngle = ax'.degreesNegated
+                        roverId       = vp'.rover.id
+                        axisId        = ax'.id
+                        angle         = Axis.Mapping.from180 ax'.angle.min ax'.angle.max ax'.angle.value
+                        shiftedAngle  = ax'.degreesMapped
+                        invertedAngle = ax'.degreesNegated
                     }
 
-                    let roverModel' = RoverApp.updateAnglePlatform angleUpdate model.roverModel
+                    let roverModel = RoverApp.updateAnglePlatform angleUpdate model.roverModel
 
-
-                    let fp = Optic.get footprint outerModel
-                    let fp', m' = updateRovers model roverModel' vp' fp
-                    let newOuterModel = Optic.set footprint fp' outerModel
+                    let fp = Optic.get _footprint outerModel
+                    let fp, model = updateRovers model roverModel vp' fp
+                    let newOuterModel = Optic.set _footprint fp outerModel
                                                 
-                    newOuterModel, m'
-                | None -> outerModel, model                                
-            | None -> outerModel, model        
+                    newOuterModel, model
+                | None -> outerModel, model
+            | None -> outerModel, model
 
         | ChangeFocal (id, f) ->
             match model.selectedViewPlan with
@@ -524,9 +612,9 @@ module ViewPlanApp =
                     }
 
                     let roverModel' = RoverApp.updateFocusPlatform focusUpdate model.roverModel
-                    let fp = Optic.get footprint outerModel
+                    let fp = Optic.get _footprint outerModel
                     let fp', m' = updateRovers model roverModel' vp' fp
-                    let newOuterModel = Optic.set footprint fp' outerModel
+                    let newOuterModel = Optic.set _footprint fp' outerModel
                     
                     newOuterModel, m'
                 | None -> outerModel, model                                       
@@ -541,9 +629,9 @@ module ViewPlanApp =
             | None -> outerModel, model
 
         | ToggleFootprint ->   
-            let fp = Optic.get footprint outerModel
+            let fp = Optic.get _footprint outerModel
             let fp' = { fp with isVisible = not fp.isVisible }
-            let newOuterModel = Optic.set footprint fp' outerModel
+            let newOuterModel = Optic.set _footprint fp' outerModel
             newOuterModel, model
 
         | SaveFootPrint -> 
@@ -583,24 +671,18 @@ module ViewPlanApp =
                 |> ASet.ofAValSingle 
                 |> Sg.set
 
-            Sg.ofList [point0; point1]
-        
-        let drawInitPositions (viewPlan : AdaptiveViewPlan) (cam:aval<CameraView>)=
-            Sg.ofList [
-            //Sg.dot (AVal.constant C4b.Green) viewPlan.position  cam // position
-            //Sg.dot viewPlan.lookAt (AVal.constant C4b.Yellow) cam // lookAt pos //todo fix
-            ]
+            Sg.ofList [point0; point1]                
 
-        let drawVectors 
+        let drawPlatformCoordinateCross 
             (viewPlan  : AdaptiveViewPlan)
             (near      : aval<float>) 
             (length    : aval<float>) 
             (thickness : aval<float>) 
             (cam       : aval<CameraView>) =
 
-            let lookAtVec =  AVal.map(fun (t:Trafo3d) -> t.Forward.UpperLeftM33().C0) viewPlan.roverTrafo
-            let rightVec = AVal.map(fun (t:Trafo3d) -> t.Forward.UpperLeftM33().C1) viewPlan.roverTrafo
-            let tiltVec = AVal.map(fun (t:Trafo3d) -> t.Forward.UpperLeftM33().C2) viewPlan.roverTrafo
+            let lookAtVec = AVal.map(fun (t:Trafo3d) -> t.Forward.UpperLeftM33().C0) viewPlan.roverTrafo
+            let rightVec  = AVal.map(fun (t:Trafo3d) -> t.Forward.UpperLeftM33().C1) viewPlan.roverTrafo
+            let tiltVec   = AVal.map(fun (t:Trafo3d) -> t.Forward.UpperLeftM33().C2) viewPlan.roverTrafo
 
             //let size = Sg.computeInvariantScale cam near viewPlan.position length (AVal.constant 60.0)
 
@@ -626,7 +708,27 @@ module ViewPlanApp =
             ] 
             |> Sg.onOff viewPlan.isVisible
         
-        let drawAxis (axis:AdaptiveAxis) (cam:aval<CameraView>) (thickness:aval<float>) (trafo:aval<Trafo3d>) =
+        let viewCoordinateCross 
+            (refSystem : AdaptiveReferenceSystem) 
+            (trafo : aval<Trafo3d>) =
+            
+            let up = refSystem.up.value
+            let north = refSystem.northO
+            let east = AVal.map2(Vec.cross) up north
+
+            [
+                Sg.drawSingleLine ~~V3d.Zero up    ~~C4b.Blue  ~~2.0 trafo
+                Sg.drawSingleLine ~~V3d.Zero north ~~C4b.Red   ~~2.0 trafo
+                Sg.drawSingleLine ~~V3d.Zero east  ~~C4b.Green ~~2.0 trafo
+            ] 
+            |> Sg.ofList
+
+        let drawPlatformAxis 
+            (axis       : AdaptiveAxis) 
+            (cam        : aval<CameraView>) 
+            (thickness  : aval<float>) 
+            (trafo      : aval<Trafo3d>) =
+
             let start = AVal.map2( fun (t:Trafo3d) p -> t.Forward.TransformPos p) trafo axis.startPoint
             let endp = AVal.map2( fun (t:Trafo3d) p -> t.Forward.TransformPos p) trafo axis.endPoint
             let axisLine = 
@@ -637,7 +739,7 @@ module ViewPlanApp =
                     yield trafo.Forward.TransformPos e
                     yield trafo.Forward.TransformPos s
                 } 
-            let color = AVal.constant C4b.Red
+            let color = AVal.constant C4b.White
             Sg.ofList [
                 Sg.dot color ~~3.0 start
                 Sg.dot color ~~3.0 endp
@@ -652,15 +754,16 @@ module ViewPlanApp =
             (thickness      : aval<float>)
             (cam            : aval<CameraView>) =
 
-            alist {
-                let! trafo = viewPlan.roverTrafo
-                let! selInst = viewPlan.selectedInstrument
+            alist {                
+                
+                let! trafo     = viewPlan.roverTrafo
+                let! selInst   = viewPlan.selectedInstrument
 
                 for i in instruments do
 
-                    let camPosTrans = AVal.map(fun p -> trafo.Forward.TransformPos p) i.extrinsics.position
-                    let camLookAtTrans = AVal.map(fun p -> trafo.Forward.TransformDir p) i.extrinsics.camLookAt
-                    let camUpTrans = AVal.map(fun p -> trafo.Forward.TransformDir p) i.extrinsics.camUp
+                    let camPosTrans     = AVal.map(fun p -> trafo.Forward.TransformPos p) i.extrinsics.position
+                    let camLookAtTrans  = AVal.map(fun p -> trafo.Forward.TransformDir p) i.extrinsics.camLookAt
+                    let camUpTrans      = AVal.map(fun p -> trafo.Forward.TransformDir p) i.extrinsics.camUp
 
                     match selInst with
                     | AdaptiveSome s -> 
@@ -671,7 +774,7 @@ module ViewPlanApp =
                         let marker : Sg.MarkerStyle = {
                             position  = camPosTrans
                             direction = AVal.constant V3d.NaN
-                            color     = AVal.constant C4b.Black
+                            color     = ~~C4b.White
                             size      = length //size
                             thickness = thickness
                             hasArrow  = AVal.constant true
@@ -700,34 +803,39 @@ module ViewPlanApp =
                 }
                           
         let drawWheels (vp:AdaptiveViewPlan) (cam:aval<CameraView>) =
-          alist {
-            let! wheels = vp.rover.wheelPositions
-            let! trafo = vp.roverTrafo
-            for w in wheels do
-                let wheelPos = trafo.Forward.TransformPos w |> AVal.constant
-                yield Sg.point wheelPos (AVal.constant C4b.White) cam
-            }
+            alist {
+                let! wheels = vp.rover.wheelPositions
+                let! trafo = vp.roverTrafo
+                for w in wheels do
+                    let wheelPos = trafo.Forward.TransformPos w |> AVal.constant
+                    yield Sg.point wheelPos (AVal.constant C4b.White) cam
+                }
                 
-        let drawSelectionGeometry (vp:AdaptiveViewPlan) (near:aval<float>) (length:aval<float>) 
-          (thickness:aval<float>) (cam:aval<CameraView>) (roverM:AdaptiveRoverModel)= 
+        let drawRover 
+            (vp        : AdaptiveViewPlan) 
+            (near      : aval<float>) 
+            (length    : aval<float>) 
+            (thickness : aval<float>) 
+            (cam       : aval<CameraView>) 
+            (roverM    : AdaptiveRoverModel) =
 
             let wheels = 
-              drawWheels vp cam
+                drawWheels vp cam
                 |> ASet.ofAList 
                 |> Sg.set
 
             let axes = vp.rover.axes |> RoverApp.mapTolist
                         
             let sgAxes = 
-              axes 
-                |> AList.map(fun a -> drawAxis a cam thickness vp.roverTrafo) 
+                axes 
+                |> AList.map(fun a -> drawPlatformAxis a cam thickness vp.roverTrafo)
                 |> ASet.ofAList 
                 |> Sg.set
 
             let instruments = vp.rover.instruments |> RoverApp.mapTolist
 
             let sgInstruments = 
-              drawInstruments instruments vp near length thickness cam
+                drawInstruments instruments vp near length thickness cam
                 |> ASet.ofAList 
                 |> Sg.set
 
@@ -740,7 +848,7 @@ module ViewPlanApp =
         let view<'ma> 
             (mbigConfig   : 'ma) 
             (minnerConfig : MInnerConfig<'ma>)
-            (model        : AdaptiveViewPlanModel) 
+            (model        : AdaptiveViewPlanModel)
             (cam          : aval<CameraView>)
             : ISg<Action> =
                        
@@ -751,20 +859,22 @@ module ViewPlanApp =
             let viewPlans =
                 aset {
                     for _,vp in model.viewPlans do 
-                        yield drawInitPositions vp cam
+                        
                         let! showVectors = vp.isVisible
                         if showVectors then
-                            yield drawVectors vp near length thickness cam
+                            yield drawPlatformCoordinateCross vp near length thickness cam
                             let! selected = model.selectedViewPlan
                             let id = vp.id
-                            let! selectionGeometry = 
+                            
+                            let gg = 
                                 match selected with
                                 | AdaptiveSome s -> 
-                                    let sg = (drawSelectionGeometry vp near length thickness cam model.roverModel) 
-                                    if s.id = id then AVal.constant sg else AVal.constant Sg.empty
+                                    let sg = drawRover vp near length thickness cam model.roverModel
+                                    let condition = ~~(s.id = id)
+                                    sg |> Sg.onOff (condition)
                                 | AdaptiveNone -> 
-                                    AVal.constant Sg.empty
-                            yield selectionGeometry                        
+                                    Sg.empty
+                            yield gg    
                 } |> Sg.set
                 
             Sg.ofList [
@@ -864,11 +974,12 @@ module ViewPlanApp =
             )
 
         let viewInstrumentProperties (m : AdaptiveViewPlan) = 
-          m.selectedInstrument 
+            m.selectedInstrument
             |> AVal.map(fun x ->
                 match x with 
-                  | AdaptiveSome i -> instrumentProperties i
-                  | AdaptiveNone ->   div[][])
+                | AdaptiveSome i -> instrumentProperties i
+                | AdaptiveNone ->   div[][]
+            )
 
         let viewFootprintProperties (fpVisible:aval<bool>) (m : AdaptiveViewPlan) = 
           m.selectedInstrument 
@@ -889,9 +1000,11 @@ module ViewPlanApp =
         //    UI.dropDown'' (r.instruments |> RoverApp.mapTolist) m.selectedInstrument (fun x -> SelectInstrument (x |> Option.map(fun y -> y.Current |> AVal.force))) (fun x -> (x.id |> AVal.force) )   
         
         let instrumentsDd (r:AdaptiveRover) (m : AdaptiveViewPlan) = 
-            UI.dropDown'' (r.instruments |> RoverApp.mapTolist) 
-                           (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption m.selectedInstrument) (fun x -> SelectInstrument (x |> Option.map(fun y -> y.Current |> AVal.force))) 
-                                                (fun x -> (x.id |> AVal.force) )   
+            UI.dropDown'' 
+                (r.instruments |> RoverApp.mapTolist) 
+                (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption m.selectedInstrument) 
+                (fun x -> SelectInstrument (x |> Option.map(fun y -> y.Current |> AVal.force))) 
+                (fun x -> (x.id |> AVal.force))
 
         let viewAxesList (r : AdaptiveRover) (m : AdaptiveViewPlan) =
             alist {

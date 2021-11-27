@@ -685,9 +685,24 @@ module ViewerApp =
             { m with scene = { m.scene with viewPlans = viewPlanModel }}
         | ViewPlanMessage msg,_,_ ->
             let model, viewPlanModel = ViewPlanApp.update m.scene.viewPlans msg _navigation _footprint m.scene.scenePath m
+
+            let animations = 
+                match msg with
+                | ViewPlanApp.Action.FlyToViewPlan vp ->
+
+                    //TODO refactor, strange flyto approach
+                    let view = model.navigation.camera.view
+                    let animationMessage = 
+                        CameraAnimations.animateForwardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
+
+                    AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))   
+                | _ ->
+                    m.animations             
+
             { m with 
                 scene = { m.scene with viewPlans = viewPlanModel }
                 footPrint = model.footPrint
+                animations = animations
             } 
         | DnSColorLegendMessage msg,_,_ ->
             let cm = FalseColorLegendApp.update m.drawing.dnsColorLegend msg
@@ -697,15 +712,17 @@ module ViewerApp =
             let animation = 
                 match msg with
                 | SceneObjectAction.FlyToSO id -> 
-                    let sgSo = sobjs.sgSceneObjects |> HashMap.find id
                     let sceneObj = sobjs.sceneObjects |> HashMap.find id
                     let superTrafo = SceneObjectTransformations.fullTrafo' sceneObj.transformation m.scene.referenceSystem
+
+                    let sgSo = sobjs.sgSceneObjects |> HashMap.find id
                     let bb = sgSo.globalBB.Transformed(sceneObj.preTransform.Forward * superTrafo.Forward)
+
                     let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value    
                     let animationMessage = 
                         CameraAnimations.animateForwardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
-                    let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
-                    a'
+
+                    AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))                    
                 | _-> m.animations
                    
             { m with scene = { m.scene with sceneObjectsModel = sobjs}; animations = animation}
@@ -880,7 +897,7 @@ module ViewerApp =
                 let importedData = RoverPlacementImporter.startRPImporter path
                 match m.scene.viewPlans.roverModel.selectedRover with
                 | Some r -> 
-                    let vp = ViewPlanApp.createViewPlanFromFile importedData m.scene.viewPlans r m.scene.referenceSystem m.navigation.camera
+                    let vp = ViewPlanApp.createViewPlanFromFile importedData m.scene.viewPlans r m.scene.referenceSystem m.navigation.camera.view
                     { m with scene = { m.scene with viewPlans = vp }}
                 | None -> Log.error "no rover selected"; m
             | None -> m      
@@ -1551,9 +1568,20 @@ module ViewerApp =
                 | FlyToSol (forward, up, location) ->
                     let animationMessage = 
                         CameraAnimations.animateForwardAndLocation location forward up 2.0 "ForwardAndLocation2s"
-                    AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))                    
+                    AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))                
                 | _ ->
                     m.animations
+
+            let m =
+                match msg with 
+                | PlaceRoverAtSol (name, trafo, location, refSystem) ->
+                    let vpMessage = ViewPlanApp.Action.CreateNewViewplan (name, trafo, location, refSystem)
+                    let model, viewPlanModel = ViewPlanApp.update m.scene.viewPlans vpMessage _navigation _footprint m.scene.scenePath m
+                    { m with 
+                        scene = { m.scene with viewPlans = viewPlanModel }
+                        footPrint = model.footPrint
+                    } 
+                | _ -> m                                        
 
             { m with scene = { m.scene with traverse = TraverseApp.update m.scene.traverse msg }; animations = animation }
         | _ -> m       

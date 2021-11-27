@@ -1,14 +1,17 @@
 ﻿namespace PRo3D.Viewer
 
 open Aardvark.Base
+open PRo3D.Base
+open PRo3D.Core
+
 open Adaptify
 open Chiron
-open PRo3D.Base
 
 type TraverseAction =
-| LoadTraverse of string
-| SelectSol    of int
-| FlyToSol     of V3d * V3d * V3d //forward * sky * location
+| LoadTraverse    of string
+| SelectSol       of int
+| FlyToSol        of V3d * V3d * V3d //forward * sky * location
+| PlaceRoverAtSol of string * Trafo3d * V3d * ReferenceSystem//rotation and location
 | ToggleShowText
 | ToggleShowLines
 | ToggleShowDots
@@ -64,14 +67,14 @@ module Sol =
                 version        = current
                 location       = location |> V3d.Parse
                 solNumber      = solNumber
-                site           = site          
-                yaw            = yaw           
-                pitch          = pitch         
-                roll           = roll          
-                tilt           = tilt          
-                note           = note          
-                distanceM      = distanceM     
-                totalDistanceM = totalDistanceM            
+                site           = site
+                yaw            = yaw
+                pitch          = pitch
+                roll           = roll
+                tilt           = tilt
+                note           = note     
+                distanceM      = distanceM
+                totalDistanceM = totalDistanceM
             }            
         }    
 
