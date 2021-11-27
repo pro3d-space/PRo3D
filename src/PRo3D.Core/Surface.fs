@@ -18,20 +18,35 @@ open PRo3D.Core.Surface
 open PRo3DCompability
 
 module SurfaceTransformations = 
-    /// This is not actually the complete trafo!! TODO rename this
+    //let computeSolRotation (sol : Sol) (referenceSystem : ReferenceSystem) : Trafo3d =
+    //    let north = referenceSystem.northO
+    //    let up = referenceSystem.up.value
+    //    let east = Vec.cross up north
+        
+    //    let yawRotation    = Trafo3d.RotationInDegrees(up, -sol.yaw)
+    //    let pitchRotation  = Trafo3d.RotationInDegrees(east, sol.pitch)
+    //    let rollRotation   = Trafo3d.RotationInDegrees(north, sol.roll)
+
+    //    yawRotation * pitchRotation * rollRotation
+
+    /// TODO Refactor : This is not actually the complete trafo!! TODO rename this
     let fullTrafo' (surf : Surface) (refsys : ReferenceSystem) = 
     
-        let north = refsys.northO.Normalized
-        
-        let up = refsys.up.value.Normalized
-        let east   = north.Cross(up)
+        let north = refsys.northO.Normalized        
+        let up    = refsys.up.value.Normalized
+        let east  = north.Cross(up).Normalized
               
         let refSysRotation = 
-          Trafo3d.FromOrthoNormalBasis(north, east, up)
+            Trafo3d.FromOrthoNormalBasis(north, east, up)
             
         //translation along north, east, up            
-        let trans = surf.transformation.translation.value |> Trafo3d.Translation
-        let rot = Trafo3d.Rotation(up, surf.transformation.yaw.value.RadiansFromDegrees())
+        let trans = surf.transformation.translation.value |> Trafo3d.Translation //        
+
+        let yawRotation    = Trafo3d.RotationInDegrees(up,   -surf.transformation.yaw.value)
+        let pitchRotation  = Trafo3d.RotationInDegrees(east,  surf.transformation.pitch.value)
+        let rollRotation   = Trafo3d.RotationInDegrees(north, surf.transformation.roll.value)
+        
+        let rot = yawRotation * pitchRotation * rollRotation
         
         let originTrafo = -surf.transformation.pivot |> Trafo3d.Translation
         

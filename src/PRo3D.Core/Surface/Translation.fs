@@ -25,11 +25,13 @@ module TranslationApp =
     //open Aardvark.UI.ChoiceModule
    
     type Action =
-        | SetTranslation   of Vector3d.Action
-        | SetYaw           of Numeric.Action
-        | FlipZ    
-        | ToggleSketchFab
-        | ToggleVisible
+    | SetTranslation   of Vector3d.Action
+    | SetYaw           of Numeric.Action
+    | SetPitch         of Numeric.Action
+    | SetRoll          of Numeric.Action
+    | FlipZ    
+    | ToggleSketchFab
+    | ToggleVisible
     
 
     let update<'a> (model : Transformations) (act : Action) =
@@ -40,6 +42,12 @@ module TranslationApp =
         | SetYaw a ->    
             let yaw = Numeric.update model.yaw a
             { model with yaw = yaw }
+        | SetPitch a ->    
+            let pitch = Numeric.update model.pitch a
+            { model with pitch = pitch }
+        | SetRoll a ->    
+            let roll = Numeric.update model.roll a
+            { model with roll = roll }
         | FlipZ ->
             //let trafo' = model.trafo * Trafo3d.Scale(1.0, 1.0, -1.0)
             { model with flipZ = (not model.flipZ)} //; trafo = trafo' }
@@ -64,8 +72,10 @@ module TranslationApp =
                     //Html.row "Visible:" [GuiEx.iconCheckBox model.useTranslationArrows ToggleVisible ]
                     Html.row "Translation (m):" [viewV3dInput model.translation |> UI.map SetTranslation ]
                     Html.row "Yaw (deg):"       [Numeric.view' [InputBox] model.yaw |> UI.map SetYaw]
+                    Html.row "Pitch (deg):"     [Numeric.view' [InputBox] model.pitch |> UI.map SetPitch]
+                    Html.row "Roll (deg):"      [Numeric.view' [InputBox] model.roll |> UI.map SetRoll]
                     Html.row "flip Z:"          [GuiEx.iconCheckBox model.flipZ FlipZ ]
                     Html.row "sketchFab:"       [GuiEx.iconCheckBox model.isSketchFab ToggleSketchFab ]
-                    Html.row "Pivot Point:" [Incremental.text (model.pivot |> AVal.map (fun x -> x.ToString ()))]
+                    Html.row "Pivot Point:"     [Incremental.text (model.pivot |> AVal.map (fun x -> x.ToString ()))]
                 ]
             )

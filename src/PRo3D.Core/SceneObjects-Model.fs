@@ -141,6 +141,7 @@ type SceneObjectsModel with
             do! Json.write "selectedSceneObject" x.selectedSceneObject
         }
 
+//TODO refactor: do we really need the transformation init code multiple times?
 module InitSceneObjectParams =
 
     let scaling = {
@@ -179,6 +180,8 @@ module InitSceneObjectParams =
         useTranslationArrows = false
         translation          = initTranslation (V3d.OOO)
         trafo                = Trafo3d.Identity
+        pitch                = Transformations.Initial.pitch
+        roll                 = Transformations.Initial.roll
         yaw                  = yaw
         pivot                = V3d.Zero
         flipZ                = false

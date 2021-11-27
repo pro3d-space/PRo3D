@@ -186,31 +186,64 @@ type AttributeLayer =
     | ScalarLayer  of ScalarLayer
     | TextureLayer of TextureLayer
 
+//TODO refactor: transformations are used in many contexts, shouldn't be intertwined with SurfaceModel
 [<ModelType>]
 type Transformations = { 
     version               : int
     useTranslationArrows  : bool
     translation           : V3dInput
     yaw                   : NumericInput
+    pitch                 : NumericInput
+    roll                  : NumericInput
     trafo                 : Trafo3d
     pivot                 : V3d
     flipZ                 : bool
     isSketchFab           : bool
-} with
-    static member current = 2
-    static member read0 = 
+} 
+
+module Transformations =
+    module Initial =
+        let yaw = {
+            value   = 0.0
+            min     = -180.0
+            max     = +180.0
+            step    = 0.01
+            format  = "{0:0.00}"
+        }
+
+        let pitch = {
+            value   = 0.0
+            min     = -180.0
+            max     = +180.0
+            step    = 0.01
+            format  = "{0:0.00}"
+        }
+
+        let roll = {
+            value   = 0.0
+            min     = -180.0
+            max     = +180.0
+            step    = 0.01
+            format  = "{0:0.00}"
+        }
+
+    let current = 3
+    
+    let read0 = 
         json {            
             let! useTranslationArrows = Json.read "useTranslationArrows"
-            let! translation          = Json.readWith Ext.fromJson<V3dInput,Ext>     "translation"
-            let! yaw                  = Json.readWith Ext.fromJson<NumericInput,Ext> "yaw"          
+            let! translation          = Json.readWith Ext.fromJson<V3dInput,Ext> "translation"
+            let! yaw                  = Json.readWith Ext.fromJson<NumericInput,Ext> "yaw"
             let! trafo                = Json.readWith Ext.fromJson<Trafo3d,Ext> "trafo"
-            let! pivot                = Json.read "pivot"
+            let! pivot                = Json.read "pivot"            
             
             return {
-                version              = Transformations.current
+                version              = current
                 useTranslationArrows = useTranslationArrows
                 translation          = translation
-                yaw                  = yaw                 
+                yaw                  = yaw
+                pitch                = Initial.pitch
+                roll                 = Initial.roll
                 trafo                = trafo               
                 pivot                = pivot |> V3d.Parse
                 flipZ                = false
@@ -218,7 +251,7 @@ type Transformations = {
             }
         }
 
-    static member read1 = 
+    let read1 = 
         json {            
             let! useTranslationArrows = Json.read "useTranslationArrows"
             let! translation          = Json.readWith Ext.fromJson<V3dInput,Ext>     "translation"
@@ -228,10 +261,12 @@ type Transformations = {
             let! flipZ                = Json.read "flipZ"
             
             return {
-                version              = Transformations.current
+                version              = current
                 useTranslationArrows = useTranslationArrows
                 translation          = translation
-                yaw                  = yaw                 
+                yaw                  = yaw
+                pitch                = Initial.pitch
+                roll                 = Initial.roll
                 trafo                = trafo
                 pivot                = pivot |> V3d.Parse
                 flipZ                = flipZ
@@ -239,7 +274,7 @@ type Transformations = {
             }
         }
 
-    static member read2 = 
+    let read2 = 
         json {            
             let! useTranslationArrows = Json.read "useTranslationArrows"
             let! translation          = Json.readWith Ext.fromJson<V3dInput,Ext>     "translation"
@@ -250,16 +285,47 @@ type Transformations = {
             let! isSketchFab          = Json.read "isSketchFab"
             
             return {
-                version              = Transformations.current
+                version              = current
                 useTranslationArrows = useTranslationArrows
                 translation          = translation
                 yaw                  = yaw                 
+                pitch                = Initial.pitch
+                roll                 = Initial.roll
                 trafo                = trafo               
                 pivot                = pivot |> V3d.Parse
                 flipZ                = flipZ
                 isSketchFab          = isSketchFab
             }
         }
+
+    let read3 = 
+        json {            
+            let! useTranslationArrows = Json.read "useTranslationArrows"
+            let! translation          = Json.readWith Ext.fromJson<V3dInput,Ext> "translation"
+            let! yaw                  = Json.readWith Ext.fromJson<NumericInput,Ext> "yaw"
+            let! pitch                = Json.readWith Ext.fromJson<NumericInput,Ext> "pitch"
+            let! roll                 = Json.readWith Ext.fromJson<NumericInput,Ext> "roll"
+            let! trafo                = Json.readWith Ext.fromJson<Trafo3d,Ext> "trafo"
+            let! pivot                = Json.read "pivot"
+            let! flipZ                = Json.read "flipZ"
+            let! isSketchFab          = Json.read "isSketchFab"
+            
+            return {
+                version              = current
+                useTranslationArrows = useTranslationArrows
+                translation          = translation
+                yaw                  = yaw
+                pitch                = pitch
+                roll                 = roll
+                trafo                = trafo
+                pivot                = pivot |> V3d.Parse
+                flipZ                = flipZ
+                isSketchFab          = isSketchFab
+            }
+        }
+
+type Transformations with
+    
 
     static member FromJson(_ : Transformations) =
         json {
@@ -268,6 +334,7 @@ type Transformations = {
             | 0 -> return! Transformations.read0
             | 1 -> return! Transformations.read1
             | 2 -> return! Transformations.read2
+            | 3 -> return! Transformations.read3
             | _ -> 
                 return! v 
                 |> sprintf "don't know version %A  of Transformations"
@@ -279,7 +346,9 @@ type Transformations = {
             do! Json.write "version" x.version
             do! Json.write "useTranslationArrows" x.useTranslationArrows
             do! Json.writeWith Ext.toJson<V3dInput,Ext> "translation" x.translation
-            do! Json.writeWith Ext.toJson<NumericInput,Ext> "yaw" x.yaw
+            do! Json.writeWith Ext.toJson<NumericInput,Ext> "yaw"   x.yaw
+            do! Json.writeWith Ext.toJson<NumericInput,Ext> "pitch" x.pitch
+            do! Json.writeWith Ext.toJson<NumericInput,Ext> "roll"  x.roll
             do! Json.writeWith Ext.toJson<Trafo3d,Ext> "trafo" x.trafo
             do! Json.write "pivot" (x.pivot.ToString())
             do! Json.write "flipZ" x.flipZ
@@ -407,9 +476,7 @@ module Surface =
                     transformation  = transformation
                 }
         }
-
      
-
 type Surface with
     static member FromJson( _ : Surface) =
         json {
@@ -575,15 +642,7 @@ module Init =
         step    = 0.01
         format  = "{0:0.00}"
     }
-
-    let yaw = {
-        value   = 0.0
-        min     = -180.0
-        max     = +180.0
-        step    = 0.01
-        format  = "{0:0.00}"
-    }
-
+    
     let initTranslation (v : V3d) = {
         x     = { translationInput with value = v.X }
         y     = { translationInput with value = v.Y }
@@ -595,7 +654,9 @@ module Init =
         useTranslationArrows = false
         translation          = initTranslation (V3d.OOO)
         trafo                = Trafo3d.Identity
-        yaw                  = yaw
+        yaw                  = Transformations.Initial.yaw
+        pitch                = Transformations.Initial.pitch
+        roll                 = Transformations.Initial.roll
         pivot                = V3d.Zero
         flipZ                = false
         isSketchFab          = false
