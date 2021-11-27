@@ -441,6 +441,22 @@ module ViewPlanApp =
         let fp, m = updateInstrumentCam vp m fp
         fp, { m with roverModel = roverModel }
 
+    let selectViewplan outerModel _footprint id model =
+        let viewPlanToSelect = model.viewPlans |> HashMap.tryFind id
+        match viewPlanToSelect with 
+        | Some viewplan ->                
+            match model.selectedViewPlan with
+            | Some selected when selected.id = viewplan.id ->                    
+                outerModel, { model with selectedViewPlan = None }
+            | _ ->                   
+                let footPrint = Optic.get _footprint outerModel
+                let footPrint, model = updateInstrumentCam viewplan model footPrint
+                let newOuterModel = Optic.set _footprint footPrint outerModel
+                newOuterModel, { model with selectedViewPlan = Some viewplan }
+        | None ->
+            Log.line "[ViewplanApp] viewplan with selected id does not exist"
+            outerModel, model
+
     //let update (model : ViewPlanModel) (camState:CameraControllerState) (action : Action) =
     let update 
         (model       : ViewPlanModel) 
@@ -461,7 +477,8 @@ module ViewPlanApp =
 
                 let vp = createViewPlanFromTrafo name rover refSystem navigation.camera.view trafo position
 
-                outerModel, { model with viewPlans = HashMap.add vp.id vp model.viewPlans; working = List.Empty; selectedViewPlan = Some vp }
+                { model with viewPlans = HashMap.add vp.id vp model.viewPlans; working = List.Empty } 
+                |> selectViewplan outerModel _footprint vp.id
             | None ->
                 outerModel, model
 
@@ -476,31 +493,29 @@ module ViewPlanApp =
                     let navigation = Optic.get _navigation outerModel
                     let vp = createViewPlanFromPlacement w r ref navigation.camera.view kdTree surfaceModel
 
-                    outerModel, { model with viewPlans = HashMap.add vp.id vp model.viewPlans; working = List.Empty; selectedViewPlan = Some vp }
+                    { model with viewPlans = HashMap.add vp.id vp model.viewPlans; working = List.Empty } 
+                    |> selectViewplan outerModel _footprint vp.id
             | None -> 
                 outerModel, model
 
         | SelectViewPlan id ->
-            let viewPlanToSelect = model.viewPlans |> HashMap.tryFind id
-            let fp = Optic.get _footprint outerModel
-            let vp, m , om =
-                match viewPlanToSelect, model.selectedViewPlan with
-                | Some current, Some old -> 
-                    if current.id = old.id then 
-                        None, model, outerModel
-                    else 
-                        let fp', m' = updateInstrumentCam current model fp
-                        let newOuterModel = Optic.set _footprint fp' outerModel
-                        Some current, m', newOuterModel
-                | Some a, None -> 
-                    let fp', m' = updateInstrumentCam a model fp
-                    let newOuterModel = Optic.set _footprint fp' outerModel
-                    Some a, m', newOuterModel
-                | None, _ -> 
-                    None, model, outerModel
-                
-            om, { m with selectedViewPlan = vp }
+            //let viewPlanToSelect = model.viewPlans |> HashMap.tryFind id
+            //match viewPlanToSelect with 
+            //| Some viewplan ->                
+            //    match model.selectedViewPlan with
+            //    | Some selected when selected.id = viewplan.id ->                    
+            //        outerModel, { model with selectedViewPlan = None }
+            //    | _ ->                   
+            //        let footPrint = Optic.get _footprint outerModel
+            //        let footPrint, model = updateInstrumentCam viewplan model footPrint
+            //        let newOuterModel = Optic.set _footprint footPrint outerModel
+            //        newOuterModel, { model with selectedViewPlan = Some viewplan }
+            //| None ->
+            //    Log.line "[ViewplanApp] viewplan with selected id does not exist"
+            //    outerModel, model
 
+            selectViewplan outerModel _footprint id model
+                
         | FlyToViewPlan id -> 
             let vp = model.viewPlans |> HashMap.tryFind id
             match vp with
@@ -901,27 +916,22 @@ module ViewPlanApp =
             ]    
 
         let viewViewPlans (m:AdaptiveViewPlanModel) = 
-            let itemAttributes =
+            let listAttributes =
                 amap {
                     yield clazz "ui divided list inverted segment"
                     yield style "overflow-y : visible"
                 } |> AttributeMap.ofAMap
 
-            Incremental.div itemAttributes (
+            Incremental.div listAttributes (
                 alist { 
-                    yield Incremental.i itemAttributes AList.empty
-                    let! selected = m.selectedViewPlan
-                    let viewPlans = m.viewPlans |> AMap.toASetValues |> ASet.sortBy (fun a -> a.id)
+                    
+                    let viewPlans = 
+                        m.viewPlans 
+                        |> AMap.toASetValues 
+                        |> ASet.sortBy (fun a -> a.id)
+
                     for vp in viewPlans do
                         let vpid = vp.id
-                        let! color =
-                            match selected with
-                            | AdaptiveSome sel -> 
-                                AVal.constant (if sel.id = vpid then C4b.VRVisGreen else C4b.White)
-                            | AdaptiveNone -> 
-                                AVal.constant C4b.White
-                                                                 
-                        let bgc = color |> Html.ofC4b |> sprintf "color: %s"
 
                         let toggleIcon = 
                             AVal.map( fun toggle -> if toggle then "unhide icon" else "hide icon") vp.isVisible
@@ -932,17 +942,31 @@ module ViewPlanApp =
                                 yield clazz toggleIcon
                                 yield onClick (fun _ -> IsVisible vpid)
                             } |> AttributeMap.ofAMap  
+                        
+                        let itemAttributes = 
+                            amap {                                
+                                yield clazz "large cube middle aligned icon";
 
+                                //TODO refactor broken adaptive behavior, use hashmap lookup instead of viewplan copy
+                                let! selected = m.selectedViewPlan
+                                let color =
+                                    match selected with
+                                    | AdaptiveSome sel -> 
+                                        Log.line "selection changed in view"
+                                        (if sel.id = vpid then C4b.VRVisGreen else C4b.White)
+                                    | AdaptiveNone -> 
+                                        C4b.White
+                                                                         
+                                let bgc = color |> Html.ofC4b |> sprintf "color: %s"
+
+                                yield style bgc
+                                yield onClick (fun _ -> SelectViewPlan vpid)
+                            } |> AttributeMap.ofAMap
 
                         yield div [clazz "item"] [
                             Incremental.i itemAttributes AList.empty
-                            i [
-                                clazz "large cube middle aligned icon"; 
-                                style bgc
-                                onClick (fun _ -> SelectViewPlan vpid)
-                            ][]
                             div [clazz "content"] [
-                                Incremental.i itemAttributes AList.empty
+                                //Incremental.i listAttributes AList.empty
                                 div [clazz "header"] (
                                     viewHeader vp vpid toggleMap
                                 )      
@@ -1054,10 +1078,13 @@ module ViewPlanApp =
         let viewSelectRover (m : AdaptiveRoverModel) : DomNode<RoverApp.Action> =
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large Rocket icon"][] ]
-                Html.Layout.boxH [ UI.dropDown'' (RoverApp.roversList m)  
-                                                  (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption m.selectedRover)
-                                                  (fun x -> RoverApp.Action.SelectRover (x |> Option.map(fun y -> y.Current |> AVal.force))) 
-                                                  (fun x -> (x.id |> AVal.force) ) ]                
+                Html.Layout.boxH [ 
+                    UI.dropDown'' 
+                        (RoverApp.roversList m)  
+                        (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption m.selectedRover)
+                        (fun x -> RoverApp.Action.SelectRover (x |> Option.map(fun y -> y.Current |> AVal.force))) 
+                        (fun x -> (x.id |> AVal.force))
+                    ]                
             ]
 
 
