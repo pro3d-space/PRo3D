@@ -1827,7 +1827,11 @@ module ViewerApp =
 
             let traverse = 
                 [ 
-                    TraverseApp.viewLines m.scene.traverse
+                    TraverseApp.Sg.viewLines m.scene.traverse
+                    TraverseApp.Sg.viewText 
+                        m.navigation.camera.view
+                        m.scene.config.nearPlane.value 
+                        m.scene.traverse
                 ]
                 |> Sg.ofList
                 |> Sg.map TraverseMessage
@@ -1839,6 +1843,13 @@ module ViewerApp =
             
             let orientationCube = PRo3D.OrientationCube.Sg.view m.navigation.camera.view m.scene.config m.scene.referenceSystem
 
+            let scaleBarTexts = 
+                ScaleBarsApp.Sg.viewTextLabels 
+                    m.scene.scaleBars 
+                    m.navigation.camera.view 
+                    m.scene.config
+                    mrefConfig
+
             [
                 exploreCenter; 
                 refSystem; 
@@ -1846,6 +1857,7 @@ module ViewerApp =
                 homePosition; 
                 solText; 
                 heightValidation
+                scaleBarTexts
                 traverse
             ] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
@@ -1898,9 +1910,7 @@ module ViewerApp =
         
         let traverse = 
             [ 
-                TraverseApp.Sg.view 
-                    m.navigation.camera.view 
-                    m.scene.config.nearPlane.value 
+                TraverseApp.Sg.view                     
                     m.scene.referenceSystem
                     m.scene.traverse                
             ]

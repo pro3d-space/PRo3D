@@ -109,32 +109,7 @@ module TraverseApp =
         | ToggleShowDots ->
             { model with showDots = not model.showDots }
             
-    let viewLines (model : AdaptiveTraverse) : ISg<TraverseAction> =
-        adaptive {
-            let! sols = model.sols
-            let lines = 
-                sols 
-                |> List.map(fun x -> x.location)
-                |> List.toArray
-                |> PRo3D.Core.Drawing.Sg.lines C4b.White 2.0 
-            
-            return lines
-        }
-        |> Sg.dynamic
-        |> Sg.onOff model.showLines
-
-    let viewCoordinateCross (refSystem : AdaptiveReferenceSystem) (trafo : aval<Trafo3d>) =
-        
-        let up = refSystem.up.value
-        let north = refSystem.northO
-        let east = AVal.map2(Vec.cross) up north
-
-        [
-            Sg.drawSingleLine ~~V3d.Zero up    ~~C4b.Blue  ~~2.0 trafo
-            Sg.drawSingleLine ~~V3d.Zero north ~~C4b.Red   ~~2.0 trafo
-            Sg.drawSingleLine ~~V3d.Zero east  ~~C4b.Green ~~2.0 trafo
-        ] 
-        |> Sg.ofList
+    
         
     let computeSolRotation (sol : Sol) (referenceSystem : ReferenceSystem) : Trafo3d =
         let north = referenceSystem.northO
@@ -174,19 +149,51 @@ module TraverseApp =
         name, rotTrafo, sol.location, referenceSystem
 
     module Sg =
-        let view view near (refSystem : AdaptiveReferenceSystem) (model : AdaptiveTraverse) : ISg<TraverseAction> = 
+        let viewLines (model : AdaptiveTraverse) : ISg<TraverseAction> =
+            adaptive {
+                let! sols = model.sols
+                let lines = 
+                    sols 
+                    |> List.map(fun x -> x.location)
+                    |> List.toArray
+                    |> PRo3D.Core.Drawing.Sg.lines C4b.White 2.0 
+                
+                return lines
+            }
+            |> Sg.dynamic
+            |> Sg.onOff model.showLines
+
+        let viewText view near (model : AdaptiveTraverse) =
             alist {
                 let! sols = model.sols
-                for sol in sols |> List.rev do
+                for sol in sols do
                     let loc = ~~(sol.location + sol.location.Normalized * 1.5)
                     let trafo = loc |> AVal.map Trafo3d.Translation
-                    let text = 
-                        Sg.text view near (AVal.constant 60.0) loc trafo ~~0.05  (~~sol.solNumber.ToString())
                     
-                    let! showText = model.showText
-                    if showText then
-                        yield text
+                    yield Sg.text view near (AVal.constant 60.0) loc trafo ~~0.05  (~~sol.solNumber.ToString())
+            } 
+            |> ASet.ofAList 
+            |> Sg.set
+            |> Sg.onOff model.showText
 
+
+        let viewCoordinateCross (refSystem : AdaptiveReferenceSystem) (trafo : aval<Trafo3d>) =
+            
+            let up = refSystem.up.value
+            let north = refSystem.northO
+            let east = AVal.map2(Vec.cross) up north
+
+            [
+                Sg.drawSingleLine ~~V3d.Zero up    ~~C4b.Blue  ~~2.0 trafo
+                Sg.drawSingleLine ~~V3d.Zero north ~~C4b.Red   ~~2.0 trafo
+                Sg.drawSingleLine ~~V3d.Zero east  ~~C4b.Green ~~2.0 trafo
+            ] 
+            |> Sg.ofList
+
+        let view  (refSystem : AdaptiveReferenceSystem) (model : AdaptiveTraverse) : ISg<TraverseAction> = 
+            alist {
+                let! sols = model.sols
+                for sol in sols do
                     let! showDots = model.showDots
                     if showDots then
                         let! selected = model.selectedSol

@@ -5,6 +5,7 @@ open Aardvark.Application
 open Aardvark.UI
 open Aardvark.VRVis
 open FSharp.Data.Adaptive
+open FSharp.Data.Adaptive.Operators
 open Adaptify.FSharp.Core
 open Aardvark.SceneGraph.IO
 open Aardvark.SceneGraph.SgPrimitives
@@ -221,11 +222,15 @@ module ScaleBarUtils =
                 view            = view //FreeFlyController.initial.view
                 transformation  = Init.transformations
                 preTransform    = Trafo3d.Identity
+
+                direction = direction
             }
 
 
 module ScaleBarTransformations = 
 
+
+    //TODO refactor: is this code duplication necessary? transformations should all work the same, shouldn't they?
     let fullTrafo'' (translation : V3d) (yaw : float) (pivot : V3d) (refsys : ReferenceSystem) = 
         let north = refsys.northO.Normalized
         
@@ -265,7 +270,7 @@ module ScaleBarsApp =
 
     let update 
         (model : ScaleBarsModel) 
-        (act : ScaleBarsAction) = 
+        (act   : ScaleBarsAction) = 
 
         match act with
         | IsVisible id ->
@@ -405,13 +410,13 @@ module ScaleBarsApp =
                 let! guid = model.selectedScaleBar
                 let empty = div[ style "font-style:italic"][ text "no scene object selected" ] |> UI.map TranslationMessage 
 
-               match guid with
-               | Some id -> 
-                 let! scB = model.scaleBars |> AMap.tryFind id
-                 match scB with
-                 | Some s -> return (TranslationApp.UI.view s.transformation |> UI.map TranslationMessage)
-                 | None -> return empty
-               | None -> return empty
+                match guid with
+                | Some id -> 
+                    let! scB = model.scaleBars |> AMap.tryFind id
+                    match scB with
+                    | Some s -> return (TranslationApp.UI.view s.transformation |> UI.map TranslationMessage)
+                    | None -> return empty
+                | None -> return empty
             }  
 
         let viewProperties (model:AdaptiveScaleBarsModel) =
@@ -433,7 +438,6 @@ module ScaleBarsApp =
         open PRo3D.Base
         open PRo3D.Core
         open PRo3D.Core.Drawing
-
 
         let getSgSegmentCylinder
             (segment : AdaptivescSegment)
@@ -557,6 +561,58 @@ module ScaleBarsApp =
                 
             } |> Sg.dynamic
 
+        let viewSingleText
+            (scaleBar   : AdaptiveScaleBar) 
+            (view       : aval<CameraView>)
+            (near       : aval<float>) =
+
+            let labelPosition =
+                adaptive {
+                    let! scaleBar = scaleBar.Current
+
+                    let pos = scaleBar.position
+
+                    let scaledDirection = 
+                        scaleBar.direction * ((scaleBar.length.value / 2.0) |> ScaleBarUtils.getLengthInMeter scaleBar.unit )
+
+                    match scaleBar.alignment with
+                    | Pivot.Left   -> return pos + scaledDirection
+                    | Pivot.Right  -> return pos - scaledDirection
+                    | Pivot.Middle -> return pos
+                    | _ -> return pos                    
+                }
+            
+            Sg.text 
+                view 
+                near 
+                ~~60.0 
+                labelPosition 
+                (labelPosition |> AVal.map Trafo3d.Translation) 
+                scaleBar.textsize.value 
+                scaleBar.text
+            |> Sg.onOff scaleBar.textVisible
+
+        let viewTextLabels
+            (scaleBarsModel : AdaptiveScaleBarsModel) 
+            (view           : aval<CameraView>)
+            (mbigConfig     : 'ma)
+            (minnerConfig   : MInnerConfig<'ma>) =
+
+            let near = minnerConfig.getNearDistance mbigConfig
+
+            let scaleBars = scaleBarsModel.scaleBars
+            
+            scaleBars 
+            |> AMap.map( fun id sb ->
+                viewSingleText
+                    sb
+                    view
+                    near                    
+            )
+            |> AMap.toASet 
+            |> ASet.map snd 
+            |> Sg.set
+
         let viewSingleScaleBarCylinder
             (scaleBar   : AdaptiveScaleBar) 
             (view       : aval<CameraView>)
@@ -576,11 +632,7 @@ module ScaleBarsApp =
                     adaptive {
                         let! pos = scaleBar.position
                         return (Trafo3d.Translation pos)
-                    }
-
-                let text = 
-                    Sg.text view near (AVal.constant 60.0) scaleBar.position trafo scaleBar.textsize.value scaleBar.text
-                    |> Sg.onOff scaleBar.textVisible
+                    }                
 
                 let pickFunc = Sg.pickEventsHelper scaleBar.guid (AVal.constant selected) scaleBar.thickness.value trafo
                
@@ -617,36 +669,33 @@ module ScaleBarsApp =
                 return Sg.ofList [
                         selectionSg //|> Sg.dynamic
                         sgSegments
-                        text
                     ] |> Sg.onOff scaleBar.isVisible
             
             } |> Sg.dynamic
 
         let view 
             (scaleBarsModel : AdaptiveScaleBarsModel) 
-            (view : aval<CameraView>)
-            (mbigConfig : 'ma)
-            (minnerConfig : MInnerConfig<'ma>)
-            (refsys : AdaptiveReferenceSystem) =
+            (view           : aval<CameraView>)
+            (mbigConfig     : 'ma)
+            (minnerConfig   : MInnerConfig<'ma>)
+            (refsys         : AdaptiveReferenceSystem) =
 
-            let near      = minnerConfig.getNearDistance   mbigConfig
+            let near = minnerConfig.getNearDistance mbigConfig
 
             let scaleBars = scaleBarsModel.scaleBars
             let selected = scaleBarsModel.selectedScaleBar
-
-            let test =
-                scaleBars |> AMap.map( fun id sb ->
-                    viewSingleScaleBarCylinder
-                        sb
-                        view
-                        //refsys
-                        near
-                        selected
-                    )
-                    |> AMap.toASet 
-                    |> ASet.map snd 
-                    |> Sg.set
-                  
-            test
+            
+            scaleBars 
+            |> AMap.map( fun id sb ->
+                viewSingleScaleBarCylinder
+                    sb
+                    view
+                    //refsys
+                    near
+                    selected
+            )
+            |> AMap.toASet 
+            |> ASet.map snd 
+            |> Sg.set
     
     
