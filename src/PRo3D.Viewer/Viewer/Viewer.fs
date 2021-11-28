@@ -1407,10 +1407,13 @@ module ViewerApp =
                 { m with linkingModel = PRo3D.Linking.LinkingApp.update m.linkingModel a }
         | OnResize (a,id),_,_ ->              
             Log.line "[RenderControl Resized] %A" a
-            { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y); viewPortSize = HashMap.add id a m.viewPortSize }
+            { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y); viewPortSizes = HashMap.add id a m.viewPortSizes }
         | ResizeMainControl(a,id),_,_ -> 
-            printfn "resize %A" (a,id)
-            { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y); viewPortSize = HashMap.add id a m.viewPortSize }
+            printfn "[main] resize %A" (a,id)
+            { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y); viewPortSizes = HashMap.add id a m.viewPortSizes }
+        | ResizeInstrumentControl(a,id),_,_ -> 
+            printfn "[instrument] resize %A" (a,id)
+            { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y); viewPortSizes = HashMap.add id a m.viewPortSizes }
         //| SetTextureFiltering b,_,_ ->
         //    {m with filterTexture = b}
        // | TestHaltonRayCasting _,_,_->
@@ -1597,6 +1600,7 @@ module ViewerApp =
         |> Sg.trafo(trafo)
     
     let renderControlAttributes (id : string) (m: AdaptiveModel) = 
+
         let renderControlAtts (model: AdaptiveNavigationModel) =
             amap {
                 let! state = model.navigationMode
@@ -1605,7 +1609,8 @@ module ViewerApp =
                     yield! FreeFlyController.extractAttributes model.camera Navigation.Action.FreeFlyAction
                 | NavigationMode.ArcBall ->                         
                     yield! ArcBallController.extractAttributes model.camera Navigation.Action.ArcBallAction
-                | _ -> failwith "Invalid NavigationMode"
+                | _ -> 
+                    failwith "Invalid NavigationMode"
             } 
             |> AttributeMap.ofAMap |> AttributeMap.mapAttributes (AttributeValue.map NavigationMessage)   
         
@@ -1635,14 +1640,25 @@ module ViewerApp =
             ] 
         ]            
 
-    let instrumentControlAttributes (m: AdaptiveModel) = 
+    let instrumentControlAttributes (id : string) (m: AdaptiveModel) = 
         AttributeMap.unionMany [
             AttributeMap.ofList [
                 attribute "style" "width:100%; height: 100%; float:left; background-color: #222222"
-                attribute "data-samples" "8"
+                attribute "data-samples" "4"
                 attribute "useMapping" "true"
                 onKeyDown (KeyDown)
                 onKeyUp (KeyUp)
+                clazz "instrumentrendercontrol"
+                onEvent "resizeControl"  [] (
+                    fun p -> 
+                        match p with
+                        | w::h::[] -> 
+                            let w : int = Pickler.json.UnPickleOfString w
+                            let h : int = Pickler.json.UnPickleOfString h
+                            printfn "%A" (w,h)
+                            ResizeMainControl(V2i(w,h),id)
+                        | _ -> Nop 
+                )
             ] 
         ]     
         
@@ -1675,7 +1691,7 @@ module ViewerApp =
                 (m.scene.viewPlans.instrumentCam)
                 frustum
                 runtime
-                (m.viewPortSize |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
+                ~~(V2i(2048,2048))//(m.viewPortSizes |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
                 (allowAnnotationPicking m)
                 m.drawing
 
@@ -1695,10 +1711,16 @@ module ViewerApp =
              |> Sg.cullMode (AVal.constant CullMode.None)
 
         // instrument view control
-        let icmds    = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed discsInst false m // m.scene.surfacesModel.sgGrouped overlayed discs m
+        let icmds = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed discsInst false m // m.scene.surfacesModel.sgGrouped overlayed discs m
         let icam = 
             AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
-        DomNode.RenderControl((instrumentControlAttributes m), icam, icmds, None) //AttributeMap.Empty
+
+        //onBoot "attachResize('__ID__')" (
+        //    DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
+        //)
+        onBoot "attachResize('__ID__')" (
+            DomNode.RenderControl((instrumentControlAttributes id m), icam, icmds, None) //AttributeMap.Empty
+        )
 
     let viewRenderView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
 
@@ -1712,7 +1734,7 @@ module ViewerApp =
                 m.navigation.camera.view 
                 frustum
                 runtime
-                (m.viewPortSize |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
+                (m.viewPortSizes |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
                 (allowAnnotationPicking m)                 
                 m.drawing
             
@@ -1971,7 +1993,7 @@ module ViewerApp =
                 |> SceneLoader.addGeologicSurfaces
             else
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs url dataSamples 
-                    |> ViewerIO.loadRoverData       
+                |> ViewerIO.loadRoverData
 
         App.start {
             unpersist = Unpersist.instance

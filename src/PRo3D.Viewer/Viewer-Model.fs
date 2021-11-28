@@ -112,6 +112,7 @@ type ViewerAction =
 | KeyDown                         of key : Aardvark.Application.Keys
 | KeyUp                           of key : Aardvark.Application.Keys      
 | ResizeMainControl               of V2i * string
+| ResizeInstrumentControl         of V2i * string
 | SetKind                         of TrafoKind
 | SetInteraction                  of Interactions        
 | SetMode                         of TrafoMode
@@ -458,7 +459,7 @@ type Model = {
     picking          : bool
     ctrlFlag         : bool
     frustum          : Frustum
-    viewPortSize     : HashMap<string, V2i>
+    viewPortSizes    : HashMap<string, V2i>
     overlayFrustum   : Option<Frustum>
     
     minervaModel     : PRo3D.Minerva.MinervaModel
@@ -609,7 +610,7 @@ module Viewer =
             //instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
             viewerMode = ViewerMode.Standard                
             footPrint = ViewPlanModel.initFootPrint
-            viewPortSize = HashMap.empty
+            viewPortSizes = HashMap.empty
 
             snapshotThreads = ThreadPool.empty
             showExplorationPoint = startupArgs.showExplorationPoint

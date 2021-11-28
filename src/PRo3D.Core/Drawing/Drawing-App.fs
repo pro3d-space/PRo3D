@@ -514,7 +514,7 @@ module DrawingApp =
                     let c = UI.mkColor model.annotations a
                     let picked = UI.isSingleSelect model.annotations a
                     let showPoints = 
-                      a.geometry 
+                        a.geometry 
                         |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
                 
                     let sg = Sg.finishedAnnotation a c config view viewport showPoints picked pickingAllowed

@@ -834,7 +834,7 @@ module Gui =
                 ]
                 // Todo: properties
                 yield GuiEx.accordion "Properties" "Content" true [
-                    Incremental.div AttributeMap.empty (AList.ofAValSingle(ScaleBarsApp.UI.viewProperties m.scene.scaleBars)) 
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(ScaleBarsApp.UI.viewProperties m.scene.scaleBars))
                 ]
             ] |> UI.map ScaleBarsMessage
 
@@ -938,6 +938,7 @@ module Gui =
               ]                 
           ] |> UI.map SequencedBookmarkMessage
     
+    //TODO refactor: two codes for resize attachments
     module Pages =
         let mutable renderViewportSizeId = System.Guid.NewGuid().ToString()
         let pageRouting viewerDependencies bodyAttributes (m : AdaptiveModel) viewInstrumentView viewRenderView (runtime : IRuntime) request =
@@ -946,11 +947,19 @@ module Gui =
             | Some "instrumentview" ->
                 let id = System.Guid.NewGuid().ToString()
 
+                let onResize (cb : V2i -> 'msg) =
+                    onEvent "onresize" ["{ X: $(document).width(), Y: $(document).height()  }"] (List.head >> Pickler.json.UnPickleOfString >> cb)
+
+                let onFocus (cb : V2i -> 'msg) =
+                    onEvent "onfocus" ["{ X: $(document).width(), Y: $(document).height()  }"] (List.head >> Pickler.json.UnPickleOfString >> cb)
+
                 let instrumentViewAttributes =
                     amap {
                         let! hor, vert = ViewPlanApp.getInstrumentResolution m.scene.viewPlans
                         let height = "height:" + (vert/uint32(2)).ToString() + ";" ///uint32(2)
                         let width = "width:" + (hor/uint32(2)).ToString() + ";" ///uint32(2)
+                        yield onResize (fun s -> OnResize(s, id))
+                        yield onFocus (fun s -> OnResize(s, id))
                         yield style ("background: #1B1C1E;" + height + width)
                         yield Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Instrument)
                     } |> AttributeMap.ofAMap
@@ -977,9 +986,9 @@ module Gui =
 
                     let renderViewAttributes = [ 
                         style "background: #1B1C1E; height:100%; width:100%"
-                        Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Standard)            
-                        onResize (fun s -> OnResize(s, renderViewportSizeId))     
-                        onFocus (fun s -> OnResize(s, renderViewportSizeId))     
+                        Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Standard)
+                        onResize (fun s -> OnResize(s, renderViewportSizeId))
+                        onFocus (fun s -> OnResize(s, renderViewportSizeId))
                         onMouseDown (fun button pos -> StartDragging (pos, button))
                      //   onMouseMove (fun delta -> Dragging delta)
                         onMouseUp (fun button pos -> EndDragging (pos, button))
