@@ -49,7 +49,25 @@ module TraverseApp =
                             totalDistanceM = x.properties.["dist_total_m"] |> Double.parse
                         }
 
-                    | _ -> failwith "not twodim"
+                    | Coordinate.ThreeDim y ->
+
+                        let latLonAlt = y.YXZ
+
+                        let xyz = CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
+                        
+                        { 
+                            version        = Sol.current
+                            location       = xyz
+                            solNumber      = x.properties.["sol"]          |> int
+                            site           = x.properties.["site"]         |> int
+                            yaw            = x.properties.["yaw"]          |> Double.parse
+                            pitch          = x.properties.["pitch"]        |> Double.parse
+                            roll           = x.properties.["roll"]         |> Double.parse
+                            tilt           = x.properties.["tilt"]         |> Double.parse
+                            note           = x.properties.["Note"]
+                            distanceM      = x.properties.["dist_m"]       |> Double.parse
+                            totalDistanceM = x.properties.["dist_total_m"] |> Double.parse
+                        }                        
                 | _ -> failwith "not point"
             )                
 
