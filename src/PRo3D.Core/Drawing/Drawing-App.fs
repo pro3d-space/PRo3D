@@ -477,6 +477,40 @@ module DrawingApp =
         | AdaptiveAnnotations ann -> Some ann
         | _ -> None
        
+    let viewTextLabels<'ma> 
+        (mbigConfig       : 'ma)
+        (msmallConfig     : MSmallConfig<'ma>)
+        (view             : aval<CameraView>)      
+        (model            : AdaptiveDrawingModel) =
+
+        let config : Sg.innerViewConfig = 
+            {
+                nearPlane        = msmallConfig.getNearPlane        mbigConfig
+                hfov             = msmallConfig.getHfov             mbigConfig                    
+                arrowLength      = msmallConfig.getArrowLength      mbigConfig
+                arrowThickness   = msmallConfig.getArrowThickness   mbigConfig
+                dnsPlaneSize     = msmallConfig.getDnsPlaneSize     mbigConfig
+                offset           = msmallConfig.getOffset           mbigConfig
+                pickingTolerance = msmallConfig.getPickingTolerance mbigConfig
+            }
+
+        let annoSet = 
+            model.annotations.flat 
+            |> AMap.choose (fun _ y -> y |> tryToAnnotation) // TODO v5: here we collapsed some avals - check correctness
+            |> AMap.toASet
+
+        let labels =              
+            annoSet 
+            |> ASet.map(fun (_,a) -> 
+               
+                           
+                let sg = Sg.finishedAnnotationText a config view
+                sg 
+            )
+            |> Sg.set   
+
+        labels
+
     let view<'ma> 
         (mbigConfig       : 'ma)
         (msmallConfig     : MSmallConfig<'ma>)

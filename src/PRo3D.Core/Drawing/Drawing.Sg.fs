@@ -281,10 +281,26 @@ module Sg =
               (offset    |> AVal.map (fun x -> x * 1.1))
         ]                                                               
 
+    let computeCenterOfMass (points : list<V3d>) =
+        let sum = points.Sum()
+        let length = (double)points.Length
+
+        sum / length
+
     let drawText' (view : aval<CameraView>) (conf: innerViewConfig) (text:aval<string>)(anno : AdaptiveAnnotation) = 
-        let points = anno.points |> AList.toAVal
-        let pos = points |> AVal.map(fun a -> a |> IndexList.toList |> List.head)
-        Sg.text view conf.nearPlane conf.hfov pos anno.modelTrafo anno.textsize.value text
+        let points = 
+            anno.points 
+            |> AList.toAVal
+            
+        let pos = 
+            points 
+            |> AVal.map(fun a -> 
+                a 
+                |> IndexList.toList 
+                |> computeCenterOfMass
+            )
+
+        Sg.text view conf.nearPlane conf.hfov pos (pos |> AVal.map Trafo3d.Translation) anno.textsize.value text
     
     let drawText (view : aval<CameraView>) (conf: innerViewConfig) (anno : AdaptiveAnnotation) = 
         drawText' view conf anno.text anno
@@ -391,6 +407,15 @@ module Sg =
             dotsAndText
         ] |> optional anno.visible
 
+    let finishedAnnotationText
+         (anno             : AdaptiveAnnotation) 
+         (config           : innerViewConfig)
+         (view             : aval<CameraView>) =
+        
+        anno.text 
+        |> AVal.map2 (fun show text -> (String.IsNullOrEmpty text) || show ) anno.showText
+        |> optionalSet (drawText view config anno)
+        |> Sg.set
 
     let finishedAnnotation 
         (anno             : AdaptiveAnnotation) 
@@ -454,7 +479,7 @@ module Sg =
             selectionSg
             //pickingLines
             //dotsAndText
-            (texts |> Sg.set)
+            //(texts |> Sg.set)
         ] |> optional anno.visible
     
     let finishedAnnotationDiscs (anno : AdaptiveAnnotation) (conf:innerViewConfig) (cl : AdaptiveFalseColorsModel) (cam:aval<CameraView>) =

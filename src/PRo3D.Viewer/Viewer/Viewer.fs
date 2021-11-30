@@ -1835,13 +1835,18 @@ module ViewerApp =
                 ]
                 |> Sg.ofList
                 |> Sg.map TraverseMessage
-
-            
-
+           
             let heightValidation =
                 HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation            
             
             let orientationCube = PRo3D.OrientationCube.Sg.view m.navigation.camera.view m.scene.config m.scene.referenceSystem
+
+            let annotationTexts =
+                DrawingApp.viewTextLabels 
+                    m.scene.config
+                    mdrawingConfig
+                    m.navigation.camera.view
+                    m.drawing            
 
             let scaleBarTexts = 
                 ScaleBarsApp.Sg.viewTextLabels 
@@ -1856,6 +1861,7 @@ module ViewerApp =
                 viewPlans; 
                 homePosition; 
                 solText; 
+                annotationTexts |> Sg.noEvents
                 heightValidation
                 scaleBarTexts
                 traverse
