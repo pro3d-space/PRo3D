@@ -1715,23 +1715,35 @@ module ViewerApp =
         let icam = 
             AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
 
+        //let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
+        //let camera    = AVal.map2 Camera.create m.navigation.camera.view frustum
+        let sg (cvs : ClientValues) = 
+            //render OPCs in priority groups
+            let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed discsInst false m
+            Sg.execute (RenderCommand.Ordered cmds)
+                |> Sg.noEvents
+        let attributes = renderControlAttributes id m
+        onBoot "attachResize('__ID__')" (
+            DomNode.RenderControl(attributes, icam, sg, RenderControlConfig.standard, None)
+        )
+
         //onBoot "attachResize('__ID__')" (
         //    DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
         //)
-        onBoot "attachResize('__ID__')" (
-            DomNode.RenderControl((instrumentControlAttributes id m), icam, icmds, None) //AttributeMap.Empty
-        )
+        //onBoot "attachResize('__ID__')" (
+        //    DomNode.RenderControl((instrumentControlAttributes id m), icam, icmds, None) //AttributeMap.Empty
+        //)
 
-    let viewRenderView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
+    let createSg (runtime : IRuntime) (id : string) (useSceneCamera : bool) (m: AdaptiveModel) =  
 
         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
-        let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
+        
 
         let annotations, discs = 
             DrawingApp.view 
                 m.scene.config 
                 mdrawingConfig 
-                m.navigation.camera.view 
+                (if useSceneCamera then m.scene.cameraView else m.navigation.camera.view )
                 frustum
                 runtime
                 (m.viewPortSizes |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
@@ -1935,11 +1947,23 @@ module ViewerApp =
                 traverse
             ] |> Sg.ofList
 
-        //render OPCs in priority groups
-        let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested true m
+        overlayed, depthTested
+
+    let viewRenderView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
+        let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
+        let camera    = AVal.map2 Camera.create m.navigation.camera.view frustum
+        let sg (cvs : ClientValues) = 
+            let overlayed, depthTested = createSg cvs.runtime id true m
+            //render OPCs in priority groups
+            let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested true m
+            Sg.execute (RenderCommand.Ordered cmds)
+                |> Sg.noEvents
+        let attributes = renderControlAttributes id m
         onBoot "attachResize('__ID__')" (
-            DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
+            
+            DomNode.RenderControl(attributes, camera, sg, RenderControlConfig.standard, None)
         )
+
         
     let view (runtime : IRuntime) (m: AdaptiveModel) = //(localhost: string)
 

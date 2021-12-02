@@ -88,7 +88,7 @@ let getFreePort() =
    
 [<EntryPoint;STAThread>]
 let main argv = 
-
+    Aardvark.Rendering.GL.Config.UseNewRenderTask <- true
     // ensure appdata is here
     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create) |> printfn "ApplicationData: %s"
     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.Create) |> printfn "LocalApplicationData: %s"

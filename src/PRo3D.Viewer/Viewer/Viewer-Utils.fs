@@ -523,7 +523,11 @@ module ViewerUtils =
             |> Sg.set
             |> (camera |> Sg.camera)
 
-    let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (allowFootprint : bool) (m:AdaptiveModel) : alist<RenderCommand<ViewerAction>> =
+    let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) 
+                       (overlayed : ISg<'msg>)
+                       (depthTested : ISg<'msg>)
+                       (allowFootprint : bool) 
+                       (m:AdaptiveModel) : alist<RenderCommand> =
         let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true
 
@@ -572,7 +576,8 @@ module ViewerUtils =
                     |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
                     |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()
 
-                yield RenderCommand.SceneGraph sg
+                yield Aardvark.SceneGraph.RenderCommand.Ordered [sg :> ISg]
+                //yield RenderCommand.SceneGraph sg
 
                 //if i = c then //now gets rendered multiple times
                  // assign priorities globally, or for each anno and make sets
@@ -582,11 +587,12 @@ module ViewerUtils =
                         | Some e when System.Object.ReferenceEquals(e,set) -> depthTested 
                         | _ -> Sg.empty
                     )
-                yield RenderCommand.SceneGraph (depthTested |> Sg.dynamic)
+                yield Aardvark.SceneGraph.RenderCommand.Ordered [(depthTested |> Sg.dynamic :> ISg)]
 
-                yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
-
-            yield RenderCommand.SceneGraph overlayed
+                //yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
+                yield Aardvark.SceneGraph.RenderCommand.Clear(1.0, 0u)
+                
+            yield Aardvark.SceneGraph.RenderCommand.Ordered [overlayed :> ISg]
 
         }
 

@@ -23,7 +23,7 @@ open PRo3D
 open PRo3D.Base
 open PRo3D.Core
 open PRo3D.Core.Surface
-open PRo3DCompability
+//open PRo3DCompability
 
 
 
