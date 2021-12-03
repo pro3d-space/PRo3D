@@ -590,6 +590,45 @@ module ViewerUtils =
 
         }
 
+module Jezero =
+    open PRo3D.Base
+
+    open Aether
+    open Aether.Operators
+    
+    let galeBounds = Box2i(V2i(3,9), V2i(19,16))
+    let isJezero x = x.importPath |> String.contains "Jezero"
+    
+
+    let _translation = Surface.transformation_ >-> Transformations.translation_ >-> V3dInput.value_
+    let _quality = Surface.quality_ >-> NumericInput.value_
+
+    let hack surfaces =
+
+        let surfaces =
+            surfaces                         
+            |> IndexList.filter(fun x -> 
+                if isJezero x then
+                    let parsedPath = 
+                        x.importPath 
+                        |> Path.GetFileName 
+                        |> String.split('_')
+                    
+                    //let gridCoord = new V2i((parsedPath.[1] |> Int32.Parse), (parsedPath.[2] |> Int32.Parse))
+                    //galeBounds.Contains(gridCoord)   
+                    true
+                else
+                    true
+            )
+            |> IndexList.map(fun x ->
+                if isJezero x then
+                    x                     
+                    |> Optic.set _quality (5.0)
+                else    
+                    x
+            )
+        surfaces
+
 module GaleCrater =
     open PRo3D.Base
 

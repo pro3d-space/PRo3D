@@ -166,15 +166,18 @@ module TraverseApp =
         let viewText view near (model : AdaptiveTraverse) =
             alist {
                 let! sols = model.sols
-                for sol in sols do
-                    let loc = ~~(sol.location + sol.location.Normalized * 1.5)
-                    let trafo = loc |> AVal.map Trafo3d.Translation
-                    
-                    yield Sg.text view near (AVal.constant 60.0) loc trafo ~~0.05  (~~sol.solNumber.ToString())
+                let! showText = model.showText
+
+                if showText then
+                    for sol in sols do
+                        let loc = ~~(sol.location + sol.location.Normalized * 1.5)
+                        let trafo = loc |> AVal.map Trafo3d.Translation
+                        
+                        yield Sg.text view near (AVal.constant 60.0) loc trafo ~~0.05  (~~sol.solNumber.ToString())
             } 
             |> ASet.ofAList 
             |> Sg.set
-            |> Sg.onOff model.showText
+            //|> Sg.onOff model.showText
 
 
         let viewCoordinateCross (refSystem : AdaptiveReferenceSystem) (trafo : aval<Trafo3d>) =

@@ -776,6 +776,7 @@ module ViewerApp =
                     
                 //gale crater hook
                 let surfaces = GaleCrater.hack surfaces
+                let surfaces = Jezero.hack surfaces
 
                 let m = SceneLoader.import' runtime signature surfaces m 
                 //updateSceneWithNewSurface m
@@ -1182,8 +1183,11 @@ module ViewerApp =
             let m =
                 match k with 
                 | Aardvark.Application.Keys.F6 ->
-                    let t = TraverseApp.update m.scene.traverse (TraverseAction.LoadTraverse @".\M20_waypoints.json")
-                    { m with scene = { m.scene with traverse = t }}
+                    if (m.scene.traverse.sols.IsEmpty) then
+                        let t = TraverseApp.update m.scene.traverse (TraverseAction.LoadTraverse @".\M20_waypoints.json")
+                        { m with scene = { m.scene with traverse = t }}
+                    else 
+                        { m with scene = { m.scene with traverse = Traverse.initial }}
                 | _ -> m
 
             { m with scene = { m.scene with config = c' }; interaction = interaction'}
