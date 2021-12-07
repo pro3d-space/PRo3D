@@ -161,10 +161,10 @@ let startApplication (startupArgs : CLStartupArgs) =
         let port = getFreePort()
         let uri = sprintf "http://localhost:%d" port
 
-        let (mainApp, mModel) = failwith "reactivate Snapshots"
-            //ViewerApp.startAndReturnMModel runtime signature viewerArgs messagingMailbox sendQueue dumpFile cacheFile uri
+        let (mainApp, mModel) = //failwith "reactivate Snapshots"
+            ViewerApp.startAndReturnMModel runtime signature viewerArgs messagingMailbox sendQueue dumpFile cacheFile uri
 
-        let s = { MailboxState.empty with update = failwith "reactivate Snapshots" } // mainApp.update Guid.Empty }
+        let s = { MailboxState.empty with update = mainApp.update Guid.Empty }
         MailboxAction.InitMailboxState s |> messagingMailbox.Post
   
      

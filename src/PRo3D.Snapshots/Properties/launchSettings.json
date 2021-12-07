@@ -2,7 +2,7 @@
   "profiles": {
     "PRo3D.Viewer": {
       "commandName": "Project",
-      "commandLineArgs": "--scn snapshotScene.pro3d --asnap batchRendering.json --out C:\\Users\\rnowak\\Desktop\\tmp\\tmp --exitOnFinish"
+      "commandLineArgs": "--scn \"snapshotScene.pro3d\" --asnap \"d:\\VRVis\\Aaardvark\\PRo3D_v51\\PRo3D\\bin\\Debug\\net5.0\\images\\batchRendering.json\" --out \"d:\\VRVis\\Aaardvark\\PRo3D_v51\\PRo3D\\bin\\Debug\\net5.0\\images\""
     }
   }
 }

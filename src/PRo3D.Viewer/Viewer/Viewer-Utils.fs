@@ -463,65 +463,87 @@ module ViewerUtils =
             
         ]
 
-    //TODO TO refactor screenshot specific
-    let getSurfacesScenegraphs (m:AdaptiveModel) =
-        let sgGrouped = m.scene.surfacesModel.sgGrouped
-        
-      //  let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
-        let usehighlighting = true |> AVal.constant //m.scene.config.useSurfaceHighlighting
+    let sgs (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) 
+            (overlayed : ISg<'msg>)
+            (depthTested : ISg<'msg>)
+            (allowFootprint : bool) 
+            (m:AdaptiveModel) =
+        let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
+        let filterTexture = ~~true
+
+        //avoids kdtree intersections for certain interactions
+        let surfacePicking = 
+            m.interaction 
+            |> AVal.map(fun x -> 
+                match x with
+                | Interactions.PickAnnotation | Interactions.PickLog -> false
+                | _ -> true
+            )
+
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 
-                    |> AMap.map(fun _ sf -> 
-                        let bla = m.scene.surfacesModel.surfaces.flat
+                    |> AMap.map(fun _ surface ->                         
                         viewSingleSurfaceSg 
-                            sf 
-                            bla 
+                            surface 
+                            m.scene.surfacesModel.surfaces.flat
                             m.frustum 
                             selected 
-                            m.ctrlFlag 
-                            sf.globalBB 
+                            surfacePicking
+                            surface.globalBB
                             refSystem 
                             m.footPrint 
                             m.scene.viewPlans.selectedViewPlan
-                            usehighlighting m.filterTexture
-                            true)
+                            usehighlighting filterTexture
+                            allowFootprint
+                        )
                     |> AMap.toASet 
-                    |> ASet.map snd                     
+                    |> ASet.map snd        
+                    |> Sg.set
+                    |> Sg.effect [surfaceEffect]
+                    |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
+                    |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()                    
                 )                
             )
+
         //grouped   
-        let sgs =
-            alist {        
-                let mutable i = 0
-                for set in grouped do
-                    i <- i + 1
-                    let sg = 
-                        set 
-                        |> Sg.set
-                        |> Sg.effect [surfaceEffect]
-                        //|> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-                        |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()                        
+        let last = grouped |> AList.tryLast
+        let sg = 
+            [
+                grouped 
+                    |> AList.map (fun x -> x :> ISg)
+                    |> RenderCommand.Ordered
+                Aardvark.SceneGraph.RenderCommand.Clear(1.0, 0u)
+                Aardvark.SceneGraph.RenderCommand.Ordered [(depthTested :> ISg)]
+                Aardvark.SceneGraph.RenderCommand.Clear(1.0, 0u)
+                Aardvark.SceneGraph.RenderCommand.Ordered [overlayed :> ISg]
+            ] |> Aardvark.SceneGraph.RenderCommand.Ordered
+              |> Sg.execute
+        
+        let foo = 
+            alist {                    
+                for sg in grouped do            
+                    yield sg //:> ISg
+                    //yield RenderCommand.SceneGraph sg
 
-                    yield  sg
 
-                        //if i = c then //now gets rendered multiple times
-                         // assign priorities globally, or for each anno and make sets
-            
-            }                              
-        sgs
-  
-    //TODO TO refactor screenshot specific
-    let getSurfacesSgWithCamera (m : AdaptiveModel) =
-        let sgs = getSurfacesScenegraphs m
-        let camera =
-            AVal.map2 (fun v f -> Camera.create v f) m.scene.cameraView m.frustum 
-        sgs 
-            |> ASet.ofAList
-            |> Sg.set
-            |> (camera |> Sg.camera)
+                    //let depthTested =
+                    //    last 
+                    //    |> AVal.map (function 
+                    //        | Some e when System.Object.ReferenceEquals(e,set) -> depthTested 
+                    //        | _ -> Sg.empty
+                    //    )
+                    //!yield Aardvark.SceneGraph.RenderCommand.Ordered [(depthTested |> Sg.dynamic :> ISg)]
+
+                    //yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
+                  //!  yield Aardvark.SceneGraph.RenderCommand.Clear(1.0, 0u)
+                   
+               //! yield Aardvark.SceneGraph.RenderCommand.Ordered [overlayed :> ISg]
+
+            }
+        sg
 
     let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) 
                        (overlayed : ISg<'msg>)

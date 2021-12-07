@@ -140,7 +140,7 @@ module SnapshotGenerator =
                     | Some fov -> fov
                     | None -> SnapshotApp.defaultFoV
                 let frustum,_,_,_ = SnapshotApp.calculateFrustumRecalcNearFar data
-                let sg = failwith "reactivate snapshots" //ViewerUtils.debugSg (mModel)
+                let sg = ViewerApp.sg
                     //(PRo3D.ViewerApp.sceneGraph data.resolution frustum) 
                 let snapshotApp : SnapshotApp<Model, AdaptiveModel, ViewerAction> = 
                     {

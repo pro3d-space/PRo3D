@@ -1734,10 +1734,9 @@ module ViewerApp =
         //    DomNode.RenderControl((instrumentControlAttributes id m), icam, icmds, None) //AttributeMap.Empty
         //)
 
-    let createSg (runtime : IRuntime) (id : string) (useSceneCamera : bool) (m: AdaptiveModel) =  
-
+    let createRenderCommandsRenderingView (runtime : IRuntime) (id : string) 
+                                          (useSceneCamera : bool) (m: AdaptiveModel) = 
         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
-        
 
         let annotations, discs = 
             DrawingApp.view 
@@ -1947,20 +1946,21 @@ module ViewerApp =
                 traverse
             ] |> Sg.ofList
 
-        overlayed, depthTested
+        let cmds = ViewerUtils.sgs m.scene.surfacesModel.sgGrouped overlayed depthTested true m
+        cmds
 
     let viewRenderView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
-        let camera    = AVal.map2 Camera.create m.navigation.camera.view frustum
-        let sg (cvs : ClientValues) = 
-            let overlayed, depthTested = createSg cvs.runtime id true m
+        let camera = AVal.map2 Camera.create m.navigation.camera.view frustum
+
+        let sg = 
             //render OPCs in priority groups
-            let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested true m
-            Sg.execute (RenderCommand.Ordered cmds)
-                |> Sg.noEvents
+            let sg  = createRenderCommandsRenderingView runtime id false m
+            sg |> Sg.noEvents
         let attributes = renderControlAttributes id m
         onBoot "attachResize('__ID__')" (
-            
+            //DomNode.RenderControl()
+
             DomNode.RenderControl(attributes, camera, sg, RenderControlConfig.standard, None)
         )
 
@@ -1982,6 +1982,13 @@ module ViewerApp =
             fun request -> 
                 Gui.Pages.pageRouting viewerDependencies bodyAttributes m viewInstrumentView viewRenderView runtime request
         )
+
+    let sg (runtime : IRuntime) (m: AdaptiveModel) =
+        let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
+        let camera = AVal.map2 Camera.create m.navigation.camera.view frustum
+        let sg  = createRenderCommandsRenderingView runtime (System.Guid.Empty.ToString ()) true m
+        sg
+        
                    
     let threadPool (m: Model) =
         let unionMany xs = List.fold ThreadPool.union ThreadPool.empty xs
@@ -2014,6 +2021,20 @@ module ViewerApp =
             let wp = Serialization.loadAs<IndexList<WayPoint>> path
             { m with waypoints = wp }
         | None -> m
+
+    let loadData (runtime: IRuntime) (signature: IFramebufferSignature) dumpFile cacheFile viewer =
+        viewer
+            |> SceneLoader.loadLastScene runtime signature
+            |> SceneLoader.loadLogBrush
+            |> ViewerIO.loadRoverData                
+            |> ViewerIO.loadAnnotations
+            |> ViewerIO.loadCorrelations
+            |> ViewerIO.loadLastFootPrint
+            |> ViewerIO.loadMinerva dumpFile cacheFile
+            |> ViewerIO.loadLinking
+            |> SceneLoader.addScaleBarSegments
+            |> SceneLoader.addGeologicSurfaces
+
     
     let start (runtime: IRuntime) (signature: IFramebufferSignature)(startEmpty: bool) 
                messagingMailbox sendQueue dumpFile cacheFile url =
@@ -2021,21 +2042,31 @@ module ViewerApp =
         let m = 
             if startEmpty |> not then
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs url dataSamples
-                |> SceneLoader.loadLastScene runtime signature
-                |> SceneLoader.loadLogBrush
-                |> ViewerIO.loadRoverData                
-                |> ViewerIO.loadAnnotations
-                |> ViewerIO.loadCorrelations
-                |> ViewerIO.loadLastFootPrint
-                |> ViewerIO.loadMinerva dumpFile cacheFile
-                |> ViewerIO.loadLinking
-                |> SceneLoader.addScaleBarSegments
-                |> SceneLoader.addGeologicSurfaces
+                    |> loadData runtime signature dumpFile cacheFile
             else
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs url dataSamples 
-                |> ViewerIO.loadRoverData
+                    |> ViewerIO.loadRoverData
 
         App.start {
+            unpersist = Unpersist.instance
+            threads   = threadPool
+            view      = view runtime //localhost
+            update    = update runtime signature sendQueue messagingMailbox
+            initial   = m
+        }
+
+    let startAndReturnMModel (runtime: IRuntime) (signature: IFramebufferSignature)
+                                (startupArgs : StartupArgs) messagingMailbox sendQueue dumpFile cacheFile url =
+        let m = 
+            if startupArgs.startEmpty |> not then
+                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs url dataSamples
+                    |> loadData runtime signature dumpFile cacheFile
+            else
+                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs url dataSamples 
+                    |> ViewerIO.loadRoverData
+        let m = {m with startupArgs = startupArgs}
+       
+        AppExtension.start' {
             unpersist = Unpersist.instance
             threads   = threadPool
             view      = view runtime //localhost
