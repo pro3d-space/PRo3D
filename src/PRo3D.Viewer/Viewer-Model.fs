@@ -303,7 +303,6 @@ module Scene =
             let! navigationMode  = Json.read "navigationMode"
             let! exploreCenter   = Json.read "exploreCenter" 
             
-            let! traverse       = Json.read "traverse"
             let! interactionMode = Json.read "interactionMode"
             let! surfaceModel    = Json.read "surfaceModel"
             let! config          = Json.read "config"
@@ -316,6 +315,7 @@ module Scene =
             let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
             let! geologicSurfacesModel  = Json.read "geologicSurfacesModel"
             let! sequencedBookmarks     = Json.tryRead "sequencedBookmarks"
+            let! traverse       = Json.tryRead "traverse"
             //let! viewplans     = Json.tryRead "viewplans"
 
             return 
@@ -343,7 +343,7 @@ module Scene =
                     sceneObjectsModel       = sceneObjectsModel
                     geologicSurfacesModel   = geologicSurfacesModel
 
-                    traverse                = traverse
+                    traverse                = traverse |> Option.defaultValue(Traverse.initial)
                     sequencedBookmarks      = if sequencedBookmarks.IsSome then sequencedBookmarks.Value else SequencedBookmarks.initial
                     comparisonApp           = if comparisonApp.IsSome then comparisonApp.Value else ComparisonApp.init
                 }
