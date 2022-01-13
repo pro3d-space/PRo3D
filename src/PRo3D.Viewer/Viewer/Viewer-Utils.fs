@@ -623,7 +623,7 @@ module Jezero =
             |> IndexList.map(fun x ->
                 if isJezero x then
                     x                     
-                    |> Optic.set _quality (5.0)
+                    |> Optic.set _quality (1.0)
                 else    
                     x
             )

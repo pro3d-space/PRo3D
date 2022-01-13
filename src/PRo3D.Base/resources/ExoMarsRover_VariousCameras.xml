@@ -483,12 +483,12 @@
                 </ZoomStep>
                 <ZoomStep>
                     <!-- focal length in mm (PRo3D: as user information) -->
-                    <FocalLength>100</FocalLength>
+                    <FocalLength>110</FocalLength>
                     <Filter>
                         <!-- filter id -->
                         <FilterID>RGB (visually clear)</FilterID>
                         <!-- focal lengths per pixel (PRo3D: optional/not used) -->
-                        <FocalLengthPx>13500, 13500</FocalLengthPx>
+                        <FocalLengthPx>14912, 14912</FocalLengthPx>
                         <!-- angle (gon) for camera horizontal FoV (PRo3D: viewing frustrum) -->
                         <HorizontalFoV>7.54</HorizontalFoV>
                         <!-- angle (gon) for camera vertical FoV (PRo3D: viewing frustrum) --> 
@@ -550,12 +550,12 @@
                 </ZoomStep>
                 <ZoomStep>
                     <!-- focal length in mm (PRo3D: as user information) -->
-                    <FocalLength>100</FocalLength>
+                    <FocalLength>110</FocalLength>
                     <Filter>
                         <!-- filter id -->
                         <FilterID>RGB (visually clear)</FilterID>
                         <!-- focal lengths per pixel (PRo3D: optional/not used) -->
-                        <FocalLengthPx>13500, 13500</FocalLengthPx>
+                        <FocalLengthPx>14912, 14912</FocalLengthPx>
                         <!-- angle (gon) for camera horizontal FoV (PRo3D: viewing frustrum) -->
                         <HorizontalFoV>7.54</HorizontalFoV>
                         <!-- angle (gon) for camera vertical FoV (PRo3D: viewing frustrum) --> 

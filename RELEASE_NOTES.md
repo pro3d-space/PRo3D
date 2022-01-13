@@ -1,3 +1,9 @@
+## 4.6.1-prerelease1
+
+- added viewplanner placement for traverse waypoints
+- changed text positions for all annotations to center of the object
+- fixed instrument view text scaling bug
+
 ## 4.6.0-prerelease1
 
 - revived viewplanner and footprint projection

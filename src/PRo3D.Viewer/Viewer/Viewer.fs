@@ -1184,7 +1184,16 @@ module ViewerApp =
                 match k with 
                 | Aardvark.Application.Keys.F6 ->
                     if (m.scene.traverse.sols.IsEmpty) then
-                        let t = TraverseApp.update m.scene.traverse (TraverseAction.LoadTraverse @".\M20_waypoints.json")
+                        let waypointPath = 
+                            Path.combine [
+                                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); 
+                                "Pro3D"
+                                "JR"
+                                "CooTransformationConfig"
+                                "M20_waypoints.json"
+                            ]
+
+                        let t = TraverseApp.update m.scene.traverse (TraverseAction.LoadTraverse waypointPath)
                         { m with scene = { m.scene with traverse = t }}
                     else 
                         { m with scene = { m.scene with traverse = Traverse.initial }}
