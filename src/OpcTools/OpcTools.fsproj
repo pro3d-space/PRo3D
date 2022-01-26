@@ -8,18 +8,14 @@
     <OutputPath>..\..\bin\Debug\</OutputPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <OutputPath>..\..\bin\Release</OutputPath>
+    <OutputPath>..\..\bin\Debug\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="MemoryLeakTest.fs" />
-    <Compile Include="TestViewer.fs" />
-    <Compile Include="AnnotationViewer.fs" />
-    <Compile Include="Program.fs" />
+    <None Include="Readme.md" />
+    <Compile Include="LoadTexture.fs" />
+    <Compile Include="EstimateGpuMemory.fs" />
     <None Include="paket.references" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
-    <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
+    <Compile Include="Program.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

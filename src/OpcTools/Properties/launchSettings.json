@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "CommandLineTools": {
+      "commandName": "Project",
+      "commandLineArgs": "estimateGpuMemory I:\\OPC\\Shaler_OPCs_2019\\Shaler_Navcam"
+    }
+  }
+}
