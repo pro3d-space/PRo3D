@@ -73,6 +73,7 @@ module App =
                 {
                    cameraState = initialCamera
                    background = C4b.Black
+                   
                 }
             update = update
             view = view
