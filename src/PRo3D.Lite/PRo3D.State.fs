@@ -9,6 +9,27 @@ open Aardvark.Rendering
 open Adaptify.FSharp
 open Adaptify
 
+
+//type Elipsoid = 
+//    | MarsIAU
+//    | WSG84
+
+//type LocalFrame = 
+//    | JPL
+//    | ENU
+
+//type CoordinateFrames =     
+//    | Global      of Elipsoid   // registered
+//    | Local       of LocalFrame // camera center
+
+//type Coordinates =
+//    | LatLonAlt of Elipsoid * lat : float * lon : float * alt : float 
+//    | Xyz of V3d
+
+type ImportCoordinateFrame = 
+    | Local
+    | Global
+
 type Opc = {
     opc   : PatchHierarchy
 }
@@ -31,6 +52,7 @@ type Annotation =
         points : list<V3d>
     }
 
+[<ModelType>]
 type State = 
     {
         surfaces : HashMap<string, Surface>

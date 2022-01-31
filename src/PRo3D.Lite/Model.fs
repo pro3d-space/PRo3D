@@ -13,7 +13,7 @@ type Message =
 [<ModelType>]
 type Model = 
     {
-        orbitState  : OrbitState
+        //orbitState  : OrbitState
         cameraState : CameraControllerState
         background  : C4b
 
