@@ -37,6 +37,82 @@ module App =
             { model with cameraState = initialCamera }
 
 
+    let renderToScene (cam : aval<Camera>) (createSg : IFramebufferSignature -> ISg)= 
+           let scene = 
+               Scene.custom (fun (values : ClientValues) -> 
+
+                   let cam = 
+                       (values.size, cam) 
+                       ||> AVal.map2 (fun size camera -> Camera.create camera.cameraView (RenderControlConfig.fillHeight.adjustAspect size camera.frustum))
+                
+
+                   let signature =
+                       values.runtime.CreateFramebufferSignature(
+                           1,
+                           Map.ofList [
+                               DefaultSemantic.Colors, RenderbufferFormat.Rgb8
+                               DefaultSemantic.Depth, RenderbufferFormat.Depth24Stencil8
+                           ]
+                       )
+                   let mutable task = RenderTask.empty
+                   let mutable results : option<IAdaptiveResource<IFramebuffer>> = None
+
+                   let fbo = values.runtime.CreateFramebuffer(signature, values.size)
+                   let sg = createSg signature
+
+                   let color =
+                       { new AdaptiveResource<ITexture>() with
+                           override x.Create() =
+                               task <-
+                                   RenderTask.ofList [
+                                       values.runtime.CompileClear(
+                                           signature, 
+                                           AVal.constant (Map.ofList [DefaultSemantic.Colors, C4f.White; ]), 
+                                           AVal.constant (Some 1.0), AVal.constant None
+                                       )
+                                       sg |> Sg.camera cam |> Sg.compile values.runtime signature
+                                   ]
+                               let res = task |> RenderTask.renderTo fbo
+                               res.Acquire()
+                               results <- Some res
+
+                           override x.Destroy() =
+                               match results with
+                               | Some res -> res.Release()
+                               | None -> ()
+                               task.Dispose()
+                               task <- RenderTask.empty
+
+
+                           override x.Compute(t, rt) =
+                               match results with
+                               | Some results ->
+                                   let fbo = results.GetValue(t, rt)
+                                              
+                                   let getTexture (fbo : IFramebufferOutput) =
+                                       match fbo with
+                                       | :? ITextureLevel as t -> t.Texture
+                                       | _ -> failwithf "not a texture: %A" fbo
+
+                                   let color = fbo.Attachments.[DefaultSemantic.Colors] |> getTexture
+
+
+                                   color :> ITexture
+                               | None ->
+                                   NullTexture() :> ITexture
+                       }
+
+                   let final = 
+                       Sg.fullScreenQuad
+                       |> Sg.diffuseTexture color
+                       |> Sg.shader {
+                           do! DefaultSurfaces.diffuseTexture
+                       }
+
+                   final |> Sg.compile values.runtime values.signature
+               )
+           scene
+
     let viewScene (runner : Load.Runner) (model : AdaptiveModel) =
         let renderControl = 
 
@@ -55,9 +131,9 @@ module App =
                     FreeFlyController.extractAttributes model.cameraState Camera |> AttributeMap.ofAMap
                 ]
                 
-            let frustum = Frustum.perspective 60.0 0.01 1000.0 1.0 |> AVal.constant
-            let camera : aval<Camera> = (model.cameraState.view, frustum) ||> AVal.map2 Camera.create
-            let createSgs (clientValues : ClientValues) = 
+            let frustum = Frustum.perspective 60.0 0.1 1000.0 1.0 |> AVal.constant
+            let camera : aval<Camera> = (model.cameraState.view, frustum) ||> AVal.map2 (fun v p -> Camera.create v p)
+            let createSgs (signature : IFramebufferSignature) = 
                 let surfaceSg = 
                     model.state.surfaces 
                     |> AMap.toASet 
@@ -66,18 +142,28 @@ module App =
                         |> AMap.toASet 
                         |> ASet.map (fun (opcId, opc) -> 
                             PatchLod.toRoseTree opc.opc.tree
-                            |> Sg.patchLod clientValues.signature runner opcId DefaultMetrics.mars false false ViewerModality.XYZ true 
+                            |> Sg.patchLod signature runner opcId DefaultMetrics.mars false true ViewerModality.XYZ true 
+                            |> Sg.shader {
+                                do! DefaultSurfaces.stableTrafo
+                                do! DefaultSurfaces.diffuseTexture
+                            }
                         )
                         |> Sg.set
                     )
                     |> Sg.set
-                surfaceSg |> Sg.noEvents
+                surfaceSg 
+                
 
-            DomNode.RenderControl(renderControlAttributes, camera, createSgs,   
-                RenderControlConfig.standard, None
-            )
+            let scene = renderToScene camera createSgs
+
+            //DomNode.RenderControl(attributes, camera, (fun (c : ClientValues) -> createSgs c.signature |> Sg.noEvents), RenderControlConfig.standard, None )
+            DomNode.RenderControl(attributes, camera, scene, None)
+            
 
         renderControl
+
+
+   
 
     let view (runner : Load.Runner) (model : AdaptiveModel) =
 
@@ -119,6 +205,17 @@ module App =
 
         let surface = { opcs = opcs; trafo = Trafo3d.Identity }
 
+        let cameraView = PRo3DApi.Surface.centerView surface
+
+        let speed = 5.0
+        let cfg =
+            { FreeFlyController.initial.freeFlyConfig with
+                moveSensitivity = 0.35 + speed
+                zoomMouseWheelSensitivity = 0.8 * (2.0 ** speed)
+                panMouseSensitivity = 0.01 * (2.0 ** speed)
+                dollyMouseSensitivity = 0.01 * (2.0 ** speed)
+            }
+
         let state =
             {
                 surfaces =  HashMap.ofList ["victoria crater", surface]
@@ -129,8 +226,8 @@ module App =
             threads = threads
             initial =
                 {
-                   cameraState = initialCamera
-                   background = C4b.Black
+                   cameraState =  { initialCamera with view = cameraView; freeFlyConfig = cfg }
+                   background = C4b.Gray
                    state = state
                 }
             update = update

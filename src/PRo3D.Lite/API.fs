@@ -9,6 +9,9 @@ open Aardvark.Rendering
 open Adaptify.FSharp
 open Adaptify
 
+open PRo3D.Base
+open PRo3D.Lite
+
 module DataAPI = 
 
     /// ray is in global coord. MarsIAU
@@ -16,12 +19,24 @@ module DataAPI =
         failwith ""
 
 
-    let centerView (opcs : Surface) : CameraView = 
-        failwith ""
 
 module PRo3DApi =
 
     module Surface =
+
+        let centerView (surface : Surface) : CameraView = 
+            let bbs = 
+                surface.opcs 
+                |> Seq.map (fun (_,opc) -> 
+                    match opc.opc.tree with
+                    | QTree.Leaf p -> p.info.GlobalBoundingBox
+                    | QTree.Node(p,_) -> p.info.GlobalBoundingBox
+                )
+            let bb = Box3d(bbs)
+            let pos = bb.Max 
+            // TODO
+            let up = CooTransformation.getUpVector pos Planet.Mars
+            CameraView.lookAt bb.Max bb.Center up
 
         let flyToSurface (surfaceName : string) (state : State) : State =
             state

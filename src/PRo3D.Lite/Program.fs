@@ -11,16 +11,22 @@ open Suave.WebPart
 open Aardium
 open PRo3D.Lite
 
+open PRo3D.Base
+
 
 
 [<EntryPoint; STAThread>]
 let main argv = 
     Aardvark.Init()
     Aardium.init()
+    
+    let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
+    CooTransformation.initCooTrafo appData
 
     // media apps require a runtime, which serves as renderer for your render controls.
     // you can use OpenGL or VulkanApplication.
     let useVulkan = false
+
 
     let runtime, disposable =
         if useVulkan then
@@ -28,6 +34,7 @@ let main argv =
             app.Runtime :> IRuntime, app :> IDisposable
         else
             let app = new OpenGlApplication()
+            (app :> IApplication).Runtime.ShaderCachePath <- None
             app.Runtime :> IRuntime, app :> IDisposable
     use __ = disposable
     
