@@ -12,6 +12,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="PRo3D.State.fs" />
+    <Compile Include="API.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="App.fs" />
     <Compile Include="Program.fs" />

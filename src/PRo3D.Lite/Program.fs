@@ -34,7 +34,7 @@ let main argv =
     let app = App.app
 
     let instance = 
-        app |> App.start
+        app runtime |> App.start
 
     WebPart.startServerLocalhost 4321 [ 
         MutableApp.toWebPart' runtime false instance

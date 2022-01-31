@@ -1,5 +1,14 @@
 ﻿namespace PRo3D.Lite
 
+open FSharp.Data.Adaptive
+
+open Aardvark.Base
+open Aardvark.SceneGraph.Opc
+open Aardvark.Rendering
+
+open Adaptify.FSharp
+open Adaptify
+
 module DataAPI = 
 
     /// ray is in global coord. MarsIAU
