@@ -17,7 +17,5 @@ type Model =
         cameraState : CameraControllerState
         background  : C4b
 
-
-
         state : State
     }
