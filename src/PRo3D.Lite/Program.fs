@@ -13,6 +13,7 @@ open PRo3D.Lite
 
 open PRo3D.Base
 
+type Self = Self
 
 
 [<EntryPoint; STAThread>]
@@ -38,12 +39,18 @@ let main argv =
             app.Runtime :> IRuntime, app :> IDisposable
     use __ = disposable
     
-    let app = App.app
+    let mutable mapp : MutableApp<_,_> = Unchecked.defaultof<_>
+    let emit msg = mapp.update Guid.Empty (Seq.singleton msg)
+    let app = App.app runtime emit
 
     let instance = 
-        app runtime |> App.start
+        app |> App.start
+
+    mapp <- instance
 
     WebPart.startServerLocalhost 4321 [ 
+        Reflection.assemblyWebPart typeof<Self>.Assembly
+        Reflection.assemblyWebPart typeof<Aardvark.UI.Primitives.EmbeddedResources>.Assembly
         MutableApp.toWebPart' runtime false instance
         Suave.Files.browseHome
     ] |> ignore
