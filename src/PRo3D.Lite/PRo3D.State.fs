@@ -8,6 +8,7 @@ open Aardvark.Rendering
 
 open Adaptify.FSharp
 open Adaptify
+open PRo3D.Base
 
 
 //type Elipsoid = 
@@ -57,5 +58,6 @@ type Annotation =
 type State = 
     {
         surfaces : HashMap<string, Surface>
+        planet   : Planet
     }
 

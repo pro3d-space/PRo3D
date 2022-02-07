@@ -4,6 +4,7 @@ open Aardvark.Base
 open FSharp.Data.Adaptive
 open Aardvark.UI.Primitives
 open Adaptify
+open PRo3D.Base
 
 type Message = 
     | CenterScene
@@ -21,12 +22,15 @@ type Model =
     {
         orbitState  : OrbitState
         cameraState : CameraControllerState
+        cameraMode  : CameraMode
+
         background  : C4b
 
-        cameraMode : CameraMode
+
 
         mousePos : Option<V2i>
-        cursor : Option<V3d>
+        cursor   : Option<V3d>
+        donutSizeInPixels : float
 
         state : State
     }

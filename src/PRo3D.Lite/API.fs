@@ -24,7 +24,7 @@ module PRo3DApi =
 
     module Surface =
 
-        let centerView (surface : Surface) : CameraView = 
+        let centerView (planet : Planet) (surface : Surface) : CameraView = 
             let bbs = 
                 surface.opcs 
                 |> Seq.map (fun (_,opc) -> 
@@ -35,7 +35,7 @@ module PRo3DApi =
             let bb = Box3d(bbs)
             let pos = bb.Max 
             // TODO
-            let up = CooTransformation.getUpVector pos Planet.Mars
+            let up = CooTransformation.getUpVector pos planet
             CameraView.lookAt bb.Max bb.Center up
 
         let flyToSurface (surfaceName : string) (state : State) : State =

@@ -2,6 +2,7 @@
 
 open Aardvark.Base
 open Aardvark.UI
+open PRo3D.Base
 
 module Camera =
 
@@ -19,7 +20,7 @@ module Camera =
                 freeFlyConfig = cfg
         }
     
-    let toOrbitState (sky : V3d) (radius : float) (newFreeFly : CameraControllerState) =
+    let toOrbitState (radius : float) (newFreeFly : CameraControllerState) =
         let c = newFreeFly.view.Location + newFreeFly.view.Forward * radius
         let d = newFreeFly.view.Location - c |> Vec.normalize
 
@@ -27,7 +28,7 @@ module Camera =
         let xy = d.XY / sqrt (1.0 - d.Z)
         let phi = atan2 xy.Y xy.X
 
-        { OrbitState.create sky c phi theta radius with sky = newFreeFly.view.Up }
+        { OrbitState.create newFreeFly.view.Right newFreeFly.view.Sky c phi theta radius with sky = newFreeFly.view.Up }
 
 
 module OrbitState =
@@ -36,4 +37,4 @@ module OrbitState =
         Camera.toFreeFlyState speed v
 
     let ofFreeFly (radius : float) (v : CameraControllerState) = 
-        Camera.toOrbitState v.view.Up radius v
+        Camera.toOrbitState radius v

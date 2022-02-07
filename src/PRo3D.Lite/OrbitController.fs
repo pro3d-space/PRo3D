@@ -1,4 +1,4 @@
-﻿namespace Aardvark.UI.Primitives
+﻿namespace PRo3D.Base
 
 open System
 
@@ -17,16 +17,19 @@ open System.Runtime.InteropServices
 open System.Security
 open Aardvark.Base
 
+open PRo3D.Base
 
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module OrbitState =
 
     let withView (s : OrbitState) =
-        let l = V2d(s.phi, s.theta).CartesianFromSpherical() * s.radius + s.center
-        { s with view = CameraView.lookAt l s.center s.sky }
+        let basis = M44d.FromBasis(s.right, Vec.cross s.sky s.right, s.sky, V3d.Zero)
+        let onSphere = V2d(s.phi, s.theta).CartesianFromSpherical()  * s.radius
+        let position = basis.TransformPos(onSphere) + s.center
+        { s with view = CameraView.lookAt position s.center s.sky }
 
-    let create (sky : V3d) (center : V3d) (phi : float) (theta : float) (r : float) =
+    let create (right : V3d) (sky : V3d) (center : V3d) (phi : float) (theta : float) (r : float) =
         let thetaRange = Range1d(-Constant.PiHalf + 0.0001, Constant.PiHalf - 0.0001)
         let radiusRange = Range1d(0.1, 40.0)
 
@@ -35,6 +38,7 @@ module OrbitState =
 
         withView {
             sky     = sky
+            right   = right
             center  = center
             phi     = phi
             theta   = theta
@@ -76,7 +80,7 @@ type OrbitMessage =
 module OrbitController = 
     let private sw = System.Diagnostics.Stopwatch.StartNew()
 
-    let initial = OrbitState.create V3d.OOI V3d.Zero Constant.PiQuarter Constant.PiQuarter 4.0
+    let initial = OrbitState.create V3d.OIO V3d.OOI V3d.Zero Constant.PiQuarter Constant.PiQuarter 4.0
 
     let rec update (model : OrbitState) (msg : OrbitMessage) =
         match msg with

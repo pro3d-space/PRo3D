@@ -19,6 +19,7 @@ open Aardvark.SceneGraph.Opc
 
 open PRo3D.Lite
 open Aardvark.Rendering
+open PRo3D.Base
 
 
 module App = 
@@ -51,7 +52,7 @@ module App =
         | SetMousePos pos -> 
             { model with mousePos = Some pos }
 
-    let renderToScene (cam : aval<Camera>) (createSg : IFramebufferSignature -> ISg)
+    let renderToScene (background : aval<C4b>) (cam : aval<Camera>) (createSg : aval<Camera> -> aval<V2i> -> IFramebufferSignature -> ISg)
                       (mousePos : aval<Option<V2i>>)
                       (emit : Message -> unit) = 
            let scene = 
@@ -73,17 +74,10 @@ module App =
                    let mutable task = RenderTask.empty
                    let mutable results : option<_> = None
 
-
-                   //values.runtime.CreateTexture2D(TextureFormat.Rgba8, AVal.constant 1, values.size).Aq
-                   //let attachments = 
-                   //     [
-                   //         DefaultSemantic.Colors, values.runtime.CreateTexture2D(TextureFormat.Rgba8, AVal.constant 1, values.size).GetOutputView()
-                   //         DefaultSemantic.Depth, values.runtime.CreateTexture2D(TextureFormat.Depth24Stencil8, AVal.constant 1, values.size).[TextureAspect.Color, 0, *] :> IFramebufferOutput
-                   //     ] |> Map.ofList
+                   //let resolvedColor = values.runtime.CreateTexture2D(TextureFormat.Rgba8, AVal.constant 1, values.size)
+                   //let resolvedDepth = values.runtime.CreateTexture2D(TextureFormat.DepthComponent32f, AVal.constant 1, values.size)
                         
-
-                   //let fbo = values.runtime.CreateFramebuffer(signature, values.size)
-                   let sg = createSg signature
+                   let sg = createSg cam values.size signature
 
                    let color =
                        { new AdaptiveResource<ITexture>() with
@@ -92,7 +86,7 @@ module App =
                                    RenderTask.ofList [
                                        values.runtime.CompileClear(
                                            signature, 
-                                           AVal.constant (Map.ofList [DefaultSemantic.Colors, C4f.Black;]), 
+                                           background |> AVal.map (fun b -> Map.ofList [DefaultSemantic.Colors, b.ToC4f()]), 
                                            AVal.constant (Some 1.0), AVal.constant None
                                        )
                                        sg |> Sg.camera cam |> Sg.compile values.runtime signature
@@ -100,6 +94,7 @@ module App =
                                let color,depth = task |> RenderTask.renderToColorAndDepth values.size 
                                color.Acquire()
                                depth.Acquire()
+
                                results <- Some (color,depth)
 
                            override x.Destroy() =
@@ -113,16 +108,13 @@ module App =
                            override x.Compute(t, rt) =
                                match results with
                                | Some (color, depth) ->
+                                   //let resolvedColor = resolvedColor.GetValue(t)
+                                   //let resolvedDepth = resolvedDepth.GetValue(t)
                                    let depth = depth.GetValue(t, rt)
                                    let color = color.GetValue(t, rt)
                                    let projTrafo = values.projTrafo.GetValue(t)
                                    let mousePos = mousePos.GetValue(t)
                                    let camera = cam.GetValue(t)
-                                              
-                                   let getTexture (fbo : IFramebufferOutput) =
-                                       match fbo with
-                                       | :? ITextureLevel as t -> t.Texture
-                                       | _ -> failwithf "not a texture: %A" fbo
 
                                    match mousePos with
                                    | Some mousePos when mousePos.AllGreaterOrEqual(V2i.OO) && mousePos.AllSmaller color.Size.XY -> 
@@ -137,6 +129,7 @@ module App =
                                        emit (SetCursor wp)
                                    | _ -> ()
 
+                                   //values.runtime.ResolveMultisamples(color, resolvedColor, ImageTrafo.Identity)
                                    color :> ITexture
                                | _ ->
                                    NullTexture() :> ITexture
@@ -160,6 +153,7 @@ module App =
 
         type UniformScope with
             member x.CursorViewSpace : V3d = uniform?CursorViewSpace
+            member x.CursorWorldSizeSquared : V4d = uniform?CursorWorldSizeSquared
 
         type CursorVertex = 
             {
@@ -185,8 +179,8 @@ module App =
         let donutFragment (v : CursorVertex) =
             fragment {
                 
-                let d = Vec.length (uniform.CursorViewSpace - v.viewPos)
-                let r = Fun.Smoothstep(d, 5.0, 5.2) - Fun.Smoothstep(d, 5.8, 6.0)
+                let d = Vec.lengthSquared (uniform.CursorViewSpace - v.viewPos)
+                let r = Fun.Smoothstep(d, uniform.CursorWorldSizeSquared.X, uniform.CursorWorldSizeSquared.Y) - Fun.Smoothstep(d, uniform.CursorWorldSizeSquared.Z, uniform.CursorWorldSizeSquared.W)
                 return r * V4d.IIII + v.c * (1.0 - r)
             }
 
@@ -195,12 +189,11 @@ module App =
 
             let renderControlAttributes = 
                 AttributeMap.ofListCond [
-                    always <| style "width: 100%; grid-row: 2; height:100%";
-                    always <| attribute "showFPS" "true";         
+                    always <| style "width: 100%; grid-row: 2; height:100%"; 
                     "style", model.background |> AVal.map(fun c -> sprintf "background: #%02X%02X%02X" c.R c.G c.B |> AttributeValue.String |> Some)
-                    //attribute "showLoader" "false"    // optional, default is true
-                    always <| attribute "data-samples" "4"   
-                    always <| onMouseMove (fun p -> SetMousePos (V2i(p)))
+                    //attribute "showLoader" "false"   
+                    always <| attribute "data-samples" "1"   
+                    always <| onCapturedPointerMove None (fun _ p -> SetMousePos (V2i(p)))
 
                     onlyWhen (model.cameraMode |> AVal.map (function CameraMode.Orbit -> true | _ -> false )) (onMouseDoubleClick (fun _ -> SetOrbitCenter))
                 ]
@@ -229,7 +222,6 @@ module App =
                 AttributeMap.unionMany [
                     renderControlAttributes
                     cameraAttributes |> AttributeMap.ofAMap
-                    //FreeFlyController.extractAttributes model.cameraState Camera |> AttributeMap.ofAMap
                 ]
 
             let cursorViewPos =
@@ -242,7 +234,35 @@ module App =
                 
             let frustum = Frustum.perspective 60.0 0.1 10000.0 1.0 |> AVal.constant
             let camera : aval<Camera> = (model.cameraState.view, frustum) ||> AVal.map2 (fun v p -> Camera.create v p)
-            let createSgs (signature : IFramebufferSignature) = 
+            let createSgs (camera : aval<Camera>) (framebufferSize : aval<V2i>) (signature : IFramebufferSignature) = 
+
+                let donutWorldSpaceSizeSquared = 
+                    adaptive {
+                        let! mousePos = model.mousePos
+                        let! worldPos = model.cursor
+                        let! sizeInPx = model.donutSizeInPixels
+                        let! screenSize = framebufferSize
+                        match mousePos, worldPos with
+                        | Some mousePos, Some worldPos -> 
+                            let i0 = (V2d mousePos + V2d(sizeInPx, 0.0))  / V2d screenSize
+                            let i1 = (V2d mousePos + V2d(sizeInPx + 3.0, 0.0))  / V2d screenSize
+                            let i2 = (V2d mousePos + V2d(sizeInPx + 4.0, 0.0))  / V2d screenSize
+                            let i3 = (V2d mousePos + V2d(sizeInPx + 6.0, 0.0))  / V2d screenSize
+                            let! camera = camera
+                            let viewProj = Camera.viewProjTrafo camera
+                            let toWorld (tc : V2d) = 
+                                let screenCursor = viewProj.Forward.TransformPosProj(worldPos)
+                                let ndc = V3d(2.0 * float tc.X - 1.0, 1.0 - 2.0 * float tc.Y, screenCursor.Z)
+                                let wp = viewProj.Backward.TransformPosProj(ndc)
+                                let d = wp - worldPos |> Vec.lengthSquared
+                                d
+
+                            let p = V4d(toWorld i0, toWorld i1, toWorld i2, toWorld i3)
+
+                            return p
+                        | _ -> return V4d.OOOO
+                    }
+
                 let surfaceSg = 
                     model.state.surfaces 
                     |> AMap.toASet 
@@ -263,36 +283,29 @@ module App =
                     )
                     |> Sg.set
                     |> Sg.uniform "CursorViewSpace" cursorViewPos
+                    |> Sg.uniform "CursorWorldSizeSquared" donutWorldSpaceSizeSquared
                     |> Sg.noEvents
 
-                //let surfaceSg = 
-                //    IndexedGeometryPrimitives.solidPhiThetaSphere Sphere3d.Unit 20 C4b.DarkRed
-                //    |> Sg.ofIndexedGeometry
-                //    |> Sg.shader {
-                //        do! DefaultSurfaces.trafo
-                //        do! DefaultSurfaces.simpleLighting
-                //    }
-                //    |> Sg.noEvents
 
                 let afterMain = RenderPass.after "cursor" RenderPassOrder.Arbitrary RenderPass.main
 
-                //let cursor = 
-                //    Sg.sphere' 3 C4b.Green 0.1
-                //    |> Sg.translation (model.cursor |> AVal.map (function None -> V3d.III * 10000.0 | Some p -> p + V3d(0.0,0.0,0.0)))
-                //    |> Sg.onOff (model.cursor |> AVal.map Option.isSome)
-                //    |> Sg.shader {
-                //        do! DefaultSurfaces.stableTrafo
-                //    }
-                //    |> Sg.writeBuffers' (Set.singleton DefaultSemantic.Colors)
-                //    |> Sg.pass afterMain
-                //    |> Sg.noEvents
-                Sg.ofSeq [surfaceSg]
+                let coordinateCross  =
+                    let lines = 
+                        (model.orbitState.center, model.orbitState.view) 
+                        ||> AVal.map2 (fun center view -> 
+                            [|Line3d(V3d.Zero, view.Sky)|]
+                        )
+                    Sg.lines (AVal.constant C4b.Red) lines
+                    |> Sg.trafo (model.orbitState.center |> AVal.map (fun center -> Trafo3d.Translation center))
+                    |> Sg.shader {
+                        do! DefaultSurfaces.stableTrafo
+                    }
+                    |> Sg.noEvents
+                Sg.ofSeq [surfaceSg; ]
    
-                
 
-            let scene = renderToScene camera createSgs model.mousePos emit
+            let scene = renderToScene model.background camera createSgs model.mousePos emit 
 
-            //DomNode.RenderControl(attributes, camera, (fun (c : ClientValues) -> createSgs c.signature |> Sg.noEvents), RenderControlConfig.standard, None )
             DomNode.RenderControl(attributes, camera, scene, None)
             
 
@@ -307,19 +320,6 @@ module App =
     let view (runner : Load.Runner) (emit : Message -> unit) (model : AdaptiveModel) =
 
         let renderControl = viewScene runner emit model
-
-
-        //div [style "display: grid; grid-template-rows: 40px 1fr; width: 100%; height: 100%" ] [
-        //    div [style "grid-row: 1"] [
-        //        text "Hello 3D"
-        //        br []
-        //        button [onClick (fun _ -> CenterScene)] [text "Center Scene"]
-        //        button [onClick (fun _ -> ToggleBackground)] [text "Change Background"]
-        //    ]
-        //    renderControl
-        //    br []
-        //    text "use first person shooter WASD + mouse controls to control the 3d scene"
-        //]
 
         let distanceToCamera = 
             (model.cameraState.view, model.cursor) 
@@ -345,14 +345,28 @@ module App =
             |> AVal.map (fun d -> 
                 match d with
                 | Some d -> 
-                    PRo3D.Base.Formatting.Len(d).ToString() 
+                    Formatting.Len(d).ToString() 
                 | None -> ""
             )
 
-        require dependencies (
-            div [] [
-                renderControl
+        let content =
+            div [style "display: grid; grid-template-rows: 40px 1fr; width: 100%; height: 100%; overflow: hidden" ] [
+                div [style "grid-row: 1"] [
+                    div [] [
+                    ]
+                    button [onClick (fun _ -> CenterScene)] [text "Center Scene"]
+                    button [onClick (fun _ -> ToggleBackground)] [text "Change Background"]
+                ]
+                div [style "grid-row: 2; width: 100%; height: 100%"] [
+                    renderControl
+                ]
                 Incremental.div attribs (AList.ofList [Incremental.text cursorText])
+                br []
+            ]
+
+        require dependencies (
+            body [style "margin : 0; height: 100%; overflow: hidden"] [
+                content
             ]
         )
 
@@ -366,7 +380,7 @@ module App =
 
         let runner = runtime.CreateLoadRunner(2)
 
-        let surface = @"D:\pro3d\VictoriaCrater\HiRISE_VictoriaCrater"
+        let surface = @"I:\OPC\StereoMosaic"
         let opcs = Directory.EnumerateDirectories(surface)
         let serializer = FsPickler.CreateBinarySerializer()
 
@@ -381,7 +395,9 @@ module App =
 
         let surface = { opcs = opcs; trafo = Trafo3d.Identity }
 
-        let cameraView = PRo3DApi.Surface.centerView surface
+        let planet = Planet.Mars
+
+        let cameraView = PRo3DApi.Surface.centerView planet surface
         
         let speed = 5.0
         let cfg =
@@ -395,10 +411,11 @@ module App =
         let state =
             {
                 surfaces =  HashMap.ofList ["victoria crater", surface]
+                planet   =  planet
             }
 
         let freeFlyState = { initialCamera with view = cameraView; freeFlyConfig = cfg }
-        let orbitState = { OrbitState.ofFreeFly 300.0 freeFlyState with sky = freeFlyState.view.Up }
+        let orbitState = { OrbitState.ofFreeFly 1.0 freeFlyState with sky = freeFlyState.view.Sky }
 
         {
             unpersist = Unpersist.instance
@@ -411,7 +428,8 @@ module App =
                    mousePos = None
                    cursor = None
                    state = state
-                   cameraMode = FreeFly
+                   cameraMode = Orbit
+                   donutSizeInPixels = 20.0
                 }
             update = update
             view = view runner emit
