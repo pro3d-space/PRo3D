@@ -58,6 +58,6 @@ type Annotation =
 type State = 
     {
         surfaces : HashMap<string, Surface>
-        planet   : Planet
+        planet   : PRo3D.Base.Planet
     }
 

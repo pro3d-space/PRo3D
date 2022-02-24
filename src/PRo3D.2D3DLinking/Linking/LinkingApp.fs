@@ -98,7 +98,7 @@ module LinkingApp =
 
         // map minerva features to linking features
         let linkingFeatures : HashMap<string, LinkingFeature> = 
-            reducedFeatures.Map (fun _ f ->
+            reducedFeatures.Map (fun _ (f : Feature) ->
 
                 let position = originTrafoInv.TransformPos(f.geometry.positions.Head)
                 let angles = f.geometry.coordinates.Head

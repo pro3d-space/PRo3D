@@ -76,3 +76,4 @@ src\Aardvark.OpcViewer.psess
 /*.DS_Store
 /bin/*.DS_Store
 *.DS_Store
+/bin/pack

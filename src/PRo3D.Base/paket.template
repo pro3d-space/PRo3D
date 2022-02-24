@@ -1,0 +1,11 @@
+type project
+id PRo3D.Base
+authors PRo3D Team
+owners VRVis
+projectUrl https://github.com/pro3d-space/PRo3D
+licenseUrl https://github.com/pro3d-space/PRo3D/blob/master/LICENSE
+repositoryType git
+repositoryUrl https://github.com/aardvark-platform/aardvark.base
+description
+    Aardvark is an open-source platform for visual computing, real-time graphics and visualization.
+include-pdbs true

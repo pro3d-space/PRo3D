@@ -1,0 +1,7 @@
+#wrap {
+  width: 320px;
+  height: 320px;
+  -moz-border-radius: 10px;
+  background: red;
+  position: relative;
+}

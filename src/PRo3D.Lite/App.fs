@@ -40,7 +40,14 @@ module App =
             let orbitState = OrbitController.update model.orbitState msg
             { model with orbitState = orbitState; cameraState = OrbitState.toFreeFly 3.2 orbitState }
         | CenterScene ->
-            { model with cameraState = initialCamera }
+            match model.state.surfaces |> HashMap.toSeq |> Seq.map snd |> Seq.tryHead with
+            | Some surface -> 
+                let cameraView = PRo3DApi.Surface.centerView model.state.planet surface
+   
+                { model with orbitState = { model.orbitState with view = cameraView } }
+            | None -> 
+                model
+
         | SetOrbitCenter -> 
             match model.cursor with
             | None -> model
@@ -236,33 +243,6 @@ module App =
             let camera : aval<Camera> = (model.cameraState.view, frustum) ||> AVal.map2 (fun v p -> Camera.create v p)
             let createSgs (camera : aval<Camera>) (framebufferSize : aval<V2i>) (signature : IFramebufferSignature) = 
 
-                let donutWorldSpaceSizeSquared = 
-                    adaptive {
-                        let! mousePos = model.mousePos
-                        let! worldPos = model.cursor
-                        let! sizeInPx = model.donutSizeInPixels
-                        let! screenSize = framebufferSize
-                        match mousePos, worldPos with
-                        | Some mousePos, Some worldPos -> 
-                            let i0 = (V2d mousePos + V2d(sizeInPx, 0.0))  / V2d screenSize
-                            let i1 = (V2d mousePos + V2d(sizeInPx + 3.0, 0.0))  / V2d screenSize
-                            let i2 = (V2d mousePos + V2d(sizeInPx + 4.0, 0.0))  / V2d screenSize
-                            let i3 = (V2d mousePos + V2d(sizeInPx + 6.0, 0.0))  / V2d screenSize
-                            let! camera = camera
-                            let viewProj = Camera.viewProjTrafo camera
-                            let toWorld (tc : V2d) = 
-                                let screenCursor = viewProj.Forward.TransformPosProj(worldPos)
-                                let ndc = V3d(2.0 * float tc.X - 1.0, 1.0 - 2.0 * float tc.Y, screenCursor.Z)
-                                let wp = viewProj.Backward.TransformPosProj(ndc)
-                                let d = wp - worldPos |> Vec.lengthSquared
-                                d
-
-                            let p = V4d(toWorld i0, toWorld i1, toWorld i2, toWorld i3)
-
-                            return p
-                        | _ -> return V4d.OOOO
-                    }
-
                 let surfaceSg = 
                     model.state.surfaces 
                     |> AMap.toASet 
@@ -283,7 +263,7 @@ module App =
                     )
                     |> Sg.set
                     |> Sg.uniform "CursorViewSpace" cursorViewPos
-                    |> Sg.uniform "CursorWorldSizeSquared" donutWorldSpaceSizeSquared
+                    |> Sg.uniform "CursorWorldSizeSquared" (V4f(0.1, 0.12, 0.15, 0.17) |> AVal.constant)
                     |> Sg.noEvents
 
 
@@ -350,7 +330,7 @@ module App =
             )
 
         let content =
-            div [style "display: grid; grid-template-rows: 40px 1fr; width: 100%; height: 100%; overflow: hidden" ] [
+            div [style "display: grid; grid-template-rows: 30px 1fr; width: 100%; height: 100%; overflow: hidden" ] [
                 div [style "grid-row: 1"] [
                     div [] [
                     ]
@@ -429,7 +409,8 @@ module App =
                    cursor = None
                    state = state
                    cameraMode = Orbit
-                   donutSizeInPixels = 20.0
+                   cursorWorldSphereSize = 20.0
+                   
                 }
             update = update
             view = view runner emit

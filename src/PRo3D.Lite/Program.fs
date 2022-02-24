@@ -1,20 +1,23 @@
 ﻿open System
 
+open System.Threading
+open System.Threading.Tasks
+open Giraffe
+
 open Aardvark.Base
 open Aardvark.Rendering
 open Aardvark.Application
 open Aardvark.Application.Slim
 open Aardvark.UI
 
-open Suave
-open Suave.WebPart
 open Aardium
 open PRo3D.Lite
-
 open PRo3D.Base
 
-type Self = Self
+open Aardvark.UI.Giraffe
+open Aardvark.Service.Giraffe
 
+type Self = Self
 
 [<EntryPoint; STAThread>]
 let main argv = 
@@ -24,10 +27,7 @@ let main argv =
     let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
     CooTransformation.initCooTrafo appData
 
-    // media apps require a runtime, which serves as renderer for your render controls.
-    // you can use OpenGL or VulkanApplication.
     let useVulkan = false
-
 
     let runtime, disposable =
         if useVulkan then
@@ -48,13 +48,23 @@ let main argv =
 
     mapp <- instance
 
-    WebPart.startServerLocalhost 4321 [ 
-        Reflection.assemblyWebPart typeof<Self>.Assembly
-        Reflection.assemblyWebPart typeof<Aardvark.UI.Primitives.EmbeddedResources>.Assembly
-        MutableApp.toWebPart' runtime false instance
-        Suave.Files.browseHome
-    ] |> ignore
-    
+
+    let webApp = 
+        choose [
+            Reflection.assemblyWebPart typeof<Self>.Assembly
+            Reflection.assemblyWebPart typeof<Aardvark.UI.Primitives.EmbeddedResources>.Assembly
+            MutableApp.toWebPart runtime instance
+        ]
+    use cts = new CancellationTokenSource()
+    let server = Server.startServer "http://localhost:4321" cts.Token webApp 
+
+    let bind o f =
+        match o with
+            | None -> None
+            | Some v -> f v
+
+
+
 
     Aardium.run {
         url "http://localhost:4321/"
@@ -62,4 +72,8 @@ let main argv =
         height 768
         debug true
     }
+    cts.Cancel()
+    instance.shutdown()
+    
+
     0 
