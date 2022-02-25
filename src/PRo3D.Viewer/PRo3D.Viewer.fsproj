@@ -60,6 +60,8 @@
     <Compile Include="Viewer\Viewer-IO.fs" />
     <Compile Include="Viewer\SceneConverter.fs" />
     <Compile Include="Viewer\Viewer.fs" />
+    <Content Include="Provenance\Provenance.css" />
+    <None Include="Provenance\Provenance.js" />
     <Compile Include="Provenance\Abstraction\RList.fs" />
     <Compile Include="Provenance\Abstraction\Camera.fs" />
     <Compile Include="Provenance\Abstraction\Presentation.fs" />
@@ -67,8 +69,10 @@
     <Compile Include="Provenance\Abstraction\Surfaces.fs" />
     <Compile Include="Provenance\Abstraction\State.fs" />
     <Compile Include="Provenance\Abstraction\Message.fs" />
+    <Compile Include="Provenance\Decision.fs" />
     <Compile Include="Provenance\ZTree.fs" />
     <Compile Include="Provenance\Provenance-Model.fs" />
+    <Compile Include="Provenance\Provenance-App.fs" />
     <Compile Include="CommandLine\CommandLineUtils.fs" />
     <Compile Include="CommandLine\CommandLine.fs" />
     <Compile Include="RemoteControlModel.fs" />

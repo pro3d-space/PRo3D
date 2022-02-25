@@ -287,13 +287,7 @@ let main argv =
             ViewerApp.start runtime signature startEmpty messagingMailbox sendQueue dumpFile cacheFile uri
 
         let s = { MailboxState.empty with update = mainApp.update Guid.Empty}
-        MailboxAction.InitMailboxState s |> messagingMailbox.Post            
-    
-        //let domainError (sender:obj) (args:UnhandledExceptionEventArgs) =
-        //    let e = args.ExceptionObject :?> Exception;
-        //    Log.error "%A" e
-        //    MessageBox.Show(e.Message, "Sorry for the inconvenience", MessageBoxButtons.OK, MessageBoxIcon.Error) |> ignore
-        //    ()
+        MailboxAction.InitMailboxState s |> messagingMailbox.Post                        
     
         let domainError (sender:obj) (args:UnhandledExceptionEventArgs) =
             let e = args.ExceptionObject :?> Exception;
@@ -304,7 +298,6 @@ let main argv =
     
         if catchDomainErrors then
             AppDomain.CurrentDomain.UnhandledException.AddHandler(UnhandledExceptionEventHandler(domainError))
-
 
         let setCORSHeaders =
             Suave.Writers.setHeader  "Access-Control-Allow-Origin" "*"
@@ -318,8 +311,6 @@ let main argv =
                             setCORSHeaders
                             >=> OK "CORS approved" )
             ]
-
-
 
         let suaveServer = 
             WebPart.startServerLocalhost port [
@@ -360,15 +351,7 @@ let main argv =
 
         disposables.Add(suaveServer)
 
-        Log.line "serving at: %s" uri
-
-        
-        //WebPart.startServer 4322 [
-        //    MutableApp.toWebPart' runtime false instrumentApp        
-        //    Suave.Files.browseHome
-        //]
-
-        // screenshot app
+        Log.line "serving at: %s" uri                
 
         if startupArgs.remoteApp then
             let send msg =

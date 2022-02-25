@@ -20,8 +20,8 @@ module ZTreeInner =
 
         member x.Value =
             match x with
-                | Top v
-                | Inner (v, _, _, _) -> v
+            | Top v
+            | Inner (v, _, _, _) -> v
            
 open ZTreeInner
 

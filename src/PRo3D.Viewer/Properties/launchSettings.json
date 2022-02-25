@@ -2,7 +2,7 @@
   "profiles": {
     "PRo3D.Viewer": {
       "commandName": "Project",
-      "commandLineArgs": "access=\"minerva:tai8Ies7\"",
+      "commandLineArgs": "access=\"minerva:tai8Ies7\" -empty",
       "nativeDebugging": true
     }
   }

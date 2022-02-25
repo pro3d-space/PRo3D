@@ -53,10 +53,10 @@ type NodeReferenceSpace =
 
 [<ModelType>]
 type Provenance = {
-    tree : ZTree<Node>
-    highlight : NodeId option
-    hovered : ZTree<Node> option
-    reference : NodeReferenceSpace option   // The active node reference space determines how nodes are highlighted
+    tree        : ZTree<Node>
+    highlight   : NodeId option
+    hovered     : ZTree<Node> option
+    reference   : NodeReferenceSpace option   // The active node reference space determines how nodes are highlighted
 }                                           // E.g. nodes part of a story are highlighted if reference is set accordingly
 
 type ProvenanceAction =
@@ -87,8 +87,8 @@ module Node =
         yield "id", (string id)
 
         match n.message with
-            | Some m -> yield "msg", (string m)
-            | None -> ()
+        | Some m -> yield "msg", (string m)
+        | None -> ()
     ]
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
