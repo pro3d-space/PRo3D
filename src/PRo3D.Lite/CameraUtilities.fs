@@ -6,6 +6,16 @@ open PRo3D.Base
 
 module Camera =
 
+    let defaultConfig (speed : float) = 
+        let cfg =
+            { FreeFlyController.initial.freeFlyConfig with
+                moveSensitivity = 0.35 + speed
+                zoomMouseWheelSensitivity = 0.8 * (2.0 ** speed)
+                panMouseSensitivity = 0.01 * (2.0 ** speed)
+                dollyMouseSensitivity = 0.01 * (2.0 ** speed)
+            }
+        cfg
+
     let toFreeFlyState (speed : float) (o : OrbitState) =
         let cfg =
             { FreeFlyController.initial.freeFlyConfig with

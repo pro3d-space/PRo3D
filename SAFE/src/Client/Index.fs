@@ -110,9 +110,12 @@ let view (model: Model) (dispatch: Msg -> unit) =
             ]
             Bulma.heroBody [
                 Html.div [
+                    prop.style [
+                        style.border(1, borderStyle.solid, "white")
+                    ]
                     prop.className "wrap"
                     prop.children [
-                        Html.iframe [prop.src "http://localhost:4321/"; prop.width 800; prop.height 800; ]
+                        Html.iframe [prop.src "http://localhost:4321/render/?view=lite"; prop.width 800; prop.height 800; ]
                     ]
                 ]
                 Bulma.container [

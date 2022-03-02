@@ -110,20 +110,22 @@ let main _ =
 
     let app =
         choose [
-            webApp
+            //subRoute "web" webApp
+            //subRoute "render" renderApp
+            subRoute "render" (MutableApp.toWebPart runtime instance)
         ]
 
-    let t = Server.startServer "http://localhost:4321" CancellationToken.None renderApp
-    t.Wait()
+    //let t = Server.startServer "http://localhost:4321" CancellationToken.None renderApp
+    //t.Wait()
 
     let app =
         application {
             url "http://*:8085"
             use_router app
-            memory_cache
-            use_static "public"
-            use_gzip
-            //app_config (fun ab -> ab.UseWebSockets().UseMiddleware<WebSockets.WebSocketMiddleware>())
+            //memory_cache
+            //use_static "public"
+            //use_gzip
+            app_config (fun ab -> ab.UseWebSockets().UseMiddleware<WebSockets.WebSocketMiddleware>())
         }
 
     run app

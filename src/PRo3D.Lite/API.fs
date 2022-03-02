@@ -1,5 +1,7 @@
 ﻿namespace PRo3D.Lite
 
+open System.IO
+open MBrace.FsPickler
 open FSharp.Data.Adaptive
 
 open Aardvark.Base
@@ -19,12 +21,13 @@ module DataAPI =
         failwith ""
 
 
-
-module PRo3DApi =
+module Api =
 
     module Surface =
 
-        let centerView (planet : Planet) (surface : Surface) : CameraView = 
+        let private serializer = FsPickler.CreateBinarySerializer()
+
+        let approximateBoundingBox (surface : Surface) = 
             let bbs = 
                 surface.opcs 
                 |> Seq.map (fun (_,opc) -> 
@@ -32,11 +35,34 @@ module PRo3DApi =
                     | QTree.Leaf p -> p.info.GlobalBoundingBox
                     | QTree.Node(p,_) -> p.info.GlobalBoundingBox
                 )
-            let bb = Box3d(bbs)
-            let pos = bb.Max 
-            // TODO
+            Box3d(bbs)
+
+        let centerView' (planet : Planet) (boundingBox : Box3d) : CameraView = 
+            let pos = boundingBox.Max 
             let up = CooTransformation.getUpVector pos planet
-            CameraView.lookAt bb.Max bb.Center up
+            CameraView.lookAt boundingBox.Max boundingBox.Center up
+
+        let centerView (planet : Planet) (surface : Surface) : CameraView = 
+            approximateBoundingBox surface |> centerView' planet
+
+        let loadSurface (opcPaths : list<string>) =
+            let opcs = 
+                opcPaths 
+                |> Seq.toList |> List.map (fun basePath -> 
+                    basePath, { 
+                        opc = PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths basePath)
+                    }
+                )
+                |> HashMap.ofSeq
+
+            { opcs = opcs; trafo = Trafo3d.Identity }
+
+        let loadSurfaceDirectory (directory : string) = 
+            Directory.EnumerateDirectories(directory)
+            |> Seq.toList
+            |> loadSurface
+
+    module State =
 
         let flyToSurface (surfaceName : string) (state : State) : State =
             state
@@ -61,32 +87,6 @@ module PRo3DApi =
         let runViewer (state : State) : IViewer =
             failwith ""
 
-    module Crazy = 
-
-        let derive (f : 'a -> 'insight) : 'insight = 
-            failwith ""
-
-        let retarget (oldTuple : 'a * 'insight) (newInput : 'a) : 'insight = 
-            failwith "" 
-            
-
-(*
-
-let analysis =
-    let weather = getWeather ($tirol, $sept) ($tirol: latlon)
-    let daysWithStrongWind = weather |> Seq.filter $(fun day -> day.$maxGust < 30)
-    let windDirectionBins = makeHisto daysWithStrongWind
-    let prominentDirection = $getMax windDirectionBins
-    // juhu, föhn
-
-varyingParameters analysis
-
-// UI - zeit und ort als input über karte
-// UI slider condition
-// statistik
-
-
-*)
 
 
 module DatascienceAPI =

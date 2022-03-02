@@ -1,6 +1,7 @@
 source ../bin/pack
 source https://api.nuget.org/v3/index.json
 source https://vrvis.myget.org/F/aardvark_public/api/v3/index.json
+source https://nuget.pkg.github.com/aardvark-platform
 
 framework: net5.0
 storage: none
@@ -37,16 +38,17 @@ nuget Aardvark.GPGPU                        ~> 5.1.22
 nuget Aardvark.Geometry.Intersection        ~> 5.1.11
 nuget Aardvark.Geometry.PointTree           ~> 5.1.11
 
-nuget Aardvark.Service                      ~> 5.3.0-prerelease0002
-nuget Aardvark.UI                           ~> 5.3.0-prerelease0002 
-nuget Aardvark.UI.Primitives                ~> 5.3.0-prerelease0002 
-nuget Aardvark.Service.Giraffe              ~> 5.3.0-prerelease0002 
+nuget Aardvark.Service                      ~> 5.3.0-prerelease0004
+nuget Aardvark.UI                           ~> 5.3.0-prerelease0004
+nuget Aardvark.UI.Primitives                ~> 5.3.0-prerelease0004 
+nuget Aardvark.Service.Giraffe              ~> 5.3.0-prerelease0004
 
 
 
 nuget Fable.Remoting.Giraffe
 nuget Saturn
 nuget Expecto
+
 
 nuget Fable.Core
 nuget Fable.Elmish

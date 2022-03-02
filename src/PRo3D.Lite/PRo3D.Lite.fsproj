@@ -11,6 +11,7 @@
     <OutputPath>..\..\bin\Release\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Experiments.fs" />
     <Compile Include="OrbitModel.fs" />
     <Compile Include="OrbitController.fs" />
     <Compile Include="CameraUtilities.fs" />

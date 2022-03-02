@@ -32,10 +32,10 @@ nuget Aardvark.GPGPU                        ~> 5.1.22
 nuget Aardvark.Geometry.Intersection        ~> 5.1.11
 nuget Aardvark.Geometry.PointTree           ~> 5.1.11
 
-nuget Aardvark.Service                      ~> 5.3.0-prerelease0002
-nuget Aardvark.UI                           ~> 5.3.0-prerelease0002 
-nuget Aardvark.UI.Primitives                ~> 5.3.0-prerelease0002 
-nuget Aardvark.Service.Giraffe              ~> 5.3.0-prerelease0002 
+nuget Aardvark.Service                      ~> 5.3.0-prerelease0004
+nuget Aardvark.UI                           ~> 5.3.0-prerelease0004 
+nuget Aardvark.UI.Primitives                ~> 5.3.0-prerelease0004 
+nuget Aardvark.Service.Giraffe              ~> 5.3.0-prerelease0004 
 
 nuget Adaptify.MSBuild                      ~> 1.1.1
 nuget Adaptify.Core                         ~> 1.1.1
@@ -62,6 +62,7 @@ nuget Thoth.Json.Giraffe
 nuget Fable.Remoting.Giraffe
 nuget Saturn
 nuget Expecto
+nuget Microsoft.AspNetCore.Authentication.JwtBearer ~> 5.0.0
 
 nuget Fable.Core
 nuget Fable.Elmish

@@ -5,17 +5,17 @@ open System.IO
 
 open Aardvark.Service
 
-open Aardvark.UI
-open Aardvark.UI.Primitives
 
 open Aardvark.Base
 open FSharp.Data.Adaptive
 open Aardvark.Rendering
 
-open MBrace.FsPickler
 open Aardvark.SceneGraph
 open Aardvark.GeoSpatial.Opc
 open Aardvark.SceneGraph.Opc
+
+open Aardvark.UI
+open Aardvark.UI.Primitives
 
 open PRo3D.Lite
 open Aardvark.Rendering
@@ -28,6 +28,11 @@ module App =
             FreeFlyController.initial with
                 view = CameraView.lookAt (V3d.III * 3.0) V3d.OOO V3d.OOI
         }
+
+    let setView  (cameraView : CameraView) (model : Model) = 
+        let freeFly = { model.cameraState with view = cameraView }
+        let orbitState = OrbitState.ofFreeFly model.orbitState.radius freeFly 
+        { model with orbitState = orbitState; cameraState = freeFly }
 
     let update (model : Model) (msg : Message) =
         match msg with
@@ -42,9 +47,8 @@ module App =
         | CenterScene ->
             match model.state.surfaces |> HashMap.toSeq |> Seq.map snd |> Seq.tryHead with
             | Some surface -> 
-                let cameraView = PRo3DApi.Surface.centerView model.state.planet surface
-   
-                { model with orbitState = { model.orbitState with view = cameraView } }
+                let cameraView = Api.Surface.centerView model.state.planet surface
+                setView cameraView model 
             | None -> 
                 model
 
@@ -59,7 +63,7 @@ module App =
         | SetMousePos pos -> 
             { model with mousePos = Some pos }
 
-    let renderToScene (background : aval<C4b>) (cam : aval<Camera>) (createSg : aval<Camera> -> aval<V2i> -> IFramebufferSignature -> ISg)
+    let renderToScene (background : aval<C4b>) (cam : aval<Camera>) (createSg : aval<Camera> -> aval<V2i> -> IFramebufferSignature -> ISg<_>)
                       (mousePos : aval<Option<V2i>>)
                       (emit : Message -> unit) = 
            let scene = 
@@ -96,7 +100,7 @@ module App =
                                            background |> AVal.map (fun b -> Map.ofList [DefaultSemantic.Colors, b.ToC4f()]), 
                                            AVal.constant (Some 1.0), AVal.constant None
                                        )
-                                       sg |> Sg.camera cam |> Sg.compile values.runtime signature
+                                       sg |> Sg.noEvents |> Sg.camera cam |> Sg.compile values.runtime signature
                                    ]
                                let color,depth = task |> RenderTask.renderToColorAndDepth values.size 
                                color.Acquire()
@@ -164,7 +168,7 @@ module App =
 
         type CursorVertex = 
             {
-                [<Semantic("ViewPos2")>]
+                [<Semantic("ViewPos")>]
                 viewPos : V3d
 
                 [<Position>]
@@ -198,7 +202,7 @@ module App =
                 AttributeMap.ofListCond [
                     always <| style "width: 100%; grid-row: 2; height:100%"; 
                     "style", model.background |> AVal.map(fun c -> sprintf "background: #%02X%02X%02X" c.R c.G c.B |> AttributeValue.String |> Some)
-                    //attribute "showLoader" "false"   
+                    always <| attribute "showLoader" "false"   
                     always <| attribute "data-samples" "1"   
                     always <| onCapturedPointerMove None (fun _ p -> SetMousePos (V2i(p)))
 
@@ -238,6 +242,25 @@ module App =
                     | None -> V3d(0.0,0.0,-10000.0)
                     | Some c -> v.ViewTrafo.Forward.TransformPos(c)
                 )
+
+            let surfaceBBs = 
+                let surfaces = model.state.surfaces |> AMap.toASet |> ASet.map snd
+                surfaces 
+                |> ASet.map (fun s -> 
+                    let box = 
+                        s.Current |> AVal.map (fun s -> 
+                            let bb = Api.Surface.approximateBoundingBox s
+                            Box3d.FromMinAndSize(V3d.Zero, bb.Size), bb.Min
+                        )
+                    Sg.wireBox (AVal.constant C4b.White) (AVal.map fst box)
+                    |> Sg.trafo (box |> AVal.map (fun (b, pos) -> Trafo3d.Translation(pos)))
+                    |> Sg.noEvents
+                )
+                |> Sg.set
+                |> Sg.shader { 
+                    do! DefaultSurfaces.vertexColor
+                    do! DefaultSurfaces.stableTrafo
+                  }
                 
             let frustum = Frustum.perspective 60.0 0.1 10000.0 1.0 |> AVal.constant
             let camera : aval<Camera> = (model.cameraState.view, frustum) ||> AVal.map2 (fun v p -> Camera.create v p)
@@ -252,6 +275,7 @@ module App =
                         |> ASet.map (fun (opcId, opc) -> 
                             PatchLod.toRoseTree opc.opc.tree
                             |> Sg.patchLod signature runner opcId DefaultMetrics.mars false true ViewerModality.XYZ true 
+                            |> Sg.noEvents
                             |> Sg.shader {
                                 do! Shader.donutVertex
                                 do! DefaultSurfaces.stableTrafo
@@ -281,7 +305,8 @@ module App =
                         do! DefaultSurfaces.stableTrafo
                     }
                     |> Sg.noEvents
-                Sg.ofSeq [surfaceSg; ]
+                Sg.ofSeq [surfaceSg; surfaceBBs]
+                |> Sg.noEvents
    
 
             let scene = renderToScene model.background camera createSgs model.mousePos emit 
@@ -308,6 +333,7 @@ module App =
                 | Some c -> Vec.distance c cam.Location |> Some
                 | _ -> None
             )
+
 
         let attribs = 
             amap {
@@ -346,7 +372,13 @@ module App =
 
         require dependencies (
             body [style "margin : 0; height: 100%; overflow: hidden"] [
-                content
+                page (fun request -> 
+                    match Map.tryFind "view" request.queryParams with
+                    | Some "lite" -> 
+                        div [style "width: 100%; height: 100%"] [renderControl]
+                    | _ -> 
+                        content
+                )
             ]
         )
 
@@ -360,42 +392,21 @@ module App =
 
         let runner = runtime.CreateLoadRunner(2)
 
-        let surface = @"I:\OPC\StereoMosaic"
-        let opcs = Directory.EnumerateDirectories(surface)
-        let serializer = FsPickler.CreateBinarySerializer()
-
-        let opcs = 
-            opcs 
-            |> Seq.toList |> List.map (fun basePath -> 
-                basePath, { 
-                    opc = PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths basePath)
-                }
-            )
-            |> HashMap.ofSeq
-
-        let surface = { opcs = opcs; trafo = Trafo3d.Identity }
-
+        let surfaceDir = @"I:\OPC\StereoMosaic"
+        let surface = Api.Surface.loadSurfaceDirectory surfaceDir
         let planet = Planet.Mars
 
-        let cameraView = PRo3DApi.Surface.centerView planet surface
+        let bb = Api.Surface.approximateBoundingBox surface
+        let cameraView = Api.Surface.centerView' planet bb
         
-        let speed = 5.0
-        let cfg =
-            { FreeFlyController.initial.freeFlyConfig with
-                moveSensitivity = 0.35 + speed
-                zoomMouseWheelSensitivity = 0.8 * (2.0 ** speed)
-                panMouseSensitivity = 0.01 * (2.0 ** speed)
-                dollyMouseSensitivity = 0.01 * (2.0 ** speed)
-            }
-
         let state =
             {
-                surfaces =  HashMap.ofList ["victoria crater", surface]
+                surfaces =  HashMap.ofList ["StereoMosaic", surface]
                 planet   =  planet
             }
 
-        let freeFlyState = { initialCamera with view = cameraView; freeFlyConfig = cfg }
-        let orbitState = { OrbitState.ofFreeFly 1.0 freeFlyState with sky = freeFlyState.view.Sky }
+        let freeFlyState = { initialCamera with freeFlyConfig = Camera.defaultConfig 5.0; view = cameraView }
+        let orbitState  = { OrbitState.ofFreeFly (Vec.distance bb.Center bb.Max) freeFlyState with sky = freeFlyState.view.Sky }
 
         {
             unpersist = Unpersist.instance
@@ -403,7 +414,7 @@ module App =
             initial =
                 {
                    orbitState = orbitState
-                   cameraState =  { initialCamera with view = cameraView; freeFlyConfig = cfg }
+                   cameraState =  freeFlyState
                    background = C4b.Gray
                    mousePos = None
                    cursor = None
