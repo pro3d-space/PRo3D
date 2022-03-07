@@ -553,7 +553,7 @@ module Gui =
                                         div [ clazz "ui item";
                                         Dialogs.onChooseFiles ImportTraverse;
                                         clientEvent "onclick" openM20waypointsFileDialogue ][
-                                        text "Import Traverse (*.xml)"
+                                        text "Import Traverse (*.json)"
                                         ]
                                         //div [ clazz "ui item";
                                         //    Dialogs.onChooseFiles ImportSurfaceTrafo;

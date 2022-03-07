@@ -107,7 +107,7 @@ module TraversePropertiesApp =
                     Html.row "Textsize:"   [Numeric.view' [NumericInputType.InputBox] m.tTextSize |> UI.map SetSolTextsize ]  
                     Html.row "Show Text:"  [GuiEx.iconCheckBox m.showText  ToggleShowText]
                     Html.row "Show Lines:" [GuiEx.iconCheckBox m.showLines ToggleShowLines]
-                    Html.row "Show dots:"  [GuiEx.iconCheckBox m.showDots  ToggleShowDots]
+                    Html.row "Show Dots:"  [GuiEx.iconCheckBox m.showDots  ToggleShowDots]
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
                 ]
             )
@@ -268,7 +268,7 @@ module TraverseApp =
 
                 let name = Path.GetFileName path
                 let traverse = Traverse.initial name sols 
-                let traverses' =  HashMap.add traverse.guid traverse model.traverses
+                let traverses' = HashMap.add traverse.guid traverse model.traverses
 
                 { model with traverses = traverses'; selectedTraverse = Some traverse.guid }
             else
