@@ -41,6 +41,8 @@ open PRo3D.Viewer
 open PRo3D.SimulatedViews
 open PRo3D.Minerva
 open PRo3D.Linking
+
+open Pro3D.AnnotationStatistics
  
 open Aether
 open Aether.Operators
@@ -464,6 +466,10 @@ module ViewerApp =
                     //{ m with correlationPlot = cp } |> shortFeedback msg
                     m
                 | None -> m
+
+            | Drawing.PickDirectly id ->
+                let am = AnnotationStatisticsApp.update m.annoStats m.drawing.annotations AnnotationStatisticsApp.AnnoStatsAction.SetSelected
+                { m with annoStats = am}
                 
             | _ ->
                 let view = 

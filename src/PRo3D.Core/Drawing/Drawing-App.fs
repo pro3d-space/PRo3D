@@ -375,7 +375,9 @@ module DrawingApp =
                     else
                         Log.line "[DrawingApp] single select"
                         GroupsApp.update model.annotations (GroupsAppAction.SingleSelectLeaf(List.empty, ann.key, String.Empty))
-                    
+                
+                
+
                 { model with annotations = annotations }
 
             | _ -> model        

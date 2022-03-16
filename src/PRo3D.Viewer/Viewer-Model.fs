@@ -21,8 +21,12 @@ open PRo3D.Core.Surface
 open PRo3D.SimulatedViews
 open PRo3D.Core.Surface
 open PRo3D.Navigation2
-
 open PRo3D.Comparison
+
+open Pro3D.AnnotationStatistics
+
+
+
 
 open Chiron
 
@@ -431,6 +435,7 @@ type Model = {
     dashboardMode        : string
     scene                : Scene
     drawing              : PRo3D.Core.Drawing.DrawingModel
+    annoStats            : AnnoStatsModel
     interaction          : Interactions    
     recent               : Recent
     waypoints            : IndexList<WayPoint>
@@ -564,6 +569,7 @@ module Viewer =
 
             startupArgs     = startupArgs            
             drawing         = Drawing.DrawingModel.initialdrawing
+            annoStats       = AnnoStats.initial
             properties      = NoProperties
             interaction     = Interactions.PlaceRover
             multiSelectBox  = None

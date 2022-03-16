@@ -36,7 +36,10 @@ open PRo3D.Core.Drawing
 open PRo3D.Core.Surface
 open PRo3D.Bookmarkings
 
+open Pro3D.AnnotationStatistics
+
 open PRo3D.SimulatedViews
+
 
 open Adaptify
 open FSharp.Data.Adaptive
@@ -760,6 +763,11 @@ module Gui =
                 GuiEx.accordion "Actions" "Asterisk" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
                 ]
+                GuiEx.accordion "Statistics of selected" "Asterisk" true [
+                    AnnotationStatisticsApp.view m.annoStats 
+                    
+                ]
+
             ]    
 
     module Config =
