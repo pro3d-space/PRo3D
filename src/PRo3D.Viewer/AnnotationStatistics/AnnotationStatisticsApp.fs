@@ -1,5 +1,6 @@
 ﻿namespace Pro3D.AnnotationStatistics
 
+open System
 open PRo3D.Base.Annotation
 open Aardvark.Base
 open Aardvark.UI
@@ -12,44 +13,43 @@ module AnnotationStatisticsApp =
     type AnnoStatsAction =
         | SetSelected 
 
-    let update (m:AnnoStatsModel) (g:GroupsModel) (a:AnnoStatsAction) =
+    let update (m:AnnoStatsModel) (Aid:Guid) (g:GroupsModel) (a:AnnoStatsAction) =
         match a with
-        | SetSelected -> 
-            let annoList = g.selectedLeaves 
-                                                    |> HashSet.toList 
-                                                    |> List.map (fun x -> match (g.flat |> HashMap.tryFind x.id) with
-                                                                                             | Some v -> Some(x.id, v)
-                                                                                             | None -> None
-                                                                                )
-                                                    |> List.choose (fun i -> i)
-                                                    |> HashMap.ofList
-                                                    |> Leaf.toAnnotations
-                                                    |> HashMap.toList
-                                                    |> List.map (fun (_,a) -> a)
-                                                    |> AList.ofList
+        | SetSelected ->           
+            let anno = match (g.flat |> HashMap.tryFind Aid) with
+                        | Some l -> Some(Leaf.toAnnotation l)
+                        | None -> None
             
-            let lengths = annoList |> AList.map (fun (a:Annotation) -> Vec.Distance(a.points.[0], a.points.[a.points.Count-1]) )
-                        
-            {m with selectedAnnotations = annoList; selectedLengths = lengths}   
-    
+            let newList = match anno with 
+                        | Some a -> m.selectedAnnotations.Add a
+                        | None -> m.selectedAnnotations
 
-    //let calcLengths (m: AnnoStatsModel) =
-    //    m.selectedAnnotations |> AList.map (fun (a:Annotation) -> Vec.Distance(a.points.[0], a.points.[a.points.Count-1]) )
+            let lengths = newList |> IndexList.map (fun (a:Annotation) -> Vec.Distance(a.points.[0], a.points.[a.points.Count-1]) )
+            
+            {m with selectedAnnotations = newList; selectedLengths = lengths}            
+                         
+    
         
     
-    let view (m: AdaptiveAnnoStatsModel) =
-        
-        //let l = m.selectedLengths |> AVal.map (fun v -> )
-        let style' = "color: white; font-family:Consolas;"
-                     
-        div[][
-               table [] [
-                            tr[][
-                                td[style style'][text "Test: "]                                
-                            ]
-                    
-               ]              
+    let view (m: AdaptiveAnnoStatsModel) =        
+        let l = m.selectedLengths               
+                   
+        let style' = "color: white; font-family:Consolas;"       
+                   
+        div [clazz "content"] [
+            
+            yield Incremental.div (AttributeMap.ofList [style style']) (
+
+                l |> AList.map (fun f -> Incremental.text (AVal.constant (sprintf "Length : %f" f)))
+
+            )
         ]
+
+
+        
+
+
+
         
 
     

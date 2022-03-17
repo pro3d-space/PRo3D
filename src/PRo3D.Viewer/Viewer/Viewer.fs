@@ -468,7 +468,7 @@ module ViewerApp =
                 | None -> m
 
             | Drawing.PickDirectly id ->
-                let am = AnnotationStatisticsApp.update m.annoStats m.drawing.annotations AnnotationStatisticsApp.AnnoStatsAction.SetSelected
+                let am = AnnotationStatisticsApp.update m.annoStats id m.drawing.annotations AnnotationStatisticsApp.AnnoStatsAction.SetSelected
                 { m with annoStats = am}
                 
             | _ ->

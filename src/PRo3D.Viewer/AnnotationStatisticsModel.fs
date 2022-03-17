@@ -9,15 +9,15 @@ open PRo3D.Base.Annotation
 
 [<ModelType>]
 type AnnoStatsModel = {
-    selectedAnnotations: alist<Annotation>
-    selectedLengths:     alist<float>
+    selectedAnnotations: IndexList<Annotation>
+    selectedLengths:     IndexList<float>
 }
 
 module AnnoStats =
     let initial =
         {
-            selectedAnnotations = AList.empty
-            selectedLengths = AList.empty
+            selectedAnnotations = IndexList.empty
+            selectedLengths = IndexList.empty
         }
     
 
