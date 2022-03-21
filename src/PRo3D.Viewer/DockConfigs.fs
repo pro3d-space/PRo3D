@@ -70,6 +70,7 @@ module DockConfigs =
                         stack 0.5 (Some "surfaces") [                    
                             { id = "surfaces"; title = Some " Surfaces "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             { id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
+                            { id = "annoStats"; title = Some " AnnotationStatistics "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             { id = "scalebars"; title = Some " ScaleBars "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             { id = "instrumentview"; title = Some " Instrument View "; weight = 0.6; deleteInvisible = None; isCloseable = None}
                         ]                          

@@ -763,10 +763,7 @@ module Gui =
                 GuiEx.accordion "Actions" "Asterisk" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
                 ]
-                GuiEx.accordion "Statistics of selected" "Asterisk" true [
-                    AnnotationStatisticsApp.view m.annoStats 
-                    
-                ]
+                
 
             ]    
 
@@ -1025,6 +1022,8 @@ module Gui =
                 )
             | Some "annotations" -> 
                 require (viewerDependencies) (body bodyAttributes [Annotations.annotationUI m])
+            | Some "annoStats" ->
+                require (viewerDependencies) (body bodyAttributes [AnnotationStatisticsApp.view m.annoStats])
             | Some "validation" -> 
                 require (viewerDependencies) (body bodyAttributes [HeightValidatorApp.viewUI m.heighValidation |> UI.map HeightValidation])
             | Some "bookmarks" -> 
