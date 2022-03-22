@@ -7,10 +7,25 @@ open FSharp.Data.Adaptive
 open PRo3D.Base
 open PRo3D.Base.Annotation
 
+type Bin = {
+     id          : Guid
+     value       : int
+     rangeStart  : float
+     rangeEnd    : float
+}
+
+[<ModelType>]
+type Histogram = {
+    id        : Guid
+    numOfBins : int
+    bins      : IndexList<Bin>
+}
+
 [<ModelType>]
 type AnnoStats = {
     lengthStats :   HashMap<string, float>   //min, max, avg
     bearingStats :  HashMap<string, float>   //min, max, avg
+    histogram    :  Histogram
 }
 
 
@@ -28,6 +43,11 @@ module AnnoStats =
                                 {
                                     lengthStats = HashMap.empty
                                     bearingStats = HashMap.empty
+                                    histogram = {
+                                                    id = Guid.Empty
+                                                    numOfBins = 0
+                                                    bins = IndexList.empty
+                                                }
                                 }
         }
     

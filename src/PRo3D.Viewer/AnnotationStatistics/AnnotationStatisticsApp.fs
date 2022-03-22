@@ -22,6 +22,8 @@ module AnnotationStatisticsApp =
                    let avg = l |> List.average
                    [("min", min); ("max", max); ("avg", avg)] |> HashMap.ofList
                    
+    
+
 
 
     let calculateStats (selected:List<Annotation>) =
@@ -44,8 +46,64 @@ module AnnotationStatisticsApp =
         let bearingStats = calcMinMaxAvg bearings
         
         (lengthStats, bearingStats)
-            
-                                
+    
+    
+    //recursively builds a list of bins; li = list, k = number of bins, r = rounds, acc = accumulated rangeStart, binW = bin width
+    let rec binList li k r acc binW =
+        if (r > k) then (li |> IndexList.ofList)
+        else 
+            let l = 
+                [
+                
+           
+                        {
+                            id = Guid.NewGuid()
+                            value = 0
+                            rangeStart = acc
+                            rangeEnd = acc + binW
+                        }
+                ]
+            binList (li @ l) k (r+1) (acc+binW) binW
+
+        
+    
+    let calculateHistogram (m:AnnoStatsModel) (values:List<float>) =
+        
+        match (values.IsEmpty) with 
+         | true -> m.annoStatistics.histogram
+         | false -> let n = float(values.Length) 
+                    let k = 1.0 + 3.322 * (log n) //Sturges' rule, number of bins
+                    let min = values |> List.min
+                    let max = values |> List.max
+                    let binWidth = (max - min)/k
+
+                    //set up the bins
+                    let bins = binList List.empty (int(k)) 1 min binWidth
+
+                    //sort values into bins
+                    let valArr = values |> Array.ofList
+                    //let updatedBins = 
+                    //                    for i in 0 .. valArr.count-1
+                    //                        let len = valArr[i]
+
+                    //                        for j in 0 .. bins.count-1
+                    //                            let b = bins.TryGet j
+
+                    //                            match b with 
+                    //                             | Some bin -> 
+                    //                             | None -> 
+
+
+
+                        
+
+                    
+
+
+
+                    m.annoStatistics.histogram
+                    
+
 
 
     let update (m:AnnoStatsModel) (Aid:Guid) (g:GroupsModel) (a:AnnoStatsAction) =
@@ -69,12 +127,13 @@ module AnnotationStatisticsApp =
                         {
                             lengthStats = lens
                             bearingStats = bears
+                            histogram = m.annoStatistics.histogram
                         }
             
             {m with selectedAnnotations = newList; annoStatistics = stats}            
                          
     
-        
+           
     
     let view (m: AdaptiveAnnoStatsModel) =          
         
@@ -88,29 +147,18 @@ module AnnotationStatisticsApp =
             let! empty = s
             match empty with
                 | true -> Incremental.text (AVal.constant "No annotations selected")
-                | false -> let stats = m.annoStatistics
+                | false -> let stats = m.annoStatistics                            
+                                                      
                            let lengthStats = ("",stats.lengthStats) ||> AMap.fold(fun str (k:string) (v:float) -> sprintf "%s %s:%.2f  " str k v)
                            let bearingStats = ("",stats.bearingStats) ||> AMap.fold(fun str (k:string) (v:float) -> sprintf "%s %s:%.2f  " str k v)                              
                            
                            GuiEx.accordion "Statistics of selected" "Asterisk" true [
-                               div [clazz "content"] [
-                                   table [] [
-                                       tr[][                                            
-                                           td[style style'][text "Length: "]                                        
-                                       ]
-                                       tr[][
-                                            
-                                           td[style style'][Incremental.text lengthStats]                                         
-                                       ]
-                                       tr[][                                            
-                                           td[style style'][text "Bearing: "]                                        
-                                       ]
-                                       tr[][
-                                           td[style style'][Incremental.text bearingStats]                                          
-                                       ]
-                                   ]
-                                   
-                               ]            
+                            require GuiEx.semui (
+                               Html.table [      
+                                   Html.row "Length:"      [Incremental.text lengthStats] 
+                                   Html.row "Bearing:"     [Incremental.text bearingStats]                                 
+                               ]
+                            )
                            ]
             }
         )     
