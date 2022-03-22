@@ -23,9 +23,9 @@ type CameraMode = FreeFly | Orbit
 type Model = 
     {
         // camera
-        orbitState  : OrbitState
-        cameraState : CameraControllerState
-        cameraMode  : CameraMode
+        orbitState   : OrbitState
+        freeFlyState : CameraControllerState
+        cameraMode   : CameraMode
 
 
         // cursor and picking

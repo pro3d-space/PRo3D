@@ -95,12 +95,7 @@ let main _ =
 
     mapp <- instance
 
-    let renderApp = 
-        choose [
-            //Reflection.assemblyWebPart typeof<Self>.Assembly
-            //Reflection.assemblyWebPart typeof<Aardvark.UI.Primitives.EmbeddedResources>.Assembly
-            MutableApp.toWebPart runtime instance
-        ]
+    let renderApp = MutableApp.toWebPart runtime instance
 
     let webApp =
         Remoting.createApi ()
@@ -110,21 +105,17 @@ let main _ =
 
     let app =
         choose [
-            //subRoute "web" webApp
-            //subRoute "render" renderApp
-            subRoute "render" (MutableApp.toWebPart runtime instance)
+            subRoute "/render" renderApp 
+            webApp
         ]
-
-    //let t = Server.startServer "http://localhost:4321" CancellationToken.None renderApp
-    //t.Wait()
 
     let app =
         application {
             url "http://*:8085"
             use_router app
-            //memory_cache
-            //use_static "public"
-            //use_gzip
+            memory_cache
+            use_static "public"
+            use_gzip
             app_config (fun ab -> ab.UseWebSockets().UseMiddleware<WebSockets.WebSocketMiddleware>())
         }
 

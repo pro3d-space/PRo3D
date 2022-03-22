@@ -30,20 +30,20 @@ module App =
         }
 
     let setView  (cameraView : CameraView) (model : Model) = 
-        let freeFly = { model.cameraState with view = cameraView }
+        let freeFly = { model.freeFlyState with view = cameraView }
         let orbitState = OrbitState.ofFreeFly model.orbitState.radius freeFly 
-        { model with orbitState = orbitState; cameraState = freeFly }
+        { model with orbitState = orbitState; freeFlyState = freeFly }
 
     let update (model : Model) (msg : Message) =
         match msg with
         | ToggleBackground ->
             { model with background = (if model.background = C4b.Black then C4b.White else C4b.Black) }
         | FreeFlyMessage m ->
-            let freeFly = FreeFlyController.update model.cameraState m
-            { model with cameraState = freeFly; orbitState = OrbitState.ofFreeFly model.orbitState.radius freeFly }
+            let freeFly = FreeFlyController.update model.freeFlyState m
+            { model with freeFlyState = freeFly; orbitState = OrbitState.ofFreeFly model.orbitState.radius freeFly }
         | OrbitMessage msg -> 
             let orbitState = OrbitController.update model.orbitState msg
-            { model with orbitState = orbitState; cameraState = OrbitState.toFreeFly 3.2 orbitState }
+            { model with orbitState = orbitState; freeFlyState = OrbitState.toFreeFly 3.2 orbitState }
         | CenterScene ->
             match model.state.surfaces |> HashMap.toSeq |> Seq.map snd |> Seq.tryHead with
             | Some surface -> 
@@ -57,7 +57,7 @@ module App =
             | None -> model
             | Some c -> 
                 let orbitState = OrbitController.update model.orbitState (OrbitMessage.SetTargetCenter c)
-                { model with orbitState = orbitState; cameraState = OrbitState.toFreeFly 3.2 orbitState }
+                { model with orbitState = orbitState; freeFlyState = OrbitState.toFreeFly 3.2 orbitState }
         | SetCursor pos -> 
             { model with cursor = Some pos }
         | SetMousePos pos -> 
@@ -383,7 +383,7 @@ module App =
         )
 
     let threads (model : Model) =
-        let freeFly = FreeFlyController.threads model.cameraState |> ThreadPool.map FreeFlyMessage
+        let freeFly = FreeFlyController.threads model.freeFlyState |> ThreadPool.map FreeFlyMessage
         let orbit = OrbitController.threads model.orbitState |> ThreadPool.map OrbitMessage
         ThreadPool.union freeFly orbit
 
@@ -392,7 +392,7 @@ module App =
 
         let runner = runtime.CreateLoadRunner(2)
 
-        let surfaceDir = @"I:\OPC\StereoMosaic"
+        let surfaceDir = @"F:\pro3d\data\20200220_DinosaurQuarry2\Dinosaur_Quarry_2"
         let surface = Api.Surface.loadSurfaceDirectory surfaceDir
         let planet = Planet.Mars
 
@@ -414,7 +414,7 @@ module App =
             initial =
                 {
                    orbitState = orbitState
-                   cameraState =  freeFlyState
+                   freeFlyState =  freeFlyState
                    background = C4b.Gray
                    mousePos = None
                    cursor = None

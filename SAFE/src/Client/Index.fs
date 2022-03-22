@@ -17,7 +17,7 @@ type Msg =
 let todosApi =
     Remoting.createApi ()
     |> Remoting.withRouteBuilder Route.builder
-    |> Remoting.buildProxy<ITodosApi>
+    |> Remoting.buildProxy<Pro3d>
 
 let init () : Model * Cmd<Msg> =
     let model = { Todos = []; Input = "" }
@@ -49,13 +49,15 @@ open Feliz.Bulma
 let navBrand =
     Bulma.navbarBrand.div [
         Bulma.navbarItem.a [
-            prop.href "https://safe-stack.github.io/"
-            navbarItem.isActive
+            prop.href "https://pro3d.space/"
+            //navbarItem.isActive
             prop.children [
-                Html.img [
-                    prop.src "/favicon.png"
-                    prop.alt "Logo"
-                ]
+                //Html.img [
+                //    prop.src "/pro3d-favicon.png"
+                //    prop.alt "Logo"
+                //]
+                Html.div [prop.style [style.width 40]]
+                Html.text "http://pro3d.space"
             ]
         ]
     ]
@@ -105,7 +107,8 @@ let view (model: Model) (dispatch: Msg -> unit) =
         prop.children [
             Bulma.heroHead [
                 Bulma.navbar [
-                    Bulma.container [ navBrand ]
+                navBrand
+                //Bulma.container [ navBrand ]
                 ]
             ]
             Bulma.heroBody [
@@ -115,7 +118,7 @@ let view (model: Model) (dispatch: Msg -> unit) =
                     ]
                     prop.className "wrap"
                     prop.children [
-                        Html.iframe [prop.src "http://localhost:4321/render/?view=lite"; prop.width 800; prop.height 800; ]
+                        Html.iframe [prop.src "http://localhost:8085/render/?view=lite"; prop.width 800; prop.height 800; ]
                     ]
                 ]
                 Bulma.container [

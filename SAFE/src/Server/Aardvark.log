@@ -3,7 +3,7 @@
  0:     System:      Microsoft Windows 10.0.19043
  0:     Processor:   4 core x64
  0:     Process:     x64
- 0:     Framework:   .NET 5.0.14
+ 0:     Framework:   .NET 5.0.15
  0:   skipped LoadNativeDependencies for System.Private.CoreLib, Version=5.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e
  0:   trying to load native dependencies for Server, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     skipped LoadNativeDependencies for System.Text.RegularExpressions, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
@@ -12,12 +12,9 @@
  0:     skipped LoadNativeDependencies for System.Xml.XDocument, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:     skipped LoadNativeDependencies for System.Private.Xml.Linq, Version=5.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  0:     skipped LoadNativeDependencies for System.Private.Xml, Version=5.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
- 0:     skipped LoadNativeDependencies for System.Runtime.InteropServices, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:     skipped LoadNativeDependencies for System.Security.Cryptography.Algorithms, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:     skipped LoadNativeDependencies for System.Security.Cryptography.Primitives, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:   skipped LoadNativeDependencies for System.Runtime, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 0:   skipped LoadNativeDependencies for Microsoft.AspNetCore.Watch.BrowserRefresh, Version=6.0.100.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
- 0:   skipped LoadNativeDependencies for System.Runtime.Extensions, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:   trying to load native dependencies for Aardvark.Rendering, Version=5.1.0.0, Culture=neutral, PublicKeyToken=null
  0:   trying to load native dependencies for Aardvark.Base, Version=5.1.0.0, Culture=neutral, PublicKeyToken=null
  0:   trying to load native dependencies for Aardvark.Base.Tensors.CSharp, Version=5.1.0.0, Culture=neutral, PublicKeyToken=null
@@ -38,7 +35,7 @@
  0:       found: windows/x86/vkvm.exp
  0:       found: windows/x86/vkvm.lib
  0:       found: windows/x86/vkvm.pdb
- 0:     Loading native dependencies for Aardvark.Rendering.Vulkan, Version=5.1.0.0, Culture=neutral, PublicKeyToken=null 0.036 s
+ 0:     Loading native dependencies for Aardvark.Rendering.Vulkan, Version=5.1.0.0, Culture=neutral, PublicKeyToken=null 0.048 s
  0:   skipped LoadNativeDependencies for netstandard, Version=2.1.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  0:   trying to load native dependencies for Aardvark.Application.Slim.GL, Version=5.1.0.0, Culture=neutral, PublicKeyToken=null
  0:     Loading native dependencies for Aardvark.Application.Slim.GL, Version=5.1.0.0, Culture=neutral, PublicKeyToken=null 
@@ -78,7 +75,7 @@
  0:       found: windows/x86/glvm.exp
  0:       found: windows/x86/glvm.lib
  0:       found: windows/x86/glvm.pdb
- 0:     Loading native dependencies for Aardvark.Rendering.GL, Version=5.1.0.0, Culture=neutral, PublicKeyToken=null 0.000 s
+ 0:     Loading native dependencies for Aardvark.Rendering.GL, Version=5.1.0.0, Culture=neutral, PublicKeyToken=null 0.003 s
  0:   skipped LoadNativeDependencies for FSharp.Data.Adaptive, Version=1.2.0.0, Culture=neutral, PublicKeyToken=null
  0:   trying to load native dependencies for Aardvark.Base.Tensors, Version=5.1.0.0, Culture=neutral, PublicKeyToken=null
  0:   skipped LoadNativeDependencies for FShade.Imperative, Version=5.2.0.0, Culture=neutral, PublicKeyToken=null
@@ -88,9 +85,11 @@
  0:   skipped LoadNativeDependencies for System.Collections, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:   skipped LoadNativeDependencies for System.Console, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:   skipped LoadNativeDependencies for System.Runtime.InteropServices.RuntimeInformation, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:   skipped LoadNativeDependencies for System.Runtime.Extensions, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:   skipped LoadNativeDependencies for System.Runtime.Loader, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:   trying to load native dependencies for Aardvark.Base.Telemetry, Version=5.1.0.0, Culture=neutral, PublicKeyToken=null
  0:   skipped LoadNativeDependencies for System.Threading, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:   skipped LoadNativeDependencies for System.Runtime.InteropServices, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:   skipped LoadNativeDependencies for System.Threading.Thread, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:   skipped LoadNativeDependencies for System.Text.Encoding.Extensions, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:   skipped LoadNativeDependencies for System.IO.FileSystem, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
@@ -222,7 +221,7 @@
  0:     trying to load native dependencies for Aardvark.Base.Tensors, Version=5.1.0.0, Culture=neutral, PublicKeyToken=null
  0:     trying to load native dependencies for Aardvark.PixImage.DevIL, Version=5.1.0.0, Culture=neutral, PublicKeyToken=null
  0:     trying to load native dependencies for Aardvark.SceneGraph.IO, Version=5.1.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading plugins .................................................................... 0.128 s
+ 0:   Loading plugins .................................................................... 2.535 s
  0:   [Introspection] Ignoring assembly System.Runtime due to filter
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly System.Runtime.Numerics due to filter
@@ -302,7 +301,7 @@
  0:       found: windows/AMD64/turbojpeg.dll
  0:       copy turbojpeg.dll to C:\Users\hs\AppData\Local\Temp\aardvark-native\Aardvark.Service-c375b625-04e8-d280-5fe7-802c3a568726-64\turbojpeg.dll
  0:       found: windows/x86/turbojpeg.dll
- 0:     Loading native dependencies for Aardvark.Service, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null 0.000 s
+ 0:     Loading native dependencies for Aardvark.Service, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null 0.005 s
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
  0:   [Introspection] Ignoring assembly Suave due to filter
@@ -363,7 +362,7 @@
  0:       found: windows/x86/DevIL.dll
  0:       found: windows/x86/ILU.dll
  0:       found: windows/x86/ILUT.dll
- 0:     Loading native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null 0.000 s
+ 0:     Loading native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null 0.003 s
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly System.Threading due to filter
  0:   [Introspection] Ignoring assembly System.Runtime due to filter
@@ -554,7 +553,7 @@
  0:       copy vcruntime140_1.dll to C:\Users\hs\AppData\Local\Temp\aardvark-native\JR.Wrappers-1552c86e-838e-5ef6-1e94-e3f2f8e64ba8-64\vcruntime140_1.dll
  0:       found: windows/AMD64/vcruntime140_1d.dll
  0:       copy vcruntime140_1d.dll to C:\Users\hs\AppData\Local\Temp\aardvark-native\JR.Wrappers-1552c86e-838e-5ef6-1e94-e3f2f8e64ba8-64\vcruntime140_1d.dll
- 0:     Loading native dependencies for JR.Wrappers, Version=4.6.0.0, Culture=neutral, PublicKeyToken=null 0.003 s
+ 0:     Loading native dependencies for JR.Wrappers, Version=4.6.0.0, Culture=neutral, PublicKeyToken=null 0.283 s
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly Microsoft.Diagnostics.Runtime due to filter
  0:   [Introspection] Ignoring assembly System.Collections.Immutable due to filter
@@ -808,14 +807,14 @@
  0:     [cache hit ] Fable.Remoting.Giraffe, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
  0:     installing pickler: Aardvark.Base.Picklers.AdaptivePicklers
  0:     skipped LoadNativeDependencies for System.Collections.Concurrent, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 0:   initializing CustomPicklerProvider ................................................. 0.044 s
+ 0:   initializing CustomPicklerProvider ................................................. 0.290 s
  0:     [cache hit ] Aardvark.Base.TypeProviders, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base.Tensors.CSharp, Version=5.1.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base.Tensors, Version=5.1.0.0, Culture=neutral, PublicKeyToken=null
  0:   initializing PixImageSharp .................................................................
  0:     skipped LoadNativeDependencies for SixLabors.ImageSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=d998eea7b14cab13
  0:     skipped LoadNativeDependencies for System.Numerics.Vectors, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 0:   initializing PixImageSharp ......................................................... 0.026 s
+ 0:   initializing PixImageSharp ......................................................... 0.213 s
  0:     [cache hit ] Aardvark.Base.Incremental, Version=5.1.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base.Essentials, Version=5.1.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Service, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
@@ -829,7 +828,7 @@
  0:       F:\pro3d\PRo3D-lite\SAFE\src\Server\bin\Debug\net5.0
  0:       C:\Users\hs\AppData\Local\Temp\aardvark-native\DevILSharp-80a607bb-90f7-f2e1-8181-d62440d74a53-64
  0:     [Introspection] loaded native library DevIL from C:\Users\hs\AppData\Local\Temp\aardvark-native\DevILSharp-80a607bb-90f7-f2e1-8181-d62440d74a53-64\DevIL.dll
- 0:   initializing PixImageDevil ......................................................... 0.021 s
+ 0:   initializing PixImageDevil ......................................................... 0.098 s
  0:     [cache hit ] Aardvark.Rendering.GL, Version=5.1.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Geometry, Version=5.1.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base.Runtime, Version=5.1.0.0, Culture=neutral, PublicKeyToken=null
@@ -903,8 +902,8 @@
  0:     [Introspection] could not load native library Assimp64
  0:     [Introspection] could not load native library Assimp64
  0:     assimp ptr: 0n
- 0:   initializing Loader ................................................................ 0.070 s
- 0: initializing aardvark ........................................................ [0.06x] 0.522 s
+ 0:   initializing Loader ................................................................ 0.060 s
+ 0: initializing aardvark ........................................................ [0.03x] 4.270 s
  0: [CooTransformation] installing CooTransformationDefault.trl
  0: [CooTransformation] installing ExoMarsRover_VariousCameras.xml
  0: [CooTransformation] installing GraphObject3dDefault.trl
@@ -946,8 +945,6 @@
  0:   C:\Users\hs\AppData\Local\Temp\aardvark-native\DevILSharp-80a607bb-90f7-f2e1-8181-d62440d74a53-64
  0:   C:\Users\hs\AppData\Local\Temp\aardvark-native\JR.Wrappers-1552c86e-838e-5ef6-1e94-e3f2f8e64ba8-64
  0: [Introspection] loaded native library F:\pro3d\PRo3D-lite\SAFE\src\Server\bin\Debug\net5.0\glfw3.dll from C:\Users\hs\AppData\Local\Temp\aardvark-native\Aardvark.Application.Slim.GL-df493e3c-d434-e5f1-3af2-e6b4e1bc1b11-64\glfw3.dll
- 0: skipped LoadNativeDependencies for Microsoft.AspNetCore.Hosting.Abstractions, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
- 0: skipped LoadNativeDependencies for System.Threading.Tasks, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: skipped LoadNativeDependencies for System.Reflection.Emit, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: skipped LoadNativeDependencies for FShade.GLSL, Version=5.2.0.0, Culture=neutral, PublicKeyToken=null
  0: skipped LoadNativeDependencies for System.ComponentModel.TypeConverter, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
@@ -967,6 +964,7 @@
  0: skipped LoadNativeDependencies for System.Net.Http, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: skipped LoadNativeDependencies for System.Net.Primitives, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: skipped LoadNativeDependencies for Microsoft.Extensions.Logging.Abstractions, Version=6.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
+ 0: skipped LoadNativeDependencies for Microsoft.AspNetCore.Hosting.Abstractions, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
  0: skipped LoadNativeDependencies for Microsoft.Extensions.DependencyInjection.Abstractions, Version=6.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
  0: skipped LoadNativeDependencies for System.ComponentModel, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: skipped LoadNativeDependencies for System.Net.WebSockets, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
@@ -977,6 +975,7 @@
  0: skipped LoadNativeDependencies for System.Reflection.Emit.ILGeneration, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: skipped LoadNativeDependencies for System.Reflection.Primitives, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: skipped LoadNativeDependencies for System.IO.FileSystem.Watcher, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0: skipped LoadNativeDependencies for System.Threading.Tasks, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: skipped LoadNativeDependencies for System.Collections.NonGeneric, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: skipped LoadNativeDependencies for System.Diagnostics.Tracing, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: skipped LoadNativeDependencies for System.Security.Cryptography.Encoding, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
@@ -991,7 +990,7 @@
  0: skipped LoadNativeDependencies for System.Private.Uri, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: skipped LoadNativeDependencies for System.Runtime.Serialization.Primitives, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: skipped LoadNativeDependencies for System.IO, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 0: trying to load native dependencies for Ultz.Private.SIG.Silk.NET.GLFW.X86DBA9C5, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0: trying to load native dependencies for Ultz.Private.SIG.Silk.NET.GLFW.X3388C0C4, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
  0: OpenGL 4.5 working
  0: backbuffer
  0:   color: R8G8B8A8
@@ -1443,7 +1442,7 @@
  0:   trying to load native dependencies for ReflectionEmitDelegateTest, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:   skipped LoadNativeDependencies for System.Reflection.Emit.Lightweight, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:   trying to load native dependencies for Anonymously Hosted DynamicMethods Assembly, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
- 0: initializing OpenGL runtime .......................................................... 0.117 s
+ 0: initializing OpenGL runtime .......................................................... 0.145 s
  0: backbuffer
  0:   color: R8G8B8A8
  0:   depth: D24S8
@@ -1456,43 +1455,12 @@
  0:   skipped LoadNativeDependencies for System.Reflection, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:   skipped LoadNativeDependencies for System.Globalization, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:   skipped LoadNativeDependencies for System.Diagnostics.Debug, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 0: loading from cache file .............................................................. 0.400 s
+ 0: loading from cache file .............................................................. 0.408 s
  0: trying to load native dependencies for FSharp.Core.resources, Version=5.0.0.0, Culture=de, PublicKeyToken=b03f5f7f11d50a3a
  0: Aardvark.UI serves template.html
  0: Aardvark.UI serves favicon.ico
  0: WARNING: [aardvark.media] currently ThreadPool.MinThreads is (4,4)
  0: WARNING: [aardvark.media] unfortunately, currently we need to adjust this to at least (12,12) due to an open issue https://github.com/aardvark-platform/aardvark.media/issues/19
- 0: Aardvark.Service serves aardvark.js
- 0: Aardvark.Service serves rgbcolor.js
- 0: Aardvark.Service serves docking.js
- 0: Aardvark.Service serves semantic.js
- 0: Aardvark.Service serves jquery-3-3-1.js
- 0: Aardvark.Service serves touchstick.js
- 0: Aardvark.Service serves aardfs.js
- 0: Aardvark.Service serves essentialstuff.js
- 0: Aardvark.Service serves aardvark.css
- 0: Aardvark.Service serves docking.css
- 0: Aardvark.Service serves semantic.css
- 0: Aardvark.Service serves aardfs.css
- 0: Aardvark.Service serves semantic-overrides.css
- 0: Aardvark.Service serves fonts.css
- 0: Aardvark.Service serves index.html
- 0: Aardvark.Service serves stats.html
- 0: Aardvark.Service serves aardvark-light.svg
- 0: Aardvark.Service serves aardvark.svg
- 0: Aardvark.Service serves brand-icons.woff2
- 0: Aardvark.Service serves outline-icons.woff2
- 0: Aardvark.Service serves icons.woff2
- 0: Aardvark.Service serves S6u8w4BMUTPHjxsAUi-qJCY.woff2
- 0: Aardvark.Service serves S6u8w4BMUTPHjxsAXC-q.woff2
- 0: Aardvark.Service serves S6u9w4BMUTPHh6UVSwaPGR_p.woff2
- 0: Aardvark.Service serves S6u9w4BMUTPHh6UVSwiPGQ.woff2
- 0: Aardvark.Service serves S6uyw4BMUTPHjx4wXg.woff2
- 0: Aardvark.Service serves S6uyw4BMUTPHjxAwXjeu.woff2
- 0: Aardvark.Service serves S6u_w4BMUTPHjxsI5wq_FQft1dw.woff2
- 0: Aardvark.Service serves S6u_w4BMUTPHjxsI5wq_Gwft.woff2
- 0: Aardvark.UI serves template.html
- 0: Aardvark.UI serves favicon.ico
  0: Aardvark.Service serves aardvark.js
  0: Aardvark.Service serves rgbcolor.js
  0: Aardvark.Service serves docking.js
@@ -1536,7 +1504,6 @@
  0: skipped LoadNativeDependencies for Microsoft.AspNetCore.Server.Kestrel, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
  0: skipped LoadNativeDependencies for Microsoft.AspNetCore.Server.IIS, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
  0: skipped LoadNativeDependencies for Microsoft.AspNetCore.Server.IISIntegration, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
- 0: skipped LoadNativeDependencies for System.Resources.ResourceManager, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: skipped LoadNativeDependencies for Microsoft.Extensions.FileProviders.Abstractions, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
  0: skipped LoadNativeDependencies for Microsoft.Extensions.FileProviders.Physical, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
  0: skipped LoadNativeDependencies for Microsoft.Extensions.Configuration.FileExtensions, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
@@ -1554,6 +1521,13 @@
  0: skipped LoadNativeDependencies for Microsoft.Extensions.Logging.Debug, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
  0: skipped LoadNativeDependencies for Microsoft.Extensions.Logging.EventSource, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
  0: skipped LoadNativeDependencies for System.Diagnostics.TraceSource, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0: skipped LoadNativeDependencies for Microsoft.Extensions.Caching.Memory, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
+ 0: skipped LoadNativeDependencies for Microsoft.Extensions.Caching.Abstractions, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
+ 0: skipped LoadNativeDependencies for Microsoft.AspNetCore.Session, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
+ 0: skipped LoadNativeDependencies for Microsoft.AspNetCore.DataProtection, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
+ 0: skipped LoadNativeDependencies for Microsoft.AspNetCore.DataProtection.Abstractions, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
+ 0: skipped LoadNativeDependencies for Microsoft.AspNetCore.Cryptography.Internal, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
+ 0: skipped LoadNativeDependencies for Microsoft.AspNetCore.ResponseCompression, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
  0: skipped LoadNativeDependencies for System.Diagnostics.DiagnosticSource, Version=6.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  0: skipped LoadNativeDependencies for Microsoft.AspNetCore.Http, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
  0: skipped LoadNativeDependencies for Microsoft.AspNetCore.Connections.Abstractions, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
@@ -1565,9 +1539,12 @@
  0: skipped LoadNativeDependencies for Microsoft.AspNetCore.Routing.Abstractions, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
  0: skipped LoadNativeDependencies for System.Diagnostics.EventLog, Version=5.0.0.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  0: skipped LoadNativeDependencies for System.Collections.Specialized, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0: skipped LoadNativeDependencies for Microsoft.Win32.Registry, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0: skipped LoadNativeDependencies for System.Buffers, Version=5.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  0: skipped LoadNativeDependencies for Microsoft.AspNetCore.WebSockets, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
+ 0: skipped LoadNativeDependencies for Microsoft.AspNetCore.StaticFiles, Version=5.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
  0: skipped LoadNativeDependencies for System.Net.Security, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: skipped LoadNativeDependencies for System.Security.Cryptography.X509Certificates, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: skipped LoadNativeDependencies for System.Net.Sockets, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: skipped LoadNativeDependencies for System.Net.NameResolution, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 0: skipped LoadNativeDependencies for System.Buffers, Version=5.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
+ 1: skipped LoadNativeDependencies for System.Diagnostics.StackTrace, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
