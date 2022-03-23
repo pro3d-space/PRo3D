@@ -3,7 +3,6 @@ Fable.Remoting.Giraffe
 Aardvark.Service.Giraffe
 
 PRo3D.Base
-
 FSharp.Core
 
 Aardvark.Base
@@ -26,9 +25,9 @@ FsPickler
 FsPickler.Json
 
 Aardvark.GeoSpatial.Opc
-OPCViewer.Base
 Uncodium.Eigensystems
 Newtonsoft.Json
+
 
 
 
