@@ -24,11 +24,6 @@ open PRo3D.Base
 
 module App = 
 
-    let initialCamera = {
-            FreeFlyController.initial with
-                view = CameraView.lookAt (V3d.III * 3.0) V3d.OOO V3d.OOI
-        }
-
     let setView  (cameraView : CameraView) (model : Model) = 
         let freeFly = { model.freeFlyState with view = cameraView }
         let orbitState = OrbitState.ofFreeFly model.orbitState.radius freeFly 
@@ -63,6 +58,9 @@ module App =
         | SetMousePos pos -> 
             { model with mousePos = Some pos }
 
+        | SetCameraMode mode -> 
+            { model with cameraMode = mode }
+
     let renderToScene (background : aval<C4b>) (cam : aval<Camera>) (createSg : aval<Camera> -> aval<V2i> -> IFramebufferSignature -> ISg<_>)
                       (mousePos : aval<Option<V2i>>)
                       (emit : Message -> unit) = 
@@ -85,9 +83,6 @@ module App =
                    let mutable task = RenderTask.empty
                    let mutable results : option<_> = None
 
-                   //let resolvedColor = values.runtime.CreateTexture2D(TextureFormat.Rgba8, AVal.constant 1, values.size)
-                   //let resolvedDepth = values.runtime.CreateTexture2D(TextureFormat.DepthComponent32f, AVal.constant 1, values.size)
-                        
                    let sg = createSg cam values.size signature
 
                    let color =
@@ -209,24 +204,15 @@ module App =
                     onlyWhen (model.cameraMode |> AVal.map (function CameraMode.Orbit -> true | _ -> false )) (onMouseDoubleClick (fun _ -> SetOrbitCenter))
                 ]
 
-            let attributes' (model : AdaptiveOrbitState) (f : OrbitMessage -> 'msg) =
-                let down = model.dragStart |> AVal.map Option.isSome
-                AttributeMap.ofListCond [
-                    always <| onCapturedPointerDown None (fun k b p -> MouseDown p |> f)
-                    always <| onCapturedPointerUp None (fun k b p -> MouseUp p |> f)
-                    always <| onEvent "onRendered" [] (fun _ -> Rendered |> f)
-                    always <| onWheel (fun delta -> Wheel delta |> f)
-                    onlyWhen down <| onCapturedPointerMove None (fun k p -> MouseMove p |> f)
-                ]
 
             let cameraAttributes = 
                 amap {
                     let! mode = model.cameraMode
                     match mode with
                     | CameraMode.Orbit -> 
-                        yield! attributes' model.orbitState OrbitMessage |> AttributeMap.toAMap
+                        yield! OrbitController.extractAttributes model.orbitState OrbitMessage 
                     | _ -> 
-                        yield! FreeFlyController.extractAttributes model.cameraState FreeFlyMessage 
+                        yield! FreeFlyController.extractAttributes model.freeFlyState FreeFlyMessage 
                 }
 
             let attributes = 
@@ -236,7 +222,7 @@ module App =
                 ]
 
             let cursorViewPos =
-                (model.cursor, model.cameraState.view)
+                (model.cursor, model.freeFlyState.view)
                 ||> AVal.map2 (fun c v -> 
                     match c with
                     | None -> V3d(0.0,0.0,-10000.0)
@@ -263,7 +249,7 @@ module App =
                   }
                 
             let frustum = Frustum.perspective 60.0 0.1 10000.0 1.0 |> AVal.constant
-            let camera : aval<Camera> = (model.cameraState.view, frustum) ||> AVal.map2 (fun v p -> Camera.create v p)
+            let camera : aval<Camera> = (model.freeFlyState.view, frustum) ||> AVal.map2 (fun v p -> Camera.create v p)
             let createSgs (camera : aval<Camera>) (framebufferSize : aval<V2i>) (signature : IFramebufferSignature) = 
 
                 let surfaceSg = 
@@ -317,17 +303,17 @@ module App =
         renderControl
 
 
-    let dependencies = [
+    let dependencies = Html.semui @ [
         { name = "style"; kind = Stylesheet; url = "./style.css"}
         { name = "semui-overrides"; kind = Stylesheet; url = "semui-overrides.css"}
-    ]
+    ] 
 
     let view (runner : Load.Runner) (emit : Message -> unit) (model : AdaptiveModel) =
 
         let renderControl = viewScene runner emit model
 
         let distanceToCamera = 
-            (model.cameraState.view, model.cursor) 
+            (model.freeFlyState.view, model.cursor) 
             ||> AVal.map2 (fun (cam : CameraView) cursor -> 
                 match cursor with 
                 | Some c -> Vec.distance c cam.Location |> Some
@@ -362,6 +348,11 @@ module App =
                     ]
                     button [onClick (fun _ -> CenterScene)] [text "Center Scene"]
                     button [onClick (fun _ -> ToggleBackground)] [text "Change Background"]
+                    Simple.dropDown [] 
+                        model.cameraMode SetCameraMode 
+                        (Map.ofList [
+                            CameraMode.FreeFly, "Free Fly"; CameraMode.Orbit, "Orbit"; 
+                        ])
                 ]
                 div [style "grid-row: 2; width: 100%; height: 100%"] [
                     renderControl
@@ -405,7 +396,7 @@ module App =
                 planet   =  planet
             }
 
-        let freeFlyState = { initialCamera with freeFlyConfig = Camera.defaultConfig 5.0; view = cameraView }
+        let freeFlyState = { FreeFlyController.initial with freeFlyConfig = Camera.defaultConfig 5.0; view = cameraView }
         let orbitState  = { OrbitState.ofFreeFly (Vec.distance bb.Center bb.Max) freeFlyState with sky = freeFlyState.view.Sky }
 
         {

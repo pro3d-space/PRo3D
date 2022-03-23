@@ -6,6 +6,11 @@ open FSharp.Data.Adaptive
 open Aardvark.Application
 open Adaptify
 
+type OrbitControllerConfig = 
+    {
+        isPan : MouseButtons -> bool
+    }
+
 [<ModelType>]
 type OrbitState =
     {
@@ -21,8 +26,13 @@ type OrbitState =
         targetTheta : float
         targetRadius : float
         targetCenter : V3d
+
+        panned : V2d
+        currentPan : V2d
         
         dragStart : Option<V2i>
+        panning   : bool
+
         [<NonAdaptive>]
         lastRender : Option<MicroTime>
 
@@ -34,4 +44,5 @@ type OrbitState =
         zoomSensitivity : float
         speed : float
 
+        config : OrbitControllerConfig
     }

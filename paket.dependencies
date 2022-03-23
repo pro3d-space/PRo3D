@@ -37,8 +37,8 @@ nuget Aardvark.UI                           ~> 5.3.0-prerelease0004
 nuget Aardvark.UI.Primitives                ~> 5.3.0-prerelease0004 
 nuget Aardvark.Service.Giraffe              ~> 5.3.0-prerelease0004 
 
-nuget Adaptify.MSBuild                      ~> 1.1.1
-nuget Adaptify.Core                         ~> 1.1.1
+nuget Adaptify.MSBuild                      ~> 1.1.2
+nuget Adaptify.Core                         ~> 1.1.2
 
 nuget Aardium                               ~> 2.0.8
 

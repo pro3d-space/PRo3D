@@ -27,7 +27,10 @@ module OrbitState =
         let basis = M44d.FromBasis(s.right, Vec.cross s.sky s.right, s.sky, V3d.Zero)
         let onSphere = V2d(s.phi, s.theta).CartesianFromSpherical()  * s.radius
         let position = basis.TransformPos(onSphere) + s.center
-        { s with view = CameraView.lookAt position s.center s.sky }
+        let view = CameraView.lookAt position s.center s.sky
+        let withPan = view.WithLocation(view.Location + s.panned.X * view.Right + s.panned.Y * view.Up )
+
+        { s with view = withPan }
 
     let create (right : V3d) (sky : V3d) (center : V3d) (phi : float) (theta : float) (r : float) =
         let thetaRange = Range1d(-Constant.PiHalf + 0.0001, Constant.PiHalf - 0.0001)
@@ -49,7 +52,10 @@ module OrbitState =
             targetRadius = r
             targetCenter = center
 
+            panned = V2d.Zero
+
             dragStart = None
+            panning   = false
             lastRender = None
             view = Unchecked.defaultof<_>
 
@@ -58,13 +64,15 @@ module OrbitState =
             moveSensitivity = 1.0
             zoomSensitivity = 1.0
             speed = 1.0
+
+            config = { isPan = fun b -> b = MouseButtons.Middle }
         }
 
 
 
 type OrbitMessage =
-    | MouseDown of V2i
-    | MouseUp of V2i
+    | MouseDown of button : MouseButtons * pos : V2i
+    | MouseUp of button : MouseButtons * pos : V2i
     | MouseMove of V2i
     | Wheel of V2d
 
@@ -98,10 +106,10 @@ module OrbitController =
             OrbitState.withView { model with targetCenter = tc }
         
 
-        | MouseDown p ->
-            { model with dragStart = Some p; lastRender = None }
+        | MouseDown(button, p) ->
+            { model with dragStart = Some p; lastRender = None; panning = model.config.isPan button }
 
-        | MouseUp p ->
+        | MouseUp(button, p) ->
             { model with dragStart = None; lastRender = None }
 
         | Wheel delta ->
@@ -111,16 +119,23 @@ module OrbitController =
             match model.dragStart with
             | Some(start) ->
                 let delta = p - start
-                let dphi = float delta.X * -0.01 * model.moveSensitivity
-                let dtheta = float delta.Y * 0.01 * model.moveSensitivity
-            
-           
-                OrbitState.withView 
-                    { model with
-                        dragStart = Some p 
-                        targetPhi = model.targetPhi + dphi
-                        targetTheta = clamp model.thetaRange.Min model.thetaRange.Max (model.targetTheta + dtheta)
-                    }
+                if model.panning then 
+                    let dx = float delta.X * -0.01 * model.moveSensitivity
+                    let dy = float delta.Y * 0.01 * model.moveSensitivity
+                    OrbitState.withView  
+                        { model with 
+                            panned = V2d(dx,dy) 
+                        } 
+                else
+                    let dphi = float delta.X * -0.01 * model.moveSensitivity
+                    let dtheta = float delta.Y * 0.01 * model.moveSensitivity
+                    // rotating
+                    OrbitState.withView 
+                        { model with
+                            dragStart = Some p 
+                            targetPhi = model.targetPhi + dphi
+                            targetTheta = clamp model.thetaRange.Min model.thetaRange.Max (model.targetTheta + dtheta)
+                        }
             | None ->
                 model
         | Rendered ->
@@ -181,11 +196,11 @@ module OrbitController =
         ThreadPool.empty
 
 
-    let private attributes (model : AdaptiveOrbitState) (f : OrbitMessage -> 'msg) =
+    let attributes (model : AdaptiveOrbitState) (f : OrbitMessage -> 'msg) =
         let down = model.dragStart |> AVal.map Option.isSome
         AttributeMap.ofListCond [
-            always <| onCapturedPointerDown None (fun k b p -> MouseDown p |> f)
-            always <| onCapturedPointerUp None (fun k b p -> MouseUp p |> f)
+            always <| onCapturedPointerDown None (fun k b p -> MouseDown(b, p) |> f)
+            always <| onCapturedPointerUp None (fun k b p -> MouseUp(b, p) |> f)
             always <| onEvent "onRendered" [] (fun _ -> Rendered |> f)
             always <| onWheel (fun delta -> Wheel delta |> f)
             onlyWhen down <| onCapturedPointerMove None (fun k p -> MouseMove p |> f)

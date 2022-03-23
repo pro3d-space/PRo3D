@@ -6,6 +6,8 @@ open Aardvark.UI.Primitives
 open Adaptify
 open PRo3D.Base
 
+type CameraMode = FreeFly | Orbit
+
 type Message = 
     | ToggleBackground
     
@@ -15,9 +17,8 @@ type Message =
     | SetOrbitCenter
     | OrbitMessage   of OrbitMessage
     | FreeFlyMessage of FreeFlyController.Message
+    | SetCameraMode of CameraMode
     | CenterScene
-
-type CameraMode = FreeFly | Orbit
 
 [<ModelType>]
 type Model = 
