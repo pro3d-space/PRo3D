@@ -64,92 +64,96 @@ module App =
     let renderToScene (background : aval<C4b>) (cam : aval<Camera>) (createSg : aval<Camera> -> aval<V2i> -> IFramebufferSignature -> ISg<_>)
                       (mousePos : aval<Option<V2i>>)
                       (emit : Message -> unit) = 
-           let scene = 
-               Scene.custom (fun (values : ClientValues) -> 
+            let scene = 
+                Scene.custom (fun (values : ClientValues) -> 
+           
+                    let cam = 
+                        (values.size, cam) 
+                        ||> AVal.map2 (fun size camera -> Camera.create camera.cameraView (RenderControlConfig.fillHeight.adjustAspect size camera.frustum))
 
-                   let cam = 
-                       (values.size, cam) 
-                       ||> AVal.map2 (fun size camera -> Camera.create camera.cameraView (RenderControlConfig.fillHeight.adjustAspect size camera.frustum))
-                
+                    let signature =
+                        values.runtime.CreateFramebufferSignature(
+                            Map.ofList [
+                                DefaultSemantic.Colors, TextureFormat.Rgba8
+                                DefaultSemantic.DepthStencil, TextureFormat.Depth32fStencil8
+                            ],
+                            samples = 8
+                        )
+                    let mutable task = RenderTask.empty
+                    let mutable results : option<_> = None
 
-                   let signature =
-                       values.runtime.CreateFramebufferSignature(
-                           Map.ofList [
-                               DefaultSemantic.Colors, TextureFormat.Rgba8
-                               DefaultSemantic.DepthStencil, TextureFormat.Depth32fStencil8
-                           ]
-                       )
-                   let mutable task = RenderTask.empty
-                   let mutable results : option<_> = None
+                    let resolvedColor = values.runtime.CreateTexture2D(values.size, TextureFormat.Rgba8)
 
-                   let sg = createSg cam values.size signature
+                    let sg = createSg cam values.size signature
 
-                   let color =
-                       { new AdaptiveResource<ITexture>() with
-                           override x.Create() =
-                               task <-
-                                   RenderTask.ofList [
-                                       values.runtime.CompileClear(
-                                           signature,
-                                           background,
-                                           AVal.constant 1.0
-                                       )
-                                       sg |> Sg.noEvents |> Sg.camera cam |> Sg.compile values.runtime signature
-                                   ]
-                               let color,depth = task |> RenderTask.renderToColorAndDepth values.size 
-                               color.Acquire()
-                               depth.Acquire()
+                    let color =
+                        { new AdaptiveResource<ITexture>() with
+                            override x.Create() =
+                                task <-
+                                    RenderTask.ofList [
+                                        values.runtime.CompileClear(
+                                            signature,
+                                            background,
+                                            AVal.constant 1.0
+                                        )
+                                        sg |> Sg.noEvents |> Sg.camera cam |> Sg.compile values.runtime signature
+                                    ]
 
-                               results <- Some (color,depth)
+                                let color,depth = task |> RenderTask.renderToColorAndDepth values.size 
+                                color.Acquire()
+                                depth.Acquire()
+                                resolvedColor.Acquire()
 
-                           override x.Destroy() =
-                               match results with
-                               | Some (color,depth) -> color.Release(); depth.Release()
-                               | None -> ()
-                               task.Dispose()
-                               task <- RenderTask.empty
+                                results <- Some (color,depth)
+
+                            override x.Destroy() =
+                                resolvedColor.Release()
+                                match results with
+                                | Some (color,depth) -> color.Release(); depth.Release()
+                                | None -> ()
+                                task.Dispose()
+                                task <- RenderTask.empty
 
 
-                           override x.Compute(t, rt) =
-                               match results with
-                               | Some (color, depth) ->
-                                   //let resolvedColor = resolvedColor.GetValue(t)
-                                   //let resolvedDepth = resolvedDepth.GetValue(t)
-                                   let depth = depth.GetValue(t, rt)
-                                   let color = color.GetValue(t, rt)
-                                   let projTrafo = values.projTrafo.GetValue(t)
-                                   let mousePos = mousePos.GetValue(t)
-                                   let camera = cam.GetValue(t)
+                            override x.Compute(t, rt) =
+                                match results with
+                                | Some (color, depth) ->
+                                    let resolvedColor = resolvedColor.GetValue(t)
+                                    let depth = depth.GetValue(t, rt)
+                                    let color = color.GetValue(t, rt)
+                                    let projTrafo = values.projTrafo.GetValue(t)
+                                    let mousePos = mousePos.GetValue(t)
+                                    let camera = cam.GetValue(t)
 
-                                   match mousePos with
-                                   | Some mousePos when mousePos.AllGreaterOrEqual(V2i.OO) && mousePos.AllSmaller color.Size.XY -> 
+                                    match mousePos with
+                                    | Some mousePos when mousePos.AllGreaterOrEqual(V2i.OO) && mousePos.AllSmaller color.Size.XY -> 
                                         
-                                       //let m = depth.Download(0,0,Box2i.FromMinAndSize(mousePos, V2i.II)) 
-                                       let m = depth.DownloadDepth(0,0, Box2i.FromMinAndSize(mousePos, V2i.II))
-                                       let vp = camera.cameraView.ViewTrafo * (Frustum.projTrafo camera.frustum)
-                                       let tc = V2d mousePos / V2d color.Size
-                                       let depth = m.[0,0] |> float
-                                       let ndc = V3d(2.0 * tc.X - 1.0, 1.0 - 2.0 * tc.Y, depth * 2.0 - 1.0)
-                                       let wp = vp.Backward.TransformPosProj(ndc)
-                                       emit (SetCursor wp)
-                                   | _ -> ()
+                                        //let m = depth.Download(0,0,Box2i.FromMinAndSize(mousePos, V2i.II)) 
+                                        let m = depth.DownloadDepth(0,0, Box2i.FromMinAndSize(mousePos, V2i.II))
+                                        let vp = camera.cameraView.ViewTrafo * (Frustum.projTrafo camera.frustum)
+                                        let tc = V2d mousePos / V2d color.Size
+                                        let depth = m.[0,0] |> float
+                                        let ndc = V3d(2.0 * tc.X - 1.0, 1.0 - 2.0 * tc.Y, depth * 2.0 - 1.0)
+                                        let wp = vp.Backward.TransformPosProj(ndc)
+                                        emit (SetCursor wp)
+                                    | _ -> ()
 
-                                   //values.runtime.ResolveMultisamples(color, resolvedColor, ImageTrafo.Identity)
-                                   color :> ITexture
-                               | _ ->
-                                   NullTexture() :> ITexture
-                       }
+                                    values.runtime.ResolveMultisamples(color.GetOutputView(), resolvedColor, ImageTrafo.Identity)
+                                    resolvedColor :> ITexture
+                                | _ ->
+                                    NullTexture() :> ITexture
+                        }
 
-                   let final = 
-                       Sg.fullScreenQuad
-                       |> Sg.diffuseTexture color
-                       |> Sg.shader {
-                           do! DefaultSurfaces.diffuseTexture
-                       }
+                    let final = 
+                        Sg.fullScreenQuad
+                        |> Sg.diffuseTexture color
+                        |> Sg.shader {
+                            do! DefaultSurfaces.diffuseTexture
+                        }
 
-                   final |> Sg.compile values.runtime values.signature
-               )
-           scene
+                    final |> Sg.compile values.runtime values.signature
+                )
+            scene
 
     module Shader = 
         open FShade
