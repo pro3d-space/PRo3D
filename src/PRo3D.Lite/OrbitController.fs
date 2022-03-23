@@ -53,6 +53,7 @@ module OrbitState =
             targetCenter = center
 
             panned = V2d.Zero
+            currentPan = V2d.Zero
 
             dragStart = None
             panning   = false

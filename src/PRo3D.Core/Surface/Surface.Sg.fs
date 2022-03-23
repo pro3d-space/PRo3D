@@ -184,7 +184,7 @@ module Sg =
                     scene.useCompressedTextures
                     true
                     ViewerModality.XYZ
-                    //PatchLod.CoordinatesMapping.Local
+                    PatchLod.CoordinatesMapping.Local
                     useAsyncLoading
                     (PatchLod.toRoseTree h.tree)
                     map

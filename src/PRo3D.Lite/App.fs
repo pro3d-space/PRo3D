@@ -74,10 +74,9 @@ module App =
 
                    let signature =
                        values.runtime.CreateFramebufferSignature(
-                           1,
                            Map.ofList [
-                               DefaultSemantic.Colors, RenderbufferFormat.Rgba8
-                               DefaultSemantic.Depth, RenderbufferFormat.Depth32fStencil8
+                               DefaultSemantic.Colors, TextureFormat.Rgba8
+                               DefaultSemantic.DepthStencil, TextureFormat.Depth32fStencil8
                            ]
                        )
                    let mutable task = RenderTask.empty
@@ -91,9 +90,9 @@ module App =
                                task <-
                                    RenderTask.ofList [
                                        values.runtime.CompileClear(
-                                           signature, 
-                                           background |> AVal.map (fun b -> Map.ofList [DefaultSemantic.Colors, b.ToC4f()]), 
-                                           AVal.constant (Some 1.0), AVal.constant None
+                                           signature,
+                                           background,
+                                           AVal.constant 1.0
                                        )
                                        sg |> Sg.noEvents |> Sg.camera cam |> Sg.compile values.runtime signature
                                    ]
@@ -260,7 +259,7 @@ module App =
                         |> AMap.toASet 
                         |> ASet.map (fun (opcId, opc) -> 
                             PatchLod.toRoseTree opc.opc.tree
-                            |> Sg.patchLod signature runner opcId DefaultMetrics.mars false true ViewerModality.XYZ true 
+                            |> Sg.patchLod signature runner opcId DefaultMetrics.mars false true ViewerModality.XYZ PatchLod.CoordinatesMapping.Local true 
                             |> Sg.noEvents
                             |> Sg.shader {
                                 do! Shader.donutVertex

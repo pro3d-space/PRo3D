@@ -309,7 +309,9 @@ module DipAndStrike =
             //dip plane incline .. maximum dip angle
             let v = strike.Cross(up).Normalized                       
     
-            let centerOfMass = V3d.Divide(points |> IndexList.sum, (float)points.Count)
+            let centerOfMass =
+                let sum = IndexList.sum points
+                sum / (float)points.Count
 
             let dns = {
                 version         = DipAndStrikeResults.current
