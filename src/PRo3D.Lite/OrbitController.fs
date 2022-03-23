@@ -28,7 +28,7 @@ module OrbitState =
         let onSphere = V2d(s.phi, s.theta).CartesianFromSpherical()  * s.radius
         let position = basis.TransformPos(onSphere) + s.center
         let view = CameraView.lookAt position s.center s.sky
-        let withPan = view.WithLocation(view.Location + s.panned.X * view.Right + s.panned.Y * view.Up )
+        let withPan = view.WithLocation(view.Location + s.pan.X * view.Right + s.pan.Y * view.Up )
 
         { s with view = withPan }
 
@@ -52,8 +52,8 @@ module OrbitState =
             targetRadius = r
             targetCenter = center
 
-            panned = V2d.Zero
-            currentPan = V2d.Zero
+            pan = V2d.Zero
+            targetPan = V2d.Zero
 
             dragStart = None
             panning   = false
@@ -104,13 +104,18 @@ module OrbitController =
             OrbitState.withView { model with targetRadius = clamp model.radiusRange.Min model.radiusRange.Max tr }
 
         | SetTargetCenter tc ->
-            OrbitState.withView { model with targetCenter = tc }
+            OrbitState.withView { model with targetCenter = tc; targetPan = V2d.Zero }
         
 
         | MouseDown(button, p) ->
             { model with dragStart = Some p; lastRender = None; panning = model.config.isPan button }
 
         | MouseUp(button, p) ->
+            let model = 
+                if model.panning then 
+                    { model with  panning = false}
+                else 
+                    model
             { model with dragStart = None; lastRender = None }
 
         | Wheel delta ->
@@ -125,7 +130,8 @@ module OrbitController =
                     let dy = float delta.Y * 0.01 * model.moveSensitivity
                     OrbitState.withView  
                         { model with 
-                            panned = V2d(dx,dy) 
+                            targetPan = V2d(dx,dy) + model.targetPan 
+                            dragStart = Some p
                         } 
                 else
                     let dphi = float delta.X * -0.01 * model.moveSensitivity
@@ -144,6 +150,7 @@ module OrbitController =
             let dtheta = model.targetTheta - model.theta
             let dradius = model.targetRadius - model.radius
             let dcenter = model.targetCenter - model.center
+            let dpan = model.targetPan - model.pan
 
             let now = sw.MicroTime
             let dt =
@@ -154,6 +161,15 @@ module OrbitController =
             let delta = model.speed * dt.TotalSeconds / 0.05
             let part = if dt.TotalSeconds > 0.0 then clamp 0.0 1.0 delta else 0.0
             let model = { model with lastRender = Some now }
+
+            let model = 
+                if abs dpan.Length > 0.0 then
+                    if Fun.IsTiny(dpan.Length, 1E-4) then
+                        OrbitState.withView { model with pan = model.targetPan }
+                    else
+                        OrbitState.withView { model with pan = model.pan + part * dpan }
+                else
+                    model
 
             let model = 
                 if abs dphi > 0.0 then
