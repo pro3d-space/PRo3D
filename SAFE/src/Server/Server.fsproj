@@ -23,6 +23,9 @@
         <Reference Include="JR.Wrappers">
             <HintPath>../../../lib/JR.Wrappers.dll</HintPath>
         </Reference>
+        <Reference Include="PRo3D.Base">
+          <HintPath>..\..\..\bin\Debug\net5.0\PRo3D.Base.dll</HintPath>
+        </Reference>
     </ItemGroup>
 
     <ItemGroup>
