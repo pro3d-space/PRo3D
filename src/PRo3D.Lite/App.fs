@@ -26,7 +26,7 @@ module App =
 
     let setView  (cameraView : CameraView) (model : Model) = 
         let freeFly = { model.freeFlyState with view = cameraView }
-        let orbitState = OrbitState.ofFreeFly model.orbitState.radius freeFly 
+        let orbitState = OrbitState.ofFreeFly model.orbitState.radius  freeFly 
         { model with orbitState = orbitState; freeFlyState = freeFly }
 
     let update (model : Model) (msg : Message) =
@@ -348,11 +348,11 @@ module App =
                     ]
                     button [onClick (fun _ -> CenterScene)] [text "Center Scene"]
                     button [onClick (fun _ -> ToggleBackground)] [text "Change Background"]
-                    Simple.dropDown [] 
-                        model.cameraMode SetCameraMode 
-                        (Map.ofList [
-                            CameraMode.FreeFly, "Free Fly"; CameraMode.Orbit, "Orbit"; 
-                        ])
+                    //Simple.dropDown [] 
+                    //    model.cameraMode SetCameraMode 
+                    //    (Map.ofList [
+                    //        CameraMode.FreeFly, "Free Fly"; CameraMode.Orbit, "Orbit"; 
+                    //    ])
                 ]
                 div [style "grid-row: 2; width: 100%; height: 100%"] [
                     renderControl
@@ -383,7 +383,8 @@ module App =
 
         let runner = runtime.CreateLoadRunner(2)
 
-        let surfaceDir = @"F:\pro3d\data\20200220_DinosaurQuarry2\Dinosaur_Quarry_2"
+        // download garden city from pro3d.space
+        let surfaceDir = @"I:\OPC\GardenCity\MSL_Mastcam_Sol_925_id_48420"
         let surface = Api.Surface.loadSurfaceDirectory surfaceDir
         let planet = Planet.Mars
 
@@ -397,7 +398,7 @@ module App =
             }
 
         let freeFlyState = { FreeFlyController.initial with freeFlyConfig = Camera.defaultConfig 5.0; view = cameraView }
-        let orbitState  = { OrbitState.ofFreeFly (Vec.distance bb.Center bb.Max) freeFlyState with sky = freeFlyState.view.Sky }
+        let orbitState  = { OrbitState.ofFreeFly (Vec.distance bb.Center bb.Max)  freeFlyState with sky = freeFlyState.view.Sky }
 
         {
             unpersist = Unpersist.instance

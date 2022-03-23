@@ -27,11 +27,11 @@ type OrbitState =
         targetRadius : float
         targetCenter : V3d
 
-        panned : V2d
-        currentPan : V2d
         
         dragStart : Option<V2i>
         panning   : bool
+        pan       : V2d
+        targetPan : V2d
 
         [<NonAdaptive>]
         lastRender : Option<MicroTime>
