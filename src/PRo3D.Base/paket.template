@@ -1,11 +1,11 @@
 type project
 id PRo3D.Base
 authors PRo3D Team
-owners VRVis
-projectUrl https://github.com/pro3d-space/PRo3D
+owners pro3d-space
+projectUrl https://github.com/pro3d-space/
 licenseUrl https://github.com/pro3d-space/PRo3D/blob/master/LICENSE
 repositoryType git
-repositoryUrl https://github.com/aardvark-platform/aardvark.base
+repositoryUrl https://github.com/pro3d-space/PRo3D.git
 description
-    Aardvark is an open-source platform for visual computing, real-time graphics and visualization.
+    PRo3D, short for Planetary Robotics 3D Viewer, is an interactive 3D visualization tool to allow planetary scientists to work with high-resolution 3D reconstructions of the Martian surface.
 include-pdbs true
