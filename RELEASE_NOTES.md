@@ -1,3 +1,7 @@
+## 4.6.1-prerelease2
+
+- base 5.2 upgrade
+
 ## 4.6.1-prerelease1
 
 - added viewplanner placement for traverse waypoints
