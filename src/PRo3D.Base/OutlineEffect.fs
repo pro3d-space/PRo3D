@@ -3,6 +3,7 @@ namespace PRo3D.Base
 open Aardvark.Base
 open FSharp.Data.Adaptive
 open Aardvark.Rendering
+open Aardvark.SceneGraph
 open Aardvark.UI    
 open OpcViewer.Base
 
@@ -59,7 +60,7 @@ module OutlineEffect =
         let mask = 
             sg 
             |> Sg.stencilMode (AVal.constant (write outlineGroup))
-            |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Stencil])
+            |> Sg.writeBuffers' (Set.ofList [WriteBuffer.Stencil])
             |> Sg.depthTest (AVal.init DepthTest.None)
             |> Sg.cullMode (AVal.init CullMode.None)
             |> Sg.blendMode (AVal.init BlendMode.Blend)
@@ -72,7 +73,7 @@ module OutlineEffect =
         let outline =
             sg 
             |> Sg.stencilMode (AVal.constant (read outlineGroup))
-            |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Colors])
+            |> Sg.writeBuffers' (Set.ofList [WriteBuffer.Color DefaultSemantic.Colors])
             |> Sg.depthTest (AVal.init DepthTest.None)
             |> Sg.cullMode (AVal.init CullMode.None)
             |> Sg.blendMode (AVal.init BlendMode.Blend)
@@ -109,7 +110,7 @@ module OutlineEffect =
             sg
             |> Sg.uniform "LineWidth" lineWidth   
             |> Sg.stencilMode (AVal.constant (write outlineGroup))
-            |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Stencil])                              
+            |> Sg.writeBuffers' (Set.ofList [WriteBuffer.Stencil])                              
             |> Sg.pass pass
             |> Sg.shader {
                 do! DefaultSurfaces.stableTrafo
@@ -121,7 +122,7 @@ module OutlineEffect =
             sg
             |> Sg.uniform "LineWidth" outlineWidth           
             |> Sg.stencilMode (AVal.constant (read outlineGroup))
-            |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Colors])
+            |> Sg.writeBuffers' (Set.ofList [WriteBuffer.Color DefaultSemantic.Colors])
             |> Sg.pass outlinePass
             |> Sg.depthTest (AVal.constant DepthTest.None)
             |> Sg.shader {
@@ -172,14 +173,14 @@ module OutlineEffect =
         let mask = 
             sg
             |> Sg.stencilMode (AVal.constant (write outlineGroup))
-            |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Stencil;DefaultSemantic.Depth])
+            |> Sg.writeBuffers' (Set.ofList [WriteBuffer.Stencil;WriteBuffer.Depth])
             |> Sg.pass pass
             |> Sg.effect [screenSpaceStablePoints]
             
         let outline = 
             sg //sgo
             |> Sg.stencilMode (AVal.constant (read outlineGroup))
-            |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Colors; DefaultSemantic.Depth])
+            |> Sg.writeBuffers' (Set.ofList [WriteBuffer.Color DefaultSemantic.Colors; WriteBuffer.Depth])
             |> Sg.pass outlinePass
             |> Sg.depthTest (AVal.constant DepthTest.None)
             |> Sg.uniform "LineWidth" outlineWidth

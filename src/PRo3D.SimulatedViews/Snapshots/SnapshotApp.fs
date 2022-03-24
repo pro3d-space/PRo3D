@@ -95,8 +95,8 @@ module SnapshotApp =
 
         let signature = 
             app.runtime.CreateFramebufferSignature [
-                DefaultSemantic.Colors, { format = RenderbufferFormat.Rgba8; samples = 1 }
-                DefaultSemantic.Depth,  { format = RenderbufferFormat.Depth24Stencil8; samples = 1 }
+                DefaultSemantic.Colors, TextureFormat.Rgba8
+                DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
             ]
 
         let fbo = 
@@ -104,7 +104,7 @@ module SnapshotApp =
                 signature, 
                 Map.ofList [
                     DefaultSemantic.Colors, col.GetOutputView()
-                    DefaultSemantic.Depth, depth.GetOutputView()
+                    DefaultSemantic.DepthStencil, depth.GetOutputView()
                 ]
             ) |> OutputDescription.ofFramebuffer
         app.mutableApp.updateSync (Guid.NewGuid ()) (app.getAnimationActions app.snapshotAnimation)

@@ -24,14 +24,9 @@ open PRo3D.Base
 
 module App = 
 
-    let initialCamera = {
-            FreeFlyController.initial with
-                view = CameraView.lookAt (V3d.III * 3.0) V3d.OOO V3d.OOI
-        }
-
     let setView  (cameraView : CameraView) (model : Model) = 
         let freeFly = { model.freeFlyState with view = cameraView }
-        let orbitState = OrbitState.ofFreeFly model.orbitState.radius freeFly 
+        let orbitState = OrbitState.ofFreeFly model.orbitState.radius  freeFly 
         { model with orbitState = orbitState; freeFlyState = freeFly }
 
     let update (model : Model) (msg : Message) =
@@ -63,99 +58,102 @@ module App =
         | SetMousePos pos -> 
             { model with mousePos = Some pos }
 
+        | SetCameraMode mode -> 
+            { model with cameraMode = mode }
+
     let renderToScene (background : aval<C4b>) (cam : aval<Camera>) (createSg : aval<Camera> -> aval<V2i> -> IFramebufferSignature -> ISg<_>)
                       (mousePos : aval<Option<V2i>>)
                       (emit : Message -> unit) = 
-           let scene = 
-               Scene.custom (fun (values : ClientValues) -> 
+            let scene = 
+                Scene.custom (fun (values : ClientValues) -> 
+           
+                    let cam = 
+                        (values.size, cam) 
+                        ||> AVal.map2 (fun size camera -> Camera.create camera.cameraView (RenderControlConfig.fillHeight.adjustAspect size camera.frustum))
 
-                   let cam = 
-                       (values.size, cam) 
-                       ||> AVal.map2 (fun size camera -> Camera.create camera.cameraView (RenderControlConfig.fillHeight.adjustAspect size camera.frustum))
-                
+                    let signature =
+                        values.runtime.CreateFramebufferSignature(
+                            Map.ofList [
+                                DefaultSemantic.Colors, TextureFormat.Rgba8
+                                DefaultSemantic.DepthStencil, TextureFormat.Depth32fStencil8
+                            ],
+                            samples = 8
+                        )
+                    let mutable task = RenderTask.empty
+                    let mutable results : option<_> = None
 
-                   let signature =
-                       values.runtime.CreateFramebufferSignature(
-                           1,
-                           Map.ofList [
-                               DefaultSemantic.Colors, RenderbufferFormat.Rgba8
-                               DefaultSemantic.Depth, RenderbufferFormat.Depth32fStencil8
-                           ]
-                       )
-                   let mutable task = RenderTask.empty
-                   let mutable results : option<_> = None
+                    let resolvedColor = values.runtime.CreateTexture2D(values.size, TextureFormat.Rgba8)
 
-                   //let resolvedColor = values.runtime.CreateTexture2D(TextureFormat.Rgba8, AVal.constant 1, values.size)
-                   //let resolvedDepth = values.runtime.CreateTexture2D(TextureFormat.DepthComponent32f, AVal.constant 1, values.size)
-                        
-                   let sg = createSg cam values.size signature
+                    let sg = createSg cam values.size signature
 
-                   let color =
-                       { new AdaptiveResource<ITexture>() with
-                           override x.Create() =
-                               task <-
-                                   RenderTask.ofList [
-                                       values.runtime.CompileClear(
-                                           signature, 
-                                           background |> AVal.map (fun b -> Map.ofList [DefaultSemantic.Colors, b.ToC4f()]), 
-                                           AVal.constant (Some 1.0), AVal.constant None
-                                       )
-                                       sg |> Sg.noEvents |> Sg.camera cam |> Sg.compile values.runtime signature
-                                   ]
-                               let color,depth = task |> RenderTask.renderToColorAndDepth values.size 
-                               color.Acquire()
-                               depth.Acquire()
+                    let color =
+                        { new AdaptiveResource<ITexture>() with
+                            override x.Create() =
+                                task <-
+                                    RenderTask.ofList [
+                                        values.runtime.CompileClear(
+                                            signature,
+                                            background,
+                                            AVal.constant 1.0
+                                        )
+                                        sg |> Sg.noEvents |> Sg.camera cam |> Sg.compile values.runtime signature
+                                    ]
 
-                               results <- Some (color,depth)
+                                let color,depth = task |> RenderTask.renderToColorAndDepth values.size 
+                                color.Acquire()
+                                depth.Acquire()
+                                resolvedColor.Acquire()
 
-                           override x.Destroy() =
-                               match results with
-                               | Some (color,depth) -> color.Release(); depth.Release()
-                               | None -> ()
-                               task.Dispose()
-                               task <- RenderTask.empty
+                                results <- Some (color,depth)
+
+                            override x.Destroy() =
+                                resolvedColor.Release()
+                                match results with
+                                | Some (color,depth) -> color.Release(); depth.Release()
+                                | None -> ()
+                                task.Dispose()
+                                task <- RenderTask.empty
 
 
-                           override x.Compute(t, rt) =
-                               match results with
-                               | Some (color, depth) ->
-                                   //let resolvedColor = resolvedColor.GetValue(t)
-                                   //let resolvedDepth = resolvedDepth.GetValue(t)
-                                   let depth = depth.GetValue(t, rt)
-                                   let color = color.GetValue(t, rt)
-                                   let projTrafo = values.projTrafo.GetValue(t)
-                                   let mousePos = mousePos.GetValue(t)
-                                   let camera = cam.GetValue(t)
+                            override x.Compute(t, rt) =
+                                match results with
+                                | Some (color, depth) ->
+                                    let resolvedColor = resolvedColor.GetValue(t)
+                                    let depth = depth.GetValue(t, rt)
+                                    let color = color.GetValue(t, rt)
+                                    let projTrafo = values.projTrafo.GetValue(t)
+                                    let mousePos = mousePos.GetValue(t)
+                                    let camera = cam.GetValue(t)
 
-                                   match mousePos with
-                                   | Some mousePos when mousePos.AllGreaterOrEqual(V2i.OO) && mousePos.AllSmaller color.Size.XY -> 
+                                    match mousePos with
+                                    | Some mousePos when mousePos.AllGreaterOrEqual(V2i.OO) && mousePos.AllSmaller color.Size.XY -> 
                                         
-                                       //let m = depth.Download(0,0,Box2i.FromMinAndSize(mousePos, V2i.II)) 
-                                       let m = depth.DownloadDepth(0,0, Box2i.FromMinAndSize(mousePos, V2i.II))
-                                       let vp = camera.cameraView.ViewTrafo * (Frustum.projTrafo camera.frustum)
-                                       let tc = V2d mousePos / V2d color.Size
-                                       let depth = m.[0,0] |> float
-                                       let ndc = V3d(2.0 * tc.X - 1.0, 1.0 - 2.0 * tc.Y, depth * 2.0 - 1.0)
-                                       let wp = vp.Backward.TransformPosProj(ndc)
-                                       emit (SetCursor wp)
-                                   | _ -> ()
+                                        //let m = depth.Download(0,0,Box2i.FromMinAndSize(mousePos, V2i.II)) 
+                                        let m = depth.DownloadDepth(0,0, Box2i.FromMinAndSize(mousePos, V2i.II))
+                                        let vp = camera.cameraView.ViewTrafo * (Frustum.projTrafo camera.frustum)
+                                        let tc = V2d mousePos / V2d color.Size
+                                        let depth = m.[0,0] |> float
+                                        let ndc = V3d(2.0 * tc.X - 1.0, 1.0 - 2.0 * tc.Y, depth * 2.0 - 1.0)
+                                        let wp = vp.Backward.TransformPosProj(ndc)
+                                        emit (SetCursor wp)
+                                    | _ -> ()
 
-                                   //values.runtime.ResolveMultisamples(color, resolvedColor, ImageTrafo.Identity)
-                                   color :> ITexture
-                               | _ ->
-                                   NullTexture() :> ITexture
-                       }
+                                    values.runtime.ResolveMultisamples(color.GetOutputView(), resolvedColor, ImageTrafo.Identity)
+                                    resolvedColor :> ITexture
+                                | _ ->
+                                    NullTexture() :> ITexture
+                        }
 
-                   let final = 
-                       Sg.fullScreenQuad
-                       |> Sg.diffuseTexture color
-                       |> Sg.shader {
-                           do! DefaultSurfaces.diffuseTexture
-                       }
+                    let final = 
+                        Sg.fullScreenQuad
+                        |> Sg.diffuseTexture color
+                        |> Sg.shader {
+                            do! DefaultSurfaces.diffuseTexture
+                        }
 
-                   final |> Sg.compile values.runtime values.signature
-               )
-           scene
+                    final |> Sg.compile values.runtime values.signature
+                )
+            scene
 
     module Shader = 
         open FShade
@@ -209,24 +207,15 @@ module App =
                     onlyWhen (model.cameraMode |> AVal.map (function CameraMode.Orbit -> true | _ -> false )) (onMouseDoubleClick (fun _ -> SetOrbitCenter))
                 ]
 
-            let attributes' (model : AdaptiveOrbitState) (f : OrbitMessage -> 'msg) =
-                let down = model.dragStart |> AVal.map Option.isSome
-                AttributeMap.ofListCond [
-                    always <| onCapturedPointerDown None (fun k b p -> MouseDown p |> f)
-                    always <| onCapturedPointerUp None (fun k b p -> MouseUp p |> f)
-                    always <| onEvent "onRendered" [] (fun _ -> Rendered |> f)
-                    always <| onWheel (fun delta -> Wheel delta |> f)
-                    onlyWhen down <| onCapturedPointerMove None (fun k p -> MouseMove p |> f)
-                ]
 
             let cameraAttributes = 
                 amap {
                     let! mode = model.cameraMode
                     match mode with
                     | CameraMode.Orbit -> 
-                        yield! attributes' model.orbitState OrbitMessage |> AttributeMap.toAMap
+                        yield! OrbitController.extractAttributes model.orbitState OrbitMessage 
                     | _ -> 
-                        yield! FreeFlyController.extractAttributes model.cameraState FreeFlyMessage 
+                        yield! FreeFlyController.extractAttributes model.freeFlyState FreeFlyMessage 
                 }
 
             let attributes = 
@@ -236,7 +225,7 @@ module App =
                 ]
 
             let cursorViewPos =
-                (model.cursor, model.cameraState.view)
+                (model.cursor, model.freeFlyState.view)
                 ||> AVal.map2 (fun c v -> 
                     match c with
                     | None -> V3d(0.0,0.0,-10000.0)
@@ -263,7 +252,7 @@ module App =
                   }
                 
             let frustum = Frustum.perspective 60.0 0.1 10000.0 1.0 |> AVal.constant
-            let camera : aval<Camera> = (model.cameraState.view, frustum) ||> AVal.map2 (fun v p -> Camera.create v p)
+            let camera : aval<Camera> = (model.freeFlyState.view, frustum) ||> AVal.map2 (fun v p -> Camera.create v p)
             let createSgs (camera : aval<Camera>) (framebufferSize : aval<V2i>) (signature : IFramebufferSignature) = 
 
                 let surfaceSg = 
@@ -274,7 +263,7 @@ module App =
                         |> AMap.toASet 
                         |> ASet.map (fun (opcId, opc) -> 
                             PatchLod.toRoseTree opc.opc.tree
-                            |> Sg.patchLod signature runner opcId DefaultMetrics.mars false true ViewerModality.XYZ true 
+                            |> Sg.patchLod signature runner opcId DefaultMetrics.mars false true ViewerModality.XYZ PatchLod.CoordinatesMapping.Local true 
                             |> Sg.noEvents
                             |> Sg.shader {
                                 do! Shader.donutVertex
@@ -317,17 +306,17 @@ module App =
         renderControl
 
 
-    let dependencies = [
+    let dependencies = Html.semui @ [
         { name = "style"; kind = Stylesheet; url = "./style.css"}
         { name = "semui-overrides"; kind = Stylesheet; url = "semui-overrides.css"}
-    ]
+    ] 
 
     let view (runner : Load.Runner) (emit : Message -> unit) (model : AdaptiveModel) =
 
         let renderControl = viewScene runner emit model
 
         let distanceToCamera = 
-            (model.cameraState.view, model.cursor) 
+            (model.freeFlyState.view, model.cursor) 
             ||> AVal.map2 (fun (cam : CameraView) cursor -> 
                 match cursor with 
                 | Some c -> Vec.distance c cam.Location |> Some
@@ -362,6 +351,11 @@ module App =
                     ]
                     button [onClick (fun _ -> CenterScene)] [text "Center Scene"]
                     button [onClick (fun _ -> ToggleBackground)] [text "Change Background"]
+                    //Simple.dropDown [] 
+                    //    model.cameraMode SetCameraMode 
+                    //    (Map.ofList [
+                    //        CameraMode.FreeFly, "Free Fly"; CameraMode.Orbit, "Orbit"; 
+                    //    ])
                 ]
                 div [style "grid-row: 2; width: 100%; height: 100%"] [
                     renderControl
@@ -392,7 +386,8 @@ module App =
 
         let runner = runtime.CreateLoadRunner(2)
 
-        let surfaceDir = @"F:\pro3d\data\20200220_DinosaurQuarry2\Dinosaur_Quarry_2"
+        // download garden city from pro3d.space
+        let surfaceDir = @"I:\OPC\GardenCity\MSL_Mastcam_Sol_925_id_48420"
         let surface = Api.Surface.loadSurfaceDirectory surfaceDir
         let planet = Planet.Mars
 
@@ -405,8 +400,8 @@ module App =
                 planet   =  planet
             }
 
-        let freeFlyState = { initialCamera with freeFlyConfig = Camera.defaultConfig 5.0; view = cameraView }
-        let orbitState  = { OrbitState.ofFreeFly (Vec.distance bb.Center bb.Max) freeFlyState with sky = freeFlyState.view.Sky }
+        let freeFlyState = { FreeFlyController.initial with freeFlyConfig = Camera.defaultConfig 5.0; view = cameraView }
+        let orbitState  = { OrbitState.ofFreeFly (Vec.distance bb.Center bb.Max)  freeFlyState with sky = freeFlyState.view.Sky }
 
         {
             unpersist = Unpersist.instance

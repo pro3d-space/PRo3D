@@ -31,14 +31,15 @@ module Camera =
         }
     
     let toOrbitState (radius : float) (newFreeFly : CameraControllerState) =
-        let c = newFreeFly.view.Location + newFreeFly.view.Forward * radius
-        let d = newFreeFly.view.Location - c |> Vec.normalize
+        let view = newFreeFly.view
+        let c = view.Location + view.Forward * radius
+        let d = view.Location - c |> Vec.normalize
 
         let theta = asin d.Z
         let xy = d.XY / sqrt (1.0 - d.Z)
         let phi = atan2 xy.Y xy.X
 
-        { OrbitState.create newFreeFly.view.Right newFreeFly.view.Sky c phi theta radius with sky = newFreeFly.view.Up }
+        OrbitState.create newFreeFly.view.Right newFreeFly.view.Sky c phi theta radius  
 
 
 module OrbitState =
