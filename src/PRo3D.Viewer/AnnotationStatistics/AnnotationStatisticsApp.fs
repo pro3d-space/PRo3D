@@ -19,20 +19,20 @@ module AnnotationStatisticsApp =
     
     //recursively builds a list of bins and sorts values into them
     //li = bin list to build, sort = list of values to sort into bins; k = number of bins, r = rounds, acc = accumulated rangeStart, binW = bin width
-    let rec binList li sort k r acc binW =
+    let rec binList li (sort:List<float>) k r (acc:int) (binW:int) =
         if (r > k) then (li |> IndexList.ofList)
         else 
             let bin = 
                         let rS = acc
                         let rE = acc + binW
-                        let inBin = sort |> List.filter(fun f -> f >= rS && f <= rE)                       
+                        let inBin = sort |> List.filter(fun f -> f >= float(rS) && f <= float(rE))                       
 
                         [             
                             {
                                 id = Guid.NewGuid()
                                 value = inBin.Length
-                                rangeStart = rS
-                                rangeEnd = rE
+                                start = rS
+                                theEnd = rE
                             }
                         ]
             binList (li @ bin) sort k (r+1) (acc+binW) binW
@@ -44,10 +44,10 @@ module AnnotationStatisticsApp =
         match (values.IsEmpty) with 
          | true -> m.annoStatistics.histogram
          | false -> let n = float(values.Length) 
-                    let k = 1.0 + 3.322 * (log n) //Sturges' rule, number of bins
-                    let min = values |> List.min
-                    let max = values |> List.max
-                    let binWidth = (max - min)/k
+                    let k = int(round(1.0 + 3.322 * (log n))) //Sturges' rule, number of bins
+                    let min = int(floor(values |> List.min))
+                    let max = int(round(values |> List.max))
+                    let binWidth = ((max - min)/k) + 1 //+1 to prevent rounding issues
 
                     //set up the bins
                     let bins = binList List.empty values (int(k)) 1 min binWidth
@@ -55,6 +55,8 @@ module AnnotationStatisticsApp =
                     {
                         id = Guid.NewGuid()
                         numOfBins = bins.Count
+                        rangeStart = min
+                        rangeEnd = max
                         bins = bins
                     }                               
 
@@ -124,19 +126,35 @@ module AnnotationStatisticsApp =
                         }
             
             {m with selectedAnnotations = newList; annoStatistics = stats}            
-                         
+    
+    //project the domain values to pixel values
+    let projectToPx x min max =
+        //let a = 0 
+        let b = 200.0
+        match (max - min) with
+        | 0 -> 0
+        | _ -> let temp1 = float(x - min)
+               let temp2 = float(max - min)
+               let temp3 = (temp1 / temp2) * b            
+               let res = int(temp3)
+               res
+        
     
     let drawHistogram (h: AdaptiveHistogram) =
 
         let attr (bin:Bin) = 
             amap{
-                yield style "fill:white;stroke:green;stroke-width:2;fill-opacity:0.1;stroke-opacity:0.9"                
-                yield attribute "x" (sprintf "%ipx" (int(bin.rangeStart)))
-                yield attribute "y" (sprintf "%ipx" (int(bin.rangeStart + float(bin.value))))
-                yield attribute "width" (sprintf "%ipx" (int(bin.rangeEnd - bin.rangeStart)))
-                yield attribute "height" (sprintf "%ipx" (bin.value * 10))
-            } |> AttributeMap.ofAMap
+                let! min = h.rangeStart
+                let! max = h.rangeEnd
+                let pad = 20
 
+                yield style "fill:green;fill-opacity:1.0;"                
+                yield attribute "x" (sprintf "%ipx" (projectToPx bin.start min max))
+                yield attribute "y" "-100" //(sprintf "%ipx" (projectToPx bin.start min max))
+                yield attribute "width" "15"
+                yield attribute "height" (sprintf "%ipx" (bin.value * 10)) //negative so it goes upwards
+            } |> AttributeMap.ofAMap
+            
 
         h.bins |> AList.map (fun b -> Incremental.Svg.rect (attr b))
 
@@ -154,6 +172,7 @@ module AnnotationStatisticsApp =
             let! empty = s
             match empty with
                 | true -> Incremental.text (AVal.constant "No annotations selected")
+                          
                 | false -> let stats = m.annoStatistics                            
                                                       
                            let lengthStats = ("",stats.lengthStats) ||> AMap.fold(fun str (k:string) (v:float) -> sprintf "%s %s:%.2f  " str k v)
@@ -169,19 +188,23 @@ module AnnotationStatisticsApp =
                             )
 
                             //for testing purposes
-                            Svg.svg [style "width:200px;height:200px"] [
-                            
-                                Svg.rect (
-                                              [
-                                                 style "fill:white;stroke:green;stroke-width:2;fill-opacity:0.1;stroke-opacity:0.9"                
-                                                 attribute "x" "0"
-                                                 attribute "y" "20"
-                                                 attribute "width" "20"
-                                                 attribute "height" "20"
-                                              ]
-                                          )
+                            //Svg.svg [style "width:200px;height:200px"] [
+                                
+                            //        Svg.rect (
+                            //                      [
+                            //                         style "fill:white;stroke:green;stroke-width:2;fill-opacity:0.9;stroke-opacity:0.9"                
+                            //                         attribute "x" "28"
+                            //                         attribute "y" "100"
+                            //                         attribute "width" "20"
+                            //                         attribute "height" "20"
+                            //                      ]
+                            //                  )
 
-                            ]
+                            //    ]
+
+                            Incremental.Svg.svg (AttributeMap.ofList [style "width:200px;height:200px"; attribute "viewBox" "0 -100 200 200";]) (drawHistogram stats.histogram)
+                            
+
                            
                            ]
                             

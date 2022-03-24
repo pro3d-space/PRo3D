@@ -10,14 +10,16 @@ open PRo3D.Base.Annotation
 type Bin = {
      id          : Guid
      value       : int
-     rangeStart  : float
-     rangeEnd    : float
+     start       : int
+     theEnd      : int //end is a reserved keyword :(
 }
 
 [<ModelType>]
 type Histogram = {
     id        : Guid
     numOfBins : int
+    rangeStart: int
+    rangeEnd  : int
     bins      : IndexList<Bin>
 }
 
@@ -46,6 +48,8 @@ module AnnoStats =
                                     histogram = {
                                                     id = Guid.Empty
                                                     numOfBins = 0
+                                                    rangeStart = 0
+                                                    rangeEnd = 0
                                                     bins = IndexList.empty
                                                 }
                                 }
