@@ -11,12 +11,14 @@ type Bin = {
      id          : Guid
      value       : int
      start       : int
-     theEnd      : int //end is a reserved keyword :(
+     theEnd      : int 
+     width       : int
 }
 
 [<ModelType>]
 type Histogram = {
     id        : Guid
+    title     : string
     numOfBins : int
     rangeStart: int
     rangeEnd  : int
@@ -47,6 +49,7 @@ module AnnoStats =
                                     bearingStats = HashMap.empty
                                     histogram = {
                                                     id = Guid.Empty
+                                                    title = "Histogram"
                                                     numOfBins = 0
                                                     rangeStart = 0
                                                     rangeEnd = 0

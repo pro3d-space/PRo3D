@@ -5,7 +5,6 @@ open PRo3D.Base
 open PRo3D.Base.Annotation
 open Aardvark.Base
 open Aardvark.UI
-open Aardvark.SceneGraph
 open PRo3D.Core
 open FSharp.Data.Adaptive
 
@@ -33,32 +32,35 @@ module AnnotationStatisticsApp =
                                 value = inBin.Length
                                 start = rS
                                 theEnd = rE
+                                width = binW
                             }
                         ]
             binList (li @ bin) sort k (r+1) (acc+binW) binW
 
         
     
-    let calculateHistogram (m:AnnoStatsModel) (values:List<float>) =
+    let updateHistogram (h:Pro3D.AnnotationStatistics.Histogram) (values:List<float>) (title:string) =
         
         match (values.IsEmpty) with 
-         | true -> m.annoStatistics.histogram
-         | false -> let n = float(values.Length) 
-                    let k = int(round(1.0 + 3.322 * (log n))) //Sturges' rule, number of bins
+         | true -> h
+         | false -> let n = float(values.Length)                     
+                    let k = int(round(1.0 + 3.322 * (System.Math.Log10 n))) //Sturges' rule, number of bins
                     let min = int(floor(values |> List.min))
                     let max = int(round(values |> List.max))
                     let binWidth = ((max - min)/k) + 1 //+1 to prevent rounding issues
 
                     //set up the bins
                     let bins = binList List.empty values (int(k)) 1 min binWidth
-                  
-                    {
-                        id = Guid.NewGuid()
-                        numOfBins = bins.Count
-                        rangeStart = min
-                        rangeEnd = max
-                        bins = bins
-                    }                               
+                    
+                    {h with title = title; numOfBins = bins.Count; rangeStart = min; rangeEnd = max; bins = bins}
+                    //{
+                    //    id = Guid.NewGuid()
+                    //    title = title
+                    //    numOfBins = bins.Count
+                    //    rangeStart = min
+                    //    rangeEnd = max
+                    //    bins = bins
+                    //}                               
 
     
     let private calcMinMaxAvg (l:List<float>) =
@@ -93,7 +95,7 @@ module AnnotationStatisticsApp =
            let bearingStats = calcMinMaxAvg bearings
 
            //testing - histogram of lengths
-           let hist = calculateHistogram m bearings
+           let hist = updateHistogram m.annoStatistics.histogram bearings "Bearing"
            
            (lengthStats, bearingStats, hist)
 
@@ -113,10 +115,8 @@ module AnnotationStatisticsApp =
                             
                             | None -> m.selectedAnnotations   
             
-            let lens,bears,hist = calculateStats m (newList |> HashMap.toValueList)
-            
-            
-            
+            let lens,bears,hist = calculateStats m (newList |> HashMap.toValueList)            
+                        
 
             let stats = 
                         {
@@ -130,7 +130,7 @@ module AnnotationStatisticsApp =
     //project the domain values to pixel values
     let projectToPx x min max =
         //let a = 0 
-        let b = 200.0
+        let b = 300.0
         match (max - min) with
         | 0 -> 0
         | _ -> let temp1 = float(x - min)
@@ -138,25 +138,47 @@ module AnnotationStatisticsApp =
                let temp3 = (temp1 / temp2) * b            
                let res = int(temp3)
                res
-        
+     
+    
+
     
     let drawHistogram (h: AdaptiveHistogram) =
+        
+        let w = 15
 
         let attr (bin:Bin) = 
             amap{
                 let! min = h.rangeStart
-                let! max = h.rangeEnd
-                let pad = 20
-
+                let! max = h.rangeEnd           
+                
                 yield style "fill:green;fill-opacity:1.0;"                
-                yield attribute "x" (sprintf "%ipx" (projectToPx bin.start min max))
-                yield attribute "y" "-100" //(sprintf "%ipx" (projectToPx bin.start min max))
-                yield attribute "width" "15"
-                yield attribute "height" (sprintf "%ipx" (bin.value * 10)) //negative so it goes upwards
+                yield attribute "x" (sprintf "%ipx" (projectToPx (bin.start+w) min max))
+                yield attribute "y" "100" 
+                yield attribute "width" (sprintf "%ipx" w) 
+                yield attribute "height" (sprintf "%ipx" (bin.value * 10)) 
             } |> AttributeMap.ofAMap
-            
-
-        h.bins |> AList.map (fun b -> Incremental.Svg.rect (attr b))
+        
+        let labelAttr (bin: Bin) = 
+            amap {
+                let! min = h.rangeStart
+                let! max = h.rangeEnd
+                yield attribute "x" (sprintf "%ipx" (projectToPx (bin.start+w) min max))
+                yield attribute "y" "90"
+                yield attribute "text-anchor" "center"
+                yield attribute "font-size" "7"
+                yield attribute "fill" "#ffffff"               
+            }|> AttributeMap.ofAMap
+        
+        alist {
+                let bins = h.bins
+                for b in bins do
+                    let text = sprintf "%i-%i" b.start b.theEnd
+                    yield  Incremental.Svg.rect (attr b)
+                    yield  Incremental.Svg.text (labelAttr b)(AVal.constant text)
+                
+                //let! t = h.title
+               //Svg.text ([])
+        }
 
 
         
@@ -187,22 +209,8 @@ module AnnotationStatisticsApp =
                                ]
                             )
 
-                            //for testing purposes
-                            //Svg.svg [style "width:200px;height:200px"] [
-                                
-                            //        Svg.rect (
-                            //                      [
-                            //                         style "fill:white;stroke:green;stroke-width:2;fill-opacity:0.9;stroke-opacity:0.9"                
-                            //                         attribute "x" "28"
-                            //                         attribute "y" "100"
-                            //                         attribute "width" "20"
-                            //                         attribute "height" "20"
-                            //                      ]
-                            //                  )
-
-                            //    ]
-
-                            Incremental.Svg.svg (AttributeMap.ofList [style "width:200px;height:200px"; attribute "viewBox" "0 -100 200 200";]) (drawHistogram stats.histogram)
+                            Incremental.Svg.svg (AttributeMap.ofList [style "width:300px;height:300px";]) 
+                                (drawHistogram stats.histogram)
                             
 
                            
