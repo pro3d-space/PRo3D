@@ -1,7 +1,7 @@
 # TL;DR
 
 - change RELEASE_NOTES.md
-- build GitHubRelease 
+- in a commmand line use: ./build.{cmd|sh} GitHubRelease 
 
 # Release notes
 
