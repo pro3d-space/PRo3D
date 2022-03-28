@@ -19,6 +19,7 @@ type Bin = {
 type Histogram = {
     id        : Guid
     title     : string
+    data      : IndexList<float>
     numOfBins : int
     rangeStart: int
     rangeEnd  : int
@@ -26,36 +27,37 @@ type Histogram = {
 }
 
 [<ModelType>]
-type AnnoStats = {
-    lengthStats :   HashMap<string, float>   //min, max, avg
-    bearingStats :  HashMap<string, float>   //min, max, avg
-    histogram    :  Histogram
+type Property = {
+    minMaxAvg : HashMap<string, float> 
+    histogram : Option<Histogram>
+    angular   : bool                    //if false, rosediagram not reasonable
+    //roseDiagram : Option<RoseDiagram> TODO
 }
+
+
+
+//[<ModelType>]
+//type AnnoStats = {
+//    lengthStats     :  HashMap<string, float>   //min, max, avg
+//    bearingStats    :  HashMap<string, float>   //min, max, avg
+//    histogram       :  Histogram
+//    histProperties  :  IndexList<string>
+//}
 
 
 [<ModelType>]
 type AnnoStatsModel = {
-    selectedAnnotations: HashMap<Guid, Annotation>    
-    annoStatistics:      AnnoStats
+    selectedAnnotations : HashMap<Guid, Annotation>
+    properties          : IndexList<Property>
+    propertiesList      : IndexList<string>
 }
 
 module AnnoStats =
     let initial =
         {
             selectedAnnotations = HashMap.empty
-            annoStatistics = 
-                                {
-                                    lengthStats = HashMap.empty
-                                    bearingStats = HashMap.empty
-                                    histogram = {
-                                                    id = Guid.Empty
-                                                    title = "Histogram"
-                                                    numOfBins = 0
-                                                    rangeStart = 0
-                                                    rangeEnd = 0
-                                                    bins = IndexList.empty
-                                                }
-                                }
+            properties          = IndexList.empty
+            propertiesList      = ["length"; "bearing"; "verticalThickness"] |> IndexList.ofList            
         }
     
 

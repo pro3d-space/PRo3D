@@ -11,8 +11,14 @@ open FSharp.Data.Adaptive
 
 module AnnotationStatisticsApp =
 
+    type HistogramAction =
+        | Update of list<float>
+
     type AnnoStatsAction =
         | SetSelected 
+        | DrawHistogram of HistogramAction
+
+    
 
        
     
@@ -52,15 +58,7 @@ module AnnotationStatisticsApp =
                     //set up the bins
                     let bins = binList List.empty values (int(k)) 1 min binWidth
                     
-                    {h with title = title; numOfBins = bins.Count; rangeStart = min; rangeEnd = max; bins = bins}
-                    //{
-                    //    id = Guid.NewGuid()
-                    //    title = title
-                    //    numOfBins = bins.Count
-                    //    rangeStart = min
-                    //    rangeEnd = max
-                    //    bins = bins
-                    //}                               
+                    {h with title = title; numOfBins = bins.Count; rangeStart = min; rangeEnd = max; bins = bins}                                                
 
     
     let private calcMinMaxAvg (l:List<float>) =
@@ -95,9 +93,9 @@ module AnnotationStatisticsApp =
            let bearingStats = calcMinMaxAvg bearings
 
            //testing - histogram of lengths
-           let hist = updateHistogram m.annoStatistics.histogram bearings "Bearing"
+           //let hist = updateHistogram m.annoStatistics.histogram bearings "Bearing"
            
-           (lengthStats, bearingStats, hist)
+           (lengthStats, bearingStats)
 
 
     let update (m:AnnoStatsModel) (Aid:Guid) (g:GroupsModel) (a:AnnoStatsAction) =
@@ -115,17 +113,12 @@ module AnnotationStatisticsApp =
                             
                             | None -> m.selectedAnnotations   
             
-            let lens,bears,hist = calculateStats m (newList |> HashMap.toValueList)            
+            //let lens,bears= calculateStats m (newList |> HashMap.toValueList)            
                         
 
-            let stats = 
-                        {
-                            lengthStats = lens
-                            bearingStats = bears
-                            histogram = hist
-                        }
+            //let stats = {m.annoStatistics with lengthStats = lens; bearingStats = bears}                        
             
-            {m with selectedAnnotations = newList; annoStatistics = stats}            
+            {m with selectedAnnotations = newList}            
     
     //project the domain values to pixel values
     let projectToPx x min max =
@@ -142,9 +135,12 @@ module AnnotationStatisticsApp =
     
 
     
-    let drawHistogram (h: AdaptiveHistogram) =
+    let drawHistogram (h: AdaptiveHistogram) = 
         
         let w = 15
+        let height = 5
+        let offSetY = 100
+
 
         let attr (bin:Bin) = 
             amap{
@@ -153,7 +149,7 @@ module AnnotationStatisticsApp =
                 
                 yield style "fill:green;fill-opacity:1.0;"                
                 yield attribute "x" (sprintf "%ipx" (projectToPx (bin.start+w) min max))
-                yield attribute "y" "100" 
+                yield attribute "y" (sprintf "%ipx" ((height-(bin.value*10)+offSetY)))
                 yield attribute "width" (sprintf "%ipx" w) 
                 yield attribute "height" (sprintf "%ipx" (bin.value * 10)) 
             } |> AttributeMap.ofAMap
@@ -195,26 +191,33 @@ module AnnotationStatisticsApp =
             match empty with
                 | true -> Incremental.text (AVal.constant "No annotations selected")
                           
-                | false -> let stats = m.annoStatistics                            
+                | false -> Incremental.text (AVal.constant "Placeholder domnode")
+                           //let stats = m.annoStatistics                            
                                                       
-                           let lengthStats = ("",stats.lengthStats) ||> AMap.fold(fun str (k:string) (v:float) -> sprintf "%s %s:%.2f  " str k v)
-                           let bearingStats = ("",stats.bearingStats) ||> AMap.fold(fun str (k:string) (v:float) -> sprintf "%s %s:%.2f  " str k v)                              
+                           //let lengthStats = ("",stats.lengthStats) ||> AMap.fold(fun str (k:string) (v:float) -> sprintf "%s %s:%.2f  " str k v)
+                           //let bearingStats = ("",stats.bearingStats) ||> AMap.fold(fun str (k:string) (v:float) -> sprintf "%s %s:%.2f  " str k v)                              
                            
 
-                           GuiEx.accordion "Statistics of selected" "Asterisk" true [
-                            require GuiEx.semui (
-                               Html.table [      
-                                   Html.row "Length:"      [Incremental.text lengthStats] 
-                                   Html.row "Bearing:"     [Incremental.text bearingStats]                              
-                               ]
-                            )
+                           //GuiEx.accordion "Statistics of selected" "Asterisk" true [
+                                
+                           //     //table of min, max, avg
+                           //     require GuiEx.semui (
+                           //         Html.table [      
+                           //             Html.row "Length:"      [Incremental.text lengthStats] 
+                           //             Html.row "Bearing:"     [Incremental.text bearingStats]      
+                                         
+                           //                    ]
+                           //     )
+                                                              
 
-                            Incremental.Svg.svg (AttributeMap.ofList [style "width:300px;height:300px";]) 
-                                (drawHistogram stats.histogram)
+                            
+                           //     //histogram
+                           //     Incremental.Svg.svg (AttributeMap.ofList [style "width:300px;height:300px";]) 
+                           //         (drawHistogram stats.histogram)
                             
 
                            
-                           ]
+                           //]
                             
                            
             }
