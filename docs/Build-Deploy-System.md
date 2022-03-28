@@ -1,3 +1,8 @@
+# TL;DR
+
+- change RELEASE_NOTES.md
+- build GitHubRelease 
+
 # Release notes
 
 tags and release notes taken from RELEASE_NOTES.md
