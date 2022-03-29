@@ -48,6 +48,7 @@
     <Compile Include="Traverse-Model.fs" />
     <Compile Include="DashboardModes.fs" />
     <Compile Include="AnnotationStatisticsModel.fs" />
+    <Compile Include="AnnotationStatisticsApp.fs" />
     <Compile Include="Viewer-Model.fs" />
     <Compile Include="Bookmarks.fs" />
     <Compile Include="TraverseApp.fs" />
@@ -56,8 +57,6 @@
     <Compile Include="LensConfigs.fs" />
 
     <Compile Include="AnnotationRendering.fs" />
-
-    <Compile Include="AnnotationStatistics\AnnotationStatisticsApp.fs" />
     <Compile Include="Viewer\Viewer-Utils.fs" />
     <Compile Include="Viewer\ViewerGUI.fs" />
     <Compile Include="Viewer\Viewer-IO.fs" />
@@ -149,6 +148,9 @@
     <Reference Include="JR.Wrappers">
       <HintPath>..\..\lib\JR.Wrappers.dll</HintPath>
     </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="AnnotationStatistics\" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

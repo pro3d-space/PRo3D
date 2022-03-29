@@ -1023,7 +1023,7 @@ module Gui =
             | Some "annotations" -> 
                 require (viewerDependencies) (body bodyAttributes [Annotations.annotationUI m])
             | Some "annoStats" ->
-                require (viewerDependencies) (body bodyAttributes [AnnotationStatisticsApp.view m.annoStats])
+                require (viewerDependencies) (body bodyAttributes [AnnotationStatisticsApp.view m.annoStats |> UI.map AnnoStatsMessage])
             | Some "validation" -> 
                 require (viewerDependencies) (body bodyAttributes [HeightValidatorApp.viewUI m.heighValidation |> UI.map HeightValidation])
             | Some "bookmarks" -> 

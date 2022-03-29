@@ -7,6 +7,12 @@ open FSharp.Data.Adaptive
 open PRo3D.Base
 open PRo3D.Base.Annotation
 
+type Prop = 
+    | LENGTH
+    | BEARING
+    | VERTICALTHICKNESS
+
+
 type Bin = {
      id          : Guid
      value       : int
@@ -27,22 +33,19 @@ type Histogram = {
 }
 
 [<ModelType>]
-type Property = {
-    minMaxAvg : HashMap<string, float> 
-    histogram : Option<Histogram>
-    angular   : bool                    //if false, rosediagram not reasonable
-    //roseDiagram : Option<RoseDiagram> TODO
+type RoseDiagram = {
+    id        : Guid
+    //TODO
 }
 
 
-
-//[<ModelType>]
-//type AnnoStats = {
-//    lengthStats     :  HashMap<string, float>   //min, max, avg
-//    bearingStats    :  HashMap<string, float>   //min, max, avg
-//    histogram       :  Histogram
-//    histProperties  :  IndexList<string>
-//}
+[<ModelType>]
+type Property = {
+    kind      : Prop
+    minMaxAvg : HashMap<string, float> 
+    histogram : Option<Histogram>    
+    roseDiagram : Option<RoseDiagram>
+}
 
 
 [<ModelType>]

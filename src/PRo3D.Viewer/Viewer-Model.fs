@@ -160,6 +160,7 @@ type ViewerAction =
 | GeologicSurfacesMessage        of GeologicSurfaceAction
 | ScreenshotAppMessage           of ScreenshotAppAction
 | TraverseMessage                of TraverseAction
+| AnnoStatsMessage               of AnnoStatsAction
 | Nop
 
 and MailboxState = {
