@@ -766,6 +766,73 @@ module Gui =
                 
 
             ]    
+    
+    module AnnoStatsUI =
+
+        let propSummary (m : AdaptiveModel) =
+
+            let propListing (p:AdaptiveProperty) =
+                let stats = ("", p.minMaxAvg) ||> AMap.fold(fun str (k:string) (v:float) -> sprintf "%s %s:%.2f  " str k v) |> Incremental.text
+                //TODO histogram
+                //TODO rosediagram
+       
+                require GuiEx.semui (
+                                    Html.table [Html.row "" [stats]]
+                )
+
+            
+            let props = m.annoStats.properties
+
+            Incremental.div (AttributeMap.ofList [style "width:100%; margin: 10 0 10 10"]) (                                   
+                      props |> AList.map(fun prop -> propListing prop)                                                                       
+                                           )
+
+            
+
+        let statsUI (m : AdaptiveModel) = 
+            let style' = "color: white; font-family:Consolas;"   
+            let selectedAnnos = m.annoStats.selectedAnnotations
+            let s = selectedAnnos |> AMap.isEmpty        
+
+            Incremental.div (AttributeMap.ofList [style style']) (
+            
+                alist {
+
+                    let! empty = s
+                    match empty with
+                        | true -> div [style "width:100%; margin: 10 0 10 10"][text "Please select some annotations"]                                                       
+                              
+                        | false -> let text1 = selectedAnnos |> AMap.count |> AVal.map (fun n -> sprintf "%s annotation(s) selected" (n.ToString()))
+                                   Incremental.div (AttributeMap.ofList [style "width:100%; margin: 10 0 10 10"]) (
+                                        alist{
+                                            Incremental.text text1
+                                        }                                    
+                                      )
+                                   
+                                   div [style "width:100%; margin: 10 5 10 10"][                                
+                                     text "Please select a property to see statistics" 
+                                     AnnotationStatisticsApp.propDropdown |> UI.map AnnoStatsMessage                                     
+                                   ]
+
+                                   div [style "width:100%; margin: 10 5 10 10"][                                
+                                      propSummary m                                      
+                                   ]
+
+
+
+                                   
+                                                                                                  
+
+                                  
+                                
+                               
+                }
+            )
+            
+
+
+
+        
 
     module Config =
         let config (model : AdaptiveModel) = 
@@ -1023,7 +1090,7 @@ module Gui =
             | Some "annotations" -> 
                 require (viewerDependencies) (body bodyAttributes [Annotations.annotationUI m])
             | Some "annoStats" ->
-                require (viewerDependencies) (body bodyAttributes [AnnotationStatisticsApp.view m.annoStats |> UI.map AnnoStatsMessage])
+                require (viewerDependencies) (body bodyAttributes [AnnoStatsUI.statsUI m])
             | Some "validation" -> 
                 require (viewerDependencies) (body bodyAttributes [HeightValidatorApp.viewUI m.heighValidation |> UI.map HeightValidation])
             | Some "bookmarks" -> 

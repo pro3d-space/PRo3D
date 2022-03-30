@@ -14,7 +14,7 @@ type HistogramAction =
 type AnnoStatsAction =
     | SetSelected of Guid * GroupsModel
     | SetProperty of Prop
-    | DrawHistogram of HistogramAction
+    //| DrawHistogram of HistogramAction
 
 module AnnotationStatisticsApp =     
                
@@ -203,60 +203,64 @@ module AnnotationStatisticsApp =
                 ]
             )
         ] 
+
+    let propListing (prop:AdaptiveProperty) = 
+
+        let stats = ("", prop.minMaxAvg) ||> AMap.fold(fun str (k:string) (v:float) -> sprintf "%s %s:%.2f  " str k v) |> Incremental.text
+        //TODO histogram
+        //TODO rosediagram
        
-               
+        require GuiEx.semui (
+                            Html.table [  
+                                Html.row "" [stats]
+                                         
+                                      ]
+       )
          
 
         
     let view (m: AdaptiveAnnoStatsModel) =          
         
-        let style' = "color: white; font-family:Consolas;"   
-        let s = m.selectedAnnotations |> AMap.isEmpty        
 
-        Incremental.div (AttributeMap.ofList [style style']) (
+        Incremental.div (AttributeMap.ofList [style "width:100%; margin: 10 0 10 10"]) (                                   
+           m.properties |> AList.map(fun prop -> propListing prop)                                                                       
+                                )
         
-            alist {
+        //let style' = "color: white; font-family:Consolas;"   
+        //let s = m.selectedAnnotations |> AMap.isEmpty        
 
-                let! empty = s
-                match empty with
-                    | true -> text "Please select some annotations"                              
+        //Incremental.div (AttributeMap.ofList [style style']) (
+        
+        //    alist {
+
+        //        let! empty = s
+        //        match empty with
+        //            | true -> div [style "width:100%; margin: 10 0 10 10"][text "Please select some annotations"]
+                                                   
                           
-                    | false -> let text1 = m.selectedAnnotations |> AMap.count |> AVal.map (fun n -> sprintf "%s annotation(s) selected" (n.ToString()))
-                               Incremental.text text1
-                               text "Please select a property to see statistics" 
-                               propDropdown
+        //            | false -> let text1 = m.selectedAnnotations |> AMap.count |> AVal.map (fun n -> sprintf "%s annotation(s) selected" (n.ToString()))
+        //                       Incremental.div (AttributeMap.ofList [style "width:100%; margin: 10 0 10 10"]) (
+        //                            alist{
+        //                                Incremental.text text1
+        //                            }                                    
+        //                          )
                                
+        //                       div [style "width:100%; margin: 10 5 10 10"][                                
+        //                         text "Please select a property to see statistics" 
+        //                         propDropdown
+        //                       ]
 
-                           //let stats = m.annoStatistics                            
-                                                      
-                           //let lengthStats = ("",stats.lengthStats) ||> AMap.fold(fun str (k:string) (v:float) -> sprintf "%s %s:%.2f  " str k v)
-                           //let bearingStats = ("",stats.bearingStats) ||> AMap.fold(fun str (k:string) (v:float) -> sprintf "%s %s:%.2f  " str k v)                              
-                           
-
-                           //GuiEx.accordion "Statistics of selected" "Asterisk" true [
-                                
-                           //     //table of min, max, avg
-                           //     require GuiEx.semui (
-                           //         Html.table [      
-                           //             Html.row "Length:"      [Incremental.text lengthStats] 
-                           //             Html.row "Bearing:"     [Incremental.text bearingStats]      
-                                         
-                           //                    ]
-                           //     )
+        //                       Incremental.div (AttributeMap.ofList [style "width:100%; margin: 10 0 10 10"]) (                                   
+        //                               m.properties |> AList.map(fun prop -> propListing prop)                                                                       
+        //                         )
+                              
                                                               
 
-                            
-                           //     //histogram
-                           //     Incremental.Svg.svg (AttributeMap.ofList [style "width:300px;height:300px";]) 
-                           //         (drawHistogram stats.histogram)
-                            
-
-                           
-                           //]
+                               
                             
                            
-            }
-        )
+        //    }
+        //)
         
         
 

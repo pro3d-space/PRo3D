@@ -480,6 +480,12 @@ module ViewerApp =
                 let drawing = 
                     DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing msg
                 { m with drawing = drawing; } |> stash
+
+        | AnnoStatsMessage msg,_,_ ->           
+                let am = AnnotationStatisticsApp.update m.annoStats msg             
+                { m with annoStats = am}
+
+
         | SurfaceActions msg,_,_ ->
             
             let view = m.navigation.camera.view
