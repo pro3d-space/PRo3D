@@ -771,21 +771,49 @@ module Gui =
 
         let propSummary (m : AdaptiveModel) =
 
-            let propListing (p:AdaptiveProperty) =
-                let stats = ("", p.minMaxAvg) ||> AMap.fold(fun str (k:string) (v:float) -> sprintf "%s %s:%.2f  " str k v) |> Incremental.text
+            let propListing (p:AdaptiveProperty) =                
                 //TODO histogram
                 //TODO rosediagram
-       
+             let statsTable = 
                 require GuiEx.semui (
-                                    Html.table [Html.row "" [stats]]
+                    Html.table [                                    
+                        Html.row "Minimum" [Incremental.text (p.min |> AVal.map (fun f -> sprintf "%.2f" f))]
+                        Html.row "Maximum" [Incremental.text (p.max |> AVal.map (fun f -> sprintf "%.2f" f))]
+                        Html.row "Average" [Incremental.text (p.avg |> AVal.map (fun f -> sprintf "%.2f" f))]
+                    ]
                 )
+             
+             let title = "Property: " + p.kind.ToString()
+             GuiEx.accordion title "Settings" true [
+                statsTable
+                
+
+
+                
+
+                
+             ]
+
+            let histUI =
+                div [style "width:90%; margin: 10 5 5 5"][                                
+                    //first template bin with placeholder values
+
+
+                    
+                ]
+                
+                                    
 
             
             let props = m.annoStats.properties
 
-            Incremental.div (AttributeMap.ofList [style "width:100%; margin: 10 0 10 10"]) (                                   
-                      props |> AList.map(fun prop -> propListing prop)                                                                       
-                                           )
+            Incremental.div (AttributeMap.ofList [style "width:100%; margin: 10 0 10 10"]) 
+            
+                (                                  
+                   props |> AMap.map(fun p v -> propListing v) |> AMap.toASet |> ASet.toAList |> AList.map(fun (a,b) -> b)                                                                 
+                )
+
+          
 
             
 
@@ -814,7 +842,7 @@ module Gui =
                                      AnnotationStatisticsApp.propDropdown |> UI.map AnnoStatsMessage                                     
                                    ]
 
-                                   div [style "width:100%; margin: 10 5 10 10"][                                
+                                   div [style "width:90%; margin: 10 5 5 5"][                                
                                       propSummary m                                      
                                    ]
 

@@ -23,9 +23,7 @@ type Bin = {
 
 [<ModelType>]
 type Histogram = {
-    id        : Guid
-    title     : string
-    data      : IndexList<float>
+    id        : Guid        
     numOfBins : int
     rangeStart: int
     rangeEnd  : int
@@ -41,8 +39,12 @@ type RoseDiagram = {
 
 [<ModelType>]
 type Property = {
+    [<NonAdaptive>]
     kind      : Prop
-    minMaxAvg : HashMap<string, float> 
+    
+    min       : float
+    max       : float
+    avg       : float    
     histogram : Option<Histogram>    
     roseDiagram : Option<RoseDiagram>
 }
@@ -51,7 +53,7 @@ type Property = {
 [<ModelType>]
 type AnnoStatsModel = {
     selectedAnnotations : HashMap<Guid, Annotation>
-    properties          : IndexList<Property>
+    properties          : HashMap<Prop, Property>
     propertiesList      : IndexList<string>
 }
 
@@ -59,7 +61,7 @@ module AnnoStats =
     let initial =
         {
             selectedAnnotations = HashMap.empty
-            properties          = IndexList.empty
+            properties          = HashMap.empty
             propertiesList      = ["length"; "bearing"; "verticalThickness"] |> IndexList.ofList            
         }
     
