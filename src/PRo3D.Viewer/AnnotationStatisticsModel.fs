@@ -13,21 +13,19 @@ type Prop =
     | VERTICALTHICKNESS
 
 
-type Bin = {
-     id          : Guid
+type Bin = {    
      value       : int
      start       : int
      theEnd      : int 
      width       : int
 }
 
-[<ModelType>]
 type Histogram = {
     id        : Guid        
     numOfBins : int
     rangeStart: int
     rangeEnd  : int
-    bins      : IndexList<Bin>
+    bins      : HashMap<Guid, Bin>
 }
 
 [<ModelType>]
@@ -63,6 +61,23 @@ module AnnoStats =
             selectedAnnotations = HashMap.empty
             properties          = HashMap.empty
             propertiesList      = ["length"; "bearing"; "verticalThickness"] |> IndexList.ofList            
+        }
+
+    let initHistogram = 
+        {
+            id         = Guid.NewGuid()       
+            numOfBins  = 0 
+            rangeStart = 0
+            rangeEnd   = 0
+            bins       = HashMap.empty
+        }
+
+    let initBin = 
+        {            
+            value       = 0
+            start       = 0
+            theEnd      = 0
+            width       = 0
         }
     
 

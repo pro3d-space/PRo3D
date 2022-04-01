@@ -786,7 +786,10 @@ module Gui =
              let title = "Property: " + p.kind.ToString()
              GuiEx.accordion title "Settings" true [
                 statsTable
-                
+                div [style "width:100%; margin: 10 5 5 5"][                                
+                    AnnotationStatisticsApp.binSelectionView p |> UI.map AnnoStatsMessage
+                    
+                ]
 
 
                 
@@ -794,13 +797,7 @@ module Gui =
                 
              ]
 
-            let histUI =
-                div [style "width:90%; margin: 10 5 5 5"][                                
-                    //first template bin with placeholder values
-
-
-                    
-                ]
+            
                 
                                     
 
