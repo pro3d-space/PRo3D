@@ -361,9 +361,10 @@ module ViewerUtils =
                         SceneEventKind.Click, (
                            fun sceneHit -> 
                              let surfM = surf       |> AVal.force
-                             let name  = surfM.name |> AVal.force        
+                             let name  = surfM.name |> AVal.force 
                              let surfacePicking = surfacePicking |> AVal.force
                              //Log.warn "[SurfacePicking] spawning picksurface action %s" name //TODO remove spanwning altogether when interaction is not "PickSurface"
+                                
                              true, Seq.ofList [PickSurface (sceneHit, name, surfacePicking)])
                        ]  
                     // handle surface visibility
@@ -553,7 +554,7 @@ module ViewerUtils =
                             m.footPrint 
                             m.scene.viewPlans.selectedViewPlan
                             usehighlighting filterTexture
-                            allowFootprint
+                            true //allowFootprint
                        )
                     |> AMap.toASet 
                     |> ASet.map snd                     

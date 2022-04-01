@@ -443,19 +443,19 @@ module ViewPlanApp =
 
     let selectViewplan outerModel _footprint id model =
         let viewPlanToSelect = model.viewPlans |> HashMap.tryFind id
-        match viewPlanToSelect with 
-        | Some viewplan ->                
-            match model.selectedViewPlan with
-            | Some selected when selected.id = viewplan.id ->                    
+        match viewPlanToSelect, model.selectedViewPlan with
+        | Some a, Some b ->
+            if a.id = b.id then 
                 outerModel, { model with selectedViewPlan = None }
-            | _ ->                   
-                let footPrint = Optic.get _footprint outerModel
-                let footPrint, model = updateInstrumentCam viewplan model footPrint
-                let newOuterModel = Optic.set _footprint footPrint outerModel
-                newOuterModel, { model with selectedViewPlan = Some viewplan }
-        | None ->
-            Log.line "[ViewplanApp] viewplan with selected id does not exist"
-            outerModel, model
+            else
+                outerModel, { model with selectedViewPlan = Some a }
+        | Some a, None -> 
+            let footPrint = Optic.get _footprint outerModel
+            let footPrint, model = updateInstrumentCam a model footPrint
+            let newOuterModel = Optic.set _footprint footPrint outerModel
+            newOuterModel, { model with selectedViewPlan = Some a }
+        | None, _ -> outerModel, model
+            
 
     //let update (model : ViewPlanModel) (camState:CameraControllerState) (action : Action) =
     let update 
@@ -597,8 +597,10 @@ module ViewPlanApp =
                     let fp = Optic.get _footprint outerModel
                     let fp, model = updateRovers model roverModel vp' fp
                     let newOuterModel = Optic.set _footprint fp outerModel
+
+                    let viewPlans = model.viewPlans |> HashMap.add vp'.id vp'
                                                 
-                    newOuterModel, model
+                    newOuterModel, { model with viewPlans = viewPlans }
                 | None -> outerModel, model
             | None -> outerModel, model
 

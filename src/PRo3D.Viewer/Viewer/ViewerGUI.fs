@@ -415,6 +415,24 @@ module Gui =
                 }
         
             Incremental.div(AttributeMap.Empty) ui |> UI.map SurfaceActions      
+
+        let fixAllBrokenOBJPaths =
+            let jsLocateOBJDialog = 
+                "top.aardvark.dialog.showOpenDialog({title:'Select directory to locate OBJs', filters: [{ name: 'OBJs (*.obj)', extensions: ['obj']}], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+            let ui = 
+                alist {
+                    yield
+                        div [ 
+                            clazz "ui item";
+                            Dialogs.onChooseFiles  SurfaceAppAction.ChangeOBJImportDirectories;
+                            clientEvent "onclick" jsLocateOBJDialog 
+                        ][
+                            text "Locate OBJ Surfaces"
+                        ]
+                }
+        
+            Incremental.div(AttributeMap.Empty) ui |> UI.map SurfaceActions      
             
         let jsOpenAnnotationFileDialog = 
             "top.aardvark.dialog.showOpenDialog({ title: 'Import Annotations', filters: [{ name: 'Annotations (*.ann)', extensions: ['ann']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
@@ -539,6 +557,8 @@ module Gui =
                                     div [ clazz "menu"] [
                                         //fixes all broken surface import paths
                                         fixAllBrokenPaths
+                                        //fixes all broken obj import paths
+                                        fixAllBrokenOBJPaths
 
                                         let jsOpenOldAnnotationsFileDialogue = "top.aardvark.dialog.showOpenDialog({title:'Import legacy annotations from PRo3D 1.0' , filters: [{ name: 'Annotations (*.xml)', extensions: ['xml']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 

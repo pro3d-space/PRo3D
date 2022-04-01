@@ -32,7 +32,7 @@ module RoverProvider =
             }
 
         let intrinsics : Intrinsics =
-            {
+            {   
                 horizontalFieldOfView         = inst.m_oInstrumentIntrinsics.m_dFieldOfViewH
                 verticalFieldOfView           = inst.m_oInstrumentIntrinsics.m_dFieldOfViewV
                 horizontalResolution          = inst.m_oInstrumentIntrinsics.m_nResolutionH

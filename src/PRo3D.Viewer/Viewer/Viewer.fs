@@ -505,7 +505,8 @@ module ViewerApp =
 
             let surfaceModel = 
                 match msg with
-                | SurfaceAppAction.ChangeImportDirectories _ ->
+                | SurfaceAppAction.ChangeImportDirectories _
+                | SurfaceAppAction.ChangeOBJImportDirectories _ ->
                     model.scene.surfacesModel 
                     |> SceneLoader.prepareSurfaceModel runtime signature model.scene.scenePath
                 | _ -> 
@@ -699,7 +700,7 @@ module ViewerApp =
                 | _ ->
                     m.animations             
 
-            { m with 
+            { model with 
                 scene = { m.scene with viewPlans = viewPlanModel }
                 footPrint = model.footPrint
                 animations = animations
@@ -951,8 +952,8 @@ module ViewerApp =
                             cache <- c; ray.Ray.GetPointOnRay t |> Some
                         | None, c ->
                             cache <- c; None
-                                   
-                    let result = 
+                                  
+                    let result =
                         match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem fray surfaceFilter cache with
                         | Some (t,surf), c ->                         
                             cache <- c

@@ -39,6 +39,7 @@ type SurfaceAppAction =
 | ToggleActiveFlag          of Guid
 | ChangeImportDirectory     of Guid*string
 | ChangeImportDirectories   of list<string>
+| ChangeOBJImportDirectories of list<string>
 | GroupsMessage             of GroupsAppAction
 //| PickObject                of V3d
 | PlaceSurface              of V3d
@@ -187,6 +188,12 @@ module SurfaceUtils =
             let sghs =
               surfaces
                 |> IndexList.toList 
+                |> List.filter(fun s ->
+                    let dirExists = File.Exists s.importPath
+                    if dirExists |> not then 
+                        Log.error "[Surface.Sg] could not find %s" s.importPath
+                    dirExists
+                )
                 |> List.map loadObject
 
             let sgObjects =
@@ -306,6 +313,38 @@ module SurfaceApp =
               
         { model with surfaces = { model.surfaces with flat = flat' } }
 
+    let changeOBJImportDirectories (model:SurfaceModel) (selectedPaths:list<string>) = 
+
+        let surfaces =        
+            model.surfaces.flat 
+            |> HashMap.toList
+            |> List.map(fun (_,v) -> 
+                let s = (v |> Leaf.toSurface)
+                let newPath = 
+                    selectedPaths
+                    |> List.map(fun p -> 
+                        let name = p |> IO.Path.GetFileName
+                        match name = s.name with
+                        | true -> Some p
+                        | false -> None
+                    )
+                    |> List.choose( fun np -> np) 
+                match newPath.IsEmpty with
+                | true -> s
+                | false -> { s with importPath = newPath.Head } 
+            )
+              
+        let flat' = 
+            surfaces 
+              |> List.choose(fun x -> 
+                let f = (fun _ -> x |> Leaf.Surfaces)
+                Groups.updateLeaf' x.guid f model.surfaces 
+                  |> HashMap.tryFind x.guid 
+                  |> Option.map(fun leaf -> (x.guid,leaf) |> hmapsingle))          
+              |> List.fold HashMap.union HashMap.empty
+              
+        { model with surfaces = { model.surfaces with flat = flat' } }
+
 
 
     let update 
@@ -394,7 +433,12 @@ module SurfaceApp =
             | paths ->
                 let selectedPaths = paths |> List.choose Files.tryDirectoryExists
                 changeImportDirectories model selectedPaths
-            
+        | ChangeOBJImportDirectories sl ->
+            match sl with
+            | [] -> model
+            | paths ->
+                let selectedPaths = paths |> List.choose( fun p -> if File.Exists p then Some p else None)
+                changeOBJImportDirectories model selectedPaths
         | GroupsMessage msg -> 
             let groups = GroupsApp.update model.surfaces msg
 
@@ -720,7 +764,7 @@ module SurfaceApp =
                                 let isobj = Path.GetExtension path = ".obj"
                                 //
                                 //  yield i 
-                                if ((Directory.Exists path) |> not || (path |> Files.isSurfaceFolder |> not)) && (isobj |> not) then
+                                if (((Directory.Exists path) |> not || (path |> Files.isSurfaceFolder |> not)) && (isobj |> not)) || ( isobj && (File.Exists path) |> not ) then
                                     yield i [
                                         clazz "exclamation red icon"
                                         //Dialogs.onChooseDirectory key ChangeImportDirectory;
@@ -731,6 +775,11 @@ module SurfaceApp =
                                         ////   """)
                                         //clientEvent "onclick" ("parent.aardvark.processEvent('__ID__', 'onchoose', parent.aardvark.dialog.showOpenDialog({properties: ['openDirectory','multiSelections']}));")
                                     ] []
+
+                                //if ( isobj && (File.Exists path) |> not ) then 
+                                //    yield i [
+                                //        clazz "exclamation red icon"
+                                //    ] []
                             } 
                         )                                     
                     ]

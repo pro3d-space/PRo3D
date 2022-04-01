@@ -30,8 +30,6 @@ type SceneObject = {
     preTransform    : Trafo3d
 }
 
-
-
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module SceneObject =    
     
