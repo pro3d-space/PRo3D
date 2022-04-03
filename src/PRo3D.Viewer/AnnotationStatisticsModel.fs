@@ -12,7 +12,7 @@ type Prop =
     | BEARING
     | VERTICALTHICKNESS
 
-
+[<ModelType>]
 type Bin = {    
      value       : int
      start       : int
@@ -20,8 +20,12 @@ type Bin = {
      width       : int
 }
 
+
+[<ModelType>]
 type Histogram = {
-    id        : Guid        
+    [<NonAdaptive>]
+    id        : Guid
+    
     numOfBins : int
     rangeStart: int
     rangeEnd  : int
@@ -40,11 +44,12 @@ type Property = {
     [<NonAdaptive>]
     kind      : Prop
     
+    data      : IndexList<float>
     min       : float
     max       : float
     avg       : float    
-    histogram : Option<Histogram>    
-    roseDiagram : Option<RoseDiagram>
+    histogram : Histogram    
+    //roseDiagram : Option<RoseDiagram>
 }
 
 

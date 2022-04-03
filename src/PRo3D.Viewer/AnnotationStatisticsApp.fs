@@ -9,19 +9,72 @@ open PRo3D.Core
 open FSharp.Data.Adaptive
 
 type BinAction =
-    | ChangeStart of float
-    | ChangeEnd of float
+    | SetStart of float
+    | SetEnd of float
+    | SetValue of int
 
 type HistogramAction =
     | Compute 
     | AddBin 
-    | UpdateBin of Pro3D.AnnotationStatistics.Histogram * Guid * string * float 
+    | UpdateBin of BinAction * Guid 
+
+type PropertyAction =    
+    | UpdateStats of List<float>
+    | UpdateHistogram of HistogramAction
 
 type AnnoStatsAction =
     | SetSelected of Guid * GroupsModel
     | SetProperty of Prop
-    | UpdateProperty of HistogramAction * Prop
-    //| UpdateHistogram of HistogramAction
+    | UpdateProperty of PropertyAction * Prop
+
+
+
+module BinOperations =
+
+    let update (m:Bin) (action:BinAction) =
+        match action with
+        | SetStart s -> {m with start = int(floor(s))}
+        | SetEnd e -> {m with theEnd = int(round(e))}
+        | SetValue v -> {m with value = v}
+
+
+module HistogramOperations = 
+
+    let update (m:(Pro3D.AnnotationStatistics.Histogram)) (action:HistogramAction) =
+        match action with
+        | Compute -> m
+
+        | AddBin -> let emptyBin = AnnoStats.initBin
+                    let binList = m.bins.Add (Guid.NewGuid(), emptyBin)        
+                    {m with bins = binList}     
+
+        | UpdateBin (act, id)-> match (m.bins |> HashMap.tryFind id) with
+                                | Some bin -> let updatedBin = BinOperations.update bin act
+                                              let updatedBinList = m.bins |> HashMap.alter id (function None -> None | Some _ -> Some updatedBin)
+                                              {m with bins = updatedBinList}
+                                | None -> m
+
+module PropertyOperations =
+
+
+    let private calcMinMaxAvg (l:List<float>) =
+        match (l.IsEmpty) with
+        | true -> (0.0, 0.0, 0.0)        
+        | false -> let min = l |> List.min
+                   let max = l |> List.max
+                   let avg = l |> List.average
+                   (min, max, avg)                      
+                   
+     
+
+    let update (m:Property) (action:PropertyAction) =
+        match action with       
+        | UpdateStats d -> let min,max,avg = calcMinMaxAvg d
+                           {m with data = (d|> IndexList.ofList); min = min; max = max; avg = avg}
+
+        | UpdateHistogram histAction -> let updatedHist = HistogramOperations.update m.histogram histAction
+                                        {m with histogram = updatedHist}
+    
 
 module AnnotationStatisticsApp =     
                
@@ -70,12 +123,11 @@ module AnnotationStatisticsApp =
            | false -> let min = l |> List.min
                       let max = l |> List.max
                       let avg = l |> List.average
-                      (min, max, avg)
-                      //[("min", min); ("max", max); ("avg", avg)] |> HashMap.ofList
+                      (min, max, avg)                      
                       
      
 
-    let calculateStats (m: AnnoStatsModel) (prop:Prop) (selected:List<Annotation>) =
+    let getPropData (prop:Prop) (selected:List<Annotation>) =
 
         match prop with
             | Prop.LENGTH -> selected 
@@ -84,7 +136,7 @@ module AnnotationStatisticsApp =
                                                            | None -> None
                                                )
                                    |> List.choose(fun o -> o)
-                                   |> calcMinMaxAvg
+                                   
 
             | Prop.BEARING -> selected 
                                     |> List.map(fun a -> match a.results with
@@ -92,7 +144,7 @@ module AnnotationStatisticsApp =
                                                             | None -> None
                                                 )
                                     |> List.choose(fun o -> o)
-                                    |> calcMinMaxAvg
+                                    
             
             | Prop.VERTICALTHICKNESS -> selected 
                                                 |> List.map(fun a -> match a.results with
@@ -100,26 +152,18 @@ module AnnotationStatisticsApp =
                                                                         | None -> None
                                                             )
                                                 |> List.choose(fun o -> o)
-                                                |> calcMinMaxAvg
+                                                
             
 
     //when a new annotation is added
-    let updateAllProperties (m:AnnoStatsModel) =
+    let updateAllProperties (m:AnnoStatsModel) (annos:List<Annotation>)=
         let props = m.properties
         match props.IsEmpty with
         | true -> HashMap.empty
         | false -> props |> HashMap.map(fun k v -> 
-                                                   let ud_min, ud_max, ud_avg = calculateStats m k (m.selectedAnnotations |> HashMap.toValueList)
-                                                   let updatedHist = None //TODO
-                                                   let updatedRose = None //TODO
-                                                   {
-                                                          kind = k
-                                                          min = ud_min
-                                                          max = ud_max
-                                                          avg = ud_avg
-                                                          histogram = updatedHist
-                                                          roseDiagram = updatedRose
-                                                   }
+                                                    let p1 = PropertyOperations.update v (UpdateStats (getPropData k annos))
+                                                    PropertyOperations.update p1 (UpdateHistogram Compute)                                                   
+                                                
 
                                            )
 
@@ -134,36 +178,31 @@ module AnnotationStatisticsApp =
 
     let update (m:AnnoStatsModel) (a:AnnoStatsAction) =
         match a with
-        | SetSelected (id, g) ->           
-            let anno = match (g.flat |> HashMap.tryFind id) with
-                        | Some l -> Some(Leaf.toAnnotation l)
-                        | None -> None
+        | SetSelected (id, g) ->         
             
-            let selected = match anno with 
-                            | Some a -> let exists = m.selectedAnnotations |> HashMap.tryFind id
-                                        match exists with
-                                        | Some v -> m.selectedAnnotations
-                                        | None -> m.selectedAnnotations.Add (id,a)                            
-                            
-                            | None -> m.selectedAnnotations              
-                                    
-            let updatedProperties = updateAllProperties m
-            {m with selectedAnnotations = selected; properties = updatedProperties}  
+            match (g.flat |> HashMap.tryFind id) with
+            | Some l -> let anno = Leaf.toAnnotation l
+                        match (m.selectedAnnotations |> HashMap.tryFind id) with
+                        | Some _ -> m
+                        | None -> let updatedAnnos = m.selectedAnnotations.Add (id,anno)
+                                  let updatedProperties = updateAllProperties m (updatedAnnos |> HashMap.toValueList)
+                                  {m with selectedAnnotations = updatedAnnos; properties = updatedProperties}
+            | None -> m
+
         
         | SetProperty prop ->                              
                              let properties = 
                                 match (m.properties.ContainsKey prop) with
                                 | true -> m.properties
-                                | false -> let min, max, avg = calculateStats m prop (m.selectedAnnotations |> HashMap.toValueList)
-                                           //let histogram = TODO
-                                           //let rosediagram = TODO
+                                | false -> let d = getPropData prop (m.selectedAnnotations |> HashMap.toValueList)
+                                           let min, max, avg = calcMinMaxAvg d                                                                                      
                                            let property = {
                                                  kind = prop
+                                                 data = (d |> IndexList.ofList)
                                                  min = min
                                                  max = max
                                                  avg = avg
-                                                 histogram = Some (AnnoStats.initHistogram)
-                                                 roseDiagram = None                
+                                                 histogram = AnnoStats.initHistogram                                                                
                                                }
                                            m.properties.Add (prop, property)
             
@@ -172,29 +211,37 @@ module AnnotationStatisticsApp =
         
         | UpdateProperty (act, prop) -> 
             match act with
-            | Compute -> m //TODO
-            | AddBin ->     let property = m.properties.TryFind prop
-                            match property with
-                            | Some p -> let hist = 
-                                            let emptyBin = AnnoStats.initBin
-                                            match p.histogram with
-                                            | Some h -> let updatedBins = h.bins.Add (Guid.NewGuid(), emptyBin)
-                                                        {h with bins = updatedBins}
-                                            | None -> let newHist = {                                                
-                                                            id = Guid.NewGuid()
-                                                            numOfBins = 1
-                                                            rangeStart = 0
-                                                            rangeEnd = 0
-                                                            bins = [(Guid.NewGuid(), emptyBin)] |> HashMap.ofList
-                                                           }
-                                                      newHist
-                                        let updatedProp = {p with histogram = Some hist}
-                                        let updatedPropList = m.properties |> HashMap.alter prop (function None -> None | Some _ -> Some updatedProp)
-                                        {m with properties = updatedPropList}
+            | UpdateStats d -> m
+            | UpdateHistogram histAction -> match (m.properties.TryFind prop) with
+                                            | Some p -> let updatedHist = HistogramOperations.update p.histogram histAction
+                                                        let updatedProp = {p with histogram = updatedHist}
+                                                        let updatedPropList = m.properties |> HashMap.alter prop (function None -> None | Some _ -> Some updatedProp)
+                                                        {m with properties = updatedPropList}
+                                                        
+                                            | None -> m
+            //| Compute -> m //TODO
+            //| AddBin ->     let property = m.properties.TryFind prop
+            //                match property with
+            //                | Some p -> let hist = 
+            //                                let emptyBin = AnnoStats.initBin
+            //                                match p.histogram with
+            //                                | Some h -> let updatedBins = h.bins.Add (Guid.NewGuid(), emptyBin)
+            //                                            {h with bins = updatedBins}
+            //                                | None -> let newHist = {                                                
+            //                                                id = Guid.NewGuid()
+            //                                                numOfBins = 1
+            //                                                rangeStart = 0
+            //                                                rangeEnd = 0
+            //                                                bins = [(Guid.NewGuid(), emptyBin)] |> HashMap.ofList
+            //                                               }
+            //                                          newHist
+            //                            let updatedProp = {p with histogram = Some hist}
+            //                            let updatedPropList = m.properties |> HashMap.alter prop (function None -> None | Some _ -> Some updatedProp)
+            //                            {m with properties = updatedPropList}
 
                                         
-                            | None -> m
-            | UpdateBin (hist, id, boundary, boundaryValue) -> m
+            //                | None -> m
+            //| UpdateBin (hist, id, boundary, boundaryValue) -> m
                 //let property = m.properties.TryFind prop
                 //match property with
                 //| Some p ->
@@ -335,33 +382,26 @@ module AnnotationStatisticsApp =
 
         Incremental.div (AttributeMap.ofList [style "width:100%; margin: 10 5 5 5"]) (
 
-            alist{
-                   let! hist = prop.histogram
-                   match hist with
-                   | Some h -> 
-                                let rowList = h.bins 
-                                                |> HashMap.map(fun k bin -> 
-                                                        Html.row ("Bin " + k.ToString()) 
-                                                         [       
-                                                            text "place holder"
-                                                            //Html.SemUi.textBox (AVal.constant (bin.start.ToString())) GroupsAppAction.SetChildName 
-                                                            //Html.SemUi.textBox (AVal.constant (bin.theEnd.ToString())) GroupsAppAction.SetChildName 
-                                                         ]
-                                                       )
-                                                |> HashMap.toValueList
+            alist{                   
+                   let rowList = prop.histogram.bins |> AMap.map (fun k bin -> 
+                                                                Html.row ("Bin " + k.ToString()) 
+                                                                    [       
+                                                                       text "place holder"
+                                                                       //Html.SemUi.textBox (AVal.constant (bin.start.ToString())) GroupsAppAction.SetChildName 
+                                                                       //Html.SemUi.textBox (AVal.constant (bin.theEnd.ToString())) GroupsAppAction.SetChildName 
+                                                                    ]                                                       
+                                                        )
+                                            |> AMap.toASet 
+                                            |> ASet.toAList
+                                            |> AList.map(fun (_,b) -> b) 
+                   
+                                            
+                   Incremental.table (AttributeMap.empty) rowList
 
 
-                                require GuiEx.semui (
-                                    Html.table rowList                                    
-                                )
-                                button [clazz "fluid inverted ui button"; onClick (fun _ -> UpdateProperty (AddBin,prop.kind))][                        
-                                    text "Add Bin"
-                                ]
-
-
-
-                   | None -> div[][]
-
+                   button [clazz "fluid inverted ui button"; onClick (fun _ -> UpdateProperty (UpdateHistogram AddBin, prop.kind))][                        
+                       text "Add Bin"
+                   ]
 
             }
 
@@ -415,8 +455,9 @@ module AnnotationStatisticsApp =
                            
         //    }
         //)
-        
-        
+
+
+
 
           
         
