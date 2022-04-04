@@ -351,11 +351,11 @@ module App =
                     ]
                     button [onClick (fun _ -> CenterScene)] [text "Center Scene"]
                     button [onClick (fun _ -> ToggleBackground)] [text "Change Background"]
-                    //Simple.dropDown [] 
-                    //    model.cameraMode SetCameraMode 
-                    //    (Map.ofList [
-                    //        CameraMode.FreeFly, "Free Fly"; CameraMode.Orbit, "Orbit"; 
-                    //    ])
+                    Simple.dropDown [] 
+                        model.cameraMode SetCameraMode 
+                        (Map.ofList [
+                            CameraMode.FreeFly, "Free Fly"; CameraMode.Orbit, "Orbit"; 
+                        ])
                 ]
                 div [style "grid-row: 2; width: 100%; height: 100%"] [
                     renderControl
