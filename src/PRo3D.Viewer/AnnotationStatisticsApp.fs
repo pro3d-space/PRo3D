@@ -9,8 +9,8 @@ open PRo3D.Core
 open FSharp.Data.Adaptive
 
 type BinAction =
-    | SetStart of float
-    | SetEnd of float
+    | SetStart of Numeric.Action
+    | SetEnd of Numeric.Action
     | SetValue of int
 
 type HistogramAction =
@@ -33,8 +33,12 @@ module BinOperations =
 
     let update (m:Bin) (action:BinAction) =
         match action with
-        | SetStart s -> {m with start = int(floor(s))}
-        | SetEnd e -> {m with theEnd = int(round(e))}
+        | SetStart s -> let ud_start = Numeric.update m.start s
+                        {m with start = ud_start}
+
+        | SetEnd e -> let ud_end = Numeric.update m.theEnd e
+                      {m with theEnd = ud_end}
+
         | SetValue v -> {m with value = v}
 
 
@@ -44,9 +48,9 @@ module HistogramOperations =
         match action with
         | Compute -> m
 
-        | AddBin -> let emptyBin = AnnoStats.initBin
+        | AddBin -> let emptyBin = (AnnoStats.initBin 0 0.0 0.0)
                     let binList = m.bins.Add (Guid.NewGuid(), emptyBin)        
-                    {m with bins = binList}     
+                    {m with bins = binList; numOfBins = (m.numOfBins + 1)}     
 
         | UpdateBin (act, id)-> match (m.bins |> HashMap.tryFind id) with
                                 | Some bin -> let updatedBin = BinOperations.update bin act
@@ -80,23 +84,23 @@ module AnnotationStatisticsApp =
                
     //recursively builds a list of bins and sorts values into them
     //li = bin list to build, sort = list of values to sort into bins; k = number of bins, r = rounds, acc = accumulated rangeStart, binW = bin width
-    let rec binList li (sort:List<float>) k r (acc:int) (binW:int) =
-        if (r > k) then (li |> IndexList.ofList)
-        else 
-            let bin = 
-                        let rS = acc
-                        let rE = acc + binW
-                        let inBin = sort |> List.filter(fun f -> f >= float(rS) && f <= float(rE))                       
+    //let rec binList li (sort:List<float>) k r (acc:int) (binW:int) =
+    //    if (r > k) then (li |> IndexList.ofList)
+    //    else 
+    //        let bin = 
+    //                    let rS = acc
+    //                    let rE = acc + binW
+    //                    let inBin = sort |> List.filter(fun f -> f >= float(rS) && f <= float(rE))                       
 
-                        [             
-                            {                                
-                                value = inBin.Length
-                                start = rS
-                                theEnd = rE
-                                width = binW
-                            }
-                        ]
-            binList (li @ bin) sort k (r+1) (acc+binW) binW
+    //                    [             
+    //                        {                                
+    //                            value = inBin.Length
+    //                            start = rS
+    //                            theEnd = rE
+    //                            width = binW
+    //                        }
+    //                    ]
+    //        binList (li @ bin) sort k (r+1) (acc+binW) binW
 
         
     
@@ -202,7 +206,7 @@ module AnnotationStatisticsApp =
                                                  min = min
                                                  max = max
                                                  avg = avg
-                                                 histogram = AnnoStats.initHistogram                                                                
+                                                 histogram = (AnnoStats.initHistogram min max (d.Length))                                                              
                                                }
                                            m.properties.Add (prop, property)
             
@@ -219,137 +223,65 @@ module AnnotationStatisticsApp =
                                                         {m with properties = updatedPropList}
                                                         
                                             | None -> m
-            //| Compute -> m //TODO
-            //| AddBin ->     let property = m.properties.TryFind prop
-            //                match property with
-            //                | Some p -> let hist = 
-            //                                let emptyBin = AnnoStats.initBin
-            //                                match p.histogram with
-            //                                | Some h -> let updatedBins = h.bins.Add (Guid.NewGuid(), emptyBin)
-            //                                            {h with bins = updatedBins}
-            //                                | None -> let newHist = {                                                
-            //                                                id = Guid.NewGuid()
-            //                                                numOfBins = 1
-            //                                                rangeStart = 0
-            //                                                rangeEnd = 0
-            //                                                bins = [(Guid.NewGuid(), emptyBin)] |> HashMap.ofList
-            //                                               }
-            //                                          newHist
-            //                            let updatedProp = {p with histogram = Some hist}
-            //                            let updatedPropList = m.properties |> HashMap.alter prop (function None -> None | Some _ -> Some updatedProp)
-            //                            {m with properties = updatedPropList}
-
-                                        
-            //                | None -> m
-            //| UpdateBin (hist, id, boundary, boundaryValue) -> m
-                //let property = m.properties.TryFind prop
-                //match property with
-                //| Some p ->
-                //    let bin = hist.bins |> HashMap.tryFind id
-                //    let newBin = 
-                //        match bin with
-                //        | Some b -> match boundary with
-                //                    | "start" -> 
-                //                          { 
-                //                             value = b.value 
-                //                             start = int(floor(boundaryValue))
-                //                             theEnd = b.theEnd
-                //                             width = b.width                                                            
-                //                          }
-                //                    | "end" ->  
-                //                          { 
-                //                            value = b.value 
-                //                            start = b.start
-                //                            theEnd = int(floor(boundaryValue))
-                //                            width = b.width                                                            
-                //                          }
-
-                //                    | _ -> b
-                //        | None -> bin
-
-
-                //    let updatedBinList = hist.bins |> HashMap.alter id (function None -> None | Some _ -> Some newBin) 
-                //    let updatedHist = 
-                //        {
-                //            id        = hist.id        
-                //            numOfBins = hist.numOfBins
-                //            rangeStart = hist.rangeStart
-                //            rangeEnd  = hist.rangeEnd
-                //            bins      = updatedBinList
-                //        }
-                //    let updatedProp = {p with histogram = Some updatedHist}
-                //    let updatedPropList = m.properties |> HashMap.alter prop (function None -> None | Some _ -> Some updatedProp)
-                //    {m with properties = updatedPropList}
-                                        
-
-
-                                 
-
-                                 
-                                                                               
-                //        | None -> m
-
-
-                //| None -> m
-
-
-               
+                           
     
     //project the domain values to pixel values
-    let projectToPx x min max =
-        //let a = 0 
-        let b = 300.0
-        match (max - min) with
-        | 0 -> 0
-        | _ -> let temp1 = float(x - min)
-               let temp2 = float(max - min)
-               let temp3 = (temp1 / temp2) * b            
-               let res = int(temp3)
-               res
+    //let projectToPx x min max =
+    //    //let a = 0 
+    //    let b = 300.0
+    //    match (max - min) with
+    //    | 0 -> 0
+    //    | _ -> let temp1 = float(x - min)
+    //           let temp2 = float(max - min)
+    //           let temp3 = (temp1 / temp2) * b            
+    //           let res = int(temp3)
+    //           res
      
     
 
     
-    //let drawHistogram (h: AdaptiveHistogram) = 
+    let drawHistogram (h: AdaptiveHistogram) (width:int) = 
         
-    //    let w = 15
-    //    let height = 5
-    //    let offSetY = 100
+        let height = 5
+        let offSetY = 100
+        let padLR = 10
 
+        let attr (bin:AdaptiveBin) (idx:int)= 
+            amap{
+                let! n = h.numOfBins
+                let! binV = bin.value
+                let w = (width-padLR*2) / n                          
+                
+                yield style "fill:green;fill-opacity:1.0;"                
+                yield attribute "x" (sprintf "%ipx" (10 + idx * w))
+                yield attribute "y" (sprintf "%ipx" ((height-(binV*10)+offSetY)))
+                yield attribute "width" (sprintf "%ipx" w) 
+                yield attribute "height" (sprintf "%ipx" (binV*10)) 
+            } |> AttributeMap.ofAMap       
+             
+       
+        
+        let l = 
+                h.bins 
+                |> AMap.toASet 
+                |> ASet.toAList
+                |> AList.map (fun (_,b) -> b)
+        
+        alist{
+            let! idxL = l.Content
+            for i in 0..(idxL.Count-1) do
+                let bin = idxL.TryGet i
+                match bin with
+                | Some b -> let attrib = attr b i
+                            yield Incremental.Svg.rect attrib
+                | None -> yield text "here could be a histogram"
+                
+          
+        }
+        
 
-    //    let attr (bin:Bin) = 
-    //        amap{
-    //            let! min = h.rangeStart
-    //            let! max = h.rangeEnd           
                 
-    //            yield style "fill:green;fill-opacity:1.0;"                
-    //            yield attribute "x" (sprintf "%ipx" (projectToPx (bin.start+w) min max))
-    //            yield attribute "y" (sprintf "%ipx" ((height-(bin.value*10)+offSetY)))
-    //            yield attribute "width" (sprintf "%ipx" w) 
-    //            yield attribute "height" (sprintf "%ipx" (bin.value * 10)) 
-    //        } |> AttributeMap.ofAMap
-        
-    //    let labelAttr (bin: Bin) = 
-    //        amap {
-    //            let! min = h.rangeStart
-    //            let! max = h.rangeEnd
-    //            yield attribute "x" (sprintf "%ipx" (projectToPx (bin.start+w) min max))
-    //            yield attribute "y" "90"
-    //            yield attribute "text-anchor" "center"
-    //            yield attribute "font-size" "7"
-    //            yield attribute "fill" "#ffffff"               
-    //        }|> AttributeMap.ofAMap
-        
-    //    alist {
-    //            let bins = h.bins
-    //            for b in bins do
-    //                let text = sprintf "%i-%i" b.start b.theEnd
-    //                yield  Incremental.Svg.rect (attr b)
-    //                yield  Incremental.Svg.text (labelAttr b)(AVal.constant text)
-                
-    //            //let! t = h.title
-    //           //Svg.text ([])
-    //    }
+
 
     let propDropdown =         
 
@@ -377,31 +309,35 @@ module AnnotationStatisticsApp =
             ]
           )
      
-     
-    let binSelectionView (prop: AdaptiveProperty) =
+    
+    let button (prop: AdaptiveProperty) = 
+               button [clazz "fluid inverted ui button"; onClick (fun _ -> UpdateProperty (UpdateHistogram AddBin, prop.kind))][                        
+                   text "Add Bin"
+               ]
+
+    let binSelectionView (prop: AdaptiveProperty) =      
+               
 
         Incremental.div (AttributeMap.ofList [style "width:100%; margin: 10 5 5 5"]) (
 
             alist{                   
-                   let rowList = prop.histogram.bins |> AMap.map (fun k bin -> 
-                                                                Html.row ("Bin " + k.ToString()) 
-                                                                    [       
-                                                                       text "place holder"
-                                                                       //Html.SemUi.textBox (AVal.constant (bin.start.ToString())) GroupsAppAction.SetChildName 
-                                                                       //Html.SemUi.textBox (AVal.constant (bin.theEnd.ToString())) GroupsAppAction.SetChildName 
-                                                                    ]                                                       
-                                                        )
-                                            |> AMap.toASet 
-                                            |> ASet.toAList
-                                            |> AList.map(fun (_,b) -> b) 
+                   let rowList = prop.histogram.bins 
+                                 |> AMap.map (fun k bin -> 
+                                                Html.row ("Bin") 
+                                                    [   
+                                                        Html.Layout.boxH [text "start"; Numeric.view' [InputBox] bin.start |> UI.map SetStart |> UI.map (fun a -> UpdateBin (a, k)) |> UI.map UpdateHistogram |> UI.map (fun a -> UpdateProperty (a, prop.kind))]
+                                                        Html.Layout.boxH [text "end"; Numeric.view' [InputBox] bin.theEnd |> UI.map SetEnd |> UI.map (fun a -> UpdateBin (a, k)) |> UI.map UpdateHistogram |> UI.map (fun a -> UpdateProperty (a, prop.kind))                                                                     ]
+                                                    ]                                                       
+                                             )
+                                |> AMap.toASet 
+                                |> ASet.toAList
+                                |> AList.map(fun (_,b) -> b) 
                    
                                             
-                   Incremental.table (AttributeMap.empty) rowList
+                   Incremental.table ([clazz "ui celled striped inverted table unstackable"] |> AttributeMap.ofList) rowList
 
 
-                   button [clazz "fluid inverted ui button"; onClick (fun _ -> UpdateProperty (UpdateHistogram AddBin, prop.kind))][                        
-                       text "Add Bin"
-                   ]
+                   
 
             }
 

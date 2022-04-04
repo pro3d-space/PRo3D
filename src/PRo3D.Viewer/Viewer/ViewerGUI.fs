@@ -782,24 +782,25 @@ module Gui =
                         Html.row "Average" [Incremental.text (p.avg |> AVal.map (fun f -> sprintf "%.2f" f))]
                     ]
                 )
+
+             let histVis = Incremental.div (AttributeMap.ofList [style "width:100%; margin: 10 0 10 10"]) (
+                                AnnotationStatisticsApp.drawHistogram p.histogram 200
+                            )
+                
              
              let title = "Property: " + p.kind.ToString()
              GuiEx.accordion title "Settings" true [
                 statsTable
                 div [style "width:100%; margin: 10 5 5 5"][                                
                     AnnotationStatisticsApp.binSelectionView p |> UI.map AnnoStatsMessage
-                    
+                    AnnotationStatisticsApp.button p |> UI.map AnnoStatsMessage                    
+                    ]
+                histVis
+                
+                
                 ]
 
-
-                
-
-                
-             ]
-
             
-                
-                                    
 
             
             let props = m.annoStats.properties
@@ -819,8 +820,7 @@ module Gui =
             let selectedAnnos = m.annoStats.selectedAnnotations
             let s = selectedAnnos |> AMap.isEmpty        
 
-            Incremental.div (AttributeMap.ofList [style style']) (
-            
+            Incremental.div (AttributeMap.ofList [style style']) (           
                 alist {
 
                     let! empty = s
@@ -828,11 +828,7 @@ module Gui =
                         | true -> div [style "width:100%; margin: 10 0 10 10"][text "Please select some annotations"]                                                       
                               
                         | false -> let text1 = selectedAnnos |> AMap.count |> AVal.map (fun n -> sprintf "%s annotation(s) selected" (n.ToString()))
-                                   Incremental.div (AttributeMap.ofList [style "width:100%; margin: 10 0 10 10"]) (
-                                        alist{
-                                            Incremental.text text1
-                                        }                                    
-                                      )
+                                   Incremental.text text1
                                    
                                    div [style "width:100%; margin: 10 5 10 10"][                                
                                      text "Please select a property to see statistics" 
@@ -842,17 +838,12 @@ module Gui =
                                    div [style "width:90%; margin: 10 5 5 5"][                                
                                       propSummary m                                      
                                    ]
-
-
-
-                                   
-                                                                                                  
-
-                                  
-                                
+             
                                
                 }
             )
+
+            
             
 
 

@@ -2,6 +2,7 @@
 
 open System
 open Aardvark.Base
+open Aardvark.UI
 open Adaptify
 open FSharp.Data.Adaptive
 open PRo3D.Base
@@ -15,9 +16,8 @@ type Prop =
 [<ModelType>]
 type Bin = {    
      value       : int
-     start       : int
-     theEnd      : int 
-     width       : int
+     start       : NumericInput
+     theEnd      : NumericInput      
 }
 
 
@@ -27,8 +27,8 @@ type Histogram = {
     id        : Guid
     
     numOfBins : int
-    rangeStart: int
-    rangeEnd  : int
+    rangeStart: float
+    rangeEnd  : float
     bins      : HashMap<Guid, Bin>
 }
 
@@ -68,21 +68,35 @@ module AnnoStats =
             propertiesList      = ["length"; "bearing"; "verticalThickness"] |> IndexList.ofList            
         }
 
-    let initHistogram = 
+
+    
+    let initNumeric (value: float) = 
         {
-            id         = Guid.NewGuid()       
-            numOfBins  = 0 
-            rangeStart = 0
-            rangeEnd   = 0
-            bins       = HashMap.empty
+        value = value
+        min   = 0.01
+        max   = 1000.0 
+        step  = 1.00
+        format = "{0:0.00}"
         }
 
-    let initBin = 
+    let initBin (n:int) (min:float) (max:float) = 
         {            
-            value       = 0
-            start       = 0
-            theEnd      = 0
-            width       = 0
+            value       = n
+            start       = initNumeric min
+            theEnd      = initNumeric max         
         }
+
+    let initHistogram (min:float) (max:float) (n:int)= 
+        {
+            id         = Guid.NewGuid()       
+            numOfBins  = 1 
+            rangeStart = min
+            rangeEnd   = max
+            bins       = [(Guid.NewGuid(), (initBin n min max))] |> HashMap.ofList
+        }
+
+
+
+
     
 
