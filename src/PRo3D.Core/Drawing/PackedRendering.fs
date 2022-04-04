@@ -520,8 +520,8 @@ module PackedRendering =
         let pickColors = 
             let signature =
                 runtime.CreateFramebufferSignature [
-                    DefaultSemantic.Colors, { format = RenderbufferFormat.Rgba32f; samples = 1 }
-                    DefaultSemantic.Depth, { format = RenderbufferFormat.Depth24Stencil8; samples = 1 }
+                    DefaultSemantic.Colors, TextureFormat.Rgba32f
+                    DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
                 ]
 
             let pickColors = 

@@ -115,8 +115,8 @@ let startApplication (startupArgs : CLStartupArgs) =
   
         let signature =
             runtime.CreateFramebufferSignature [
-                DefaultSemantic.Colors, { format = RenderbufferFormat.Rgba8; samples = 1 }
-                DefaultSemantic.Depth,  { format = RenderbufferFormat.Depth24Stencil8; samples = 1 }
+                DefaultSemantic.Colors, TextureFormat.Rgba8
+                DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
             ]
 
         use sendQueue = new BlockingCollection<string>()    
@@ -262,7 +262,7 @@ let main argv =
     // ensure appdata is here
 
     // check if there are command line arguments, and if they are valid
-    Aardvark.Rendering.GL.Config.UseNewRenderTask <- true
+    Aardvark.Rendering.GL.RuntimeConfig.UseNewRenderTask <- true
     Sg.useAsyncLoading <- false 
     let startupArgs = (SimulatedViews.CommandLine.parseArguments argv)
     match startupArgs.hasValidAnimationArgs with
