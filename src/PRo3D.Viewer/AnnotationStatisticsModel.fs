@@ -20,12 +20,11 @@ type Bin = {
      theEnd      : NumericInput      
 }
 
-
 [<ModelType>]
 type Histogram = {
     [<NonAdaptive>]
-    id        : Guid
-    
+    id        : Guid    
+    data      : List<float>
     numOfBins : int
     rangeStart: float
     rangeEnd  : float
@@ -42,9 +41,8 @@ type RoseDiagram = {
 [<ModelType>]
 type Property = {
     [<NonAdaptive>]
-    kind      : Prop
-    
-    data      : IndexList<float>
+    kind      : Prop    
+    data      : List<float>
     min       : float
     max       : float
     avg       : float    
@@ -86,12 +84,13 @@ module AnnoStats =
             theEnd      = initNumeric max         
         }
 
-    let initHistogram (min:float) (max:float) (n:int)= 
+    let initHistogram (min:float) (max:float) (n:int) (data:List<float>) = 
         {
             id         = Guid.NewGuid()       
             numOfBins  = 1 
             rangeStart = min
             rangeEnd   = max
+            data       = data
             bins       = [(Guid.NewGuid(), (initBin n min max))] |> HashMap.ofList
         }
 

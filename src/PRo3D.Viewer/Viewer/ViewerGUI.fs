@@ -771,6 +771,8 @@ module Gui =
 
         let propSummary (m : AdaptiveModel) =
 
+            
+
             let propListing (p:AdaptiveProperty) =                
                 //TODO histogram
                 //TODO rosediagram
@@ -783,29 +785,33 @@ module Gui =
                     ]
                 )
 
-             let histVis = Incremental.div (AttributeMap.ofList [style "width:100%; margin: 10 0 10 10"]) (
-                                AnnotationStatisticsApp.drawHistogram p.histogram 200
-                            )
-                
+             let histVis = AnnotationStatisticsApp.drawHistogram p.histogram 200
              
              let title = "Property: " + p.kind.ToString()
              GuiEx.accordion title "Settings" true [
                 statsTable
-                div [style "width:100%; margin: 10 5 5 5"][                                
+                div [style "width:100%; margin: 0 0 5 0"][                                
                     AnnotationStatisticsApp.binSelectionView p |> UI.map AnnoStatsMessage
-                    AnnotationStatisticsApp.button p |> UI.map AnnoStatsMessage                    
-                    ]
-                histVis
-                
-                
                 ]
+
+                div [style "width:100%; margin: 10 10 5 0"][    
+                    div[style "width:50%; float:left"] [AnnotationStatisticsApp.buttonAdd p |> UI.map AnnoStatsMessage]
+                    div[style "margin-left:50%"] [AnnotationStatisticsApp.buttonComp p |> UI.map AnnoStatsMessage]
+                ]                   
+                               
+
+                div [style "width:100%; margin: 0 0 5 0"][
+                    histVis
+                ]                
+                                
+             ]
 
             
 
             
             let props = m.annoStats.properties
 
-            Incremental.div (AttributeMap.ofList [style "width:100%; margin: 10 0 10 10"]) 
+            Incremental.div (AttributeMap.ofList [style "width:100%; margin: 10 10 5 5"]) 
             
                 (                                  
                    props |> AMap.map(fun p v -> propListing v) |> AMap.toASet |> ASet.toAList |> AList.map(fun (a,b) -> b)                                                                 
@@ -828,14 +834,16 @@ module Gui =
                         | true -> div [style "width:100%; margin: 10 0 10 10"][text "Please select some annotations"]                                                       
                               
                         | false -> let text1 = selectedAnnos |> AMap.count |> AVal.map (fun n -> sprintf "%s annotation(s) selected" (n.ToString()))
-                                   Incremental.text text1
+                                   div [style "width:100%; margin: 10 5 10 10"][ 
+                                    Incremental.text text1
+                                   ]
                                    
                                    div [style "width:100%; margin: 10 5 10 10"][                                
                                      text "Please select a property to see statistics" 
                                      AnnotationStatisticsApp.propDropdown |> UI.map AnnoStatsMessage                                     
                                    ]
 
-                                   div [style "width:90%; margin: 10 5 5 5"][                                
+                                   div [style "width:100%; margin: 10 5 10 10"][                                
                                       propSummary m                                      
                                    ]
              
