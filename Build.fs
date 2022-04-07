@@ -54,7 +54,7 @@ Target.create "Compile" (fun _ ->
 
     "src/PRo3D.sln" |> DotNet.build (fun o ->
         { o with
-            NoRestore = true 
+            NoRestore = false 
             Configuration = if debug then DotNet.BuildConfiguration.Debug else DotNet.BuildConfiguration.Release
             MSBuildParams =
                 { o.MSBuildParams with
