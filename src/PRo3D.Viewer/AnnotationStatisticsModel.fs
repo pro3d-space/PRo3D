@@ -16,19 +16,20 @@ type Prop =
 [<ModelType>]
 type Bin = {    
      value       : int
-     start       : NumericInput
-     theEnd      : NumericInput      
+     start       : float
+     theEnd      : float      
+     width       : float
 }
 
 [<ModelType>]
 type Histogram = {
     [<NonAdaptive>]
-    id        : Guid    
-    data      : List<float>
-    numOfBins : int
-    rangeStart: float
-    rangeEnd  : float
-    bins      : HashMap<Guid, Bin>
+    id          : Guid    
+    data        : List<float>
+    numOfBins   : NumericInput
+    domainStart : NumericInput
+    domainEnd   : NumericInput
+    bins        : List<Bin> //HashMap<Guid, Bin>
 }
 
 [<ModelType>]
@@ -52,46 +53,75 @@ type Property = {
 
 
 [<ModelType>]
-type AnnoStatsModel = {
+type AnnotationStatisticsModel = {
     selectedAnnotations : HashMap<Guid, Annotation>
-    properties          : HashMap<Prop, Property>
-    propertiesList      : IndexList<string>
+    properties          : HashMap<Prop, Property>    
 }
 
-module AnnoStats =
+module AnnotationStatistics =
     let initial =
         {
             selectedAnnotations = HashMap.empty
-            properties          = HashMap.empty
-            propertiesList      = ["length"; "bearing"; "verticalThickness"] |> IndexList.ofList            
+            properties          = HashMap.empty                        
         }
 
 
     
-    let initNumeric (value: float) = 
+    let domainNumeric (value:float) = 
         {
-        value = value
-        min   = 0.01
-        max   = 1000.0 
-        step  = 1.00
-        format = "{0:0.00}"
+            value = value
+            min   = 0.01
+            max   = 1000.0 
+            step  = 1.00
+            format = "{0:0.00}"
         }
 
-    let initBin (n:int) (min:float) (max:float) = 
-        {            
-            value       = n
-            start       = initNumeric min
-            theEnd      = initNumeric max         
+    let binNumeric =
+        {
+            value = 5.00
+            min = 5.00
+            max = 30.00
+            step = 1.00
+            format = "{0:0.00}"
         }
 
-    let initHistogram (min:float) (max:float) (n:int) (data:List<float>) = 
+    //let initBin (n:int) (min:float) (max:float) = 
+    //    {            
+    //        value       = n
+    //        start       = initNumeric min
+    //        theEnd      = initNumeric max         
+    //    }
+
+
+    let rec createBins outputList (count:int) (idx:int) (start:float) (width:float) (data:List<float>) =
+        if (idx > (count-1)) then outputList
+        else             
+            let next = start + width
+            let n = data |> List.fold (fun acc item -> if (item >= start && item <= next) then acc + 1
+                                                       else acc + 0
+                                                   ) 0
+            let bin = [{
+                            value       = n
+                            start       = start
+                            theEnd      = next      
+                            width       = width          
+                      }]
+            createBins (outputList @ bin) count (idx+1) next width data
+
+
+
+    let initHistogram (min:float) (max:float) (data:List<float>) = 
+        let domainStart = floor(min)
+        let domainEnd = ceil(max)        
+        let binWidth = (domainEnd-domainStart) / binNumeric.value
+
         {
-            id         = Guid.NewGuid()       
-            numOfBins  = 1 
-            rangeStart = min
-            rangeEnd   = max
-            data       = data
-            bins       = [(Guid.NewGuid(), (initBin n min max))] |> HashMap.ofList
+            id          = Guid.NewGuid()       
+            numOfBins   = binNumeric 
+            domainStart = domainNumeric domainStart
+            domainEnd   = domainNumeric domainEnd
+            data        = data
+            bins        = createBins [] (int(binNumeric.value)) 0 domainStart binWidth data //[(Guid.NewGuid(), (initBin n min max))] |> HashMap.ofList
         }
 
 

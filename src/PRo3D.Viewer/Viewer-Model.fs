@@ -436,7 +436,7 @@ type Model = {
     dashboardMode        : string
     scene                : Scene
     drawing              : PRo3D.Core.Drawing.DrawingModel
-    annoStats            : AnnoStatsModel
+    annoStats            : AnnotationStatisticsModel
     interaction          : Interactions    
     recent               : Recent
     waypoints            : IndexList<WayPoint>
@@ -570,7 +570,7 @@ module Viewer =
 
             startupArgs     = startupArgs            
             drawing         = Drawing.DrawingModel.initialdrawing
-            annoStats       = AnnoStats.initial
+            annoStats       = AnnotationStatistics.initial
             properties      = NoProperties
             interaction     = Interactions.PlaceRover
             multiSelectBox  = None

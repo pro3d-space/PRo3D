@@ -789,15 +789,14 @@ module Gui =
              
              let title = "Property: " + p.kind.ToString()
              GuiEx.accordion title "Settings" true [
-                statsTable
-                div [style "width:100%; margin: 0 0 5 0"][                                
-                    AnnotationStatisticsApp.binSelectionView p |> UI.map AnnoStatsMessage
-                ]
+                statsTable                                             
+                AnnotationStatisticsApp.histogramSettings p |> UI.map AnnoStatsMessage
+                //div[style "width:30%; float:left"] [AnnotationStatisticsApp.buttonComp p |> UI.map AnnoStatsMessage]
 
-                div [style "width:100%; margin: 10 10 5 0"][    
-                    div[style "width:50%; float:left"] [AnnotationStatisticsApp.buttonAdd p |> UI.map AnnoStatsMessage]
-                    div[style "margin-left:50%"] [AnnotationStatisticsApp.buttonComp p |> UI.map AnnoStatsMessage]
-                ]                   
+                //div [style "width:100%; margin: 10 10 5 0"][    
+                //    div[style "width:50%; float:left"] [AnnotationStatisticsApp.buttonAdd p |> UI.map AnnoStatsMessage]
+                //    div[style "margin-left:50%"] [AnnotationStatisticsApp.buttonComp p |> UI.map AnnoStatsMessage]
+                //]                   
                                
 
                 div [style "width:100%; margin: 0 0 5 0"][
@@ -811,7 +810,7 @@ module Gui =
             
             let props = m.annoStats.properties
 
-            Incremental.div (AttributeMap.ofList [style "width:100%; margin: 10 10 5 5"]) 
+            Incremental.div (AttributeMap.ofList [style "width:100%; margin: 15 15 5 5"]) 
             
                 (                                  
                    props |> AMap.map(fun p v -> propListing v) |> AMap.toASet |> ASet.toAList |> AList.map(fun (a,b) -> b)                                                                 
