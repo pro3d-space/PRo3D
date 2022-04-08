@@ -35,7 +35,7 @@ module BinOperations =
 
     let update (m:Bin) (action:BinAction) =
         match action with
-        | Update v -> let inside = v > float(m.start) && v < float(m.theEnd)
+        | Update v -> let inside = v >= m.start && v <= m.theEnd
                       match inside with
                       | true -> {m with value = m.value + 1}
                       | false -> m
@@ -47,8 +47,9 @@ module HistogramOperations =
     let rec update (m:(Pro3D.AnnotationStatistics.Histogram)) (action:HistogramAction) =
         match action with
 
-        | UpdateData d -> let updatedBins = m.bins |> List.map (fun b -> BinOperations.update b (Update d.Head))            
-                          {m with data = (m.data @ d); bins = updatedBins}
+        | UpdateData d -> let updatedBins = m.bins |> List.map (fun b -> BinOperations.update b (Update d.Head))
+                          let maxValue = AnnotationStatistics.getBinMaxValue updatedBins
+                          {m with data = (m.data @ d); bins = updatedBins; maxBinValue = maxValue}
 
 
         | Compute ->                          
@@ -56,8 +57,9 @@ module HistogramOperations =
                         let start = m.domainStart.value
                         let theEnd = m.domainEnd.value
                         let width = (theEnd-start) / numBins
-                        let bins = AnnotationStatistics.createBins [] (int(numBins)) 0 start width m.data
-                        {m with bins = bins}
+                        let bins = AnnotationStatistics.createBins [] (int(numBins)) 0 start width m.data 
+                        let maxValue = AnnotationStatistics.getBinMaxValue bins
+                        {m with bins = bins; maxBinValue = maxValue}
 
 
         //| AddBin -> let emptyBin = (AnnoStats.initBin 0 0.0 0.0)
@@ -255,16 +257,18 @@ module AnnotationStatisticsApp =
         let height = 10
         let offSetY = 100
         let padLR = 10
+        let pad = 5
+        let xStart = 15
          
 
         let attrRects (bin:Bin) (idx:int)= 
             amap{
                 let! n = h.numOfBins.value
                 let binV = bin.value
-                let w = (width-padLR*2) / (int(n))                          
+                let w = (width-padLR*2) / (int(n))                
                 
                 yield style "fill:green;fill-opacity:1.0"                
-                yield attribute "x" (sprintf "%ipx" (10 + idx * w))
+                yield attribute "x" (sprintf "%ipx" (xStart + idx * (w+pad)))
                 yield attribute "y" (sprintf "%ipx" ((height-(binV*10)+offSetY)))
                 yield attribute "width" (sprintf "%ipx" w) 
                 yield attribute "height" (sprintf "%ipx" (binV*10)) 
@@ -274,10 +278,10 @@ module AnnotationStatisticsApp =
             amap{
                 let! n = h.numOfBins.value                
                 let w = (width-padLR*2) / (int(n))     
-                let x = (10 + idx * w)
-                let y = height+(offSetY+25)
-                let strRot = "rotate(-45," + x.ToString() + "," + y.ToString() + ")"
-                yield style "font-size:10px; fill:white; position:center"
+                let x = (xStart + idx * (w+pad))
+                let y = height+(offSetY+40)
+                let strRot = "rotate(-55," + x.ToString() + "," + y.ToString() + ")"
+                yield style "font-size:8px; fill:white; position:center"
                 yield attribute "x" (sprintf "%ipx" x)
                 yield attribute "y" (sprintf "%ipx" y)
                 yield attribute "transform" strRot
@@ -292,27 +296,61 @@ module AnnotationStatisticsApp =
             ]|> AttributeMap.ofList
 
        
+        let attrLine =
+            amap{
+                    let! maxBinValue = h.maxBinValue
+                    yield style "stroke:white;stroke-width:2"
+                    yield attribute "x1" "10px"
+                    yield attribute "y1" (sprintf "%ipx" ((height+offSetY)))
+                    yield attribute "x2" "10px"
+                    yield attribute "y2" (sprintf "%ipx" ((height-(maxBinValue*10)+offSetY)))
 
-           
-             
-               
-        //let l = 
-        //        h.bins 
-        //        |> AMap.toASet 
-        //        |> ASet.toAList
-        //        |> AList.map (fun (_,b) -> b)
-        
-                
+            }|> AttributeMap.ofAMap 
+
+        let attrTickLine (y:int) =
+            amap{
+                let! maxBinValue = h.maxBinValue
+                yield style "stroke:green; stroke-opacity:0.3"               
+                yield attribute "x1" "10px"
+                yield attribute "y1" (sprintf "%ipx" y)
+                yield attribute "x2" (sprintf "%ipx" (xStart+width+pad))
+                yield attribute "y2" (sprintf "%ipx" y)
+
+            }|> AttributeMap.ofAMap 
+
+        let attrTickLabel (y:int) =
+            amap{
+                yield style "font-size:8px; fill:white"
+                yield attribute "x" "0px"
+                yield attribute "y" (sprintf "%ipx" y)                
+            } |> AttributeMap.ofAMap 
+
+       
         let rectangles =             
 
 
             alist{               
 
                 let! bins = h.bins
+
+                //bins as rectangles + labels
                 for i in 0..(bins.Length-1) do
                     let bin = bins.Item i
+                    let label = sprintf "%i-%i" (int(bin.start)) (int(bin.theEnd))
                     yield Incremental.Svg.rect (attrRects bin i)
-                    yield Incremental.Svg.text (attrText bin i) (AVal.constant ("Bin " + i.ToString()))
+                    yield Incremental.Svg.text (attrText bin i) (AVal.constant label)
+                
+                //y axis
+                yield Incremental.Svg.line attrLine
+
+                //y axis ticks + labels
+                let! maxBinValue = h.maxBinValue
+                let y1 = height+offSetY
+                let y2 = height-(maxBinValue*10)+offSetY
+                let gap = (y2 - y1) / maxBinValue                
+                for j in 0..maxBinValue do                                    
+                    yield Incremental.Svg.line (attrTickLine (y1 + (j*gap)))
+                    yield Incremental.Svg.text (attrTickLabel (y1 + (j*gap))) (AVal.constant (j.ToString()))
               
 
 
@@ -328,6 +366,7 @@ module AnnotationStatisticsApp =
             }
         
         Incremental.Svg.svg attrSVG rectangles
+        
         
 
                 

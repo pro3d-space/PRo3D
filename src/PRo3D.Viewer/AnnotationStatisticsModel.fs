@@ -26,6 +26,7 @@ type Histogram = {
     [<NonAdaptive>]
     id          : Guid    
     data        : List<float>
+    maxBinValue : int
     numOfBins   : NumericInput
     domainStart : NumericInput
     domainEnd   : NumericInput
@@ -34,21 +35,23 @@ type Histogram = {
 
 [<ModelType>]
 type RoseDiagram = {
+    [<NonAdaptive>]
     id        : Guid
-    //TODO
+    data      : List<float>
+    bins      : List<Bin>
 }
 
 
 [<ModelType>]
 type Property = {
     [<NonAdaptive>]
-    kind      : Prop    
-    data      : List<float>
-    min       : float
-    max       : float
-    avg       : float    
-    histogram : Histogram    
-    //roseDiagram : Option<RoseDiagram>
+    kind        : Prop    
+    data        : List<float>
+    min         : float
+    max         : float
+    avg         : float    
+    histogram   : Histogram    
+    //roseDiagram : RoseDiagram
 }
 
 
@@ -92,6 +95,8 @@ module AnnotationStatistics =
     //        theEnd      = initNumeric max         
     //    }
 
+    let getBinMaxValue (bins:List<Bin>) =
+        bins |> List.map (fun b -> b.value) |> List.max
 
     let rec createBins outputList (count:int) (idx:int) (start:float) (width:float) (data:List<float>) =
         if (idx > (count-1)) then outputList
@@ -100,13 +105,15 @@ module AnnotationStatistics =
             let n = data |> List.fold (fun acc item -> if (item >= start && item <= next) then acc + 1
                                                        else acc + 0
                                                    ) 0
+            
+
             let bin = [{
                             value       = n
                             start       = start
                             theEnd      = next      
                             width       = width          
                       }]
-            createBins (outputList @ bin) count (idx+1) next width data
+            createBins (outputList @ bin) count (idx+1) next width data 
 
 
 
@@ -114,14 +121,16 @@ module AnnotationStatistics =
         let domainStart = floor(min)
         let domainEnd = ceil(max)        
         let binWidth = (domainEnd-domainStart) / binNumeric.value
+        let bins = createBins [] (int(binNumeric.value)) 0 domainStart binWidth data
 
         {
             id          = Guid.NewGuid()       
             numOfBins   = binNumeric 
+            maxBinValue = getBinMaxValue bins
             domainStart = domainNumeric domainStart
             domainEnd   = domainNumeric domainEnd
             data        = data
-            bins        = createBins [] (int(binNumeric.value)) 0 domainStart binWidth data //[(Guid.NewGuid(), (initBin n min max))] |> HashMap.ofList
+            bins        = bins //[(Guid.NewGuid(), (initBin n min max))] |> HashMap.ofList
         }
 
 
