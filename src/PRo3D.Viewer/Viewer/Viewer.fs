@@ -1600,6 +1600,10 @@ module ViewerApp =
                 | _ -> m                                        
 
             { m with scene = { m.scene with traverse = TraverseApp.update m.scene.traverse msg }; animations = animation }
+        | ToggleAutoExportGeoJson, _, _ -> 
+            let autoExport = { m.drawing.automaticGeoJsonExport with enabled = not m.drawing.automaticGeoJsonExport.enabled }
+            { m with drawing = { m.drawing with automaticGeoJsonExport = autoExport } }
+
         | _ -> m       
                                    
     let mkBrushISg color size trafo : ISg<Message> =

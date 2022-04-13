@@ -156,6 +156,7 @@ type ViewerAction =
 | GeologicSurfacesMessage        of GeologicSurfaceAction
 | ScreenshotAppMessage           of ScreenshotAppAction
 | TraverseMessage                of TraverseAction
+| ToggleAutoExportGeoJson        
 | Nop
 
 and MailboxState = {
