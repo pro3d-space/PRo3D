@@ -783,7 +783,7 @@ module Gui =
                     FrustumProperties.view m.frustumModel |> UI.map FrustumMessage
                 ]
                 GuiEx.accordion "Screenshots" "Settings" false [
-                    ScreenshotApp.view m.screenshotApp |> UI.map ScreenshotAppMessage
+                    ScreenshotApp.view m.scene.screenshotModel |> UI.map ScreenshotMessage
                 ]
             ] 
           
@@ -793,7 +793,7 @@ module Gui =
               model.scene.viewPlans |> ViewPlanApp.UI.viewRoverProperties ViewPlanMessage model.footPrint.isVisible
         
         let viewPlannerUI (m : AdaptiveModel) =             
-            div [][
+            div [] [
                 GuiEx.accordion "ViewPlans" "Write" true [
                     ViewPlanApp.UI.viewViewPlans m.scene.viewPlans |> UI.map ViewPlanMessage
                 ]
@@ -804,56 +804,60 @@ module Gui =
 
     module SceneObjects =
         let sceneObjectsUI (m : AdaptiveModel) =             
-            div [][
-                yield GuiEx.accordion "SceneObjects" "Write" true [
-                        SceneObjectsApp.UI.viewSceneObjects m.scene.sceneObjectsModel 
-                    ]
-                yield GuiEx.accordion "Transformation" "expand arrows alternate " false [
-                        Incremental.div AttributeMap.empty (AList.ofAValSingle(SceneObjectsApp.UI.viewTranslationTools m.scene.sceneObjectsModel))
-                    ]  
+            div [] [
+                GuiEx.accordion "SceneObjects" "Write" true [
+                    SceneObjectsApp.UI.viewSceneObjects m.scene.sceneObjectsModel 
+                ]
+                GuiEx.accordion "Transformation" "expand arrows alternate " false [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(SceneObjectsApp.UI.viewTranslationTools m.scene.sceneObjectsModel))
+                ]
                
-            ] |> UI.map SceneObjectsMessage      
+            ] 
+            |> UI.map SceneObjectsMessage      
           
     module Traverse =
         let traverseUI (m : AdaptiveModel) =
-            div [][
-                yield GuiEx.accordion "Sols" "road" true [
+            div [] [
+                GuiEx.accordion "Sols" "road" true [
                     TraverseApp.UI.viewSolList m.scene.referenceSystem m.scene.traverse
                 ]
-                yield GuiEx.accordion "Traverse" "Content" true [
+                GuiEx.accordion "Traverse" "Content" true [
                     TraverseApp.UI.viewTraverseProperties m.scene.traverse
                 ]
-            ] |> UI.map TraverseMessage
+            ] 
+            |> UI.map TraverseMessage
 
     module ScaleBars = 
         
         let scaleBarsUI (m : AdaptiveModel) =             
-            div [][
-                yield GuiEx.accordion "ScaleBars" "Write" true [
+            div [] [
+                GuiEx.accordion "ScaleBars" "Write" true [
                     ScaleBarsApp.UI.viewScaleBars m.scene.scaleBars
                 ]
                 // Todo: properties
-                yield GuiEx.accordion "Properties" "Content" true [
+                GuiEx.accordion "Properties" "Content" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(ScaleBarsApp.UI.viewProperties m.scene.scaleBars))
                 ]
-            ] |> UI.map ScaleBarsMessage
+            ] 
+            |> UI.map ScaleBarsMessage
 
     module GeologicSurfaces = 
         
         let geologicSurfacesUI (m : AdaptiveModel) =           
             let annos = m.drawing.annotations
 
-            div [][
-                yield br []
-                yield GeologicSurfacesApp.UI.addMesh
+            div [] [
+                br []
+                GeologicSurfacesApp.UI.addMesh
 
-                yield GuiEx.accordion "GeologicSurfaces" "Write" true [
+                GuiEx.accordion "GeologicSurfaces" "Write" true [
                     GeologicSurfacesApp.UI.viewGeologicSurfaces m.scene.geologicSurfacesModel
                 ]
-                yield GuiEx.accordion "Properties" "Content" true [
+                GuiEx.accordion "Properties" "Content" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(GeologicSurfacesApp.UI.viewProperties m.scene.geologicSurfacesModel)) 
                 ]
-            ]  |> UI.map GeologicSurfacesMessage    
+            ] 
+            |> UI.map GeologicSurfacesMessage
 
     module Bookmarks =
         let bookmarkGroupProperties (model : AdaptiveModel) =                                       
@@ -865,7 +869,8 @@ module Gui =
             let view = (fun leaf ->
                 match leaf with
                 | AdaptiveBookmarks bm -> Bookmarks.UI.view bm
-                | _ -> div[style "font-style:italic"][ text "no bookmark selected" ])
+                | _ -> div[style "font-style:italic"] [ text "no bookmark selected" ]
+            )
     
             model.scene.bookmarks |> GroupsApp.viewSelected view BookmarkUIMessage
         
@@ -877,7 +882,7 @@ module Gui =
                 let! sel = sel
                 match sel with
                 | Some _ -> return (GroupsApp.viewLeafButtons ts |> UI.map BookmarkUIMessage)
-                | None -> return div[style "font-style:italic"][ text "no bookmark selected" ]
+                | None -> return div [style "font-style:italic"] [text "no bookmark selected"]
             } 
         
         let bookmarksGroupButtons (model : AdaptiveModel) = 
