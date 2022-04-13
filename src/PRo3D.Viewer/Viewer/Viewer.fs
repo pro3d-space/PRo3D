@@ -2011,6 +2011,11 @@ module ViewerApp =
             { m with waypoints = wp }
         | None -> m
     
+    let setScreenshotModel renderingUrl dataSamples (m : Model) =
+        let screenShots = ScreenshotModel.set renderingUrl Config.configPath dataSamples m.scene.screenshotModel
+
+        { m with scene = { m.scene with screenshotModel = screenShots }}
+
     let start 
         (runtime          : IRuntime) 
         (signature        : IFramebufferSignature)
@@ -2027,6 +2032,7 @@ module ViewerApp =
             if startEmpty |> not then
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl dataSamples
                 |> SceneLoader.loadLastScene runtime signature
+                |> setScreenshotModel renderingUrl dataSamples
                 |> SceneLoader.loadLogBrush
                 |> ViewerIO.loadRoverData                
                 |> ViewerIO.loadAnnotations

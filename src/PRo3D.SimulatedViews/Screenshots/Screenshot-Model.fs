@@ -97,6 +97,14 @@ type ScreenshotModel with
                 |> sprintf "don't know version %A  of ScreenshotModel"
                 |> Json.error
         }
+    static member ToJson (x : ScreenshotModel) =
+        json {
+            do! Json.write "version" x.version
+            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "width"  x.width
+            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "height" x.height
+            do! Json.write "imageFormat" (x.imageFormat |> int)
+            do! Json.writeWith (Ext.toJson<ColorInput,Ext>)   "backgroundColor" x.backgroundColor
+        }
 
 type ScreenshotAction = 
     | SetWidth           of Numeric.Action

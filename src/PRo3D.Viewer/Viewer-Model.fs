@@ -389,6 +389,7 @@ type Scene with
 
             do! Json.write "traverse" x.traverse
             do! Json.write "sequencedBookmarks" x.sequencedBookmarks
+            do! Json.write "screenshotModel"    x.screenshotModel
         }
 
 [<ModelType>] 
