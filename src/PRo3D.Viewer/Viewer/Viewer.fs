@@ -175,9 +175,7 @@ module ViewerApp =
         {
             navigationSensitivity = ViewConfigModel.navigationSensitivity_ >-> NumericInput.value_ |> Aether.toBase
             up                    = ReferenceSystem.up_ >-> V3dInput.value_  |> Aether.toBase
-        }
-
-        
+        }    
     
     let mutable cache = HashMap.Empty
 
@@ -1000,15 +998,16 @@ module ViewerApp =
                 m
 
             |> ViewerIO.loadMinerva SceneLoader.Minerva.defaultDumpFile SceneLoader.Minerva.defaultCacheFile
-            |> SceneLoader.addGeologicSurfaces
+            |> SceneLoader.addGeologicSurfaces            
 
         | NewScene,_,_ ->
             let initialModel = 
-                Viewer.initial 
+                Viewer.initial
                     m.messagingMailbox 
                     StartupArgs.initArgs 
-                    m.scene.screenshotModel.url
-                    dataSamples
+                    m.renderingUrl 
+                    m.numberOfSamples 
+                    m.screenshotDirectory
 
             { initialModel with recent = m.recent} |> ViewerIO.loadRoverData
         | KeyDown k, _, _ ->
@@ -1578,7 +1577,14 @@ module ViewerApp =
                 let m' = m |> Optic.set _geologicSurfacesModel geologicSurfaces'  
                 m'
         | ScreenshotMessage msg, _ , _ ->
-            let screenshotModel = ScreenshotApp.update m.scene.screenshotModel msg
+            let screenshotModel = 
+                ScreenshotApp.update 
+                    m.renderingUrl 
+                    m.numberOfSamples 
+                    m.screenshotDirectory 
+                    m.scene.screenshotModel
+                    msg
+
             let m = {m with scene = { m.scene with screenshotModel = screenshotModel }}
 
             match msg with
@@ -2010,29 +2016,24 @@ module ViewerApp =
             let wp = Serialization.loadAs<IndexList<WayPoint>> path
             { m with waypoints = wp }
         | None -> m
-    
-    let setScreenshotModel renderingUrl dataSamples (m : Model) =
-        let screenShots = ScreenshotModel.set renderingUrl Config.configPath dataSamples m.scene.screenshotModel
-
-        { m with scene = { m.scene with screenshotModel = screenShots }}
 
     let start 
-        (runtime          : IRuntime) 
-        (signature        : IFramebufferSignature)
-        (startEmpty       : bool)
-        (messagingMailbox : MessagingMailbox)
-        (sendQueue        : BlockingCollection<string>)
-        (dumpFile         : string)
-        (cacheFile        : string)
-        (renderingUrl     : string)
-        (dataSamples      : int)
+        (runtime             : IRuntime) 
+        (signature           : IFramebufferSignature)
+        (startEmpty          : bool)
+        (messagingMailbox    : MessagingMailbox)
+        (sendQueue           : BlockingCollection<string>)
+        (dumpFile            : string)
+        (cacheFile           : string)
+        (renderingUrl        : string)
+        (dataSamples         : int)
+        (screenshotDirectory : string)
         =
 
         let m = 
             if startEmpty |> not then
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl dataSamples
-                |> SceneLoader.loadLastScene runtime signature
-                |> setScreenshotModel renderingUrl dataSamples
+                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl dataSamples screenshotDirectory
+                |> SceneLoader.loadLastScene runtime signature                
                 |> SceneLoader.loadLogBrush
                 |> ViewerIO.loadRoverData                
                 |> ViewerIO.loadAnnotations
@@ -2043,7 +2044,7 @@ module ViewerApp =
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
             else
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl dataSamples
+                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl dataSamples screenshotDirectory
                 |> ViewerIO.loadRoverData
 
         App.start {

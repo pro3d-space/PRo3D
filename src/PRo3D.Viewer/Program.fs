@@ -294,8 +294,9 @@ let main argv =
                 cacheFile 
                 renderingUrl 
                 ViewerApp.dataSamples
+                appData
 
-        let s = { MailboxState.empty with update = mainApp.update Guid.Empty}
+        let s = { MailboxState.empty with update = mainApp.update Guid.Empty }
         MailboxAction.InitMailboxState s |> messagingMailbox.Post            
     
         //let domainError (sender:obj) (args:UnhandledExceptionEventArgs) =

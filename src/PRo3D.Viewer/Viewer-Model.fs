@@ -491,6 +491,10 @@ type Model = {
     frustumModel         : FrustumModel    
 
     filterTexture        : bool
+
+    numberOfSamples      : int
+    renderingUrl         : string
+    screenshotDirectory  : string
 }
 
 module Viewer =
@@ -533,10 +537,12 @@ module Viewer =
 
     let initial
         msgBox 
-        (startupArgs    : StartupArgs) 
-        (renderingUrl   : string)
-        (dataSamples    : int)
+        (startupArgs    : StartupArgs)
+        renderingUrl       
+        numberOfSamples    
+        screenshotDirectory
         : Model = 
+
         {     
             scene = 
                 {
@@ -565,7 +571,7 @@ module Viewer =
 
                     traverse              = Traverse.initial
                     sequencedBookmarks    = SequencedBookmarks.initial //with outputPath = Config.besideExecuteable}
-                    screenshotModel       = ScreenshotModel.create renderingUrl Config.configPath dataSamples
+                    screenshotModel       = ScreenshotModel.initial
                 }
 
             dashboardMode   = DashboardModes.core.name
@@ -617,14 +623,18 @@ module Viewer =
             //pastCorrelation = None
             //instrumentCamera = { CameraController.initial with view = CameraView.lookAt V3d.Zero V3d.One V3d.OOI }        
             //instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
-            viewerMode = ViewerMode.Standard                
-            footPrint = ViewPlanModel.initFootPrint
-            viewPortSizes = HashMap.empty
+            viewerMode      = ViewerMode.Standard
+            footPrint       = ViewPlanModel.initFootPrint
+            viewPortSizes   = HashMap.empty
 
-            snapshotThreads = ThreadPool.empty
+            snapshotThreads      = ThreadPool.empty
             showExplorationPoint = startupArgs.showExplorationPoint
-            heighValidation = HeightValidatorModel.init()
-            frustumModel = FrustumModel.init 0.1 10000.0
+            heighValidation      = HeightValidatorModel.init()
+            frustumModel         = FrustumModel.init 0.1 10000.0
             
             filterTexture = false
+
+            renderingUrl        = renderingUrl       
+            numberOfSamples     = numberOfSamples    
+            screenshotDirectory = screenshotDirectory
     }

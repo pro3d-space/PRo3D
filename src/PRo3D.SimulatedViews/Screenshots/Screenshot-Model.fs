@@ -17,11 +17,11 @@ type ScreenshotModel = {
     version         : int
     width           : NumericInput
     height          : NumericInput
-    samples         : int
     backgroundColor : ColorInput
-    url             : string
     imageFormat     : ImageFormat
-    outputPath      : string
+    //outputPath      : string
+    //url             : string
+    //samples         : int
 }
 
 module ScreenshotModel =
@@ -42,28 +42,8 @@ module ScreenshotModel =
             width           = initNumeric
             height          = initNumeric
             imageFormat     = ImageFormat.PNG
-            backgroundColor = { ColorInput.c = C4b.White }
-
-            url             = ""
-            outputPath      = ""
-            samples         = -1
-        }
-
-    let create url outputPath samples =
-        {
-            initial with
-                samples         = samples
-                url             = url
-                outputPath      = outputPath
-        }
-
-    let set url outputPath samples screenshotModel =
-        {
-            screenshotModel with
-                samples         = samples
-                url             = url
-                outputPath      = outputPath
-        }
+            backgroundColor = { ColorInput.c = C4b.White }            
+        }    
 
     let read0  =
         json {
@@ -77,11 +57,7 @@ module ScreenshotModel =
                 width           = width
                 height          = height
                 imageFormat     = imageFormat |> enum<ImageFormat>
-                backgroundColor = backgroundColor
-
-                url        = initial.url
-                outputPath = initial.outputPath
-                samples    = initial.samples
+                backgroundColor = backgroundColor                
             }            
         }
         
