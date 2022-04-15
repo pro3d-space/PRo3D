@@ -1,3 +1,9 @@
+## 4.7.0-prerelease1
+
+- added Continuous Export of Dip & Strike [#185](https://github.com/pro3d-space/PRo3D/issues/185)
+- added Custom Background Color for Screenshots [#183](https://github.com/pro3d-space/PRo3D/issues/183)
+- Integration of Mars2020 rover traverse [#127](https://github.com/pro3d-space/PRo3D/issues/127) also including custom sized waypoint labels [#154](https://github.com/pro3d-space/PRo3D/issues/154)
+
 ## 4.6.2-prerelease1
 
 - adapted GeoJSON parser to read numeric values
