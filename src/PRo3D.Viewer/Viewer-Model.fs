@@ -240,7 +240,7 @@ module Scene =
                     sceneObjectsModel     = SceneObjectsModel.initial
                     geologicSurfacesModel = GeologicSurfacesModel.initial
 
-                    traverses              = TraverseModel.initial
+                    traverses             = TraverseModel.initial
                     sequencedBookmarks    = SequencedBookmarks.initial
 
                     comparisonApp         = ComparisonApp.init
@@ -316,7 +316,7 @@ module Scene =
             let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
             let! geologicSurfacesModel  = Json.read "geologicSurfacesModel"
             let! sequencedBookmarks     = Json.tryRead "sequencedBookmarks"
-            let! traverse       = Json.tryRead "traverse"
+            let! traverse       = Json.tryRead "traverses"
             //let! viewplans     = Json.tryRead "viewplans"
 
             return 
@@ -383,7 +383,7 @@ type Scene with
             do! Json.write "sceneObjectsModel" x.sceneObjectsModel
             do! Json.write "geologicSurfacesModel" x.geologicSurfacesModel
 
-            do! Json.write "traverse" x.traverses
+            do! Json.write "traverses" x.traverses
             do! Json.write "sequencedBookmarks" x.sequencedBookmarks
         }
 
