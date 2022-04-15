@@ -67,7 +67,7 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "4.6.1-prerelease1"
+let viewerVersion       = "4.6.1-prerelease2"
 let catchDomainErrors   = false
 
 open System.IO
@@ -191,7 +191,7 @@ let main argv =
         cooTrafoInitialized <- true
 
         //use app = new VulkanApplication()
-        Glfw.Config.hideCocoaMenuBar <- true
+        //Glfw.Config.hideCocoaMenuBar <- true
         use app = new OpenGlApplication()
         let runtime = app.Runtime    
 
@@ -210,8 +210,8 @@ let main argv =
     
         let signature =
             runtime.CreateFramebufferSignature [
-                DefaultSemantic.Colors, { format = RenderbufferFormat.Rgba8; samples = 1 }
-                DefaultSemantic.Depth,  { format = RenderbufferFormat.Depth24Stencil8; samples = 1 }
+                DefaultSemantic.Colors, TextureFormat.Rgba8
+                DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
             ]
 
         use sendQueue = new BlockingCollection<string>()    

@@ -82,7 +82,7 @@ module TestViewer =
             scene.patchHierarchies |> Seq.toList |> List.map (fun basePath -> 
                 let h = PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths basePath)
                 let t = PatchLod.toRoseTree h.tree
-                Sg.patchLod win.FramebufferSignature runner basePath scene.lodDecider false false ViewerModality.XYZ true t
+                Sg.patchLod win.FramebufferSignature runner basePath scene.lodDecider false false ViewerModality.XYZ PatchLod.CoordinatesMapping.Local true t
             )
 
         let speed = AVal.init scene.speed

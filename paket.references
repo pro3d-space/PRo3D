@@ -1,0 +1,11 @@
+group Build
+Fake.IO.FileSystem      
+Fake.Api.GitHub          
+Fake.Core.ReleaseNotes   
+Octokit
+Fake.Core.Target
+Farmer
+Fake.DotNet.Cli
+Fake.DotNet.NuGet
+Fake.Tools.Git
+Mono.Cecil

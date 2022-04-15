@@ -56,7 +56,6 @@ module CooTransformation =
           radian    : double
         }
 
-    let init = 0.0
 
     let initCooTrafo (appData : string) = 
 
@@ -100,6 +99,8 @@ module CooTransformation =
         Log.line "[CooTransformation] shutting down..."
         CooTransformation.DeInit()
         Log.line "[CooTransformation] down."
+
+    let private init = 0.0
 
     let getLatLonAlt (planet:Planet) (p:V3d) : SphericalCoo = 
         match planet with

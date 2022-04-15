@@ -223,7 +223,7 @@ module ShadingApp =
 
     let shadowDepthsignature (runtime : IRuntime) = 
         runtime.CreateFramebufferSignature [
-            DefaultSemantic.Depth, { format = RenderbufferFormat.DepthComponent32; samples = 1 }
+            DefaultSemantic.DepthStencil, TextureFormat.DepthComponent32
         ]
 
     let view (model : AdaptiveShadingApp) =

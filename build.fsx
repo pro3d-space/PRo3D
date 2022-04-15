@@ -1,5 +1,4 @@
-#r "paket: groupref Build //"
-#load ".fake/build.fsx/intellisense.fsx"
+#load "./.paket/load/net6.0/build/build.group.fsx"
 #load @"paket-files/build/aardvark-platform/aardvark.fake/DefaultSetup.fsx"
 
 open System
@@ -19,6 +18,11 @@ open Fake.Tools.Git
 
 open System.IO.Compression
 
+do  // init fake
+    let args = System.Environment.GetCommandLineArgs() |> Array.toList |> List.skip 2
+    let ctx = Context.FakeExecutionContext.Create false "build.fsx" args
+    Context.setExecutionContext (Context.RuntimeContext.Fake ctx)
+    Target.initEnvironment()
 
 
 do Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
