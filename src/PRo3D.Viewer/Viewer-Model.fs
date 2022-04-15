@@ -97,6 +97,7 @@ type ViewerAction =
 | ImportPRo3Dv1Annotations        of list<string>
 | ImportSurfaceTrafo              of list<string>
 | ImportRoverPlacement            of list<string>
+| ImportTraverse                  of list<string>
 | SwitchViewerMode                of ViewerMode
 | DnSProperties                   of PropertyActions
 | ConfigPropertiesMessage         of ConfigProperties.Action
@@ -183,7 +184,7 @@ type Scene = {
     bookmarks         : GroupsModel
     scaleBars         : ScaleBarsModel
 
-    traverse          : Traverse
+    traverses          : TraverseModel
 
     viewPlans         : ViewPlanModel
     dockConfig        : DockConfig
@@ -239,7 +240,7 @@ module Scene =
                     sceneObjectsModel     = SceneObjectsModel.initial
                     geologicSurfacesModel = GeologicSurfacesModel.initial
 
-                    traverse              = Traverse.initial
+                    traverses              = TraverseModel.initial
                     sequencedBookmarks    = SequencedBookmarks.initial
 
                     comparisonApp         = ComparisonApp.init
@@ -291,7 +292,7 @@ module Scene =
                     sceneObjectsModel       = sceneObjectsModel
                     geologicSurfacesModel   = geologicSurfacesModel
 
-                    traverse                = Traverse.initial
+                    traverses                = TraverseModel.initial
 
                     sequencedBookmarks      = SequencedBookmarks.initial
                 }
@@ -343,7 +344,7 @@ module Scene =
                     sceneObjectsModel       = sceneObjectsModel
                     geologicSurfacesModel   = geologicSurfacesModel
 
-                    traverse                = traverse |> Option.defaultValue(Traverse.initial)
+                    traverses                = traverse |> Option.defaultValue(TraverseModel.initial)
                     sequencedBookmarks      = if sequencedBookmarks.IsSome then sequencedBookmarks.Value else SequencedBookmarks.initial
                     comparisonApp           = if comparisonApp.IsSome then comparisonApp.Value else ComparisonApp.init
                 }
@@ -382,7 +383,7 @@ type Scene with
             do! Json.write "sceneObjectsModel" x.sceneObjectsModel
             do! Json.write "geologicSurfacesModel" x.geologicSurfacesModel
 
-            do! Json.write "traverse" x.traverse
+            do! Json.write "traverse" x.traverses
             do! Json.write "sequencedBookmarks" x.sequencedBookmarks
         }
 
@@ -556,7 +557,7 @@ module Viewer =
                     sceneObjectsModel     = SceneObjectsModel.initial
                     geologicSurfacesModel = GeologicSurfacesModel.initial
 
-                    traverse              = Traverse.initial
+                    traverses             = TraverseModel.initial
                     sequencedBookmarks    = SequencedBookmarks.initial //with outputPath = Config.besideExecuteable}
                 }
             dashboardMode   = DashboardModes.core.name

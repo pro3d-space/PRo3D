@@ -1,3 +1,10 @@
+## 4.6.2-prerelease1
+
+- adapted GeoJSON parser to read numeric values
+- added file dialog to import traverses in the form of the specified GeoJSON M20_waypoints.json
+- added datamodel and GUI to maintain multiple traverses
+- added adjustable textsize for waypoints
+
 ## 4.6.1-prerelease2
 
 - base 5.2 upgrade

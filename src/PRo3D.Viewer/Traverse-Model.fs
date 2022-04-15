@@ -1,20 +1,44 @@
 ﻿namespace PRo3D.Viewer
 
+open System
 open Aardvark.Base
+open Aardvark.UI
+open FSharp.Data.Adaptive
 open PRo3D.Base
 open PRo3D.Core
 
 open Adaptify
 open Chiron
 
-type TraverseAction =
-| LoadTraverse    of string
-| SelectSol       of int
-| FlyToSol        of V3d * V3d * V3d //forward * sky * location
-| PlaceRoverAtSol of string * Trafo3d * V3d * ReferenceSystem//rotation and location
+type TraversePropertiesAction =
 | ToggleShowText
 | ToggleShowLines
 | ToggleShowDots
+| SetTraverseName    of string
+| SetSolTextsize     of Numeric.Action
+| SetTraverseColor   of ColorPicker.Action
+
+type TraverseAction =
+| SelectSol       of int
+| FlyToSol        of V3d * V3d * V3d //forward * sky * location
+| PlaceRoverAtSol of string * Trafo3d * V3d * ReferenceSystem//rotation and location
+| LoadTraverse      of string
+| FlyToTraverse     of Guid
+| RemoveTraverse    of Guid
+| IsVisibleT        of Guid
+| SelectTraverse    of Guid
+| TraversePropertiesMessage of TraversePropertiesAction
+
+module InitTraverseParams =
+
+    let tText = {
+        value   = 0.05
+        min     = 0.001
+        max     = 5.0
+        step    = 0.001
+        format  = "{0:0.000}"
+    }
+
 
 [<ModelType>]
 type Sol =
@@ -105,11 +129,16 @@ type Sol with
 type Traverse = 
     {
         version     : int
+        guid        : System.Guid
+        tName        : string
         sols        : List<Sol>
         selectedSol : option<int>
         showLines   : bool
         showText    : bool
+        tTextSize    : NumericInput
         showDots    : bool
+        isVisibleT  : bool
+        color       : ColorInput
     }
 
 module Traverse =
@@ -128,15 +157,20 @@ module Traverse =
         C4b(177,89,40)
     ]
 
-    let current = 0 
-    let initial = 
+    let current = 1 
+    let initial name sols = 
         { 
             version     = current
-            sols        = [] 
+            guid        = Guid.NewGuid()
+            tName        = name
+            sols        = sols //[] 
             selectedSol = None
-            showLines = true
-            showText  = true
-            showDots  = true
+            showLines   = true
+            showText    = true
+            tTextSize    = InitTraverseParams.tText
+            showDots    = true
+            isVisibleT   = true
+            color       = { c = C4b.White }
         }
 
     let readV0 = 
@@ -149,11 +183,44 @@ module Traverse =
             return 
                 {
                     version     = current
+                    guid        = Guid.NewGuid()
+                    tName        = ""
                     sols        = sols
                     selectedSol = None
                     showLines   = showLines
                     showText    = showText 
-                    showDots    = showDots 
+                    tTextSize    = InitTraverseParams.tText
+                    showDots    = showDots
+                    isVisibleT  = true
+                    color       = { c = C4b.White }
+                }
+        }  
+        
+    let readV1 = 
+        json {            
+            let! guid       = Json.read "guid"
+            let! tName      = Json.read "tName"
+            let! sols       = Json.read "sols"
+            let! showLines  = Json.read "showLines"
+            let! showText   = Json.read "showText"
+            let! tTextSize  = Json.readWith Ext.fromJson<NumericInput,Ext> "tTextSize"
+            let! showDots   = Json.read "showDots"
+            let! isVisibleT = Json.read "isVisibleT"
+            let! color      = Json.readWith Ext.fromJson<ColorInput,Ext> "color"
+
+            return 
+                {
+                    version     = current
+                    guid        = guid |> Guid
+                    tName        = tName
+                    sols        = sols
+                    selectedSol = None
+                    showLines   = showLines
+                    showText    = showText 
+                    tTextSize    = tTextSize  
+                    showDots    = showDots
+                    isVisibleT  = isVisibleT
+                    color       = color
                 }
         }    
 
@@ -163,13 +230,73 @@ type Traverse with
             let! v = Json.read "version"
             match v with
             | 0 -> return! Traverse.readV0
+            | 1 -> return! Traverse.readV1
             | _ -> return! v |> sprintf "don't know version %d of Traverse" |> Json.error
         }
     static member ToJson (x : Traverse) =
            json {
                do! Json.write "version"   x.version
+               do! Json.write "guid"      x.guid
+               do! Json.write "tName"      x.tName
                do! Json.write "sols"      x.sols
                do! Json.write "showLines" x.showLines
                do! Json.write "showText"  x.showText
+               do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "tTextSize" x.tTextSize
                do! Json.write "showDots"  x.showDots
+               do! Json.write "isVisibleT" x.isVisibleT
+               do! Json.writeWith (Ext.toJson<ColorInput,Ext>) "color" x.color
+
            }
+
+[<ModelType>]
+type TraverseModel = {
+    version          : int
+    traverses        : HashMap<Guid,Traverse>
+    selectedTraverse : Option<Guid> 
+}
+
+module TraverseModel =
+    
+    let current = 0    
+    let read0 = 
+        json {
+            let! traverses = Json.read "traverses"
+            let traverses = traverses |> List.map(fun (a : Traverse) -> (a.guid, a)) |> HashMap.ofList
+
+            let! selected     = Json.read "selectedTraverse"
+            return 
+                {
+                    version          = current
+                    traverses        = traverses
+                    selectedTraverse = selected
+                }
+        }  
+        
+    let initial =
+        {
+            version          = current
+            traverses        = HashMap.empty
+            selectedTraverse = None
+        }
+
+ 
+    
+type TraverseModel with
+    static member FromJson (_ : TraverseModel) =
+        json {
+            let! v = Json.read "version"
+            match v with
+            | 0 -> return! TraverseModel.read0
+            | _ ->
+                return! v
+                |> sprintf "don't know version %A  of TraverseModel"
+                |> Json.error
+        }
+
+    static member ToJson (x : TraverseModel) =
+        json {
+            do! Json.write "version"           x.version
+            do! Json.write "traverses"        (x.traverses |> HashMap.toList |> List.map snd)
+            do! Json.write "selectedTraverse"  x.selectedTraverse
+        }
+
