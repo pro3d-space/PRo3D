@@ -279,14 +279,24 @@ let main argv =
         //    |> Json.deserialize
 
         //Log.line "[Viewer] scene: %A" loadedScnx
-
+        
         let port = getFreePort()
-        let uri = sprintf "http://localhost:%d" port
+        let renderingUrl = sprintf "http://localhost:%d" port
 
         let mainApp = 
-            ViewerApp.start runtime signature startEmpty messagingMailbox sendQueue dumpFile cacheFile uri
+            ViewerApp.start 
+                runtime 
+                signature 
+                startEmpty 
+                messagingMailbox 
+                sendQueue 
+                dumpFile 
+                cacheFile 
+                renderingUrl 
+                ViewerApp.dataSamples
+                appData
 
-        let s = { MailboxState.empty with update = mainApp.update Guid.Empty}
+        let s = { MailboxState.empty with update = mainApp.update Guid.Empty }
         MailboxAction.InitMailboxState s |> messagingMailbox.Post            
     
         //let domainError (sender:obj) (args:UnhandledExceptionEventArgs) =
@@ -360,7 +370,7 @@ let main argv =
 
         disposables.Add(suaveServer)
 
-        Log.line "serving at: %s" uri
+        Log.line "serving at: %s" renderingUrl
 
         
         //WebPart.startServer 4322 [
@@ -388,7 +398,7 @@ let main argv =
                       mainApp.update Guid.Empty (ViewerAction.SetCameraAndFrustum2 (v.view,frustum) |> Seq.singleton)
 
             let remoteApp = 
-                App.start (PRo3D.RemoteControlApp.app uri send)
+                App.start (PRo3D.RemoteControlApp.app renderingUrl send)
 
             let takeScreenshot (shot:Shot) =   
                 let act = CaptureShot shot |> Seq.singleton
@@ -415,7 +425,7 @@ let main argv =
         let titlestr = "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH"
 
         // do not change this line. full url with url needs to be printed for mac deployment!
-        Log.line "full url: %s" uri
+        Log.line "full url: %s" renderingUrl
 
         System.Threading.Thread.Sleep(100)
 
@@ -424,7 +434,7 @@ let main argv =
             Console.Read() |> ignore
         else
             Aardium.run {
-                url uri   //"http://localhost:4321/?page=main"
+                url renderingUrl   //"http://localhost:4321/?page=main"
                 width 1280
                 height 800
                 debug true

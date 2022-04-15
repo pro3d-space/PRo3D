@@ -13,72 +13,67 @@ module ScreenshotApp =
         | ImageFormat.JPEG -> "jpg"
         | ImageFormat.PNG  -> "png"
         | _ -> "png"
+    
+    let createUrl 
+        baseUrl 
+        numberOfSamples 
+        (m : ScreenshotModel) 
+        (wc : System.Net.WebClient) =
 
-    let init url outputPath samples =
-        let (initNumeric : NumericInput) = 
-            {
-                min = 1.0
-                max = 8000.0
-                step = 1.0
-                value = 500.0
-                format = "{0:0}"
-            }
-
-        {
-            width   = initNumeric
-            height  = initNumeric
-            samples = samples
-            url     = url
-            imageFormat = ImageFormat.PNG
-            outputPath = outputPath
-        }
-
-    let createUrl (m : ScreenshotApp) (wc : System.Net.WebClient) =
-        let stats = ScreenshotUtilities.Utilities.downloadClientStatistics m.url wc
+        let stats = ScreenshotUtilities.Utilities.downloadClientStatistics baseUrl wc
+        
+        let color = m.backgroundColor.c.ToC4f().ToV4f()
         let renderingNodeId = stats.[0].name
-        let url = sprintf "%s/rendering/screenshot/%s?w=%i&h=%i&samples=%i&fmt=%s" 
-                          m.url renderingNodeId (int m.width.value) (int m.height.value)
-                          m.samples (imageFormatToString m.imageFormat)
+        let url = 
+            sprintf "%s/rendering/screenshot/%s?w=%i&h=%i&samples=%i&fmt=%s&background=[%f,%f,%f,%f]" 
+                baseUrl 
+                renderingNodeId 
+                (int m.width.value) 
+                (int m.height.value)
+                numberOfSamples 
+                (imageFormatToString m.imageFormat)
+                color.X color.Y color.Z color.W
+
         Log.line "[Screenshots] URL: %s" url
         url
-
-    
+        
     let mutable imgNr = 0
-    let rec findFreeName (m : ScreenshotApp) = 
+    let rec findFreeName outputPath (m : ScreenshotModel) = 
         let filename = sprintf "img%03i.%s" imgNr (imageFormatToString m.imageFormat)
-        let filenamepath = Path.combine [m.outputPath;filename]        
+        let filenamepath = Path.combine [outputPath;filename]        
         if not (File.Exists filenamepath) then
             filenamepath
         else 
             imgNr <- imgNr + 1
-            findFreeName m
+            findFreeName outputPath m
     
-    let makeScreenshot (m : ScreenshotApp) =
+    let makeScreenshot baseUrl numberOfSamples outputPath (m : ScreenshotModel) =
         let wc = new System.Net.WebClient()
-        let url = createUrl m wc
-        let filenamepath = findFreeName m 
+        let url = createUrl baseUrl numberOfSamples m wc
+        let filenamepath = findFreeName outputPath m 
         imgNr <- imgNr + 1
         
-
         wc.DownloadFile(url, filenamepath)
         Log.line "[Screenshot] Screenshot saved to %s" filenamepath
 
-    let update (m : ScreenshotApp) ( action : ScreenshotAppAction) = 
+    let update baseUrl numberOfSamples outputPath (m : ScreenshotModel) (action : ScreenshotAction) =
         match action with
         | SetWidth msg -> 
-            {m with width = Numeric.update m.width msg}
+            { m with width = Numeric.update m.width msg }
         | SetHeight msg -> 
-            {m with height = Numeric.update m.height msg}
+            { m with height = Numeric.update m.height msg }
+        | SetBackgroundColor msg ->
+            { m with backgroundColor = ColorPicker.update m.backgroundColor msg }
         | CreateScreenshot ->
-            makeScreenshot m
+            makeScreenshot baseUrl numberOfSamples outputPath m
             m
         | SetImageFormat format ->
-            {m with imageFormat = format}
+            { m with imageFormat = format }
         | OpenFolder ->
-            System.Diagnostics.Process.Start("explorer.exe", m.outputPath) |> ignore
+            System.Diagnostics.Process.Start("explorer.exe", outputPath) |> ignore
             m
 
-    let view (m : AdaptiveScreenshotApp) = 
+    let view (m : AdaptiveScreenshotModel) = 
         let formatDropdown =
             Html.SemUi.dropDown m.imageFormat SetImageFormat
 
@@ -89,10 +84,15 @@ module ScreenshotApp =
                 button [clazz "ui icon button"; onClick (fun _ -> OpenFolder)] [
                     i [clazz "folder icon"] [] ] 
                 Html.table [  
-                    Html.row "Width (pixel):"  [Numeric.view' [NumericInputType.InputBox] m.width] 
-                        |> UI.map SetWidth
-                    Html.row "Height (pixel):"  [Numeric.view' [NumericInputType.InputBox] m.height]  
-                        |> UI.map SetHeight
+                    Html.row "Width (pixel):"  [Numeric.view' [NumericInputType.InputBox] m.width]
+                    |> UI.map SetWidth
+
+                    Html.row "Height (pixel):" [Numeric.view' [NumericInputType.InputBox] m.height]  
+                    |> UI.map SetHeight
+
+                    Html.row "Background Color:"  [ColorPicker.view m.backgroundColor] 
+                    |> UI.map SetBackgroundColor
+
                     Html.row "Image Format:"  [formatDropdown]  
                 ]
             ]

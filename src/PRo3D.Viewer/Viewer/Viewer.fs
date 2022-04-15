@@ -79,6 +79,7 @@ module UserFeedback =
 
 module ViewerApp =         
     let dataSamples = 4
+
     // surfaces
     let _surfacesModel   = Model.scene_  >-> Scene.surfacesModel_
     let _sgSurfaces      = _surfacesModel  >-> SurfaceModel.sgSurfaces_
@@ -178,9 +179,7 @@ module ViewerApp =
         {
             navigationSensitivity = ViewConfigModel.navigationSensitivity_ >-> NumericInput.value_ |> Aether.toBase
             up                    = ReferenceSystem.up_ >-> V3dInput.value_  |> Aether.toBase
-        }
-
-        
+        }    
     
     let mutable cache = HashMap.Empty
 
@@ -1009,11 +1008,18 @@ module ViewerApp =
                 m
 
             |> ViewerIO.loadMinerva SceneLoader.Minerva.defaultDumpFile SceneLoader.Minerva.defaultCacheFile
-            |> SceneLoader.addGeologicSurfaces
+            |> SceneLoader.addGeologicSurfaces            
 
         | NewScene,_,_ ->
-            let initialModel = Viewer.initial m.messagingMailbox StartupArgs.initArgs m.screenshotApp.url dataSamples
-            { initialModel with recent          = m.recent} |> ViewerIO.loadRoverData
+            let initialModel = 
+                Viewer.initial
+                    m.messagingMailbox 
+                    StartupArgs.initArgs 
+                    m.renderingUrl 
+                    m.numberOfSamples 
+                    m.screenshotDirectory
+
+            { initialModel with recent = m.recent} |> ViewerIO.loadRoverData
         | KeyDown k, _, _ ->
             let m =
                 match k with
@@ -1580,12 +1586,19 @@ module ViewerApp =
                 let geologicSurfaces' = GeologicSurfacesApp.update m.navigation.camera.view m.scene.geologicSurfacesModel msg
                 let m' = m |> Optic.set _geologicSurfacesModel geologicSurfaces'  
                 m'
-        | ScreenshotAppMessage msg, _ , _ ->
-            let screenshotApp = ScreenshotApp.update m.screenshotApp msg
-            let m = {m with screenshotApp = screenshotApp}
+        | ScreenshotMessage msg, _ , _ ->
+            let screenshotModel = 
+                ScreenshotApp.update 
+                    m.renderingUrl 
+                    m.numberOfSamples 
+                    m.screenshotDirectory 
+                    m.scene.screenshotModel
+                    msg
+
+            let m = {m with scene = { m.scene with screenshotModel = screenshotModel }}
 
             match msg with
-            | ScreenshotAppAction.CreateScreenshot -> 
+            | ScreenshotAction.CreateScreenshot -> 
                 shortFeedback "Screenshot saved" m
             | _ -> m
         | TraverseMessage msg, _ , _ ->
@@ -2019,14 +2032,24 @@ module ViewerApp =
             let wp = Serialization.loadAs<IndexList<WayPoint>> path
             { m with waypoints = wp }
         | None -> m
-    
-    let start (runtime: IRuntime) (signature: IFramebufferSignature)(startEmpty: bool) 
-               messagingMailbox sendQueue dumpFile cacheFile url =
+
+    let start 
+        (runtime             : IRuntime) 
+        (signature           : IFramebufferSignature)
+        (startEmpty          : bool)
+        (messagingMailbox    : MessagingMailbox)
+        (sendQueue           : BlockingCollection<string>)
+        (dumpFile            : string)
+        (cacheFile           : string)
+        (renderingUrl        : string)
+        (dataSamples         : int)
+        (screenshotDirectory : string)
+        =
 
         let m = 
             if startEmpty |> not then
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs url dataSamples
-                |> SceneLoader.loadLastScene runtime signature
+                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl dataSamples screenshotDirectory
+                |> SceneLoader.loadLastScene runtime signature                
                 |> SceneLoader.loadLogBrush
                 |> ViewerIO.loadRoverData                
                 |> ViewerIO.loadAnnotations
@@ -2037,7 +2060,7 @@ module ViewerApp =
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
             else
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs url dataSamples 
+                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl dataSamples screenshotDirectory
                 |> ViewerIO.loadRoverData
 
         App.start {
