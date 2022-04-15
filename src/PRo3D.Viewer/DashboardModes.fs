@@ -26,3 +26,5 @@ module DashboardModes =
             name       = "3D-View Only"
             dockConfig = DockConfigs.renderOnly
         }
+
+    

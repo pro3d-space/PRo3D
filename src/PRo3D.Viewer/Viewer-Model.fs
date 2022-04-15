@@ -97,6 +97,7 @@ type ViewerAction =
 | ImportPRo3Dv1Annotations        of list<string>
 | ImportSurfaceTrafo              of list<string>
 | ImportRoverPlacement            of list<string>
+| ImportTraverse                  of list<string>
 | SwitchViewerMode                of ViewerMode
 | DnSProperties                   of PropertyActions
 | ConfigPropertiesMessage         of ConfigProperties.Action
@@ -156,6 +157,7 @@ type ViewerAction =
 | GeologicSurfacesMessage        of GeologicSurfaceAction
 | ScreenshotMessage              of ScreenshotAction
 | TraverseMessage                of TraverseAction
+| ToggleAutoExportGeoJson        
 | Nop
 
 and MailboxState = {
@@ -169,30 +171,31 @@ and MailboxAction =
 
 [<ModelType>] 
 type Scene = {
-    version               : int
-                          
-    cameraView            : CameraView
-    navigationMode        : NavigationMode
-    exploreCenter         : V3d
-                          
-    interaction           : InteractionMode
-    surfacesModel         : SurfaceModel
-    config                : ViewConfigModel
-    scenePath             : Option<string>
-    referenceSystem       : ReferenceSystem    
-    bookmarks             : GroupsModel
-    scaleBars             : ScaleBarsModel
-                          
-    traverse              : Traverse
-                          
-    viewPlans             : ViewPlanModel
-    dockConfig            : DockConfig
-    closedPages           : list<DockElement>
-    firstImport           : bool
-    userFeedback          : string
-    feedbackThreads       : ThreadPool<ViewerAction> 
-    comparisonApp         : PRo3D.Comparison.ComparisonApp
-    sceneObjectsModel     : SceneObjectsModel
+    version           : int
+
+    cameraView        : CameraView
+    navigationMode    : NavigationMode
+    exploreCenter     : V3d
+
+    interaction       : InteractionMode
+    surfacesModel     : SurfaceModel
+    config            : ViewConfigModel
+    scenePath         : Option<string>
+    referenceSystem   : ReferenceSystem    
+    bookmarks         : GroupsModel
+    scaleBars         : ScaleBarsModel
+
+    traverses          : TraverseModel
+
+    viewPlans         : ViewPlanModel
+    dockConfig        : DockConfig
+    closedPages       : list<DockElement>
+    firstImport       : bool
+    userFeedback      : string
+    feedbackThreads   : ThreadPool<ViewerAction> 
+    comparisonApp     : PRo3D.Comparison.ComparisonApp
+    sceneObjectsModel : SceneObjectsModel
+
     geologicSurfacesModel : GeologicSurfacesModel
     sequencedBookmarks    : SequencedBookmarks
     screenshotModel       : ScreenshotModel
@@ -240,7 +243,7 @@ module Scene =
                     sceneObjectsModel     = SceneObjectsModel.initial
                     geologicSurfacesModel = GeologicSurfacesModel.initial
 
-                    traverse              = Traverse.initial
+                    traverses             = TraverseModel.initial
                     sequencedBookmarks    = SequencedBookmarks.initial
 
                     comparisonApp         = ComparisonApp.init
@@ -292,7 +295,7 @@ module Scene =
                     sceneObjectsModel       = sceneObjectsModel
                     geologicSurfacesModel   = geologicSurfacesModel
 
-                    traverse                = Traverse.initial
+                    traverses                = TraverseModel.initial
 
                     sequencedBookmarks      = SequencedBookmarks.initial
                     screenshotModel         = ScreenshotModel.initial
@@ -317,9 +320,9 @@ module Scene =
             let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
             let! geologicSurfacesModel  = Json.read "geologicSurfacesModel"
             let! sequencedBookmarks     = Json.tryRead "sequencedBookmarks"
-            let! traverse               = Json.tryRead "traverse"
+
             let! screenshotModel        = Json.tryRead "screenshotModel"
-            //let! viewplans     = Json.tryRead "viewplans"
+            let! traverse               = Json.tryRead "traverses"
 
             return 
                 {
@@ -346,7 +349,7 @@ module Scene =
                     sceneObjectsModel       = sceneObjectsModel
                     geologicSurfacesModel   = geologicSurfacesModel
 
-                    traverse                = traverse |> Option.defaultValue(Traverse.initial)
+                    traverses                = traverse |> Option.defaultValue(TraverseModel.initial)
                     sequencedBookmarks      = if sequencedBookmarks.IsSome then sequencedBookmarks.Value else SequencedBookmarks.initial
                     comparisonApp           = if comparisonApp.IsSome then comparisonApp.Value else ComparisonApp.init
 
@@ -387,7 +390,7 @@ type Scene with
             do! Json.write "sceneObjectsModel" x.sceneObjectsModel
             do! Json.write "geologicSurfacesModel" x.geologicSurfacesModel
 
-            do! Json.write "traverse" x.traverse
+            do! Json.write "traverses" x.traverses
             do! Json.write "sequencedBookmarks" x.sequencedBookmarks
             do! Json.write "screenshotModel"    x.screenshotModel
         }
@@ -569,7 +572,7 @@ module Viewer =
                     sceneObjectsModel     = SceneObjectsModel.initial
                     geologicSurfacesModel = GeologicSurfacesModel.initial
 
-                    traverse              = Traverse.initial
+                    traverses             = TraverseModel.initial
                     sequencedBookmarks    = SequencedBookmarks.initial //with outputPath = Config.besideExecuteable}
                     screenshotModel       = ScreenshotModel.initial
                 }
