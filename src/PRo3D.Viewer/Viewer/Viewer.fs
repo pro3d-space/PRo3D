@@ -1613,8 +1613,11 @@ module ViewerApp =
                         footPrint = model.footPrint
                     } 
                 | _ -> m                                        
-
-            { m with scene = { m.scene with traverses = TraverseApp.update m.scene.traverses msg }; animations = animation }
+                
+            { m with scene = { m.scene with traverses = TraverseApp.update m.scene.traverses msg }; animations = animation }                        
+        | ToggleAutoExportGeoJson, _, _ -> 
+            let autoExport = { m.drawing.automaticGeoJsonExport with enabled = not m.drawing.automaticGeoJsonExport.enabled }
+            { m with drawing = { m.drawing with automaticGeoJsonExport = autoExport } }
         | _ -> m       
                                    
     let mkBrushISg color size trafo : ISg<Message> =

@@ -59,6 +59,14 @@ type DrawingAction =
 | ExportAsAttitude       of string
 
 [<ModelType>]
+type AutomaticGeoJsonExport = 
+    {
+        enabled : bool
+        lastGeoJsonPath    : Option<string>
+        lastGeoJsonPathXyz : Option<string>
+    }
+
+[<ModelType>]
 type DrawingModel = {
 
     draw          : bool
@@ -88,6 +96,8 @@ type DrawingModel = {
 
     // test laura
     haltonPoints   : list<V3d>
+
+    automaticGeoJsonExport : AutomaticGeoJsonExport
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]    
@@ -130,4 +140,6 @@ module DrawingModel =
 
         // test laura
         haltonPoints = []
+
+        automaticGeoJsonExport = { enabled = false; lastGeoJsonPath = None; lastGeoJsonPathXyz = None }
     }

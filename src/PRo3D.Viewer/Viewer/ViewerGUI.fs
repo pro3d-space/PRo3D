@@ -793,6 +793,11 @@ module Gui =
                 GuiEx.accordion "Screenshots" "Settings" false [
                     ScreenshotApp.view m.screenshotApp |> UI.map ScreenshotAppMessage
                 ]
+                GuiEx.accordion "Data Management" "Settings" false [
+                    Html.table [  
+                        Html.row "Automatically export GeoJson: "  [Html.SemUi.iconCheckBox m.drawing.automaticGeoJsonExport.enabled ToggleAutoExportGeoJson]
+                    ]
+                ]
             ] 
           
     module ViewPlanner =
