@@ -108,6 +108,10 @@ module ViewerApp =
     let _scaleBarsModel = Model.scene_  >->  Scene.scaleBars_
     let _scaleBars      = _scaleBarsModel >-> ScaleBarsModel.scaleBars_
 
+    // traverses
+    let _traversesModel = Model.scene_  >->  Scene.traverses_
+    let _traverses      = _traversesModel >-> TraverseModel.traverses_
+
     // geologic surfaces
     let _geologicSurfacesModel = Model.scene_ >->  Scene.geologicSurfacesModel_
     let _geologicSurfaces      = _geologicSurfacesModel >-> GeologicSurfacesModel.geologicSurfaces_
@@ -901,7 +905,13 @@ module ViewerApp =
                     let vp = ViewPlanApp.createViewPlanFromFile importedData m.scene.viewPlans r m.scene.referenceSystem m.navigation.camera.view
                     { m with scene = { m.scene with viewPlans = vp }}
                 | None -> Log.error "no rover selected"; m
-            | None -> m      
+            | None -> m     
+        | ImportTraverse tr,_,_ -> 
+            match tr |> List.tryHead with
+            | Some path ->  
+                let t = TraverseApp.update m.scene.traverses (TraverseAction.LoadTraverse path)
+                { m with scene = { m.scene with traverses = t }}
+            | None -> m              
         | DeleteLast,_,_ -> 
             if File.Exists @".\last" then
                 File.Delete(@".\last") |> ignore
@@ -1183,20 +1193,20 @@ module ViewerApp =
             let m =
                 match k with 
                 | Aardvark.Application.Keys.F6 ->
-                    if (m.scene.traverse.sols.IsEmpty) then
-                        let waypointPath = 
-                            Path.combine [
-                                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); 
-                                "Pro3D"
-                                "JR"
-                                "CooTransformationConfig"
-                                "M20_waypoints.json"
-                            ]
+                    //if (m.scene.traverse.sols.IsEmpty) then
+                    let waypointPath = 
+                        Path.combine [
+                            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); 
+                            "Pro3D"
+                            "JR"
+                            "CooTransformationConfig"
+                            "M20_waypoints.json"
+                        ]
 
-                        let t = TraverseApp.update m.scene.traverse (TraverseAction.LoadTraverse waypointPath)
-                        { m with scene = { m.scene with traverse = t }}
-                    else 
-                        { m with scene = { m.scene with traverse = Traverse.initial }}
+                    let t = TraverseApp.update m.scene.traverses (TraverseAction.LoadTraverse waypointPath)
+                    { m with scene = { m.scene with traverses = t }}
+                    //else 
+                    //    { m with scene = { m.scene with traverse = TraverseModel.initial }}
                 | _ -> m
 
             { m with scene = { m.scene with config = c' }; interaction = interaction'}
@@ -1582,9 +1592,14 @@ module ViewerApp =
             let animation =
                 match msg with
                 | FlyToSol (forward, up, location) ->
+                    //let _tr = m |> Optic.get _traverses |> HashMap.tryFind id
+                    //match _tr with 
+                    //| Some tr ->
                     let animationMessage = 
                         CameraAnimations.animateForwardAndLocation location forward up 2.0 "ForwardAndLocation2s"
-                    AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))                
+                    AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))   
+                    //| None -> m.animations
+                                 
                 | _ ->
                     m.animations
 
@@ -1598,12 +1613,11 @@ module ViewerApp =
                         footPrint = model.footPrint
                     } 
                 | _ -> m                                        
-
-            { m with scene = { m.scene with traverse = TraverseApp.update m.scene.traverse msg }; animations = animation }
+                
+            { m with scene = { m.scene with traverses = TraverseApp.update m.scene.traverses msg }; animations = animation }                        
         | StopGeoJsonAutoExport, _, _ -> 
             let autoExport = { m.drawing.automaticGeoJsonExport with enabled = not m.drawing.automaticGeoJsonExport.enabled; lastGeoJsonPathXyz = None; }
             { m with drawing = { m.drawing with automaticGeoJsonExport = autoExport } }
-
         | _ -> m       
                                    
     let mkBrushISg color size trafo : ISg<Message> =
@@ -1844,11 +1858,11 @@ module ViewerApp =
 
             let traverse = 
                 [ 
-                    TraverseApp.Sg.viewLines m.scene.traverse
+                    TraverseApp.Sg.viewLines m.scene.traverses
                     TraverseApp.Sg.viewText 
                         m.navigation.camera.view
                         m.scene.config.nearPlane.value 
-                        m.scene.traverse
+                        m.scene.traverses
                 ]
                 |> Sg.ofList
                 |> Sg.map TraverseMessage
@@ -1930,14 +1944,12 @@ module ViewerApp =
         let geologicSurfacesSg = 
             GeologicSurfacesApp.Sg.view m.scene.geologicSurfacesModel 
             |> Sg.map GeologicSurfacesMessage 
-        
-        let traverse = 
-            [ 
-                TraverseApp.Sg.view                     
-                    m.scene.referenceSystem
-                    m.scene.traverse                
-            ]
-            |> Sg.ofList
+
+
+        let traverses =
+            TraverseApp.Sg.view                     
+                m.scene.referenceSystem
+                m.scene.traverses   
             |> Sg.map TraverseMessage
 
         let depthTested = 
@@ -1949,7 +1961,7 @@ module ViewerApp =
                 scaleBars; 
                 sceneObjects; 
                 geologicSurfacesSg
-                traverse
+                traverses
             ] |> Sg.ofList
 
         //render OPCs in priority groups

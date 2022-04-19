@@ -87,6 +87,16 @@ module GeoJSON =
                 let! x = Json.read name
                 return x |> List.map(fun x -> x |> List.map(fun x -> x |> List.map(fun x -> x |> Ext.CoordinateFromArray)))
             }
+
+        static member tryReadM20Props name = 
+            json {
+                let! x = Json.tryRead name
+                let object = 
+                    match x with
+                    | Some (x:Map<string, Json>) -> x
+                    | None -> Map.empty
+                return object
+            }
             
     
         static member ToGeoJson (x:Coordinate) =
@@ -171,13 +181,15 @@ module GeoJSON =
                 | _ ->
                     return Point(V3d.NaN |> ThreeDim)
             }
+
+    
         
 
 
     type GeoJsonFeature = {
         geometry   : GeoJsonGeometry
         bbox       : Option<List<float>>
-        properties : Map<string, string>
+        properties : Map<string, Json> 
     }
     with    
         static member ToJson (gf: GeoJsonFeature) =
@@ -196,11 +208,7 @@ module GeoJSON =
             json{
                 let! g = Json.read "geometry"
                 let! (b:Option<List<float>>) = Json.tryRead "bbox"
-                let! properties = Json.tryRead "properties"
-                let properties =
-                    match properties with
-                    | Some (x : Map<string, string>) -> x
-                    | None -> Map.empty
+                let! properties = Ext.tryReadM20Props "properties"
 
                 return {geometry = g;bbox = b; properties = properties}
             }

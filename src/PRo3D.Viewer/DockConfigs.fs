@@ -79,7 +79,7 @@ module DockConfigs =
                             { id = "sequencedBookmarks"; title = Some " SequBookmarks "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             { id = "viewplanner"; title = Some " Viewplans "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             { id = "properties"; title = Some " Properties "; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "traverse";   title = Some " Traverse"; weight = 0.4; deleteInvisible = None; isCloseable = None }
+                            { id = "traverse";   title = Some " Traverses"; weight = 0.4; deleteInvisible = None; isCloseable = None }
                         ]
                     ]
                 ]              

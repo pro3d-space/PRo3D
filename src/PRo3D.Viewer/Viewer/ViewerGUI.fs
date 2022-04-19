@@ -554,6 +554,14 @@ module Gui =
                                             clientEvent "onclick" jsOpenOldAnnotationsFileDialogue ][
                                             text "Import v1 Annotations (*.xml)"
                                         ]
+
+                                        let openM20waypointsFileDialogue = "top.aardvark.dialog.showOpenDialog({title:'Import M20_waypoints file' , filters: [{ name: 'Traverses (*.json)', extensions: ['json']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+                                        div [ clazz "ui item";
+                                        Dialogs.onChooseFiles ImportTraverse;
+                                        clientEvent "onclick" openM20waypointsFileDialogue ][
+                                        text "Import Traverse (*.json)"
+                                        ]
                                         //div [ clazz "ui item";
                                         //    Dialogs.onChooseFiles ImportSurfaceTrafo;
                                         //    clientEvent "onclick" ("top.aardvark.processEvent('__ID__', 'onchoose', top.aardvark.dialog.showOpenDialog({filters: [{ name: 'xml', extensions: ['xml']},],properties: ['openFile']}));") ] [
@@ -843,11 +851,15 @@ module Gui =
     module Traverse =
         let traverseUI (m : AdaptiveModel) =
             div [][
-                yield GuiEx.accordion "Sols" "road" true [
-                    TraverseApp.UI.viewSolList m.scene.referenceSystem m.scene.traverse
+                yield GuiEx.accordion "Traverses" "Write" true [
+                    TraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
                 ]
-                yield GuiEx.accordion "Traverse" "Content" true [
-                    TraverseApp.UI.viewTraverseProperties m.scene.traverse
+                yield GuiEx.accordion "Sols" "road" true [
+                    //TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverse
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverses))
+                ]
+                yield GuiEx.accordion "Properties" "Content" true [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewProperties m.scene.traverses))
                 ]
             ] |> UI.map TraverseMessage
 

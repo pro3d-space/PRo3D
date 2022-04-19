@@ -391,7 +391,7 @@ module ScaleBarsApp =
                                         //yield i [clazz "large cube middle aligned icon"; style bgc; onClick (fun _ -> SelectSO soid)][]           
             
                                         yield i [clazz "home icon"; onClick (fun _ -> FlyToSB scbid) ][]
-                                            |> UI.wrapToolTip DataPosition.Bottom "Fly to scene object"          
+                                            |> UI.wrapToolTip DataPosition.Bottom "Fly to scale bar"          
             
                                         yield Incremental.i toggleMap AList.empty 
                                         |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
