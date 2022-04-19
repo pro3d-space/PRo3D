@@ -155,7 +155,7 @@ type ViewerAction =
 | ScaleBarsDrawingMessage        of ScaleBarDrawingAction
 | ScaleBarsMessage               of ScaleBarsAction
 | GeologicSurfacesMessage        of GeologicSurfaceAction
-| ScreenshotAppMessage           of ScreenshotAppAction
+| ScreenshotMessage              of ScreenshotAction
 | TraverseMessage                of TraverseAction
 | StopGeoJsonAutoExport        
 | Nop
@@ -195,8 +195,10 @@ type Scene = {
     feedbackThreads   : ThreadPool<ViewerAction> 
     comparisonApp     : PRo3D.Comparison.ComparisonApp
     sceneObjectsModel : SceneObjectsModel
+
     geologicSurfacesModel : GeologicSurfacesModel
-    sequencedBookmarks : SequencedBookmarks
+    sequencedBookmarks    : SequencedBookmarks
+    screenshotModel       : ScreenshotModel
 }
 
 module Scene =
@@ -245,24 +247,25 @@ module Scene =
                     sequencedBookmarks    = SequencedBookmarks.initial
 
                     comparisonApp         = ComparisonApp.init
+                    screenshotModel       = ScreenshotModel.initial
                 }
         }
 
     let read1 = 
         json {            
-            let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
-            let! navigationMode  = Json.read "navigationMode"
-            let! exploreCenter   = Json.read "exploreCenter" 
-
-            let! interactionMode = Json.read "interactionMode"
-            let! surfaceModel    = Json.read "surfaceModel"
-            let! config          = Json.read "config"
-            let! scenePath       = Json.read "scenePath"
-            let! referenceSystem = Json.read "referenceSystem"
-            let! bookmarks       = Json.read "bookmarks"
-            let! dockConfig      = Json.read "dockConfig"  
-            let! (comparisonApp : option<ComparisonApp>) = Json.tryRead "comparisonApp"
-            let! scaleBars       = Json.read "scaleBars" 
+            let! cameraView             = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
+            let! navigationMode         = Json.read "navigationMode"
+            let! exploreCenter          = Json.read "exploreCenter" 
+                                        
+            let! interactionMode        = Json.read "interactionMode"
+            let! surfaceModel           = Json.read "surfaceModel"
+            let! config                 = Json.read "config"
+            let! scenePath              = Json.read "scenePath"
+            let! referenceSystem        = Json.read "referenceSystem"
+            let! bookmarks              = Json.read "bookmarks"
+            let! dockConfig             = Json.read "dockConfig"  
+            let! comparisonApp          = Json.tryRead "comparisonApp"
+            let! scaleBars              = Json.read "scaleBars" 
             let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
             let! geologicSurfacesModel  = Json.read "geologicSurfacesModel"
 
@@ -287,8 +290,7 @@ module Scene =
                     firstImport             = false
                     userFeedback            = String.Empty
                     feedbackThreads         = ThreadPool.empty
-                    comparisonApp    = if comparisonApp.IsSome then comparisonApp.Value
-                                       else ComparisonApp.init                    
+                    comparisonApp           = if comparisonApp.IsSome then comparisonApp.Value else ComparisonApp.init
                     scaleBars               = scaleBars
                     sceneObjectsModel       = sceneObjectsModel
                     geologicSurfacesModel   = geologicSurfacesModel
@@ -296,29 +298,31 @@ module Scene =
                     traverses                = TraverseModel.initial
 
                     sequencedBookmarks      = SequencedBookmarks.initial
+                    screenshotModel         = ScreenshotModel.initial
                 }
         }
 
     let read2 = 
         json {            
-            let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
-            let! navigationMode  = Json.read "navigationMode"
-            let! exploreCenter   = Json.read "exploreCenter" 
-            
-            let! interactionMode = Json.read "interactionMode"
-            let! surfaceModel    = Json.read "surfaceModel"
-            let! config          = Json.read "config"
-            let! scenePath       = Json.read "scenePath"
-            let! referenceSystem = Json.read "referenceSystem"
-            let! bookmarks       = Json.read "bookmarks"
-            let! dockConfig      = Json.read "dockConfig"  
-            let! (comparisonApp : option<ComparisonApp>) = Json.tryRead "comparisonApp"
-            let! scaleBars       = Json.read "scaleBars" 
+            let! cameraView             = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
+            let! navigationMode         = Json.read "navigationMode"
+            let! exploreCenter          = Json.read "exploreCenter" 
+                                        
+            let! interactionMode        = Json.read "interactionMode"
+            let! surfaceModel           = Json.read "surfaceModel"
+            let! config                 = Json.read "config"
+            let! scenePath              = Json.read "scenePath"
+            let! referenceSystem        = Json.read "referenceSystem"
+            let! bookmarks              = Json.read "bookmarks"
+            let! dockConfig             = Json.read "dockConfig"  
+            let! comparisonApp          = Json.tryRead "comparisonApp"
+            let! scaleBars              = Json.read "scaleBars" 
             let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
             let! geologicSurfacesModel  = Json.read "geologicSurfacesModel"
             let! sequencedBookmarks     = Json.tryRead "sequencedBookmarks"
-            let! traverse       = Json.tryRead "traverses"
-            //let! viewplans     = Json.tryRead "viewplans"
+
+            let! screenshotModel        = Json.tryRead "screenshotModel"
+            let! traverse               = Json.tryRead "traverses"
 
             return 
                 {
@@ -348,6 +352,8 @@ module Scene =
                     traverses                = traverse |> Option.defaultValue(TraverseModel.initial)
                     sequencedBookmarks      = if sequencedBookmarks.IsSome then sequencedBookmarks.Value else SequencedBookmarks.initial
                     comparisonApp           = if comparisonApp.IsSome then comparisonApp.Value else ComparisonApp.init
+
+                    screenshotModel         = screenshotModel |> Option.defaultValue(ScreenshotModel.initial)
                 }
         }
 
@@ -386,6 +392,7 @@ type Scene with
 
             do! Json.write "traverses" x.traverses
             do! Json.write "sequencedBookmarks" x.sequencedBookmarks
+            do! Json.write "screenshotModel"    x.screenshotModel
         }
 
 [<ModelType>] 
@@ -484,27 +491,27 @@ type Model = {
 
     heighValidation      : HeightValidatorModel
 
-    frustumModel         : FrustumModel
-    screenshotApp        : ScreenshotApp
+    frustumModel         : FrustumModel    
 
     filterTexture        : bool
+
+    numberOfSamples      : int
+    renderingUrl         : string
+    screenshotDirectory  : string
 }
-
-
 
 module Viewer =
     open System.Threading
 
     let processMailboxAction (state:MailboxState) (cancelTokenSrc:CancellationTokenSource) (inbox:MessagingMailbox) (action : MailboxAction) =
-      match action with
-      | MailboxAction.InitMailboxState s ->     
-        s
-      | MailboxAction.DrawingAction a ->        
-        a |> ViewerAction.DrawingMessage |> Seq.singleton |> state.update 
-        state
-      | MailboxAction.ViewerAction a ->        
-        a |> Seq.singleton |> state.update 
-        state
+        match action with
+        | MailboxAction.InitMailboxState s -> s
+        | MailboxAction.DrawingAction a ->        
+            a |> ViewerAction.DrawingMessage |> Seq.singleton |> state.update 
+            state
+        | MailboxAction.ViewerAction a ->        
+            a |> Seq.singleton |> state.update 
+            state
         
 
     let initMessageLoop (cancelTokenSrc:CancellationTokenSource) (inbox:MessagingMailbox) =
@@ -531,7 +538,14 @@ module Viewer =
 
     let sceneElm = {id = "scene"; title = (Some "Scene"); weight = 0.4; deleteInvisible = None; isCloseable = None }   
 
-    let initial msgBox (startupArgs : StartupArgs) url samples : Model = 
+    let initial
+        msgBox 
+        (startupArgs    : StartupArgs)
+        renderingUrl       
+        numberOfSamples    
+        screenshotDirectory
+        : Model = 
+
         {     
             scene = 
                 {
@@ -560,7 +574,9 @@ module Viewer =
 
                     traverses             = TraverseModel.initial
                     sequencedBookmarks    = SequencedBookmarks.initial //with outputPath = Config.besideExecuteable}
+                    screenshotModel       = ScreenshotModel.initial
                 }
+
             dashboardMode   = DashboardModes.core.name
             navigation      = navInit
 
@@ -610,15 +626,18 @@ module Viewer =
             //pastCorrelation = None
             //instrumentCamera = { CameraController.initial with view = CameraView.lookAt V3d.Zero V3d.One V3d.OOI }        
             //instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
-            viewerMode = ViewerMode.Standard                
-            footPrint = ViewPlanModel.initFootPrint
-            viewPortSizes = HashMap.empty
+            viewerMode      = ViewerMode.Standard
+            footPrint       = ViewPlanModel.initFootPrint
+            viewPortSizes   = HashMap.empty
 
-            snapshotThreads = ThreadPool.empty
+            snapshotThreads      = ThreadPool.empty
             showExplorationPoint = startupArgs.showExplorationPoint
-            heighValidation = HeightValidatorModel.init()
-            frustumModel = FrustumModel.init 0.1 10000.0
-            screenshotApp = ScreenshotApp.init url Config.configPath samples
-
+            heighValidation      = HeightValidatorModel.init()
+            frustumModel         = FrustumModel.init 0.1 10000.0
+            
             filterTexture = false
+
+            renderingUrl        = renderingUrl       
+            numberOfSamples     = numberOfSamples    
+            screenshotDirectory = screenshotDirectory
     }
