@@ -56,6 +56,7 @@ type DrawingAction =
 | ExportAsCsv            of string
 | ExportAsGeoJSON        of string
 | ExportAsGeoJSON_xyz    of string
+| ContinuouslyGeoJson    of string
 | ExportAsAttitude       of string
 
 [<ModelType>]
@@ -102,6 +103,8 @@ type DrawingModel = {
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]    
 module DrawingModel =
+
+
     
     let tryGet (ans:IndexList<Annotation>) key = 
         ans |> Seq.tryFind(fun x -> x.key = key)

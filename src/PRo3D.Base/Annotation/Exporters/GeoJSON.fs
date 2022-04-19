@@ -172,6 +172,8 @@ module GeoJSON =
                     return Point(V3d.NaN |> ThreeDim)
             }
         
+
+
     type GeoJsonFeature = {
         geometry   : GeoJsonGeometry
         bbox       : Option<List<float>>
@@ -182,8 +184,11 @@ module GeoJSON =
             json{
                 do! Json.write "geometry" gf.geometry
                 match gf.bbox with 
-                | Some(b) -> do! Json.write "bbox" b
+                | Some b -> do! Json.write "bbox" b
                 | None -> ()
+
+                do! Json.write "properties" (Chiron.Object (gf.properties |> Map.map (fun k v -> Json.String v)))
+
                 do! Json.write "type" "Feature"
             }
         

@@ -1,6 +1,7 @@
 namespace PRo3D.Base.Annotation
 
 open System
+open MBrace.FsPickler
 open Aardvark.Base
 open FSharp.Data.Adaptive
 open Aardvark.Rendering

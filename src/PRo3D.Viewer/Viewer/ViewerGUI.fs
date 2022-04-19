@@ -437,52 +437,59 @@ module Gui =
                         clazz "ui inverted item"
                         Dialogs.onChooseFiles AddAnnotations
                         clientEvent "onclick" jsOpenAnnotationFileDialog
-                    ][
+                    ] [
                         text "Import"
                     ]
                     div [
                         clazz "ui inverted item"; onMouseClick (fun _ -> Clear)
-                    ][
+                    ] [
                         text "Clear"
                     ]      
                     div [ clazz "ui dropdown item"] [
                         text "Export"
-                        i [clazz "dropdown icon"][] 
+                        i [clazz "dropdown icon"] [] 
                         div [ clazz "menu"] [
                     
                             div [ 
                                 clazz "ui inverted item"
                                 Dialogs.onSaveFile ExportAsAnnotations
                                 clientEvent "onclick" jsExportAnnotationsFileDialog
-                            ][
+                            ] [
                                 text "all as 'PRo3D' annotations (*.pro3d.ann)"
                             ]
                             div [ 
                                 clazz "ui inverted item"
                                 Dialogs.onSaveFile ExportAsCsv
                                 clientEvent "onclick" jsExportAnnotationsAsCSVDialog
-                            ][
+                            ] [
                                 text "visible as table (*.csv)"
                             ]     
                             div [ 
                                 clazz "ui inverted item"
                                 Dialogs.onSaveFile ExportAsGeoJSON
                                 clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                            ][
+                            ]  [
                                 text "visible as GeoJSON (*.json)"
                             ]     
                             div [ 
                                 clazz "ui inverted item"
                                 Dialogs.onSaveFile ExportAsGeoJSON_xyz
                                 clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                            ][
+                            ] [
                                 text "visible as GeoJSON xyz (*.json)"
+                            ]
+                            div [ 
+                                clazz "ui inverted item"
+                                Dialogs.onSaveFile ContinuouslyGeoJson
+                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
+                            ] [
+                                text "continuously export as GeoJSON xyz (*.json)"
                             ]
                             div [ 
                                 clazz "ui inverted item"
                                 Dialogs.onSaveFile ExportAsAttitude
                                 clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                            ][
+                            ] [
                                 text "dns as 'Attitude' planes (*.json)"
                             ]
                         ]
@@ -494,14 +501,14 @@ module Gui =
             let subMenu name menuItems = 
                 div [ clazz "ui dropdown item"] [
                   text name
-                  i [clazz "dropdown icon"][] 
+                  i [clazz "dropdown icon"] [] 
                   div [ clazz "menu"] menuItems
                 ]           
             let menuItem name action =
                 div [ 
                     clazz "ui inverted item"
                     onClick (fun _ -> action)
-                ][
+                ] [
                     text name
                 ]
                     
@@ -787,7 +794,21 @@ module Gui =
                 ]
                 GuiEx.accordion "Data Management" "Settings" false [
                     Html.table [  
-                        Html.row "Automatically export GeoJson: "  [Html.SemUi.iconCheckBox m.drawing.automaticGeoJsonExport.enabled ToggleAutoExportGeoJson]
+                        Html.row "Automatically GeoJson export: "  [
+                            let attributes = 
+                                amap {
+                                    yield onClick (fun _ -> StopGeoJsonAutoExport) 
+                                    let! enabled = m.drawing.automaticGeoJsonExport.enabled
+                                    if enabled then 
+                                        yield clazz "ui small inverted button"; 
+                                    else 
+                                        yield clazz "ui small disabled inverted button"; 
+                                } |> AttributeMap.ofAMap
+                            Generic.button attributes [text "Stop AutoExport"]
+                        ]
+                        Html.row "Automatically GeoJson export path: "  [
+                            Incremental.text (m.drawing.automaticGeoJsonExport.lastGeoJsonPathXyz  |> AVal.map (function None -> "not set" | Some path -> path))
+                        ]
                     ]
                 ]
             ] 
