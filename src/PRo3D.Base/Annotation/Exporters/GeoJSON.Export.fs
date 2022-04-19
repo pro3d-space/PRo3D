@@ -118,8 +118,8 @@ module GeoJSONExport =
                         bbox       = None
                         properties = 
                             Map.ofList [
-                                ("id", annotation.key.ToString())
-                                ("color", annotation.color.c.ToString())
+                                ("id", annotation.key.ToString() |> Json.String)
+                                ("color", annotation.color.c.ToString() |> Json.String)
                                 // extend as desired.
                             ]
                     }
@@ -131,9 +131,9 @@ module GeoJSONExport =
                             // yet this does not mean the change is visible in the exported data.
                             // this can be used for example for pulling in changes using 
                             // the pro3d rest api.
-                            ("fullHash", pickler.ComputeHash(annotation).Hash |> encode)
+                            ("fullHash", pickler.ComputeHash(annotation).Hash |> encode |> Json.String)
                             // the hash of the geojson value (not the internal annotation representation)
-                            ("hash",     pickler.ComputeHash(feature).Hash |> encode)
+                            ("hash",     pickler.ComputeHash(feature).Hash |> encode  |> Json.String)
                         ]
                 }
             )

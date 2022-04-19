@@ -188,7 +188,7 @@ module GeoJSON =
 
     type GeoJsonFeature = {
         geometry   : GeoJsonGeometry
-        bbox       : Option<List<float>>
+        bbox       : Option<List<float>> 
         properties : Map<string, Json> 
     }
     with    
@@ -199,7 +199,7 @@ module GeoJSON =
                 | Some b -> do! Json.write "bbox" b
                 | None -> ()
 
-                do! Json.write "properties" (Chiron.Object (gf.properties |> Map.map (fun k v -> Json.String v)))
+                do! Json.write "properties" (Chiron.Object gf.properties)
 
                 do! Json.write "type" "Feature"
             }
@@ -207,10 +207,10 @@ module GeoJSON =
         static member FromJson (_: GeoJsonFeature) =
             json{
                 let! g = Json.read "geometry"
-                let! (b:Option<List<float>>) = Json.tryRead "bbox"
-                let! properties = Ext.tryReadM20Props "properties"
+                let! (b:Option<list<float>>) = Json.tryRead "bbox"
+                let! properties = Json.tryRead "properties"
 
-                return {geometry = g;bbox = b; properties = properties}
+                return { geometry = g;bbox = b; properties = Option.defaultValue Map.empty properties }
             }
                     
     type GeoJsonFeatureCollection = {
@@ -223,7 +223,7 @@ module GeoJSON =
             json{
                 do! Json.write "features" x.features
                 match x.bbox with 
-                | Some(b) -> do! Json.write "bbox" b
+                | Some b -> do! Json.write "bbox" b
                 | None -> ()
                 do! Json.write "type" "FeatureCollection"
             }
