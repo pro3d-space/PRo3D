@@ -16,13 +16,19 @@ type HistogramAction =
     | UpdateData of List<float>    
     | SetBinNumber of Numeric.Action
     | SetDomainMin of Numeric.Action
-    | SetDomainMax of Numeric.Action
-    //| AddBin 
+    | SetDomainMax of Numeric.Action    
+
+//TODO
+type RoseDiagramAction =
+    | ComputeRD
     
+type VisualizationAction = 
+    | UpdateHistogram of HistogramAction
+    | UpdateRoseDiagram of RoseDiagramAction
 
 type PropertyAction =    
     | UpdateStats of List<float>
-    | UpdateHistogram of HistogramAction
+    | UpdateVisualization of VisualizationAction
 
 type AnnoStatsAction =
     | SetSelected of Guid * GroupsModel
@@ -40,7 +46,10 @@ module BinOperations =
                       | true -> {m with value = m.value + 1}
                       | false -> m
 
-
+module RoseDiagramOperations = 
+    let update (m:RoseDiagram) (action:RoseDiagramAction) =
+        match action with
+        | ComputeRD -> m
 
 module HistogramOperations =     
 
@@ -48,8 +57,8 @@ module HistogramOperations =
         match action with
 
         | UpdateData d -> let updatedBins = m.bins |> List.map (fun b -> BinOperations.update b (Update d.Head))
-                          let maxValue = AnnotationStatistics.getBinMaxValue updatedBins
-                          {m with data = (m.data @ d); bins = updatedBins; maxBinValue = maxValue}
+                          let maxValue = AnnotationStatistics.getBinMaxValue updatedBins                         
+                          update {m with data = (m.data @ d); bins = updatedBins; maxBinValue = maxValue} Compute 
 
 
         | Compute ->                          
@@ -59,12 +68,7 @@ module HistogramOperations =
                         let width = (theEnd-start) / numBins
                         let bins = AnnotationStatistics.createBins [] (int(numBins)) 0 start width m.data 
                         let maxValue = AnnotationStatistics.getBinMaxValue bins
-                        {m with bins = bins; maxBinValue = maxValue}
-
-
-        //| AddBin -> let emptyBin = (AnnoStats.initBin 0 0.0 0.0)
-        //            let binList = m.bins.Add (Guid.NewGuid(), emptyBin)        
-        //            {m with bins = binList; numOfBins = (m.numOfBins + 1)}     
+                        {m with bins = bins; maxBinValue = maxValue}       
 
       
         
@@ -81,7 +85,13 @@ module HistogramOperations =
                               let ud_hist = {m with domainEnd = ud_max}
                               update ud_hist Compute 
                               
-
+module VisualizationOperations =
+    let update (v:Visualization) (act:VisualizationAction) =
+        match (v,act) with
+        | Histogram h, UpdateHistogram ha -> Visualization.Histogram (HistogramOperations.update h ha)
+        | RoseDiagram r, UpdateRoseDiagram ra -> Visualization.RoseDiagram (RoseDiagramOperations.update r ra)
+        | _ -> failwith "this is not a valid combination of visualization and vis action" //TODO there has to be a better way than this
+        
 
 module PropertyOperations =
 
@@ -100,51 +110,12 @@ module PropertyOperations =
         | UpdateStats d -> let updatedData = m.data @ d
                            let min,max,avg = calcMinMaxAvg updatedData
                            {m with data = updatedData; min = min; max = max; avg = avg}
-
-        | UpdateHistogram histAction -> let updatedHist = HistogramOperations.update m.histogram histAction
-                                        {m with histogram = updatedHist}
+        
+        | UpdateVisualization visAction -> let updatedVis = VisualizationOperations.update m.visualization visAction
+                                           {m with visualization = updatedVis}
     
 
 module AnnotationStatisticsApp =     
-               
-    //recursively builds a list of bins and sorts values into them
-    //li = bin list to build, sort = list of values to sort into bins; k = number of bins, r = rounds, acc = accumulated rangeStart, binW = bin width
-    //let rec binList li (sort:List<float>) k r (acc:int) (binW:int) =
-    //    if (r > k) then (li |> IndexList.ofList)
-    //    else 
-    //        let bin = 
-    //                    let rS = acc
-    //                    let rE = acc + binW
-    //                    let inBin = sort |> List.filter(fun f -> f >= float(rS) && f <= float(rE))                       
-
-    //                    [             
-    //                        {                                
-    //                            value = inBin.Length
-    //                            start = rS
-    //                            theEnd = rE
-    //                            width = binW
-    //                        }
-    //                    ]
-    //        binList (li @ bin) sort k (r+1) (acc+binW) binW
-
-        
-    
-    //let updateHistogram (h:Pro3D.AnnotationStatistics.Histogram) (values:List<float>) (title:string) =
-        
-    //    match (values.IsEmpty) with 
-    //     | true -> h
-    //     | false -> let n = float(values.Length)                     
-    //                let k = int(round(1.0 + 3.322 * (System.Math.Log10 n))) //Sturges' rule, number of bins
-    //                let min = int(floor(values |> List.min))
-    //                let max = int(round(values |> List.max))
-    //                let binWidth = ((max - min)/k) + 1 //+1 to prevent rounding issues
-
-    //                //set up the bins
-    //                let bins = binList List.empty values (int(k)) 1 min binWidth
-                    
-    //                {h with numOfBins = bins.Count; rangeStart = min; rangeEnd = max; bins = bins}                                                
-
-    
 
     let private calcMinMaxAvg (l:List<float>) =
            match (l.IsEmpty) with
@@ -158,8 +129,8 @@ module AnnotationStatisticsApp =
 
     let getPropData (prop:Prop) (selected:List<Annotation>) =
 
-        match prop with
-            | Prop.LENGTH -> selected 
+        match prop.kind with
+            | Kind.LENGTH -> selected 
                                    |> List.map(fun a -> match a.results with
                                                            | Some r -> Some(r.length)
                                                            | None -> None
@@ -167,7 +138,7 @@ module AnnotationStatisticsApp =
                                    |> List.choose(fun o -> o)
                                    
 
-            | Prop.BEARING -> selected 
+            | Kind.BEARING -> selected 
                                     |> List.map(fun a -> match a.results with
                                                             | Some r -> Some(r.bearing)
                                                             | None -> None
@@ -175,7 +146,7 @@ module AnnotationStatisticsApp =
                                     |> List.choose(fun o -> o)
                                     
             
-            | Prop.VERTICALTHICKNESS -> selected 
+            | Kind.VERTICALTHICKNESS -> selected 
                                                 |> List.map(fun a -> match a.results with
                                                                         | Some r -> Some(r.verticalThickness)
                                                                         | None -> None
@@ -185,19 +156,21 @@ module AnnotationStatisticsApp =
             
 
     //when a new annotation is added
-    let updateAllProperties (m:AnnotationStatisticsModel) (addedAnnotation:Annotation)=
-        let props = m.properties
-        match props.IsEmpty with
-        | true -> HashMap.empty
-        | false -> props |> HashMap.map(fun k v ->  let data = getPropData k [addedAnnotation]
-                                                    if (data.IsEmpty) then v 
-                                                    else
-                                                        let p1 = PropertyOperations.update v (UpdateStats data)
-                                                        let p2 =  PropertyOperations.update p1 (UpdateHistogram (UpdateData data)) 
-                                                        PropertyOperations.update p2 (UpdateHistogram Compute)                                                
-                                        )
+    let updateAllProperties (props:HashMap<Prop, Property>) (addedAnnotation:Annotation) =   
+        
+        props |> HashMap.map (fun k v -> 
+                                let data = getPropData k [addedAnnotation]
+                                if (data.IsEmpty) then v 
+                                else
+                                    let p1 = PropertyOperations.update v (UpdateStats data)
+                                    match k.scale with
+                                    | Scale.Metric -> PropertyOperations.update p1 (UpdateVisualization (UpdateHistogram (UpdateData data)))
+                                    | Scale.Angular -> PropertyOperations.update p1 (UpdateVisualization (UpdateRoseDiagram ComputeRD))
+
+        )               
 
 
+   
 
     let update (m:AnnotationStatisticsModel) (a:AnnoStatsAction) =
         match a with
@@ -208,29 +181,32 @@ module AnnotationStatisticsApp =
                         match (m.selectedAnnotations |> HashMap.tryFind id) with
                         | Some _ -> m
                         | None -> let updatedAnnos = m.selectedAnnotations.Add (id,anno)
-                                  let updatedProperties = updateAllProperties m anno
+                                  let updatedProperties = updateAllProperties m.properties anno
                                   {m with selectedAnnotations = updatedAnnos; properties = updatedProperties}
             | None -> m
 
         
-        | SetProperty prop ->                              
-                             let properties = 
+        | SetProperty prop ->    
                                 match (m.properties.ContainsKey prop) with
-                                | true -> m.properties
+                                | true -> m
                                 | false -> let d = getPropData prop (m.selectedAnnotations |> HashMap.toValueList)
-                                           let min, max, avg = calcMinMaxAvg d                                                                                      
+                                           let min, max, avg = calcMinMaxAvg d     
+                                           let initialVis = 
+                                            match prop.scale with
+                                            | Scale.Metric -> Visualization.Histogram (AnnotationStatistics.initHistogram min max d)
+                                            | Scale.Angular -> Visualization.RoseDiagram (AnnotationStatistics.initRoseDiagram d)
                                            let property = {
-                                                 kind = prop
-                                                 data = d 
-                                                 min = min
-                                                 max = max
-                                                 avg = avg
-                                                 histogram = AnnotationStatistics.initHistogram min max d                                                              
-                                               }
-                                           m.properties.Add (prop, property)
-            
-            
-                             {m with properties = properties}
+                                                            prop = prop
+                                                            data = d 
+                                                            min = min
+                                                            max = max
+                                                            avg = avg                                                 
+                                                            visualization = initialVis
+                                                           }
+                                           let properties = m.properties.Add (prop, property)
+                                           {m with properties = properties}
+
+                    
         
         | UpdateProperty (act, prop) -> 
             match act with
@@ -241,17 +217,14 @@ module AnnotationStatisticsApp =
                         
                                 | None -> m 
 
-
-            | UpdateHistogram histAction -> match (m.properties.TryFind prop) with
-                                            | Some p -> let updatedHist = HistogramOperations.update p.histogram histAction
-                                                        let updatedProp = {p with histogram = updatedHist}
-                                                        let updatedPropList = m.properties |> HashMap.alter prop (function None -> None | Some _ -> Some updatedProp)
-                                                        {m with properties = updatedPropList}
-                                                        
-                                            | None -> m
-                           
-    
-       
+            | UpdateVisualization visAction -> match (m.properties.TryFind prop) with
+                                                | Some p -> let updatedVis = VisualizationOperations.update p.visualization visAction
+                                                            let updatedProp = {p with visualization = updatedVis}
+                                                            let updatedPropList = m.properties |> HashMap.alter prop (function None -> None | Some _ -> Some updatedProp)
+                                                            {m with properties = updatedPropList}
+                                                | None -> m
+                
+  
     let drawHistogram (h: AdaptiveHistogram) (width:int) = 
         
         let height = 10
@@ -309,7 +282,6 @@ module AnnotationStatisticsApp =
 
         let attrTickLine (y:int) =
             amap{
-                let! maxBinValue = h.maxBinValue
                 yield style "stroke:green; stroke-opacity:0.3"               
                 yield attribute "x1" "10px"
                 yield attribute "y1" (sprintf "%ipx" y)
@@ -327,7 +299,6 @@ module AnnotationStatisticsApp =
 
        
         let rectangles =             
-
 
             alist{               
 
@@ -351,24 +322,37 @@ module AnnotationStatisticsApp =
                 for j in 0..maxBinValue do                                    
                     yield Incremental.Svg.line (attrTickLine (y1 + (j*gap)))
                     yield Incremental.Svg.text (attrTickLabel (y1 + (j*gap))) (AVal.constant (j.ToString()))
-              
 
-
-                //let! idxL = l.Content         
-                //for i in 0..(idxL.Count-1) do
-                //    let bin = idxL.TryGet i
-                //    match bin with
-                //    | Some b -> yield Incremental.Svg.rect (attrRects b i)
-                //                yield Incremental.Svg.svg (attrText b i) (binTitle i)
-                //    | None -> yield text "here could be a histogram"
-                
           
             }
         
         Incremental.Svg.svg attrSVG rectangles
-        
-        
+    
+    let histogramSettings (hist:AdaptiveHistogram) (p:AdaptiveProperty) =
+           div [style "width:100%; margin: 0 0 5 0"][                
+               text "Histogram Settings"
+               Html.table[
+                   Html.row "domain min" [Numeric.view' [InputBox] hist.domainStart |> UI.map SetDomainMin |> UI.map UpdateHistogram |> UI.map UpdateVisualization|> UI.map (fun a -> UpdateProperty (a, p.prop))]
+                   Html.row "domain max" [Numeric.view' [InputBox] hist.domainEnd |> UI.map SetDomainMax |> UI.map UpdateHistogram |> UI.map UpdateVisualization |> UI.map (fun a -> UpdateProperty (a, p.prop))]
+                   Html.row "number of bins" [Numeric.view' [InputBox] hist.numOfBins |> UI.map SetBinNumber |> UI.map UpdateHistogram |> UI.map UpdateVisualization |> UI.map (fun a -> UpdateProperty (a, p.prop))]
+               ]
+           ]
+      
+    let drawRoseDiagram (r:AdaptiveRoseDiagram) =
+        text "TODO rose diagram"
+    
+    let drawVisualization (p:AdaptiveProperty) =
 
+          let v = 
+              alist{
+                  let! vis = p.visualization
+                  match vis with
+                  | AdaptiveHistogram h -> yield histogramSettings h p
+                                           yield drawHistogram h 200
+                  | AdaptiveRoseDiagram r -> yield drawRoseDiagram r
+              }
+
+          Incremental.div AttributeMap.empty v
                 
 
 
@@ -380,9 +364,9 @@ module AnnotationStatisticsApp =
                     text "Properties"
                     i [clazz "dropdown icon"; style "margin:0px 5px"][] 
                     div [ clazz "ui menu"] [
-                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty Prop.LENGTH)] [text "Length"]
-                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty Prop.BEARING)] [text "Bearing"]
-                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty Prop.VERTICALTHICKNESS)] [text "Vertical Thickness"]     
+                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.LENGTH Scale.Metric))] [text "Length"]
+                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.BEARING Scale.Metric))] [text "Bearing"]
+                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.VERTICALTHICKNESS Scale.Metric))] [text "Vertical Thickness"]     
                     ]
                 ]
             )
@@ -398,100 +382,6 @@ module AnnotationStatisticsApp =
             ]
           )
      
-    
-    //let buttonAdd (prop: AdaptiveProperty) = 
-    //           button [clazz "fluid inverted ui button"; onClick (fun _ -> UpdateProperty (UpdateHistogram AddBin, prop.kind))][                        
-    //               text "Add Bin"
-    //           ]
-
-    let buttonComp (prop: AdaptiveProperty) =        
-        button [clazz "fluid inverted ui button"; onClick (fun _ -> UpdateProperty (UpdateHistogram Compute, prop.kind))][                        
-            text "Compute"
-        ]
-    
-    let histogramSettings (prop:AdaptiveProperty) =
-        div [style "width:100%; margin: 0 0 5 0"][                
-            text "Histogram Settings"
-            Html.table[
-                Html.row "domain min" [Numeric.view' [InputBox] prop.histogram.domainStart |> UI.map SetDomainMin |> UI.map UpdateHistogram |> UI.map (fun a -> UpdateProperty (a, prop.kind))]
-                Html.row "domain max" [Numeric.view' [InputBox] prop.histogram.domainEnd |> UI.map SetDomainMax |> UI.map UpdateHistogram |> UI.map (fun a -> UpdateProperty (a, prop.kind))]
-                Html.row "number of bins" [Numeric.view' [InputBox] prop.histogram.numOfBins |> UI.map SetBinNumber |> UI.map UpdateHistogram |> UI.map (fun a -> UpdateProperty (a, prop.kind))]
-            ]
-        ]
-
-
-    //let binSelectionView (prop: AdaptiveProperty) =      
-               
-
-    //    Incremental.div (AttributeMap.ofList [style "width:100%"]) (
-
-    //        alist{                   
-    //               let rowList = prop.histogram.bins 
-    //                             |> AMap.map (fun k bin -> 
-    //                                            Html.row ("Bin") 
-    //                                                [   
-    //                                                    Html.Layout.boxH [text "start"; Numeric.view' [InputBox] bin.start |> UI.map SetStart |> UI.map (fun a -> UpdateBin (a, k)) |> UI.map UpdateHistogram |> UI.map (fun a -> UpdateProperty (a, prop.kind))]
-    //                                                    Html.Layout.boxH [text "end"; Numeric.view' [InputBox] bin.theEnd |> UI.map SetEnd |> UI.map (fun a -> UpdateBin (a, k)) |> UI.map UpdateHistogram |> UI.map (fun a -> UpdateProperty (a, prop.kind))                                                                     ]
-    //                                                ]                                                       
-    //                                         )
-    //                             |> AMap.toASet 
-    //                             |> ASet.toAList
-    //                             |> AList.map(fun (_,b) -> b) 
-       
-    //               Incremental.table ([clazz "ui celled striped inverted table unstackable"] |> AttributeMap.ofList) rowList
-
-    //        }
-
-    //    )
-        
-
-        
-    //let view (m: AdaptiveAnnoStatsModel) =          
-        
-
-    //    Incremental.div (AttributeMap.ofList [style "width:100%; margin: 10 0 10 10"]) 
-        
-    //        (                                  
-    //           m.properties |> AMap.map(fun p v -> propListing v) |> AMap.toASet |> ASet.toAList |> AList.map(fun (a,b) -> b)                                                                 
-    //        )
-        
-        //let style' = "color: white; font-family:Consolas;"   
-        //let s = m.selectedAnnotations |> AMap.isEmpty        
-
-        //Incremental.div (AttributeMap.ofList [style style']) (
-        
-        //    alist {
-
-        //        let! empty = s
-        //        match empty with
-        //            | true -> div [style "width:100%; margin: 10 0 10 10"][text "Please select some annotations"]
-                                                   
-                          
-        //            | false -> let text1 = m.selectedAnnotations |> AMap.count |> AVal.map (fun n -> sprintf "%s annotation(s) selected" (n.ToString()))
-        //                       Incremental.div (AttributeMap.ofList [style "width:100%; margin: 10 0 10 10"]) (
-        //                            alist{
-        //                                Incremental.text text1
-        //                            }                                    
-        //                          )
-                               
-        //                       div [style "width:100%; margin: 10 5 10 10"][                                
-        //                         text "Please select a property to see statistics" 
-        //                         propDropdown
-        //                       ]
-
-        //                       Incremental.div (AttributeMap.ofList [style "width:100%; margin: 10 0 10 10"]) (                                   
-        //                               m.properties |> AList.map(fun prop -> propListing prop)                                                                       
-        //                         )
-                              
-                                                              
-
-                               
-                            
-                           
-        //    }
-        //)
-
-
 
 
           

@@ -8,10 +8,21 @@ open FSharp.Data.Adaptive
 open PRo3D.Base
 open PRo3D.Base.Annotation
 
-type Prop = 
-    | LENGTH
-    | BEARING
-    | VERTICALTHICKNESS
+type Scale = 
+    | Metric
+    | Angular
+
+type Kind = 
+    | LENGTH 
+    | BEARING 
+    | VERTICALTHICKNESS 
+    | DIP_AZIMUTH 
+    | STRIKE_AZIMUTH
+
+type Prop = {
+    kind : Kind
+    scale : Scale
+}
 
 [<ModelType>]
 type Bin = {    
@@ -30,7 +41,7 @@ type Histogram = {
     numOfBins   : NumericInput
     domainStart : NumericInput
     domainEnd   : NumericInput
-    bins        : List<Bin> //HashMap<Guid, Bin>
+    bins        : List<Bin> 
 }
 
 [<ModelType>]
@@ -41,33 +52,34 @@ type RoseDiagram = {
     bins      : List<Bin>
 }
 
+[<ModelType>]
+type Visualization =
+| Histogram of value: Histogram
+| RoseDiagram of value: RoseDiagram
 
 [<ModelType>]
 type Property = {
     [<NonAdaptive>]
-    kind        : Prop    
-    data        : List<float>
-    min         : float
-    max         : float
-    avg         : float    
-    histogram   : Histogram    
-    //roseDiagram : RoseDiagram
+    prop            : Prop    
+    data            : List<float>
+    min             : float
+    max             : float
+    avg             : float         
+    visualization   : Visualization
 }
-
 
 [<ModelType>]
 type AnnotationStatisticsModel = {
     selectedAnnotations : HashMap<Guid, Annotation>
-    properties          : HashMap<Prop, Property>    
+    properties          : HashMap<Prop, Property> 
 }
 
 module AnnotationStatistics =
     let initial =
         {
             selectedAnnotations = HashMap.empty
-            properties          = HashMap.empty                        
+            properties = HashMap.empty
         }
-
 
     
     let domainNumeric (value:float) = 
@@ -87,13 +99,7 @@ module AnnotationStatistics =
             step = 1.00
             format = "{0:0.00}"
         }
-
-    //let initBin (n:int) (min:float) (max:float) = 
-    //    {            
-    //        value       = n
-    //        start       = initNumeric min
-    //        theEnd      = initNumeric max         
-    //    }
+    
 
     let getBinMaxValue (bins:List<Bin>) =
         bins |> List.map (fun b -> b.value) |> List.max
@@ -123,15 +129,37 @@ module AnnotationStatistics =
         let binWidth = (domainEnd-domainStart) / binNumeric.value
         let bins = createBins [] (int(binNumeric.value)) 0 domainStart binWidth data
 
+        let hist = 
+            {
+                id          = Guid.NewGuid()       
+                numOfBins   = binNumeric 
+                maxBinValue = getBinMaxValue bins
+                domainStart = domainNumeric domainStart
+                domainEnd   = domainNumeric domainEnd
+                data        = data
+                bins        = bins 
+            }
+        hist
+
+    //TODO
+    let initRoseDiagram (data:List<float>) =
+        let roseDiagram = 
+            {
+                id   = Guid.NewGuid() 
+                data = data
+                bins = List.empty
+            }
+
+        roseDiagram
+
+
+    let initProp (kind:Kind) (scale:Scale) = 
         {
-            id          = Guid.NewGuid()       
-            numOfBins   = binNumeric 
-            maxBinValue = getBinMaxValue bins
-            domainStart = domainNumeric domainStart
-            domainEnd   = domainNumeric domainEnd
-            data        = data
-            bins        = bins //[(Guid.NewGuid(), (initBin n min max))] |> HashMap.ofList
+            kind = kind
+            scale = scale
         }
+
+    
 
 
 

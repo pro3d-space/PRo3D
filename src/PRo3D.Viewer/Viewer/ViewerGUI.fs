@@ -772,10 +772,8 @@ module Gui =
         let propSummary (m : AdaptiveModel) =
 
             
-
-            let propListing (p:AdaptiveProperty) =                
-                //TODO histogram
-                //TODO rosediagram
+            let propListing (p:AdaptiveProperty) =               
+                
              let statsTable = 
                 require GuiEx.semui (
                     Html.table [                                    
@@ -785,24 +783,13 @@ module Gui =
                     ]
                 )
 
-             let histVis = AnnotationStatisticsApp.drawHistogram p.histogram 200
+             //visualization
+             let visualization = AnnotationStatisticsApp.drawVisualization p            
              
-             let title = "Property: " + p.kind.ToString()
+             let title = "Property: " + p.prop.kind.ToString()
              GuiEx.accordion title "Settings" true [
                 statsTable                                             
-                AnnotationStatisticsApp.histogramSettings p |> UI.map AnnoStatsMessage
-                //div[style "width:30%; float:left"] [AnnotationStatisticsApp.buttonComp p |> UI.map AnnoStatsMessage]
-
-                //div [style "width:100%; margin: 10 10 5 0"][    
-                //    div[style "width:50%; float:left"] [AnnotationStatisticsApp.buttonAdd p |> UI.map AnnoStatsMessage]
-                //    div[style "margin-left:50%"] [AnnotationStatisticsApp.buttonComp p |> UI.map AnnoStatsMessage]
-                //]                   
-                               
-
-                div [style "width:100%; margin: 0 0 5 0"][
-                    histVis
-                ]                
-                                
+                visualization |> UI.map AnnoStatsMessage                               
              ]
 
             
