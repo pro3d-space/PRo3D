@@ -8,6 +8,7 @@ open FSharp.Data.Adaptive
 open PRo3D.Base
 open PRo3D.Base.Annotation
 
+
 type Scale = 
     | Metric
     | Angular
@@ -47,9 +48,14 @@ type Histogram = {
 [<ModelType>]
 type RoseDiagram = {
     [<NonAdaptive>]
-    id        : Guid
-    data      : List<float>
-    bins      : List<Bin>
+    id          : Guid
+    data        : List<float>
+    maxBinValue : int
+    bins        : List<Bin>
+    center      : V2d
+    innerRad    : float
+    outerRad    : float
+    binAngle    : float //15°
 }
 
 [<ModelType>]
@@ -121,7 +127,7 @@ module AnnotationStatistics =
                       }]
             createBins (outputList @ bin) count (idx+1) next width data 
 
-
+    
 
     let initHistogram (min:float) (max:float) (data:List<float>) = 
         let domainStart = floor(min)
@@ -142,15 +148,63 @@ module AnnotationStatistics =
         hist
 
     //TODO
-    let initRoseDiagram (data:List<float>) =
-        let roseDiagram = 
-            {
-                id   = Guid.NewGuid() 
-                data = data
-                bins = List.empty
-            }
 
-        roseDiagram
+    //initial setting, start and end stay constant
+    let initBins (angle:float) =
+           let binCount = int(360.0 / angle)
+
+           [
+           for i in 1..binCount do
+
+               //from RoseDiagram in Correlation Panels
+               let binAngleHalf = angle / 2.0
+               let centerAngle = (float i * angle) % 360.0
+               let northCenterAngle = centerAngle + 270.0 % 360.0
+               let startDegree = (northCenterAngle - binAngleHalf + 360.0) % 360.0
+               let endDegree = northCenterAngle + binAngleHalf % 360.0
+               //
+
+               {
+                   value = 0
+                   start = startDegree
+                   theEnd = endDegree
+                   width = angle
+               }
+
+           ]
+    
+    //count for rose diagram bins
+    let calculateBinCount (bins:List<Bin>) (data:List<float>) (angle:float) =        
+        let counts = data |> List.groupBy (fun value -> int(value / angle)) 
+                          |> List.map(fun (id, vals) -> id, (vals |> List.length)) 
+                          |> Map.ofList
+
+        bins |> List.mapi (fun i bin -> match (counts.TryFind i) with
+                                          | Some count -> {bin with value = count}
+                                          | None -> bin
+        )
+
+
+
+
+    let initRoseDiagram (data:List<float>) =
+
+        let binAngle = 15.0
+        let bins = calculateBinCount (initBins binAngle) data binAngle
+        let max = getBinMaxValue bins
+                
+        {
+            id   = Guid.NewGuid() 
+            data = data
+            maxBinValue = max
+            bins = bins
+            center = V2d.Zero
+            innerRad = 5.0
+            outerRad = 20.0
+            binAngle = binAngle
+        }
+
+        
 
 
     let initProp (kind:Kind) (scale:Scale) = 

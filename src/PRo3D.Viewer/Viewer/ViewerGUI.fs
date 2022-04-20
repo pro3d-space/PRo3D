@@ -784,7 +784,7 @@ module Gui =
                 )
 
              //visualization
-             let visualization = AnnotationStatisticsApp.drawVisualization p            
+             let visualization = AnnotationStatisticsDrawings.drawVisualization p            
              
              let title = "Property: " + p.prop.kind.ToString()
              GuiEx.accordion title "Settings" true [

@@ -11,8 +11,7 @@ open FSharp.Data.Adaptive
 type BinAction =
     | Update of float 
 
-type HistogramAction =
-    | Compute 
+type HistogramAction =    
     | UpdateData of List<float>    
     | SetBinNumber of Numeric.Action
     | SetDomainMin of Numeric.Action
@@ -20,7 +19,7 @@ type HistogramAction =
 
 //TODO
 type RoseDiagramAction =
-    | ComputeRD
+    | UpdateBinCount
     
 type VisualizationAction = 
     | UpdateHistogram of HistogramAction
@@ -48,42 +47,58 @@ module BinOperations =
 
 module RoseDiagramOperations = 
     let update (m:RoseDiagram) (action:RoseDiagramAction) =
+
         match action with
-        | ComputeRD -> m
+
+        | UpdateBinCount -> let updatedBins = AnnotationStatistics.calculateBinCount m.bins m.data m.binAngle
+                            let max = AnnotationStatistics.getBinMaxValue updatedBins
+                            {m with bins = updatedBins; maxBinValue = max}
+    
+
+    
+    
+   
+
+
+        
+
+
+
+        
+
+
 
 module HistogramOperations =     
 
-    let rec update (m:(Pro3D.AnnotationStatistics.Histogram)) (action:HistogramAction) =
+    let private compute (m:(Pro3D.AnnotationStatistics.Histogram)) =
+        let numBins = m.numOfBins.value
+        let start = m.domainStart.value
+        let theEnd = m.domainEnd.value
+        let width = (theEnd-start) / numBins
+        let bins = AnnotationStatistics.createBins [] (int(numBins)) 0 start width m.data 
+        let maxValue = AnnotationStatistics.getBinMaxValue bins
+        {m with bins = bins; maxBinValue = maxValue}
+
+
+    let update (m:(Pro3D.AnnotationStatistics.Histogram)) (action:HistogramAction) =
         match action with
 
         | UpdateData d -> let updatedBins = m.bins |> List.map (fun b -> BinOperations.update b (Update d.Head))
                           let maxValue = AnnotationStatistics.getBinMaxValue updatedBins                         
-                          update {m with data = (m.data @ d); bins = updatedBins; maxBinValue = maxValue} Compute 
+                          compute {m with data = (m.data @ d); bins = updatedBins; maxBinValue = maxValue}  
 
-
-        | Compute ->                          
-                        let numBins = m.numOfBins.value
-                        let start = m.domainStart.value
-                        let theEnd = m.domainEnd.value
-                        let width = (theEnd-start) / numBins
-                        let bins = AnnotationStatistics.createBins [] (int(numBins)) 0 start width m.data 
-                        let maxValue = AnnotationStatistics.getBinMaxValue bins
-                        {m with bins = bins; maxBinValue = maxValue}       
-
-      
-        
         | SetBinNumber act -> let ud_n = Numeric.update m.numOfBins act
                               let ud_hist = {m with numOfBins = ud_n}
-                              update ud_hist Compute 
+                              compute ud_hist  
                               
 
         | SetDomainMin act -> let ud_min = Numeric.update m.domainStart act
                               let ud_hist = {m with domainStart = ud_min}
-                              update ud_hist Compute 
+                              compute ud_hist  
 
         | SetDomainMax act -> let ud_max = Numeric.update m.domainEnd act
                               let ud_hist = {m with domainEnd = ud_max}
-                              update ud_hist Compute 
+                              compute ud_hist 
                               
 module VisualizationOperations =
     let update (v:Visualization) (act:VisualizationAction) =
@@ -152,7 +167,20 @@ module AnnotationStatisticsApp =
                                                                         | None -> None
                                                             )
                                                 |> List.choose(fun o -> o)
-                                                
+
+            | Kind.DIP_AZIMUTH -> selected 
+                                                |> List.map(fun a -> match a.dnsResults with
+                                                                        | Some r -> Some(r.dipAzimuth)
+                                                                        | None -> None
+                                                            )
+                                                |> List.choose(fun o -> o)
+
+            | Kind.STRIKE_AZIMUTH -> selected 
+                                                |> List.map(fun a -> match a.dnsResults with
+                                                                        | Some r -> Some(r.strikeAzimuth)
+                                                                        | None -> None
+                                                            )
+                                                |> List.choose(fun o -> o)
             
 
     //when a new annotation is added
@@ -165,7 +193,7 @@ module AnnotationStatisticsApp =
                                     let p1 = PropertyOperations.update v (UpdateStats data)
                                     match k.scale with
                                     | Scale.Metric -> PropertyOperations.update p1 (UpdateVisualization (UpdateHistogram (UpdateData data)))
-                                    | Scale.Angular -> PropertyOperations.update p1 (UpdateVisualization (UpdateRoseDiagram ComputeRD))
+                                    | Scale.Angular -> PropertyOperations.update p1 (UpdateVisualization (UpdateRoseDiagram UpdateBinCount))
 
         )               
 
@@ -225,6 +253,125 @@ module AnnotationStatisticsApp =
                                                 | None -> m
                 
   
+    
+      
+   
+                
+
+
+    let propDropdown =         
+
+        div [ clazz "ui menu"; style "width:150px; height:20px;padding:0px; margin:0px"] [
+            onBoot "$('#__ID__').dropdown('on', 'hover');" (
+                div [ clazz "ui dropdown item"; style "width:100%"] [
+                    text "Properties"
+                    i [clazz "dropdown icon"; style "margin:0px 5px"][] 
+                    div [ clazz "ui menu"] [
+                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.LENGTH Scale.Metric))] [text "Length"]
+                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.BEARING Scale.Metric))] [text "Bearing"]
+                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.VERTICALTHICKNESS Scale.Metric))] [text "Vertical Thickness"] 
+                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.DIP_AZIMUTH Scale.Angular))] [text "Dip Azimuth"] 
+                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.STRIKE_AZIMUTH Scale.Angular))] [text "Strike Azimuth"] 
+                    ]
+                ]
+            )
+        ] 
+
+    let propListing (prop:AdaptiveProperty) = 
+
+        require GuiEx.semui (
+            Html.table [                                    
+                Html.row "Minimum" [Incremental.text (prop.min |> AVal.map (fun f -> sprintf "%.2f" f))]
+                Html.row "Maximum" [Incremental.text (prop.max |> AVal.map (fun f -> sprintf "%.2f" f))]
+                Html.row "Average" [Incremental.text (prop.avg |> AVal.map (fun f -> sprintf "%.2f" f))]
+            ]
+          )
+     
+
+module AnnotationStatisticsDrawings =
+
+    //for rose diagram
+    let drawCircle (center:V2d) (radius:float) =
+        Svg.circle(
+            [
+                style "stroke:white;stroke-width:2"
+                attribute "cx" (sprintf "%f" center.X)      
+                attribute "cy" (sprintf "%f" center.Y) 
+                attribute "r" (sprintf "%f" radius)                 
+
+            ]
+        )
+
+    let pointFromAngle (start : V2d) (angle : float) (length : float) =
+           let endX = start.X + Math.Cos(angle) * length
+           let endY = start.Y + Math.Sin(angle) * length
+           new V2d (endX, endY)
+
+    let drawRoseDiagramSection (startAngle:float) (endAngle:float) (center:V2d) (innerRad:float) (outerRad:float) =
+        //polygon points
+        let innerStart = pointFromAngle center startAngle innerRad
+        let innerEnd = pointFromAngle center endAngle innerRad
+        let outerStart = pointFromAngle center startAngle outerRad
+        let outerEnd = pointFromAngle center endAngle outerRad
+
+        //polygon path
+        //two lines and two circle segments
+        let p1 = new V2i(int(innerStart.X), int(innerStart.Y))
+        let p2 = new V2i(int(outerStart.X), int(outerStart.Y))
+        let p3 = new V2i(int(outerEnd.X), int(outerEnd.Y))
+        let p4 = new V2i(int(innerEnd.X), int(innerEnd.Y))
+        let c1 = int(outerRad)
+        let c2 = int(innerRad)
+
+        Svg.path [
+            attribute "d" (sprintf "M %d %d L %d %d A %d %d 0 0 1 %d %d L %d %d A %d %d 0 0 0 %d %d"
+                 p1.X p1.Y p2.X p2.Y c1 c1 p3.X p3.Y p4.X p4.Y c2 c2 p1.X p1.Y 
+            )
+            attribute "fill" "green"
+        ]
+
+
+    let drawRoseDiagram (r:AdaptiveRoseDiagram) =
+           //two circles as outline
+           //individual bin sections
+
+           let attrSVG =
+                         [   
+                             style "position:relative"                     
+                             attribute "width" "100%" 
+                             attribute "height" "200px"               
+                             
+                         ]|> AttributeMap.ofList
+
+
+           let sect = alist{
+                            let! center = r.center
+                            let! innerRad = r.innerRad
+                            let! outerRad = r.outerRad
+                            yield drawCircle center innerRad
+                            yield drawCircle center outerRad
+
+                            let! bins = r.bins
+                            let areaInner = Constant.Pi * Fun.PowerOfTwo(innerRad)
+                            let areaOuter = Constant.Pi * Fun.PowerOfTwo(outerRad)
+                            let areaTotal = areaOuter - areaInner
+                            let! maxBinValue = r.maxBinValue
+
+                            let sections = bins |> List.map(fun b -> 
+                                    let subArea = (areaTotal / ((float(maxBinValue))/(float(b.value)))) + areaInner
+                                    let subOuterRadius = Fun.Sqrt(subArea / Constant.Pi)
+                                    drawRoseDiagramSection b.start b.theEnd center innerRad subOuterRadius
+                            )
+                            yield! sections
+
+
+                        }
+
+           Incremental.Svg.svg attrSVG sect
+          
+
+
+
     let drawHistogram (h: AdaptiveHistogram) (width:int) = 
         
         let height = 10
@@ -337,52 +484,20 @@ module AnnotationStatisticsApp =
                    Html.row "number of bins" [Numeric.view' [InputBox] hist.numOfBins |> UI.map SetBinNumber |> UI.map UpdateHistogram |> UI.map UpdateVisualization |> UI.map (fun a -> UpdateProperty (a, p.prop))]
                ]
            ]
-      
-    let drawRoseDiagram (r:AdaptiveRoseDiagram) =
-        text "TODO rose diagram"
-    
+       
     let drawVisualization (p:AdaptiveProperty) =
 
-          let v = 
-              alist{
-                  let! vis = p.visualization
-                  match vis with
-                  | AdaptiveHistogram h -> yield histogramSettings h p
-                                           yield drawHistogram h 200
-                  | AdaptiveRoseDiagram r -> yield drawRoseDiagram r
-              }
+             let v = 
+                 alist{
+                     let! vis = p.visualization
+                     match vis with
+                     | AdaptiveHistogram h -> yield histogramSettings h p
+                                              yield drawHistogram h 200
+                     | AdaptiveRoseDiagram r -> yield drawRoseDiagram r
+                 }
 
-          Incremental.div AttributeMap.empty v
-                
-
-
-    let propDropdown =         
-
-        div [ clazz "ui menu"; style "width:150px; height:20px;padding:0px; margin:0px"] [
-            onBoot "$('#__ID__').dropdown('on', 'hover');" (
-                div [ clazz "ui dropdown item"; style "width:100%"] [
-                    text "Properties"
-                    i [clazz "dropdown icon"; style "margin:0px 5px"][] 
-                    div [ clazz "ui menu"] [
-                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.LENGTH Scale.Metric))] [text "Length"]
-                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.BEARING Scale.Metric))] [text "Bearing"]
-                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.VERTICALTHICKNESS Scale.Metric))] [text "Vertical Thickness"]     
-                    ]
-                ]
-            )
-        ] 
-
-    let propListing (prop:AdaptiveProperty) = 
-
-        require GuiEx.semui (
-            Html.table [                                    
-                Html.row "Minimum" [Incremental.text (prop.min |> AVal.map (fun f -> sprintf "%.2f" f))]
-                Html.row "Maximum" [Incremental.text (prop.max |> AVal.map (fun f -> sprintf "%.2f" f))]
-                Html.row "Average" [Incremental.text (prop.avg |> AVal.map (fun f -> sprintf "%.2f" f))]
-            ]
-          )
-     
-
+             Incremental.div AttributeMap.empty v
+           
 
           
         
