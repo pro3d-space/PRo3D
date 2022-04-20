@@ -14,6 +14,7 @@ open PRo3D.Core
 module ConfigProperties =
 
     type Action =
+        | Nop
         | SetNearPlane              of Numeric.Action
         | SetFarPlane               of Numeric.Action
         | SetNavigationSensitivity  of Numeric.Action
@@ -56,6 +57,7 @@ module ConfigProperties =
             model // {model with useSurfaceHighlighting = not model.useSurfaceHighlighting}
         | SetPickingTolerance tolerance ->
             { model with pickingTolerance = Numeric.update model.pickingTolerance tolerance }
+        | Nop -> model
         | _ -> 
             Log.warn "[ConfigProperties] Unknown action %A" act
             model
@@ -88,14 +90,14 @@ module CameraProperties =
                 let! up = refSystem.up.value
                 let! north = refSystem.northO //model.north.value 
                 let! view = camera.view
-                return DipAndStrike.bearing up north view.Forward
+                return Calculations.bearing up north view.Forward
             }
 
         let pitch = 
             adaptive {
                 let! up = refSystem.up.value
                 let! view = camera.view
-                return DipAndStrike.pitch up view.Forward
+                return Calculations.pitch up view.Forward
             }
 
         require GuiEx.semui (

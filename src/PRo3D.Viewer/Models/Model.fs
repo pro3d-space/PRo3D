@@ -52,13 +52,6 @@ type ViewerMode =
     | Standard
     | Instrument
 
-
-    
-type SnapshotType = 
-    | Camera
-    | CameraAndSurface
-    | CameraSurfaceMask
-
 type GuiMode =
     | NoGui
     | RenderViewOnly
@@ -67,53 +60,32 @@ type GuiMode =
 
 
 type StartupArgs = {
-    opcPaths              : option<list<string>>
-    objPaths              : option<list<string>>
-    snapshotPath          : option<string>
-    outFolder             : string
-    snapshotType          : option<SnapshotType>
-    guiMode               : GuiMode
     showExplorationPoint  : bool
-    showReferenceSystem   : bool
-    renderDepth           : bool
-    exitOnFinish          : bool
-    areValid              : bool
-    verbose               : bool
     startEmpty            : bool
     useAsyncLoading       : bool
     serverMode            : bool
     magnificationFilter   : bool
     remoteApp             : bool
+
     useMapping            : string
     data_samples          : Option<string>
     backgroundColor       : string
+
+    verbose               : bool    
+
 } with 
-    member args.hasValidAnimationArgs =
-        (args.opcPaths.IsSome || args.objPaths.IsSome)
-            && args.snapshotType.IsSome && args.areValid
     static member initArgs =
       {
-          opcPaths              = None
-          objPaths              = None
-          snapshotPath          = None
-          snapshotType          = None
-          guiMode               = GuiMode.CompleteGui
           showExplorationPoint  = true
-          showReferenceSystem   = true
-          renderDepth           = false
-          exitOnFinish          = false
-          areValid              = true
-          verbose               = false
           startEmpty            = false
           useAsyncLoading       = false
           magnificationFilter   = false
-          outFolder             = ""
           remoteApp             = false
           serverMode            = false
           data_samples          = None
           backgroundColor       = "#222222"
           useMapping            = "true"
-      }
+          verbose               = false      }
 
 
 [<ModelType>]
@@ -215,7 +187,6 @@ type SurfaceShift = {
     id : string
     shift: float
 }
-
 
 
 [<ModelType>]
@@ -324,6 +295,8 @@ module ViewConfigModel =
         //useSurfaceHighlighting = true
         //showExplorationPoint = true
     }
+       
+    
        
     module V0 =
         let read = 

@@ -280,6 +280,11 @@ module Leaf =
         | Leaf.Surfaces s -> s
         | _ -> leaf |> sprintf "wrong type %A" |> failwith
 
+    let toBookmark leaf =
+        match leaf with 
+        | Leaf.Bookmarks s -> s
+        | _ -> leaf |> sprintf "wrong type %A" |> failwith
+
     let toSurfaces' surfaces =
         surfaces |> IndexList.choose(fun x -> match x with | Leaf.Surfaces s -> Some s| _-> None)
 
@@ -305,6 +310,13 @@ module Leaf =
     let childrenToBookmarks bms =
         bms
         |> HashSet.choose(fun x -> 
+            match x with
+            | Leaf.Bookmarks b -> Some b
+            | _ -> None)
+
+    let mapToBookmarks bms =
+        bms
+        |> HashMap.choose(fun g x -> 
             match x with
             | Leaf.Bookmarks b -> Some b
             | _ -> None)
@@ -375,6 +387,7 @@ type SurfaceModel = {
     sgSurfaces      : HashMap<Guid,SgSurface>
     sgGrouped       : IndexList<HashMap<Guid,SgSurface>>
     kdTreeCache     : HashMap<string, ConcreteKdIntersectionTree>
+    debugPreTrafo   : string
 }
 
 module SurfaceModel =
@@ -390,6 +403,7 @@ module SurfaceModel =
                     sgSurfaces  = HashMap.empty
                     sgGrouped   = IndexList.empty
                     kdTreeCache = HashMap.empty
+                    debugPreTrafo = ""
                 }
         }    
  
@@ -409,6 +423,7 @@ module SurfaceModel =
             //sgSurfaceObjs = hmap.Empty
             sgGrouped   = IndexList.Empty
             kdTreeCache = HashMap.Empty
+            debugPreTrafo = ""
         }
    
     //let surfaceModelPickler : Pickler<SurfaceModel> =
@@ -423,15 +438,17 @@ module SurfaceModel =
         model.surfaces.flat |> HashMap.tryFind guid
 
     let groupSurfaces (sgSurfaces : HashMap<Guid, SgSurface>) (surfaces : HashMap<Guid, Surface>) =
-        sgSurfaces
-        |> HashMap.toList
-        |> List.groupBy(fun (_,x) -> 
-            let surf = HashMap.find x.surface surfaces 
-            surf.priority.value)
-        |> List.map(fun (p,k) -> (p, k |> HashMap.ofList))
-        |> List.sortBy fst
-        |> List.map snd
-        |> IndexList.ofList
+        let debug = 
+            sgSurfaces
+            |> HashMap.toList
+            |> List.groupBy(fun (_,x) -> 
+                let surf = HashMap.find x.surface surfaces 
+                surf.priority.value)
+            |> List.map(fun (p,k) -> (p, k |> HashMap.ofList))
+            |> List.sortBy fst
+            |> List.map snd
+            |> IndexList.ofList
+        debug
 
     let triggerSgGrouping (model:SurfaceModel) =
         { model with sgGrouped = (groupSurfaces model.sgSurfaces (model.surfaces.flat |> Leaf.toSurfaces))}

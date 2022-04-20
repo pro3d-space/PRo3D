@@ -30,6 +30,7 @@ open System.IO
 open PRo3D
 open PRo3D.Base
 open PRo3D.Base.Annotation
+
 open PRo3D.Core
 open PRo3D.Core.Drawing
 open PRo3D.Core.Surface
@@ -48,7 +49,7 @@ module Gui =
           let! north = r.northO//r.north.value   
           let! v     = view
         
-          return (DipAndStrike.pitch up v.Forward, DipAndStrike.bearing up north v.Forward)
+          return (Calculations.pitch up v.Forward, Calculations.bearing up north v.Forward)
         }
     
     let dnsColorLegend (m : AdaptiveModel) =
@@ -117,7 +118,17 @@ module Gui =
 
     let textOverlays (m : AdaptiveReferenceSystem) (cv : aval<CameraView>) = 
         div [js "oncontextmenu" "event.preventDefault();"] [ 
-            let planet = m.planet |> AVal.map(fun x -> sprintf "%s" (x.ToString()))  
+            let planet = 
+                m.planet 
+                |> AVal.map(fun x -> 
+                    match x with
+                    | Planet.Mars  -> "Mars (IAU ellipsoid)"
+                    | Planet.Earth -> "Earth (ellipsoid)"
+                    | Planet.JPL   -> "JPL Rover Frame"
+                    | Planet.None  -> "None xyz"          
+                    | Planet.ENU   -> "ENU"
+                    | _ -> "[TextOverlays] missing enum"
+                )  
             
             let pnb = pitchAndBearing m cv
             
@@ -131,13 +142,28 @@ module Gui =
                     CooTransformation.getLatLonAlt b a.Location
                 ) cv m.planet
             
-            let alt2 = 
+            let altitude = 
                 AVal.map2 (fun (a : CameraView) b -> 
                     CooTransformation.getAltitude a.Location a.Up b ) cv m.planet
             
-            let lon = spericalc |> AVal.map(fun x -> sprintf "%s deg" ((x.longitude).ToString()))
-            let lat = spericalc |> AVal.map(fun x -> sprintf "%s deg" ((x.latitude).ToString()))            
-            let alt2 = alt2 |> AVal.map(fun x -> sprintf "%s m" ((x).ToString("0.00")))            
+            let lon = 
+                spericalc 
+                |> AVal.map(fun x -> 
+                    if x.longitude.IsNaN() then
+                        sprintf "not available"
+                    else
+                        sprintf "%s deg" ((360.0 - x.longitude).ToString())
+                )
+            let lat = 
+                spericalc 
+                |> AVal.map(fun x -> 
+                    if x.latitude.IsNaN() then
+                        sprintf "not available"
+                    else
+                        sprintf "%s deg" ((x.latitude).ToString())
+                ) 
+                
+            let alt2 = altitude |> AVal.map(fun x -> sprintf "%s m" ((x).ToString("0.00")))            
                                                    
             let style' = "color: white; font-family:Consolas;"
             
@@ -247,6 +273,9 @@ module Gui =
         let jsImportSceneObjectDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select *.obj or *.dae files to import', filters: [{ name: 'OBJ (*.obj)', extensions: ['obj']}, { name: 'DAE (*.dae)', extensions: ['dae']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
+        let jsImportPLYDialog =
+            "top.aardvark.dialog.showOpenDialog({tile: 'Select *.ply files to import', filters: [{ name: 'PLY (*.ply)', extensions: ['ply']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"            
+
         let private importSurface =
             [
                 text "Surfaces"
@@ -264,6 +293,12 @@ module Gui =
                     ][
                         text "Import (*.obj)"
                     ]
+                    div [ clazz "ui inverted item"; 
+                        Dialogs.onChooseFiles ImportObject;
+                        clientEvent "onclick" (jsImportPLYDialog)
+                    ][
+                        text "Import (*.ply)"
+                    ]                    
                 ]
             ]
 
@@ -402,52 +437,59 @@ module Gui =
                         clazz "ui inverted item"
                         Dialogs.onChooseFiles AddAnnotations
                         clientEvent "onclick" jsOpenAnnotationFileDialog
-                    ][
+                    ] [
                         text "Import"
                     ]
                     div [
                         clazz "ui inverted item"; onMouseClick (fun _ -> Clear)
-                    ][
+                    ] [
                         text "Clear"
                     ]      
                     div [ clazz "ui dropdown item"] [
                         text "Export"
-                        i [clazz "dropdown icon"][] 
+                        i [clazz "dropdown icon"] [] 
                         div [ clazz "menu"] [
                     
                             div [ 
                                 clazz "ui inverted item"
                                 Dialogs.onSaveFile ExportAsAnnotations
                                 clientEvent "onclick" jsExportAnnotationsFileDialog
-                            ][
+                            ] [
                                 text "all as 'PRo3D' annotations (*.pro3d.ann)"
                             ]
                             div [ 
                                 clazz "ui inverted item"
                                 Dialogs.onSaveFile ExportAsCsv
                                 clientEvent "onclick" jsExportAnnotationsAsCSVDialog
-                            ][
+                            ] [
                                 text "visible as table (*.csv)"
                             ]     
                             div [ 
                                 clazz "ui inverted item"
                                 Dialogs.onSaveFile ExportAsGeoJSON
                                 clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                            ][
+                            ]  [
                                 text "visible as GeoJSON (*.json)"
                             ]     
                             div [ 
                                 clazz "ui inverted item"
                                 Dialogs.onSaveFile ExportAsGeoJSON_xyz
                                 clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                            ][
+                            ] [
                                 text "visible as GeoJSON xyz (*.json)"
+                            ]
+                            div [ 
+                                clazz "ui inverted item"
+                                Dialogs.onSaveFile ContinuouslyGeoJson
+                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
+                            ] [
+                                text "continuously export as GeoJSON xyz (*.json)"
                             ]
                             div [ 
                                 clazz "ui inverted item"
                                 Dialogs.onSaveFile ExportAsAttitude
                                 clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                            ][
+                            ] [
                                 text "dns as 'Attitude' planes (*.json)"
                             ]
                         ]
@@ -455,7 +497,21 @@ module Gui =
                 ]
             ]       
         
-        let menu (m : AdaptiveModel) =             
+        let menu (m : AdaptiveModel) =          
+            let subMenu name menuItems = 
+                div [ clazz "ui dropdown item"] [
+                  text name
+                  i [clazz "dropdown icon"] [] 
+                  div [ clazz "menu"] menuItems
+                ]           
+            let menuItem name action =
+                div [ 
+                    clazz "ui inverted item"
+                    onClick (fun _ -> action)
+                ] [
+                    text name
+                ]
+                    
 
             div [clazz "menu-bar"] [
                 // menu
@@ -472,7 +528,13 @@ module Gui =
                                 div [ clazz "ui dropdown item"] (scene m)
                             
                                 //annotations menu
-                                annotationMenu |> UI.map DrawingMessage;          
+                                annotationMenu |> UI.map DrawingMessage;   
+                                subMenu "Change Mode"
+                                        [
+                                          menuItem "PRo3D Core" (ChangeDashboardMode DashboardModes.core)
+                                          menuItem "Surface Comparison" (ChangeDashboardMode DashboardModes.comparison)
+                                          menuItem "Render Only" (ChangeDashboardMode DashboardModes.renderOnly)
+                                        ]   
                                 
                                 //scene objects
                                 div [ clazz "ui dropdown item"; style "width: 150px"] importSCeneObject
@@ -491,6 +553,14 @@ module Gui =
                                             Dialogs.onChooseFiles ImportPRo3Dv1Annotations;
                                             clientEvent "onclick" jsOpenOldAnnotationsFileDialogue ][
                                             text "Import v1 Annotations (*.xml)"
+                                        ]
+
+                                        let openM20waypointsFileDialogue = "top.aardvark.dialog.showOpenDialog({title:'Import M20_waypoints file' , filters: [{ name: 'Traverses (*.json)', extensions: ['json']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+                                        div [ clazz "ui item";
+                                        Dialogs.onChooseFiles ImportTraverse;
+                                        clientEvent "onclick" openM20waypointsFileDialogue ][
+                                        text "Import Traverse (*.json)"
                                         ]
                                         //div [ clazz "ui item";
                                         //    Dialogs.onChooseFiles ImportSurfaceTrafo;
@@ -595,7 +665,8 @@ module Gui =
             | _ -> ""
         
         let topMenuItems (m:AdaptiveModel) = [ 
-            
+            div [style "font-weight: bold;margin-left: 1px; margin-right:1px"] 
+                [Incremental.text (m.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]
             Navigation.UI.viewNavigationModes m.navigation  |> UI.map NavigationMessage 
               
             Html.Layout.horizontal [
@@ -699,173 +770,239 @@ module Gui =
                    // DrawingApp.UI.viewAnnotationToolsHorizontal m.drawing |> UI.map DrawingMessage // CHECK-merge viewAnnotationGroups
                 ]
                 GuiEx.accordion "Dip&Strike ColorLegend" "paint brush" false [
-                    Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDnSColorLegendUI m))] 
-
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDnSColorLegendUI m))
+                ] 
                 GuiEx.accordion "Actions" "Asterisk" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
-                  ]  
-                ]    
+                ]
+            ]    
 
     module Config =
         let config (model : AdaptiveModel) = 
             ConfigProperties.view model.scene.config 
-              |> UI.map ConfigPropertiesMessage 
-              |> AVal.constant
+            |> UI.map ConfigPropertiesMessage
+            |> AVal.constant
               
         let configUI (m : AdaptiveModel) =
-          div[][
-              GuiEx.accordion "ViewerConfig" "Settings" true [
-                      Incremental.div AttributeMap.empty (AList.ofAValSingle (config m))
-              ]
-              GuiEx.accordion "Coordinate System" "Map Signs" false [
-                  ReferenceSystemApp.UI.view m.scene.referenceSystem |> UI.map ReferenceSystemMessage
-              ]
-              GuiEx.accordion "Camera" "Camera Retro" false [
-                  CameraProperties.view m.scene.referenceSystem m.navigation.camera
-              ]
-              GuiEx.accordion "Frustum" "Settings" false [
-                  FrustumProperties.view m.frustumModel |> UI.map FrustumMessage
-              ]
-              GuiEx.accordion "Screenshots" "Settings" false [
-                  ScreenshotApp.view m.screenshotApp |> UI.map ScreenshotAppMessage
-              ]
-          ] 
+            div[][
+                GuiEx.accordion "ViewerConfig" "Settings" true [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle (config m))
+                ]
+                GuiEx.accordion "Coordinate System" "Map Signs" false [
+                    ReferenceSystemApp.UI.view m.scene.referenceSystem |> UI.map ReferenceSystemMessage
+                ]
+                GuiEx.accordion "Camera" "Camera Retro" false [
+                    CameraProperties.view m.scene.referenceSystem m.navigation.camera
+                ]
+                GuiEx.accordion "Frustum" "Settings" false [
+                    FrustumProperties.view m.frustumModel |> UI.map FrustumMessage
+                ]
+                GuiEx.accordion "Screenshots" "Settings" false [
+                    ScreenshotApp.view m.scene.screenshotModel |> UI.map ScreenshotMessage
+                ]
+                GuiEx.accordion "Data Management" "Settings" false [
+                    Html.table [  
+                        Html.row "Automatically GeoJson export: "  [
+                            let attributes = 
+                                amap {
+                                    yield onClick (fun _ -> StopGeoJsonAutoExport) 
+                                    let! enabled = m.drawing.automaticGeoJsonExport.enabled
+                                    if enabled then 
+                                        yield clazz "ui small inverted button"; 
+                                    else 
+                                        yield clazz "ui small disabled inverted button"; 
+                                } |> AttributeMap.ofAMap
+                            Generic.button attributes [text "Stop AutoExport"]
+                        ]
+                        Html.row "Automatically GeoJson export path: "  [
+                            Incremental.text (m.drawing.automaticGeoJsonExport.lastGeoJsonPathXyz  |> AVal.map (function None -> "not set" | Some path -> path))
+                        ]
+                    ]
+                ]
+            ] 
           
-    module ViewPlanner = 
+    module ViewPlanner =
         let viewPlanProperties (model : AdaptiveModel) =
               //model.scene.viewPlans |> ViewPlan.UI.viewRoverProperties ViewPlanMessage 
               model.scene.viewPlans |> ViewPlanApp.UI.viewRoverProperties ViewPlanMessage model.footPrint.isVisible
         
         let viewPlannerUI (m : AdaptiveModel) =             
-          div [][
-              GuiEx.accordion "ViewPlans" "Write" true [
-                  ViewPlanApp.UI.viewViewPlans m.scene.viewPlans |> UI.map ViewPlanMessage
-              ]
-              GuiEx.accordion "Properties" "Content" true [
-                  Incremental.div AttributeMap.empty (viewPlanProperties m |> AList.ofAValSingle)
-              ]
-          ]   
+            div [] [
+                GuiEx.accordion "ViewPlans" "Write" true [
+                    ViewPlanApp.UI.viewViewPlans m.scene.viewPlans |> UI.map ViewPlanMessage
+                ]
+                GuiEx.accordion "Properties" "Content" true [
+                    Incremental.div AttributeMap.empty (viewPlanProperties m |> AList.ofAValSingle)
+                ]
+            ]
 
     module SceneObjects =
         let sceneObjectsUI (m : AdaptiveModel) =             
-          div [][
-              yield GuiEx.accordion "SceneObjects" "Write" true [
-                      SceneObjectsApp.UI.viewSceneObjects m.scene.sceneObjectsModel 
-                  ]
-              yield GuiEx.accordion "Transformation" "expand arrows alternate " false [
-                      Incremental.div AttributeMap.empty (AList.ofAValSingle(SceneObjectsApp.UI.viewTranslationTools m.scene.sceneObjectsModel))
-                  ]  
-             
-          ] |> UI.map SceneObjectsMessage      
+            div [] [
+                GuiEx.accordion "SceneObjects" "Write" true [
+                    SceneObjectsApp.UI.viewSceneObjects m.scene.sceneObjectsModel 
+                ]
+                GuiEx.accordion "Transformation" "expand arrows alternate " false [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(SceneObjectsApp.UI.viewTranslationTools m.scene.sceneObjectsModel))
+                ]
+               
+            ] 
+            |> UI.map SceneObjectsMessage      
           
+    module Traverse =
+        let traverseUI (m : AdaptiveModel) =
+            div [][
+                yield GuiEx.accordion "Traverses" "Write" true [
+                    TraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
+                ]
+                yield GuiEx.accordion "Sols" "road" true [
+                    //TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverse
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverses))
+                ]
+                yield GuiEx.accordion "Properties" "Content" true [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewProperties m.scene.traverses))
+                ]
+            ] 
+            |> UI.map TraverseMessage
+
     module ScaleBars = 
         
-         let scaleBarsUI (m : AdaptiveModel) =             
-           div [][
-               yield GuiEx.accordion "ScaleBars" "Write" true [
-                   ScaleBarsApp.UI.viewScaleBars m.scene.scaleBars
-               ]
-               // Todo: properties
-               yield GuiEx.accordion "Properties" "Content" true [
-                   Incremental.div AttributeMap.empty (AList.ofAValSingle(ScaleBarsApp.UI.viewProperties m.scene.scaleBars)) 
-               ]
-           ]  |> UI.map ScaleBarsMessage    
+        let scaleBarsUI (m : AdaptiveModel) =             
+            div [] [
+                GuiEx.accordion "ScaleBars" "Write" true [
+                    ScaleBarsApp.UI.viewScaleBars m.scene.scaleBars
+                ]
+                // Todo: properties
+                GuiEx.accordion "Properties" "Content" true [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(ScaleBarsApp.UI.viewProperties m.scene.scaleBars))
+                ]
+            ] 
+            |> UI.map ScaleBarsMessage
 
     module GeologicSurfaces = 
         
-         let geologicSurfacesUI (m : AdaptiveModel) =           
-           let annos = m.drawing.annotations
+        let geologicSurfacesUI (m : AdaptiveModel) =           
+            let annos = m.drawing.annotations
 
-           div [][
-               yield br []
-               yield GeologicSurfacesApp.UI.addMesh
+            div [] [
+                br []
+                GeologicSurfacesApp.UI.addMesh
 
-               yield GuiEx.accordion "GeologicSurfaces" "Write" true [
-                   GeologicSurfacesApp.UI.viewGeologicSurfaces m.scene.geologicSurfacesModel
-               ]
-               yield GuiEx.accordion "Properties" "Content" true [
-                   Incremental.div AttributeMap.empty (AList.ofAValSingle(GeologicSurfacesApp.UI.viewProperties m.scene.geologicSurfacesModel)) 
-               ]
-           ]  |> UI.map GeologicSurfacesMessage    
+                GuiEx.accordion "GeologicSurfaces" "Write" true [
+                    GeologicSurfacesApp.UI.viewGeologicSurfaces m.scene.geologicSurfacesModel
+                ]
+                GuiEx.accordion "Properties" "Content" true [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(GeologicSurfacesApp.UI.viewProperties m.scene.geologicSurfacesModel)) 
+                ]
+            ] 
+            |> UI.map GeologicSurfacesMessage
 
     module Bookmarks =
         let bookmarkGroupProperties (model : AdaptiveModel) =                                       
             GroupsApp.viewUI model.scene.bookmarks 
-              |> UI.map BookmarkUIMessage 
-              |> AVal.constant
+            |> UI.map BookmarkUIMessage 
+            |> AVal.constant
                 
         let viewBookmarkProperties (model : AdaptiveModel) = 
-          let view = (fun leaf ->
-              match leaf with
+            let view = (fun leaf ->
+                match leaf with
                 | AdaptiveBookmarks bm -> Bookmarks.UI.view bm
-                | _ -> div[style "font-style:italic"][ text "no bookmark selected" ])
+                | _ -> div[style "font-style:italic"] [ text "no bookmark selected" ]
+            )
     
-          model.scene.bookmarks |> GroupsApp.viewSelected view BookmarkUIMessage
+            model.scene.bookmarks |> GroupsApp.viewSelected view BookmarkUIMessage
         
         let bookmarksLeafButtonns (model : AdaptiveModel) = 
-          let ts = model.scene.bookmarks.activeChild
-          let sel = model.scene.bookmarks.singleSelectLeaf
-          adaptive {  
-              let! ts = ts
-              let! sel = sel
-              match sel with
-                  | Some _ -> return (GroupsApp.viewLeafButtons ts |> UI.map BookmarkUIMessage)
-                  | None -> return div[style "font-style:italic"][ text "no bookmark selected" ]            
-          } 
+            let ts = model.scene.bookmarks.activeChild
+            let sel = model.scene.bookmarks.singleSelectLeaf
+            adaptive {  
+                let! ts = ts
+                let! sel = sel
+                match sel with
+                | Some _ -> return (GroupsApp.viewLeafButtons ts |> UI.map BookmarkUIMessage)
+                | None -> return div [style "font-style:italic"] [text "no bookmark selected"]
+            } 
         
         let bookmarksGroupButtons (model : AdaptiveModel) = 
-          let ts = model.scene.bookmarks.activeGroup
-          adaptive {  
-              let! ts = ts
-              return (GroupsApp.viewGroupButtons ts |> UI.map BookmarkUIMessage)
-          } 
+            let ts = model.scene.bookmarks.activeGroup
+            adaptive {  
+                let! ts = ts
+                return (GroupsApp.viewGroupButtons ts |> UI.map BookmarkUIMessage)
+            } 
         
         let bookmarkUI (m : AdaptiveModel) = 
-          let item2 = 
-              m.scene.bookmarks.lastSelectedItem 
-                  |> AVal.bind (fun x -> 
-                      match x with 
-                        | SelectedItem.Group -> bookmarkGroupProperties m
-                        | _ -> viewBookmarkProperties m 
-                  )
-          let buttons =
-              m.scene.bookmarks.lastSelectedItem 
-                  |> AVal.bind (fun x -> 
-                      match x with 
-                        | SelectedItem.Group -> bookmarksGroupButtons m
-                        | _ -> bookmarksLeafButtonns m 
-                  )
-          div [][
-              br []
-              Bookmarks.UI.viewGUI |> UI.map BookmarkMessage
+            let item2 = 
+                m.scene.bookmarks.lastSelectedItem 
+                |> AVal.bind (fun x -> 
+                    match x with 
+                    | SelectedItem.Group -> bookmarkGroupProperties m
+                    | _ -> viewBookmarkProperties m 
+                )
+            let buttons =
+                m.scene.bookmarks.lastSelectedItem 
+                |> AVal.bind (fun x -> 
+                    match x with 
+                    | SelectedItem.Group -> bookmarksGroupButtons m
+                    | _ -> bookmarksLeafButtonns m 
+                )
+            div [][
+                br []
+                Bookmarks.UI.viewGUI |> UI.map BookmarkMessage
       
-              GuiEx.accordion "Bookmarks" "Write" true [
-                  //Groups.viewSelectionButtons |> UI.map BookmarkUIMessage
-                  Bookmarks.viewBookmarksGroups m.scene.bookmarks |> UI.map BookmarkMessage
-              ]                
-              GuiEx.accordion "Properties" "Content" true [
-                  Incremental.div AttributeMap.empty ( item2 |> AList.ofAValSingle)
-              ] 
-              GuiEx.accordion "Actions" "Asterisk" true [
-                  Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
-              ]
-          ]
-    
+                GuiEx.accordion "Bookmarks" "Write" true [
+                    //Groups.viewSelectionButtons |> UI.map BookmarkUIMessage
+                    Bookmarks.viewBookmarksGroups m.scene.bookmarks |> UI.map BookmarkMessage
+                ]                
+                GuiEx.accordion "Properties" "Content" true [
+                    Incremental.div AttributeMap.empty ( item2 |> AList.ofAValSingle)
+                ] 
+                GuiEx.accordion "Actions" "Asterisk" true [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle (buttons))
+                ]
+            ]
 
+    module SequencedBookmarks =
+
+        let sequencedBookmarksUI (m : AdaptiveModel) =           
+          div [][
+              yield br []
+              yield (SequencedBookmarksApp.UI.viewGUI m.scene.sequencedBookmarks)
+              yield GuiEx.accordion "SequencedBookmarks" "Write" true [
+                  SequencedBookmarksApp.UI.viewSequencedBookmarks m.scene.sequencedBookmarks
+              ]        
+              yield GuiEx.accordion "Properties" "Content" true [
+                  Incremental.div AttributeMap.empty (AList.ofAValSingle(SequencedBookmarksApp.UI.viewProperties m.scene.sequencedBookmarks)) 
+              ]
+              yield GuiEx.accordion "Animation" "Write" true [
+                SequencedBookmarksApp.UI.viewAnimationGUI m.scene.sequencedBookmarks
+              ]   
+              yield GuiEx.accordion "Snapshots" "Write" true [
+                  SequencedBookmarksApp.UI.viewSnapshotGUI m.scene.sequencedBookmarks
+              ]                 
+          ] |> UI.map SequencedBookmarkMessage
+    
+    //TODO refactor: two codes for resize attachments
     module Pages =
+        let mutable renderViewportSizeId = System.Guid.NewGuid().ToString()
         let pageRouting viewerDependencies bodyAttributes (m : AdaptiveModel) viewInstrumentView viewRenderView (runtime : IRuntime) request =
             
             match Map.tryFind "page" request.queryParams with
             | Some "instrumentview" ->
-
-                
                 let id = System.Guid.NewGuid().ToString()
+
+                let onResize (cb : V2i -> 'msg) =
+                    onEvent "onresize" ["{ X: $(document).width(), Y: $(document).height()  }"] (List.head >> Pickler.json.UnPickleOfString >> cb)
+
+                let onFocus (cb : V2i -> 'msg) =
+                    onEvent "onfocus" ["{ X: $(document).width(), Y: $(document).height()  }"] (List.head >> Pickler.json.UnPickleOfString >> cb)
 
                 let instrumentViewAttributes =
                     amap {
                         let! hor, vert = ViewPlanApp.getInstrumentResolution m.scene.viewPlans
                         let height = "height:" + (vert/uint32(2)).ToString() + ";" ///uint32(2)
                         let width = "width:" + (hor/uint32(2)).ToString() + ";" ///uint32(2)
+                        yield onResize (fun s -> OnResize(s, id))
+                        yield onFocus (fun s -> OnResize(s, id))
                         yield style ("background: #1B1C1E;" + height + width)
                         yield Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Instrument)
                     } |> AttributeMap.ofAMap
@@ -882,7 +1019,7 @@ module Gui =
             | Some "render" -> 
                 require (viewerDependencies) (
 
-                    let id = System.Guid.NewGuid().ToString()
+                    renderViewportSizeId <- System.Guid.NewGuid().ToString()
 
                     let onResize (cb : V2i -> 'msg) =
                         onEvent "onresize" ["{ X: $(document).width(), Y: $(document).height()  }"] (List.head >> Pickler.json.UnPickleOfString >> cb)
@@ -892,9 +1029,9 @@ module Gui =
 
                     let renderViewAttributes = [ 
                         style "background: #1B1C1E; height:100%; width:100%"
-                        Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Standard)            
-                        onResize (fun s -> OnResize(s, id))     
-                        onFocus (fun s -> OnResize(s, id))     
+                        Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Standard)
+                        onResize (fun s -> OnResize(s, renderViewportSizeId))
+                        onFocus (fun s -> OnResize(s, renderViewportSizeId))
                         onMouseDown (fun button pos -> StartDragging (pos, button))
                      //   onMouseMove (fun delta -> Dragging delta)
                         onMouseUp (fun button pos -> EndDragging (pos, button))
@@ -904,10 +1041,11 @@ module Gui =
                         //div [style "background:#000;"] [
                         Incremental.div (AttributeMap.ofList[style "background:#000;"]) (
                             alist {
-                                yield viewRenderView runtime id m
+                                yield viewRenderView runtime renderViewportSizeId m
                                 yield textOverlays m.scene.referenceSystem m.navigation.camera.view
                                 yield textOverlaysUserFeedback m.scene
                                 yield dnsColorLegend m
+                                yield (ComparisonApp.viewLegend m.scene.comparisonApp)
                                 yield scalarsColorLegend m
                                 yield selectionRectangle m
                                 yield PRo3D.Linking.LinkingApp.sceneOverlay m.linkingModel |> UI.map LinkingActions
@@ -926,12 +1064,19 @@ module Gui =
                 require (viewerDependencies) (body bodyAttributes [HeightValidatorApp.viewUI m.heighValidation |> UI.map HeightValidation])
             | Some "bookmarks" -> 
                 require (viewerDependencies) (body bodyAttributes [Bookmarks.bookmarkUI m])
+            | Some "comparison" -> 
+                require (viewerDependencies) (body bodyAttributes [PRo3D.ComparisonApp.view m.scene.comparisonApp m.scene.surfacesModel
+                                                                    |> UI.map ComparisonMessage])
             | Some "sceneobjects" -> 
                 require (viewerDependencies) (body bodyAttributes [SceneObjects.sceneObjectsUI m])
             | Some "scalebars" -> 
                 require (viewerDependencies) (body bodyAttributes [ScaleBars.scaleBarsUI m])
+            | Some "traverse" -> 
+                require (viewerDependencies) (body bodyAttributes [Traverse.traverseUI m])
             | Some "geologicSurf" -> 
                 require (viewerDependencies) (body bodyAttributes [GeologicSurfaces.geologicSurfacesUI m])
+            | Some "sequencedBookmarks" -> 
+                require (viewerDependencies) (body bodyAttributes [SequencedBookmarks.sequencedBookmarksUI m])
             | Some "properties" ->
                 let prop = 
                     m.drawing.annotations.lastSelectedItem

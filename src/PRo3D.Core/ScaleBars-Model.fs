@@ -115,6 +115,7 @@ type ScaleBar = {
     view            : CameraView
     transformation  : Transformations
     preTransform    : Trafo3d
+    direction       : V3d
 }
 
 [<ModelType>]
@@ -129,6 +130,16 @@ type ScaleBarDrawing = {
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module ScaleBar =    
     
+    let getDirectionVec 
+        (orientation : Orientation) 
+        (view : CameraView) =  
+
+        match orientation with
+        | Orientation.Horizontal -> view.Right
+        | Orientation.Vertical   -> view.Up
+        | Orientation.Sky        -> view.Sky
+        |_                       -> view.Right
+
     let current = 0   
     let read0 =
         json {
@@ -158,21 +169,23 @@ module ScaleBar =
             let! transformation  = Json.read "transformation"
             let! preTransform    = Json.read "preTransform"
 
+            let orientation = orientation |> enum<Orientation>
+
             return 
                 {
-                    version       = current
+                    version         = current
                     guid            = guid |> Guid
                     name            = name
                     
-                    text            = text      
+                    text            = text
                     textsize        = textSize  
                     textVisible     = textVisible
 
                     isVisible       = isVisible
                     position        = position |> V3d.Parse
                     scSegments      = IndexList.empty //scSegments  |> Serialization.jsonSerializer.UnPickleOfString
-                    orientation     = orientation |> enum<Orientation>
-                    alignment       = alignment   |> enum<Pivot>
+                    orientation     = orientation
+                    alignment       = alignment |> enum<Pivot>
                     thickness       = thickness     
                     length          = length   
                     unit            = unit |> enum<Unit> //Unit
@@ -181,6 +194,7 @@ module ScaleBar =
                     view            = view
                     transformation  = transformation
                     preTransform    = preTransform |> Trafo3d.Parse
+                    direction       = getDirectionVec orientation view
                 }
         }
 
@@ -227,7 +241,7 @@ type ScaleBar with
 type ScaleBarsModel = {
     version          : int
     scaleBars        : HashMap<Guid,ScaleBar>
-    selectedScaleBar : Option<Guid> //Option<ScaleBar>
+    selectedScaleBar : Option<Guid> 
 }
 
 module ScaleBarsModel =
@@ -306,8 +320,11 @@ module InitScaleBarsParams =
         translation          = initTranslation (V3d.OOO)
         trafo                = Trafo3d.Identity
         yaw                  = yaw
+        pitch                = Transformations.Initial.pitch
+        roll                 = Transformations.Initial.roll
         pivot                = V3d.Zero
         flipZ                = false
+        isSketchFab          = false
     }
 
     let thickness = {

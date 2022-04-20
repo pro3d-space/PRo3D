@@ -1,65 +1,80 @@
-framework: netstandard2.0, netcoreapp2.0, netcoreapp3.1, net5.0
+framework: netstandard2.0, netcoreapp3.1, net5.0, net6.0
 
 source https://api.nuget.org/v3/index.json
 source https://vrvis.myget.org/F/aardvark_public/api/v3/index.json
 
 storage: none
 
-nuget FSharp.Core                           ~> 4.7.0 lowest_matching: true
+nuget Aardvark.Build                        ~> 1.0.11
+
+nuget FSharp.Core                           ~> 5.0.0 lowest_matching: true
 nuget FSharp.Data                           ~> 3.1.1
+
+nuget Aardvark.Build
 
 nuget FSharp.Data.Adaptive                  ~> 1.2.6
 
-nuget Aardvark.Base                         ~> 5.1.9
-nuget Aardvark.Base.Incremental             ~> 5.1.9
-nuget Aardvark.Base.FSharp                  ~> 5.1.9
-nuget Aardvark.Geometry                     ~> 5.1.9
+nuget Aardvark.Base                         ~> 5.2.2
+nuget Aardvark.Base.Incremental             ~> 5.2.2
+nuget Aardvark.Base.FSharp                  ~> 5.2.2
+nuget Aardvark.Geometry                     ~> 5.2.2
 
-nuget Aardvark.Rendering                    ~> 5.1.18
-nuget Aardvark.Application.Slim             ~> 5.1.18
-nuget Aardvark.Application.Slim.GL          ~> 5.1.18
-nuget Aardvark.Application.Slim.Vulkan      ~> 5.1.18
-nuget Aardvark.SceneGraph                   ~> 5.1.18
-nuget Aardvark.SceneGraph.IO                ~> 5.1.18
-nuget Aardvark.SceneGraph.Opc               ~> 5.1.18
-nuget Aardvark.Rendering.Text               ~> 5.1.18
-nuget Aardvark.Rendering.Vulkan             ~> 5.1.18
-nuget Aardvark.Rendering.GL                 ~> 5.1.18
-nuget Aardvark.GPGPU                        ~> 5.1.18
+nuget Aardvark.Rendering                    ~> 5.2.2
+nuget Aardvark.Application.Slim             ~> 5.2.2
+nuget Aardvark.Application.Slim.GL          ~> 5.2.2
+nuget Aardvark.Application.Slim.Vulkan      ~> 5.2.2
+nuget Aardvark.SceneGraph                   ~> 5.2.2
+nuget Aardvark.SceneGraph.IO                ~> 5.2.2
+nuget Aardvark.SceneGraph.Opc               ~> 5.2.2
+nuget Aardvark.Rendering.Text               ~> 5.2.2
+nuget Aardvark.Rendering.Vulkan             ~> 5.2.2
+nuget Aardvark.Rendering.GL                 ~> 5.2.2
+nuget Aardvark.GPGPU                        ~> 5.2.2
 
-nuget Aardvark.Geometry.Intersection        ~> 5.1.11
-nuget Aardvark.Geometry.PointTree           ~> 5.1.11
+nuget Aardvark.Geometry.Intersection        ~> 5.2.1
+nuget Aardvark.Geometry.PointTree           ~> 5.2.1
 
-nuget Aardvark.Service                      ~> 5.1.11
-nuget Aardvark.UI                           ~> 5.1.11
-nuget Aardvark.UI.Primitives                ~> 5.1.11
+nuget Aardvark.Service                      ~> 5.3.1
+nuget Aardvark.UI                           ~> 5.3.1
+nuget Aardvark.UI.Primitives                ~> 5.3.1
+nuget Aardvark.Service.Giraffe              ~> 5.3.1
 
-nuget Adaptify.MSBuild                      ~> 1.0.6
-nuget Adaptify.Core                         ~> 1.0.6
+nuget Adaptify.MSBuild                      ~> 1.1.5
+nuget Adaptify.Core                         ~> 1.1.5
 
 nuget Aardium                               ~> 2.0.8
 
 nuget Uncodium.Eigensystems                 ~> 1.1.2
 
 
-nuget OPCViewer.Base                        ~> 1.0.8
+nuget OPCViewer.Base                        ~> 1.1.1
 
-nuget Aardvark.GeoSpatial.Opc               ~> 5.5.1
+nuget Aardvark.GeoSpatial.Opc               ~> 5.8.1
 
 nuget Chiron                                ~> 6.3.1
 nuget RestSharp                             ~> 106.6.9
 
 nuget Microsoft.Diagnostics.Runtime         ~> 2.0.1
 
-
+nuget Giraffe
+nuget Saturn
+nuget Thoth.Json.Giraffe
 
 group Build
-framework: netstandard2.0
-
+framework: net5.0
 source https://api.nuget.org/v3/index.json
 github aardvark-platform/aardvark.fake:v5
 
-nuget Fake.IO.FileSystem        ~> 5.20.3
-nuget Fake.Api.GitHub           ~> 5.20.3
-nuget Fake.Core.ReleaseNotes    ~> 5.20.3
-nuget Octokit = 0.48
+nuget Fake.IO.FileSystem    
+nuget Fake.Api.GitHub          
+nuget Fake.Core.ReleaseNotes    
+nuget Octokit
+nuget Fake.Core.Target
+nuget Fake.IO.FileSystem
+nuget Farmer
+nuget Fake.DotNet.Cli
+nuget Fake.DotNet.NuGet
+nuget Fake.Tools.Git
+nuget fake-cli
+nuget Argu
+nuget Mono.Cecil

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "PRo3D.Viewer": {
+      "commandName": "Project",
+      "commandLineArgs": "--scn snapshotScene.pro3d --asnap batchRendering.json --out C:\\Users\\rnowak\\Desktop\\tmp\\tmp --exitOnFinish"
+    }
+  }
+}

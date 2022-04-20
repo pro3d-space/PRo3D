@@ -23,6 +23,17 @@ module Sg =
         fix       : aval<bool>
     }
 
+    let switchYZTrafo = Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OOI, V3d.OIO)
+        //let matrix =
+        //    M44d(
+        //        -1.0,    0.0,    0.0,    0.0,
+        //        0.0,    0.0,    1.0,    0.0,
+        //        0.0,    1.0,    0.0,    0.0,
+        //        0.0,    0.0,    0.0,    1.0
+        //    )
+
+        //Trafo3d(matrix, matrix)
+
     //let coneISg color radius size trafo =  
     //    Sg.cone 30 color radius size
     //            |> Sg.noEvents
@@ -70,14 +81,14 @@ module Sg =
                       | Some text -> Sg.text cam near ~~60.0 nLabelPos nPosTrafo ~~0.05 ~~text
                       | None -> Sg.empty)
 
-            yield Sg.drawLines al (AVal.constant 0.0)style.color style.thickness posTrafo
+            yield Sg.drawLines al (~~0.0)style.color style.thickness posTrafo
             yield label |> Sg.dynamic                                   
              
         } |> Sg.set 
 
        
     let point (pos:aval<V3d>) (color:aval<C4b>) (cam:aval<CameraView>) = 
-        Sg.dot color (AVal.constant 3.0)  pos
+        Sg.dot color (~~3.0)  pos
 
 //["1km";"100m";"10m";"1m";"10cm";"1cm";"1mm";"0.1mm"] 
     let scaleToSize (a:string) =
@@ -96,7 +107,7 @@ module Sg =
           | _       ->      1.0
 
     let getOrientationSystem (mbigConfig : 'ma) (minnerConfig : MInnerConfig<'ma>) (model:AdaptiveReferenceSystem) (cam:aval<CameraView>) =
-        let thickness = AVal.constant 2.0
+        let thickness = ~~2.0
         let near      = minnerConfig.getNearDistance   mbigConfig
 
         let east = AVal.map2(fun (l:V3d) (r:V3d) -> r.Cross(l) ) model.up.value model.north.value
@@ -116,10 +127,8 @@ module Sg =
             fix       = AVal.constant false
         }
 
-
         let upV = 
             (model.up.value, position) ||> AVal.map2 (fun udir position -> [| position; position + udir.Normalized |])
-
                 
         let northV = 
             (model.north.value, position) ||> AVal.map2 (fun ndir position -> [| position; position + ndir.Normalized |])
@@ -143,13 +152,18 @@ module Sg =
         ]   |> Sg.onOff(model.isVisible)       
         
     //TODO move to less generic place than Sg
-    let view<'ma> (mbigConfig : 'ma) (minnerConfig : MInnerConfig<'ma>) (model:AdaptiveReferenceSystem) (cam:aval<CameraView>)  : ISg<ReferenceSystemAction> =
+    let view<'ma> 
+        (mbigConfig     : 'ma) 
+        (minnerConfig   : MInnerConfig<'ma>) 
+        (model          : AdaptiveReferenceSystem) 
+        (cam            : aval<CameraView>)  
+        : ISg<ReferenceSystemAction> =
                    
         let length    = minnerConfig.getArrowLength    mbigConfig
         let thickness = minnerConfig.getArrowThickness mbigConfig
         let near      = minnerConfig.getNearDistance   mbigConfig
 
-        let east = AVal.map2(fun (l:V3d) (r:V3d) -> r.Cross(l) ) model.up.value model.northO // model.north.value
+        let east = AVal.map2(fun (up:V3d) (n:V3d) -> n.Cross(up) ) model.up.value model.northO // model.north.value
 
         let size = model.selectedScale |> AVal.map scaleToSize
 
@@ -211,24 +225,47 @@ module Sg =
         let styleZ : MarkerStyle = {
             position  = model.origin
             direction = model.up.value //AVal.constant V3d.OOI
-            color     = AVal.constant C4b.Blue //C4b.Yellow
+            color     = ~~C4b.Blue //C4b.Yellow
+            size      = size
+            thickness = thickness
+            hasArrow  = ~~false
+            text      = ~~(Some "Z")
+            fix       = ~~false
+        }
+
+        let styleXZYup : MarkerStyle = {
+            position  = model.origin
+            direction = model.up.value //AVal.constant V3d.OOI
+            color     = ~~C4b.Blue //C4b.Yellow
             size      = size
             thickness = thickness
             hasArrow  = AVal.constant false
-            text      = AVal.constant (Some "Z")
+            text      = ~~(None)//model.up.value |> AVal.map (fun x -> x.ToString() |> Some)
             fix       = AVal.constant false
         }
 
-        let refSysTrafo2 =
-          adaptive {
-              let! north = model.northO
-              let! up = model.up.value
-              let east = north.Normalized.Cross(up.Normalized)
-              
-              return Trafo3d.FromOrthoNormalBasis(north.Normalized,east,up.Normalized)
-          }
+        let styleXZYeast : MarkerStyle = {
+            position  = model.origin
+            direction = east //AVal.constant V3d.OOI
+            color     = AVal.constant C4b.Green //C4b.Yellow
+            size      = size
+            thickness = thickness
+            hasArrow  = AVal.constant false
+            text      = ~~(Some "E") // |> AVal.map (fun x -> x.ToString() |> Some)
+            fix       = AVal.constant false
+        }
 
-        
+        let styleXZYnorth : MarkerStyle = {
+            position  = model.origin
+            direction = model.north.value //AVal.constant V3d.OOI
+            color     = AVal.constant C4b.Red //C4b.Yellow
+            size      = size
+            thickness = thickness
+            hasArrow  = AVal.constant false
+            text      = ~~(Some "N")//model.north.value |> AVal.map (fun x -> x.ToString() |> Some)
+            fix       = AVal.constant false
+        }
+               
         let sizeText = 
             Sg.text 
                 cam 
@@ -240,33 +277,46 @@ module Sg =
                 model.selectedScale 
 
         let refsystem = 
-          Sg.ofList [
-              point model.origin (AVal.constant C4b.Red) cam
-              sizeText
-              styleUp    |> directionMarker near cam  
-              styleNorth |> directionMarker near cam
-              //styleNorth90 |> directionMarker near cam
-              styleEast  |> directionMarker near cam
-          ]
+            Sg.ofList [
+                point model.origin (AVal.constant C4b.Red) cam
+                sizeText
+                styleUp    |> directionMarker near cam  
+                styleNorth |> directionMarker near cam
+                //styleNorth90 |> directionMarker near cam
+                styleEast  |> directionMarker near cam
+            ]
+
+        let refsystem2 = 
+            Sg.ofList [
+                point model.origin (AVal.constant C4b.Red) cam
+                sizeText
+                styleXZYup    |> directionMarker near cam  
+                styleXZYnorth |> directionMarker near cam
+                //styleNorth90 |> directionMarker near cam
+                styleXZYeast  |> directionMarker near cam
+            ]
         
         let translation = styleX.position |> AVal.map Trafo3d.Translation
         let inv (t:aval<Trafo3d>) = t |> AVal.map(fun x -> x.Inverse)
 
         let xyzSystem = 
-          Sg.ofList [                
-            styleX  |> directionMarker near cam  
-            styleY  |> directionMarker near cam  
-            styleZ  |> directionMarker near cam
-          ] 
+            Sg.ofList [
+                styleX  |> directionMarker near cam  
+                styleY  |> directionMarker near cam  
+                styleZ  |> directionMarker near cam
+            ] 
             //|> Sg.trafo (translation |> inv)
             //|> Sg.trafo refSysTrafo2   
             //|> Sg.trafo translation
 
         let currentSystem =
-            model.planet |> AVal.map(fun planet -> 
-                                            match planet with
-                                            | Planet.Mars | Planet.Earth -> refsystem
-                                            | _ -> xyzSystem )
+            model.planet 
+            |> AVal.map(fun planet -> 
+                match planet with
+                | Planet.Mars | Planet.Earth -> refsystem
+                | Planet.ENU -> refsystem2
+                | _ -> xyzSystem 
+            )
             
 
         currentSystem |> Sg.dynamic |> Sg.onOff(model.isVisible)

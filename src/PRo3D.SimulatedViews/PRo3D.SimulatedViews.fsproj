@@ -13,6 +13,42 @@
     <OutputPath>..\..\bin\Release\</OutputPath>
   </PropertyGroup>
   <ItemGroup>      
+    <Compile Include="Rabbyte\Drawing\DrawingModel.fs" />      
+    <Compile Include="Rabbyte\Drawing\DrawingApp.fs" />      
+    <Compile Include="Rabbyte\Annotation\AnnotationModel.fs" />      
+    <Compile Include="Rabbyte\Annotation\AnnotationSg.fs" />      
+    <Compile Include="Rabbyte\Annotation\AnnotationApp.fs" />      
+    <Compile Include="Lighting\Lighting-Utils.fs" />      
+    <Compile Include="Lighting\Shading-Model.fs" />      
+    <Compile Include="Lighting\Shaders.fs" />      
+    <Compile Include="Lighting\ShadingApp.fs" />      
+    <Compile Include="Snapshots\AppUtils.fs" />      
+    <Compile Include="Snapshots\JsonUtils.fs" />      
+    <Compile Include="Snapshots\SurfaceExtensions.fs" />      
+    <Compile Include="Snapshots\RenderingUtils.fs" />      
+    <Compile Include="Snapshots\ObjectPlacement-Model.fs" />      
+    <Compile Include="Snapshots\Snapshot-Model.fs" />      
+    <Compile Include="Snapshots\SnapshotSettings-Model.fs" />      
+    <Compile Include="Snapshots\HaltonPlacement.fs" />      
+    <Compile Include="Snapshots\ObjectPlacementApp.fs" />      
+    <Compile Include="Snapshots\GroupExtensions.fs" />      
+    <Compile Include="Snapshots\Snapshot-Utils.fs" />      
+    <Compile Include="Snapshots\Snapshot.fs" />      
+    <Compile Include="Snapshots\SnapshotAnimation.fs" />      
+    <Compile Include="Snapshots\SnapshotSettingsApp.fs" />      
+    <Compile Include="Snapshots\SnapshotApp.fs" />      
+    <Compile Include="CommandLine\StartupArgs.fs" />      
+    <Compile Include="CommandLine\CommandLineUtils.fs" />      
+    <Compile Include="CommandLine\CommandLine.fs" />      
+    <Compile Include="Comparison\UIExtensions.fs" />      
+    <Compile Include="Comparison\CustomGui.fs" />      
+    <Compile Include="Comparison\ComparisonUtils.fs" />      
+    <Compile Include="Comparison\Comparison-Model.fs" />      
+    <Compile Include="Comparison\AreaComparison.fs" />      
+    <Compile Include="Comparison\AreaSelection.fs" />      
+    <Compile Include="Comparison\SurfaceMeasurements.fs" />      
+    <Compile Include="Comparison\AnnotationComparison.fs" />      
+    <Compile Include="Comparison\ComparisonApp.fs" />      
     <Compile Include="Screenshots\Screenshot-Model.fs" />      
     <Compile Include="Screenshots\ScreenshotApp.fs" />      
     <Compile Include="Viewplanner\FootPrint-Model.fs" />      
@@ -21,10 +57,10 @@
     <Compile Include="Viewplanner\ViewPlan-Model.fs" />      
     <Compile Include="Viewplanner\FootPrint.fs" />      
     <Compile Include="Viewplanner\RoverPlacementImporter.fs" />      
-    <Compile Include="Viewplanner\ViewPlan.fs" />
-    <Compile Include="Snapshot-Model.fs" />
-    <Compile Include="HaltonPlacement.fs" />
-    <Compile Include="SnapshotAnimation.fs" />
+    <Compile Include="Viewplanner\ViewPlanApp.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Reactive" Version="5.0.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />

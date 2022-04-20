@@ -3,11 +3,13 @@ namespace PRo3D.Core.Surface
 open System
 open System.IO
 open Aardvark.Base
+open Aardvark.Base.Ag
 open FSharp.Data.Adaptive
 open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.SceneGraph.IO
 open Aardvark.SceneGraph.Opc
+open Aardvark.SceneGraph.Semantics
 open Aardvark.Prinziple
 open Aardvark.UI
 open Aardvark.UI.Primitives
@@ -23,8 +25,32 @@ open PRo3D
 open PRo3D.Base
 open PRo3D.Core
 open PRo3D.Core.Surface
+open Aardvark.GeoSpatial.Opc.PatchLod
+open Aardvark.Base.Ag
+
+
+
+module FootprintSg = 
+    open Aardvark.SceneGraph.Sg
+    
+    type FootprintApplicator(vp : aval<M44d>, child : ISg)  =
+        inherit AbstractApplicator(child)
+        member x.ViewProj = vp
+
+    [<Rule>]
+    type FootprintSem() =
+        member x.FootprintVP(n : FootprintApplicator, scope : Ag.Scope) =
+            n.Child?FootprintVP <- n.ViewProj
+
 
 module Sg =
+
+    
+    type Ag.Scope with
+        member x.FootprintVP : aval<M44d> = x?FootprintVP
+
+    let applyFootprint (v : aval<M44d>) (sg : ISg) = 
+        FootprintSg.FootprintApplicator(v, sg) :> ISg
 
     type SgHelper = {
         surf   : Surface
@@ -109,13 +135,48 @@ module Sg =
             )
             |> Array.fold (fun a b -> HashMap.union a b) HashMap.empty
         
+
+
+        let createShadowContext (f : Aardvark.GeoSpatial.Opc.PatchLod.PatchNode) (scope : Scope) =
+             match scope.TryGetInherited "LightViewProj" with
+                 | None -> Option<aval<Trafo3d>>.None :> obj
+                 | Some v -> Some (v |> unbox<aval<Trafo3d>>) :> obj
+
+        let uniforms = 
+             Map.ofList [    
+                 //"LightViewProj", fun scope (rp : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
+                 "LightViewProj", fun scope (rp : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
+                     let vp : Option<aval<Trafo3d>> = unbox scope
+                     match vp with
+                     | Some vp -> 
+                         AVal.map2 (fun (m : Trafo3d) (vp : Trafo3d) -> (m * vp).Forward)                                     
+                                   rp.trafo vp :> IAdaptiveValue
+                     | None -> 
+                         Log.error "did not provide LightViewProj but shader wanted it."
+                         (AVal.constant M44f.Identity) :> IAdaptiveValue
+                 "HasLightViewProj", fun scope _ -> 
+                     let vp : Option<aval<Trafo3d>> = unbox scope
+                     match vp with
+                         | Some _ -> AVal.constant true :> IAdaptiveValue
+                         | _ -> AVal.constant false :> IAdaptiveValue
+             ]
+     
         let lodDeciderMars = lodDeciderMars (scene.preTransform)
+
+
+        let map = 
+            Map.ofList [
+                "FootprintModelViewProj", fun scope (patch : RenderPatch) -> 
+                    let viewTrafo = scope |> unbox<aval<M44d>>
+                    let r = AVal.map2 (fun viewTrafo (model : Trafo3d) -> viewTrafo * model.Forward) viewTrafo patch.trafo 
+                    r :> IAdaptiveValue
+            ]
 
         // create level of detail hierarchy (Sg)
         let g = 
             patchHierarchies 
             |> List.map (fun h ->                                  
-                Sg.patchLod 
+                Sg.patchLod' 
                     signature
                     runner 
                     h.opcPaths.Opc_DirAbsPath
@@ -123,11 +184,17 @@ module Sg =
                     scene.useCompressedTextures
                     true
                     ViewerModality.XYZ
-                    //PatchLod.CoordinatesMapping.Local
+                    PatchLod.CoordinatesMapping.Local
                     useAsyncLoading
                     (PatchLod.toRoseTree h.tree)
+                    map
+                    (fun n s -> 
+                        let vp = s.FootprintVP
+                        vp :> obj
+                    )
             )
-            |> SgFSharp.Sg.ofList                
+            |> SgFSharp.Sg.ofList  
+
                                                 
         g, patchHierarchies, kdTrees
     
@@ -137,17 +204,17 @@ module Sg =
         else bb
     
     let combineLeafBBs (hierarchies : list<PatchHierarchy>) =
-      hierarchies
+        hierarchies
         |> List.map(fun d -> d.tree |> QTree.getLeaves)
         |> Seq.map (fun p -> p |> Seq.map(fun d -> assertInvalidBB d.info.GlobalBoundingBox)) 
         |> Seq.concat
-        |> Box3d.ofSeq
+        |> Box3d
     
     let combineRootBBs (hierarchies : list<PatchHierarchy>) =
-      hierarchies
+        hierarchies
         |> List.map(fun d -> d.tree |> QTree.getRoot)                  
         |> Seq.map (fun p -> assertInvalidBB p.info.GlobalBoundingBox)
-        |> Box3d.ofSeq
+        |> Box3d
        
     let createSgSurface (s : Surface) sg (bb : Box3d) (kd : HashMap<Box3d,KdTrees.Level0KdTree>) = 
     

@@ -18,21 +18,29 @@ type Interactions =
     | PickLog               = 12
     | PlaceValidator        = 13
     | TrueThickness         = 14 // CHECK-merge
-    | PlaceScaleBar         = 15
-    | PlaceSceneObject      = 16
+    | SelectArea            = 15
+    | PlaceScaleBar         = 16
+    | PlaceSceneObject      = 17
 
 module Interactions =
     // excludes interactions from dropdown in topmenu
     let hideSet = 
-        [
-            Interactions.PlaceRover
-            Interactions.TrafoControls
-            Interactions.PlaceSurface
-            Interactions.PickMinervaProduct
-            Interactions.PickMinervaFilter
-            Interactions.PickLinking
-            Interactions.DrawLog            
-            Interactions.PickLog            
-            Interactions.PlaceValidator
-            Interactions.TrueThickness            
+        [            
+            //Interactions.PickExploreCenter    
+            //Interactions.PlaceCoordinateSystem
+            //Interactions.DrawAnnotation       
+            //Interactions.PlaceRover           
+            Interactions.TrafoControls        
+            Interactions.PlaceSurface         
+            //Interactions.PickAnnotation       
+            //Interactions.PickSurface          
+            Interactions.PickMinervaProduct   
+            Interactions.PickMinervaFilter    
+            Interactions.PickLinking          
+            Interactions.DrawLog              
+            Interactions.PickLog              
+            Interactions.PlaceValidator       
+            Interactions.TrueThickness        
+            //Interactions.PlaceScaleBar        
+            //Interactions.PlaceSceneObject     
         ] |> HashSet.ofList

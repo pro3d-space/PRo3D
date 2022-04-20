@@ -12,30 +12,70 @@ open Chiron
 #nowarn "0686"
 
 type Ext = Ext
- 
+
 module Json = 
+
+
     let writeFloat name (floatValue : double)  = 
-        json {
-            if floatValue.IsNaN() then      
-               do! Json.writeNone name
-            else
-               do! Json.write name floatValue
-        }
+      json {
+        if floatValue.IsNaN() then      
+          do! Json.writeNone name
+        else
+          do! Json.write name floatValue
+      }
     
     let readFloat name : Json<double> = 
-        json {
-            let! v = Json.tryRead name
-            return 
-                match v with
-                | Some k -> k
-                | None -> Double.NaN      
-        }
+      json {
+        let! v = Json.tryRead name
+        return 
+          match v with
+          | Some k -> k
+          | None -> Double.NaN      
+      }
+
+    let parseOption (x : Json<Option<'a>>) (f : 'a -> 'b) = 
+        x |> Json.map (fun x -> x |> Option.map (fun y -> f y))
+    let writeOption (name : string) (x : option<'a>) =
+      match x with
+      | Some a ->
+          Json.write name (a.ToString ())
+      | None ->
+          Json.writeNone name
+    let writeOptionList (name : string) 
+                     (x : option<List<'a>>) 
+                     (f : List<'a> -> string -> Json<unit>) = //when 'a : (static member ToJson : () -> () )>>) =
+      match x with
+      | Some a ->
+          f a name
+      | None ->
+          Json.writeNone name
+    let writeOptionFloat (name : string) (x : option<float>) =
+      match x with
+      | Some a ->
+          Json.write name a
+      | None ->
+          Json.writeNone name
+
+    let writeOptionInt (name : string) (x : option<int>) =
+      match x with
+      | Some a ->
+          Json.write name a
+      | None ->
+          Json.writeNone name
+
+    let writeOptionBool (name : string) (x : option<bool>) =
+      match x with
+      | Some a ->
+          Json.write name a
+      | None ->
+          Json.writeNone name
+
+    let parsePlane3d (s:string) =        
     
-    let parsePlane3d (s:string) =
-        let x = s.NestedBracketSplitLevelOne() |> Seq.toArray
-        let n = x.[0] |> V3d.Parse
-        let p = float(x.[1]) //|> Double.Parse
-        Plane3d(n, p)
+      let x = s.NestedBracketSplitLevelOne() |> Seq.toArray
+      let n = x.[0] |> V3d.Parse
+      let p = float(x.[1]) //|> Double.Parse
+      Plane3d(n, p)
 
 module Ext =
     let inline fromJsonDefaults (a: ^a, _: ^b) =

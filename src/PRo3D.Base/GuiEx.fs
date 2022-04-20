@@ -37,6 +37,25 @@ module GuiEx =
                 ]
             )
 
+    let accordionWithOnClick text' icon active content' iconAction =
+        let title = if active then "title active inverted" else "title inverted"
+        let content = if active then "content active" else "content"
+                                
+        onBoot "$('#__ID__').accordion();" (
+            div [clazz "ui inverted segment"] [
+                div [clazz "ui inverted accordion fluid"] [
+                    div [clazz title; style "background-color: #282828"] [
+                            i [clazz ("dropdown icon")][]
+                            text text'                                
+                            div[style "float:right";onClick (fun _ -> iconAction)]
+                                [i [clazz (icon + " icon")][]]
+                            
+                    ]
+                    div [clazz content;  style "overflow-y : auto; "] content' //max-height: 35%
+                ]
+            ]
+        )
+
     let iconToggle (dings : aval<bool>) onIcon offIcon action =
       let toggleIcon = dings |> AVal.map(fun isOn -> if isOn then onIcon else offIcon)
 

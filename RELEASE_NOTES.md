@@ -1,3 +1,69 @@
+## 4.7.0-prerelease1
+
+- added Continuous Export of Dip & Strike [#185](https://github.com/pro3d-space/PRo3D/issues/185)
+- added Custom Background Color for Screenshots [#183](https://github.com/pro3d-space/PRo3D/issues/183)
+- Integration of Mars2020 rover traverse [#127](https://github.com/pro3d-space/PRo3D/issues/127) also including custom sized waypoint labels [#154](https://github.com/pro3d-space/PRo3D/issues/154)
+
+## 4.6.2-prerelease1
+
+- adapted GeoJSON parser to read numeric values
+- added file dialog to import traverses in the form of the specified GeoJSON M20_waypoints.json
+- added datamodel and GUI to maintain multiple traverses
+- added adjustable textsize for waypoints
+
+## 4.6.1-prerelease2
+
+- base 5.2 upgrade
+
+## 4.6.1-prerelease1
+
+- added viewplanner placement for traverse waypoints
+- changed text positions for all annotations to center of the object
+- fixed instrument view text scaling bug
+- added waypoints file to resources
+
+## 4.6.0-prerelease1
+
+- revived viewplanner and footprint projection
+- fixed triangle filter (was in projective space)
+- added sequenced bookmarks (from other branch)
+
+## 4.5.0-prerelease1
+
+- added traverse loading and visualization (dots, text, lines)
+- added local reference frames according to rover poses
+- added flyto animation according to rover poses
+- added list gui for sols and traverse visibility flags
+
+## 4.4.4-prerelease1
+
+- added csv export for vertical thickness computation
+- added csv export of angular error values for dns computation
+
+## 4.4.3-prerelease1
+
+- added vertical thickness computation for TT (True Thickness) annotation tool
+
+## 4.4.2-prerelease1
+
+- added recalculation of all angular values dependent on north and up (dip and strike angle and azimuth, bearing, slope)
+
+## 4.4.1-prerelease1
+
+- fixed "box sequence must not be empty" exception when loading a scene with surfaces that have faulty paths
+
+## 4.4.0-prerelease1
+
+- added dip azimuth to true thickness tool [#17](https://github.com/pro3d-space/PRo3D/issues/17)
+  - improved true thickness computation via point over plane height
+- merged xzy coordinate system and renamed it to ENU (East North Up) [#117](https://github.com/pro3d-space/PRo3D/issues/117)
+- added missing calculation numbers of measurements to csv export (slope, bearing, vertical distance, horizontal distance) [#100](https://github.com/pro3d-space/PRo3D/issues/100)
+- added `showText`flag to annotations to show or hide text [#114](https://github.com/pro3d-space/PRo3D/issues/114)
+
+## 4.3.0-prerelease1
+
+- added xzy coordinate system and `sketchfab` transformation to support models created out of agisoft
+
 ## 4.2.0-prerelease1
 
 - static screen-shot service that can be found in the `config` tab

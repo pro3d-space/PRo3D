@@ -49,7 +49,7 @@ module DrawingApp =
         let firstP = a.points.[0]
         let lastP = a.points.[(a.points.Count-1)]
         match a.projection with
-        | Projection.Viewpoint | Projection.Sky ->     
+        | Projection.Viewpoint | Projection.Sky | Projection.Bookmark ->     
             let newSegment = { startPoint = firstP; endPoint = lastP; points = IndexList.ofList [firstP;lastP] }
 
             if PRo3D.Config.useAsyncIntersections then
@@ -62,38 +62,39 @@ module DrawingApp =
                     ]
                 let newSegment = { startPoint = firstP; endPoint = lastP; points = IndexList.ofList points }
                 { a with segments = IndexList.add newSegment a.segments }
-        | _ -> { a with points = a.points |> IndexList.add firstP }
-
+        | _ -> 
+            { a with points = a.points |> IndexList.add firstP }
+    
     let getFinishedAnnotation up north planet (view:CameraView) (model : DrawingModel) =
         match model.working with
         | Some w ->  
             let w = 
                 match w.geometry with
                 | Geometry.Polygon -> closePolyline w
+                | Geometry.TT -> 
+                    { 
+                        w with 
+                            manualDipAngle   = { w.manualDipAngle   with value = 0.0 }
+                            manualDipAzimuth = { w.manualDipAzimuth with value = 0.0 }
+                    }
                 | _-> w 
         
             let dns = 
-                w.points 
-                |> DipAndStrike.calculateDipAndStrikeResults (up) (north)
-                //match w.points.Count with 
-                //    | x when x > 2 ->
-                //        //let up = 
-                //        //let north = up.Cross(V3d.OOI.Cross(up))
-                //        let result = w.points |> DipAndStrike.calculateDipAndStrikeResults (up) (north)
-                //        Some result //more acc. by using segments as well?
-                //    | _ -> None 
-
-            let w =
                 match w.geometry with 
-                | Geometry.TT -> { w with manualDipAngle = { w.manualDipAngle with value = 0.0 }}
-                | _ -> w
+                | Geometry.TT -> 
+                    DipAndStrike.calculateManualDipAndStrikeResults up north w
+                | _ ->
+                    w.points 
+                    |> DipAndStrike.calculateDipAndStrikeResults (up) (north)                        
+
+            let w = { w with dnsResults = dns }
 
             let results = Calculations.calculateAnnotationResults w up north planet
 
-            Some { w with dnsResults = dns ; results = Some results; view = view }
+            Some { w with results = Some results; view = view }
         | None -> None
 
-    let finishAndAppendAndSend up north planet (view:CameraView) (model : DrawingModel) (bc : BlockingCollection<string>) = 
+    let finishAndAppend up north planet (view:CameraView) (model : DrawingModel)  = 
       
         let groups = 
             match getFinishedAnnotation up north planet view model with
@@ -108,7 +109,7 @@ module DrawingApp =
     
     //adds new point to working state, if certain conditions are met the annotation finishes itself
     // returns current segment for async computations outside
-    let addPoint up north planet samplePoint (p : V3d) view model surfaceName bc =
+    let addPoint up north planet samplePoint (p : V3d) view model surfaceName bc bookmarkId =
       
         let working, newSegment = 
             match model.working with
@@ -119,7 +120,7 @@ module DrawingApp =
                 //fetch current drawing segment (projected, polyline or polygon)
                 let result = 
                     match w.projection with
-                    | Projection.Viewpoint | Projection.Sky ->                     
+                    | Projection.Viewpoint | Projection.Sky | Projection.Bookmark ->                     
                         match IndexList.tryAt (IndexList.count w.points-1) w.points with
                         | None -> 
                             annotation, None
@@ -151,7 +152,7 @@ module DrawingApp =
                     //annotation states should be immutable after creation
                     //(Annotation.make model.projection model.geometry model.semantic surfaceName)  
                     //    with points = IndexList.ofList [p]; modelTrafo = Trafo3d.Translation p
-                    (Annotation.make model.projection model.geometry model.color model.thickness surfaceName)
+                    (Annotation.make model.projection None model.geometry model.color model.thickness surfaceName)
                         with points = IndexList.ofList [p]; modelTrafo = Trafo3d.Translation p
                 }, None
       
@@ -165,9 +166,9 @@ module DrawingApp =
         match (working.geometry, (working.points |> IndexList.count)) with
         | Geometry.Point, 1 -> 
             Log.line "Picked single point at: %A" (working.points |> IndexList.tryFirst).Value
-            finishAndAppendAndSend up north planet view model bc, None
+            finishAndAppend up north planet view model, None
         | Geometry.TT, 2 | Geometry.Line, 2 -> 
-            finishAndAppendAndSend up north planet view model bc, None
+            finishAndAppend up north planet view model, None
         | _ -> 
             model, newSegment 
 
@@ -267,7 +268,63 @@ module DrawingApp =
                 (ann, projPoint))
         | _ -> None
 
-    let update<'a> 
+    // specifies which drawing actions trigger re-export of geo-json files.
+    // the idea behind this is to keep out high-frequency updates (mouse move)
+    // but blacklist those
+    let automaticallyReExportGeoJson (action : DrawingAction) =
+        match action with
+        | DrawingAction.Move p  -> false
+        | ExportAsGeoJSON _     -> false
+        | ExportAsAnnotations _ -> false
+        | ExportAsCsv _         -> false
+        | ExportAsGeoJSON_xyz _ -> false
+        | LegacySaveVersioned _ -> false
+        | _ -> true
+
+    // exports geojson, optionally using XYZ format
+    let exportGeoJson (xyz : bool) (bigConfig  : 'a) (smallConfig : SmallConfig<'a> )  
+                      (model : DrawingModel) (path : string) =
+
+        let annotations =
+            model.annotations.flat
+            |> Leaf.toAnnotations
+            |> HashMap.toList 
+            |> List.map snd
+            |> List.filter (fun a -> a.visible)
+               
+        try
+            if xyz then
+                GeoJSONExport.writeGeoJSON_XYZ path annotations
+            else 
+                let planet = smallConfig.planet.Get(bigConfig)            
+                GeoJSONExport.writeGeoJSON planet path annotations
+        with e -> 
+            Log.warn "[Drawing] exportGeoJson failed with %A" e
+
+    // exports geojson, optionally using XYZ format
+    let exportGeoJsonStream  (xyz : bool) (bigConfig  : 'a) (smallConfig : SmallConfig<'a> )  
+                             (model : DrawingModel) (path : string) =
+
+        let annotations =
+            model.annotations.flat
+            |> Leaf.toAnnotations
+            |> HashMap.toList 
+            |> List.map snd
+            |> List.filter (fun a -> a.visible)
+               
+
+        GeoJSONExport.writeStreamGeoJSON_XYZ path annotations
+
+
+
+    let finish (bigConfig  : 'a)  (smallConfig : SmallConfig<'a> ) (model : DrawingModel) (view : CameraView) =
+        let up     = smallConfig.up.Get(bigConfig)
+        let north  = smallConfig.north.Get(bigConfig)
+        let planet = smallConfig.planet.Get(bigConfig)
+
+        (finishAndAppend up north planet view model) |> stash
+
+    let rec update<'a> 
         (bigConfig   : 'a) 
         (smallConfig : SmallConfig<'a> ) 
         (webSocket   : BlockingCollection<string>) 
@@ -276,199 +333,203 @@ module DrawingApp =
         (model       : DrawingModel) 
         (act         : DrawingAction) =
 
-        match (act, model.draw, model.pick) with
-        | StartDrawing, _, false ->                     
-            { model with draw = true }
-        | StopDrawing, _, false -> 
-            { model with draw = false; hoverPosition = None; pick = false }
-        | StartPicking, _, _ ->                                       
-            { model with pick = true }
-        | StopPicking, _, _ -> 
-            { model with pick = false}        
-        | DrawingAction.Move p, true, false -> 
-            { model with hoverPosition = Some (Trafo3d.Translation p) }
-        | AddPointAdv (point, hitFunction, name), true, false ->
-            let up    = smallConfig.up.Get(bigConfig)
-            let north = smallConfig.north.Get(bigConfig)
-            let planet = smallConfig.planet.Get(bigConfig)
+        let newModel =
+            match (act, model.draw, model.pick) with
+            | StartDrawing, _, false ->                     
+                { model with draw = true }
+            | StopDrawing, _, false -> 
+                { model with draw = false; hoverPosition = None; pick = false }
+            | StartPicking, _, _ ->                                       
+                { model with pick = true }
+            | StopPicking, _, _ -> 
+                { model with pick = false}        
+            | DrawingAction.Move p, true, false -> 
+                { model with hoverPosition = Some (Trafo3d.Translation p) }
+            | AddPointAdv (point, hitFunction, name, bookmarkId), true, false ->
+                let up    = smallConfig.up.Get(bigConfig)
+                let north = smallConfig.north.Get(bigConfig)
+                let planet = smallConfig.planet.Get(bigConfig)
 
-            let model, newSegment = addPoint up north planet hitFunction point view model name webSocket
+                let model, newSegment = addPoint up north planet hitFunction point view model name webSocket bookmarkId
             
-            match newSegment with
-            | None         -> model
-            | Some segment -> addNewSegment hitFunction model segment
-            |> stash
-        | RemoveLastPoint, _, _ -> 
-          //let annotation = { w with points = w.points |> IndexList.append p }
-          // { annotation with segments = IndexList.append newSegment annotation.segments }
+                match newSegment with
+                | None         -> model
+                | Some segment -> addNewSegment hitFunction model segment
+                |> stash
+            | RemoveLastPoint, _, _ -> 
+              //let annotation = { w with points = w.points |> IndexList.append p }
+              // { annotation with segments = IndexList.append newSegment annotation.segments }
           
-            match model.working with
-            | Some w when w.points.Count > 0->
-              { model with working = Some { w with points = w.points |> IndexList.removeAt (w.points.Count - 1) }}
-            | Some _ -> { model with working = None }
-            | None -> model
-        | SetSegment(segmentIndex,segment), _, _ ->
-            match model.working with
-            | None -> model
-            | Some w ->                         
-                { model with working = Some { w with segments = IndexList.setAt segmentIndex segment w.segments } }
-        | Finish, _, _ -> 
-            let up     = smallConfig.up.Get(bigConfig)
-            let north  = smallConfig.north.Get(bigConfig)
-            let planet = smallConfig.planet.Get(bigConfig)
+                match model.working with
+                | Some w when w.points.Count > 0->
+                  { model with working = Some { w with points = w.points |> IndexList.removeAt (w.points.Count - 1) }}
+                | Some _ -> { model with working = None }
+                | None -> model
+            | SetSegment(segmentIndex,segment), _, _ ->
+                match model.working with
+                | None -> model
+                | Some w ->                         
+                    { model with working = Some { w with segments = IndexList.setAt segmentIndex segment w.segments } }
+            | Finish, _, _ -> 
+                finish bigConfig smallConfig model view
+            | Exit, _, _ -> 
+                { model with hoverPosition = None }
+            | SetSemantic mode, _, _ ->
+                let model =
+                    match mode with
+                    | Semantic.GrainSize -> { model with geometry = Geometry.Line }
+                    | _ -> model
 
-            (finishAndAppendAndSend up north planet view model webSocket) |> stash
-        | Exit, _, _ -> 
-            { model with hoverPosition = None }
-        | SetSemantic mode, _, _ ->
-            let model =
-                match mode with
-                | Semantic.GrainSize -> { model with geometry = Geometry.Line }
-                | _ -> model
-
-            {model with semantic = mode }
-        | SetGeometry mode, _, _ ->
-            { model with geometry = mode }
-        | SetProjection mode, _, _ ->
-            { model with projection = mode }                  
-        | ChangeColor c, _, _ -> 
-            { model with color = ColorPicker.update model.color c }
-        | ChangeThickness th, _, _ ->
-            { model with thickness = Numeric.update model.thickness th }
-        | SetExportPath s, _, _ ->
-            { model with exportPath = Some s }        
-        | Send, _, _ ->                                                      
-            model
-        | ClearWorking,_ , _->
-            { model with working = None }
-        | DrawingAction.Clear,_ , _->
-            { model with annotations = GroupsModel.initial }
-        | DrawingAction.Nop, _, _ -> model                   
-        | Undo, _, _ -> 
-            match model.past with
-            | Some p -> { p with future = Some model }
-            | None -> model
-        | Redo, _, _ ->
-            match model.future with
-            | Some f -> f
-            | None -> model           
-        | GroupsMessage msg,_, _ ->
-            let m = { model with annotations = GroupsApp.update model.annotations msg}
-            m
-        | DnsColorLegendMessage msg,_, _ -> 
-            { model with dnsColorLegend = FalseColorLegendApp.update model.dnsColorLegend msg }
-        | FlyToAnnotation msg, _, _ ->               
-            model        
-
-        // method via bvh
-        | PickAnnotation (_, id), false, true | PickDirectly id, false, true ->
-            match (model.annotations.flat.TryFind id) with
-            | Some (Leaf.Annotations ann) ->       
-                            
-                //Log.error "[DrawingApp] shiftflag is %A" shiftFlag
-                // { model with annotations = Groups.addSingleSelectedLeaf model.annotations list.Empty ann.key "" }              
-                let annotations =
-                    if shiftFlag then
-                        Log.line "[DrawingApp] multi select"
-                        GroupsApp.update model.annotations (GroupsAppAction.AddLeafToSelection(List.empty, ann.key, String.Empty))
-                    else
-                        Log.line "[DrawingApp] single select"
-                        GroupsApp.update model.annotations (GroupsAppAction.SingleSelectLeaf(List.empty, ann.key, String.Empty))
-                    
-                { model with annotations = annotations }
-
-            | _ -> model        
-
-
-        | AddAnnotations path, _,_ ->
-            match path |> List.tryHead with
-            | Some p -> 
-                let annos = DrawingUtilities.IO.loadAnnotations p
-                Log.line "[Drawing] Merging annotations"                
-                let merged = GroupsApp.union model.annotations annos.annotations
-                { model with annotations = merged }
-            | None ->
+                {model with semantic = mode }
+            | SetGeometry mode, _, _ ->
+                { model with geometry = mode }
+            | SetProjection mode, _, _ ->
+                { model with projection = mode }                  
+            | ChangeColor c, _, _ -> 
+                { model with color = ColorPicker.update model.color c }
+            | ChangeThickness th, _, _ ->
+                { model with thickness = Numeric.update model.thickness th }
+            | SetExportPath s, _, _ ->
+                { model with exportPath = Some s }        
+            | Send, _, _ ->                                                      
                 model
-        | ExportAsAnnotations path, _, _ ->
-            Drawing.IO.saveVersioned model path
-        | ExportAsCsv p, _, _ ->           
-            let lookups = GroupsApp.updateGroupsLookup model.annotations
-            let annotations =
-                model.annotations.flat
-                |> Leaf.toAnnotations
-                |> HashMap.toList 
-                |> List.map snd
-                |> List.filter(fun a -> a.visible)                            
+            | ClearWorking,_ , _->
+                { model with working = None }
+            | DrawingAction.Clear,_ , _->
+                { model with annotations = GroupsModel.initial }
+            | DrawingAction.Nop, _, _ -> model                   
+            | Undo, _, _ -> 
+                match model.past with
+                | Some p -> { p with future = Some model }
+                | None -> model
+            | Redo, _, _ ->
+                match model.future with
+                | Some f -> f
+                | None -> model           
+            | GroupsMessage msg,_, _ ->
+                let m = { model with annotations = GroupsApp.update model.annotations msg}
+                m
+            | DnsColorLegendMessage msg,_, _ -> 
+                { model with dnsColorLegend = FalseColorLegendApp.update model.dnsColorLegend msg }
+            | FlyToAnnotation msg, _, _ ->               
+                model        
 
-            CSVExport.writeCSV lookups p annotations
+            // method via bvh
+            | PickAnnotation (_, id), false, true | PickDirectly id, false, true ->
+                match (model.annotations.flat.TryFind id) with
+                | Some (Leaf.Annotations ann) ->       
+                            
+                    //Log.error "[DrawingApp] shiftflag is %A" shiftFlag
+                    // { model with annotations = Groups.addSingleSelectedLeaf model.annotations list.Empty ann.key "" }              
+                    let annotations =
+                        if shiftFlag then
+                            Log.line "[DrawingApp] multi select"
+                            GroupsApp.update model.annotations (GroupsAppAction.AddLeafToSelection(List.empty, ann.key, String.Empty))
+                        else
+                            Log.line "[DrawingApp] single select"
+                            GroupsApp.update model.annotations (GroupsAppAction.SingleSelectLeaf(List.empty, ann.key, String.Empty))
+                    
+                    { model with annotations = annotations }
+
+                | _ -> model        
+            | AddAnnotations path, _,_ ->
+                match path |> List.tryHead with
+                | Some p -> 
+                    let annos = DrawingUtilities.IO.loadAnnotations p
+                    Log.line "[Drawing] Merging annotations"                
+                    let merged = GroupsApp.union model.annotations annos.annotations
+                    { model with annotations = merged }
+                | None ->
+                    model
+            | ExportAsAnnotations path, _, _ ->
+                Drawing.IO.saveVersioned model path
+            | ExportAsCsv p, _, _ ->           
+                let up = smallConfig.up.Get(bigConfig)
+                let lookups = GroupsApp.updateGroupsLookup model.annotations
+                let annotations =
+                    model.annotations.flat
+                    |> Leaf.toAnnotations
+                    |> HashMap.toList 
+                    |> List.map snd
+                    |> List.filter(fun a -> a.visible)                            
+
+                CSVExport.writeCSV lookups up p annotations
                         
-            model      
-        | ExportAsGeoJSON path, _, _ ->           
-            let planet = smallConfig.planet.Get(bigConfig)            
-            let annotations =
-                model.annotations.flat
-                |> Leaf.toAnnotations
-                |> HashMap.toList 
-                |> List.map snd
-                |> List.filter(fun a -> a.visible)
-               
-            GeoJSONExport.writeGeoJSON planet path annotations
+                model      
+            | ExportAsGeoJSON path, _, _ ->        
+        
+                exportGeoJson false bigConfig smallConfig model path
 
-            model
-        | ExportAsGeoJSON_xyz path, _, _ ->                       
+                model
+
+            | ExportAsGeoJSON_xyz path, _, _ ->                       
                         
-            let annotations =
-                model.annotations.flat
-                |> Leaf.toAnnotations
-                |> HashMap.toList 
-                |> List.map snd
-                |> List.filter(fun a -> a.visible)
-               
-            GeoJSONExport.writeGeoJSON_XYZ path annotations
+                exportGeoJson true bigConfig smallConfig model path
             
-            model
-        | ExportAsAttitude path, _, _ ->
-            let annotations =
-                model.annotations.flat
-                |> Leaf.toAnnotations
-                |> HashMap.toList 
-                |> List.map snd
-                |> List.filter(fun a -> a.visible)
+                model
 
-            AttitudeExport.writeAttitudeJson path (smallConfig.up.Get(bigConfig)) annotations
+            | ContinuouslyGeoJson path, _, _ -> 
+                
+                // remember this path in order to drive the automatic export feature.
+                let updatedPath = { model.automaticGeoJsonExport with lastGeoJsonPathXyz = Some path; enabled = true }
+                { model with automaticGeoJsonExport = updatedPath }
 
-            model
-        | LegacySaveVersioned, _,_ ->
-            let path = "./annotations.json"
-            let pathgGrouping = "./annotations.grouping"
+            | ExportAsAttitude path, _, _ ->
+                let annotations =
+                    model.annotations.flat
+                    |> Leaf.toAnnotations
+                    |> HashMap.toList 
+                    |> List.map snd
+                    |> List.filter(fun a -> a.visible)
+
+                AttitudeExport.writeAttitudeJson path (smallConfig.up.Get(bigConfig)) annotations
+
+                model
+            | LegacySaveVersioned, _,_ ->
+                let path = "./annotations.json"
+                let pathgGrouping = "./annotations.grouping"
             
-            Log.line "[Drawing] Writing annotations"
-            model.annotations.flat 
-                |> HashMap.toList 
-                |> List.map(fun (_,b) -> b |> Leaf.toAnnotation) // |> Annotation'.convert)
-                |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine |> Serialization.writeToFile path // CHECK-merge IO.
+                Log.line "[Drawing] Writing annotations"
+                model.annotations.flat 
+                    |> HashMap.toList 
+                    |> List.map(fun (_,b) -> b |> Leaf.toAnnotation) // |> Annotation'.convert)
+                    |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine |> Serialization.writeToFile path // CHECK-merge IO.
             
-            Log.line "[Drawing] Writing grouping"
-            let annotations' = 
-                { model.annotations with flat = HashMap.empty } 
-                |> Serialization.save pathgGrouping
+                Log.line "[Drawing] Writing grouping"
+                let annotations' = 
+                    { model.annotations with flat = HashMap.empty } 
+                    |> Serialization.save pathgGrouping
 
-            { model with annotations = annotations' }
-            //model
-        | LegacyLoadVersioned, _,_ ->
-            let path = "./annotations.json"
-            let pathgGrouping = "./annotations.grouping"
+                { model with annotations = annotations' }
+                //model
+            | LegacyLoadVersioned, _,_ ->
+                let path = "./annotations.json"
+                let pathgGrouping = "./annotations.grouping"
 
-            Log.line "[Drawing] Reading annotations"
-            let (annos : list<Annotation>) = path |> Serialization.readFromFile |> Json.parse |> Json.deserialize // CHECK-merge IO.
-            let annos = annos |> List.map(fun x -> (x.key,x |> Leaf.Annotations)) |> HashMap.ofList
+                Log.line "[Drawing] Reading annotations"
+                let (annos : list<Annotation>) = path |> Serialization.readFromFile |> Json.parse |> Json.deserialize // CHECK-merge IO.
+                let annos = annos |> List.map(fun x -> (x.key,x |> Leaf.Annotations)) |> HashMap.ofList
             
-            Log.line "[Drawing] Reading grouping"
-            let grouping = Serialization.loadAs<GroupsModel> pathgGrouping
-            let grouping = { grouping with flat = annos }
+                Log.line "[Drawing] Reading grouping"
+                let grouping = Serialization.loadAs<GroupsModel> pathgGrouping
+                let grouping = { grouping with flat = annos }
 
-            { model with annotations = grouping }
-        | _ -> model
+                { model with annotations = grouping }
+            | _ -> model
+
+        // optionally also store geojson to disk
+        match automaticallyReExportGeoJson act && newModel.automaticGeoJsonExport.enabled with
+        | true -> 
+            match newModel.automaticGeoJsonExport.lastGeoJsonPathXyz with
+            | Some path -> 
+                Log.line "[Drawing] automatically writing geojson.xyz file to %s since the annotations have changed." path
+                // virtually finish the annotation (as if closed by interaction) - to let it be part of the exported ones.
+                let artificiallyFinishedModel = finish bigConfig smallConfig model view
+                exportGeoJsonStream true bigConfig smallConfig artificiallyFinishedModel path
+            | _ -> ()
+            newModel
+        | false -> 
+            newModel
                                     
     let threads (m : DrawingModel) = m.pendingIntersections
     
@@ -477,6 +538,40 @@ module DrawingApp =
         | AdaptiveAnnotations ann -> Some ann
         | _ -> None
        
+    let viewTextLabels<'ma> 
+        (mbigConfig       : 'ma)
+        (msmallConfig     : MSmallConfig<'ma>)
+        (view             : aval<CameraView>)      
+        (model            : AdaptiveDrawingModel) =
+
+        let config : Sg.innerViewConfig = 
+            {
+                nearPlane        = msmallConfig.getNearPlane        mbigConfig
+                hfov             = msmallConfig.getHfov             mbigConfig                    
+                arrowLength      = msmallConfig.getArrowLength      mbigConfig
+                arrowThickness   = msmallConfig.getArrowThickness   mbigConfig
+                dnsPlaneSize     = msmallConfig.getDnsPlaneSize     mbigConfig
+                offset           = msmallConfig.getOffset           mbigConfig
+                pickingTolerance = msmallConfig.getPickingTolerance mbigConfig
+            }
+
+        let annoSet = 
+            model.annotations.flat 
+            |> AMap.choose (fun _ y -> y |> tryToAnnotation) // TODO v5: here we collapsed some avals - check correctness
+            |> AMap.toASet
+
+        let labels =              
+            annoSet 
+            |> ASet.map(fun (_,a) -> 
+               
+                           
+                let sg = Sg.finishedAnnotationText a config view
+                sg 
+            )
+            |> Sg.set   
+
+        labels
+
     let view<'ma> 
         (mbigConfig       : 'ma)
         (msmallConfig     : MSmallConfig<'ma>)
@@ -505,11 +600,6 @@ module DrawingApp =
                 pickingTolerance = msmallConfig.getPickingTolerance mbigConfig
             }
        
-
-
-
-
-
         if usePackedAnnotationRendering then
 
             Log.startTimed "[Drawing] creating finished annotation geometry"
@@ -519,7 +609,7 @@ module DrawingApp =
                     let c = UI.mkColor model.annotations a
                     let picked = UI.isSingleSelect model.annotations a
                     let showPoints = 
-                      a.geometry 
+                        a.geometry 
                         |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
                 
                     let sg = Sg.finishedAnnotation a c config view viewport showPoints picked pickingAllowed
@@ -576,10 +666,10 @@ module DrawingApp =
 
             let overlay = 
                 Sg.ofList [
-                 // brush model.hoverPosition; 
-                  annotations
-                  Sg.ofSeq [packedLines; packedPoints]
-                  Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
+                    // brush model.hoverPosition; 
+                    annotations
+                    Sg.ofSeq [packedLines; packedPoints]
+                    Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
                 ]
 
             //let depthTest = 
@@ -601,7 +691,7 @@ module DrawingApp =
                     let picked = UI.isSingleSelect model.annotations a
                     let showPoints = 
                         a.geometry 
-                            |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
+                        |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
                       
                     let sg = Sg.finishedAnnotationOld a c config view viewport showPoints picked pickingAllowed
                     sg

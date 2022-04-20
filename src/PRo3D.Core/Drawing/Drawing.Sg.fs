@@ -7,6 +7,7 @@ open Aardvark.Application
 open Aardvark.UI
 
 open FSharp.Data.Adaptive
+open FSharp.Data.Adaptive.Operators
 open Aardvark.Rendering
 open Aardvark.Application
 open Aardvark.SceneGraph
@@ -280,10 +281,26 @@ module Sg =
               (offset    |> AVal.map (fun x -> x * 1.1))
         ]                                                               
 
+    let computeCenterOfMass (points : list<V3d>) =
+        let sum = points.Sum()
+        let length = (double)points.Length
+
+        sum / length
+
     let drawText' (view : aval<CameraView>) (conf: innerViewConfig) (text:aval<string>)(anno : AdaptiveAnnotation) = 
-        let points = anno.points |> AList.toAVal
-        let pos = points |> AVal.map(fun a -> a |> IndexList.toList |> List.head)
-        Sg.text view conf.nearPlane conf.hfov pos anno.modelTrafo anno.textsize.value text
+        let points = 
+            anno.points 
+            |> AList.toAVal
+            
+        let pos = 
+            points 
+            |> AVal.map(fun a -> 
+                a 
+                |> IndexList.toList 
+                |> computeCenterOfMass
+            )
+
+        Sg.text view conf.nearPlane conf.hfov pos (pos |> AVal.map Trafo3d.Translation) anno.textsize.value text
     
     let drawText (view : aval<CameraView>) (conf: innerViewConfig) (anno : AdaptiveAnnotation) = 
         drawText' view conf anno.text anno
@@ -318,9 +335,9 @@ module Sg =
         } 
         |> Sg.set  
         
-
+    [<ObsoleteAttribute("Old way of drawing annotations. Use finishedAnnotation instead")>]
     let finishedAnnotationOld 
-        (anno             : AdaptiveAnnotation) 
+        (anno             : AdaptiveAnnotation)
         (color            : aval<C4b>) 
         (config           : innerViewConfig)
         (view             : aval<CameraView>) 
@@ -343,17 +360,15 @@ module Sg =
      
         let texts = 
             anno.text 
-            |> AVal.map (String.IsNullOrEmpty >> not) 
+            |> AVal.map2 (fun show text -> (String.IsNullOrEmpty text) || show ) anno.showText
             |> optionalSet (drawText view config anno)
     
         let dotsAndText = ASet.union' [dots; texts] |> Sg.set
-            
-        //let selectionColor = AVal.map2(fun x color -> if x then C4b.VRVisGreen else color) picked c
+                    
         let pickingAllowed = // for this particular annotation // whether should fire pick actions
             AVal.map2 (&&) pickingAllowed anno.visible
 
         let pickFunc = pickEventsHelper (anno.key |> AVal.constant) pickingAllowed anno.thickness.value anno.modelTrafo
-
 
         let pickingLines = 
             Sg.pickableLine 
@@ -371,8 +386,19 @@ module Sg =
         let selectionSg = 
             picked 
             |> AVal.map (function
-                | true -> OutlineEffect.createForLineOrPoint view viewportSize PRo3D.Base.OutlineEffect.Both (AVal.constant C4b.VRVisGreen) anno.thickness.value 3.0  RenderPass.main anno.modelTrafo points
-                | false -> Sg.empty ) 
+                | true -> 
+                    OutlineEffect.createForLineOrPoint 
+                        view 
+                        viewportSize 
+                        PRo3D.Base.OutlineEffect.Both 
+                        (AVal.constant C4b.VRVisGreen) 
+                        anno.thickness.value 
+                        3.0  
+                        RenderPass.main 
+                        anno.modelTrafo 
+                        points
+                | false -> Sg.empty 
+            )
             |> Sg.dynamic
     
         Sg.ofList [
@@ -381,6 +407,15 @@ module Sg =
             dotsAndText
         ] |> optional anno.visible
 
+    let finishedAnnotationText
+         (anno             : AdaptiveAnnotation) 
+         (config           : innerViewConfig)
+         (view             : aval<CameraView>) =
+        
+        anno.text 
+        |> AVal.map2 (fun show text -> (String.IsNullOrEmpty text) || show ) anno.showText
+        |> optionalSet (drawText view config anno)
+        |> Sg.set
 
     let finishedAnnotation 
         (anno             : AdaptiveAnnotation) 
@@ -405,7 +440,7 @@ module Sg =
      
         let texts = 
             anno.text 
-            |> AVal.map (String.IsNullOrEmpty >> not) 
+            |> AVal.map2 (fun show text -> (String.IsNullOrEmpty text) || show ) anno.showText
             |> optionalSet (drawText view config anno)
     
         let dotsAndText = texts |> Sg.set //ASet.union' [dots; texts] |> Sg.set
@@ -444,8 +479,109 @@ module Sg =
             selectionSg
             //pickingLines
             //dotsAndText
-            (texts |> Sg.set)
+            //(texts |> Sg.set)
         ] |> optional anno.visible
     
     let finishedAnnotationDiscs (anno : AdaptiveAnnotation) (conf:innerViewConfig) (cl : AdaptiveFalseColorsModel) (cam:aval<CameraView>) =
         optional (AVal.map2 (&&) anno.visible anno.showDns) (drawDns anno conf cl cam) 
+
+    //cones
+    let cone color radius height (pos : aval<V3d>) (dir : aval<V3d>) =
+        Sg.cone' 10 color radius height 
+        |> Sg.noEvents
+        |> Sg.trafo (dir |> AVal.map (fun x ->  Trafo3d.RotateInto(V3d.OOI, x)))
+        |> Sg.trafo (pos |> AVal.map Trafo3d.Translation)
+        |> Sg.uniform "WorldPos" pos
+        |> Sg.uniform "Size" ~~15.0
+        |> Sg.effect [
+            //toEffect <| Shaders.screenSpaceScale
+            toEffect <| DefaultSurfaces.stableTrafo
+            toEffect <| DefaultSurfaces.vertexColor
+            //toEffect <| DefaultSurfaces.stableHeadlight
+        ]
+
+    //spheres
+    let sphere' color radius (pos : aval<V3d>) =
+        Sg.sphere 4 (color) (~~1.0) 
+        |> Sg.noEvents        
+        |> Sg.trafo (pos |> AVal.map Trafo3d.Translation)
+        |> Sg.uniform "WorldPos" pos
+        |> Sg.uniform "Size" radius
+        |> Sg.effect [
+            toEffect <| Shader.ScreenSpaceScale.screenSpaceScale
+            toEffect <| DefaultSurfaces.stableTrafo
+            toEffect <| DefaultSurfaces.vertexColor
+            //toEffect <| DefaultSurfaces.stableHeadlight
+        ]
+
+    //lines
+    let toColoredEdges (offset:V3d) (color : C4b) (points : array<V3d>) =
+        points
+        |> Array.map (fun x -> x-offset)
+        |> Array.pairwise
+        |> Array.map (fun (a,b) -> (new Line3d(a,b), color))
+
+
+    let thickLine' (line : Line<OpcViewer.Base.Shader.ThickLineNew.ThickLineVertex>) =
+        triangle {
+            let t = uniform.LineWidth
+            let sizeF = V3d(float uniform.ViewportSize.X, float uniform.ViewportSize.Y, 1.0)
+    
+            let mutable pp0 = line.P0.pos
+            let mutable pp1 = line.P1.pos        
+                            
+            let add = 2.0 * V2d(t,t) / sizeF.XY
+                            
+            let a0 = OpcViewer.Base.Shader.ThickLineNew.clipLine (V4d( 1.0,  0.0,  0.0, -(1.0 + add.X))) &&pp0 &&pp1
+            let a1 = OpcViewer.Base.Shader.ThickLineNew.clipLine (V4d(-1.0,  0.0,  0.0, -(1.0 + add.X))) &&pp0 &&pp1
+            let a2 = OpcViewer.Base.Shader.ThickLineNew.clipLine (V4d( 0.0,  1.0,  0.0, -(1.0 + add.Y))) &&pp0 &&pp1
+            let a3 = OpcViewer.Base.Shader.ThickLineNew.clipLine (V4d( 0.0, -1.0,  0.0, -(1.0 + add.Y))) &&pp0 &&pp1
+            let a4 = OpcViewer.Base.Shader.ThickLineNew.clipLine (V4d( 0.0,  0.0,  1.0, -1.0)) &&pp0 &&pp1
+            let a5 = OpcViewer.Base.Shader.ThickLineNew.clipLine (V4d( 0.0,  0.0, -1.0, -1.0)) &&pp0 &&pp1
+    
+            if a0 && a1 && a2 && a3 && a4 && a5 then
+                let p0 = pp0.XYZ / pp0.W
+                let p1 = pp1.XYZ / pp1.W
+    
+                let fwp = (p1.XYZ - p0.XYZ) * sizeF
+    
+                let fw = V3d(fwp.XY, 0.0) |> Vec.normalize
+                let r = V3d(-fw.Y, fw.X, 0.0) / sizeF
+                let d = fw / sizeF
+                let p00 = p0 - r * t - d * t
+                let p10 = p0 + r * t - d * t
+                let p11 = p1 + r * t + d * t
+                let p01 = p1 - r * t + d * t
+    
+                let rel = t / (Vec.length fwp)
+    
+                yield { line.P0 with i = 0; pos = V4d(p00, 1.0); lc = V2d(-1.0, -rel); w = rel }
+                yield { line.P0 with i = 0; pos = V4d(p10, 1.0); lc = V2d( 1.0, -rel); w = rel }
+                yield { line.P1 with i = 1; pos = V4d(p01, 1.0); lc = V2d(-1.0, 1.0 + rel); w = rel }
+                yield { line.P1 with i = 1; pos = V4d(p11, 1.0); lc = V2d( 1.0, 1.0 + rel); w = rel }
+        }
+
+    let drawColoredEdges width edges = 
+        edges
+        |> IndexedGeometryPrimitives.lines
+        |> Sg.ofIndexedGeometry
+        |> Sg.uniform "LineWidth" (AVal.constant width)
+        |> Sg.uniform "DepthOffset" (AVal.constant 0.0001)
+        |> Sg.blendMode (AVal.constant BlendMode.None)
+        |> Sg.effect [
+            toEffect Aardvark.UI.Trafos.Shader.stableTrafo
+            toEffect DefaultSurfaces.vertexColor
+            toEffect thickLine'
+            toEffect PRo3D.Base.Shader.DepthOffset.depthOffsetFS
+        ]
+
+    let lines (color : C4b) (width : double) (points : V3d[]) =
+        let offset =
+            match points |> Array.tryHead with
+            | Some h -> h
+            | None -> V3d.Zero
+
+        points 
+        |> toColoredEdges offset color        
+        |> drawColoredEdges width
+        |> Sg.trafo (offset |> Trafo3d.Translation |> AVal.constant)

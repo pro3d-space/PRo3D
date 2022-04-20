@@ -520,8 +520,8 @@ module PackedRendering =
         let pickColors = 
             let signature =
                 runtime.CreateFramebufferSignature [
-                    DefaultSemantic.Colors, { format = RenderbufferFormat.Rgba32f; samples = 1 }
-                    DefaultSemantic.Depth, { format = RenderbufferFormat.Depth24Stencil8; samples = 1 }
+                    DefaultSemantic.Colors, TextureFormat.Rgba32f
+                    DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
                 ]
 
             let pickColors = 
@@ -560,11 +560,12 @@ module PackedRendering =
         let instanceAttribs = 
             AVal.custom (fun t -> 
                 Log.startTimed "creating points"
-                let annos = annoSet.Content.GetValue(t)
-                let selected = selected.Content.GetValue(t)
-                let modelPos = List<V3d>()
-                let colors = List<C4b>()
-                let sizes = List<float32>()
+                let annos       = annoSet.Content.GetValue(t)
+                let selected    = selected.Content.GetValue(t)
+                let modelPos    = List<V3d>()
+                let colors      = List<C4b>()
+                let sizes       = List<float32>()
+
                 for (id,anno) in annos do   
                     let kind = anno.geometry.GetValue t
                     let isVisible = anno.visible.GetValue(t)
@@ -574,20 +575,22 @@ module PackedRendering =
                         let color = if isSelected then C4b.VRVisGreen else c.GetValue(t)
                         match kind with
                         | Geometry.Point ->
-                            let p = PRo3D.Core.Drawing.Sg.getPolylinePoints anno
-                            let c = anno.color.c
+                            let p    = PRo3D.Core.Drawing.Sg.getPolylinePoints anno
+                            let c    = anno.color.c
                             let size = anno.thickness.value |> AVal.map(fun x -> x + 0.5)
-                            let px = p.GetValue(t)
+                            let px   = p.GetValue(t)
+
                             modelPos.Add(px.[0])
                             colors.Add(color)
                             sizes.Add(float32 <| size.GetValue(t))
                         | Geometry.DnS -> 
                             if isSelected then
-                                let p = PRo3D.Core.Drawing.Sg.getPolylinePoints anno
-                                let c = anno.color.c.GetValue(t)
+                                let p    = PRo3D.Core.Drawing.Sg.getPolylinePoints anno
+                                let c    = anno.color.c.GetValue(t)
                                 let size = anno.thickness.value |> AVal.map(fun x -> x + 0.5)
                                 let size = size.GetValue(t)
-                                let px = p.GetValue(t)
+                                let px   = p.GetValue(t)
+
                                 for p in px do 
                                     modelPos.Add(p)
                                     colors.Add(color)
@@ -724,11 +727,14 @@ module PackedRendering =
 
         let discSg = 
             let discModelViews = 
-                (attributes,view) ||> AVal.map2 (fun d view -> 
+                (attributes,view) 
+                ||> AVal.map2 (fun d view -> 
                     let viewMatrix = (CameraView.viewTrafo view)
                     let forward = Array.zeroCreate d.discTrafos.Length
                     let backward = Array.zeroCreate d.discTrafos.Length
-                    d.discTrafos |> Array.iteri (fun i (modelMatrix : Trafo3d) -> 
+
+                    d.discTrafos 
+                    |> Array.iteri (fun i (modelMatrix : Trafo3d) -> 
                         let mv =  modelMatrix * viewMatrix
                         forward.[i] <- M44f mv.Forward
                         backward.[i] <- M44f mv.Backward
@@ -755,11 +761,13 @@ module PackedRendering =
                 (attributes,view) ||> AVal.map2 (fun d view -> 
                     let viewMatrix = (CameraView.viewTrafo view)
                     
-                    let forward = Array.zeroCreate d.coneTrafos.Length
+                    let forward  = Array.zeroCreate d.coneTrafos.Length
                     let backward = Array.zeroCreate d.coneTrafos.Length
-                    d.coneTrafos |> Array.iteri (fun i (modelMatrix : Trafo3d) -> 
+
+                    d.coneTrafos 
+                    |> Array.iteri (fun i (modelMatrix : Trafo3d) -> 
                         let mv =  modelMatrix * viewMatrix
-                        forward.[i] <- M44f mv.Forward
+                        forward.[i]  <- M44f mv.Forward
                         backward.[i] <- M44f mv.Backward
                     ) 
                     forward :> System.Array, backward :> System.Array

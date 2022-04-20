@@ -3,6 +3,7 @@ namespace PRo3D.Core
 open Aardvark.Base
 open Aardvark.Base
 open Aardvark.Application
+open Aardvark.SceneGraph
 open Aardvark.UI
 open Aardvark.Rendering
 open Aardvark.VRVis
@@ -462,7 +463,7 @@ module GeologicSurfacesApp =
           |> Sg.cullMode (AVal.init CullMode.None)
           |> Sg.blendMode (AVal.init BlendMode.Blend)
           |> Sg.fillMode (AVal.init FillMode.Fill)
-          |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Stencil])
+          |> Sg.writeBuffers' (Set.ofList [WriteBuffer.Stencil])
 
       let fillSG areaPass sg =
         sg
@@ -474,7 +475,7 @@ module GeologicSurfacesApp =
           |> Sg.cullMode (AVal.init CullMode.None)
           |> Sg.blendMode (AVal.init BlendMode.Blend)
           //|> Sg.fillMode (AVal.init FillMode.Fill)
-          |> Sg.writeBuffers' (Set.ofList [DefaultSemantic.Colors; DefaultSemantic.Stencil])
+          |> Sg.writeBuffers' (Set.ofList [WriteBuffer.Color DefaultSemantic.Colors; WriteBuffer.Stencil])
 
       let stencilAreaSG pass1 pass2 sg =
         [

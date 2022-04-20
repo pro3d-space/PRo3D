@@ -24,31 +24,12 @@ module AnnotationProperties =
     | SetTextSize     of Numeric.Action
     | ToggleVisible
     | ToggleShowDns
+    | ToggleShowText
     | PrintPosition   
     | SetManualDippingAngle of Numeric.Action
-       
-    let horizontalDistance (points:list<V3d>) (up:V3d) = 
-        match points.Length with
-        | 1 -> 0.0
-        | _ -> 
-            let a = points |> List.head
-            let b = points |> List.last
-            let v = (a - b)
-            let vertical = (v |> Vec.dot up.Normalized)
-
-            (v.LengthSquared - (vertical |> Fun.Square)) |> Fun.Sqrt
-
-    let verticalDistance (points:list<V3d>) (up:V3d) = 
-        match points.Length with
-        | 1 -> 0.0
-        | _ -> 
-            let a = points |> List.head
-            let b = points |> List.last
-            let v = (b - a)
-
-            (v |> Vec.dot up.Normalized)
-            
-    let update (model : Annotation) (planet : Planet) (act : Action) =
+    | SetManualDippingAzimuth of Numeric.Action
+        
+    let update (referenceSystem : ReferenceSystem) (model : Annotation) (act : Action) =
         match act with
         | SetGeometry mode ->
             { model with geometry = mode }
@@ -65,26 +46,33 @@ module AnnotationProperties =
         | ToggleVisible ->
             { model with visible = (not model.visible) }
         | ToggleShowDns ->
-            { model with showDns = (not model.showDns) }
+            { model with showDns = (not model.showDns) } 
+        | ToggleShowText ->
+            { model with showText = (not model.showText) }
         | ChangeColor a ->
             { model with color = ColorPicker.update model.color a }
         | PrintPosition ->            
             match model.geometry with
             | Geometry.Point -> 
                 match model.points |> IndexList.tryFirst with 
-                | Some p -> 
+                | Some firstPoint -> 
                     Log.line "--- Printing Point Coordinates ---"
-                    Log.line "XYZ: %A" p
-                    Log.line "LatLonAlt: %A" (CooTransformation.getLatLonAlt planet p|> CooTransformation.SphericalCoo.toV3d)
+                    Log.line "XYZ: %A" firstPoint
+                    Log.line "LatLonAlt: %A" (CooTransformation.getLatLonAlt referenceSystem.planet firstPoint |> CooTransformation.SphericalCoo.toV3d)
                     Log.line "--- Done ---"
                 | None -> failwith "[DrawingProperties] point geometry without point is invalid"
             | _ -> ()
             
             model
         | SetManualDippingAngle a ->                
-            let annotation = { model with manualDipAngle = Numeric.update model.manualDipAngle a }            
+            let model = { model with manualDipAngle = Numeric.update model.manualDipAngle a }
+            let dnsResults = DipAndStrike.calculateManualDipAndStrikeResults referenceSystem.up.value referenceSystem.northO model
+            { model with dnsResults = dnsResults }
+        | SetManualDippingAzimuth a ->
+            let model ={ model with manualDipAzimuth = Numeric.update model.manualDipAzimuth a }
+            let dnsResults = DipAndStrike.calculateManualDipAndStrikeResults referenceSystem.up.value referenceSystem.northO model            
+            { model with dnsResults = dnsResults }
 
-            annotation
 
     let view (paletteFile : string) (model : AdaptiveAnnotation) = 
 
@@ -97,9 +85,11 @@ module AnnotationProperties =
                 Html.row "Color:"       [ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" model.color |> UI.map ChangeColor ]
                 Html.row "Text:"        [Html.SemUi.textBox model.text SetText ]
                 Html.row "TextSize:"    [Numeric.view' [InputBox] model.textsize |> UI.map SetTextSize ]
+                Html.row "Show Text:"   [GuiEx.iconCheckBox model.showText ToggleShowText ]
                 Html.row "Visible:"     [GuiEx.iconCheckBox model.visible ToggleVisible ]
                 Html.row "Show DnS:"    [GuiEx.iconCheckBox model.showDns ToggleShowDns ]
                 Html.row "Dip Angle:"   [Numeric.view' [InputBox] model.manualDipAngle |> UI.map SetManualDippingAngle]
+                Html.row "Dip Azimuth:" [Numeric.view' [InputBox] model.manualDipAzimuth |> UI.map SetManualDippingAzimuth]
             ]
 
         )
@@ -113,29 +103,20 @@ module AnnotationProperties =
 
     let viewResults (model : AdaptiveAnnotation) (up:aval<V3d>) =   
         
-        let results       = AVal.map AdaptiveOption.toOption model.results
-        let height        = AVal.bindOption results Double.NaN (fun a -> a.height)
-        let heightD       = AVal.bindOption results Double.NaN (fun a -> a.heightDelta)
-        let alt           = AVal.bindOption results Double.NaN (fun a -> a.avgAltitude)
-        let length        = AVal.bindOption results Double.NaN (fun a -> a.length)
-        let wLength       = AVal.bindOption results Double.NaN (fun a -> a.wayLength)
-        let bearing       = AVal.bindOption results Double.NaN (fun a -> a.bearing)
-        let slope         = AVal.bindOption results Double.NaN (fun a -> a.slope)
-        let trueThickness = AVal.bindOption results Double.NaN (fun a -> a.trueThickness)
-
-        let pos = 
-            AVal.map( 
-                fun x -> 
-                    match x with 
-                    | Geometry.Point -> 
-                        let points = model.points |> AList.force |> IndexList.toArray
-                        points.[0].ToString()
-                    | _ -> "" 
-            ) model.geometry
-        
+        let results           = AVal.map AdaptiveOption.toOption model.results
+        let height            = AVal.bindOption results Double.NaN (fun a -> a.height)
+        let heightD           = AVal.bindOption results Double.NaN (fun a -> a.heightDelta)
+        let alt               = AVal.bindOption results Double.NaN (fun a -> a.avgAltitude)
+        let length            = AVal.bindOption results Double.NaN (fun a -> a.length)
+        let wLength           = AVal.bindOption results Double.NaN (fun a -> a.wayLength)
+        let bearing           = AVal.bindOption results Double.NaN (fun a -> a.bearing)
+        let slope             = AVal.bindOption results Double.NaN (fun a -> a.slope)
+        let trueThickness     = AVal.bindOption results Double.NaN (fun a -> a.trueThickness)
+        let verticalThickness = AVal.bindOption results Double.NaN (fun a -> a.verticalThickness)
+ 
         // TODO refactor: why so complicated to list stuff?, not incremental
-        let vertDist = AVal.map( fun u -> verticalDistance   (model.points |> AList.force |> IndexList.toList) u ) up 
-        let horDist  = AVal.map( fun u -> horizontalDistance (model.points |> AList.force |> IndexList.toList) u ) up
+        let vertDist = AVal.map( fun u -> Calculations.verticalDelta   (model.points |> AList.force |> IndexList.toList) u ) up 
+        let horDist  = AVal.map( fun u -> Calculations.horizontalDelta (model.points |> AList.force |> IndexList.toList) u ) up
 
         //apparent thickness
         //vertical thickness
@@ -160,6 +141,7 @@ module AnnotationProperties =
                 yield Html.row "Vertical Distance:"     [Incremental.text (vertDist  |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield Html.row "Horizontal Distance:"   [Incremental.text (horDist   |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield Html.row "True Thickness:"        [Incremental.text (trueThickness |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
+                yield Html.row "Vertical Thickness:"    [Incremental.text (verticalThickness |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
             ]
         )
        

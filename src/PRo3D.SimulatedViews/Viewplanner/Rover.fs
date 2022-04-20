@@ -95,7 +95,15 @@ module RoverProvider =
             axis
 
     let toAxes (axes : InstrumentPlatforms.SAxis[]) : list<Axis> =
-        axes |> Array.mapi(fun i x->
+        axes 
+        |> Array.mapi(fun i x ->
+
+
+            let minAngles = x.m_fMinAngle.DegreesFromGons()
+            let maxAngles = x.m_fMaxAngle.DegreesFromGons()
+            let angle = x.m_fCurrentAngle.DegreesFromGons()
+            let fullRound = Fun.ApproximateEquals(minAngles, 0.0) && Fun.ApproximateEquals(maxAngles, 360.0)
+
             { 
                 index        = i
                 id           = x.m_pcAxisId.ToStrAnsi()
@@ -103,15 +111,20 @@ module RoverProvider =
                 startPoint   = x.m_oStartPoint.ToV3d()
                 endPoint     = x.m_oEndPoint.ToV3d()
 
-                angle = {
-                            value  = x.m_fCurrentAngle.DegreesFromGons()
-                            min    = x.m_fMinAngle.DegreesFromGons()
-                            max    = x.m_fMaxAngle.DegreesFromGons()
-                            step   = 0.1
-                            format = "{0:0.0}"
-                        }
+                degreesMapped = fullRound
+                degreesNegated = fullRound
 
-            }) |> Array.map axisHack |> Array.toList
+                angle = {
+                    value  = angle
+                    min    = minAngles
+                    max    = maxAngles
+                    step   = 1.0
+                    format = "{0:0.0}"
+                }
+            } |> Axis.to180
+        ) 
+        //|> Array.map axisHack
+        |> Array.toList
 
     let toRover (platform : InstrumentPlatforms.SPlatform) =
         let wheels = 
@@ -174,7 +187,8 @@ module RoverProvider =
         let rover = platform |> toRover        
         
         rover, platform
-        
+       
+//TODO Refactor better distinction between RoverApp and ViewPlanApp responsibilities
 module RoverApp = 
     open FSharp.Data.Adaptive
 
@@ -190,11 +204,11 @@ module RoverApp =
         match error with
           | 0 ->
             let r'         = p |> RoverProvider.toRover
-            let r''        = { r' with axes = r'.axes |> HashMap.map(fun x y -> RoverProvider.shiftOutput y shift) }
-            let rovers'    = m.rovers |> HashMap.alter r''.id (Option.map(fun _ -> r''))
-            let platforms' = m.platforms |> HashMap.alter r''.id (Option.map(fun _ -> p))
+            let r''        = { r' with axes = r'.axes } //|> HashMap.map(fun x y -> RoverProvider.shiftOutput y shift) }
+            let rovers    = m.rovers |> HashMap.alter r''.id (Option.map(fun _ -> r''))
+            let platforms = m.platforms |> HashMap.alter r''.id (Option.map(fun _ -> p))
 
-            { m with rovers = rovers'; platforms = platforms' }
+            { m with rovers = rovers; platforms = platforms }
           | _ -> 
             Log.error "encountered %d from update platform" error
             m
@@ -217,20 +231,20 @@ module RoverApp =
         let a = r.axes |> HashMap.find up.axisId
         let mutable pAxes = InstrumentPlatforms.UnMarshalArray<InstrumentPlatforms.SAxis>(p.m_poPlatformAxes)
 
-        //let up = { up with angle = -up.angle}
-
         // push new angles to platform (deg to gon!!!)               
-        let angle, shift = if (up.axisId = "Pan Axis"  && (up.angle < 0.0)) then 
-                                (up.angle + 360.0), true 
-                            else
-                                up.angle, false
+        let angle, shift = 
+            let angle = if up.invertedAngle then -up.angle else up.angle
+            // https://github.com/pro3d-space/PRo3D/issues/135
+            if up.shiftedAngle  && angle < 0.0 then 
+                angle + 360.0, true 
+            else
+                angle, false
 
-        pAxes.[a.index].m_fCurrentAngle <- angle.GonsFromDegrees() //up.angle.GonsFromDegrees()
+        pAxes.[a.index].m_fCurrentAngle <- angle.GonsFromDegrees()
         InstrumentPlatforms.MarshalArray(pAxes, p.m_poPlatformAxes)        
         
         updateRoversAndPlatforms p m shift
             
-
     let updateRovers (r : Rover) (m : RoverModel) = 
         let rovers' = 
             m.rovers 
@@ -242,6 +256,7 @@ module RoverApp =
         { m with selectedRover = Some r; rovers = rovers' }
 
     let update (m : RoverModel) (a:Action) =
+        Log.line "RoverApp %A" (a.GetType())
         match a with
           | SelectRover r      -> { m with selectedRover = r }
           

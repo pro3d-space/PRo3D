@@ -23,7 +23,6 @@ open PRo3D
 open PRo3D.Base
 open PRo3D.Core
 open PRo3D.Core.Surface
-open PRo3D.SimulatedViews
 open RemoteControlModel
 open PRo3D.Viewer
 
@@ -67,7 +66,7 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "4.2.0-prerelease1"
+let viewerVersion       = "4.6.1-prerelease2"
 let catchDomainErrors   = false
 
 open System.IO
@@ -93,6 +92,9 @@ let main argv =
     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create) |> printfn "ApplicationData: %s"
     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.Create) |> printfn "LocalApplicationData: %s"
 
+    //let geojson = System.IO.File.ReadAllText @"D:\CloudStation\_WORK\_2021\20211014_AZTravels\M20_waypoints.json"
+    //let featurecollection_des : PRo3D.Base.Annotation.GeoJSON.GeoJsonFeatureCollection = geojson |> Json.parse |> Json.deserialize
+    //Log.line "%A" featurecollection_des
 
     let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
     Config.configPath <- appData
@@ -116,9 +118,6 @@ let main argv =
             System.Environment.GetCommandLineArgs().[0]
     
     printf "ExecuteablePath: %s" executeablePath
-
-    //let asdfasdf= typeof<Aardvark.SceneGraph.IO.Loader.Animation>.IsAutoLayout;
-    //Aardvark.Base.IntrospectionProperties.BundleEntryPoint <- executeablePath
 
     // does not work for self-containted publishes'
     //let selfPath = System.Environment.GetCommandLineArgs().[0]
@@ -193,7 +192,7 @@ let main argv =
         cooTrafoInitialized <- true
 
         //use app = new VulkanApplication()
-        Glfw.Config.hideCocoaMenuBar <- true
+        //Glfw.Config.hideCocoaMenuBar <- true
         use app = new OpenGlApplication()
         let runtime = app.Runtime    
 
@@ -214,8 +213,6 @@ let main argv =
         Log.line "render control config: %A" (Config.data_samples, Config.backgroundColor, Config.useMapping)
     
 
-
-
         Aardvark.Rendering.GL.RuntimeConfig.SupressSparseBuffers <- true
         //app.ShaderCachePath <- None
 
@@ -231,8 +228,8 @@ let main argv =
     
         let signature =
             runtime.CreateFramebufferSignature [
-                DefaultSemantic.Colors, { format = RenderbufferFormat.Rgba8; samples = 1 }
-                DefaultSemantic.Depth,  { format = RenderbufferFormat.Depth24Stencil8; samples = 1 }
+                DefaultSemantic.Colors, TextureFormat.Rgba8
+                DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
             ]
 
         use sendQueue = new BlockingCollection<string>()    
@@ -302,16 +299,25 @@ let main argv =
         //    |> Json.deserialize
 
         //Log.line "[Viewer] scene: %A" loadedScnx
-
+        
         let port = getFreePort()
-        let uri = sprintf "http://localhost:%d" port
+        let renderingUrl = sprintf "http://localhost:%d" port
 
         let mainApp = 
-            ViewerApp.start runtime signature startEmpty messagingMailbox sendQueue dumpFile cacheFile uri
+            ViewerApp.start 
+                runtime 
+                signature 
+                startEmpty 
+                messagingMailbox 
+                sendQueue 
+                dumpFile 
+                cacheFile 
+                renderingUrl 
+                ViewerApp.dataSamples
+                appData
 
-        let s = { MailboxState.empty with update = mainApp.update Guid.Empty}
-        MailboxAction.InitMailboxState s |> messagingMailbox.Post
-    
+        let s = { MailboxState.empty with update = mainApp.update Guid.Empty }
+        MailboxAction.InitMailboxState s |> messagingMailbox.Post            
     
         //let domainError (sender:obj) (args:UnhandledExceptionEventArgs) =
         //    let e = args.ExceptionObject :?> Exception;
@@ -384,7 +390,7 @@ let main argv =
 
         disposables.Add(suaveServer)
 
-        Log.line "serving at: %s" uri
+        Log.line "serving at: %s" renderingUrl
 
         
         //WebPart.startServer 4322 [
@@ -412,7 +418,7 @@ let main argv =
                       mainApp.update Guid.Empty (ViewerAction.SetCameraAndFrustum2 (v.view,frustum) |> Seq.singleton)
 
             let remoteApp = 
-                App.start (PRo3D.RemoteControlApp.app uri send)
+                App.start (PRo3D.RemoteControlApp.app renderingUrl send)
 
             let takeScreenshot (shot:Shot) =   
                 let act = CaptureShot shot |> Seq.singleton
@@ -439,7 +445,7 @@ let main argv =
         let titlestr = "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH"
 
         // do not change this line. full url with url needs to be printed for mac deployment!
-        Log.line "full url: %s" uri
+        Log.line "full url: %s" renderingUrl
 
         System.Threading.Thread.Sleep(100)
 
@@ -448,7 +454,7 @@ let main argv =
             Console.Read() |> ignore
         else
             Aardium.run {
-                url uri   //"http://localhost:4321/?page=main"
+                url renderingUrl   //"http://localhost:4321/?page=main"
                 width 1280
                 height 800
                 debug true

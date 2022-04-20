@@ -87,6 +87,16 @@ module GeoJSON =
                 let! x = Json.read name
                 return x |> List.map(fun x -> x |> List.map(fun x -> x |> List.map(fun x -> x |> Ext.CoordinateFromArray)))
             }
+
+        static member tryReadM20Props name = 
+            json {
+                let! x = Json.tryRead name
+                let object = 
+                    match x with
+                    | Some (x:Map<string, Json>) -> x
+                    | None -> Map.empty
+                return object
+            }
             
     
         static member ToGeoJson (x:Coordinate) =
@@ -171,39 +181,49 @@ module GeoJSON =
                 | _ ->
                     return Point(V3d.NaN |> ThreeDim)
             }
+
+    
         
+
+
     type GeoJsonFeature = {
-        geometry:GeoJsonGeometry
-        bbox: Option<List<float>>
+        geometry   : GeoJsonGeometry
+        bbox       : Option<List<float>> 
+        properties : Map<string, Json> 
     }
     with    
         static member ToJson (gf: GeoJsonFeature) =
             json{
                 do! Json.write "geometry" gf.geometry
                 match gf.bbox with 
-                | Some(b) -> do! Json.write "bbox" b
+                | Some b -> do! Json.write "bbox" b
                 | None -> ()
+
+                do! Json.write "properties" (Chiron.Object gf.properties)
+
                 do! Json.write "type" "Feature"
             }
         
         static member FromJson (_: GeoJsonFeature) =
             json{
                 let! g = Json.read "geometry"
-                let! (b:Option<List<float>>) = Json.tryRead "bbox"
-                return {geometry = g;bbox =b}
+                let! (b:Option<list<float>>) = Json.tryRead "bbox"
+                let! properties = Json.tryRead "properties"
+
+                return { geometry = g;bbox = b; properties = Option.defaultValue Map.empty properties }
             }
                     
     type GeoJsonFeatureCollection = {
-        features : List<GeoJsonFeature>
-        bbox     : Option<List<float>>
-        // properties: Option<properties>
+        features   : List<GeoJsonFeature>
+        bbox       : Option<List<float>>
+        //properties : Option<List<string * string>>
     }
     with            
         static member ToJson (x: GeoJsonFeatureCollection) =
             json{
                 do! Json.write "features" x.features
                 match x.bbox with 
-                | Some(b) -> do! Json.write "bbox" b
+                | Some b -> do! Json.write "bbox" b
                 | None -> ()
                 do! Json.write "type" "FeatureCollection"
             }

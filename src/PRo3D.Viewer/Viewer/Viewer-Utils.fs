@@ -219,20 +219,21 @@ module ViewerUtils =
                     selectedScalar  = scalar'//scalar  |> Option.map(fun x -> x.index |> AVal.force)
                 }
 
-            attr
+            attr    
         
     let viewSingleSurfaceSg 
         (surface         : AdaptiveSgSurface) 
-        (surfacesMap     : amap<Guid, AdaptiveLeafCase>) // TODO v5: to get your naming right!!
+        (surfacesMap     : amap<Guid, AdaptiveLeafCase>)
         (frustum         : aval<Frustum>) 
         (selectedId      : aval<Option<Guid>>)
         (surfacePicking  : aval<bool>)
         (globalBB        : aval<Box3d>) 
         (refsys          : AdaptiveReferenceSystem)
         (fp              : AdaptiveFootPrint) 
-        (vp              : aval<Option<AdaptiveViewPlan>>) 
+        (vp              : aval<AdaptiveOptionCase<ViewPlan, AdaptiveViewPlan, AdaptiveViewPlan>>) 
         (useHighlighting : aval<bool>)
-        (filterTexture   : aval<bool>) =
+        (filterTexture   : aval<bool>)
+        (allowFootprint  : bool) =
 
         adaptive {
             let! exists = (surfacesMap |> AMap.keys) |> ASet.contains surface.surface
@@ -255,6 +256,8 @@ module ViewerUtils =
                 let triangleFilter = 
                     surf |> AVal.bind(fun s -> s.triangleSize.value)
                 
+                
+
                 let trafo =
                     adaptive {
                         let! fullTrafo = SurfaceTransformations.fullTrafo surf refsys
@@ -262,8 +265,11 @@ module ViewerUtils =
                         let! scaleFactor = surface.scaling.value
                         let! preTransform = surface.preTransform
                         let! flipZ = surface.transformation.flipZ
+                        let! sketchFab = surface.transformation.isSketchFab
                         if flipZ then 
                             return Trafo3d.Scale(scaleFactor) * Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * preTransform)
+                        else if sketchFab then                            
+                            return Sg.switchYZTrafo
                         else
                             return Trafo3d.Scale(scaleFactor) * (fullTrafo * preTransform)
                     }
@@ -290,7 +296,8 @@ module ViewerUtils =
 
                 
                 let samplerDescription : aval<SamplerState -> SamplerState> = 
-                    filterTexture |> AVal.map (fun filterTexture ->  
+                    filterTexture 
+                    |> AVal.map (fun filterTexture ->  
                         fun (x : SamplerState) -> 
                             match filterTexture with
                             | false -> { x with Filter = TextureFilter.MinLinearMagPoint }
@@ -299,19 +306,26 @@ module ViewerUtils =
                         
                 let footprintVisible = //AVal.map2 (fun (vp:Option<AdaptiveViewPlan>) vis -> (vp.IsSome && vis)) vp, fp.isVisible
                     adaptive {
-                        let! vp = vp
-                        let! visible = fp.isVisible
-                        let! id = fp.vpId
-                        return (vp.IsSome && visible)
+                        if not allowFootprint then return false
+                        else
+                            let! vp = vp
+                            match vp with
+                            | AdaptiveSome vp -> 
+                                return! vp.isVisible 
+                            | _ -> 
+                                return false
+                            //let! visible = fp.isVisible
+                            //let! id = fp.vpId
+                            //return (vp.IsSome && visible)
                     }
                 
-                let footprintMatrix = 
+                let footprintViewProj = 
                     adaptive {
                         let! fppm = fp.projectionMatrix
                         let! fpvm = fp.instViewMatrix
-                        let! s = surf
-                        let! ts = s.preTransform
-                        let! t = trafo
+                        //let! s = surf
+                        //let! ts = s.preTransform
+                        //let! t = trafo
                         //return (t.Forward * fpvm * fppm) //* t.Forward 
                         return (fppm * fpvm) // * ts.Forward
                     } 
@@ -334,11 +348,10 @@ module ViewerUtils =
                     |> addAttributeFalsecolorMappingParameters surf
                     |> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
                     |> addImageCorrectionParameters surf
-                    |> Sg.uniform "footprintVisible" footprintVisible
-                    |> Sg.uniform "instrumentMVP" footprintMatrix
-                    |> Sg.uniform "projMVP" fp.projectionMatrix
-                    |> Sg.uniform "globalToLocal" fp.globalToLocalPos
-                    |> Sg.uniform "instViewMVP" fp.instViewMatrix
+                    |> Sg.uniform "FootprintVisible" footprintVisible
+                    |> Sg.uniform "FootprintModelViewProj" (M44d.Identity |> AVal.constant)
+                    |> Sg.applyFootprint footprintViewProj
+                    |> Sg.noEvents
                     |> Sg.texture (Sym.ofString "FootPrintTexture") fp.projTex
                     |> Sg.LodParameters( getLodParameters surf refsys frustum )
                     |> Sg.AttributeParameters( attributeParameters surf )
@@ -375,6 +388,13 @@ module ViewerUtils =
         let far = m.scene.config.farPlane.value
         (Navigation.UI.frustum near far)
 
+    type Vertex = {
+        [<Position>]        pos     : V4d
+        [<Color>]           c       : V4d
+        [<TexCoord>]        tc      : V2d
+        [<Semantic("ViewSpacePos")>] vp : V4d
+        [<Semantic("FootPrintProj")>] tc0     : V4d
+    }
 
     let fixAlpha (v : Vertex) =
         fragment {         
@@ -383,9 +403,9 @@ module ViewerUtils =
 
     let triangleFilterX (input : Triangle<Vertex>) =
         triangle {
-            let p0 = input.P0.pos.XYZ
-            let p1 = input.P1.pos.XYZ
-            let p2 = input.P2.pos.XYZ
+            let p0 = input.P0.vp.XYZ
+            let p1 = input.P1.vp.XYZ
+            let p2 = input.P2.vp.XYZ
 
             let maxSize = uniform?TriangleSize
 
@@ -403,10 +423,28 @@ module ViewerUtils =
                 yield input.P1
                 yield input.P2
         }
+         
+
+    let stableTrafo (v : Vertex) =
+          vertex {
+              let p = uniform.ModelViewProjTrafo * v.pos
+
+
+              return 
+                  { v with
+                      pos = p
+                      c = v.c
+                      vp = uniform.ModelViewTrafo * v.pos
+                  }
+          }
+
 
     let surfaceEffect =
         Effect.compose [
-            Shader.stableTrafo             |> toEffect
+            PRo3D.Base.Shader.footprintV   |> toEffect 
+
+            stableTrafo             |> toEffect
+
             triangleFilterX                |> toEffect
             Shader.OPCFilter.improvedDiffuseTexture |> toEffect
             fixAlpha |> toEffect
@@ -419,8 +457,10 @@ module ViewerUtils =
             OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
          //   PRo3D.Base.Shader.falseColorLegend2 |> toEffect
             PRo3D.Base.Shader.mapColorAdaption  |> toEffect            
-            //PRo3D.Base.OtherShader.Shader.footprintV        |> toEffect //TODO reactivate viewplanner
-            //PRo3D.Base.OtherShader.Shader.footPrintF        |> toEffect
+            
+            
+            PRo3D.Base.Shader.footPrintF        |> toEffect
+            
         ]
 
     //TODO TO refactor screenshot specific
@@ -445,7 +485,9 @@ module ViewerUtils =
                             sf.globalBB 
                             refSystem 
                             m.footPrint 
-                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting m.filterTexture)
+                            m.scene.viewPlans.selectedViewPlan
+                            usehighlighting m.filterTexture
+                            true)
                     |> AMap.toASet 
                     |> ASet.map snd                     
                 )                
@@ -481,7 +523,7 @@ module ViewerUtils =
             |> Sg.set
             |> (camera |> Sg.camera)
 
-    let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) : alist<RenderCommand<ViewerAction>> =
+    let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (allowFootprint : bool) (m:AdaptiveModel) : alist<RenderCommand<ViewerAction>> =
         let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true
 
@@ -507,8 +549,11 @@ module ViewerUtils =
                             selected 
                             surfacePicking
                             surface.globalBB
-                            refSystem m.footPrint 
-                            (AVal.map AdaptiveOption.toOption m.scene.viewPlans.selectedViewPlan) usehighlighting filterTexture
+                            refSystem 
+                            m.footPrint 
+                            m.scene.viewPlans.selectedViewPlan
+                            usehighlighting filterTexture
+                            allowFootprint
                        )
                     |> AMap.toASet 
                     |> ASet.map snd                     
@@ -532,7 +577,8 @@ module ViewerUtils =
                 //if i = c then //now gets rendered multiple times
                  // assign priorities globally, or for each anno and make sets
                 let depthTested =
-                    last |> AVal.map (function 
+                    last 
+                    |> AVal.map (function 
                         | Some e when System.Object.ReferenceEquals(e,set) -> depthTested 
                         | _ -> Sg.empty
                     )
@@ -543,6 +589,45 @@ module ViewerUtils =
             yield RenderCommand.SceneGraph overlayed
 
         }
+
+module Jezero =
+    open PRo3D.Base
+
+    open Aether
+    open Aether.Operators
+    
+    let galeBounds = Box2i(V2i(3,9), V2i(19,16))
+    let isJezero x = x.importPath |> String.contains "Jezero"
+    
+
+    let _translation = Surface.transformation_ >-> Transformations.translation_ >-> V3dInput.value_
+    let _quality = Surface.quality_ >-> NumericInput.value_
+
+    let hack surfaces =
+
+        let surfaces =
+            surfaces                         
+            |> IndexList.filter(fun x -> 
+                if isJezero x then
+                    let parsedPath = 
+                        x.importPath 
+                        |> Path.GetFileName 
+                        |> String.split('_')
+                    
+                    //let gridCoord = new V2i((parsedPath.[1] |> Int32.Parse), (parsedPath.[2] |> Int32.Parse))
+                    //galeBounds.Contains(gridCoord)   
+                    true
+                else
+                    true
+            )
+            |> IndexList.map(fun x ->
+                if isJezero x then
+                    x                     
+                    |> Optic.set _quality (1.0)
+                else    
+                    x
+            )
+        surfaces
 
 module GaleCrater =
     open PRo3D.Base
@@ -583,8 +668,6 @@ module GaleCrater =
                     x
             )
         surfaces
-
-
 
 module Keyboard =
     open Aardvark.Application

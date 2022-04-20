@@ -6,7 +6,7 @@ open Aardvark.UI.Primitives
 open PRo3D
 open PRo3D.Core
 open Aardvark.Base
-
+open PRo3D.Base
 
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]

@@ -262,7 +262,7 @@ module DrawingUtilities =
                 |> Seq.toList
                 |> List.filter(fun x -> (FSharp.Data.Adaptive.HashSet.contains x.id flatGroupIds) |> not)
                         
-            Log.error "[ViewerIO] found %d floating leaves" (floatingLeaves.Length)
+            Log.line "[ViewerIO] found %d floating leaves" (floatingLeaves.Length)
             
             let annoModel = 
                 annos

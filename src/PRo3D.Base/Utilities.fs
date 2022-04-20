@@ -24,17 +24,7 @@ type Self = Self
 module Box3d =
     let extendBy (box:Aardvark.Base.Box3d) (b:Aardvark.Base.Box3d) =
         box.ExtendBy(b)
-        box
-
-    let ofSeq (bs:seq<Aardvark.Base.Box3d>) =
-        let box = 
-            match bs |> Seq.tryHead with
-            | Some b -> b
-            | None -> failwith "box sequence must not be empty"
-                    
-        for b in bs do
-            box.ExtendBy(b)
-        box
+        box    
 
 module Double =
     let degreesFromRadians (d:float) =
@@ -60,127 +50,141 @@ module Lenses =
     let update (lens : Lens<'s,'a>) (f : 'a->'a) (state : 's) : 's = lens.Update(state, f)
 
 module Utilities =
-  type ClientStatistics =
-    {
-        session         : System.Guid
-        name            : string
-        frameCount      : int
-        invalidateTime  : float
-        renderTime      : float
-        compressTime    : float
-        frameTime       : float
-    }
+    type ClientStatistics =
+      {
+          session         : System.Guid
+          name            : string
+          frameCount      : int
+          invalidateTime  : float
+          renderTime      : float
+          compressTime    : float
+          frameTime       : float
+      }
 
-  module PRo3DNumeric = 
-      open FSharp.Data.Adaptive
-      open Aardvark.UI
+    module PRo3DNumeric = 
+        open FSharp.Data.Adaptive
+        open Aardvark.UI
+    
+        let inline (=>) a b = Attributes.attribute a b
+    
+        type Action = 
+            | SetValue of float
+            | SetMin of float
+            | SetMax of float
+            | SetStep of float
+            | SetFormat of string
+    
+        let update (model : NumericInput) (action : Action) =
+            match action with
+            | SetValue v -> { model with value = v }
+            | SetMin v ->   { model with min = v }
+            | SetMax v ->   { model with max = v }
+            | SetStep v ->  { model with step = v }
+            | SetFormat s -> { model with format = s }
+    
+        let formatNumber (format : string) (value : float) =
+            String.Format(Globalization.CultureInfo.InvariantCulture, format, value)
+    
+        let numericField''<'msg> (continuousUpdate : bool) (f : Action -> seq<'msg>) ( atts : AttributeMap<'msg> ) ( model : AdaptiveNumericInput ) inputType =         
   
-      let inline (=>) a b = Attributes.attribute a b
+            let tryParseAndClamp min max fallback (s: string) =
+                let parsed = 0.0
+                match Double.TryParse(s, Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
+                    | (true,v) -> clamp min max v
+                    | _ ->  printfn "validation failed: %s" s
+                            fallback
   
-      type Action = 
-          | SetValue of float
-          | SetMin of float
-          | SetMax of float
-          | SetStep of float
-          | SetFormat of string
+            let onWheel' (f : Aardvark.Base.V2d -> seq<'msg>) =
+                let serverClick (args : list<string>) : Aardvark.Base.V2d = 
+                    let delta = List.head args |> Pickler.unpickleOfJson
+                    delta  / Aardvark.Base.V2d(-100.0,-100.0) // up is down in mouse wheel events
   
-      let update (model : NumericInput) (action : Action) =
-          match action with
-          | SetValue v -> { model with value = v }
-          | SetMin v ->   { model with min = v }
-          | SetMax v ->   { model with max = v }
-          | SetStep v ->  { model with step = v }
-          | SetFormat s -> { model with format = s }
+                onEvent' "onwheel" ["{ X: event.deltaX.toFixed(10), Y: event.deltaY.toFixed(10)  }"] (serverClick >> f)
   
-      let formatNumber (format : string) (value : float) =
-          String.Format(Globalization.CultureInfo.InvariantCulture, format, value)
+            let attributes = 
+                amap {                
+                    yield style "text-align:right; color : black"                
   
-      let numericField<'msg> ( f : Action -> seq<'msg> ) ( atts : AttributeMap<'msg> ) ( model : AdaptiveNumericInput ) inputType =         
+                    let! min = model.min
+                    let! max = model.max
+                    match inputType with
+                        | Slider ->   
+                            yield "type" => "range"
+                            if continuousUpdate then
+                              yield onInput' (fun s -> s |> tryParseAndClamp min max (model.value |> AVal.force) |> SetValue |> f) 
+                            yield onChange' (fun s -> s |> tryParseAndClamp min max (model.value |> AVal.force) |> SetValue |> f)   // continous updates for slider
+                        | InputBox -> 
+                            yield "type" => "number"
+                            yield onChange' (fun s -> s |> tryParseAndClamp min max (model.value |> AVal.force) |> SetValue |> f)  // batch updates for input box (to let user type)
   
-          let tryParseAndClamp min max fallback (s: string) =
-              let parsed = 0.0
-              match Double.TryParse(s, Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
-                  | (true,v) -> clamp min max v
-                  | _ ->  printfn "validation failed: %s" s
-                          fallback
+                    let! step = model.step
+                    yield "step" => sprintf "%f" step
+                    yield "min"  => sprintf "%f" min
+                    yield "max"  => sprintf "%f" max
   
-          let onWheel' (f : Aardvark.Base.V2d -> seq<'msg>) =
-              let serverClick (args : list<string>) : Aardvark.Base.V2d = 
-                  let delta = List.head args |> Pickler.unpickleOfJson
-                  delta  / Aardvark.Base.V2d(-100.0,-100.0) // up is down in mouse wheel events
+                    let! value = model.value
+                    yield onWheel' (fun d -> value + d.Y * step |> clamp min max |> SetValue |> f)
   
-              onEvent' "onwheel" ["{ X: event.deltaX.toFixed(10), Y: event.deltaY.toFixed(10)  }"] (serverClick >> f)
+                    let! format = model.format
+                    yield "value" => formatNumber format value
+                } 
   
-          let attributes = 
-              amap {                
-                  yield style "text-align:right; color : black"                
-  
-                  let! min = model.min
-                  let! max = model.max
-                  let! value = model.value
-                  match inputType with
-                      | Slider ->   
-                          yield "type" => "range"
-                          yield onChange' (tryParseAndClamp min max value >> SetValue >> f)   // continous updates for slider
-                      | InputBox -> 
-                          yield "type" => "number"
-                          yield onChange' (tryParseAndClamp min max value >> SetValue >> f)  // batch updates for input box (to let user type)
-  
-                  let! step = model.step
-                  yield onWheel' (fun d -> value + d.Y * step |> clamp min max |> SetValue |> f)
-  
-                  yield "step" => sprintf "%f" step
-                  yield "min"  => sprintf "%f" min
-                  yield "max"  => sprintf "%f" max
-  
-                  let! format = model.format
-                  yield "value" => formatNumber format value
-              } 
-  
-          Incremental.input (AttributeMap.ofAMap attributes |> AttributeMap.union atts)
-  
-      let numericField' = numericField (Seq.singleton) AttributeMap.empty
-  
-      let view' (inputTypes : list<NumericInputType>) (model : AdaptiveNumericInput) : DomNode<Action> =
-          inputTypes 
-              |> List.map (numericField' model) 
-              |> List.intersperse (text " ") 
-              |> div []
-  
-      let view (model : AdaptiveNumericInput) =
-          view' [InputBox] model
-  
-      module GenericFunctions =
-          let rec applyXTimes (a : 'a) (f : 'a -> int -> 'a) (lastIndex : int) =
-              match lastIndex with
-              | t when t <= 0 -> f a lastIndex
-              | t when t > 0 -> applyXTimes (f a lastIndex) f (lastIndex - 1)
-              | _ -> a
+            Incremental.input (AttributeMap.ofAMap attributes |> AttributeMap.union atts)
+    
+        let numericField f atts model inputType = numericField'' false f atts model inputType
 
-  let takeScreenshot baseAddress (width:int) (height:int) name folder =
-        let wc = new System.Net.WebClient()
-        
-        let clientStatistic = 
-            let path = sprintf "%s/rendering/stats.json" baseAddress //sprintf "%s/rendering/stats.json" baseAddress
-            Log.line "[Screenshot] querying rendering stats at: %s" path
-            let result = wc.DownloadString(path)
-            let clientBla : list<ClientStatistics> =
-                Pickler.unpickleOfJson  result
-            match clientBla.Length with
-                | 1 -> clientBla // clientBla.[1] 
-                | _ -> failwith "no client bla"
+        let numericField' = numericField (Seq.singleton) AttributeMap.empty
 
-        for cs in clientStatistic do
-            let screenshot =            
-                sprintf "%s/rendering/screenshot/%s?w=%d&h=%d&samples=4" baseAddress cs.name width height
-            Log.line "[Screenshot] Running screenshot on: %s" screenshot    
+        let viewContinuously (inputTypes : list<NumericInputType>) (model : AdaptiveNumericInput) : DomNode<Action> =
+            inputTypes 
+            |> List.map (numericField'' true (Seq.singleton) AttributeMap.empty model) 
+            |> List.intersperse (text " ") 
+            |> div []
+    
+        let view' (inputTypes : list<NumericInputType>) (model : AdaptiveNumericInput) : DomNode<Action> =
+            inputTypes 
+            |> List.map (numericField' model) 
+            |> List.intersperse (text " ") 
+            |> div []
+    
+        let view (model : AdaptiveNumericInput) =
+            view' [InputBox] model
+    
+        module GenericFunctions =
+            let rec applyXTimes (a : 'a) (f : 'a -> int -> 'a) (lastIndex : int) =
+                match lastIndex with
+                | t when t <= 0 -> f a lastIndex
+                | t when t > 0 -> applyXTimes (f a lastIndex) f (lastIndex - 1)
+                | _ -> a
 
-            match System.IO.Directory.Exists folder with
-              | true -> ()
-              | false -> System.IO.Directory.CreateDirectory folder |> ignore
-            
-           // let filename = cs.name + name
-            wc.DownloadFile(screenshot,Path.combine [folder; name])
+    // TODO Refactor: not in use duplicated code
+    //let takeScreenshot baseAddress (width:int) (height:int) name folder =
+    //      let wc = new System.Net.WebClient()
+          
+    //      let clientStatistic = 
+    //          let path = sprintf "%s/rendering/stats.json" baseAddress //sprintf "%s/rendering/stats.json" baseAddress
+    //          Log.line "[Screenshot] querying rendering stats at: %s" path
+    //          let result = wc.DownloadString(path)
+    //          let clientBla : list<ClientStatistics> =
+    //              Pickler.unpickleOfJson  result
+    //          match clientBla.Length with
+    //          | 1 -> clientBla // clientBla.[1] 
+    //          | _ -> failwith "no client bla"
+
+    //      for cs in clientStatistic do
+    //          let color = V4f.IIII
+    //          let screenshot = sprintf "%s/rendering/screenshot/%s?w=%d&h=%d&samples=2&background=[%f,%f,%f,%f]" baseAddress cs.name width height color.X color.Y color.Z color.W
+
+    //          //let screenshot =            
+    //          //    sprintf "%s/rendering/screenshot/%s?w=%d&h=%d&samples=4" baseAddress cs.name width height
+    //          Log.line "[Screenshot] Running screenshot on: %s" screenshot    
+
+    //          match System.IO.Directory.Exists folder with
+    //          | true -> ()
+    //          | false -> System.IO.Directory.CreateDirectory folder |> ignore
+              
+    //         // let filename = cs.name + name
+    //          wc.DownloadFile(screenshot,Path.combine [folder; name])
 
 module Shader = 
 
@@ -507,6 +511,70 @@ module Shader =
             |> mapGamma
         }
 
+    type FootPrintVertex =
+        {
+            [<Position>]                pos     : V4d            
+            //[<WorldPosition>]           wp      : V4d
+            //[<TexCoord>]                tc      : V2d
+            [<Color>]                   c       : V4d
+            //[<Normal>]                  n       : V3d
+            //[<SourceVertexIndex>]       sv      : int
+            //[<Semantic("Scalar")>]      scalar  : float
+            //[<Semantic("LightDir")>]    ldir    : V3d
+            [<Semantic("FootPrintProj")>] tc0     : V4d
+            //[<Semantic("Tex1")>]        tc1     : V4d
+
+        }
+
+    let private footprintmap =
+        sampler2d {
+            texture uniform?FootPrintTexture
+            filter Filter.MinMagMipPoint
+            borderColor (C4f(0.0,0.0,0.0,0.0))
+            addressU WrapMode.Border
+            addressV WrapMode.Border
+            addressW WrapMode.Border
+        }  
+
+    let footprintV (v : FootPrintVertex) =
+        vertex {
+            //let vp = uniform.ModelViewTrafo * v.pos
+            //let p = uniform.ProjTrafo * vp
+            
+            let footprintProjM  : M44d   = uniform?FootprintModelViewProj // was proj * view (earlier there was pretransform in it?)
+            //let textureProjM    : M44d   = uniform?textureProj
+            
+            return { 
+                v with 
+                    tc0 = footprintProjM * v.pos; 
+                    //sv = 0
+                    //tc1 = textureProjM   * v.wp; 
+            } //v.pos
+        }
+
+    let footPrintF (v : FootPrintVertex) =
+        fragment {     
+            let mutable color = v.c
+            if uniform?FootprintVisible then
+                let fpt = v.tc0.XYZ / v.tc0.W
+
+                // enable this code to use texture based border (and patterns on etc if needed)
+                //if fpt.X > -1.0 && fpt.X < 1.0 && fpt.Y > -1.0 && fpt.Y < 1.0 && fpt.Z > -1.0 && fpt.Z < 1.0 then   
+                //    let s = footprintmap.Sample(fpt.XY * 0.5 + V2d.II * 0.5)
+                //    color.XYZ <- color.XYZ * (1.0 - s.W) + s.XYZ * s.W
+
+                // TODO: more efficient formuation e.g. using step
+                if fpt.X > -1.0 && fpt.X < 1.0 && fpt.Y > -1.0 && fpt.Y < 1.0 && fpt.Z > -1.0 && fpt.Z < 1.0 then   
+                    let threshold = 0.05
+                    let X = fpt.X < -1.0 + threshold || fpt.X > 1.0 - threshold
+                    let Y = fpt.Y < -1.0 + threshold || fpt.Y > 1.0 - threshold
+                    let Z = fpt.Z < -1.0 + threshold 
+                    if X || Y || Z then  
+                        color.X <- 1.0
+                        
+            return color
+        }
+
 module Sg =    
 
     let colorPointsEffect = 
@@ -565,7 +633,6 @@ module Sg =
             toEffect Shader.DepthOffset.depthOffsetFS 
         ]
 
-
     let private drawStableLinesHelper (edges: aval<Line3d[]>) (offset: aval<float>) (color: aval<C4b>) (width: aval<float>) = 
         edges
         |> Sg.lines color
@@ -579,15 +646,19 @@ module Sg =
         drawStableLinesHelper edges offset color width
         |> Sg.trafo trafo
         
-
     let scaledLines = 
         Effect.compose [
             toEffect DefaultSurfaces.stableTrafo
             toEffect DefaultSurfaces.vertexColor
             toEffect DefaultSurfaces.thickLine
         ]
-                               
-    let drawScaledLines (points: aval<V3d[]>) (color: aval<C4b>) (width: aval<float>) (trafo: aval<Trafo3d>) : ISg<_> = 
+
+    let drawScaledLines 
+        (points: aval<V3d[]>) 
+        (color: aval<C4b>) 
+        (width: aval<float>) 
+        (trafo: aval<Trafo3d>) : ISg<_> = 
+
         let edges = edgeLines false points trafo     
         let size = edges |> AVal.map (fun line -> (float (line.Length)) * 100.0)
                                                             
@@ -598,7 +669,25 @@ module Sg =
         |> Sg.uniform "Size" size
         |> Sg.effect [scaledLines]                            
         |> Sg.trafo trafo
-        |> Sg.uniform "LineWidth" width      
+        |> Sg.uniform "LineWidth" width
+
+    let drawSingleLine
+        (pointA    : aval<V3d>)
+        (pointB    : aval<V3d>)
+        (color     : aval<C4b>)        
+        (width     : aval<float>)
+        (trafo     : aval<Trafo3d>) =
+
+        let line = AVal.map2(fun a b -> Line3d(a,b) |> Array.singleton) pointA pointB
+
+        line
+        |> Sg.lines color
+        |> Sg.noEvents
+        //|> Sg.uniform "WorldPos" (trafo |> AVal.map(fun (x : Trafo3d) -> x.Forward.C3.XYZ))
+        //|> Sg.uniform "Size" thickness
+        |> Sg.effect [scaledLines]                            
+        |> Sg.trafo trafo
+        |> Sg.uniform "LineWidth" width
 
     let private pickableContent
         (points            : aval<V3d[]>) 
@@ -1015,61 +1104,63 @@ module Copy =
 module ScreenshotUtilities = 
     module Utilities =
 
-      type ClientStatistics =
-        {
-            session         : System.Guid
-            name            : string
-            frameCount      : int
-            invalidateTime  : float
-            renderTime      : float
-            compressTime    : float
-            frameTime       : float
-        }
+        type ClientStatistics =
+          {
+              session         : System.Guid
+              name            : string
+              frameCount      : int
+              invalidateTime  : float
+              renderTime      : float
+              compressTime    : float
+              frameTime       : float
+          }
 
-      let downloadClientStatistics baseAddress (webClient : System.Net.WebClient) =
-          let path = sprintf "%s/rendering/stats.json" baseAddress //sprintf "%s/rendering/stats.json" baseAddress
-          Log.line "[Screenshot] querying rendering stats at: %s" path
-          let result = webClient.DownloadString(path)
+        let downloadClientStatistics baseAddress (webClient : System.Net.WebClient) =
+            let path = sprintf "%s/rendering/stats.json" baseAddress //sprintf "%s/rendering/stats.json" baseAddress
+            Log.line "[Screenshot] querying rendering stats at: %s" path
+            let result = webClient.DownloadString(path)
 
-          let clientBla : list<ClientStatistics> =
-              Pickler.unpickleOfJson  result
-          match clientBla.Length with
-              | 1 | 2 -> clientBla // clientBla.[1] 
-              | _ -> failwith (sprintf "Could not download client statistics for %s" path)  //"no client bla"
+            let clientBla : list<ClientStatistics> =
+                Pickler.unpickleOfJson  result
 
-      let getScreenshotUrl baseAddress clientStatistic width height =
-          let screenshot = sprintf "%s/rendering/screenshot/%s?w=%d&h=%d&samples=4" baseAddress clientStatistic.name width height
-          Log.line "[Screenshot] Running screenshot on: %s" screenshot    
-          screenshot
+            match clientBla.Length with
+            | 1 | 2 -> clientBla // clientBla.[1] 
+            | _ -> failwith (sprintf "Could not download client statistics for %s" path)  //"no client bla"
 
-      let getScreenshotFilename folder name clientStats format =
-        match System.IO.Directory.Exists folder with
-          | true -> ()
-          | false -> System.IO.Directory.CreateDirectory folder |> ignore
+        let getScreenshotUrl baseAddress clientStatistic width height =                                
+
+            let screenshot = sprintf "%s/rendering/screenshot/%s?w=%d&h=%d&samples=4" baseAddress clientStatistic.name width height
+            Log.line "[Screenshot] Running screenshot on: %s" screenshot    
+            screenshot
+
+        let getScreenshotFilename folder name clientStats format =
+            match System.IO.Directory.Exists folder with
+            | true -> ()
+            | false -> System.IO.Directory.CreateDirectory folder |> ignore
+                
+            Path.combine [folder; name + "_" + clientStats.name + format]
+
+        let takeScreenshotFromAllViews baseAddress (width:int) (height:int) name folder format =
+              let wc = new System.Net.WebClient()
+              let clientStatistics = downloadClientStatistics baseAddress wc
+
+              for cs in clientStatistics do
+                  let screenshot = getScreenshotUrl baseAddress cs width height
+                  let filename = getScreenshotFilename folder name cs format
+                  wc.DownloadFile(screenshot, filename)
+                  let fullpath =
+                      try System.IO.Path.GetFullPath(filename) with e -> filename
+                  Log.line "[Screenshot] saved to %s" fullpath
+
+        let takeScreenshot baseAddress (width:int) (height:int) name folder format =
+            let wc = new System.Net.WebClient()
+            let clientStatistics = downloadClientStatistics baseAddress wc
             
-        Path.combine [folder; name + "_" + clientStats.name + format]
-
-      let takeScreenshotFromAllViews baseAddress (width:int) (height:int) name folder format =
-            let wc = new System.Net.WebClient()
-            let clientStatistics = downloadClientStatistics baseAddress wc
-
-            for cs in clientStatistics do
-                let screenshot = getScreenshotUrl baseAddress cs width height
-                let filename = getScreenshotFilename folder name cs format
-                wc.DownloadFile(screenshot, filename)
-                let fullpath =
-                    try System.IO.Path.GetFullPath(filename) with e -> filename
-                Log.line "[Screenshot] saved to %s" fullpath
-
-      let takeScreenshot baseAddress (width:int) (height:int) name folder format =
-            let wc = new System.Net.WebClient()
-            let clientStatistics = downloadClientStatistics baseAddress wc
-
             let cs =
-              match clientStatistics.Length with
-                  | 2 -> clientStatistics.[1] 
-                  | 1 -> clientStatistics.[0]
-                  | _ -> failwith (sprintf "Could not download client statistics")
+                match clientStatistics.Length with
+                | 2 -> clientStatistics.[1] 
+                | 1 -> clientStatistics.[0]
+                | _ -> failwith (sprintf "Could not download client statistics")
                 
             let screenshot = getScreenshotUrl baseAddress cs width height
             let filename = getScreenshotFilename folder name cs format

@@ -1,7 +1,7 @@
 ﻿namespace PRo3D
 
 open Aardvark.Base
-open PRo3D.SimulatedViews
+//open PRo3D.SimulatedViews
 open PRo3D.CommandLineUtils
 
 module CommandLine =
@@ -27,6 +27,8 @@ module CommandLine =
         Log.line @"--noMapping                         use mapped render target"
         Log.line @"--backgroundColor cssColor          use another background color"
         Log.line @"--samples count                     specify multisampling count"
+        Log.line @"--noMapping                         use mapped render target"
+        Log.line @"--backgroundColor cssColor          use another background color"
                  
         Log.line @"--snap [path\snapshot.json]         path to a snapshot file containing camera views (old format)"
         Log.line @""
@@ -35,151 +37,49 @@ module CommandLine =
         Log.line @"PRo3D.Viewer.exe --opc c:\Users\myname\Desktop\firstOpc;c:\Users\myname\Desktop\secondOpc --asnap c:\Users\myname\Desktop\mySnapshotFile.json --out c:\Users\myname\Desktop\images"
         Log.line @"PRo3D.Viewer.exe --opc \myOpc\ --obj myObj.obj --asnap mySnapshotFile.json --out tmp --renderDepth --exitOnFinish"
 
+
     /// parse commandline arguments
     let parseArguments (argv : array<string>) : StartupArgs =    
-        let isHelp flag = 
-            String.equalsCaseInsensitive flag "--help"
-            || (flag |> String.equalsCaseInsensitive "--h")
-            || (flag |> String.equalsCaseInsensitive "-h")
-            || (flag |> String.equalsCaseInsensitive "-help")
         
-        match argv with 
-        | argv when Array.isEmpty argv -> { StartupArgs.initArgs with areValid = true}
-        | argv when argv |> Array.length = 1 && argv.[0] |> isHelp ->
-            printHelp ()
-            { StartupArgs.initArgs with areValid = false}
-
-        | argv when argv |> hasFlag "printJson" ->
-            SnapshotAnimation.writeTestAnimation ()
-            { StartupArgs.initArgs with areValid = false}
-        | _ ->
-            let parseGuiMode argv automated =
-                let mode = parseArg "--gui" argv
-                match mode with
-                | Some m when String.equalsCaseInsensitive m "none" ->
-                  GuiMode.NoGui
-                | Some m when String.equalsCaseInsensitive m "small" ->
-                  GuiMode.RenderViewOnly
-                | Some m when String.equalsCaseInsensitive m "core" ->
-                  GuiMode.CoreGui
-                | _ -> 
-                  match automated with
-                  | true -> 
-                    Log.line "[Arguments] No valid --gui argument. Using default."
-                    GuiMode.CompleteGui
-                  | false -> GuiMode.CompleteGui
-
             let b2str b =
                 match b with
                 | true -> ": yes"
                 | false -> ": no"
 
-            let sargs = 
-                let oneOpc              = parseMultiple "--opc" ';' argv 
-                let manyOpcs            = parseMultiple "--opcs" ';' argv
-                let objs                = parseMultiple "--obj" ';' argv
-                let snapshot            = parseArg "--snap" argv 
-                let animationSnapshot   = parseArg "--asnap" argv 
-                let outFolder           = checkAndCreateDir (parseArg "--out" argv)
-                let exitOnFinish        = (argv |> hasFlag "exitOnFinish")
-                let renderDepth         = (argv |> hasFlag "renderDepth")
-                let useAsyncLoading     = (argv |> hasFlag "sync" |> not)
-                let startEmpty          = (argv |> hasFlag "empty")
-                let remoteApp           = (argv |> hasFlag "remoteControl")
-                let server              = (argv |> hasFlag "server") 
-                let magFilter           = not (argv |> hasFlag "noMagFilter")
+            
+            let useAsyncLoading     = (argv |> hasFlag "sync" |> not)
+            let startEmpty          = (argv |> hasFlag "empty")
+            let remoteApp           = (argv |> hasFlag "remoteControl")
+            let server              = (argv |> hasFlag "server") 
+            let magFilter           = not (argv |> hasFlag "noMagFilter")
 
-                let samples             = parseArg "--samples" argv
-                let backgroundColor     = parseArg "--backgroundColor" argv
-                let noMapping          = argv |> hasFlag "noMapping"
+            let samples             = parseArg "--samples" argv
+            let backgroundColor     = parseArg "--backgroundColor" argv
+            let noMapping           = argv |> hasFlag "noMapping"
 
-                let opcs = 
-                    match oneOpc, manyOpcs with
-                    | Some opc, Some opcs -> opcs@opc |> Some
-                    | Some opc, None -> Some opc
-                    | None, Some opcs -> Some opcs
-                    | None, None -> None
-                //let guiMode = parseGuiMode argv opcs.IsSome
-                let guiMode = GuiMode.NoGui
-                let showExplorationCentre = (argv |> Array.contains "--excentre")
-                let showReferenceSystem = (argv |> Array.contains "--refsystem")
-                let verbose = (argv |> Array.contains "--verbose")
+            let showExplorationCentre = (argv |> Array.contains "--excentre")
+            let showReferenceSystem = (argv |> Array.contains "--refsystem")
+            let verbose = (argv |> Array.contains "--verbose")
 
-                let ok = 
-                    match (checkPaths opcs), (checkPaths objs) with
-                    | Some c, Some j -> Some (c && j)
-                    | Some c, None -> Some c
-                    | None, Some j -> Some j
-                    | None, None -> None
+            Log.line "[Arguments] Server mode: %s" (b2str server)
+            Log.line "[Arguments] Using linear magnification filtering%s" (b2str magFilter)
+            Log.line "[Arguments] Show exploration centre%s" (b2str showExplorationCentre)
+            Log.line "[Arguments] Show reference system%s" (b2str showReferenceSystem)
+            Log.line "[Arguments] Remote control app%s" (b2str remoteApp)
 
-                //let check = Option.map2 (fun c1 p -> c1 && (checkPath p)) check snapshot
-                let sPath, sType, snapPathValid = 
-                    match snapshot, animationSnapshot with
-                    | Some s, None -> 
-                        snapshot, Some SnapshotType.Camera, checkPath s
-                    | None, Some sa -> 
-                        animationSnapshot, Some SnapshotType.CameraAndSurface, checkPath sa
-                    | _, _ -> None, None, true
-                Log.line "[Arguments] Exit on finish%s" (b2str exitOnFinish)
-                Log.line "[Arguments] Render depth%s" (b2str renderDepth)
-                Log.line "[Arguments] Server mode: %s" (b2str server)
-                Log.line "[Arguments] Using linear magnification filtering%s" (b2str magFilter)
-                Log.line "[Arguments] Show exploration centre%s" (b2str showExplorationCentre)
-                Log.line "[Arguments] Show reference system%s" (b2str showReferenceSystem)
-                Log.line "[Arguments] Remote control app%s" (b2str remoteApp)
-                Log.line "[Arguments] Output folder: %s" outFolder
-                Log.line "[Arguments] render control config %A" (samples, backgroundColor, noMapping)
-                let args = 
-                    match ok with
-                    | Some surfPathsValid -> 
-                        Log.line "[Arguments] Surface paths are valid%s" (b2str surfPathsValid)
-                        Log.line "[Arguments] Snapshot path is valid%s" (b2str snapPathValid)
-                        {
-                            opcPaths              = opcs
-                            objPaths              = objs
-                            snapshotPath          = sPath
-                            snapshotType          = sType
-                            guiMode               = guiMode
-                            showExplorationPoint  = showExplorationCentre
-                            showReferenceSystem   = showReferenceSystem
-                            renderDepth           = renderDepth
-                            exitOnFinish          = exitOnFinish
-                            areValid              = surfPathsValid && snapPathValid
-                            verbose               = verbose
-                            outFolder             = outFolder
-                            startEmpty            = startEmpty
-                            useAsyncLoading       = false
-                            magnificationFilter   = magFilter
-                            remoteApp             = remoteApp
-                            serverMode            = server
-                            useMapping            = if noMapping then "false" else "true"
-                            data_samples          = samples
-                            backgroundColor       = match backgroundColor with Some b -> b | None -> StartupArgs.initArgs.backgroundColor
-
-                        }
-                    | None -> 
-                        Log.line "[Arguments] Starting PRo3D in GUI-Mode."
-                        {
-                            opcPaths              = None
-                            objPaths              = None
-                            snapshotPath          = None
-                            snapshotType          = None
-                            guiMode               = guiMode
-                            showExplorationPoint  = showExplorationCentre
-                            showReferenceSystem   = showReferenceSystem
-                            renderDepth           = false
-                            exitOnFinish          = false
-                            areValid              = true
-                            verbose               = verbose
-                            outFolder             = outFolder
-                            startEmpty            = startEmpty
-                            useAsyncLoading       = useAsyncLoading
-                            magnificationFilter   = false
-                            remoteApp             = false
-                            serverMode            = server
-                            useMapping            = if noMapping then "false" else "true"
-                            data_samples          = samples
-                            backgroundColor       = match backgroundColor with Some b -> b  | None -> StartupArgs.initArgs.backgroundColor
-                        }
-                args
-            sargs
+            Log.line "[Arguments] render control config %A" (samples, backgroundColor, noMapping)
+            let args : StartupArgs = 
+                    {
+                            
+                        showExplorationPoint  = showExplorationCentre
+                        verbose               = verbose
+                        startEmpty            = startEmpty
+                        useAsyncLoading       = false
+                        magnificationFilter   = magFilter
+                        remoteApp             = remoteApp
+                        serverMode            = server
+                        useMapping            = if noMapping then "false" else "true"
+                        data_samples          = samples
+                        backgroundColor       = match backgroundColor with Some b -> b | None -> StartupArgs.initArgs.backgroundColor
+                    }
+            args
