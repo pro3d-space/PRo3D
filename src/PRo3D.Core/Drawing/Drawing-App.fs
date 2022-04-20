@@ -94,7 +94,7 @@ module DrawingApp =
             Some { w with results = Some results; view = view }
         | None -> None
 
-    let finishAndAppendAndSend up north planet (view:CameraView) (model : DrawingModel) (bc : BlockingCollection<string>) = 
+    let finishAndAppend up north planet (view:CameraView) (model : DrawingModel)  = 
       
         let groups = 
             match getFinishedAnnotation up north planet view model with
@@ -166,9 +166,9 @@ module DrawingApp =
         match (working.geometry, (working.points |> IndexList.count)) with
         | Geometry.Point, 1 -> 
             Log.line "Picked single point at: %A" (working.points |> IndexList.tryFirst).Value
-            finishAndAppendAndSend up north planet view model bc, None
+            finishAndAppend up north planet view model, None
         | Geometry.TT, 2 | Geometry.Line, 2 -> 
-            finishAndAppendAndSend up north planet view model bc, None
+            finishAndAppend up north planet view model, None
         | _ -> 
             model, newSegment 
 
@@ -290,7 +290,7 @@ module DrawingApp =
             |> Leaf.toAnnotations
             |> HashMap.toList 
             |> List.map snd
-            |> List.filter(fun a -> a.visible)
+            |> List.filter (fun a -> a.visible)
                
         try
             if xyz then
@@ -301,8 +301,30 @@ module DrawingApp =
         with e -> 
             Log.warn "[Drawing] exportGeoJson failed with %A" e
 
+    // exports geojson, optionally using XYZ format
+    let exportGeoJsonStream  (xyz : bool) (bigConfig  : 'a) (smallConfig : SmallConfig<'a> )  
+                             (model : DrawingModel) (path : string) =
 
-    let update<'a> 
+        let annotations =
+            model.annotations.flat
+            |> Leaf.toAnnotations
+            |> HashMap.toList 
+            |> List.map snd
+            |> List.filter (fun a -> a.visible)
+               
+
+        GeoJSONExport.writeStreamGeoJSON_XYZ path annotations
+
+
+
+    let finish (bigConfig  : 'a)  (smallConfig : SmallConfig<'a> ) (model : DrawingModel) (view : CameraView) =
+        let up     = smallConfig.up.Get(bigConfig)
+        let north  = smallConfig.north.Get(bigConfig)
+        let planet = smallConfig.planet.Get(bigConfig)
+
+        (finishAndAppend up north planet view model) |> stash
+
+    let rec update<'a> 
         (bigConfig   : 'a) 
         (smallConfig : SmallConfig<'a> ) 
         (webSocket   : BlockingCollection<string>) 
@@ -349,11 +371,7 @@ module DrawingApp =
                 | Some w ->                         
                     { model with working = Some { w with segments = IndexList.setAt segmentIndex segment w.segments } }
             | Finish, _, _ -> 
-                let up     = smallConfig.up.Get(bigConfig)
-                let north  = smallConfig.north.Get(bigConfig)
-                let planet = smallConfig.planet.Get(bigConfig)
-
-                (finishAndAppendAndSend up north planet view model webSocket) |> stash
+                finish bigConfig smallConfig model view
             | Exit, _, _ -> 
                 { model with hoverPosition = None }
             | SetSemantic mode, _, _ ->
@@ -442,16 +460,18 @@ module DrawingApp =
         
                 exportGeoJson false bigConfig smallConfig model path
 
-                // remember this path in order to drive the automatic export feature.
-                let updatedPath = { model.automaticGeoJsonExport with lastGeoJsonPath = Some path }
-                { model with automaticGeoJsonExport = updatedPath }
+                model
 
             | ExportAsGeoJSON_xyz path, _, _ ->                       
                         
                 exportGeoJson true bigConfig smallConfig model path
             
+                model
+
+            | ContinuouslyGeoJson path, _, _ -> 
+                
                 // remember this path in order to drive the automatic export feature.
-                let updatedPath = { model.automaticGeoJsonExport with lastGeoJsonPathXyz = Some path }
+                let updatedPath = { model.automaticGeoJsonExport with lastGeoJsonPathXyz = Some path; enabled = true }
                 { model with automaticGeoJsonExport = updatedPath }
 
             | ExportAsAttitude path, _, _ ->
@@ -503,12 +523,9 @@ module DrawingApp =
             match newModel.automaticGeoJsonExport.lastGeoJsonPathXyz with
             | Some path -> 
                 Log.line "[Drawing] automatically writing geojson.xyz file to %s since the annotations have changed." path
-                exportGeoJson true bigConfig smallConfig newModel path
-            | _ -> ()
-            match newModel.automaticGeoJsonExport.lastGeoJsonPath with
-            | Some path -> 
-                Log.line "[Drawing] automatically writing geojson file to %s since the annotations have changed." path
-                exportGeoJson false bigConfig smallConfig newModel path
+                // virtually finish the annotation (as if closed by interaction) - to let it be part of the exported ones.
+                let artificiallyFinishedModel = finish bigConfig smallConfig model view
+                exportGeoJsonStream true bigConfig smallConfig artificiallyFinishedModel path
             | _ -> ()
             newModel
         | false -> 
