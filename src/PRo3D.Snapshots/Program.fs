@@ -156,7 +156,9 @@ let startApplication (startupArgs : CLStartupArgs) =
                 magnificationFilter = startupArgs.magnificationFilter
                 serverMode = false
                 remoteApp  = false
-                useMapping = false
+                useMapping = "true"
+                data_samples = None
+                backgroundColor = "black"
             }
 
         let port = getFreePort()
