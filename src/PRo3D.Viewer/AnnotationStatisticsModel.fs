@@ -154,14 +154,14 @@ module AnnotationStatistics =
            let binCount = int(360.0 / angle)
 
            [
-           for i in 1..binCount do
+           for i in 0..(binCount-1) do
 
                //from RoseDiagram in Correlation Panels
                let binAngleHalf = angle / 2.0
                let centerAngle = (float i * angle) % 360.0
                let northCenterAngle = centerAngle + 270.0 % 360.0
                let startDegree = (northCenterAngle - binAngleHalf + 360.0) % 360.0
-               let endDegree = northCenterAngle + binAngleHalf % 360.0
+               let endDegree = (northCenterAngle + binAngleHalf) % 360.0
                //
 
                {
@@ -174,8 +174,11 @@ module AnnotationStatistics =
            ]
     
     //count for rose diagram bins
-    let calculateBinCount (bins:List<Bin>) (data:List<float>) (angle:float) =        
-        let counts = data |> List.groupBy (fun value -> int(value / angle)) 
+    let calculateBinCount (bins:List<Bin>) (data:List<float>) (angle:float) =    
+        
+        let binAngleHalf = angle / 2.0
+        let counts = data |> List.groupBy (fun value -> let shifted = (value - 270.0 + binAngleHalf + 360.0) % 360.0
+                                                        int(shifted/angle)) 
                           |> List.map(fun (id, vals) -> id, (vals |> List.length)) 
                           |> Map.ofList
 
@@ -185,22 +188,23 @@ module AnnotationStatistics =
         )
 
 
-
-
     let initRoseDiagram (data:List<float>) =
 
         let binAngle = 15.0
-        let bins = calculateBinCount (initBins binAngle) data binAngle
+        let initB =  initBins binAngle
+        let bins = calculateBinCount initB data binAngle
         let max = getBinMaxValue bins
+        let center = V2d.Zero        
+        let pos = new V2d(center.X + 100.0, center.Y + 100.0)
                 
         {
             id   = Guid.NewGuid() 
             data = data
             maxBinValue = max
             bins = bins
-            center = V2d.Zero
-            innerRad = 5.0
-            outerRad = 20.0
+            center = pos
+            innerRad = 10.0
+            outerRad = 30.0
             binAngle = binAngle
         }
 

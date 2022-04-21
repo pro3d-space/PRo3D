@@ -55,17 +55,6 @@ module RoseDiagramOperations =
                             {m with bins = updatedBins; maxBinValue = max}
     
 
-    
-    
-   
-
-
-        
-
-
-
-        
-
 
 
 module HistogramOperations =     
@@ -292,9 +281,10 @@ module AnnotationStatisticsDrawings =
 
     //for rose diagram
     let drawCircle (center:V2d) (radius:float) =
+        
         Svg.circle(
             [
-                style "stroke:white;stroke-width:2"
+                style "stroke:white;stroke-width:1; fill:none"
                 attribute "cx" (sprintf "%f" center.X)      
                 attribute "cy" (sprintf "%f" center.Y) 
                 attribute "r" (sprintf "%f" radius)                 
@@ -335,39 +325,34 @@ module AnnotationStatisticsDrawings =
            //two circles as outline
            //individual bin sections
 
-           let attrSVG =
-                         [   
-                             style "position:relative"                     
-                             attribute "width" "100%" 
-                             attribute "height" "200px"               
-                             
-                         ]|> AttributeMap.ofList
-
-
            let sect = alist{
                             let! center = r.center
                             let! innerRad = r.innerRad
                             let! outerRad = r.outerRad
-                            yield drawCircle center innerRad
-                            yield drawCircle center outerRad
 
                             let! bins = r.bins
-                            let areaInner = Constant.Pi * Fun.PowerOfTwo(innerRad)
-                            let areaOuter = Constant.Pi * Fun.PowerOfTwo(outerRad)
+                            let areaInner = Constant.Pi * (innerRad * innerRad)
+                            let areaOuter = Constant.Pi * (outerRad * outerRad)
                             let areaTotal = areaOuter - areaInner
                             let! maxBinValue = r.maxBinValue
 
                             let sections = bins |> List.map(fun b -> 
                                     let subArea = (areaTotal / ((float(maxBinValue))/(float(b.value)))) + areaInner
                                     let subOuterRadius = Fun.Sqrt(subArea / Constant.Pi)
-                                    drawRoseDiagramSection b.start b.theEnd center innerRad subOuterRadius
+                                    let startRadians = b.start * Constant.RadiansPerDegree
+                                    let endRadians = b.theEnd * Constant.RadiansPerDegree
+                                    drawRoseDiagramSection startRadians endRadians center innerRad subOuterRadius
                             )
                             yield! sections
+
+                            yield drawCircle center innerRad
+                            yield drawCircle center outerRad
 
 
                         }
 
-           Incremental.Svg.svg attrSVG sect
+           Incremental.Svg.svg AttributeMap.empty sect
+           
           
 
 
@@ -496,7 +481,19 @@ module AnnotationStatisticsDrawings =
                      | AdaptiveRoseDiagram r -> yield drawRoseDiagram r
                  }
 
-             Incremental.div AttributeMap.empty v
+
+
+             let attrSVG =
+                     [   
+
+                         style "position:relative"                     
+                         attribute "width" "200px"
+                         attribute "height" "200px"         
+                         attribute "margin" "auto"
+                         
+                     ]|> AttributeMap.ofList
+
+             Incremental.div attrSVG v
            
 
           
