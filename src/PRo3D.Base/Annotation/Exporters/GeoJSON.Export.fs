@@ -103,24 +103,27 @@ module GeoJSONExport =
 
 
     // exports geojson objects as line delimited json: https://en.wikipedia.org/wiki/JSON_streaming#Line-delimited_JSON
+    // the feature has been discussed here: https://github.com/pro3d-space/PRo3D/issues/185
     let writeStreamGeoJSON_XYZ (path : string) (annotations : list<Annotation>) : unit = 
   
-        // base64 might be better but might contain \ which might be hard to handle
-        let encode (bytes : byte[]) = System.Web.HttpUtility.UrlEncode(bytes)
+        let encode (bytes : byte[]) = Convert.ToBase64String(bytes);
 
         let lines =
             annotations
             |> List.map (fun annotation -> 
 
+                let geometry = annotationToGeoJsonGeometry None annotation
+
                 let feature = 
                     {
-                        geometry   = annotationToGeoJsonGeometry None annotation
+                        geometry   = geometry
                         bbox       = None
                         properties = 
                             Map.ofList [
                                 ("id", annotation.key.ToString() |> Json.String)
                                 ("color", annotation.color.c.ToString() |> Json.String)
-                                // extend as desired.
+                                ("geometry", annotation.geometry.ToString() |> Json.String)
+                                // extend as desired. https://github.com/pro3d-space/PRo3D/issues/185
                             ]
                     }
                 { feature with 
@@ -134,6 +137,8 @@ module GeoJSONExport =
                             ("fullHash", pickler.ComputeHash(annotation).Hash |> encode |> Json.String)
                             // the hash of the geojson value (not the internal annotation representation)
                             ("hash",     pickler.ComputeHash(feature).Hash |> encode  |> Json.String)
+                            // hashes the geometry - useful for fitting/regression implementation in external tools
+                            ("geometryHash", pickler.ComputeHash(geometry).Hash |> encode  |> Json.String)
                         ]
                 }
             )
