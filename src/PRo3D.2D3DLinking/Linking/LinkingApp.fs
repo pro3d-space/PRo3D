@@ -363,7 +363,7 @@ module LinkingApp =
             )
 
         require dependencies (
-            div [][
+            div [] [
                 Incremental.div 
                     (AttributeMap.ofAMap (amap { 
                         let! d = m.overlayFeature
@@ -413,7 +413,7 @@ module LinkingApp =
                                 | None -> yield clazz (classString + " disabled")
 
                             })) (AList.ofList [
-                                i [clazz "caret left icon"][]
+                                i [clazz "caret left icon"] []
                                 text "Previous"
                             ])
                             Incremental.button (AttributeMap.ofAMap (amap {
@@ -427,13 +427,13 @@ module LinkingApp =
                                 | None -> yield clazz (classString + " disabled")
 
                             })) (AList.ofList [
-                                i [clazz "caret right icon"][]
+                                i [clazz "caret right icon"] []
                                 text "Next"
                             ])
                         ]
 
-                        button [clazz "fluid inverted ui button"; onClick (fun _ -> LinkingAction.CloseFrustum)][
-                            i [clazz "close icon"][]
+                        button [clazz "fluid inverted ui button"; onClick (fun _ -> LinkingAction.CloseFrustum)] [
+                            i [clazz "close icon"] []
                             text "Close"
                         ]
                     ])
@@ -686,7 +686,7 @@ module LinkingApp =
                                     svgLine (0.0, 0.0) (rc.X, rc.Y) "black" 0.01 // direction line
                                 ]
                                 text f.id
-                                div [clazz "product-indexed"; style "position: absolute; bottom: 1.2em"][
+                                div [clazz "product-indexed"; style "position: absolute; bottom: 1.2em"] [
      (* ༼つಠ益ಠ༽つ ─=≡ΣO) *)        text (string (before.Count + 1)) // geologists probably start their indices at 1
                                 ]
                             ])

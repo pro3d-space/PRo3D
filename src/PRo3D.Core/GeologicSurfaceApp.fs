@@ -262,7 +262,7 @@ module GeologicSurfaceProperties =
           Html.row "Transparency:"  [Numeric.view' [NumericInputType.Slider]   model.transparency  |> UI.map SetTransparency ]
           Html.row "Color:"         [ColorPicker.view model.color |> UI.map ChangeColor ]
           Html.row "Invert meshing:"       [GuiEx.iconCheckBox model.invertMeshing InvertMeshing ]
-          Html.row "Set Homeposition:"  [button [clazz "ui button tiny"; onClick (fun _ -> HomePosition )][]]
+          Html.row "Set Homeposition:"  [button [clazz "ui button tiny"; onClick (fun _ -> HomePosition )] []]
         ]
       )
  
@@ -327,13 +327,13 @@ module GeologicSurfacesApp =
             [
                 Incremental.text m.name; text " "
 
-                i [clazz "home icon"; onClick (fun _ -> FlyToGS gsid) ][]
+                i [clazz "home icon"; onClick (fun _ -> FlyToGS gsid)] []
                 |> UI.wrapToolTip DataPosition.Bottom "Fly to geologic surface" 
 
                 Incremental.i toggleMap AList.empty 
                 |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
 
-                i [clazz "Remove icon red"; onClick (fun _ -> RemoveGS gsid) ][] 
+                i [clazz "Remove icon red"; onClick (fun _ -> RemoveGS gsid)] [] 
                 |> UI.wrapToolTip DataPosition.Bottom "Remove"     
             ]    
 
@@ -396,13 +396,13 @@ module GeologicSurfacesApp =
                                          ]                
                                         //yield i [clazz "large cube middle aligned icon"; style bgc; onClick (fun _ -> SelectSO soid)][]           
             
-                                        yield i [clazz "home icon"; onClick (fun _ -> FlyToGS scbid) ][]
+                                        yield i [clazz "home icon"; onClick (fun _ -> FlyToGS scbid)] []
                                             |> UI.wrapToolTip DataPosition.Bottom "Fly to geologic surface"          
             
                                         yield Incremental.i toggleMap AList.empty 
                                         |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
 
-                                        yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveGS scbid) ][] 
+                                        yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveGS scbid)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Remove"     
                                        
                                     } 

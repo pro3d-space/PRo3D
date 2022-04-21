@@ -115,7 +115,7 @@ module SurfaceProperties =
           //Html.row "Scalars:"     [UI.dropDown'' (model |> scalarLayerList)  model.selectedScalar   (fun x -> SetScalarMap (x |> Option.map(fun y -> y.Current ))) (fun x -> x.label |> AVal.force)]
           Html.row "Textures:"    [UI.dropDown'' model.textureLayers model.selectedTexture  (fun x -> SetTexturesMap x) (fun x -> x.label)]
           Html.row "Cull Faces:"  [Html.SemUi.dropDown model.cullMode SetCullMode]
-          Html.row "Set Homeposition:"  [button [clazz "ui button tiny"; onClick (fun _ -> SetHomePosition )][]] //[text "DiscoverOpcs" ]  
+          Html.row "Set Homeposition:"  [button [clazz "ui button tiny"; onClick (fun _ -> SetHomePosition )] []] //[text "DiscoverOpcs" ]  
         ]
       )
 

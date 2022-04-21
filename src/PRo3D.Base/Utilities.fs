@@ -746,7 +746,7 @@ module Sg =
                 pline 
                 |> Sg.pickable' ((pickableContent points edges trafo pickingTolerance) |> AVal.map Pickable.ofShape)
 
-            (applicator :> ISg) 
+            applicator 
             |> Sg.noEvents
             |> Sg.withEvents [ pickAnnotationFunc edges ]
             |> Sg.trafo trafo

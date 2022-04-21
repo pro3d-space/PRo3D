@@ -146,10 +146,10 @@ module Bookmarks =
     let viewBookmarks 
         (path         : list<Index>) 
         (model        : AdaptiveGroupsModel) 
-        (singleSelect : AdaptiveBookmark*list<Index> -> 'outer) 
-        (multiSelect  : AdaptiveBookmark*list<Index> -> 'outer) 
-        (lift         : GroupsAppAction -> 'outer) 
-        (bookmarks    : alist<System.Guid>) : alist<DomNode<'outer>> =
+        (singleSelect : AdaptiveBookmark*list<Index> -> BookmarkAction)
+        (multiSelect  : AdaptiveBookmark*list<Index> -> BookmarkAction) 
+        (lift         : GroupsAppAction -> BookmarkAction)  // note hs: this code was not really generic on the outer message. if you need it to be generic some care need to be taken to really make it generic
+        (bookmarks    : alist<System.Guid>) : alist<DomNode<BookmarkAction>> =
 
         alist {
             let bookmarks = 
@@ -181,7 +181,7 @@ module Bookmarks =
                     )                 
 
                 yield div [clazz "item"; style bgc] [
-                    i [clazz "cube middle aligned icon"; onClick multiSelect;style bgc][] 
+                    i [clazz "cube middle aligned icon"; onClick multiSelect;style bgc] [] 
                     div [clazz "content"; style infoc] [
                         //let desc = b.name
                         yield Incremental.div (AttributeMap.ofList [style infoc])(
@@ -194,11 +194,11 @@ module Bookmarks =
                                 ]
                                 yield i [clazz "home icon"; 
                                     onClick (fun _ -> lift <| GroupsAppAction.UpdateCam key)
-                                ][] |> UI.wrapToolTip DataPosition.Bottom "FlyTo"
+                                ] [] |> UI.wrapToolTip DataPosition.Bottom "FlyTo"
 
                                 yield i [clazz "print icon"; 
                                     onClick (fun _ -> PrintViewParameters key)
-                                ][] 
+                                ] [] 
 
 
                                     //onClick (fun _ -> PrintPosition )][i[clazz "ui icon print"][]
@@ -291,7 +291,7 @@ module Bookmarks =
             let view = model.cameraView
             require GuiEx.semui (
                 Html.table [  
-                    Html.row "Change Name:"[Html.SemUi.textBox model.name GroupsAppAction.SetChildName ]
+                    Html.row "Change Name:" [Html.SemUi.textBox model.name GroupsAppAction.SetChildName]
                     Html.row "Pos:"     [Incremental.text (view |> AVal.map (fun x -> x.Location.ToString("0.00")))] 
                     Html.row "LookAt:"  [Incremental.text (view |> AVal.map (fun x -> x.Forward.ToString("0.00")))]
                     Html.row "Up:"      [Incremental.text (view |> AVal.map (fun x -> x.Up.ToString("0.00")))]
@@ -307,7 +307,7 @@ module Bookmarks =
         let menu =
             div [ clazz "ui dropdown item"] [
                 text "Bookmarks"
-                i [clazz "dropdown icon"][] 
+                i [clazz "dropdown icon"] [] 
                 div [ clazz "menu"] [                    
                     div [
                           clazz "ui inverted item"

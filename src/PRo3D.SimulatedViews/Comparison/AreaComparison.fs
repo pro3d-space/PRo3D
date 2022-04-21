@@ -129,6 +129,7 @@ module AreaComparison =
         let picking = sgSurface.picking
         let kdTrees =
             match picking with
+            | NoPicking -> None
             | PickMesh mesh -> None
             | KdTree   tree -> 
                 if tree.IsEmpty then None 
