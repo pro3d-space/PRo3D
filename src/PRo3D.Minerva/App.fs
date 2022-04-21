@@ -717,7 +717,7 @@ module MinervaApp =
                     onClick(fun _ -> AddProductToSelection f.id)
                 ]
                                                                         
-            div [clazz "ui inverted item"][
+            div [clazz "ui inverted item"] [
                 i iconAttributes [] //i iconAttributes []
                 div [clazz "ui content"] [
                     Incremental.div (AttributeMap.ofList [style (sprintf "color: %s" (Html.ofC4b C4b.White))]) (
@@ -729,9 +729,9 @@ module MinervaApp =
                             ]
                             yield div [clazz "ui description"] [
                                 f.sol |> sprintf "Sol: %A" |> text
-                                i [clazz "binoculars icon"; onClick (fun _ -> FlyToProduct f.geometry.positions.Head)][]
-                                i [clazz "download icon"; onClick (fun _ -> OpenTif f.id)][]
-                                i [clazz "folder icon"; onClick (fun _ -> OpenFolder f.id)][]
+                                i [clazz "binoculars icon"; onClick (fun _ -> FlyToProduct f.geometry.positions.Head)] []
+                                i [clazz "download icon"; onClick (fun _ -> OpenTif f.id)] []
+                                i [clazz "folder icon"; onClick (fun _ -> OpenFolder f.id)] []
                             ]
                             //yield i [clazz "binoculars icon"; onClick (fun _ -> FlyToProduct f.geometry.positions.Head)][] //|> UI.wrapToolTip "FlyTo" 
                                      
@@ -764,9 +764,9 @@ module MinervaApp =
                         Html.table [   
                             Html.row "Instrument:"    [Incremental.text (feat.instrument |> instrumentText |> AVal.constant)] 
                             Html.row "Sol:"           [Incremental.text (feat.sol.ToString() |> AVal.constant)]   
-                            Html.row "FlyTo:"         [button [clazz "ui button tiny"; onClick (fun _ -> FlyToProduct feat.geometry.positions.Head )][]]
-                            Html.row "Open Img:"      [button [clazz "ui button tiny"; onClick (fun _ -> OpenTif feat.id )][text "img"]]
-                            Html.row "Folder"         [i [clazz "folder icon"; onClick (fun _ -> OpenFolder feat.id)][]]
+                            Html.row "FlyTo:"         [button [clazz "ui button tiny"; onClick (fun _ -> FlyToProduct feat.geometry.positions.Head )] []]
+                            Html.row "Open Img:"      [button [clazz "ui button tiny"; onClick (fun _ -> OpenTif feat.id )] [text "img"]]
+                            Html.row "Folder"         [i [clazz "folder icon"; onClick (fun _ -> OpenFolder feat.id)] []]
                             ]
                         )
                 | None ->  div[style "font-style:italic"][ text "no product selected" ]

@@ -45,13 +45,12 @@ module ScaleBarsDrawing =
             { model with alignment = mode } 
         | SetLength a -> 
             { model with length = Numeric.update model.length a }
-        | _-> model
 
     module UI =
 
         let viewScaleBarToolsHorizontal (model:AdaptiveScaleBarDrawing) =
             Html.Layout.horizontal [
-                Html.Layout.boxH [ i [clazz "large Write icon"][] ]
+                Html.Layout.boxH [ i [clazz "large Write icon"] [] ]
                 Html.Layout.boxH [ Html.SemUi.dropDown model.orientation SetOrientation ]
                 Html.Layout.boxH [ Html.SemUi.dropDown model.alignment SetPivot ]
                 Html.Layout.boxH [ Numeric.view' [InputBox] model.length |> UI.map SetLength ]  
@@ -390,13 +389,13 @@ module ScaleBarsApp =
                                          ]                
                                         //yield i [clazz "large cube middle aligned icon"; style bgc; onClick (fun _ -> SelectSO soid)][]           
             
-                                        yield i [clazz "home icon"; onClick (fun _ -> FlyToSB scbid) ][]
+                                        yield i [clazz "home icon"; onClick (fun _ -> FlyToSB scbid) ] []
                                             |> UI.wrapToolTip DataPosition.Bottom "Fly to scale bar"          
             
                                         yield Incremental.i toggleMap AList.empty 
                                         |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
 
-                                        yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveSB scbid) ][] 
+                                        yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveSB scbid)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Remove"     
                                        
                                     } 

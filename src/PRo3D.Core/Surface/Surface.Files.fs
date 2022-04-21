@@ -226,17 +226,18 @@ module Files =
              | KdTrees.Level0KdTree.InCoreKdTree ik -> KdTrees.InCoreKdTree ik // kdtrees can be loaded as is
          
          sgSurfaces 
-          |> HashMap.map (fun _ s -> 
+          |> HashMap.choose (fun _ s -> 
             match s.picking with
+              | Picking.NoPicking -> None
               | Picking.KdTree ks ->
                 let surf = surfaces |> HashMap.find s.surface
                 match surf.surfaceType with 
-                | SurfaceType.SurfaceOBJ -> s
+                | SurfaceType.SurfaceOBJ -> Some s
                 | _ -> 
                     let kd = 
                         ks |> HashMap.map (fun _ k -> expand surf k)
-                    { s with picking = Picking.KdTree kd }
-              | Picking.PickMesh ms -> s
+                    { s with picking = Picking.KdTree kd } |> Some
+              | Picking.PickMesh ms -> s |> Some
           )                
 
        let makeSurfaceRelative guid (surfaceModel : SurfaceModel) (scenePath : option<string>) =

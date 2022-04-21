@@ -183,6 +183,7 @@ module SurfaceIntersection =
             |> List.map (fun d -> d.picking, (m.surfaces.flat |> HashMap.find d.surface) |> Leaf.toSurface)                      
             |> List.choose (fun (p ,surf) ->
                 match p with
+                | Picking.NoPicking -> None
                 | Picking.KdTree kd ->
                     if kd.IsEmpty then Log.error "no kdtree loaded for %s" surf.name; None
                     else                    

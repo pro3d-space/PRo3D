@@ -20,7 +20,7 @@ module UI =
 
     let viewAnnotationToolsHorizontal (paletteFile : string) (model:AdaptiveDrawingModel) =
         Html.Layout.horizontal [
-            Html.Layout.boxH [ i [clazz "large Write icon"][] ]
+            Html.Layout.boxH [ i [clazz "large Write icon"] [] ]
             Html.Layout.boxH [ Html.SemUi.dropDown model.geometry SetGeometry ]
             Html.Layout.boxH [ Html.SemUi.dropDown model.projection SetProjection ]
             Html.Layout.boxH [ ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" model.color |> UI.map ChangeColor; div[][] ]
@@ -49,10 +49,10 @@ module UI =
         annotations 
         |> AList.map(fun a ->
             div [clazz "item"] [
-                i [clazz "large Sticky Note middle aligned icon"][]
+                i [clazz "large Sticky Note middle aligned icon"] []
                 div [clazz "content"] [
-                    div [clazz "header"][Incremental.text (a.geometry |> AVal.map(string))]
-                    div [clazz "description"][Incremental.text (a.points |> AList.count |> AVal.map(string))]
+                    div [clazz "header"] [Incremental.text (a.geometry |> AVal.map(string))]
+                    div [clazz "description"] [Incremental.text (a.points |> AList.count |> AVal.map(string))]
                 ]
             ]
         )
@@ -60,11 +60,11 @@ module UI =
     let viewAnnotationsInGroup 
         (path         : list<Index>) 
         (model        : AdaptiveGroupsModel)
-        (singleSelect : AdaptiveAnnotation*list<Index> -> 'outer)
-        (multiSelect  : AdaptiveAnnotation*list<Index> -> 'outer)
-        (lift         : GroupsAppAction -> 'outer) 
+        (singleSelect : AdaptiveAnnotation*list<Index> -> DrawingAction)
+        (multiSelect  : AdaptiveAnnotation*list<Index> -> DrawingAction)
+        (lift         : GroupsAppAction -> DrawingAction) 
         (annotations  : alist<AdaptiveAnnotation>) 
-        : alist<DomNode<'outer>> =
+        : alist<DomNode<DrawingAction>> =
     
         annotations 
         |> AList.map(fun a ->
@@ -144,7 +144,7 @@ module UI =
                             yield Incremental.i visibleIcon AList.empty 
                                 |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
                             yield 
-                                i [clazz "home icon"; onClick (fun _ -> FlyToAnnotation a.key)][] 
+                                i [clazz "home icon"; onClick (fun _ -> FlyToAnnotation a.key)] [] 
                                     |> UI.wrapToolTip DataPosition.Bottom "FlyTo" 
                         } 
                     )

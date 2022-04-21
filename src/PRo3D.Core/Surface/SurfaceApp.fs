@@ -612,10 +612,10 @@ module SurfaceApp =
     let viewSurfacesInGroups 
         (path         : list<Index>) 
         (model        : AdaptiveGroupsModel) 
-        (singleSelect : AdaptiveSurface*list<Index> -> 'outer) 
-        (multiSelect  : AdaptiveSurface*list<Index> -> 'outer) 
-        (lift         : GroupsAppAction -> 'outer) 
-        (surfaceIds   : alist<Guid>) : alist<DomNode<'outer>> =
+        (singleSelect : AdaptiveSurface*list<Index> -> SurfaceAppAction) 
+        (multiSelect  : AdaptiveSurface*list<Index> -> SurfaceAppAction) 
+        (lift         : GroupsAppAction -> SurfaceAppAction) 
+        (surfaceIds   : alist<Guid>) : alist<DomNode<SurfaceAppAction>> =
         alist {
         
             let surfaces = 
@@ -694,7 +694,7 @@ module SurfaceApp =
             
                 let bgc = sprintf "color: %s" (Html.ofC4b c)
                 yield div [clazz "item"; style infoc] [
-                    i [clazz "cube middle aligned icon"; onClick multiSelect;style bgc][] 
+                    i [clazz "cube middle aligned icon"; onClick multiSelect;style bgc] [] 
                     div [clazz "content"; style infoc] [                     
                         yield Incremental.div (AttributeMap.ofList [style infoc])(
                             alist {
@@ -703,10 +703,10 @@ module SurfaceApp =
                                    Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
                                 ]                             
             
-                                yield i [clazz "home icon"; onClick (fun _ -> FlyToSurface key) ][] 
+                                yield i [clazz "home icon"; onClick (fun _ -> FlyToSurface key)] [] 
                                     |> UI.wrapToolTip DataPosition.Bottom "Fly to surface"                                                     
             
-                                yield i [clazz "folder icon"; onClick (fun _ -> OpenFolder key) ][] 
+                                yield i [clazz "folder icon"; onClick (fun _ -> OpenFolder key)] [] 
                                     |> UI.wrapToolTip DataPosition.Bottom "Open Folder"                             
             
                                 //yield Incremental.i (absRelIcons) (AList.empty)

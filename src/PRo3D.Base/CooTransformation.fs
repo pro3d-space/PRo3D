@@ -117,9 +117,9 @@ module CooTransformation =
                 Log.line "cootrafo errorcode %A" errorCode
             
             {
-                latitude  = !lat
-                longitude = !lon
-                altitude  = !alt
+                latitude  = lat.Value
+                longitude = lon.Value
+                altitude  = alt.Value
                 radian    = 0.0
             }
 
@@ -133,10 +133,10 @@ module CooTransformation =
             Log.line "cootrafo errorcode %A" errorCode
 
         {
-            latitude  = !lat
-            longitude = !lon
+            latitude  = lat.Value
+            longitude = lon.Value
             altitude  = 0.0
-            radian    = !rad
+            radian    = rad.Value
         }
 
     let getXYZFromLatLonAlt (sc:SphericalCoo) (planet:Planet) : V3d = 
@@ -152,7 +152,7 @@ module CooTransformation =
             if error <> 0 then
                 Log.line "cootrafo errorcode %A" error
             
-            V3d(!pX, !pY, !pZ)
+            V3d(pX.Value, pY.Value, pZ.Value)
 
     let getXYZFromLatLonAlt' (coordinate :V3d) (planet:Planet) : V3d = 
         match planet with
@@ -167,7 +167,7 @@ module CooTransformation =
             if error <> 0 then
                 Log.line "cootrafo errorcode %A" error
             
-            V3d(!pX, !pY, !pZ)
+            V3d(pX.Value, pY.Value, pZ.Value)
 
     let getHeight (p:V3d) (up:V3d) (planet:Planet) = 
         match planet with
