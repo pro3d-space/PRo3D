@@ -71,7 +71,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Yarn Install
-        uses: ilammy/msvc-dev-cmd@v1
         working-directory: aardium
         run: yarn install
       - name: Build
