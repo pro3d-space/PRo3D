@@ -18,7 +18,7 @@
     "dist": "run-script-os",
     "dist:darwin:x64": "bash ./signbuild.sh && electron-builder",
     "dist:darwin:arm64": "bash ./signbuild.sh && electron-builder",
-    "dist::win32": "electron-builder --c.buildVersion='%BUILD_VERSION%' --c.artifactName='${productName}-${buildVersion}-${arch}.${ext}' --publish always"
+    "dist::win32": "electron-builder --c.buildVersion='%BUILD_VERSION%' --c.artifactName='${productName}-${buildVersion}-${arch}.${ext}'"
   },
   "main": "main.js",
   "repository": "https://github.com/electron/electron-quick-start",
@@ -43,6 +43,18 @@
     "extraFiles": [
       "build/build"
     ],
+	"win": {
+		"icon": "./build/icon.ico",
+        "target": "nsis"
+    },
+	"nsis": {
+      "installerIcon": "./build/icon.ico",
+      "installerHeaderIcon": "./build/icon.ico",
+      "deleteAppDataOnUninstall": true
+    },
+	"directories": {
+       "buildResources": "build"
+    },
     "publish": [
       {
         "provider": "github",
