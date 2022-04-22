@@ -249,6 +249,35 @@ Target.create "test" (fun _ ->
     Shell.copyDir (Path.Combine(target,"tools")) (Path.Combine(tempPath,"tools")) (fun _ -> true)
 )
 
+Target.create "PublishToElectron" (fun _ -> 
+    // 0.0 copy version over into source code...
+    let programFs = File.ReadAllLines "src/PRo3D.Viewer/Program.fs"
+    let patched = 
+        programFs 
+        |> Array.map (fun line -> 
+            if line.StartsWith "let viewerVersion" then 
+                sprintf "let viewerVersion       = \"%s\"" notes.NugetVersion 
+            else line
+        )
+    File.WriteAllLines("src/PRo3D.Viewer/Program.fs", patched)
+
+    if Directory.Exists "./aardium/build/build" then 
+        Directory.Delete("./aardium/build/build", true)
+
+    // 1. publish exe
+    "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
+        { o with
+            Framework = Some "net5.0"
+            Runtime = Some "win10-x64" 
+            Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=false -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
+            Configuration = DotNet.BuildConfiguration.Release
+            VersionSuffix = Some notes.NugetVersion
+            OutputPath = Some "aardium/build/build"
+        }
+    )
+
+)
+
 Target.create "Publish" (fun _ ->
 
     // 0.0 copy version over into source code...

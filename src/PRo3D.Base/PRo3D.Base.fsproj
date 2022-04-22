@@ -4,6 +4,7 @@
     <OutputType>Library</OutputType>
     <TargetFramework>net5.0</TargetFramework>
     <GenerateLenses>True</GenerateLenses>
+	<RepositoryRoot>F:\pro3d\PRo3D\src\PRo3D.Base</RepositoryRoot>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>..\..\bin\Debug\</OutputPath>
