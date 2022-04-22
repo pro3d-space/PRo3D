@@ -61,8 +61,8 @@ jobs:
 
 
   win32_x64:
-    name: windows-2019 (x64)
-    runs-on: windows-2019
+    name: windows
+    runs-on: windows-latest
     steps:  
       - name: Install Dotnet
         uses: actions/setup-dotnet@v1
