@@ -307,6 +307,7 @@ Target.create "Yarn" (fun _ ->
 )
 
 Target.create "PublishToElectron" (fun _ ->
+    yarn ["install"]
     if RuntimeInformation.IsOSPlatform OSPlatform.Windows then 
         yarn ["dist"]
         //File.WriteAllBytes("Aardium/dist/Aardium-Linux-x64.tar.gz", [||]) |> ignore
