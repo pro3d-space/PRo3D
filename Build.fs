@@ -321,7 +321,7 @@ Target.create "PublishToElectron" (fun _ ->
         //File.WriteAllBytes("Aardium/dist/Aardium-Linux-x64.tar.gz", [||]) |> ignore
         //Directory.CreateDirectory "Aardium/dist/Aardium-win32-x64" |> ignore
 )
-
+ 
 Target.create "CopyToElectron" (fun _ -> 
     // 0.0 copy version over into source code...
     let programFs = File.ReadAllLines "src/PRo3D.Viewer/Program.fs"

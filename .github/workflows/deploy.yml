@@ -5,7 +5,7 @@ on:
       - features/autodeploy
     paths:
       - PRODUCT_RELEASE_NOTES.md
-      - .github/workflows/deploy.yml
+      - .github/workflows/deploy.yml 
 jobs:
   mac_arm64:
     name: OSX (arm64)
@@ -18,19 +18,16 @@ jobs:
         uses: actions/setup-dotnet@v1
         with:
           dotnet-version: 6.0.x
-      - name: Build
-        run: bash ./build.sh PublishToElectron
+      - name: Yarn Install
+        working-directory: aardium
+        run: yarn install
       - name: Add Cert to Keychain
         uses: apple-actions/import-codesign-certs@v1
         with: 
           p12-file-base64: ${{ secrets.MAC_CERT_BASE64 }}
           p12-password: ${{ secrets.MAC_CERT_PASSWORD }}
-      - name: Yarn Install
-        working-directory: aardium
-        run: yarn install
-      - name: Package
-        working-directory: aardium
-        run: yarn dist:darwin:arm64
+      - name: Build
+        run: bash ./build.sh PublishToElectron
         env:
           MAC_CERT_BASE64: ${{ secrets.MAC_CERT_BASE64 }}
           MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
@@ -46,8 +43,6 @@ jobs:
         uses: actions/setup-dotnet@v1
         with:
           dotnet-version: 6.0.x
-      - name: Build
-        run: bash ./build.sh PublishToElectron
       - name: Add Cert to Keychain
         uses: apple-actions/import-codesign-certs@v1
         with: 
@@ -56,14 +51,14 @@ jobs:
       - name: Yarn Install
         working-directory: aardium
         run: yarn install
-      - name: Package
-        working-directory: aardium
-        run: yarn dist:darwin:x64
+      - name: Build
+        run: bash ./build.sh PublishToElectron
         env:
           MAC_CERT_BASE64: ${{ secrets.MAC_CERT_BASE64 }}
           MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
           MAC_DEV_PASSWORD: ${{ secrets.MAC_DEV_PASSWORD }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
   win32_x64:
     name: Windows (x64)
@@ -71,11 +66,8 @@ jobs:
     steps:  
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Build
-        run: .\build.cmd PublishToElectron
       - name: Yarn Install
         working-directory: aardium
         run: yarn install
-      - name: Package
-        working-directory: aardium
-        run: yarn dist:win32:x64
+      - name: Build
+        run: .\build.cmd PublishToElectron
