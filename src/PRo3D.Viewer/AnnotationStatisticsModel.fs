@@ -110,53 +110,63 @@ module AnnotationStatistics =
     let getBinMaxValue (bins:List<Bin>) =
         bins |> List.map (fun b -> b.value) |> List.max
 
-    let rec createBins outputList (count:int) (idx:int) (start:float) (width:float) (data:List<float>) =
-        if (idx > (count-1)) then outputList
-        else             
-            let next = start + width
-            let n = data |> List.fold (fun acc item -> if (item >= start && item <= next) then acc + 1
-                                                       else acc + 0
-                                                   ) 0
-            
+    let createHistogramBins (count:int) (min:float) (width:float) =
 
-            let bin = [{
-                            value       = n
-                            start       = start
-                            theEnd      = next      
-                            width       = width          
-                      }]
-            createBins (outputList @ bin) count (idx+1) next width data 
+        [
+            for i in 0..(count-1) do
+                let start = min + (float(i) * width)
+                let en = start + width
+                {
+                    
+                    value       = 0
+                    start       = start
+                    theEnd      = en      
+                    width       = width 
+                }
 
+        ]
+
+    let sortHistogramDataIntoBins (bins:List<Bin>) (data:List<float>) (min:float) (width:float)=
+        let counts = data |> List.groupBy (fun value -> let shifted = value - min 
+                                                        int(shifted/width)) 
+                          |> List.map(fun (id, vals) -> id, (vals |> List.length)) 
+                          |> Map.ofList
+
+        bins |> List.mapi (fun i bin -> match (counts.TryFind i) with
+                                                 | Some count -> {bin with value = count}
+                                                 | None -> bin
+               )
+    
+    let setHistogramBins (data:List<float>) (min:float) (width:float) (binCount:int) =
+        let createBins = createHistogramBins binCount min width
+        sortHistogramDataIntoBins createBins data min width
     
 
     let initHistogram (min:float) (max:float) (data:List<float>) = 
         let domainStart = floor(min)
         let domainEnd = ceil(max)        
-        let binWidth = (domainEnd-domainStart) / binNumeric.value
-        let bins = createBins [] (int(binNumeric.value)) 0 domainStart binWidth data
+        let binWidth = (domainEnd-domainStart) / binNumeric.value               
+        let bins = setHistogramBins data domainStart binWidth (int(binNumeric.value))
 
-        let hist = 
-            {
-                id          = Guid.NewGuid()       
-                numOfBins   = binNumeric 
-                maxBinValue = getBinMaxValue bins
-                domainStart = domainNumeric domainStart
-                domainEnd   = domainNumeric domainEnd
-                data        = data
-                bins        = bins 
-            }
-        hist
-
-    //TODO
+        {
+            id          = Guid.NewGuid()       
+            numOfBins   = binNumeric 
+            maxBinValue = getBinMaxValue bins
+            domainStart = domainNumeric domainStart
+            domainEnd   = domainNumeric domainEnd
+            data        = data
+            bins        = bins 
+        }
+        
 
     //initial setting, start and end stay constant
-    let initBins (angle:float) =
+    let initRoseDiagramBins (angle:float) =
            let binCount = int(360.0 / angle)
 
            [
            for i in 0..(binCount-1) do
 
-               //from RoseDiagram in Correlation Panels
+               //from RoseDiagram.fs in Correlation Panels
                let binAngleHalf = angle / 2.0
                let centerAngle = (float i * angle) % 360.0
                let northCenterAngle = centerAngle + 270.0 % 360.0
@@ -174,7 +184,7 @@ module AnnotationStatistics =
            ]
     
     //count for rose diagram bins
-    let calculateBinCount (bins:List<Bin>) (data:List<float>) (angle:float) =    
+    let sortRoseDiagramDataIntoBins (bins:List<Bin>) (data:List<float>) (angle:float) =    
         
         let binAngleHalf = angle / 2.0
         let counts = data |> List.groupBy (fun value -> let shifted = (value - 270.0 + binAngleHalf + 360.0) % 360.0
@@ -191,24 +201,21 @@ module AnnotationStatistics =
     let initRoseDiagram (data:List<float>) =
 
         let binAngle = 15.0
-        let initB =  initBins binAngle
-        let bins = calculateBinCount initB data binAngle
+        let initB =  initRoseDiagramBins binAngle
+        let bins = sortRoseDiagramDataIntoBins initB data binAngle
         let max = getBinMaxValue bins
-        let center = V2d.Zero        
-        let pos = new V2d(center.X + 100.0, center.Y + 100.0)
+        let center = V2d.Zero                
                 
         {
             id   = Guid.NewGuid() 
             data = data
             maxBinValue = max
             bins = bins
-            center = pos
+            center = center
             innerRad = 10.0
             outerRad = 30.0
             binAngle = binAngle
         }
-
-        
 
 
     let initProp (kind:Kind) (scale:Scale) = 
@@ -216,11 +223,4 @@ module AnnotationStatistics =
             kind = kind
             scale = scale
         }
-
-    
-
-
-
-
-    
 

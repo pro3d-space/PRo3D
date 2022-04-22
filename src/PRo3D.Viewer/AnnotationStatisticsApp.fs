@@ -17,7 +17,6 @@ type HistogramAction =
     | SetDomainMin of Numeric.Action
     | SetDomainMax of Numeric.Action    
 
-//TODO
 type RoseDiagramAction =
     | UpdateBinCount
     
@@ -50,12 +49,9 @@ module RoseDiagramOperations =
 
         match action with
 
-        | UpdateBinCount -> let updatedBins = AnnotationStatistics.calculateBinCount m.bins m.data m.binAngle
+        | UpdateBinCount -> let updatedBins = AnnotationStatistics.sortRoseDiagramDataIntoBins m.bins m.data m.binAngle
                             let max = AnnotationStatistics.getBinMaxValue updatedBins
                             {m with bins = updatedBins; maxBinValue = max}
-    
-
-
 
 module HistogramOperations =     
 
@@ -63,8 +59,8 @@ module HistogramOperations =
         let numBins = m.numOfBins.value
         let start = m.domainStart.value
         let theEnd = m.domainEnd.value
-        let width = (theEnd-start) / numBins
-        let bins = AnnotationStatistics.createBins [] (int(numBins)) 0 start width m.data 
+        let width = (theEnd-start) / numBins       
+        let bins = AnnotationStatistics.setHistogramBins m.data start width (int(numBins))
         let maxValue = AnnotationStatistics.getBinMaxValue bins
         {m with bins = bins; maxBinValue = maxValue}
 
@@ -99,7 +95,7 @@ module VisualizationOperations =
 
 module PropertyOperations =
 
-    let private calcMinMaxAvg (l:List<float>) =
+    let calcMinMaxAvg (l:List<float>) =
         match (l.IsEmpty) with
         | true -> (0.0, 0.0, 0.0)        
         | false -> let min = l |> List.min
@@ -107,7 +103,6 @@ module PropertyOperations =
                    let avg = l |> List.average
                    (min, max, avg)                   
                    
-    
 
     let update (m:Property) (action:PropertyAction) =
         match action with       
@@ -120,16 +115,6 @@ module PropertyOperations =
     
 
 module AnnotationStatisticsApp =     
-
-    let private calcMinMaxAvg (l:List<float>) =
-           match (l.IsEmpty) with
-           | true -> (0.0, 0.0, 0.0)        
-           | false -> let min = l |> List.min
-                      let max = l |> List.max
-                      let avg = l |> List.average
-                      (min, max, avg)                      
-                      
-     
 
     let getPropData (prop:Prop) (selected:List<Annotation>) =
 
@@ -172,7 +157,7 @@ module AnnotationStatisticsApp =
                                                 |> List.choose(fun o -> o)
             
 
-    //when a new annotation is added
+    //when a new annotation is added, update all Properties
     let updateAllProperties (props:HashMap<Prop, Property>) (addedAnnotation:Annotation) =   
         
         props |> HashMap.map (fun k v -> 
@@ -186,8 +171,6 @@ module AnnotationStatisticsApp =
 
         )               
 
-
-   
 
     let update (m:AnnotationStatisticsModel) (a:AnnoStatsAction) =
         match a with
@@ -207,7 +190,7 @@ module AnnotationStatisticsApp =
                                 match (m.properties.ContainsKey prop) with
                                 | true -> m
                                 | false -> let d = getPropData prop (m.selectedAnnotations |> HashMap.toValueList)
-                                           let min, max, avg = calcMinMaxAvg d     
+                                           let min, max, avg = PropertyOperations.calcMinMaxAvg d     
                                            let initialVis = 
                                             match prop.scale with
                                             | Scale.Metric -> Visualization.Histogram (AnnotationStatistics.initHistogram min max d)
@@ -225,6 +208,7 @@ module AnnotationStatisticsApp =
 
                     
         
+        //Update a specific property
         | UpdateProperty (act, prop) -> 
             match act with
             | UpdateStats d -> match (m.properties.TryFind prop) with
@@ -241,45 +225,10 @@ module AnnotationStatisticsApp =
                                                             {m with properties = updatedPropList}
                                                 | None -> m
                 
-  
-    
-      
-   
-                
-
-
-    let propDropdown =         
-
-        div [ clazz "ui menu"; style "width:150px; height:20px;padding:0px; margin:0px"] [
-            onBoot "$('#__ID__').dropdown('on', 'hover');" (
-                div [ clazz "ui dropdown item"; style "width:100%"] [
-                    text "Properties"
-                    i [clazz "dropdown icon"; style "margin:0px 5px"][] 
-                    div [ clazz "ui menu"] [
-                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.LENGTH Scale.Metric))] [text "Length"]
-                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.BEARING Scale.Metric))] [text "Bearing"]
-                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.VERTICALTHICKNESS Scale.Metric))] [text "Vertical Thickness"] 
-                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.DIP_AZIMUTH Scale.Angular))] [text "Dip Azimuth"] 
-                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.STRIKE_AZIMUTH Scale.Angular))] [text "Strike Azimuth"] 
-                    ]
-                ]
-            )
-        ] 
-
-    let propListing (prop:AdaptiveProperty) = 
-
-        require GuiEx.semui (
-            Html.table [                                    
-                Html.row "Minimum" [Incremental.text (prop.min |> AVal.map (fun f -> sprintf "%.2f" f))]
-                Html.row "Maximum" [Incremental.text (prop.max |> AVal.map (fun f -> sprintf "%.2f" f))]
-                Html.row "Average" [Incremental.text (prop.avg |> AVal.map (fun f -> sprintf "%.2f" f))]
-            ]
-          )
-     
-
+ 
+//UI related 
 module AnnotationStatisticsDrawings =
-
-    //for rose diagram
+ 
     let drawCircle (center:V2d) (radius:float) =
         
         Svg.circle(
@@ -321,14 +270,16 @@ module AnnotationStatisticsDrawings =
         ]
 
 
-    let drawRoseDiagram (r:AdaptiveRoseDiagram) =
+    let drawRoseDiagram (r:AdaptiveRoseDiagram) (dimensions:V2i) =
            //two circles as outline
            //individual bin sections
+           //dimensions.X = width of the div; dimensions.Y = height of the div
 
-           let sect = alist{
-                            let! center = r.center
+           let sect = alist{                            
                             let! innerRad = r.innerRad
                             let! outerRad = r.outerRad
+
+                            let center = new V2d(float(dimensions.X) /2.0, (float(dimensions.Y) /2.0) - outerRad)
 
                             let! bins = r.bins
                             let areaInner = Constant.Pi * (innerRad * innerRad)
@@ -353,10 +304,7 @@ module AnnotationStatisticsDrawings =
 
            Incremental.Svg.svg AttributeMap.empty sect
            
-          
-
-
-
+    
     let drawHistogram (h: AdaptiveHistogram) (width:int) = 
         
         let height = 10
@@ -379,28 +327,35 @@ module AnnotationStatisticsDrawings =
                 yield attribute "height" (sprintf "%ipx" (binV*10)) 
             } |> AttributeMap.ofAMap       
 
-        let attrText (bin:Bin) (idx:int)= 
+        let attrText (idx:int) (labelLength:int)= 
             amap{
                 let! n = h.numOfBins.value                
                 let w = (width-padLR*2) / (int(n))     
                 let x = (xStart + idx * (w+pad))
-                let y = height+(offSetY+40)
-                let strRot = "rotate(-55," + x.ToString() + "," + y.ToString() + ")"
+                let labelWidthPx = (labelLength*5)
+                let y = height + offSetY + labelWidthPx
+                let rotation = 
+                                let basis = 40.0
+                                let additional = int(basis + float(abs(labelWidthPx-w)))
+                                let r = if additional > 90 then 90
+                                        else additional
+                                sprintf "%i" r
+ 
+                let transform =  
+                                let stringX = sprintf "%i" x
+                                let stringY = sprintf "%i" y                                
+                                let translate = "translate(" + stringX + " " + stringY + ")"
+                                let rotate = "rotate(-" + rotation + ")"                              
+                                translate + " " + rotate
+
+                Console.WriteLine transform
+         
                 yield style "font-size:8px; fill:white; position:center"
-                yield attribute "x" (sprintf "%ipx" x)
-                yield attribute "y" (sprintf "%ipx" y)
-                yield attribute "transform" strRot
+                yield attribute "x" "0"
+                yield attribute "y" "0"
+                yield attribute "transform" transform
             } |> AttributeMap.ofAMap 
 
-        let attrSVG =
-            [   
-                style "position:relative"                     
-                attribute "width" "100%" 
-                attribute "height" "200px"               
-                
-            ]|> AttributeMap.ofList
-
-       
         let attrLine =
             amap{
                     let! maxBinValue = h.maxBinValue
@@ -441,7 +396,7 @@ module AnnotationStatisticsDrawings =
                     let bin = bins.Item i
                     let label = sprintf "%i-%i" (int(bin.start)) (int(bin.theEnd))
                     yield Incremental.Svg.rect (attrRects bin i)
-                    yield Incremental.Svg.text (attrText bin i) (AVal.constant label)
+                    yield Incremental.Svg.text (attrText i label.Length) (AVal.constant label)
                 
                 //y axis
                 yield Incremental.Svg.line attrLine
@@ -458,7 +413,7 @@ module AnnotationStatisticsDrawings =
           
             }
         
-        Incremental.Svg.svg attrSVG rectangles
+        Incremental.Svg.svg AttributeMap.empty rectangles
     
     let histogramSettings (hist:AdaptiveHistogram) (p:AdaptiveProperty) =
            div [style "width:100%; margin: 0 0 5 0"][                
@@ -469,76 +424,51 @@ module AnnotationStatisticsDrawings =
                    Html.row "number of bins" [Numeric.view' [InputBox] hist.numOfBins |> UI.map SetBinNumber |> UI.map UpdateHistogram |> UI.map UpdateVisualization |> UI.map (fun a -> UpdateProperty (a, p.prop))]
                ]
            ]
-       
-    let drawVisualization (p:AdaptiveProperty) =
+
+    
+    let propDropdown =         
+
+        div [ clazz "ui menu"; style "width:150px; height:20px;padding:0px; margin:0px"] [
+            onBoot "$('#__ID__').dropdown('on', 'hover');" (
+                div [ clazz "ui dropdown item"; style "width:100%"] [
+                    text "Properties"
+                    i [clazz "dropdown icon"; style "margin:0px 5px"][] 
+                    div [ clazz "ui menu"] [
+                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.LENGTH Scale.Metric))] [text "Length"]
+                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.BEARING Scale.Metric))] [text "Bearing"]
+                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.VERTICALTHICKNESS Scale.Metric))] [text "Vertical Thickness"] 
+                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.DIP_AZIMUTH Scale.Angular))] [text "Dip Azimuth"] 
+                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.STRIKE_AZIMUTH Scale.Angular))] [text "Strike Azimuth"] 
+                    ]
+                ]
+            )
+        ] 
+    
+
+    let drawVisualization (p:AdaptiveProperty) (dimensions:V2i)=
 
              let v = 
                  alist{
                      let! vis = p.visualization
                      match vis with
                      | AdaptiveHistogram h -> yield histogramSettings h p
-                                              yield drawHistogram h 200
-                     | AdaptiveRoseDiagram r -> yield drawRoseDiagram r
+                                              yield drawHistogram h dimensions.X
+                     | AdaptiveRoseDiagram r -> yield text "Rose Diagram"
+                                                yield drawRoseDiagram r dimensions
                  }
 
 
-
              let attrSVG =
-                     [   
-
-                         style "position:relative"                     
-                         attribute "width" "200px"
-                         attribute "height" "200px"         
-                         attribute "margin" "auto"
+                [   
+                    attribute "width" (sprintf "%ipx" dimensions.X)
+                    attribute "height" (sprintf "%ipx" dimensions.Y)        
+                    attribute "margin" "auto"
                          
-                     ]|> AttributeMap.ofList
+                ]|> AttributeMap.ofList
 
              Incremental.div attrSVG v
-           
-
-          
-        
-       
-                  
-        
-        
-                   
-        
-
-
-        
-
-
-
-        
-
     
 
-            
-            
-           
-                                                                        
-           
-        
-        
-       
-            
-            
-           
-
-
-        
-
-
-
-
-                                  
-                                                               
-                                                               
-
-        
-                                  
-            
             
             
 
