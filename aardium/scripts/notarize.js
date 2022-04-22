@@ -12,14 +12,13 @@ exports.default = async function(context) {
   const appName = context.packager.appInfo.productFilename;
 
 
-  /*return await notarize({
+  return await notarize({
     appBundleId: 'space.pro3d.app',
     appPath: `${appOutDir}/${appName}.app`,
     appleId: "gh@aardworx.at",
     appleIdPassword: process.env.MAC_DEV_PASSWORD,
     ascProvider: "4LQPQ4H9LQ"
-  });*/
-  return;
+  });
 
 
 }   
