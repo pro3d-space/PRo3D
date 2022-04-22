@@ -1,6 +1,6 @@
 ## 4.8.0-prerelease1
  
-- electron build test 
+- electron build test  
   
 ## 4.7.0-prerelease1  
 
