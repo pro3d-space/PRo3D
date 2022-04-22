@@ -11,13 +11,14 @@ open Fake.Api
 open Fake.Tools.Git
 
 open System.IO.Compression
+open System.Runtime.InteropServices
 
 initializeContext()
 
 
 do Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 
-let notes = ReleaseNotes.load "RELEASE_NOTES.md"
+let notes = ReleaseNotes.load "PRODUCT_RELEASE_NOTES.md"
 printfn "%A" notes
 
 let solutionName = "src/PRo3D.sln"
@@ -249,7 +250,78 @@ Target.create "test" (fun _ ->
     Shell.copyDir (Path.Combine(target,"tools")) (Path.Combine(tempPath,"tools")) (fun _ -> true)
 )
 
-Target.create "PublishToElectron" (fun _ -> 
+let yarnName =
+    if Environment.OSVersion.Platform = PlatformID.Unix || Environment.OSVersion.Platform = PlatformID.MacOSX then "yarn"
+    else "yarn.cmd"
+
+let npmName =
+    if Environment.OSVersion.Platform = PlatformID.Unix || Environment.OSVersion.Platform = PlatformID.MacOSX then "npm"
+    else "npm.cmd"
+
+let yarn (args : list<string>) =
+    let yarn =
+        match ProcessUtils.tryFindFileOnPath yarnName with
+            | Some path -> path
+            | None -> failwith "could not locate yarn"
+
+    let ret : ProcessResult<_> = 
+        Command.RawCommand(yarn, Arguments.ofList args)
+        |> CreateProcess.fromCommand
+        |> CreateProcess.setEnvironmentVariable  "BUILD_VERSION" notes.NugetVersion
+        |> CreateProcess.withWorkingDirectory "aardium"
+        |> Proc.run
+        //ProcessHelper.ExecProcess (fun info ->
+        //     info.FileName <- yarn
+        //     info.WorkingDirectory <- "Aardium"
+        //     info.Arguments <- String.concat " " args
+        //     ()
+        // ) TimeSpan.MaxValue
+
+    if ret.ExitCode <> 0 then
+        failwith "yarn failed"
+
+
+Target.create "InstallYarn" (fun _ ->
+
+    match ProcessUtils.tryFindFileOnPath yarnName with
+        | None ->
+    
+            match ProcessUtils.tryFindFileOnPath npmName with
+                | Some npm ->
+                    
+                    let ret = 
+                        Command.RawCommand(npm, Arguments.ofList ["install -g yarn"])
+                        |> CreateProcess.fromCommand
+                        |> Proc.run
+
+                    if ret.ExitCode <> 0 then
+                        failwith "npm install failed"
+                | None ->
+                    failwith "could not locate npm"   
+        | _ ->
+            Trace.tracefn "yarn already installed"
+)
+
+Target.create "Yarn" (fun _ ->
+    yarn []
+)
+
+Target.create "PublishToElectron" (fun _ ->
+    if RuntimeInformation.IsOSPlatform OSPlatform.Windows then 
+        yarn ["dist"]
+        //File.WriteAllBytes("Aardium/dist/Aardium-Linux-x64.tar.gz", [||]) |> ignore
+        //File.WriteAllBytes("Aardium/dist/Aardium-Darwin-x64.tar.gz", [||]) |> ignore
+    if RuntimeInformation.IsOSPlatform OSPlatform.Linux then 
+        yarn ["dist"]
+        //Directory.CreateDirectory "Aardium/dist/Aardium-win32-x64" |> ignore
+        //File.WriteAllBytes("Aardium/dist/Aardium-Darwin-x64.tar.gz", [||]) |> ignore
+    if RuntimeInformation.IsOSPlatform OSPlatform.OSX then 
+        yarn ["dist"]
+        //File.WriteAllBytes("Aardium/dist/Aardium-Linux-x64.tar.gz", [||]) |> ignore
+        //Directory.CreateDirectory "Aardium/dist/Aardium-win32-x64" |> ignore
+)
+
+Target.create "CopyToElectron" (fun _ -> 
     // 0.0 copy version over into source code...
     let programFs = File.ReadAllLines "src/PRo3D.Viewer/Program.fs"
     let patched = 
@@ -264,19 +336,34 @@ Target.create "PublishToElectron" (fun _ ->
     if Directory.Exists "./aardium/build/build" then 
         Directory.Delete("./aardium/build/build", true)
 
-    // 1. publish exe
-    "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
-        { o with
-            Framework = Some "net5.0"
-            Runtime = Some "win10-x64" 
-            Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=false -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
-            Configuration = DotNet.BuildConfiguration.Release
-            VersionSuffix = Some notes.NugetVersion
-            OutputPath = Some "aardium/build/build"
-        }
-    )
 
+    if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then
+         "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
+             { o with
+                 Framework = Some "net5.0"
+                 Runtime = Some "osx-x64"
+                 Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
+                 //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
+                 Configuration = DotNet.BuildConfiguration.Release
+                 VersionSuffix = Some notes.NugetVersion
+                 OutputPath = Some "aardium/build/build"
+             }
+         )
+    else
+        "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
+            { o with
+                Framework = Some "net5.0"
+                Runtime = Some "win10-x64" 
+                Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=false -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
+                Configuration = DotNet.BuildConfiguration.Release
+                VersionSuffix = Some notes.NugetVersion
+                OutputPath = Some "aardium/build/build"
+            }
+        )
 )
+
+"CopyToElectron" ==> "PublishToElectron" |> ignore
+
 
 Target.create "Publish" (fun _ ->
 

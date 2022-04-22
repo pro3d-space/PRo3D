@@ -56,14 +56,16 @@ function createWindow (url, done) {
   var res = getopt.create(options).bindHelp().parse(argv); 
   var preventTitleChange = true;
   var opt = res.options;
-  if(!opt.width) opt.width = 1024;
-  if(!opt.height) opt.height = 768;
+  if(!opt.width) opt.width = 1280;
+  if(!opt.height) opt.height = 867;
   
   opt.url = url;
   
   if(!opt.icon) opt.icon = path.join(__dirname, defaultIcon);
+  opt.title = "PRo3D";
+  preventTitleChange = false;
   if(!opt.title) {
-    opt.title = "Aardvark rocks \\o/";
+    opt.title = "PRo3D";
     preventTitleChange = false;
   }
   if(opt.hideDock && plat == 'darwin'){
@@ -97,6 +99,7 @@ function createWindow (url, done) {
   const windowOptions = 
     opt.woptions ? Object.assign({}, defaultOptions, JSON.parse(opt.woptions)) : defaultOptions;
 
+  console.log("creating window"); 
   // Create the browser window.
   mainWindow = new BrowserWindow(windowOptions);
 
@@ -147,12 +150,14 @@ function createWindow (url, done) {
   }
   
     // and load the index.html of the app.
-  mainWindow.loadURL(opt.url).then(v => {
+  mainWindow.loadURL(opt.url)
+  //.catch(error => { if (error.code === 'ERR_ABORTED') { done(); return; } throw error; })
+  .then(v => {
+	console.log("done");
     done();
+	console.log("callback done");
   });
 
-  // and load the index.html of the app.
-  mainWindow.loadURL(opt.url);
 
   // Open the DevTools.
   // mainWindow.webContents.openDevTools()
@@ -418,14 +423,21 @@ function ready() {
     console.log('spawned.' + ["--server"].concat(args))
     const rx = /.*url:[ \t]+(.*)/;        
 
+	var spawned = false;
     runningProcess.stdout.on("data", (data) => {
-        const m = data.toString().match(rx);
-        if (m) { 
+		if(spawned){
+			console.log("log: " + data);
+		}
+		else{
+			const m = data.toString().match(rx);
+			if (m) { 
 				console.log('matched.' + data)
-		console.log('matched.' + m)
-		console.log('matched.' + m[1])
-            createWindow(m[1], () => { console.log('closing.'); splash.close(); });
-        }
+				console.log('matched.' + m)
+				console.log('matched.' + m[1])
+				createWindow(m[1], () => { console.log('closing.'); splash.close(); });
+				spawned = true;
+			}
+		}
     });
       
     // Quit when all windows are closed.
