@@ -2,7 +2,7 @@
 
 - electron build test
 
-## 4.7.0-prerelease1 
+## 4.7.0-prerelease1  
 
 - added Continuous Export of Dip & Strike [#185](https://github.com/pro3d-space/PRo3D/issues/185)
 - added Custom Background Color for Screenshots [#183](https://github.com/pro3d-space/PRo3D/issues/183)

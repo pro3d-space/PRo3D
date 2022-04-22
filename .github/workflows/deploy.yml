@@ -33,6 +33,7 @@ jobs:
           MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
           MAC_DEV_PASSWORD: ${{ secrets.MAC_DEV_PASSWORD }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAC_IDENTITY: ${{ secrets.MAC_IDENTITY }} 
   mac_x64:
     name: OSX (x64)
     runs-on: macos-latest
@@ -58,6 +59,7 @@ jobs:
           MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
           MAC_DEV_PASSWORD: ${{ secrets.MAC_DEV_PASSWORD }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAC_IDENTITY: ${{ secrets.MAC_IDENTITY }} 
 
 
   win32_x64:
