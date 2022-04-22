@@ -78,4 +78,6 @@ jobs:
         working-directory: aardium
         run: yarn install
       - name: Build
+        env:
+            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: .\build.cmd PublishToElectron
