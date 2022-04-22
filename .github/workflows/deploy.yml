@@ -2,7 +2,7 @@ name: Publish
 on:
   push:
     branches:
-      - autodeploy
+      - features/autodeploy
     paths:
       - PRODUCT_RELEASE_NOTES.md
       - .github/workflows/deploy.yml
