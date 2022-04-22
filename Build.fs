@@ -362,7 +362,7 @@ Target.create "CopyToElectron" (fun _ ->
         )
 )
 
-"CopyToElectron" ==> "PublishToElectron" |> ignore
+"InstallYarn" ==> "CopyToElectron" ==> "PublishToElectron" |> ignore
 
 
 Target.create "Publish" (fun _ ->
