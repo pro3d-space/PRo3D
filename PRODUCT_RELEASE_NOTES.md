@@ -1,7 +1,7 @@
 ## 4.8.0-prerelease1
  
 - electron build test  
-  
+   
 ## 4.7.0-prerelease1  
 
 - added Continuous Export of Dip & Strike [#185](https://github.com/pro3d-space/PRo3D/issues/185)
