@@ -67,8 +67,9 @@ for contributions and when compiling from source windows is the recommended plat
 
 * install [dotnet 5.0 sdk](https://dotnet.microsoft.com/download)
 * `git clone git@github.com:vrvis/PRo3D.git`
-* run `build.cmd` or `./build.sh`
-* `dotnet run --project src/PRo3D.Viewer/PRo3D.Viewer.fsproj` or open `/src/PRo3D.sln` with Visual Studio 2019
+* run `build.cmd` or `./build.sh`. Then either
+     - run the compiled release build `cd bin/Release/net5.0` and run the binary using `dotnet PRo3D.Viewer.dll` or run `PRo3D.Viewer.exe`.
+     - or start the project directly vua `dotnet run --project src/PRo3D.Viewer/PRo3D.Viewer.fsproj` or open `/src/PRo3D.sln` for best development experience.
 
 A reconstruction of the Cape Desire outcrop at the rim of Victoria crater can be found [here](http://download.vrvis.at/realtime/PRo3D/CapeDesire/Cape_Desire_RGB.zip). For loading the data please watch the video-based introduction to PRo3D can be found in the [Getting Started](http://www.pro3d.space/#started) section of [PRo3D.space](http://www.pro3d.space)
 
