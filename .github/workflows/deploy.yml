@@ -5,6 +5,7 @@ on:
       - features/autodeploy
     paths:
       - PRODUCT_RELEASE_NOTES.md
+      - aardium/package.json
       - .github/workflows/deploy.yml 
 jobs:
   mac_arm64:

@@ -279,7 +279,7 @@ let yarn (args : list<string>) =
 
     if ret.ExitCode <> 0 then
         failwith "yarn failed"
-
+ 
 
 Target.create "InstallYarn" (fun _ ->
 
@@ -340,6 +340,8 @@ Target.create "CopyToElectron" (fun _ ->
                  OutputPath = Some "aardium/build/build"
              }
          )
+         for f in System.IO.Directory.GetFiles("./lib/Native/JR.Wrappers/mac/") do    
+            File.Copy(f, Path.Combine("aardium/build/build", Path.GetFileName f))
     else
         "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
             { o with
@@ -351,13 +353,14 @@ Target.create "CopyToElectron" (fun _ ->
                 OutputPath = Some "aardium/build/build"
             }
         )
-		
-	File.Copy("CREDITS.MD", "aardium/build/build/CREDITS.MD", true)
-	File.Copy("CREDITS.MD", "aardium/CREDITS.MD", true)
+        File.Copy("data/runtime/vcruntime140.dll", "aardium/build/build/vcruntime140.dll")
+        File.Copy("data/runtime/vcruntime140_1.dll", "aardium/build/build/vcruntime140_1.dll")
+        File.Copy("data/runtime/msvcp140.dll", "aardium/build/build/msvcp140.dll")
 
-    File.Copy("data/runtime/vcruntime140.dll", "bin/publish/win-x64/vcruntime140.dll")
-    File.Copy("data/runtime/vcruntime140_1.dll", "bin/publish/win-x64/vcruntime140_1.dll")
-    File.Copy("data/runtime/msvcp140.dll", "bin/publish/win-x64/msvcp140.dll")
+
+    File.Copy("CREDITS.MD", "aardium/build/build/CREDITS.MD", true)
+    File.Copy("CREDITS.MD", "aardium/CREDITS.MD", true)
+
 )
 
 "InstallYarn" ==> "CopyToElectron" ==> "PublishToElectron" |> ignore
