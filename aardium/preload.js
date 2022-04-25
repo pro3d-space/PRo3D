@@ -1,6 +1,11 @@
-const {dialog, Menu} = require('electron').remote
+//const {dialog, Menu} = require('electron').remote
+
+const {dialog, Menu}  = require('@electron/remote')
+
 const electron = require('electron')
+
 const shm = require('node-shared-mem')
+
 
 var aardvark = {};
 document.aardvark = aardvark;

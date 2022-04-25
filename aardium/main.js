@@ -10,6 +10,7 @@ const BrowserWindow = electron.BrowserWindow
 const electronLocalshortcut = require('electron-localshortcut');
 const screen = electron.screen
 
+require('@electron/remote/main').initialize()
 //app.allowRendererProcessReuse = false;
 
 
@@ -75,6 +76,7 @@ function createWindow (url, done) {
   if(!opt.experimental) opt.experimental = false;
   if(!opt.frameless) opt.frameless = false;
 
+
   const defaultOptions =
     {
       width: parseInt(opt.width),
@@ -102,6 +104,7 @@ function createWindow (url, done) {
   console.log("creating window"); 
   // Create the browser window.
   mainWindow = new BrowserWindow(windowOptions);
+  require("@electron/remote/main").enable(mainWindow.webContents); 
 
   electron.app.on('browser-window-created',function(e,window) {
       window.setMenu(null);
@@ -412,6 +415,7 @@ function ready() {
         transparent: true,
         webPreferences : {  
           devTools: false
+          
         } 
       }
     );
@@ -419,6 +423,9 @@ function ready() {
     splash.show()
     console.log('showed.')
 	
+
+
+  console.warn("jsdfjsdjf", __dirname);
     const runningProcess = proc.spawn(p, ["--server"].concat(args));
     console.log('spawned.' + ["--server"].concat(args))
     const rx = /.*url:[ \t]+(.*)/;        

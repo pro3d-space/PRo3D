@@ -23,6 +23,7 @@
   "main": "main.js",
   "repository": "https://github.com/electron/electron-quick-start",
   "dependencies": {
+    "@electron/remote": "^2.0.8",
     "electron-localshortcut": "^3.2.1",
     "jquery": "^3.5.1",
     "node-getopt": "^0.3.2",
@@ -41,19 +42,20 @@
   },
   "build": {
     "extraFiles": [
-      "build/build"
+      "build/build",
+      "preload.js"
     ],
-	"win": {
-		"icon": "build/icon.ico",
-        "target": "nsis"
+    "win": {
+      "icon": "build/icon.ico",
+      "target": "nsis"
     },
-	"nsis": {
+    "nsis": {
       "installerIcon": "build/icon.ico",
       "installerHeaderIcon": "build/icon.ico",
       "deleteAppDataOnUninstall": true
     },
-	"directories": {
-       "buildResources": "build"
+    "directories": {
+      "buildResources": "build"
     },
     "publish": [
       {
