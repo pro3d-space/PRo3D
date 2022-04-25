@@ -323,16 +323,6 @@ Target.create "PublishToElectron" (fun _ ->
 )
  
 Target.create "CopyToElectron" (fun _ -> 
-    // 0.0 copy version over into source code...
-    let programFs = File.ReadAllLines "src/PRo3D.Viewer/Program.fs"
-    let patched = 
-        programFs 
-        |> Array.map (fun line -> 
-            if line.StartsWith "let viewerVersion" then 
-                sprintf "let viewerVersion       = \"%s\"" notes.NugetVersion 
-            else line
-        )
-    File.WriteAllLines("src/PRo3D.Viewer/Program.fs", patched)
 
     if Directory.Exists "./aardium/build/build" then 
         Directory.Delete("./aardium/build/build", true)
@@ -361,6 +351,13 @@ Target.create "CopyToElectron" (fun _ ->
                 OutputPath = Some "aardium/build/build"
             }
         )
+		
+	File.Copy("CREDITS.MD", "aardium/build/build/CREDITS.MD", true)
+	File.Copy("CREDITS.MD", "aardium/CREDITS.MD", true)
+
+    File.Copy("data/runtime/vcruntime140.dll", "bin/publish/win-x64/vcruntime140.dll")
+    File.Copy("data/runtime/vcruntime140_1.dll", "bin/publish/win-x64/vcruntime140_1.dll")
+    File.Copy("data/runtime/msvcp140.dll", "bin/publish/win-x64/msvcp140.dll")
 )
 
 "InstallYarn" ==> "CopyToElectron" ==> "PublishToElectron" |> ignore
