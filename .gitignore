@@ -77,3 +77,6 @@ src\Aardvark.OpcViewer.psess
 /SAFE/src/Server/*.user
 /SAFE/src/Server/Aardvark.log
 **/*.DS_Store
+/aardium/build/build/
+/aardium/dist
+/aardium/yarn-error.log

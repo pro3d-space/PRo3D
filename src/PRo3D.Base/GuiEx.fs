@@ -16,7 +16,7 @@ module GuiEx =
 
         let horizontal ch = table [clazz "ui table inverted segment"; style "backgroundColor: transparent"] [ tbody [] [ tr [] ch ] ]
 
-        let finish<'msg> = td[] []
+        let finish<'msg> = td [] []
                    
     let accordion text' icon active content' =
             let title = if active then "title active inverted" else "title inverted"
@@ -27,9 +27,9 @@ module GuiEx =
                 div [clazz "ui inverted segment"] [
                     div [clazz "ui inverted accordion fluid"] [
                         div [clazz title; style "background-color: #282828"] [
-                                i [clazz ("dropdown icon")][]
+                                i [clazz ("dropdown icon")] []
                                 text text'                                
-                                div[style "float:right"][i [clazz (icon + " icon")][]]
+                                div [style "float:right"] [i [clazz (icon + " icon")] []]
                                 
                         ]
                         div [clazz content;  style "overflow-y : auto; "] content' //max-height: 35%
@@ -45,10 +45,10 @@ module GuiEx =
             div [clazz "ui inverted segment"] [
                 div [clazz "ui inverted accordion fluid"] [
                     div [clazz title; style "background-color: #282828"] [
-                            i [clazz ("dropdown icon")][]
+                            i [clazz ("dropdown icon")] []
                             text text'                                
-                            div[style "float:right";onClick (fun _ -> iconAction)]
-                                [i [clazz (icon + " icon")][]]
+                            div [style "float:right";onClick (fun _ -> iconAction)]
+                                [i [clazz (icon + " icon")] []]
                             
                     ]
                     div [clazz content;  style "overflow-y : auto; "] content' //max-height: 35%

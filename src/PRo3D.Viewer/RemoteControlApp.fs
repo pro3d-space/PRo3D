@@ -213,28 +213,28 @@ module RemoteControlApp =
     
     let view (m : AdaptiveRemoteModel) : DomNode<RemoteControlModel.Action> =          
         require GuiEx.semui (
-            div[clazz "ui two column grid"] [
-                div[clazz "ui segment"] [
-                    h1 [clazz "ui header"][text "Screenshot Service"]
+            div [clazz "ui two column grid"] [
+                div [clazz "ui segment"] [
+                    h1 [clazz "ui header"] [text "Screenshot Service"]
                     button [clazz "ui labeled icon button"; onClick (fun _ -> SaveModel)] [
-                        i [clazz "save icon"][]
+                        i [clazz "save icon"] []
                         text "Save Model"
                     ]
                     br []
                     button [clazz "ui labeled icon button"; onClick (fun _ -> RemoveModel)] [
-                        i [clazz "remove icon"][]
+                        i [clazz "remove icon"] []
                         text "Delete Model"
                     ]
                 ]
-                div[clazz "column"] [
-                    div[clazz "ui segment"] [
-                        h2 [clazz "ui header"][text "Waypoints"]
+                div [clazz "column"] [
+                    div [clazz "ui segment"] [
+                        h2 [clazz "ui header"] [text "Waypoints"]
                         button [clazz "ui labeled icon button"; onClick (fun _ -> Play)] [
-                            i [clazz "play icon"][]
+                            i [clazz "play icon"] []
                             text "play"
                         ]
                         button [clazz "ui labeled icon button"; onClick (fun _ -> Load)] [
-                            i [clazz "Eject icon"][]
+                            i [clazz "Eject icon"] []
                             text "load"
                         ]
                         viewShots m
@@ -244,7 +244,7 @@ module RemoteControlApp =
                     //    RoverApp.view m.Rover |> UI.map RoverMessage
                     //]
                 ]
-                div[clazz "column"] []                
+                div [clazz "column"] []                
             ]    
         )
 

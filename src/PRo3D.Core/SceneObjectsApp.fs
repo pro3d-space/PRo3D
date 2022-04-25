@@ -207,16 +207,16 @@ module SceneObjectsApp =
             [
                 Incremental.text m.name; text " "
 
-                i [clazz "home icon"; onClick (fun _ -> FlyToSO soid) ][]
+                i [clazz "home icon"; onClick (fun _ -> FlyToSO soid)] []
                 |> UI.wrapToolTip DataPosition.Bottom "Fly to scene object"                                                     
             
-                i [clazz "folder icon"; onClick (fun _ -> OpenFolder soid) ][] 
+                i [clazz "folder icon"; onClick (fun _ -> OpenFolder soid)] [] 
                 |> UI.wrapToolTip DataPosition.Bottom "Open Folder"                             
             
                 Incremental.i toggleMap AList.empty 
                 |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
 
-                i [clazz "Remove icon red"; onClick (fun _ -> RemoveSO soid) ][] 
+                i [clazz "Remove icon red"; onClick (fun _ -> RemoveSO soid) ] [] 
                 |> UI.wrapToolTip DataPosition.Bottom "Remove"     
             ]    
 
@@ -276,16 +276,16 @@ module SceneObjectsApp =
                                     Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
                                     ]            
             
-                                yield i [clazz "home icon"; onClick (fun _ -> FlyToSO soid) ][]
+                                yield i [clazz "home icon"; onClick (fun _ -> FlyToSO soid)] []
                                     |> UI.wrapToolTip DataPosition.Bottom "Fly to scene object"                                                     
             
-                                yield i [clazz "folder icon"; onClick (fun _ -> OpenFolder soid) ][] 
+                                yield i [clazz "folder icon"; onClick (fun _ -> OpenFolder soid)] [] 
                                     |> UI.wrapToolTip DataPosition.Bottom "Open Folder"                             
             
                                 yield Incremental.i toggleMap AList.empty 
                                 |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
 
-                                yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveSO soid) ][] 
+                                yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveSO soid)] [] 
                                     |> UI.wrapToolTip DataPosition.Bottom "Remove"     
                                        
                             } 

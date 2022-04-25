@@ -32,7 +32,7 @@ module SequencedBookmarksProperties =
         let view = model.cameraView
         require GuiEx.semui (
             Html.table [  
-                Html.row "Change Name:"[Html.SemUi.textBox model.name SetName ]
+                Html.row "Change Name:" [Html.SemUi.textBox model.name SetName ]
                 Html.row "Pos:"     [Incremental.text (view |> AVal.map (fun x -> x.Location.ToString("0.00")))] 
                 Html.row "LookAt:"  [Incremental.text (view |> AVal.map (fun x -> x.Forward.ToString("0.00")))]
                 Html.row "Up:"      [Incremental.text (view |> AVal.map (fun x -> x.Up.ToString("0.00")))]
@@ -580,19 +580,19 @@ module SequencedBookmarksApp =
                                          ]                
                                         //yield i [clazz "large cube middle aligned icon"; style bgc; onClick (fun _ -> SelectSO soid)][]           
         
-                                        yield i [clazz "home icon"; onClick (fun _ -> FlyToSBM id) ][]
+                                        yield i [clazz "home icon"; onClick (fun _ -> FlyToSBM id)] []
                                             |> UI.wrapToolTip DataPosition.Bottom "fly to bookmark"          
         
                                         //yield Incremental.i toggleMap AList.empty 
                                         //|> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
 
-                                        yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveSBM id) ][] 
+                                        yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveSBM id)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Remove"     
 
-                                        yield i [clazz "arrow alternate circle up outline icon"; onClick (fun _ -> MoveUp id) ][] 
+                                        yield i [clazz "arrow alternate circle up outline icon"; onClick (fun _ -> MoveUp id)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Move up"
                                         
-                                        yield i [clazz "arrow alternate circle down outline icon"; onClick (fun _ -> MoveDown id) ][] 
+                                        yield i [clazz "arrow alternate circle down outline icon"; onClick (fun _ -> MoveDown id)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Move down"
                                    
                                     } 

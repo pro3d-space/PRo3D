@@ -1815,7 +1815,7 @@ module ViewerApp =
             //let viewContactOfInterest = 
             //    PRo3D.Correlations.CorrelationPanelsApp.viewContactOfInterest m.correlationPlot
                 
-            Sg.ofList[ds;annos;]// correlationPlanes; planes; viewContactOfInterest]
+            Sg.ofList [ds;annos;]// correlationPlanes; planes; viewContactOfInterest]
 
         let overlayed =
                         

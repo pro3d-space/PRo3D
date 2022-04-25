@@ -146,22 +146,22 @@ module TraversePropertiesApp =
                         //if (sol.solNumber = 238) then
                         //items
                         yield div [clazz "item"; style white] [
-                            i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc][]
+                            i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc] []
                             div [clazz "content"; style white] [                     
                                 Incremental.div (AttributeMap.ofList [style white])(
                                     alist {
                                             
-                                        yield div[clazz "header"; style bgc][
+                                        yield div [clazz "header"; style bgc] [
                                             span [onClick (fun _ -> SelectSol sol.solNumber)] [text headerText]
                                         ]                
     
                                         let descriptionText = sprintf "yaw %A | pitch %A | roll %A" sol.yaw sol.pitch sol.roll
-                                        yield div[clazz "description"][text descriptionText]
+                                        yield div [clazz "description"] [text descriptionText]
     
                                         let! refSystem = refSystem.Current
-                                        yield i [clazz "home icon"; onClick (fun _ -> FlyToSol (computeSolFlyToParameters sol refSystem)) ][]
+                                        yield i [clazz "home icon"; onClick (fun _ -> FlyToSol (computeSolFlyToParameters sol refSystem))] []
                                             |> UI.wrapToolTip DataPosition.Bottom "Fly to Sol"
-                                        yield i [clazz "location arrow icon"; onClick (fun _ -> PlaceRoverAtSol (computeSolViewplanParameters sol refSystem)) ][]
+                                        yield i [clazz "location arrow icon"; onClick (fun _ -> PlaceRoverAtSol (computeSolViewplanParameters sol refSystem))] []
                                             |> UI.wrapToolTip DataPosition.Bottom "Make Viewplan"
                                     } 
                                 )                                     
@@ -390,18 +390,18 @@ module TraverseApp =
                                 yield Incremental.div (AttributeMap.ofList [style infoc])(
                                     alist {
                                         //let! hc = headerColor
-                                        yield div[clazz "header"; style bgc][
+                                        yield div [clazz "header"; style bgc] [
                                             Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
                                          ]                           
                                         // fly to first sol of traverse
                                         let! refSystem = refSystem.Current
-                                        yield i [clazz "home icon"; onClick (fun _ -> FlyToSol (TraversePropertiesApp.computeSolFlyToParameters fistSol refSystem)) ][]
+                                        yield i [clazz "home icon"; onClick (fun _ -> FlyToSol (TraversePropertiesApp.computeSolFlyToParameters fistSol refSystem))] []
                                             |> UI.wrapToolTip DataPosition.Bottom "Fly to traverse"          
             
                                         yield Incremental.i toggleMap AList.empty 
                                         |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
 
-                                        yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveTraverse traverseID) ][] 
+                                        yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveTraverse traverseID)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Remove"     
                                        
                                     } 
@@ -413,7 +413,7 @@ module TraverseApp =
         let viewProperties (model:AdaptiveTraverseModel) =
             adaptive {
                 let! guid = model.selectedTraverse
-                let empty = div[ style "font-style:italic"][ text "no traverse selected" ] |> UI.map TraversePropertiesMessage 
+                let empty = div [ style "font-style:italic"] [ text "no traverse selected" ] |> UI.map TraversePropertiesMessage 
                 
                 match guid with
                 | Some id -> 
@@ -427,7 +427,7 @@ module TraverseApp =
         let viewSols (refSystem : AdaptiveReferenceSystem) (model:AdaptiveTraverseModel) =
             adaptive {
                 let! guid = model.selectedTraverse
-                let empty = div[ style "font-style:italic"][ text "no traverse selected" ] |> UI.map TraversePropertiesMessage 
+                let empty = div [ style "font-style:italic"] [ text "no traverse selected" ] |> UI.map TraversePropertiesMessage 
                 
                 match guid with
                 | Some id -> 
