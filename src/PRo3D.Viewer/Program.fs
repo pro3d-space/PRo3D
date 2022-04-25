@@ -66,7 +66,7 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "4.6.1-prerelease2"
+let viewerVersion       = "4.8.0-prerelease1"
 let catchDomainErrors   = false
 
 open System.IO
@@ -391,6 +391,7 @@ let main argv =
         disposables.Add(suaveServer)
 
         Log.line "serving at: %s" renderingUrl
+        Log.line "url: %s" renderingUrl
 
         
         //WebPart.startServer 4322 [

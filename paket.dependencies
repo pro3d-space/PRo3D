@@ -42,7 +42,7 @@ nuget Aardvark.Service.Giraffe              ~> 5.3.1
 nuget Adaptify.MSBuild                      ~> 1.1.5
 nuget Adaptify.Core                         ~> 1.1.5
 
-nuget Aardium                               ~> 2.0.8
+nuget Aardium                               ~> 2.0.10-prerelease0007
 
 nuget Uncodium.Eigensystems                 ~> 1.1.2
 
