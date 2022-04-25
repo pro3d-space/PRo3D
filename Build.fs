@@ -582,6 +582,7 @@ Target.create "Run" (fun _ ->
 
 "CompileInstruments" ==> "AddNativeResources" |> ignore
 "AddNativeResources" ==> "CopyJRWrapper" ==> "Publish" |> ignore
+"AddNativeResources" ==> "PublishToElectron" |> ignore
 "Credits" ==> "PublishToElectron" |> ignore
 
 [<EntryPoint>]
