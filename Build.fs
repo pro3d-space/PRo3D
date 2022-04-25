@@ -577,8 +577,12 @@ Target.create "GitHubRelease" (fun _ ->
 "Publish" ==> "GithubRelease" |> ignore
 
 Target.create "Run" (fun _ -> 
-    Target.run 1 "Compile" []
+    Target.run 1 "AddNativeResources" []
 )
+
+"CompileInstruments" ==> "AddNativeResources" |> ignore
+"AddNativeResources" ==> "CopyJRWrapper" ==> "Publish" |> ignore
+"Credits" ==> "PublishToElectron" |> ignore
 
 [<EntryPoint>]
 let main args = 
