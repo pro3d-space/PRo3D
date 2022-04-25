@@ -237,7 +237,6 @@ module AnnotationStatisticsDrawings =
                 attribute "cx" (sprintf "%f" center.X)      
                 attribute "cy" (sprintf "%f" center.Y) 
                 attribute "r" (sprintf "%f" radius)                 
-
             ]
         )
 
@@ -308,20 +307,17 @@ module AnnotationStatisticsDrawings =
     let drawHistogram (h: AdaptiveHistogram) (width:int) = 
         
         let height = 10
-        let offSetY = 100
-        let padLR = 10
-        let pad = 5
+        let offSetY = 100        
         let xStart = 15
-         
 
         let attrRects (bin:Bin) (idx:int)= 
             amap{
                 let! n = h.numOfBins.value
-                let binV = bin.value
-                let w = (width-padLR*2) / (int(n))                
+                let binV = bin.value                     
+                let w = (width-xStart) / (int(n))
                 
                 yield style "fill:green;fill-opacity:1.0"                
-                yield attribute "x" (sprintf "%ipx" (xStart + idx * (w+pad)))
+                yield attribute "x" (sprintf "%ipx" (xStart + idx * w))
                 yield attribute "y" (sprintf "%ipx" ((height-(binV*10)+offSetY)))
                 yield attribute "width" (sprintf "%ipx" w) 
                 yield attribute "height" (sprintf "%ipx" (binV*10)) 
@@ -329,14 +325,15 @@ module AnnotationStatisticsDrawings =
 
         let attrText (idx:int) (labelLength:int)= 
             amap{
-                let! n = h.numOfBins.value                
-                let w = (width-padLR*2) / (int(n))     
-                let x = (xStart + idx * (w+pad))
+                let! n = h.numOfBins.value              
+                let w = (width-xStart) / (int(n))                
+                let x = (xStart + idx * w)
                 let labelWidthPx = (labelLength*5)
                 let y = height + offSetY + labelWidthPx
                 let rotation = 
                                 let basis = 40.0
-                                let additional = int(basis + float(abs(labelWidthPx-w)))
+                                let add = (float(labelWidthPx) / float(w)) * 20.0
+                                let additional = int(basis + add)
                                 let r = if additional > 90 then 90
                                         else additional
                                 sprintf "%i" r
@@ -348,8 +345,6 @@ module AnnotationStatisticsDrawings =
                                 let rotate = "rotate(-" + rotation + ")"                              
                                 translate + " " + rotate
 
-                Console.WriteLine transform
-         
                 yield style "font-size:8px; fill:white; position:center"
                 yield attribute "x" "0"
                 yield attribute "y" "0"
@@ -370,9 +365,9 @@ module AnnotationStatisticsDrawings =
         let attrTickLine (y:int) =
             amap{
                 yield style "stroke:green; stroke-opacity:0.3"               
-                yield attribute "x1" "10px"
+                yield attribute "x1" (sprintf "%ipx" xStart)
                 yield attribute "y1" (sprintf "%ipx" y)
-                yield attribute "x2" (sprintf "%ipx" (xStart+width+pad))
+                yield attribute "x2" (sprintf "%ipx" width)
                 yield attribute "y2" (sprintf "%ipx" y)
 
             }|> AttributeMap.ofAMap 
