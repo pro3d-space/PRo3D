@@ -89,11 +89,15 @@ module CooTransformation =
         else 
             Log.line "[CooTransformation] Successfully initialized CooTrafo"
         
-        let error = JR.InstrumentPlatforms.Init(configDir,logDir)
-        if error <> 0 then 
-            Log.error "[InstrumentPlatforms] Instrument dll return error %d" error
-        else
-            Log.line "[InstrumentPlatforms] Instrument dll sucessfully initialized"
+        try
+            let error = JR.InstrumentPlatforms.Init(configDir,logDir)
+            if error <> 0 then 
+                Log.error "[InstrumentPlatforms] Instrument dll return error %d" error
+            else
+                Log.line "[InstrumentPlatforms] Instrument dll sucessfully initialized"
+        with e -> 
+            if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then
+                Log.warn "Instrument platform failed to initialize - not yet supported? https://github.com/pro3d-space/PRo3D/issues/196 --> %A" e
 
     let deInitCooTrafo () = 
         Log.line "[CooTransformation] shutting down..."
