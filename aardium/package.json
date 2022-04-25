@@ -42,8 +42,7 @@
   },
   "build": {
     "extraFiles": [
-      "build/build",
-      "preload.js"
+      "build/build"
     ],
     "win": {
       "icon": "build/icon.ico",
