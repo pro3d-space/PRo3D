@@ -921,7 +921,7 @@ module ViewerApp =
             else 
                 m
         | ViewerAction.PickSurface (p,name,true), _ ,true ->
-            let fray = p.globalRay.Ray
+            let fray = p.globalRay.Ray 
             let r = fray.Ray
             let rayHash = r.GetHashCode()              
 

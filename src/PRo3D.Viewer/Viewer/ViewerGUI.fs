@@ -770,40 +770,34 @@ module Gui =
     module AnnoStatsUI =
 
         let propSummary (m : AdaptiveModel) =
+            let propListing (p:AdaptiveProperty) = 
+                let statsTable = 
+                    require GuiEx.semui (
+                        Html.table [                                    
+                            Html.row "Minimum" [Incremental.text (p.min |> AVal.map (fun f -> sprintf "%.2f" f))]
+                            Html.row "Maximum" [Incremental.text (p.max |> AVal.map (fun f -> sprintf "%.2f" f))]
+                            Html.row "Average" [Incremental.text (p.avg |> AVal.map (fun f -> sprintf "%.2f" f))]
+                        ]
+                    )
 
-            
-            let propListing (p:AdaptiveProperty) =               
-                
-             let statsTable = 
-                require GuiEx.semui (
-                    Html.table [                                    
-                        Html.row "Minimum" [Incremental.text (p.min |> AVal.map (fun f -> sprintf "%.2f" f))]
-                        Html.row "Maximum" [Incremental.text (p.max |> AVal.map (fun f -> sprintf "%.2f" f))]
-                        Html.row "Average" [Incremental.text (p.avg |> AVal.map (fun f -> sprintf "%.2f" f))]
-                    ]
-                )
-
-             //visualization
-             let visualization = AnnotationStatisticsDrawings.drawVisualization p (new V2i(300, 200))          
+                 //visualization
+                let visualization = AnnotationStatisticsDrawings.drawVisualization p (new V2i(300, 200))          
              
-             let title = "Property: " + p.prop.kind.ToString()
-             GuiEx.accordion title "Settings" true [
-                statsTable                                             
-                visualization |> UI.map AnnoStatsMessage                               
-             ]
-
-
-            let props = m.annoStats.properties
-
+                let title = "Property: " + p.prop.kind.ToString()
+                GuiEx.accordion title "Settings" true [
+                    statsTable                                             
+                    visualization |> UI.map AnnoStatsMessage                               
+                 ]
+            
             Incremental.div (AttributeMap.ofList [style "width:100%; margin: 15 15 5 5"]) 
-            
                 (                                  
-                   props |> AMap.map(fun p v -> propListing v) |> AMap.toASet |> ASet.toAList |> AList.map(fun (a,b) -> b)                                                                 
+                    m.annoStats.properties 
+                    |> AMap.map(fun p v -> propListing v) 
+                    |> AMap.toASet 
+                    |> ASet.toAList 
+                    |> AList.map(fun (a,b) -> b)                                                                 
                 )
-
-          
-
-            
+  
 
         let statsUI (m : AdaptiveModel) = 
             let style' = "color: white; font-family:Consolas;"   
@@ -812,35 +806,43 @@ module Gui =
 
             Incremental.div (AttributeMap.ofList [style style']) (           
                 alist {
+                //    //testing if errors can be presented
+                //        let! workingState = m.drawing.working
+                //        let o = Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption workingState
+                //        let str = match o with
+                //                    | Some anno -> let points = anno.points |> AList.toAVal
+                //                                   points |> AVal.map (fun p -> 
+                //                                   let dist = DipAndStrike.calculateDnsErrors p
+                //                                   let sumOfSquared = dist |> List.map(fun x -> x * x) |> List.sum
+                //                                   sprintf "current error %f" sumOfSquared
+                //                       )
+                //                    | None -> AVal.constant "nothing to calculate yet"
+
+                //        Incremental.text str                        
+                //    //
 
                     let! empty = s
                     match empty with
-                        | true -> div [style "width:100%; margin: 10 0 10 10"][text "Please select some annotations"]                                                       
-                              
-                        | false -> let text1 = selectedAnnos |> AMap.count |> AVal.map (fun n -> sprintf "%s annotation(s) selected" (n.ToString()))
-                                   div [style "width:100%; margin: 10 5 10 10"][ 
-                                    Incremental.text text1
-                                   ]
-                                   
-                                   div [style "width:100%; margin: 10 5 10 10"][                                
-                                     text "Please select a property to see statistics" 
-                                     AnnotationStatisticsDrawings.propDropdown |> UI.map AnnoStatsMessage                                     
-                                   ]
+                    | true -> 
+                        div [style "width:100%; margin: 10 0 10 10"][text "Please select some annotations"]                                                  
+                    | false -> 
+                        let text1 = 
+                            selectedAnnos 
+                            |> AMap.count 
+                            |> AVal.map (fun n -> sprintf "%s annotation(s) selected" (n.ToString()))
 
-                                   div [style "width:100%; margin: 10 5 10 10"][                                
-                                      propSummary m                                      
-                                   ]
-             
-                               
+                        div [style "width:100%; margin: 10 5 10 10"][ 
+                            Incremental.text text1 
+                        ]
+                        div [style "width:100%; margin: 10 5 10 10"][                                
+                            text "Please select a property to see statistics" 
+                            AnnotationStatisticsDrawings.propDropdown |> UI.map AnnoStatsMessage                                     
+                        ]
+                        div [style "width:100%; margin: 10 5 10 10"][                                
+                            propSummary m                                      
+                        ]
                 }
             )
-
-            
-            
-
-
-
-        
 
     module Config =
         let config (model : AdaptiveModel) = 
