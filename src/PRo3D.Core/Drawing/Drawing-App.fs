@@ -692,7 +692,7 @@ module DrawingApp =
                     let showPoints = 
                         a.geometry 
                         |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
-                      
+
                     let sg = Sg.finishedAnnotationOld a c config view viewport showPoints picked pickingAllowed
                     sg
                  )

@@ -59,7 +59,6 @@ module Rendering =
             with 
             | e ->
                 Log.error "%s" e.Message
-    //                Environment.Exit(int ExitCode.REQUEST_RESTART)
                 None, None
         result
 
@@ -122,3 +121,5 @@ module Rendering =
         with e ->
             Log.error "[SNAPSHOT] Could not save image %s" filename
             Log.error "%s" e.Message
+
+ 

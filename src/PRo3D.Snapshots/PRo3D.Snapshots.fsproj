@@ -36,6 +36,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="paket.references" />
+    <Compile Include="Viewer\PRo3DUtils.fs" />
     <Compile Include="Viewer\SnapshotGenerator.fs" />
     <Compile Include="Program.fs" />
     <EmbeddedResource Include="resources\ElementQueries.js" />
