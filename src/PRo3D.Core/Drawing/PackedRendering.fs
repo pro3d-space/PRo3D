@@ -633,7 +633,7 @@ module PackedRendering =
             FShade.Effect.compose [
                 toEffect DefaultSurfaces.stableTrafo
                 toEffect DefaultSurfaces.vertexColor
-                toEffect LineShader.thickLine
+                toEffect DefaultSurfaces.thickLine
             ]
 
         let attributes = AVal.custom (fun t -> 
