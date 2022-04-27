@@ -844,6 +844,50 @@ module Gui =
                 }
             )
 
+    module RegressionFeedback =
+        let dnsErrorFeedback (model:AdaptiveModel) =
+            //alist{
+            //    let! workingAnnotation = model.drawing.working                
+            //    let annotationOption = Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption workingAnnotation                
+            //    match annotationOption with
+            //    | Some annotation -> 
+            //        annotation.geometry
+            //        |> AVal.map (fun g -> 
+            //            match g with
+            //            | Geometry.DnS -> 
+            //                annotation.points 
+            //                |> AList.toAVal                                
+            //                |> AVal.map (fun p -> 
+            //                    let dist = DipAndStrike.calculateDnsErrors p
+            //                    let error = dist |> List.map(fun x -> x * x) |> List.sum //sum of squared error
+            //                    let errorStr = sprintf "current error %f" error
+
+            //                    //calculate position of div from 3D point
+            //                    let centerOfMass = V3d.Divide(p |> IndexList.sum, (float)p.Count)
+            //                    let screenspace = 
+            //                        AVal.map3 (fun v f m -> 
+            //                            let vm = v.ViewTrafo
+            //                            let pm = f |> Frustum.projTrafo
+            //                            let t = m * vm * pm
+            //                            let ndc = t.Forward.TransformPosProj(centerOfMass)
+            //                            ndc.XY * 0.5 + V2d.Half
+            //                        ) annotation.view model.frustum annotation.modelTrafo
+                                       
+            //                    div[style "position: absolute; top: 80px; right: 0; width: 30px; height: 30px"][
+            //                        text "todo"
+            //                    ]                                       
+                                    
+      
+            //                )
+
+            //            | _ -> div[][]
+
+            //        ) 
+            //    | None -> div[][]
+            //}
+            div[][]
+
+
     module Config =
         let config (model : AdaptiveModel) = 
             ConfigProperties.view model.scene.config 
