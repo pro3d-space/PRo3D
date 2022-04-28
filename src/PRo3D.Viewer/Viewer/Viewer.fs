@@ -559,129 +559,68 @@ module ViewerApp =
         | BookmarkUIMessage msg,_,_ ->    
             let bm = GroupsApp.update m.scene.bookmarks msg
             { m with scene = { m.scene with bookmarks = bm }} 
-        | SequencedBookmarkMessage msg,_,_ -> //TODO refactor 100+ lines of code that do not belong to viewer.fs
+        | SequencedBookmarkMessage msg,_,_ ->
             let m, bm = 
                 SequencedBookmarksApp.update 
                     m.scene.sequencedBookmarks
                     msg _navigation _animation
                     m
+            let m = 
+                {m with scene = { m.scene with sequencedBookmarks = bm }}
             
             let jsonPathName = Path.combine [bm.outputPath;"batchRendering.json"]
             let generateJson () = 
-                if SequencedBookmarksApp.timestamps.Length > 0 then
-                    let snapshots = 
-                        match bm.renderStillFrames with
-                        | false ->
-                            Snapshot.fromViews 
-                                SequencedBookmarksApp.collectedViews None None SequencedBookmarksApp.names 
-                                                                     None m.scene.sequencedBookmarks.fpsSetting
-                        | true -> 
-                            let stillFrames = SequencedBookmarksApp.calculateNrOfStillFrames bm
-                            Snapshot.fromViews 
-                                SequencedBookmarksApp.collectedViews None None SequencedBookmarksApp.names 
-                                                                     (stillFrames |> Some) 
-                                                                     bm.fpsSetting
-                    let snapshotAnimation =
-                        SnapshotAnimation.generate 
-                            snapshots 
-                            (m.frustum |> Frustum.horizontalFieldOfViewInDegrees |> Some)
-                            (m.scene.config.nearPlane.value |> Some)
-                            (m.scene.config.farPlane.value |> Some)
-                            (V2i (bm.resolutionX.value, bm.resolutionY.value))
-                            None    
-                    
-                    SnapshotAnimation.writeToFile snapshotAnimation jsonPathName
-                else 
-                    Log.line "[Viewer] No frames recorded. Saving current frame."
-                    let snapshots = 
-                        [{
-                            filename        = "CurrentFrame"
-                            camera          = m.scene.cameraView |> Snapshot.toSnapshotCamera
-                            sunPosition     = None
-                            lightDirection  = None
-                            surfaceUpdates  = None
-                            placementParameters = None
-                            renderMask      = None         
-                          }]
-                    let snapshotAnimation =
-                        SnapshotAnimation.generate 
-                            (snapshots)
-                            (m.frustum |> Frustum.horizontalFieldOfViewInDegrees |> Some)
-                            (m.scene.config.nearPlane.value |> Some)
-                            (m.scene.config.farPlane.value |> Some)
-                            (V2i (m.scene.sequencedBookmarks.resolutionX.value, m.scene.sequencedBookmarks.resolutionY.value))
-                            None    
-                    SnapshotAnimation.writeToFile snapshotAnimation jsonPathName
-
-            let generateSnapshots scenePath =
-                if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform
-                        (System.Runtime.InteropServices.OSPlatform.Windows) then
-                    
-                    
-                    let exeName = "PRo3D.Snapshots.exe"
-                    match File.Exists exeName with
-                    | true -> 
-                        let args = sprintf "--scn \"%s\" --asnap \"%s\" --out \"%s\" --exitOnFinish" 
-                                    scenePath jsonPathName m.scene.sequencedBookmarks.outputPath
-                        Log.line "[Viewer] Starting snapshot rendering with arguments: %s" args
-                        SequencedBookmarksApp.snapshotProcess <- Some (SnapshotUtils.runProcess exeName args None)
-                        let id = System.Guid.NewGuid () |> string
-                        let proclst =
-                            proclist {
-                                for i in 0..4000 do
-                                    do! Proc.Sleep 4000
-                                    yield CheckSnapshotsProcess id
-                            }              
-                        {m with snapshotThreads = ThreadPool.add id proclst m.snapshotThreads}
-                    | false -> 
-                        Log.warn "[Snapshots] Could not find %s" exeName
-                        m
-
-                else 
-                    Log.warn "[Viewer] This feature is only available for Windows."
-                    m
-            let m = 
-                let save m =
-                    let scenePath = 
-                        match m.scene.scenePath with
-                        | Some scenePath -> scenePath
-                        | _ -> "snapshotScene.pro3d" 
-                    let m = {m with scene = {m.scene with scenePath = scenePath |> Some}}
-                    Log.line "[Snapshots] Saving scene as %s." scenePath
-                    let m = m |> ViewerIO.saveEverything scenePath
-                    m, scenePath
+                let snapshotAnimation = 
+                    SnapshotAnimation.fromBookmarks 
+                        bm
+                        m.scene.cameraView 
+                        m.frustum
+                        m.scene.config.nearPlane.value
+                        m.scene.config.farPlane.value
+                SnapshotAnimation.writeToFile snapshotAnimation jsonPathName   
+            let generateSnapshots = 
+                SequencedBookmarksApp.generateSnapshots m.scene.sequencedBookmarks
+                                                        SnapshotUtils.runProcess
+            let save m =
+                let scenePath = 
+                    match m.scene.scenePath with
+                    | Some scenePath -> scenePath
+                    | _ -> "snapshotScene.pro3d" 
+                let m = {m with scene = {m.scene with scenePath = scenePath |> Some}}
+                Log.line "[Snapshots] Saving scene as %s." scenePath
+                let m = m |> ViewerIO.saveEverything scenePath
+                m, scenePath
                 
-                match msg with
-                | PRo3D.Base.SequencedBookmarksAction.StopRecording -> 
-                        let m, scenePath = save m
-                        generateJson ()
-                        Log.line "[Viewer] Writing snapshot JSON file to %s" jsonPathName
-                        let m = shortFeedback "Saved snapshot JSON file." m
-
-                        let m = 
-                            match m.scene.sequencedBookmarks.generateOnStop with
-                            | true -> 
-                                let m = generateSnapshots scenePath
-                                let m = shortFeedback "Snapshot generation started." m
-                                m
-                            | false -> m
-                        m
-                | PRo3D.Base.SequencedBookmarksAction.GenerateSnapshots -> 
-                    let m, scenePath = save m
-                    let m = shortFeedback "Snapshot generation started." m
-                    match m.scene.sequencedBookmarks.updateJsonBeforeRendering with
-                    | true -> generateJson ()
-                    | false -> ()
-                    let m = generateSnapshots scenePath
-                    m
-                | PRo3D.Base.SequencedBookmarksAction.UpdateJson ->
+            match msg with
+            | PRo3D.Base.SequencedBookmarksAction.StopRecording -> 
                     let m, scenePath = save m
                     generateJson ()
+                    Log.line "[Viewer] Writing snapshot JSON file to %s" jsonPathName
                     let m = shortFeedback "Saved snapshot JSON file." m
-                    m
-                | _ -> m
+                    match m.scene.sequencedBookmarks.generateOnStop with
+                    | true -> 
+                        let m = 
+                            let bm = generateSnapshots scenePath
+                            {m with scene = { m.scene with sequencedBookmarks = bm }}
+                        let m = shortFeedback "Snapshot generation started." m
+                        m
+                    | false -> m
+                        
+            | PRo3D.Base.SequencedBookmarksAction.GenerateSnapshots -> 
+                let m, scenePath = save m
+                let m = shortFeedback "Snapshot generation started." m
+                match m.scene.sequencedBookmarks.updateJsonBeforeRendering with
+                | true -> generateJson () | false -> ()
+                let bm = generateSnapshots scenePath
+                {m with scene = { m.scene with sequencedBookmarks = bm }}
+            | PRo3D.Base.SequencedBookmarksAction.UpdateJson ->
+                let m, scenePath = save m
+                generateJson ()
+                let m = shortFeedback "Saved snapshot JSON file." m
+                m
+            | _ -> m
               
-            {m with scene = { m.scene with sequencedBookmarks = bm }}
+            
         | RoverMessage msg,_,_ ->
             let roverModel = RoverApp.update m.scene.viewPlans.roverModel msg
             let viewPlanModel = ViewPlanApp.updateViewPlanFroAdaptiveRover roverModel m.scene.viewPlans
@@ -1631,31 +1570,6 @@ module ViewerApp =
         | StopGeoJsonAutoExport, _, _ -> 
             let autoExport = { m.drawing.automaticGeoJsonExport with enabled = not m.drawing.automaticGeoJsonExport.enabled; lastGeoJsonPathXyz = None; }
             { m with drawing = { m.drawing with automaticGeoJsonExport = autoExport } }
-        | CheckSnapshotsProcess id, _, _ ->
-            match SequencedBookmarksApp.snapshotProcess with 
-            | Some p -> 
-                let m = 
-                    match p.HasExited , m.scene.sequencedBookmarks.isCancelled with
-                    | true, _ -> 
-                        Log.warn "[Snapshots] Snapshot generation finished."
-                        let m = shortFeedback "Snapshot generation finished." m 
-                        let m = {m with snapshotThreads = ThreadPool.remove id m.snapshotThreads
-                                        scene = {m.scene with sequencedBookmarks = {m.scene.sequencedBookmarks with isGenerating = false}}
-                                }
-                        m
-                    | false, false ->
-                        m
-                    | false, true ->
-                        Log.warn "[Snapshots] Snapshot generation cancelled."
-                        p.Kill ()
-                        let m = shortFeedback "Snapshot generation cancelled." m 
-                        let m = {m with snapshotThreads = ThreadPool.remove id m.snapshotThreads
-                                        scene = {m.scene with sequencedBookmarks = {m.scene.sequencedBookmarks with isGenerating = false
-                                                                                                                    isCancelled  = false}}
-                                }
-                        m
-                m
-            | None -> m
         | _ -> m       
                                    
     let mkBrushISg color size trafo : ISg<Message> =
@@ -2049,7 +1963,7 @@ module ViewerApp =
 
         let sBookmarks = SequencedBookmarksApp.threads m.scene.sequencedBookmarks |> ThreadPool.map SequencedBookmarkMessage
 
-        unionMany [drawing; animation; nav; m.scene.feedbackThreads; minerva; sBookmarks; m.snapshotThreads]
+        unionMany [drawing; animation; nav; m.scene.feedbackThreads; minerva; sBookmarks]
         
     let loadWaypoints m = 
         match Serialization.fileExists "./waypoints.wps" with

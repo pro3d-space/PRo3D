@@ -123,7 +123,6 @@ type SequencedBookmarksAction =
     | FlyToSBM       of Guid
     | RemoveSBM      of Guid
     | SelectSBM      of Guid
-    | IsVisible      of Guid
     | MoveUp         of Guid
     | MoveDown       of Guid
     | AddSBookmark  
@@ -143,11 +142,11 @@ type SequencedBookmarksAction =
     | CancelSnapshots
     | ToggleGenerateOnStop
     | ToggleRenderStillFrames
-    | ToggleUseSpeed
     | SetResolutionX of Numeric.Action
     | SetResolutionY of Numeric.Action
     | SetOutputPath of list<string>
     | SetFpsSetting of FPSSetting
+    | CheckSnapshotsProcess of string
     | UpdateJson
     | ToggleUpdateJsonBeforeRendering
 
@@ -209,7 +208,8 @@ type SequencedBookmarks = {
     outputPath       : string
     fpsSetting       : FPSSetting
     updateJsonBeforeRendering : bool
-  //  snapshotProcess  : option<System.Diagnostics.Process>
+    [<NonAdaptive>]
+    snapshotThreads  : ThreadPool<SequencedBookmarksAction>
   }
 //} with interface IDisposable with 
 //            member this.Dispose () = 
@@ -331,6 +331,7 @@ module SequencedBookmarks =
                     orderList           = orderList
                     selectedBookmark    = selected
                     animationThreads    = ThreadPool.Empty
+                    snapshotThreads     = ThreadPool.Empty
                     stopAnimation       = true
                     blockingCollection  = new HarriSchirchWrongBlockingCollection<_>()
                     isRecording         = false
@@ -357,6 +358,7 @@ module SequencedBookmarks =
             orderList           = List.empty
             selectedBookmark    = None
             animationThreads    = ThreadPool.Empty
+            snapshotThreads     = ThreadPool.Empty
             stopAnimation       = true
             blockingCollection  = new HarriSchirchWrongBlockingCollection<_>()
             //delay               = initDelay
