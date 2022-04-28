@@ -595,7 +595,7 @@ module ViewerApp =
                     Log.line "[Viewer] No frames recorded. Saving current frame."
                     let snapshots = 
                         [{
-                            filename        = "CurrentFrame.png"
+                            filename        = "CurrentFrame"
                             camera          = m.scene.cameraView |> Snapshot.toSnapshotCamera
                             sunPosition     = None
                             lightDirection  = None
@@ -628,8 +628,8 @@ module ViewerApp =
                         let id = System.Guid.NewGuid () |> string
                         let proclst =
                             proclist {
-                                for i in 0..2000 do
-                                    do! Proc.Sleep 5000
+                                for i in 0..4000 do
+                                    do! Proc.Sleep 4000
                                     yield CheckSnapshotsProcess id
                             }              
                         {m with snapshotThreads = ThreadPool.add id proclst m.snapshotThreads}
@@ -1631,6 +1631,31 @@ module ViewerApp =
         | StopGeoJsonAutoExport, _, _ -> 
             let autoExport = { m.drawing.automaticGeoJsonExport with enabled = not m.drawing.automaticGeoJsonExport.enabled; lastGeoJsonPathXyz = None; }
             { m with drawing = { m.drawing with automaticGeoJsonExport = autoExport } }
+        | CheckSnapshotsProcess id, _, _ ->
+            match SequencedBookmarksApp.snapshotProcess with 
+            | Some p -> 
+                let m = 
+                    match p.HasExited , m.scene.sequencedBookmarks.isCancelled with
+                    | true, _ -> 
+                        Log.warn "[Snapshots] Snapshot generation finished."
+                        let m = shortFeedback "Snapshot generation finished." m 
+                        let m = {m with snapshotThreads = ThreadPool.remove id m.snapshotThreads
+                                        scene = {m.scene with sequencedBookmarks = {m.scene.sequencedBookmarks with isGenerating = false}}
+                                }
+                        m
+                    | false, false ->
+                        m
+                    | false, true ->
+                        Log.warn "[Snapshots] Snapshot generation cancelled."
+                        p.Kill ()
+                        let m = shortFeedback "Snapshot generation cancelled." m 
+                        let m = {m with snapshotThreads = ThreadPool.remove id m.snapshotThreads
+                                        scene = {m.scene with sequencedBookmarks = {m.scene.sequencedBookmarks with isGenerating = false
+                                                                                                                    isCancelled  = false}}
+                                }
+                        m
+                m
+            | None -> m
         | _ -> m       
                                    
     let mkBrushISg color size trafo : ISg<Message> =
@@ -2024,7 +2049,7 @@ module ViewerApp =
 
         let sBookmarks = SequencedBookmarksApp.threads m.scene.sequencedBookmarks |> ThreadPool.map SequencedBookmarkMessage
 
-        unionMany [drawing; animation; nav; m.scene.feedbackThreads; minerva; sBookmarks]
+        unionMany [drawing; animation; nav; m.scene.feedbackThreads; minerva; sBookmarks; m.snapshotThreads]
         
     let loadWaypoints m = 
         match Serialization.fileExists "./waypoints.wps" with
