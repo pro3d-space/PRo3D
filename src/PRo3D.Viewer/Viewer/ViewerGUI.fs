@@ -845,47 +845,50 @@ module Gui =
             )
 
     module RegressionFeedback =
-        let dnsErrorFeedback (model:AdaptiveModel) =
-            //alist{
-            //    let! workingAnnotation = model.drawing.working                
-            //    let annotationOption = Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption workingAnnotation                
-            //    match annotationOption with
-            //    | Some annotation -> 
-            //        annotation.geometry
-            //        |> AVal.map (fun g -> 
-            //            match g with
-            //            | Geometry.DnS -> 
-            //                annotation.points 
-            //                |> AList.toAVal                                
-            //                |> AVal.map (fun p -> 
-            //                    let dist = DipAndStrike.calculateDnsErrors p
-            //                    let error = dist |> List.map(fun x -> x * x) |> List.sum //sum of squared error
-            //                    let errorStr = sprintf "current error %f" error
 
-            //                    //calculate position of div from 3D point
-            //                    let centerOfMass = V3d.Divide(p |> IndexList.sum, (float)p.Count)
-            //                    let screenspace = 
-            //                        AVal.map3 (fun v f m -> 
-            //                            let vm = v.ViewTrafo
-            //                            let pm = f |> Frustum.projTrafo
-            //                            let t = m * vm * pm
-            //                            let ndc = t.Forward.TransformPosProj(centerOfMass)
-            //                            ndc.XY * 0.5 + V2d.Half
-            //                        ) annotation.view model.frustum annotation.modelTrafo
-                                       
-            //                    div[style "position: absolute; top: 80px; right: 0; width: 30px; height: 30px"][
-            //                        text "todo"
-            //                    ]                                       
-                                    
-      
-            //                )
+        let dnsErrorFeedback (model:AdaptiveModel) (viewPortID:string) =
+            let dom = 
+                alist{
+                    let! workingAnnotation = model.drawing.working                
+                    let annotationOption = Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption workingAnnotation                
+                    match annotationOption with
+                    | Some annotation -> 
+                        let! g = annotation.geometry
+                        match g with
+                        | Geometry.DnS ->
+                            let! points = annotation.points |> AList.toAVal
+                            let dist = DipAndStrike.calculateDnsErrors points
+                            let error = dist |> List.map(fun x -> x * x) |> List.sum //sum of squared error
+                            let errorStr = sprintf "current error %f" error
 
-            //            | _ -> div[][]
+                            let centerOfMass = V3d.Divide(points |> IndexList.sum, (float)points.Count)                        
+                            let! camera = AVal.map2 Camera.create model.navigation.camera.view model.frustum                                                      
+                            let t = camera.cameraView.ViewTrafo * (camera.frustum |> Frustum.projTrafo)                            
+                            let ndc = t.Forward.TransformPosProj(centerOfMass)
+                            let screenspace = ndc.XY * 0.5 + V2d.Half
+                            let! viewPort = 
+                                model.viewPortSizes 
+                                |> AMap.tryFind viewPortID 
+                                |> AVal.map (Option.defaultValue V2i.II)
+                            let temp = V2d(screenspace.X,1.0-screenspace.Y)
+                            let pixelspace = temp * V2d viewPort                           
 
-            //        ) 
-            //    | None -> div[][]
-            //}
-            div[][]
+                            let xPos = sprintf "%ipx" ((int)pixelspace.X)
+                            let yPos = sprintf "%ipx" ((int)pixelspace.Y)
+                            let style' = "position: absolute; " + "top: " + yPos + "; left: " + xPos + "; color:white"
+
+                            div[
+                                style style'
+                                attribute "width" "30px"
+                                attribute "height" "30px"
+                                ][text errorStr]  
+                       
+                        | _ -> div[][]
+                    | None -> div[][]     
+                }
+            Incremental.div AttributeMap.empty dom
+
+            
 
 
     module Config =
@@ -1132,6 +1135,7 @@ module Gui =
                                 yield scalarsColorLegend m
                                 yield selectionRectangle m
                                 yield PRo3D.Linking.LinkingApp.sceneOverlay m.linkingModel |> UI.map LinkingActions
+                                yield RegressionFeedback.dnsErrorFeedback m renderViewportSizeId
                             }
                         )
                     ]                
