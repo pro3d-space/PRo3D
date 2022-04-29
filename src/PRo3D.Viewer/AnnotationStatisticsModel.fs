@@ -27,13 +27,13 @@ type Prop =
     }
 
 [<ModelType>]
-type Bin = 
+type Bin = //review: better use Range1d instead of start, end, width
     {    
-         value       : int
+         value       : int //review: this is rather a count than a value
          start       : float
          theEnd      : float      
          width       : float
-    }
+    } //review: how do we keep track which annotations/measurements are responsible for the count?
 
 [<ModelType>]
 type Histogram = 
@@ -63,17 +63,17 @@ type RoseDiagram =
     }
 
 [<ModelType>]
-type Visualization =
+type Visualization =  //review:very generic naming, we are in a namespace, but this becomes confusing quickly
     | Histogram of value: Histogram
     | RoseDiagram of value: RoseDiagram
 
 [<ModelType>]
-type Property = 
+type Property = //review: same as visualization
     {
         [<NonAdaptive>]
-        prop            : Prop    
+        prop            : Prop  //review: what is a prop?
         data            : List<float>
-        min             : float
+        min             : float //review: range1d
         max             : float
         avg             : float         
         visualization   : Visualization
@@ -127,6 +127,7 @@ module AnnotationStatistics =
                 }
         ]
 
+    //review: not sure if this is the best way to construct a histogram, but it is functional
     let sortHistogramDataIntoBins (bins:List<Bin>) (data:List<float>) (min:float) (width:float)=
         let counts = 
             data 
@@ -135,12 +136,12 @@ module AnnotationStatistics =
                 int(shifted/width)
             ) 
             |> List.map(fun (id, vals) -> id, (vals |> List.length)) 
-            |> Map.ofList
+            |> Map.ofList //review: this looks quite smart though
 
         bins 
         |> List.mapi (fun i bin -> 
             match (counts.TryFind i) with
-            | Some count -> {bin with value = count}
+            | Some count -> { bin with value = count }
             | None -> bin
         )
     
@@ -149,7 +150,7 @@ module AnnotationStatistics =
         sortHistogramDataIntoBins createBins data min width
     
     let initHistogram (min:float) (max:float) (data:List<float>) = 
-        let domainStart = floor(min)
+        let domainStart = floor(min)  //review: range1d
         let domainEnd = ceil(max)        
         let binWidth = (domainEnd-domainStart) / binNumeric.value               
         let bins = setHistogramBins data domainStart binWidth (int(binNumeric.value))
@@ -165,23 +166,24 @@ module AnnotationStatistics =
         
     //initial setting, start and end stay constant
     let initRoseDiagramBins (angle:float) =
-           let binCount = int(360.0 / angle)
-           [
-           for i in 0..(binCount-1) do
-               //from RoseDiagram.fs in Correlation Panels
-               let binAngleHalf = angle / 2.0
-               let centerAngle = (float i * angle) % 360.0
-               let northCenterAngle = centerAngle + 270.0 % 360.0
-               let startDegree = (northCenterAngle - binAngleHalf + 360.0) % 360.0
-               let endDegree = (northCenterAngle + binAngleHalf) % 360.0
-               //
-               {
-                   value = 0
-                   start = startDegree
-                   theEnd = endDegree
-                   width = angle
-               }
-           ]
+        let binCount = int(360.0 / angle)
+
+        [
+            for i in 0..(binCount-1) do
+                //from RoseDiagram.fs in Correlation Panels
+                let binAngleHalf = angle / 2.0
+                let centerAngle = (float i * angle) % 360.0
+                let northCenterAngle = centerAngle + 270.0 % 360.0
+                let startDegree = (northCenterAngle - binAngleHalf + 360.0) % 360.0
+                let endDegree = (northCenterAngle + binAngleHalf) % 360.0
+                //
+                {
+                    value = 0
+                    start = startDegree
+                    theEnd = endDegree
+                    width = angle
+                }
+        ]
     
     //count for rose diagram bins
     let sortRoseDiagramDataIntoBins (bins:List<Bin>) (data:List<float>) (angle:float) =          

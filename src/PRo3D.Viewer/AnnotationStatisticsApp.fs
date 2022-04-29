@@ -55,7 +55,7 @@ module HistogramOperations =
 
     let private compute (m:(Pro3D.AnnotationStatistics.Histogram)) =
         let numBins = m.numOfBins.value
-        let start = m.domainStart.value
+        let start = m.domainStart.value  //review: range1d
         let theEnd = m.domainEnd.value
         let width = (theEnd-start) / numBins       
         let bins = AnnotationStatistics.setHistogramBins m.data start width (int(numBins))
@@ -117,7 +117,7 @@ module AnnotationStatisticsApp =
 
     let getPropData (prop:Prop) (selected:List<Annotation>) =
         match prop.kind with
-        | Kind.LENGTH -> 
+        | Kind.LENGTH -> //review: code duplication, looks like a higher order function can do the trick (fun AnnotationResult -> float)
             selected 
             |> List.map(fun a -> 
                 match a.results with
@@ -159,16 +159,17 @@ module AnnotationStatisticsApp =
             |> List.choose(fun o -> o)
             
     //when a new annotation is added, update all Properties
-    let updateAllProperties (props:HashMap<Prop, Property>) (addedAnnotation:Annotation) =   
-        props |> HashMap.map (fun k v -> 
+    let updateAllProperties (props:HashMap<Prop, Property>) (addedAnnotation:Annotation) =   //review: this is a somehow confusing app structure, maybe we can make sub apps
+        props 
+        |> HashMap.map (fun k v -> 
             let data = getPropData k [addedAnnotation]
             if (data.IsEmpty) 
                 then v 
             else
                 let p1 = PropertyOperations.update v (UpdateStats data)
                 match k.scale with
-                 | Scale.Metric -> PropertyOperations.update p1 (UpdateVisualization (UpdateHistogram (UpdateData data)))
-                 | Scale.Angular -> PropertyOperations.update p1 (UpdateVisualization (UpdateRoseDiagram UpdateBinCount))
+                | Scale.Metric -> PropertyOperations.update p1 (UpdateVisualization (UpdateHistogram (UpdateData data))) //review: better use pipe operator
+                | Scale.Angular -> PropertyOperations.update p1 (UpdateVisualization (UpdateRoseDiagram UpdateBinCount))
         )               
 
     let update (m:AnnotationStatisticsModel) (a:AnnoStatsAction) =
@@ -270,23 +271,23 @@ module AnnotationStatisticsDrawings =
 
 
     let drawRoseDiagram (r:AdaptiveRoseDiagram) (dimensions:V2i) =
-           //two circles as outline
-           //individual bin sections
-           //dimensions.X = width of the div; dimensions.Y = height of the div
-
-           let sect = 
+        //two circles as outline
+        //individual bin sections
+        //dimensions.X = width of the div; dimensions.Y = height of the div
+        
+        let sect = 
             alist{                            
                 let! innerRad = r.innerRad
                 let! outerRad = r.outerRad
-
+            
                 let center = new V2d(float(dimensions.X) /2.0, (float(dimensions.Y) /2.0) - outerRad)
-
+            
                 let! bins = r.bins
                 let areaInner = Constant.Pi * (innerRad * innerRad)
                 let areaOuter = Constant.Pi * (outerRad * outerRad)
                 let areaTotal = areaOuter - areaInner
                 let! maxBinValue = r.maxBinValue
-
+            
                 let sections = 
                     bins |> List.map(fun b -> 
                         let subArea = (areaTotal / ((float(maxBinValue))/(float(b.value)))) + areaInner
@@ -299,7 +300,7 @@ module AnnotationStatisticsDrawings =
                 yield drawCircle center innerRad
                 yield drawCircle center outerRad
             }
-           Incremental.Svg.svg AttributeMap.empty sect
+        Incremental.Svg.svg AttributeMap.empty sect
            
     
     let drawHistogram (h: AdaptiveHistogram) (width:int) = 
@@ -403,7 +404,7 @@ module AnnotationStatisticsDrawings =
         Incremental.Svg.svg AttributeMap.empty rectangles
     
     let histogramSettings (hist:AdaptiveHistogram) (p:AdaptiveProperty) =
-           div [style "width:100%; margin: 0 0 5 0"][                
+           div [style "width:100%; margin: 0 0 5 0"] [                
                text "Histogram Settings"
                Html.table[
                    Html.row "domain min" [Numeric.view' [InputBox] hist.domainStart |> UI.map SetDomainMin |> UI.map UpdateHistogram |> UI.map UpdateVisualization|> UI.map (fun a -> UpdateProperty (a, p.prop))]
@@ -417,7 +418,7 @@ module AnnotationStatisticsDrawings =
             onBoot "$('#__ID__').dropdown('on', 'hover');" (
                 div [ clazz "ui dropdown item"; style "width:100%"] [
                     text "Properties"
-                    i [clazz "dropdown icon"; style "margin:0px 5px"][] 
+                    i [clazz "dropdown icon"; style "margin:0px 5px"] [] 
                     div [ clazz "ui menu"] [
                         div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.LENGTH Scale.Metric))] [text "Length"]
                         div [clazz "ui inverted item"; onMouseClick (fun _ -> SetProperty (AnnotationStatistics.initProp Kind.BEARING Scale.Metric))] [text "Bearing"]
