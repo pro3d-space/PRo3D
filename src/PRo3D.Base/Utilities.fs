@@ -633,7 +633,7 @@ module Sg =
             toEffect Shader.DepthOffset.depthOffsetFS 
         ]
 
-    let private drawStableLinesHelper (edges: aval<Line3d[]>) (offset: aval<float>) (color: aval<C4b>) (width: aval<float>) = 
+    let private drawStableLinesHelper (edges: aval<Line3d[]>) (offset: aval<float>) (color: aval<C4b>) (width: aval<float>) =         
         edges
         |> Sg.lines color
         |> Sg.noEvents
@@ -650,7 +650,7 @@ module Sg =
         Effect.compose [
             toEffect DefaultSurfaces.stableTrafo
             toEffect DefaultSurfaces.vertexColor
-            toEffect DefaultSurfaces.thickLine
+            toEffect Shader.ThickLineNew.thickLine
         ]
 
     let drawScaledLines 
@@ -753,7 +753,7 @@ module Sg =
         else 
             pline
             |> Sg.trafo trafo
-
+            
     //## POINTS ##
     let private sphereSgHelper (color: aval<C4b>) (size: aval<float>) (pos: aval<V3d>) = 
         Sg.sphere 2 color (AVal.constant 1.0)

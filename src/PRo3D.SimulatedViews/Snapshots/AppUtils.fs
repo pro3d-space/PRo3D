@@ -1,4 +1,4 @@
-namespace Aardvark.UI
+namespace SimulatedViews
 
 open System
 open System.Threading
@@ -6,6 +6,7 @@ open System.Collections.Generic
 open Aardvark.Base
 open FSharp.Data.Adaptive
 open System.Reactive.Subjects
+open Aardvark.UI
 
 type private Message<'msg> = { msgs : seq<'msg>; processed : Option<System.Threading.ManualResetEventSlim> }
 
