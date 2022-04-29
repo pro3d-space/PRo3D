@@ -767,7 +767,7 @@ type ViewPlan with
 type ViewPlanModel = {
     version             : int
     viewPlans           : HashMap<Guid,ViewPlan>
-    selectedViewPlan    : Option<ViewPlan>
+    selectedViewPlan    : Option<Guid> //Option<ViewPlan>
     working             : list<V3d> // pos + lookAt
     roverModel          : RoverModel
     instrumentCam       : CameraView
@@ -827,12 +827,12 @@ module ViewPlanModel =
 
             let! viewPlans = Json.read "viewPlans"
             let viewPlans = viewPlans |> List.map(fun (a : ViewPlan) -> (a.id, a)) |> HashMap.ofList
-            let! selected     = Json.read "selectedViewPlan"
+            //let! selected     = Json.read "selectedViewPlan"
 
             return {
                 version           = current
                 viewPlans         = viewPlans 
-                selectedViewPlan  = selected
+                selectedViewPlan  = None
                 working           = list.Empty
                 roverModel        = RoverModel.initial
                 instrumentCam     = CameraView.lookAt V3d.Zero V3d.One V3d.OOI
@@ -854,7 +854,7 @@ type ViewPlanModel with
         json {
             do! Json.write "version"             x.version
             do! Json.write "viewPlans"       (x.viewPlans |> HashMap.toList |> List.map snd)
-            do! Json.write "selectedViewPlan" x.selectedViewPlan
+            //do! Json.write "selectedViewPlan" x.selectedViewPlan
         }
 
 module FootPrint = 
@@ -868,11 +868,12 @@ module FootPrint =
         let fpPath = getFootprintsPath scenePath
 
         match vp.selectedViewPlan with
-        | Some v -> 
+        | Some id -> 
+            let selectedVp = vp.viewPlans |> HashMap.find id
             let now = DateTime.Now
-            let roverName = v.rover.id
+            let roverName = selectedVp.rover.id
             let instrumentName = 
-                match v.selectedInstrument with
+                match selectedVp.selectedInstrument with
                 | Some i -> i.id
                 | None -> ""
                        
@@ -889,7 +890,7 @@ module FootPrint =
                 )
 
             let width, height =
-                match v.selectedInstrument with
+                match selectedVp.selectedInstrument with
                 | Some i -> 
                     let horRes = i.intrinsics.horizontalResolution/uint32(2)
                     let vertRes = i.intrinsics.verticalResolution/uint32(2)
@@ -906,20 +907,20 @@ module FootPrint =
             }
 
             let calibration = {
-                instrumentPlatformXmlFileName       = v.rover.id + ".xml"
+                instrumentPlatformXmlFileName       = selectedVp.rover.id + ".xml"
                 instrumentPlatformXmlFileVersion    = 1.0
             }
 
             let roverInfo = {
-                position = v.position
-                lookAtPosition = v.lookAt
-                placementTrafo = v.roverTrafo
+                position = selectedVp.position
+                lookAtPosition = selectedVp.lookAt
+                placementTrafo = selectedVp.roverTrafo
             }
 
-            let panAx = v.rover.axes.TryFind "Pan Axis" |> Option.map(fun x -> x.angle.value )
+            let panAx = selectedVp.rover.axes.TryFind "Pan Axis" |> Option.map(fun x -> x.angle.value )
             let panVal = match panAx with | Some av -> av | None -> 1.0
 
-            let tiltAx = v.rover.axes.TryFind "Tilt Axis" |> Option.map(fun x -> x.angle.value )
+            let tiltAx = selectedVp.rover.axes.TryFind "Tilt Axis" |> Option.map(fun x -> x.angle.value )
             let tiltVal = match tiltAx with | Some av -> av | None -> 1.0
             let angles = {
                 panAxis = panVal
@@ -927,7 +928,7 @@ module FootPrint =
             }
 
             let focal =
-                match v.selectedInstrument with
+                match selectedVp.selectedInstrument with
                 | Some i -> i.focal.value
                 | None -> 1.0
 
@@ -965,12 +966,7 @@ module FootPrint =
         | None -> vp
     
     let updateFootprint (instrument:Instrument) (roverpos:V3d) (model:ViewPlanModel) =
-        
-        let id = 
-            match model.selectedViewPlan with
-            | Some vp -> Some vp.id
-            | None -> None
-        
+
         let res = V2i((int)instrument.intrinsics.horizontalResolution, (int)instrument.intrinsics.verticalResolution)
         //let image = PixImage<byte>(Col.Format.RGB,res).ToPixImage(Col.Format.RGB)
        
@@ -984,7 +980,7 @@ module FootPrint =
 
         let fp = 
             { 
-                vpId             = id
+                vpId             = model.selectedViewPlan
                 isVisible        = true
                 projectionMatrix = (model.instrumentFrustum |> Frustum.projTrafo).Forward
                 instViewMatrix   = model.instrumentCam.ViewTrafo.Forward

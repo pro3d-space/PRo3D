@@ -682,8 +682,9 @@ module ViewerApp =
             {m with scene = { m.scene with sequencedBookmarks = bm }}
         | RoverMessage msg,_,_ ->
             let roverModel = RoverApp.update m.scene.viewPlans.roverModel msg
-            let viewPlanModel = ViewPlanApp.updateViewPlanFroAdaptiveRover roverModel m.scene.viewPlans
-            { m with scene = { m.scene with viewPlans = viewPlanModel }}
+            //let viewPlanModel = ViewPlanApp.updateViewPlanFroAdaptiveRover roverModel m.scene.viewPlans
+            //{ m with scene = { m.scene with viewPlans = viewPlanModel }}
+            { m with scene = { m.scene with viewPlans = {m.scene.viewPlans with roverModel = roverModel }}}
         | ViewPlanMessage msg,_,_ ->
             let model, viewPlanModel = ViewPlanApp.update m.scene.viewPlans msg _navigation _footprint m.scene.scenePath m
 
@@ -701,7 +702,7 @@ module ViewerApp =
                     m.animations             
 
             { model with 
-                scene = { m.scene with viewPlans = viewPlanModel }
+                scene = { model.scene with viewPlans = viewPlanModel }
                 footPrint = model.footPrint
                 animations = animations
             } 

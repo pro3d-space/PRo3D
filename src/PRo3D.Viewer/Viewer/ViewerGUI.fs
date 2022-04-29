@@ -206,24 +206,27 @@ module Gui =
                 ]
             ]                     
         ]
+
     
     let textOverlaysInstrumentView (m : AdaptiveViewPlanModel)  = 
         let instrument =
             adaptive {
-                let! vp = m.selectedViewPlan
-                let! inst = 
-                    match Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption vp with
-                    | Some v -> AVal.bindAdaptiveOption v.selectedInstrument "No instrument selected" (fun a -> a.id)
-                    | None -> AVal.constant("")
-        
-                return inst
-            }
+                let! id = m.selectedViewPlan
+                match id with
+                | Some v -> 
+                    let! vp = m.viewPlans |> AMap.tryFind v
+                    match vp with
+                    | Some selVp -> 
+                        return! (AVal.bindAdaptiveOption selVp.selectedInstrument "No instrument selected" (fun a -> a.id)) 
+                    | None -> return ""
+                | None -> return "" 
+            } 
         div [js "oncontextmenu" "event.preventDefault();"] [                         
             yield div [clazz "ui"; style "position: absolute; top: 15px; left: 15px; float:left" ] [
                 //arrowOverlay
                 yield table [] [
                     tr [] [
-                        td [style "color: white; font-family:Consolas"] [Incremental.text instrument]
+                        td [style "color: white; font-family:Consolas"] [Incremental.text instrument ]
                     ]
                 ]
             ]                              
