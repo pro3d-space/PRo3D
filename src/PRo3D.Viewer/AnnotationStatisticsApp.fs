@@ -33,8 +33,6 @@ type AnnoStatsAction =
     | SetProperty of Prop
     | UpdateProperty of PropertyAction * Prop
 
-
-
 module BinOperations =
 
     let update (m:Bin) (action:BinAction) =

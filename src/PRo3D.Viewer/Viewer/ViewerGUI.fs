@@ -175,36 +175,36 @@ module Gui =
                 style "position: absolute; top: 15px; left: 15px; float:left; pointer-events:None" 
                 ] [                
                 yield table [] [
-                    tr[][
-                        td[style style'][Incremental.text planet]
+                    tr [] [
+                        td [style style'] [Incremental.text planet]
                     ]
-                    tr[][
-                        td[style style'][text "Bearing: "]
-                        td[style style'][Incremental.text bearing]
+                    tr [] [
+                        td [style style'] [text "Bearing: "]
+                        td [style style'] [Incremental.text bearing]
                     ]
-                    tr[][
-                        td[style style'][text "Pitch: "]
-                        td[style style'][Incremental.text pitch]
+                    tr [] [
+                        td [style style'] [text "Pitch: "]
+                        td [style style'] [Incremental.text pitch]
                     ]
-                    tr[][
-                        td[style style'][text "Position: "]
-                        td[style style'][Incremental.text position]
+                    tr [] [
+                        td [style style'] [text "Position: "]
+                        td [style style'] [Incremental.text position]
                     ]
-                    tr[][
-                        td[style style'][text "Longitude: "]
-                        td[style style'][Incremental.text lon]
+                    tr [] [
+                        td [style style'] [text "Longitude: "]
+                        td [style style'] [Incremental.text lon]
                     ]
-                    tr[][
-                        td[style style'][text "Latitude: "]
-                        td[style style'][Incremental.text lat]
+                    tr [] [
+                        td [style style'] [text "Latitude: "]
+                        td [style style'] [Incremental.text lat]
                     ]
                     //tr[][
                     //    td[style style'][text "Altitude: "]
                     //    td[style style'][Incremental.text alt]
                     //]
-                    tr[][
-                        td[style style'][text "Altitude: "]
-                        td[style style'][Incremental.text alt2]
+                    tr [] [
+                        td [style style'] [text "Altitude: "]
+                        td [style style'] [Incremental.text alt2]
                     ]                    
                 ]
             ]                     
@@ -239,8 +239,8 @@ module Gui =
             yield div [clazz "ui"; style "text-align: right; width: 250px; position: absolute; top: 15px; right: 15px; float:right" ] [ //float:left
                 //arrowOverlay
                 yield table [] [
-                    tr[][
-                        td[style style'][Incremental.text m.userFeedback]
+                    tr [] [
+                        td [style style'] [Incremental.text m.userFeedback]
                     ]
                 ]
             ]                              
@@ -282,24 +282,24 @@ module Gui =
         let private importSurface =
             [
                 text "Surfaces"
-                i [clazz "dropdown icon"][] 
+                i [clazz "dropdown icon"] [] 
                 div [ clazz "menu"] [
                     div [ clazz "ui inverted item";
                         Dialogs.onChooseFiles ImportDiscoveredSurfacesThreads;
                         clientEvent "onclick" (jsImportOPCDialog)
-                    ][
+                    ] [
                         text "Import OPCs"
                     ]
                     div [ clazz "ui inverted item"; 
                         Dialogs.onChooseFiles ImportObject;
                         clientEvent "onclick" (jsImportOBJDialog)
-                    ][
+                    ] [
                         text "Import (*.obj)"
                     ]
                     div [ clazz "ui inverted item"; 
                         Dialogs.onChooseFiles ImportObject;
                         clientEvent "onclick" (jsImportPLYDialog)
-                    ][
+                    ] [
                         text "Import (*.ply)"
                     ]                    
                 ]
@@ -308,12 +308,12 @@ module Gui =
         let private importSCeneObject =
             [
                 text "Scene Objects"
-                i [clazz "dropdown icon"][] 
+                i [clazz "dropdown icon"] [] 
                 div [ clazz "menu"] [
                     div [ clazz "ui inverted item"; 
                         Dialogs.onChooseFiles ImportSceneObject;
                         clientEvent "onclick" (jsImportSceneObjectDialog)
-                    ][
+                    ] [
                         text "Import (*.obj or *.dae)"
                     ]
                 ]
@@ -329,7 +329,7 @@ module Gui =
                     return 
                         match path with
                         | Some p ->
-                            div [ clazz "ui inverted item"; onMouseClick (fun _ -> SaveScene p)][text "Save"]
+                            div [ clazz "ui inverted item"; onMouseClick (fun _ -> SaveScene p)] [text "Save"]
                         | None ->
                             div [
                                 clazz "ui inverted item"
@@ -342,7 +342,7 @@ module Gui =
 
             [
                 text "Scene" 
-                i [clazz "dropdown icon"][]
+                i [clazz "dropdown icon"] []
                 div [ clazz "menu"] [
                     //save scene
                     Incremental.div AttributeMap.empty (AList.ofAValSingle (saveSceneDialog m))
@@ -351,7 +351,7 @@ module Gui =
                     div [ 
                         clazz "ui inverted item"; Dialogs.onSaveFile SaveAs;
                         clientEvent "onclick" jsSaveSceneDialog
-                    ][
+                    ] [
                         text "Save as"
                     ]
 
@@ -365,7 +365,7 @@ module Gui =
                         )
 
                         clientEvent "onclick" jsOpenSceneDialog
-                    ][      
+                    ] [      
                         text "Open"
                     ]
 
@@ -375,7 +375,7 @@ module Gui =
                     ]
 
                     //recent scenes
-                    div[ clazz "ui inverted item" ] [
+                    div [ clazz "ui inverted item" ] [
                         onBoot """$('#__ID__').popup({inline:true,hoverable:true, position   : 'right center'});""" (
                             text "Recent"
                         )
@@ -412,7 +412,7 @@ module Gui =
                             clazz "ui item";
                             Dialogs.onChooseFiles  SurfaceAppAction.ChangeImportDirectories;
                             clientEvent "onclick" jsLocateSurfacesDialog 
-                        ][
+                        ] [
                             text "Locate Surfaces"
                         ]
                 }
@@ -434,58 +434,65 @@ module Gui =
         let annotationMenu = //todo move to viewer io gui
             div [ clazz "ui dropdown item"] [
                 text "Annotations"
-                i [clazz "dropdown icon"][] 
+                i [clazz "dropdown icon"] [] 
                 div [ clazz "menu"] [                    
                     div [
                         clazz "ui inverted item"
                         Dialogs.onChooseFiles AddAnnotations
                         clientEvent "onclick" jsOpenAnnotationFileDialog
-                    ][
+                    ] [
                         text "Import"
                     ]
                     div [
                         clazz "ui inverted item"; onMouseClick (fun _ -> Clear)
-                    ][
+                    ] [
                         text "Clear"
                     ]      
                     div [ clazz "ui dropdown item"] [
                         text "Export"
-                        i [clazz "dropdown icon"][] 
+                        i [clazz "dropdown icon"] [] 
                         div [ clazz "menu"] [
                     
                             div [ 
                                 clazz "ui inverted item"
                                 Dialogs.onSaveFile ExportAsAnnotations
                                 clientEvent "onclick" jsExportAnnotationsFileDialog
-                            ][
+                            ] [
                                 text "all as 'PRo3D' annotations (*.pro3d.ann)"
                             ]
                             div [ 
                                 clazz "ui inverted item"
                                 Dialogs.onSaveFile ExportAsCsv
                                 clientEvent "onclick" jsExportAnnotationsAsCSVDialog
-                            ][
+                            ] [
                                 text "visible as table (*.csv)"
                             ]     
                             div [ 
                                 clazz "ui inverted item"
                                 Dialogs.onSaveFile ExportAsGeoJSON
                                 clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                            ][
+                            ]  [
                                 text "visible as GeoJSON (*.json)"
                             ]     
                             div [ 
                                 clazz "ui inverted item"
                                 Dialogs.onSaveFile ExportAsGeoJSON_xyz
                                 clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                            ][
+                            ] [
                                 text "visible as GeoJSON xyz (*.json)"
+                            ]
+                            div [ 
+                                clazz "ui inverted item"
+                                Dialogs.onSaveFile ContinuouslyGeoJson
+                                clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
+                            ] [
+                                text "continuously export as GeoJSON xyz (*.json)"
                             ]
                             div [ 
                                 clazz "ui inverted item"
                                 Dialogs.onSaveFile ExportAsAttitude
                                 clientEvent "onclick" jsExportAnnotationsAsGeoJSONDialog
-                            ][
+                            ] [
                                 text "dns as 'Attitude' planes (*.json)"
                             ]
                         ]
@@ -497,14 +504,14 @@ module Gui =
             let subMenu name menuItems = 
                 div [ clazz "ui dropdown item"] [
                   text name
-                  i [clazz "dropdown icon"][] 
+                  i [clazz "dropdown icon"] [] 
                   div [ clazz "menu"] menuItems
                 ]           
             let menuItem name action =
                 div [ 
                     clazz "ui inverted item"
                     onClick (fun _ -> action)
-                ][
+                ] [
                     text name
                 ]
                     
@@ -538,7 +545,7 @@ module Gui =
                                 //Extras Menu
                                 div [ clazz "ui dropdown item"] [
                                     text "Extras"
-                                    i [clazz "dropdown icon"][] 
+                                    i [clazz "dropdown icon"] [] 
                                     div [ clazz "menu"] [
                                         //fixes all broken surface import paths
                                         fixAllBrokenPaths
@@ -547,8 +554,14 @@ module Gui =
 
                                         div [ clazz "ui item";
                                             Dialogs.onChooseFiles ImportPRo3Dv1Annotations;
-                                            clientEvent "onclick" jsOpenOldAnnotationsFileDialogue ][
+                                            clientEvent "onclick" jsOpenOldAnnotationsFileDialogue ] [
                                             text "Import v1 Annotations (*.xml)"
+                                        ]
+
+                                        let openM20waypointsFileDialogue = "top.aardvark.dialog.showOpenDialog({title:'Import M20_waypoints file' , filters: [{ name: 'Traverses (*.json)', extensions: ['json']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+                                        div [ clazz "ui item"; Dialogs.onChooseFiles ImportTraverse; clientEvent "onclick" openM20waypointsFileDialogue ] [
+                                            text "Import Traverse (*.json)"
                                         ]
                                         //div [ clazz "ui item";
                                         //    Dialogs.onChooseFiles ImportSurfaceTrafo;
@@ -606,7 +619,7 @@ module Gui =
                 | Interactions.PlaceScaleBar ->
                     return ScaleBarsDrawing.UI.viewScaleBarToolsHorizontal m.scaleBarsDrawing |> UI.map ScaleBarsDrawingMessage
                 | _ -> 
-                  return div[][]
+                  return div [] []
             }
             
         let style' = "color: white; font-family:Consolas;"
@@ -618,9 +631,9 @@ module Gui =
                     let icon = 
                         match scenePath with
                         | Some p -> 
-                            i [clazz "large folder icon" ; onClick (fun _ -> OpenSceneFileLocation p) ][] 
+                            i [clazz "large folder icon" ; onClick (fun _ -> OpenSceneFileLocation p)] [] 
                             |> UI.wrapToolTip DataPosition.Bottom "open folder"
-                        | None -> div[][]  
+                        | None -> div [] []  
                           
                     let scenePath = AVal.bindOption m.scene.scenePath "" (fun sp -> AVal.constant sp)
                     yield  div [] [                     
@@ -658,17 +671,17 @@ module Gui =
             Navigation.UI.viewNavigationModes m.navigation  |> UI.map NavigationMessage 
               
             Html.Layout.horizontal [
-                Html.Layout.boxH [ i [clazz "large wizard icon"][] ]
+                Html.Layout.boxH [ i [clazz "large wizard icon"] [] ]
                 Html.Layout.boxH [ CustomGui.dropDown Interactions.hideSet m.interaction SetInteraction ]
                 Incremental.div  AttributeMap.empty (AList.ofAValSingle (dynamicTopMenu m))
                 Html.Layout.boxH [ 
-                    div[style "font-style:italic; width:100%; text-align:right"] [
+                    div [style "font-style:italic; width:100%; text-align:right"] [
                         Incremental.text (m.interaction |> AVal.map interactionText)
                     ]]
             ]
               
             Html.Layout.horizontal [
-                Html.Layout.boxH [ i [clazz "large Globe icon"][] ]
+                Html.Layout.boxH [ i [clazz "large Globe icon"] [] ]
                 Html.Layout.boxH [ Html.SemUi.dropDown m.scene.referenceSystem.planet ReferenceSystemAction.SetPlanet ] |> UI.map ReferenceSystemMessage
             ] 
             Html.Layout.horizontal [
@@ -677,7 +690,7 @@ module Gui =
         ]        
         
         let getTopMenu (m:AdaptiveModel) =
-            div[clazz "ui menu"; style "padding:0; margin:0; border:0"] [
+            div [clazz "ui menu"; style "padding:0; margin:0; border:0"] [
                 yield (menu m)
                 for t in (topMenuItems m) do
                     yield div [clazz "item topmenu"] [t]
@@ -689,7 +702,7 @@ module Gui =
             let view = (fun leaf ->
                 match leaf with
                   | AdaptiveAnnotations ann -> AnnotationProperties.view Config.colorPaletteStore ann
-                  | _ -> div[style "font-style:italic"][ text "no annotation selected" ])
+                  | _ -> div [style "font-style:italic"] [ text "no annotation selected" ])
             
             model.drawing.annotations |> GroupsApp.viewSelected view AnnotationMessage
                 
@@ -697,7 +710,7 @@ module Gui =
             let view = (fun leaf ->
                 match leaf with
                   | AdaptiveAnnotations ann -> AnnotationProperties.viewResults ann model.scene.referenceSystem.up.value
-                  | _ -> div[style "font-style:italic"][ text "no annotation selected" ])
+                  | _ -> div [style "font-style:italic"] [ text "no annotation selected" ])
             
             model.drawing.annotations |> GroupsApp.viewSelected view AnnotationMessage
                        
@@ -705,7 +718,7 @@ module Gui =
             let view = (fun leaf ->
                 match leaf with
                   | AdaptiveAnnotations ann -> DipAndStrike.viewUI ann
-                  | _ -> div[style "font-style:italic"][ text "no annotation selected" ])
+                  | _ -> div [style "font-style:italic"] [ text "no annotation selected" ])
         
             model.drawing.annotations |> GroupsApp.viewSelected view DnSProperties    
             
@@ -722,14 +735,14 @@ module Gui =
                 let! sel = sel
                 match sel with
                 | Some _ -> return (GroupsApp.viewLeafButtons ts |> UI.map AnnotationGroupsMessageViewer)
-                | None -> return div[style "font-style:italic"][ text "no annotation group selected" ]
+                | None -> return div [style "font-style:italic"] [ text "no annotation group selected" ]
             }      
             
         let annotationLeafButtonns (model : AdaptiveModel) =           
             AVal.map2(fun ts sel -> 
                 match sel with
                 | Some _ -> (GroupsApp.viewLeafButtons ts |> UI.map AnnotationGroupsMessageViewer)
-                | None -> div[style "font-style:italic"][ text "no annotation group selected" ]
+                | None -> div [style "font-style:italic"] [ text "no annotation group selected" ]
             ) model.drawing.annotations.activeChild model.drawing.annotations.singleSelectLeaf
             
         let annotationGroupProperties (model : AdaptiveModel) =                            
@@ -751,7 +764,7 @@ module Gui =
                     | _ -> annotationLeafButtonns m 
                 )
             
-            div [][
+            div [] [
                 GuiEx.accordion "Annotations" "Write" true [
                     GroupsApp.viewSelectionButtons |> UI.map AnnotationGroupsMessageViewer
                     Drawing.UI.viewAnnotationGroups m.drawing |> UI.map ViewerAction.DrawingMessage
@@ -851,7 +864,7 @@ module Gui =
             |> AVal.constant
               
         let configUI (m : AdaptiveModel) =
-            div[][
+            div [] [
                 GuiEx.accordion "ViewerConfig" "Settings" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle (config m))
                 ]
@@ -865,7 +878,26 @@ module Gui =
                     FrustumProperties.view m.frustumModel |> UI.map FrustumMessage
                 ]
                 GuiEx.accordion "Screenshots" "Settings" false [
-                    ScreenshotApp.view m.screenshotApp |> UI.map ScreenshotAppMessage
+                    ScreenshotApp.view m.scene.screenshotModel |> UI.map ScreenshotMessage
+                ]
+                GuiEx.accordion "Data Management" "Settings" false [
+                    Html.table [  
+                        Html.row "Automatically GeoJson export: "  [
+                            let attributes = 
+                                amap {
+                                    yield onClick (fun _ -> StopGeoJsonAutoExport) 
+                                    let! enabled = m.drawing.automaticGeoJsonExport.enabled
+                                    if enabled then 
+                                        yield clazz "ui small inverted button"; 
+                                    else 
+                                        yield clazz "ui small disabled inverted button"; 
+                                } |> AttributeMap.ofAMap
+                            Generic.button attributes [text "Stop AutoExport"]
+                        ]
+                        Html.row "Automatically GeoJson export path: "  [
+                            Incremental.text (m.drawing.automaticGeoJsonExport.lastGeoJsonPathXyz  |> AVal.map (function None -> "not set" | Some path -> path))
+                        ]
+                    ]
                 ]
             ] 
           
@@ -875,7 +907,7 @@ module Gui =
               model.scene.viewPlans |> ViewPlanApp.UI.viewRoverProperties ViewPlanMessage model.footPrint.isVisible
         
         let viewPlannerUI (m : AdaptiveModel) =             
-            div [][
+            div [] [
                 GuiEx.accordion "ViewPlans" "Write" true [
                     ViewPlanApp.UI.viewViewPlans m.scene.viewPlans |> UI.map ViewPlanMessage
                 ]
@@ -886,56 +918,64 @@ module Gui =
 
     module SceneObjects =
         let sceneObjectsUI (m : AdaptiveModel) =             
-            div [][
-                yield GuiEx.accordion "SceneObjects" "Write" true [
-                        SceneObjectsApp.UI.viewSceneObjects m.scene.sceneObjectsModel 
-                    ]
-                yield GuiEx.accordion "Transformation" "expand arrows alternate " false [
-                        Incremental.div AttributeMap.empty (AList.ofAValSingle(SceneObjectsApp.UI.viewTranslationTools m.scene.sceneObjectsModel))
-                    ]  
+            div [] [
+                GuiEx.accordion "SceneObjects" "Write" true [
+                    SceneObjectsApp.UI.viewSceneObjects m.scene.sceneObjectsModel 
+                ]
+                GuiEx.accordion "Transformation" "expand arrows alternate " false [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(SceneObjectsApp.UI.viewTranslationTools m.scene.sceneObjectsModel))
+                ]
                
-            ] |> UI.map SceneObjectsMessage      
+            ] 
+            |> UI.map SceneObjectsMessage      
           
     module Traverse =
         let traverseUI (m : AdaptiveModel) =
-            div [][
+            div [] [
+                yield GuiEx.accordion "Traverses" "Write" true [
+                    TraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
+                ]
                 yield GuiEx.accordion "Sols" "road" true [
-                    TraverseApp.UI.viewSolList m.scene.referenceSystem m.scene.traverse
+                    //TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverse
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverses))
                 ]
-                yield GuiEx.accordion "Traverse" "Content" true [
-                    TraverseApp.UI.viewTraverseProperties m.scene.traverse
+                yield GuiEx.accordion "Properties" "Content" true [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewProperties m.scene.traverses))
                 ]
-            ] |> UI.map TraverseMessage
+            ] 
+            |> UI.map TraverseMessage
 
     module ScaleBars = 
         
         let scaleBarsUI (m : AdaptiveModel) =             
-            div [][
-                yield GuiEx.accordion "ScaleBars" "Write" true [
+            div [] [
+                GuiEx.accordion "ScaleBars" "Write" true [
                     ScaleBarsApp.UI.viewScaleBars m.scene.scaleBars
                 ]
                 // Todo: properties
-                yield GuiEx.accordion "Properties" "Content" true [
+                GuiEx.accordion "Properties" "Content" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(ScaleBarsApp.UI.viewProperties m.scene.scaleBars))
                 ]
-            ] |> UI.map ScaleBarsMessage
+            ] 
+            |> UI.map ScaleBarsMessage
 
     module GeologicSurfaces = 
         
         let geologicSurfacesUI (m : AdaptiveModel) =           
             let annos = m.drawing.annotations
 
-            div [][
-                yield br []
-                yield GeologicSurfacesApp.UI.addMesh
+            div [] [
+                br []
+                GeologicSurfacesApp.UI.addMesh
 
-                yield GuiEx.accordion "GeologicSurfaces" "Write" true [
+                GuiEx.accordion "GeologicSurfaces" "Write" true [
                     GeologicSurfacesApp.UI.viewGeologicSurfaces m.scene.geologicSurfacesModel
                 ]
-                yield GuiEx.accordion "Properties" "Content" true [
+                GuiEx.accordion "Properties" "Content" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(GeologicSurfacesApp.UI.viewProperties m.scene.geologicSurfacesModel)) 
                 ]
-            ]  |> UI.map GeologicSurfacesMessage    
+            ] 
+            |> UI.map GeologicSurfacesMessage
 
     module Bookmarks =
         let bookmarkGroupProperties (model : AdaptiveModel) =                                       
@@ -947,7 +987,8 @@ module Gui =
             let view = (fun leaf ->
                 match leaf with
                 | AdaptiveBookmarks bm -> Bookmarks.UI.view bm
-                | _ -> div[style "font-style:italic"][ text "no bookmark selected" ])
+                | _ -> div [style "font-style:italic"] [ text "no bookmark selected" ]
+            )
     
             model.scene.bookmarks |> GroupsApp.viewSelected view BookmarkUIMessage
         
@@ -959,7 +1000,7 @@ module Gui =
                 let! sel = sel
                 match sel with
                 | Some _ -> return (GroupsApp.viewLeafButtons ts |> UI.map BookmarkUIMessage)
-                | None -> return div[style "font-style:italic"][ text "no bookmark selected" ]
+                | None -> return div [style "font-style:italic"] [text "no bookmark selected"]
             } 
         
         let bookmarksGroupButtons (model : AdaptiveModel) = 
@@ -984,7 +1025,7 @@ module Gui =
                     | SelectedItem.Group -> bookmarksGroupButtons m
                     | _ -> bookmarksLeafButtonns m 
                 )
-            div [][
+            div [] [
                 br []
                 Bookmarks.UI.viewGUI |> UI.map BookmarkMessage
       
@@ -1003,7 +1044,7 @@ module Gui =
     module SequencedBookmarks =
 
         let sequencedBookmarksUI (m : AdaptiveModel) =           
-          div [][
+          div [] [
               yield br []
               yield (SequencedBookmarksApp.UI.viewGUI m.scene.sequencedBookmarks)
               yield GuiEx.accordion "SequencedBookmarks" "Write" true [
@@ -1078,7 +1119,7 @@ module Gui =
 
                     body renderViewAttributes [ //[ style "background: #1B1C1E; height:100%; width:100%"] [
                         //div [style "background:#000;"] [
-                        Incremental.div (AttributeMap.ofList[style "background:#000;"]) (
+                        Incremental.div (AttributeMap.ofList [style "background:#000;"]) (
                             alist {
                                 yield viewRenderView runtime renderViewportSizeId m
                                 yield textOverlays m.scene.referenceSystem m.navigation.camera.view
@@ -1191,9 +1232,9 @@ module Gui =
             //        ] )
             | None -> 
                 require (viewerDependencies) (
-                    body [][                    
+                    body [] [                    
                         TopMenu.getTopMenu m
-                        div[clazz "dockingMainDings"] [
+                        div [clazz "dockingMainDings"] [
                             m.scene.dockConfig
                             |> docking [                                           
                                 style "width:100%; height:100%; background:#F00"
@@ -1201,4 +1242,4 @@ module Gui =
                         ]
                     ]
                 )
-            | _ -> body[][]
+            | _ -> body [] []

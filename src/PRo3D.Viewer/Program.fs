@@ -23,7 +23,6 @@ open PRo3D
 open PRo3D.Base
 open PRo3D.Core
 open PRo3D.Core.Surface
-open PRo3D.SimulatedViews
 open RemoteControlModel
 open PRo3D.Viewer
 
@@ -67,7 +66,7 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "4.6.1-prerelease1"
+let viewerVersion       = "4.8.0-prerelease1"
 let catchDomainErrors   = false
 
 open System.IO
@@ -120,9 +119,6 @@ let main argv =
     
     printf "ExecuteablePath: %s" executeablePath
 
-    //let asdfasdf= typeof<Aardvark.SceneGraph.IO.Loader.Animation>.IsAutoLayout;
-    //Aardvark.Base.IntrospectionProperties.BundleEntryPoint <- executeablePath
-
     // does not work for self-containted publishes'
     //let selfPath = System.Environment.GetCommandLineArgs().[0]
     let workingDirectory =  executeablePath |> Path.GetDirectoryName
@@ -136,6 +132,11 @@ let main argv =
     
 
     let startupArgs = (CommandLine.parseArguments argv)
+
+    // --noMapping --samples 8 --backgroundColor red
+    Config.backgroundColor <- startupArgs.backgroundColor
+    Config.useMapping <- startupArgs.useMapping
+
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
     
 
@@ -191,9 +192,26 @@ let main argv =
         cooTrafoInitialized <- true
 
         //use app = new VulkanApplication()
-        Glfw.Config.hideCocoaMenuBar <- true
+        //Glfw.Config.hideCocoaMenuBar <- true
         use app = new OpenGlApplication()
         let runtime = app.Runtime    
+
+        match startupArgs.data_samples with
+        | None -> 
+            if runtime.Context.Driver.renderer.Contains("Intel(R) Iris(R) Xe Graphics") then
+                Log.warn "intel iris workaround active - multisampling must be disabled, see:  https://github.com/pro3d-space/PRo3D/issues/116"
+                Config.data_samples <- "1"
+                Config.disableMultisampling <- true
+            else 
+                Config.data_samples <- "4"
+        | Some v -> 
+            if runtime.Context.Driver.renderer.Contains("Intel(R) Iris(R) Xe Graphics") then
+                Log.warn "you specified number of samples %s, this is not recommended on intel iris graphics and might lead to problems, see: https://github.com/pro3d-space/PRo3D/issues/116" v
+            Config.data_samples <- v
+
+        
+        Log.line "render control config: %A" (Config.data_samples, Config.backgroundColor, Config.useMapping)
+    
 
         Aardvark.Rendering.GL.RuntimeConfig.SupressSparseBuffers <- true
         //app.ShaderCachePath <- None
@@ -210,8 +228,8 @@ let main argv =
     
         let signature =
             runtime.CreateFramebufferSignature [
-                DefaultSemantic.Colors, { format = RenderbufferFormat.Rgba8; samples = 1 }
-                DefaultSemantic.Depth,  { format = RenderbufferFormat.Depth24Stencil8; samples = 1 }
+                DefaultSemantic.Colors, TextureFormat.Rgba8
+                DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
             ]
 
         use sendQueue = new BlockingCollection<string>()    
@@ -229,7 +247,9 @@ let main argv =
             }        
 
         Sg.useAsyncLoading <- (argv |> Array.contains "-sync" |> not)
-        let startEmpty = (argv |> Array.contains "-empty")
+        //let startEmpty = (argv |> Array.contains "-empty")
+        let startEmpty = not (argv |> Array.contains "-loadRecent")
+        Log.line "[StartupArgs] -empty currently default, use -loadRecent instead. startEmpty = %b" startEmpty
 
         UI.enabletoolTips <- (argv |> Array.contains "-notooltips" |> not)
 
@@ -279,14 +299,24 @@ let main argv =
         //    |> Json.deserialize
 
         //Log.line "[Viewer] scene: %A" loadedScnx
-
+        
         let port = getFreePort()
-        let uri = sprintf "http://localhost:%d" port
+        let renderingUrl = sprintf "http://localhost:%d" port
 
         let mainApp = 
-            ViewerApp.start runtime signature startEmpty messagingMailbox sendQueue dumpFile cacheFile uri
+            ViewerApp.start 
+                runtime 
+                signature 
+                startEmpty 
+                messagingMailbox 
+                sendQueue 
+                dumpFile 
+                cacheFile 
+                renderingUrl 
+                ViewerApp.dataSamples
+                appData
 
-        let s = { MailboxState.empty with update = mainApp.update Guid.Empty}
+        let s = { MailboxState.empty with update = mainApp.update Guid.Empty }
         MailboxAction.InitMailboxState s |> messagingMailbox.Post                        
     
         let domainError (sender:obj) (args:UnhandledExceptionEventArgs) =
@@ -351,7 +381,8 @@ let main argv =
 
         disposables.Add(suaveServer)
 
-        Log.line "serving at: %s" uri                
+        Log.line "serving at: %s" renderingUrl
+        Log.line "url: %s" renderingUrl
 
         if startupArgs.remoteApp then
             let send msg =
@@ -371,7 +402,7 @@ let main argv =
                       mainApp.update Guid.Empty (ViewerAction.SetCameraAndFrustum2 (v.view,frustum) |> Seq.singleton)
 
             let remoteApp = 
-                App.start (PRo3D.RemoteControlApp.app uri send)
+                App.start (PRo3D.RemoteControlApp.app renderingUrl send)
 
             let takeScreenshot (shot:Shot) =   
                 let act = CaptureShot shot |> Seq.singleton
@@ -398,7 +429,7 @@ let main argv =
         let titlestr = "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH"
 
         // do not change this line. full url with url needs to be printed for mac deployment!
-        Log.line "full url: %s" uri
+        Log.line "full url: %s" renderingUrl
 
         System.Threading.Thread.Sleep(100)
 
@@ -407,7 +438,7 @@ let main argv =
             Console.Read() |> ignore
         else
             Aardium.run {
-                url uri   //"http://localhost:4321/?page=main"
+                url renderingUrl   //"http://localhost:4321/?page=main"
                 width 1280
                 height 800
                 debug true

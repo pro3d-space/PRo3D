@@ -56,7 +56,6 @@ module CooTransformation =
           radian    : double
         }
 
-    let init = 0.0
 
     let initCooTrafo (appData : string) = 
 
@@ -90,16 +89,22 @@ module CooTransformation =
         else 
             Log.line "[CooTransformation] Successfully initialized CooTrafo"
         
-        let error = JR.InstrumentPlatforms.Init(configDir,logDir)
-        if error <> 0 then 
-            Log.error "[InstrumentPlatforms] Instrument dll return error %d" error
-        else
-            Log.line "[InstrumentPlatforms] Instrument dll sucessfully initialized"
+        try
+            let error = JR.InstrumentPlatforms.Init(configDir,logDir)
+            if error <> 0 then 
+                Log.error "[InstrumentPlatforms] Instrument dll return error %d" error
+            else
+                Log.line "[InstrumentPlatforms] Instrument dll sucessfully initialized"
+        with e -> 
+            if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then
+                Log.warn "Instrument platform failed to initialize - not yet supported? https://github.com/pro3d-space/PRo3D/issues/196 --> %A" e
 
     let deInitCooTrafo () = 
         Log.line "[CooTransformation] shutting down..."
         CooTransformation.DeInit()
         Log.line "[CooTransformation] down."
+
+    let private init = 0.0
 
     let getLatLonAlt (planet:Planet) (p:V3d) : SphericalCoo = 
         match planet with
@@ -116,9 +121,9 @@ module CooTransformation =
                 Log.line "cootrafo errorcode %A" errorCode
             
             {
-                latitude  = !lat
-                longitude = !lon
-                altitude  = !alt
+                latitude  = lat.Value
+                longitude = lon.Value
+                altitude  = alt.Value
                 radian    = 0.0
             }
 
@@ -132,10 +137,10 @@ module CooTransformation =
             Log.line "cootrafo errorcode %A" errorCode
 
         {
-            latitude  = !lat
-            longitude = !lon
+            latitude  = lat.Value
+            longitude = lon.Value
             altitude  = 0.0
-            radian    = !rad
+            radian    = rad.Value
         }
 
     let getXYZFromLatLonAlt (sc:SphericalCoo) (planet:Planet) : V3d = 
@@ -151,7 +156,7 @@ module CooTransformation =
             if error <> 0 then
                 Log.line "cootrafo errorcode %A" error
             
-            V3d(!pX, !pY, !pZ)
+            V3d(pX.Value, pY.Value, pZ.Value)
 
     let getXYZFromLatLonAlt' (coordinate :V3d) (planet:Planet) : V3d = 
         match planet with
@@ -166,7 +171,7 @@ module CooTransformation =
             if error <> 0 then
                 Log.line "cootrafo errorcode %A" error
             
-            V3d(!pX, !pY, !pZ)
+            V3d(pX.Value, pY.Value, pZ.Value)
 
     let getHeight (p:V3d) (up:V3d) (planet:Planet) = 
         match planet with

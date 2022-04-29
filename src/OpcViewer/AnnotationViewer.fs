@@ -63,8 +63,8 @@ module AnnotationViewer =
             let size = win.Sizes
             let signature =
                 runtime.CreateFramebufferSignature [
-                    DefaultSemantic.Colors, { format = RenderbufferFormat.Rgba32f; samples = 1 }
-                    DefaultSemantic.Depth, { format = RenderbufferFormat.Depth24Stencil8; samples = 1 }
+                    DefaultSemantic.Colors, TextureFormat.Rgba32f
+                    DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
                 ]
 
             let pickColors = 
@@ -248,7 +248,7 @@ module AnnotationViewer =
                 scene.patchHierarchies |> Seq.toList |> List.map (fun basePath -> 
                     let h = PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths basePath)
                     let t = PatchLod.toRoseTree h.tree
-                    Sg.patchLod win.FramebufferSignature runner basePath scene.lodDecider false false ViewerModality.XYZ true t
+                    Sg.patchLod win.FramebufferSignature runner basePath scene.lodDecider false false ViewerModality.XYZ PatchLod.CoordinatesMapping.Local true t
                 ) |> Sg.ofList 
             else 
                 Sg.empty

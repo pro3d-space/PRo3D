@@ -24,9 +24,11 @@
   
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>..\..\bin\Debug\</OutputPath>
+    <NoWarn>0686</NoWarn>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <OutputPath>..\..\bin\Release\</OutputPath>
+    <NoWarn>0686</NoWarn>
   </PropertyGroup>
   <PropertyGroup>
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
@@ -62,6 +64,7 @@
     <Compile Include="Viewer\Viewer-IO.fs" />
     <Compile Include="Viewer\SceneConverter.fs" />
     <Compile Include="Viewer\Viewer.fs" />
+    <Compile Include="Viewer\SnapshotSg.fs" />
     <Content Include="Provenance\Provenance.css" />
     <None Include="Provenance\Provenance.js" />
     <Compile Include="Provenance\Abstraction\RList.fs" />

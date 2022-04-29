@@ -98,7 +98,7 @@ module LinkingApp =
 
         // map minerva features to linking features
         let linkingFeatures : HashMap<string, LinkingFeature> = 
-            reducedFeatures.Map (fun _ f ->
+            reducedFeatures.Map (fun _ (f : Feature) ->
 
                 let position = originTrafoInv.TransformPos(f.geometry.positions.Head)
                 let angles = f.geometry.coordinates.Head
@@ -263,7 +263,7 @@ module LinkingApp =
                 |> Sg.shader {
                     do! DefaultSurfaces.stableTrafo
                     do! DefaultSurfaces.vertexColor
-                    do! DefaultSurfaces.thickLine
+                    do! Shader.ThickLineNew.thickLine
                     do! DefaultSurfaces.thickLineRoundCaps
                 }
                 |> Sg.uniform "LineWidth" (AVal.constant 5.0)
@@ -303,7 +303,7 @@ module LinkingApp =
             [|
                 frustra
                 hoverFrustum
-            |]
+            |] 
             |> Sg.ofArray 
 
         // scene that is always shown (in both normal 3d and overlay mode)
@@ -363,7 +363,7 @@ module LinkingApp =
             )
 
         require dependencies (
-            div [][
+            div [] [
                 Incremental.div 
                     (AttributeMap.ofAMap (amap { 
                         let! d = m.overlayFeature
@@ -413,7 +413,7 @@ module LinkingApp =
                                 | None -> yield clazz (classString + " disabled")
 
                             })) (AList.ofList [
-                                i [clazz "caret left icon"][]
+                                i [clazz "caret left icon"] []
                                 text "Previous"
                             ])
                             Incremental.button (AttributeMap.ofAMap (amap {
@@ -427,13 +427,13 @@ module LinkingApp =
                                 | None -> yield clazz (classString + " disabled")
 
                             })) (AList.ofList [
-                                i [clazz "caret right icon"][]
+                                i [clazz "caret right icon"] []
                                 text "Next"
                             ])
                         ]
 
-                        button [clazz "fluid inverted ui button"; onClick (fun _ -> LinkingAction.CloseFrustum)][
-                            i [clazz "close icon"][]
+                        button [clazz "fluid inverted ui button"; onClick (fun _ -> LinkingAction.CloseFrustum)] [
+                            i [clazz "close icon"] []
                             text "Close"
                         ]
                     ])
@@ -686,7 +686,7 @@ module LinkingApp =
                                     svgLine (0.0, 0.0) (rc.X, rc.Y) "black" 0.01 // direction line
                                 ]
                                 text f.id
-                                div [clazz "product-indexed"; style "position: absolute; bottom: 1.2em"][
+                                div [clazz "product-indexed"; style "position: absolute; bottom: 1.2em"] [
      (* ༼つಠ益ಠ༽つ ─=≡ΣO) *)        text (string (before.Count + 1)) // geologists probably start their indices at 1
                                 ]
                             ])

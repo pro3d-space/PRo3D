@@ -10,6 +10,7 @@ open MBrace.FsPickler.Json
 
 open Aardvark.UI
 open Chiron
+open PRo3D.Core
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module SnapshotAnimation = 
@@ -92,6 +93,65 @@ module SnapshotAnimation =
             snapshots   = snapshots |> Seq.toList
             renderMask  = renderMask
         }
+
+    let fromBookmarks (bm          : SequencedBookmarks) 
+                                        (cameraView  : CameraView)
+                                        (frustum     : Frustum)
+                                        (nearPlane   : float) 
+                                        (farPlane    : float) =
+
+        
+        if SequencedBookmarksApp.timestamps.Length > 0 then
+            let snapshots = 
+                match bm.renderStillFrames with
+                | false ->
+                    Snapshot.fromViews 
+                        SequencedBookmarksApp.collectedViews 
+                        None 
+                        None 
+                        SequencedBookmarksApp.names 
+                        None 
+                        bm.fpsSetting
+                | true -> 
+                    let stillFrames = SequencedBookmarksApp.calculateNrOfStillFrames bm
+                    Snapshot.fromViews 
+                        SequencedBookmarksApp.collectedViews 
+                        None 
+                        None 
+                        SequencedBookmarksApp.names 
+                        (stillFrames |> Some) 
+                        bm.fpsSetting
+            let snapshotAnimation =
+                generate 
+                    snapshots 
+                    (frustum |> Frustum.horizontalFieldOfViewInDegrees |> Some)
+                    (nearPlane |> Some)
+                    (farPlane |> Some)
+                    (V2i (bm.resolutionX.value, bm.resolutionY.value))
+                    None    
+            snapshotAnimation      
+            //writeToFile snapshotAnimation jsonPathName
+        else 
+            Log.line "[Viewer] No frames recorded. Saving current frame."
+            let snapshots = 
+                [{
+                    filename        = "CurrentFrame"
+                    camera          = cameraView |> Snapshot.toSnapshotCamera
+                    sunPosition     = None
+                    lightDirection  = None
+                    surfaceUpdates  = None
+                    placementParameters = None
+                    renderMask      = None         
+                    }]
+            let snapshotAnimation =
+                generate 
+                    snapshots
+                    (frustum |> Frustum.horizontalFieldOfViewInDegrees |> Some)
+                    (nearPlane |> Some)
+                    (farPlane |> Some)
+                    (V2i (bm.resolutionX.value, bm.resolutionY.value))
+                    None    
+            snapshotAnimation
 
     let readTestAnimation () =
         try

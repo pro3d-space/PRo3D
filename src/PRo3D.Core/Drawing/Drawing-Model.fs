@@ -56,7 +56,16 @@ type DrawingAction =
 | ExportAsCsv            of string
 | ExportAsGeoJSON        of string
 | ExportAsGeoJSON_xyz    of string
+| ContinuouslyGeoJson    of string
 | ExportAsAttitude       of string
+
+[<ModelType>]
+type AutomaticGeoJsonExport = 
+    {
+        enabled : bool
+        lastGeoJsonPath    : Option<string>
+        lastGeoJsonPathXyz : Option<string>
+    }
 
 [<ModelType>]
 type DrawingModel = {
@@ -88,10 +97,14 @@ type DrawingModel = {
 
     // test laura
     haltonPoints   : list<V3d>
+
+    automaticGeoJsonExport : AutomaticGeoJsonExport
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]    
 module DrawingModel =
+
+
     
     let tryGet (ans:IndexList<Annotation>) key = 
         ans |> Seq.tryFind(fun x -> x.key = key)
@@ -130,4 +143,6 @@ module DrawingModel =
 
         // test laura
         haltonPoints = []
+
+        automaticGeoJsonExport = { enabled = false; lastGeoJsonPath = None; lastGeoJsonPathXyz = None }
     }

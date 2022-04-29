@@ -606,7 +606,7 @@ module GroupsApp =
         let ts = model.activeGroup
         require GuiEx.semui (
             Html.table [                            
-                Html.row "Change Groupname:"[Html.SemUi.textBox (ts |> AVal.map (fun x -> x.name)) SetGroupName ]
+                Html.row "Change Groupname:" [Html.SemUi.textBox (ts |> AVal.map (fun x -> x.name)) SetGroupName ]
                 //div [clazz "ui buttons inverted"] [
                 //    onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
                 //        button [clazz "ui icon button"; attribute "data-content" "Remove Group"; onMouseClick (fun _ -> RemoveGroup (ts |> AVal.map (fun x -> x.path) |> AVal.force))] [ //
@@ -660,19 +660,19 @@ module GroupsApp =
     let viewGroupButtons (ts:TreeSelection)  =
         require GuiEx.semui (
                 Html.table [
-                     Html.row "Remove/Clear:"[deleteClearGroup ts]
-                     Html.row "Selection:"[ viewSelectionButtons ]
+                     Html.row "Remove/Clear:" [deleteClearGroup ts]
+                     Html.row "Selection:" [ viewSelectionButtons ]
                 ]
             )
 
     let viewLeafButtons (ts:TreeSelection)  =
         require GuiEx.semui (
                 Html.table [
-                     Html.row "Remove:"[deleteLeaf ts]
-                     Html.row "Selection:"[ viewSelectionButtons ]                     
+                     Html.row "Remove:" [deleteLeaf ts]
+                     Html.row "Selection:" [ viewSelectionButtons ]                     
                 ]
             )
 
     let showNothing : DomNode<Action> = 
-        require GuiEx.semui (div [][])
+        require GuiEx.semui (div [] [])
 

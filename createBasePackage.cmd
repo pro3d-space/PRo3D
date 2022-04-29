@@ -1,0 +1,1 @@
+dotnet aardpack --norelease --notag

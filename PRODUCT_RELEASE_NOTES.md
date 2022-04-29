@@ -1,3 +1,24 @@
+## 4.8.2-prerelease1
+ 
+- electron build test   
+   
+## 4.7.0-prerelease1  
+
+- added Continuous Export of Dip & Strike [#185](https://github.com/pro3d-space/PRo3D/issues/185)
+- added Custom Background Color for Screenshots [#183](https://github.com/pro3d-space/PRo3D/issues/183)
+- Integration of Mars2020 rover traverse [#127](https://github.com/pro3d-space/PRo3D/issues/127) also including custom sized waypoint labels [#154](https://github.com/pro3d-space/PRo3D/issues/154)
+
+## 4.6.2-prerelease1
+
+- adapted GeoJSON parser to read numeric values
+- added file dialog to import traverses in the form of the specified GeoJSON M20_waypoints.json
+- added datamodel and GUI to maintain multiple traverses
+- added adjustable textsize for waypoints
+
+## 4.6.1-prerelease2
+
+- base 5.2 upgrade
+
 ## 4.6.1-prerelease1
 
 - added viewplanner placement for traverse waypoints
@@ -63,6 +84,12 @@
   - added angular error measures
   - added versioned serialization and deserialzation
   - added export of dip and strike annotations as json for attitude integration (annotions>export>attitude planes (*.json))
+
+## 4.0.3
+
+* fixed arcball crash
+* macbook pro amd graphics support
+* removed automatic recent loading
 
 ## 4.0.1
 

@@ -32,7 +32,7 @@ module SequencedBookmarksProperties =
         let view = model.cameraView
         require GuiEx.semui (
             Html.table [  
-                Html.row "Change Name:"[Html.SemUi.textBox model.name SetName ]
+                Html.row "Change Name:" [Html.SemUi.textBox model.name SetName ]
                 Html.row "Pos:"     [Incremental.text (view |> AVal.map (fun x -> x.Location.ToString("0.00")))] 
                 Html.row "LookAt:"  [Incremental.text (view |> AVal.map (fun x -> x.Forward.ToString("0.00")))]
                 Html.row "Up:"      [Incremental.text (view |> AVal.map (fun x -> x.Up.ToString("0.00")))]
@@ -506,6 +506,9 @@ module SequencedBookmarksApp =
             outerModel, {m with renderStillFrames = not m.renderStillFrames}
         | ToggleUpdateJsonBeforeRendering ->
             outerModel, {m with updateJsonBeforeRendering = not m.updateJsonBeforeRendering}
+        | UpdateJson ->
+            // currently updated in Viewer.fs
+            outerModel, m
         | GenerateSnapshots -> 
             outerModel, {m with isGenerating = true}
         | CancelSnapshots ->
@@ -522,10 +525,64 @@ module SequencedBookmarksApp =
             outerModel, {m with outputPath = str}
         | SetFpsSetting setting ->
             outerModel, {m with fpsSetting = setting}
-        |_-> outerModel, m
+        | CheckSnapshotsProcess id ->
+            match snapshotProcess with 
+            | Some p -> 
+                let m = 
+                    match p.HasExited , m.isCancelled with
+                    | true, _ -> 
+                        Log.warn "[Snapshots] Snapshot generation finished."
+                        //let m = shortFeedback "Snapshot generation finished." m 
+                        let m = {m with snapshotThreads = ThreadPool.remove id m.snapshotThreads
+                                        isGenerating = false
+                                }
+                                
+                        m
+                    | false, false ->
+                        m
+                    | false, true ->
+                        Log.warn "[Snapshots] Snapshot generation cancelled."
+                        p.Kill ()
+                        //let m = shortFeedback "Snapshot generation cancelled." m 
+                        let m = {m with snapshotThreads = ThreadPool.remove id m.snapshotThreads
+                                        isGenerating = false
+                                        isCancelled  = false
+                                }
+                        m
+                outerModel, m
+            | None -> 
+                outerModel, m
+
+    let generateSnapshots m runProcess scenePath =
+        let jsonPathName = Path.combine [m.outputPath;"batchRendering.json"]
+        if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform
+                (System.Runtime.InteropServices.OSPlatform.Windows) then
+                    
+            let exeName = "PRo3D.Snapshots.exe"
+            match File.Exists exeName with
+            | true -> 
+                let args = sprintf "--scn \"%s\" --asnap \"%s\" --out \"%s\" --exitOnFinish" 
+                                    scenePath jsonPathName m.outputPath
+                Log.line "[Viewer] Starting snapshot rendering with arguments: %s" args
+                snapshotProcess <- Some (runProcess exeName args None)
+                let id = System.Guid.NewGuid () |> string
+                let proclst =
+                    proclist {
+                        for i in 0..4000 do
+                            do! Proc.Sleep 4000
+                            yield CheckSnapshotsProcess id
+                    }              
+                {m with snapshotThreads = ThreadPool.add id proclst m.snapshotThreads}
+            | false -> 
+                Log.warn "[Snapshots] Could not find %s" exeName
+                m
+        else 
+            Log.warn "[Viewer] This feature is only available for Windows."
+            m
 
 
-    let threads (m : SequencedBookmarks) = m.animationThreads
+    let threads (m : SequencedBookmarks) = 
+        ThreadPool.union m.snapshotThreads m.animationThreads
 
 
     module UI =
@@ -580,19 +637,19 @@ module SequencedBookmarksApp =
                                          ]                
                                         //yield i [clazz "large cube middle aligned icon"; style bgc; onClick (fun _ -> SelectSO soid)][]           
         
-                                        yield i [clazz "home icon"; onClick (fun _ -> FlyToSBM id) ][]
+                                        yield i [clazz "home icon"; onClick (fun _ -> FlyToSBM id)] []
                                             |> UI.wrapToolTip DataPosition.Bottom "fly to bookmark"          
         
                                         //yield Incremental.i toggleMap AList.empty 
                                         //|> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
 
-                                        yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveSBM id) ][] 
+                                        yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveSBM id)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Remove"     
 
-                                        yield i [clazz "arrow alternate circle up outline icon"; onClick (fun _ -> MoveUp id) ][] 
+                                        yield i [clazz "arrow alternate circle up outline icon"; onClick (fun _ -> MoveUp id)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Move up"
                                         
-                                        yield i [clazz "arrow alternate circle down outline icon"; onClick (fun _ -> MoveDown id) ][] 
+                                        yield i [clazz "arrow alternate circle down outline icon"; onClick (fun _ -> MoveDown id)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Move down"
                                    
                                     } 

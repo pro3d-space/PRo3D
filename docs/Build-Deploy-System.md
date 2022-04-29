@@ -1,3 +1,9 @@
+# TL;DR
+
+- prepare the github_token env variable https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token
+- change RELEASE_NOTES.md, commit, push
+- in a commmand line use: ./build.{cmd|sh} GitHubRelease 
+
 # Release notes
 
 tags and release notes taken from RELEASE_NOTES.md

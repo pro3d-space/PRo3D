@@ -46,7 +46,7 @@ open FSharp.Data.Adaptive
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "4.0.2 - Snapshots"
+let viewerVersion       = "4.8.0-Snapshots"
 let catchDomainErrors   = false
 
 open System.IO
@@ -65,6 +65,7 @@ let getFreePort() =
     ep.Port
 
 let startApplication (startupArgs : CLStartupArgs) = 
+    GL.RuntimeConfig.UseNewRenderTask <- true
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
       
     // ensure appdata is here
@@ -102,7 +103,7 @@ let startApplication (startupArgs : CLStartupArgs) =
         let runtime = app.Runtime         
 
         Aardvark.Rendering.GL.RuntimeConfig.SupressSparseBuffers <- true
-        PRo3D.Core.Drawing.DrawingApp.usePackedAnnotationRendering <- true
+        PRo3D.Core.Drawing.DrawingApp.usePackedAnnotationRendering <- false
 
         Sg.hackRunner <- runtime.CreateLoadRunner 1 |> Some
 
@@ -115,8 +116,8 @@ let startApplication (startupArgs : CLStartupArgs) =
   
         let signature =
             runtime.CreateFramebufferSignature [
-                DefaultSemantic.Colors, { format = RenderbufferFormat.Rgba8; samples = 1 }
-                DefaultSemantic.Depth,  { format = RenderbufferFormat.Depth24Stencil8; samples = 1 }
+                DefaultSemantic.Colors, TextureFormat.Rgba8
+                DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
             ]
 
         use sendQueue = new BlockingCollection<string>()    
@@ -156,15 +157,20 @@ let startApplication (startupArgs : CLStartupArgs) =
                 magnificationFilter = startupArgs.magnificationFilter
                 serverMode = false
                 remoteApp  = false
+                useMapping = "true"
+                data_samples = None
+                backgroundColor = "black"
             }
 
         let port = getFreePort()
         let uri = sprintf "http://localhost:%d" port
 
-        let (mainApp, mModel) = failwith "reactivate Snapshots"
-            //ViewerApp.startAndReturnMModel runtime signature viewerArgs messagingMailbox sendQueue dumpFile cacheFile uri
+        let (mainApp, mModel) =
+            SimulatedViews.PRo3DUtils.start 
+                runtime signature false messagingMailbox 
+                sendQueue dumpFile cacheFile uri 8 ""
 
-        let s = { MailboxState.empty with update = failwith "reactivate Snapshots" } // mainApp.update Guid.Empty }
+        let s = { MailboxState.empty with update = mainApp.update Guid.Empty }
         MailboxAction.InitMailboxState s |> messagingMailbox.Post
   
      
@@ -262,7 +268,7 @@ let main argv =
     // ensure appdata is here
 
     // check if there are command line arguments, and if they are valid
-    Aardvark.Rendering.GL.Config.UseNewRenderTask <- true
+    Aardvark.Rendering.GL.RuntimeConfig.UseNewRenderTask <- true
     Sg.useAsyncLoading <- false 
     let startupArgs = (SimulatedViews.CommandLine.parseArguments argv)
     match startupArgs.hasValidAnimationArgs with

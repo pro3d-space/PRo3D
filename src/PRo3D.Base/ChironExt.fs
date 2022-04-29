@@ -12,8 +12,10 @@ open Chiron
 #nowarn "0686"
 
 type Ext = Ext
- 
+
 module Json = 
+
+
     let writeFloat name (floatValue : double)  = 
       json {
         if floatValue.IsNaN() then      
@@ -85,8 +87,8 @@ module Ext =
     let inline toJsonDefaults (a: ^a, _: ^b) =
         ((^a or ^b or ^e) : (static member ToJson1: ^e * ^a -> unit Json)(Unchecked.defaultof<_>,a))
     
-    let inline toJson (x: 'a) =
-        snd (toJsonDefaults (x, ToJsonDefaults) (Object (Map.empty)))
+    let inline toJson (x: ^a)  =
+        snd (toJsonDefaults (x, ToJsonDefaults) (Object (Map.empty))) 
 
 type Ext with
     //NumericInput

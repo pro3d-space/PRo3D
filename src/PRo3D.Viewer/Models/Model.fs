@@ -51,7 +51,7 @@ type Semantic =
 type ViewerMode =
     | Standard
     | Instrument
-  
+
 type GuiMode =
     | NoGui
     | RenderViewOnly
@@ -66,7 +66,13 @@ type StartupArgs = {
     serverMode            : bool
     magnificationFilter   : bool
     remoteApp             : bool
-    verbose               : bool
+
+    useMapping            : string
+    data_samples          : Option<string>
+    backgroundColor       : string
+
+    verbose               : bool    
+
 } with 
     static member initArgs =
       {
@@ -76,8 +82,10 @@ type StartupArgs = {
           magnificationFilter   = false
           remoteApp             = false
           serverMode            = false
-          verbose               = false
-      }
+          data_samples          = None
+          backgroundColor       = "#222222"
+          useMapping            = "true"
+          verbose               = false      }
 
 
 [<ModelType>]
@@ -287,7 +295,7 @@ module ViewConfigModel =
         //useSurfaceHighlighting = true
         //showExplorationPoint = true
     }
-
+       
     
        
     module V0 =

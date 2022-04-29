@@ -18,6 +18,7 @@ open PRo3D.SimulatedViews.Rendering
 open Aardvark.UI
 
 
+
 type NearFarRecalculation =
   | Both
   | FarPlane
@@ -30,7 +31,8 @@ type SnapshotApp<'model,'aModel, 'msg> =
     mutableApp           : MutableApp<'model, 'msg>
     /// the adaptive model associated with the mutable app
     adaptiveModel        : 'aModel
-    sceneGraph           : IRuntime -> 'aModel -> ISg
+    // the sg (including camera) to be rendered 
+    sg                   : ISg
     snapshotAnimation    : SnapshotAnimation
     /// animation actions are applied before rendering images
     getAnimationActions  : SnapshotAnimation -> seq<'msg>
@@ -41,8 +43,10 @@ type SnapshotApp<'model,'aModel, 'msg> =
     renderRange          : option<RenderRange>
     /// the folder where rendered images will be saved
     outputFolder         : string
-    renderMask           : bool
-    renderDepth          : bool
+    // render an additional image where OBJs are drawn as one-coloured blobs 
+    renderMask           : bool // originally for Mars-DL project; not in use
+    // render an additional image with depth information 
+    renderDepth          : bool // originally for Mars-DL project; not in use
     verbose              : bool
   }
 
@@ -51,6 +55,7 @@ type SnapshotApp<'model,'aModel, 'msg> =
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module SnapshotApp =
     let defaultFoV = 30.0
+    let mutable verbose = false
 
     let calculateFrustumRecalcNearFar (snapshotAnimation : SnapshotAnimation)  = 
         let resolution = V3i (snapshotAnimation.resolution.X, snapshotAnimation.resolution.Y, 1)
@@ -71,32 +76,19 @@ module SnapshotApp =
         frustum, recalcOption, near, far
 
     let executeAnimation (app : SnapshotApp<'model,'aModel, 'msg>) =
+        verbose <- app.verbose
         let frustum, recalcOption, near, far = calculateFrustumRecalcNearFar app.snapshotAnimation
         let resolution = V3i (app.snapshotAnimation.resolution.X, app.snapshotAnimation.resolution.Y, 1)
-        //let recalcOption, near, far =
-        //    match app.snapshotAnimation.nearplane, app.snapshotAnimation.farplane with
-        //    | Some n, Some f -> NearFarRecalculation.NoRecalculation, n, f
-        //    | None, Some f   -> NearFarRecalculation.NoRecalculation, SnapshotAnimation.defaultNearplane, f
-        //    | Some n, None   -> NearFarRecalculation.FarPlane, n, SnapshotAnimation.defaultFarplane
-        //    | None, None     -> NearFarRecalculation.Both, SnapshotAnimation.defaultNearplane, SnapshotAnimation.defaultFarplane
-
-        //let foV = 
-        //    match app.snapshotAnimation.fieldOfView with
-        //    | Some fov -> fov
-        //    | None -> defaultFoV
-        //let frustum =
-        //  Frustum.perspective foV near far 
-        //                      (float(resolution.X)/float(resolution.Y))
-
-
+        if verbose then
+            Log.line "calculated near plane as %f and far plane as %f" near far
         
         let col   = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Rgba8, 1, 1);
         let depth = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Depth24Stencil8, 1, 1);
 
         let signature = 
             app.runtime.CreateFramebufferSignature [
-                DefaultSemantic.Colors, { format = RenderbufferFormat.Rgba8; samples = 1 }
-                DefaultSemantic.Depth,  { format = RenderbufferFormat.Depth24Stencil8; samples = 1 }
+                DefaultSemantic.Colors, TextureFormat.Rgba8
+                DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
             ]
 
         let fbo = 
@@ -104,7 +96,7 @@ module SnapshotApp =
                 signature, 
                 Map.ofList [
                     DefaultSemantic.Colors, col.GetOutputView()
-                    DefaultSemantic.Depth, depth.GetOutputView()
+                    DefaultSemantic.DepthStencil, depth.GetOutputView()
                 ]
             ) |> OutputDescription.ofFramebuffer
         app.mutableApp.updateSync (Guid.NewGuid ()) (app.getAnimationActions app.snapshotAnimation)
@@ -133,7 +125,7 @@ module SnapshotApp =
                     } |> Seq.toList
             | false, _ -> snapshots
 
-        let sg = app.sceneGraph app.runtime app.adaptiveModel
+        let sg = app.sg //app.sceneGraph app.runtime app.adaptiveModel
 
         let taskclear = app.runtime.CompileClear(signature,AVal.constant C4f.Black,AVal.constant 1.0)
         let task = app.runtime.CompileRender(signature, sg)
@@ -171,11 +163,8 @@ module SnapshotApp =
             SnapshotAnimation.readLegacyFile snapshotPath
         | SnapshotType.CameraAndSurface ->
             SnapshotAnimation.read snapshotPath
-        | _ -> None 
 
     let transformAllSurfaces (surfacesModel : SurfaceModel) (surfaceUpdates : list<SnapshotSurfaceUpdate>) =
-        let surfaceGuids = HashMap.keys surfacesModel.surfaces.flat 
-        //let nrSurfaces = HashSet.count surfaceGuids
         let surfaces = surfacesModel.surfaces.flat 
                                 |> HashMap.toList
                                 |> List.map(fun (_,v) -> v |> Leaf.toSurface)
@@ -204,32 +193,27 @@ module SnapshotApp =
                     let surf =
                         match upd.trafo with
                         | Some trafo ->
-                            //Log.line "Transforming surface %s with %s" surf.name (trafo.ToString ())
+                            if verbose then 
+                                Log.line "Transforming surface %s with %s" surf.name (trafo.ToString ())
                             {surf with preTransform = trafo}
                         | None -> surf
                     let surf =
                         match upd.translation with
                         | Some tr -> 
-                          //Log.line "Transforming surface %s with %s" surf.name (tr.ToString ())
+                          if verbose then 
+                            Log.line "Transforming surface %s with %s" surf.name (tr.ToString ())
                           let translation = {surf.transformation.translation with value = tr}
                           {surf with transformation = {surf.transformation with translation = translation}}
                         | None -> surf
                     surf
                 | None -> surf
 
+            // apply surface tranformation to each surface mentioned in the snapshot
             SurfaceModel.updateSingleSurface updatedSurf surfacesModel
-        // apply surface tranformation to each surface mentioned in the snapshot
         
-
-
+        
         let model = 
             SnapshotUtils.applyToModel surfaces surfacesModel transformSurf       
-
-        //let debug = model.surfaces.flat 
-        //              |> HashMap.toList
-        //              |> List.map(fun (_,v) -> v |> Leaf.toSurface)
-        //              |> List.map (fun s -> sprintf "%s %s" s.name (s.preTransform.ToString ()))
-        //Log.line "%s" (debug.ToString ())
 
         model
 
@@ -239,17 +223,17 @@ module SnapshotApp =
                 let! useObjectPlacements = useObjectPlacements 
                 if useObjectPlacements then
                     yield 
-                        div [ clazz "ui item"; onMouseClick (fun _ -> placeAction)][
+                        div [ clazz "ui item"; onMouseClick (fun _ -> placeAction)] [
                             text "Place Objects"
                         ]
               
-                yield div [ clazz "ui item";onMouseClick (fun _ -> generateJsonAction)][
+                yield div [ clazz "ui item";onMouseClick (fun _ -> generateJsonAction)] [
                   text "Generate Snapshot File"
                 ]
             }
 
         div [ clazz "ui dropdown item"] [
             text "Snapshots"
-            i [clazz "dropdown icon"][] 
+            i [clazz "dropdown icon"] [] 
             Incremental.div (AttributeMap.ofList [ clazz "menu"]) menuContentList      
         ]

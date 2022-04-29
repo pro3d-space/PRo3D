@@ -32,13 +32,13 @@ module Rendering =
         Sg.execute (Aardvark.SceneGraph.RenderCommand.Ordered renderCommands)
 
     let render (r : RenderParameters) = 
-        r.clearTask.Run(null, r.outputDescription) |> ignore
-        r.task.Run(null, r.outputDescription) |> ignore
+        r.clearTask.Run(r.outputDescription) |> ignore
+        r.task.Run(r.outputDescription) |> ignore
         let depthImage = 
             match r.size, r.depthTexture with
               | Some size, Some depthTexture ->
                 let mat = Matrix<float32>(int64 size.X, int64 size.Y)
-                r.runtime.DownloadDepth(depthTexture,0,0,mat)
+                r.runtime.DownloadDepth(depthTexture,mat)
                 // there might be a better way to do this
                 let max = Array.max mat.Data
                 let min = Array.min mat.Data
@@ -59,7 +59,6 @@ module Rendering =
             with 
             | e ->
                 Log.error "%s" e.Message
-    //                Environment.Exit(int ExitCode.REQUEST_RESTART)
                 None, None
         result
 
@@ -122,3 +121,5 @@ module Rendering =
         with e ->
             Log.error "[SNAPSHOT] Could not save image %s" filename
             Log.error "%s" e.Message
+
+ 
