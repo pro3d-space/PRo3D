@@ -29,7 +29,9 @@ type PropertyAction =
     | UpdateVisualization of VisualizationAction
 
 type AnnoStatsAction =
-    | SetSelected of Guid * GroupsModel
+    //| SetSelected of Guid * GroupsModel
+    | UpdateSingleSelectedAnnotation of Guid * GroupsModel
+    | UpdateMultipleSelectedAnnotations of GroupsModel
     | SetProperty of Prop
     | UpdateProperty of PropertyAction * Prop
 
@@ -115,6 +117,13 @@ module PropertyOperations =
     
 module AnnotationStatisticsApp =     
 
+    //let getResult (option:Option<AnnotationResults>) = option |> Option.defaultValue 0.0
+    let getLength = fun (x:AnnotationResults) -> x.length
+    let getBearing = fun (x:AnnotationResults) -> x.bearing
+    let getVerticalThickness = fun (x:AnnotationResults) -> x.verticalThickness
+    let getDipAzimuth = fun (x:DipAndStrikeResults) -> x.dipAzimuth
+    let getStrikeAzimuth = fun (x:DipAndStrikeResults) -> x.strikeAzimuth
+
     let getPropData (prop:Prop) (selected:List<Annotation>) =
         match prop.kind with
         | Kind.LENGTH -> //review: code duplication, looks like a higher order function can do the trick (fun AnnotationResult -> float)
@@ -159,10 +168,10 @@ module AnnotationStatisticsApp =
             |> List.choose(fun o -> o)
             
     //when a new annotation is added, update all Properties
-    let updateAllProperties (props:HashMap<Prop, Property>) (addedAnnotation:Annotation) =   //review: this is a somehow confusing app structure, maybe we can make sub apps
+    let updateAllProperties (props:HashMap<Prop, Property>) (annotations:List<Annotation>) =   //review: this is a somehow confusing app structure, maybe we can make sub apps
         props 
         |> HashMap.map (fun k v -> 
-            let data = getPropData k [addedAnnotation]
+            let data = getPropData k annotations
             if (data.IsEmpty) 
                 then v 
             else
@@ -174,17 +183,30 @@ module AnnotationStatisticsApp =
 
     let update (m:AnnotationStatisticsModel) (a:AnnoStatsAction) =
         match a with
-        | SetSelected (id, g) ->         
+        //Add selection if not in the list, remove selection if already in the list
+        | UpdateSingleSelectedAnnotation (id, g) ->         
             match (g.flat |> HashMap.tryFind id) with
-            | Some l -> 
-                let anno = Leaf.toAnnotation l
-                match (m.selectedAnnotations |> HashMap.tryFind id) with
-                | Some _ -> m
-                | None -> 
-                    let updatedAnnos = m.selectedAnnotations.Add (id,anno)
-                    let updatedProperties = updateAllProperties m.properties anno
-                    {m with selectedAnnotations = updatedAnnos; properties = updatedProperties}
+            | Some l ->                 
+                let updatedAnnotations = 
+                    match (m.selectedAnnotations |> HashMap.tryFind id) with
+                    | Some _ -> m.selectedAnnotations.Remove id
+                    | None -> m.selectedAnnotations.Add (id,Leaf.toAnnotation l)
+                let updatedProperties = updateAllProperties m.properties (updatedAnnotations|>HashMap.toValueList)
+                {m with selectedAnnotations = updatedAnnotations; properties = updatedProperties}
             | None -> m
+        | UpdateMultipleSelectedAnnotations g ->
+            let selected = g.selectedLeaves |> HashSet.map (fun selection -> selection.id) |> HashSet.toList
+            let updatedAnnotations = 
+                selected 
+                |> List.map (fun id -> 
+                    match (g.flat |> HashMap.tryFind id) with
+                    | Some leaf -> Some(id,Leaf.toAnnotation leaf)
+                    | None -> None
+                )
+                |> List.choose (fun entry -> entry)
+                |> HashMap.ofList            
+            let updatedProperties = updateAllProperties m.properties (updatedAnnotations|>HashMap.toValueList)
+            {m with selectedAnnotations = updatedAnnotations; properties = updatedProperties}
         | SetProperty prop -> 
             match (m.properties.ContainsKey prop) with
             | true -> m

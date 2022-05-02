@@ -469,11 +469,6 @@ module ViewerApp =
                     //{ m with correlationPlot = cp } |> shortFeedback msg
                     m
                 | None -> m
-
-            | Drawing.PickDirectly id ->
-                let am = AnnotationStatisticsApp.update m.annoStats (AnnoStatsAction.SetSelected (id,m.drawing.annotations))
-                { m with annoStats = am}
-                
             | _ ->
                 let view = 
                     match m.viewerMode with 
@@ -482,7 +477,22 @@ module ViewerApp =
 
                 let drawing = 
                     DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing msg
-                { m with drawing = drawing; } |> stash
+                //{ m with drawing = drawing; } |> stash
+
+                //update the annotation statistics if the groupmodel has been updated (ideally if selectedLeaves was updated)
+                let annotationStatistics = 
+                    match msg with
+                    | Drawing.GroupsMessage g -> 
+                        match g with
+                        | GroupsAppAction.SingleSelectLeaf (_,id,_) | GroupsAppAction.AddLeafToSelection (_,id,_) -> 
+                            AnnotationStatisticsApp.update m.annoStats (AnnoStatsAction.UpdateSingleSelectedAnnotation (id, drawing.annotations))
+                        | GroupsAppAction.SetSelection (_,_) -> 
+                            AnnotationStatisticsApp.update m.annoStats (AnnoStatsAction.UpdateMultipleSelectedAnnotations drawing.annotations)
+                        | _ -> m.annoStats
+                    | Drawing.PickDirectly id | Drawing.PickAnnotation (_,id) -> 
+                        AnnotationStatisticsApp.update m.annoStats (AnnoStatsAction.UpdateSingleSelectedAnnotation (id,drawing.annotations))
+                    | _ -> m.annoStats
+                {m with drawing = drawing; annoStats = annotationStatistics} |> stash
 
         | AnnoStatsMessage msg,_,_ ->           
                 let am = AnnotationStatisticsApp.update m.annoStats msg             
