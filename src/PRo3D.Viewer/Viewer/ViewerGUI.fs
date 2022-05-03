@@ -787,8 +787,8 @@ module Gui =
                 let statsTable = 
                     require GuiEx.semui (
                         Html.table [                                    
-                            Html.row "Minimum" [Incremental.text (p.min |> AVal.map (fun f -> sprintf "%.2f" f))]
-                            Html.row "Maximum" [Incremental.text (p.max |> AVal.map (fun f -> sprintf "%.2f" f))]
+                            Html.row "Minimum" [Incremental.text (p.dataRange |> AVal.map (fun f -> sprintf "%.2f" f.Min))]
+                            Html.row "Maximum" [Incremental.text (p.dataRange |> AVal.map (fun f -> sprintf "%.2f" f.Max))]
                             Html.row "Average" [Incremental.text (p.avg |> AVal.map (fun f -> sprintf "%.2f" f))]
                         ]
                     )

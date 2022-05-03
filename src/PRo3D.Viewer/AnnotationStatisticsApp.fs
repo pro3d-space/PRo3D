@@ -8,11 +8,11 @@ open Aardvark.UI
 open PRo3D.Core
 open FSharp.Data.Adaptive
 
-type BinAction =
-    | Update of float 
+//type BinAction =
+//    | Update of float 
 
 type HistogramAction =    
-    | UpdateData of List<float>    
+    | UpdateData of List<Guid*float>    
     | SetBinNumber of Numeric.Action
     | SetDomainMin of Numeric.Action
     | SetDomainMax of Numeric.Action    
@@ -25,25 +25,23 @@ type VisualizationAction =
     | UpdateRoseDiagram of RoseDiagramAction
 
 type PropertyAction =    
-    | UpdateStats of List<float>
+    | UpdateStats of List<Guid*float>
     | UpdateVisualization of VisualizationAction
 
 type AnnoStatsAction =
-    //| SetSelected of Guid * GroupsModel
     | UpdateSingleSelectedAnnotation of Guid * GroupsModel
     | UpdateMultipleSelectedAnnotations of GroupsModel
     | SetProperty of Prop
     | UpdateProperty of PropertyAction * Prop
 
-module BinOperations =
-
-    let update (m:Bin) (action:BinAction) =
-        match action with
-        | Update v -> 
-            let inside = v >= m.start && v <= m.theEnd
-            match inside with
-            | true -> {m with value = m.value + 1}
-            | false -> m
+//module BinOperations =
+//    let update (m:Bin) (action:BinAction) =
+//        match action with
+//        | Update v -> 
+//            let inside = v >= m.range.Min && v <= m.range.Max
+//            match inside with
+//            | true -> {m with count = m.count + 1}
+//            | false -> m
 
 module RoseDiagramOperations = 
     let update (m:RoseDiagram) (action:RoseDiagramAction) =
@@ -66,10 +64,15 @@ module HistogramOperations =
 
     let update (m:(Pro3D.AnnotationStatistics.Histogram)) (action:HistogramAction) =
         match action with
-        | UpdateData d -> 
-            let updatedBins = m.bins |> List.map (fun b -> BinOperations.update b (Update d.Head))
+        | UpdateData d ->      
+            let updatedData = m.data @ d                   
+            let numBins = m.numOfBins.value
+            let start = m.domainStart.value  
+            let theEnd = m.domainEnd.value
+            let width = (theEnd-start) / numBins 
+            let updatedBins = AnnotationStatistics.sortHistogramDataIntoBins m.bins updatedData start width
             let maxValue = AnnotationStatistics.getBinMaxValue updatedBins                         
-            compute {m with data = (m.data @ d); bins = updatedBins; maxBinValue = maxValue}            
+            {m with data = updatedData; bins = updatedBins; maxBinValue = maxValue}            
         | SetBinNumber act -> 
             let ud_n = Numeric.update m.numOfBins act
             let ud_hist = {m with numOfBins = ud_n}
@@ -98,77 +101,67 @@ module PropertyOperations =
 
     let calcMinMaxAvg (l:List<float>) =
         match (l.IsEmpty) with
-        | true -> (0.0, 0.0, 0.0)        
+        | true -> (Range1d(0.0, 0.0), 0.0)        
         | false -> 
             let min = l |> List.min
             let max = l |> List.max
             let avg = l |> List.average
-            (min, max, avg)                   
+            let range = Range1d(min, max)
+            (range, avg)                   
                    
     let update (m:Property) (action:PropertyAction) =
         match action with       
         | UpdateStats d -> 
             let updatedData = m.data @ d
-            let min,max,avg = calcMinMaxAvg updatedData
-            {m with data = updatedData; min = min; max = max; avg = avg}        
+            let dataRange,avg = calcMinMaxAvg (updatedData |> List.map (fun (_,value) -> value))
+            {m with data = updatedData; dataRange = dataRange; avg = avg}        
         | UpdateVisualization visAction -> 
             let updatedVis = VisualizationOperations.update m.visualization visAction
             {m with visualization = updatedVis}
     
 module AnnotationStatisticsApp =     
 
-    //let getResult (option:Option<AnnotationResults>) = option |> Option.defaultValue 0.0
+    let getAnnotationResults
+        (annotations: List<Guid*Annotation>)  
+        (annotationProperty: AnnotationResults -> float) 
+        = 
+        annotations 
+        |> List.map(fun (annoId, annotation) ->         
+            match annotation.results with
+            | Some a -> Some(annoId, a |> annotationProperty)
+            | None -> None
+        )
+        |> List.choose(fun o -> o) 
+
+    let getDnSResults 
+        (annotations: List<Guid*Annotation>)   
+        (dnsProperty: DipAndStrikeResults -> float) 
+        =
+        annotations 
+        |> List.map(fun (annoId, annotation) ->         
+            match annotation.dnsResults with
+            | Some a -> Some(annoId, a |> dnsProperty)
+            | None -> None
+        )
+        |> List.choose(fun o -> o)  
+
     let getLength = fun (x:AnnotationResults) -> x.length
     let getBearing = fun (x:AnnotationResults) -> x.bearing
     let getVerticalThickness = fun (x:AnnotationResults) -> x.verticalThickness
     let getDipAzimuth = fun (x:DipAndStrikeResults) -> x.dipAzimuth
     let getStrikeAzimuth = fun (x:DipAndStrikeResults) -> x.strikeAzimuth
 
-    let getPropData (prop:Prop) (selected:List<Annotation>) =
+    let getPropData (prop:Prop) (selected:List<Guid*Annotation>) =
         match prop.kind with
-        | Kind.LENGTH -> //review: code duplication, looks like a higher order function can do the trick (fun AnnotationResult -> float)
-            selected 
-            |> List.map(fun a -> 
-                match a.results with
-                | Some r -> Some(r.length)
-                | None -> None
-            )
-            |> List.choose(fun o -> o)           
-        | Kind.BEARING -> 
-            selected 
-            |> List.map(fun a -> 
-                match a.results with
-                | Some r -> Some(r.bearing)
-                | None -> None
-            )
-            |> List.choose(fun o -> o)
-        | Kind.VERTICALTHICKNESS -> 
-            selected 
-            |> List.map(fun a -> 
-                match a.results with
-                | Some r -> Some(r.verticalThickness)
-                | None -> None
-            )
-            |> List.choose(fun o -> o)
-        | Kind.DIP_AZIMUTH -> 
-            selected 
-            |> List.map(fun a -> 
-                match a.dnsResults with
-                | Some r -> Some(r.dipAzimuth)
-                | None -> None
-            )
-            |> List.choose(fun o -> o)
-        | Kind.STRIKE_AZIMUTH -> 
-            selected 
-            |> List.map(fun a -> 
-                match a.dnsResults with
-                | Some r -> Some(r.strikeAzimuth)
-                | None -> None
-            )
-            |> List.choose(fun o -> o)
-            
+        | Kind.LENGTH -> getAnnotationResults selected getLength     
+        | Kind.BEARING -> getAnnotationResults selected getBearing              
+        | Kind.VERTICALTHICKNESS -> getAnnotationResults selected getVerticalThickness          
+        | Kind.DIP_AZIMUTH -> getDnSResults selected getDipAzimuth
+        | Kind.STRIKE_AZIMUTH -> getDnSResults selected getStrikeAzimuth
+           
+   
     //when a new annotation is added, update all Properties
-    let updateAllProperties (props:HashMap<Prop, Property>) (annotations:List<Annotation>) =   //review: this is a somehow confusing app structure, maybe we can make sub apps
+    let updateAllProperties (props:HashMap<Prop, Property>) (annotations:List<Guid*Annotation>) =   //review: this is a somehow confusing app structure, maybe we can make sub apps
         props 
         |> HashMap.map (fun k v -> 
             let data = getPropData k annotations
@@ -191,7 +184,7 @@ module AnnotationStatisticsApp =
                     match (m.selectedAnnotations |> HashMap.tryFind id) with
                     | Some _ -> m.selectedAnnotations.Remove id
                     | None -> m.selectedAnnotations.Add (id,Leaf.toAnnotation l)
-                let updatedProperties = updateAllProperties m.properties (updatedAnnotations|>HashMap.toValueList)
+                let updatedProperties = updateAllProperties m.properties (updatedAnnotations|>HashMap.toList)
                 {m with selectedAnnotations = updatedAnnotations; properties = updatedProperties}
             | None -> m
         | UpdateMultipleSelectedAnnotations g ->
@@ -205,23 +198,22 @@ module AnnotationStatisticsApp =
                 )
                 |> List.choose (fun entry -> entry)
                 |> HashMap.ofList            
-            let updatedProperties = updateAllProperties m.properties (updatedAnnotations|>HashMap.toValueList)
+            let updatedProperties = updateAllProperties m.properties (updatedAnnotations|>HashMap.toList)
             {m with selectedAnnotations = updatedAnnotations; properties = updatedProperties}
         | SetProperty prop -> 
             match (m.properties.ContainsKey prop) with
             | true -> m
             | false -> 
-                let d = getPropData prop (m.selectedAnnotations |> HashMap.toValueList)
-                let min, max, avg = PropertyOperations.calcMinMaxAvg d     
+                let d = getPropData prop (m.selectedAnnotations |> HashMap.toList)
+                let dataRange, avg = PropertyOperations.calcMinMaxAvg (d |> List.map(fun (_,value) -> value))    
                 let initialVis = 
                     match prop.scale with
-                    | Scale.Metric -> Visualization.Histogram (AnnotationStatistics.initHistogram min max d)
+                    | Scale.Metric -> Visualization.Histogram (AnnotationStatistics.initHistogram dataRange.Min dataRange.Max d)
                     | Scale.Angular -> Visualization.RoseDiagram (AnnotationStatistics.initRoseDiagram d)
                 let property = 
                     { prop = prop
                       data = d 
-                      min = min
-                      max = max
+                      dataRange = dataRange
                       avg = avg                                                 
                       visualization = initialVis }
                 let properties = m.properties.Add (prop, property)
@@ -312,10 +304,10 @@ module AnnotationStatisticsDrawings =
             
                 let sections = 
                     bins |> List.map(fun b -> 
-                        let subArea = (areaTotal / ((float(maxBinValue))/(float(b.value)))) + areaInner
+                        let subArea = (areaTotal / ((float(maxBinValue))/(float(b.count)))) + areaInner
                         let subOuterRadius = Fun.Sqrt(subArea / Constant.Pi)
-                        let startRadians = b.start * Constant.RadiansPerDegree
-                        let endRadians = b.theEnd * Constant.RadiansPerDegree
+                        let startRadians = b.range.Min * Constant.RadiansPerDegree
+                        let endRadians = b.range.Max * Constant.RadiansPerDegree
                         drawRoseDiagramSection startRadians endRadians center innerRad subOuterRadius
                     )
                 yield! sections
@@ -334,7 +326,7 @@ module AnnotationStatisticsDrawings =
         let attrRects (bin:Bin) (idx:int)= 
             amap{
                 let! n = h.numOfBins.value
-                let binV = bin.value                     
+                let binV = bin.count                     
                 let w = (width-xStart) / (int(n))
                 
                 yield style "fill:green;fill-opacity:1.0"                
@@ -407,7 +399,7 @@ module AnnotationStatisticsDrawings =
                 //bins as rectangles + labels
                 for i in 0..(bins.Length-1) do
                     let bin = bins.Item i
-                    let label = sprintf "%i-%i" (int(bin.start)) (int(bin.theEnd))
+                    let label = sprintf "%i-%i" (int(bin.range.Min)) (int(bin.range.Max))
                     yield Incremental.Svg.rect (attrRects bin i)
                     yield Incremental.Svg.text (attrText i label.Length) (AVal.constant label)
                 

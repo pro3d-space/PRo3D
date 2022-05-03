@@ -27,20 +27,19 @@ type Prop =
     }
 
 [<ModelType>]
-type Bin = //review: better use Range1d instead of start, end, width
+type Bin = 
     {    
-         value       : int //review: this is rather a count than a value
-         start       : float
-         theEnd      : float      
-         width       : float
-    } //review: how do we keep track which annotations/measurements are responsible for the count?
+         count         : int 
+         range         : Range1d
+         annotationIDs : List<Guid>  //to keep track which annotations are responsible for the count       
+    }     
 
 [<ModelType>]
 type Histogram = 
     {
         [<NonAdaptive>]
         id          : Guid    
-        data        : List<float>
+        data        : List<Guid*float>
         maxBinValue : int
         numOfBins   : NumericInput
         domainStart : NumericInput
@@ -53,7 +52,7 @@ type RoseDiagram =
     {
         [<NonAdaptive>]
         id          : Guid
-        data        : List<float>
+        data        : List<Guid*float>
         maxBinValue : int
         bins        : List<Bin>
         center      : V2d
@@ -72,9 +71,8 @@ type Property = //review: same as visualization
     {
         [<NonAdaptive>]
         prop            : Prop  //review: what is a prop?
-        data            : List<float>
-        min             : float //review: range1d
-        max             : float
+        data            : List<Guid*float>  
+        dataRange       : Range1d
         avg             : float         
         visualization   : Visualization
     }
@@ -112,44 +110,48 @@ module AnnotationStatistics =
         }
     
     let getBinMaxValue (bins:List<Bin>) =
-        bins |> List.map (fun b -> b.value) |> List.max
+        bins |> List.map (fun b -> b.count) |> List.max
 
     let createHistogramBins (count:int) (min:float) (width:float) =
         [
             for i in 0..(count-1) do
                 let start = min + (float(i) * width)
-                let en = start + width
+                let en = start + width                
                 {                    
-                    value       = 0
-                    start       = start
-                    theEnd      = en      
-                    width       = width 
+                    count = 0
+                    range = Range1d(start,en)
+                    annotationIDs = List.empty
                 }
         ]
 
     //review: not sure if this is the best way to construct a histogram, but it is functional
-    let sortHistogramDataIntoBins (bins:List<Bin>) (data:List<float>) (min:float) (width:float)=
-        let counts = 
+    let sortHistogramDataIntoBins (bins:List<Bin>) (data:List<Guid*float>) (min:float) (width:float)=
+
+        let grouping = 
             data 
-            |> List.groupBy (fun value -> 
+            |> List.groupBy (fun (_,value) -> 
                 let shifted = value - min 
                 int(shifted/width)
-            ) 
-            |> List.map(fun (id, vals) -> id, (vals |> List.length)) 
+            )
+            |> List.map(fun (binID, innerList) -> 
+                let counter = innerList|> List.length
+                let annotationIds = innerList |> List.map(fun (id,_) -> id)
+                (binID, (counter, annotationIds))
+            )
             |> Map.ofList //review: this looks quite smart though
 
         bins 
         |> List.mapi (fun i bin -> 
-            match (counts.TryFind i) with
-            | Some count -> { bin with value = count }
+            match (grouping.TryFind i) with
+            | Some (count,ids) -> { bin with count = count; annotationIDs = ids}
             | None -> bin
         )
     
-    let setHistogramBins (data:List<float>) (min:float) (width:float) (binCount:int) =
+    let setHistogramBins (data:List<Guid*float>) (min:float) (width:float) (binCount:int) =
         let createBins = createHistogramBins binCount min width
         sortHistogramDataIntoBins createBins data min width
     
-    let initHistogram (min:float) (max:float) (data:List<float>) = 
+    let initHistogram (min:float) (max:float) (data:List<Guid*float>) = 
         let domainStart = floor(min)  //review: range1d
         let domainEnd = ceil(max)        
         let binWidth = (domainEnd-domainStart) / binNumeric.value               
@@ -178,32 +180,37 @@ module AnnotationStatistics =
                 let endDegree = (northCenterAngle + binAngleHalf) % 360.0
                 //
                 {
-                    value = 0
-                    start = startDegree
-                    theEnd = endDegree
-                    width = angle
+                    count = 0
+                    range = Range1d(startDegree, endDegree)
+                    annotationIDs = List.empty
                 }
         ]
     
     //count for rose diagram bins
-    let sortRoseDiagramDataIntoBins (bins:List<Bin>) (data:List<float>) (angle:float) =          
+    let sortRoseDiagramDataIntoBins (bins:List<Bin>) (data:List<Guid*float>) (angle:float) =    
+        
         let binAngleHalf = angle / 2.0
-        let counts = 
+        let grouping = 
             data 
-            |> List.groupBy (fun value -> 
-                let shifted = (value - 270.0 + binAngleHalf + 360.0) % 360.0
-                int(shifted/angle)) 
-            |> List.map(fun (id, vals) -> id, (vals |> List.length)) 
-            |> Map.ofList
+            |> List.groupBy (fun (_,value) -> 
+                let shifted = (value - 270.0 + binAngleHalf + 360.0) % 360.0 
+                int(shifted/angle)
+            )
+            |> List.map(fun (binID, innerList) -> 
+                let counter = innerList|> List.length
+                let annotationIds = innerList |> List.map(fun (id,_) -> id)
+                (binID, (counter, annotationIds))
+            )
+            |> Map.ofList 
 
         bins 
         |> List.mapi (fun i bin -> 
-            match (counts.TryFind i) with
-            | Some count -> {bin with value = count}
+            match (grouping.TryFind i) with
+            | Some (count,ids) -> { bin with count = count; annotationIDs = ids}
             | None -> bin
         )
 
-    let initRoseDiagram (data:List<float>) =
+    let initRoseDiagram (data:List<Guid*float>) =
         let binAngle = 15.0
         let initB =  initRoseDiagramBins binAngle
         let bins = sortRoseDiagramDataIntoBins initB data binAngle
