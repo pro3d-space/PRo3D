@@ -1,3 +1,9 @@
+## 4.9.0-prerelease1
+
+- added batch rendering using sequenced bookmarks (windows only)
+- annotations and other user-drawn entities are also rendered in batch processing
+- priority rendering also work with batch rendering
+
 ## 4.8.2-prerelease1
  
 - electron build test   
