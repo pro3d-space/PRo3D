@@ -46,7 +46,7 @@ open FSharp.Data.Adaptive
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "4.8.0-Snapshots"
+let viewerVersion       = "4.9.0 - Snapshots"
 let catchDomainErrors   = false
 
 open System.IO
