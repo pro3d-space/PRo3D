@@ -1,0 +1,73 @@
+﻿namespace Pro3D.AnnotationStatistics
+
+open System
+open Aardvark.Base
+open Adaptify
+
+
+type Scale = 
+    | Metric
+    | Angular
+
+type Kind = 
+    | LENGTH 
+    | BEARING 
+    | VERTICALTHICKNESS 
+    | DIP_AZIMUTH 
+    | STRIKE_AZIMUTH
+
+type MeasurementType = 
+    {
+        kind : Kind
+        scale : Scale
+    }
+
+
+[<ModelType>]
+type StatisticsMeasurementModel =
+    {
+        [<NonAdaptive>]
+        measurementType : MeasurementType 
+        data            : List<Guid*float>  
+        dataRange       : Range1d
+        avg             : float         
+        visualization   : StatisticsVisualizationModel
+    }
+
+type StatisticsMeasurementAction =    
+    | UpdateAll of List<Guid*float> * StatisticsVisualizationAction                       
+    | StatisticsVisualizationMessage of StatisticsVisualizationAction          
+
+module StatisticsMeasurementModel =
+        
+    let calcMinMaxAvg (l:List<float>) =
+        match (l.IsEmpty) with
+        | true -> (Range1d(0.0, 0.0), 0.0)        
+        | false -> 
+            let min = l |> List.min
+            let max = l |> List.max
+            let avg = l |> List.average
+            let range = Range1d(min, max)
+            (range, avg) 
+
+    let initMeasurementType (kind:Kind) (scale:Scale) = 
+          {
+              kind = kind
+              scale = scale
+          }
+
+    let init (data:List<Guid*float>) (mType:MeasurementType) =
+
+        let dataRange, avg = calcMinMaxAvg (data |> List.map(fun (_,value) -> value))    
+        let initialVis = 
+            match mType.scale with
+            | Scale.Metric -> StatisticsVisualizationModel.Histogram (HistogramModel.initHistogram dataRange.Min dataRange.Max data)
+            | Scale.Angular -> StatisticsVisualizationModel.RoseDiagram (RoseDiagramModel.initRoseDiagram data)
+        
+        { measurementType = mType
+          data = data
+          dataRange = dataRange
+          avg = avg                                                 
+          visualization = initialVis }
+
+

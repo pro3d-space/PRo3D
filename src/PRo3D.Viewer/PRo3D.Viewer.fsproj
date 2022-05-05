@@ -49,6 +49,17 @@
     <Compile Include="DockConfigs.fs" />
     <Compile Include="Traverse-Model.fs" />
     <Compile Include="DashboardModes.fs" />
+    <Compile Include="Bin-Model.fs" />
+    <Compile Include="RoseDiagram-Model.fs" />
+    <Compile Include="RoseDiagram-App.fs" />
+    <Compile Include="Histogram-Model.fs" />
+    <Compile Include="Histogram-App.fs" />
+    <Compile Include="Histogram.UI.fs" />
+    <Compile Include="RoseDiagram.UI.fs" />
+    <Compile Include="StatisticsVisualization-Model.fs" />
+    <Compile Include="StatisticsVisualization-App.fs" />
+    <Compile Include="StatisticsMeasurement-Model.fs" />
+    <Compile Include="StatisticsMeasurement-App.fs" />
     <Compile Include="AnnotationStatisticsModel.fs" />
     <Compile Include="AnnotationStatisticsApp.fs" />
     <Compile Include="Viewer-Model.fs" />

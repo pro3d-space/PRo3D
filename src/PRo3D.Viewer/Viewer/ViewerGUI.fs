@@ -783,20 +783,23 @@ module Gui =
     module AnnoStatsUI =
 
         let propSummary (m : AdaptiveModel) =
-            let propListing (p:AdaptiveProperty) = 
+            let propListing (sm:AdaptiveStatisticsMeasurementModel) = 
                 let statsTable = 
                     require GuiEx.semui (
                         Html.table [                                    
-                            Html.row "Minimum" [Incremental.text (p.dataRange |> AVal.map (fun f -> sprintf "%.2f" f.Min))]
-                            Html.row "Maximum" [Incremental.text (p.dataRange |> AVal.map (fun f -> sprintf "%.2f" f.Max))]
-                            Html.row "Average" [Incremental.text (p.avg |> AVal.map (fun f -> sprintf "%.2f" f))]
+                            Html.row "Minimum" [Incremental.text (sm.dataRange |> AVal.map (fun f -> sprintf "%.2f" f.Min))]
+                            Html.row "Maximum" [Incremental.text (sm.dataRange |> AVal.map (fun f -> sprintf "%.2f" f.Max))]
+                            Html.row "Average" [Incremental.text (sm.avg |> AVal.map (fun f -> sprintf "%.2f" f))]
                         ]
                     )
 
                  //visualization
-                let visualization = AnnotationStatisticsDrawings.drawVisualization p (new V2i(300, 200))          
+                let visualization = 
+                    StatisticsVisualization_App.drawVisualization sm.visualization (new V2i(300, 200))     
+                    |> UI.map StatisticsVisualizationMessage
+                    |> UI.map (fun f -> MeasurementMessage (sm.measurementType,f))
              
-                let title = "Property: " + p.prop.kind.ToString()
+                let title = "Property: " + sm.measurementType.kind.ToString()
                 GuiEx.accordion title "Settings" true [
                     statsTable                                             
                     visualization |> UI.map AnnoStatsMessage                               
@@ -849,7 +852,7 @@ module Gui =
                         ]
                         div [style "width:100%; margin: 10 5 10 10"][                                
                             text "Please select a property to see statistics" 
-                            AnnotationStatisticsDrawings.propDropdown |> UI.map AnnoStatsMessage                                     
+                            AnnotationStatisticsDrawings.mTypeDropdown |> UI.map AnnoStatsMessage                                     
                         ]
                         div [style "width:100%; margin: 10 5 10 10"][                                
                             propSummary m                                      
