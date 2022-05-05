@@ -6,6 +6,10 @@ open FSharp.Data.Adaptive
 
 module HistogramUI =
 
+    let yPixelValue (divHeight:int) (maxValue:int) =
+        //TODO from range 0...maxBinValue to 0...divHeight
+        -1
+
     let drawHistogram (h: AdaptiveHistogramModel) (width:int) = 
         
         let height = 10

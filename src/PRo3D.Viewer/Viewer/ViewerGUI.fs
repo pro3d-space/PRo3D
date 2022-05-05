@@ -792,17 +792,17 @@ module Gui =
                             Html.row "Average" [Incremental.text (sm.avg |> AVal.map (fun f -> sprintf "%.2f" f))]
                         ]
                     )
-
-                 //visualization
+                
                 let visualization = 
                     StatisticsVisualization_App.drawVisualization sm.visualization (new V2i(300, 200))     
                     |> UI.map StatisticsVisualizationMessage
                     |> UI.map (fun f -> MeasurementMessage (sm.measurementType,f))
+                    |> UI.map AnnoStatsMessage  
              
-                let title = "Property: " + sm.measurementType.kind.ToString()
+                let title = "Measurement: " + sm.measurementType.kind.ToString()
                 GuiEx.accordion title "Settings" true [
                     statsTable                                             
-                    visualization |> UI.map AnnoStatsMessage                               
+                    visualization                           
                  ]
             
             Incremental.div (AttributeMap.ofList [style "width:100%; margin: 15 15 5 5"]) 
@@ -851,7 +851,7 @@ module Gui =
                             Incremental.text text1 
                         ]
                         div [style "width:100%; margin: 10 5 10 10"][                                
-                            text "Please select a property to see statistics" 
+                            text "Please select a measurement to see statistics" 
                             AnnotationStatisticsDrawings.mTypeDropdown |> UI.map AnnoStatsMessage                                     
                         ]
                         div [style "width:100%; margin: 10 5 10 10"][                                
