@@ -1,14 +1,54 @@
 ﻿namespace Pro3D.AnnotationStatistics
 
+open Aardvark.Base
 open Aardvark.UI
 open PRo3D.Core
 open FSharp.Data.Adaptive
 
 module HistogramUI =
 
-    let yPixelValue (divHeight:int) (maxValue:int) =
-        //TODO from range 0...maxBinValue to 0...divHeight
-        -1
+    let yPixelValue (value:int) (maximum:int) (divHeight:int) =
+        let relation = float(value) / float(maximum)
+        int(float(divHeight) * relation)        
+
+    let rectanglesFromBins 
+        (bin:BinModel) 
+        (idx:int) 
+        (binWidth:int) 
+        (maxBinValue:int)
+        (divHeight:int) =
+        
+        let binHeight = yPixelValue bin.count maxBinValue divHeight
+           
+        [
+            yield style "fill:green"                
+            yield attribute "x" (sprintf "%ipx" (15 + idx * binWidth))
+            yield attribute "y" (sprintf "%ipx" (divHeight-binHeight))
+            yield attribute "width" (sprintf "%ipx" binWidth) 
+            yield attribute "height" (sprintf "%ipx" binHeight) 
+        ] |> AttributeMap.ofList
+
+    let drawHistogram' (h: AdaptiveHistogramModel) (dimensions:V2i) =
+        let width = dimensions.X
+        let height = dimensions.Y
+        let xStart = 15        
+
+        let rectangles =            
+            alist
+             { 
+                let! bins = h.bins
+                let! max = h.maxBinValue
+                let binWidth = (width-xStart) / bins.Length
+                for i in 0..(bins.Length-1) do
+                    let bin = bins.Item i                    
+                    yield Incremental.Svg.rect (rectanglesFromBins bin i binWidth max height)         
+             }
+              
+        Incremental.Svg.svg AttributeMap.empty rectangles
+
+            
+
+
 
     let drawHistogram (h: AdaptiveHistogramModel) (width:int) = 
         

@@ -23,7 +23,8 @@ module StatisticsVisualization_App =
                 match vis with
                 | AdaptiveHistogram h ->                     
                     yield HistogramUI.histogramSettings h |> UI.map HistogramMessage 
-                    yield HistogramUI.drawHistogram h dimensions.X |> UI.map HistogramMessage 
+                    //yield HistogramUI.drawHistogram h dimensions.X |> UI.map HistogramMessage 
+                    yield HistogramUI.drawHistogram' h dimensions |> UI.map HistogramMessage 
                 | AdaptiveRoseDiagram r -> 
                     yield text "Rose Diagram"
                     yield RoseDiagramUI.drawRoseDiagram r dimensions |> UI.map RoseDiagramMessage 
