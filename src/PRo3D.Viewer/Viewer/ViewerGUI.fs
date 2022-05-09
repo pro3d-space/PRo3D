@@ -784,20 +784,26 @@ module Gui =
 
         let propSummary (m : AdaptiveModel) =
             let propListing (sm:AdaptiveStatisticsMeasurementModel) = 
+
                 let statsTable = 
-                    require GuiEx.semui (
-                        Html.table [                                    
-                            Html.row "Minimum" [Incremental.text (sm.dataRange |> AVal.map (fun f -> sprintf "%.2f" f.Min))]
-                            Html.row "Maximum" [Incremental.text (sm.dataRange |> AVal.map (fun f -> sprintf "%.2f" f.Max))]
-                            Html.row "Average" [Incremental.text (sm.avg |> AVal.map (fun f -> sprintf "%.2f" f))]
+                    div[][
+                        require GuiEx.semui (
+                            Html.table [                                    
+                                Html.row "Minimum" [Incremental.text (sm.dataRange |> AVal.map (fun f -> sprintf "%.2f" f.Min))]
+                                Html.row "Maximum" [Incremental.text (sm.dataRange |> AVal.map (fun f -> sprintf "%.2f" f.Max))]
+                                Html.row "Average" [Incremental.text (sm.avg |> AVal.map (fun f -> sprintf "%.2f" f))]
+                            ]
+                        )
                         ]
-                    )
+             
                 
                 let visualization = 
-                    StatisticsVisualization_App.drawVisualization sm.visualization (new V2i(300, 200))     
+                    div[][
+                    StatisticsVisualization_App.drawVisualization sm.visualization (new V2i(300, 100))     
                     |> UI.map StatisticsVisualizationMessage
                     |> UI.map (fun f -> MeasurementMessage (sm.measurementType,f))
                     |> UI.map AnnoStatsMessage  
+                    ]
              
                 let title = "Measurement: " + sm.measurementType.kind.ToString()
                 GuiEx.accordion title "Settings" true [
@@ -806,7 +812,7 @@ module Gui =
                  ]
             
             //Incremental.div (AttributeMap.ofList [style "width:100%; margin: 15 15 5 5"]) 
-            Incremental.div (AttributeMap.ofList [style "width:100%; margin: 0 0 5 5"]) 
+            Incremental.div (AttributeMap.ofList [style "width:100%; height:auto"]) 
                 (                                  
                     m.annoStats.properties 
                     |> AMap.map(fun p v -> propListing v) 
@@ -855,7 +861,8 @@ module Gui =
                             text "Please select a measurement to see statistics" 
                             AnnotationStatisticsDrawings.mTypeDropdown |> UI.map AnnoStatsMessage                                     
                         ]
-                        div [style "width:100%; margin: 10 5 10 10"][                                
+                        //div [style "width:100%; margin: 10 5 10 10"][      
+                        div [][   
                             propSummary m                                      
                         ]
                 }

@@ -30,12 +30,20 @@ module StatisticsVisualization_App =
                     yield RoseDiagramUI.drawRoseDiagram r dimensions |> UI.map RoseDiagramMessage 
                 }
 
+        //let attrSVG =
+        //    [   
+        //        attribute "width" (sprintf "%ipx" dimensions.X)
+        //        attribute "height" (sprintf "%ipx" dimensions.Y)      
+        //    ]|> AttributeMap.ofList
+
+        //let vb = sprintf ("0 0 %i %i") (dimensions.X/100) (dimensions.Y/100)
         let attrSVG =
             [   
-                attribute "width" (sprintf "%ipx" dimensions.X)
-                attribute "height" (sprintf "%ipx" dimensions.Y)        
-                attribute "margin" "auto"                         
+                attribute "width" (sprintf "%i" dimensions.X)
+                attribute "height" (sprintf "%i" dimensions.Y)     
+                //attribute "viewBox" vb                      
             ]|> AttributeMap.ofList
 
         Incremental.div attrSVG v
+        
 
