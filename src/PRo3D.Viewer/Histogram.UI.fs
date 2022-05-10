@@ -11,40 +11,123 @@ module HistogramUI =
         let relation = float(value) / float(maximum)
         int(float(divHeight) * relation)        
 
-    let rectanglesFromBins 
-        (bin:BinModel) 
+    let rectangleFromBin
+        (binCount:int) 
         (idx:int) 
         (binWidth:int) 
+        (startX:int)
         (maxBinValue:int)
         (divHeight:int) =
         
-        let binHeight = yPixelValue bin.count maxBinValue divHeight
+        let binHeight = yPixelValue binCount maxBinValue divHeight
            
         [
             yield style "fill:green"                
-            yield attribute "x" (sprintf "%ipx" (15 + idx * binWidth))
+            yield attribute "x" (sprintf "%ipx" (startX + idx * binWidth))
             yield attribute "y" (sprintf "%ipx" (divHeight-binHeight))
             yield attribute "width" (sprintf "%ipx" binWidth) 
             yield attribute "height" (sprintf "%ipx" binHeight) 
         ] |> AttributeMap.ofList
 
-    let drawHistogram' (h: AdaptiveHistogramModel) (dimensions:V2i) =
-        let width = dimensions.X
-        let height = dimensions.Y
-        let xStart = 15        
+    let yAxis (divHeight:int) =
+        let attributes = 
+            [
+                yield style "stroke:white;stroke-width:2"
+                yield attribute "x1" "15px"
+                yield attribute "y1" "0"
+                yield attribute "x2" "15px"
+                yield attribute "y2" (sprintf "%ipx" divHeight)
+            ]
+        Svg.line attributes
+    
+    //note: it is assumed that divHeight can be divided by 10 without residue
+    //e.g. 100, 200, 350, 420 etc. but not e.g. 123, 555, 1024 etc.
+    let yAxisLabels 
+        (stepSize:int)
+        (step:int)
+        (tickCount:int)
+        (maximum:int)
+        (divWidth:int) 
+        (divHeight:int) 
+        (startX:int)=
 
-        let rectangles =            
+        let tickLabelAttr (y:int) =
+            amap{
+                yield style "font-size:8px; fill:white"
+                yield attribute "x" "0px"
+                yield attribute "y" (sprintf "%ipx" y)                
+            }|> AttributeMap.ofAMap 
+
+        let tickLineAttr (y:int) =
+            amap{
+                yield style "stroke:green; stroke-opacity:0.3"               
+                yield attribute "x1" (sprintf "%ipx" startX)
+                yield attribute "y1" (sprintf "%ipx" y)
+                yield attribute "x2" (sprintf "%ipx" divWidth)
+                yield attribute "y2" (sprintf "%ipx" y)
+            }|> AttributeMap.ofAMap
+        
+        //let gap = 10
+        //let fineUntil = 20
+        //let stepSize = divHeight/gap
+
+        ////if the max bin count is very small then we have a fine axis labelling
+        //let newMaxCount,tickCount,stepSize = 
+        //    if maxBinValue < fineUntil then     //every second value a tick          
+        //        let max = if (maxBinValue % 2 = 0) then maxBinValue else (maxBinValue+1)
+        //        (max, max / 2, 2)
+        //    else    //tick every 10th value
+        //        let diff = maxBinValue % gap
+        //        let roundedMax = maxBinValue + (gap-diff)
+        //        (roundedMax, roundedMax / stepSize, stepSize)
+
+        [
+            for i in 0..step..tickCount do    //tickCount+1 because 0 also counts as a tick
+                let value = (i*stepSize)
+                let y = yPixelValue value maximum divHeight
+                let yInv = divHeight - y                 
+                yield Incremental.Svg.line (tickLineAttr yInv)
+                yield Incremental.Svg.text (tickLabelAttr yInv) (AVal.constant (value.ToString()))
+        
+        ]
+ 
+    let drawHistogram' (h: AdaptiveHistogramModel) (dimensions:V2i) =
+        let divWidth = dimensions.X
+        let divHeight = dimensions.Y
+        let startX = 20        
+
+        let hist =            
             alist
              { 
                 let! bins = h.bins
-                let! max = h.maxBinValue
-                let binWidth = (width-xStart) / bins.Length
+                let! maxCount = h.maxBinValue
+
+                //first define y-Axis labelling properties
+                let gap = 10
+                let fineUntil = 20
+                //let stepSize = divHeight/gap
+                           
+                let newMaxCount,tickCount,stepSize,step = 
+                    if maxCount < fineUntil then     //tick every second value         
+                        let max = if (maxCount % 2 = 0) then maxCount else (maxCount+1)
+                        (max, max / 2, 2, 1)
+                    else 
+                        let diff = maxCount % gap
+                        let roundedMax = maxCount + (gap-diff)
+                        let stepSize =
+                            if roundedMax <= divHeight then (divHeight/gap)
+                            else (roundedMax/gap)
+                        (roundedMax, roundedMax / stepSize, stepSize, 1)
+
+                let binWidth = (divWidth-startX) / bins.Length
                 for i in 0..(bins.Length-1) do
                     let bin = bins.Item i                    
-                    yield Incremental.Svg.rect (rectanglesFromBins bin i binWidth max height)         
+                    yield Incremental.Svg.rect (rectangleFromBin bin.count i binWidth startX newMaxCount divHeight) 
+                yield (yAxis divHeight)
+                yield! (yAxisLabels stepSize step tickCount newMaxCount divWidth divHeight startX)
              }
               
-        Incremental.Svg.svg AttributeMap.empty rectangles
+        Incremental.Svg.svg AttributeMap.empty hist
 
             
 
