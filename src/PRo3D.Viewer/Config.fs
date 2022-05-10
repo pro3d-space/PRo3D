@@ -16,3 +16,5 @@ module Config =
   let mutable backgroundColor = "#222222"
 
   let mutable disableMultisampling = false
+
+  let mutable title = "PRo3D"

@@ -521,6 +521,7 @@ module Gui =
                             i [clazz "large sidebar icon"; style "margin:0px 2px"] []
                             
                             div [ clazz "ui menu"] [
+            
                                 //import surfaces
                                 div [ clazz "ui dropdown item"; style "width: 150px"] importSurface
                             
@@ -574,6 +575,11 @@ module Gui =
                                         div [ clazz "ui item"; 
                                             clientEvent "onclick" (sprintf "aardvark.electron.shell.openPath('%s')" (Config.configPath.Replace("\\","\\\\")))] [
                                             text "Open Configuration Folder"
+                                        ]
+
+                                        div [ clazz "ui item"; 
+                                            clientEvent "onclick" "aardvark.electron.shell.openExternal('https://github.com/pro3d-space/PRo3D/blob/develop/CREDITS.MD')"] [
+                                            text "3rd Party Licences"
                                         ]
 
                                         div [clazz "ui item"; clientEvent "onclick" "sendCrashDump()"] [
@@ -1148,14 +1154,16 @@ module Gui =
             //        ] )
             | None -> 
                 require (viewerDependencies) (
-                    body [] [                    
-                        TopMenu.getTopMenu m
-                        div [clazz "dockingMainDings"] [
-                            m.scene.dockConfig
-                            |> docking [                                           
-                                style "width:100%; height:100%; background:#F00"
-                                onLayoutChanged UpdateDockConfig ]
+                    onBoot (sprintf "document.title = '%s'" Config.title) (
+                        body [] [                    
+                            TopMenu.getTopMenu m
+                            div [clazz "dockingMainDings"] [
+                                m.scene.dockConfig
+                                |> docking [                                           
+                                    style "width:100%; height:100%; background:#F00"
+                                    onLayoutChanged UpdateDockConfig ]
+                            ]
                         ]
-                    ]
+                    )
                 )
             | _ -> body [] []

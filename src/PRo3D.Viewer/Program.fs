@@ -66,7 +66,7 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "4.8.0-prerelease1"
+let viewerVersion       = "4.8.2-prerelease1"
 let catchDomainErrors   = false
 
 open System.IO
@@ -225,6 +225,8 @@ let main argv =
         Serialization.registry.RegisterFactory (fun _ -> Init.incorePickler)
     
         Log.line "PRo3D Viewer - Version: %s; powered by Aardvark" viewerVersion
+        let titlestr = "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH"
+        Config.title <- titlestr
     
         let signature =
             runtime.CreateFramebufferSignature [
@@ -443,7 +445,6 @@ let main argv =
         else   
             Log.warn "no remote app started"
     
-        let titlestr = "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH"
 
         // do not change this line. full url with url needs to be printed for mac deployment!
         Log.line "full url: %s" renderingUrl
