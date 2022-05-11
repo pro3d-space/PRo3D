@@ -90,6 +90,25 @@ module HistogramUI =
                 yield Incremental.Svg.text (tickLabelAttr yInv) (AVal.constant (value.ToString()))
         
         ]
+
+    //as long as the ticks computed are > max. ticks, the stepSize is increased (ticking gets more coarse)
+    //roundedMax rounds the max count to something that is divisible by stepSize without residue
+    let rec computeTickStepsize 
+        (maxTicks:int)
+        (tickValue:int) 
+        (stepSize:int)
+        (maxBinCount:int) 
+        (increase:int) =
+
+        if tickValue <= maxTicks then (stepSize,tickValue)
+        else
+            let currStepSize = stepSize * increase
+            let modulo = maxBinCount % currStepSize
+            let roundedMax = maxBinCount + (currStepSize-modulo)  
+            let newTickCount = roundedMax / currStepSize
+            computeTickStepsize maxTicks newTickCount currStepSize maxBinCount (increase+1)
+            
+        
  
     let drawHistogram' (h: AdaptiveHistogramModel) (dimensions:V2i) =
         let divWidth = dimensions.X
@@ -103,22 +122,26 @@ module HistogramUI =
                 let! maxCount = h.maxBinValue
 
                 //first define y-Axis labelling properties
-                let gap = 10
+                let maxTicks = 10
+                let initialStepSize = 10
                 let fineUntil = 20
-                //let stepSize = divHeight/gap
+                let fineTick = 2    //this should be a value that fineUntil is divisible by without residue and results in a tickvalue <= maxTicks
                            
                 let newMaxCount,tickCount,stepSize,step = 
-                    if maxCount < fineUntil then     //tick every second value         
-                        let max = if (maxCount % 2 = 0) then maxCount else (maxCount+1)
-                        (max, max / 2, 2, 1)
+                    if maxCount < fineUntil then          
+                        let max = if (maxCount % fineTick = 0) then maxCount else (maxCount+1)
+                        (max, max / fineTick, fineTick, 1)
                     else 
-                        let diff = maxCount % gap
-                        let roundedMax = maxCount + (gap-diff)
-                        let stepSize =
-                            if roundedMax <= divHeight then (divHeight/gap)
-                            else (roundedMax/gap)
-                        (roundedMax, roundedMax / stepSize, stepSize, 1)
-
+                        //let relation = int(ceil(float(maxCount)/float(divHeight)))
+                        //let adaptedStepSize = relation * gap
+                        //let diff = maxCount % adaptedStepSize
+                        //let roundedMax = maxCount + (adaptedStepSize-diff)                        
+                        //(roundedMax, roundedMax / adaptedStepSize, adaptedStepSize, 1)
+                        let stepSize,ticks = computeTickStepsize maxTicks (maxTicks+1) initialStepSize maxCount 1
+                        let roundedMax = stepSize * ticks
+                        (roundedMax, ticks, stepSize, 1)
+                
+                //draw the bin rectangles and y Axis with labels
                 let binWidth = (divWidth-startX) / bins.Length
                 for i in 0..(bins.Length-1) do
                     let bin = bins.Item i                    
@@ -177,7 +200,7 @@ module HistogramUI =
                     let rotate = "rotate(-" + rotation + ")"                              
                     translate + " " + rotate
 
-                yield style "font-size:8px; fill:white; position:center"
+                yield style "font-size:6px; fill:white; position:center"
                 yield attribute "x" "0"
                 yield attribute "y" "0"
                 yield attribute "transform" transform
