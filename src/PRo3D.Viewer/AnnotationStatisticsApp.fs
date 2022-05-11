@@ -13,6 +13,7 @@ type AnnoStatsAction =
     | UpdateMultipleSelectedAnnotations of GroupsModel
     | AddNewMeasurement of MeasurementType
     | MeasurementMessage of MeasurementType * StatisticsMeasurementAction
+    | Reset //no more annotations are selected
 
 
 module AnnotationStatisticsApp =     
@@ -54,8 +55,9 @@ module AnnotationStatisticsApp =
         | Kind.VERTICALTHICKNESS -> getAnnotationResults selected getVerticalThickness          
         | Kind.DIP_AZIMUTH -> getDnSResults selected getDipAzimuth
         | Kind.STRIKE_AZIMUTH -> getDnSResults selected getStrikeAzimuth
-              
-    let update (m:AnnotationStatisticsModel) (a:AnnoStatsAction) =
+
+                 
+    let rec update (m:AnnotationStatisticsModel) (a:AnnoStatsAction) =
         match a with
         //Add selection if not in the list, remove selection if already in the list
         | UpdateSingleSelectedAnnotation (id, g) ->         
@@ -66,12 +68,15 @@ module AnnotationStatisticsApp =
                     | Some _ -> m.selectedAnnotations.Remove id
                     | None -> m.selectedAnnotations.Add (id,Leaf.toAnnotation l)
                 let a' = updatedAnnotations |> HashMap.toList
-                let updatedMeasurements =
-                    let updatedData = 
-                        m.properties
-                        |> HashMap.map (fun info _ -> getMeasurementData info a')
-                    StatisticsMeasurement_App.update' m.properties updatedData
-                {m with selectedAnnotations = updatedAnnotations; properties = updatedMeasurements}
+
+                if a'.IsEmpty then (update m Reset)
+                else
+                    let updatedMeasurements =
+                        let updatedData = 
+                            m.properties
+                            |> HashMap.map (fun info _ -> getMeasurementData info a')
+                        StatisticsMeasurement_App.update' m.properties updatedData
+                    {m with selectedAnnotations = updatedAnnotations; properties = updatedMeasurements}
             | None -> m
 
         | UpdateMultipleSelectedAnnotations g ->
@@ -85,14 +90,16 @@ module AnnotationStatisticsApp =
                 )
                 |> List.choose (fun entry -> entry)
                 |> HashMap.ofList    
-            
             let a' = updatedAnnotations |> HashMap.toList
-            let updatedMeasurements =
-                let updatedData = 
-                    m.properties
-                    |> HashMap.map (fun info _ -> getMeasurementData info a')
-                StatisticsMeasurement_App.update' m.properties updatedData
-            {m with selectedAnnotations = updatedAnnotations; properties = updatedMeasurements}
+
+            if a'.IsEmpty then (update m Reset)
+            else
+                let updatedMeasurements =
+                    let updatedData = 
+                        m.properties
+                        |> HashMap.map (fun info _ -> getMeasurementData info a')
+                    StatisticsMeasurement_App.update' m.properties updatedData
+                {m with selectedAnnotations = updatedAnnotations; properties = updatedMeasurements}
         
         | MeasurementMessage (mType,act) ->
             match (m.properties.TryFind mType) with
@@ -112,6 +119,9 @@ module AnnotationStatisticsApp =
                 let newMeasurement = StatisticsMeasurementModel.init data mType
                 let properties = m.properties.Add (mType, newMeasurement)
                 {m with properties = properties}
+
+        | Reset -> 
+            {m with selectedAnnotations = HashMap.empty; properties = HashMap.empty}
 
 //UI related 
 module AnnotationStatisticsDrawings =

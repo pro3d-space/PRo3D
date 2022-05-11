@@ -61,7 +61,7 @@ module StatisticsMeasurementModel =
         let dataRange, avg = calcMinMaxAvg (data |> List.map(fun (_,value) -> value))    
         let initialVis = 
             match mType.scale with
-            | Scale.Metric -> StatisticsVisualizationModel.Histogram (HistogramModel.initHistogram dataRange.Min dataRange.Max data)
+            | Scale.Metric -> StatisticsVisualizationModel.Histogram (HistogramModel.initHistogram dataRange data)
             | Scale.Angular -> StatisticsVisualizationModel.RoseDiagram (RoseDiagramModel.initRoseDiagram data)
         
         { measurementType = mType

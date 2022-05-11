@@ -61,12 +61,12 @@ module HistogramModel =
 
     //the data is sorted into bins together with a list of ids of the elements that were responsible for an increase of the bin counter
     //with this we can, if needed, reconstruct the elements from this ids at a later point
-    let sortHistogramDataIntoBins (bins:List<BinModel>) (data:List<Guid*float>) (min:float) (width:float)=
+    let sortHistogramDataIntoBins (bins:List<BinModel>) (data:List<Guid*float>) (domain:Range1d) (width:float)= //(min:float) (width:float)=
 
         let grouping = 
             data 
             |> List.groupBy (fun (_,value) -> 
-                let shifted = value - min 
+                let shifted = value - domain.Min                 
                 int(shifted/width)
             )
             |> List.map(fun (binID, innerList) -> 
@@ -83,17 +83,18 @@ module HistogramModel =
             | None -> bin
         )
     
-    let setHistogramBins (data:List<Guid*float>) (min:float) (width:float) (binCount:int) =
+    let setHistogramBins (data:List<Guid*float>) (domain:Range1d) (n:int) = //(min:float) (width:float) (binCount:int) =
 
-        let createBins = createHistogramBins binCount min width
-        sortHistogramDataIntoBins createBins data min width
+        let binWidth = domain.Size / float(n)           
+        let createBins = createHistogramBins n domain.Min binWidth
+        sortHistogramDataIntoBins createBins data domain binWidth
     
-    let initHistogram (min:float) (max:float) (data:List<Guid*float>) =
-    
-        let domainStart = floor(min)  //review: range1d
-        let domainEnd = ceil(max)        
-        let binWidth = (domainEnd-domainStart) / binNumeric.value               
-        let bins = setHistogramBins data domainStart binWidth (int(binNumeric.value))
+    let initHistogram (domain:Range1d) (data:List<Guid*float>) =
+        
+        let domainStart = floor(domain.Min) 
+        let domainEnd = ceil(domain.Max)    
+        let roundedDomain = Range1d(domainStart,domainEnd)           
+        let bins = setHistogramBins data roundedDomain (int(binNumeric.value))
         {
             id          = Guid.NewGuid()       
             numOfBins   = binNumeric 
