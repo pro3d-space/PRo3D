@@ -7,89 +7,156 @@ open FSharp.Data.Adaptive
 
 module HistogramUI =
 
-    let yPixelValue (value:int) (maximum:int) (divHeight:int) =
-        let relation = float(value) / float(maximum)
-        int(float(divHeight) * relation)        
+    let yPixelValue (value:int) (rangeFrom:Range1i) (rangeTo:Range1i) =
+        //let relation = float(value) / float(maximum)
+        //int(float(divHeight) * relation)    
+        rangeTo.Min + rangeTo.Size * (value-rangeFrom.Min) / rangeFrom.Size
+
+    //let rectangleFromBin
+    //    (binCount:int) 
+    //    (idx:int) 
+    //    (binWidth:int) 
+    //    (binGap:int)
+    //    (startX:int)
+    //    (maxBinValue:int)
+    //    (divHeight:int) =
+        
+    //    let binHeight = yPixelValue binCount maxBinValue divHeight
+           
+    //    [
+    //        yield style "fill:green"                
+    //        yield attribute "x" (sprintf "%ipx" (startX + idx * (binWidth+binGap)))
+    //        yield attribute "y" (sprintf "%ipx" (divHeight-binHeight))
+    //        yield attribute "width" (sprintf "%ipx" binWidth) 
+    //        yield attribute "height" (sprintf "%ipx" binHeight) 
+    //    ] |> AttributeMap.ofList
 
     let rectangleFromBin
-        (binCount:int) 
-        (idx:int) 
+        (x:int) 
+        (y:int) 
         (binWidth:int) 
-        (startX:int)
-        (maxBinValue:int)
-        (divHeight:int) =
+        (binHeight:int)
+         =       
         
-        let binHeight = yPixelValue binCount maxBinValue divHeight
-           
         [
             yield style "fill:green"                
-            yield attribute "x" (sprintf "%ipx" (startX + idx * binWidth))
-            yield attribute "y" (sprintf "%ipx" (divHeight-binHeight))
+            yield attribute "x" (sprintf "%ipx" x)
+            yield attribute "y" (sprintf "%ipx" y)
             yield attribute "width" (sprintf "%ipx" binWidth) 
             yield attribute "height" (sprintf "%ipx" binHeight) 
         ] |> AttributeMap.ofList
-
-    let yAxis (divHeight:int) =
+    
+    let axis (xDomain:Range1i) (yDomain:Range1i) =
         let attributes = 
             [
                 yield style "stroke:white;stroke-width:2"
-                yield attribute "x1" "15px"
-                yield attribute "y1" "0"
-                yield attribute "x2" "15px"
-                yield attribute "y2" (sprintf "%ipx" divHeight)
+                yield attribute "x1" (sprintf "%ipx" xDomain.Min)
+                yield attribute "y1" (sprintf "%ipx" yDomain.Min)
+                yield attribute "x2" (sprintf "%ipx" xDomain.Max)
+                yield attribute "y2" (sprintf "%ipx" yDomain.Max)
             ]
         Svg.line attributes
-    
-    //note: it is assumed that divHeight can be divided by 10 without residue
-    //e.g. 100, 200, 350, 420 etc. but not e.g. 123, 555, 1024 etc.
-    let yAxisLabels 
-        (stepSize:int)
-        (step:int)
-        (tickCount:int)
-        (maximum:int)
-        (divWidth:int) 
-        (divHeight:int) 
-        (startX:int)=
 
-        let tickLabelAttr (y:int) =
+    let axisLabels (coords: List<int*V2i>) (textRotation:Option<string>) =
+        
+        let tickLabelAttr (x:int) (y:int) =
+
+            let xStr = (sprintf "%ipx" x)
+            let yStr = (sprintf "%ipx" y)
+
+            let x',y',transformation = 
+                match textRotation with
+                | Some rotation ->                     
+                    let translation = "translate(" + xStr + " " + yStr + ")"
+                    let tr = translation + " " + rotation 
+                    ("0", "0", tr)
+                | None -> (xStr,yStr,"")
+
             amap{
                 yield style "font-size:8px; fill:white"
-                yield attribute "x" "0px"
-                yield attribute "y" (sprintf "%ipx" y)                
-            }|> AttributeMap.ofAMap 
-
-        let tickLineAttr (y:int) =
-            amap{
-                yield style "stroke:green; stroke-opacity:0.3"               
-                yield attribute "x1" (sprintf "%ipx" startX)
-                yield attribute "y1" (sprintf "%ipx" y)
-                yield attribute "x2" (sprintf "%ipx" divWidth)
-                yield attribute "y2" (sprintf "%ipx" y)
+                yield attribute "x" x'     
+                yield attribute "y" y'
+                yield attribute "transform" transformation
             }|> AttributeMap.ofAMap
-        
-        //let gap = 10
-        //let fineUntil = 20
-        //let stepSize = divHeight/gap
-
-        ////if the max bin count is very small then we have a fine axis labelling
-        //let newMaxCount,tickCount,stepSize = 
-        //    if maxBinValue < fineUntil then     //every second value a tick          
-        //        let max = if (maxBinValue % 2 = 0) then maxBinValue else (maxBinValue+1)
-        //        (max, max / 2, 2)
-        //    else    //tick every 10th value
-        //        let diff = maxBinValue % gap
-        //        let roundedMax = maxBinValue + (gap-diff)
-        //        (roundedMax, roundedMax / stepSize, stepSize)
 
         [
-            for i in 0..step..tickCount do    //tickCount+1 because 0 also counts as a tick
-                let value = (i*stepSize)
-                let y = yPixelValue value maximum divHeight
-                let yInv = divHeight - y                 
-                yield Incremental.Svg.line (tickLineAttr yInv)
-                yield Incremental.Svg.text (tickLabelAttr yInv) (AVal.constant (value.ToString()))
-        
+            for c in coords do
+                let value,xy = c
+                yield Incremental.Svg.text (tickLabelAttr xy.X xy.Y) (AVal.constant (value.ToString()))
         ]
+
+    let labelRotation (scalar:float) =
+        let basis = 40.0
+        let add = scalar * 20.0
+        let additional = int(basis + add)
+        let r = 
+            if additional > 90 
+                then 90
+            else 
+                additional
+        let rotation = sprintf "%i" r
+
+        "rotate(-" + rotation + ")"  
+
+
+    //let yAxis (divHeight:int) =
+    //    let attributes = 
+    //        [
+    //            yield style "stroke:white;stroke-width:2"
+    //            yield attribute "x1" "15px"
+    //            yield attribute "y1" "0"
+    //            yield attribute "x2" "15px"
+    //            yield attribute "y2" (sprintf "%ipx" divHeight)
+    //        ]
+    //    Svg.line attributes
+    
+
+    
+
+    //just shows min and max value
+    //let yAxisLabelsSimple (maximum:int) (divHeight:int) =
+
+    //    let min = 0
+    //    let proj = yPixelValue maximum maximum divHeight
+
+    //    [   
+    //        yield Incremental.Svg.text (tickLabelAttr 0 min) (AVal.constant (min.ToString()))
+    //        yield Incremental.Svg.text (tickLabelAttr 0 proj) (AVal.constant (maximum.ToString()))
+    //    ]
+        
+    
+    //Do Not delete
+    //note: it is assumed that divHeight can be divided by 10 without residue
+    //e.g. 100, 200, 350, 420 etc. but not e.g. 123, 555, 1024 etc.
+    //let yAxisLabelsAdaptive
+    //    (stepSize:int)
+    //    (step:int)
+    //    (tickCount:int)
+    //    (maximum:int)
+    //    (divWidth:int) 
+    //    (divHeight:int) 
+    //    (startX:int)=
+        
+
+    //    let tickLineAttr (y:int) =
+    //        amap{
+    //            yield style "stroke:green; stroke-opacity:0.3"               
+    //            yield attribute "x1" (sprintf "%ipx" startX)
+    //            yield attribute "y1" (sprintf "%ipx" y)
+    //            yield attribute "x2" (sprintf "%ipx" divWidth)
+    //            yield attribute "y2" (sprintf "%ipx" y)
+    //        }|> AttributeMap.ofAMap
+             
+
+    //    [
+    //        for i in 0..step..tickCount do   
+    //            let value = (i*stepSize)
+    //            let y = yPixelValue value maximum divHeight
+    //            let yInv = divHeight - y                 
+    //            yield Incremental.Svg.line (tickLineAttr yInv)
+    //            yield Incremental.Svg.text (tickLabelAttr 0 yInv) (AVal.constant (value.ToString()))
+        
+    //    ]
 
     //as long as the ticks computed are > max. ticks, the stepSize is increased (ticking gets more coarse)
     //roundedMax rounds the max count to something that is divisible by stepSize without residue
@@ -111,43 +178,73 @@ module HistogramUI =
         
  
     let drawHistogram' (h: AdaptiveHistogramModel) (dimensions:V2i) =
+        let marginTop = 10
+        let marginBottom = 10
         let divWidth = dimensions.X
         let divHeight = dimensions.Y
-        let startX = 20        
+        let startX = 20   
+        let binGap = 5
+        
+        
 
         let hist =            
             alist
              { 
                 let! bins = h.bins
                 let! maxCount = h.maxBinValue
+                let! domain = h.domainEnd.value
 
+                //---code for adaptive y axis labels
                 //first define y-Axis labelling properties
-                let maxTicks = 10
-                let initialStepSize = 10
-                let fineUntil = 20
-                let fineTick = 2    //this should be a value that fineUntil is divisible by without residue and results in a tickvalue <= maxTicks
+                //let maxTicks = 10
+                //let initialStepSize = 10
+                //let fineUntil = 20
+                //let fineTick = 2    //this should be a value that fineUntil is divisible by without residue and results in a tickvalue <= maxTicks
                            
-                let newMaxCount,tickCount,stepSize,step = 
-                    if maxCount < fineUntil then          
-                        let max = if (maxCount % fineTick = 0) then maxCount else (maxCount+1)
-                        (max, max / fineTick, fineTick, 1)
-                    else 
-                        //let relation = int(ceil(float(maxCount)/float(divHeight)))
-                        //let adaptedStepSize = relation * gap
-                        //let diff = maxCount % adaptedStepSize
-                        //let roundedMax = maxCount + (adaptedStepSize-diff)                        
-                        //(roundedMax, roundedMax / adaptedStepSize, adaptedStepSize, 1)
-                        let stepSize,ticks = computeTickStepsize maxTicks (maxTicks+1) initialStepSize maxCount 1
-                        let roundedMax = stepSize * ticks
-                        (roundedMax, ticks, stepSize, 1)
+                //let newMaxCount,tickCount,stepSize,step = 
+                //    if maxCount < fineUntil then          
+                //        let max = if (maxCount % fineTick = 0) then maxCount else (maxCount+1)
+                //        (max, max / fineTick, fineTick, 1)
+                //    else                        
+                //        let stepSize,ticks = computeTickStepsize maxTicks (maxTicks+1) initialStepSize maxCount 1
+                //        let roundedMax = stepSize * ticks
+                //        (roundedMax, ticks, stepSize, 1)
+                //----
                 
-                //draw the bin rectangles and y Axis with labels
-                let binWidth = (divWidth-startX) / bins.Length
+                let n = bins.Length
+                let binWidth = int(floor(float(divWidth-startX-((n-1)*binGap)) / float(n)))
                 for i in 0..(bins.Length-1) do
-                    let bin = bins.Item i                    
-                    yield Incremental.Svg.rect (rectangleFromBin bin.count i binWidth startX newMaxCount divHeight) 
-                yield (yAxis divHeight)
-                yield! (yAxisLabels stepSize step tickCount newMaxCount divWidth divHeight startX)
+                    let bin = bins.Item i  
+                    let x = startX + i * (binWidth+binGap)
+                    let binHeight = (yPixelValue bin.count (Range1i(0,maxCount)) (Range1i(0, (divHeight-marginBottom)))) - marginTop
+                    let y = divHeight-marginBottom-binHeight
+
+                    //yield Incremental.Svg.rect (rectangleFromBin bin.count i binWidth startX newMaxCount divHeight) 
+                    yield Incremental.Svg.rect (rectangleFromBin x y binWidth binHeight) 
+                
+                let xAxisLabelTransform = 
+                    let str = (sprintf "%i" (int(domain)))
+                    let textSize = str.Length * 8
+                    if textSize > binWidth then
+                        Some(labelRotation (float(binWidth)/float(textSize)))
+                    else
+                        None
+
+                let xCoords = 
+                    [
+                    for i in 0..(bins.Length-1) do
+                        let bin = bins.Item i  
+                        let rangeEnd = int(round(bin.range.Max))
+                        let label = (sprintf "%i" rangeEnd)
+                        let labelSize = (label.Length*8)                         
+                        let xPos = (startX + (i+1)*binWidth + i*binGap) - labelSize
+                        yield (rangeEnd, V2i(xPos, divHeight))
+                    ]
+
+                yield (axis (Range1i(15,15)) (Range1i(marginTop,(divHeight-marginBottom)))) //y axis
+                yield! (axisLabels [(0, V2i(0,(divHeight-marginBottom))); (maxCount, V2i(0, marginTop))] None) //yAxis Labels
+                yield! (axisLabels xCoords xAxisLabelTransform) //xAxis Labels
+                
              }
               
         Incremental.Svg.svg AttributeMap.empty hist
@@ -155,7 +252,7 @@ module HistogramUI =
             
 
 
-
+    //old version
     let drawHistogram (h: AdaptiveHistogramModel) (width:int) = 
         
         let height = 10
