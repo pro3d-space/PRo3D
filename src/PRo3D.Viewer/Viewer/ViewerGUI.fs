@@ -799,7 +799,7 @@ module Gui =
                 
                 let visualization = 
                     div[][
-                    StatisticsVisualization_App.drawVisualization sm.visualization (new V2i(300, 100))     
+                    StatisticsVisualization_App.drawVisualization sm.visualization (new V2i(300, 150))     
                     |> UI.map StatisticsVisualizationMessage
                     |> UI.map (fun f -> MeasurementMessage (sm.measurementType,f))
                     |> UI.map AnnoStatsMessage  

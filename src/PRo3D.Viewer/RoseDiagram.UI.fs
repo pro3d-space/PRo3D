@@ -6,6 +6,18 @@ open Aardvark.UI
 open FSharp.Data.Adaptive
 
 module RoseDiagramUI =
+    
+    let drawText (position:V2i) (text:string) =
+        
+        let textAttr =
+            amap{
+                yield style "font-size:12px; fill:white"
+                yield attribute "x" (sprintf "%i" position.X)     
+                yield attribute "y" (sprintf "%i" position.Y) 
+                yield attribute "text-anchor" "start"                
+            }|> AttributeMap.ofAMap
+        
+        Incremental.Svg.text textAttr (AVal.constant text)
 
     let drawCircle (center:V2d) (radius:float) =
         Svg.circle(
@@ -72,9 +84,13 @@ module RoseDiagramUI =
                         let endRadians = b.range.Max * Constant.RadiansPerDegree
                         drawRoseDiagramSection startRadians endRadians center innerRad subOuterRadius
                     )
+
+                let N = bins |> List.fold (fun acc bin -> acc + bin.count) 0
+
                 yield! sections
                 yield drawCircle center innerRad
                 yield drawCircle center outerRad
+                yield drawText (V2i(20, 20)) (sprintf "N = %i" N)
             }
         Incremental.Svg.svg AttributeMap.empty sect
 

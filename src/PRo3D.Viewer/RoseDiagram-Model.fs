@@ -37,7 +37,8 @@ module RoseDiagramModel =
                 let startDegree = (northCenterAngle - binAngleHalf + 360.0) % 360.0
                 let endDegree = (northCenterAngle + binAngleHalf) % 360.0
                 //
-                {
+                {   
+                    id = i
                     count = 0
                     range = Range1d(startDegree, endDegree)
                     annotationIDs = List.empty
@@ -81,8 +82,8 @@ module RoseDiagramModel =
             maxBinValue = max
             bins = bins
             center = center
-            innerRad = 10.0
-            outerRad = 30.0
+            innerRad = 5.0
+            outerRad = 35.0
             binAngle = binAngle
         }
 

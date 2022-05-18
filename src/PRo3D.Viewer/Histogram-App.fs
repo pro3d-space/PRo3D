@@ -47,5 +47,11 @@ module Histogram_App =
             let ud_max = Numeric.update m.domainEnd act
             let ud_hist = {m with domainEnd = ud_max}
             compute ud_hist 
+
+        | EnterBin id ->
+            {m with hoveredBin = Some(id)}
+
+        | ExitBin ->
+            {m with hoveredBin = None}
     
 

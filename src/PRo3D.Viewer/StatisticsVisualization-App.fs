@@ -17,6 +17,9 @@ module StatisticsVisualization_App =
 
 
     let drawVisualization (p:aval<AdaptiveStatisticsVisualizationModelCase>) (dimensions:V2i)=
+
+        //
+
         let v = 
             alist{ 
                 let! vis = p

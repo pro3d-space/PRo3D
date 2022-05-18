@@ -9,6 +9,7 @@ open FSharp.Data.Adaptive
 [<ModelType>]
 type BinModel = 
     {    
+         id            : int
          count         : int 
          range         : Range1d
          annotationIDs : List<Guid>  //to keep track which annotations are responsible for the count       

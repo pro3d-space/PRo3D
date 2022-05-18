@@ -17,6 +17,7 @@ type HistogramModel =
         domainStart : NumericInput
         domainEnd   : NumericInput
         bins        : List<BinModel> 
+        hoveredBin  : Option<int>
     }
 
 type HistogramModelAction =    
@@ -24,6 +25,8 @@ type HistogramModelAction =
     | SetBinNumber of Numeric.Action    //the user can manually adapt the bin number and domain range
     | SetDomainMin of Numeric.Action
     | SetDomainMax of Numeric.Action   
+    | EnterBin of int                //hovering
+    | ExitBin
 
 module HistogramModel =
 
@@ -53,6 +56,7 @@ module HistogramModel =
                 let start = min + (float(i) * width)
                 let en = start + width                
                 {                    
+                    id = i
                     count = 0
                     range = Range1d(start,en)
                     annotationIDs = List.empty
@@ -103,4 +107,5 @@ module HistogramModel =
             domainEnd   = domainNumeric domainEnd
             data        = data
             bins        = bins 
+            hoveredBin = None
         }
