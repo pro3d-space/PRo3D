@@ -22,6 +22,7 @@ type RoseDiagramModel =
 
 type RoseDiagramModelAction =
     | UpdateBinCount
+    | UpdateRD of List<Guid*float>
 
 
 module RoseDiagramModel =
@@ -44,6 +45,9 @@ module RoseDiagramModel =
                     annotationIDs = List.empty
                 }
         ]
+
+    //let resetBinCounts (bins:List<BinModel>) =
+    //    bins |> List.map
     
     //count for rose diagram bins
     let sortRoseDiagramDataIntoBins (bins:List<BinModel>) (data:List<Guid*float>) (angle:float) =    

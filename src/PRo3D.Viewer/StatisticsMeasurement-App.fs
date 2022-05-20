@@ -34,7 +34,7 @@ module StatisticsMeasurement_App =
             let visAction =
                 match mType.scale with
                 | Scale.Metric -> HistogramMessage (UpdateData data)
-                | Scale.Angular -> RoseDiagramMessage UpdateBinCount
+                | Scale.Angular -> RoseDiagramMessage (UpdateRD data)
             update measurement (UpdateAll (data,visAction))
         )
 

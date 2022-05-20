@@ -4,38 +4,39 @@ open Aardvark.Base
 open Aardvark.UI
 open PRo3D.Core
 open FSharp.Data.Adaptive
+open PRo3D.Base
 
 module HistogramUI =
+    
+    //calculate everything with float, round only at the end
+    let yPixelValue (value:int) (rangeFrom:Range1i) (rangeTo:Range1i) =   
+        let fVal = float(value)
+        let fMinTo = float(rangeTo.Min)
+        let fMinFrom = float(rangeFrom.Min)
+        let fRangeFrom = float(rangeFrom.Size)
+        let fRangeTo = float(rangeTo.Size)
 
-    let yPixelValue (value:int) (rangeFrom:Range1i) (rangeTo:Range1i) =         
-        rangeTo.Min + rangeTo.Size * (value-rangeFrom.Min) / rangeFrom.Size
+        int(round(fMinTo + fRangeTo * ((fVal-fMinFrom) / fRangeFrom)))
+        //rangeTo.Min + rangeTo.Size * (value-rangeFrom.Min) / rangeFrom.Size
 
-    //let rectangleFromBin
-    //    (binCount:int) 
-    //    (idx:int) 
-    //    (binWidth:int) 
-    //    (binGap:int)
-    //    (startX:int)
-    //    (maxBinValue:int)
-    //    (divHeight:int) =
-        
-    //    let binHeight = yPixelValue binCount maxBinValue divHeight
+    let drawText (position:V2i) (text:string) =
            
-    //    [
-    //        yield style "fill:green"                
-    //        yield attribute "x" (sprintf "%ipx" (startX + idx * (binWidth+binGap)))
-    //        yield attribute "y" (sprintf "%ipx" (divHeight-binHeight))
-    //        yield attribute "width" (sprintf "%ipx" binWidth) 
-    //        yield attribute "height" (sprintf "%ipx" binHeight) 
-    //    ] |> AttributeMap.ofList
+           let textAttr =
+               amap{
+                   yield style "font-size:10px; fill:white"
+                   yield attribute "x" (sprintf "%i" position.X)     
+                   yield attribute "y" (sprintf "%i" position.Y) 
+                   yield attribute "text-anchor" "middle"                
+               }|> AttributeMap.ofAMap
+           
+           Incremental.Svg.text textAttr (AVal.constant text)
 
     let getBaseColor =
         C4b.VRVisGreen
         |> Html.ofC4b 
-        |> sprintf "fill: %s"
+        |> sprintf "%s"
 
-
-    let rectangleFromBin
+    let hoverRectangle
         (x:int) 
         (y:int) 
         (id:int)
@@ -43,8 +44,7 @@ module HistogramUI =
         (height:int)
         (style':string)
          = 
-         
-
+     
         [   
             yield onMouseEnter(fun _ -> EnterBin id)
             yield onMouseLeave(fun _ -> ExitBin)
@@ -53,6 +53,24 @@ module HistogramUI =
             yield attribute "y" (sprintf "%ipx" y)
             yield attribute "width" (sprintf "%ipx" width) 
             yield attribute "height" (sprintf "%ipx" height) 
+            yield attribute "pointer-events" "all"
+        ] |> AttributeMap.ofList
+
+    let rectangleFromBin
+        (x:int) 
+        (y:int) 
+        (width:int) 
+        (height:int)
+        (style':string)
+         = 
+         
+        [   
+            yield style style'                
+            yield attribute "x" (sprintf "%ipx" x)
+            yield attribute "y" (sprintf "%ipx" y)
+            yield attribute "width" (sprintf "%ipx" width) 
+            yield attribute "height" (sprintf "%ipx" height) 
+            yield attribute "pointer-events" "none"
         ] |> AttributeMap.ofList
     
     let axis (xDomain:Range1i) (yDomain:Range1i) =
@@ -65,6 +83,23 @@ module HistogramUI =
                 yield attribute "y2" (sprintf "%ipx" yDomain.Max)
             ]
         Svg.line attributes
+
+
+    let axisTicks (coords: List<V4i>) = 
+
+        let attributes (pos:V4i) = 
+            amap{
+                yield style "stroke:white;stroke-width:1"
+                yield attribute "x1" (sprintf "%ipx" pos.X)
+                yield attribute "y1" (sprintf "%ipx" pos.Y)
+                yield attribute "x2" (sprintf "%ipx" pos.Z)
+                yield attribute "y2" (sprintf "%ipx" pos.W)
+            }|> AttributeMap.ofAMap
+
+        [
+            for c in coords do                
+                yield Incremental.Svg.line (attributes c)
+        ]
 
     let axisLabels (coords: List<int*V2i>) (textRotation:Option<string>) (textAnchor:string)=
         
@@ -194,7 +229,8 @@ module HistogramUI =
         let divWidth = dimensions.X
         let divHeight = dimensions.Y
         let startX = 20   
-        let binGap = 5
+        let binGap = 10
+        let binGapHalf = binGap/2
         
         
 
@@ -224,34 +260,42 @@ module HistogramUI =
                 //----
                 
                 let n = bins.Length
-                let binWidth = int(floor(float(divWidth-startX-((n-1)*binGap)) / float(n)))
+                let binWidth = int(floor(float(divWidth-startX-((n)*binGap)) / float(n)))
                 for i in 0..(bins.Length-1) do
                     let bin = bins.Item i  
                     let x = startX + i * (binWidth+binGap)
                     let binHeight = (yPixelValue bin.count (Range1i(0,maxCount)) (Range1i(0, (divHeight-marginBottom)))) - marginTop
                     let maxHeight = (yPixelValue maxCount (Range1i(0,maxCount)) (Range1i(0, (divHeight-marginBottom)))) - marginTop
                     let y = divHeight-marginBottom-binHeight
+                                        
 
-                    //yield Incremental.Svg.rect (rectangleFromBin bin.count i binWidth startX newMaxCount divHeight) 
-
-                    let color = 
-                        match hoveredBin with
-                        | Some b -> if bin.id = b then getBaseColor else "fill:green"
-                        | None -> "fill:green"
-                                      
-
-                    yield Incremental.Svg.rect (rectangleFromBin x y bin.id binWidth binHeight color) 
-
-
-                    //optionally a rectangle outline
-                    //yield Incremental.Svg.rect (rectangleFromBin x marginTop binWidth maxHeight "fill:none;stroke:green;stroke-width:2;stroke-opacity:0.3") 
-                
-                //let textHoveredBin =  todo
+                    //let color,text = 
+                    //    match hoveredBin with
+                    //    | Some b -> if bin.id = b then 
+                    //                    let t = drawText (V2i(x, y)) (sprintf "%i" bin.count)
+                    //                    (getBaseColor,Some(t))
+                    //                else ("fill:green", None)
+                    //    | None -> ("fill:green", None)
                     
+                    match hoveredBin with
+                    | Some b -> 
+                        if bin.id = b then
+                            let hoverStyle = "fill:none;stroke:"+ getBaseColor + ";stroke-width:2;stroke-opacity:0.8"
+                            yield Incremental.Svg.rect (hoverRectangle x marginTop bin.id binWidth maxHeight hoverStyle) 
+                            yield Incremental.Svg.rect (rectangleFromBin x y binWidth binHeight "fill:green") 
+                            let textX = x+(binWidth/2)
+                            yield (drawText (V2i(textX, (marginTop+10))) (sprintf "%i" bin.count))
+                        else
+                            yield Incremental.Svg.rect (hoverRectangle x marginTop bin.id binWidth maxHeight "fill:none;stroke:green;stroke-width:2;stroke-opacity:0.3")
+                            yield Incremental.Svg.rect (rectangleFromBin x y binWidth binHeight "fill:green")
+                             
+                    | None -> 
+                        yield Incremental.Svg.rect (hoverRectangle x marginTop bin.id binWidth maxHeight "fill:none;stroke:green;stroke-width:2;stroke-opacity:0.3") 
+                        yield Incremental.Svg.rect (rectangleFromBin x y binWidth binHeight "fill:green")
 
 
-                let xAxisLabelTransform = 
-                    let str = (sprintf "%i" (int(domain)))
+                let xAxisLabelTransform =                     
+                    let str = Formatting.Len(domain).ToString() 
                     let threshold = str.Length * 6
                     if threshold > binWidth then
                         Some(labelRotation (float(threshold)/float(binWidth)))
@@ -263,14 +307,24 @@ module HistogramUI =
                     for i in 0..(bins.Length-1) do
                         let bin = bins.Item i  
                         let rangeEnd = int(round(bin.range.Max))                                                                
-                        let xPos = (startX + (i+1)*binWidth + i*binGap) 
+                        let xPos = (startX + (i+1)*binWidth + i*binGap + binGapHalf) 
                         yield (rangeEnd, V2i(xPos, divHeight-(marginBottom/2)))
                     ]
+
+                let xTickCoords =
+                    xCoords |> List.map (fun elem -> 
+                        let _,c = elem
+                        let y' = divHeight - marginBottom
+                        let y1 = y' + 3
+                        let y2 = y' - 3
+                        V4i(c.X, y1, c.X, y2)                        
+                    )
 
                 yield (axis (Range1i(15,15)) (Range1i(marginTop,(divHeight-marginBottom)))) //y axis
                 yield (axis (Range1i(15, divWidth)) (Range1i(divHeight-marginBottom, divHeight-marginBottom)))
                 yield! (axisLabels [(0, V2i(0,(divHeight-marginBottom))); (maxCount, V2i(0, marginTop))] None "start") //yAxis Labels
-                yield! (axisLabels xCoords xAxisLabelTransform "end") //xAxis Labels
+                yield! (axisLabels xCoords xAxisLabelTransform "middle") //xAxis Labels
+                yield! (axisTicks xTickCoords) //xAxis Ticks
                 
              }
               
@@ -381,7 +435,7 @@ module HistogramUI =
         Incremental.Svg.svg AttributeMap.empty rectangles
     
     let histogramSettings (hist:AdaptiveHistogramModel) =
-           div [style "width:100%; margin: 0 0 5 0"] [                
+           div [style "width:100%; margin: 5 5 5 0"] [                
                text "Histogram Settings"
                Html.table[
                    Html.row "domain min" [Numeric.view' [InputBox] hist.domainStart |> UI.map SetDomainMin]

@@ -9,3 +9,8 @@ module RoseDiagram_App =
             let max = BinModel.getBinMaxValue updatedBins
             {m with bins = updatedBins; maxBinValue = max}
 
+        | UpdateRD data -> 
+            let updatedBins = RoseDiagramModel.sortRoseDiagramDataIntoBins m.bins data m.binAngle
+            let max = BinModel.getBinMaxValue updatedBins
+            {m with bins = updatedBins; maxBinValue = max}
+
