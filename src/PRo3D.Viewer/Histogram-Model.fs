@@ -84,7 +84,7 @@ module HistogramModel =
         |> List.mapi (fun i bin -> 
             match (grouping.TryFind i) with
             | Some (count,ids) -> { bin with count = count; annotationIDs = ids}
-            | None -> bin
+            | None -> {bin with count = 0}
         )
     
     let setHistogramBins (data:List<Guid*float>) (domain:Range1d) (n:int) = //(min:float) (width:float) (binCount:int) =

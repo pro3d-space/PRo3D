@@ -70,7 +70,7 @@ module RoseDiagramModel =
         |> List.mapi (fun i bin -> 
             match (grouping.TryFind i) with
             | Some (count,ids) -> { bin with count = count; annotationIDs = ids}
-            | None -> bin
+            | None -> {bin with count = 0}
         )
 
     let initRoseDiagram (data:List<Guid*float>) =

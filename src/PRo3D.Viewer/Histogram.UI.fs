@@ -101,7 +101,7 @@ module HistogramUI =
                 yield Incremental.Svg.line (attributes c)
         ]
 
-    let axisLabels (coords: List<int*V2i>) (textRotation:Option<string>) (textAnchor:string)=
+    let axisLabels (coords: List<float*V2i>) (textRotation:Option<string>) (textAnchor:string) (formatting:bool) =
         
         let tickLabelAttr (x:int) (y:int) =
 
@@ -128,7 +128,8 @@ module HistogramUI =
         [
             for c in coords do
                 let value,xy = c
-                yield Incremental.Svg.text (tickLabelAttr xy.X xy.Y) (AVal.constant (value.ToString()))
+                let str = if formatting then (Formatting.Len(value).ToString()) else ((int(value)).ToString())
+                yield Incremental.Svg.text (tickLabelAttr xy.X xy.Y) (AVal.constant str)
         ]
 
     let labelRotation (scalar:float) =
@@ -225,7 +226,7 @@ module HistogramUI =
  
     let drawHistogram' (h: AdaptiveHistogramModel) (dimensions:V2i) =
         let marginTop = 5
-        let marginBottom = 20
+        let marginBottom = 30
         let divWidth = dimensions.X
         let divHeight = dimensions.Y
         let startX = 20   
@@ -260,7 +261,7 @@ module HistogramUI =
                 //----
                 
                 let n = bins.Length
-                let binWidth = int(floor(float(divWidth-startX-((n)*binGap)) / float(n)))
+                let binWidth = int(floor(float(divWidth-startX-((n+1)*binGap)) / float(n)))
                 for i in 0..(bins.Length-1) do
                     let bin = bins.Item i  
                     let x = startX + i * (binWidth+binGap)
@@ -306,7 +307,7 @@ module HistogramUI =
                     [
                     for i in 0..(bins.Length-1) do
                         let bin = bins.Item i  
-                        let rangeEnd = int(round(bin.range.Max))                                                                
+                        let rangeEnd = bin.range.Max//int(round(bin.range.Max))                                                                
                         let xPos = (startX + (i+1)*binWidth + i*binGap + binGapHalf) 
                         yield (rangeEnd, V2i(xPos, divHeight-(marginBottom/2)))
                     ]
@@ -322,8 +323,8 @@ module HistogramUI =
 
                 yield (axis (Range1i(15,15)) (Range1i(marginTop,(divHeight-marginBottom)))) //y axis
                 yield (axis (Range1i(15, divWidth)) (Range1i(divHeight-marginBottom, divHeight-marginBottom)))
-                yield! (axisLabels [(0, V2i(0,(divHeight-marginBottom))); (maxCount, V2i(0, marginTop))] None "start") //yAxis Labels
-                yield! (axisLabels xCoords xAxisLabelTransform "middle") //xAxis Labels
+                yield! (axisLabels [(0.0, V2i(0,(divHeight-marginBottom))); (float(maxCount), V2i(0, marginTop))] None "start" false) //yAxis Labels
+                yield! (axisLabels xCoords xAxisLabelTransform "middle" true) //xAxis Labels
                 yield! (axisTicks xTickCoords) //xAxis Ticks
                 
              }
