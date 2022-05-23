@@ -226,7 +226,7 @@ module HistogramUI =
  
     let drawHistogram' (h: AdaptiveHistogramModel) (dimensions:V2i) =
         let marginTop = 5
-        let marginBottom = 30
+        let marginBottom = 35
         let divWidth = dimensions.X
         let divHeight = dimensions.Y
         let startX = 20   
@@ -436,7 +436,7 @@ module HistogramUI =
         Incremental.Svg.svg AttributeMap.empty rectangles
     
     let histogramSettings (hist:AdaptiveHistogramModel) =
-           div [style "width:100%; margin: 5 5 5 0"] [                
+           div [style "width:100%; margin: 5 0 0 0"] [                
                text "Histogram Settings"
                Html.table[
                    Html.row "domain min" [Numeric.view' [InputBox] hist.domainStart |> UI.map SetDomainMin]

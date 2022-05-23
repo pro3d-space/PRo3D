@@ -18,11 +18,14 @@ type RoseDiagramModel =
         innerRad    : float
         outerRad    : float
         binAngle    : float //15°
+        hoveredBin  : Option<int>
     }
 
 type RoseDiagramModelAction =
     | UpdateBinCount
     | UpdateRD of List<Guid*float>
+    | EnterRDBin of int
+    | ExitRDBin
 
 
 module RoseDiagramModel =
@@ -89,5 +92,6 @@ module RoseDiagramModel =
             innerRad = 5.0
             outerRad = 35.0
             binAngle = binAngle
+            hoveredBin = None
         }
 

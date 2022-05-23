@@ -812,7 +812,7 @@ module Gui =
                  ]
             
             //Incremental.div (AttributeMap.ofList [style "width:100%; margin: 15 15 5 5"]) 
-            Incremental.div (AttributeMap.ofList [style "width:100%; height:auto"]) 
+            Incremental.div (AttributeMap.ofList [style "width:100%; height:auto; margin: 0 5 0 5"]) 
                 (                                  
                     m.annoStats.properties 
                     |> AMap.map(fun p v -> propListing v) 

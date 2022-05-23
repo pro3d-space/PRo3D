@@ -14,3 +14,9 @@ module RoseDiagram_App =
             let max = BinModel.getBinMaxValue updatedBins
             {m with bins = updatedBins; maxBinValue = max}
 
+        | EnterRDBin id ->
+            {m with hoveredBin = Some(id)}
+
+        | ExitRDBin ->
+            {m with hoveredBin = None}
+
