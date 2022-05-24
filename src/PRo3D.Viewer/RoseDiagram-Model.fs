@@ -90,7 +90,7 @@ module RoseDiagramModel =
             bins = bins
             center = center
             innerRad = 5.0
-            outerRad = 35.0
+            outerRad = 50.0
             binAngle = binAngle
             hoveredBin = None
         }

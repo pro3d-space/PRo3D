@@ -26,7 +26,7 @@ module StatisticsVisualization_App =
                     yield HistogramUI.histogramSettings h |> UI.map HistogramMessage                     
                     yield HistogramUI.drawHistogram' h dimensions |> UI.map HistogramMessage 
                 | AdaptiveRoseDiagram r -> 
-                    yield text "Rose Diagram"
+                    //yield text "Rose Diagram"
                     yield RoseDiagramUI.drawRoseDiagram r dimensions |> UI.map RoseDiagramMessage 
                 }
        

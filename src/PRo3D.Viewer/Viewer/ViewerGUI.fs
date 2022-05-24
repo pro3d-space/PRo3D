@@ -786,7 +786,7 @@ module Gui =
             let propListing (sm:AdaptiveStatisticsMeasurementModel) = 
 
                 let statsTable = 
-                    div[][
+                    div[style "margin-bottom:5"][
                         require GuiEx.semui (
                             Html.table [                                    
                                 Html.row "Minimum" [Incremental.text (sm.dataRange |> AVal.map (fun f -> sprintf "%.2f" f.Min))]

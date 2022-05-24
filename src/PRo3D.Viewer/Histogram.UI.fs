@@ -31,7 +31,7 @@ module HistogramUI =
            
            Incremental.Svg.text textAttr (AVal.constant text)
 
-    let getBaseColor =
+    let getHoverColor =
         C4b.VRVisGreen
         |> Html.ofC4b 
         |> sprintf "%s"
@@ -281,7 +281,7 @@ module HistogramUI =
                     match hoveredBin with
                     | Some b -> 
                         if bin.id = b then
-                            let hoverStyle = "fill:none;stroke:"+ getBaseColor + ";stroke-width:2;stroke-opacity:0.8"
+                            let hoverStyle = "fill:none;stroke:"+ getHoverColor + ";stroke-width:2;stroke-opacity:0.8"
                             yield Incremental.Svg.rect (hoverRectangle x marginTop bin.id binWidth maxHeight hoverStyle) 
                             yield Incremental.Svg.rect (rectangleFromBin x y binWidth binHeight "fill:green") 
                             let textX = x+(binWidth/2)
@@ -436,7 +436,7 @@ module HistogramUI =
         Incremental.Svg.svg AttributeMap.empty rectangles
     
     let histogramSettings (hist:AdaptiveHistogramModel) =
-           div [style "width:100%; margin: 5 0 0 0"] [                
+           div [style "width:100%; margin-bottom:5"] [                
                text "Histogram Settings"
                Html.table[
                    Html.row "domain min" [Numeric.view' [InputBox] hist.domainStart |> UI.map SetDomainMin]
