@@ -859,7 +859,7 @@ module Gui =
                             let! points = annotation.points |> AList.toAVal
                             let dist = DipAndStrike.calculateDnsErrors points
                             let error = dist |> List.map(fun x -> x * x) |> List.sum //sum of squared error
-                            let errorStr = sprintf "current error %f" error
+                            let errorStr = Formatting.Len(error).ToString()
 
                             let centerOfMass = V3d.Divide(points |> IndexList.sum, (float)points.Count)                        
                             let! camera = AVal.map2 Camera.create model.navigation.camera.view model.frustum                                                      
