@@ -789,9 +789,9 @@ module Gui =
                     div[style "margin-bottom:5"][
                         require GuiEx.semui (
                             Html.table [                                    
-                                Html.row "Minimum" [Incremental.text (sm.dataRange |> AVal.map (fun f -> sprintf "%.2f" f.Min))]
-                                Html.row "Maximum" [Incremental.text (sm.dataRange |> AVal.map (fun f -> sprintf "%.2f" f.Max))]
-                                Html.row "Average" [Incremental.text (sm.avg |> AVal.map (fun f -> sprintf "%.2f" f))]
+                                Html.row "Minimum" [Incremental.text (sm.dataRange |> AVal.map (fun f -> Formatting.Len(f.Min).ToString()))]
+                                Html.row "Maximum" [Incremental.text (sm.dataRange |> AVal.map (fun f -> Formatting.Len(f.Max).ToString()))]
+                                Html.row "Average" [Incremental.text (sm.avg |> AVal.map (fun f -> Formatting.Len(f).ToString()))]
                             ]
                         )
                         ]

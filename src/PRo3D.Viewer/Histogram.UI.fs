@@ -73,10 +73,13 @@ module HistogramUI =
             yield attribute "pointer-events" "none"
         ] |> AttributeMap.ofList
     
-    let axis (xDomain:Range1i) (yDomain:Range1i) =
+    let axis (xDomain:Range1i) (yDomain:Range1i) (strokeCol:string) (strokeWidth:string)=
+        
+        let style' = "stroke:" + strokeCol + ";stroke-width:" + strokeWidth
+
         let attributes = 
             [
-                yield style "stroke:white;stroke-width:2"
+                yield style style'
                 yield attribute "x1" (sprintf "%ipx" xDomain.Min)
                 yield attribute "y1" (sprintf "%ipx" yDomain.Min)
                 yield attribute "x2" (sprintf "%ipx" xDomain.Max)
@@ -145,32 +148,7 @@ module HistogramUI =
 
         "rotate(-" + rotation + ")"  
 
-
-    //let yAxis (divHeight:int) =
-    //    let attributes = 
-    //        [
-    //            yield style "stroke:white;stroke-width:2"
-    //            yield attribute "x1" "15px"
-    //            yield attribute "y1" "0"
-    //            yield attribute "x2" "15px"
-    //            yield attribute "y2" (sprintf "%ipx" divHeight)
-    //        ]
-    //    Svg.line attributes
-    
-
-    
-
-    //just shows min and max value
-    //let yAxisLabelsSimple (maximum:int) (divHeight:int) =
-
-    //    let min = 0
-    //    let proj = yPixelValue maximum maximum divHeight
-
-    //    [   
-    //        yield Incremental.Svg.text (tickLabelAttr 0 min) (AVal.constant (min.ToString()))
-    //        yield Incremental.Svg.text (tickLabelAttr 0 proj) (AVal.constant (maximum.ToString()))
-    //    ]
-        
+       
     
     //Do Not delete
     //note: it is assumed that divHeight can be divided by 10 without residue
@@ -205,6 +183,7 @@ module HistogramUI =
         
     //    ]
 
+
     //as long as the ticks computed are > max. ticks, the stepSize is increased (ticking gets more coarse)
     //roundedMax rounds the max count to something that is divisible by stepSize without residue
     let rec computeTickStepsize 
@@ -234,14 +213,23 @@ module HistogramUI =
         let binGapHalf = binGap/2
         
         
+        
 
         let hist =            
             alist
              { 
                 let! bins = h.bins
                 let! maxCount = h.maxBinValue
-                let! domain = h.domainEnd.value
+                let! max = h.domainEnd.value
+                let! min = h.domainStart.value
                 let! hoveredBin = h.hoveredBin
+
+                let! data = h.data
+                let meanValue = 
+                    data 
+                    |> List.map (fun (_,d) -> d)
+                    |> List.average
+                
 
                 //---code for adaptive y axis labels
                 //first define y-Axis labelling properties
@@ -262,6 +250,9 @@ module HistogramUI =
                 
                 let n = bins.Length
                 let binWidth = int(floor(float(divWidth-startX-((n+1)*binGap)) / float(n)))
+                let meanBinId = int((meanValue-min)/((max-min)/float(n)))
+
+
                 for i in 0..(bins.Length-1) do
                     let bin = bins.Item i  
                     let x = startX + i * (binWidth+binGap)
@@ -277,7 +268,7 @@ module HistogramUI =
                     //                    (getBaseColor,Some(t))
                     //                else ("fill:green", None)
                     //    | None -> ("fill:green", None)
-                    
+
                     match hoveredBin with
                     | Some b -> 
                         if bin.id = b then
@@ -294,9 +285,18 @@ module HistogramUI =
                         yield Incremental.Svg.rect (hoverRectangle x marginTop bin.id binWidth maxHeight "fill:none;stroke:green;stroke-width:2;stroke-opacity:0.3") 
                         yield Incremental.Svg.rect (rectangleFromBin x y binWidth binHeight "fill:green")
 
+                    
+                    if i = meanBinId then 
+                        let y1 = marginTop
+                        let y2 = divHeight-marginBottom
+                        let x1 = float(x)
+                        let x2 = float(x + binWidth)
+                        let x''= int(round(x1 + (x2-x1) * ((meanValue-bin.range.Min) / bin.range.Size)))
+                        yield axis (Range1i(x'', x'')) (Range1i(y1, y2)) "red" "1"
+
 
                 let xAxisLabelTransform =                     
-                    let str = Formatting.Len(domain).ToString() 
+                    let str = Formatting.Len(max).ToString() 
                     let threshold = str.Length * 6
                     if threshold > binWidth then
                         Some(labelRotation (float(threshold)/float(binWidth)))
@@ -304,12 +304,18 @@ module HistogramUI =
                         None
 
                 let xCoords = 
+                    
+                    let yPos = divHeight-(marginBottom/2)
                     [
                     for i in 0..(bins.Length-1) do
                         let bin = bins.Item i  
-                        let rangeEnd = bin.range.Max//int(round(bin.range.Max))                                                                
+                        let rangeEnd = bin.range.Max                                                                
                         let xPos = (startX + (i+1)*binWidth + i*binGap + binGapHalf) 
-                        yield (rangeEnd, V2i(xPos, divHeight-(marginBottom/2)))
+
+                        //for first bin also show the start value (=domain start)
+                        if i = 0 then yield (bin.range.Min, V2i(startX, yPos))
+
+                        yield (rangeEnd, V2i(xPos, yPos))
                     ]
 
                 let xTickCoords =
@@ -321,8 +327,8 @@ module HistogramUI =
                         V4i(c.X, y1, c.X, y2)                        
                     )
 
-                yield (axis (Range1i(15,15)) (Range1i(marginTop,(divHeight-marginBottom)))) //y axis
-                yield (axis (Range1i(15, divWidth)) (Range1i(divHeight-marginBottom, divHeight-marginBottom)))
+                yield (axis (Range1i(15,15)) (Range1i(marginTop,(divHeight-marginBottom))) "white" "2") //y axis
+                yield (axis (Range1i(15, divWidth)) (Range1i(divHeight-marginBottom, divHeight-marginBottom)) "white" "2")
                 yield! (axisLabels [(0.0, V2i(0,(divHeight-marginBottom))); (float(maxCount), V2i(0, marginTop))] None "start" false) //yAxis Labels
                 yield! (axisLabels xCoords xAxisLabelTransform "middle" true) //xAxis Labels
                 yield! (axisTicks xTickCoords) //xAxis Ticks
