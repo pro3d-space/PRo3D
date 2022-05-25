@@ -35,19 +35,23 @@ type StatisticsMeasurementModel =
     }
 
 type StatisticsMeasurementAction =    
-    | UpdateAll of List<Guid*float> * StatisticsVisualizationAction                       
+    | UpdateAll of List<Guid*float> * StatisticsVisualizationAction * Scale                     
     | StatisticsVisualizationMessage of StatisticsVisualizationAction          
 
 module StatisticsMeasurementModel =
         
-    let calcMinMaxAvg (l:List<float>) =
+    let calcMinMaxAvg (l:List<float>) (scale:Scale)=
         match (l.IsEmpty) with
         | true -> (Range1d(0.0, 0.0), 0.0)        
         | false -> 
+            
             let min = l |> List.min
             let max = l |> List.max
-            let avg = l |> List.average
             let range = Range1d(min, max)
+            let avg =
+                match scale with
+                | Scale.Metric ->  l |> List.average
+                | Scale.Angular -> RoseDiagramModel.calculateAvgAngle l
             (range, avg) 
 
     let initMeasurementType (kind:Kind) (scale:Scale) = 
@@ -58,11 +62,11 @@ module StatisticsMeasurementModel =
 
     let init (data:List<Guid*float>) (mType:MeasurementType) =
 
-        let dataRange, avg = calcMinMaxAvg (data |> List.map(fun (_,value) -> value))    
+        let dataRange, avg = calcMinMaxAvg (data |> List.map(fun (_,value) -> value)) mType.scale    
         let initialVis = 
             match mType.scale with
             | Scale.Metric -> StatisticsVisualizationModel.Histogram (HistogramModel.initHistogram dataRange data)
-            | Scale.Angular -> StatisticsVisualizationModel.RoseDiagram (RoseDiagramModel.initRoseDiagram data)
+            | Scale.Angular -> StatisticsVisualizationModel.RoseDiagram (RoseDiagramModel.initRoseDiagram data avg)
         
         { measurementType = mType
           data = data

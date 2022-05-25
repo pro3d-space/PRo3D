@@ -13,6 +13,7 @@ type RoseDiagramModel =
         id          : Guid
         data        : List<Guid*float>
         maxBinValue : int
+        avgAngle    : float
         bins        : List<BinModel>
         center      : V2d
         innerRad    : float
@@ -21,8 +22,7 @@ type RoseDiagramModel =
         hoveredBin  : Option<int>
     }
 
-type RoseDiagramModelAction =
-    | UpdateBinCount
+type RoseDiagramModelAction =    
     | UpdateRD of List<Guid*float>
     | EnterRDBin of int
     | ExitRDBin
@@ -49,9 +49,6 @@ module RoseDiagramModel =
                 }
         ]
 
-    //let resetBinCounts (bins:List<BinModel>) =
-    //    bins |> List.map
-    
     //count for rose diagram bins
     let sortRoseDiagramDataIntoBins (bins:List<BinModel>) (data:List<Guid*float>) (angle:float) =    
         
@@ -76,17 +73,34 @@ module RoseDiagramModel =
             | None -> {bin with count = 0}
         )
 
-    let initRoseDiagram (data:List<Guid*float>) =
+    let calculateAvgAngle (angles:List<float>) =
+        //from RoseDiagram.fs in Correlation Panels
+        let tempList = 
+            angles 
+            |> List.map (fun degre -> 
+                let rad = degre.RadiansFromDegrees()
+                Fun.Sin(rad), Fun.Cos(rad))
+
+        let sumSin = tempList |> List.map fst |> List.sum
+        let sumCos = tempList |> List.map snd |> List.sum
+
+        let count = angles |> List.length |> float
+        let averageAngleRadians = Fun.Atan2(sumSin/count,sumCos/count)        
+        let angDeg = averageAngleRadians.DegreesFromRadians()
+        (angDeg + 270.0) % 360.0 
+
+    let initRoseDiagram (data:List<Guid*float>) (avg:float)=
         let binAngle = 15.0
         let initB =  initRoseDiagramBins binAngle
         let bins = sortRoseDiagramDataIntoBins initB data binAngle
-        let max = BinModel.getBinMaxValue bins
+        let max = BinModel.getBinMaxValue bins        
         let center = V2d.Zero               
 
         {
             id   = Guid.NewGuid() 
             data = data
             maxBinValue = max
+            avgAngle = avg
             bins = bins
             center = center
             innerRad = 5.0

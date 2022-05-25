@@ -48,6 +48,27 @@ module RoseDiagramUI =
            let pos = outerStart + vectorHalf         
            V2i(int(pos.X), int(pos.Y))
 
+    let averageLine (center:V2d) (innerRad:float) (outerRad:float) (avgAngle:float) (color:string)=
+
+        let startPos = pointFromAngle center avgAngle innerRad
+        let endPos = pointFromAngle startPos avgAngle (outerRad-innerRad)
+        let p1 = new V2i(int(startPos.X), int(startPos.Y))
+        let p2 = new V2i(int(endPos.X), int(endPos.Y))
+
+        let col = "stroke:" + color + ";stroke-width:1"
+        
+        let attr =
+            amap{
+                yield style col
+                yield attribute "x1" (sprintf "%ipx" p1.X)
+                yield attribute "y1" (sprintf "%ipx" p1.Y)
+                yield attribute "x2" (sprintf "%ipx" p2.X)
+                yield attribute "y2" (sprintf "%ipx" p2.Y)
+            }|> AttributeMap.ofAMap
+
+        Incremental.Svg.line attr
+
+
     let drawRoseDiagramSection 
         (startAngle:float) 
         (endAngle:float) 
@@ -92,6 +113,8 @@ module RoseDiagramUI =
             alist{                            
                 let! innerRad = r.innerRad
                 let! outerRad = r.outerRad
+                let! avgAngle' = r.avgAngle
+                let avgAngle = avgAngle' * Constant.RadiansPerDegree
             
                 //let center = new V2d(float(dimensions.X) /2.0, (float(dimensions.Y) /2.0) - outerRad)
                 let center = new V2d(float(dimensions.X) /2.0, (float(dimensions.Y) /2.0))
@@ -126,6 +149,15 @@ module RoseDiagramUI =
                 yield drawCircle center innerRad
                 yield drawCircle center outerRad
                 yield drawText (V2i(20, 20)) (sprintf "N = %i" N) "12" "start"
+                yield averageLine center innerRad outerRad avgAngle "red"
+
+                //just for testing
+                yield averageLine center innerRad outerRad (((270.0 + 270.0 ) % 360.0) * Constant.RadiansPerDegree) "magenta"
+                yield averageLine center innerRad outerRad (((180.0 + 270.0 ) % 360.0) * Constant.RadiansPerDegree) "green"
+                yield averageLine center innerRad outerRad (((90.0 + 270.0 ) % 360.0) * Constant.RadiansPerDegree) "yellow"
+                yield averageLine center innerRad outerRad (((360.0 + 270.0 ) % 360.0) * Constant.RadiansPerDegree) "white"
+
+
             }
         Incremental.Svg.svg AttributeMap.empty sect
 

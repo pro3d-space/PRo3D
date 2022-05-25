@@ -14,12 +14,12 @@ module StatisticsMeasurement_App =
     //or only the visualization (if the data has not changed)
     let rec update (m:StatisticsMeasurementModel) (action:StatisticsMeasurementAction) =
         match action with                   
-        | StatisticsVisualizationMessage visAction -> 
+        | StatisticsVisualizationMessage visAction ->             
             let updatedVis = StatisticsVisualization_App.update m.visualization visAction
             {m with visualization = updatedVis}
-        | UpdateAll (data, visAction) -> 
+        | UpdateAll (data, visAction, scale) -> 
             let m' = 
-                let dataRange,avg = StatisticsMeasurementModel.calcMinMaxAvg (data |> List.map (fun (_,value) -> value))
+                let dataRange,avg = StatisticsMeasurementModel.calcMinMaxAvg (data |> List.map (fun (_,value) -> value)) scale
                 {m with data = data; dataRange = dataRange; avg = avg}
             update m' (StatisticsVisualizationMessage visAction)   
 
@@ -35,7 +35,7 @@ module StatisticsMeasurement_App =
                 match mType.scale with
                 | Scale.Metric -> HistogramMessage (UpdateData data)
                 | Scale.Angular -> RoseDiagramMessage (UpdateRD data)
-            update measurement (UpdateAll (data,visAction))
+            update measurement (UpdateAll (data,visAction, mType.scale))
         )
 
     
