@@ -50,16 +50,15 @@ module Lenses =
     let update (lens : Lens<'s,'a>) (f : 'a->'a) (state : 's) : 's = lens.Update(state, f)
 
 module Utilities =
-    type ClientStatistics =
-      {
-          session         : System.Guid
-          name            : string
-          frameCount      : int
-          invalidateTime  : float
-          renderTime      : float
-          compressTime    : float
-          frameTime       : float
-      }
+    type ClientStatistics = {
+        session         : System.Guid
+        name            : string
+        frameCount      : int
+        invalidateTime  : float
+        renderTime      : float
+        compressTime    : float
+        frameTime       : float
+    }
 
     module PRo3DNumeric = 
         open FSharp.Data.Adaptive
@@ -157,35 +156,6 @@ module Utilities =
                 | t when t > 0 -> applyXTimes (f a lastIndex) f (lastIndex - 1)
                 | _ -> a
 
-    // TODO Refactor: not in use duplicated code
-    //let takeScreenshot baseAddress (width:int) (height:int) name folder =
-    //      let wc = new System.Net.WebClient()
-          
-    //      let clientStatistic = 
-    //          let path = sprintf "%s/rendering/stats.json" baseAddress //sprintf "%s/rendering/stats.json" baseAddress
-    //          Log.line "[Screenshot] querying rendering stats at: %s" path
-    //          let result = wc.DownloadString(path)
-    //          let clientBla : list<ClientStatistics> =
-    //              Pickler.unpickleOfJson  result
-    //          match clientBla.Length with
-    //          | 1 -> clientBla // clientBla.[1] 
-    //          | _ -> failwith "no client bla"
-
-    //      for cs in clientStatistic do
-    //          let color = V4f.IIII
-    //          let screenshot = sprintf "%s/rendering/screenshot/%s?w=%d&h=%d&samples=2&background=[%f,%f,%f,%f]" baseAddress cs.name width height color.X color.Y color.Z color.W
-
-    //          //let screenshot =            
-    //          //    sprintf "%s/rendering/screenshot/%s?w=%d&h=%d&samples=4" baseAddress cs.name width height
-    //          Log.line "[Screenshot] Running screenshot on: %s" screenshot    
-
-    //          match System.IO.Directory.Exists folder with
-    //          | true -> ()
-    //          | false -> System.IO.Directory.CreateDirectory folder |> ignore
-              
-    //         // let filename = cs.name + name
-    //          wc.DownloadFile(screenshot,Path.combine [folder; name])
-
 module Shader = 
 
     module DepthOffset =
@@ -260,29 +230,7 @@ module Shader =
                 v with 
                     pos = uniform.ProjTrafo * vp
             }
-        }
-
-    //type InstancedVertex = 
-    //    {
-    //        [<Semantic("MV")>]
-    //        mv : M44d
-    //        [<Position>]
-    //        pos : V4d
-    //        [<Color>]
-    //        c : V4d
-    //    }
-
-    //let stableMVTrafo (v : InstancedVertex) =
-    //    vertex {
-    //        let vp = v.mv * v.pos
-    //        let p = uniform.ProjTrafo * vp
-    //        let color : V4d = uniform?Color
-    //        return { 
-    //            v with 
-    //                pos = p
-    //                c = color
-    //        }
-    //    }
+        } 
 
     let pointSpriteFragment (v : PointVertex) =
         fragment {

@@ -184,7 +184,8 @@ let main argv =
             Aardium.init()
 
     
-    Aardvark.Init()
+    Aardvark.Init()    
+
     let mutable cooTrafoInitialized = false
     let disposables = List<IDisposable>()
     try

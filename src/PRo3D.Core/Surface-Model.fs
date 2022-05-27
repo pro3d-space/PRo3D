@@ -13,7 +13,7 @@ open Aardvark.UI.Trafos
 open Aardvark.VRVis
 open Aardvark.VRVis.Opc
 
-open DevILSharp.ILU
+//open DevILSharp.ILU
 open Chiron
 
 open PRo3D.Base
@@ -367,33 +367,36 @@ type SurfaceType =
 [<ModelType>]
 type Surface = {
     
-    version       : int
-
-    guid            : System.Guid
-    
-    name            : string
-    importPath      : string
-    opcNames        : list<string>
-    opcPaths        : list<string>    
-    relativePaths   : bool
-                    
-    fillMode        : FillMode
-    cullMode        : CullMode
-    isVisible       : bool
-    isActive        : bool
-    quality         : NumericInput
-    priority        : NumericInput
-                    
-    triangleSize    : NumericInput
-    scaling         : NumericInput
-                    
-    preTransform    : Trafo3d
-    
-    scalarLayers    : HashMap<int, ScalarLayer> //IndexList<ScalarLayer>
-    selectedScalar  : option<ScalarLayer>
-
-    textureLayers   : IndexList<TextureLayer>
-    selectedTexture : option<TextureLayer>
+    version          : int
+                     
+    guid             : System.Guid
+                     
+    name             : string
+    importPath       : string
+    opcNames         : list<string>
+    opcPaths         : list<string>    
+    relativePaths    : bool
+                     
+    fillMode         : FillMode
+    cullMode         : CullMode
+    isVisible        : bool
+    isActive         : bool
+    quality          : NumericInput
+    priority         : NumericInput
+                     
+    triangleSize     : NumericInput
+    scaling          : NumericInput
+                     
+    filterByDistance : bool
+    filterDistance   : NumericInput
+                     
+    preTransform     : Trafo3d
+                     
+    scalarLayers     : HashMap<int, ScalarLayer> //IndexList<ScalarLayer>
+    selectedScalar   : option<ScalarLayer>
+                     
+    textureLayers    : IndexList<TextureLayer>
+    selectedTexture  : option<TextureLayer>
 
     [<Adaptify.NonAdaptiveAttribute>]
     surfaceType     : SurfaceType     
@@ -420,7 +423,7 @@ module Surface =
             let! isActive        = Json.read "isActive"       
             let! quality         = Json.readWith Ext.fromJson<NumericInput,Ext> "quality"
             let! priority        = Json.readWith Ext.fromJson<NumericInput,Ext> "priority"
-            let! triangleSize    = Json.readWith Ext.fromJson<NumericInput,Ext> "triangleSize"   
+            let! triangleSize    = Json.readWith Ext.fromJson<NumericInput,Ext> "triangleSize"
             let! scaling         = Json.readWith Ext.fromJson<NumericInput,Ext> "scaling"
             let! preTransform    = Json.read "preTransform"
             let! scalarLayers    = Json.read "scalarLayers"  
@@ -474,6 +477,8 @@ module Surface =
                     colorCorrection = colorCorrection
                     homePosition    = view
                     transformation  = transformation
+
+                    filter ...
                 }
         }
      

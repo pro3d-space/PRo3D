@@ -251,12 +251,7 @@ module ViewerUtils =
                     sg 
                     |> Sg.noEvents 
                     |> Sg.cullMode(surf |> AVal.bind(fun x -> x.cullMode))
-                    |> Sg.fillMode(surf |> AVal.bind(fun x -> x.fillMode))
-                                                
-                let triangleFilter = 
-                    surf |> AVal.bind(fun s -> s.triangleSize.value)
-                
-                
+                    |> Sg.fillMode(surf |> AVal.bind(fun x -> x.fillMode))                                                                                
 
                 let trafo =
                     adaptive {
@@ -337,6 +332,18 @@ module ViewerUtils =
                     )
                     |> Sg.dynamic
                 
+                let homePosition =
+                    adaptive {
+                        let! homePosition = surf |> AVal.bind(fun s -> s.homePosition)
+                        
+                        match homePosition with
+                        | Some hp -> 
+                            return hp.Location
+                        | None ->
+                            let! bb = surface.globalBB
+                            return bb.Center                        
+                    }                    
+
                 let surfaceSg =
                     surface.sceneGraph
                     |> AVal.map createSg
@@ -346,7 +353,10 @@ module ViewerUtils =
                     |> Sg.uniform "selected"      (isSelected) // isSelected
                     |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
                     |> addAttributeFalsecolorMappingParameters surf
-                    |> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
+                    |> Sg.uniform "TriangleSize" (surf |> AVal.bind(fun s -> s.triangleSize.value))
+                    |> Sg.uniform "HomePosition" homePosition
+                    |> Sg.uniform "FilterByDistance" (surf |> AVal.bind(fun s -> s.filterByDistance))
+                    |> Sg.uniform "FilterDistance" (surf |> AVal.bind(fun s -> s.filterDistance))
                     |> addImageCorrectionParameters surf
                     |> Sg.uniform "FootprintVisible" footprintVisible
                     |> Sg.uniform "FootprintModelViewProj" (M44d.Identity |> AVal.constant)
@@ -389,11 +399,12 @@ module ViewerUtils =
         (Navigation.UI.frustum near far)
 
     type Vertex = {
-        [<Position>]        pos     : V4d
-        [<Color>]           c       : V4d
-        [<TexCoord>]        tc      : V2d
-        [<Semantic("ViewSpacePos")>] vp : V4d
-        [<Semantic("FootPrintProj")>] tc0     : V4d
+        [<Position>]                  pos  : V4d
+        [<WorldPosition>]             wp   : V4d
+        [<Color>]                     c    : V4d
+        [<TexCoord>]                  tc   : V2d
+        [<Semantic("ViewSpacePos")>]  vp   : V4d
+        [<Semantic("FootPrintProj")>] tc0  : V4d
     }
 
     let fixAlpha (v : Vertex) =
@@ -401,7 +412,7 @@ module ViewerUtils =
            return V4d(v.c.X, v.c.Y,v.c.Z, 1.0)           
         }
 
-    let triangleFilterX (input : Triangle<Vertex>) =
+    let triangleFilter (input : Triangle<Vertex>) =
         triangle {
             let p0 = input.P0.vp.XYZ
             let p1 = input.P1.vp.XYZ
@@ -417,24 +428,42 @@ module ViewerUtils =
             let beta  = b.Length < maxSize
             let gamma = c.Length < maxSize
 
-            let check = (alpha && beta && gamma)
-            if check then
-                yield input.P0 
-                yield input.P1
-                yield input.P2
+            let filterDistanceActive : bool = uniform?FilterByDistance
+            let triangleSizeCheck = (alpha && beta && gamma)
+
+            if filterDistanceActive then
+                let filterRange : float = uniform?FilterDistance
+                let homePosition : V3d = uniform?HomePosition
+
+                let inRange = 
+                    (Vec.distance homePosition input.P0.wp.XYZ) < filterRange ||
+                    (Vec.distance homePosition input.P1.wp.XYZ) < filterRange ||
+                    (Vec.distance homePosition input.P2.wp.XYZ) < filterRange
+
+                if triangleSizeCheck && inRange then
+                    yield input.P0 
+                    yield input.P1
+                    yield input.P2
+            else
+                if triangleSizeCheck then
+                    yield input.P0 
+                    yield input.P1
+                    yield input.P2
         }
          
 
+    //TODO refactor: why custom stable trafo
     let stableTrafo (v : Vertex) =
           vertex {
               let p = uniform.ModelViewProjTrafo * v.pos
-
+              let wp = uniform.ModelTrafo * v.pos
 
               return 
                   { v with
                       pos = p
-                      c = v.c
-                      vp = uniform.ModelViewTrafo * v.pos
+                      c   = v.c
+                      vp  = uniform.ModelViewTrafo * v.pos
+                      wp  = wp
                   }
           }
 
@@ -445,7 +474,7 @@ module ViewerUtils =
 
             stableTrafo             |> toEffect
 
-            triangleFilterX                |> toEffect
+            triangleFilter                |> toEffect
             Shader.OPCFilter.improvedDiffuseTexture |> toEffect
             fixAlpha |> toEffect
             
