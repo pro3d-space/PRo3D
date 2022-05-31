@@ -33,6 +33,7 @@ type GroupsAppAction =
     | ToggleGroup           of list<Index>
     | SetVisibility         of path : list<Index> * isVisible : bool
     | SetSelection          of path : list<Index> * isSelected : bool
+    | SetHoverSelection     of list<Guid>
     | MoveLeaves      
     | AddAndSelectGroup     of list<Index> * Node
     | ClearSnapshotsGroup
@@ -525,7 +526,10 @@ module GroupsApp =
             if isSelected then
                 { model with selectedLeaves = HashSet.union model.selectedLeaves leaves }
             else
-                { model with selectedLeaves = HashSet.difference model.selectedLeaves leaves }        
+                { model with selectedLeaves = HashSet.difference model.selectedLeaves leaves }   
+        | SetHoverSelection ids ->
+            let hoveredLeaves = model.selectedLeaves |> HashSet.filter (fun s -> ids |> List.contains s.id)
+            {model with hoveredLeaves = hoveredLeaves}
         | MoveLeaves  -> 
             moveChildren model
         | ClearSelection ->

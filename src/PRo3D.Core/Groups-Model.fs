@@ -189,6 +189,7 @@ type GroupsModel = {
     groupsLookup         : HashMap<Guid,string>
     lastSelectedItem     : SelectedItem
     selectedLeaves       : HashSet<TreeSelection> 
+    hoveredLeaves        : HashSet<TreeSelection>
     singleSelectLeaf     : option<Guid>
 }
 
@@ -215,6 +216,7 @@ module GroupsModel =
                 groupsLookup        = groupsLookup
                 lastSelectedItem    = SelectedItem.Child
                 selectedLeaves      = HashSet.Empty 
+                hoveredLeaves       = HashSet.Empty
                 singleSelectLeaf    = None
             }
         }
@@ -228,6 +230,7 @@ module GroupsModel =
         groupsLookup     = HashMap.Empty        
         lastSelectedItem = SelectedItem.Child
         selectedLeaves   = HashSet.Empty
+        hoveredLeaves    = HashSet.Empty
         singleSelectLeaf = None
     }
 

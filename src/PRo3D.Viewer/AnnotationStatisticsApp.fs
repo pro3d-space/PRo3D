@@ -56,7 +56,27 @@ module AnnotationStatisticsApp =
         | Kind.DIP_AZIMUTH -> getDnSResults selected getDipAzimuth
         | Kind.STRIKE_AZIMUTH -> getDnSResults selected getStrikeAzimuth
 
-                 
+    let getHoveredIds (m:AnnotationStatisticsModel) =
+        
+        let getBinIDsList (id:Option<int>) (bins:List<BinModel>)=
+            match id with
+            | Some i -> 
+                let bin = bins |> List.tryFind (fun b -> b.id = i)
+                match bin with
+                | Some b -> b.annotationIDs
+                | None -> failwith "something wrong with bin id assignment"
+            | None -> List.empty
+        
+        m.properties |> HashMap.fold (fun s _ v -> 
+                let vis = v.visualization
+                let l = 
+                    match vis with
+                    | Histogram h -> getBinIDsList h.hoveredBin h.bins
+                    | RoseDiagram r -> getBinIDsList r.hoveredBin r.bins
+                s @ l
+            ) List.empty
+
+  
     let rec update (m:AnnotationStatisticsModel) (a:AnnoStatsAction) =
         match a with
         //Add selection if not in the list, remove selection if already in the list

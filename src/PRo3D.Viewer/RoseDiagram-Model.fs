@@ -19,7 +19,7 @@ type RoseDiagramModel =
         innerRad    : float
         outerRad    : float
         binAngle    : float //15°
-        hoveredBin  : Option<int>
+        hoveredBin  : Option<int>        
     }
 
 type RoseDiagramModelAction =    

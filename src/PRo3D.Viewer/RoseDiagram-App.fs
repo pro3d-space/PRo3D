@@ -11,7 +11,7 @@ module RoseDiagram_App =
             let avgAngle = RoseDiagramModel.calculateAvgAngle (data |> List.map(fun (_,d) -> d))
             {m with bins = updatedBins; maxBinValue = max; avgAngle = avgAngle}
 
-        | EnterRDBin id ->
+        | EnterRDBin id ->           
             {m with hoveredBin = Some(id)}
 
         | ExitRDBin ->

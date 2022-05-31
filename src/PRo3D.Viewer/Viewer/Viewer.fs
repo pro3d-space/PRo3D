@@ -495,8 +495,16 @@ module ViewerApp =
                 {m with drawing = drawing; annoStats = annotationStatistics} |> stash
 
         | AnnoStatsMessage msg,_,_ ->           
-                let am = AnnotationStatisticsApp.update m.annoStats msg             
-                { m with annoStats = am}
+                let am = AnnotationStatisticsApp.update m.annoStats msg    
+                let hoveredIDs = AnnotationStatisticsApp.getHoveredIds am
+                let gm = GroupsApp.update m.drawing.annotations (SetHoverSelection hoveredIDs)
+                //let view = 
+                //    match m.viewerMode with 
+                //    | ViewerMode.Standard -> m.navigation.camera.view
+                //    | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam
+                //let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing (DrawingAction.GroupsMessage (SetHoverSelection hoveredIDs))
+                let drawing = { m.drawing with annotations = gm}
+                { m with annoStats = am; drawing = drawing}
 
 
         | SurfaceActions msg,_,_ ->
