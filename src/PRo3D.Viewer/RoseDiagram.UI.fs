@@ -114,7 +114,7 @@ module RoseDiagramUI =
                 let! innerRad = r.innerRad
                 let! outerRad = r.outerRad
                 let! avgAngle' = r.avgAngle
-                let avgAngle = avgAngle' * Constant.RadiansPerDegree
+                let avgAngle = ((avgAngle' + 270.0) % 360.0) * Constant.RadiansPerDegree
             
                 //let center = new V2d(float(dimensions.X) /2.0, (float(dimensions.Y) /2.0) - outerRad)
                 let center = new V2d(float(dimensions.X) /2.0, (float(dimensions.Y) /2.0))
@@ -152,10 +152,10 @@ module RoseDiagramUI =
                 yield averageLine center innerRad outerRad avgAngle "red"
 
                 //just for testing
-                yield averageLine center innerRad outerRad (((270.0 + 270.0 ) % 360.0) * Constant.RadiansPerDegree) "magenta"
-                yield averageLine center innerRad outerRad (((180.0 + 270.0 ) % 360.0) * Constant.RadiansPerDegree) "green"
-                yield averageLine center innerRad outerRad (((90.0 + 270.0 ) % 360.0) * Constant.RadiansPerDegree) "yellow"
-                yield averageLine center innerRad outerRad (((360.0 + 270.0 ) % 360.0) * Constant.RadiansPerDegree) "white"
+                //yield averageLine center innerRad outerRad (((270.0 + 270.0 ) % 360.0) * Constant.RadiansPerDegree) "magenta"
+                //yield averageLine center innerRad outerRad (((180.0 + 270.0 ) % 360.0) * Constant.RadiansPerDegree) "green"
+                //yield averageLine center innerRad outerRad (((90.0 + 270.0 ) % 360.0) * Constant.RadiansPerDegree) "yellow"
+                //yield averageLine center innerRad outerRad (((360.0 + 270.0 ) % 360.0) * Constant.RadiansPerDegree) "white"
 
 
             }

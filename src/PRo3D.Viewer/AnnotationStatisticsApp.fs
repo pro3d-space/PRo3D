@@ -44,7 +44,7 @@ module AnnotationStatisticsApp =
 
     let getLength = fun (x:AnnotationResults) -> x.length
     let getBearing = fun (x:AnnotationResults) -> x.bearing
-    let getVerticalThickness = fun (x:AnnotationResults) -> x.verticalThickness
+    //let getVerticalThickness = fun (x:AnnotationResults) -> x.verticalThickness
     let getDipAzimuth = fun (x:DipAndStrikeResults) -> x.dipAzimuth
     let getStrikeAzimuth = fun (x:DipAndStrikeResults) -> x.strikeAzimuth
 
@@ -52,7 +52,7 @@ module AnnotationStatisticsApp =
         match mType.kind with
         | Kind.LENGTH -> getAnnotationResults selected getLength     
         | Kind.BEARING -> getAnnotationResults selected getBearing              
-        | Kind.VERTICALTHICKNESS -> getAnnotationResults selected getVerticalThickness          
+        //| Kind.VERTICALTHICKNESS -> getAnnotationResults selected getVerticalThickness          
         | Kind.DIP_AZIMUTH -> getDnSResults selected getDipAzimuth
         | Kind.STRIKE_AZIMUTH -> getDnSResults selected getStrikeAzimuth
 
@@ -134,8 +134,8 @@ module AnnotationStatisticsDrawings =
                     i [clazz "dropdown icon"; style "margin:0px 5px"] [] 
                     div [ clazz "ui menu"] [
                         div [clazz "ui inverted item"; onMouseClick (fun _ -> AddNewMeasurement (StatisticsMeasurementModel.initMeasurementType Kind.LENGTH Scale.Metric))] [text "Length"]
-                        div [clazz "ui inverted item"; onMouseClick (fun _ -> AddNewMeasurement (StatisticsMeasurementModel.initMeasurementType Kind.BEARING Scale.Metric))] [text "Bearing"]
-                        div [clazz "ui inverted item"; onMouseClick (fun _ -> AddNewMeasurement (StatisticsMeasurementModel.initMeasurementType Kind.VERTICALTHICKNESS Scale.Metric))] [text "Vertical Thickness"] 
+                        div [clazz "ui inverted item"; onMouseClick (fun _ -> AddNewMeasurement (StatisticsMeasurementModel.initMeasurementType Kind.BEARING Scale.Angular))] [text "Bearing"]
+                        //div [clazz "ui inverted item"; onMouseClick (fun _ -> AddNewMeasurement (StatisticsMeasurementModel.initMeasurementType Kind.VERTICALTHICKNESS Scale.Metric))] [text "Vertical Thickness"] 
                         div [clazz "ui inverted item"; onMouseClick (fun _ -> AddNewMeasurement (StatisticsMeasurementModel.initMeasurementType Kind.DIP_AZIMUTH Scale.Angular))] [text "Dip Azimuth"] 
                         div [clazz "ui inverted item"; onMouseClick (fun _ -> AddNewMeasurement (StatisticsMeasurementModel.initMeasurementType Kind.STRIKE_AZIMUTH Scale.Angular))] [text "Strike Azimuth"] 
                     ]

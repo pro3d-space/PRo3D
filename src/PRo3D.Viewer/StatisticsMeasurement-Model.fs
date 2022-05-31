@@ -12,7 +12,7 @@ type Scale =
 type Kind = 
     | LENGTH 
     | BEARING 
-    | VERTICALTHICKNESS 
+    //| VERTICALTHICKNESS 
     | DIP_AZIMUTH 
     | STRIKE_AZIMUTH
 

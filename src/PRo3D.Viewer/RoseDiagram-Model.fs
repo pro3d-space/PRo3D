@@ -87,7 +87,8 @@ module RoseDiagramModel =
         let count = angles |> List.length |> float
         let averageAngleRadians = Fun.Atan2(sumSin/count,sumCos/count)        
         let angDeg = averageAngleRadians.DegreesFromRadians()
-        (angDeg + 270.0) % 360.0 
+        angDeg
+        
 
     let initRoseDiagram (data:List<Guid*float>) (avg:float)=
         let binAngle = 15.0
