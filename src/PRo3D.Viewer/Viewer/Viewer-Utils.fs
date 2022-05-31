@@ -342,7 +342,18 @@ module ViewerUtils =
                         | None ->
                             let! bb = surface.globalBB
                             return bb.Center                        
-                    }                    
+                    }               
+                    
+                let filterByDistance =
+                    adaptive {
+                        let! homePosition = surf |> AVal.bind(fun s -> s.homePosition)
+                        
+                        match homePosition with
+                        | Some _ -> 
+                            return! surf |> AVal.bind(fun s -> s.filterByDistance)
+                        | None ->
+                            return false
+                    }               
 
                 let surfaceSg =
                     surface.sceneGraph
@@ -355,8 +366,8 @@ module ViewerUtils =
                     |> addAttributeFalsecolorMappingParameters surf
                     |> Sg.uniform "TriangleSize" (surf |> AVal.bind(fun s -> s.triangleSize.value))
                     |> Sg.uniform "HomePosition" homePosition
-                    |> Sg.uniform "FilterByDistance" (surf |> AVal.bind(fun s -> s.filterByDistance))
-                    |> Sg.uniform "FilterDistance" (surf |> AVal.bind(fun s -> s.filterDistance))
+                    |> Sg.uniform "FilterByDistance" filterByDistance
+                    |> Sg.uniform "FilterDistance" (surf |> AVal.bind(fun s -> s.filterDistance.value))
                     |> addImageCorrectionParameters surf
                     |> Sg.uniform "FootprintVisible" footprintVisible
                     |> Sg.uniform "FootprintModelViewProj" (M44d.Identity |> AVal.constant)
@@ -436,8 +447,8 @@ module ViewerUtils =
                 let homePosition : V3d = uniform?HomePosition
 
                 let inRange = 
-                    (Vec.distance homePosition input.P0.wp.XYZ) < filterRange ||
-                    (Vec.distance homePosition input.P1.wp.XYZ) < filterRange ||
+                    (Vec.distance homePosition input.P0.wp.XYZ) < filterRange &&
+                    (Vec.distance homePosition input.P1.wp.XYZ) < filterRange &&
                     (Vec.distance homePosition input.P2.wp.XYZ) < filterRange
 
                 if triangleSizeCheck && inRange then

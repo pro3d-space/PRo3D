@@ -409,6 +409,23 @@ type Surface = {
 module Surface =
     let current = 0    
 
+    module Initial =
+        let triangleSize = {
+            value = 1.0
+            min = 0.0
+            max = 10000.0
+            step = 0.01
+            format = "{0:0.000}"
+        }
+
+        let filterDistance = {
+            value = 10.0
+            min = 0.0
+            max = 100000.0
+            step = 0.01
+            format = "{0:0.000}"
+        }
+
     let read0 =
         json {
             let! guid            = Json.read "guid"
@@ -424,6 +441,11 @@ module Surface =
             let! quality         = Json.readWith Ext.fromJson<NumericInput,Ext> "quality"
             let! priority        = Json.readWith Ext.fromJson<NumericInput,Ext> "priority"
             let! triangleSize    = Json.readWith Ext.fromJson<NumericInput,Ext> "triangleSize"
+
+            //let! filterByDistance = Json.tryRead "filterByDistance"
+            //let! filterDistance = Json.tryReadWith Ext.fromJson<option<NumericInput>,Ext> "filterDistance"
+
+
             let! scaling         = Json.readWith Ext.fromJson<NumericInput,Ext> "scaling"
             let! preTransform    = Json.read "preTransform"
             let! scalarLayers    = Json.read "scalarLayers"  
@@ -476,9 +498,89 @@ module Surface =
                     surfaceType     = surfaceType |> enum<SurfaceType>
                     colorCorrection = colorCorrection
                     homePosition    = view
-                    transformation  = transformation
+                    transformation  = transformation                    
 
-                    filter ...
+                    filterByDistance = false
+                    filterDistance   = Initial.triangleSize
+                }
+        }
+
+    let read1 =
+        json {
+            let! guid            = Json.read "guid"
+            let! name            = Json.read "name"
+            let! importPath      = Json.read "importPath"  
+            let! opcNames        = Json.read "opcNames"       
+            let! opcPaths        = Json.read "opcPaths"       
+            let! relativePaths   = Json.read "relativePaths"
+            let! fillMode        = Json.read "fillMode"       
+            let! cullMode        = Json.read "cullMode"       
+            let! isVisible       = Json.read "isVisible"      
+            let! isActive        = Json.read "isActive"       
+            let! quality         = Json.readWith Ext.fromJson<NumericInput,Ext> "quality"
+            let! priority        = Json.readWith Ext.fromJson<NumericInput,Ext> "priority"
+            let! triangleSize    = Json.readWith Ext.fromJson<NumericInput,Ext> "triangleSize"
+
+            let! filterByDistance = Json.read "filterByDistance"
+            let! filterDistance   = Json.readWith Ext.fromJson<NumericInput,Ext> "filterDistance"
+
+
+            let! scaling         = Json.readWith Ext.fromJson<NumericInput,Ext> "scaling"
+            let! preTransform    = Json.read "preTransform"
+            let! scalarLayers    = Json.read "scalarLayers"  
+            let! selectedScalar  = Json.read "selectedScalar"
+            let! textureLayers   = Json.read "textureLayers"
+            let! selectedTexture = Json.read "selectedTexture"
+            let! surfaceType     = Json.read "surfaceType"    
+            let! colorCorrection = Json.read "colorCorrection"
+            let! transformation  = Json.read "transformation"
+
+            let! (cameraView : list<string>) = Json.read "homePosition"
+            let cameraView = cameraView |> List.map V3d.Parse
+            let view = 
+                match cameraView.Length with
+                | 5 -> 
+                    CameraView(
+                        cameraView.[0],
+                        cameraView.[1],
+                        cameraView.[2],
+                        cameraView.[3], 
+                        cameraView.[4]
+                    ) |> Some
+                | _ -> None
+
+            let scalarLayers  = scalarLayers  |> HashMap.ofList
+            let textureLayers = textureLayers |> IndexList.ofList
+
+            return 
+                {
+                    version         = current
+                    guid            = guid |> Guid
+                    name            = name
+                    importPath      = importPath
+                    opcNames        = opcNames
+                    opcPaths        = opcPaths
+                    relativePaths   = relativePaths
+                    fillMode        = fillMode |> enum<FillMode>
+                    cullMode        = cullMode |> enum<CullMode>
+                    isVisible       = isVisible
+                    isActive        = isActive
+                    quality         = quality
+                    priority        = priority
+                    triangleSize    = triangleSize
+                    scaling         = scaling
+                    preTransform    = preTransform |> Trafo3d.Parse
+                    scalarLayers    = scalarLayers
+                    selectedScalar  = selectedScalar
+                    textureLayers   = textureLayers
+                    selectedTexture = selectedTexture
+                    surfaceType     = surfaceType |> enum<SurfaceType>
+                    colorCorrection = colorCorrection
+                    homePosition    = view
+                    transformation  = transformation                    
+
+                    filterByDistance = filterByDistance
+                    filterDistance   = filterDistance
                 }
         }
      
@@ -488,6 +590,7 @@ type Surface with
             let! v = Json.read "version"
             match v with 
             | 0 -> return! Surface.read0
+            | 1 -> return! Surface.read1
             | _ -> 
                 return! v 
                 |> sprintf "don't know version %A  of Surface" 
@@ -532,7 +635,10 @@ type Surface with
                     ] |> List.map(fun x -> x.ToString())
 
             do! Json.write "homePosition" home
-            do! Json.write "transformation" x.transformation            
+            do! Json.write "transformation" x.transformation
+
+            do! Json.write "filterByDistance" x.filterByDistance
+            do! Json.writeWith Ext.toJson<NumericInput,Ext> "filterDistance" x.filterDistance
         }
 
 type Picking =
@@ -575,15 +681,7 @@ module Init =
         max = 5.0
         step = 0.1
         format = "{0:0.0}"
-    }
-
-    let triangleSize = {
-        value = 1.0
-        min = 0.0
-        max = 10000.0
-        step = 0.01
-        format = "{0:0.000}"
-    }
+    }        
 
     let priority = {
         value  = 0.0

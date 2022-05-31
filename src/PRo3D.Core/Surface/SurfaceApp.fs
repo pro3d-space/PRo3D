@@ -75,12 +75,16 @@ module SurfaceUtils =
             textureLayers   = IndexList.empty
             selectedTexture = None            
     
-            triangleSize    = { Init.triangleSize with value = maxTriangleSize }
+            triangleSize    = { Surface.Initial.triangleSize with value = maxTriangleSize }
             surfaceType     = stype
     
             colorCorrection = Init.initColorCorrection
             homePosition    = None
             transformation  = Init.transformations
+
+            filterByDistance = false
+            filterDistance = Surface.Initial.filterDistance
+
         }       
    
 

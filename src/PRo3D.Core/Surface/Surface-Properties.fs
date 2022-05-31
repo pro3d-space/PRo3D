@@ -19,18 +19,20 @@ open PRo3D.Core.Surface
 module SurfaceProperties =        
 
     type Action =
-        | SetFillMode    of FillMode
-        | SetCullMode    of CullMode
-        | SetName        of string
-        | ToggleVisible 
-        | ToggleIsActive
-        | SetQuality     of Numeric.Action
+        | SetFillMode     of FillMode
+        | SetCullMode     of CullMode
+        | SetName         of string
+        | ToggleVisible   
+        | ToggleIsActive  
+        | SetQuality      of Numeric.Action
         | SetTriangleSize of Numeric.Action
-        | SetPriority    of Numeric.Action
-        | SetScaling     of Numeric.Action
-        | SetScalarMap   of Option<ScalarLayer>
-        | SetTexturesMap of Option<TextureLayer>
+        | SetPriority     of Numeric.Action
+        | SetScaling      of Numeric.Action
+        | SetScalarMap    of Option<ScalarLayer>
+        | SetTexturesMap  of Option<TextureLayer>
         | SetHomePosition //of Guid //of Option<CameraView>
+        | ToggleFilterByDistance //of Guid //of Option<CameraView>
+        | SetFilterDistance of Numeric.Action //of Guid //of Option<CameraView>
 
     let update (model : Surface) (act : Action) =
         match act with
@@ -44,8 +46,12 @@ module SurfaceProperties =
             { model with isVisible = not model.isVisible }
         | ToggleIsActive ->
             { model with isActive = not model.isActive }
+        | ToggleFilterByDistance ->
+            { model with filterByDistance = not model.filterByDistance }
         | SetTriangleSize a ->
             { model with triangleSize = Numeric.update model.triangleSize a}
+        | SetFilterDistance a ->
+            { model with filterDistance = Numeric.update model.filterDistance a}
         | SetQuality a ->
             { model with quality = Numeric.update model.quality a }
         | SetPriority a ->
@@ -103,18 +109,20 @@ module SurfaceProperties =
       require GuiEx.semui (
         Html.table [                                            
           // Html.row "Path:"        [Incremental.text (model.importPath |> AVal.map (fun x -> sprintf "%A" x ))]                
-          Html.row "Name:"        [Html.SemUi.textBox model.name SetName ]
-          Html.row "Visible:"     [GuiEx.iconCheckBox model.isVisible ToggleVisible ]
-          Html.row "Active:"      [GuiEx.iconCheckBox model.isActive ToggleIsActive ]
-          Html.row "Priority:"    [Numeric.view' [NumericInputType.InputBox] model.priority |> UI.map SetPriority ]       
-          Html.row "Quality:"     [Numeric.view' [NumericInputType.Slider]   model.quality  |> UI.map SetQuality ]
+          Html.row "Name:"           [Html.SemUi.textBox model.name SetName ]
+          Html.row "Visible:"        [GuiEx.iconCheckBox model.isVisible ToggleVisible ]
+          Html.row "Active:"         [GuiEx.iconCheckBox model.isActive ToggleIsActive ]
+          Html.row "Priority:"       [Numeric.view' [NumericInputType.InputBox]   model.priority      |> UI.map SetPriority ]       
+          Html.row "Quality:"        [Numeric.view' [NumericInputType.Slider]     model.quality       |> UI.map SetQuality ]
           Html.row "TriangleFilter:" [Numeric.view' [NumericInputType.InputBox]   model.triangleSize  |> UI.map SetTriangleSize ]
-          Html.row "Scale:"       [Numeric.view' [NumericInputType.InputBox]   model.scaling  |> UI.map SetScaling ]
-          Html.row "Fillmode:"    [Html.SemUi.dropDown model.fillMode SetFillMode]                
-          Html.row "Scalars:"     [UI.dropDown'' (model |> scalarLayerList)  (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.selectedScalar)  (fun x -> SetScalarMap (x |> Option.map(fun y -> y.Current |> AVal.force)))   (fun x -> x.label |> AVal.force)]
-          //Html.row "Scalars:"     [UI.dropDown'' (model |> scalarLayerList)  model.selectedScalar   (fun x -> SetScalarMap (x |> Option.map(fun y -> y.Current ))) (fun x -> x.label |> AVal.force)]
-          Html.row "Textures:"    [UI.dropDown'' model.textureLayers model.selectedTexture  (fun x -> SetTexturesMap x) (fun x -> x.label)]
-          Html.row "Cull Faces:"  [Html.SemUi.dropDown model.cullMode SetCullMode]
+          Html.row "DistanceFilter:" [GuiEx.iconCheckBox model.filterByDistance ToggleFilterByDistance ]
+          Html.row "FilterDistance:" [Numeric.view' [NumericInputType.InputBox]   model.filterDistance  |> UI.map SetFilterDistance ]
+          Html.row "Scale:"          [Numeric.view' [NumericInputType.InputBox]   model.scaling  |> UI.map SetScaling ]
+          Html.row "Fillmode:"       [Html.SemUi.dropDown model.fillMode SetFillMode]                
+          Html.row "Scalars:"        [UI.dropDown'' (model |> scalarLayerList)  (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.selectedScalar)  (fun x -> SetScalarMap (x |> Option.map(fun y -> y.Current |> AVal.force)))   (fun x -> x.label |> AVal.force)]
+          //Html.row "Scalars:"        [UI.dropDown'' (model |> scalarLayerList)  model.selectedScalar   (fun x -> SetScalarMap (x |> Option.map(fun y -> y.Current ))) (fun x -> x.label |> AVal.force)]
+          Html.row "Textures:"       [UI.dropDown'' model.textureLayers model.selectedTexture  (fun x -> SetTexturesMap x) (fun x -> x.label)]
+          Html.row "Cull Faces:"     [Html.SemUi.dropDown model.cullMode SetCullMode]
           Html.row "Set Homeposition:"  [button [clazz "ui button tiny"; onClick (fun _ -> SetHomePosition )] []] //[text "DiscoverOpcs" ]  
         ]
       )

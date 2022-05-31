@@ -15,60 +15,64 @@ type Ext = Ext
 
 module Json = 
 
-
     let writeFloat name (floatValue : double)  = 
-      json {
-        if floatValue.IsNaN() then      
-          do! Json.writeNone name
-        else
-          do! Json.write name floatValue
-      }
+        json {
+            if floatValue.IsNaN() then      
+                do! Json.writeNone name
+            else
+                do! Json.write name floatValue
+        }
     
     let readFloat name : Json<double> = 
-      json {
-        let! v = Json.tryRead name
-        return 
-          match v with
-          | Some k -> k
-          | None -> Double.NaN      
-      }
+        json {
+            let! v = Json.tryRead name
+            return 
+                match v with
+                | Some k -> k
+                | None -> Double.NaN
+        }
 
     let parseOption (x : Json<Option<'a>>) (f : 'a -> 'b) = 
         x |> Json.map (fun x -> x |> Option.map (fun y -> f y))
+
     let writeOption (name : string) (x : option<'a>) =
-      match x with
-      | Some a ->
-          Json.write name (a.ToString ())
-      | None ->
-          Json.writeNone name
-    let writeOptionList (name : string) 
-                     (x : option<List<'a>>) 
-                     (f : List<'a> -> string -> Json<unit>) = //when 'a : (static member ToJson : () -> () )>>) =
-      match x with
-      | Some a ->
-          f a name
-      | None ->
-          Json.writeNone name
+        match x with
+        | Some a ->
+            Json.write name (a.ToString ())
+        | None ->
+            Json.writeNone name
+
+    let writeOptionList 
+        (name : string) 
+        (x : option<List<'a>>) 
+        (f : List<'a> -> string -> Json<unit>) = //when 'a : (static member ToJson : () -> () )>>) =
+
+        match x with
+        | Some a ->
+            f a name
+        | None ->
+            Json.writeNone name
+
     let writeOptionFloat (name : string) (x : option<float>) =
-      match x with
-      | Some a ->
-          Json.write name a
-      | None ->
-          Json.writeNone name
+        match x with
+        | Some a ->
+            Json.write name a
+        | None ->
+            Json.writeNone name
 
     let writeOptionInt (name : string) (x : option<int>) =
-      match x with
-      | Some a ->
-          Json.write name a
-      | None ->
-          Json.writeNone name
+        match x with
+        | Some a ->
+            Json.write name a
+        | None ->
+            Json.writeNone name
 
     let writeOptionBool (name : string) (x : option<bool>) =
-      match x with
-      | Some a ->
-          Json.write name a
-      | None ->
-          Json.writeNone name
+        match x with
+        | Some a ->
+            Json.write name a
+        | None ->
+            Json.writeNone name
 
     let parsePlane3d (s:string) =        
     
@@ -108,6 +112,7 @@ type Ext with
                 format  = format
             }
         }
+
     static member ToJson1 (ext : Ext, v : NumericInput) = 
         json {
             do! Json.writeFloat "value"  v.value
@@ -116,6 +121,24 @@ type Ext with
             do! Json.writeFloat "step"   v.step
             do! Json.write "format" v.format
         }
+
+    ////option NumericInput
+    //static member FromJson1 (ext : Ext, _ : option<NumericInput>) = 
+    //    json {
+    //        let! value  = Json.readFloat "value"
+    //        let! min    = Json.readFloat "min"
+    //        let! max    = Json.readFloat "max"
+    //        let! step   = Json.readFloat "step"
+    //        let! format = Json.read "format"
+    
+    //        return {
+    //            value   = value
+    //            min     = min
+    //            max     = max
+    //            step    = step
+    //            format  = format
+    //        }
+    //    }
     
     //ColorInput
     static member FromJson1 (ext : Ext, _ : ColorInput) = 
