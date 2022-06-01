@@ -29,27 +29,14 @@ module UI =
         ]
                     
     let mkColor (model : AdaptiveGroupsModel) (a : AdaptiveAnnotation) =            
-        
-        AVal.bind2 (fun hov sel ->             
-            if (hov |> HashSet.isEmpty) then
-                if HashSet.exists (fun x -> x.id = a.key) sel then 
+
+        model.selectedLeaves.Content
+            |> AVal.bind (fun selected -> 
+                if HashSet.exists (fun x -> x.id = a.key) selected then 
                     AVal.constant C4b.VRVisGreen
                 else 
                     a.color.c
-            else
-                if HashSet.exists (fun x -> x.id = a.key) hov then 
-                    AVal.constant C4b.VRVisGreen
-                else 
-                    AVal.constant C4b.Gray
-        ) model.hoveredLeaves.Content model.selectedLeaves.Content 
-
-        //model.selectedLeaves.Content
-        //    |> AVal.bind (fun selected -> 
-        //        if HashSet.exists (fun x -> x.id = a.key) selected then 
-        //            AVal.constant C4b.VRVisGreen
-        //        else 
-        //            a.color.c
-        //    )                              
+            )                              
     
     let isSingleSelect (model : AdaptiveGroupsModel) (a : AdaptiveAnnotation) =
         model.singleSelectLeaf |> AVal.map( fun x -> 

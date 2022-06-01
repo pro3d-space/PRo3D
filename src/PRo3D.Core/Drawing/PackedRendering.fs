@@ -429,12 +429,13 @@ module PackedRendering =
           sg, (instanceAttribs |> AVal.map (fun i -> i.ids )), boundingBox
 
 
-    let linesNoIndirect (depthOffset : aval<float>) (selectedAnnotation : aval<int>) (selected : aset<Guid>) (annoSet: aset<Guid * AdaptiveAnnotation>) (view : aval<M44d>) =
+    let linesNoIndirect (depthOffset : aval<float>) (selectedAnnotation : aval<int>) (selected : aset<Guid>) (hovered: aset<Guid>)(annoSet: aset<Guid * AdaptiveAnnotation>) (view : aval<M44d>) =
           let data = 
               AVal.custom (fun t -> 
                   Log.startTimed "mk lines"
                   let annos = annoSet.Content.GetValue(t)
                   let selected = selected.Content.GetValue(t)
+                  let hovered = hovered.Content.GetValue(t)
                   let vertices = List<_>()
                   let colors = List<_>()
                   let tolerances = List<float32>()
@@ -453,7 +454,27 @@ module PackedRendering =
                       let ps = p.GetValue(t)
                       b <- Box3d(b, Box3d(ps))
                       let offset = 0.0
-                      let color = if HashSet.contains id selected then C4b.VRVisGreen else anno.color.c.GetValue(t)
+                      let color = 
+                        if (hovered |> HashSet.isEmpty) then
+                            if HashSet.contains id selected then C4b.VRVisGreen else anno.color.c.GetValue(t)
+                        else
+                            if HashSet.contains id hovered then C4b.VRVisGreen else C4b.Gray
+                        
+                        //AVal.bind2 (fun hov sel ->             
+                        //    if (hov |> HashSet.isEmpty) then
+                        //        if HashSet.exists (fun x -> x.id = a.key) sel then 
+                        //            AVal.constant C4b.VRVisGreen
+                        //        else 
+                        //            a.color.c
+                        //    else
+                        //        if HashSet.exists (fun x -> x.id = a.key) hov then 
+                        //            AVal.constant C4b.VRVisGreen
+                        //        else 
+                        //            AVal.constant C4b.Gray
+                        //) model.hoveredLeaves.Content model.selectedLeaves.Content 
+
+
+                        //if HashSet.contains id selected then C4b.VRVisGreen else anno.color.c.GetValue(t)
                       let thickness = anno.thickness.value.GetValue(t)
                       let tolerance = 0.0
                       let modelTrafo = 

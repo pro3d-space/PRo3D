@@ -52,11 +52,12 @@ module AnnotationViewer =
         //let selectedAnnotation = cval -1
         let hoveredAnnotation = cval -1
         let picked = cval None
+        let hovered = cval None
 
 
         let mv = view |> AVal.map (fun c -> (CameraView.viewTrafo c).Forward)
         let points = points (model.selectedLeaves |> ASet.map (fun x -> x.id)) annoSet config.offset mv
-        let lines, pickIds, bb = PackedRendering.linesNoIndirect config.offset hoveredAnnotation (picked |> AVal.map Option.toList |> ASet.ofAVal) annoSet mv
+        let lines, pickIds, bb = PackedRendering.linesNoIndirect config.offset hoveredAnnotation (picked |> AVal.map Option.toList |> ASet.ofAVal) (hovered |> AVal.map Option.toList |> ASet.ofAVal) annoSet mv
 
         let pickColors = 
             //let size = AVal.constant (V2i(128,128))

@@ -622,7 +622,7 @@ module DrawingApp =
 
             let hoveredAnnotation = cval -1
             let viewMatrix = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
-            let lines, pickIds, bb = PackedRendering.linesNoIndirect config.offset hoveredAnnotation (model.annotations.selectedLeaves |> ASet.map (fun e -> e.id)) annoSet viewMatrix
+            let lines, pickIds, bb = PackedRendering.linesNoIndirect config.offset hoveredAnnotation (model.annotations.selectedLeaves |> ASet.map (fun e -> e.id)) (model.annotations.hoveredLeaves |> ASet.map (fun e -> e.id))  annoSet viewMatrix
             let pickRenderTarget = PackedRendering.pickRenderTarget runtime config.pickingTolerance lines view frustum viewport
             pickRenderTarget.Acquire()
             let packedLines = 
