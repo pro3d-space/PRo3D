@@ -18,12 +18,13 @@ type RoseDiagramModel =
         center      : V2d
         innerRad    : float
         outerRad    : float
-        binAngle    : float //15°
+        binAngle    : NumericInput
         hoveredBin  : Option<int>
     }
 
 type RoseDiagramModelAction =    
     | UpdateRD of List<Guid*float>
+    | SetBinAngle of Numeric.Action
     | EnterRDBin of int
     | ExitRDBin
 
@@ -87,13 +88,24 @@ module RoseDiagramModel =
         let count = angles |> List.length |> float
         let averageAngleRadians = Fun.Atan2(sumSin/count,sumCos/count)        
         let angDeg = averageAngleRadians.DegreesFromRadians()
-        angDeg
+        (angDeg + 360.0) % 360.0
+    
+
+    let angleNumeric =
+        {
+            value = 15.00
+            min = 1.00
+            max = 45.00
+            step = 1.00
+            format = "{0:0.00}"
+        }
+        
         
 
     let initRoseDiagram (data:List<Guid*float>) (avg:float)=
-        let binAngle = 15.0
-        let initB =  initRoseDiagramBins binAngle
-        let bins = sortRoseDiagramDataIntoBins initB data binAngle
+        let binAngle = angleNumeric
+        let initB =  initRoseDiagramBins binAngle.value
+        let bins = sortRoseDiagramDataIntoBins initB data binAngle.value
         let max = BinModel.getBinMaxValue bins        
         let center = V2d.Zero               
 

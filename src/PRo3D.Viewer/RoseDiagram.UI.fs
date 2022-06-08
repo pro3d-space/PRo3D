@@ -161,3 +161,10 @@ module RoseDiagramUI =
             }
         Incremental.Svg.svg AttributeMap.empty sect
 
+    let rosediagramSettings (rd:AdaptiveRoseDiagramModel) =
+        div [style "width:100%; margin-bottom:5"] [               
+            Html.table[
+                Html.row "bin angle" [Numeric.view' [InputBox] rd.binAngle |> UI.map SetBinAngle]                
+            ]
+        ]
+
