@@ -230,7 +230,7 @@ module ViewerUtils =
         (globalBB        : aval<Box3d>) 
         (refsys          : AdaptiveReferenceSystem)
         (fp              : AdaptiveFootPrint) 
-        (vp              : aval<AdaptiveOptionCase<ViewPlan, AdaptiveViewPlan, AdaptiveViewPlan>>) 
+        (vpVisible       : aval<bool>)
         (useHighlighting : aval<bool>)
         (filterTexture   : aval<bool>)
         (allowFootprint  : bool) =
@@ -308,15 +308,7 @@ module ViewerUtils =
                     adaptive {
                         if not allowFootprint then return false
                         else
-                            let! vp = vp
-                            match vp with
-                            | AdaptiveSome vp -> 
-                                return! vp.isVisible 
-                            | _ -> 
-                                return false
-                            //let! visible = fp.isVisible
-                            //let! id = fp.vpId
-                            //return (vp.IsSome && visible)
+                            return! vpVisible
                     }
                 
                 let footprintViewProj = 
@@ -443,7 +435,8 @@ module ViewerUtils =
         Effect.compose [
             PRo3D.Base.Shader.footprintV   |> toEffect 
 
-            stableTrafo             |> toEffect
+            //stableTrafo             |> toEffect
+            PRo3D.Base.Shader.stableTrafo' |> toEffect
 
             triangleFilterX                |> toEffect
             Shader.OPCFilter.improvedDiffuseTexture |> toEffect
@@ -463,6 +456,18 @@ module ViewerUtils =
             
         ]
 
+    let isViewPlanVisible (m:AdaptiveModel) =
+        adaptive {
+            let! id = m.scene.viewPlans.selectedViewPlan
+            match id with
+            | Some v -> 
+                let! vp = m.scene.viewPlans.viewPlans |> AMap.tryFind v
+                match vp with
+                | Some selVp -> return! selVp.isVisible
+                | None -> return false
+            | None -> return false
+        }
+
     //TODO TO refactor screenshot specific
     let getSurfacesScenegraphs (m:AdaptiveModel) =
         let sgGrouped = m.scene.surfacesModel.sgGrouped
@@ -471,6 +476,8 @@ module ViewerUtils =
         let usehighlighting = true |> AVal.constant //m.scene.config.useSurfaceHighlighting
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
+        let vpVisible = isViewPlanVisible m
+
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 
@@ -485,7 +492,7 @@ module ViewerUtils =
                             sf.globalBB 
                             refSystem 
                             m.footPrint 
-                            m.scene.viewPlans.selectedViewPlan
+                            vpVisible
                             usehighlighting m.filterTexture
                             true)
                     |> AMap.toASet 
@@ -536,6 +543,7 @@ module ViewerUtils =
                 | _ -> true
             )
 
+        let vpVisible = isViewPlanVisible m
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
         let grouped = 
@@ -551,7 +559,7 @@ module ViewerUtils =
                             surface.globalBB
                             refSystem 
                             m.footPrint 
-                            m.scene.viewPlans.selectedViewPlan
+                            vpVisible
                             usehighlighting filterTexture
                             allowFootprint
                        )

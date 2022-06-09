@@ -210,14 +210,16 @@ module Gui =
     let textOverlaysInstrumentView (m : AdaptiveViewPlanModel)  = 
         let instrument =
             adaptive {
-                let! vp = m.selectedViewPlan
-                let! inst = 
-                    match Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption vp with
-                    | Some v -> AVal.bindAdaptiveOption v.selectedInstrument "No instrument selected" (fun a -> a.id)
-                    | None -> AVal.constant("")
-        
-                return inst
-            }
+                let! id = m.selectedViewPlan
+                match id with
+                | Some v -> 
+                    let! vp = m.viewPlans |> AMap.tryFind v
+                    match vp with
+                    | Some selVp -> 
+                        return! (AVal.bindAdaptiveOption selVp.selectedInstrument "No instrument selected" (fun a -> a.id)) 
+                    | None -> return ""
+                | None -> return "" 
+            } 
         div [js "oncontextmenu" "event.preventDefault();"] [                         
             yield div [clazz "ui"; style "position: absolute; top: 15px; left: 15px; float:left" ] [
                 //arrowOverlay
@@ -414,6 +416,24 @@ module Gui =
                         ]
                 }
         
+            Incremental.div(AttributeMap.Empty) ui |> UI.map SurfaceActions   
+            
+        let fixAllBrokenOBJPaths =
+            let jsLocateOBJDialog = 
+                "top.aardvark.dialog.showOpenDialog({title:'Select directory to locate OBJs', filters: [{ name: 'OBJs (*.obj)', extensions: ['obj']}], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+            let ui = 
+                alist {
+                    yield
+                        div [ 
+                            clazz "ui item";
+                            Dialogs.onChooseFiles  SurfaceAppAction.ChangeOBJImportDirectories;
+                            clientEvent "onclick" jsLocateOBJDialog 
+                        ][
+                            text "Locate OBJ Surfaces"
+                        ]
+                }
+        
             Incremental.div(AttributeMap.Empty) ui |> UI.map SurfaceActions      
             
         let jsOpenAnnotationFileDialog = 
@@ -546,6 +566,8 @@ module Gui =
                                     div [ clazz "menu"] [
                                         //fixes all broken surface import paths
                                         fixAllBrokenPaths
+                                        //fixes all broken obj import paths
+                                        fixAllBrokenOBJPaths
 
                                         let jsOpenOldAnnotationsFileDialogue = "top.aardvark.dialog.showOpenDialog({title:'Import legacy annotations from PRo3D 1.0' , filters: [{ name: 'Annotations (*.xml)', extensions: ['xml']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
