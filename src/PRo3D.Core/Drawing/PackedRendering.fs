@@ -454,26 +454,16 @@ module PackedRendering =
                       let ps = p.GetValue(t)
                       b <- Box3d(b, Box3d(ps))
                       let offset = 0.0
-                      let color = 
+                      let color= 
                         if (hovered |> HashSet.isEmpty) then
                             if HashSet.contains id selected then C4b.VRVisGreen else anno.color.c.GetValue(t)
                         else
-                            if HashSet.contains id hovered then C4b.VRVisGreen else C4b.Gray
-                        
-                        //AVal.bind2 (fun hov sel ->             
-                        //    if (hov |> HashSet.isEmpty) then
-                        //        if HashSet.exists (fun x -> x.id = a.key) sel then 
-                        //            AVal.constant C4b.VRVisGreen
-                        //        else 
-                        //            a.color.c
-                        //    else
-                        //        if HashSet.exists (fun x -> x.id = a.key) hov then 
-                        //            AVal.constant C4b.VRVisGreen
-                        //        else 
-                        //            AVal.constant C4b.Gray
-                        //) model.hoveredLeaves.Content model.selectedLeaves.Content 
-
-
+                            if HashSet.contains id hovered then C4b.VRVisGreen
+                            else                                 
+                                let hsv = anno.color.c.GetValue(t) |> C3f.FromC4b |> HSVf.FromC3f
+                                let hsv' = HSVf(hsv.H, 0.1f, 0.5f)
+                                hsv'.ToC3f().ToC3b().ToC4b()
+        
                         //if HashSet.contains id selected then C4b.VRVisGreen else anno.color.c.GetValue(t)
                       let thickness = anno.thickness.value.GetValue(t)
                       let tolerance = 0.0
@@ -640,7 +630,7 @@ module PackedRendering =
            }
 
 
-    let fastDns (config : Sg.innerViewConfig) (fcm : AdaptiveFalseColorsModel) (annoSet: aset<Guid * AdaptiveAnnotation>) (view : aval<CameraView>) = 
+    let fastDns (config : Sg.innerViewConfig) (fcm : AdaptiveFalseColorsModel) (annoSet: aset<Guid * AdaptiveAnnotation>) (view : aval<CameraView>) (hoveringActive:aval<bool>) = 
         
         let stableLight = 
             FShade.Effect.compose [
@@ -668,6 +658,7 @@ module PackedRendering =
             let planeSize = config.dnsPlaneSize.GetValue(t)
             let arrowLength = config.arrowLength.GetValue(t)
             let arrowThickness = config.arrowThickness.GetValue(t)
+            let hovering = hoveringActive.GetValue(t)
 
             let lineVertices = List<V3f>()
             let lineColors = List<C4b>()
@@ -676,7 +667,7 @@ module PackedRendering =
 
             for (id,anno) in annos do
                 let visible = anno.visible.GetValue(t)
-                let showDns = anno.showDns.GetValue(t)
+                let showDns = if hovering then false else anno.showDns.GetValue(t)
                 let dnsResults = anno.dnsResults.GetValue(t)
                 match dnsResults with
                 | AdaptiveSome s when visible && showDns -> 
@@ -743,7 +734,8 @@ module PackedRendering =
 
             {| discTrafos = discsTrafos.ToArray(); discColors = discColors.ToArray(); 
                coneTrafos = coneTrafos.ToArray(); coneColors = coneColors.ToArray(); 
-               modelTrafoLines = Option.defaultValue Trafo3d.Identity generalLineTrafo; lineVertices = lineVertices.ToArray(); lineColors = lineColors.ToArray() |}
+               modelTrafoLines = Option.defaultValue Trafo3d.Identity generalLineTrafo; lineVertices = lineVertices.ToArray(); lineColors = lineColors.ToArray()
+            |}
         )
 
         let discSg = 
