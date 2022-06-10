@@ -430,13 +430,26 @@ module ViewerUtils =
                   }
           }
 
+    let stableTrafoTest (v : Vertex) =
+          vertex {
+              let mvp : M44d = uniform?MVP?ModelViewTrafo
+              let vp = mvp * v.pos
 
+              return 
+                  { v with
+                      pos = uniform.ProjTrafo * vp
+                      c = v.c
+                      vp = uniform.ModelViewTrafo * v.pos
+                  }
+          }
+
+    
     let surfaceEffect =
         Effect.compose [
             PRo3D.Base.Shader.footprintV   |> toEffect 
 
             //stableTrafo             |> toEffect
-            PRo3D.Base.Shader.stableTrafo' |> toEffect
+            stableTrafoTest |> toEffect
 
             triangleFilterX                |> toEffect
             Shader.OPCFilter.improvedDiffuseTexture |> toEffect
