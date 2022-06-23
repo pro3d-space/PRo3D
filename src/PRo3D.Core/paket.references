@@ -31,4 +31,6 @@ Aardvark.GeoSpatial.Opc
 OPCViewer.Base
 RestSharp
 
+Aardvark.Data.Wavefront
+
 Chiron
