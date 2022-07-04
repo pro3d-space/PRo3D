@@ -11,7 +11,7 @@ module RoseDiagram_App =
             let updatedBins = RoseDiagramModel.sortRoseDiagramDataIntoBins m.bins data m.binAngle.value
             let max = BinModel.getBinMaxValue updatedBins
             let avgAngle = RoseDiagramModel.calculateAvgAngle (data |> List.map(fun (_,d) -> d))
-            {m with bins = updatedBins; maxBinValue = max; avgAngle = avgAngle}
+            {m with data = data; bins = updatedBins; maxBinValue = max; avgAngle = avgAngle}
 
         | SetBinAngle act ->
             let ud_angle = Numeric.update m.binAngle act

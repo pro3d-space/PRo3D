@@ -130,8 +130,8 @@ module RoseDiagramUI =
                     let b = bins.Item i  
                     let subArea = (areaTotal / ((float(maxBinValue))/(float(b.count)))) + areaInner
                     let subOuterRadius = Fun.Sqrt(subArea / Constant.Pi)
-                    let startRadians = b.range.Min * Constant.RadiansPerDegree
-                    let endRadians = b.range.Max * Constant.RadiansPerDegree
+                    let startRadians = ((b.range.Min+270.0)%360.0) * Constant.RadiansPerDegree
+                    let endRadians = ((b.range.Max+270.0)%360.0) * Constant.RadiansPerDegree
 
                     let color, drawText' =
                         match hovered with 
@@ -139,6 +139,7 @@ module RoseDiagramUI =
                         | None -> ("none", false)                          
 
                     yield drawRoseDiagramSection startRadians endRadians center innerRad subOuterRadius b.id color 
+                    //yield drawRoseDiagramSection startRadians endRadians center subOuterRadius innerRad b.id color 
                     if drawText' then                         
                         let subOuterRadius' = Fun.Sqrt((areaTotal  + areaInner) / Constant.Pi)
                         yield drawText (hoverTextPos center startRadians endRadians subOuterRadius') (sprintf "%i" b.count) "10" "middle"                        
