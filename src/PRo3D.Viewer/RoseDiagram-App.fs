@@ -8,17 +8,16 @@ module RoseDiagram_App =
         match action with        
 
         | UpdateRD data -> 
-            let updatedBins = RoseDiagramModel.sortRoseDiagramDataIntoBins m.bins data m.binAngle.value
+            let updatedBins = RoseDiagramModel.sortRoseDiagramDataIntoBins m.bins data m.binAngle
             let max = BinModel.getBinMaxValue updatedBins
             let avgAngle = RoseDiagramModel.calculateAvgAngle (data |> List.map(fun (_,d) -> d))
             {m with data = data; bins = updatedBins; maxBinValue = max; avgAngle = avgAngle}
 
-        | SetBinAngle act ->
-            let ud_angle = Numeric.update m.binAngle act
-            let bins = RoseDiagramModel.initRoseDiagramBins ud_angle.value
-            let updatedBins = RoseDiagramModel.sortRoseDiagramDataIntoBins bins m.data ud_angle.value
+        | SetBinAngle angle ->            
+            let bins = RoseDiagramModel.initRoseDiagramBins angle
+            let updatedBins = RoseDiagramModel.sortRoseDiagramDataIntoBins bins m.data angle
             let max = BinModel.getBinMaxValue updatedBins
-            {m with bins = updatedBins; maxBinValue = max; binAngle = ud_angle}
+            {m with bins = updatedBins; maxBinValue = max; binAngle = angle}
 
         | EnterRDBin id ->
             {m with hoveredBin = Some(id)}

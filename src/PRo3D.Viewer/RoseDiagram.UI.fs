@@ -3,6 +3,7 @@
 open System
 open Aardvark.Base
 open Aardvark.UI
+open Aardvark.UI.Primitives
 open FSharp.Data.Adaptive
 
 module RoseDiagramUI =
@@ -40,13 +41,10 @@ module RoseDiagramUI =
         let endX = start.X + Math.Cos(angle) * length
         let endY = start.Y + Math.Sin(angle) * length
         new V2d (endX, endY)
-
-    let hoverTextPos (center:V2d) (startAngle:float) (endAngle:float) (outerRad:float) = 
-           let outerStart = pointFromAngle center startAngle (outerRad + 10.0)
-           let outerEnd = pointFromAngle center endAngle (outerRad + 10.0)
-           let vectorHalf = (outerEnd - outerStart)/2.0
-           let pos = outerStart + vectorHalf         
-           V2i(int(pos.X), int(pos.Y))
+   
+    let hoverTextPos' (center:V2d) (binMiddle:float) (outerRad:float) =
+        let p = pointFromAngle center binMiddle (outerRad + 10.0)
+        V2i(int(p.X), int(p.Y))
 
     let averageLine (center:V2d) (innerRad:float) (outerRad:float) (avgAngle:float) (color:string)=
 
@@ -125,7 +123,8 @@ module RoseDiagramUI =
                 let areaTotal = areaOuter - areaInner
                 let! maxBinValue = r.maxBinValue
                 let! hovered = r.hoveredBin
-            
+                let! binAngle = r.binAngle
+                            
                 for i in 0..(bins.Length-1) do
                     let b = bins.Item i  
                     let subArea = (areaTotal / ((float(maxBinValue))/(float(b.count)))) + areaInner
@@ -139,17 +138,18 @@ module RoseDiagramUI =
                         | None -> ("none", false)                          
 
                     yield drawRoseDiagramSection startRadians endRadians center innerRad subOuterRadius b.id color 
-                    //yield drawRoseDiagramSection startRadians endRadians center subOuterRadius innerRad b.id color 
-                    if drawText' then                         
-                        let subOuterRadius' = Fun.Sqrt((areaTotal  + areaInner) / Constant.Pi)
-                        yield drawText (hoverTextPos center startRadians endRadians subOuterRadius') (sprintf "%i" b.count) "10" "middle"                        
-               
+                   
+                    if drawText' then                        
+                        let angleHalf = binAngle/2.0
+                        let binStart = (b.range.Min+270.0)%360.0
+                        let binMiddle = ((binStart + angleHalf) % 360.0) * Constant.RadiansPerDegree
+                        yield drawText (hoverTextPos' center binMiddle outerRad) (sprintf "%i" b.count) "10" "middle" 
 
                 let N = bins |> List.fold (fun acc bin -> acc + bin.count) 0
                 
                 yield drawCircle center innerRad
                 yield drawCircle center outerRad
-                yield drawText (V2i(20, 20)) (sprintf "N = %i" N) "12" "start"
+                yield drawText (V2i(10, 20)) (sprintf "N = %i" N) "12" "start"                
                 yield averageLine center innerRad outerRad avgAngle "red"
 
                 //just for testing
@@ -162,10 +162,29 @@ module RoseDiagramUI =
             }
         Incremental.Svg.svg AttributeMap.empty sect
 
-    let rosediagramSettings (rd:AdaptiveRoseDiagramModel) =
-        div [style "width:100%; margin-bottom:5"] [               
-            Html.table[
-                Html.row "bin angle" [Numeric.view' [InputBox] rd.binAngle |> UI.map SetBinAngle]                
-            ]
-        ]
+    
+    let binAngleDropDown =
+        div [ clazz "ui menu"; style "width:150px; height:20px;padding:0px; margin:0px"] [
+            onBoot "$('#__ID__').dropdown('on', 'hover');" (
+                div [ clazz "ui dropdown item"; style "width:100%"] [
+                    i [clazz "dropdown icon"; style "margin:0px 5px"] []
+                    text "bin width"
+                    div [ clazz "ui menu"] [
+                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetBinAngle 1.0)] [text "1°"]
+                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetBinAngle 15.0)] [text "15°"]                        
+                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetBinAngle 45.0)] [text "45°"] 
+                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetBinAngle 90.0)] [text "90°"] 
+                    ]
+                ]
+            )
+        ] 
 
+    let binAngleDropDown' (r:AdaptiveRoseDiagramModel) = 
+        
+        let angles = [|1.0; 15.0; 45.0; 90.0|] 
+        let values = AMap.ofArray((angles |> Array.map (fun v -> (v, text (sprintf "%.0f°" v)))))
+                       
+        Html.table[
+            Html.row "Bin width" [dropdown1 [ clazz "ui inverted selection dropdown" ] values r.binAngle SetBinAngle]                
+        ]
+        
