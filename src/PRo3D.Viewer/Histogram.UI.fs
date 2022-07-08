@@ -443,7 +443,7 @@ module HistogramUI =
     
     let histogramSettings (hist:AdaptiveHistogramModel) =
            div [style "width:100%; margin-bottom:5"] [                
-               text "Histogram Settings"
+               text "Settings"
                Html.table[
                    Html.row "domain min" [Numeric.view' [InputBox] hist.domainStart |> UI.map SetDomainMin]
                    Html.row "domain max" [Numeric.view' [InputBox] hist.domainEnd |> UI.map SetDomainMax]
