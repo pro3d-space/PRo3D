@@ -791,6 +791,23 @@ module SequencedBookmarksApp =
                 Incremental.div ([] |> AttributeMap.ofList ) alst
                 
 
+            let outputFolderGui =
+                let attributes = 
+                    alist {
+                        let! outputPath = model.outputPath
+                        yield Dialogs.onChooseFiles SetOutputPath;
+                        yield clientEvent "onclick" (Dialogs.jsSelectPathDialogWithPath outputPath)
+                        yield (style "word-break: break-all")
+                    } |> AttributeMap.ofAList
+
+                let content =
+                    alist {
+                        yield i [clazz "write icon"] []
+                        yield Incremental.text model.outputPath
+                    }
+
+                Incremental.div attributes content
+
 
             require GuiEx.semui (
                 div [] [
@@ -841,10 +858,8 @@ module SequencedBookmarksApp =
                         Html.row "FPS Setting" [Html.SemUi.dropDown model.fpsSetting SetFpsSetting]
                         Html.row "Output Path" 
                             [
-                                div [   style "word-break: break-all"
-                                        Dialogs.onChooseFiles SetOutputPath;
-                                        clientEvent "onclick" (Dialogs.jsSelectPathDialog)
-                                    ] [i [clazz "write icon"] []; Incremental.text model.outputPath]]
+                                outputFolderGui
+                            ]
                     ]
 
                 ]
