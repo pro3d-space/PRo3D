@@ -323,7 +323,12 @@ module SequencedBookmarks =
                 match fpsSetting with
                 | Some s -> FPSSetting.Parse (s)
                 | None   -> FPSSetting.Full
-
+            let! (debug : option<bool>) = Json.tryRead "debug"
+            let debug =
+                match debug with
+                | Some true -> true
+                | Some false -> false
+                | None -> false
                 
             return 
                 {
@@ -339,7 +344,7 @@ module SequencedBookmarks =
                     isRecording         = false
                     isCancelled         = false
                     isGenerating        = false
-                    debug               = false
+                    debug               = debug
                     generateOnStop      = generateOnStop
                     resolutionX         = {initResolution with value = float resolution.X}
                     resolutionY         = {initResolution with value = float resolution.Y}
@@ -400,8 +405,7 @@ type SequencedBookmarks with
             do! Json.write "orderList"                                          x.orderList
             do! Json.write "selectedBookmark"                                   x.selectedBookmark
             do! Json.write "animationInfo"                                      (x.animationInfo |> HashMap.toList |> List.map snd)
-            //do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "delay"           x.delay
-            //do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "animationSpeed"  x.animationSpeed
+            do! Json.write "debug"                                              x.debug
             do! Json.write "generateOnStop"                                     x.generateOnStop
             do! Json.write "resolution"                                         (resolution.ToString ())
             do! Json.write "outputPath"                                         x.outputPath
