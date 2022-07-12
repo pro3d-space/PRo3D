@@ -506,6 +506,8 @@ module SequencedBookmarksApp =
             outerModel, {m with renderStillFrames = not m.renderStillFrames}
         | ToggleUpdateJsonBeforeRendering ->
             outerModel, {m with updateJsonBeforeRendering = not m.updateJsonBeforeRendering}
+        | ToggleDebug ->
+            outerModel, {m with debug = not m.debug}
         | UpdateJson ->
             // currently updated in Viewer.fs
             outerModel, m
@@ -561,8 +563,14 @@ module SequencedBookmarksApp =
             let exeName = "PRo3D.Snapshots.exe"
             match File.Exists exeName with
             | true -> 
-                let args = sprintf "--scn \"%s\" --asnap \"%s\" --out \"%s\" --exitOnFinish" 
-                                    scenePath jsonPathName m.outputPath
+                let args = 
+                    match m.debug with
+                    | true ->
+                        sprintf "--scn \"%s\" --asnap \"%s\" --out \"%s\" --verbose" 
+                                        scenePath jsonPathName m.outputPath
+                    | false ->
+                        sprintf "--scn \"%s\" --asnap \"%s\" --out \"%s\" --exitOnFinish" 
+                                        scenePath jsonPathName m.outputPath
                 Log.line "[Viewer] Starting snapshot rendering with arguments: %s" args
                 snapshotProcess <- Some (runProcess exeName args None)
                 let id = System.Guid.NewGuid () |> string
@@ -816,6 +824,11 @@ module SequencedBookmarksApp =
                             [
                                 updateJsonButton
                                 
+                            ]
+                        Html.row "Debug" 
+                            [GuiEx.iconCheckBox model.debug ToggleDebug;
+                                    i [clazz "info icon"] [] 
+                                        |> UI.wrapToolTip DataPosition.Bottom "Leaves the window with information about the rendering process open after rendering and uses verbose mode."
                             ]
 
                         Html.row "Image Resolution:"  

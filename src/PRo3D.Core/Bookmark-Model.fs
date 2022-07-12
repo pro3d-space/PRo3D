@@ -142,6 +142,7 @@ type SequencedBookmarksAction =
     | CancelSnapshots
     | ToggleGenerateOnStop
     | ToggleRenderStillFrames
+    | ToggleDebug
     | SetResolutionX of Numeric.Action
     | SetResolutionY of Numeric.Action
     | SetOutputPath of list<string>
@@ -204,6 +205,7 @@ type SequencedBookmarks = {
     resolutionX      : NumericInput
     resolutionY      : NumericInput
     renderStillFrames : bool
+    debug            : bool
     currentFps       : Option<int>
     outputPath       : string
     fpsSetting       : FPSSetting
@@ -337,6 +339,7 @@ module SequencedBookmarks =
                     isRecording         = false
                     isCancelled         = false
                     isGenerating        = false
+                    debug               = false
                     generateOnStop      = generateOnStop
                     resolutionX         = {initResolution with value = float resolution.X}
                     resolutionY         = {initResolution with value = float resolution.Y}
@@ -366,6 +369,7 @@ module SequencedBookmarks =
             isCancelled         = false
             isGenerating        = false
             generateOnStop      = false
+            debug               = false
             resolutionX         = initResolution
             resolutionY         = initResolution
             outputPath          = defaultOutputPath () 

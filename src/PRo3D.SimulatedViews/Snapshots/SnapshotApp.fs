@@ -81,15 +81,15 @@ module SnapshotApp =
         let resolution = V3i (app.snapshotAnimation.resolution.X, app.snapshotAnimation.resolution.Y, 1)
         if verbose then
             Log.line "calculated near plane as %f and far plane as %f" near far
-        
-        let col   = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Rgba8, 1, 1);
-        let depth = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Depth24Stencil8, 1, 1);
+
+        let col   = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Rgba8, 1, 8);
+        let depth = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Depth24Stencil8, 1, 8);
 
         let signature = 
-            app.runtime.CreateFramebufferSignature [
-                DefaultSemantic.Colors, TextureFormat.Rgba8
-                DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
-            ]
+             app.runtime.CreateFramebufferSignature ([
+                 DefaultSemantic.Colors, TextureFormat.Rgba8
+                 DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
+             ], 8)
 
         let fbo = 
             app.runtime.CreateFramebuffer(
