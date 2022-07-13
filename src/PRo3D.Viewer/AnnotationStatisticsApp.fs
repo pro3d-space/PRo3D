@@ -143,3 +143,16 @@ module AnnotationStatisticsDrawings =
             )
         ] 
 
+    let view (m:AdaptiveAnnotationStatisticsModel) =
+        Incremental.div (AttributeMap.ofList [style "width:100%; height:auto; margin: 0 5 0 5"]) 
+            (                                  
+                m.properties 
+                |> AMap.map(fun _ v -> 
+                    StatisticsMeasurement_App.view v
+                    |> UI.map (fun f -> MeasurementMessage (v.measurementType,f))                               
+                ) 
+                |> AMap.toASet 
+                |> ASet.toAList 
+                |> AList.map(fun (a,b) -> b)                                                                 
+            )
+
