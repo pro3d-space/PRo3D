@@ -101,6 +101,7 @@ module ViewerApp =
     // animation  
     let _animation = Model.animations_
     let _animationView = _animation >-> AnimationModel.cam_
+    let _animator = Model.animator_
 
     //footprint
     let _footprint = Model.footPrint_
@@ -398,7 +399,7 @@ module ViewerApp =
         }
         m |> UserFeedback.queueFeedback feedback
 
-    let update 
+    let updateViewer 
         (runtime   : IRuntime) 
         (signature : IFramebufferSignature) 
         (sendQueue : BlockingCollection<string>) 
@@ -418,6 +419,21 @@ module ViewerApp =
             |> Optic.set _navigation nav
             |> Optic.set _animationView nav.camera.view
         | AnimationMessage msg,_,_ ->
+            let m = 
+                match msg with
+                | Tick t when AnimationApp.shouldAnimate m.animations -> 
+                    match IndexList.tryAt 0 m.animations.animations with
+                    | Some anim -> 
+                        // initialize animation (if needed)
+                        let (anim,localTime,state) = AnimationApp.updateAnimation m.animations t anim
+                        match anim.sample(localTime, t) state with 
+                        | None -> // animation stops
+                            // do updates to model
+                            m
+                        | Some (s,cameraView) -> 
+                            m
+                    | None -> m
+                | _ -> m
             let a = AnimationApp.update m.animations msg
             { m with animations = a } |> Optic.set _view a.cam
         | SetCamera cv,_,false -> Optic.set _view cv m
@@ -957,6 +973,7 @@ module ViewerApp =
                     m.renderingUrl 
                     m.numberOfSamples 
                     m.screenshotDirectory
+                    _animator
 
             { initialModel with recent = m.recent} |> ViewerIO.loadRoverData
         | KeyDown k, _, _ ->
@@ -1572,6 +1589,23 @@ module ViewerApp =
             { m with drawing = { m.drawing with automaticGeoJsonExport = autoExport } }
         | _ -> m       
                                    
+
+    let update 
+        (runtime   : IRuntime) 
+        (signature : IFramebufferSignature) 
+        (sendQueue : BlockingCollection<string>) 
+        (mailbox   : MessagingMailbox) 
+        (m         : Model) 
+        (msg       : ViewerAnimationAction) =
+
+        match msg with
+        | ViewerMessage msg ->
+            updateViewer runtime signature sendQueue mailbox m msg
+        | AnewmationMessage msg ->
+            Anewmation.Animator.update msg m
+
+
+
     let mkBrushISg color size trafo : ISg<Message> =
       Sg.sphere 5 color size 
         |> Sg.shader {
@@ -1599,6 +1633,7 @@ module ViewerApp =
         
         AttributeMap.unionMany [
             renderControlAtts m.navigation
+                |> AttributeMap.mapAttributes (AttributeValue.map ViewerMessage)
 
             AttributeMap.ofList [
                 attribute "style" "width:100%; height: 100%; float:left; background-color: #222222"
@@ -1618,8 +1653,10 @@ module ViewerApp =
                             printfn "%A" (w,h)
                             ResizeMainControl(V2i(w,h),id)
                         | _ -> Nop 
-                )
+                )] |> AttributeMap.mapAttributes (AttributeValue.map ViewerMessage)
                 //onResize  (fun s -> OnResize(s,id))
+            AttributeMap.ofList [
+                onEvent "onRendered" [] (fun _ -> AnewmationMessage Anewmation.AnimatorMessage.RealTimeTick)                    
             ] 
         ]            
 
@@ -1642,7 +1679,7 @@ module ViewerApp =
                             ResizeMainControl(V2i(w,h),id)
                         | _ -> Nop 
                 )
-            ] 
+            ] |> AttributeMap.mapAttributes (AttributeValue.map ViewerMessage) 
         ]     
         
     let allowAnnotationPicking (m : AdaptiveModel) =       
@@ -1695,6 +1732,7 @@ module ViewerApp =
 
         // instrument view control
         let icmds = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed discsInst false m // m.scene.surfacesModel.sgGrouped overlayed discs m
+                        |> AList.map ViewerUtils.mapRenderCommand
         let icam = 
             AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
 
@@ -1916,8 +1954,10 @@ module ViewerApp =
                 traverses
             ] |> Sg.ofList
 
+
         //render OPCs in priority groups
         let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested true m
+                        |> AList.map ViewerUtils.mapRenderCommand
         onBoot "attachResize('__ID__')" (
             DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
         )
@@ -1933,7 +1973,9 @@ module ViewerApp =
             { kind = Script;      name = "resizeElem";  url = "./ElementQueries.js"  }
         ]
         
-        let bodyAttributes = [style "background: #1B1C1E; height:100%; overflow-y:scroll; overflow-x:hidden;"] //overflow-y : visible
+        let bodyAttributes : list<Attribute<ViewerAnimationAction>> = 
+            [style "background: #1B1C1E; height:100%; overflow-y:scroll; overflow-x:hidden;" //] //overflow-y : visible
+            ]
 
         page (
             fun request -> 
@@ -1964,6 +2006,9 @@ module ViewerApp =
         let sBookmarks = SequencedBookmarksApp.threads m.scene.sequencedBookmarks |> ThreadPool.map SequencedBookmarkMessage
 
         unionMany [drawing; animation; nav; m.scene.feedbackThreads; minerva; sBookmarks]
+            |> ThreadPool.map ViewerMessage
+            |> ThreadPool.union (Anewmation.Animator.threads m.animator 
+                                    |> ThreadPool.map AnewmationMessage)
         
     let loadWaypoints m = 
         match Serialization.fileExists "./waypoints.wps" with
@@ -1987,7 +2032,8 @@ module ViewerApp =
 
         let m = 
             if startEmpty |> not then
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl dataSamples screenshotDirectory
+                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl 
+                                            dataSamples screenshotDirectory _animator
                 |> SceneLoader.loadLastScene runtime signature                
                 |> SceneLoader.loadLogBrush
                 |> ViewerIO.loadRoverData                
@@ -1999,7 +2045,8 @@ module ViewerApp =
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
             else
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl dataSamples screenshotDirectory
+                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl
+                                            dataSamples screenshotDirectory _animator
                 |> ViewerIO.loadRoverData
 
         App.start {

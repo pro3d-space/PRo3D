@@ -1004,6 +1004,7 @@ module Gui =
                         yield style ("background: #1B1C1E;" + height + width)
                         yield Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Instrument)
                     } |> AttributeMap.ofAMap
+                      |> AttributeMap.mapAttributes (AttributeValue.map ViewerMessage)
 
                 require (viewerDependencies) (
                     body [ style "background: #1B1C1E; width:100%; height:100%; overflow-y:auto; overflow-x:auto;"] [
@@ -1025,15 +1026,16 @@ module Gui =
                     let onFocus (cb : V2i -> 'msg) =
                         onEvent "onfocus" ["{ X: $(document).width(), Y: $(document).height()  }"] (List.head >> Pickler.json.UnPickleOfString >> cb)
 
-                    let renderViewAttributes = [ 
-                        style "background: #1B1C1E; height:100%; width:100%"
-                        Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Standard)
-                        onResize (fun s -> OnResize(s, renderViewportSizeId))
-                        onFocus (fun s -> OnResize(s, renderViewportSizeId))
-                        onMouseDown (fun button pos -> StartDragging (pos, button))
-                     //   onMouseMove (fun delta -> Dragging delta)
-                        onMouseUp (fun button pos -> EndDragging (pos, button))
-                    ]
+                    let renderViewAttributes : list<Attribute<ViewerAnimationAction>> = 
+                        [ 
+                            style "background: #1B1C1E; height:100%; width:100%"
+                            Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Standard)
+                            onResize (fun s -> OnResize(s, renderViewportSizeId))
+                            onFocus (fun s -> OnResize(s, renderViewportSizeId))
+                            onMouseDown (fun button pos -> StartDragging (pos, button))
+                         //   onMouseMove (fun delta -> Dragging delta)
+                            onMouseUp (fun button pos -> EndDragging (pos, button))
+                        ] |> List.map (ViewerUtils.mapAttribute ViewerMessage)
 
                     body renderViewAttributes [ //[ style "background: #1B1C1E; height:100%; width:100%"] [
                         //div [style "background:#000;"] [
@@ -1047,6 +1049,7 @@ module Gui =
                                 yield scalarsColorLegend m
                                 yield selectionRectangle m
                                 yield PRo3D.Linking.LinkingApp.sceneOverlay m.linkingModel |> UI.map LinkingActions
+                                                                                           |> UI.map ViewerMessage
                             }
                         )
                     ]                
@@ -1054,27 +1057,31 @@ module Gui =
             | Some "surfaces" -> 
                 require (viewerDependencies) (
                     body bodyAttributes
-                        [SurfaceApp.surfaceUI Config.colorPaletteStore m.scene.surfacesModel |> UI.map SurfaceActions] 
+                        [SurfaceApp.surfaceUI Config.colorPaletteStore m.scene.surfacesModel |> UI.map SurfaceActions |> UI.map ViewerMessage] 
                 )
             | Some "annotations" -> 
-                require (viewerDependencies) (body bodyAttributes [Annotations.annotationUI m])
+                require (viewerDependencies) (body bodyAttributes [Annotations.annotationUI m
+                                                                        |> UI.map ViewerMessage])
             | Some "validation" -> 
-                require (viewerDependencies) (body bodyAttributes [HeightValidatorApp.viewUI m.heighValidation |> UI.map HeightValidation])
+                require (viewerDependencies) (body bodyAttributes [HeightValidatorApp.viewUI m.heighValidation 
+                                                                            |> UI.map HeightValidation
+                                                                            |> UI.map ViewerMessage])
             | Some "bookmarks" -> 
-                require (viewerDependencies) (body bodyAttributes [Bookmarks.bookmarkUI m])
+                require (viewerDependencies) (body bodyAttributes [Bookmarks.bookmarkUI m |> UI.map ViewerMessage])
             | Some "comparison" -> 
                 require (viewerDependencies) (body bodyAttributes [PRo3D.ComparisonApp.view m.scene.comparisonApp m.scene.surfacesModel
-                                                                    |> UI.map ComparisonMessage])
+                                                                    |> UI.map ComparisonMessage
+                                                                    |> UI.map ViewerMessage])
             | Some "sceneobjects" -> 
-                require (viewerDependencies) (body bodyAttributes [SceneObjects.sceneObjectsUI m])
+                require (viewerDependencies) (body bodyAttributes [SceneObjects.sceneObjectsUI m |> UI.map ViewerMessage])
             | Some "scalebars" -> 
-                require (viewerDependencies) (body bodyAttributes [ScaleBars.scaleBarsUI m])
+                require (viewerDependencies) (body bodyAttributes [ScaleBars.scaleBarsUI m |> UI.map ViewerMessage])
             | Some "traverse" -> 
-                require (viewerDependencies) (body bodyAttributes [Traverse.traverseUI m])
+                require (viewerDependencies) (body bodyAttributes [Traverse.traverseUI m |> UI.map ViewerMessage])
             | Some "geologicSurf" -> 
-                require (viewerDependencies) (body bodyAttributes [GeologicSurfaces.geologicSurfacesUI m])
+                require (viewerDependencies) (body bodyAttributes [GeologicSurfaces.geologicSurfacesUI m |> UI.map ViewerMessage])
             | Some "sequencedBookmarks" -> 
-                require (viewerDependencies) (body bodyAttributes [SequencedBookmarks.sequencedBookmarksUI m])
+                require (viewerDependencies) (body bodyAttributes [SequencedBookmarks.sequencedBookmarksUI m |> UI.map ViewerMessage])
             | Some "properties" ->
                 let prop = 
                     m.drawing.annotations.lastSelectedItem
@@ -1106,11 +1113,11 @@ module Gui =
                             Incremental.div AttributeMap.empty (AList.ofAValSingle(Annotations.viewDipAndStrike m))]
                     ]
 
-                require (viewerDependencies) (body bodyAttributes (blurg()))
+                require (viewerDependencies) (body bodyAttributes (blurg() |> List.map (UI.map ViewerMessage)))
             | Some "config" -> 
-                require (viewerDependencies) (body bodyAttributes [Config.configUI m])
+                require (viewerDependencies) (body bodyAttributes [Config.configUI m |> UI.map ViewerMessage])
             | Some "viewplanner" -> 
-                require (viewerDependencies) (body bodyAttributes [ViewPlanner.viewPlannerUI m])
+                require (viewerDependencies) (body bodyAttributes [ViewPlanner.viewPlannerUI m |> UI.map ViewerMessage])
             | Some "minerva" -> 
                //let pos = m.scene.navigation.camera.view |> AVal.map(fun x -> x.Location)
                 let minervaItems = 
@@ -1124,12 +1131,15 @@ module Gui =
                     ]
 
                 require (viewerDependencies @ Html.semui) (
-                    body bodyAttributes (minervaItems @ linkingItems)
+                    body bodyAttributes (minervaItems  @ linkingItems
+                                            |> List.map ( UI.map ViewerMessage))
                 )
             | Some "linking" ->
                 require (viewerDependencies) (
                     body bodyAttributes [
-                        PRo3D.Linking.LinkingApp.viewHorizontalBar m.minervaModel.session.selection.highlightedFrustra m.linkingModel |> UI.map LinkingActions
+                        PRo3D.Linking.LinkingApp.viewHorizontalBar m.minervaModel.session.selection.highlightedFrustra m.linkingModel 
+                                |> UI.map LinkingActions
+                                |> UI.map ViewerMessage
                     ]
                 )
             //| Some "corr_logs" ->
@@ -1150,11 +1160,13 @@ module Gui =
                 require (viewerDependencies) (
                     body [] [                    
                         TopMenu.getTopMenu m
+                            |> UI.map ViewerMessage
                         div [clazz "dockingMainDings"] [
                             m.scene.dockConfig
                             |> docking [                                           
                                 style "width:100%; height:100%; background:#F00"
-                                onLayoutChanged UpdateDockConfig ]
+                                onLayoutChanged UpdateDockConfig
+                                    |> ViewerUtils.mapAttribute ViewerMessage]
                         ]
                     ]
                 )

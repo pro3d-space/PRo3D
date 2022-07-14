@@ -21,20 +21,20 @@ open Adaptify
 
 module SnapshotGenerator =
     let loadData (args  : PRo3D.SimulatedViews.CLStartupArgs) 
-                 (mApp  : MutableApp<Model, ViewerAction>) =
+                 (mApp  : MutableApp<Model, ViewerAnimationAction>) =
         match args.snapshotPath, args.snapshotType with
         | Some spath, Some stype ->   
             let hasLaodedScene = 
                 match args.scenePath with
                 | Some sp ->
-                    mApp.updateSync Guid.Empty (ViewerAction.LoadScene sp |> Seq.singleton)
+                    mApp.updateSync Guid.Empty (ViewerAction.LoadScene sp |> ViewerMessage |> Seq.singleton)
                     true
                 | None -> false
 
             let hasLoadedOpc = 
                 match args.opcPaths with
                 | Some opcs ->
-                    mApp.updateSync Guid.Empty (ViewerAction.ImportDiscoveredSurfaces opcs |> Seq.singleton)
+                    mApp.updateSync Guid.Empty (ViewerAction.ImportDiscoveredSurfaces opcs |> ViewerMessage |>  Seq.singleton)
                     true
                 | None -> false
             let hasLoadedAny = 
@@ -43,6 +43,7 @@ module SnapshotGenerator =
                     for x in objs do
                         mApp.updateSync Guid.Empty  (x |> List.singleton 
                                                        |> ViewerAction.ImportObject 
+                                                       |> ViewerMessage
                                                        |> Seq.singleton)
                     true
                 | None -> 
@@ -68,7 +69,7 @@ module SnapshotGenerator =
     let getSnapshotActions (this : Snapshot) recalcNearFar frustum filename =
         let actions = 
             [
-                ViewerAction.SetCameraAndFrustum2 (this.view,frustum);
+                ViewerAction.SetCameraAndFrustum2 (this.view,frustum) ;
                 //ViewerAction.SetMaskObjs this.renderMask
             ]
         //let sunAction = // originally for Mars-DL project; not in use
@@ -104,10 +105,12 @@ module SnapshotGenerator =
 
         // ADD ACTIONS FOR NEW SNAPSHOT MEMBERS HERE
 
-        actions@surfAction@recalcNearFarAction |> List.toSeq    
+        actions@surfAction@recalcNearFarAction 
+            |> List.map ViewerMessage
+            |> List.toSeq    
 
     let getAnimationActions (anim : SnapshotAnimation) =       
-        Seq.singleton (ViewerAction.SetRenderViewportSize anim.resolution)
+        Seq.singleton (ViewerAction.SetRenderViewportSize anim.resolution |> ViewerMessage)
     //    let lightActions = // originally for Mars-DL project; not in use
     //        match anim.lightLocation with
     //        | Some loc -> 
@@ -125,7 +128,7 @@ module SnapshotGenerator =
            
     let animate   (runtime      : IRuntime) 
                   (mModel       : AdaptiveModel)
-                  (mApp         : MutableApp<Model, ViewerAction>) 
+                  (mApp         : MutableApp<Model, ViewerAnimationAction>) 
                   (args         : CLStartupArgs) =
 
         let hasLoadedAny = loadData args mApp
@@ -141,7 +144,7 @@ module SnapshotGenerator =
                 let frustum,_,_,_ = SnapshotApp.calculateFrustumRecalcNearFar data
                 let sg = SnapshotSg.viewRenderView runtime (System.Guid.NewGuid().ToString()) 
                                                    (AVal.constant data.resolution) mModel 
-                let snapshotApp : SnapshotApp<Model, AdaptiveModel, ViewerAction> = 
+                let snapshotApp  = 
                     {
                         mutableApp          = mApp
                         adaptiveModel       = mModel

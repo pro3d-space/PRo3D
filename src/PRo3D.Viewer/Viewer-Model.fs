@@ -11,6 +11,7 @@ open Aardvark.SceneGraph
 open Aardvark.UI.Trafos
 open Aardvark.UI.Animation
 open Aardvark.Rendering
+open Aardvark.UI.Anewmation
 
 open PRo3D
 open PRo3D.Base
@@ -74,7 +75,7 @@ type ViewerAction =
 | DrawingMessage                  of DrawingAction
 | AnnotationGroupsMessageViewer   of GroupsAppAction
 | NavigationMessage               of Navigation.Action
-| AnimationMessage                of AnimationAction
+| AnimationMessage                of AnimationAction // SequencedBookmarkId that corresponds to this AnimationAction
 | ReferenceSystemMessage          of ReferenceSystemAction
 | AnnotationMessage               of AnnotationProperties.Action
 | BookmarkMessage                 of BookmarkAction
@@ -497,7 +498,14 @@ type Model = {
     numberOfSamples      : int
     renderingUrl         : string
     screenshotDirectory  : string
+
+    [<NonAdaptive>]
+    animator             : Anewmation.Animator<Model>
 }
+
+type ViewerAnimationAction =
+    | ViewerMessage of ViewerAction
+    | AnewmationMessage of AnimatorMessage<Model>
 
 module Viewer =
     open System.Threading
@@ -543,6 +551,7 @@ module Viewer =
         renderingUrl       
         numberOfSamples    
         screenshotDirectory
+        animatorLens
         : Model = 
 
         {     
@@ -612,7 +621,7 @@ module Viewer =
                     animation  = Animate.On
                     cam        = CameraController.initial.view
                 }
-
+           
             minervaModel = MinervaModel.initial // CHECK-merge PRo3D.Minerva.Initial.model msgBox2
 
             //scaleTools = 
@@ -639,4 +648,7 @@ module Viewer =
             renderingUrl        = renderingUrl       
             numberOfSamples     = numberOfSamples    
             screenshotDirectory = screenshotDirectory
+            animator            = Anewmation.Animator.initial animatorLens
     }
+
+

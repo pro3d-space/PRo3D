@@ -5,21 +5,17 @@ open Aardvark.Application
 open Aardvark.UI
 open Aardvark.UI.Animation
 open Aardvark.UI.Primitives
-open Aardvark.VRVis
 open FSharp.Data.Adaptive
-open Adaptify.FSharp.Core
-open Aardvark.SceneGraph.IO
-open Aardvark.SceneGraph.SgPrimitives
+
 open Aardvark.Rendering
-open Aardvark.UI.Trafos
+open Aardvark.UI.Anewmation
 
 open System
 open System.IO
-open System.Diagnostics
-open OpcViewer.Base
 open PRo3D.Base
 
 open Aether
+open Aether.Operators
 
 module SequencedBookmarksProperties =  
 
@@ -315,6 +311,45 @@ module SequencedBookmarksApp =
             { m with selectedBookmark = Some a.key }
         | None, _ -> m
 
+    /////// ANEWMATIONS ///////////         
+
+    let animateBookmarks (m : SequencedBookmarks)
+                        (navigationModel : Lens<'a,NavigationModel>) 
+                        (outerModel      : 'a) =
+        let view_       = navigationModel 
+                            >-> NavigationModel.camera_
+                            >-> CameraControllerState.view_
+        let animate views =
+            let durationInSeconds = 5
+        
+            AnimationCameraPrimitives.Animation.Camera.smoothPath 0.1 views
+                    |> Animation.seconds durationInSeconds
+                    |> Animation.ease (Easing.InOut EasingFunction.Quadratic)
+                    |> Animation.onFinalize (fun name _ m -> 
+                                                            Log.line "[Animation] Finished animation."
+                                                            m
+                                            )
+                    |> Animation.onProgress (fun name value model ->
+                             Optic.set view_ value model 
+                        )
+        let views = 
+            m.bookmarks 
+                |> HashMap.values
+                |> Seq.map (fun (bm : PRo3D.Base.Bookmark) -> bm.cameraView)
+
+
+
+        let animation =
+            animate views 
+            
+        let slot = Sym.ofString "camera"
+
+        outerModel
+        |> Animator.createAndStart slot animation
+
+    /////// ANEWMATIONS ///////////
+
+
     let update 
         (m               : SequencedBookmarks) 
         (act             : SequencedBookmarksAction) 
@@ -418,12 +453,14 @@ module SequencedBookmarksApp =
                 | None -> outerModel, m
             | None -> outerModel, m
         | Play ->
-            if m.stopAnimation then 
-                m.blockingCollection.Start()
-            else
-                m.blockingCollection.Restart() 
-            outerModel, { m with animationThreads   = ThreadPool.start ( m |> createWorkerPlay) m.animationThreads
-                                 stopAnimation = true}
+
+            animateBookmarks m navigationModel outerModel, m
+            //if m.stopAnimation then 
+            //    m.blockingCollection.Start()
+            //else
+            //    m.blockingCollection.Restart() 
+            //outerModel, { m with animationThreads   = ThreadPool.start ( m |> createWorkerPlay) m.animationThreads
+            //                     stopAnimation = true}
         | StepForward -> 
             outerModel, { m with animationThreads = ThreadPool.start ( m |> createWorkerForward) m.animationThreads} //; stopAnimation = false}
         | StepBackward -> 

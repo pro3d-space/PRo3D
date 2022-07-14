@@ -37,6 +37,18 @@ open OpcViewer.Base.Shader
 module ViewerUtils =    
     type Self = Self
 
+    let mapRenderCommand rc =
+        match rc with
+            | SceneGraph sg -> 
+                RenderCommand.SceneGraph (sg |> Sg.map ViewerMessage)
+            | RenderCommand.Clear (a,b,c) -> 
+                RenderCommand<ViewerAnimationAction>.Clear (a,b,c)
+
+    let mapAttribute (f : 'msg -> 'newmsg) (a : Attribute<'msg>) =
+        let (str, a) = a
+        let avalue = AttributeValue.map f a
+        Aardvark.UI.Attribute (str, avalue)
+
     //let _surfaceModelLens = Model.Lens.scene |. Scene.Lens.surfacesModel
     //let _flatSurfaces = Scene.Lens.surfacesModel |. SurfaceModel.Lens.surfaces |. GroupsModel.Lens.flat
         
@@ -523,7 +535,7 @@ module ViewerUtils =
             |> Sg.set
             |> (camera |> Sg.camera)
 
-    let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (allowFootprint : bool) (m:AdaptiveModel) : alist<RenderCommand<ViewerAction>> =
+    let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (allowFootprint : bool) (m:AdaptiveModel)  =
         let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true
 

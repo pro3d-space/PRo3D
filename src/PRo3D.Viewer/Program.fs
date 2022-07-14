@@ -316,7 +316,11 @@ let main argv =
                 ViewerApp.dataSamples
                 appData
 
-        let s = { MailboxState.empty with update = mainApp.update Guid.Empty }
+        let s = {MailboxState.empty with update = 
+                                            (fun a -> 
+                                                let a = Seq.map ViewerMessage a
+                                                mainApp.update Guid.Empty a) 
+                }
         MailboxAction.InitMailboxState s |> messagingMailbox.Post            
     
         //let domainError (sender:obj) (args:UnhandledExceptionEventArgs) =
@@ -405,7 +409,7 @@ let main argv =
             let send msg =
                 match msg with
                   | RemoteAction.SetCameraView cv ->
-                      mainApp.update Guid.Empty (ViewerAction.SetCamera cv |> Seq.singleton)
+                      mainApp.update Guid.Empty (ViewerMessage (ViewerAction.SetCamera cv) |> Seq.singleton)
                   | RemoteAction.SetView v ->                                
                       Log.line "Setting View %A" v
                       let frustum = Frustum.perspective v.fovH v.near v.far (float v.resolution.X / float v.resolution.Y)
@@ -416,7 +420,7 @@ let main argv =
                               top    = frustum.top    - v.principalPoint.Y
                               bottom = frustum.bottom - v.principalPoint.Y
                           }
-                      mainApp.update Guid.Empty (ViewerAction.SetCameraAndFrustum2 (v.view,frustum) |> Seq.singleton)
+                      mainApp.update Guid.Empty (ViewerMessage (ViewerAction.SetCameraAndFrustum2 (v.view,frustum)) |> Seq.singleton)
 
             let remoteApp = 
                 App.start (PRo3D.RemoteControlApp.app renderingUrl send)
