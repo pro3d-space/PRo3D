@@ -132,8 +132,8 @@ type SequencedBookmarksAction =
     | Stop
     | StepForward
     | StepBackward
-    | AnimationThreadsDone  of string
-    | AnimStep       of Guid
+    //| AnimationThreadsDone  of string
+    //| AnimStep       of Guid
     | SetDelay       of Guid * Numeric.Action
     | SetDuration    of Guid * Numeric.Action
     | StartRecording
@@ -189,12 +189,9 @@ type SequencedBookmarks = {
     orderList        : List<Guid>
     selectedBookmark : Option<Guid> 
 
-    [<NonAdaptive>]
-    animationThreads : ThreadPool<SequencedBookmarksAction>
+
     [<NonAdaptive>]
     stopAnimation    : bool
-    [<NonAdaptive>]
-    blockingCollection : HarriSchirchWrongBlockingCollection<SequencedBookmarksAction>
 
    //delay            : NumericInput
     //animationSpeed   : NumericInput
@@ -337,10 +334,8 @@ module SequencedBookmarks =
                     animationInfo       = animationInfo
                     orderList           = orderList
                     selectedBookmark    = selected
-                    animationThreads    = ThreadPool.Empty
                     snapshotThreads     = ThreadPool.Empty
                     stopAnimation       = true
-                    blockingCollection  = new HarriSchirchWrongBlockingCollection<_>()
                     isRecording         = false
                     isCancelled         = false
                     isGenerating        = false
@@ -365,10 +360,8 @@ module SequencedBookmarks =
             animationInfo       = HashMap.Empty
             orderList           = List.empty
             selectedBookmark    = None
-            animationThreads    = ThreadPool.Empty
             snapshotThreads     = ThreadPool.Empty
             stopAnimation       = true
-            blockingCollection  = new HarriSchirchWrongBlockingCollection<_>()
             //delay               = initDelay
             isRecording         = false
             isCancelled         = false

@@ -113,7 +113,7 @@ module SnapshotAnimation =
                         None 
                         bm.fpsSetting
                 | true -> 
-                    let stillFrames = SequencedBookmarksApp.calculateNrOfStillFrames bm
+                    let stillFrames = failwith "not implemented" //SequencedBookmarksApp.calculateNrOfStillFrames bm
                     Snapshot.fromViews 
                         SequencedBookmarksApp.collectedViews 
                         None 

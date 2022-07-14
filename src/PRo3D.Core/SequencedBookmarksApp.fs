@@ -37,69 +37,19 @@ module SequencedBookmarksProperties =
         )
 
 module SequencedBookmarksApp = 
-    let mutable collectedViews = List.Empty
+    let mutable collectedViews = List<CameraView>.Empty
     let mutable (snapshotProcess : option<System.Diagnostics.Process>) = None
     let mutable timestamps = List<TimeSpan>.Empty
     let mutable names = List<string>.Empty
     let mutable stillFrames = List<int * Guid>.Empty
 
+    module private AnimationSlot =
+        let private getName (slot : string) (entity : V2i) =
+            Sym.ofString <| sprintf "%A/%s" entity slot
 
-
-    let private animateFowardAndLocation (pos: V3d) (dir: V3d) (up:V3d) (duration: RelativeTime) 
-                                         (name: string) (record : bool) (bmName : string) (bmId : Guid) = 
-        let transformLocationForwardUp (pos: V3d) (dir: V3d) (up:V3d) (duration : RelativeTime) (localTime : RelativeTime) (state : CameraView) =
-            let rot      = Rot3d.RotateInto(state.Forward, dir) * localTime / duration |> Rot3d |> Trafo3d
-            let forward  = rot.Forward.TransformDir state.Forward
-
-            let uprot     = Rot3d.RotateInto(state.Up, up) * localTime / duration |> Rot3d |> Trafo3d
-            let up        = uprot.Forward.TransformDir state.Up
-              
-            let vec       = pos - state.Location
-            let velocity  = vec.Length / duration                  
-            let dir       = vec.Normalized
-            let location  = state.Location + dir * velocity * localTime
-            
-            let view = 
-                state 
-                |> CameraView.withForward forward
-                |> CameraView.withUp up
-                |> CameraView.withLocation location
-
-            if record then
-                collectedViews <- collectedViews@[view]
-                timestamps <- timestamps@[System.DateTime.Now.TimeOfDay]
-                if names.Length > 0 && (List.last names) != bmName then
-                    stillFrames <- stillFrames@[collectedViews.Length - 1, bmId]
-                names <- names@[bmName]
-
-            view
-
-        Log.line "[Sequenced Bookmarks] Creating Animation for bookmark %s, duration = %f" bmName duration
-        {
-            (CameraAnimations.initial name) with 
-                sample = fun (localTime, globalTime) (state : CameraView) -> // given the state and t since start of the animation, compute a state and the cameraview
-                    let cameraChange = not (state.Location.ApproximateEquals(pos) 
-                                                && state.Forward.ApproximateEquals(dir) 
-                                                && state.Up.ApproximateEquals(up))       
-                    if cameraChange then
-                        if localTime < duration then          
-                            let view = transformLocationForwardUp pos dir up duration localTime state
-
-                            Some (state,view)
-                        else 
-                            if state.Location.IsNaN |> not then
-                                //on the last iteration set current position to endpoint - localtime = duration
-                                let view = 
-                                    transformLocationForwardUp pos dir up duration duration state
-
-                                let state =
-                                    state
-                                    |> CameraView.withLocation V3d.NaN
-
-                                Some (state , view)
-                            else None
-                    else None
-        }
+        let camera = Sym.ofString "camera"
+        let caption = Sym.ofString "caption"
+        //let appearance = getName "appearance"
 
     type ProcListBuilder with   
         member x.While(predicate : unit -> bool, body : ProcList<'m,unit>) : ProcList<'m,unit> =
@@ -111,78 +61,66 @@ module SequencedBookmarksApp =
                 else ()
             }
 
-    //let createWorkerPlay (m : SequencedBookmarks) =
-    //    proclist {
-    //        while (not m.stopAnimation) do
-    //            for i in 0 .. (m.orderList.Length-1) do
-    //                do! Proc.Sleep 3000
-    //                yield SequencedBookmarksAction.SelectSBM m.orderList.[i]  
-    //                yield SequencedBookmarksAction.FlyToSBM m.orderList.[i] 
-
-    //        do! Proc.Sleep 3000
-    //        yield SequencedBookmarksAction.AnimationThreadsDone "animationSBPlay"
-    //    } 
-
     /// Calculates the frames per second of recorded views based on timestamps
     /// recorded at the same time each view was animated.
-    let calculateFpsOfCurrentTimestamps () =
-        match timestamps with
-        | [] -> None
-        | timestamps ->
-            let millisPerFrame = 
-                timestamps 
-                        |> List.pairwise
-                        |> List.map (fun (first, second) -> second - first)
-                        |> List.map (fun time -> time.TotalMilliseconds)
+    //let calculateFpsOfCurrentTimestamps () =
+    //    match timestamps with
+    //    | [] -> None
+    //    | timestamps ->
+    //        let millisPerFrame = 
+    //            timestamps 
+    //                    |> List.pairwise
+    //                    |> List.map (fun (first, second) -> second - first)
+    //                    |> List.map (fun time -> time.TotalMilliseconds)
                   
-            let mediumMpf = millisPerFrame |> List.map (fun x -> x |> round |> int)
-                                           |> List.sort
-                                           |> List.item ((millisPerFrame.Length / 2))   
+    //        let mediumMpf = millisPerFrame |> List.map (fun x -> x |> round |> int)
+    //                                       |> List.sort
+    //                                       |> List.item ((millisPerFrame.Length / 2))   
 
-            let fps = 
-                if mediumMpf > 0 then 
-                    1000 / mediumMpf
-                else
-                    Log.line "[Debug] Medium FPS 0. Number of recorded Frames: %d" timestamps.Length
-                    let debugMillis = millisPerFrame |> List.fold (fun a b -> a + ";" + (string b)) ""
-                    Log.line "[Debug] Millis per frame %s" debugMillis  
-                    Log.line "[Debug] Using default value"  
-                    60
-            //Log.line "FPS = %i" fps
-            fps |> Some
+    //        let fps = 
+    //            if mediumMpf > 0 then 
+    //                1000 / mediumMpf
+    //            else
+    //                Log.line "[Debug] Medium FPS 0. Number of recorded Frames: %d" timestamps.Length
+    //                let debugMillis = millisPerFrame |> List.fold (fun a b -> a + ";" + (string b)) ""
+    //                Log.line "[Debug] Millis per frame %s" debugMillis  
+    //                Log.line "[Debug] Using default value"  
+    //                60
+    //        //Log.line "FPS = %i" fps
+    //        fps |> Some
 
     /// Calculate the number of indentical frames that should be generated for
     /// a given bookmark. The number of frames is based on the FPS of the recorded
     /// views and on the delay set for the bookmark.
-    let calculateNrOfStillFrames (m : SequencedBookmarks) =
-        let fps = calculateFpsOfCurrentTimestamps () 
-        match fps with
-        | Some fps ->
-            let toNrOfFrames (index, id) =
-                // take delay of previous bookmark
-                match List.tryFindIndex (fun x -> x = id) m.orderList with
-                | Some ind -> 
-                    match List.tryItem (ind - 1) m.orderList with
-                    | Some nextId -> 
-                        match m.animationInfo.TryFind nextId with
-                        | Some info ->
-                            (index, int (info.delay.value * (float fps)))
-                                |> Some
-                        | None -> None
-                    | None -> None
-                | None -> None
+    //let calculateNrOfStillFrames (m : SequencedBookmarks) =
+    //    let fps = calculateFpsOfCurrentTimestamps () 
+    //    match fps with
+    //    | Some fps ->
+    //        let toNrOfFrames (index, id) =
+    //            // take delay of previous bookmark
+    //            match List.tryFindIndex (fun x -> x = id) m.orderList with
+    //            | Some ind -> 
+    //                match List.tryItem (ind - 1) m.orderList with
+    //                | Some nextId -> 
+    //                    match m.animationInfo.TryFind nextId with
+    //                    | Some info ->
+    //                        (index, int (info.delay.value * (float fps)))
+    //                            |> Some
+    //                    | None -> None
+    //                | None -> None
+    //            | None -> None
             
-            let nrOfFrames =    
-                stillFrames
-                    |> List.map toNrOfFrames
-                    |> List.filter Option.isSome
-                    |> List.map (fun x -> x.Value)
-            let nrOfFrames = 
-                nrOfFrames 
-                    |> List.map (fun (ind, count) -> (ind, {index = ind;repetitions=count}))
-                    |> HashMap.ofList
-            nrOfFrames
-        | None -> HashMap.empty
+    //        let nrOfFrames =    
+    //            stillFrames
+    //                |> List.map toNrOfFrames
+    //                |> List.filter Option.isSome
+    //                |> List.map (fun x -> x.Value)
+    //        let nrOfFrames = 
+    //            nrOfFrames 
+    //                |> List.map (fun (ind, count) -> (ind, {index = ind;repetitions=count}))
+    //                |> HashMap.ofList
+    //        nrOfFrames
+    //    | None -> HashMap.empty
 
     /// Returns the delay of a bookmark if its id is found in animationInfo. 
     /// Otherwise returns a default value.
@@ -203,72 +141,6 @@ module SequencedBookmarksApp =
         | None ->
             Log.warn "[Sequenced Bookmarks] No animation info found for bookmark %s" (id |> string)
             SequencedBookmarks.initDuration.value
-
-    let createWorkerPlay (m : SequencedBookmarks) =
-        proclist {
-
-            if m.stopAnimation then
-                for i in 0 .. (m.orderList.Length-1) do
-                    m.blockingCollection.Enqueue (SequencedBookmarksAction.AnimStep m.orderList.[i])
-                    
-
-            while not m.blockingCollection.IsCompleted do
-                let! action = m.blockingCollection.TakeAsync()
-                Log.line "[animationSB] take async"
-                match action with
-                | Some (SequencedBookmarksAction.AnimStep id) -> 
-                    let delay = findDelayOrDefault m id
-                    let duration = findDurationOrDefault m id
-                    yield (SequencedBookmarksAction.AnimStep id)
-                    let millis = (duration + delay) * 1000.0
-                    do! Proc.Sleep (int millis) //3000
-                    ()
-                | Some a ->
-                    Log.line "[Sequenced Bookmarks] Animation step with default delay."
-                    yield a
-                    do! Proc.Sleep ((int)(SequencedBookmarks.initDuration.value 
-                                            + SequencedBookmarks.initDelay.value) * 1000) //3000
-                    ()
-
-                | None -> ()
-
-            //do! Proc.Sleep 3000
-            yield SequencedBookmarksAction.AnimationThreadsDone "animationSBPlay"
-        } 
-
-
-
-    let createWorkerForward (m : SequencedBookmarks) =
-         proclist {
-            match m.selectedBookmark with
-            | Some id ->
-                let index = m.orderList |> List.toSeq |> Seq.findIndex(fun x -> x = id)
-                if ((index+1) > (m.orderList.Length-1)) then
-                    yield SequencedBookmarksAction.AnimStep m.orderList.[0]
-                else
-                    yield SequencedBookmarksAction.AnimStep m.orderList.[index+1]
-                let delay = findDelayOrDefault m id
-                let duration = findDurationOrDefault m id
-                do! Proc.Sleep ((int)(duration + delay) * 1000) //3000
-                yield SequencedBookmarksAction.AnimationThreadsDone "animationSBForward"
-            | None -> ()
-        }
-
-    let createWorkerBackward (m : SequencedBookmarks) =
-        proclist {
-           match m.selectedBookmark with
-           | Some id ->
-               let index = m.orderList |> List.toSeq |> Seq.findIndex(fun x -> x = id)
-               if ((index-1) < 0) then
-                   yield SequencedBookmarksAction.AnimStep m.orderList.[m.orderList.Length-1]
-               else
-                   yield SequencedBookmarksAction.AnimStep m.orderList.[index-1] 
-               let delay = findDelayOrDefault m id
-               let duration = findDurationOrDefault m id
-               do! Proc.Sleep ((int)(duration + delay) * 1000) //3000
-               yield SequencedBookmarksAction.AnimationThreadsDone "animationSBBackward"
-           | None -> ()
-       }
 
     let getNewBookmark (camState : CameraView) (navigationMode : NavigationMode) (exploreCenter : V3d) (count:int) =
         let name = sprintf "Bookmark_%d" count //todo to make useful unique names
@@ -311,11 +183,35 @@ module SequencedBookmarksApp =
             { m with selectedBookmark = Some a.key }
         | None, _ -> m
 
-    /////// ANEWMATIONS ///////////         
+    let moveCursor (f : int -> int) (m : SequencedBookmarks) =
+        match m.selectedBookmark with
+        | Some key -> 
+            let index = List.findIndex (fun x -> x = key) m.orderList
+            let nextIndex =
+                let x = (f index)
+                let x = x % (List.length m.orderList)
+                if x < 0 then
+                    List.length m.orderList + x
+                else x
+            HashMap.tryFind m.orderList.[nextIndex] m.bookmarks
+        | None -> None
 
-    let animateBookmarks (m : SequencedBookmarks)
-                        (navigationModel : Lens<'a,NavigationModel>) 
-                        (outerModel      : 'a) =
+    let next (m : SequencedBookmarks) =
+        moveCursor (fun x -> x + 1) m
+
+    let previous (m : SequencedBookmarks) =
+        moveCursor (fun x -> x - 1) m
+
+    let selected (m : SequencedBookmarks) =
+        match m.selectedBookmark with
+        | Some sel ->
+            HashMap.tryFind sel m.bookmarks
+        | None -> None
+
+    /////// ANEWMATIONS ///////////         
+    let smoothPath (views : seq<CameraView>)
+                   (navigationModel : Lens<'a,NavigationModel>) 
+                   (outerModel      : 'a) =
         let view_       = navigationModel 
                             >-> NavigationModel.camera_
                             >-> CameraControllerState.view_
@@ -332,34 +228,47 @@ module SequencedBookmarksApp =
                     |> Animation.onProgress (fun name value model ->
                              Optic.set view_ value model 
                         )
-        let views = 
-            m.bookmarks 
-                |> HashMap.values
-                |> Seq.map (fun (bm : PRo3D.Base.Bookmark) -> bm.cameraView)
-
-
 
         let animation =
             animate views 
-            
-        let slot = Sym.ofString "camera"
 
         outerModel
-        |> Animator.createAndStart slot animation
+        |> Animator.createAndStart AnimationSlot.camera animation
 
+    let smoothPathAllBookmarks (m : SequencedBookmarks)
+                               (navigationModel : Lens<'a,NavigationModel>) 
+                               (outerModel      : 'a) =
+        let views = 
+            m.orderList
+                |> List.map (fun id -> HashMap.find id m.bookmarks)
+                |> List.map (fun (bm : PRo3D.Base.Bookmark) -> bm.cameraView)
+
+        smoothPath views navigationModel outerModel
+
+    let toBookmark (m : SequencedBookmarks)
+                   (navigationModel : Lens<'a,NavigationModel>) 
+                   (outerModel      : 'a) 
+                   (f : SequencedBookmarks -> option<Bookmark>)=
+        match selected m, f m with
+        | Some selected, Some next -> 
+            let outerModel = smoothPath [selected.cameraView;next.cameraView] navigationModel outerModel
+            outerModel, {m with selectedBookmark = Some next.key}
+        | _,_ -> 
+            Log.line "[SequencedBookmarks] No bookmark selected."
+            outerModel, m
+                        
     /////// ANEWMATIONS ///////////
-
 
     let update 
         (m               : SequencedBookmarks) 
         (act             : SequencedBookmarksAction) 
-        (navigationModel : Lens<'a,NavigationModel>) 
-        (animationModel  : Lens<'a,AnimationModel>)     
+        (navigationModel_ : Lens<'a,NavigationModel>) 
+        (animator_       : Lens<'a,Animator<'a>>)     
         (outerModel      : 'a) : ('a * SequencedBookmarks) =
 
         match act with
         | AddSBookmark ->
-            let nav = Optic.get navigationModel outerModel
+            let nav = Optic.get navigationModel_ outerModel
             let newSBm = 
                 getNewBookmark nav.camera.view nav.navigationMode nav.exploreCenter m.bookmarks.Count
             let oderList' = m.orderList@[newSBm.key]
@@ -377,14 +286,16 @@ module SequencedBookmarksApp =
             let _bm = m.bookmarks |> HashMap.tryFind id
             match _bm with 
             | Some bm ->
-                let anim = Optic.get animationModel outerModel
-                let animationMessage = 
-                    animateFowardAndLocation bm.cameraView.Location bm.cameraView.Forward
-                                             bm.cameraView.Up 2.0 "ForwardAndLocation2s" m.isRecording 
-                                             bm.name bm.key
-                let anim' = AnimationApp.update anim (AnimationAction.PushAnimation(animationMessage))
-                let newOuterModel = Optic.set animationModel anim' outerModel
-                newOuterModel, m
+                //TODO
+
+                //let anim = Optic.get animationModel outerModel
+                //let animationMessage = 
+                //    animateFowardAndLocation bm.cameraView.Location bm.cameraView.Forward
+                //                             bm.cameraView.Up 2.0 "ForwardAndLocation2s" m.isRecording 
+                //                             bm.name bm.key
+                //let anim' = AnimationApp.update anim (AnimationAction.PushAnimation(animationMessage))
+                //let newOuterModel = Optic.set animationModel anim' outerModel
+                outerModel, m
             | None -> outerModel, m
 
         | RemoveSBM id -> 
@@ -453,44 +364,22 @@ module SequencedBookmarksApp =
                 | None -> outerModel, m
             | None -> outerModel, m
         | Play ->
-
-            animateBookmarks m navigationModel outerModel, m
-            //if m.stopAnimation then 
-            //    m.blockingCollection.Start()
-            //else
-            //    m.blockingCollection.Restart() 
-            //outerModel, { m with animationThreads   = ThreadPool.start ( m |> createWorkerPlay) m.animationThreads
-            //                     stopAnimation = true}
+            let outerModel = 
+                if Animator.exists AnimationSlot.camera outerModel then
+                    Animator.restart AnimationSlot.camera outerModel
+                else 
+                    smoothPathAllBookmarks m navigationModel_ outerModel
+            outerModel, m
         | StepForward -> 
-            outerModel, { m with animationThreads = ThreadPool.start ( m |> createWorkerForward) m.animationThreads} //; stopAnimation = false}
-        | StepBackward -> 
-            outerModel, { m with animationThreads = ThreadPool.start ( m |> createWorkerBackward) m.animationThreads}//; stopAnimation = false}
-        | AnimationThreadsDone id ->  
-            let m' = 
-                { m with animationThreads = ThreadPool.remove id m.animationThreads 
-                         stopAnimation = true}
-            outerModel, m'
+            toBookmark m navigationModel_ outerModel next
+        | StepBackward ->
+            toBookmark m navigationModel_ outerModel previous
         | Pause ->
-            m.blockingCollection.CompleteAdding() 
-            outerModel, { m with stopAnimation = false}
+            let outerModel = Animator.pause AnimationSlot.camera outerModel
+            outerModel, m 
         | Stop ->
-            m.blockingCollection.CompleteAdding() 
-            outerModel, { m with stopAnimation = true}
-        | AnimStep id ->
-            let m = selectSBookmark m id 
-            let _bm = m.bookmarks |> HashMap.tryFind id
-            match _bm with 
-            | Some bm ->
-                let anim = Optic.get animationModel outerModel
-                let duration = findDurationOrDefault m bm.key
-                let animationMessage = 
-                    animateFowardAndLocation bm.cameraView.Location bm.cameraView.Forward 
-                                             bm.cameraView.Up duration "ForwardAndLocation2s" 
-                                             m.isRecording bm.name bm.key
-                let anim' = AnimationApp.update anim (AnimationAction.PushAnimation(animationMessage))
-                let newOuterModel = Optic.set animationModel anim' outerModel
-                newOuterModel, m
-            | None -> outerModel, m
+            let outerModel = Animator.stop AnimationSlot.camera outerModel
+            outerModel, m 
         | SetDelay (id, s) -> 
             let updInfo (info : option<BookmarkAnimationInfo>) =
                 match info with
@@ -524,18 +413,18 @@ module SequencedBookmarksApp =
                 //else
             outerModel, { m with animationInfo = infos}
         | StartRecording -> 
-            collectedViews <- List.empty
-            timestamps <- List<TimeSpan>.Empty
-            names <- List<string>.Empty
-            stillFrames <- List<int * Guid>.Empty
+            //collectedViews <- List.empty
+            //timestamps <- List<TimeSpan>.Empty
+            //names <- List<string>.Empty
+            //stillFrames <- List<int * Guid>.Empty
             outerModel, {m with isRecording = true}
         | StopRecording -> 
-            let currentFps  = 
-                if timestamps.Length > 0 then
-                    calculateFpsOfCurrentTimestamps ()
-                else m.currentFps
+            //let currentFps  = 
+            //    if timestamps.Length > 0 then
+            //        calculateFpsOfCurrentTimestamps ()
+            //    else m.currentFps
             outerModel, {m with isRecording = false
-                                currentFps  = currentFps           
+                                //currentFps  = currentFps           
                         }
         | ToggleGenerateOnStop ->
             outerModel, {m with generateOnStop = not m.generateOnStop}
@@ -627,7 +516,8 @@ module SequencedBookmarksApp =
 
 
     let threads (m : SequencedBookmarks) = 
-        ThreadPool.union m.snapshotThreads m.animationThreads
+        m.snapshotThreads
+       // ThreadPool.union m.snapshotThreads m.animationThreads
 
 
     module UI =

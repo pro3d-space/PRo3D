@@ -579,7 +579,7 @@ module ViewerApp =
             let m, bm = 
                 SequencedBookmarksApp.update 
                     m.scene.sequencedBookmarks
-                    msg _navigation _animation
+                    msg _navigation _animator
                     m
             let m = 
                 {m with scene = { m.scene with sequencedBookmarks = bm }}
