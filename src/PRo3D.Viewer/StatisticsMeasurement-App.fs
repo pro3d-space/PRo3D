@@ -59,6 +59,7 @@ module StatisticsMeasurement_App =
              
         let title = "Measurement: " + m.measurementType.kind.ToString()
         GuiEx.accordion title "Settings" true [
+            
             statsTable                                             
             visualization                           
          ]

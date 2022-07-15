@@ -9,6 +9,10 @@
     <GenerateLenses>True</GenerateLenses>
     <IncludeAllContentForSelfExtract>True</IncludeAllContentForSelfExtract>
   </PropertyGroup>
+	
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
   
   <PropertyGroup>
     <InPublish>False</InPublish>
@@ -25,6 +29,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>..\..\bin\Debug\</OutputPath>
     <NoWarn>0686</NoWarn>
+    <DocumentationFile>..\..\bin\Debug\.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <OutputPath>..\..\bin\Release\</OutputPath>
