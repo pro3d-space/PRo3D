@@ -6,6 +6,7 @@ open FSharp.Data.Adaptive
 open Aardvark.UI.Animation
 open System
 open PRo3D.Base
+open PRo3D.Core.SequencedBookmarks
 open MBrace.FsPickler.Json   
 
 open Aardvark.UI

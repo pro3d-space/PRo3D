@@ -11,6 +11,7 @@ open MBrace.FsPickler.Json
 open Aardvark.UI
 open Chiron
 open PRo3D.Core
+open PRo3D.Core.SequencedBookmarks
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module SnapshotAnimation = 

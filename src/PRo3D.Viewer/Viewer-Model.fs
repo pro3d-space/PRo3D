@@ -19,6 +19,7 @@ open PRo3D.Base.Annotation
 open PRo3D.Core
 open PRo3D.Core.Drawing
 open PRo3D.Core.Surface
+open PRo3D.Core.SequencedBookmarks
 open PRo3D.SimulatedViews
 open PRo3D.Core.Surface
 open PRo3D.Navigation2

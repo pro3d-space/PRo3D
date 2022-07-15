@@ -13,6 +13,7 @@ open Aardvark.UI.Anewmation
 open System
 open System.IO
 open PRo3D.Base
+open PRo3D.Core.SequencedBookmarks
 
 open Aether
 open Aether.Operators
@@ -183,6 +184,10 @@ module SequencedBookmarksApp =
             { m with selectedBookmark = Some a.key }
         | None, _ -> m
 
+    let orderedBookmarks  (m : SequencedBookmarks) =
+        m.orderList
+            |> List.map (fun x -> HashMap.find x m.bookmarks)
+
     let moveCursor (f : int -> int) (m : SequencedBookmarks) =
         match m.selectedBookmark with
         | Some key -> 
@@ -208,6 +213,9 @@ module SequencedBookmarksApp =
             HashMap.tryFind sel m.bookmarks
         | None -> None
 
+    let find (id : Guid) (m : SequencedBookmarks) =
+        HashMap.tryFind id m.bookmarks
+
     /////// ANEWMATIONS ///////////         
     let smoothPath (views : seq<CameraView>)
                    (navigationModel : Lens<'a,NavigationModel>) 
@@ -215,6 +223,24 @@ module SequencedBookmarksApp =
         let view_       = navigationModel 
                             >-> NavigationModel.camera_
                             >-> CameraControllerState.view_
+
+        /// Creates an animation that interpolates between two bookmarks
+        let interpolate (src : Bookmark) (dst : Bookmark) : IAnimation<'Model, Bookmark> =
+            let animCam = Animation.Camera.interpolate src.cameraView dst.cameraView
+            // TODO add other interpolations
+            animCam
+                |> Animation.map (fun view -> {dst with cameraView = view})
+                
+
+        let pathAllBookmarks (m : SequencedBookmarks) =
+            let bookmarks = orderedBookmarks m
+            let animation =
+                bookmarks
+                    |> List.pairwise
+                    |> List.map (fun (a,b) -> interpolate a b)
+                    |> Animation.path
+            animation
+
         let animate views =
             let durationInSeconds = 5
         
@@ -241,7 +267,7 @@ module SequencedBookmarksApp =
         let views = 
             m.orderList
                 |> List.map (fun id -> HashMap.find id m.bookmarks)
-                |> List.map (fun (bm : PRo3D.Base.Bookmark) -> bm.cameraView)
+                |> List.map (fun (bm : Bookmark) -> bm.cameraView)
 
         smoothPath views navigationModel outerModel
 
@@ -253,8 +279,11 @@ module SequencedBookmarksApp =
         | Some selected, Some next -> 
             let outerModel = smoothPath [selected.cameraView;next.cameraView] navigationModel outerModel
             outerModel, {m with selectedBookmark = Some next.key}
-        | _,_ -> 
+        | None ,_ -> 
             Log.line "[SequencedBookmarks] No bookmark selected."
+            outerModel, m
+        | Some _ , None -> 
+            Log.line "[SequencedBookmarks] Could not find next bookmark."
             outerModel, m
                         
 
@@ -284,21 +313,7 @@ module SequencedBookmarksApp =
             outerModel, m
 
         | SequencedBookmarksAction.FlyToSBM id ->
-            let _bm = m.bookmarks |> HashMap.tryFind id
-            match _bm with 
-            | Some bm ->
-                //TODO
-
-                //let anim = Optic.get animationModel outerModel
-                //let animationMessage = 
-                //    animateFowardAndLocation bm.cameraView.Location bm.cameraView.Forward
-                //                             bm.cameraView.Up 2.0 "ForwardAndLocation2s" m.isRecording 
-                //                             bm.name bm.key
-                //let anim' = AnimationApp.update anim (AnimationAction.PushAnimation(animationMessage))
-                //let newOuterModel = Optic.set animationModel anim' outerModel
-                outerModel, m
-            | None -> outerModel, m
-
+            toBookmark m navigationModel_ outerModel (find id)
         | RemoveSBM id -> 
             let selSBm = 
                 match m.selectedBookmark with

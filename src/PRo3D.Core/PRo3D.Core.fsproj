@@ -55,6 +55,7 @@
     <Compile Include="SceneObjectsApp.fs" />
     <Compile Include="ScaleBarsApp.fs" />
     <Compile Include="GeologicSurfaceApp.fs" />
+    <Compile Include="SequencedBookmarks-Model.fs" />
     <Compile Include="SequencedBookmarksApp.fs" />
     <Compile Include="Validator/HeightValidator-Model.fs" />
     <Compile Include="Validator/HeightValidatorApp.fs" />

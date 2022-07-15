@@ -31,6 +31,7 @@ open PRo3D
 open PRo3D.Base
 open PRo3D.Base.Annotation
 open PRo3D.Core
+open PRo3D.Core.SequencedBookmarks
 open PRo3D.Core.Drawing
 open PRo3D.Navigation2
 open PRo3D.Bookmarkings
@@ -611,7 +612,7 @@ module ViewerApp =
                 Anewmation.Animator.update (Anewmation.AnimatorMessage.RealTimeTick) m
                 
             match msg with
-            | PRo3D.Base.SequencedBookmarksAction.StopRecording -> 
+            | SequencedBookmarksAction.StopRecording -> 
                     let m, scenePath = save m
                     generateJson ()
                     Log.line "[Viewer] Writing snapshot JSON file to %s" jsonPathName
@@ -625,14 +626,14 @@ module ViewerApp =
                         m
                     | false -> m
                         
-            | PRo3D.Base.SequencedBookmarksAction.GenerateSnapshots -> 
+            | SequencedBookmarksAction.GenerateSnapshots -> 
                 let m, scenePath = save m
                 let m = shortFeedback "Snapshot generation started." m
                 match m.scene.sequencedBookmarks.updateJsonBeforeRendering with
                 | true -> generateJson () | false -> ()
                 let bm = generateSnapshots scenePath
                 {m with scene = { m.scene with sequencedBookmarks = bm }}
-            | PRo3D.Base.SequencedBookmarksAction.UpdateJson ->
+            | SequencedBookmarksAction.UpdateJson ->
                 let m, scenePath = save m
                 generateJson ()
                 let m = shortFeedback "Saved snapshot JSON file." m
@@ -1610,6 +1611,12 @@ module ViewerApp =
             match msg with
             | Anewmation.AnimatorMessage.RealTimeTick ->
                 Log.line "Animator Tick"
+                let selectedBm = SequencedBookmarksApp.selected m.scene.sequencedBookmarks
+                match selectedBm with
+                | Some selectedBm -> 
+                    Log.line "Current Bookmark %s" selectedBm.name
+                | None ->
+                    Log.line "No Bookmark selected"
             | _ -> 
                 ()
 
