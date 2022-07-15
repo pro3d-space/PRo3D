@@ -606,6 +606,9 @@ module ViewerApp =
                 Log.line "[Snapshots] Saving scene as %s." scenePath
                 let m = m |> ViewerIO.saveEverything scenePath
                 m, scenePath
+
+            let m =
+                Anewmation.Animator.update (Anewmation.AnimatorMessage.RealTimeTick) m
                 
             match msg with
             | PRo3D.Base.SequencedBookmarksAction.StopRecording -> 
@@ -635,7 +638,7 @@ module ViewerApp =
                 let m = shortFeedback "Saved snapshot JSON file." m
                 m
             | _ -> m
-              
+                
             
         | RoverMessage msg,_,_ ->
             let roverModel = RoverApp.update m.scene.viewPlans.roverModel msg
@@ -1587,7 +1590,9 @@ module ViewerApp =
         | StopGeoJsonAutoExport, _, _ -> 
             let autoExport = { m.drawing.automaticGeoJsonExport with enabled = not m.drawing.automaticGeoJsonExport.enabled; lastGeoJsonPathXyz = None; }
             { m with drawing = { m.drawing with automaticGeoJsonExport = autoExport } }
-        | _ -> m       
+        | unknownAction, _, _ -> 
+            Log.line "[Viewer] Message not handled: %s" (string unknownAction)
+            m       
                                    
 
     let update 
@@ -1602,7 +1607,13 @@ module ViewerApp =
         | ViewerMessage msg ->
             updateViewer runtime signature sendQueue mailbox m msg
         | AnewmationMessage msg ->
-            Anewmation.Animator.update msg m
+            match msg with
+            | Anewmation.AnimatorMessage.RealTimeTick ->
+                Log.line "Animator Tick"
+            | _ -> 
+                ()
+
+            Anewmation.Animator.update msg m    
 
 
 

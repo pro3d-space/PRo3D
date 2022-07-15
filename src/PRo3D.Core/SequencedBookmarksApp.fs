@@ -257,6 +257,7 @@ module SequencedBookmarksApp =
             Log.line "[SequencedBookmarks] No bookmark selected."
             outerModel, m
                         
+
     /////// ANEWMATIONS ///////////
 
     let update 
@@ -366,7 +367,7 @@ module SequencedBookmarksApp =
         | Play ->
             let outerModel = 
                 if Animator.exists AnimationSlot.camera outerModel then
-                    Animator.restart AnimationSlot.camera outerModel
+                    Animator.startOrResume AnimationSlot.camera outerModel
                 else 
                     smoothPathAllBookmarks m navigationModel_ outerModel
             outerModel, m
