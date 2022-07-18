@@ -16,8 +16,11 @@ open Chiron
 
 [<ModelType>]
 type Bookmark = {
+    [<NonAdaptive>]
     version         : int
+    [<NonAdaptive>]
     key             : Guid
+
     name            : string
     cameraView      : CameraView
     exploreCenter   : V3d
@@ -68,49 +71,6 @@ type Bookmark with
             do! Json.write "exploreCenter"  (x.exploreCenter.ToString())
             do! Json.write "navigationMode" (x.navigationMode |> int)
         }
-
-//type HarriSchirchWrongBlockingCollection<'a>() =
-//    let sema = new System.Threading.SemaphoreSlim(0)
-//    let l = obj()
-//    let queue = System.Collections.Generic.Queue<'a>()
-//    let mutable finished = false
-
-//    member x.TakeAsync() =
-//        async {
-//            do! sema.WaitAsync() |> Async.AwaitTask
-//            if finished then return None
-//            else
-//                return 
-//                    lock l (fun _ -> 
-//                        if queue.IsEmptyOrNull () then None
-//                        else 
-//                          let item = queue.Dequeue() |> Some
-//                          if queue.IsEmptyOrNull () then finished <- true
-//                          item
-//                    )
-//        }
-
-//    member x.Enqueue(v) =
-//        lock l (fun _ -> 
-//            queue.Enqueue(v)
-//        )
-//        sema.Release() |> ignore
-
-//    member x.CompleteAdding() =
-//        finished <- true
-//        sema.Release() |> ignore
-
-//    member x.Restart() =
-//        finished <- false
-//        sema.Release() |> ignore
-
-//    member x.Start() =
-//        finished <- false
-//        queue.Clear()
-//        sema.Release() |> ignore
-
-//    member x.IsCompleted = finished
-
 
 
 

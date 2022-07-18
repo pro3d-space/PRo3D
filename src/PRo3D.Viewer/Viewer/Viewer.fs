@@ -119,6 +119,27 @@ module ViewerApp =
     let _geologicSurfacesModel = Model.scene_ >->  Scene.geologicSurfacesModel_
     let _geologicSurfaces      = _geologicSurfacesModel >-> GeologicSurfacesModel.geologicSurfaces_
        
+    let _sceneState : ((Model -> SceneState) * (SceneState -> Model -> Model)) =
+        (fun m -> 
+            {
+                stateAnnoatations      = m.drawing.annotations
+                stateSurfaces          = m.scene.surfacesModel
+                stateSceneObjects      = m.scene.sceneObjectsModel
+                stateGeologicSurfaces  = m.scene.geologicSurfacesModel
+            }
+        ), 
+        (fun state m ->
+            {m with
+                drawing = {m.drawing with annotations = state.stateAnnoatations}
+                scene   = 
+                    {m.scene with
+                        surfacesModel           = state.stateSurfaces
+                        sceneObjectsModel       = state.stateSceneObjects
+                        geologicSurfacesModel   = state.stateGeologicSurfaces
+                    }
+            }
+        )
+
     let lookAtData (m: Model) =         
         let bb = m |> Optic.get _sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB) |> Box3d
         let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value             
@@ -580,7 +601,7 @@ module ViewerApp =
             let m, bm = 
                 SequencedBookmarksApp.update 
                     m.scene.sequencedBookmarks
-                    msg _navigation _animator
+                    msg _navigation _sceneState
                     m
             let m = 
                 {m with scene = { m.scene with sequencedBookmarks = bm }}
@@ -1608,17 +1629,17 @@ module ViewerApp =
         | ViewerMessage msg ->
             updateViewer runtime signature sendQueue mailbox m msg
         | AnewmationMessage msg ->
-            match msg with
-            | Anewmation.AnimatorMessage.RealTimeTick ->
-                Log.line "Animator Tick"
-                let selectedBm = SequencedBookmarksApp.selected m.scene.sequencedBookmarks
-                match selectedBm with
-                | Some selectedBm -> 
-                    Log.line "Current Bookmark %s" selectedBm.name
-                | None ->
-                    Log.line "No Bookmark selected"
-            | _ -> 
-                ()
+            //match msg with // Debugging Info
+            //| Anewmation.AnimatorMessage.RealTimeTick ->
+            //    Log.line "Animator Tick"
+            //    let selectedBm = SequencedBookmarksApp.selected m.scene.sequencedBookmarks
+            //    match selectedBm with
+            //    | Some selectedBm -> 
+            //        Log.line "Current Bookmark %s" selectedBm.name
+            //    | None ->
+            //        Log.line "No Bookmark selected"
+            //| _ -> 
+            //    ()
 
             Anewmation.Animator.update msg m    
 

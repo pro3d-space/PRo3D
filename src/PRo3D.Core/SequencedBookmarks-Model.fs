@@ -15,27 +15,28 @@ type FPSSetting =
     | Full = 0
     | Half = 1
 
-type SequencedBookmarksPropertiesAction =
-    | SetName           of string
+type SequencedBookmarkAction =
+    | SetName of string
+    | SetDelay       of Numeric.Action
+    | SetDuration    of Numeric.Action
+
 
 type SequencedBookmarksAction =
-    
+    | SequencedBookmarkMessage of (Guid * SequencedBookmarkAction)
     | FlyToSBM       of Guid
     | RemoveSBM      of Guid
     | SelectSBM      of Guid
     | MoveUp         of Guid
     | MoveDown       of Guid
     | AddSBookmark  
-    | PropertiesMessage     of SequencedBookmarksPropertiesAction
     | Play
     | Pause
     | Stop
     | StepForward
     | StepBackward
-    //| AnimationThreadsDone  of string
-    //| AnimStep       of Guid
-    | SetDelay       of Guid * Numeric.Action
-    | SetDuration    of Guid * Numeric.Action
+    /// sets the time the whole animation takes
+    | SetGlobalDuration  of Numeric.Action
+    | ToggleGlobalAnimation
     | StartRecording
     | StopRecording
     | GenerateSnapshots
@@ -51,84 +52,197 @@ type SequencedBookmarksAction =
     | UpdateJson
     | ToggleUpdateJsonBeforeRendering
 
+/// state of various scene elements for use with animations
+type SceneState =
+    {
+        stateAnnoatations     : GroupsModel
+        stateSurfaces         : SurfaceModel
+        stateSceneObjects     : SceneObjectsModel
+        stateGeologicSurfaces : GeologicSurfacesModel
+    } with
+    static member FromJson( _ : SceneState) =
+        json {
+            let! stateAnnoatations       = Json.read "stateAnnoatations"    
+            let! stateSurfaces           = Json.read "stateSurfaces"        
+            let! stateSceneObjects       = Json.read "stateSceneObjects"    
+            let! stateGeologicSurfaces   = Json.read "stateGeologicSurfaces"
+
+            return {
+                stateAnnoatations       = stateAnnoatations    
+                stateSurfaces           = stateSurfaces        
+                stateSceneObjects       = stateSceneObjects    
+                stateGeologicSurfaces   = stateGeologicSurfaces
+            }
+        }
+
+    static member ToJson(x : SceneState) =
+        json {
+            do! Json.write "stateAnnoatations"     x.stateAnnoatations    
+            do! Json.write "stateSurfaces"         x.stateSurfaces        
+            do! Json.write "stateSceneObjects"     x.stateSceneObjects    
+            do! Json.write "stateGeologicSurfaces" x.stateGeologicSurfaces
+        }
+
 /// An extended Bookmark for use with animations
-/// allows saving and restoreing of annotation/surface/sceneObjects/geologicObject states
+/// allows saving and restoring of annotation/surface/sceneObjects/geologicObject states
 [<ModelType>]
 type SequencedBookmark = { //WIP RNO
+    [<NonAdaptive>]
     version             : int
-    bookmark            : Bookmark
 
-    [<TreatAsValue>]
-    stateAnnoatations   : GroupsModel
-    [<TreatAsValue>]
-    stateSurfaces       : SurfaceModel
-    [<TreatAsValue>]
-    stateSceneObjects   : SceneObjectsModel
-    [<TreatAsValue>]
-    stateGeologicSurfaces : GeologicSurfacesModel
+    bookmark            : Bookmark
+    sceneState          : option<SceneState>
 
     ///how long an animation rests on this bookmark before proceeding to the next one
     delay               : NumericInput
     duration            : NumericInput
-}
+} with member this.key =
+        this.bookmark.key
+       member this.cameraView =
+        this.bookmark.cameraView
+       member this.name =
+        this.bookmark.name
 
+module SequencedBookmark =
+    let current = 0   
+
+    let initDelay value =
+        {
+            value   = value
+            min     = 0.0
+            max     = 1000.0
+            step    = 0.1
+            format  = "{0:0.0}"
+        }
+
+    let initDuration value =
+        {
+            value   = value
+            min     = 0.1
+            max     = 10000.0
+            step    = 0.1
+            format  = "{0:0.0}"
+        }
+
+    let init bookmark = 
+        {
+            version = current
+            bookmark = bookmark
+            sceneState = None
+            delay = initDelay 0.0
+            duration = initDuration 5.0
+        }
+
+
+
+    
+
+    let read0 = 
+        json {
+            let! bookmark   = Json.read "bookmark"
+            
+            let! sceneState = Json.read "sceneState"
+
+            let! delay      = Json.read "delay"
+            let! duration   = Json.read "duration"
+
+            return {
+                version                 = 0              
+                bookmark                = bookmark             
+                sceneState              = sceneState
+                delay                   = initDelay delay                
+                duration                = initDuration duration             
+            }
+        }
+
+
+type SequencedBookmark with
+    static member FromJson( _ : SequencedBookmark) =
+        json {
+            let! v = Json.read "version"
+            match v with
+            | 0 -> return! SequencedBookmark.read0
+            | _ -> 
+                return! v 
+                |> sprintf "don't know version %A  of SequencedBookmark" 
+                |> Json.error
+        }
+
+    static member ToJson(x : SequencedBookmark) =
+        json {
+            do! Json.write "version"    x.version
+            do! Json.write "bookmark"   x.bookmark
+            do! Json.write "sceneState" x.sceneState
+            do! Json.write "delay"      x.delay.value
+            do! Json.write "duration"   x.duration.value
+        }
 
 [<ModelType>]
-type BookmarkAnimationInfo =
-    {
-        bookmark : Guid
-        delay    : NumericInput
-        duration : NumericInput
-    }
-    with 
-       static member FromJson( _ : BookmarkAnimationInfo) =
-           json {
-               let! bookmark = Json.read "bookmark"
-               let! delay    = Json.readWith Ext.fromJson<NumericInput,Ext> "delay"
-               let! duration = Json.readWith Ext.fromJson<NumericInput,Ext> "duration"
+type AnimationSettings = {
+    /// duration of the whole animation sequence (all bookmarks)
+    /// cannot be combined with duration settings for individual bookmarks
+    globalDuration     : NumericInput
+    useGlobalAnimation : bool
+} with     
+    static member init = 
+        {
+            useGlobalAnimation  = false
+            globalDuration      = SequencedBookmark.initDuration 20.0
+        }
+    static member FromJson( _ : AnimationSettings) =
+        json {
+            let! (useGlobalAnimation : option<bool>) = Json.tryRead "useGlobalAnimation"
+            let useGlobalAnimation =
+                match useGlobalAnimation with
+                | Some true -> true
+                | Some false -> false
+                | None -> false
 
-               return {
-                    bookmark = bookmark
-                    delay    = delay
-                    duration = duration
-               }
-           }
+            let! (globalDuration : option<float>) = Json.tryRead "globalDuration"
+            let globalDuration =
+                match globalDuration with
+                | Some x -> SequencedBookmark.initDuration x
+                | None   -> SequencedBookmark.initDuration 10.0
 
-       static member ToJson(x : BookmarkAnimationInfo) =
-           json {
-               do! Json.write "bookmark"    x.bookmark
-               do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "delay" x.delay
-               do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "duration" x.duration
-           }
+            return {
+                useGlobalAnimation = useGlobalAnimation
+                globalDuration     = globalDuration
+            }
+        }
+
+    static member ToJson(x : AnimationSettings) =
+        json {
+            do! Json.write "useGlobalAnimation" x.useGlobalAnimation
+            do! Json.write "globalDuration"     x.globalDuration.value
+        }
 
 [<ModelType>]
 type SequencedBookmarks = {
-    version          : int
-    bookmarks        : HashMap<Guid,Bookmark>
-    animationInfo    : HashMap<Guid, BookmarkAnimationInfo>
-    orderList        : List<Guid>
-    selectedBookmark : Option<Guid> 
-
-
-    [<NonAdaptive>]
-    stopAnimation    : bool
+    version            : int
+    bookmarks          : HashMap<Guid,SequencedBookmark>
+    originalSceneState : Option<SceneState>
+    orderList          : List<Guid>
+    selectedBookmark   : Option<Guid> 
 
    //delay            : NumericInput
     //animationSpeed   : NumericInput
-    isRecording      : bool
-    generateOnStop   : bool
-    isGenerating     : bool
-    isCancelled      : bool
-    resolutionX      : NumericInput
-    resolutionY      : NumericInput
+
+    animationSettings : AnimationSettings
+    isRecording       : bool
+    generateOnStop    : bool
+    isGenerating      : bool
+    isCancelled       : bool
+    resolutionX       : NumericInput
+    resolutionY       : NumericInput
     renderStillFrames : bool
-    debug            : bool
-    currentFps       : Option<int>
-    outputPath       : string
-    fpsSetting       : FPSSetting
-    updateJsonBeforeRendering : bool
+    debug             : bool
+    currentFps        : Option<int>
+    outputPath        : string
+    fpsSetting        : FPSSetting
+   
     [<NonAdaptive>]
-    snapshotThreads  : ThreadPool<SequencedBookmarksAction>
+    snapshotThreads   : ThreadPool<SequencedBookmarksAction>
+    updateJsonBeforeRendering : bool
   }
 //} with interface IDisposable with 
 //            member this.Dispose () = 
@@ -156,24 +270,6 @@ module SequencedBookmarks =
             Path.combine [folderPath;"images"]
         p
 
-    let initDelay =
-        {
-            value   = 3.0
-            min     = 0.0
-            max     = 10.0
-            step    = 0.1
-            format  = "{0:0.0}"
-        }
-
-    let initDuration =
-        {
-            value   = 2.0
-            min     = 0.1
-            max     = 20.0
-            step    = 0.1
-            format  = "{0:0.0}"
-        }
-
     let initResolution =
         {
             value   = 1024.0
@@ -186,26 +282,21 @@ module SequencedBookmarks =
     let current = 0    
     let read0 = 
         json {
-            let! bookmarks          = Json.read "bookmarks"
-            let bookmarks           = bookmarks |> List.map(fun (a : Bookmark) -> (a.key, a)) |> HashMap.ofList
-            let! (animationInfo : option<list<BookmarkAnimationInfo>>) = Json.tryRead "animationInfo"
-            let animationInfo =
-                match animationInfo with
-                | Some animationInfo ->
-                    animationInfo 
-                        |> List.map (fun (a : BookmarkAnimationInfo) -> (a.bookmark, a))
-                        |> HashMap.ofList
-                        
-                | None -> 
-                    bookmarks 
-                        |> HashMap.map (fun id bm -> 
-                                                {bookmark = id
-                                                 delay = initDelay
-                                                 duration = initDuration}
-                                       )
+
+            let! (seqBookmarks : option<list<SequencedBookmark>>)  = Json.tryRead "sequencedBookmarks"
+            let! (bookmarks    : option<list<Bookmark>>)           = Json.tryRead "bookmarks"
+            let bookmarks = 
+                match seqBookmarks, bookmarks with
+                | Some sb, _ ->
+                    sb |> List.map (fun (a : SequencedBookmark) -> (a.bookmark.key, a)) 
+                       |> HashMap.ofList
+                | _, Some b ->
+                    b |> List.map(fun (a : Bookmark) -> (a.key, SequencedBookmark.init a)) 
+                      |> HashMap.ofList
+                | _,_ -> HashMap.empty
+
             let! orderList          = Json.read "orderList"
             let! selected           = Json.read "selectedBookmark"
-           // let! delay              = Json.readWith Ext.fromJson<NumericInput,Ext> "delay"
             let! generateOnStop     = Json.tryRead "generateOnStop"
             let generateOnStop =
                 match generateOnStop with
@@ -246,16 +337,25 @@ module SequencedBookmarks =
                 | Some true -> true
                 | Some false -> false
                 | None -> false
+
+            let! animationSettings = Json.tryRead "animationSettings"
+            let animationSettings =
+                match animationSettings with
+                | Some animationSettings -> animationSettings
+                | None ->
+                    AnimationSettings.init
+
+            let! (sceneState : option<SceneState>) = Json.tryRead "originalSceneState"
                 
             return 
                 {
                     version             = current
                     bookmarks           = bookmarks
-                    animationInfo       = animationInfo
+                    originalSceneState  = sceneState
                     orderList           = orderList
                     selectedBookmark    = selected
                     snapshotThreads     = ThreadPool.Empty
-                    stopAnimation       = true
+                    animationSettings   = animationSettings
                     isRecording         = false
                     isCancelled         = false
                     isGenerating        = false
@@ -277,12 +377,11 @@ module SequencedBookmarks =
         {
             version             = current
             bookmarks           = HashMap.Empty
-            animationInfo       = HashMap.Empty
+            originalSceneState  = None
             orderList           = List.empty
             selectedBookmark    = None
             snapshotThreads     = ThreadPool.Empty
-            stopAnimation       = true
-            //delay               = initDelay
+            animationSettings   = AnimationSettings.init
             isRecording         = false
             isCancelled         = false
             isGenerating        = false
@@ -295,7 +394,6 @@ module SequencedBookmarks =
             currentFps          = None
             fpsSetting          = FPSSetting.Full
             updateJsonBeforeRendering = true
-            //snapshotProcess     = None
         }
 
 type SequencedBookmarks with
@@ -314,10 +412,10 @@ type SequencedBookmarks with
         let resolution = (V2i(x.resolutionX.value, x.resolutionY.value))
         json {
             do! Json.write "version"                                            x.version
-            do! Json.write "bookmarks"                                          (x.bookmarks |> HashMap.toList |> List.map snd)
+            do! Json.write "sequencedBookmarks"                                 (x.bookmarks |> HashMap.toList |> List.map snd)
             do! Json.write "orderList"                                          x.orderList
             do! Json.write "selectedBookmark"                                   x.selectedBookmark
-            do! Json.write "animationInfo"                                      (x.animationInfo |> HashMap.toList |> List.map snd)
+            //do! Json.write "animationInfo"                                      (x.animationInfo |> HashMap.toList |> List.map snd)
             do! Json.write "debug"                                              x.debug
             do! Json.write "generateOnStop"                                     x.generateOnStop
             do! Json.write "resolution"                                         (resolution.ToString ())
