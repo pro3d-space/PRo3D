@@ -214,13 +214,11 @@ module SequencedBookmarksApp =
                 outerModel, { m with bookmarks = bookmarks'} 
             | None -> outerModel, m
         | Play ->
-            let outerModel = 
-                if Animator.exists AnimationSlot.camera outerModel 
-                    && Animator.isPaused AnimationSlot.camera outerModel then
-                    Animator.startOrResume AnimationSlot.camera outerModel
-                else 
-                    pathAllBookmarks m lenses.selectedBookmark_ lenses.setModel_ outerModel //navigationModel_ outerModel
-            outerModel, m
+            if Animator.exists AnimationSlot.camera outerModel 
+                && Animator.isPaused AnimationSlot.camera outerModel then
+                Animator.startOrResume AnimationSlot.camera outerModel, m
+            else 
+                pathAllBookmarks m lenses outerModel
         | StepForward -> 
             toBookmark m lenses.navigationModel_ outerModel next
         | StepBackward ->

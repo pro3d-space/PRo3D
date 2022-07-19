@@ -426,16 +426,18 @@ type SequencedBookmarks with
     static member ToJson (x : SequencedBookmarks) =
         let resolution = (V2i(x.resolutionX.value, x.resolutionY.value))
         json {
-            do! Json.write "version"                                            x.version
-            do! Json.write "sequencedBookmarks"                                 (x.bookmarks |> HashMap.toList |> List.map snd)
-            do! Json.write "orderList"                                          x.orderList
-            do! Json.write "selectedBookmark"                                   x.selectedBookmark
-            //do! Json.write "animationInfo"                                      (x.animationInfo |> HashMap.toList |> List.map snd)
-            do! Json.write "debug"                                              x.debug
-            do! Json.write "generateOnStop"                                     x.generateOnStop
-            do! Json.write "resolution"                                         (resolution.ToString ())
-            do! Json.write "outputPath"                                         x.outputPath
-            do! Json.write "renderStillFrames"                                  x.renderStillFrames
-            do! Json.write "updateJsonBeforeRendering"                          x.updateJsonBeforeRendering
-            do! Json.write "fpsSetting"                                         (x.fpsSetting.ToString ())
+            do! Json.write "version"                    x.version
+            do! Json.write "sequencedBookmarks"         (x.bookmarks |> HashMap.toList |> List.map snd)
+            do! Json.write "orderList"                  x.orderList
+            do! Json.write "selectedBookmark"           x.selectedBookmark
+            if x.originalSceneState.IsSome then
+                do! Json.write "originalSceneState"         x.originalSceneState.Value
+            //do! Json.write "animationInfo"              (x.animationInfo |> HashMap.toList |> List.map snd)
+            do! Json.write "debug"                      x.debug
+            do! Json.write "generateOnStop"             x.generateOnStop
+            do! Json.write "resolution"                 (resolution.ToString ())
+            do! Json.write "outputPath"                 x.outputPath
+            do! Json.write "renderStillFrames"          x.renderStillFrames
+            do! Json.write "updateJsonBeforeRendering"  x.updateJsonBeforeRendering
+            do! Json.write "fpsSetting"                 (x.fpsSetting.ToString ())
         }   

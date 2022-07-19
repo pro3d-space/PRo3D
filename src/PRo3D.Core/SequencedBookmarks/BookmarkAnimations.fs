@@ -51,9 +51,32 @@ module BookmarkAnimations =
         outerModel
         |> Animator.createAndStart AnimationSlot.camera animation
 
+    let private execute' (sbs : SequencedBookmarks)
+                         (lenses : BookmarkLenses<'a>) 
+                         (outerModel      : 'a) 
+                animation =
+        let durationInSeconds = 10
+        let animation = 
+            animation
+                |> Animation.seconds durationInSeconds
+                |> Animation.ease (Easing.InOut EasingFunction.Quadratic)
+                |> Animation.onFinalize (fun name bm m -> 
+                                            match sbs.originalSceneState with
+                                            | Some state ->
+                                                Log.line "[Animation] Restoring scene state."
+                                                Optic.set lenses.sceneState_ state m
+                                            | None ->
+                                                Log.line "[Animation] No scene state to restore."
+                                                m
+                                        )
+                |> Animation.onProgress (fun name value model ->
+                            Optic.set lenses.setModel_ value model 
+                    )
+        outerModel
+        |> Animator.createAndStart AnimationSlot.camera animation
+
     let pathAllBookmarks (m : SequencedBookmarks)
-                         (_selected : Lens<'a,option<System.Guid>>)
-                         (_setModel : Lens<'a,SequencedBookmark>)
+                         (lenses : BookmarkLenses<'a>)
                          (outerModel      : 'a) =
         let bookmarks = orderedBookmarks m
         let animation =
@@ -62,11 +85,13 @@ module BookmarkAnimations =
                 |> List.map (fun (a,b) -> interpolate a b 
                                             |> Animation.onFinalize (fun name x m -> 
                                                         Log.line "selected bm %s" x.name
-                                                        Optic.set _selected (Some x.key) m
+                                                        Optic.set lenses.selectedBookmark_ (Some x.key) m
                                         ))
                 |> Animation.path
-        animation
-            |> (execute _setModel outerModel)
+        let outerModel = 
+            animation
+                |> (execute' m lenses outerModel)
+        outerModel, {m with originalSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
 
     let smoothPath (views : seq<CameraView>)
                    (navigationModel : Lens<'a,NavigationModel>) 
@@ -77,21 +102,6 @@ module BookmarkAnimations =
 
         AnimationCameraPrimitives.Animation.Camera.smoothPath 0.1 views
             |> execute view_ outerModel 
-        //            |> Animation.seconds durationInSeconds
-        //            |> Animation.ease (Easing.InOut EasingFunction.Quadratic)
-        //            |> Animation.onFinalize (fun name _ m -> 
-        //                                                    Log.line "[Animation] Finished animation."
-        //                                                    m
-        //                                    )
-        //            |> Animation.onProgress (fun name value model ->
-        //                     Optic.set view_ value model 
-        //                )
-
-        //let animation =
-        //    animate views 
-
-        //outerModel
-        //|> Animator.createAndStart AnimationSlot.camera animation
 
     let smoothPathAllBookmarks (m : SequencedBookmarks)
                                (navigationModel : Lens<'a,NavigationModel>) 
@@ -117,6 +127,3 @@ module BookmarkAnimations =
         | Some _ , None -> 
             Log.line "[SequencedBookmarks] Could not find next bookmark."
             outerModel, m
-                        
-
-    /////// ANEWMATIONS ///////////    
