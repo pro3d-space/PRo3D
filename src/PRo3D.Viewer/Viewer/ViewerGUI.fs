@@ -188,12 +188,12 @@ module Gui =
                         td [style style'] [Incremental.text position]
                     ]
                     tr [] [
-                        td [style style'] [text "Longitude: "]
-                        td [style style'] [Incremental.text lon]
-                    ]
-                    tr [] [
                         td [style style'] [text "Latitude: "]
                         td [style style'] [Incremental.text lat]
+                    ]
+                    tr [] [
+                        td [style style'] [text "Longitude: "]
+                        td [style style'] [Incremental.text lon]
                     ]
                     //tr[][
                     //    td[style style'][text "Altitude: "]

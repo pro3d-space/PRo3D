@@ -59,7 +59,10 @@ module GeoJSONExport =
             match planet with 
             | Some p ->
                 points 
-                |> List.map (CooTransformation.getLatLonAlt p)
+                |> List.map (fun x ->
+                    let coord = CooTransformation.getLatLonAlt p x
+                    { coord with longitude = 360.0 - coord.longitude }
+                )
                 |> List.map CooTransformation.SphericalCoo.toV3d                
             | None ->
                 points                
