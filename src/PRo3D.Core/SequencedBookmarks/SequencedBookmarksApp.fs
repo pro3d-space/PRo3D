@@ -14,6 +14,8 @@ open System
 open System.IO
 open PRo3D.Base
 open PRo3D.Core.SequencedBookmarks
+open PRo3D.Core.BookmarkUtils
+open PRo3D.Core.BookmarkAnimations
 
 open Aether
 open Aether.Operators
@@ -35,13 +37,8 @@ module SequencedBookmarksApp =
     let mutable names = List<string>.Empty
     let mutable stillFrames = List<int * Guid>.Empty
 
-    module private AnimationSlot =
-        let private getName (slot : string) (entity : V2i) =
-            Sym.ofString <| sprintf "%A/%s" entity slot
 
-        let camera = Sym.ofString "camera"
-        let caption = Sym.ofString "caption"
-        //let appearance = getName "appearance"
+
 
     type ProcListBuilder with   
         member x.While(predicate : unit -> bool, body : ProcList<'m,unit>) : ProcList<'m,unit> =
@@ -136,164 +133,9 @@ module SequencedBookmarksApp =
 
     
 
-    let getNewBookmark (navigation : NavigationModel) 
-                       (sceneState : SceneState)
-                       (bookmarkCount:int) =
-         
-        let name = sprintf "Bookmark_%d" bookmarkCount //todo to make useful unique names
-        let bookmark = 
-            {
-                version        = Bookmark.current
-                key            = System.Guid.NewGuid()
-                name           = name
-                cameraView     = navigation.camera.view 
-                navigationMode = navigation.navigationMode
-                exploreCenter  = navigation.exploreCenter
-            }
-        let sequencedBookmark =
-            {
-                version    = SequencedBookmark.current
-                bookmark   = bookmark
-                sceneState = Some sceneState
-                duration   = SequencedBookmark.initDuration 3.0
-                delay      = SequencedBookmark.initDelay 0.0
-            }
-        sequencedBookmark
 
-    let insertGuid (id: Guid) (index : int) (orderList: List<Guid>) =
 
-        let rec insert v i l =
-            match i, l with
-            | 0, xs -> v::xs
-            | i, x::xs -> x::insert v (i - 1) xs
-            | i, [] -> failwith "index out of range"
-        insert id index orderList
-
-    let removeGuid (index : int) (orderList: List<Guid>) =
-
-        let rec remove i l =
-            match i, l with
-            | 0, x::xs -> xs
-            | i, x::xs -> x::remove (i - 1) xs
-            | i, [] -> failwith "index out of range"
-        remove index orderList
-
-    let selectSBookmark (m : SequencedBookmarks) (id : Guid) =
-        let sbm = m.bookmarks |> HashMap.tryFind id
-        match sbm, m.selectedBookmark with
-        | Some a, Some b ->
-            if a.key = b then 
-                { m with selectedBookmark = None }
-            else 
-                { m with selectedBookmark = Some a.key }
-        | Some a, None -> 
-            { m with selectedBookmark = Some a.key }
-        | None, _ -> m
-
-    let orderedBookmarks  (m : SequencedBookmarks) =
-        m.orderList
-            |> List.map (fun x -> HashMap.find x m.bookmarks)
-
-    let moveCursor (f : int -> int) (m : SequencedBookmarks) =
-        match m.selectedBookmark with
-        | Some key -> 
-            let index = List.findIndex (fun x -> x = key) m.orderList
-            let nextIndex =
-                let x = (f index)
-                let x = x % (List.length m.orderList)
-                if x < 0 then
-                    List.length m.orderList + x
-                else x
-            HashMap.tryFind m.orderList.[nextIndex] m.bookmarks
-        | None -> None
-
-    let next (m : SequencedBookmarks) =
-        moveCursor (fun x -> x + 1) m
-
-    let previous (m : SequencedBookmarks) =
-        moveCursor (fun x -> x - 1) m
-
-    let selected (m : SequencedBookmarks) =
-        match m.selectedBookmark with
-        | Some sel ->
-            HashMap.tryFind sel m.bookmarks
-        | None -> None
-
-    let find (id : Guid) (m : SequencedBookmarks) =
-        HashMap.tryFind id m.bookmarks
-
-    /////// ANEWMATIONS ///////////         
-    let smoothPath (views : seq<CameraView>)
-                   (navigationModel : Lens<'a,NavigationModel>) 
-                   (outerModel      : 'a) =
-        let view_       = navigationModel 
-                            >-> NavigationModel.camera_
-                            >-> CameraControllerState.view_
-
-        /// Creates an animation that interpolates between two bookmarks
-        let interpolate (src : SequencedBookmark) (dst : SequencedBookmark) : IAnimation<'Model, SequencedBookmark> =
-            let animCam = Animation.Camera.interpolate src.bookmark.cameraView dst.bookmark.cameraView
-            // TODO add other interpolations
-            animCam
-                |> Animation.map (fun view -> {dst with bookmark = {dst.bookmark with cameraView = view}})
-                
-
-        let pathAllBookmarks (m : SequencedBookmarks) =
-            let bookmarks = orderedBookmarks m
-            let animation =
-                bookmarks
-                    |> List.pairwise
-                    |> List.map (fun (a,b) -> interpolate a b)
-                    |> Animation.path
-            animation
-
-        let animate views =
-            let durationInSeconds = 5
-        
-            AnimationCameraPrimitives.Animation.Camera.smoothPath 0.1 views
-                    |> Animation.seconds durationInSeconds
-                    |> Animation.ease (Easing.InOut EasingFunction.Quadratic)
-                    |> Animation.onFinalize (fun name _ m -> 
-                                                            Log.line "[Animation] Finished animation."
-                                                            m
-                                            )
-                    |> Animation.onProgress (fun name value model ->
-                             Optic.set view_ value model 
-                        )
-
-        let animation =
-            animate views 
-
-        outerModel
-        |> Animator.createAndStart AnimationSlot.camera animation
-
-    let smoothPathAllBookmarks (m : SequencedBookmarks)
-                               (navigationModel : Lens<'a,NavigationModel>) 
-                               (outerModel      : 'a) =
-        let views = 
-            m.orderList
-                |> List.map (fun id -> HashMap.find id m.bookmarks)
-                |> List.map (fun (bm : SequencedBookmark) -> bm.cameraView)
-
-        smoothPath views navigationModel outerModel
-
-    let toBookmark (m : SequencedBookmarks)
-                   (navigationModel : Lens<'a,NavigationModel>) 
-                   (outerModel      : 'a) 
-                   (f : SequencedBookmarks -> option<SequencedBookmark>)=
-        match selected m, f m with
-        | Some selected, Some next -> 
-            let outerModel = smoothPath [selected.cameraView;next.cameraView] navigationModel outerModel
-            outerModel, {m with selectedBookmark = Some next.key}
-        | None ,_ -> 
-            Log.line "[SequencedBookmarks] No bookmark selected."
-            outerModel, m
-        | Some _ , None -> 
-            Log.line "[SequencedBookmarks] Could not find next bookmark."
-            outerModel, m
-                        
-
-    /////// ANEWMATIONS ///////////
+   
 
     let update 
         (m                : SequencedBookmarks) 
@@ -400,7 +242,7 @@ module SequencedBookmarksApp =
            outerModel, {m with animationSettings = 
                                 {m.animationSettings with globalDuration = globalDuration}
                        }
-        | ToggleUpdateJsonBeforeRendering ->
+        | ToggleGlobalAnimation ->
             let useGlobalAnimation = not m.animationSettings.useGlobalAnimation
             outerModel, {m with animationSettings = 
                                  {m.animationSettings with useGlobalAnimation = useGlobalAnimation}
@@ -599,22 +441,34 @@ module SequencedBookmarksApp =
                     ] 
 
 
-        let viewProps (m:AdaptiveSequencedBookmark) =
+        let viewProps (m:AdaptiveSequencedBookmark) (useGlobalAnimation : aval<bool>) =
             
             let view = m.bookmark.cameraView
+            let notWithGlobalAnimation content =
+                alist {
+                    let! useGlobal = useGlobalAnimation
+                    if useGlobal then
+                        yield content
+                    else yield div [] [text "Deselect global animation to edit"]
+                }
+            let duration = 
+                Numeric.view' [InputBox] m.duration
+                    |> UI.map  (fun msg -> 
+                        SequencedBookmarkMessage (m.bookmark.key, SequencedBookmarkAction.SetDuration msg)) 
+                    |> notWithGlobalAnimation
+                
+            let delay =
+                Numeric.view' [InputBox] m.delay 
+                    |> UI.map  (fun msg -> 
+                        SequencedBookmarkMessage (m.bookmark.key, SequencedBookmarkAction.SetDelay msg)) 
+                    |> notWithGlobalAnimation
+                
             require GuiEx.semui (
                 Html.table [  
                     Html.row "Change Name:" [Html.SemUi.textBox m.bookmark.name SetName ]
                         |> UI.map  (fun msg ->  SequencedBookmarkMessage (m.bookmark.key, msg)) 
-                              
-                    Html.row "Duration" [Numeric.view' [InputBox] m.duration //TODO RNO toggle active
-                                        |> UI.map  (fun msg -> 
-                                            SequencedBookmarkMessage (m.bookmark.key, SequencedBookmarkAction.SetDuration msg)) 
-                                        ]
-                    Html.row "Delay"    [Numeric.view' [InputBox] m.delay  //TODO RNO toggle active
-                                        |> UI.map  (fun msg -> 
-                                            SequencedBookmarkMessage (m.bookmark.key, SequencedBookmarkAction.SetDelay msg)) 
-                                        ]
+                    Html.row "Duration" [Incremental.div AttributeMap.empty duration]
+                    Html.row "Delay"    [Incremental.div AttributeMap.empty delay]
                     Html.row "Pos:"     [Incremental.text (view |> AVal.map (fun x -> x.Location.ToString("0.00")))] 
                     Html.row "LookAt:"  [Incremental.text (view |> AVal.map (fun x -> x.Forward.ToString("0.00")))]
                     Html.row "Up:"      [Incremental.text (view |> AVal.map (fun x -> x.Up.ToString("0.00")))]
@@ -634,7 +488,7 @@ module SequencedBookmarksApp =
                     match scB with
                     | Some s -> 
                         let bmProps = (viewProps s )
-                        return div [] [bmProps]
+                        return div [] [bmProps model.animationSettings.useGlobalAnimation]
                     | None -> 
                         return empty
                 | None -> return empty
