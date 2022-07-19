@@ -38,6 +38,32 @@ module StatisticsMeasurement_App =
             update measurement (UpdateAll (data,visAction, mType.scale))
         )
 
+    let view (m:AdaptiveStatisticsMeasurementModel) =
+        let statsTable = 
+            div[style "margin-bottom:5"][
+                require GuiEx.semui (
+                    Html.table [                                    
+                        Html.row "Minimum" [Incremental.text (m.dataRange |> AVal.map (fun f -> (sprintf "%.2f" f.Min)))]
+                        Html.row "Maximum" [Incremental.text (m.dataRange |> AVal.map (fun f -> (sprintf "%.2f" f.Max)))]
+                        Html.row "Average" [Incremental.text (m.avg |> AVal.map (fun f -> (sprintf "%.2f" f)))]
+                    ]
+                )
+                ]
+             
+        
+        let visualization = 
+            div[][
+            StatisticsVisualization_App.drawVisualization m.visualization (new V2i(300, 150))     
+            |> UI.map StatisticsVisualizationMessage            
+            ]
+             
+        let title = "Measurement: " + m.measurementType.kind.ToString()
+        GuiEx.accordion title "Settings" true [
+            
+            statsTable                                             
+            visualization                           
+         ]
+
     
     
 

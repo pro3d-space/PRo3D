@@ -14,6 +14,7 @@ type AnnoStatsAction =
     | AddNewMeasurement of MeasurementType
     | MeasurementMessage of MeasurementType * StatisticsMeasurementAction
     | Reset //no more annotations are selected
+    | DeleteMeasurement of MeasurementType
 
 
 module AnnotationStatisticsApp =     
@@ -143,6 +144,15 @@ module AnnotationStatisticsApp =
         | Reset -> 
             {m with selectedAnnotations = HashMap.empty; properties = HashMap.empty}
 
+        | DeleteMeasurement mType ->
+            match (m.properties.ContainsKey mType) with
+            | true -> 
+                let properties = m.properties.Remove mType
+                {m with properties = properties}
+            | false -> m               
+                
+
+
 //UI related 
 module AnnotationStatisticsDrawings =
 
@@ -162,4 +172,22 @@ module AnnotationStatisticsDrawings =
                 ]
             )
         ] 
+
+    let view (m:AdaptiveAnnotationStatisticsModel) =
+        Incremental.div (AttributeMap.ofList [style "width:100%; height:auto; margin: 0 5 0 5"]) 
+            (                                  
+                m.properties 
+                |> AMap.map(fun _ v -> 
+                    div[] [
+                        button [clazz "ui button tiny inverted"; onClick (fun _ -> DeleteMeasurement v.measurementType )] [
+                                i [clazz "trash can icon"] []
+                                text "Delete property"
+                            ]                        
+                        StatisticsMeasurement_App.view v|> UI.map (fun f -> MeasurementMessage (v.measurementType,f))
+                    ]
+                ) 
+                |> AMap.toASet 
+                |> ASet.toAList 
+                |> AList.map(fun (a,b) -> b)                                                                 
+            )
 

@@ -780,49 +780,9 @@ module Gui =
 
             ]    
     
-    module AnnoStatsUI =
+    module AnnotationStatisticsUI =
 
-        let propSummary (m : AdaptiveModel) =
-            let propListing (sm:AdaptiveStatisticsMeasurementModel) = 
-
-                let statsTable = 
-                    div[style "margin-bottom:5"][
-                        require GuiEx.semui (
-                            Html.table [                                    
-                                Html.row "Minimum" [Incremental.text (sm.dataRange |> AVal.map (fun f -> (sprintf "%.2f" f.Min)))]
-                                Html.row "Maximum" [Incremental.text (sm.dataRange |> AVal.map (fun f -> (sprintf "%.2f" f.Max)))]
-                                Html.row "Average" [Incremental.text (sm.avg |> AVal.map (fun f -> (sprintf "%.2f" f)))]
-                            ]
-                        )
-                        ]
-             
-                
-                let visualization = 
-                    div[][
-                    StatisticsVisualization_App.drawVisualization sm.visualization (new V2i(300, 150))     
-                    |> UI.map StatisticsVisualizationMessage
-                    |> UI.map (fun f -> MeasurementMessage (sm.measurementType,f))
-                    |> UI.map AnnoStatsMessage  
-                    ]
-             
-                let title = "Measurement: " + sm.measurementType.kind.ToString()
-                GuiEx.accordion title "Settings" true [
-                    statsTable                                             
-                    visualization                           
-                 ]
-            
-            //Incremental.div (AttributeMap.ofList [style "width:100%; margin: 15 15 5 5"]) 
-            Incremental.div (AttributeMap.ofList [style "width:100%; height:auto; margin: 0 5 0 5"]) 
-                (                                  
-                    m.annoStats.properties 
-                    |> AMap.map(fun p v -> propListing v) 
-                    |> AMap.toASet 
-                    |> ASet.toAList 
-                    |> AList.map(fun (a,b) -> b)                                                                 
-                )
-  
-
-        let statsUI (m : AdaptiveModel) = 
+        let viewAnnotationStatistics (m : AdaptiveModel) = 
             let style' = "color: white; font-family:Consolas;"   
             let selectedAnnos = m.annoStats.selectedAnnotations
             let s = selectedAnnos |> AMap.isEmpty        
@@ -862,8 +822,8 @@ module Gui =
                             AnnotationStatisticsDrawings.mTypeDropdown |> UI.map AnnoStatsMessage                                     
                         ]
                         //div [style "width:100%; margin: 10 5 10 10"][      
-                        div [][   
-                            propSummary m                                      
+                        div [][                                     
+                            AnnotationStatisticsDrawings.view m.annoStats |> UI.map AnnoStatsMessage  
                         ]
                 }
             )
@@ -1152,7 +1112,7 @@ module Gui =
             | Some "annotations" -> 
                 require (viewerDependencies) (body bodyAttributes [Annotations.annotationUI m])
             | Some "annoStats" ->
-                require (viewerDependencies) (body bodyAttributes [AnnoStatsUI.statsUI m])
+                require (viewerDependencies) (body bodyAttributes [AnnotationStatisticsUI.viewAnnotationStatistics m])
             | Some "validation" -> 
                 require (viewerDependencies) (body bodyAttributes [HeightValidatorApp.viewUI m.heighValidation |> UI.map HeightValidation])
             | Some "bookmarks" -> 
