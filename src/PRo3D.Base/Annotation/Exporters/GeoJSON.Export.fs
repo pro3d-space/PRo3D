@@ -40,66 +40,72 @@ module GeoJSONExport =
 
     let pickler = createPickler()
     
-    let annotationToGeoJsonGeometry (planet : option<Planet>) (a : Annotation) : GeoJSON.GeoJsonGeometry =
+    let annotationToGeoJsonGeometry 
+        (planet : option<Planet>) 
+        (a      : Annotation)
+        : GeoJSON.GeoJsonGeometry =
 
-        let latLonAltPoints = 
+        // add sampled points to the export
+        let points = 
+            if a.segments.Count = 0 then
+                a.points |> IndexList.toList
+            else
+                a.segments 
+                |> IndexList.toList 
+                |> List.map(fun x -> x.points |> IndexList.toList) 
+                |> List.concat
+        
+        let coordinates = 
             match planet with 
             | Some p ->
-                a.points 
-                |> IndexList.map (CooTransformation.getLatLonAlt p)
-                |> IndexList.map CooTransformation.SphericalCoo.toV3d
-                |> IndexList.toList
+                points 
+                |> List.map (CooTransformation.getLatLonAlt p)
+                |> List.map CooTransformation.SphericalCoo.toV3d                
             | None ->
-                a.points
-                |> IndexList.toList
+                points                
 
         match a.geometry with
         | Geometry.Point ->
-            latLonAltPoints |> List.map ThreeDim |> List.head |> GeoJsonGeometry.Point                
+            coordinates |> List.map ThreeDim |> List.head |> GeoJsonGeometry.Point                
         | Geometry.Line -> 
-            latLonAltPoints |> List.map ThreeDim |> GeoJsonGeometry.LineString
+            coordinates |> List.map ThreeDim |> GeoJsonGeometry.LineString
         | Geometry.Polyline -> 
-            latLonAltPoints |> List.map ThreeDim |> List.singleton |> GeoJsonGeometry.MultiLineString
+            coordinates |> List.map ThreeDim |> List.singleton |> GeoJsonGeometry.MultiLineString
         | Geometry.Polygon -> 
-            latLonAltPoints |> List.map ThreeDim |> List.singleton |> GeoJsonGeometry.Polygon
+            coordinates |> List.map ThreeDim |> List.singleton |> GeoJsonGeometry.Polygon
         | Geometry.DnS -> 
-            latLonAltPoints |> List.map ThreeDim |> List.singleton |> GeoJsonGeometry.Polygon
+            coordinates |> List.map ThreeDim |> List.singleton |> GeoJsonGeometry.Polygon
         | Geometry.TT ->
-            latLonAltPoints |> List.map ThreeDim |> GeoJsonGeometry.LineString
+            coordinates |> List.map ThreeDim |> GeoJsonGeometry.LineString
         | _ ->
             Point(V3d.NaN |> ThreeDim)
                   
-    let writeGeoJSON (planet : Planet) (path:string) (annotations : list<Annotation>) : unit = 
+    let writeGeoJSON 
+        (planet      : option<Planet>) 
+        (path        : string) 
+        (annotations : list<Annotation>) 
+        : unit = 
 
         if path.IsEmpty() then ()
     
         let geometryCollection =
             annotations
-            |> List.map(annotationToGeoJsonGeometry (Some planet))
+            |> List.map(annotationToGeoJsonGeometry (planet))
             |> GeoJsonGeometry.GeometryCollection
 
         geometryCollection
-        |> Json.serialize 
-        |> Json.formatWith JsonFormattingOptions.Pretty 
+        |> Json.serialize
+        |> Json.formatWith JsonFormattingOptions.Pretty
         |> Serialization.writeToFile path
 
         ()            
 
-    let writeGeoJSON_XYZ (path:string) (annotations : list<Annotation>) : unit = 
+    let writeGeoJSON_XYZ 
+        (path        : string)
+        (annotations : list<Annotation>) 
+        : unit = 
 
-        if path.IsEmpty() then ()
-    
-        let geometryCollection =
-            annotations
-            |> List.map(annotationToGeoJsonGeometry None)
-            |> GeoJsonGeometry.GeometryCollection
-
-        geometryCollection
-        |> Json.serialize 
-        |> Json.formatWith JsonFormattingOptions.Pretty 
-        |> Serialization.writeToFile path
-
-        ()
+        writeGeoJSON None path annotations
 
 
     // exports geojson objects as line delimited json: https://en.wikipedia.org/wiki/JSON_streaming#Line-delimited_JSON
