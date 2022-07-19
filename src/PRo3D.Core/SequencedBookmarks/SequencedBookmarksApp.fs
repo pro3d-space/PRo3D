@@ -40,15 +40,15 @@ module SequencedBookmarksApp =
 
 
 
-    type ProcListBuilder with   
-        member x.While(predicate : unit -> bool, body : ProcList<'m,unit>) : ProcList<'m,unit> =
-            proclist {
-                let p = predicate()
-                if p then 
-                    yield! body
-                    yield! x.While(predicate,body)
-                else ()
-            }
+    //type ProcListBuilder with   
+    //    member x.While(predicate : unit -> bool, body : ProcList<'m,unit>) : ProcList<'m,unit> =
+    //        proclist {
+    //            let p = predicate()
+    //            if p then 
+    //                yield! body
+    //                yield! x.While(predicate,body)
+    //            else ()
+    //        }
 
     /// Calculates the frames per second of recorded views based on timestamps
     /// recorded at the same time each view was animated.
@@ -129,27 +129,20 @@ module SequencedBookmarksApp =
     //        info.duration.value
     //    | None ->
     //        Log.warn "[Sequenced Bookmarks] No animation info found for bookmark %s" (id |> string)
-    //        SequencedBookmarks.initDuration.value
-
-    
-
-
-
-   
+    //        SequencedBookmarks.initDuration.value 
 
     let update 
         (m                : SequencedBookmarks) 
         (act              : SequencedBookmarksAction) 
-        (navigationModel_ : Lens<'a,NavigationModel>) 
-        (sceneState_      : Lens<'a, SceneState>)
+        (lenses           : BookmarkLenses<'a>)
         (outerModel       : 'a) : ('a * SequencedBookmarks) =
 
         match act with
         | AddSBookmark ->
-            let nav = Optic.get navigationModel_ outerModel
-            let state = Optic.get sceneState_ outerModel
+            let nav = Optic.get lenses.navigationModel_ outerModel
+            let state = Optic.get lenses.sceneState_ outerModel
             let newSBm = 
-                getNewBookmark nav state  m.bookmarks.Count
+                getNewSBookmark nav state  m.bookmarks.Count
             let oderList' = m.orderList@[newSBm.key]
             let m = {m with bookmarks = m.bookmarks |> HashMap.add newSBm.key newSBm;
                             orderList = oderList';
@@ -157,7 +150,7 @@ module SequencedBookmarksApp =
             outerModel, m
 
         | SequencedBookmarksAction.FlyToSBM id ->
-            toBookmark m navigationModel_ outerModel (find id)
+            toBookmark m lenses.navigationModel_ outerModel (find id)
         | RemoveSBM id -> 
             let selSBm = 
                 match m.selectedBookmark with
@@ -222,15 +215,16 @@ module SequencedBookmarksApp =
             | None -> outerModel, m
         | Play ->
             let outerModel = 
-                if Animator.exists AnimationSlot.camera outerModel then
+                if Animator.exists AnimationSlot.camera outerModel 
+                    && Animator.isPaused AnimationSlot.camera outerModel then
                     Animator.startOrResume AnimationSlot.camera outerModel
                 else 
-                    smoothPathAllBookmarks m navigationModel_ outerModel
+                    pathAllBookmarks m lenses.selectedBookmark_ lenses.setModel_ outerModel //navigationModel_ outerModel
             outerModel, m
         | StepForward -> 
-            toBookmark m navigationModel_ outerModel next
+            toBookmark m lenses.navigationModel_ outerModel next
         | StepBackward ->
-            toBookmark m navigationModel_ outerModel previous
+            toBookmark m lenses.navigationModel_ outerModel previous
         | Pause ->
             let outerModel = Animator.pause AnimationSlot.camera outerModel
             outerModel, m 

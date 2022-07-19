@@ -10,6 +10,8 @@ open PRo3D.Base
 open PRo3D.Core
 
 open Chiron
+open Aether
+open Aether.Operators
 
 type FPSSetting =
     | Full = 0
@@ -58,6 +60,7 @@ type SceneState =
         stateAnnoatations     : GroupsModel
         stateSurfaces         : SurfaceModel
         stateSceneObjects     : SceneObjectsModel
+        stateScaleBars        : ScaleBarsModel
         stateGeologicSurfaces : GeologicSurfacesModel
     } with
     static member FromJson( _ : SceneState) =
@@ -65,12 +68,14 @@ type SceneState =
             let! stateAnnoatations       = Json.read "stateAnnoatations"    
             let! stateSurfaces           = Json.read "stateSurfaces"        
             let! stateSceneObjects       = Json.read "stateSceneObjects"    
+            let! stateScaleBars       = Json.read "stateScaleBars"    
             let! stateGeologicSurfaces   = Json.read "stateGeologicSurfaces"
 
             return {
                 stateAnnoatations       = stateAnnoatations    
                 stateSurfaces           = stateSurfaces        
                 stateSceneObjects       = stateSceneObjects    
+                stateScaleBars          = stateScaleBars
                 stateGeologicSurfaces   = stateGeologicSurfaces
             }
         }
@@ -80,6 +85,7 @@ type SceneState =
             do! Json.write "stateAnnoatations"     x.stateAnnoatations    
             do! Json.write "stateSurfaces"         x.stateSurfaces        
             do! Json.write "stateSceneObjects"     x.stateSceneObjects    
+            do! Json.write "stateScaleBars"        x.stateScaleBars    
             do! Json.write "stateGeologicSurfaces" x.stateGeologicSurfaces
         }
 
@@ -244,6 +250,15 @@ type SequencedBookmarks = {
     snapshotThreads   : ThreadPool<SequencedBookmarksAction>
     updateJsonBeforeRendering : bool
   }
+
+type BookmarkLenses<'a> = {
+    navigationModel_  : Lens<'a,NavigationModel>
+    sceneState_       : Lens<'a, SceneState>
+    setModel_         : Lens<'a, SequencedBookmark>
+    selectedBookmark_ : Lens<'a, option<Guid>>
+
+}
+
 //} with interface IDisposable with 
 //            member this.Dispose () = 
 //                match this.snapshotProcess with

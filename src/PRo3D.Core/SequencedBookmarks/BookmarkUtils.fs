@@ -20,9 +20,9 @@ open Aether.Operators
 
 module BookmarkUtils =
 
-    let getNewBookmark (navigation : NavigationModel) 
-                       (sceneState : SceneState)
-                       (bookmarkCount:int) =
+    let getNewSBookmark (navigation : NavigationModel) 
+                        (sceneState : SceneState)
+                        (bookmarkCount:int) =
          
         let name = sprintf "Bookmark_%d" bookmarkCount //todo to make useful unique names
         let bookmark = 

@@ -26,47 +26,72 @@ module BookmarkAnimations =
         //let appearance = getName "appearance"
 
     /// Creates an animation that interpolates between two bookmarks
-    let interpolate (src : SequencedBookmark) (dst : SequencedBookmark) : IAnimation<'Model, SequencedBookmark> =
+    let private interpolate (src : SequencedBookmark) (dst : SequencedBookmark) : IAnimation<'Model, SequencedBookmark> =
         let animCam = Animation.Camera.interpolate src.bookmark.cameraView dst.bookmark.cameraView
         // TODO add other interpolations
         animCam
             |> Animation.map (fun view -> {dst with bookmark = {dst.bookmark with cameraView = view}})
 
-    let pathAllBookmarks (m : SequencedBookmarks) =
+
+    let private execute (setter_ : Lens<'a,'b>) 
+                        (outerModel      : 'a) 
+                animation =
+        let durationInSeconds = 10
+        let animation = 
+            animation
+                |> Animation.seconds durationInSeconds
+                |> Animation.ease (Easing.InOut EasingFunction.Quadratic)
+                |> Animation.onFinalize (fun name _ m -> 
+                                                        Log.line "[Animation] Finished animation."
+                                                        m
+                                        )
+                |> Animation.onProgress (fun name value model ->
+                            Optic.set setter_ value model 
+                    )
+        outerModel
+        |> Animator.createAndStart AnimationSlot.camera animation
+
+    let pathAllBookmarks (m : SequencedBookmarks)
+                         (_selected : Lens<'a,option<System.Guid>>)
+                         (_setModel : Lens<'a,SequencedBookmark>)
+                         (outerModel      : 'a) =
         let bookmarks = orderedBookmarks m
         let animation =
             bookmarks
                 |> List.pairwise
-                |> List.map (fun (a,b) -> interpolate a b)
+                |> List.map (fun (a,b) -> interpolate a b 
+                                            |> Animation.onFinalize (fun name x m -> 
+                                                        Log.line "selected bm %s" x.name
+                                                        Optic.set _selected (Some x.key) m
+                                        ))
                 |> Animation.path
         animation
-    
+            |> (execute _setModel outerModel)
+
     let smoothPath (views : seq<CameraView>)
                    (navigationModel : Lens<'a,NavigationModel>) 
                    (outerModel      : 'a) =
-        let view_       = navigationModel 
-                            >-> NavigationModel.camera_
-                            >-> CameraControllerState.view_
+        let view_ = navigationModel 
+                        >-> NavigationModel.camera_
+                        >-> CameraControllerState.view_
 
-        let animate views =
-            let durationInSeconds = 5
-        
-            AnimationCameraPrimitives.Animation.Camera.smoothPath 0.1 views
-                    |> Animation.seconds durationInSeconds
-                    |> Animation.ease (Easing.InOut EasingFunction.Quadratic)
-                    |> Animation.onFinalize (fun name _ m -> 
-                                                            Log.line "[Animation] Finished animation."
-                                                            m
-                                            )
-                    |> Animation.onProgress (fun name value model ->
-                             Optic.set view_ value model 
-                        )
+        AnimationCameraPrimitives.Animation.Camera.smoothPath 0.1 views
+            |> execute view_ outerModel 
+        //            |> Animation.seconds durationInSeconds
+        //            |> Animation.ease (Easing.InOut EasingFunction.Quadratic)
+        //            |> Animation.onFinalize (fun name _ m -> 
+        //                                                    Log.line "[Animation] Finished animation."
+        //                                                    m
+        //                                    )
+        //            |> Animation.onProgress (fun name value model ->
+        //                     Optic.set view_ value model 
+        //                )
 
-        let animation =
-            animate views 
+        //let animation =
+        //    animate views 
 
-        outerModel
-        |> Animator.createAndStart AnimationSlot.camera animation
+        //outerModel
+        //|> Animator.createAndStart AnimationSlot.camera animation
 
     let smoothPathAllBookmarks (m : SequencedBookmarks)
                                (navigationModel : Lens<'a,NavigationModel>) 

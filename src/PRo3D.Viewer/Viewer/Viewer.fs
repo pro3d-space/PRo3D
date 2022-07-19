@@ -125,6 +125,7 @@ module ViewerApp =
                 stateAnnoatations      = m.drawing.annotations
                 stateSurfaces          = m.scene.surfacesModel
                 stateSceneObjects      = m.scene.sceneObjectsModel
+                stateScaleBars         = m.scene.scaleBars
                 stateGeologicSurfaces  = m.scene.geologicSurfacesModel
             }
         ), 
@@ -135,10 +136,47 @@ module ViewerApp =
                     {m.scene with
                         surfacesModel           = state.stateSurfaces
                         sceneObjectsModel       = state.stateSceneObjects
+                        scaleBars               = state.stateScaleBars
                         geologicSurfacesModel   = state.stateGeologicSurfaces
                     }
             }
         )
+
+    let _selectedBookmark =
+       Model.scene_ >-> Scene.sequencedBookmarks_ >-> SequencedBookmarks.selectedBookmark_  
+    
+    /// for use with animations, getter returns selected bookmark or new bookmark
+    /// setter applies bookmark state to model
+    let _bookmark : ((Model -> SequencedBookmark) * (SequencedBookmark -> Model -> Model)) =
+        (fun (m : Model) -> 
+            Log.warn "[Viewer] Getting selected bookmark or new bookmark."
+            let sel = BookmarkUtils.selected m.scene.sequencedBookmarks
+            match sel with
+            | Some sel -> sel
+            | None -> 
+                SequencedBookmark.init 
+                      (Bookmarks.getNewBookmark (Optic.get _view m)
+                                                m.scene.navigationMode
+                                                m.scene.exploreCenter
+                                                m.scene.bookmarks.flat.Count)
+        ),
+        (fun sb m ->
+            let m = Optic.set _view sb.cameraView m
+            let m = 
+                match sb.sceneState with
+                | Some state ->
+                    Optic.set _sceneState state m
+                | None -> m
+            m
+        )
+
+    let bookmarkLenses =
+        {
+            navigationModel_  = _navigation
+            sceneState_       = _sceneState
+            setModel_         = _bookmark
+            selectedBookmark_ = _selectedBookmark
+        }
 
     let lookAtData (m: Model) =         
         let bb = m |> Optic.get _sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB) |> Box3d
@@ -601,8 +639,7 @@ module ViewerApp =
             let m, bm = 
                 SequencedBookmarksApp.update 
                     m.scene.sequencedBookmarks
-                    msg _navigation _sceneState
-                    m
+                    msg bookmarkLenses m
             let m = 
                 {m with scene = { m.scene with sequencedBookmarks = bm }}
             
