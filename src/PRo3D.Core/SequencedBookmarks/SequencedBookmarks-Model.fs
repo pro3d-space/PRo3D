@@ -58,7 +58,7 @@ type SequencedBookmarksAction =
 type SceneState =
     {
         stateAnnoatations     : GroupsModel
-        stateSurfaces         : SurfaceModel
+        stateSurfaces         : GroupsModel
         stateSceneObjects     : SceneObjectsModel
         stateScaleBars        : ScaleBarsModel
         stateGeologicSurfaces : GeologicSurfacesModel
@@ -68,7 +68,7 @@ type SceneState =
             let! stateAnnoatations       = Json.read "stateAnnoatations"    
             let! stateSurfaces           = Json.read "stateSurfaces"        
             let! stateSceneObjects       = Json.read "stateSceneObjects"    
-            let! stateScaleBars       = Json.read "stateScaleBars"    
+            let! stateScaleBars          = Json.read "stateScaleBars"    
             let! stateGeologicSurfaces   = Json.read "stateGeologicSurfaces"
 
             return {
@@ -138,10 +138,6 @@ module SequencedBookmark =
             delay = initDelay 0.0
             duration = initDuration 5.0
         }
-
-
-
-    
 
     let read0 = 
         json {

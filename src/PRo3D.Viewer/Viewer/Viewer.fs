@@ -123,20 +123,28 @@ module ViewerApp =
         (fun m -> 
             {
                 stateAnnoatations      = m.drawing.annotations
-                stateSurfaces          = m.scene.surfacesModel
+                stateSurfaces          = m.scene.surfacesModel.surfaces
                 stateSceneObjects      = m.scene.sceneObjectsModel
                 stateScaleBars         = m.scene.scaleBars
                 stateGeologicSurfaces  = m.scene.geologicSurfacesModel
             }
         ), 
         (fun state m ->
+            let scaleBars = 
+                let update bar = 
+                    { bar with scSegments = ScaleBarUtils.updateSegments bar }
+                let updated = 
+                    state.stateScaleBars.scaleBars 
+                                |> HashMap.map (fun id bar -> update bar)
+                {state.stateScaleBars with scaleBars = updated}
+
             {m with
                 drawing = {m.drawing with annotations = state.stateAnnoatations}
                 scene   = 
                     {m.scene with
-                        surfacesModel           = state.stateSurfaces
+                        surfacesModel           = {m.scene.surfacesModel with surfaces = state.stateSurfaces}
                         sceneObjectsModel       = state.stateSceneObjects
-                        scaleBars               = state.stateScaleBars
+                        scaleBars               = scaleBars
                         geologicSurfacesModel   = state.stateGeologicSurfaces
                     }
             }
