@@ -21,6 +21,7 @@ open Aardvark.UI.Operators
 open Aardvark.UI.Primitives
 open Aardvark.UI.Trafos
 open Aardvark.UI.Animation
+open Aardvark.Service
 open Aardvark.Application
 
 open Aardvark.SceneGraph.Opc
@@ -409,16 +410,18 @@ module ViewerApp =
         (msg       : ViewerAction) =
         //Log.line "[Viewer_update] %A inter:%A pick:%A" msg m.interaction m.picking
         match msg, m.interaction, m.ctrlFlag with
-        | NavigationMessage  msg,_,false when (isGrabbed m |> not) && (not (AnimationApp.shouldAnimate m.animations)) ->                              
-            let c   = m.scene.config
-            let ref = m.scene.referenceSystem
-            let nav = Navigation.update c ref navConf true m.navigation msg               
+        | NavigationMessage  msg,_,false when (isGrabbed m |> not) && (not (AnimationApp.shouldAnimate m.animations)) ->  
+            if not m.lineSelection.draw then
+                let c   = m.scene.config
+                let ref = m.scene.referenceSystem
+                let nav = Navigation.update c ref navConf true m.navigation msg               
              
-            //m.scene.navigation.camera.view.Location.ToString() |> NoAction |> ViewerAction |> mailbox.Post
+                //m.scene.navigation.camera.view.Location.ToString() |> NoAction |> ViewerAction |> mailbox.Post
              
-            m 
-            |> Optic.set _navigation nav
-            |> Optic.set _animationView nav.camera.view
+                m 
+                |> Optic.set _navigation nav
+                |> Optic.set _animationView nav.camera.view
+            else m
         | AnimationMessage msg,_,_ ->
             let a = AnimationApp.update m.animations msg
             { m with animations = a } |> Optic.set _view a.cam
@@ -497,7 +500,8 @@ module ViewerApp =
         | AnnoStatsMessage msg,_,_ ->           
                 let am = AnnotationStatisticsApp.update m.annoStats msg             
                 { m with annoStats = am}
-
+               
+                
 
         | SurfaceActions msg,_,_ ->
             
@@ -989,6 +993,13 @@ module ViewerApp =
                     Log.line "[Viewer] ShiftFlag %A" m.shiftFlag
                     m
                 | _ -> m
+
+            let m =
+                match k with
+                | Aardvark.Application.Keys.L ->
+                    let m_line = LineSelectionApp.update m.lineSelection StartDrawing
+                    {m with lineSelection = m_line}
+                | _ -> m
           
             let drawingAction =
                 match k with
@@ -1417,12 +1428,23 @@ module ViewerApp =
         //    | true ->
         //        Log.line "[Viewer] No shattercone updates found."
         //        m
-        | StartDragging _,_,_
-        | Dragging _,_,_ 
+        | StartDragging (pos,_),_,_  ->
+            if m.lineSelection.draw then
+                let m_line = LineSelectionApp.update m.lineSelection (StartLine pos)
+                {m with lineSelection = m_line}
+            else
+                m            
+        | Dragging pos,_,_ ->
+            if m.lineSelection.draw then
+                let m_line = LineSelectionApp.update m.lineSelection (UpdateLine pos)
+                {m with lineSelection = m_line}
+            else
+                m 
         | EndDragging _,_,_ -> 
+            let m_line = LineSelectionApp.update m.lineSelection FinishSelection
             match m.multiSelectBox with
-            | Some x -> { m with multiSelectBox = None }
-            | None -> m
+            | Some x -> { m with multiSelectBox = None; lineSelection = m_line}
+            | None -> {m with lineSelection = m_line}
        // | CorrelationPanelMessage a,_,_ ->
             //let blurg =
             //    match a with 

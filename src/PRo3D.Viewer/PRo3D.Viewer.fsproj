@@ -67,6 +67,8 @@
     <Compile Include="StatisticsMeasurement-App.fs" />
     <Compile Include="AnnotationStatisticsModel.fs" />
     <Compile Include="AnnotationStatisticsApp.fs" />
+    <Compile Include="LineSelection-Model.fs" />
+    <Compile Include="LineSelection-App.fs" />
     <Compile Include="Viewer-Model.fs" />
     <Compile Include="Bookmarks.fs" />
     <Compile Include="TraverseApp.fs" />

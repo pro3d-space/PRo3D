@@ -445,6 +445,7 @@ type Model = {
     scene                : Scene
     drawing              : PRo3D.Core.Drawing.DrawingModel
     annoStats            : AnnotationStatisticsModel
+    lineSelection        : LineSelectionModel
     interaction          : Interactions    
     recent               : Recent
     waypoints            : IndexList<WayPoint>
@@ -588,6 +589,7 @@ module Viewer =
             startupArgs     = startupArgs            
             drawing         = Drawing.DrawingModel.initialdrawing
             annoStats       = AnnotationStatistics.initial
+            lineSelection   = LineSelection.initial
             properties      = NoProperties
             interaction     = Interactions.PlaceRover
             multiSelectBox  = None

@@ -1084,7 +1084,7 @@ module Gui =
                         onResize (fun s -> OnResize(s, renderViewportSizeId))
                         onFocus (fun s -> OnResize(s, renderViewportSizeId))
                         onMouseDown (fun button pos -> StartDragging (pos, button))
-                     //   onMouseMove (fun delta -> Dragging delta)
+                        onMouseMove (fun pos -> Dragging pos)
                         onMouseUp (fun button pos -> EndDragging (pos, button))
                     ]
 
@@ -1099,7 +1099,8 @@ module Gui =
                                 yield (ComparisonApp.viewLegend m.scene.comparisonApp)
                                 yield scalarsColorLegend m
                                 yield selectionRectangle m
-                                yield PRo3D.Linking.LinkingApp.sceneOverlay m.linkingModel |> UI.map LinkingActions
+                                yield PRo3D.Linking.LinkingApp.sceneOverlay m.linkingModel |> UI.map LinkingActions                                
+                                yield LineSelectionApp.view m.lineSelection
                             }
                         )
                     ]                
