@@ -239,6 +239,15 @@ module SequencedBookmarksApp =
             outerModel, {m with animationSettings = 
                                  {m.animationSettings with useGlobalAnimation = useGlobalAnimation}
                         }
+        | SetLoopMode loopMode ->
+            outerModel, {m with animationSettings = 
+                                 {m.animationSettings with loopMode = loopMode}
+                        }
+        | ToggleApplyStateOnSelect ->
+            let applyStateOnSelect = not m.animationSettings.applyStateOnSelect
+            outerModel, {m with animationSettings = 
+                                 {m.animationSettings with applyStateOnSelect = applyStateOnSelect}
+                        }
         | StartRecording -> 
             //TODO RNO
             //collectedViews <- List.empty
@@ -517,6 +526,10 @@ module SequencedBookmarksApp =
                                         |> UI.wrapToolTip DataPosition.Bottom "Use a smooth path past all bookmarks, duration and delay cannot be set for individual bookmarks if this is selected."
                     ]
                   Html.row "Duration" [Incremental.div AttributeMap.empty duration]
+                  Html.row "Loop:"   [Html.SemUi.dropDown model.animationSettings.loopMode SetLoopMode]
+                  Html.row "Apply State on Select" [
+                        GuiEx.iconCheckBox model.animationSettings.applyStateOnSelect ToggleApplyStateOnSelect
+                    ]
                 ]
               )
 

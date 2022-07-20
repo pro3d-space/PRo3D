@@ -72,6 +72,17 @@ module BookmarkAnimations =
                 |> Animation.onProgress (fun name value model ->
                             Optic.set lenses.setModel_ value model 
                     )
+        let animation =
+            match sbs.animationSettings.loopMode with
+            | AnimationLoopMode.Repeat ->
+                animation
+                    |> Animation.loop LoopMode.Repeat
+            | AnimationLoopMode.Mirror ->
+                animation
+                    |> Animation.loop LoopMode.Mirror
+            | AnimationLoopMode.NoLoop ->
+                animation
+
         outerModel
         |> Animator.createAndStart AnimationSlot.camera animation
 

@@ -22,6 +22,11 @@ type SequencedBookmarkAction =
     | SetDelay       of Numeric.Action
     | SetDuration    of Numeric.Action
 
+[<Struct>]
+type AnimationLoopMode = 
+    | NoLoop = 0
+    | Repeat = 1
+    | Mirror = 2
 
 type SequencedBookmarksAction =
     | SequencedBookmarkMessage of (Guid * SequencedBookmarkAction)
@@ -39,6 +44,8 @@ type SequencedBookmarksAction =
     /// sets the time the whole animation takes
     | SetGlobalDuration  of Numeric.Action
     | ToggleGlobalAnimation
+    | SetLoopMode of AnimationLoopMode
+    | ToggleApplyStateOnSelect
     | StartRecording
     | StopRecording
     | GenerateSnapshots
@@ -179,17 +186,23 @@ type SequencedBookmark with
             do! Json.write "duration"   x.duration.value
         }
 
+
+
 [<ModelType>]
 type AnimationSettings = {
     /// duration of the whole animation sequence (all bookmarks)
     /// cannot be combined with duration settings for individual bookmarks
     globalDuration     : NumericInput
     useGlobalAnimation : bool
+    loopMode           : AnimationLoopMode
+    applyStateOnSelect : bool
 } with     
     static member init = 
         {
             useGlobalAnimation  = false
             globalDuration      = SequencedBookmark.initDuration 20.0
+            loopMode            = AnimationLoopMode.NoLoop
+            applyStateOnSelect  = false
         }
     static member FromJson( _ : AnimationSettings) =
         json {
@@ -206,9 +219,23 @@ type AnimationSettings = {
                 | Some x -> SequencedBookmark.initDuration x
                 | None   -> SequencedBookmark.initDuration 10.0
 
+            let! (loopMode : option<int32>) = Json.tryRead "globalDuration"
+            let loopMode =
+                match loopMode with
+                | Some x -> x |> enum 
+                | None   -> AnimationLoopMode.NoLoop
+
+            let! (applyStateOnSelect : option<bool>) = Json.tryRead "globalDuration"
+            let applyStateOnSelect =
+                match applyStateOnSelect with
+                | Some x -> x
+                | None   -> false
+
             return {
                 useGlobalAnimation = useGlobalAnimation
                 globalDuration     = globalDuration
+                loopMode           = loopMode
+                applyStateOnSelect  = applyStateOnSelect
             }
         }
 
@@ -216,6 +243,8 @@ type AnimationSettings = {
         json {
             do! Json.write "useGlobalAnimation" x.useGlobalAnimation
             do! Json.write "globalDuration"     x.globalDuration.value
+            do! Json.write "loopMode"           (x.loopMode |> int)
+            do! Json.write "applyStateOnSelect" x.applyStateOnSelect
         }
 
 [<ModelType>]
