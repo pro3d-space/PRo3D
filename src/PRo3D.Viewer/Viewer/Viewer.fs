@@ -131,10 +131,11 @@ module ViewerApp =
         ), 
         (fun state m ->
             let scaleBars = 
-                let update bar = 
-                    { bar with scSegments = ScaleBarUtils.updateSegments bar }
+                let inline update (bar : ScaleBar) = 
+                    let current = HashMap.find bar.guid m.scene.scaleBars.scaleBars
+                    { bar with scSegments = current.scSegments}
                 let updated = 
-                    state.stateScaleBars.scaleBars 
+                    state.stateScaleBars.scaleBars
                                 |> HashMap.map (fun id bar -> update bar)
                 {state.stateScaleBars with scaleBars = updated}
 

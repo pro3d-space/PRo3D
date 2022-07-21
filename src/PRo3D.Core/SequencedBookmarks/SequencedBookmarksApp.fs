@@ -21,6 +21,7 @@ open Aether
 open Aether.Operators
 
 module SequencedBookmark =
+
     let update (m : SequencedBookmark) (msg : SequencedBookmarkAction) =
         match msg with
         | SetName name ->
@@ -29,6 +30,30 @@ module SequencedBookmark =
             {m with delay = Numeric.update m.delay msg}
         | SetDuration msg ->
             {m with duration = Numeric.update m.duration msg}
+
+module AnimationSettings =
+    let update (m : AnimationSettings) (msg : AnimationSettingsAction)  =
+        match msg with
+        | SetGlobalDuration  msg ->
+           let globalDuration = Numeric.update m.globalDuration msg
+           {m with globalDuration = globalDuration}
+        | ToggleGlobalAnimation ->
+            let useGlobalAnimation = not m.useGlobalAnimation
+            {m with useGlobalAnimation = useGlobalAnimation}
+        | SetLoopMode loopMode ->
+            {m with loopMode = loopMode}
+        | ToggleApplyStateOnSelect ->
+            let applyStateOnSelect = not m.applyStateOnSelect
+            {m with applyStateOnSelect = applyStateOnSelect}
+        | ToggleUseEasing ->
+            let useEasing = not m.useEasing
+            {m with useEasing = useEasing}
+        | ToggleUseSmoothing ->
+            let smoothPath = not m.smoothPath
+            {m with smoothPath = smoothPath}
+        | SetSmoothingFactor  msg ->
+           let smoothingFactor = Numeric.update m.smoothingFactor msg
+           {m with smoothingFactor = smoothingFactor}
 
 module SequencedBookmarksApp = 
     let mutable collectedViews = List<CameraView>.Empty
@@ -138,6 +163,21 @@ module SequencedBookmarksApp =
         (outerModel       : 'a) : ('a * SequencedBookmarks) =
 
         match act with
+        | AnimationSettingsMessage msg ->
+            let animationSettings = AnimationSettings.update m.animationSettings msg
+            let m = {m with animationSettings = animationSettings}
+            match msg, animationSettings.applyStateOnSelect with 
+            | ToggleApplyStateOnSelect, true -> // save original scene state
+                outerModel, {m with originalSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
+            | ToggleApplyStateOnSelect, false -> // apply original scene state
+                match m.originalSceneState with
+                | Some state ->
+                    Optic.set lenses.sceneState_ state outerModel, m
+                | None ->
+                    Log.warn "No original scene state was available."
+                    outerModel, m
+            | _ ->
+                outerModel, m
         | AddSBookmark ->
             let nav = Optic.get lenses.navigationModel_ outerModel
             let state = Optic.get lenses.sceneState_ outerModel
@@ -163,7 +203,33 @@ module SequencedBookmarksApp =
             outerModel, { m with bookmarks = bookmarks'; orderList = orderList'; selectedBookmark = selSBm; }
        
         | SelectSBM id ->
-            outerModel, selectSBookmark m id 
+            match m.animationSettings.applyStateOnSelect with
+            | true ->
+                // save original state if no bookmark is selected
+                let m =
+                    match m.selectedBookmark with
+                    | Some _ -> m
+                    | None ->
+                        {m with originalSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
+                let m = selectSBookmark m id 
+                let selected = selected m
+                let outerModel = 
+                    match selected with
+                    | Some sel -> // apply bookmark state
+                        Optic.set lenses.setModel_ sel outerModel
+                    | None -> // restore original state
+                        match m.originalSceneState with
+                        | Some state -> 
+                            Optic.set lenses.sceneState_ state outerModel
+                        | None -> 
+                            Log.line "[SequencedBookmarks] No original scene state to apply"
+                            outerModel
+                outerModel, m
+            | false ->
+                outerModel, selectSBookmark m id 
+        | SetSceneState id ->
+            let m = updateOne m id (fun bm -> {bm with sceneState = Some (Optic.get lenses.sceneState_ outerModel)})
+            outerModel, m
         | MoveUp id ->
             let index = m.orderList |> List.toSeq |> Seq.findIndex(fun x -> x = id)
             let orderList' =
@@ -218,7 +284,17 @@ module SequencedBookmarksApp =
                 && Animator.isPaused AnimationSlot.camera outerModel then
                 Animator.startOrResume AnimationSlot.camera outerModel, m
             else 
-                pathAllBookmarks m lenses outerModel
+                match (List.tryHead m.orderList) with
+                | Some firstBookmark ->
+                    let m = selectSBookmark m firstBookmark
+                    match m.animationSettings.smoothPath with
+                    | true ->
+                        smoothPathAllBookmarks m lenses outerModel
+                    | false ->
+                        pathAllBookmarks m lenses outerModel
+                | None ->
+                    Log.line "[SequencedBookmarks] There are no sequenced bookmarks."
+                    outerModel, m
         | StepForward -> 
             toBookmark m lenses.navigationModel_ outerModel next
         | StepBackward ->
@@ -229,25 +305,6 @@ module SequencedBookmarksApp =
         | Stop ->
             let outerModel = Animator.stop AnimationSlot.camera outerModel
             outerModel, m 
-        | SetGlobalDuration  msg ->
-           let globalDuration = Numeric.update m.animationSettings.globalDuration msg
-           outerModel, {m with animationSettings = 
-                                {m.animationSettings with globalDuration = globalDuration}
-                       }
-        | ToggleGlobalAnimation ->
-            let useGlobalAnimation = not m.animationSettings.useGlobalAnimation
-            outerModel, {m with animationSettings = 
-                                 {m.animationSettings with useGlobalAnimation = useGlobalAnimation}
-                        }
-        | SetLoopMode loopMode ->
-            outerModel, {m with animationSettings = 
-                                 {m.animationSettings with loopMode = loopMode}
-                        }
-        | ToggleApplyStateOnSelect ->
-            let applyStateOnSelect = not m.animationSettings.applyStateOnSelect
-            outerModel, {m with animationSettings = 
-                                 {m.animationSettings with applyStateOnSelect = applyStateOnSelect}
-                        }
         | StartRecording -> 
             //TODO RNO
             //collectedViews <- List.empty
@@ -417,12 +474,15 @@ module SequencedBookmarksApp =
 
                                         yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveSBM id)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Remove"     
+                                        yield i [clazz "file import icon"; onClick (fun _ -> SetSceneState id)] [] 
+                                            |> UI.wrapToolTip DataPosition.Bottom "Replace scene state for this bookmark with current state. Does not replace view."
 
                                         yield i [clazz "arrow alternate circle up outline icon"; onClick (fun _ -> MoveUp id)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Move up"
                                         
                                         yield i [clazz "arrow alternate circle down outline icon"; onClick (fun _ -> MoveDown id)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Move down"
+                                        
                                    
                                     } 
                                 )                                     
@@ -449,8 +509,8 @@ module SequencedBookmarksApp =
                 alist {
                     let! useGlobal = useGlobalAnimation
                     if useGlobal then
-                        yield content
-                    else yield div [] [text "Deselect global animation to edit"]
+                        yield div [] [text "Deselect global animation to edit"]
+                    else yield content
                 }
             let duration = 
                 Numeric.view' [InputBox] m.duration
@@ -502,6 +562,7 @@ module SequencedBookmarksApp =
                     if useGlobal then
                         div [] [Numeric.view' [InputBox] model.animationSettings.globalDuration]
                             |> UI.map SetGlobalDuration
+                            |> UI.map AnimationSettingsMessage
                     else div [] []
                                 
                 }
@@ -520,16 +581,30 @@ module SequencedBookmarksApp =
                                               button [clazz "ui icon button"; onMouseClick (fun _ -> StepForward )] [ //
                                                   i [clazz "step forward icon"] [] ] 
                                           ] ]
-                  Html.row "Global Animation" 
-                    [GuiEx.iconCheckBox model.animationSettings.useGlobalAnimation ToggleGlobalAnimation;
+                  Html.row "Global Animation:" 
+                    [GuiEx.iconCheckBox model.animationSettings.useGlobalAnimation ToggleGlobalAnimation
+                        |> UI.map AnimationSettingsMessage;
                                     i [clazz "info icon"] [] 
                                         |> UI.wrapToolTip DataPosition.Bottom "Use a smooth path past all bookmarks, duration and delay cannot be set for individual bookmarks if this is selected."
                     ]
-                  Html.row "Duration" [Incremental.div AttributeMap.empty duration]
-                  Html.row "Loop:"   [Html.SemUi.dropDown model.animationSettings.loopMode SetLoopMode]
-                  Html.row "Apply State on Select" [
+                  Html.row "Duration:" [Incremental.div AttributeMap.empty duration]
+                  Html.row "Loop:"   [Html.SemUi.dropDown model.animationSettings.loopMode SetLoopMode
+                                        |> UI.map AnimationSettingsMessage ]
+                  Html.row "Use Easing:" 
+                           [GuiEx.iconCheckBox model.animationSettings.useEasing ToggleUseEasing
+                                |> UI.map AnimationSettingsMessage]
+                  Html.row "Smooth Path:" 
+                           [GuiEx.iconCheckBox model.animationSettings.smoothPath ToggleUseSmoothing
+                                |> UI.map AnimationSettingsMessage]
+                  Html.row "Smoothing Factor"
+                           [Numeric.view' [InputBox] model.animationSettings.smoothingFactor]
+                                |> UI.map SetSmoothingFactor
+                                |> UI.map AnimationSettingsMessage
+                  Html.row "Apply State on Select:" [
                         GuiEx.iconCheckBox model.animationSettings.applyStateOnSelect ToggleApplyStateOnSelect
+                            |> UI.map AnimationSettingsMessage
                     ]
+
                 ]
               )
 

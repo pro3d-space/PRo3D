@@ -91,6 +91,17 @@ module BookmarkUtils =
             HashMap.tryFind m.orderList.[nextIndex] m.bookmarks
         | None -> None
 
+    let updateOne (m : SequencedBookmarks) (key : Guid) 
+                  (f : SequencedBookmark -> SequencedBookmark) =
+        let bookmarks = 
+            HashMap.alter 
+                key (fun x -> 
+                    match x with
+                    | Some x -> Some (f x)
+                    | None -> None) m.bookmarks
+        {m with bookmarks = bookmarks}
+            
+
     let next (m : SequencedBookmarks) =
         moveCursor (fun x -> x + 1) m
 
@@ -105,4 +116,3 @@ module BookmarkUtils =
 
     let find (id : Guid) (m : SequencedBookmarks) =
         HashMap.tryFind id m.bookmarks
-

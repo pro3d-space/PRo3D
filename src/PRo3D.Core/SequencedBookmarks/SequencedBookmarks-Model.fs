@@ -28,24 +28,31 @@ type AnimationLoopMode =
     | Repeat = 1
     | Mirror = 2
 
+type AnimationSettingsAction =
+    /// sets the time the whole animation takes
+    | SetGlobalDuration  of Numeric.Action
+    | ToggleGlobalAnimation
+    | SetLoopMode of AnimationLoopMode
+    | ToggleApplyStateOnSelect
+    | ToggleUseEasing
+    | ToggleUseSmoothing
+    | SetSmoothingFactor of Numeric.Action
+
 type SequencedBookmarksAction =
     | SequencedBookmarkMessage of (Guid * SequencedBookmarkAction)
+    | AnimationSettingsMessage of AnimationSettingsAction
     | FlyToSBM       of Guid
     | RemoveSBM      of Guid
     | SelectSBM      of Guid
     | MoveUp         of Guid
     | MoveDown       of Guid
+    | SetSceneState of Guid
     | AddSBookmark  
     | Play
     | Pause
     | Stop
     | StepForward
     | StepBackward
-    /// sets the time the whole animation takes
-    | SetGlobalDuration  of Numeric.Action
-    | ToggleGlobalAnimation
-    | SetLoopMode of AnimationLoopMode
-    | ToggleApplyStateOnSelect
     | StartRecording
     | StopRecording
     | GenerateSnapshots
@@ -118,6 +125,15 @@ type SequencedBookmark = { //WIP RNO
 
 module SequencedBookmark =
     let current = 0   
+
+    let initSmoothing value =
+        {
+            value   = value
+            min     = 0.0
+            max     = 1.0
+            step    = 0.1
+            format  = "{0:0.0}"
+        }
 
     let initDelay value =
         {
@@ -195,14 +211,20 @@ type AnimationSettings = {
     globalDuration     : NumericInput
     useGlobalAnimation : bool
     loopMode           : AnimationLoopMode
+    useEasing          : bool
     applyStateOnSelect : bool
+    smoothPath         : bool
+    smoothingFactor    : NumericInput
 } with     
     static member init = 
         {
             useGlobalAnimation  = false
             globalDuration      = SequencedBookmark.initDuration 20.0
             loopMode            = AnimationLoopMode.NoLoop
+            useEasing           = true
             applyStateOnSelect  = false
+            smoothPath          = false
+            smoothingFactor     = SequencedBookmark.initSmoothing 0.1
         }
     static member FromJson( _ : AnimationSettings) =
         json {
@@ -231,11 +253,32 @@ type AnimationSettings = {
                 | Some x -> x
                 | None   -> false
 
+            let! (useEasing : option<bool>) = Json.tryRead "useEasing"
+            let useEasing =
+                match useEasing with
+                | Some x -> x
+                | None   -> false
+
+            let! (smoothPath : option<bool>) = Json.tryRead "smoothPath"
+            let smoothPath =
+                match smoothPath with
+                | Some x -> x
+                | None   -> false
+
+            let! (smoothingFactor : option<float>) = Json.tryRead "smoothingFactor"
+            let smoothingFactor =
+                match smoothingFactor with
+                | Some x -> SequencedBookmark.initSmoothing x
+                | None   -> SequencedBookmark.initSmoothing 0.1
+
             return {
                 useGlobalAnimation = useGlobalAnimation
                 globalDuration     = globalDuration
                 loopMode           = loopMode
-                applyStateOnSelect  = applyStateOnSelect
+                applyStateOnSelect = applyStateOnSelect
+                useEasing          = useEasing
+                smoothPath         = smoothPath     
+                smoothingFactor    = smoothingFactor
             }
         }
 
@@ -245,6 +288,9 @@ type AnimationSettings = {
             do! Json.write "globalDuration"     x.globalDuration.value
             do! Json.write "loopMode"           (x.loopMode |> int)
             do! Json.write "applyStateOnSelect" x.applyStateOnSelect
+            do! Json.write "useEasing"          x.useEasing
+            do! Json.write "smoothPath"         x.smoothPath
+            do! Json.write "smoothingFactor"    x.smoothingFactor.value
         }
 
 [<ModelType>]
