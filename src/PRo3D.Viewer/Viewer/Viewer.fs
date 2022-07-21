@@ -500,6 +500,9 @@ module ViewerApp =
         | AnnoStatsMessage msg,_,_ ->           
                 let am = AnnotationStatisticsApp.update m.annoStats msg             
                 { m with annoStats = am}
+        | LineSelectionMessage msg,_, _ ->
+            let m_line = LineSelectionApp.update m.lineSelection msg
+            {m with lineSelection = m_line}
                
                 
 
@@ -1975,6 +1978,8 @@ module ViewerApp =
             { kind = Script;      name = "errorReporting";  url = "./errorReporting.js"  }
             { kind = Script;      name = "resize";  url = "./ResizeSensor.js"  }
             { kind = Script;      name = "resizeElem";  url = "./ElementQueries.js"  }
+            { kind = Script;      name = "lineSelectionHelp";  url = "./LineSelectionHelp.js"  }
+
         ]
         
         let bodyAttributes = [style "background: #1B1C1E; height:100%; overflow-y:scroll; overflow-x:hidden;"] //overflow-y : visible

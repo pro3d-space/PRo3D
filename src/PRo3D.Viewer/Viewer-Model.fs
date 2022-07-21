@@ -162,6 +162,7 @@ type ViewerAction =
 | TraverseMessage                of TraverseAction
 | StopGeoJsonAutoExport        
 | AnnoStatsMessage               of AnnoStatsAction
+| LineSelectionMessage           of LineSelectionAction
 | Nop
 
 and MailboxState = {

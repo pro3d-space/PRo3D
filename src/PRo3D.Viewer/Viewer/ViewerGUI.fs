@@ -19,6 +19,7 @@ open Aardvark.UI
 open Aardvark.UI.Operators
 open Aardvark.UI.Primitives
 open Aardvark.Rendering.Text
+open Aardvark.Application
 
 open Aardvark.SceneGraph.Opc
 open Aardvark.SceneGraph.SgPrimitives.Sg
@@ -1078,14 +1079,23 @@ module Gui =
                     let onFocus (cb : V2i -> 'msg) =
                         onEvent "onfocus" ["{ X: $(document).width(), Y: $(document).height()  }"] (List.head >> Pickler.json.UnPickleOfString >> cb)
 
+                    let onMouseDown (cb : V2i -> 'msg) =
+                        onEvent "onmousedown" ["transform_to_svgCoords(event, 'lineSVG')"] (List.head >> Pickler.json.UnPickleOfString >> cb)
+
+                    let onMouseMove (cb : V2i -> 'msg) =
+                        onEvent "onmousemove" ["transform_to_svgCoords(event, 'lineSVG')"] (List.head >> Pickler.json.UnPickleOfString >> cb)
+
+                    let onMouseUp (cb : V2i -> 'msg) =
+                        onEvent "onmouseup" ["transform_to_svgCoords(event, 'lineSVG')"] (List.head >> Pickler.json.UnPickleOfString >> cb)
+
                     let renderViewAttributes = [ 
                         style "background: #1B1C1E; height:100%; width:100%"
                         Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Standard)
                         onResize (fun s -> OnResize(s, renderViewportSizeId))
                         onFocus (fun s -> OnResize(s, renderViewportSizeId))
-                        onMouseDown (fun button pos -> StartDragging (pos, button))
-                        onMouseMove (fun pos -> Dragging pos)
-                        onMouseUp (fun button pos -> EndDragging (pos, button))
+                        //onMouseDown (fun pos-> StartDragging (pos, MouseButtons.None))
+                        //onMouseMove (fun pos -> Dragging pos)
+                        //onMouseUp (fun pos-> EndDragging (pos, MouseButtons.None))
                     ]
 
                     body renderViewAttributes [ //[ style "background: #1B1C1E; height:100%; width:100%"] [
@@ -1100,9 +1110,12 @@ module Gui =
                                 yield scalarsColorLegend m
                                 yield selectionRectangle m
                                 yield PRo3D.Linking.LinkingApp.sceneOverlay m.linkingModel |> UI.map LinkingActions                                
-                                yield LineSelectionApp.view m.lineSelection
+                                yield LineSelectionApp.view m.lineSelection m.viewPortSizes renderViewportSizeId |> UI.map LineSelectionMessage 
                             }
                         )
+                        //Svg.svg [clazz "lineSVG"; style "width:100%;height:100%"] [
+                        //    LineSelectionApp.view m.lineSelection m.viewPortSizes renderViewportSizeId
+                        //]
                     ]                
                 )
             | Some "surfaces" -> 

@@ -101,6 +101,7 @@
     <Compile Include="RemoteControlModel.fs" />
     <Compile Include="RemoteControlApp.fs" />
     <Compile Include="Program.fs" />
+    
     <Content Include="resources\rotationcubeXYZ\back.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -157,6 +158,7 @@
     <EmbeddedResource Include="resources\semui-overrides.css" />
     <EmbeddedResource Include="resources\ElementQueries.js" />
 	<EmbeddedResource Include="resources\ResizeSensor.js" />
+	<EmbeddedResource Include="resources\LineSelectionHelp.js" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.2D3DLinking\PRo3D.Linking.fsproj" />
