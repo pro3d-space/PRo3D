@@ -30,30 +30,44 @@ module BookmarkAnimations =
 
     module Primitives =
         /// Creates an animation that interpolates between two bookmarks
-        let interpolateBm (src : SequencedBookmark) (dst : SequencedBookmark) = //IAnimation<'Model, SequencedBookmark> =
+        let interpolateBm (settings : AnimationSettings) 
+                          (src : SequencedBookmark) (dst : SequencedBookmark) = //IAnimation<'Model, SequencedBookmark> =
             let pause = 
-                let dummyAnimation = Animation.create (fun _ -> dst.cameraView)
+                let dummyAnimation = Animation.create (fun _ -> src.cameraView)
                 // TODO RNO add other interpolations
                 dummyAnimation
-                    |> Animation.map (fun view -> {dst with bookmark = {dst.bookmark with cameraView = view}})
-                    |> Animation.seconds src.delay.value
+                |> Animation.map (fun view -> src)
+                |> Animation.seconds src.delay.value
             
             let toNext = 
                 let animCam = Animation.Camera.interpolate src.bookmark.cameraView dst.bookmark.cameraView
                 // TODO RNO add other interpolations
                 animCam
-                    |> Animation.map (fun view -> {dst with bookmark = {dst.bookmark with cameraView = view}})
+                |> Animation.map (fun view -> {dst with bookmark = {dst.bookmark with cameraView = view}})
+
+            let toNext =
+                if settings.useGlobalAnimation then
+                    toNext
+                else 
+                    toNext
                     |> Animation.seconds dst.duration.value
+
+            let toNext = 
+                if settings.useEasing then
+                    toNext
+                        |> Animation.ease (Easing.InOut EasingFunction.Quadratic)
+                else 
+                    toNext
             [pause; toNext]
 
         let inline slerpBm (src : SequencedBookmark) (dst : SequencedBookmark) : IAnimation<'Model, SequencedBookmark> =
             let slerped = Primitives.slerp (CameraView.orientation src.bookmark.cameraView)
                                            (CameraView.orientation dst.bookmark.cameraView)
             slerped
-                |> Animation.map (fun ( x : Rot3d)  -> 
-                                        {dst with bookmark = 
-                                                     {dst.bookmark with cameraView = CameraView.withOrientation x dst.cameraView}} 
-                                 ) 
+            |> Animation.map (fun ( x : Rot3d)  -> 
+                                    {dst with bookmark = 
+                                                    {dst.bookmark with cameraView = CameraView.withOrientation x dst.cameraView}} 
+                                ) 
                 
 
     //let private addLocalAttributes (m : SequencedBookmarks)
@@ -136,7 +150,7 @@ module BookmarkAnimations =
                 animation
 
         let animation =
-            if m.animationSettings.useEasing then
+            if m.animationSettings.useEasing && m.animationSettings.useGlobalAnimation then
                 animation
                 |> Animation.ease (Easing.InOut EasingFunction.Quadratic)
             else
@@ -191,12 +205,12 @@ module BookmarkAnimations =
         let bookmarks = orderedBookmarks m
         let animation =
             bookmarks
-                |> smoothBookmarkPath m.animationSettings.smoothingFactor.value
-                |> List.ofArray
-                |> List.map (Animation.onStart (fun name x m -> 
-                                                        Log.line "selected bm %s" x.name
-                                                        Optic.set lenses.selectedBookmark_ (Some x.key) m
-                                        ))
+            |> smoothBookmarkPath m.animationSettings.smoothingFactor.value
+            |> List.ofArray
+            |> List.map (Animation.onStart (fun name x m -> 
+                                                    Log.line "selected bm %s" x.name
+                                                    Optic.set lenses.selectedBookmark_ (Some x.key) m
+                                    ))
                 |> Animation.path
         let animation = 
             animation
@@ -212,16 +226,20 @@ module BookmarkAnimations =
                         (lenses : BookmarkLenses<'a>)
                         (outerModel      : 'a) =
         let bookmarks = orderedBookmarks m
-        let animation =
+        let animations =
             bookmarks
-                |> List.pairwise 
-                |> List.map (fun (a,b) -> Primitives.interpolateBm a b)
-                |> List.concat
-                |> List.map (Animation.onStart (fun name x m -> 
-                                                        Log.line "[Bookmark Animation] Selected bookmark %s" x.name
-                                                        Optic.set lenses.selectedBookmark_ (Some x.key) m
-                                        ))
-                |> Animation.path
+            |> List.pairwise 
+            |> List.map (fun (a,b) -> Primitives.interpolateBm m.animationSettings a b)
+            |> List.concat
+            |> List.map (Animation.onStart (fun name x m -> 
+                                                    Log.line "[Bookmark Animation] Selected bookmark %s" x.name
+                                                    Optic.set lenses.selectedBookmark_ (Some x.key) m
+                                    ))
+        
+        let animation =
+            animations
+            |> Animation.path
+
         let animation = 
             animation
             |> addGlobalAttributes m lenses outerModel
