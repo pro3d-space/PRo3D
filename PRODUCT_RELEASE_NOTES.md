@@ -1,3 +1,7 @@
+## 4.9.0-prerelease1
+
+- geoJSON exports now contain sampled points of visible annotations [#217](https://github.com/pro3d-space/PRo3D/issues/217)
+
 ## 4.8.2-prerelease1
  
 - electron build test   
