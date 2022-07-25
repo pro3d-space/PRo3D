@@ -28,94 +28,115 @@ module BookmarkAnimations =
         let caption = Sym.ofString "caption"
         //let appearance = getName "appearance"
 
-        
-    /// Creates an animation that interpolates between two bookmarks
-    let inline interpolateBm (src : SequencedBookmark) (dst : SequencedBookmark) : IAnimation<'Model, SequencedBookmark> =
-        let animCam = Animation.Camera.interpolate src.bookmark.cameraView dst.bookmark.cameraView
-        // TODO add other interpolations
-        animCam
-            |> Animation.map (fun view -> {dst with bookmark = {dst.bookmark with cameraView = view}})
+    module Primitives =
+        /// Creates an animation that interpolates between two bookmarks
+        let interpolateBm (src : SequencedBookmark) (dst : SequencedBookmark) = //IAnimation<'Model, SequencedBookmark> =
+            let pause = 
+                let dummyAnimation = Animation.create (fun _ -> dst.cameraView)
+                // TODO RNO add other interpolations
+                dummyAnimation
+                    |> Animation.map (fun view -> {dst with bookmark = {dst.bookmark with cameraView = view}})
+                    |> Animation.seconds src.delay.value
+            
+            let toNext = 
+                let animCam = Animation.Camera.interpolate src.bookmark.cameraView dst.bookmark.cameraView
+                // TODO RNO add other interpolations
+                animCam
+                    |> Animation.map (fun view -> {dst with bookmark = {dst.bookmark with cameraView = view}})
+                    |> Animation.seconds dst.duration.value
+            [pause; toNext]
 
-    let inline slerpBm (src : SequencedBookmark) (dst : SequencedBookmark) : IAnimation<'Model, SequencedBookmark> =
-        let slerped = Primitives.slerp (CameraView.orientation src.bookmark.cameraView)
-                                       (CameraView.orientation dst.bookmark.cameraView)
-        slerped
-            |> Animation.map (fun ( x : Rot3d)  -> 
-                                    {dst with bookmark = 
-                                                 {dst.bookmark with cameraView = CameraView.withOrientation x dst.cameraView}} 
-                             ) 
+        let inline slerpBm (src : SequencedBookmark) (dst : SequencedBookmark) : IAnimation<'Model, SequencedBookmark> =
+            let slerped = Primitives.slerp (CameraView.orientation src.bookmark.cameraView)
+                                           (CameraView.orientation dst.bookmark.cameraView)
+            slerped
+                |> Animation.map (fun ( x : Rot3d)  -> 
+                                        {dst with bookmark = 
+                                                     {dst.bookmark with cameraView = CameraView.withOrientation x dst.cameraView}} 
+                                 ) 
+                
+
+    //let private addLocalAttributes (m : SequencedBookmarks)
+    //                                (lenses : BookmarkLenses<'a>) 
+    //                                (bm : SequencedBookmark)
+    //                                (outerModel : 'a)
+    //                                animation = 
+    //    let animation = 
+    //        animation
+    //        |> Animation.onStart (fun name (x : SequencedBookmark) m -> 
+    //                                    Log.line "selected bm %s" x.name
+    //                                    Optic.set lenses.selectedBookmark_ (Some x.key) outerModel)
+
+    //    let animation = 
+    //        match m.animationSettings.useGlobalAnimation with
+    //        | true ->
+    //            animation
+    //        | false ->
+    //            animation
+    //            |> Animation.seconds bm.duration.value
+
+    //    animation
 
     /// <summary>
-    /// Creates an array of animations that smoothly interpolate between the given camera views.
+    /// Creates an array of animations that smoothly interpolate between the given bookmarks' camera views.
     /// The animations are scaled according to the distance between the camera view locations. Coinciding camera views are ignored.
     /// The accuracy of the parameterization depends on the given epsilon, where values closer to zero result in higher accuracy.
     /// </summary>
     /// <exception cref="ArgumentException">Thrown if the sequence is empty.</exception>
-    let smoothBookmarkPath (epsilon : float) (points : SequencedBookmark seq) : IAnimation<'Model, SequencedBookmark>[] =
-        let points = Array.ofSeq points
+    let smoothBookmarkPath (epsilon : float) (bookmarks : SequencedBookmark seq) 
+                : IAnimation<'Model, SequencedBookmark>[] =
+        let bookmarks = Array.ofSeq bookmarks
 
-        if Seq.isEmpty points then
+        if Seq.isEmpty bookmarks then
             raise <| System.ArgumentException("Camera path cannot be empty")
 
-        let sky = points.[0].cameraView.Sky
+        let sky = bookmarks.[0].cameraView.Sky
 
         let locations =
-            points
+            bookmarks
             |> Array.map (fun bm -> bm.cameraView |> CameraView.location)
             |> Primitives.smoothPath' Vec.distance epsilon
 
         let orientations =
-            points
-            //|> Array.map (fun bm -> bm.cameraView |> CameraView.orientation)
-            |> Primitives.path' slerpBm (fun _ _ -> 1.0)
+            bookmarks
+            |> Primitives.path' Primitives.slerpBm (fun _ _ -> 1.0)
 
-        (locations, orientations)
-        ||> Array.map2 (fun l o ->
-            let o = o |> Animation.duration l.Duration
-            (l, o) ||> Animation.map2 (fun l o -> {o with bookmark = 
-                                                            {o.bookmark with cameraView = CameraView.orient l (CameraView.orientation o.bookmark.cameraView) sky}})
-        )
-
-
-
-    let private execute (setter_ : Lens<'a,'b>) 
-                        (outerModel      : 'a) 
-                animation =
-        let durationInSeconds = 10
         let animation = 
-            animation
-                |> Animation.seconds durationInSeconds
-                |> Animation.ease (Easing.InOut EasingFunction.Quadratic)
-                |> Animation.onFinalize (fun name _ m -> 
-                                                        Log.line "[Animation] Finished animation."
-                                                        m
-                                        )
-                |> Animation.onProgress (fun name value model ->
-                            Optic.set setter_ value model 
-                    )
-        outerModel
-        |> Animator.createAndStart AnimationSlot.camera animation
+            (locations, orientations)
+            ||> Array.map2 (fun l o ->
+                let o = o |> Animation.duration l.Duration
+                (l, o) ||> Animation.map2 (fun l o -> 
+                                            let cameraView = CameraView.orient l (CameraView.orientation o.bookmark.cameraView) sky
+                                            {o with bookmark = 
+                                                        {o.bookmark with cameraView = cameraView}}
+                                          ))
+        
+        animation
+            
 
-
-
-    let private execute' (sbs : SequencedBookmarks)
-                         (lenses : BookmarkLenses<'a>) 
-                         (outerModel      : 'a) 
-                         animation =
-        let restoreState name bm m =
-            match sbs.originalSceneState with
+    let private addGlobalAttributes (m : SequencedBookmarks)
+                                    (lenses : BookmarkLenses<'a>) 
+                                    (outerModel : 'a)
+                                    (animation : IAnimation<'a,SequencedBookmark>) =
+        let restoreState name bm outerModel =
+            match m.originalSceneState with
             | Some state ->
                 Log.line "[Animation] Restoring scene state."
-                Optic.set lenses.sceneState_ state m
+                Optic.set lenses.sceneState_ state outerModel
             | None ->
                 Log.line "[Animation] No scene state to restore."
-                m
+                outerModel
+
         let animation = 
-            animation
-                |> Animation.seconds sbs.animationSettings.globalDuration.value
+            match m.animationSettings.useGlobalAnimation with
+            | true ->
+                animation
+                    |> Animation.seconds m.animationSettings.globalDuration.value
+            | false ->
+                animation
 
         let animation =
-            if sbs.animationSettings.useEasing then
+            if m.animationSettings.useEasing then
                 animation
                 |> Animation.ease (Easing.InOut EasingFunction.Quadratic)
             else
@@ -130,7 +151,7 @@ module BookmarkAnimations =
                     )
 
         let animation =
-            match sbs.animationSettings.loopMode with
+            match m.animationSettings.loopMode with
             | AnimationLoopMode.Repeat ->
                 animation
                     |> Animation.loop LoopMode.Repeat
@@ -142,27 +163,27 @@ module BookmarkAnimations =
             | _ ->
                 animation
 
-        outerModel
-        |> Animator.createAndStart AnimationSlot.camera animation
+        animation
 
-    let pathAllBookmarks (m : SequencedBookmarks)
-                         (lenses : BookmarkLenses<'a>)
-                         (outerModel      : 'a) =
-        let bookmarks = orderedBookmarks m
-        let animation =
-            bookmarks
-                |> List.pairwise
-                |> List.map (fun (a,b) -> interpolateBm a b 
-                                            |> Animation.onStart (fun name x m -> 
-                                                        Log.line "selected bm %s" x.name
-                                                        Optic.set lenses.selectedBookmark_ (Some x.key) m
-                                        ))
-                |> Animation.path
-        let outerModel = 
-            animation
-                |> (execute' m lenses outerModel)
-        let m = {m with originalSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
-        outerModel, m
+    //let pathAllBookmarks (m : SequencedBookmarks)
+    //                     (lenses : BookmarkLenses<'a>)
+    //                     (outerModel      : 'a) =
+    //    let bookmarks = orderedBookmarks m
+    //    let animation =
+    //        bookmarks
+    //        |> List.pairwise
+    //        |> List.map (fun (a,b) -> Primitives.interpolateBm a b 
+    //                                  |> addLocalAttributes m lenses b outerModel)
+    //        |> Animation.path
+    //    let animation = 
+    //        animation
+    //        |> addGlobalAttributes m lenses outerModel
+                
+    //    let outerModel =
+    //        outerModel 
+    //        |> Animator.createAndStart AnimationSlot.camera animation
+    //    let m = {m with originalSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
+    //    outerModel, m
 
     let smoothPathAllBookmarks (m : SequencedBookmarks)
                                (lenses : BookmarkLenses<'a>)
@@ -177,39 +198,87 @@ module BookmarkAnimations =
                                                         Optic.set lenses.selectedBookmark_ (Some x.key) m
                                         ))
                 |> Animation.path
-        let outerModel = 
+        let animation = 
             animation
-                |> (execute' m lenses outerModel)
+            |> addGlobalAttributes m lenses outerModel
+                
+        let outerModel =
+            outerModel 
+            |> Animator.createAndStart AnimationSlot.camera animation
         let m = {m with originalSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
         outerModel, m
         
-
-    let smoothCameraPath (views : seq<CameraView>)
-                   (navigationModel : Lens<'a,NavigationModel>) 
-                   (outerModel      : 'a) =
-        let view_ = navigationModel 
-                        >-> NavigationModel.camera_
-                        >-> CameraControllerState.view_
-
-        AnimationCameraPrimitives.Animation.Camera.smoothPath 0.1 views
-            |> execute view_ outerModel 
+    let pathWithPausing (m : SequencedBookmarks)
+                        (lenses : BookmarkLenses<'a>)
+                        (outerModel      : 'a) =
+        let bookmarks = orderedBookmarks m
+        let animation =
+            bookmarks
+                |> List.pairwise 
+                |> List.map (fun (a,b) -> Primitives.interpolateBm a b)
+                |> List.concat
+                |> List.map (Animation.onStart (fun name x m -> 
+                                                        Log.line "[Bookmark Animation] Selected bookmark %s" x.name
+                                                        Optic.set lenses.selectedBookmark_ (Some x.key) m
+                                        ))
+                |> Animation.path
+        let animation = 
+            animation
+            |> addGlobalAttributes m lenses outerModel
+                
+        let outerModel =
+            outerModel 
+            |> Animator.createAndStart AnimationSlot.camera animation
+        let m = {m with originalSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
+        outerModel, m
 
     let cameraOnly (m : SequencedBookmarks)
                    (navigationModel : Lens<'a,NavigationModel>) 
                    (outerModel      : 'a) =
         let views = 
             m.orderList
-                |> List.map (fun id -> HashMap.find id m.bookmarks)
-                |> List.map (fun (bm : SequencedBookmark) -> bm.cameraView)
-        smoothCameraPath views navigationModel outerModel
+            |> List.map (fun id -> HashMap.find id m.bookmarks)
+            |> List.map (fun (bm : SequencedBookmark) -> bm.cameraView)
+
+        let view_ = navigationModel 
+                    >-> NavigationModel.camera_
+                    >-> CameraControllerState.view_
+
+        let animation = 
+                AnimationCameraPrimitives.Animation.Camera.smoothPath
+                    m.animationSettings.smoothingFactor.value views
+                |> Animation.seconds m.animationSettings.globalDuration.value
+                |> Animation.ease (Easing.InOut EasingFunction.Quadratic)
+                |> Animation.onProgress (fun name value model ->
+                                            Optic.set view_ value model)
+        outerModel
+        |> Animator.createAndStart AnimationSlot.camera animation
+
 
     let toBookmark (m : SequencedBookmarks)
-                   (navigationModel : Lens<'a,NavigationModel>) 
                    (outerModel      : 'a) 
+                   (lenses : BookmarkLenses<'a>)
                    (f : SequencedBookmarks -> option<SequencedBookmark>)=
+        let view_ = lenses.navigationModel_ 
+                    >-> NavigationModel.camera_
+                    >-> CameraControllerState.view_
         match selected m, f m with
         | Some selected, Some next -> 
-            let outerModel = smoothCameraPath [selected.cameraView;next.cameraView] navigationModel outerModel
+            let outerModel = 
+                let animation = 
+                    let animCam =
+                         AnimationCameraPrimitives.Animation.Camera.smoothPath
+                            m.animationSettings.smoothingFactor.value 
+                            [selected.bookmark.cameraView;next.bookmark.cameraView]
+                    animCam
+                        //|> Animation.map (fun view -> {selected with bookmark = {next.bookmark with cameraView = view}})
+                        |> Animation.ease (Easing.InOut EasingFunction.Quadratic)
+                        |> Animation.seconds next.duration.value
+                        |> Animation.onProgress (fun name value model ->
+                            Optic.set view_ value model)
+                //smoothCameraPath [selected.cameraView;next.cameraView] navigationModel outerModel
+                outerModel
+                    |> Animator.createAndStart AnimationSlot.camera animation
             outerModel, {m with selectedBookmark = Some next.key}
         | None ,_ -> 
             Log.line "[SequencedBookmarks] No bookmark selected."

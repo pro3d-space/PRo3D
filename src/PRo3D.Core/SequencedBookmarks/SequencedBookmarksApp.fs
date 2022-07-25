@@ -190,7 +190,7 @@ module SequencedBookmarksApp =
             outerModel, m
 
         | SequencedBookmarksAction.FlyToSBM id ->
-            toBookmark m lenses.navigationModel_ outerModel (find id)
+            toBookmark m outerModel lenses (find id)
         | RemoveSBM id -> 
             let selSBm = 
                 match m.selectedBookmark with
@@ -287,18 +287,18 @@ module SequencedBookmarksApp =
                 match (List.tryHead m.orderList) with
                 | Some firstBookmark ->
                     let m = selectSBookmark m firstBookmark
-                    match m.animationSettings.smoothPath with
-                    | true ->
-                        smoothPathAllBookmarks m lenses outerModel
-                    | false ->
-                        pathAllBookmarks m lenses outerModel
+                    //match m.animationSettings.useGlobalAnimation with
+                    //| true ->
+                    smoothPathAllBookmarks m lenses outerModel
+                    //| false ->
+                    //    pathAllBookmarks m lenses outerModel
                 | None ->
                     Log.line "[SequencedBookmarks] There are no sequenced bookmarks."
                     outerModel, m
         | StepForward -> 
-            toBookmark m lenses.navigationModel_ outerModel next
+            toBookmark m outerModel lenses next
         | StepBackward ->
-            toBookmark m lenses.navigationModel_ outerModel previous
+            toBookmark m outerModel lenses previous
         | Pause ->
             let outerModel = Animator.pause AnimationSlot.camera outerModel
             outerModel, m 
@@ -474,7 +474,7 @@ module SequencedBookmarksApp =
 
                                         yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveSBM id)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Remove"     
-                                        yield i [clazz "file import icon"; onClick (fun _ -> SetSceneState id)] [] 
+                                        yield i [clazz "globe icon"; onClick (fun _ -> SetSceneState id)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Replace scene state for this bookmark with current state. Does not replace view."
 
                                         yield i [clazz "arrow alternate circle up outline icon"; onClick (fun _ -> MoveUp id)] [] 
