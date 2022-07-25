@@ -287,11 +287,11 @@ module SequencedBookmarksApp =
                 match (List.tryHead m.orderList) with
                 | Some firstBookmark ->
                     let m = selectSBookmark m firstBookmark
-                    //match m.animationSettings.useGlobalAnimation with
-                    //| true ->
-                    smoothPathAllBookmarks m lenses outerModel
-                    //| false ->
-                    //    pathAllBookmarks m lenses outerModel
+                    match m.animationSettings.useGlobalAnimation with
+                    | true ->
+                        smoothPathAllBookmarks m lenses outerModel
+                    | false ->
+                        pathWithPausing m lenses outerModel
                 | None ->
                     Log.line "[SequencedBookmarks] There are no sequenced bookmarks."
                     outerModel, m
