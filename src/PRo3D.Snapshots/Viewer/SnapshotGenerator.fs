@@ -63,7 +63,6 @@ module SnapshotGenerator =
                     SnapshotAnimation.readLegacyFile spath
                 | SnapshotType.CameraAndSurface ->
                     SnapshotAnimation.read spath
-                | _ -> None
         | _ -> None
 
     let getSnapshotActions (this : Snapshot) recalcNearFar frustum filename =
@@ -72,7 +71,7 @@ module SnapshotGenerator =
                 ViewerAction.SetCameraAndFrustum2 (this.view,frustum);
                 //ViewerAction.SetMaskObjs this.renderMask
             ]
-        //let sunAction = 
+        //let sunAction = // originally for Mars-DL project; not in use
         //    match this.lightDirection with
         //    | Some p -> [Viewer.ConfigPropertiesMessage 
         //                  (ConfigProperties.Action.ShadingMessage 
@@ -109,7 +108,7 @@ module SnapshotGenerator =
 
     let getAnimationActions (anim : SnapshotAnimation) =       
         Seq.singleton (ViewerAction.SetRenderViewportSize anim.resolution)
-    //    let lightActions = 
+    //    let lightActions = // originally for Mars-DL project; not in use
     //        match anim.lightLocation with
     //        | Some loc -> 
     //            [
@@ -140,22 +139,22 @@ module SnapshotGenerator =
                     | Some fov -> fov
                     | None -> SnapshotApp.defaultFoV
                 let frustum,_,_,_ = SnapshotApp.calculateFrustumRecalcNearFar data
-                let sg = failwith "reactivate snapshots" //ViewerUtils.debugSg (mModel)
-                    //(PRo3D.ViewerApp.sceneGraph data.resolution frustum) 
+                let sg = SnapshotSg.viewRenderView runtime (System.Guid.NewGuid().ToString()) 
+                                                   (AVal.constant data.resolution) mModel 
                 let snapshotApp : SnapshotApp<Model, AdaptiveModel, ViewerAction> = 
                     {
-                        mutableApp = mApp
-                        adaptiveModel = mModel
-                        sceneGraph = sg
-                        snapshotAnimation = data
+                        mutableApp          = mApp
+                        adaptiveModel       = mModel
+                        sg                  = sg
+                        snapshotAnimation   = data
                         getAnimationActions = getAnimationActions
-                        getSnapshotActions = getSnapshotActions
-                        runtime = runtime
-                        renderRange = RenderRange.fromOptions args.frameId args.frameCount
-                        outputFolder = args.outFolder
-                        renderMask = args.renderMask
-                        renderDepth = args.renderDepth
-                        verbose = args.verbose
+                        getSnapshotActions  = getSnapshotActions
+                        runtime             = runtime
+                        renderRange         = RenderRange.fromOptions args.frameId args.frameCount
+                        outputFolder        = args.outFolder
+                        renderMask          = args.renderMask
+                        renderDepth         = args.renderDepth
+                        verbose             = args.verbose
                     }
                 SnapshotApp.executeAnimation snapshotApp //mApp mModel args.renderDepth startupArgs.verbose startupArgs.outFolder runtime data
             | None -> 

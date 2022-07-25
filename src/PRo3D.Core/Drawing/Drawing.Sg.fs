@@ -378,7 +378,7 @@ module Sg =
                 anno.thickness.value 
                 config.pickingTolerance
                 anno.modelTrafo 
-                true 
+                true
                 pickFunc
 
         let vm = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)

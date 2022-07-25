@@ -263,7 +263,7 @@ module LinkingApp =
                 |> Sg.shader {
                     do! DefaultSurfaces.stableTrafo
                     do! DefaultSurfaces.vertexColor
-                    do! DefaultSurfaces.thickLine
+                    do! Shader.ThickLineNew.thickLine
                     do! DefaultSurfaces.thickLineRoundCaps
                 }
                 |> Sg.uniform "LineWidth" (AVal.constant 5.0)
@@ -303,7 +303,7 @@ module LinkingApp =
             [|
                 frustra
                 hoverFrustum
-            |]
+            |] 
             |> Sg.ofArray 
 
         // scene that is always shown (in both normal 3d and overlay mode)

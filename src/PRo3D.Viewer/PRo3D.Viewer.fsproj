@@ -62,6 +62,7 @@
     <Compile Include="Viewer\Viewer-IO.fs" />
     <Compile Include="Viewer\SceneConverter.fs" />
     <Compile Include="Viewer\Viewer.fs" />
+    <Compile Include="Viewer\SnapshotSg.fs" />
     <Compile Include="CommandLine\CommandLineUtils.fs" />
     <Compile Include="CommandLine\CommandLine.fs" />
     <Compile Include="RemoteControlModel.fs" />
