@@ -647,7 +647,8 @@ module DrawingApp =
                                 if id >= 0 && id < ids.Length  && allowed then
                                     //Log.line "hoverhit %A" (id, ids.[id])
                                     transact (fun _ -> hoveredAnnotation.Value <- id)
-                                    Seq.empty
+                                    //Seq.empty
+                                    Seq.ofList[DrawingAction.SendAnnotationID ids.[id]]
                                 else 
                                     transact (fun _ -> hoveredAnnotation.Value <- -1)
                                     Seq.empty
@@ -662,6 +663,7 @@ module DrawingApp =
                             else 
                                 DrawingAction.Nop
                        )
+                       
                 ]
             let packedPoints = 
                 PackedRendering.points (model.annotations.selectedLeaves |> ASet.map (fun l -> l.id)) annoSet config.offset viewMatrix
