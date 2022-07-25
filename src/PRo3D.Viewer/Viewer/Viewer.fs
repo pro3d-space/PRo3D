@@ -127,6 +127,8 @@ module ViewerApp =
                 stateSceneObjects      = m.scene.sceneObjectsModel
                 stateScaleBars         = m.scene.scaleBars
                 stateGeologicSurfaces  = m.scene.geologicSurfacesModel
+                stateConfig            = m.scene.config
+                stateReferenceSystem   = m.scene.referenceSystem
             }
         ), 
         (fun state m ->
@@ -147,6 +149,8 @@ module ViewerApp =
                         sceneObjectsModel       = state.stateSceneObjects
                         scaleBars               = scaleBars
                         geologicSurfacesModel   = state.stateGeologicSurfaces
+                        config                  = state.stateConfig
+                        referenceSystem         = state.stateReferenceSystem
                     }
             }
         )

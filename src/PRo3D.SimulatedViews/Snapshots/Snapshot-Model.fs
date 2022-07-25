@@ -8,7 +8,7 @@ open Aardvark.UI
 open Adaptify
 open Chiron
 open PRo3D.Base.Json
-
+open PRo3D.Core
 
 type SnapshotType = 
   | Camera
@@ -158,6 +158,76 @@ with
     }  
 
 
+type BookmarkTransformation = 
+    | Bookmark of SequencedBookmarks.SequencedBookmark
+    | Camera of SnapshotCamera
+with 
+    static member ToJson x =
+        match x with
+        | BookmarkTransformation.Bookmark x -> 
+            Json.write "Bookmark" x
+        | BookmarkTransformation.Camera x -> 
+            Json.write "Camera" x
+
+    static member FromJson(_ : BookmarkTransformation) = 
+        json { 
+            let! camera = Json.tryRead "Camera"
+            match camera with
+            | Some camera -> 
+                return BookmarkTransformation.Camera camera
+            | None ->
+                let! bookmark = Json.read "Bookmark"
+                return BookmarkTransformation.Bookmark bookmark
+        }
+
+type BookmarkSnapshot = {
+    filename       : string
+    transformation : BookmarkTransformation
+} with 
+    static member FromJson ( _ : BookmarkSnapshot) = 
+        json {
+            let! filename = Json.read "filename"
+            let! transformation = Json.read "transformation"
+
+            return {
+                filename       = filename
+                transformation = transformation
+            }
+        }
+    
+    static member ToJson (x : BookmarkSnapshot) =
+        json {
+            do! Json.write "filename"       x.filename    
+            do! Json.write "transformation" x.transformation                    
+        }
+
+type BookmarkSnapshotAnimation = {
+  fieldOfView   : option<float>
+  resolution    : V2i
+  snapshots     : list<BookmarkSnapshot>
+} with
+    static member FromJson(_ : BookmarkSnapshotAnimation) = 
+      json {
+          let! fieldOfView    = Json.tryRead "fieldOfView"
+          let! resolution     = Json.read "resolution"
+          let! snapshots      = Json.read "snapshots"
+          
+          let a : BookmarkSnapshotAnimation = 
+              {
+                  fieldOfView = fieldOfView
+                  resolution  = resolution |> V2i.Parse
+                  snapshots   = snapshots
+              }
+          return a
+      }
+    static member ToJson (x : BookmarkSnapshotAnimation) =
+      json {
+          do! PRo3D.Base.Json.writeOptionFloat "fieldOfView"    x.fieldOfView
+          do! Json.write                       "resolution"     (x.resolution.ToString ())
+          do! Json.write                       "snapshots"      x.snapshots
+      }  
+
+
 /// Camera and Surface animation
 type SnapshotAnimation = {
   fieldOfView   : option<float>
@@ -165,7 +235,7 @@ type SnapshotAnimation = {
   nearplane     : option<float>
   farplane      : option<float>
   lightLocation : option<V3d>
-  renderMask  : option<bool>
+  renderMask    : option<bool>
   snapshots     : list<Snapshot>
 }
 with 

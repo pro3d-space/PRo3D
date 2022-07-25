@@ -76,6 +76,8 @@ type SceneState =
         stateSceneObjects     : SceneObjectsModel
         stateScaleBars        : ScaleBarsModel
         stateGeologicSurfaces : GeologicSurfacesModel
+        stateConfig           : ViewConfigModel
+        stateReferenceSystem  : ReferenceSystem  
     } with
     static member FromJson( _ : SceneState) =
         json {
@@ -84,6 +86,8 @@ type SceneState =
             let! stateSceneObjects       = Json.read "stateSceneObjects"    
             let! stateScaleBars          = Json.read "stateScaleBars"    
             let! stateGeologicSurfaces   = Json.read "stateGeologicSurfaces"
+            let! stateConfig             = Json.read "stateConfig"
+            let! stateReferenceSystem    = Json.read "stateReferenceSystem"
 
             return {
                 stateAnnoatations       = stateAnnoatations    
@@ -91,6 +95,8 @@ type SceneState =
                 stateSceneObjects       = stateSceneObjects    
                 stateScaleBars          = stateScaleBars
                 stateGeologicSurfaces   = stateGeologicSurfaces
+                stateConfig             = stateConfig
+                stateReferenceSystem    = stateReferenceSystem
             }
         }
 
@@ -101,6 +107,8 @@ type SceneState =
             do! Json.write "stateSceneObjects"     x.stateSceneObjects    
             do! Json.write "stateScaleBars"        x.stateScaleBars    
             do! Json.write "stateGeologicSurfaces" x.stateGeologicSurfaces
+            do! Json.write "stateConfig"           x.stateConfig
+            do! Json.write "stateReferenceSystem"  x.stateReferenceSystem
         }
 
 /// An extended Bookmark for use with animations
