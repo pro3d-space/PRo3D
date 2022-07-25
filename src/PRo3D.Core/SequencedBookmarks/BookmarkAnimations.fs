@@ -272,35 +272,67 @@ module BookmarkAnimations =
         outerModel
         |> Animator.createAndStart AnimationSlot.camera animation
 
-
-    let toBookmark (m : SequencedBookmarks)
-                   (outerModel      : 'a) 
-                   (lenses : BookmarkLenses<'a>)
-                   (f : SequencedBookmarks -> option<SequencedBookmark>)=
+    let toBookmarkFromView (m : SequencedBookmarks)
+                           (outerModel      : 'a) 
+                           (lenses : BookmarkLenses<'a>)
+                           (f : SequencedBookmarks -> option<SequencedBookmark>) =
         let view_ = lenses.navigationModel_ 
                     >-> NavigationModel.camera_
                     >-> CameraControllerState.view_
-        match selected m, f m with
-        | Some selected, Some next -> 
+        let currentView = Optic.get view_ outerModel
+        match f m with
+        | Some next -> 
             let outerModel = 
                 let animation = 
                     let animCam =
                          AnimationCameraPrimitives.Animation.Camera.smoothPath
                             m.animationSettings.smoothingFactor.value 
-                            [selected.bookmark.cameraView;next.bookmark.cameraView]
+                            [currentView;next.bookmark.cameraView]
+                    let animCam = 
+                        if m.animationSettings.useEasing then
+                            animCam
+                            |> Animation.ease (Easing.InOut EasingFunction.Quadratic)        
+                        else
+                            animCam
                     animCam
-                        //|> Animation.map (fun view -> {selected with bookmark = {next.bookmark with cameraView = view}})
-                        |> Animation.ease (Easing.InOut EasingFunction.Quadratic)
-                        |> Animation.seconds next.duration.value
-                        |> Animation.onProgress (fun name value model ->
-                            Optic.set view_ value model)
-                //smoothCameraPath [selected.cameraView;next.cameraView] navigationModel outerModel
+                    |> Animation.seconds next.duration.value
+                    |> Animation.onProgress (fun name value model ->
+                                                Optic.set view_ value model)
                 outerModel
-                    |> Animator.createAndStart AnimationSlot.camera animation
+                |> Animator.createAndStart AnimationSlot.camera animation
             outerModel, {m with selectedBookmark = Some next.key}
-        | None ,_ -> 
+        | _ -> 
             Log.line "[SequencedBookmarks] No bookmark selected."
             outerModel, m
-        | Some _ , None -> 
-            Log.line "[SequencedBookmarks] Could not find next bookmark."
-            outerModel, m
+
+    //let toBookmarkFromSelected (m : SequencedBookmarks)
+    //                           (outerModel      : 'a) 
+    //                           (lenses : BookmarkLenses<'a>)
+    //                           (f : SequencedBookmarks -> option<SequencedBookmark>)=
+    //    let view_ = lenses.navigationModel_ 
+    //                >-> NavigationModel.camera_
+    //                >-> CameraControllerState.view_
+    //    match selected m, f m with
+    //    | Some selected, Some next -> 
+    //        let outerModel = 
+    //            let animation = 
+    //                let animCam =
+    //                     AnimationCameraPrimitives.Animation.Camera.smoothPath
+    //                        m.animationSettings.smoothingFactor.value 
+    //                        [selected.bookmark.cameraView;next.bookmark.cameraView]
+    //                animCam
+    //                    //|> Animation.map (fun view -> {selected with bookmark = {next.bookmark with cameraView = view}})
+    //                    |> Animation.ease (Easing.InOut EasingFunction.Quadratic)
+    //                    |> Animation.seconds next.duration.value
+    //                    |> Animation.onProgress (fun name value model ->
+    //                        Optic.set view_ value model)
+    //            //smoothCameraPath [selected.cameraView;next.cameraView] navigationModel outerModel
+    //            outerModel
+    //                |> Animator.createAndStart AnimationSlot.camera animation
+    //        outerModel, {m with selectedBookmark = Some next.key}
+    //    | None ,_ -> 
+    //        Log.line "[SequencedBookmarks] No bookmark selected."
+    //        outerModel, m
+    //    | Some _ , None -> 
+    //        Log.line "[SequencedBookmarks] Could not find next bookmark."
+    //        outerModel, m

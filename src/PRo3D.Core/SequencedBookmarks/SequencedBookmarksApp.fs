@@ -190,7 +190,7 @@ module SequencedBookmarksApp =
             outerModel, m
 
         | SequencedBookmarksAction.FlyToSBM id ->
-            toBookmark m outerModel lenses (find id)
+            toBookmarkFromView m outerModel lenses (find id)
         | RemoveSBM id -> 
             let selSBm = 
                 match m.selectedBookmark with
@@ -296,9 +296,9 @@ module SequencedBookmarksApp =
                     Log.line "[SequencedBookmarks] There are no sequenced bookmarks."
                     outerModel, m
         | StepForward -> 
-            toBookmark m outerModel lenses next
+            toBookmarkFromView m outerModel lenses next
         | StepBackward ->
-            toBookmark m outerModel lenses previous
+            toBookmarkFromView m outerModel lenses previous
         | Pause ->
             let outerModel = Animator.pause AnimationSlot.camera outerModel
             outerModel, m 
