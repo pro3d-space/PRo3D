@@ -302,7 +302,7 @@ module HistogramUI =
                         let x1 = float(x)
                         let x2 = float(x + binWidth)
                         let x''= int(round(x1 + (x2-x1) * ((peekValue-bin.range.Min) / bin.range.Size)))
-                        yield axis (Range1i(x'', x'')) (Range1i(marginTop, (divHeight-marginBottom))) "blue" "1"
+                        yield axis (Range1i(x'', x'')) (Range1i(marginTop, (divHeight-marginBottom))) "aqua" "1"
                     
 
 

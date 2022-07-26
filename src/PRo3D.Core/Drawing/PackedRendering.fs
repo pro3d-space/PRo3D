@@ -458,7 +458,7 @@ module PackedRendering =
                         if (hovered |> HashSet.isEmpty) then
                             if HashSet.contains id selected then C4b.VRVisGreen else anno.color.c.GetValue(t)
                         else
-                            if HashSet.contains id hovered then C4b.VRVisGreen
+                            if HashSet.contains id hovered then anno.color.c.GetValue(t)  
                             else                                 
                                 let hsv = anno.color.c.GetValue(t) |> C3f.FromC4b |> HSVf.FromC3f
                                 let hsv' = HSVf(hsv.H, 0.1f, 0.5f)

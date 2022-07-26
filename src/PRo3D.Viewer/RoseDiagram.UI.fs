@@ -149,7 +149,7 @@ module RoseDiagramUI =
                         yield drawText (hoverTextPos' center binMiddle outerRad) (sprintf "%i" b.count) "10" "middle" 
 
                     if i = peekId then
-                        yield averageLine center innerRad outerRad peekValue' "blue"
+                        yield averageLine center innerRad outerRad peekValue' "aqua"
 
                 let N = bins |> List.fold (fun acc bin -> acc + bin.count) 0
                 
