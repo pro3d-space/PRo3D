@@ -420,7 +420,8 @@ let main argv =
                               top    = frustum.top    - v.principalPoint.Y
                               bottom = frustum.bottom - v.principalPoint.Y
                           }
-                      mainApp.update Guid.Empty (ViewerMessage (ViewerAction.SetCameraAndFrustum2 (v.view,frustum)) |> Seq.singleton)
+                      let cameraAction = ViewerMessage (ViewerAction.SetCameraAndFrustum2 (v.view,frustum))
+                      mainApp.update Guid.Empty (cameraAction |> Seq.singleton)
 
             let remoteApp = 
                 App.start (PRo3D.RemoteControlApp.app renderingUrl send)

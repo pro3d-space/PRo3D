@@ -158,6 +158,7 @@ type ViewerAction =
 | GeologicSurfacesMessage        of GeologicSurfaceAction
 | ScreenshotMessage              of ScreenshotAction
 | TraverseMessage                of TraverseAction
+| SetSceneState                  of SceneState
 | StopGeoJsonAutoExport        
 | Nop
 

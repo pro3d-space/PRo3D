@@ -15,7 +15,7 @@ open Chiron
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Snapshot =
 
-    let writeToFile (snapshot : Snapshot) (path : string) =
+    let writeToFile (snapshot : SurfaceSnapshot) (path : string) =
         snapshot
             |> Json.serialize 
             |> Json.formatWith JsonFormattingOptions.Pretty 
@@ -69,6 +69,24 @@ module Snapshot =
         let name = String.replace "#" "" name
 //        let name = String.replace " " "_" name
         name
+
+    let fromTimeSteps (steps : list<AnimationTimeStep>) =
+        let toSnapshot step =
+            match step.content with
+            | AnimationTimeStepContent.Bookmark bm ->
+                {
+                    filename       = step.filename
+                    transformation = bm |> BookmarkTransformation.Bookmark
+                } 
+            | AnimationTimeStepContent.Camera cam ->
+                {
+                    filename       = step.filename
+                    transformation = SnapshotCamera.fromCamera cam 
+                                     |> BookmarkTransformation.Camera
+                } 
+        steps
+            |> List.map toSnapshot
+           
 
     /// Creates snapshots based on camera views.
     let fromViews (camViews : seq<CameraView>) (sp : option<List<ObjectPlacementParameters>>) 

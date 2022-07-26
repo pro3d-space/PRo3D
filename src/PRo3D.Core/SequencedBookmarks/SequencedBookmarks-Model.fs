@@ -301,6 +301,16 @@ type AnimationSettings = {
             do! Json.write "smoothingFactor"    x.smoothingFactor.value
         }
 
+type AnimationTimeStepContent =
+    | Bookmark of SequencedBookmark
+    | Camera   of Aardvark.Rendering.CameraView
+
+type AnimationTimeStep =
+    {
+        filename : string
+        content  : AnimationTimeStepContent
+    }
+
 [<ModelType>]
 type SequencedBookmarks = {
     version            : int
@@ -308,11 +318,9 @@ type SequencedBookmarks = {
     originalSceneState : Option<SceneState>
     orderList          : List<Guid>
     selectedBookmark   : Option<Guid> 
-
-   //delay            : NumericInput
-    //animationSpeed   : NumericInput
-
     animationSettings : AnimationSettings
+    lastSavedBookmark : option<Guid>
+    savedTimeSteps    : list<AnimationTimeStep>
     isRecording       : bool
     generateOnStop    : bool
     isGenerating      : bool
@@ -335,7 +343,7 @@ type BookmarkLenses<'a> = {
     sceneState_       : Lens<'a, SceneState>
     setModel_         : Lens<'a, SequencedBookmark>
     selectedBookmark_ : Lens<'a, option<Guid>>
-
+    savedTimeSteps_   : Lens<'a, list<AnimationTimeStep>>
 }
 
 //} with interface IDisposable with 
@@ -450,6 +458,8 @@ module SequencedBookmarks =
                     selectedBookmark    = selected
                     snapshotThreads     = ThreadPool.Empty
                     animationSettings   = animationSettings
+                    lastSavedBookmark   = None
+                    savedTimeSteps      = []
                     isRecording         = false
                     isCancelled         = false
                     isGenerating        = false
@@ -476,6 +486,8 @@ module SequencedBookmarks =
             selectedBookmark    = None
             snapshotThreads     = ThreadPool.Empty
             animationSettings   = AnimationSettings.init
+            lastSavedBookmark   = None
+            savedTimeSteps      = []
             isRecording         = false
             isCancelled         = false
             isGenerating        = false

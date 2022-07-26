@@ -18,11 +18,11 @@ module SnapshotAnimation =
 
     ///////////////////// WRITE TESTDATA
     let writeTestAnimation () =
-        SnapshotAnimation.TestData
+        CameraSnapshotAnimation.TestData
             |> Json.serialize 
             |> Json.formatWith JsonFormattingOptions.Pretty 
             |> Serialization.writeToFile "animationTest.json"
-        SnapshotAnimation.TestData
+        CameraSnapshotAnimation.TestData
     //////////////////////    
 
     let existsOrCreate dirname =
@@ -30,7 +30,7 @@ module SnapshotAnimation =
             System.IO.Directory.CreateDirectory dirname |> ignore
             Log.line "Created directory %s" dirname
 
-    let writeToDir (animation : SnapshotAnimation) (dirpath : string) =
+    let writeToDir (animation : CameraSnapshotAnimation) (dirpath : string) =
         existsOrCreate dirpath
         animation
             |> Json.serialize 
@@ -63,25 +63,25 @@ module SnapshotAnimation =
 
     let readLegacyFile path =
         let animation = readLegacyAnimation path
-        Some (animation.toSnapshotAnimation ())
+        (animation.toSnapshotAnimation ())
 
     let read path = 
         try
-            let foo =
+            let json =
                 path
                     |> Serialization.readFromFile
                     |> Json.parse 
-            let (bar : SnapshotAnimation) =
-                foo
+            let (animation : SnapshotAnimation) =
+                json
                 |> Json.deserialize
-            Some bar
+            Some animation
         with e ->
             Log.error "[SNAPSHOTS] Could not read json File. Please check the format is correct."
             Log.line "%s" e.Message
             Log.line "%s" e.StackTrace 
             raise e
 
-    let generate (snapshots : seq<Snapshot>) (foV : option<float>) 
+    let generate (snapshots : seq<SurfaceSnapshot>) (foV : option<float>) 
                  (nearplane : option<float>) (farplane : option<float>)
                  (resolution : V2i)
                  (renderMask : option<bool>) =
@@ -95,42 +95,23 @@ module SnapshotAnimation =
             renderMask  = renderMask
         }
 
-    let fromBookmarks (bm          : SequencedBookmarks) 
-                                        (cameraView  : CameraView)
-                                        (frustum     : Frustum)
-                                        (nearPlane   : float) 
-                                        (farPlane    : float) =
-
-        
-        if SequencedBookmarksApp.timestamps.Length > 0 then
+    let fromBookmarks (bm          : SequencedBookmarks)  
+                      (cameraView  : CameraView)
+                      (frustum     : Frustum)
+                      (nearPlane   : float) 
+                      (farPlane    : float) =
+        if bm.savedTimeSteps.Length > 0 then
             let snapshots = 
-                match bm.renderStillFrames with
-                | false ->
-                    Snapshot.fromViews 
-                        SequencedBookmarksApp.collectedViews 
-                        None 
-                        None 
-                        SequencedBookmarksApp.names 
-                        None 
-                        bm.fpsSetting
-                | true -> 
-                    let stillFrames = failwith "not implemented" //SequencedBookmarksApp.calculateNrOfStillFrames bm
-                    Snapshot.fromViews 
-                        SequencedBookmarksApp.collectedViews 
-                        None 
-                        None 
-                        SequencedBookmarksApp.names 
-                        (stillFrames |> Some) 
-                        bm.fpsSetting
-            let snapshotAnimation =
-                generate 
-                    snapshots 
-                    (frustum |> Frustum.horizontalFieldOfViewInDegrees |> Some)
-                    (nearPlane |> Some)
-                    (farPlane |> Some)
-                    (V2i (bm.resolutionX.value, bm.resolutionY.value))
-                    None    
-            snapshotAnimation      
+                Snapshot.fromTimeSteps  bm.savedTimeSteps
+                    //TODO RNO bm.fpsSetting
+
+            let snapshotAnimation : BookmarkSnapshotAnimation =
+                {
+                    snapshots   = snapshots
+                    fieldOfView = Some (frustum |> Frustum.horizontalFieldOfViewInDegrees)
+                    resolution  = V2i (bm.resolutionX.value, bm.resolutionY.value)
+                } 
+            snapshotAnimation |> SnapshotAnimation.BookmarkAnimation     
             //writeToFile snapshotAnimation jsonPathName
         else 
             Log.line "[Viewer] No frames recorded. Saving current frame."
@@ -152,7 +133,65 @@ module SnapshotAnimation =
                     (farPlane |> Some)
                     (V2i (bm.resolutionX.value, bm.resolutionY.value))
                     None    
-            snapshotAnimation
+            snapshotAnimation |> SnapshotAnimation.CameraAnimation
+
+    //let fromBookmarks (bm          : SequencedBookmarks) 
+    //                  (cameraView  : CameraView)
+    //                  (frustum     : Frustum)
+    //                  (nearPlane   : float) 
+    //                  (farPlane    : float) =
+        
+    //    if SequencedBookmarksApp.timestamps.Length > 0 then
+    //        let snapshots = 
+    //            match bm.renderStillFrames with
+    //            | false ->
+    //                Snapshot.fromViews 
+    //                    SequencedBookmarksApp.collectedViews 
+    //                    None 
+    //                    None 
+    //                    SequencedBookmarksApp.names 
+    //                    None 
+    //                    bm.fpsSetting
+    //            | true -> 
+    //                let stillFrames = failwith "not implemented" //SequencedBookmarksApp.calculateNrOfStillFrames bm
+    //                Snapshot.fromViews 
+    //                    SequencedBookmarksApp.collectedViews 
+    //                    None 
+    //                    None 
+    //                    SequencedBookmarksApp.names 
+    //                    (stillFrames |> Some) 
+    //                    bm.fpsSetting
+    //        let snapshotAnimation =
+    //            generate 
+    //                snapshots 
+    //                (frustum |> Frustum.horizontalFieldOfViewInDegrees |> Some)
+    //                (nearPlane |> Some)
+    //                (farPlane |> Some)
+    //                (V2i (bm.resolutionX.value, bm.resolutionY.value))
+    //                None    
+    //        snapshotAnimation      
+    //        //writeToFile snapshotAnimation jsonPathName
+    //    else 
+    //        Log.line "[Viewer] No frames recorded. Saving current frame."
+    //        let snapshots = 
+    //            [{
+    //                filename        = "CurrentFrame"
+    //                camera          = cameraView |> Snapshot.toSnapshotCamera
+    //                sunPosition     = None
+    //                lightDirection  = None
+    //                surfaceUpdates  = None
+    //                placementParameters = None
+    //                renderMask      = None         
+    //                }]
+    //        let snapshotAnimation =
+    //            generate 
+    //                snapshots
+    //                (frustum |> Frustum.horizontalFieldOfViewInDegrees |> Some)
+    //                (nearPlane |> Some)
+    //                (farPlane |> Some)
+    //                (V2i (bm.resolutionX.value, bm.resolutionY.value))
+    //                None    
+    //        snapshotAnimation
 
     let readTestAnimation () =
         try
@@ -160,7 +199,7 @@ module SnapshotAnimation =
                 @"./animationTest.json"
                     |> Serialization.readFromFile
                     |> Json.parse 
-            let (bar : SnapshotAnimation) =
+            let (bar : CameraSnapshotAnimation) =
                 foo
                 |> Json.deserialize
             Some bar

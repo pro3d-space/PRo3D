@@ -13,6 +13,7 @@ open PRo3D.Core
 type SnapshotType = 
   | Camera
   | CameraAndSurface
+  | Bookmark
 
 type SnapshotCamera = {
         location      : V3d
@@ -20,6 +21,16 @@ type SnapshotCamera = {
         up            : V3d
     }
     with 
+      member this.view = 
+        CameraView.look this.location 
+                        this.forward.Normalized 
+                        this.up.Normalized 
+      static member fromCamera (camera : CameraView) =
+        {
+            location = camera.Location
+            forward  = camera.Forward
+            up       = camera.Up
+        }
       static member TestData =
         {
             location = V3d(0.0)
@@ -92,7 +103,8 @@ with
       do! PRo3D.Base.Json.writeOption "translation" x.translation
     }
 
-type Snapshot = {
+/// a snapshot that uses camera and surface updates
+type SurfaceSnapshot = {
   filename       : string
   camera         : SnapshotCamera
   sunPosition    : option<V3d>
@@ -137,11 +149,11 @@ with
             renderMask      = renderMask
         }
       }
-  static member FromJson(_ : Snapshot) = 
+  static member FromJson(_ : SurfaceSnapshot) = 
     json {
-        return! Snapshot.readV0
+        return! SurfaceSnapshot.readV0
     }
-  static member ToJson (x : Snapshot) =
+  static member ToJson (x : SurfaceSnapshot) =
     json {
       do! Json.write            "filename"           x.filename
       do! Json.write            "view"               x.camera
@@ -157,7 +169,9 @@ with
         do! Json.write            "renderMask"         x.renderMask 
     }  
 
-
+/// a snapshot that uses sequenced bookmarks for updates
+/// uses bookmarks once when they start, and camera-only
+/// updates between bookmarks
 type BookmarkTransformation = 
     | Bookmark of SequencedBookmarks.SequencedBookmark
     | Camera of SnapshotCamera
@@ -227,16 +241,49 @@ type BookmarkSnapshotAnimation = {
           do! Json.write                       "snapshots"      x.snapshots
       }  
 
+module BookmarkSnapshotAnimation =
+    let tryFirst (m : BookmarkSnapshotAnimation) =
+        let opt = List.tryHead m.snapshots
+        match opt with
+        | Some t ->
+            match t.transformation with
+            | BookmarkTransformation.Bookmark b ->
+                Some b
+            | _ -> None
+        | None -> None
+
+
+type Snapshot =
+    | Bookmark of BookmarkSnapshot
+    | Surface of SurfaceSnapshot
+with 
+    static member ToJson x =
+        match x with
+        | Snapshot.Bookmark x -> 
+            Json.write "Bookmark" x
+        | Snapshot.Surface x -> 
+            Json.write "Surface" x
+
+    static member FromJson(_ : Snapshot) = 
+        json { 
+            let! surface = Json.tryRead "Surface"
+            match surface with
+            | Some surface -> 
+                return Snapshot.Surface surface
+            | None ->
+                let! bookmark = Json.read "Bookmark"
+                return Snapshot.Bookmark bookmark
+        }
 
 /// Camera and Surface animation
-type SnapshotAnimation = {
+type CameraSnapshotAnimation = {
   fieldOfView   : option<float>
   resolution    : V2i
   nearplane     : option<float>
   farplane      : option<float>
   lightLocation : option<V3d>
   renderMask    : option<bool>
-  snapshots     : list<Snapshot>
+  snapshots     : list<SurfaceSnapshot>
 }
 with 
   static member defaultNearplane = 0.1
@@ -248,7 +295,7 @@ with
           nearplane   = Some 0.1
           farplane    = Some 1000000.0
           lightLocation = 5.0 |> V3d |> Some
-          snapshots   = [Snapshot.TestData]
+          snapshots   = [SurfaceSnapshot.TestData]
           renderMask = None
       }
   static member private readV0 = 
@@ -261,7 +308,7 @@ with
           let! lightLocation  = Json.tryRead "lightLocation"
           let! renderMask   = Json.tryRead "renderMask"
           
-          let a : SnapshotAnimation = 
+          let a : CameraSnapshotAnimation = 
               {
                   fieldOfView = fieldOfView
                   resolution  = resolution |> V2i.Parse
@@ -273,14 +320,14 @@ with
               }
           return a
       }
-  static member FromJson(_ : SnapshotAnimation) = 
+  static member FromJson(_ : CameraSnapshotAnimation) = 
       json {
           let! v = Json.read "version"
           match v with            
-              | 0 -> return! SnapshotAnimation.readV0
+              | 0 -> return! CameraSnapshotAnimation.readV0
               | _ -> return! v |> sprintf "don't know version %A  of HeraAnimation" |> Json.error
       }
-  static member ToJson (x : SnapshotAnimation) =
+  static member ToJson (x : CameraSnapshotAnimation) =
       json {
           do! Json.write              "version"        0
           do! PRo3D.Base.Json.writeOptionFloat   "fieldOfView"    x.fieldOfView
@@ -293,6 +340,8 @@ with
             do! PRo3D.Base.Json.writeOptionBool "renderMask" x.renderMask
           do! Json.write              "snapshots"      x.snapshots
       }  
+
+
 
 /// The functionality of this format can be achieved with the new Snapshot format. As long as users still use this older format it should be maintained.
 type LegacySnapshot = {
@@ -402,7 +451,7 @@ type LegacyAnimation = {
     snapshots     : list<LegacySnapshot>
 }
 with 
-  member this.toSnapshotAnimation () : SnapshotAnimation =
+  member this.toSnapshotAnimation () : CameraSnapshotAnimation =
     {
         fieldOfView   = Some this.fieldOfView
         resolution    = this.resolution
@@ -412,7 +461,7 @@ with
         snapshots     = this.snapshots |> List.map (fun x -> x.toSnapshot ())
         renderMask    = None
     }
-  member this.generateAnimation () : SnapshotAnimation =
+  member this.generateAnimation () : CameraSnapshotAnimation =
     {
         fieldOfView   = Some this.fieldOfView
         resolution    = this.resolution
@@ -451,3 +500,34 @@ with
         do! Json.write      "resolution"   (x.resolution.ToString())
         do! Json.write      "snapshots"    (x.snapshots)
     }
+
+type SnapshotAnimation =
+    | BookmarkAnimation of BookmarkSnapshotAnimation
+    | CameraAnimation   of CameraSnapshotAnimation
+    //| LegacyAnimation   of LegacyAnimation
+with 
+    static member ToJson x =
+        match x with
+        | SnapshotAnimation.BookmarkAnimation x -> 
+            Json.write "BookmarkAnimation" x
+        | SnapshotAnimation.CameraAnimation x -> 
+            Json.write "CameraAnimation" x
+        //| SnapshotAnimation.LegacyAnimation x ->
+        //    Json.write "LegacyAnimation" x
+
+    static member FromJson(_ : SnapshotAnimation) = 
+        json { 
+            //let! legacy = Json.tryRead "LegacyAnimation"
+            //match legacy with
+            //| Some legacy -> 
+            //    return SnapshotAnimation.LegacyAnimation legacy
+            //| None ->
+            let! camera = Json.tryRead "CameraAnimation"
+            match camera with
+            | Some bookmark ->
+                return SnapshotAnimation.CameraAnimation bookmark
+            | None ->
+                let! bookmark = Json.read "BookmarkAnimation"
+                return SnapshotAnimation.BookmarkAnimation bookmark
+                    
+        }

@@ -155,6 +155,12 @@ module ViewerApp =
             }
         )
 
+    let _savedTimeSteps =
+        Model.scene_ >-> Scene.sequencedBookmarks_ >-> SequencedBookmarks.savedTimeSteps_  
+
+    let _lastSavedBookmark =
+        Model.scene_ >-> Scene.sequencedBookmarks_ >-> SequencedBookmarks.lastSavedBookmark_  
+
     let _selectedBookmark =
        Model.scene_ >-> Scene.sequencedBookmarks_ >-> SequencedBookmarks.selectedBookmark_  
     
@@ -180,7 +186,31 @@ module ViewerApp =
                 | Some state ->
                     Optic.set _sceneState state m
                 | None -> m
-            m
+            if m.scene.sequencedBookmarks.isRecording then
+                let lastBookmark = Optic.get _lastSavedBookmark m
+                let addNewTimeStep newStep steps = steps@[newStep]
+                let index = (Optic.get _savedTimeSteps m).Length
+                let filename = sprintf "%06i_%s" index sb.name
+                let addBookmarkStep () =
+                    let newStep = {
+                        filename = filename
+                        content  = AnimationTimeStepContent.Bookmark sb}
+                    (Optic.map _savedTimeSteps (addNewTimeStep newStep) m)
+                        |> (Optic.set _lastSavedBookmark (Some sb.bookmark.key))
+                match lastBookmark with
+                | Some key ->
+                    if key = sb.key then
+                        let newStep = {
+                            filename = filename
+                            content  = AnimationTimeStepContent.Camera sb.cameraView}
+                        (Optic.map _savedTimeSteps (addNewTimeStep newStep) m)
+                    else
+                        addBookmarkStep ()
+                | None -> 
+                    addBookmarkStep ()
+            else
+                m
+            
         )
 
     let bookmarkLenses =
@@ -189,6 +219,8 @@ module ViewerApp =
             sceneState_       = _sceneState
             setModel_         = _bookmark
             selectedBookmark_ = _selectedBookmark
+            savedTimeSteps_   = _savedTimeSteps
+
         }
 
     let lookAtData (m: Model) =         
@@ -1662,6 +1694,8 @@ module ViewerApp =
         | StopGeoJsonAutoExport, _, _ -> 
             let autoExport = { m.drawing.automaticGeoJsonExport with enabled = not m.drawing.automaticGeoJsonExport.enabled; lastGeoJsonPathXyz = None; }
             { m with drawing = { m.drawing with automaticGeoJsonExport = autoExport } }
+        | SetSceneState state, _, _ ->
+            Optic.set _sceneState state m
         | unknownAction, _, _ -> 
             Log.line "[Viewer] Message not handled: %s" (string unknownAction)
             m       

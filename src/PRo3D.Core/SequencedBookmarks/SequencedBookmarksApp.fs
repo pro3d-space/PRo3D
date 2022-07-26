@@ -56,11 +56,11 @@ module AnimationSettings =
            {m with smoothingFactor = smoothingFactor}
 
 module SequencedBookmarksApp = 
-    let mutable collectedViews = List<CameraView>.Empty
+    //let mutable collectedViews = List<CameraView>.Empty
     let mutable (snapshotProcess : option<System.Diagnostics.Process>) = None
-    let mutable timestamps = List<TimeSpan>.Empty
-    let mutable names = List<string>.Empty
-    let mutable stillFrames = List<int * Guid>.Empty
+    //let mutable timestamps = List<TimeSpan>.Empty
+    //let mutable names = List<string>.Empty
+    //let mutable stillFrames = List<int * Guid>.Empty
 
 
 
@@ -306,12 +306,10 @@ module SequencedBookmarksApp =
             let outerModel = Animator.stop AnimationSlot.camera outerModel
             outerModel, m 
         | StartRecording -> 
-            //TODO RNO
-            //collectedViews <- List.empty
-            //timestamps <- List<TimeSpan>.Empty
-            //names <- List<string>.Empty
-            //stillFrames <- List<int * Guid>.Empty
-            outerModel, {m with isRecording = true}
+            outerModel, {m with 
+                            savedTimeSteps = []
+                            isRecording = true
+                         }
         | StopRecording -> 
             // TODO RNO
             //let currentFps  = 
