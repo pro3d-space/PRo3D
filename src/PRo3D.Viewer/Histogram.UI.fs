@@ -223,6 +223,9 @@ module HistogramUI =
                 let! max = h.domainEnd.value
                 let! min = h.domainStart.value
                 let! hoveredBin = h.hoveredBin
+                let! peekItem = h.peekItem
+                let peekId, peekValue = peekItem |> Option.defaultValue (-1,0.0)
+
 
                 let! data = h.data
                 let meanValue = 
@@ -294,6 +297,14 @@ module HistogramUI =
                         let x''= int(round(x1 + (x2-x1) * ((meanValue-bin.range.Min) / bin.range.Size)))
                         yield axis (Range1i(x'', x'')) (Range1i(y1, y2)) "red" "1"
 
+                    //show peek item if there is any
+                    if peekId = i then                   
+                        let x1 = float(x)
+                        let x2 = float(x + binWidth)
+                        let x''= int(round(x1 + (x2-x1) * ((peekValue-bin.range.Min) / bin.range.Size)))
+                        yield axis (Range1i(x'', x'')) (Range1i(marginTop, (divHeight-marginBottom))) "blue" "1"
+                    
+
 
                 let xAxisLabelTransform =                     
                     let str = Formatting.Len(max).ToString() 
@@ -332,6 +343,8 @@ module HistogramUI =
                 yield! (axisLabels [(0.0, V2i(0,(divHeight-marginBottom))); (float(maxCount), V2i(0, marginTop))] None "start" false) //yAxis Labels
                 yield! (axisLabels xCoords xAxisLabelTransform "middle" true) //xAxis Labels
                 yield! (axisTicks xTickCoords) //xAxis Ticks
+
+               
                 
              }
               
@@ -340,7 +353,7 @@ module HistogramUI =
             
 
 
-    //old version
+    //old version, use drawHistogram' instead
     let drawHistogram (h: AdaptiveHistogramModel) (width:int) = 
         
         let height = 10

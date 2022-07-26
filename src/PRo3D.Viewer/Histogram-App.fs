@@ -53,5 +53,15 @@ module Histogram_App =
 
         | ExitBin ->
             {m with hoveredBin = None}
+
+        | PeekBinStart value ->
+            let domain = Range1d(m.domainStart.value,m.domainEnd.value)            
+            let width = domain.Size / m.numOfBins.value
+            let bin = HistogramModel.computeBinAffiliation value m.domainStart.min width
+            let item = Some(bin,value)
+            {m with peekItem = item}
+
+        | PeekBinEnd ->
+            {m with peekItem = None}
     
 

@@ -15,7 +15,8 @@ type AnnoStatsAction =
     | MeasurementMessage of MeasurementType * StatisticsMeasurementAction
     | Reset //no more annotations are selected
     | DeleteMeasurement of MeasurementType
-    | Predict of Annotation
+    | PredictStart of Annotation
+    | PredictEnd
 
 
 module AnnotationStatisticsApp =     
@@ -141,11 +142,21 @@ module AnnotationStatisticsApp =
                 let newMeasurement = StatisticsMeasurementModel.init data mType
                 let properties = m.properties.Add (mType, newMeasurement)
                 {m with properties = properties}
-        | Predict annotation ->
-            match (m.properties.IsEmpty) with
-            | true -> m
-            | false -> m //TODO
 
+        | PredictStart annotation ->
+            match (m.properties.IsEmpty) with
+            | true -> m               
+            | false ->                 
+                let peekValues =
+                    m.properties |> HashMap.map (fun mType _ ->
+                        let res = getMeasurementData mType [annotation.key,annotation]
+                        res.Head |> snd
+                     )
+                let updatedMeasurements = StatisticsMeasurement_App.startPeekForEachMeasurement m.properties peekValues
+                {m with properties = updatedMeasurements}   
+        | PredictEnd ->
+            let updatedMeasurements = StatisticsMeasurement_App.endPeekForEachMeasurement m.properties
+            {m with properties = updatedMeasurements}  
 
         | Reset -> 
             {m with selectedAnnotations = HashMap.empty; properties = HashMap.empty}

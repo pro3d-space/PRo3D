@@ -25,3 +25,10 @@ module RoseDiagram_App =
         | ExitRDBin ->
             {m with hoveredBin = None}
 
+        | PeekRDBinStart value ->
+            let bin = RoseDiagramModel.computeBinAffiliation value (m.binAngle/2.0) m.binAngle            
+            {m with peekItem = Some(bin,value)}
+
+        | PeekRDBinEnd ->
+           {m with peekItem = None}
+

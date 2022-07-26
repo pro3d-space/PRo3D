@@ -58,7 +58,8 @@ type DrawingAction =
 | ExportAsGeoJSON_xyz    of string
 | ContinuouslyGeoJson    of string
 | ExportAsAttitude       of string
-| SendAnnotationID       of Guid
+| StartAnnotationPeek    of Guid
+| StopAnnotationPeek
 
 [<ModelType>]
 type AutomaticGeoJsonExport = 

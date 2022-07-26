@@ -648,10 +648,11 @@ module DrawingApp =
                                     //Log.line "hoverhit %A" (id, ids.[id])
                                     transact (fun _ -> hoveredAnnotation.Value <- id)
                                     //Seq.empty
-                                    Seq.ofList[DrawingAction.SendAnnotationID ids.[id]]
+                                    Seq.ofList[DrawingAction.StartAnnotationPeek ids.[id]]
                                 else 
                                     transact (fun _ -> hoveredAnnotation.Value <- -1)
-                                    Seq.empty
+                                    //Seq.empty
+                                    Seq.ofList[DrawingAction.StopAnnotationPeek]
                             with e -> Seq.empty
                        )
                        Sg.onMouseDown (fun b p -> 

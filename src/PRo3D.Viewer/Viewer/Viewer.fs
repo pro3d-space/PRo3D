@@ -469,16 +469,19 @@ module ViewerApp =
                     //{ m with correlationPlot = cp } |> shortFeedback msg
                     m
                 | None -> m
-            | Drawing.SendAnnotationID id ->
+            | Drawing.StartAnnotationPeek id ->
                 let g = m.drawing.annotations
                 let m' = 
                     match (g.flat |> HashMap.tryFind id) with
                     | Some leaf -> 
                         let annotation = Leaf.toAnnotation leaf
-                        let am = AnnotationStatisticsApp.update m.annoStats (Predict annotation) 
+                        let am = AnnotationStatisticsApp.update m.annoStats (PredictStart annotation) 
                         { m with annoStats = am}
                     | None -> m
                 m'
+            | Drawing.StopAnnotationPeek ->
+                let am = AnnotationStatisticsApp.update m.annoStats PredictEnd
+                { m with annoStats = am}
 
             | _ ->
                 let view = 

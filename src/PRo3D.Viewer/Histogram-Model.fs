@@ -18,6 +18,7 @@ type HistogramModel =
         domainEnd   : NumericInput
         bins        : List<BinModel> 
         hoveredBin  : Option<int>
+        peekItem    : Option<int*float>
     }
 
 type HistogramModelAction =    
@@ -27,6 +28,8 @@ type HistogramModelAction =
     | SetDomainMax of Numeric.Action   
     | EnterBin of int                //hovering
     | ExitBin
+    | PeekBinStart of float
+    | PeekBinEnd
 
 module HistogramModel =
 
@@ -62,6 +65,11 @@ module HistogramModel =
                     annotationIDs = List.empty
                 }
         ]
+    
+    ///compute into which bin the data value belongs
+    let computeBinAffiliation (value:float) (min:float) (binWidth:float) =
+        let shifted = value - min                 
+        int(shifted/binWidth)
 
     //the data is sorted into bins together with a list of ids of the elements that were responsible for an increase of the bin counter
     //with this we can, if needed, reconstruct the elements from this ids at a later point
@@ -70,8 +78,7 @@ module HistogramModel =
         let grouping = 
             data 
             |> List.groupBy (fun (_,value) -> 
-                let shifted = value - domain.Min                 
-                int(shifted/width)
+                computeBinAffiliation value domain.Min width
             )
             |> List.map(fun (binID, innerList) -> 
                 let counter = innerList|> List.length
@@ -107,5 +114,6 @@ module HistogramModel =
             domainEnd   = domainNumeric domainEnd
             data        = data
             bins        = bins 
-            hoveredBin = None
+            hoveredBin  = None
+            peekItem    = None
         }

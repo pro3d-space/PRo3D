@@ -38,6 +38,30 @@ module StatisticsMeasurement_App =
             update measurement (UpdateAll (data,visAction, mType.scale))
         )
 
+    let startPeekForEachMeasurement
+        (measurements: HashMap<MeasurementType, StatisticsMeasurementModel>)
+        (peekValues:HashMap<MeasurementType, float>)
+        =
+        measurements
+        |> HashMap.map (fun mType measurement ->  
+            let peekValue = peekValues|> HashMap.find mType
+            let visAction =
+                match mType.scale with
+                | Scale.Metric -> HistogramMessage (PeekBinStart peekValue)
+                | Scale.Angular -> RoseDiagramMessage (PeekRDBinStart peekValue)
+            update measurement (StatisticsVisualizationMessage visAction)
+        )
+
+    let endPeekForEachMeasurement (measurements: HashMap<MeasurementType, StatisticsMeasurementModel>) =
+        measurements
+        |> HashMap.map (fun mType measurement ->              
+            let visAction =
+                match mType.scale with
+                | Scale.Metric -> HistogramMessage PeekBinEnd
+                | Scale.Angular -> RoseDiagramMessage PeekRDBinEnd
+            update measurement (StatisticsVisualizationMessage visAction)
+        )
+
     let view (m:AdaptiveStatisticsMeasurementModel) =
         let statsTable = 
             div[style "margin-bottom:5"][

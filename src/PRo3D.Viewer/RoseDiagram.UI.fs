@@ -113,6 +113,9 @@ module RoseDiagramUI =
                 let! outerRad = r.outerRad
                 let! avgAngle' = r.avgAngle
                 let avgAngle = ((avgAngle' + 270.0) % 360.0) * Constant.RadiansPerDegree
+                let! peekItem = r.peekItem
+                let peekId, peekValue = peekItem |> Option.defaultValue (-1,0.0)
+                let peekValue' = ((peekValue + 270.0) % 360.0) * Constant.RadiansPerDegree
             
                 //let center = new V2d(float(dimensions.X) /2.0, (float(dimensions.Y) /2.0) - outerRad)
                 let center = new V2d(float(dimensions.X) /2.0, (float(dimensions.Y) /2.0))
@@ -145,12 +148,17 @@ module RoseDiagramUI =
                         let binMiddle = ((binStart + angleHalf) % 360.0) * Constant.RadiansPerDegree
                         yield drawText (hoverTextPos' center binMiddle outerRad) (sprintf "%i" b.count) "10" "middle" 
 
+                    if i = peekId then
+                        yield averageLine center innerRad outerRad peekValue' "blue"
+
                 let N = bins |> List.fold (fun acc bin -> acc + bin.count) 0
                 
                 yield drawCircle center innerRad
                 yield drawCircle center outerRad
                 yield drawText (V2i(10, 20)) (sprintf "N = %i" N) "12" "start"                
                 yield averageLine center innerRad outerRad avgAngle "red"
+
+                
 
                 //just for testing
                 //yield averageLine center innerRad outerRad (((270.0 + 270.0 ) % 360.0) * Constant.RadiansPerDegree) "magenta"

@@ -20,6 +20,7 @@ type RoseDiagramModel =
         outerRad    : float
         binAngle    : float
         hoveredBin  : Option<int>
+        peekItem    : Option<int*float>
     }
 
 
@@ -30,6 +31,8 @@ type RoseDiagramModelAction =
     | SetBinAngle of float
     | EnterRDBin of int
     | ExitRDBin
+    | PeekRDBinStart of float
+    | PeekRDBinEnd 
 
 
 module RoseDiagramModel =
@@ -52,6 +55,12 @@ module RoseDiagramModel =
                     annotationIDs = List.empty
                 }
         ]
+    
+    ///compute into which bin the data value belongs
+    let computeBinAffiliation (value:float) (binAngleHalf:float) (binAngle:float) =
+        let shifted = (value - 270.0 + binAngleHalf + 360.0) % 360.0 
+        int(shifted/binAngle)
+
 
     //count for rose diagram bins
     let sortRoseDiagramDataIntoBins (bins:List<BinModel>) (data:List<Guid*float>) (angle:float) =    
@@ -59,9 +68,8 @@ module RoseDiagramModel =
         let binAngleHalf = angle / 2.0
         let grouping = 
             data 
-            |> List.groupBy (fun (_,value) -> 
-                let shifted = (value - 270.0 + binAngleHalf + 360.0) % 360.0 
-                int(shifted/angle)
+            |> List.groupBy (fun (_,value) ->                 
+                computeBinAffiliation value binAngleHalf angle
             )
             |> List.map(fun (binID, innerList) -> 
                 let counter = innerList|> List.length
@@ -113,15 +121,16 @@ module RoseDiagramModel =
         let center = V2d.Zero               
 
         {
-            id   = Guid.NewGuid() 
-            data = data
+            id          = Guid.NewGuid() 
+            data        = data
             maxBinValue = max
-            avgAngle = avg
-            bins = bins
-            center = center
-            innerRad = 5.0
-            outerRad = 50.0
-            binAngle = binAngle
-            hoveredBin = None
+            avgAngle    = avg
+            bins        = bins
+            center      = center
+            innerRad    = 5.0
+            outerRad    = 50.0
+            binAngle    = binAngle
+            hoveredBin  = None
+            peekItem    = None
         }
 
