@@ -58,7 +58,6 @@ type SequencedBookmarksAction =
     | GenerateSnapshots
     | CancelSnapshots
     | ToggleGenerateOnStop
-    | ToggleRenderStillFrames
     | ToggleDebug
     | SetResolutionX of Numeric.Action
     | SetResolutionY of Numeric.Action
@@ -231,7 +230,7 @@ type AnimationSettings = {
             loopMode            = AnimationLoopMode.NoLoop
             useEasing           = true
             applyStateOnSelect  = false
-            smoothPath          = false
+            smoothPath          = true
             smoothingFactor     = SequencedBookmark.initSmoothing 0.1
         }
     static member FromJson( _ : AnimationSettings) =
@@ -315,7 +314,7 @@ type AnimationTimeStep =
 type SequencedBookmarks = {
     version            : int
     bookmarks          : HashMap<Guid,SequencedBookmark>
-    originalSceneState : Option<SceneState>
+    savedSceneState : Option<SceneState>
     orderList          : List<Guid>
     selectedBookmark   : Option<Guid> 
     animationSettings : AnimationSettings
@@ -327,9 +326,9 @@ type SequencedBookmarks = {
     isCancelled       : bool
     resolutionX       : NumericInput
     resolutionY       : NumericInput
-    renderStillFrames : bool
     debug             : bool
-    currentFps        : Option<int>
+    currentFps        : option<int>
+    lastStart         : option<System.TimeSpan>
     outputPath        : string
     fpsSetting        : FPSSetting
    
@@ -341,9 +340,11 @@ type SequencedBookmarks = {
 type BookmarkLenses<'a> = {
     navigationModel_  : Lens<'a,NavigationModel>
     sceneState_       : Lens<'a, SceneState>
+    sequencedBookmarks_ : Lens<'a, SequencedBookmarks>
     setModel_         : Lens<'a, SequencedBookmark>
     selectedBookmark_ : Lens<'a, option<Guid>>
     savedTimeSteps_   : Lens<'a, list<AnimationTimeStep>>
+    lastStart_        : Lens<'a, option<TimeSpan>>
 }
 
 //} with interface IDisposable with 
@@ -418,11 +419,6 @@ module SequencedBookmarks =
                     if p = "" then defaultOutputPath () else p
                 | None -> defaultOutputPath ()
                     
-            let! renderStillFrames = Json.tryRead "renderStillFrames"
-            let renderStillFrames =
-                match renderStillFrames with
-                | Some b -> b
-                | None   -> false
             let! updateJsonBeforeRendering = Json.tryRead "updateJsonBeforeRendering"
             let updateJsonBeforeRendering =
                 match updateJsonBeforeRendering with
@@ -453,7 +449,7 @@ module SequencedBookmarks =
                 {
                     version             = current
                     bookmarks           = bookmarks
-                    originalSceneState  = sceneState
+                    savedSceneState     = sceneState
                     orderList           = orderList
                     selectedBookmark    = selected
                     snapshotThreads     = ThreadPool.Empty
@@ -468,8 +464,8 @@ module SequencedBookmarks =
                     resolutionX         = {initResolution with value = float resolution.X}
                     resolutionY         = {initResolution with value = float resolution.Y}
                     outputPath          = outputPath
-                    renderStillFrames   = renderStillFrames
                     currentFps          = None
+                    lastStart           = None
                     fpsSetting          = fpsSetting
                     updateJsonBeforeRendering = updateJsonBeforeRendering
                 }
@@ -481,7 +477,7 @@ module SequencedBookmarks =
         {
             version             = current
             bookmarks           = HashMap.Empty
-            originalSceneState  = None
+            savedSceneState  = None
             orderList           = List.empty
             selectedBookmark    = None
             snapshotThreads     = ThreadPool.Empty
@@ -496,8 +492,8 @@ module SequencedBookmarks =
             resolutionX         = initResolution
             resolutionY         = initResolution
             outputPath          = defaultOutputPath () 
-            renderStillFrames   = false
             currentFps          = None
+            lastStart           = None
             fpsSetting          = FPSSetting.Full
             updateJsonBeforeRendering = true
         }
@@ -521,14 +517,13 @@ type SequencedBookmarks with
             do! Json.write "sequencedBookmarks"         (x.bookmarks |> HashMap.toList |> List.map snd)
             do! Json.write "orderList"                  x.orderList
             do! Json.write "selectedBookmark"           x.selectedBookmark
-            if x.originalSceneState.IsSome then
-                do! Json.write "originalSceneState"         x.originalSceneState.Value
+            if x.savedSceneState.IsSome then
+                do! Json.write "originalSceneState"         x.savedSceneState.Value
             //do! Json.write "animationInfo"              (x.animationInfo |> HashMap.toList |> List.map snd)
             do! Json.write "debug"                      x.debug
             do! Json.write "generateOnStop"             x.generateOnStop
             do! Json.write "resolution"                 (resolution.ToString ())
             do! Json.write "outputPath"                 x.outputPath
-            do! Json.write "renderStillFrames"          x.renderStillFrames
             do! Json.write "updateJsonBeforeRendering"  x.updateJsonBeforeRendering
             do! Json.write "fpsSetting"                 (x.fpsSetting.ToString ())
         }   

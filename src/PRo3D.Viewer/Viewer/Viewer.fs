@@ -134,8 +134,13 @@ module ViewerApp =
         (fun state m ->
             let scaleBars = 
                 let inline update (bar : ScaleBar) = 
-                    let current = HashMap.find bar.guid m.scene.scaleBars.scaleBars
-                    { bar with scSegments = current.scSegments}
+                    let current = HashMap.tryFind bar.guid m.scene.scaleBars.scaleBars
+                    match current with
+                    | Some current ->
+                        { current with scSegments = current.scSegments}
+                    | None ->
+                        Log.line "[Viewer] Scale bar %s not present in current scene state." bar.name
+                        bar
                 let updated = 
                     state.stateScaleBars.scaleBars
                                 |> HashMap.map (fun id bar -> update bar)
@@ -210,7 +215,6 @@ module ViewerApp =
                     addBookmarkStep ()
             else
                 m
-            
         )
 
     let bookmarkLenses =
@@ -219,8 +223,9 @@ module ViewerApp =
             sceneState_       = _sceneState
             setModel_         = _bookmark
             selectedBookmark_ = _selectedBookmark
+            sequencedBookmarks_ = Model.scene_ >-> Scene.sequencedBookmarks_
             savedTimeSteps_   = _savedTimeSteps
-
+            lastStart_        = Model.scene_ >-> Scene.sequencedBookmarks_ >-> SequencedBookmarks.lastStart_
         }
 
     let lookAtData (m: Model) =         

@@ -56,105 +56,7 @@ module AnimationSettings =
            {m with smoothingFactor = smoothingFactor}
 
 module SequencedBookmarksApp = 
-    //let mutable collectedViews = List<CameraView>.Empty
     let mutable (snapshotProcess : option<System.Diagnostics.Process>) = None
-    //let mutable timestamps = List<TimeSpan>.Empty
-    //let mutable names = List<string>.Empty
-    //let mutable stillFrames = List<int * Guid>.Empty
-
-
-
-
-    //type ProcListBuilder with   
-    //    member x.While(predicate : unit -> bool, body : ProcList<'m,unit>) : ProcList<'m,unit> =
-    //        proclist {
-    //            let p = predicate()
-    //            if p then 
-    //                yield! body
-    //                yield! x.While(predicate,body)
-    //            else ()
-    //        }
-
-    /// Calculates the frames per second of recorded views based on timestamps
-    /// recorded at the same time each view was animated.
-    //let calculateFpsOfCurrentTimestamps () =
-    //    match timestamps with
-    //    | [] -> None
-    //    | timestamps ->
-    //        let millisPerFrame = 
-    //            timestamps 
-    //                    |> List.pairwise
-    //                    |> List.map (fun (first, second) -> second - first)
-    //                    |> List.map (fun time -> time.TotalMilliseconds)
-                  
-    //        let mediumMpf = millisPerFrame |> List.map (fun x -> x |> round |> int)
-    //                                       |> List.sort
-    //                                       |> List.item ((millisPerFrame.Length / 2))   
-
-    //        let fps = 
-    //            if mediumMpf > 0 then 
-    //                1000 / mediumMpf
-    //            else
-    //                Log.line "[Debug] Medium FPS 0. Number of recorded Frames: %d" timestamps.Length
-    //                let debugMillis = millisPerFrame |> List.fold (fun a b -> a + ";" + (string b)) ""
-    //                Log.line "[Debug] Millis per frame %s" debugMillis  
-    //                Log.line "[Debug] Using default value"  
-    //                60
-    //        //Log.line "FPS = %i" fps
-    //        fps |> Some
-
-    /// Calculate the number of indentical frames that should be generated for
-    /// a given bookmark. The number of frames is based on the FPS of the recorded
-    /// views and on the delay set for the bookmark.
-    //let calculateNrOfStillFrames (m : SequencedBookmarks) =
-    //    let fps = calculateFpsOfCurrentTimestamps () 
-    //    match fps with
-    //    | Some fps ->
-    //        let toNrOfFrames (index, id) =
-    //            // take delay of previous bookmark
-    //            match List.tryFindIndex (fun x -> x = id) m.orderList with
-    //            | Some ind -> 
-    //                match List.tryItem (ind - 1) m.orderList with
-    //                | Some nextId -> 
-    //                    match m.animationInfo.TryFind nextId with
-    //                    | Some info ->
-    //                        (index, int (info.delay.value * (float fps)))
-    //                            |> Some
-    //                    | None -> None
-    //                | None -> None
-    //            | None -> None
-            
-    //        let nrOfFrames =    
-    //            stillFrames
-    //                |> List.map toNrOfFrames
-    //                |> List.filter Option.isSome
-    //                |> List.map (fun x -> x.Value)
-    //        let nrOfFrames = 
-    //            nrOfFrames 
-    //                |> List.map (fun (ind, count) -> (ind, {index = ind;repetitions=count}))
-    //                |> HashMap.ofList
-    //        nrOfFrames
-    //    | None -> HashMap.empty
-
-    ///// Returns the delay of a bookmark if its id is found in animationInfo. 
-    ///// Otherwise returns a default value.
-    //let findDelayOrDefault (m : SequencedBookmarks) (id : Guid) =
-    //    match HashMap.tryFind id m.animationInfo with
-    //    | Some info -> 
-    //        info.delay.value
-    //    | None ->
-    //        Log.warn "[Sequenced Bookmarks] No animation info found for bookmark %s" (id |> string)
-    //        SequencedBookmarks.initDelay.value
-
-    ///// Returns the duration of a bookmark if its id is found in animationInfo. 
-    ///// Otherwise returns a default value.
-    //let findDurationOrDefault (m : SequencedBookmarks) (id : Guid) =
-    //    match HashMap.tryFind id m.animationInfo with
-    //    | Some info -> 
-    //        info.duration.value
-    //    | None ->
-    //        Log.warn "[Sequenced Bookmarks] No animation info found for bookmark %s" (id |> string)
-    //        SequencedBookmarks.initDuration.value 
 
     let update 
         (m                : SequencedBookmarks) 
@@ -166,18 +68,19 @@ module SequencedBookmarksApp =
         | AnimationSettingsMessage msg ->
             let animationSettings = AnimationSettings.update m.animationSettings msg
             let m = {m with animationSettings = animationSettings}
-            match msg, animationSettings.applyStateOnSelect with 
-            | ToggleApplyStateOnSelect, true -> // save original scene state
-                outerModel, {m with originalSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
-            | ToggleApplyStateOnSelect, false -> // apply original scene state
-                match m.originalSceneState with
-                | Some state ->
-                    Optic.set lenses.sceneState_ state outerModel, m
-                | None ->
-                    Log.warn "No original scene state was available."
-                    outerModel, m
-            | _ ->
-                outerModel, m
+            //match msg, animationSettings.applyStateOnSelect with 
+            //| ToggleApplyStateOnSelect, true -> // save original scene state
+            //    outerModel, {m with savedSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
+            //| ToggleApplyStateOnSelect, false -> // apply original scene state
+            //    match m.savedSceneState with
+            //    | Some state ->
+            //        Optic.set lenses.sceneState_ state outerModel, m
+            //    | None ->
+            //        Log.warn "No original scene state was available."
+            //        outerModel, m
+            //| _ ->
+            //    outerModel, m
+            outerModel, m
         | AddSBookmark ->
             let nav = Optic.get lenses.navigationModel_ outerModel
             let state = Optic.get lenses.sceneState_ outerModel
@@ -206,11 +109,11 @@ module SequencedBookmarksApp =
             match m.animationSettings.applyStateOnSelect with
             | true ->
                 // save original state if no bookmark is selected
-                let m =
-                    match m.selectedBookmark with
-                    | Some _ -> m
-                    | None ->
-                        {m with originalSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
+                //let m =
+                //    match m.selectedBookmark with
+                //    | Some _ -> m
+                //    | None ->
+                //        {m with savedSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
                 let m = selectSBookmark m id 
                 let selected = selected m
                 let outerModel = 
@@ -218,17 +121,19 @@ module SequencedBookmarksApp =
                     | Some sel -> // apply bookmark state
                         Optic.set lenses.setModel_ sel outerModel
                     | None -> // restore original state
-                        match m.originalSceneState with
-                        | Some state -> 
-                            Optic.set lenses.sceneState_ state outerModel
-                        | None -> 
-                            Log.line "[SequencedBookmarks] No original scene state to apply"
-                            outerModel
+                        //match m.savedSceneState with
+                        //| Some state -> 
+                        //    Optic.set lenses.sceneState_ state outerModel
+                        //| None -> 
+                        //    Log.line "[SequencedBookmarks] No original scene state to apply"
+                        //    outerModel
+                        outerModel
                 outerModel, m
             | false ->
                 outerModel, selectSBookmark m id 
         | SetSceneState id ->
             let m = updateOne m id (fun bm -> {bm with sceneState = Some (Optic.get lenses.sceneState_ outerModel)})
+            Log.line "[Sequenced Bookmarks] Updated scene state."
             outerModel, m
         | MoveUp id ->
             let index = m.orderList |> List.toSeq |> Seq.findIndex(fun x -> x = id)
@@ -309,20 +214,12 @@ module SequencedBookmarksApp =
             outerModel, {m with 
                             savedTimeSteps = []
                             isRecording = true
+                            currentFps = None
                          }
         | StopRecording -> 
-            // TODO RNO
-            //let currentFps  = 
-            //    if timestamps.Length > 0 then
-            //        calculateFpsOfCurrentTimestamps ()
-            //    else m.currentFps
-            outerModel, {m with isRecording = false
-                                //currentFps  = currentFps           
-                        }
+            outerModel, {m with isRecording = false}
         | ToggleGenerateOnStop ->
             outerModel, {m with generateOnStop = not m.generateOnStop}
-        | ToggleRenderStillFrames ->
-            outerModel, {m with renderStillFrames = not m.renderStillFrames}
         | ToggleUpdateJsonBeforeRendering ->
             outerModel, {m with updateJsonBeforeRendering = not m.updateJsonBeforeRendering}
         | ToggleDebug ->
@@ -510,6 +407,7 @@ module SequencedBookmarksApp =
                         yield div [] [text "Deselect global animation to edit"]
                     else yield content
                 }
+
             let duration = 
                 Numeric.view' [InputBox] m.duration
                     |> UI.map  (fun msg -> 
@@ -554,16 +452,25 @@ module SequencedBookmarksApp =
             }  
             
         let viewAnimationGUI (model:AdaptiveSequencedBookmarks) = 
-            let duration = 
+            let onlyWithGlobalAnimation content =
                 alist {
                     let! useGlobal = model.animationSettings.useGlobalAnimation
-                    if useGlobal then
-                        div [] [Numeric.view' [InputBox] model.animationSettings.globalDuration]
-                            |> UI.map SetGlobalDuration
-                            |> UI.map AnimationSettingsMessage
-                    else div [] []
-                                
+                    if not useGlobal then
+                        yield div [] [text "Select global animation to edit"]
+                    else yield content
                 }
+
+            let smoothingFactor =
+                Numeric.view' [InputBox] model.animationSettings.smoothingFactor
+                    |> UI.map SetSmoothingFactor
+                    |> UI.map AnimationSettingsMessage
+                    |> onlyWithGlobalAnimation
+
+            let duration = 
+                Numeric.view' [InputBox] model.animationSettings.globalDuration
+                    |> UI.map SetGlobalDuration
+                    |> UI.map AnimationSettingsMessage
+                    |> onlyWithGlobalAnimation
 
             require GuiEx.semui (
                 Html.table [               
@@ -586,18 +493,18 @@ module SequencedBookmarksApp =
                                         |> UI.wrapToolTip DataPosition.Bottom "Use a smooth path past all bookmarks, duration and delay cannot be set for individual bookmarks if this is selected."
                     ]
                   Html.row "Duration:" [Incremental.div AttributeMap.empty duration]
+                  Html.row "Smoothing Factor" [Incremental.div AttributeMap.empty smoothingFactor]
+
                   Html.row "Loop:"   [Html.SemUi.dropDown model.animationSettings.loopMode SetLoopMode
                                         |> UI.map AnimationSettingsMessage ]
                   Html.row "Use Easing:" 
                            [GuiEx.iconCheckBox model.animationSettings.useEasing ToggleUseEasing
                                 |> UI.map AnimationSettingsMessage]
-                  Html.row "Smooth Path:" 
-                           [GuiEx.iconCheckBox model.animationSettings.smoothPath ToggleUseSmoothing
-                                |> UI.map AnimationSettingsMessage]
-                  Html.row "Smoothing Factor"
-                           [Numeric.view' [InputBox] model.animationSettings.smoothingFactor]
-                                |> UI.map SetSmoothingFactor
-                                |> UI.map AnimationSettingsMessage
+                  //Html.row "Smooth Path:" 
+                  //         [GuiEx.iconCheckBox model.animationSettings.smoothPath ToggleUseSmoothing
+                  //              |> UI.map AnimationSettingsMessage]
+                  
+                                
                   Html.row "Apply State on Select:" [
                         GuiEx.iconCheckBox model.animationSettings.applyStateOnSelect ToggleApplyStateOnSelect
                             |> UI.map AnimationSettingsMessage
@@ -692,18 +599,7 @@ module SequencedBookmarksApp =
                             [
                                 Incremental.div ([] |> AttributeMap.ofList) generateToggleButton         
                             ]
-                        //Html.row "Always generate images after recording:"  
-                        //    [
-                        //        GuiEx.iconCheckBox model.generateOnStop ToggleGenerateOnStop; 
-                        //            i [clazz "info icon"] [] 
-                        //                |> UI.wrapToolTip DataPosition.Bottom "Automatically starts image generation with default parameters when clicking on the red stop recording button."
-                        //    ]     
-                            
-                        Html.row "Generate Still Frames" 
-                            [GuiEx.iconCheckBox model.renderStillFrames ToggleRenderStillFrames;
-                                    i [clazz "info icon"] [] 
-                                        |> UI.wrapToolTip DataPosition.Bottom "Renders the appropriate number of identical images when the camera is standing still."
-                            ]
+
                         Html.row "Allow JSON Editing" 
                             [GuiEx.iconCheckBox (model.updateJsonBeforeRendering |> AVal.map not) ToggleUpdateJsonBeforeRendering;
                                 i [clazz "info icon"] [] 

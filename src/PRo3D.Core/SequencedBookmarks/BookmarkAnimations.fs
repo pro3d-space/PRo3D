@@ -32,12 +32,18 @@ module BookmarkAnimations =
         /// Creates an animation that interpolates between two bookmarks
         let interpolateBm (settings : AnimationSettings) 
                           (src : SequencedBookmark) (dst : SequencedBookmark) = //IAnimation<'Model, SequencedBookmark> =
+
             let pause = 
-                let dummyAnimation = Animation.create (fun _ -> src.cameraView)
-                // TODO RNO add other interpolations
-                dummyAnimation
-                |> Animation.map (fun view -> src)
-                |> Animation.seconds src.delay.value
+                if src.delay.value > 0.0 then
+                    let dummyAnimation = Animation.create (fun _ -> src.cameraView)
+                    // TODO RNO add other interpolations
+                    [
+                        dummyAnimation
+                        |> Animation.map (fun view -> src)
+                        |> Animation.seconds src.delay.value
+                    ]
+                else 
+                    []
             
             let toNext = 
                 let animCam = Animation.Camera.interpolate src.bookmark.cameraView dst.bookmark.cameraView
@@ -58,7 +64,7 @@ module BookmarkAnimations =
                         |> Animation.ease (Easing.InOut EasingFunction.Quadratic)
                 else 
                     toNext
-            [pause; toNext]
+            pause@[toNext]
 
         let inline slerpBm (src : SequencedBookmark) (dst : SequencedBookmark) : IAnimation<'Model, SequencedBookmark> =
             let slerped = Primitives.slerp (CameraView.orientation src.bookmark.cameraView)
@@ -68,28 +74,21 @@ module BookmarkAnimations =
                                     {dst with bookmark = 
                                                     {dst.bookmark with cameraView = CameraView.withOrientation x dst.cameraView}} 
                                 ) 
-                
 
-    //let private addLocalAttributes (m : SequencedBookmarks)
-    //                                (lenses : BookmarkLenses<'a>) 
-    //                                (bm : SequencedBookmark)
-    //                                (outerModel : 'a)
-    //                                animation = 
-    //    let animation = 
-    //        animation
-    //        |> Animation.onStart (fun name (x : SequencedBookmark) m -> 
-    //                                    Log.line "selected bm %s" x.name
-    //                                    Optic.set lenses.selectedBookmark_ (Some x.key) outerModel)
-
-    //    let animation = 
-    //        match m.animationSettings.useGlobalAnimation with
-    //        | true ->
-    //            animation
-    //        | false ->
-    //            animation
-    //            |> Animation.seconds bm.duration.value
-
-    //    animation
+    let calculateCurrentFps (m                : SequencedBookmarks) =
+        let nr = m.savedTimeSteps.Length
+        if nr > 1 then
+            let fps = 
+                match m.lastStart with
+                | Some lastStart ->
+                    let now = System.DateTime.Now.TimeOfDay
+                    let duration = (now - lastStart).TotalSeconds
+                    let fps = (float nr) / duration
+                    Some (int fps)
+                | None -> 
+                    None
+            {m with currentFps = fps}
+        else m
 
     /// <summary>
     /// Creates an array of animations that smoothly interpolate between the given bookmarks' camera views.
@@ -106,6 +105,26 @@ module BookmarkAnimations =
 
         let sky = bookmarks.[0].cameraView.Sky
 
+        let ifSameRemove ((iA, a), (iB, b)) = 
+            if a = b then 
+                Log.warn "[Sequenced Bookmarks] Two Bookmarks have the same location! One of them will be ignored.
+                         Please uncheck \"Global animation\" to use bookmarks with identical locations." 
+                (iA, None) 
+            else 
+                (iA, Some a)
+
+        // RNO TODO could also insert an animation only using orientation animation to solve this problem
+        let bookmarks =
+            bookmarks // we need to filter bookmarks because identical locations are ignored by Splines.catmullRom
+            |> Array.append [| (Array.last bookmarks) |]
+            |> Array.map (fun bm -> bm.cameraView |> CameraView.location)
+            |> Array.indexed
+            |> Array.pairwise 
+            |> Array.map ifSameRemove
+            |> Array.map (fun (i, x) -> if x.IsSome then Some bookmarks.[i] else None)
+            |> Array.filter Option.isSome
+            |> Array.map Option.get
+                
         let locations =
             bookmarks
             |> Array.map (fun bm -> bm.cameraView |> CameraView.location)
@@ -126,20 +145,21 @@ module BookmarkAnimations =
                                           ))
         
         animation
+
+    //let restoreState name bm outerModel =
+    //    match m.savedSceneState with
+    //    | Some state ->
+    //        Log.line "[Animation] Restoring scene state."
+    //        Optic.set lenses.sceneState_ state outerModel
+    //    | None ->
+    //        Log.line "[Animation] No scene state to restore."
+    //        outerModel
             
 
     let private addGlobalAttributes (m : SequencedBookmarks)
                                     (lenses : BookmarkLenses<'a>) 
                                     (outerModel : 'a)
                                     (animation : IAnimation<'a,SequencedBookmark>) =
-        let restoreState name bm outerModel =
-            match m.originalSceneState with
-            | Some state ->
-                Log.line "[Animation] Restoring scene state."
-                Optic.set lenses.sceneState_ state outerModel
-            | None ->
-                Log.line "[Animation] No scene state to restore."
-                outerModel
 
         let animation = 
             match m.animationSettings.useGlobalAnimation with
@@ -158,8 +178,8 @@ module BookmarkAnimations =
 
         let animation =
             animation
-                |> Animation.onFinalize restoreState
-                |> Animation.onStop restoreState
+                //|> Animation.onFinalize restoreState
+                //|> Animation.onStop restoreState
                 |> Animation.onProgress (fun name value model ->
                             Optic.set lenses.setModel_ value model 
                     )
@@ -177,6 +197,25 @@ module BookmarkAnimations =
             | _ ->
                 animation
 
+        let calcFps slot bm outerModel =
+            let bms = calculateCurrentFps (Optic.get lenses.sequencedBookmarks_ outerModel)
+            outerModel
+            |> Optic.set lenses.sequencedBookmarks_ bms
+
+        let setStartTime slot bm outerModel =
+            Optic.set lenses.lastStart_ (Some System.DateTime.Now.TimeOfDay) outerModel
+
+        let animation =
+            match m.isRecording with
+            | true ->
+                animation
+                |> Animation.onStart setStartTime
+                |> Animation.onResume setStartTime
+                |> Animation.onStop calcFps
+                |> Animation.onPause calcFps
+                |> Animation.onFinalize calcFps
+            | false -> 
+                animation
         animation
 
     //let pathAllBookmarks (m : SequencedBookmarks)
@@ -219,7 +258,7 @@ module BookmarkAnimations =
         let outerModel =
             outerModel 
             |> Animator.createAndStart AnimationSlot.camera animation
-        let m = {m with originalSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
+        //let m = {m with savedSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
         outerModel, m
         
     let pathWithPausing (m : SequencedBookmarks)
@@ -247,7 +286,7 @@ module BookmarkAnimations =
         let outerModel =
             outerModel 
             |> Animator.createAndStart AnimationSlot.camera animation
-        let m = {m with originalSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
+        //let m = {m with savedSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
         outerModel, m
 
     let cameraOnly (m : SequencedBookmarks)
