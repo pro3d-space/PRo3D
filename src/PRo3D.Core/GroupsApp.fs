@@ -528,7 +528,8 @@ module GroupsApp =
             else
                 { model with selectedLeaves = HashSet.difference model.selectedLeaves leaves }   
         | SetHoverSelection ids ->
-            let hoveredLeaves = model.selectedLeaves |> HashSet.filter (fun s -> ids |> List.contains s.id)
+            //let hoveredLeaves = model.selectedLeaves |> HashSet.filter (fun s -> ids |> List.contains s.id)
+            let hoveredLeaves = model.flat |> HashMap.keys |> HashSet.filter (fun s -> ids |> List.contains s)
             {model with hoveredLeaves = hoveredLeaves}
         | MoveLeaves  -> 
             moveChildren model

@@ -189,7 +189,7 @@ type GroupsModel = {
     groupsLookup         : HashMap<Guid,string>
     lastSelectedItem     : SelectedItem
     selectedLeaves       : HashSet<TreeSelection> 
-    hoveredLeaves        : HashSet<TreeSelection>
+    hoveredLeaves        : HashSet<Guid>
     singleSelectLeaf     : option<Guid>
 }
 

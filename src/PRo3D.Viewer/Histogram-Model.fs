@@ -66,10 +66,16 @@ module HistogramModel =
                 }
         ]
     
-    ///compute into which bin the data value belongs
-    let computeBinAffiliation (value:float) (min:float) (binWidth:float) =
-        let shifted = value - min                 
-        int(shifted/binWidth)
+    ///compute into which bin the data value would fall into
+
+
+    let peekBinAffiliation (value:float) (domain:Range1d) (n:float) =
+        if value < domain.Min then 0
+        elif value > domain.Max then (int(n)-1)
+        else
+            let binWidth = domain.Size / n
+            let shifted = value - domain.Min                 
+            int(shifted/binWidth)
 
     //the data is sorted into bins together with a list of ids of the elements that were responsible for an increase of the bin counter
     //with this we can, if needed, reconstruct the elements from this ids at a later point
@@ -78,7 +84,8 @@ module HistogramModel =
         let grouping = 
             data 
             |> List.groupBy (fun (_,value) -> 
-                computeBinAffiliation value domain.Min width
+                let shifted = value - domain.Min                 
+                int(shifted/width)
             )
             |> List.map(fun (binID, innerList) -> 
                 let counter = innerList|> List.length

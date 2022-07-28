@@ -211,9 +211,6 @@ module HistogramUI =
         let startX = 20   
         let binGap = 10
         let binGapHalf = binGap/2
-        
-        
-        
 
         let hist =            
             alist
@@ -298,11 +295,16 @@ module HistogramUI =
                         yield axis (Range1i(x'', x'')) (Range1i(y1, y2)) "red" "1"
 
                     //show peek item if there is any
-                    if peekId = i then                   
-                        let x1 = float(x)
-                        let x2 = float(x + binWidth)
-                        let x''= int(round(x1 + (x2-x1) * ((peekValue-bin.range.Min) / bin.range.Size)))
-                        yield axis (Range1i(x'', x'')) (Range1i(marginTop, (divHeight-marginBottom))) "aqua" "1"
+                    if peekId = i then             
+                        //check if the value would be outside the domain
+                        let mutable xPeek = 0
+                        if peekValue < min then xPeek <- startX
+                        elif peekValue > max then xPeek <- (startX + (bins.Length)*binWidth + (bins.Length-1)*binGap + binGapHalf) 
+                        else
+                            let x1 = float(x)
+                            let x2 = float(x + binWidth)
+                            xPeek <- int(round(x1 + (x2-x1) * ((peekValue-bin.range.Min) / bin.range.Size)))
+                        yield axis (Range1i(xPeek, xPeek)) (Range1i(marginTop, (divHeight-marginBottom))) "aqua" "1"
                     
 
 

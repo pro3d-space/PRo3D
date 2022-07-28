@@ -30,9 +30,8 @@ module Histogram_App =
             let ud_max = Numeric.update m.domainEnd (Numeric.Action.SetValue domMax)
 
             let domain = Range1d(domMin,domMax)
-            let numBins = m.numOfBins.value
-            let width = domain.Size / numBins 
-            let updatedBins = HistogramModel.sortHistogramDataIntoBins m.bins data domain width
+            let numBins = int(m.numOfBins.value)          
+            let updatedBins = HistogramModel.setHistogramBins data domain numBins
             let maxValue = BinModel.getBinMaxValue updatedBins                         
             {m with data = data; domainStart = ud_min; domainEnd = ud_max; bins = updatedBins; maxBinValue = maxValue}            
         | SetBinNumber act -> 
@@ -55,9 +54,8 @@ module Histogram_App =
             {m with hoveredBin = None}
 
         | PeekBinStart value ->
-            let domain = Range1d(m.domainStart.value,m.domainEnd.value)            
-            let width = domain.Size / m.numOfBins.value
-            let bin = HistogramModel.computeBinAffiliation value m.domainStart.min width
+            let domain = Range1d(m.domainStart.value,m.domainEnd.value)           
+            let bin = HistogramModel.peekBinAffiliation value domain m.numOfBins.value
             let item = Some(bin,value)
             {m with peekItem = item}
 
