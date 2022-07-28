@@ -68,18 +68,6 @@ module SequencedBookmarksApp =
         | AnimationSettingsMessage msg ->
             let animationSettings = AnimationSettings.update m.animationSettings msg
             let m = {m with animationSettings = animationSettings}
-            //match msg, animationSettings.applyStateOnSelect with 
-            //| ToggleApplyStateOnSelect, true -> // save original scene state
-            //    outerModel, {m with savedSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
-            //| ToggleApplyStateOnSelect, false -> // apply original scene state
-            //    match m.savedSceneState with
-            //    | Some state ->
-            //        Optic.set lenses.sceneState_ state outerModel, m
-            //    | None ->
-            //        Log.warn "No original scene state was available."
-            //        outerModel, m
-            //| _ ->
-            //    outerModel, m
             outerModel, m
         | AddSBookmark ->
             let nav = Optic.get lenses.navigationModel_ outerModel
@@ -108,25 +96,13 @@ module SequencedBookmarksApp =
         | SelectSBM id ->
             match m.animationSettings.applyStateOnSelect with
             | true ->
-                // save original state if no bookmark is selected
-                //let m =
-                //    match m.selectedBookmark with
-                //    | Some _ -> m
-                //    | None ->
-                //        {m with savedSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
                 let m = selectSBookmark m id 
                 let selected = selected m
                 let outerModel = 
                     match selected with
                     | Some sel -> // apply bookmark state
                         Optic.set lenses.setModel_ sel outerModel
-                    | None -> // restore original state
-                        //match m.savedSceneState with
-                        //| Some state -> 
-                        //    Optic.set lenses.sceneState_ state outerModel
-                        //| None -> 
-                        //    Log.line "[SequencedBookmarks] No original scene state to apply"
-                        //    outerModel
+                    | None ->
                         outerModel
                 outerModel, m
             | false ->

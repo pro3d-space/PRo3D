@@ -31,7 +31,7 @@ open System.Collections.Concurrent
             let m = 
                 if startEmpty |> not then
                     PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl 
-                                                dataSamples screenshotDirectory ViewerApp._animator
+                                                dataSamples screenshotDirectory ViewerLenses._animator
                     |> SceneLoader.loadLastScene runtime signature                
                     |> SceneLoader.loadLogBrush
                     |> ViewerIO.loadRoverData                
@@ -44,7 +44,7 @@ open System.Collections.Concurrent
                     |> SceneLoader.addGeologicSurfaces
                 else
                     PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl
-                                                dataSamples screenshotDirectory ViewerApp._animator
+                                                dataSamples screenshotDirectory ViewerLenses._animator
                     |> ViewerIO.loadRoverData
 
             SimulatedViews.AppExtension.start' {

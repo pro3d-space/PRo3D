@@ -13,6 +13,8 @@ open Chiron
 open Aether
 open Aether.Operators
 
+/// used to set whether all recorded frames should be used
+/// for batch rendering, or half
 type FPSSetting =
     | Full = 0
     | Half = 1
@@ -118,6 +120,7 @@ type SequencedBookmark = { //WIP RNO
     version             : int
 
     bookmark            : Bookmark
+    /// the scene state is set during sequenced bookmark animation
     sceneState          : option<SceneState>
 
     ///how long an animation rests on this bookmark before proceeding to the next one
@@ -220,6 +223,7 @@ type AnimationSettings = {
     loopMode           : AnimationLoopMode
     useEasing          : bool
     applyStateOnSelect : bool
+    /// animate along a spline if true
     smoothPath         : bool
     smoothingFactor    : NumericInput
 } with     
@@ -312,22 +316,28 @@ type AnimationTimeStep =
 
 [<ModelType>]
 type SequencedBookmarks = {
-    version            : int
-    bookmarks          : HashMap<Guid,SequencedBookmark>
-    savedSceneState : Option<SceneState>
-    orderList          : List<Guid>
-    selectedBookmark   : Option<Guid> 
+    version           : int
+    bookmarks         : HashMap<Guid,SequencedBookmark>
+    /// currently not in use, could be used to save and resotre a certain state independantly of bookmarks
+    savedSceneState   : Option<SceneState>
+    orderList         : List<Guid>
+    selectedBookmark  : Option<Guid> 
     animationSettings : AnimationSettings
     lastSavedBookmark : option<Guid>
+    /// used for batch rendering
     savedTimeSteps    : list<AnimationTimeStep>
     isRecording       : bool
     generateOnStop    : bool
     isGenerating      : bool
     isCancelled       : bool
+    // X resolution of output image of batch rendering
     resolutionX       : NumericInput
+    // Y resolution of output image of batch rendering
     resolutionY       : NumericInput
     debug             : bool
     currentFps        : option<int>
+    /// time of start of last animation
+    /// used to calculate fps of recorded animation
     lastStart         : option<System.TimeSpan>
     outputPath        : string
     fpsSetting        : FPSSetting
@@ -338,30 +348,15 @@ type SequencedBookmarks = {
   }
 
 type BookmarkLenses<'a> = {
-    navigationModel_  : Lens<'a,NavigationModel>
-    sceneState_       : Lens<'a, SceneState>
+    navigationModel_    : Lens<'a,NavigationModel>
+    sceneState_         : Lens<'a, SceneState>
     sequencedBookmarks_ : Lens<'a, SequencedBookmarks>
-    setModel_         : Lens<'a, SequencedBookmark>
-    selectedBookmark_ : Lens<'a, option<Guid>>
-    savedTimeSteps_   : Lens<'a, list<AnimationTimeStep>>
-    lastStart_        : Lens<'a, option<TimeSpan>>
+    setModel_           : Lens<'a, SequencedBookmark>
+    selectedBookmark_   : Lens<'a, option<Guid>>
+    savedTimeSteps_     : Lens<'a, list<AnimationTimeStep>>
+    lastStart_          : Lens<'a, option<TimeSpan>>
 }
-
-//} with interface IDisposable with 
-//            member this.Dispose () = 
-//                match this.snapshotProcess with
-//                | Some p -> 
-//                    do printfn "disposing process"
-//                    p.Kill ()
-//                | None -> ()
-
-type FrameRepetition =
-    {
-        index       : int
-        repetitions : int
-    }
                 
-
 module SequencedBookmarks =
     let defaultOutputPath () = 
         let exePath = PlatformIndependent.getPathBesideExecutable ()
@@ -518,8 +513,8 @@ type SequencedBookmarks with
             do! Json.write "orderList"                  x.orderList
             do! Json.write "selectedBookmark"           x.selectedBookmark
             if x.savedSceneState.IsSome then
-                do! Json.write "originalSceneState"         x.savedSceneState.Value
-            //do! Json.write "animationInfo"              (x.animationInfo |> HashMap.toList |> List.map snd)
+                do! Json.write "originalSceneState"     x.savedSceneState.Value
+            do! Json.write "animationSettings"          x.animationSettings
             do! Json.write "debug"                      x.debug
             do! Json.write "generateOnStop"             x.generateOnStop
             do! Json.write "resolution"                 (resolution.ToString ())
