@@ -103,7 +103,24 @@ module SnapshotAnimation =
         if bm.savedTimeSteps.Length > 0 then
             let snapshots = 
                 Snapshot.fromTimeSteps  bm.savedTimeSteps
-                    //TODO RNO bm.fpsSetting
+                    
+            let snapshots =
+                match bm.fpsSetting with
+                | FPSSetting.Full ->
+                    snapshots
+                | FPSSetting.Half ->
+                    let filtered = 
+                        snapshots
+                        |> List.indexed
+                        |> List.filter (fun (i, x) -> match x.transformation with
+                                                      | BookmarkTransformation.Bookmark bm -> true
+                                                      | BookmarkTransformation.Camera cam -> (i % 2) = 1
+                                       )
+                        |> List.map snd
+                        |> List.indexed
+                        |> List.map (fun (i, x) -> {x with filename = sprintf "%06i%s" i (x.filename.Substring 6)} )
+                    filtered
+                | _ -> snapshots
 
             let snapshotAnimation : BookmarkSnapshotAnimation =
                 {

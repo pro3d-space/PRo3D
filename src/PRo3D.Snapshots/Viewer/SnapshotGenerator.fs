@@ -114,6 +114,7 @@ module SnapshotGenerator =
                     | Some state ->
                         [
                             ViewerAction.SetSceneState state
+                            ViewerAction.SetCamera bookmark.cameraView
                         ]
                     | None -> []
                 actions
@@ -162,31 +163,6 @@ module SnapshotGenerator =
                     }
                 SnapshotApp.executeAnimation snapshotApp
             | Some (SnapshotAnimation.BookmarkAnimation data) ->
-                //let foV = 
-                //    match data.fieldOfView with
-                //    | Some fov -> fov
-                //    | None -> SnapshotApp.defaultFoV
-                
-                //let foV = 
-                //    match data.fieldOfView with
-                //    | Some fov -> fov
-                //    | None -> 
-                //        Log.line "[Snapshots] Using default field of view: %f" SnapshotApp.defaultFoV
-                //        SnapshotApp.defaultFoV
-                //let firstBookmark = BookmarkSnapshotAnimation.tryFirst  data
-                //let firstBookmark =
-                //    match firstBookmark with
-                //    | Some firstBookmark -> firstBookmark
-                //    | None -> failwith "[Snapshots] The first transformation of a bookmark animation has to be a bookmark."
-                //let sceneState =
-                //    match firstBookmark.sceneState with
-                //    | Some state -> state
-                //    | None -> 
-
-                //let frustum =
-                //  Frustum.perspective foV near far 
-                //                      (float(resolution.X)/float(resolution.Y))
-
                 let sg = SnapshotSg.viewRenderView runtime (System.Guid.NewGuid().ToString()) 
                                                    (AVal.constant data.resolution) mModel 
                 let snapshotApp  = 

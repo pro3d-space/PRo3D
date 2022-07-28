@@ -86,6 +86,7 @@ module Snapshot =
                 } 
         steps
             |> List.map toSnapshot
+
            
 
     /// Creates snapshots based on camera views.

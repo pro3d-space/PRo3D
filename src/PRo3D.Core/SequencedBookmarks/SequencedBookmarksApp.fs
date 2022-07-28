@@ -213,6 +213,7 @@ module SequencedBookmarksApp =
         | StartRecording -> 
             outerModel, {m with 
                             savedTimeSteps = []
+                            lastSavedBookmark = None
                             isRecording = true
                             currentFps = None
                          }
