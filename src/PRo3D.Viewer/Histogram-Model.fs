@@ -26,14 +26,14 @@ type HistogramModelAction =
     | SetBinNumber of Numeric.Action    //the user can manually adapt the bin number and domain range
     | SetDomainMin of Numeric.Action
     | SetDomainMax of Numeric.Action   
-    | EnterBin of int                //hovering
+    | EnterBin of int                
     | ExitBin
     | PeekBinStart of float
     | PeekBinEnd
 
 module HistogramModel =
 
-    //numeric input field to set the domain range
+    ///numeric input field to set the histogram domain range
     let domainNumeric (value:float) = 
           {
               value = value
@@ -43,7 +43,7 @@ module HistogramModel =
               format = "{0:0.00}"
           }
     
-    //numeric input field to set the number of bins
+    ///numeric input field to set the number of bins of the historgram
     let binNumeric =
           {
               value = 5.00
@@ -67,8 +67,6 @@ module HistogramModel =
         ]
     
     ///compute into which bin the data value would fall into
-
-
     let peekBinAffiliation (value:float) (domain:Range1d) (n:float) =
         if value < domain.Min then 0
         elif value > domain.Max then (int(n)-1)
@@ -79,7 +77,7 @@ module HistogramModel =
 
     //the data is sorted into bins together with a list of ids of the elements that were responsible for an increase of the bin counter
     //with this we can, if needed, reconstruct the elements from this ids at a later point
-    let sortHistogramDataIntoBins (bins:List<BinModel>) (data:List<Guid*float>) (domain:Range1d) (width:float)= //(min:float) (width:float)=
+    let sortHistogramDataIntoBins (bins:List<BinModel>) (data:List<Guid*float>) (domain:Range1d) (width:float) = 
 
         let grouping = 
             data 
@@ -101,7 +99,7 @@ module HistogramModel =
             | None -> {bin with count = 0}
         )
     
-    let setHistogramBins (data:List<Guid*float>) (domain:Range1d) (n:int) = //(min:float) (width:float) (binCount:int) =
+    let setHistogramBins (data:List<Guid*float>) (domain:Range1d) (n:int) = 
 
         let binWidth = domain.Size / float(n)           
         let createBins = createHistogramBins n domain.Min binWidth

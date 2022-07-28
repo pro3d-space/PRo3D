@@ -23,9 +23,6 @@ type RoseDiagramModel =
         peekItem    : Option<int*float>
     }
 
-
-
-
 type RoseDiagramModelAction =    
     | UpdateRD of List<Guid*float>
     | SetBinAngle of float
@@ -33,7 +30,6 @@ type RoseDiagramModelAction =
     | ExitRDBin
     | PeekRDBinStart of float
     | PeekRDBinEnd 
-
 
 module RoseDiagramModel =
 
@@ -62,7 +58,7 @@ module RoseDiagramModel =
         int(shifted/binAngle)
 
 
-    //count for rose diagram bins
+    ///sort the data into the rose diagram bins
     let sortRoseDiagramDataIntoBins (bins:List<BinModel>) (data:List<Guid*float>) (angle:float) =    
         
         let binAngleHalf = angle / 2.0
@@ -100,19 +96,7 @@ module RoseDiagramModel =
         let averageAngleRadians = Fun.Atan2(sumSin/count,sumCos/count)        
         let angDeg = averageAngleRadians.DegreesFromRadians()
         (angDeg + 360.0) % 360.0
-    
-
-    //let angleNumeric =
-    //    {
-    //        value = 15.00
-    //        min = 1.00
-    //        max = 45.00
-    //        step = 1.00
-    //        format = "{0:0.00}"
-    //    }
-        
-        
-
+  
     let initRoseDiagram (data:List<Guid*float>) (avg:float)=
         let binAngle = 15.0
         let initB =  initRoseDiagramBins binAngle

@@ -13,11 +13,10 @@ type AnnoStatsAction =
     | UpdateMultipleSelectedAnnotations of GroupsModel
     | AddNewMeasurement of MeasurementType
     | MeasurementMessage of MeasurementType * StatisticsMeasurementAction
-    | Reset //no more annotations are selected
-    | DeleteMeasurement of MeasurementType
     | PredictStart of Annotation
-    | PredictEnd
-
+    | PredictEnd    
+    | DeleteMeasurement of MeasurementType
+    | Reset //no more annotations are selected
 
 module AnnotationStatisticsApp =     
 
@@ -46,19 +45,18 @@ module AnnotationStatisticsApp =
         |> List.choose(fun o -> o)  
 
     let getLength = fun (x:AnnotationResults) -> x.length
-    let getBearing = fun (x:AnnotationResults) -> x.bearing
-    //let getVerticalThickness = fun (x:AnnotationResults) -> x.verticalThickness
+    let getBearing = fun (x:AnnotationResults) -> x.bearing    
     let getDipAzimuth = fun (x:DipAndStrikeResults) -> x.dipAzimuth
     let getStrikeAzimuth = fun (x:DipAndStrikeResults) -> x.strikeAzimuth
 
     let getMeasurementData (mType:MeasurementType) (selected:List<Guid*Annotation>) =
         match mType.kind with
         | Kind.LENGTH -> getAnnotationResults selected getLength     
-        | Kind.BEARING -> getAnnotationResults selected getBearing              
-        //| Kind.VERTICALTHICKNESS -> getAnnotationResults selected getVerticalThickness          
+        | Kind.BEARING -> getAnnotationResults selected getBearing            
         | Kind.DIP_AZIMUTH -> getDnSResults selected getDipAzimuth
         | Kind.STRIKE_AZIMUTH -> getDnSResults selected getStrikeAzimuth
 
+    ///get the ids of the annotations that fall into the bin that is currently hovered
     let getHoveredIds (m:AnnotationStatisticsModel) =
         
         let getBinIDsList (id:Option<int>) (bins:List<BinModel>)=
@@ -90,18 +88,16 @@ module AnnotationStatisticsApp =
                     match (m.selectedAnnotations |> HashMap.tryFind id) with
                     | Some _ -> m.selectedAnnotations.Remove id
                     | None -> m.selectedAnnotations.Add (id,Leaf.toAnnotation l)
-                let a' = updatedAnnotations |> HashMap.toList
-
-                if a'.IsEmpty then (update m Reset)
+                
+                if (updatedAnnotations |> HashMap.isEmpty) then (update m Reset)
                 else
                     let updatedMeasurements =
                         let updatedData = 
                             m.properties
-                            |> HashMap.map (fun info _ -> getMeasurementData info a')
+                            |> HashMap.map (fun info _ -> getMeasurementData info (updatedAnnotations |> HashMap.toList))
                         StatisticsMeasurement_App.update' m.properties updatedData
                     {m with selectedAnnotations = updatedAnnotations; properties = updatedMeasurements}
             | None -> m
-
         | UpdateMultipleSelectedAnnotations g ->
             let selected = g.selectedLeaves |> HashSet.map (fun selection -> selection.id) |> HashSet.toList
             let updatedAnnotations = 
@@ -111,19 +107,16 @@ module AnnotationStatisticsApp =
                     | Some leaf -> Some(id,Leaf.toAnnotation leaf)
                     | None -> None
                 )
-                |> List.choose (fun entry -> entry)
-                |> HashMap.ofList    
-            let a' = updatedAnnotations |> HashMap.toList
+                |> List.choose (fun entry -> entry)                
 
-            if a'.IsEmpty then (update m Reset)
+            if (updatedAnnotations |> List.isEmpty) then (update m Reset)
             else
                 let updatedMeasurements =
                     let updatedData = 
                         m.properties
-                        |> HashMap.map (fun info _ -> getMeasurementData info a')
+                        |> HashMap.map (fun info _ -> getMeasurementData info updatedAnnotations)
                     StatisticsMeasurement_App.update' m.properties updatedData
-                {m with selectedAnnotations = updatedAnnotations; properties = updatedMeasurements}
-        
+                {m with selectedAnnotations = (updatedAnnotations |> HashMap.ofList); properties = updatedMeasurements}     
         | MeasurementMessage (mType,act) ->
             match (m.properties.TryFind mType) with
             |Some p -> 
@@ -132,8 +125,7 @@ module AnnotationStatisticsApp =
                     m.properties 
                     |> HashMap.alter mType (function None -> None | Some _ -> Some updatedMeasurement)
                 {m with properties = updatedPropList}
-            |None -> m
-            
+            |None -> m            
         | AddNewMeasurement mType -> 
             match (m.properties.ContainsKey mType) with
             | true -> m
@@ -142,7 +134,6 @@ module AnnotationStatisticsApp =
                 let newMeasurement = StatisticsMeasurementModel.init data mType
                 let properties = m.properties.Add (mType, newMeasurement)
                 {m with properties = properties}
-
         | PredictStart annotation ->
             match (m.properties.IsEmpty) with
             | true -> m               
@@ -157,10 +148,8 @@ module AnnotationStatisticsApp =
         | PredictEnd ->
             let updatedMeasurements = StatisticsMeasurement_App.endPeekForEachMeasurement m.properties
             {m with properties = updatedMeasurements}  
-
         | Reset -> 
             {m with selectedAnnotations = HashMap.empty; properties = HashMap.empty}
-
         | DeleteMeasurement mType ->
             match (m.properties.ContainsKey mType) with
             | true -> 
@@ -182,7 +171,6 @@ module AnnotationStatisticsDrawings =
                     div [ clazz "ui menu"] [
                         div [clazz "ui inverted item"; onMouseClick (fun _ -> AddNewMeasurement (StatisticsMeasurementModel.initMeasurementType Kind.LENGTH Scale.Metric))] [text "Length"]
                         div [clazz "ui inverted item"; onMouseClick (fun _ -> AddNewMeasurement (StatisticsMeasurementModel.initMeasurementType Kind.BEARING Scale.Angular))] [text "Bearing"]
-                        //div [clazz "ui inverted item"; onMouseClick (fun _ -> AddNewMeasurement (StatisticsMeasurementModel.initMeasurementType Kind.VERTICALTHICKNESS Scale.Metric))] [text "Vertical Thickness"] 
                         div [clazz "ui inverted item"; onMouseClick (fun _ -> AddNewMeasurement (StatisticsMeasurementModel.initMeasurementType Kind.DIP_AZIMUTH Scale.Angular))] [text "Dip Azimuth"] 
                         div [clazz "ui inverted item"; onMouseClick (fun _ -> AddNewMeasurement (StatisticsMeasurementModel.initMeasurementType Kind.STRIKE_AZIMUTH Scale.Angular))] [text "Strike Azimuth"] 
                     ]

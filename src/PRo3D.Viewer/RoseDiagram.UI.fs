@@ -66,7 +66,6 @@ module RoseDiagramUI =
 
         Incremental.Svg.line attr
 
-
     let drawRoseDiagramSection 
         (startAngle:float) 
         (endAngle:float) 
@@ -101,7 +100,6 @@ module RoseDiagramUI =
             onMouseLeave(fun _ -> ExitRDBin)
         ]
 
-
     let drawRoseDiagram (r:AdaptiveRoseDiagramModel) (dimensions:V2i) =
         //two circles as outline
         //individual bin sections
@@ -115,9 +113,8 @@ module RoseDiagramUI =
                 let avgAngle = ((avgAngle' + 270.0) % 360.0) * Constant.RadiansPerDegree
                 let! peekItem = r.peekItem
                 let peekId, peekValue = peekItem |> Option.defaultValue (-1,0.0)
-                let peekValue' = ((peekValue + 270.0) % 360.0) * Constant.RadiansPerDegree
-            
-                //let center = new V2d(float(dimensions.X) /2.0, (float(dimensions.Y) /2.0) - outerRad)
+                let peekValue' = ((peekValue + 270.0) % 360.0) * Constant.RadiansPerDegree            
+                
                 let center = new V2d(float(dimensions.X) /2.0, (float(dimensions.Y) /2.0))
             
                 let! bins = r.bins
@@ -157,36 +154,9 @@ module RoseDiagramUI =
                 yield drawCircle center outerRad
                 yield drawText (V2i(10, 20)) (sprintf "N = %i" N) "12" "start"                
                 yield averageLine center innerRad outerRad avgAngle "red"
-
-                
-
-                //just for testing
-                //yield averageLine center innerRad outerRad (((270.0 + 270.0 ) % 360.0) * Constant.RadiansPerDegree) "magenta"
-                //yield averageLine center innerRad outerRad (((180.0 + 270.0 ) % 360.0) * Constant.RadiansPerDegree) "green"
-                //yield averageLine center innerRad outerRad (((90.0 + 270.0 ) % 360.0) * Constant.RadiansPerDegree) "yellow"
-                //yield averageLine center innerRad outerRad (((360.0 + 270.0 ) % 360.0) * Constant.RadiansPerDegree) "white"
-
-
             }
         Incremental.Svg.svg AttributeMap.empty sect
-
-    
-    let binAngleDropDown =
-        div [ clazz "ui menu"; style "width:150px; height:20px;padding:0px; margin:0px"] [
-            onBoot "$('#__ID__').dropdown('on', 'hover');" (
-                div [ clazz "ui dropdown item"; style "width:100%"] [
-                    i [clazz "dropdown icon"; style "margin:0px 5px"] []
-                    text "bin width"
-                    div [ clazz "ui menu"] [
-                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetBinAngle 1.0)] [text "1°"]
-                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetBinAngle 15.0)] [text "15°"]                        
-                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetBinAngle 45.0)] [text "45°"] 
-                        div [clazz "ui inverted item"; onMouseClick (fun _ -> SetBinAngle 90.0)] [text "90°"] 
-                    ]
-                ]
-            )
-        ] 
-
+   
     let binAngleDropDown' (r:AdaptiveRoseDiagramModel) = 
         
         let angles = [|1.0; 15.0; 45.0; 90.0|] 

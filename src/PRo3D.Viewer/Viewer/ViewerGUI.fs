@@ -788,22 +788,7 @@ module Gui =
             let s = selectedAnnos |> AMap.isEmpty        
 
             Incremental.div (AttributeMap.ofList [style style']) (           
-                alist {
-                //    //testing if errors can be presented
-                //        let! workingState = m.drawing.working
-                //        let o = Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption workingState
-                //        let str = match o with
-                //                    | Some anno -> let points = anno.points |> AList.toAVal
-                //                                   points |> AVal.map (fun p -> 
-                //                                   let dist = DipAndStrike.calculateDnsErrors p
-                //                                   let sumOfSquared = dist |> List.map(fun x -> x * x) |> List.sum
-                //                                   sprintf "current error %f" sumOfSquared
-                //                       )
-                //                    | None -> AVal.constant "nothing to calculate yet"
-
-                //        Incremental.text str                        
-                //    //
-
+                alist {               
                     let! empty = s
                     match empty with
                     | true -> 
@@ -820,8 +805,7 @@ module Gui =
                         div [style "width:100%; margin: 10 5 10 10"][                                
                             text "Please select a measurement to see statistics" 
                             AnnotationStatisticsDrawings.mTypeDropdown |> UI.map AnnoStatsMessage                                     
-                        ]
-                        //div [style "width:100%; margin: 10 5 10 10"][      
+                        ]                          
                         div [][                                     
                             AnnotationStatisticsDrawings.view m.annoStats |> UI.map AnnoStatsMessage  
                         ]

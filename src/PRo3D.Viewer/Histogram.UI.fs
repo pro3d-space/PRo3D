@@ -87,7 +87,6 @@ module HistogramUI =
             ]
         Svg.line attributes
 
-
     let axisTicks (coords: List<V4i>) = 
 
         let attributes (pos:V4i) = 
@@ -119,7 +118,6 @@ module HistogramUI =
                     ("0", "0", tr)
                 | None -> (xStr,yStr,"")
                             
-
             amap{
                 yield style "font-size:8px; fill:white"
                 yield attribute "x" x'     
@@ -186,22 +184,21 @@ module HistogramUI =
 
     //as long as the ticks computed are > max. ticks, the stepSize is increased (ticking gets more coarse)
     //roundedMax rounds the max count to something that is divisible by stepSize without residue
-    let rec computeTickStepsize 
-        (maxTicks:int)
-        (tickValue:int) 
-        (stepSize:int)
-        (maxBinCount:int) 
-        (increase:int) =
+    //let rec computeTickStepsize 
+    //    (maxTicks:int)
+    //    (tickValue:int) 
+    //    (stepSize:int)
+    //    (maxBinCount:int) 
+    //    (increase:int) =
 
-        if tickValue <= maxTicks then (stepSize,tickValue)
-        else
-            let currStepSize = stepSize * increase
-            let modulo = maxBinCount % currStepSize
-            let roundedMax = maxBinCount + (currStepSize-modulo)  
-            let newTickCount = roundedMax / currStepSize
-            computeTickStepsize maxTicks newTickCount currStepSize maxBinCount (increase+1)
+    //    if tickValue <= maxTicks then (stepSize,tickValue)
+    //    else
+    //        let currStepSize = stepSize * increase
+    //        let modulo = maxBinCount % currStepSize
+    //        let roundedMax = maxBinCount + (currStepSize-modulo)  
+    //        let newTickCount = roundedMax / currStepSize
+    //        computeTickStepsize maxTicks newTickCount currStepSize maxBinCount (increase+1)
             
-        
  
     let drawHistogram' (h: AdaptiveHistogramModel) (dimensions:V2i) =
         let marginTop = 5
@@ -222,7 +219,6 @@ module HistogramUI =
                 let! hoveredBin = h.hoveredBin
                 let! peekItem = h.peekItem
                 let peekId, peekValue = peekItem |> Option.defaultValue (-1,0.0)
-
 
                 let! data = h.data
                 let meanValue = 
@@ -252,22 +248,12 @@ module HistogramUI =
                 let binWidth = int(floor(float(divWidth-startX-((n+1)*binGap)) / float(n)))
                 let meanBinId = int((meanValue-min)/((max-min)/float(n)))
 
-
                 for i in 0..(bins.Length-1) do
                     let bin = bins.Item i  
                     let x = startX + i * (binWidth+binGap)
                     let binHeight = (yPixelValue bin.count (Range1i(0,maxCount)) (Range1i(0, (divHeight-marginBottom)))) - marginTop
                     let maxHeight = (yPixelValue maxCount (Range1i(0,maxCount)) (Range1i(0, (divHeight-marginBottom)))) - marginTop
-                    let y = divHeight-marginBottom-binHeight
-                                        
-
-                    //let color,text = 
-                    //    match hoveredBin with
-                    //    | Some b -> if bin.id = b then 
-                    //                    let t = drawText (V2i(x, y)) (sprintf "%i" bin.count)
-                    //                    (getBaseColor,Some(t))
-                    //                else ("fill:green", None)
-                    //    | None -> ("fill:green", None)
+                    let y = divHeight-marginBottom-binHeight                    
 
                     match hoveredBin with
                     | Some b -> 
@@ -307,7 +293,6 @@ module HistogramUI =
                         yield axis (Range1i(xPeek, xPeek)) (Range1i(marginTop, (divHeight-marginBottom))) "aqua" "1"
                     
 
-
                 let xAxisLabelTransform =                     
                     let str = Formatting.Len(max).ToString() 
                     let threshold = str.Length * 6
@@ -345,125 +330,121 @@ module HistogramUI =
                 yield! (axisLabels [(0.0, V2i(0,(divHeight-marginBottom))); (float(maxCount), V2i(0, marginTop))] None "start" false) //yAxis Labels
                 yield! (axisLabels xCoords xAxisLabelTransform "middle" true) //xAxis Labels
                 yield! (axisTicks xTickCoords) //xAxis Ticks
-
-               
-                
              }
               
         Incremental.Svg.svg AttributeMap.empty hist
 
-            
-
+    let histogramSettings (hist:AdaptiveHistogramModel) =
+        div [style "width:100%; margin-bottom:5"] [                
+            text "Settings"
+            Html.table[
+                Html.row "domain min" [Numeric.view' [InputBox] hist.domainStart |> UI.map SetDomainMin]
+                Html.row "domain max" [Numeric.view' [InputBox] hist.domainEnd |> UI.map SetDomainMax]
+                Html.row "number of bins" [Numeric.view' [InputBox] hist.numOfBins |> UI.map SetBinNumber]
+            ]
+        ]
 
     //old version, use drawHistogram' instead
-    let drawHistogram (h: AdaptiveHistogramModel) (width:int) = 
+    //let drawHistogram (h: AdaptiveHistogramModel) (width:int) = 
         
-        let height = 10
-        let offSetY = 100        
-        let xStart = 15
+    //    let height = 10
+    //    let offSetY = 100        
+    //    let xStart = 15
 
-        let attrRects (bin:BinModel) (idx:int)= 
-            amap{
-                let! n = h.numOfBins.value
-                let binV = bin.count                     
-                let w = (width-xStart) / (int(n))
+    //    let attrRects (bin:BinModel) (idx:int)= 
+    //        amap{
+    //            let! n = h.numOfBins.value
+    //            let binV = bin.count                     
+    //            let w = (width-xStart) / (int(n))
                 
-                yield style "fill:green;fill-opacity:1.0"                
-                yield attribute "x" (sprintf "%ipx" (xStart + idx * w))
-                yield attribute "y" (sprintf "%ipx" ((height-(binV*10)+offSetY)))
-                yield attribute "width" (sprintf "%ipx" w) 
-                yield attribute "height" (sprintf "%ipx" (binV*10)) 
-            } |> AttributeMap.ofAMap       
+    //            yield style "fill:green;fill-opacity:1.0"                
+    //            yield attribute "x" (sprintf "%ipx" (xStart + idx * w))
+    //            yield attribute "y" (sprintf "%ipx" ((height-(binV*10)+offSetY)))
+    //            yield attribute "width" (sprintf "%ipx" w) 
+    //            yield attribute "height" (sprintf "%ipx" (binV*10)) 
+    //        } |> AttributeMap.ofAMap       
 
-        let attrText (idx:int) (labelLength:int)= 
-            amap{
-                let! n = h.numOfBins.value              
-                let w = (width-xStart) / (int(n))                
-                let x = (xStart + idx * w)
-                let labelWidthPx = (labelLength*5)
-                let y = height + offSetY + labelWidthPx
-                let rotation = 
-                    let basis = 40.0
-                    let add = (float(labelWidthPx) / float(w)) * 20.0
-                    let additional = int(basis + add)
-                    let r = 
-                        if additional > 90 
-                            then 90
-                        else 
-                            additional
-                    sprintf "%i" r
+    //    let attrText (idx:int) (labelLength:int)= 
+    //        amap{
+    //            let! n = h.numOfBins.value              
+    //            let w = (width-xStart) / (int(n))                
+    //            let x = (xStart + idx * w)
+    //            let labelWidthPx = (labelLength*5)
+    //            let y = height + offSetY + labelWidthPx
+    //            let rotation = 
+    //                let basis = 40.0
+    //                let add = (float(labelWidthPx) / float(w)) * 20.0
+    //                let additional = int(basis + add)
+    //                let r = 
+    //                    if additional > 90 
+    //                        then 90
+    //                    else 
+    //                        additional
+    //                sprintf "%i" r
  
-                let transform = 
-                    let stringX = sprintf "%i" x
-                    let stringY = sprintf "%i" y                                
-                    let translate = "translate(" + stringX + " " + stringY + ")"
-                    let rotate = "rotate(-" + rotation + ")"                              
-                    translate + " " + rotate
+    //            let transform = 
+    //                let stringX = sprintf "%i" x
+    //                let stringY = sprintf "%i" y                                
+    //                let translate = "translate(" + stringX + " " + stringY + ")"
+    //                let rotate = "rotate(-" + rotation + ")"                              
+    //                translate + " " + rotate
 
-                yield style "font-size:6px; fill:white; position:center"
-                yield attribute "x" "0"
-                yield attribute "y" "0"
-                yield attribute "transform" transform
-            } |> AttributeMap.ofAMap 
+    //            yield style "font-size:6px; fill:white; position:center"
+    //            yield attribute "x" "0"
+    //            yield attribute "y" "0"
+    //            yield attribute "transform" transform
+    //        } |> AttributeMap.ofAMap 
 
-        let attrLine =
-            amap{
-                let! maxBinValue = h.maxBinValue
-                yield style "stroke:white;stroke-width:2"
-                yield attribute "x1" "10px"
-                yield attribute "y1" (sprintf "%ipx" ((height+offSetY)))
-                yield attribute "x2" "10px"
-                yield attribute "y2" (sprintf "%ipx" ((height-(maxBinValue*10)+offSetY)))
-            }|> AttributeMap.ofAMap 
+    //    let attrLine =
+    //        amap{
+    //            let! maxBinValue = h.maxBinValue
+    //            yield style "stroke:white;stroke-width:2"
+    //            yield attribute "x1" "10px"
+    //            yield attribute "y1" (sprintf "%ipx" ((height+offSetY)))
+    //            yield attribute "x2" "10px"
+    //            yield attribute "y2" (sprintf "%ipx" ((height-(maxBinValue*10)+offSetY)))
+    //        }|> AttributeMap.ofAMap 
 
-        let attrTickLine (y:int) =
-            amap{
-                yield style "stroke:green; stroke-opacity:0.3"               
-                yield attribute "x1" (sprintf "%ipx" xStart)
-                yield attribute "y1" (sprintf "%ipx" y)
-                yield attribute "x2" (sprintf "%ipx" width)
-                yield attribute "y2" (sprintf "%ipx" y)
-            }|> AttributeMap.ofAMap 
+    //    let attrTickLine (y:int) =
+    //        amap{
+    //            yield style "stroke:green; stroke-opacity:0.3"               
+    //            yield attribute "x1" (sprintf "%ipx" xStart)
+    //            yield attribute "y1" (sprintf "%ipx" y)
+    //            yield attribute "x2" (sprintf "%ipx" width)
+    //            yield attribute "y2" (sprintf "%ipx" y)
+    //        }|> AttributeMap.ofAMap 
 
-        let attrTickLabel (y:int) =
-            amap{
-                yield style "font-size:8px; fill:white"
-                yield attribute "x" "0px"
-                yield attribute "y" (sprintf "%ipx" y)                
-            }|> AttributeMap.ofAMap 
+    //    let attrTickLabel (y:int) =
+    //        amap{
+    //            yield style "font-size:8px; fill:white"
+    //            yield attribute "x" "0px"
+    //            yield attribute "y" (sprintf "%ipx" y)                
+    //        }|> AttributeMap.ofAMap 
 
-        let rectangles =            
-            alist{ 
-                let! bins = h.bins
-                //bins as rectangles + labels
-                for i in 0..(bins.Length-1) do
-                    let bin = bins.Item i
-                    let label = sprintf "%i-%i" (int(bin.range.Min)) (int(bin.range.Max))
-                    yield Incremental.Svg.rect (attrRects bin i)
-                    yield Incremental.Svg.text (attrText i label.Length) (AVal.constant label)
+    //    let rectangles =            
+    //        alist{ 
+    //            let! bins = h.bins
+    //            //bins as rectangles + labels
+    //            for i in 0..(bins.Length-1) do
+    //                let bin = bins.Item i
+    //                let label = sprintf "%i-%i" (int(bin.range.Min)) (int(bin.range.Max))
+    //                yield Incremental.Svg.rect (attrRects bin i)
+    //                yield Incremental.Svg.text (attrText i label.Length) (AVal.constant label)
                 
-                //y axis
-                yield Incremental.Svg.line attrLine
+    //            //y axis
+    //            yield Incremental.Svg.line attrLine
 
-                //y axis ticks + labels
-                let! maxBinValue = h.maxBinValue
-                let y1 = height+offSetY
-                let y2 = height-(maxBinValue*10)+offSetY
-                let gap = (y2 - y1) / maxBinValue                
-                for j in 0..maxBinValue do                                    
-                    yield Incremental.Svg.line (attrTickLine (y1 + (j*gap)))
-                    yield Incremental.Svg.text (attrTickLabel (y1 + (j*gap))) (AVal.constant (j.ToString()))
-            }
-        Incremental.Svg.svg AttributeMap.empty rectangles
+    //            //y axis ticks + labels
+    //            let! maxBinValue = h.maxBinValue
+    //            let y1 = height+offSetY
+    //            let y2 = height-(maxBinValue*10)+offSetY
+    //            let gap = (y2 - y1) / maxBinValue                
+    //            for j in 0..maxBinValue do                                    
+    //                yield Incremental.Svg.line (attrTickLine (y1 + (j*gap)))
+    //                yield Incremental.Svg.text (attrTickLabel (y1 + (j*gap))) (AVal.constant (j.ToString()))
+    //        }
+    //    Incremental.Svg.svg AttributeMap.empty rectangles
     
-    let histogramSettings (hist:AdaptiveHistogramModel) =
-           div [style "width:100%; margin-bottom:5"] [                
-               text "Settings"
-               Html.table[
-                   Html.row "domain min" [Numeric.view' [InputBox] hist.domainStart |> UI.map SetDomainMin]
-                   Html.row "domain max" [Numeric.view' [InputBox] hist.domainEnd |> UI.map SetDomainMax]
-                   Html.row "number of bins" [Numeric.view' [InputBox] hist.numOfBins |> UI.map SetBinNumber]
-               ]
-           ]
+    
     
 

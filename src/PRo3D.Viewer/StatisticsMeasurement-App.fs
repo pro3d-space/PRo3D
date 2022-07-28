@@ -23,7 +23,7 @@ module StatisticsMeasurement_App =
                 {m with data = data; dataRange = dataRange; avg = avg}
             update m' (StatisticsVisualizationMessage visAction)   
 
-    //update multiple measurements at once
+    ///update multiple measurements at once
     let update'
         (measurements: HashMap<MeasurementType, StatisticsMeasurementModel>)
         (updatedData: HashMap<MeasurementType, List<Guid*float>>) 
@@ -38,6 +38,7 @@ module StatisticsMeasurement_App =
             update measurement (UpdateAll (data,visAction, mType.scale))
         )
 
+    ///set the peekItem for each measurement
     let startPeekForEachMeasurement
         (measurements: HashMap<MeasurementType, StatisticsMeasurementModel>)
         (peekValues:HashMap<MeasurementType, float>)
@@ -51,7 +52,8 @@ module StatisticsMeasurement_App =
                 | Scale.Angular -> RoseDiagramMessage (PeekRDBinStart peekValue)
             update measurement (StatisticsVisualizationMessage visAction)
         )
-
+    
+    ///reset the peekItem to None for each measurement
     let endPeekForEachMeasurement (measurements: HashMap<MeasurementType, StatisticsMeasurementModel>) =
         measurements
         |> HashMap.map (fun mType measurement ->              
@@ -74,7 +76,6 @@ module StatisticsMeasurement_App =
                 )
                 ]
              
-        
         let visualization = 
             div[][
             StatisticsVisualization_App.drawVisualization m.visualization (new V2i(300, 150))     
@@ -83,7 +84,6 @@ module StatisticsMeasurement_App =
              
         let title = "Measurement: " + m.measurementType.kind.ToString()
         GuiEx.accordion title "Settings" true [
-            
             statsTable                                             
             visualization                           
          ]
