@@ -384,6 +384,8 @@ module ViewerApp =
             m 
             |> Optic.set _navigation nav
             |> Optic.set _animationView nav.camera.view
+        | NavigationMessage msg, _, _ ->
+            m // cases where navigation is blocked by other operations (e.g. animation)
         | AnimationMessage msg,_,_ ->
             let m = 
                 match msg with

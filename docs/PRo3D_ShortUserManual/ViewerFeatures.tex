@@ -194,16 +194,18 @@ To view the bookmark's properties and actions click on the bookmark's name. Clic
 \subsection{Sequenced Bookmarks}
 \label{sec:sequenced_bookmarks}
 
-Sequenced bookmarks can be used to create, view, and record camera flight paths between bookmarks (Figure \ref{fig:seqBookmarks}). 
+Sequenced bookmarks can be used to create, view, and record camera flight paths between bookmarks (Figure \ref{fig:seqBookmarks}). Properties like visibility of surfaces, annotations, and scale bars (the \emph{scene state}) are also recorded with bookmarks, and applied during animations.
 
 \begin{figure}[h]
-\centering
-\includegraphics[width=0.5\textwidth]{pics/SequencedBookmarks.png}
-\caption[Viewer Features Bookmarks]{The sequenced bookmarks tab.}
-\label{fig:seqBookmarks}
+	\centering
+	\includegraphics[width=0.5\textwidth]{pics/SequencedBookmarks_tabUpper.PNG}
+	\caption[Viewer Features Bookmarks]{The sequenced bookmarks tab.}
+	\label{fig:seqBookmarks}
 \end{figure}
 
-Add bookmarks by clicking on the button with the plus icon at the top (A). In the list of bookmarks (B, Figure \ref{fig:seqBookmarks_list}) you can move the camera to the bookmark, delete the bookmark, and move the bookmark up and down in the list. Clicking on the label of a bookmark selects it. The selected bookmark is highlighted in green.
+The scene state includes properties of surfaces, annotations and scale bars. It also includes general viewer settings in the \emph{Config} tab. 
+
+Add bookmarks by clicking on the button with the plus icon at the top (A).
 
 \begin{figure}[h]
 	\centering
@@ -212,7 +214,9 @@ Add bookmarks by clicking on the button with the plus icon at the top (A). In th
 	\label{fig:seqBookmarks_list}
 \end{figure}
 
-You can find the properties of the selected bookmark (Figure \ref{fig:seqBookmarks_properties}) below the list of bookmarks (C). Here you can change the bookmark's name.
+In the list of bookmarks (B, Figure \ref{fig:seqBookmarks_list}) you can (from left to right) move the camera to the bookmark, delete the bookmark, update the scene state, and move the bookmark up and down in the list. Clicking on the label of a bookmark selects it. The selected bookmark is highlighted in green.
+
+Updating the scene state for an annotation does not update its camera view.
 
 \begin{figure}[h]
 	\centering
@@ -221,9 +225,33 @@ You can find the properties of the selected bookmark (Figure \ref{fig:seqBookmar
 	\label{fig:seqBookmarks_properties}
 \end{figure}
 
+You can find the properties of the selected bookmark (Figure \ref{fig:seqBookmarks_properties}) below the list of bookmarks (C). Here you can change the bookmark's name.
+
 For each bookmark, you can set two values. The \emph{duration} is the amount of time it takes the camera to move from the previous bookmark to this bookmark. The \emph{delay} determines how long the camera pauses at the bookmark before moving to the next one.
 
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.8\textwidth]{pics/SequencedBookmarks_animation.png}
+	\caption[Viewer Animation]{Animation settings.}
+	\label{fig:SequencedBookmarks_animation}
+\end{figure}
+
 You can animate the camera according to the list of bookmarks by clicking the play button in the \emph{Animation} section (D). The animation control buttons from left to right: Move to previous bookmark, start camera animation along all bookmarks, pause camera animation, stop camera animation, move camera to next bookmark.
+
+Selecting the checkbox \emph{global animation} has the following effects: 
+
+\begin{itemize}
+	\item A spline is used to travel a path along all bookmarks. The smoothing factor determines how smooth the path is. A value closer to zero means that the path hits individual bookmarks more precisely while a larger in general means a smoother path.
+	\item The duration is set for the whole animation and cannot be set for individual bookmarks.
+	\item The delay for individual bookmarks can not be used.
+\end{itemize}
+
+If there are large changes in the scene (and depending on hardware) the animation might not be entirely smooth when proceeding to a new bookmark.
+
+There are three settings for looping: No loop, mirror, and repeat.
+
+If the checkbox \emph{use easing} is selected, the camera animation speeds up in the beginning, and slows down at the end. When global animation is selected, easing is used at the beginning and the end of the whole path. When it is not selected, easing is used for each bookmark.
+
 
 %\begin{figure}[h]
 %	\centering
@@ -235,16 +263,15 @@ You can animate the camera according to the list of bookmarks by clicking the pl
 
 \begin{figure}[h]
 	\centering
-	\includegraphics[width=0.8\textwidth]{pics/SequencedBookmarks_snapshots.png}
+	\includegraphics[width=0.8\textwidth]{pics/SequencedBookmarks_tabSnapshots.png}
 	\caption[Viewer Features Bookmarks]{Creating images from sequenced bookmarks. Record camera animations as JSON snapshot files (red record button) and start generating images (camera button).}
-	\label{fig:seqBookmarks_snapshots}
+	\label{fig:SequencedBookmarks_tabSnapshots.PNG}
 \end{figure}
 
-In the \emph{snapshots} section (Figure \ref{fig:seqBookmarks_snapshots}) you can record camera animations. The red button changes to a \emph{stop} button when you start recording. If you now use the animation controls (D) to animate the camera, the camera movement is recorded. Once you click on the red stop button, a JSON file with the recorded camera animation is saved into the output folder specified in the \emph{Snapshots} section (E). To start rendering images with the saved file, click on the button with the camera icon next to the red record button. PRo3D will start rendering the images in the background.
+In the \emph{snapshots} section (Figure \ref{fig:SequencedBookmarks_tabSnapshots}) you can record camera animations. The red button changes to a \emph{stop} button when you start recording. If you now use the animation controls (D) to animate the camera, the camera movement is recorded. Once you click on the red stop button, a JSON file with the recorded camera animation is saved into the output folder specified in the \emph{Snapshots} section (E). To start rendering images with the saved file, click on the button with the camera icon next to the red record button. PRo3D will start rendering the images in the background.
 
 The following settings are available:
 \begin{itemize}
-	\item \textbf{\emph{Generate Still Frames}} Generate an appropriate number of identical images for the camera pauses set by \emph{delay}.
 	\item \textbf{\emph{Allow JSON Editing}} There are more options for generating images you can use if you edit the JSON file PRo3D creates (see section \ref{sec:snapshots}). Select this option if you want to edit additional properties in the JSON file (like the field of view) manually. If this option is selected, the JSON file is NOT regenerated when clicking on the \emph{Generate Images} button. This means that settings changed after recording will not be taken into account. Click on the \emph{Update} button if you want to update the JSON file, but be aware that all manual changes will be overwritten. Make sure to backup a JSON file once you have changed it manually, as PRo3D will write over it as soon as you record a new sequence. You can also start the generation process via the command line (Section \ref{sec:CLI}) using an old JSON file. 
 	\item \textbf{\emph{Update JSON}} Only available if \emph{Allow JSON Editing} is selected. Updates the JSON file with the current settings. All manual changes to the JSON file are overwritten. 
 	\item \textbf{\emph{Image Resolution}} Resolution of output images. Larger images take longer to render.
