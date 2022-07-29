@@ -35,23 +35,23 @@ module HistogramModel =
 
     ///numeric input field to set the histogram domain range
     let domainNumeric (value:float) = 
-          {
-              value = value
-              min   = 0.01
-              max   = 1000.0 
-              step  = 1.00
-              format = "{0:0.00}"
-          }
+        {
+            value   = value
+            min     = 0.01
+            max     = 1000.0 
+            step    = 1.00
+            format  = "{0:0.00}"
+        }
     
-    ///numeric input field to set the number of bins of the historgram
+    ///numeric input field to set the number of bins of the histogram
     let binNumeric =
-          {
-              value = 5.00
-              min = 5.00
-              max = 30.00
-              step = 1.00
-              format = "{0:0.00}"
-          }
+        {
+            value   = 5.00
+            min     = 5.00
+            max     = 30.00
+            step    = 1.00
+            format  = "{0:0.00}"
+        }
 
     let createHistogramBins (count:int) (min:float) (width:float) =
         [
@@ -59,10 +59,10 @@ module HistogramModel =
                 let start = min + (float(i) * width)
                 let en = start + width                
                 {                    
-                    id = i
-                    count = 0
-                    range = Range1d(start,en)
-                    annotationIDs = List.empty
+                    id              = i
+                    count           = 0
+                    range           = Range1d(start,en)
+                    annotationIDs   = List.empty
                 }
         ]
     

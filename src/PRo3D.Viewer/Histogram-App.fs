@@ -6,7 +6,8 @@ open Aardvark.UI
 
 
 module Histogram_App =
-
+    
+    ///computes the new histogram after a change to the data or to the settings
     let private compute (m:HistogramModel) =
      
         let numBins = m.numOfBins.value
@@ -28,11 +29,8 @@ module Histogram_App =
             let ud_min = Numeric.update m.domainStart (Numeric.Action.SetValue domMin)
             let ud_max = Numeric.update m.domainEnd (Numeric.Action.SetValue domMax)
 
-            let domain = Range1d(domMin,domMax)
-            let numBins = int(m.numOfBins.value)          
-            let updatedBins = HistogramModel.setHistogramBins data domain numBins
-            let maxValue = BinModel.getBinMaxValue updatedBins                         
-            {m with data = data; domainStart = ud_min; domainEnd = ud_max; bins = updatedBins; maxBinValue = maxValue}            
+            let m' = {m with data = data; domainStart = ud_min; domainEnd = ud_max}
+            compute m'                       
         | SetBinNumber act -> 
             let ud_n = Numeric.update m.numOfBins act
             let ud_hist = {m with numOfBins = ud_n}

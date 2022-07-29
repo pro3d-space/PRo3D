@@ -11,7 +11,7 @@ open FSharp.Data.Adaptive
 module StatisticsMeasurement_App =
  
     //either update the complete measurement (data statistics + visualization)
-    //or only the visualization (if the data has not changed)
+    //or only the visualization (if the data has not changed, only settings)
     let rec update (m:StatisticsMeasurementModel) (action:StatisticsMeasurementAction) =
         match action with                   
         | StatisticsVisualizationMessage visAction ->             

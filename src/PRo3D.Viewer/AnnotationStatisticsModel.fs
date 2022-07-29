@@ -20,6 +20,6 @@ module AnnotationStatistics =
     let initial =
         {
             selectedAnnotations = HashMap.empty
-            properties = HashMap.empty
+            properties          = HashMap.empty
         }
 

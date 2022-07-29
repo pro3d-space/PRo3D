@@ -45,10 +45,10 @@ module RoseDiagramModel =
                 let endDegree = (northCenterAngle + binAngleHalf) % 360.0
                 //
                 {   
-                    id = i
-                    count = 0
-                    range = Range1d(startDegree, endDegree)
-                    annotationIDs = List.empty
+                    id              = i
+                    count           = 0
+                    range           = Range1d(startDegree, endDegree)
+                    annotationIDs   = List.empty
                 }
         ]
     
@@ -82,7 +82,7 @@ module RoseDiagramModel =
         )
 
     let calculateAvgAngle (angles:List<float>) =
-        //from RoseDiagram.fs in Correlation Panels
+        //adapted from RoseDiagram.fs in Correlation Panels
         let tempList = 
             angles 
             |> List.map (fun degre -> 

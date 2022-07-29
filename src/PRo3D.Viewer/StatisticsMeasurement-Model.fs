@@ -21,7 +21,6 @@ type MeasurementType =
         scale : Scale
     }
 
-
 [<ModelType>]
 type StatisticsMeasurementModel =
     {
@@ -54,10 +53,10 @@ module StatisticsMeasurementModel =
             (range, avg) 
 
     let initMeasurementType (kind:Kind) (scale:Scale) = 
-          {
-              kind = kind
-              scale = scale
-          }
+        {
+            kind = kind
+            scale = scale
+        }
 
     let init (data:List<Guid*float>) (mType:MeasurementType) =
 
