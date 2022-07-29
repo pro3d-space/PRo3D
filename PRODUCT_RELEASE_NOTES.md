@@ -1,3 +1,11 @@
+## 4.9.1-prerelease1
+
+- sequenced bookmarks can now store scene state
+- new animation features (easing, smooth path, looping, scene state is applied according to bookmarks)
+- batch rendering can now use sequenced bookmarks and scene state
+- anti-alisaing for batch rendering
+- bugfix: wrong path opening when clicking on batch rendering output path
+
 ## 4.9.0-prerelease1
 
 - geoJSON exports now contain sampled points of visible annotations [#217](https://github.com/pro3d-space/PRo3D/issues/217)
