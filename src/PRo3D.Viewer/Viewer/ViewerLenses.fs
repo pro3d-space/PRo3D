@@ -73,14 +73,16 @@ module ViewerLenses =
         ), 
         (fun state m ->
             let scaleBars = 
-                let inline update (bar : ScaleBar) = 
-                    let current = HashMap.tryFind bar.guid m.scene.scaleBars.scaleBars
+                let inline update (newBar : ScaleBar) = 
+                    Log.line "[Debug] New bar is visible: %b" newBar.isVisible
+                    let current = HashMap.tryFind newBar.guid m.scene.scaleBars.scaleBars
                     match current with
                     | Some current ->
-                        { current with scSegments = current.scSegments}
+                        Log.line "[Debug] Old bar is visible: %b" current.isVisible
+                        { newBar with scSegments = current.scSegments}
                     | None ->
-                        Log.line "[Viewer] Scale bar %s not present in current scene state." bar.name
-                        bar
+                        Log.line "[Viewer] Scale bar %s not present in current scene state." newBar.name
+                        newBar
                 let updated = 
                     state.stateScaleBars.scaleBars
                                 |> HashMap.map (fun id bar -> update bar)

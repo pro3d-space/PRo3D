@@ -1,3 +1,8 @@
+## 4.9.1-prerelease2
+
+- bugfix: reading scene with sequenced bookmarks could lead to an error
+- bugfix: scale bars not updated correctly when updating scene state for sequenced bookmarks
+
 ## 4.9.1-prerelease1
 
 - sequenced bookmarks can now store scene state

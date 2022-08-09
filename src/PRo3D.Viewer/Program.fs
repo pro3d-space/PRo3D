@@ -56,7 +56,6 @@ type Calc =
       b : int;
    }
  
-
  [<DataContract>]
 type Result =
    { 
@@ -66,7 +65,7 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "4.9.1-prerelease1"
+let viewerVersion       = "4.9.1-prerelease2"
 let catchDomainErrors   = false
 
 open System.IO

@@ -258,7 +258,7 @@ type AnimationSettings = {
                 | Some x -> x |> enum 
                 | None   -> AnimationLoopMode.NoLoop
 
-            let! (applyStateOnSelect : option<bool>) = Json.tryRead "globalDuration"
+            let! (applyStateOnSelect : option<bool>) = Json.tryRead "applyStateOnSelect"
             let applyStateOnSelect =
                 match applyStateOnSelect with
                 | Some x -> x
