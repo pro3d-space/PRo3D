@@ -69,6 +69,9 @@ module SequencedBookmarksApp =
             let animationSettings = AnimationSettings.update m.animationSettings msg
             let m = {m with animationSettings = animationSettings}
             outerModel, m
+        | SaveAnimation ->
+            // do in outer model
+            outerModel, m
         | AddSBookmark ->
             let nav = Optic.get lenses.navigationModel_ outerModel
             let state = Optic.get lenses.sceneState_ outerModel
@@ -568,9 +571,13 @@ module SequencedBookmarksApp =
             require GuiEx.semui (
                 div [] [
                     Html.table [            
-                        Html.row "Record Camera Animation:" 
-                            [
-                                Incremental.div ([] |> AttributeMap.ofList) recordingButton          
+                        Html.row "Save Camera Animation:" 
+                            [   
+                                button [
+                                    onMouseClick (fun _ -> StopRecording )
+                                ] [text "Save"]
+                                i [clazz "info icon"] [] 
+                                    |> UI.wrapToolTip DataPosition.Bottom "No smooth path, no easing, no global animation."     
                             ]
                         Html.row "Generate Images:" 
                             [
@@ -599,7 +606,7 @@ module SequencedBookmarksApp =
                                 Numeric.view' [NumericInputType.InputBox]  model.resolutionY |> UI.map SetResolutionY
                             ]
 
-                        Html.row "Current FPS" [Incremental.text fpsText]
+                        Html.row "Current FPS" [text "60"] //[Incremental.text fpsText]
                         Html.row "FPS Setting" [Html.SemUi.dropDown model.fpsSetting SetFpsSetting]
                         Html.row "Output Path" 
                             [

@@ -579,18 +579,18 @@ module ViewerApp =
                 
             match msg with
             | SequencedBookmarksAction.StopRecording -> 
-                    let m, scenePath = save m
-                    generateJson ()
-                    Log.line "[Viewer] Writing snapshot JSON file to %s" jsonPathName
-                    let m = shortFeedback "Saved snapshot JSON file." m
-                    match m.scene.sequencedBookmarks.generateOnStop with
-                    | true -> 
-                        let m = 
-                            let bm = generateSnapshots scenePath
-                            {m with scene = { m.scene with sequencedBookmarks = bm }}
-                        let m = shortFeedback "Snapshot generation started." m
-                        m
-                    | false -> m
+                let m, scenePath = save m
+                generateJson ()
+                Log.line "[Viewer] Writing snapshot JSON file to %s" jsonPathName
+                let m = shortFeedback "Saved snapshot JSON file." m
+                match m.scene.sequencedBookmarks.generateOnStop with
+                | true -> 
+                    let m = 
+                        let bm = generateSnapshots scenePath
+                        {m with scene = { m.scene with sequencedBookmarks = bm }}
+                    let m = shortFeedback "Snapshot generation started." m
+                    m
+                | false -> m
                         
             | SequencedBookmarksAction.GenerateSnapshots -> 
                 let m, scenePath = save m
@@ -1562,8 +1562,8 @@ module ViewerApp =
         | unknownAction, _, _ -> 
             Log.line "[Viewer] Message not handled: %s" (string unknownAction)
             m       
-                                   
-
+                   
+   //let mutable lastMillis = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() //DEBUG
     let update 
         (runtime   : IRuntime) 
         (signature : IFramebufferSignature) 
@@ -1578,13 +1578,10 @@ module ViewerApp =
         | AnewmationMessage msg ->
             //match msg with // Debugging Info
             //| Anewmation.AnimatorMessage.RealTimeTick ->
-            //    Log.line "Animator Tick"
-            //    let selectedBm = SequencedBookmarksApp.selected m.scene.sequencedBookmarks
-            //    match selectedBm with
-            //    | Some selectedBm -> 
-            //        Log.line "Current Bookmark %s" selectedBm.name
-            //    | None ->
-            //        Log.line "No Bookmark selected"
+            //    let millis = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            //    Log.warn "Elapsed: %i" (millis - lastMillis)
+            //    lastMillis <- millis
+            //    ()
             //| _ -> 
             //    ()
 

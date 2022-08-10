@@ -74,11 +74,9 @@ module ViewerLenses =
         (fun state m ->
             let scaleBars = 
                 let inline update (newBar : ScaleBar) = 
-                    Log.line "[Debug] New bar is visible: %b" newBar.isVisible
                     let current = HashMap.tryFind newBar.guid m.scene.scaleBars.scaleBars
                     match current with
                     | Some current ->
-                        Log.line "[Debug] Old bar is visible: %b" current.isVisible
                         { newBar with scSegments = current.scSegments}
                     | None ->
                         Log.line "[Viewer] Scale bar %s not present in current scene state." newBar.name
@@ -110,7 +108,15 @@ module ViewerLenses =
 
     let _selectedBookmark =
        Model.scene_ >-> Scene.sequencedBookmarks_ >-> SequencedBookmarks.selectedBookmark_  
-    
+
+    let mutable lastMillis = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() //DEBUG
+    let private logElapsedTime () = 
+        let millis = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        Log.warn "Elapsed: %i" (millis - lastMillis)
+        lastMillis <- millis
+
+    let inline appendToList element lst = lst@[element]
+
     /// for use with animations, getter returns selected bookmark or new bookmark
     /// setter applies bookmark state to model
     let _bookmark : ((Model -> SequencedBookmark) * (SequencedBookmark -> Model -> Model)) =
@@ -127,36 +133,60 @@ module ViewerLenses =
                                                 m.scene.bookmarks.flat.Count)
         ),
         (fun sb m ->
+            logElapsedTime ()
+            // update camera to bookmark's camera
             let m = Optic.set _view sb.cameraView m
-            let m = 
+
+            let lastBookmark = Optic.get _lastSavedBookmark m
+
+            // add a frame to the list of saved frames
+            let inline addBookmarkStep filename sb m  =
+                let newStep = {
+                    filename = filename
+                    content  = AnimationTimeStepContent.Bookmark sb}
+                (Optic.map _savedTimeSteps (appendToList newStep) m)
+                    |> (Optic.set _lastSavedBookmark (Some sb.bookmark.key))
+
+            // update the scene state if the bookmark contains one
+            let inline updateSceneState sb m =
                 match sb.sceneState with
                 | Some state ->
                     Optic.set _sceneState state m
                 | None -> m
-            if m.scene.sequencedBookmarks.isRecording then
-                let lastBookmark = Optic.get _lastSavedBookmark m
-                let addNewTimeStep newStep steps = steps@[newStep]
+
+            // check whether animation is being recorded, and whether this frame constitutes a change to a new bookmark
+            match m.scene.sequencedBookmarks.isRecording, lastBookmark with
+            | false, Some key when key = sb.key ->
+                // not recording, same bookmark
+                m // nothing to do except update the view which we did above
+            | false, Some key when key <> sb.key ->
+                // new bookmark, so we need to update the scene state
+                updateSceneState sb m
+            | true, Some key when key = sb.key ->
+                let m = updateSceneState sb m
+                // since we are recording we need to save the current frame
                 let index = (Optic.get _savedTimeSteps m).Length
                 let filename = sprintf "%06i_%s" index sb.name
-                let addBookmarkStep () =
-                    let newStep = {
+                let newStep = 
+                    {
                         filename = filename
-                        content  = AnimationTimeStepContent.Bookmark sb}
-                    (Optic.map _savedTimeSteps (addNewTimeStep newStep) m)
-                        |> (Optic.set _lastSavedBookmark (Some sb.bookmark.key))
-                match lastBookmark with
-                | Some key ->
-                    if key = sb.key then
-                        let newStep = {
-                            filename = filename
-                            content  = AnimationTimeStepContent.Camera sb.cameraView}
-                        (Optic.map _savedTimeSteps (addNewTimeStep newStep) m)
-                    else
-                        addBookmarkStep ()
-                | None -> 
-                    addBookmarkStep ()
-            else
-                m
+                        content  = AnimationTimeStepContent.Camera sb.cameraView
+                    }
+                (Optic.map _savedTimeSteps (appendToList newStep) m)
+            | true, Some key when key <> sb.key ->
+                // new bookmark, we need to ipdate the scene state and record a bookmark step
+                let m = updateSceneState sb m
+                let index = (Optic.get _savedTimeSteps m).Length
+                let filename = sprintf "%06i_%s" index sb.name
+                addBookmarkStep filename sb m
+            | true, None -> 
+                // beginning of recording, same as new bookmark
+                let m = updateSceneState sb m
+                let index = (Optic.get _savedTimeSteps m).Length
+                let filename = sprintf "%06i_%s" index sb.name
+                addBookmarkStep filename sb m
+            | _, _ -> m 
+                
         )
 
     let bookmarkLenses =

@@ -95,32 +95,124 @@ module SnapshotAnimation =
             renderMask  = renderMask
         }
 
+    let lerpCamera (fromC : CameraView) (toC : CameraView)
+                   (nrOfFrames : int) =
+        let slerp (src : Rot3d) (dst : Rot3d) (t : float) =
+            Rot.SlerpShortest(src, dst, t)
+
+        let lerp (src : V3d) (dst : V3d) (t : float) =
+            lerp src dst t
+
+        let sky = fromC.Sky
+
+        let delta = 
+            [0..nrOfFrames - 1]
+                |> List.map (fun frameIndex -> float frameIndex / float nrOfFrames)
+
+        let positions =
+            delta
+            |> List.map (fun delta -> lerp fromC.Location toC.Location delta)
+
+        let orientations =
+            delta
+            |> List.map (fun delta -> slerp fromC.Orientation toC.Orientation delta)
+
+        List.zip positions orientations
+        |> List.map (fun (l, o) -> CameraView.orient l o sky)
+
+    let newBmStep filename sb =
+        {
+            filename = filename
+            content  = AnimationTimeStepContent.Bookmark sb
+        }
+
+    let newCamStep filename view =
+        {
+            filename = filename
+            content  = AnimationTimeStepContent.Camera view
+        }
+
+    let timeStepsFromBookmarks (bm          : SequencedBookmarks) 
+                               (fps         : int)=
+        let lerpit ((fromBm : Guid), (toBm : Guid)) =
+            let fromBm = BookmarkUtils.find fromBm bm
+            let toBm   = BookmarkUtils.find toBm bm
+            match fromBm, toBm with
+            | Some fromBm, Some toBm ->
+                let seconds = int toBm.duration.value
+                let nrOfFrames = seconds * fps
+                toBm, lerpCamera fromBm.cameraView toBm.cameraView (int nrOfFrames)
+            | _,_ -> 
+                failwith "[Sequenced Bookmarks] A bookmark that is in order list was not found in the hashmap."
+
+        let toSteps (bm : SequencedBookmark, cameras : list<CameraView>) =
+            seq {
+                for c in cameras do
+                    yield newCamStep bm.name c
+                yield newBmStep bm.name bm
+            } |> List.ofSeq
+
+        let timeStepsNoNumbers = 
+            bm.orderList 
+            |> List.pairwise
+            |> List.map lerpit
+            |> List.map toSteps
+            |> List.concat
+
+        let firstBm = BookmarkUtils.find bm.orderList.[0] bm
+
+        let timeStepsNoNumbers = 
+            [newBmStep firstBm.Value.name firstBm.Value] @ timeStepsNoNumbers
+
+        let numberedTimeSteps =
+            timeStepsNoNumbers
+            |> List.indexed
+            |> List.map (fun (i,s) -> 
+                            let filename = sprintf "%06i_%s" i s.filename
+                            {s with filename = filename}
+                        )
+        numberedTimeSteps
+
+    let currentFrameToAnimation (bm          : SequencedBookmarks)  
+                                (cameraView  : CameraView)
+                                (frustum     : Frustum)
+                                (nearPlane   : float) 
+                                (farPlane    : float) =
+        Log.line "[Viewer] No frames recorded. Saving current frame."
+        let snapshots = 
+            [{
+                filename        = "CurrentFrame"
+                camera          = cameraView |> Snapshot.toSnapshotCamera
+                sunPosition     = None
+                lightDirection  = None
+                surfaceUpdates  = None
+                placementParameters = None
+                renderMask      = None         
+                }]
+        let snapshotAnimation =
+            generate 
+                snapshots
+                (frustum |> Frustum.horizontalFieldOfViewInDegrees |> Some)
+                (nearPlane |> Some)
+                (farPlane |> Some)
+                (V2i (bm.resolutionX.value, bm.resolutionY.value))
+                None    
+        snapshotAnimation |> SnapshotAnimation.CameraAnimation
+
     let fromBookmarks (bm          : SequencedBookmarks)  
                       (cameraView  : CameraView)
                       (frustum     : Frustum)
                       (nearPlane   : float) 
                       (farPlane    : float) =
-        if bm.savedTimeSteps.Length > 0 then
-            let snapshots = 
-                Snapshot.fromTimeSteps  bm.savedTimeSteps
-                    
+        if bm.orderList.Length > 0 then                  
             let snapshots =
                 match bm.fpsSetting with
                 | FPSSetting.Full ->
-                    snapshots
+                    Snapshot.fromTimeSteps (timeStepsFromBookmarks bm 60) //TODO RNO hardcoded fps
                 | FPSSetting.Half ->
-                    let filtered = 
-                        snapshots
-                        |> List.indexed
-                        |> List.filter (fun (i, x) -> match x.transformation with
-                                                      | BookmarkTransformation.Bookmark bm -> true
-                                                      | BookmarkTransformation.Camera cam -> (i % 2) = 1
-                                       )
-                        |> List.map snd
-                        |> List.indexed
-                        |> List.map (fun (i, x) -> {x with filename = sprintf "%06i%s" i (x.filename.Substring 6)} )
-                    filtered
-                | _ -> snapshots
+                    Snapshot.fromTimeSteps (timeStepsFromBookmarks bm 30) //TODO RNO hardcoded fps
+                | _ -> 
+                    Snapshot.fromTimeSteps (timeStepsFromBookmarks bm 60) //TODO RNO hardcoded fps
 
             let snapshotAnimation : BookmarkSnapshotAnimation =
                 {
@@ -130,26 +222,7 @@ module SnapshotAnimation =
                 } 
             snapshotAnimation |> SnapshotAnimation.BookmarkAnimation     
         else 
-            Log.line "[Viewer] No frames recorded. Saving current frame."
-            let snapshots = 
-                [{
-                    filename        = "CurrentFrame"
-                    camera          = cameraView |> Snapshot.toSnapshotCamera
-                    sunPosition     = None
-                    lightDirection  = None
-                    surfaceUpdates  = None
-                    placementParameters = None
-                    renderMask      = None         
-                    }]
-            let snapshotAnimation =
-                generate 
-                    snapshots
-                    (frustum |> Frustum.horizontalFieldOfViewInDegrees |> Some)
-                    (nearPlane |> Some)
-                    (farPlane |> Some)
-                    (V2i (bm.resolutionX.value, bm.resolutionY.value))
-                    None    
-            snapshotAnimation |> SnapshotAnimation.CameraAnimation
+            currentFrameToAnimation bm cameraView frustum nearPlane farPlane
 
     let readTestAnimation () =
         try

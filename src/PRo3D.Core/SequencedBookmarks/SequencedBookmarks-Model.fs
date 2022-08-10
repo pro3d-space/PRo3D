@@ -68,6 +68,7 @@ type SequencedBookmarksAction =
     | CheckSnapshotsProcess of string
     | UpdateJson
     | ToggleUpdateJsonBeforeRendering
+    | SaveAnimation
 
 /// state of various scene elements for use with animations
 type SceneState =
