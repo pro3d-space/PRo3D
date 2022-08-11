@@ -49,6 +49,8 @@ type SequencedBookmarksAction =
     | MoveUp         of Guid
     | MoveDown       of Guid
     | SetSceneState of Guid
+    | SaveSceneState
+    | RestoreSceneState
     | AddSBookmark  
     | Play
     | Pause
@@ -73,6 +75,8 @@ type SequencedBookmarksAction =
 /// state of various scene elements for use with animations
 type SceneState =
     {
+        isValid               : bool
+        timestamp             : DateTime
         stateAnnoatations     : GroupsModel
         stateSurfaces         : GroupsModel
         stateSceneObjects     : SceneObjectsModel
@@ -80,9 +84,16 @@ type SceneState =
         stateGeologicSurfaces : GeologicSurfacesModel
         stateConfig           : ViewConfigModel
         stateReferenceSystem  : ReferenceSystem  
+        stateTraverses        : option<TraverseModel>
     } with
     static member FromJson( _ : SceneState) =
         json {
+            let isValid = true
+            let! timestamp               = Json.tryRead "timestamp"    
+            let timestamp = 
+                match timestamp with
+                | Some timestamp -> timestamp
+                | None -> DateTime.Now
             let! stateAnnoatations       = Json.read "stateAnnoatations"    
             let! stateSurfaces           = Json.read "stateSurfaces"        
             let! stateSceneObjects       = Json.read "stateSceneObjects"    
@@ -90,8 +101,11 @@ type SceneState =
             let! stateGeologicSurfaces   = Json.read "stateGeologicSurfaces"
             let! stateConfig             = Json.read "stateConfig"
             let! stateReferenceSystem    = Json.read "stateReferenceSystem"
+            let! stateTraverse           = Json.tryRead "stateTraverse"
 
             return {
+                isValid                 = isValid
+                timestamp               = timestamp
                 stateAnnoatations       = stateAnnoatations    
                 stateSurfaces           = stateSurfaces        
                 stateSceneObjects       = stateSceneObjects    
@@ -99,11 +113,13 @@ type SceneState =
                 stateGeologicSurfaces   = stateGeologicSurfaces
                 stateConfig             = stateConfig
                 stateReferenceSystem    = stateReferenceSystem
+                stateTraverses          = stateTraverse
             }
         }
 
     static member ToJson(x : SceneState) =
         json {
+            do! Json.write "timestamp"             x.timestamp
             do! Json.write "stateAnnoatations"     x.stateAnnoatations    
             do! Json.write "stateSurfaces"         x.stateSurfaces        
             do! Json.write "stateSceneObjects"     x.stateSceneObjects    
@@ -111,6 +127,7 @@ type SceneState =
             do! Json.write "stateGeologicSurfaces" x.stateGeologicSurfaces
             do! Json.write "stateConfig"           x.stateConfig
             do! Json.write "stateReferenceSystem"  x.stateReferenceSystem
+            do! Json.write "stateTraverse"         x.stateTraverses
         }
 
 /// An extended Bookmark for use with animations

@@ -55,8 +55,13 @@ module AnimationSettings =
            let smoothingFactor = Numeric.update m.smoothingFactor msg
            {m with smoothingFactor = smoothingFactor}
 
+
+
 module SequencedBookmarksApp = 
     let mutable (snapshotProcess : option<System.Diagnostics.Process>) = None
+
+    let outputPath (m : SequencedBookmarks) = 
+        Path.combine [m.outputPath;"batchRendering.json"]
 
     let update 
         (m                : SequencedBookmarks) 
@@ -111,8 +116,24 @@ module SequencedBookmarksApp =
             | false ->
                 outerModel, selectSBookmark m id 
         | SetSceneState id ->
-            let m = updateOne m id (fun bm -> {bm with sceneState = Some (Optic.get lenses.sceneState_ outerModel)})
+            let updState bm =
+                {bm with sceneState = Some (Optic.get lenses.sceneState_ outerModel)}
+            let m = updateOne m id updState
             Log.line "[Sequenced Bookmarks] Updated scene state."
+            outerModel, m
+        | SaveSceneState ->
+            let m = {m with savedSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
+            Log.line "[SequencedBookmarks] Saved scene state."
+            outerModel, m
+        | RestoreSceneState ->
+            let outerModel = 
+                match m.savedSceneState with
+                | Some state ->
+                    Log.line "[SequencedBookmarks] Restoring scene state."
+                    Optic.set lenses.sceneState_ state outerModel
+                | None ->
+                    Log.line "[SequencedBookmarks] No scene state to restore."
+                    outerModel
             outerModel, m
         | MoveUp id ->
             let index = m.orderList |> List.toSeq |> Seq.findIndex(fun x -> x = id)
@@ -366,15 +387,44 @@ module SequencedBookmarksApp =
                      
                 } )
 
-        let viewGUI  (model : AdaptiveSequencedBookmarks) = 
+        let private stateLabel (state : option<SceneState>) =
+            match state with
+            | Some state ->
+                sprintf "%i-%02i-%02i %02i:%02i:%02i" 
+                        state.timestamp.Year state.timestamp.Month state.timestamp.Day
+                        state.timestamp.Hour state.timestamp.Minute state.timestamp.Second
+            | None -> 
+                "No saved scene state"
 
-            div [clazz "ui buttons inverted"] [
-                        //onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
-                            button [clazz "ui icon button"; onMouseClick (fun _ -> AddSBookmark )] [ //
-                                    i [clazz "plus icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Add Bookmark"
-                            
-                        // )
-                    ] 
+        let viewGUI  (model : AdaptiveSequencedBookmarks) = 
+            div [clazz "ui vertical buttons inverted"] [
+                button [
+                    clazz "ui labeled icon button"; 
+                    onMouseClick (fun _ -> AddSBookmark )
+                    style "margin: 5px"
+                ] [ 
+                    i [clazz "plus icon"] [] 
+                    text "Add Bookmark"
+                ] 
+                div [clazz "ui labeled button";style "margin: 5px"] [
+                    div [
+                        clazz "ui button"
+                        onMouseClick (fun _ -> SaveSceneState )
+                    ] [ 
+                        text "Save Scene State"
+                    ]
+                    div [clazz "ui basic label"] [
+                        i [clazz "globe icon"] [] 
+                        Incremental.text (model.savedSceneState |> AVal.map (fun x -> stateLabel x))
+                    ]
+                    div [
+                        clazz "ui button"
+                        onMouseClick (fun _ -> RestoreSceneState )
+                    ] [ 
+                        text "Restore to Saved"
+                    ]
+                ]
+            ] 
 
 
         let viewProps (m:AdaptiveSequencedBookmark) (useGlobalAnimation : aval<bool>) =
@@ -400,6 +450,23 @@ module SequencedBookmarksApp =
                         SequencedBookmarkMessage (m.bookmark.key, SequencedBookmarkAction.SetDelay msg)) 
                     |> notWithGlobalAnimation
                 
+
+
+            let stateUpdateButton id =
+                div [] [
+                    
+                    Incremental.text (m.sceneState |> AVal.map (fun x -> stateLabel x))
+                    
+                    div [
+                        style "margin-left: 5px"
+                        clazz "ui button"
+                        onClick (fun _ -> SetSceneState id)
+                    ] [
+                        i [clazz "globe icon"] []
+                        text "update"
+                    ]
+                ]
+
             require GuiEx.semui (
                 Html.table [  
                     Html.row "Change Name:" [Html.SemUi.textBox m.bookmark.name SetName ]
@@ -410,6 +477,9 @@ module SequencedBookmarksApp =
                     Html.row "LookAt:"  [Incremental.text (view |> AVal.map (fun x -> x.Forward.ToString("0.00")))]
                     Html.row "Up:"      [Incremental.text (view |> AVal.map (fun x -> x.Up.ToString("0.00")))]
                     Html.row "Sky:"     [Incremental.text (view |> AVal.map (fun x -> x.Sky.ToString("0.00")))]
+                    Html.row "SceneState:" [
+                        stateUpdateButton m.bookmark.key
+                    ]
                 ]
             )
 

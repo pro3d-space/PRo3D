@@ -551,13 +551,14 @@ module ViewerApp =
             let m = 
                 {m with scene = { m.scene with sequencedBookmarks = bm }}
             
-            let jsonPathName = Path.combine [bm.outputPath;"batchRendering.json"]
+            let jsonPathName = SequencedBookmarksApp.outputPath bm
             let generateJson () = 
                 let snapshotAnimation = 
                     SnapshotAnimation.fromBookmarks 
                         bm
                         m.scene.cameraView 
-                        m.frustum
+                        (m.frustum |> Frustum.horizontalFieldOfViewInDegrees)
+                        //m.frustum
                         m.scene.config.nearPlane.value
                         m.scene.config.farPlane.value
                 SnapshotAnimation.writeToFile snapshotAnimation jsonPathName   

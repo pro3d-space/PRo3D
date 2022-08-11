@@ -206,9 +206,13 @@ module SnapshotAnimation =
 
     let fromBookmarks (bm          : SequencedBookmarks)  
                       (cameraView  : CameraView)
-                      (frustum     : Frustum)
+                      (fieldOfView : float)
+                      //(frustum     : Frustum)
                       (nearPlane   : float) 
                       (farPlane    : float) =
+        let frustum =
+          Frustum.perspective fieldOfView nearPlane farPlane
+                              (float(bm.resolutionX.value)/float(bm.resolutionY.value))
         if bm.orderList.Length > 0 then                  
             let snapshots =
                 match bm.fpsSetting with

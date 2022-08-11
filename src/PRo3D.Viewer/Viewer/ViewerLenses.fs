@@ -58,10 +58,17 @@ module ViewerLenses =
     // geologic surfaces
     let _geologicSurfacesModel = Model.scene_ >->  Scene.geologicSurfacesModel_
     let _geologicSurfaces      = _geologicSurfacesModel >-> GeologicSurfacesModel.geologicSurfaces_
-       
+        
     let _sceneState : ((Model -> SceneState) * (SceneState -> Model -> Model)) =
+        let inline haveSameKeys (a : HashMap<'a, 'b>) (b : HashMap<'a, 'c>) =
+            if a.Count <> b.Count then false
+            else
+                a.ToKeyList () |> List.sort = (a.ToKeyList () |> List.sort)
+
         (fun m -> 
             {
+                isValid                = true
+                timestamp              = System.DateTime.Now
                 stateAnnoatations      = m.drawing.annotations
                 stateSurfaces          = m.scene.surfacesModel.surfaces
                 stateSceneObjects      = m.scene.sceneObjectsModel
@@ -69,22 +76,43 @@ module ViewerLenses =
                 stateGeologicSurfaces  = m.scene.geologicSurfacesModel
                 stateConfig            = m.scene.config
                 stateReferenceSystem   = m.scene.referenceSystem
+                stateTraverses         = Some m.scene.traverses
             }
         ), 
         (fun state m ->
-            let scaleBars = 
-                let inline update (newBar : ScaleBar) = 
-                    let current = HashMap.tryFind newBar.guid m.scene.scaleBars.scaleBars
-                    match current with
-                    | Some current ->
-                        { newBar with scSegments = current.scSegments}
-                    | None ->
-                        Log.line "[Viewer] Scale bar %s not present in current scene state." newBar.name
-                        newBar
-                let updated = 
-                    state.stateScaleBars.scaleBars
-                                |> HashMap.map (fun id bar -> update bar)
-                {state.stateScaleBars with scaleBars = updated}
+            let state = // check surfaces
+                if haveSameKeys state.stateSurfaces.flat
+                                m.scene.surfacesModel.sgSurfaces then state
+                else
+                    Log.warn "[ViewerLenses] Surfaces have been added or removed making this scene state invalid. 
+                                Not applying surfaces for this scene state."
+                    {state with stateSurfaces = m.scene.surfacesModel.surfaces}
+
+            let scaleBars = // check scale bars; using old segments for performance reasons
+                if haveSameKeys state.stateScaleBars.scaleBars
+                                m.scene.scaleBars.scaleBars then 
+                    let inline update (newBar : ScaleBar) = 
+                        let current = HashMap.tryFind newBar.guid m.scene.scaleBars.scaleBars
+                        match current with
+                        | Some current ->
+                            { newBar with scSegments = current.scSegments}
+                        | None ->
+                            Log.line "[Viewer] Scale bar %s not present in current scene state." newBar.name
+                            newBar
+                    let updated = 
+                        state.stateScaleBars.scaleBars
+                        |> HashMap.map (fun id bar -> update bar)
+                    {state.stateScaleBars with scaleBars = updated}        
+                    
+                else
+                    Log.warn "[ViewerLenses] Scale Bars have been added or removed making this scene state invalid. 
+                                Not applying scale bars for this scene state."
+                    m.scene.scaleBars
+
+            let traverses = 
+                match state.stateTraverses with
+                | Some t -> t
+                | None -> m.scene.traverses
 
             {m with
                 drawing = {m.drawing with annotations = state.stateAnnoatations}
@@ -96,6 +124,7 @@ module ViewerLenses =
                         geologicSurfacesModel   = state.stateGeologicSurfaces
                         config                  = state.stateConfig
                         referenceSystem         = state.stateReferenceSystem
+                        traverses               = traverses
                     }
             }
         )
@@ -108,12 +137,6 @@ module ViewerLenses =
 
     let _selectedBookmark =
        Model.scene_ >-> Scene.sequencedBookmarks_ >-> SequencedBookmarks.selectedBookmark_  
-
-    let mutable lastMillis = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() //DEBUG
-    let private logElapsedTime () = 
-        let millis = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-        Log.warn "Elapsed: %i" (millis - lastMillis)
-        lastMillis <- millis
 
     let inline appendToList element lst = lst@[element]
 
@@ -133,7 +156,6 @@ module ViewerLenses =
                                                 m.scene.bookmarks.flat.Count)
         ),
         (fun sb m ->
-            //logElapsedTime () // DEBUG
             // update camera to bookmark's camera
             let m = Optic.set _view sb.cameraView m
             let lastBookmark = Optic.get _lastSavedBookmark m

@@ -38,6 +38,7 @@
     <Compile Include="Surface.fs" />
     <Compile Include="GroupsApp.fs" />
     <Compile Include="OrientationCube.fs" />
+    <Compile Include="Traverse-Model.fs" />
     <Compile Include="Surface\Translation.fs" />
     <Compile Include="Surface\Surface-Properties.fs" />
     <Compile Include="Surface\Surface.Files.fs" />

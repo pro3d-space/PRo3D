@@ -1,5 +1,5 @@
 ﻿#nowarn "0686"
-namespace PRo3D.Viewer
+namespace PRo3D.Core
 
 open System
 open Aardvark.Base
