@@ -139,24 +139,29 @@ module SnapshotAnimation =
             let toBm   = BookmarkUtils.find toBm bm
             match fromBm, toBm with
             | Some fromBm, Some toBm ->
-                let seconds = int toBm.duration.value
-                let nrOfFrames = seconds * fps
+                let seconds = toBm.duration.value
+                let nrOfFrames = seconds * (float fps)
                 toBm, lerpCamera fromBm.cameraView toBm.cameraView (int nrOfFrames)
             | _,_ -> 
                 failwith "[Sequenced Bookmarks] A bookmark that is in order list was not found in the hashmap."
 
-        let toSteps (bm : SequencedBookmark, cameras : list<CameraView>) =
+        let toSteps fps (bm : SequencedBookmark, cameras : list<CameraView>) =
             seq {
                 for c in cameras do
                     yield newCamStep bm.name c
                 yield newBmStep bm.name bm
+                if bm.delay.value > 0.0 then
+                    let seconds = bm.delay.value
+                    let nrOfFrames = int (seconds * fps)
+                    for nr in [0..nrOfFrames] do
+                        yield newCamStep bm.name bm.cameraView
             } |> List.ofSeq
 
         let timeStepsNoNumbers = 
             bm.orderList 
             |> List.pairwise
             |> List.map lerpit
-            |> List.map toSteps
+            |> List.map (toSteps fps)
             |> List.concat
 
         let firstBm = BookmarkUtils.find bm.orderList.[0] bm
