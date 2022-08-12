@@ -1,3 +1,10 @@
+## 4.9.1-prerelease3
+- bugfix: frustum for batch rendering
+- removed recording of animation, replaced with saving batch file directly (no looping, easing, splines, global animation for batch rendering)
+- now allowing saving and restoring scene state for sequenced bookmark animations
+- scene states for animation are now identified with data and time and listed under properties of sequenced bookmarks
+- added traverses to scene state
+
 ## 4.9.1-prerelease2
 
 - bugfix: reading scene with sequenced bookmarks could lead to an error
