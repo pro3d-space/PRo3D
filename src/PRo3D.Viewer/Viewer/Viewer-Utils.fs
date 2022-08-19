@@ -232,6 +232,27 @@ module ViewerUtils =
                 }
 
             attr    
+
+    type Vertex = {
+        [<Position>]        pos     : V4d
+        [<Color>]           c       : V4d
+        [<TexCoord>]        tc      : V2d
+        [<Semantic("ViewSpacePos")>] vp : V4d
+        [<Semantic("FootPrintProj")>] tc0     : V4d
+    }
+
+    let stableTrafoTest (v : Vertex) =
+          vertex {
+              let mvp : M44d = uniform?MVP?ModelViewTrafo
+              let vp = mvp * v.pos
+
+              return 
+                  { v with
+                      pos = uniform.ProjTrafo * vp
+                      c = v.c
+                      vp = uniform.ModelViewTrafo * v.pos
+                  }
+          }
         
     let viewSingleSurfaceSg 
         (surface         : AdaptiveSgSurface) 
@@ -384,7 +405,7 @@ module ViewerUtils =
                     |> Sg.andAlso (
                         (Sg.wireBox (C4b.VRVisGreen |> AVal.constant) pickBox) 
                         |> Sg.noEvents
-                        |> Sg.effect [              
+                        |> Sg.effect [  
                             Shader.stableTrafo |> toEffect 
                             DefaultSurfaces.vertexColor |> toEffect
                         ] 
@@ -399,14 +420,6 @@ module ViewerUtils =
         let near = m.scene.config.nearPlane.value
         let far = m.scene.config.farPlane.value
         (Navigation.UI.frustum near far)
-
-    type Vertex = {
-        [<Position>]        pos     : V4d
-        [<Color>]           c       : V4d
-        [<TexCoord>]        tc      : V2d
-        [<Semantic("ViewSpacePos")>] vp : V4d
-        [<Semantic("FootPrintProj")>] tc0     : V4d
-    }
 
     let fixAlpha (v : Vertex) =
         fragment {         
@@ -450,12 +463,13 @@ module ViewerUtils =
                   }
           }
 
+    
 
     let surfaceEffect =
         Effect.compose [
             PRo3D.Base.Shader.footprintV   |> toEffect 
 
-            stableTrafo             |> toEffect
+            stableTrafoTest             |> toEffect
 
             triangleFilterX                |> toEffect
             Shader.OPCFilter.improvedDiffuseTexture |> toEffect
