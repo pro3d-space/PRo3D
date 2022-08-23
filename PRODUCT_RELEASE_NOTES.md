@@ -4,6 +4,7 @@
 - now allowing saving and restoring scene state for sequenced bookmark animations
 - scene states for animation are now identified with data and time and listed under properties of sequenced bookmarks
 - added traverses to scene state
+- new import for objs with large coordinates
 
 ## 4.9.1-prerelease2
 
