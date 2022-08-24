@@ -63,9 +63,9 @@ nuget Saturn
 nuget Thoth.Json.Giraffe
 
 group Build
-framework: net5.0
+framework: net6.0
 source https://api.nuget.org/v3/index.json
-github aardvark-platform/aardvark.fake:v5
+
 
 nuget Fake.IO.FileSystem    
 nuget Fake.Api.GitHub          
@@ -74,7 +74,7 @@ nuget Octokit
 nuget Fake.Core.Target
 nuget Fake.IO.FileSystem
 nuget Farmer
-nuget Fake.DotNet.Cli
+nuget Fake.DotNet.Cli ~> 5.23.0
 nuget Fake.DotNet.NuGet
 nuget Fake.Tools.Git
 nuget fake-cli
