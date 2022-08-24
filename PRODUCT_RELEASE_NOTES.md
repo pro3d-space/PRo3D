@@ -1,3 +1,6 @@
+## 4.9.1-prerelease4
+- testing autodeploy
+
 ## 4.9.1-prerelease3
 - bugfix: frustum for batch rendering
 - removed recording of animation, replaced with saving batch file directly (no looping, easing, splines, global animation for batch rendering)
