@@ -83,7 +83,7 @@ module OutlineEffect =
             |> Sg.shader {
                 do! DefaultSurfaces.stableTrafo
                 do! Shader.lines
-                do! DefaultSurfaces.thickLine
+                do! Shader.ThickLineNew.thickLine
                 do! DefaultSurfaces.thickLineRoundCaps
                 do! DefaultSurfaces.sgColor
             }
@@ -115,7 +115,7 @@ module OutlineEffect =
             |> Sg.shader {
                 do! DefaultSurfaces.stableTrafo
                 do! DefaultSurfaces.vertexColor
-                do! DefaultSurfaces.thickLine                
+                do! Shader.ThickLineNew.thickLine               
             }                  
             
         let outline = 
@@ -127,7 +127,7 @@ module OutlineEffect =
             |> Sg.depthTest (AVal.constant DepthTest.None)
             |> Sg.shader {
                 do! DefaultSurfaces.stableTrafo
-                do! DefaultSurfaces.thickLine
+                do! Shader.ThickLineNew.thickLine
                 do! DefaultSurfaces.thickLineRoundCaps
                 do! DefaultSurfaces.vertexColor
             }
@@ -147,7 +147,7 @@ module OutlineEffect =
             toEffect Shader.ScreenSpaceScale.screenSpaceScale
             toEffect DefaultSurfaces.stableTrafo
             toEffect Shader.lines
-            toEffect DefaultSurfaces.thickLine
+            toEffect Shader.ThickLineNew.thickLine
             toEffect DefaultSurfaces.thickLineRoundCaps
             //toEffect DefaultSurfaces.constantColor C4f.Red
             toEffect DefaultSurfaces.vertexColor

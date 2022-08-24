@@ -199,7 +199,7 @@ module SceneLoader =
         let m = 
             surfaces
             //|> IndexList.filter (fun s -> s.surfaceType = SurfaceType.SurfaceOBJ)
-            |> SurfaceUtils.ObjectFiles.createSgObjects runtime signature
+            |> SurfaceUtils.ObjectFiles.createSgObjectsWavefront runtime signature
             |> HashMap.union m.scene.surfacesModel.sgSurfaces
             |> (flip <| Optic.set (_surfaceModelLens >-> SurfaceModel.sgSurfaces_)) m
                     
@@ -251,7 +251,7 @@ module SceneLoader =
             |> IndexList.filter ( fun x -> x.surfaceType = SurfaceType.SurfaceOBJ)
 
         let sgSurfaceObj = 
-            SurfaceUtils.ObjectFiles.createSgObjects runtime signature objSurfs //|> Files.expandLazyKdTreePaths scenePath surfaces      
+            SurfaceUtils.ObjectFiles.createSgObjectsWavefront runtime signature objSurfs //|> Files.expandLazyKdTreePaths scenePath surfaces      
             
         let sgs = sgSurfaces |> HashMap.union sgSurfaceObj
 

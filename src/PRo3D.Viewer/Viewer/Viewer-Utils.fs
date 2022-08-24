@@ -37,6 +37,18 @@ open OpcViewer.Base.Shader
 module ViewerUtils =    
     type Self = Self
 
+    let mapRenderCommand rc =
+        match rc with
+            | SceneGraph sg -> 
+                RenderCommand.SceneGraph (sg |> Sg.map ViewerMessage)
+            | RenderCommand.Clear (a,b,c) -> 
+                RenderCommand<ViewerAnimationAction>.Clear (a,b,c)
+
+    let mapAttribute (f : 'msg -> 'newmsg) (a : Attribute<'msg>) =
+        let (str, a) = a
+        let avalue = AttributeValue.map f a
+        Aardvark.UI.Attribute (str, avalue)
+
     //let _surfaceModelLens = Model.Lens.scene |. Scene.Lens.surfacesModel
     //let _flatSurfaces = Scene.Lens.surfacesModel |. SurfaceModel.Lens.surfaces |. GroupsModel.Lens.flat
         
@@ -220,6 +232,27 @@ module ViewerUtils =
                 }
 
             attr    
+
+    type Vertex = {
+        [<Position>]        pos     : V4d
+        [<Color>]           c       : V4d
+        [<TexCoord>]        tc      : V2d
+        [<Semantic("ViewSpacePos")>] vp : V4d
+        [<Semantic("FootPrintProj")>] tc0     : V4d
+    }
+
+    let stableTrafoTest (v : Vertex) =
+          vertex {
+              let mvp : M44d = uniform?MVP?ModelViewTrafo
+              let vp = mvp * v.pos
+
+              return 
+                  { v with
+                      pos = uniform.ProjTrafo * vp
+                      c = v.c
+                      vp = uniform.ModelViewTrafo * v.pos
+                  }
+          }
         
     let viewSingleSurfaceSg 
         (surface         : AdaptiveSgSurface) 
@@ -372,7 +405,7 @@ module ViewerUtils =
                     |> Sg.andAlso (
                         (Sg.wireBox (C4b.VRVisGreen |> AVal.constant) pickBox) 
                         |> Sg.noEvents
-                        |> Sg.effect [              
+                        |> Sg.effect [  
                             Shader.stableTrafo |> toEffect 
                             DefaultSurfaces.vertexColor |> toEffect
                         ] 
@@ -387,14 +420,6 @@ module ViewerUtils =
         let near = m.scene.config.nearPlane.value
         let far = m.scene.config.farPlane.value
         (Navigation.UI.frustum near far)
-
-    type Vertex = {
-        [<Position>]        pos     : V4d
-        [<Color>]           c       : V4d
-        [<TexCoord>]        tc      : V2d
-        [<Semantic("ViewSpacePos")>] vp : V4d
-        [<Semantic("FootPrintProj")>] tc0     : V4d
-    }
 
     let fixAlpha (v : Vertex) =
         fragment {         
@@ -438,12 +463,13 @@ module ViewerUtils =
                   }
           }
 
+    
 
     let surfaceEffect =
         Effect.compose [
             PRo3D.Base.Shader.footprintV   |> toEffect 
 
-            stableTrafo             |> toEffect
+            stableTrafoTest             |> toEffect
 
             triangleFilterX                |> toEffect
             Shader.OPCFilter.improvedDiffuseTexture |> toEffect
@@ -523,7 +549,7 @@ module ViewerUtils =
             |> Sg.set
             |> (camera |> Sg.camera)
 
-    let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (allowFootprint : bool) (m:AdaptiveModel) : alist<RenderCommand<ViewerAction>> =
+    let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (allowFootprint : bool) (m:AdaptiveModel)  =
         let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true
 

@@ -38,7 +38,7 @@ module SnapshotUtils =
                 reraise()
         if not started then
             failwithf "[Snapshots] Failed to start process %s" filename
-        printfn "[Snapshots] Started %s with pid %i" p.ProcessName p.Id
+        Log.line "[Snapshots] Started %s with pid %i" p.ProcessName p.Id
         p            
 
     let calculateFarPlane (sceneBB : Box3d) (cameraPosition : V3d)  =

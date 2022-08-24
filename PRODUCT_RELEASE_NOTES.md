@@ -1,3 +1,28 @@
+## 4.9.1-prerelease3
+- bugfix: frustum for batch rendering
+- removed recording of animation, replaced with saving batch file directly (no looping, easing, splines, global animation for batch rendering)
+- now allowing saving and restoring scene state for sequenced bookmark animations
+- scene states for animation are now identified with data and time and listed under properties of sequenced bookmarks
+- added traverses to scene state
+- new import for objs with large coordinates
+
+## 4.9.1-prerelease2
+
+- bugfix: reading scene with sequenced bookmarks could lead to an error
+- bugfix: scale bars not updated correctly when updating scene state for sequenced bookmarks
+
+## 4.9.1-prerelease1
+
+- sequenced bookmarks can now store scene state
+- new animation features (easing, smooth path, looping, scene state is applied according to bookmarks)
+- batch rendering can now use sequenced bookmarks and scene state
+- anti-alisaing for batch rendering
+- bugfix: wrong path opening when clicking on batch rendering output path
+
+## 4.9.0-prerelease1
+
+- geoJSON exports now contain sampled points of visible annotations [#217](https://github.com/pro3d-space/PRo3D/issues/217)
+
 ## 4.8.2-prerelease1
  
 - electron build test   

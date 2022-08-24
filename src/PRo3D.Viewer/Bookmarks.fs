@@ -119,7 +119,7 @@ module Bookmarks =
             | None ->  outerModel, bookmarks
                 
     let mkColor (model : AdaptiveGroupsModel) (b : AdaptiveBookmark) =
-        let id = b.key |> AVal.force
+        let id = b.key
 
         let color =  
             model.selectedLeaves            
@@ -130,7 +130,7 @@ module Bookmarks =
         color
 
     let lastSelected (model : AdaptiveGroupsModel) (b : AdaptiveBookmark) =
-        let id = b.key |> AVal.force
+        let id = b.key 
         model.singleSelectLeaf 
         |> AVal.map(function
             | Some x -> x = id
@@ -140,7 +140,7 @@ module Bookmarks =
     let isSingleSelect (model : AdaptiveGroupsModel) (b : AdaptiveBookmark) =
         model.singleSelectLeaf 
         |> AVal.map(function
-            | Some selected -> selected = (b.key |> AVal.force)
+            | Some selected -> selected = (b.key )
             | None -> false )
 
     let viewBookmarks 
@@ -170,7 +170,7 @@ module Bookmarks =
                 let singleSelect = fun _ -> singleSelect(b,path)
                 let multiSelect  = fun _ -> multiSelect(b,path)
                 let! selected = b |> isSingleSelect model
-                let! key = b.key
+                let key = b.key
                 
                 let headerColor = 
                    (isSingleSelect model b) 
@@ -252,11 +252,11 @@ module Bookmarks =
 
             let singleSelect = 
                 fun (a:AdaptiveBookmark,path:list<Index>) -> 
-                    BookmarkAction.GroupsMessage(GroupsAppAction.SingleSelectLeaf (path, a.key |> AVal.force, ""))
+                    BookmarkAction.GroupsMessage(GroupsAppAction.SingleSelectLeaf (path, a.key, ""))
 
             let multiSelect = 
                 fun (a:AdaptiveBookmark,path:list<Index>) -> 
-                    BookmarkAction.GroupsMessage(GroupsAppAction.AddLeafToSelection (path, a.key |> AVal.force, ""))
+                    BookmarkAction.GroupsMessage(GroupsAppAction.AddLeafToSelection (path, a.key, ""))
 
             let lift   = fun (a:GroupsAppAction) -> (BookmarkAction.GroupsMessage a)
 

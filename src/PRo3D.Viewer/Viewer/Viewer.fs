@@ -31,6 +31,7 @@ open PRo3D
 open PRo3D.Base
 open PRo3D.Base.Annotation
 open PRo3D.Core
+open PRo3D.Core.SequencedBookmarks
 open PRo3D.Core.Drawing
 open PRo3D.Navigation2
 open PRo3D.Bookmarkings
@@ -41,6 +42,7 @@ open PRo3D.Viewer
 open PRo3D.SimulatedViews
 open PRo3D.Minerva
 open PRo3D.Linking
+open PRo3D.ViewerLenses
  
 open Aether
 open Aether.Operators
@@ -80,43 +82,8 @@ module UserFeedback =
 module ViewerApp =         
     let dataSamples = 4
 
-    // surfaces
-    let _surfacesModel   = Model.scene_  >-> Scene.surfacesModel_
-    let _sgSurfaces      = _surfacesModel  >-> SurfaceModel.sgSurfaces_
-    let _selectedSurface = _surfacesModel  >-> SurfaceModel.surfaces_  >-> GroupsModel.singleSelectLeaf_
-       
-    // navigation
-    let _navigation = Model.navigation_
-    let _camera     = _navigation >-> NavigationModel.camera_
-    let _view       = _camera >-> CameraControllerState.view_
 
-    // drawing
-    let _drawing         = Model.drawing_
-    let _annotations     = _drawing >-> DrawingModel.annotations_
-    let _dnsColorLegend  = _drawing >-> DrawingModel.dnsColorLegend_
-    let _flat            = _annotations  >-> GroupsModel.flat_
-    let _lookUp          = _annotations  >-> GroupsModel.groupsLookup_
-    let _groups          = _annotations  >-> GroupsModel.rootGroup_ >-> Node.subNodes_
 
-    // animation  
-    let _animation = Model.animations_
-    let _animationView = _animation >-> AnimationModel.cam_
-
-    //footprint
-    let _footprint = Model.footPrint_
-
-    // scale bars
-    let _scaleBarsModel = Model.scene_  >->  Scene.scaleBars_
-    let _scaleBars      = _scaleBarsModel >-> ScaleBarsModel.scaleBars_
-
-    // traverses
-    let _traversesModel = Model.scene_  >->  Scene.traverses_
-    let _traverses      = _traversesModel >-> TraverseModel.traverses_
-
-    // geologic surfaces
-    let _geologicSurfacesModel = Model.scene_ >->  Scene.geologicSurfacesModel_
-    let _geologicSurfaces      = _geologicSurfacesModel >-> GeologicSurfacesModel.geologicSurfaces_
-       
     let lookAtData (m: Model) =         
         let bb = m |> Optic.get _sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB) |> Box3d
         let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value             
@@ -398,7 +365,7 @@ module ViewerApp =
         }
         m |> UserFeedback.queueFeedback feedback
 
-    let update 
+    let updateViewer 
         (runtime   : IRuntime) 
         (signature : IFramebufferSignature) 
         (sendQueue : BlockingCollection<string>) 
@@ -417,7 +384,24 @@ module ViewerApp =
             m 
             |> Optic.set _navigation nav
             |> Optic.set _animationView nav.camera.view
+        | NavigationMessage msg, _, _ ->
+            m // cases where navigation is blocked by other operations (e.g. animation)
         | AnimationMessage msg,_,_ ->
+            let m = 
+                match msg with
+                | Tick t when AnimationApp.shouldAnimate m.animations -> 
+                    match IndexList.tryAt 0 m.animations.animations with
+                    | Some anim -> 
+                        // initialize animation (if needed)
+                        let (anim,localTime,state) = AnimationApp.updateAnimation m.animations t anim
+                        match anim.sample(localTime, t) state with 
+                        | None -> // animation stops
+                            // do updates to model
+                            m
+                        | Some (s,cameraView) -> 
+                            m
+                    | None -> m
+                | _ -> m
             let a = AnimationApp.update m.animations msg
             { m with animations = a } |> Optic.set _view a.cam
         | SetCamera cv,_,false -> Optic.set _view cv m
@@ -559,129 +543,71 @@ module ViewerApp =
         | BookmarkUIMessage msg,_,_ ->    
             let bm = GroupsApp.update m.scene.bookmarks msg
             { m with scene = { m.scene with bookmarks = bm }} 
-        | SequencedBookmarkMessage msg,_,_ -> //TODO refactor 100+ lines of code that do not belong to viewer.fs
+        | SequencedBookmarkMessage msg,_,_ ->
             let m, bm = 
                 SequencedBookmarksApp.update 
                     m.scene.sequencedBookmarks
-                    msg _navigation _animation
-                    m
-            
-            let jsonPathName = Path.combine [bm.outputPath;"batchRendering.json"]
-            let generateJson () = 
-                if SequencedBookmarksApp.timestamps.Length > 0 then
-                    let snapshots = 
-                        match bm.renderStillFrames with
-                        | false ->
-                            Snapshot.fromViews 
-                                SequencedBookmarksApp.collectedViews None None SequencedBookmarksApp.names 
-                                                                     None m.scene.sequencedBookmarks.fpsSetting
-                        | true -> 
-                            let stillFrames = SequencedBookmarksApp.calculateNrOfStillFrames bm
-                            Snapshot.fromViews 
-                                SequencedBookmarksApp.collectedViews None None SequencedBookmarksApp.names 
-                                                                     (stillFrames |> Some) 
-                                                                     bm.fpsSetting
-                    let snapshotAnimation =
-                        SnapshotAnimation.generate 
-                            snapshots 
-                            (m.frustum |> Frustum.horizontalFieldOfViewInDegrees |> Some)
-                            (m.scene.config.nearPlane.value |> Some)
-                            (m.scene.config.farPlane.value |> Some)
-                            (V2i (bm.resolutionX.value, bm.resolutionY.value))
-                            None    
-                    
-                    SnapshotAnimation.writeToFile snapshotAnimation jsonPathName
-                else 
-                    Log.line "[Viewer] No frames recorded. Saving current frame."
-                    let snapshots = 
-                        [{
-                            filename        = "CurrentFrame.png"
-                            camera          = m.scene.cameraView |> Snapshot.toSnapshotCamera
-                            sunPosition     = None
-                            lightDirection  = None
-                            surfaceUpdates  = None
-                            placementParameters = None
-                            renderMask      = None         
-                          }]
-                    let snapshotAnimation =
-                        SnapshotAnimation.generate 
-                            (snapshots)
-                            (m.frustum |> Frustum.horizontalFieldOfViewInDegrees |> Some)
-                            (m.scene.config.nearPlane.value |> Some)
-                            (m.scene.config.farPlane.value |> Some)
-                            (V2i (m.scene.sequencedBookmarks.resolutionX.value, m.scene.sequencedBookmarks.resolutionY.value))
-                            None    
-                    SnapshotAnimation.writeToFile snapshotAnimation jsonPathName
-
-            let generateSnapshots scenePath =
-                if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform
-                        (System.Runtime.InteropServices.OSPlatform.Windows) then
-                    
-                    
-                    let exeName = "PRo3D.Snapshots.exe"
-                    match File.Exists exeName with
-                    | true -> 
-                        let args = sprintf "--scn \"%s\" --asnap \"%s\" --out \"%s\" --exitOnFinish" 
-                                    scenePath jsonPathName m.scene.sequencedBookmarks.outputPath
-                        Log.line "[Viewer] Starting snapshot rendering with arguments: %s" args
-                        SequencedBookmarksApp.snapshotProcess <- Some (SnapshotUtils.runProcess exeName args None)
-                        let id = System.Guid.NewGuid () |> string
-                        let proclst =
-                            proclist {
-                                for i in 0..2000 do
-                                    do! Proc.Sleep 5000
-                                    yield CheckSnapshotsProcess id
-                            }              
-                        {m with snapshotThreads = ThreadPool.add id proclst m.snapshotThreads}
-                    | false -> 
-                        Log.warn "[Snapshots] Could not find %s" exeName
-                        m
-
-                else 
-                    Log.warn "[Viewer] This feature is only available for Windows."
-                    m
+                    msg bookmarkLenses m
             let m = 
-                let save m =
-                    let scenePath = 
-                        match m.scene.scenePath with
-                        | Some scenePath -> scenePath
-                        | _ -> "snapshotScene.pro3d" 
-                    let m = {m with scene = {m.scene with scenePath = scenePath |> Some}}
-                    Log.line "[Snapshots] Saving scene as %s." scenePath
-                    let m = m |> ViewerIO.saveEverything scenePath
-                    m, scenePath
-                
-                match msg with
-                | PRo3D.Base.SequencedBookmarksAction.StopRecording -> 
-                        let m, scenePath = save m
-                        generateJson ()
-                        Log.line "[Viewer] Writing snapshot JSON file to %s" jsonPathName
-                        let m = shortFeedback "Saved snapshot JSON file." m
+                {m with scene = { m.scene with sequencedBookmarks = bm }}
+            
+            let jsonPathName = SequencedBookmarksApp.outputPath bm
+            let generateJson () = 
+                let snapshotAnimation = 
+                    SnapshotAnimation.fromBookmarks 
+                        bm
+                        m.scene.cameraView 
+                        (m.frustum |> Frustum.horizontalFieldOfViewInDegrees)
+                        //m.frustum
+                        m.scene.config.nearPlane.value
+                        m.scene.config.farPlane.value
+                SnapshotAnimation.writeToFile snapshotAnimation jsonPathName   
+            let generateSnapshots = 
+                SequencedBookmarksApp.generateSnapshots m.scene.sequencedBookmarks
+                                                        SnapshotUtils.runProcess
+            let save m =
+                let scenePath = 
+                    match m.scene.scenePath with
+                    | Some scenePath -> scenePath
+                    | _ -> "snapshotScene.pro3d" 
+                let m = {m with scene = {m.scene with scenePath = scenePath |> Some}}
+                Log.line "[Snapshots] Saving scene as %s." scenePath
+                let m = m |> ViewerIO.saveEverything scenePath
+                m, scenePath
 
-                        let m = 
-                            match m.scene.sequencedBookmarks.generateOnStop with
-                            | true -> 
-                                let m = generateSnapshots scenePath
-                                let m = shortFeedback "Snapshot generation started." m
-                                m
-                            | false -> m
-                        m
-                | PRo3D.Base.SequencedBookmarksAction.GenerateSnapshots -> 
-                    let m, scenePath = save m
+            let m =
+                Anewmation.Animator.update (Anewmation.AnimatorMessage.RealTimeTick) m
+                
+            match msg with
+            | SequencedBookmarksAction.StopRecording -> 
+                let m, scenePath = save m
+                generateJson ()
+                Log.line "[Viewer] Writing snapshot JSON file to %s" jsonPathName
+                let m = shortFeedback "Saved snapshot JSON file." m
+                match m.scene.sequencedBookmarks.generateOnStop with
+                | true -> 
+                    let m = 
+                        let bm = generateSnapshots scenePath
+                        {m with scene = { m.scene with sequencedBookmarks = bm }}
                     let m = shortFeedback "Snapshot generation started." m
-                    match m.scene.sequencedBookmarks.updateJsonBeforeRendering with
-                    | true -> generateJson ()
-                    | false -> ()
-                    let m = generateSnapshots scenePath
                     m
-                | PRo3D.Base.SequencedBookmarksAction.UpdateJson ->
-                    let m, scenePath = save m
-                    generateJson ()
-                    let m = shortFeedback "Saved snapshot JSON file." m
-                    m
-                | _ -> m
-              
-            {m with scene = { m.scene with sequencedBookmarks = bm }}
+                | false -> m
+                        
+            | SequencedBookmarksAction.GenerateSnapshots -> 
+                let m, scenePath = save m
+                let m = shortFeedback "Snapshot generation started." m
+                match m.scene.sequencedBookmarks.updateJsonBeforeRendering with
+                | true -> generateJson () | false -> ()
+                let bm = generateSnapshots scenePath
+                {m with scene = { m.scene with sequencedBookmarks = bm }}
+            | SequencedBookmarksAction.UpdateJson ->
+                let m, scenePath = save m
+                generateJson ()
+                let m = shortFeedback "Saved snapshot JSON file." m
+                m
+            | _ -> m
+                
+            
         | RoverMessage msg,_,_ ->
             let roverModel = RoverApp.update m.scene.viewPlans.roverModel msg
             let viewPlanModel = ViewPlanApp.updateViewPlanFroAdaptiveRover roverModel m.scene.viewPlans
@@ -1018,6 +944,7 @@ module ViewerApp =
                     m.renderingUrl 
                     m.numberOfSamples 
                     m.screenshotDirectory
+                    _animator
 
             { initialModel with recent = m.recent} |> ViewerIO.loadRoverData
         | KeyDown k, _, _ ->
@@ -1631,8 +1558,38 @@ module ViewerApp =
         | StopGeoJsonAutoExport, _, _ -> 
             let autoExport = { m.drawing.automaticGeoJsonExport with enabled = not m.drawing.automaticGeoJsonExport.enabled; lastGeoJsonPathXyz = None; }
             { m with drawing = { m.drawing with automaticGeoJsonExport = autoExport } }
-        | _ -> m       
-                                   
+        | SetSceneState state, _, _ ->
+            Optic.set _sceneState state m
+        | unknownAction, _, _ -> 
+            Log.line "[Viewer] Message not handled: %s" (string unknownAction)
+            m       
+                   
+   //let mutable lastMillis = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() //DEBUG
+    let update 
+        (runtime   : IRuntime) 
+        (signature : IFramebufferSignature) 
+        (sendQueue : BlockingCollection<string>) 
+        (mailbox   : MessagingMailbox) 
+        (m         : Model) 
+        (msg       : ViewerAnimationAction) =
+
+        match msg with
+        | ViewerMessage msg ->
+            updateViewer runtime signature sendQueue mailbox m msg
+        | AnewmationMessage msg ->
+            //match msg with // Debugging Info
+            //| Anewmation.AnimatorMessage.RealTimeTick ->
+            //    let millis = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            //    Log.warn "Elapsed: %i" (millis - lastMillis)
+            //    lastMillis <- millis
+            //    ()
+            //| _ -> 
+            //    ()
+
+            Anewmation.Animator.update msg m    
+
+
+
     let mkBrushISg color size trafo : ISg<Message> =
       Sg.sphere 5 color size 
         |> Sg.shader {
@@ -1660,6 +1617,7 @@ module ViewerApp =
         
         AttributeMap.unionMany [
             renderControlAtts m.navigation
+                |> AttributeMap.mapAttributes (AttributeValue.map ViewerMessage)
 
             AttributeMap.ofList [
                 attribute "style" "width:100%; height: 100%; float:left; background-color: #222222"
@@ -1679,8 +1637,10 @@ module ViewerApp =
                             printfn "%A" (w,h)
                             ResizeMainControl(V2i(w,h),id)
                         | _ -> Nop 
-                )
+                )] |> AttributeMap.mapAttributes (AttributeValue.map ViewerMessage)
                 //onResize  (fun s -> OnResize(s,id))
+            AttributeMap.ofList [
+                onEvent "onRendered" [] (fun _ -> AnewmationMessage Anewmation.AnimatorMessage.RealTimeTick)                    
             ] 
         ]            
 
@@ -1703,7 +1663,7 @@ module ViewerApp =
                             ResizeMainControl(V2i(w,h),id)
                         | _ -> Nop 
                 )
-            ] 
+            ] |> AttributeMap.mapAttributes (AttributeValue.map ViewerMessage) 
         ]     
         
     let allowAnnotationPicking (m : AdaptiveModel) =       
@@ -1756,6 +1716,7 @@ module ViewerApp =
 
         // instrument view control
         let icmds = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed discsInst false m // m.scene.surfacesModel.sgGrouped overlayed discs m
+                        |> AList.map ViewerUtils.mapRenderCommand
         let icam = 
             AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
 
@@ -1977,8 +1938,10 @@ module ViewerApp =
                 traverses
             ] |> Sg.ofList
 
+
         //render OPCs in priority groups
         let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested true m
+                        |> AList.map ViewerUtils.mapRenderCommand
         onBoot "attachResize('__ID__')" (
             DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
         )
@@ -1994,7 +1957,9 @@ module ViewerApp =
             { kind = Script;      name = "resizeElem";  url = "./ElementQueries.js"  }
         ]
         
-        let bodyAttributes = [style "background: #1B1C1E; height:100%; overflow-y:scroll; overflow-x:hidden;"] //overflow-y : visible
+        let bodyAttributes : list<Attribute<ViewerAnimationAction>> = 
+            [style "background: #1B1C1E; height:100%; overflow-y:scroll; overflow-x:hidden;" //] //overflow-y : visible
+            ]
 
         page (
             fun request -> 
@@ -2025,6 +1990,9 @@ module ViewerApp =
         let sBookmarks = SequencedBookmarksApp.threads m.scene.sequencedBookmarks |> ThreadPool.map SequencedBookmarkMessage
 
         unionMany [drawing; animation; nav; m.scene.feedbackThreads; minerva; sBookmarks]
+            |> ThreadPool.map ViewerMessage
+            |> ThreadPool.union (Anewmation.Animator.threads m.animator 
+                                    |> ThreadPool.map AnewmationMessage)
         
     let loadWaypoints m = 
         match Serialization.fileExists "./waypoints.wps" with
@@ -2048,7 +2016,8 @@ module ViewerApp =
 
         let m = 
             if startEmpty |> not then
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl dataSamples screenshotDirectory
+                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl 
+                                            dataSamples screenshotDirectory _animator
                 |> SceneLoader.loadLastScene runtime signature                
                 |> SceneLoader.loadLogBrush
                 |> ViewerIO.loadRoverData                
@@ -2060,7 +2029,8 @@ module ViewerApp =
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
             else
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl dataSamples screenshotDirectory
+                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl
+                                            dataSamples screenshotDirectory _animator
                 |> ViewerIO.loadRoverData
 
         App.start {

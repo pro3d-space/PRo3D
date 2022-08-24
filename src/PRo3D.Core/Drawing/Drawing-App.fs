@@ -282,9 +282,14 @@ module DrawingApp =
         | _ -> true
 
     // exports geojson, optionally using XYZ format
-    let exportGeoJson (xyz : bool) (bigConfig  : 'a) (smallConfig : SmallConfig<'a> )  
-                      (model : DrawingModel) (path : string) =
+    let exportGeoJson 
+        (xyz         : bool)
+        (bigConfig   : 'a)
+        (smallConfig : SmallConfig<'a>)
+        (model       : DrawingModel) 
+        (path        : string) =
 
+        // export only visible annotations
         let annotations =
             model.annotations.flat
             |> Leaf.toAnnotations
@@ -297,7 +302,7 @@ module DrawingApp =
                 GeoJSONExport.writeGeoJSON_XYZ path annotations
             else 
                 let planet = smallConfig.planet.Get(bigConfig)            
-                GeoJSONExport.writeGeoJSON planet path annotations
+                GeoJSONExport.writeGeoJSON (Some planet) path annotations
         with e -> 
             Log.warn "[Drawing] exportGeoJson failed with %A" e
 
@@ -692,7 +697,7 @@ module DrawingApp =
                     let showPoints = 
                         a.geometry 
                         |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
-                      
+
                     let sg = Sg.finishedAnnotationOld a c config view viewport showPoints picked pickingAllowed
                     sg
                  )

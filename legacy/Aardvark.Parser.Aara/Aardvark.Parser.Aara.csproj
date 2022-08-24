@@ -366,39 +366,6 @@
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v5.0'">
       <ItemGroup>
-        <Reference Include="Microsoft.Build.Framework">
-          <HintPath>..\..\packages\build\Microsoft.Build.Framework\lib\netstandard2.0\Microsoft.Build.Framework.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v5.0'">
-      <ItemGroup>
-        <Reference Include="Microsoft.Build.Tasks.Core">
-          <HintPath>..\..\packages\build\Microsoft.Build.Tasks.Core\lib\netstandard2.0\Microsoft.Build.Tasks.Core.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v5.0'">
-      <ItemGroup>
-        <Reference Include="Microsoft.Build.Utilities.Core">
-          <HintPath>..\..\packages\build\Microsoft.Build.Utilities.Core\lib\netstandard2.0\Microsoft.Build.Utilities.Core.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v5.0'">
-      <ItemGroup>
         <Reference Include="Microsoft.NET.StringTools">
           <HintPath>..\..\packages\build\Microsoft.NET.StringTools\lib\netstandard2.0\Microsoft.NET.StringTools.dll</HintPath>
           <Private>True</Private>

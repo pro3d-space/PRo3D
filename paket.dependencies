@@ -49,6 +49,8 @@ nuget Uncodium.Eigensystems                 ~> 1.1.2
 
 nuget OPCViewer.Base                        ~> 1.1.1
 
+nuget Aardvark.Data.Wavefront               ~> 5.2.5
+
 nuget Aardvark.GeoSpatial.Opc               ~> 5.8.1
 
 nuget Chiron                                ~> 6.3.1
