@@ -1,7 +1,6 @@
 framework: netstandard2.0, netcoreapp3.1, net5.0, net6.0
 
 source https://api.nuget.org/v3/index.json
-source https://vrvis.myget.org/F/aardvark/api/v3/index.json
 source https://vrvis.myget.org/F/aardvark_public/api/v3/index.json
 
 storage: none
@@ -50,7 +49,7 @@ nuget Uncodium.Eigensystems                 ~> 1.1.2
 
 nuget OPCViewer.Base                        ~> 1.1.1
 
-nuget Aardvark.Data.Wavefront               ~> 5.2.0
+nuget Aardvark.Data.Wavefront               ~> 5.2.5
 
 nuget Aardvark.GeoSpatial.Opc               ~> 5.8.1
 
