@@ -25,7 +25,7 @@ module UI =
             Html.Layout.boxH [ ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" model.color |> UI.map ChangeColor; div [] [] ]
             Html.Layout.boxH [ Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ]
             Html.Layout.boxH [ i [clazz "large crosshairs icon"] [] ]
-            Html.Layout.boxH [ Numeric.view' [InputBox] model.samplingDistance |> UI.map ChangeSamplingDistance ]
+            Html.Layout.boxH [ Numeric.view' [InputBox] model.samplingAmount |> UI.map ChangeSamplingAmount ]
             Html.Layout.boxH [ Html.SemUi.dropDown model.samplingUnit SetSamplingUnit ]
         //  Html.Layout.boxH [ Html.SemUi.dropDown model.semantic SetSemantic ]
         ]

@@ -855,7 +855,7 @@ with
 module Annotation =
          
     module Initial =
-        let samplingDistance = {
+        let samplingAmount = {
             value   = 1.0
             min     = 0.001
             max     = 1000.0
