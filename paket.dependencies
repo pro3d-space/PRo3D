@@ -39,8 +39,8 @@ nuget Aardvark.UI                           ~> 5.3.1
 nuget Aardvark.UI.Primitives                ~> 5.3.1
 nuget Aardvark.Service.Giraffe              ~> 5.3.1
 
-nuget Adaptify.MSBuild                      ~> 1.1.5
-nuget Adaptify.Core                         ~> 1.1.5
+nuget Adaptify.MSBuild                      = 1.1.5
+nuget Adaptify.Core                         = 1.1.5
 
 nuget Aardium                               ~> 2.0.10-prerelease0007
 
@@ -48,6 +48,8 @@ nuget Uncodium.Eigensystems                 ~> 1.1.2
 
 
 nuget OPCViewer.Base                        ~> 1.1.1
+
+nuget Aardvark.Data.Wavefront               ~> 5.2.5
 
 nuget Aardvark.GeoSpatial.Opc               ~> 5.8.1
 
@@ -61,9 +63,9 @@ nuget Saturn
 nuget Thoth.Json.Giraffe
 
 group Build
-framework: net5.0
+framework: net6.0
 source https://api.nuget.org/v3/index.json
-github aardvark-platform/aardvark.fake:v5
+
 
 nuget Fake.IO.FileSystem    
 nuget Fake.Api.GitHub          
@@ -72,7 +74,7 @@ nuget Octokit
 nuget Fake.Core.Target
 nuget Fake.IO.FileSystem
 nuget Farmer
-nuget Fake.DotNet.Cli
+nuget Fake.DotNet.Cli ~> 5.23.0
 nuget Fake.DotNet.NuGet
 nuget Fake.Tools.Git
 nuget fake-cli
