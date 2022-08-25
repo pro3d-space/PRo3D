@@ -15,10 +15,18 @@ open PRo3D.Base
 open PRo3D.Base.Annotation
 open PRo3D.Core
 
+type SamplingUnit =
+| km = 0
+| m  = 1
+| cm = 2
+| mm = 3
+
 type DrawingAction =
 | SetSemantic         of Semantic
 | ChangeColor         of ColorPicker.Action
 | ChangeThickness     of Numeric.Action
+| ChangeSamplingDistance of Numeric.Action
+| SetSamplingUnit     of SamplingUnit
 | SetGeometry         of Geometry
 | SetProjection       of Projection
 | SetExportPath       of string
@@ -67,6 +75,8 @@ type AutomaticGeoJsonExport =
         lastGeoJsonPathXyz : Option<string>
     }
 
+
+
 [<ModelType>]
 type DrawingModel = {
 
@@ -76,11 +86,16 @@ type DrawingModel = {
     hoverPosition : option<Trafo3d>    
 
     working    : Option<Annotation>
+
+    //TODO refactor ... put this into separate model type and save it with the scene or in user/app data
     projection : Projection
     geometry   : Geometry
     semantic   : Semantic
     color      : ColorInput
     thickness  : NumericInput
+
+    samplingDistance : NumericInput
+    samplingUnit     : SamplingUnit
 
     annotations: GroupsModel 
     exportPath : Option<string>
@@ -129,6 +144,9 @@ module DrawingModel =
         projection  = Projection.Linear
         geometry    = Geometry.Line
         semantic    = Semantic.Horizon3
+
+        samplingDistance = Annotation.Initial.samplingDistance
+        samplingUnit     = SamplingUnit.m
 
         annotations = GroupsModel.initial
 
