@@ -1,4 +1,23 @@
-# TL;DR
+# Summary
+
+Releases can be created manually or using github ci actions. Automatic releases should be used for real releases, since it covers builds for all supported platforms (currently win and mac x64).
+
+## Automatic releases
+
+Automatic deployment and release creation is handled via a [github action](https://github.com/pro3d-space/PRo3D/blob/master/.github/workflows/deploy.yml). To trigger the build, perform those steps:
+- adapt PRODUCT_RELEASE_NOTES.md
+- adapt the version in ./aardium/package.json to reflect the pro3d version. please note that only real version numbers are allowed here (e.g. 4.1.0). This is the version which appears on mac osx in the `About this app` window. Unfortunately this step is still manual...
+- commit and push
+
+this will trigger github CI actions
+![image](https://user-images.githubusercontent.com/513281/187177791-6657bfc9-c058-4815-85be-9963939fa8a3.png)
+
+and will eventually create a draft release on the github release page:
+![image](https://user-images.githubusercontent.com/513281/187177885-d72e1a2a-3175-4d0d-b1df-a7ad9bdbd6bd.png)
+
+Test the builds, rename the draft and use publish to finalize the release.
+
+## Manual release creation
 
 - prepare the github_token env variable https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token
 - change PRODUCT_RELEASE_NOTES.md, commit, push
