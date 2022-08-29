@@ -1,17 +1,17 @@
 # TL;DR
 
 - prepare the github_token env variable https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token
-- change RELEASE_NOTES.md, commit, push
+- change PRODUCT_RELEASE_NOTES.md, commit, push
 - in a commmand line use: ./build.{cmd|sh} GitHubRelease 
 
 # Release notes
 
 tags and release notes taken from RELEASE_NOTES.md
 
-# Deployment
+# Deployment (generall approach)
 
-- build Publish runs dotnet publish and prepares additional info (e.g. updates third party licences)
-- Instrument/CooTransformation: lives in separate folder src/InstrumentPlatforms, its build (build CompileInstruments) compiles this one, afterwards, "AddNativeResources" injects the native libraries into the managed dll and "CopyJRWrapper" copies this one to lib/JR.Wrappers.dll which is referenced by PRo3D..
+- `build Publish` runs dotnet publish and prepares additional info (e.g. updates third party licences)
+- Instrument/CooTransformation: lives in separate folder src/InstrumentPlatforms, its build (build CompileInstruments) compiles this one, afterwards, "AddNativeResources" injects the native libraries into the managed dll and "CopyJRWrapper" copies this one to lib/JR.Wrappers.dll which is referenced by PRo3D.
 
 # Resources
 
