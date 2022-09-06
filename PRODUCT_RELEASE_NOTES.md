@@ -1,3 +1,6 @@
+## 4.9.2-prerelease5
+- bugfix: frustum now set correctly when batch rendering
+
 ## 4.9.2-prerelease4
 - testing autodeploy
 
