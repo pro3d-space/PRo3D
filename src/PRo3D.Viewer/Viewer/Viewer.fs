@@ -405,9 +405,14 @@ module ViewerApp =
             let a = AnimationApp.update m.animations msg
             { m with animations = a } |> Optic.set _view a.cam
         | SetCamera cv,_,false -> Optic.set _view cv m
-        | SetCameraAndFrustum (cv, hfov, _),_,false -> m
+        | SetCameraAndFrustum (cv, hfov, _),_,false -> 
+            Log.line "[Viewer] SetCameraAndFrustum not implemented!"
+            m
         | SetCameraAndFrustum2 (cv,frustum),_,false ->
             let m = Optic.set _view cv m
+            { m with frustum = frustum }
+        | SetFrustum frustum,_,_ -> 
+            Log.line "[Viewer] Setting Frustum"
             { m with frustum = frustum }
         | AnnotationGroupsMessageViewer msg,_,_ ->
             let ag = m.drawing.annotations 

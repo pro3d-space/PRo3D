@@ -126,7 +126,10 @@ module SnapshotGenerator =
         | SnapshotAnimation.CameraAnimation a ->
             Seq.singleton (ViewerAction.SetRenderViewportSize a.resolution |> ViewerMessage)
         | SnapshotAnimation.BookmarkAnimation a ->
-            Seq.singleton (ViewerAction.SetRenderViewportSize a.resolution |> ViewerMessage)
+            [
+             (ViewerAction.SetFrustum (SnapshotApp.calculateFrustum a)) |> ViewerMessage
+             (ViewerAction.SetRenderViewportSize a.resolution |> ViewerMessage) 
+            ]
            
     let animate   (runtime      : IRuntime) 
                   (mModel       : AdaptiveModel)
