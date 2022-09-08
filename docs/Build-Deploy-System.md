@@ -1,7 +1,7 @@
 # Electron based deployment
 
 Earlier pro3d used aardium, a electron package to host the content of pro3d in a self-contained browser. 
-In order not to reinvent deployment and everything we switch the electron use - now we ship an electron app which runs pro3d as a separate process.
+In order to simplify the deployment process and align all platforms (e.g. mac requires signing) we switched to a completely electron based deployment in 4.9.3 and up.
 
 # Autodeploy
 
@@ -17,7 +17,7 @@ Thus we have those components:
   - change `aardium/package.json`'s version accordingly (feel free to automate this step)
   - `bash ./build.sh PublishToElectron`.
 
-.github/workflows/deploy.yml shows the deploy script and is run automatically when pushed into the `release` branch.
+.github/workflows/deploy.yml shows the deploy script and is run automatically when pushed into the `autorelease` branch.
 
 ## How is pro3d embedded in the electron build?
 
