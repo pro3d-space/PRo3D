@@ -228,6 +228,8 @@ module SnapshotAnimation =
                     snapshots   = snapshots
                     fieldOfView = Some (frustum |> Frustum.horizontalFieldOfViewInDegrees)
                     resolution  = V2i (bm.resolutionX.value, bm.resolutionY.value)
+                    nearplane   = nearPlane
+                    farplane    = farPlane
                 } 
             snapshotAnimation |> SnapshotAnimation.BookmarkAnimation     
         else 

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>PRo3D</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script type = "text/javascript">
+    function RunWs() {
+            var ws = new WebSocket("ws://localhost:4322");
+            ws.onopen = function() {
+            };
+
+            var textArea = document.getElementById("log");
+            ws.onmessage = function (evt) { 
+                var msg = JSON.parse(evt.data);
+                var t = msg.type;
+                // TODO: could do better formatting here using message type (stderr, stdout)
+                if(msg.text){
+                    textArea.value += msg.text;
+                    textArea.scrollTop = textArea.scrollHeight;
+                }
+            };
+
+            ws.onclose = function() { 
+            };
+
+        }
+
+    // https://www.w3schools.com/howto/howto_js_copy_clipboard.asp
+    window.copyLog = function copyText() {
+        /* Get the text field */
+        var copyText = document.getElementById("log");
+
+        /* Select the text field */
+        copyText.select();
+        copyText.setSelectionRange(0, 99999); /* For mobile devices */
+
+        /* Copy the text inside the text field */
+        navigator.clipboard.writeText(copyText.value);
+    }
+
+
+    window.onload = RunWs;
+ </script>
+
+</head>
+
+<body width="100%" height="100%" style="overflow:hidden">
+
+<center>  
+<button onclick="copyLog()">Copy To Clipboard</button>
+<br>
+<div style="width:100%;height:100%;position:absolute" >
+    <textarea id="log" name="log" cols="50" style="width:90%;height:90%"></textarea>
+</div>
+</center>
+
+</body>
+</html>

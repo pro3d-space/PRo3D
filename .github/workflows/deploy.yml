@@ -2,7 +2,7 @@ name: Deploy
 on:
   push:
     branches:
-      - autorelease
+      - develop
     paths:
       - PRODUCT_RELEASE_NOTES.md
       - aardium/package.json
