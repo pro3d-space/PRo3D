@@ -327,6 +327,16 @@ Target.create "CopyToElectron" (fun _ ->
     if Directory.Exists "./aardium/build/build" then 
         Directory.Delete("./aardium/build/build", true)
 
+    // 0.0 copy version over into source code...
+    let programFs = File.ReadAllLines "src/PRo3D.Viewer/Program.fs"
+    let patched = 
+        programFs 
+        |> Array.map (fun line -> 
+            if line.StartsWith "let viewerVersion" then 
+                sprintf "let viewerVersion       = \"%s\"" notes.NugetVersion 
+            else line
+        )
+    File.WriteAllLines("src/PRo3D.Viewer/Program.fs", patched)
 
     if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then
          "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
