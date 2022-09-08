@@ -37,7 +37,8 @@ type SnapshotApp<'model,'aModel, 'msg> =
     /// animation actions are applied before rendering images
     getAnimationActions  : SnapshotAnimation -> seq<'msg>
     /// snapshot actions are applied before rendering each corresponding image
-    getSnapshotActions   : Snapshot -> NearFarRecalculation -> Frustum -> string -> seq<'msg> //snashot -> frustum -> pathname -> actions
+    getSnapshotActions   : Snapshot -> NearFarRecalculation -> string -> seq<'msg> //snashot -> frustum -> pathname -> actions
+   // lenses               : PRo3D.Core.SequencedBookmarks.BookmarkLenses<'model>
     runtime              : IRuntime
     /// used to render only a range of images in a SnapshotAnimation
     renderRange          : option<RenderRange>
@@ -57,14 +58,18 @@ module SnapshotApp =
     let defaultFoV = 30.0
     let mutable verbose = false
 
-    let calculateFrustumRecalcNearFar (snapshotAnimation : SnapshotAnimation)  = 
+    let calculateFrustumRecalcNearFar (snapshotAnimation : CameraSnapshotAnimation)  = 
         let resolution = V3i (snapshotAnimation.resolution.X, snapshotAnimation.resolution.Y, 1)
         let recalcOption, near, far =
             match snapshotAnimation.nearplane, snapshotAnimation.farplane with
-            | Some n, Some f -> NearFarRecalculation.NoRecalculation, n, f
-            | None, Some f   -> NearFarRecalculation.NoRecalculation, SnapshotAnimation.defaultNearplane, f
-            | Some n, None   -> NearFarRecalculation.FarPlane, n, SnapshotAnimation.defaultFarplane
-            | None, None     -> NearFarRecalculation.Both, SnapshotAnimation.defaultNearplane, SnapshotAnimation.defaultFarplane
+            | Some n, Some f -> 
+                NearFarRecalculation.NoRecalculation, n, f
+            | None, Some f   -> 
+                NearFarRecalculation.NoRecalculation, CameraSnapshotAnimation.defaultNearplane, f
+            | Some n, None   -> 
+                NearFarRecalculation.FarPlane, n, CameraSnapshotAnimation.defaultFarplane
+            | None, None     -> 
+                NearFarRecalculation.Both, CameraSnapshotAnimation.defaultNearplane, CameraSnapshotAnimation.defaultFarplane
 
         let foV = 
             match snapshotAnimation.fieldOfView with
@@ -75,21 +80,21 @@ module SnapshotApp =
                               (float(resolution.X)/float(resolution.Y))
         frustum, recalcOption, near, far
 
-    let executeAnimation (app : SnapshotApp<'model,'aModel, 'msg>) =
-        verbose <- app.verbose
-        let frustum, recalcOption, near, far = calculateFrustumRecalcNearFar app.snapshotAnimation
-        let resolution = V3i (app.snapshotAnimation.resolution.X, app.snapshotAnimation.resolution.Y, 1)
+    let private executeCameraAnimation (a : CameraSnapshotAnimation) 
+                                       (app : SnapshotApp<'model,'aModel, 'msg>) =
+        let frustum, recalcOption, near, far = calculateFrustumRecalcNearFar a
+        let resolution = V3i (a.resolution.X, a.resolution.Y, 1)
         if verbose then
             Log.line "calculated near plane as %f and far plane as %f" near far
-        
-        let col   = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Rgba8, 1, 1);
-        let depth = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Depth24Stencil8, 1, 1);
+
+        let col   = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Rgba8, 1, 8);
+        let depth = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Depth24Stencil8, 1, 8);
 
         let signature = 
-            app.runtime.CreateFramebufferSignature [
-                DefaultSemantic.Colors, TextureFormat.Rgba8
-                DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
-            ]
+             app.runtime.CreateFramebufferSignature ([
+                 DefaultSemantic.Colors, TextureFormat.Rgba8
+                 DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
+             ], 8)
 
         let fbo = 
             app.runtime.CreateFramebuffer(
@@ -106,13 +111,13 @@ module SnapshotApp =
                 match app.renderRange with
                 | Some r ->
                   r.fromFrame, r.frameCount
-                | None -> 0, app.snapshotAnimation.snapshots.Length
-            app.snapshotAnimation.snapshots
+                | None -> 0, a.snapshots.Length
+            a.snapshots
                 |> List.indexed
                 |> List.filter (fun (i, x) -> i >= id && i < id + count)
                 |> List.map snd            
         let snapshots =
-            match app.renderMask, app.snapshotAnimation.renderMask with
+            match app.renderMask, a.renderMask with
             | true, _ | _, Some true ->
                 seq {
                     for s in snapshots do
@@ -132,7 +137,7 @@ module SnapshotApp =
         
         let (size, depth) = 
             match app.renderDepth with 
-            | true -> Some app.snapshotAnimation.resolution, Some depth
+            | true -> Some a.resolution, Some depth
             | false -> None, None
 
         let parameters : RenderParameters =
@@ -150,20 +155,72 @@ module SnapshotApp =
         for i in 0..maxInd do
             let snapshot = snapshots.[i]
             let fullPathName = Path.combine [app.outputFolder;snapshot.filename]
-            let actions = (app.getSnapshotActions snapshot recalcOption frustum fullPathName)
+            let actions = (app.getSnapshotActions (Snapshot.Surface snapshot) recalcOption fullPathName)
             if app.verbose then Log.line "[Snapshots] Updating parameters for next frame."
             app.mutableApp.updateSync (Guid.NewGuid ()) actions 
 
             renderAndSave (sprintf "%s.png" fullPathName) app.verbose parameters
 
-    let readAnimation (snapshotPath : string)
-                      (snapshotType : SnapshotType) =   
-        match snapshotType with
-        | SnapshotType.Camera -> //backwards compatibility
-            SnapshotAnimation.readLegacyFile snapshotPath
-        | SnapshotType.CameraAndSurface ->
-            SnapshotAnimation.read snapshotPath
+    let private executeBookmarkAnimation (a : BookmarkSnapshotAnimation) 
+                                         (app : SnapshotApp<'model,'aModel, 'msg>) =
+        let sg = app.sg 
+        let resolution = V3i (a.resolution.X, a.resolution.Y, 1)
+        let col   = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Rgba8, 1, 8);
+        let depth = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Depth24Stencil8, 1, 8);
 
+        let signature = 
+             app.runtime.CreateFramebufferSignature ([
+                 DefaultSemantic.Colors, TextureFormat.Rgba8
+                 DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
+             ], 8)
+
+        let taskclear = app.runtime.CompileClear(signature,AVal.constant C4f.Black,AVal.constant 1.0)
+        let task = app.runtime.CompileRender(signature, sg)
+
+        let fbo = 
+            app.runtime.CreateFramebuffer(
+                signature, 
+                Map.ofList [
+                    DefaultSemantic.Colors, col.GetOutputView()
+                    DefaultSemantic.DepthStencil, depth.GetOutputView()
+                ]
+            ) |> OutputDescription.ofFramebuffer
+
+        let (size, depth) = 
+            match app.renderDepth with 
+            | true -> Some a.resolution, Some depth
+            | false -> None, None
+
+        let parameters : RenderParameters =
+            {
+                runtime             = app.runtime
+                size                = size
+                outputDescription   = fbo
+                colorTexture        = col
+                depthTexture        = depth
+                task                = task
+                clearTask           = taskclear
+            }
+        
+        let maxInd = a.snapshots.Length - 1
+        for i in 0..maxInd do
+            let snapshot = a.snapshots.[i]
+            let fullPathName = Path.combine [app.outputFolder;snapshot.filename]
+            let actions = (app.getSnapshotActions (Snapshot.Bookmark snapshot) NearFarRecalculation.NoRecalculation fullPathName)
+            if app.verbose then Log.line "[Snapshots] Updating parameters for next frame."
+            app.mutableApp.updateSync (Guid.NewGuid ()) actions 
+
+            renderAndSave (sprintf "%s.png" fullPathName) app.verbose parameters
+        
+
+    let executeAnimation (app : SnapshotApp<'model,'aModel, 'msg>) =
+        verbose <- app.verbose
+        match app.snapshotAnimation with
+        | SnapshotAnimation.CameraAnimation a -> 
+            executeCameraAnimation a app
+        | SnapshotAnimation.BookmarkAnimation a ->
+            executeBookmarkAnimation a app
+            
     let transformAllSurfaces (surfacesModel : SurfaceModel) (surfaceUpdates : list<SnapshotSurfaceUpdate>) =
         let surfaces = surfacesModel.surfaces.flat 
                                 |> HashMap.toList

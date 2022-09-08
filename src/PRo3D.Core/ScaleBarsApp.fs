@@ -79,7 +79,7 @@ module ScaleBarProperties =
         | ToggleTextVisible ->
             { model with textVisible = not model.textVisible }
         | ToggleVisible ->
-            { model with isVisible = not model.isVisible }
+            { model with isVisible = not model.isVisible}
         | SetLength a ->
             let length' =  Numeric.update model.length a
             let text' = length'.value.ToString() + model.unit.ToString()

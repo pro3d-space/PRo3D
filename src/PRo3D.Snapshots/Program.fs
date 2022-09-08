@@ -46,7 +46,7 @@ open FSharp.Data.Adaptive
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "4.8.0-Snapshots"
+let viewerVersion       = "4.9.1-Snapshots"
 let catchDomainErrors   = false
 
 open System.IO
@@ -170,7 +170,12 @@ let startApplication (startupArgs : CLStartupArgs) =
                 runtime signature false messagingMailbox 
                 sendQueue dumpFile cacheFile uri 8 ""
 
-        let s = { MailboxState.empty with update = mainApp.update Guid.Empty }
+        let s = 
+            {MailboxState.empty with update = 
+                                        (fun a -> 
+                                            let a = Seq.map ViewerMessage a
+                                            mainApp.update Guid.Empty a)
+            }
         MailboxAction.InitMailboxState s |> messagingMailbox.Post
   
      

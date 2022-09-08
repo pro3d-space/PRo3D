@@ -47,7 +47,6 @@
     <Compile Include="Navigation.fs" />  
     <Compile Include="ViewconfigApp.fs" />
     <Compile Include="DockConfigs.fs" />
-    <Compile Include="Traverse-Model.fs" />
     <Compile Include="DashboardModes.fs" />
     <Compile Include="Viewer-Model.fs" />
     <Compile Include="Bookmarks.fs" />
@@ -61,6 +60,7 @@
     <Compile Include="Viewer\ViewerGUI.fs" />
     <Compile Include="Viewer\Viewer-IO.fs" />
     <Compile Include="Viewer\SceneConverter.fs" />
+    <Compile Include="Viewer\ViewerLenses.fs" />
     <Compile Include="Viewer\Viewer.fs" />
     <Compile Include="Viewer\SnapshotSg.fs" />
     <Compile Include="CommandLine\CommandLineUtils.fs" />
