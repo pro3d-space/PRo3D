@@ -65,7 +65,7 @@ Demo data and the pre-built application versions can be found on our [Github Rel
 
 for contributions and when compiling from source windows is the recommended platform but it can be run on osx with .net 5.0 as well.
 
-* install [dotnet 6.0 sdk](https://dotnet.microsoft.com/download)
+* install [dotnet 6.0 sdk and dotnet 5.0 sdk](https://dotnet.microsoft.com/download)
 * `git clone git@github.com:vrvis/PRo3D.git`
 * run `build.cmd` or `./build.sh`
 * `dotnet run --project src/PRo3D.Viewer/PRo3D.Viewer.fsproj` or open `/src/PRo3D.sln` with Visual Studio 2019
