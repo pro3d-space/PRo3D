@@ -1172,8 +1172,9 @@ module Gui =
                                 m.scene.dockConfig
                                 |> docking [                                           
                                     style "width:100%; height:100%; background:#F00"
-                                onLayoutChanged UpdateDockConfig
-                                    |> ViewerUtils.mapAttribute ViewerMessage]
+                                    onLayoutChanged UpdateDockConfig
+                                    |> ViewerUtils.mapAttribute ViewerMessage
+                                ]
                             ]
                         ]
                     )

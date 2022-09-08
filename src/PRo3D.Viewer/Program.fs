@@ -65,7 +65,9 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "4.9.3-prerelease3"let catchDomainErrors   = false
+let viewerVersion       = "4.9.3-prerelease2"
+
+let catchDomainErrors   = false
 
 open System.IO
 open System.Runtime.InteropServices
