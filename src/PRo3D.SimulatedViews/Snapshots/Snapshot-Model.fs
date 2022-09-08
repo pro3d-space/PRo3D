@@ -217,9 +217,13 @@ type BookmarkSnapshot = {
 
 type BookmarkSnapshotAnimation = {
   fieldOfView   : option<float>
+  nearplane     : float
+  farplane      : float
   resolution    : V2i
   snapshots     : list<BookmarkSnapshot>
 } with
+    static member defaultNearplane = 0.1
+    static member defaultFarplane  = 100000.0
     static member FromJson(_ : BookmarkSnapshotAnimation) = 
       json {
           let! fieldOfView    = Json.tryRead "fieldOfView"
@@ -230,6 +234,8 @@ type BookmarkSnapshotAnimation = {
               {
                   fieldOfView = fieldOfView
                   resolution  = resolution |> V2i.Parse
+                  nearplane   = BookmarkSnapshotAnimation.defaultNearplane
+                  farplane    = BookmarkSnapshotAnimation.defaultFarplane
                   snapshots   = snapshots
               }
           return a
