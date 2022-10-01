@@ -9,8 +9,8 @@ open Aardvark.Rendering
 
 open PRo3D
 open PRo3D.Base
-open PRo3D.Minerva
-open PRo3D.Linking
+//open PRo3D.Minerva
+//open PRo3D.Linking
 open PRo3D.Core
 open PRo3D.Core.Drawing
 open PRo3D.Viewer
@@ -201,43 +201,43 @@ module ViewerIO =
         )
         |> Option.defaultValue m
 
-    let loadMinerva dumpFile cacheFile (m:Model) =
+    //let loadMinerva dumpFile cacheFile (m:Model) =
               
-        let data = MinervaModel.loadDumpCSV dumpFile cacheFile 
+    //    let data = MinervaModel.loadDumpCSV dumpFile cacheFile 
 
-        let whiteListFile = Path.ChangeExtension(dumpFile, "white")
-        let whiteListIds =
-            if whiteListFile |> File.Exists then
-                File.readAllLines whiteListFile |> HashSet.ofArray
-            else 
-                data.features |> IndexList.map(fun x -> x.id) |> IndexList.toList |> HashSet.ofList
+    //    let whiteListFile = Path.ChangeExtension(dumpFile, "white")
+    //    let whiteListIds =
+    //        if whiteListFile |> File.Exists then
+    //            File.readAllLines whiteListFile |> HashSet.ofArray
+    //        else 
+    //            data.features |> IndexList.map(fun x -> x.id) |> IndexList.toList |> HashSet.ofList
             
-        let validFeatures = data.features |> IndexList.filter (fun x -> whiteListIds |> HashSet.contains x.id)
-        let data = { data with features = validFeatures }
+    //    let validFeatures = data.features |> IndexList.filter (fun x -> whiteListIds |> HashSet.contains x.id)
+    //    let data = { data with features = validFeatures }
 
-        let minerva = 
-            MinervaApp.update m.navigation.camera.view m.frustum m.minervaModel MinervaAction.Load
-            |> fun m -> { m with data = data }
-            |> MinervaApp.updateProducts data
-            |> MinervaApp.loadTifs1087    
+    //    let minerva = 
+    //        MinervaApp.update m.navigation.camera.view m.frustum m.minervaModel MinervaAction.Load
+    //        |> fun m -> { m with data = data }
+    //        |> MinervaApp.updateProducts data
+    //        |> MinervaApp.loadTifs1087    
 
-        //refactor ... make chain
-        let filtered = QueryApp.applyFilterQueries minerva.data.features minerva.session.queryFilter
+    //    //refactor ... make chain
+    //    let filtered = QueryApp.applyFilterQueries minerva.data.features minerva.session.queryFilter
 
-        let newModel = 
-            { 
-                minerva with 
-                    session = { 
-                        minerva.session with
-                            filteredFeatures = filtered 
-                    } 
-            } |> MinervaApp.updateFeaturesForRendering        
+    //    let newModel = 
+    //        { 
+    //            minerva with 
+    //                session = { 
+    //                    minerva.session with
+    //                        filteredFeatures = filtered 
+    //                } 
+    //        } |> MinervaApp.updateFeaturesForRendering        
 
-        { m with minervaModel = newModel }
+    //    { m with minervaModel = newModel }
 
-    // minerva has to be preloaded at this point
-    let loadLinking (m: Model) = 
-        { m with linkingModel = m.linkingModel |> LinkingApp.initFeatures m.minervaModel.data.features }
+    //// minerva has to be preloaded at this point
+    //let loadLinking (m: Model) = 
+    //    { m with linkingModel = m.linkingModel |> LinkingApp.initFeatures m.minervaModel.data.features }
       
     let loadLastFootPrint (m:Model) = 
         let fp = 
@@ -275,24 +275,24 @@ module ViewerIO =
             let drawing =                 
                 scenePaths |> saveVersioned' m.drawing
             
-            //saving minerva session
-            let minerva = 
-                try
-                MinervaApp.update 
-                    m.navigation.camera.view
-                    m.frustum
-                    m.minervaModel
-                    MinervaAction.Save
-                with e -> 
-                    Log.warn "[Minerva] update failed, could not save, using old model: %A" e
-                    m.minervaModel
+            ////saving minerva session
+            //let minerva = 
+            //    try
+            //    MinervaApp.update 
+            //        m.navigation.camera.view
+            //        m.frustum
+            //        m.minervaModel
+            //        MinervaAction.Save
+            //    with e -> 
+            //        Log.warn "[Minerva] update failed, could not save, using old model: %A" e
+            //        m.minervaModel
 
             //saving correlations session                        
             
             { m with 
                 scene        = scene 
                 //correlationPlot = { m.correlationPlot with semanticApp = m.correlationPlot.semanticApp }
-                drawing      = drawing
-                minervaModel = minerva } 
+                drawing      = drawing }
+                //minervaModel = minerva } 
             |> Model.stashAndSaveRecent path
 

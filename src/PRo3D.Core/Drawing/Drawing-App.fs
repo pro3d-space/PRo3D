@@ -277,6 +277,7 @@ module DrawingApp =
         | ExportAsGeoJSON _     -> false
         | ExportAsAnnotations _ -> false
         | ExportAsCsv _         -> false
+        | ExportAsProfileCsv _  -> false
         | ExportAsGeoJSON_xyz _ -> false
         | LegacySaveVersioned _ -> false
         | _ -> true
@@ -448,7 +449,7 @@ module DrawingApp =
                     model
             | ExportAsAnnotations path, _, _ ->
                 Drawing.IO.saveVersioned model path
-            | ExportAsCsv p, _, _ ->           
+            | ExportAsCsv p, _, _ ->
                 let up = smallConfig.up.Get(bigConfig)
                 let lookups = GroupsApp.updateGroupsLookup model.annotations
                 let annotations =
@@ -456,11 +457,37 @@ module DrawingApp =
                     |> Leaf.toAnnotations
                     |> HashMap.toList 
                     |> List.map snd
-                    |> List.filter(fun a -> a.visible)                            
+                    |> List.filter(fun a -> a.visible)
 
                 CSVExport.writeCSV lookups up p annotations
                         
                 model      
+            | ExportAsProfileCsv p, _, _ ->
+                //get selected annotation
+                let selected =  GroupsModel.tryGetSelectedAnnotation model.annotations
+                match selected with
+                | Some a -> 
+                    //convert points to profile
+                    let points = 
+                        if a.segments.Count = 0 then
+                            a.points |> IndexList.toList
+                        else
+                            a.segments 
+                            |> IndexList.toList 
+                            |> List.map(fun x -> x.points |> IndexList.toList) 
+                            |> List.concat
+
+                    //transform to distance elevation pairs
+
+                    Log.line "annotation found %A" a
+                | None -> 
+                    Log.line "please select annotation to export"
+                    
+                
+
+                //write csv
+
+                model
             | ExportAsGeoJSON path, _, _ ->        
         
                 exportGeoJson false bigConfig smallConfig model path

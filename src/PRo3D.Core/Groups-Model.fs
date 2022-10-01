@@ -196,6 +196,19 @@ module GroupsModel =
 
     let current = 0    
 
+    let tryGetSelectedAnnotation (model : GroupsModel) =        
+
+        model.singleSelectLeaf 
+        |> Option.bind(fun id ->
+            model.flat 
+            |> HashMap.tryFind id
+        )
+        |> Option.bind(fun l ->
+            match l with 
+            | Leaf.Annotations a -> Some a
+            | _ -> None
+        )
+        
     let read0 = 
         json {              
             let! rootGroup = Json.read "rootGroup"
