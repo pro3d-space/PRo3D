@@ -5,6 +5,16 @@ In order to simplify the deployment process and align all platforms (e.g. mac re
 
 # Automatic Releases (triggered by pushing to autorelease branch)
 
+The idea is that by pushing into a `autorelease` branch, the CI automatically runs all steps to produce a draft release on github.
+
+The full approach is:
+  - merge your feature to `develop`
+  - prepare a commit for the release by adjusting the version numbers
+    - change the file `PRODUCT_RELEASE_NOTES.md` and introduce a new version
+    - change `aardium/package.json`'s version accordingly (feel free to automate this step)
+  - when done, merge into the autorelease branch which then triggers an automatic release (and creates a draft release on github)
+  - Wait for the CI to finish, and adjust the newly created release and publish the draft
+
 The `new` build system uses the Build.fsproj and Build.fs/Helpers.fs files for running builds (as opposed to fake runner and build.fsx earlier).
 
 Thus we have those components:
@@ -12,10 +22,6 @@ Thus we have those components:
  - the target "CopyToElectron" patches the version string and copies over the build result into the aardium/bin folders
  - the target "PublishToElectron" performs the build and runs yarn dist in the aardium folder. The rest of deployment/signing/notarization/upload is taken care of by ./aardium/package.json.
 
- Thus, the CI script for deploying pro3d is:
-  - change the file `PRODUCT_RELEASE_NOTES.md` and introduce a new version
-  - change `aardium/package.json`'s version accordingly (feel free to automate this step)
-  - `bash ./build.sh PublishToElectron`.
 
 .github/workflows/deploy.yml shows the deploy script and is run automatically when pushed into the `autorelease` branch.
 
