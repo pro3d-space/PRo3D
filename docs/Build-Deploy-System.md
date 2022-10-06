@@ -3,7 +3,7 @@
 Earlier pro3d used aardium, a electron package to host the content of pro3d in a self-contained browser. 
 In order to simplify the deployment process and align all platforms (e.g. mac requires signing) we switched to a completely electron based deployment in 4.9.3 and up.
 
-# Autodeploy
+# Automatic Releases (triggered by pushing to autorelease branch)
 
 The `new` build system uses the Build.fsproj and Build.fs/Helpers.fs files for running builds (as opposed to fake runner and build.fsx earlier).
 
