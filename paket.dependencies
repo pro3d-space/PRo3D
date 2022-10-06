@@ -7,10 +7,8 @@ storage: none
 
 nuget Aardvark.Build                        ~> 1.0.11
 
-nuget FSharp.Core                           ~> 5.0.0 lowest_matching: true
+nuget FSharp.Core                           ~> 5.0.2 lowest_matching: true
 nuget FSharp.Data                           ~> 3.1.1
-
-nuget Aardvark.Build
 
 nuget FSharp.Data.Adaptive                  ~> 1.2.6
 
@@ -62,6 +60,25 @@ nuget Giraffe
 nuget Saturn
 nuget Thoth.Json.Giraffe
 
+
+group Test
+    framework: net6.0, net6.0-windows
+    source https://api.nuget.org/v3/index.json
+
+	nuget FSharp.Core              ~> 5.0.2 lowest_matching: true
+    nuget NUnit                    ~> 3.13.3
+    nuget FsUnit                   ~> 5.0.0
+    nuget FsCheck                  ~> 2.16.4
+    nuget FsCheck.NUnit            ~> 2.16.4
+    nuget NUnit3TestAdapter        ~> 4.2.1
+    nuget Microsoft.NET.Test.Sdk   ~> 17.2.0
+    nuget Expecto                  ~> 9.0.4
+    nuget Expecto.FsCheck          ~> 9.0.4
+    nuget YoloDev.Expecto.TestSdk  ~> 0.12.20
+
+    nuget BenchmarkDotNet          ~> 0.13.1
+
+
 group Build
 framework: net6.0
 source https://api.nuget.org/v3/index.json
@@ -72,7 +89,6 @@ nuget Fake.Api.GitHub
 nuget Fake.Core.ReleaseNotes    
 nuget Octokit
 nuget Fake.Core.Target
-nuget Fake.IO.FileSystem
 nuget Farmer
 nuget Fake.DotNet.Cli ~> 5.23.0
 nuget Fake.DotNet.NuGet

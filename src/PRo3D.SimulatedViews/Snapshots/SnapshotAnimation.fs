@@ -161,7 +161,7 @@ module SnapshotAnimation =
             bm.orderList 
             |> List.pairwise
             |> List.map lerpit
-            |> List.map (toSteps fps)
+            |> List.map (toSteps (float fps))
             |> List.concat
 
         let firstBm = BookmarkUtils.find bm.orderList.[0] bm
