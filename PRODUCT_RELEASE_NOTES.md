@@ -1,3 +1,6 @@
+## 4.9.6-testing
+- attempt to fix context creation on win11 to tackle https://github.com/pro3d-space/PRo3D/issues/235
+
 ## 4.9.5
 - fixed kdtree paths on osx
 - switched to dotnet6 

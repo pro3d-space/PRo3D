@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - autorelease
+      - bugs/win11startupcrash
     paths:
       - PRODUCT_RELEASE_NOTES.md
       - aardium/package.json
