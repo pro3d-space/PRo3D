@@ -1,3 +1,7 @@
+## 4.9.5
+- fixed kdtree paths on osx
+- switched to dotnet6 
+
 ## 4.9.4-prerelease3
 - testing autodeploy
 
