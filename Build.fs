@@ -93,7 +93,7 @@ Target.create "AddNativeResources" (fun _ ->
 
         let binDirs =
             (
-                dirs "bin" "(^netcoreapp.*$)|(^net4.*$)|(^net5.0$)|^Debug$|^Release$" SearchOption.AllDirectories
+                dirs "bin" "(^netcoreapp.*$)|(^net4.*$)|(^net5.0$)|(^net6.0$)|^Debug$|^Release$" SearchOption.AllDirectories
                 |> Array.toList
             )
 
@@ -128,7 +128,7 @@ Target.create "AddNativeResources" (fun _ ->
                 ()
     )
 
-let outDirs = [ @"bin\Debug\netcoreapp3.1"; @"bin\Release\netcoreapp3.1";  @"bin\Release\net5.0";  @"bin\Debug\net5.0"; ]
+let outDirs = [ @"bin\Debug\net6.0"; @"bin\Release\net6.0";  @"bin\Release\net5.0";  @"bin\Debug\net5.0"; ]
 let resources = 
     [
         //"lib\Dependencies\PRo3D.Base\windows"; // currently handled by native dependency injection mechanism 
