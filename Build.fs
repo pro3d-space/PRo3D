@@ -341,7 +341,7 @@ Target.create "CopyToElectron" (fun _ ->
     if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then
          "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
              { o with
-                 Framework = Some "net5.0"
+                 Framework = Some "net6.0"
                  Runtime = Some "osx-x64"
                  Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
                  //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
@@ -355,7 +355,7 @@ Target.create "CopyToElectron" (fun _ ->
     else
         "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
             { o with
-                Framework = Some "net5.0"
+                Framework = Some "net6.0"
                 Runtime = Some "win10-x64" 
                 Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=false -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
                 Configuration = DotNet.BuildConfiguration.Release
