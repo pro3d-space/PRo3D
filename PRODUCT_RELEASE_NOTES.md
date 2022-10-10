@@ -1,5 +1,13 @@
-## 4.9.2-prerelease4
+## 4.9.5
+- fixed kdtree paths on osx
+- switched to dotnet6 
+
+## 4.9.4-prerelease3
 - testing autodeploy
+
+## 4.9.2-prerelease5
+- bugfix: frustum now set correctly when batch rendering
+
 
 ## 4.9.1-prerelease3
 - bugfix: frustum for batch rendering
@@ -10,7 +18,7 @@
 - new import for objs with large coordinates
 
 ## 4.9.1-prerelease2
-
+ 
 - bugfix: reading scene with sequenced bookmarks could lead to an error
 - bugfix: scale bars not updated correctly when updating scene state for sequenced bookmarks
 

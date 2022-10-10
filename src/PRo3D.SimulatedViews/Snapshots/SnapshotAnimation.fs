@@ -161,7 +161,7 @@ module SnapshotAnimation =
             bm.orderList 
             |> List.pairwise
             |> List.map lerpit
-            |> List.map (toSteps fps)
+            |> List.map (toSteps (float fps))
             |> List.concat
 
         let firstBm = BookmarkUtils.find bm.orderList.[0] bm
@@ -228,6 +228,8 @@ module SnapshotAnimation =
                     snapshots   = snapshots
                     fieldOfView = Some (frustum |> Frustum.horizontalFieldOfViewInDegrees)
                     resolution  = V2i (bm.resolutionX.value, bm.resolutionY.value)
+                    nearplane   = nearPlane
+                    farplane    = farPlane
                 } 
             snapshotAnimation |> SnapshotAnimation.BookmarkAnimation     
         else 

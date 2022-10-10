@@ -46,16 +46,16 @@ var hideDock = false;
 function createWindow (url, done) {
 
   var plat = os.platform();
-  var defaultIcon = "aardvark.ico";
+  var defaultIcon = "icon.ico";
   console.warn(plat);
-  if(plat == 'linux') defaultIcon = "aardvark.png";
-  else if(plat == 'darwin') defaultIcon = "aardvark_128.png";
+  if(plat == 'linux') defaultIcon = "icon.png";
+  else if(plat == 'darwin') defaultIcon = "icon.png";
 
   var argv = process.argv;
   if(!argv) argv = [];
 
   var res = getopt.create(options).bindHelp().parse(argv); 
-  var preventTitleChange = true;
+  var preventTitleChange = false;
   var opt = res.options;
   if(!opt.width) opt.width = 1280;
   if(!opt.height) opt.height = 867;
@@ -396,6 +396,9 @@ function ready() {
     var args = process.argv;
     args.shift();
 	
+	
+	
+	
 	const WINDOW_WIDTH = 640;
     const WINDOW_HEIGHT = 300;
   
@@ -423,19 +426,67 @@ function ready() {
     splash.show()
     console.log('showed.')
 	
+	const rx = /.*url:[ \t]+(.*)/;        
 
+   	var spawned = false;
 
-  console.warn("jsdfjsdjf", __dirname);
+    var buffer = "";
+    var sendLog = function(s){
+		var data = JSON.parse(s);
+		if(data.text != undefined) {
+			buffer = buffer.concat("\n", data.text);
+		}
+    };
+
+    const server =
+      ws.createServer(function (conn) {
+        conn.on("error", function() { console.warn("err");});
+		conn.send(JSON.stringify({type: "stdout", text: buffer })); 
+		buffer = ""; 
+		
+        sendLog = function(data) {
+            // ignore otherwise
+            if(conn.readyState == conn.OPEN)
+              conn.send(data);
+        };
+      });
+    server.listen(4322, "localhost");
+    
+    const logging = new BrowserWindow({ 
+        width: 500, 
+        height: 400, 
+		x: 100,
+		y: 100,
+        frame: true, 
+        title: "PRo3D Log",
+        webPreferences : {  
+          devTools: true
+        } 
+      }
+    );
+    logging.setMenu(null);
+    logging.loadURL(`file://${__dirname}/logging.html`);
+    logging.show();
+    logging.on('closed', function () {
+      server.close();
+    })
+
+	
+
     const runningProcess = proc.spawn(p, ["--server"].concat(args));
     console.log('spawned.' + ["--server"].concat(args))
-    const rx = /.*url:[ \t]+(.*)/;        
-
-	var spawned = false;
+	
+	runningProcess.stderr.on("data", (data) => {
+	  console.log("err: " + data);
+      sendLog(JSON.stringify({type: "stderr", text: data.toString() }));
+    });
     runningProcess.stdout.on("data", (data) => {
+		console.log("log: " + data);
 		if(spawned){
-			console.log("log: " + data);
+			sendLog(JSON.stringify({type: "stdout", text: data.toString() }));
 		}
 		else{
+			sendLog(JSON.stringify({type: "stdout", text: data.toString() }));
 			const m = data.toString().match(rx);
 			if (m) { 
 				console.log('matched.' + data)
@@ -446,6 +497,7 @@ function ready() {
 			}
 		}
     });
+
       
     // Quit when all windows are closed.
     app.on('window-all-closed', function () {
