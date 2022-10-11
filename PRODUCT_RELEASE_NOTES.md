@@ -1,3 +1,6 @@
+## 4.9.6
+- bugfix: near/farplane not set correctly in batch rendering [#241](https://github.com/pro3d-space/PRo3D/issues/241)
+
 ## 4.9.5
 - fixed kdtree paths on osx
 - switched to dotnet6 
