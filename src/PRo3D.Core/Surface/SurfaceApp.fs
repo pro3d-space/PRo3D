@@ -408,6 +408,7 @@ module SurfaceUtils =
                             indices 
                             |> Seq.map(fun x -> positions.[x])
                             |> Seq.chunkBySize 3
+                            |> Seq.filter(fun x -> x.Length = 3) // removes the last one if its less than 3 (because the last array with chunkBySize just contains any remaining elements. this may causes errors in triangulation)
                             |> Seq.map(fun x -> Triangle3d x)
                             |> Seq.filter(fun x -> (IntersectionController.triangleIsNan x |> not)) |> Seq.toArray
                             |> TriangleSet
