@@ -217,19 +217,36 @@ type BookmarkSnapshot = {
 
 type BookmarkSnapshotAnimation = {
   fieldOfView   : option<float>
+  nearplane     : float
+  farplane      : float
   resolution    : V2i
   snapshots     : list<BookmarkSnapshot>
 } with
+    static member defaultNearplane = 0.1
+    static member defaultFarplane  = 100000.0
     static member FromJson(_ : BookmarkSnapshotAnimation) = 
       json {
           let! fieldOfView    = Json.tryRead "fieldOfView"
           let! resolution     = Json.read "resolution"
           let! snapshots      = Json.read "snapshots"
+          let! nearplane      = Json.tryRead "nearplane"
+          let nearplane =
+            match nearplane with
+            | Some np -> np
+            | None    -> BookmarkSnapshotAnimation.defaultNearplane
+
+          let! farplane       = Json.tryRead "farplane"
+          let farplane =
+            match farplane with
+            | Some fp -> fp
+            | None    -> BookmarkSnapshotAnimation.defaultFarplane
           
           let a : BookmarkSnapshotAnimation = 
               {
                   fieldOfView = fieldOfView
                   resolution  = resolution |> V2i.Parse
+                  nearplane   = nearplane
+                  farplane    = farplane
                   snapshots   = snapshots
               }
           return a
@@ -239,6 +256,8 @@ type BookmarkSnapshotAnimation = {
           do! PRo3D.Base.Json.writeOptionFloat "fieldOfView"    x.fieldOfView
           do! Json.write                       "resolution"     (x.resolution.ToString ())
           do! Json.write                       "snapshots"      x.snapshots
+          do! Json.write                       "nearplane"      x.nearplane
+          do! Json.write                       "farplane"       x.farplane
       }  
 
 module BookmarkSnapshotAnimation =

@@ -1,4 +1,4 @@
-framework: netstandard2.0, netcoreapp3.1, net5.0, net6.0
+framework: netstandard2.0, net6.0
 
 source https://api.nuget.org/v3/index.json
 source https://vrvis.myget.org/F/aardvark_public/api/v3/index.json
@@ -7,29 +7,27 @@ storage: none
 
 nuget Aardvark.Build                        ~> 1.0.11
 
-nuget FSharp.Core                           ~> 5.0.0 lowest_matching: true
+nuget FSharp.Core                           ~> 5.0.2 lowest_matching: true
 nuget FSharp.Data                           ~> 3.1.1
-
-nuget Aardvark.Build
 
 nuget FSharp.Data.Adaptive                  ~> 1.2.6
 
-nuget Aardvark.Base                         ~> 5.2.2
-nuget Aardvark.Base.Incremental             ~> 5.2.2
-nuget Aardvark.Base.FSharp                  ~> 5.2.2
-nuget Aardvark.Geometry                     ~> 5.2.2
+nuget Aardvark.Base                         ~> 5.2.12
+nuget Aardvark.Base.Incremental             ~> 5.2.12
+nuget Aardvark.Base.FSharp                  ~> 5.2.12
+nuget Aardvark.Geometry                     ~> 5.2.12
 
-nuget Aardvark.Rendering                    ~> 5.2.2
-nuget Aardvark.Application.Slim             ~> 5.2.2
-nuget Aardvark.Application.Slim.GL          ~> 5.2.2
-nuget Aardvark.Application.Slim.Vulkan      ~> 5.2.2
-nuget Aardvark.SceneGraph                   ~> 5.2.2
-nuget Aardvark.SceneGraph.IO                ~> 5.2.2
-nuget Aardvark.SceneGraph.Opc               ~> 5.2.2
-nuget Aardvark.Rendering.Text               ~> 5.2.2
-nuget Aardvark.Rendering.Vulkan             ~> 5.2.2
-nuget Aardvark.Rendering.GL                 ~> 5.2.2
-nuget Aardvark.GPGPU                        ~> 5.2.2
+nuget Aardvark.Rendering                    ~> 5.2.13
+nuget Aardvark.Application.Slim             ~> 5.2.13
+nuget Aardvark.Application.Slim.GL          ~> 5.2.13
+nuget Aardvark.Application.Slim.Vulkan      ~> 5.2.13
+nuget Aardvark.SceneGraph                   ~> 5.2.13
+nuget Aardvark.SceneGraph.IO                ~> 5.2.13
+nuget Aardvark.SceneGraph.Opc               ~> 5.2.13
+nuget Aardvark.Rendering.Text               ~> 5.2.13
+nuget Aardvark.Rendering.Vulkan             ~> 5.2.13
+nuget Aardvark.Rendering.GL                 ~> 5.2.13
+nuget Aardvark.GPGPU                        ~> 5.2.13
 
 nuget Aardvark.Geometry.Intersection        ~> 5.2.1
 nuget Aardvark.Geometry.PointTree           ~> 5.2.1
@@ -42,17 +40,15 @@ nuget Aardvark.Service.Giraffe              ~> 5.3.1
 nuget Adaptify.MSBuild                      = 1.1.5
 nuget Adaptify.Core                         = 1.1.5
 
+
+nuget Aardvark.Data.Wavefront               ~> 5.2.5
+nuget Aardvark.GeoSpatial.Opc               ~> 5.8.1
+
 nuget Aardium                               ~> 2.0.10-prerelease0007
-
-nuget Uncodium.Eigensystems                 ~> 1.1.2
-
 
 nuget OPCViewer.Base                        ~> 1.1.1
 
-nuget Aardvark.Data.Wavefront               ~> 5.2.5
-
-nuget Aardvark.GeoSpatial.Opc               ~> 5.8.1
-
+nuget Uncodium.Eigensystems                 ~> 1.1.2
 nuget Chiron                                ~> 6.3.1
 nuget RestSharp                             ~> 106.6.9
 
@@ -61,6 +57,25 @@ nuget Microsoft.Diagnostics.Runtime         ~> 2.0.1
 nuget Giraffe
 nuget Saturn
 nuget Thoth.Json.Giraffe
+
+
+group Test
+    framework: net6.0, net6.0-windows
+    source https://api.nuget.org/v3/index.json
+
+	nuget FSharp.Core              ~> 5.0.2 lowest_matching: true
+    nuget NUnit                    ~> 3.13.3
+    nuget FsUnit                   ~> 5.0.0
+    nuget FsCheck                  ~> 2.16.4
+    nuget FsCheck.NUnit            ~> 2.16.4
+    nuget NUnit3TestAdapter        ~> 4.2.1
+    nuget Microsoft.NET.Test.Sdk   ~> 17.2.0
+    nuget Expecto                  ~> 9.0.4
+    nuget Expecto.FsCheck          ~> 9.0.4
+    nuget YoloDev.Expecto.TestSdk  ~> 0.12.20
+
+    nuget BenchmarkDotNet          ~> 0.13.1
+
 
 group Build
 framework: net6.0
@@ -72,7 +87,6 @@ nuget Fake.Api.GitHub
 nuget Fake.Core.ReleaseNotes    
 nuget Octokit
 nuget Fake.Core.Target
-nuget Fake.IO.FileSystem
 nuget Farmer
 nuget Fake.DotNet.Cli ~> 5.23.0
 nuget Fake.DotNet.NuGet

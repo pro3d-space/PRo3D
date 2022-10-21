@@ -15,10 +15,18 @@ open PRo3D.Base
 open PRo3D.Base.Annotation
 open PRo3D.Core
 
+type SamplingUnit =
+| km = 0
+| m  = 1
+| cm = 2
+| mm = 3
+
 type DrawingAction =
 | SetSemantic         of Semantic
 | ChangeColor         of ColorPicker.Action
 | ChangeThickness     of Numeric.Action
+| ChangeSamplingAmount of Numeric.Action
+| SetSamplingUnit     of SamplingUnit
 | SetGeometry         of Geometry
 | SetProjection       of Projection
 | SetExportPath       of string
@@ -68,6 +76,8 @@ type AutomaticGeoJsonExport =
         lastGeoJsonPathXyz : Option<string>
     }
 
+
+
 [<ModelType>]
 type DrawingModel = {
 
@@ -77,11 +87,17 @@ type DrawingModel = {
     hoverPosition : option<Trafo3d>    
 
     working    : Option<Annotation>
+
+    //TODO refactor ... put this into separate model type and save it with the scene or in user/app data
     projection : Projection
     geometry   : Geometry
     semantic   : Semantic
     color      : ColorInput
     thickness  : NumericInput
+
+    samplingAmount   : NumericInput
+    samplingUnit     : SamplingUnit
+    samplingDistance : float
 
     annotations: GroupsModel 
     exportPath : Option<string>
@@ -105,8 +121,6 @@ type DrawingModel = {
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]    
 module DrawingModel =
 
-
-    
     let tryGet (ans:IndexList<Annotation>) key = 
         ans |> Seq.tryFind(fun x -> x.key = key)
 
@@ -117,6 +131,14 @@ module DrawingModel =
         ans.AsList 
         |> List.updateIf (fun x -> x.key = ann.key) (fun x -> ann) 
         |> IndexList.ofList
+
+    let calculateSamplingDistance (amount : NumericInput) (unit : SamplingUnit) =
+        match unit with
+        | SamplingUnit.km -> amount.value * 1000.0
+        | SamplingUnit.m  -> amount.value
+        | SamplingUnit.cm -> amount.value * 0.01
+        | SamplingUnit.mm -> amount.value * 0.001
+        | _ -> 1.0
 
     let initialdrawing : DrawingModel = {
         hoverPosition = None
@@ -130,6 +152,10 @@ module DrawingModel =
         projection  = Projection.Linear
         geometry    = Geometry.Line
         semantic    = Semantic.Horizon3
+
+        samplingAmount   = Annotation.Initial.samplingAmount
+        samplingDistance = calculateSamplingDistance Annotation.Initial.samplingAmount SamplingUnit.m
+        samplingUnit     = SamplingUnit.m
 
         annotations = GroupsModel.initial
 

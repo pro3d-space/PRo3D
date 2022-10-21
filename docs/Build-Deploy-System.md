@@ -1,51 +1,64 @@
-# Summary
+# Electron based deployment
 
-Releases can be created manually or using github ci actions. Automatic releases should be used for real releases, since it covers builds for all supported platforms (currently win and mac x64).
+Earlier pro3d used aardium, a electron package to host the content of pro3d in a self-contained browser. 
+In order to simplify the deployment process and align all platforms (e.g. mac requires signing) we switched to a completely electron based deployment in 4.9.3 and up.
 
-## Automatic releases
+# Automatic Releases (triggered by pushing to autorelease branch)
 
-Automatic deployment and release creation is handled via a [github action](https://github.com/pro3d-space/PRo3D/blob/master/.github/workflows/deploy.yml). To trigger the build, perform those steps:
-- adapt PRODUCT_RELEASE_NOTES.md
-- adapt the version in ./aardium/package.json to reflect the pro3d version. please note that only real version numbers are allowed here (e.g. 4.1.0). This is the version which appears on mac osx in the `About this app` window. Unfortunately this step is still manual...
-- commit and push
+## TL;DR
 
-this will trigger github CI actions
-![image](https://user-images.githubusercontent.com/513281/187177791-6657bfc9-c058-4815-85be-9963939fa8a3.png)
+The idea is that by pushing into a `autorelease` branch, the CI automatically runs all steps to produce a draft release on github.
 
-and will eventually create a draft release on the github release page:
-![image](https://user-images.githubusercontent.com/513281/187177885-d72e1a2a-3175-4d0d-b1df-a7ad9bdbd6bd.png)
+Thus, for creating a release you need to do:
+  - merge your feature to `develop`
+  - prepare a commit for the release by adjusting the version numbers
+    - change the file `PRODUCT_RELEASE_NOTES.md` and introduce a new version
+    - change `aardium/package.json`'s version accordingly (feel free to automate this step)
+  - when done, merge into the autorelease branch which then triggers an automatic release (and creates a draft release on github)
+  - Wait for the CI to finish, and adjust the newly created release and publish the draft
 
-Test the builds, rename the draft and use publish to finalize the release.
+## Details
 
-## Manual release creation
+The `new` build system uses the Build.fsproj and Build.fs/Helpers.fs files for running builds (as opposed to fake runner and build.fsx earlier).
 
-- prepare the github_token env variable https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token
-- change PRODUCT_RELEASE_NOTES.md, commit, push
-- in a commmand line use: ./build.{cmd|sh} GitHubRelease 
+Thus we have those components:
+ - Build.fs run by ./build.sh and build.cmd
+ - the target "CopyToElectron" patches the version string and copies over the build result into the aardium/bin folders
+ - the target "PublishToElectron" performs the build and runs yarn dist in the aardium folder. The rest of deployment/signing/notarization/upload is taken care of by ./aardium/package.json.
 
-# Release notes
+.github/workflows/deploy.yml shows the deploy script and is run automatically when pushed into the `autorelease` branch.
 
-tags and release notes taken from RELEASE_NOTES.md
+## How is pro3d embedded in the electron build?
 
-# Deployment (generall approach)
+We simply deploy a pretty empty electron build and start pro3d in server mode (no window) as a process in ./aardium/main.js.
+Also we create a seconary which which we pipe in stdout/stdderr using a websocket connection.
+Rest is pretty much standard in main.js.
+For development use `./build.sh CopyToElectron`, switch into the aardium directory and use for example `yarn install; yarn run start` for testing the application locally.
 
-- `build Publish` runs dotnet publish and prepares additional info (e.g. updates third party licences)
-- Instrument/CooTransformation: lives in separate folder src/InstrumentPlatforms, its build (build CompileInstruments) compiles this one, afterwards, "AddNativeResources" injects the native libraries into the managed dll and "CopyJRWrapper" copies this one to lib/JR.Wrappers.dll which is referenced by PRo3D.
+## Release notes
 
-# Resources
+tags and release notes taken from PRODCT_RELEASE_NOTES.md
+
+## Resources
 
 all resources should be embedded using dotnet embedded resources to allow "single file deployment"
 
-# Releases on github
+## Title bar
+
+- title bar version is fixed up by "publish" target using string replace
+
+## Known problems
+
+sometimes publish fails with ```Could not open file for writing (binary mode): F:\pro3d\openPro3d\src\PRo3D.Core\obj\Any CPU\Release\netcoreapp3.1\win10-x64\PRo3D.Core.dll``` on my machine. either dotnet problem or with my (often rather full) disk?
+
+# 'Old' manual deploy
+
+- prepare the github_token env variable https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token
+- change RELEASE_NOTES.md, commit, push
+- in a commmand line use: ./build.{cmd|sh} GitHubRelease 
+
+### Releases on github
 
 - set github_token in your env (used by "GitHubRelease" target)
 - tag automatically created by github (given RELEASE_NOTES.MD)
 - what happens if tag exists, what happens if release does not exist but the tag - this should be found somewhere here: https://docs.github.com/en/rest/reference/repos#releases
-
-# Title bar
-
-- title bar version is fixed up by "publish" target using string replace
-
-# Known problems
-
-sometimes publish fails with ```Could not open file for writing (binary mode): F:\pro3d\openPro3d\src\PRo3D.Core\obj\Any CPU\Release\netcoreapp3.1\win10-x64\PRo3D.Core.dll``` on my machine. either dotnet problem or with my (often rather full) disk?

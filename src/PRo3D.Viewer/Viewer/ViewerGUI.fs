@@ -531,6 +531,7 @@ module Gui =
                             i [clazz "large sidebar icon"; style "margin:0px 2px"] []
                             
                             div [ clazz "ui menu"] [
+            
                                 //import surfaces
                                 div [ clazz "ui dropdown item"; style "width: 150px"] importSurface
                             
@@ -584,6 +585,11 @@ module Gui =
                                         div [ clazz "ui item"; 
                                             clientEvent "onclick" (sprintf "aardvark.electron.shell.openPath('%s')" (Config.configPath.Replace("\\","\\\\")))] [
                                             text "Open Configuration Folder"
+                                        ]
+
+                                        div [ clazz "ui item"; 
+                                            clientEvent "onclick" "aardvark.electron.shell.openExternal('https://github.com/pro3d-space/PRo3D/blob/develop/CREDITS.MD')"] [
+                                            text "3rd Party Licences"
                                         ]
 
                                         div [clazz "ui item"; clientEvent "onclick" "sendCrashDump()"] [
@@ -672,27 +678,27 @@ module Gui =
             //| Interactions.PickLinking           -> "CTRL+click to place point on surface"
             | _ -> ""
         
-        let topMenuItems (m:AdaptiveModel) = [ 
+        let topMenuItems (model : AdaptiveModel) = [ 
             div [style "font-weight: bold;margin-left: 1px; margin-right:1px"] 
-                [Incremental.text (m.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]
-            Navigation.UI.viewNavigationModes m.navigation  |> UI.map NavigationMessage 
+                [Incremental.text (model.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]
+            Navigation.UI.viewNavigationModes model.navigation  |> UI.map NavigationMessage 
               
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large wizard icon"] [] ]
-                Html.Layout.boxH [ CustomGui.dropDown Interactions.hideSet m.interaction SetInteraction ]
-                Incremental.div  AttributeMap.empty (AList.ofAValSingle (dynamicTopMenu m))
+                Html.Layout.boxH [ CustomGui.dropDown Interactions.hideSet model.interaction SetInteraction ]
+                Incremental.div  AttributeMap.empty (AList.ofAValSingle (dynamicTopMenu model))
                 Html.Layout.boxH [ 
                     div [style "font-style:italic; width:100%; text-align:right"] [
-                        Incremental.text (m.interaction |> AVal.map interactionText)
+                        Incremental.text (model.interaction |> AVal.map interactionText)
                     ]]
             ]
               
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large Globe icon"] [] ]
-                Html.Layout.boxH [ Html.SemUi.dropDown m.scene.referenceSystem.planet ReferenceSystemAction.SetPlanet ] |> UI.map ReferenceSystemMessage
+                Html.Layout.boxH [ Html.SemUi.dropDown model.scene.referenceSystem.planet ReferenceSystemAction.SetPlanet ] |> UI.map ReferenceSystemMessage
             ] 
             Html.Layout.horizontal [
-                scenepath m
+                scenepath model
             ]        
         ]        
         
@@ -1038,13 +1044,13 @@ module Gui =
 
                     let renderViewAttributes : list<Attribute<ViewerAnimationAction>> = 
                         [ 
-                            style "background: #1B1C1E; height:100%; width:100%"
-                            Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Standard)
-                            onResize (fun s -> OnResize(s, renderViewportSizeId))
-                            onFocus (fun s -> OnResize(s, renderViewportSizeId))
-                            onMouseDown (fun button pos -> StartDragging (pos, button))
-                         //   onMouseMove (fun delta -> Dragging delta)
-                            onMouseUp (fun button pos -> EndDragging (pos, button))
+                        style "background: #1B1C1E; height:100%; width:100%"
+                        Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Standard)
+                        onResize (fun s -> OnResize(s, renderViewportSizeId))
+                        onFocus (fun s -> OnResize(s, renderViewportSizeId))
+                        onMouseDown (fun button pos -> StartDragging (pos, button))
+                     //   onMouseMove (fun delta -> Dragging delta)
+                        onMouseUp (fun button pos -> EndDragging (pos, button))
                         ] |> List.map (ViewerUtils.mapAttribute ViewerMessage)
 
                     body renderViewAttributes [ //[ style "background: #1B1C1E; height:100%; width:100%"] [
@@ -1168,16 +1174,19 @@ module Gui =
             //        ] )
             | None -> 
                 require (viewerDependencies) (
-                    body [] [                    
-                        TopMenu.getTopMenu m
+                    onBoot (sprintf "document.title = '%s'" Config.title) (
+                        body [] [                    
+                            TopMenu.getTopMenu m
                             |> UI.map ViewerMessage
-                        div [clazz "dockingMainDings"] [
-                            m.scene.dockConfig
-                            |> docking [                                           
-                                style "width:100%; height:100%; background:#F00"
-                                onLayoutChanged UpdateDockConfig
-                                    |> ViewerUtils.mapAttribute ViewerMessage]
+                            div [clazz "dockingMainDings"] [
+                                m.scene.dockConfig
+                                |> docking [                                           
+                                    style "width:100%; height:100%; background:#F00"
+                                    onLayoutChanged UpdateDockConfig
+                                    |> ViewerUtils.mapAttribute ViewerMessage
+                                ]
+                            ]
                         ]
-                    ]
+                    )
                 )
             | _ -> body [] []

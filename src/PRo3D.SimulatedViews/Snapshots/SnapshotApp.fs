@@ -80,6 +80,18 @@ module SnapshotApp =
                               (float(resolution.X)/float(resolution.Y))
         frustum, recalcOption, near, far
 
+    let calculateFrustum (snapshotAnimation : BookmarkSnapshotAnimation)  = 
+        let resolution = V3i (snapshotAnimation.resolution.X, snapshotAnimation.resolution.Y, 1)
+
+        let foV = 
+            match snapshotAnimation.fieldOfView with
+            | Some fov -> fov
+            | None -> defaultFoV
+        let frustum =
+          Frustum.perspective foV snapshotAnimation.nearplane snapshotAnimation.farplane
+                              (float(resolution.X)/float(resolution.Y))
+        frustum
+
     let private executeCameraAnimation (a : CameraSnapshotAnimation) 
                                        (app : SnapshotApp<'model,'aModel, 'msg>) =
         let frustum, recalcOption, near, far = calculateFrustumRecalcNearFar a
@@ -185,6 +197,8 @@ module SnapshotApp =
                     DefaultSemantic.DepthStencil, depth.GetOutputView()
                 ]
             ) |> OutputDescription.ofFramebuffer
+
+        app.mutableApp.updateSync (Guid.NewGuid ()) (app.getAnimationActions app.snapshotAnimation)
 
         let (size, depth) = 
             match app.renderDepth with 
