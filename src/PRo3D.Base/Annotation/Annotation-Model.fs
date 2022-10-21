@@ -855,6 +855,14 @@ with
 module Annotation =
          
     module Initial =
+        let samplingAmount = {
+            value   = 1.0
+            min     = 0.001
+            max     = 1000.0
+            step    = 0.001
+            format  = "{0:0.000}"
+        }
+
         let thickness = {
             value   = 3.0
             min     = 1.0

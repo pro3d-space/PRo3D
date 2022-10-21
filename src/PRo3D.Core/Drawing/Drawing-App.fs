@@ -133,10 +133,15 @@ module DrawingApp =
                             else
                                 let vec = newSegment.endPoint - newSegment.startPoint
                                 let dir = vec.Normalized
-                                let step = vec.Length / float PRo3D.Config.sampleCount
+                                //let step = vec.Length / float PRo3D.Config.sampleCount
+                                let numOfSamples = (vec.Length / model.samplingDistance) |> floor |> int
+
                                 let points = [ 
-                                    for s in 0 .. PRo3D.Config.sampleCount do
-                                        let p = newSegment.startPoint + dir * (float s) * step // world space
+                                    for s in 0 .. numOfSamples do
+                                        let p = newSegment.startPoint + dir * (float s) * model.samplingDistance // world space
+
+                                        Log.line "Spawing p: %A at %A" s ((float s) * model.samplingDistance)
+
                                         match samplePoint p with
                                         | None -> ()
                                         | Some projectedPoint -> yield projectedPoint
@@ -329,6 +334,8 @@ module DrawingApp =
 
         (finishAndAppend up north planet view model) |> stash
 
+   
+
     let rec update<'a> 
         (bigConfig   : 'a) 
         (smallConfig : SmallConfig<'a> ) 
@@ -394,6 +401,11 @@ module DrawingApp =
                 { model with color = ColorPicker.update model.color c }
             | ChangeThickness th, _, _ ->
                 { model with thickness = Numeric.update model.thickness th }
+            | ChangeSamplingAmount k, _, _ ->
+                let samplingAmount = Numeric.update model.samplingAmount k
+                { model with samplingAmount = samplingAmount ; samplingDistance = DrawingModel.calculateSamplingDistance samplingAmount model.samplingUnit }
+            | SetSamplingUnit k, _, _ ->
+                { model with samplingUnit = k; samplingDistance = DrawingModel.calculateSamplingDistance model.samplingAmount k }
             | SetExportPath s, _, _ ->
                 { model with exportPath = Some s }        
             | Send, _, _ ->                                                      
