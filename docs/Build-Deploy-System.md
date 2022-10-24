@@ -7,7 +7,7 @@ In order to simplify the deployment process and align all platforms (e.g. mac re
 
 ## TL;DR
 
-The idea is that by pushing into a `develop` branch, the CI automatically runs all steps to produce a draft release on github.
+The idea is that by pushing into the `develop` branch, the CI automatically runs all steps to produce a draft release on github.
 
 Thus, for creating a release you need to do:
   - merge your feature to `develop`
