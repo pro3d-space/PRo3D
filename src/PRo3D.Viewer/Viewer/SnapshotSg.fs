@@ -39,8 +39,8 @@ open PRo3D.Core.Surface
 open PRo3D.Viewer
 
 open PRo3D.SimulatedViews
-open PRo3D.Minerva
-open PRo3D.Linking
+//open PRo3D.Minerva
+//open PRo3D.Linking
  
 open Aether
 open Aether.Operators
@@ -233,8 +233,8 @@ module SnapshotSg =
                     m.navigation.camera.view
                 |> Sg.map ViewPlanMessage           
 
-            let solText = 
-                MinervaApp.getSolBillboards m.minervaModel m.navigation.camera.view near |> Sg.map MinervaActions
+            //let solText = 
+            //    MinervaApp.getSolBillboards m.minervaModel m.navigation.camera.view near |> Sg.map MinervaActions
                 
             let traverse = 
                 [ 
@@ -271,40 +271,40 @@ module SnapshotSg =
                 refSystem; 
                 viewPlans; 
                 homePosition; 
-                solText; 
+                //solText; 
                 annotationTexts |> Sg.noEvents
                 heightValidation
                 scaleBarTexts
                 traverse
             ] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
-        let minervaSg =
-            let minervaFeatures = 
-                MinervaApp.viewFeaturesSg m.minervaModel |> Sg.map MinervaActions 
+        //let minervaSg =
+        //    let minervaFeatures = 
+        //        MinervaApp.viewFeaturesSg m.minervaModel |> Sg.map MinervaActions 
 
-            let filterLocation =
-                MinervaApp.viewFilterLocation m.minervaModel |> Sg.map MinervaActions
+        //    let filterLocation =
+        //        MinervaApp.viewFilterLocation m.minervaModel |> Sg.map MinervaActions
 
-            Sg.ofList [minervaFeatures] //;filterLocation]
+        //    Sg.ofList [minervaFeatures] //;filterLocation]
 
         //let all = m.minervaModel.data.features
-        let selected = 
-            m.minervaModel.session.selection.highlightedFrustra
-            |> AList.ofASet
-            |> AList.toAVal 
-            |> AVal.map (fun x ->
-                x
-                |> IndexList.take 500
-            )
-            |> AList.ofAVal
-            |> ASet.ofAList
+        //let selected = 
+        //    m.minervaModel.session.selection.highlightedFrustra
+        //    |> AList.ofASet
+        //    |> AList.toAVal 
+        //    |> AVal.map (fun x ->
+        //        x
+        //        |> IndexList.take 500
+        //    )
+        //    |> AList.ofAVal
+        //    |> ASet.ofAList
         
-        let linkingSg = 
-            PRo3D.Linking.LinkingApp.view 
-                m.minervaModel.hoveredProduct 
-                selected 
-                m.linkingModel
-            |> Sg.map LinkingActions
+        //let linkingSg = 
+        //    PRo3D.Linking.LinkingApp.view 
+        //        m.minervaModel.hoveredProduct 
+        //        selected 
+        //        m.linkingModel
+        //    |> Sg.map LinkingActions
 
         let heightValidationDiscs =
             HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
@@ -334,9 +334,9 @@ module SnapshotSg =
 
         let depthTested = 
             [
-                linkingSg; 
+                //linkingSg; 
                 annotationSg; 
-                minervaSg;
+                //minervaSg;
                 heightValidationDiscs; 
                 scaleBars; 
                 sceneObjects; 

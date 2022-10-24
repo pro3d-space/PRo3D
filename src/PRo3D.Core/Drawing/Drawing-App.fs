@@ -137,7 +137,7 @@ module DrawingApp =
                                 let numOfSamples = (vec.Length / model.samplingDistance) |> floor |> int
 
                                 let points = [ 
-                                    for s in 0 .. numOfSamples do
+                                    for s in 1 .. numOfSamples do
                                         let p = newSegment.startPoint + dir * (float s) * model.samplingDistance // world space
 
                                         Log.line "Spawing p: %A at %A" s ((float s) * model.samplingDistance)
@@ -282,6 +282,7 @@ module DrawingApp =
         | ExportAsGeoJSON _     -> false
         | ExportAsAnnotations _ -> false
         | ExportAsCsv _         -> false
+        | ExportAsProfileCsv _  -> false
         | ExportAsGeoJSON_xyz _ -> false
         | LegacySaveVersioned _ -> false
         | _ -> true
@@ -312,8 +313,12 @@ module DrawingApp =
             Log.warn "[Drawing] exportGeoJson failed with %A" e
 
     // exports geojson, optionally using XYZ format
-    let exportGeoJsonStream  (xyz : bool) (bigConfig  : 'a) (smallConfig : SmallConfig<'a> )  
-                             (model : DrawingModel) (path : string) =
+    let exportGeoJsonStream  
+        (xyz         : bool) 
+        (bigConfig   : 'a) 
+        (smallConfig : SmallConfig<'a>)
+        (model       : DrawingModel) 
+        (path        : string) =
 
         let annotations =
             model.annotations.flat
@@ -325,8 +330,6 @@ module DrawingApp =
 
         GeoJSONExport.writeStreamGeoJSON_XYZ path annotations
 
-
-
     let finish (bigConfig  : 'a)  (smallConfig : SmallConfig<'a> ) (model : DrawingModel) (view : CameraView) =
         let up     = smallConfig.up.Get(bigConfig)
         let north  = smallConfig.north.Get(bigConfig)
@@ -334,7 +337,23 @@ module DrawingApp =
 
         (finishAndAppend up north planet view model) |> stash
 
-   
+    type ProfilePoint = {
+        position  : V3d
+        elevation : double
+    }
+
+    let rec accumulateDistance 
+        (input    : list<ProfilePoint * ProfilePoint>)
+        (distance : double) 
+        : list<double * double> =
+        
+        match input with
+        | (a, b) :: [] ->
+            [(distance, a.elevation); (distance + Vec.distance a.position b.position, b.elevation)]
+        | (a, b) :: vs ->
+            (distance, a.elevation) :: (accumulateDistance vs (distance + (Vec.distance a.position b.position)))
+        | _ ->
+            []
 
     let rec update<'a> 
         (bigConfig   : 'a) 
@@ -460,7 +479,7 @@ module DrawingApp =
                     model
             | ExportAsAnnotations path, _, _ ->
                 Drawing.IO.saveVersioned model path
-            | ExportAsCsv p, _, _ ->           
+            | ExportAsCsv p, _, _ ->
                 let up = smallConfig.up.Get(bigConfig)
                 let lookups = GroupsApp.updateGroupsLookup model.annotations
                 let annotations =
@@ -468,11 +487,51 @@ module DrawingApp =
                     |> Leaf.toAnnotations
                     |> HashMap.toList 
                     |> List.map snd
-                    |> List.filter(fun a -> a.visible)                            
+                    |> List.filter(fun a -> a.visible)
 
                 CSVExport.writeCSV lookups up p annotations
                         
                 model      
+            | ExportAsProfileCsv p, _, _ ->
+                //get selected annotation
+                let selected =  GroupsModel.tryGetSelectedAnnotation model.annotations
+                match selected with
+                | Some a -> 
+                    //convert points to profile
+                    let points = a |> Annotation.retrievePoints
+                        
+                    //transform to distance elevation pairs
+                    let planet = smallConfig.planet.Get(bigConfig)
+                    let transformed =
+                        points 
+                        |> List.map(fun x -> 
+                            let k = CooTransformation.getLatLonAlt planet x
+
+                            let elevation = k.altitude
+                            let projected = CooTransformation.getXYZFromLatLonAlt { k with altitude = 0 } planet
+                            { position =  projected; elevation = elevation }
+                        ) |> List.pairwise                    
+                    
+                    let profile =
+                        accumulateDistance transformed 0.0
+                    
+                    let csvTable = 
+                        profile
+                        |> List.map (fun (d,e) -> {| distance = d; elevation = e |})
+                        |> CSV.Seq.csv "," true id
+
+                    if p.IsEmptyOrNull() |> not then 
+                        csvTable |> CSV.Seq.write p
+
+                    Log.line "[DrawingApp] wrote %A to %s" profile p
+                | None -> 
+                    Log.line "please select annotation to export"
+                    
+                
+
+                //write csv
+
+                model
             | ExportAsGeoJSON path, _, _ ->        
         
                 exportGeoJson false bigConfig smallConfig model path
@@ -495,9 +554,10 @@ module DrawingApp =
                 let annotations =
                     model.annotations.flat
                     |> Leaf.toAnnotations
-                    |> HashMap.toList 
-                    |> List.map snd
-                    |> List.filter(fun a -> a.visible)
+                    |> HashMap.toList
+                    |> List.choose(fun (_, v) ->
+                        if v.visible then Some v else None
+                    )
 
                 AttitudeExport.writeAttitudeJson path (smallConfig.up.Get(bigConfig)) annotations
 

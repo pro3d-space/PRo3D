@@ -425,6 +425,9 @@ module Gui =
         let jsExportAnnotationsAsCSVDialog =
             "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
 
+        let jsExportProfileAsCSVDialog =
+            "top.aardvark.dialog.showSaveDialog({ title: 'Export Profile (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
+
         let jsExportAnnotationsAsGeoJSONDialog =
             "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
               
@@ -463,6 +466,13 @@ module Gui =
                                 clientEvent "onclick" jsExportAnnotationsAsCSVDialog
                             ] [
                                 text "visible as table (*.csv)"
+                            ]     
+                            div [ 
+                                clazz "ui inverted item"
+                                Dialogs.onSaveFile ExportAsProfileCsv
+                                clientEvent "onclick" jsExportProfileAsCSVDialog
+                            ]  [
+                                text "selected as profile (*.csv)"
                             ]     
                             div [ 
                                 clazz "ui inverted item"
@@ -1054,8 +1064,8 @@ module Gui =
                                 yield (ComparisonApp.viewLegend m.scene.comparisonApp)
                                 yield scalarsColorLegend m
                                 yield selectionRectangle m
-                                yield PRo3D.Linking.LinkingApp.sceneOverlay m.linkingModel |> UI.map LinkingActions
-                                                                                           |> UI.map ViewerMessage
+                                //yield PRo3D.Linking.LinkingApp.sceneOverlay m.linkingModel |> UI.map LinkingActions
+                                //                                                           |> UI.map ViewerMessage
                             }
                         )
                     ]                
@@ -1124,30 +1134,30 @@ module Gui =
                 require (viewerDependencies) (body bodyAttributes [Config.configUI m |> UI.map ViewerMessage])
             | Some "viewplanner" -> 
                 require (viewerDependencies) (body bodyAttributes [ViewPlanner.viewPlannerUI m |> UI.map ViewerMessage])
-            | Some "minerva" -> 
-               //let pos = m.scene.navigation.camera.view |> AVal.map(fun x -> x.Location)
-                let minervaItems = 
-                    PRo3D.Minerva.MinervaApp.viewFeaturesGui m.minervaModel |> List.map (UI.map MinervaActions)
+            //| Some "minerva" -> 
+            //   //let pos = m.scene.navigation.camera.view |> AVal.map(fun x -> x.Location)
+            //    let minervaItems = 
+            //        PRo3D.Minerva.MinervaApp.viewFeaturesGui m.minervaModel |> List.map (UI.map MinervaActions)
 
-                let linkingItems =
-                    [
-                        Html.SemUi.accordion "Linked Products" "Image" false [
-                            PRo3D.Linking.LinkingApp.viewSideBar m.linkingModel |> UI.map LinkingActions
-                        ]
-                    ]
+            //    let linkingItems =
+            //        [
+            //            Html.SemUi.accordion "Linked Products" "Image" false [
+            //                PRo3D.Linking.LinkingApp.viewSideBar m.linkingModel |> UI.map LinkingActions
+            //            ]
+            //        ]
 
-                require (viewerDependencies @ Html.semui) (
-                    body bodyAttributes (minervaItems  @ linkingItems
-                                            |> List.map ( UI.map ViewerMessage))
-                )
-            | Some "linking" ->
-                require (viewerDependencies) (
-                    body bodyAttributes [
-                        PRo3D.Linking.LinkingApp.viewHorizontalBar m.minervaModel.session.selection.highlightedFrustra m.linkingModel 
-                                |> UI.map LinkingActions
-                                |> UI.map ViewerMessage
-                    ]
-                )
+            //    require (viewerDependencies @ Html.semui) (
+            //        body bodyAttributes (minervaItems  @ linkingItems
+            //                                |> List.map ( UI.map ViewerMessage))
+            //    )
+            //| Some "linking" ->
+            //    require (viewerDependencies) (
+            //        body bodyAttributes [
+            //            PRo3D.Linking.LinkingApp.viewHorizontalBar m.minervaModel.session.selection.highlightedFrustra m.linkingModel 
+            //                    |> UI.map LinkingActions
+            //                    |> UI.map ViewerMessage
+            //        ]
+            //    )
             //| Some "corr_logs" ->
             //    CorrelationPanelsApp.viewLogs m.correlationPlot
             //    |> UI.map CorrelationPanelMessage

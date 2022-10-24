@@ -32,7 +32,7 @@ open Adaptify
 
 open Aether
 open Aether.Operators
-open PRo3D.Minerva
+//open PRo3D.Minerva
 
 #nowarn "0686"
 
@@ -128,9 +128,9 @@ type ViewerAction =
 | Translate                       of string * TrafoController.Action
 | Rotate                          of string * TrafoController.Action
 | SurfaceActions                  of SurfaceAppAction
-| MinervaActions                  of PRo3D.Minerva.MinervaAction
+//| MinervaActions                  of PRo3D.Minerva.MinervaAction
 //| ScaleToolAction                 of ScaleToolAction
-| LinkingActions                  of PRo3D.Linking.LinkingAction    
+//| LinkingActions                  of PRo3D.Linking.LinkingAction    
 | SetTabMenu                      of TabMenu
 | OpenSceneFileLocation           of string
 | NoAction                        of string
@@ -474,8 +474,8 @@ type Model = {
     viewPortSizes    : HashMap<string, V2i>
     overlayFrustum   : Option<Frustum>
     
-    minervaModel     : PRo3D.Minerva.MinervaModel
-    linkingModel     : PRo3D.Linking.LinkingModel
+    //minervaModel     : PRo3D.Minerva.MinervaModel
+    //linkingModel     : PRo3D.Linking.LinkingModel
     //correlationPlot : CorrelationPanelModel
     //pastCorrelation : Option<CorrelationPanelModel>
 
@@ -625,13 +625,13 @@ module Viewer =
                     cam        = CameraController.initial.view
                 }
            
-            minervaModel = MinervaModel.initial // CHECK-merge PRo3D.Minerva.Initial.model msgBox2
+            //minervaModel = MinervaModel.initial // CHECK-merge PRo3D.Minerva.Initial.model msgBox2
 
             //scaleTools = 
             //    {
             //         planeExtrude = PlaneExtrude.App.initial
             //    }
-            linkingModel = PRo3D.Linking.LinkingModel.initial
+            //linkingModel = PRo3D.Linking.LinkingModel.initial
             
            // correlationPlot = CorrelationPanelModel.initial
             //pastCorrelation = None

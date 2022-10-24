@@ -932,3 +932,21 @@ module Annotation =
 
     let initial =
         make Projection.Viewpoint None Geometry.Polyline { c = C4b.Magenta } Initial.thickness ""
+
+    let retrievePoints (a : Annotation) =
+        let points = 
+            if a.segments.Count = 0 then
+                a.points |> IndexList.toSeq
+            else
+                a.segments 
+                |> IndexList.toSeq 
+                |> Seq.map(fun x -> 
+                    seq {
+                        yield x.startPoint
+                        yield! (x.points |> IndexList.toSeq)
+                        yield x.endPoint
+                    }
+                ) 
+                |> Seq.concat
+
+        points |> Seq.toList

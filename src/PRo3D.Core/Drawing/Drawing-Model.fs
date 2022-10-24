@@ -62,6 +62,7 @@ type DrawingAction =
 | PickAnnotation         of SceneHit * Guid
 | PickDirectly           of Guid
 | ExportAsCsv            of string
+| ExportAsProfileCsv     of string
 | ExportAsGeoJSON        of string
 | ExportAsGeoJSON_xyz    of string
 | ContinuouslyGeoJson    of string

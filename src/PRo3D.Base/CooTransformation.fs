@@ -54,7 +54,9 @@ module CooTransformation =
           latitude  : double
           altitude  : double
           radian    : double
-        }
+    } with
+        member x.asV4d =
+            V4d(x.longitude, x.latitude, x.altitude, x.radian)
 
 
     let initCooTrafo (appData : string) = 
