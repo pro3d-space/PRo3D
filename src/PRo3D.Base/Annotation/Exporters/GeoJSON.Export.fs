@@ -47,13 +47,7 @@ module GeoJSONExport =
 
         // add sampled points to the export
         let points = 
-            if a.segments.Count = 0 then
-                a.points |> IndexList.toList
-            else
-                a.segments 
-                |> IndexList.toList 
-                |> List.map(fun x -> x.points |> IndexList.toList) 
-                |> List.concat
+            a |> Annotation.retrievePoints
         
         let coordinates = 
             match planet with 
