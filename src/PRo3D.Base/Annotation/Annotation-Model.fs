@@ -936,17 +936,17 @@ module Annotation =
     let retrievePoints (a : Annotation) =
         let points = 
             if a.segments.Count = 0 then
-                a.points |> IndexList.toList
+                a.points |> IndexList.toSeq
             else
                 a.segments 
-                |> IndexList.toList 
-                |> List.map(fun x -> 
-                    [
+                |> IndexList.toSeq 
+                |> Seq.map(fun x -> 
+                    seq {
                         yield x.startPoint
-                        yield! (x.points |> IndexList.toList)
+                        yield! (x.points |> IndexList.toSeq)
                         yield x.endPoint
-                    ]
+                    }
                 ) 
-                |> List.concat
+                |> Seq.concat
 
-        points
+        points |> Seq.toList

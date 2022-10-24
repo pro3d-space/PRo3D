@@ -554,9 +554,10 @@ module DrawingApp =
                 let annotations =
                     model.annotations.flat
                     |> Leaf.toAnnotations
-                    |> HashMap.toList 
-                    |> List.map snd
-                    |> List.filter(fun a -> a.visible)
+                    |> HashMap.toList
+                    |> List.choose(fun (_, v) ->
+                        if v.visible then Some v else None
+                    )
 
                 AttitudeExport.writeAttitudeJson path (smallConfig.up.Get(bigConfig)) annotations
 
