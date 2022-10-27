@@ -689,7 +689,7 @@ module ViewerApp =
                 m
                 |> ViewerIO.loadLastFootPrint
                 |> updateSceneWithNewSurface    
-        | ImportDiscoveredSurfaces sl,_,_ -> 
+        | DiscoverAndImportOpcs sl,_,_ -> 
             //"" |> UpdateUserFeedback |> ViewerAction |> mailbox.Post
             match sl with
             | [] -> m
@@ -723,7 +723,7 @@ module ViewerApp =
                     id      = System.Guid.NewGuid().ToString()
                     text    = "Importing OPCs..."
                     timeout = 5000
-                    msg     = (ImportDiscoveredSurfaces sl)
+                    msg     = (DiscoverAndImportOpcs sl)
                 }
                     
                 m |> UserFeedback.queueFeedback feedback

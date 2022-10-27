@@ -93,7 +93,7 @@ type ViewerAction =
 | SetFrustum                      of Frustum
 | SetRenderViewportSize           of V2i
 | ImportSurface                   of list<string>
-| ImportDiscoveredSurfaces        of list<string>
+| DiscoverAndImportOpcs        of list<string>
 | ImportDiscoveredSurfacesThreads of list<string>
 | ImportObject                    of list<string>
 | ImportSceneObject               of list<string>

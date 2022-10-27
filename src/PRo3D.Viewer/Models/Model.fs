@@ -64,6 +64,8 @@ type StartupArgs = {
     startEmpty            : bool
     useAsyncLoading       : bool
     serverMode            : bool
+    port                  : Option<string>
+    disableCors           : bool
     magnificationFilter   : bool
     remoteApp             : bool
 
@@ -85,7 +87,10 @@ type StartupArgs = {
           data_samples          = None
           backgroundColor       = "#222222"
           useMapping            = "true"
-          verbose               = false      }
+          verbose               = false      
+          disableCors           = false
+          port                  = None
+      }
 
 
 [<ModelType>]

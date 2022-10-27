@@ -1,0 +1,22 @@
+﻿POST http://localhost:4321/api/loadScene
+Content-Type: application/json
+
+{
+	// in the future this could be a processing ID and pro3d loads data
+	// from webserver/FTP or by other means
+	// since the data could be large, pro3d would need to show a 
+	// loading screen etc....
+	// anyhow this alone should be cool for research and demos
+	"sceneFile": "D:/pro3d/VictoriaCrater/vcviewplanenr.pro3d"
+}
+
+###
+
+POST http://localhost:4321/api/importOpc
+Content-Type: application/json
+
+{
+	"folders": [
+		"D:/pro3d/Job_0121_000760_MSLMST_0002_opc"
+	]
+}

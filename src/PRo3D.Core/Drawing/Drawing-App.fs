@@ -140,7 +140,7 @@ module DrawingApp =
                                     for s in 1 .. numOfSamples do
                                         let p = newSegment.startPoint + dir * (float s) * model.samplingDistance // world space
 
-                                        Log.line "Spawing p: %A at %A" s ((float s) * model.samplingDistance)
+                                        Log.line "[Drawing] Spawning p: %A at %A" s ((float s) * model.samplingDistance)
 
                                         match samplePoint p with
                                         | None -> ()
