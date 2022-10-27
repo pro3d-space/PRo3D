@@ -37,8 +37,8 @@ nuget Aardvark.UI                           ~> 5.3.1
 nuget Aardvark.UI.Primitives                ~> 5.3.1
 nuget Aardvark.Service.Giraffe              ~> 5.3.1
 
-nuget Adaptify.MSBuild                      = 1.1.5
-nuget Adaptify.Core                         = 1.1.5
+nuget Adaptify.MSBuild                      ~> 1.1.8
+nuget Adaptify.Core                         ~> 1.1.8
 
 
 nuget Aardvark.Data.Wavefront               ~> 5.2.5
