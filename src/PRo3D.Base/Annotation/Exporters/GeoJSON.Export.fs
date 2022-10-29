@@ -126,6 +126,8 @@ module GeoJSONExport =
                                 ("id", annotation.key.ToString() |> Json.String)
                                 ("color", annotation.color.c.ToString() |> Json.String)
                                 ("geometry", annotation.geometry.ToString() |> Json.String)
+                                ("text", annotation.text |> Json.String)
+                                ("surfaceName", annotation.surfaceName |> Json.String)
                                 // extend as desired. https://github.com/pro3d-space/PRo3D/issues/185
                             ]
                     }
