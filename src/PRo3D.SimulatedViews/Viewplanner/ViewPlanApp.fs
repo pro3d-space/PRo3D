@@ -8,6 +8,7 @@ open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
 
 open Aardvark.Base
+open Aardvark.electron.shell
 open Aardvark.Rendering
 open Aardvark.Application
 open Aardvark.Geometry
@@ -658,7 +659,7 @@ module ViewPlanApp =
             match scenepath with
             | Some sp -> 
                 let fpPath = FootPrint.getFootprintsPath sp
-                if (Directory.Exists fpPath) then Process.Start("explorer.exe", fpPath) |> ignore
+                if (Directory.Exists fpPath) then shell.openPath(fpPath) |> ignore
                 outerModel, model
             | None -> outerModel, model        
 

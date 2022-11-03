@@ -6,6 +6,7 @@ open System.Diagnostics
 open FSharp.Data.Adaptive
 
 open Aardvark.Base
+open Aardvark.electron.shell
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.Rendering
@@ -637,7 +638,7 @@ module SurfaceApp =
                     let path = Files.getSurfaceFolder sf scenePath
                     match path with
                     | Some p -> 
-                        Process.Start("explorer.exe", p) |> ignore
+                        shell.openPath(p)  |> ignore
                         model
                     | None -> model
                 | _ -> failwith "can only contain surfaces"
@@ -973,7 +974,7 @@ module SurfaceApp =
                     //        let path = Files.getSurfaceFolder sf scenePath
                     //        match path with
                     //        | Some p -> 
-                    //            Process.Start("explorer.exe", p) |> ignore
+                    //            shell.openPath(p)  |> ignore
                     //            model
                     //        | None -> model
                     //    | _ -> failwith "can only contain surfaces"

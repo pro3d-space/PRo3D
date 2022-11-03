@@ -2,6 +2,7 @@ namespace PRo3D
 
 open Aardvark.Base
 open Aardvark.Application
+open Aardvark.electron.shell
 open Aardvark.UI
 open Aardvark.VRVis
 open FSharp.Data.Adaptive
@@ -473,7 +474,7 @@ module ViewPlanApp =
         match scenepath with
         | Some sp -> 
           let fpPath = FootPrint.getFootprintsPath sp
-          if (Directory.Exists fpPath) then Process.Start("explorer.exe", fpPath) |> ignore
+          if (Directory.Exists fpPath) then shell.openPath(fpPath) |> ignore
           outerModel, model
         | None -> outerModel, model        
 

@@ -11,6 +11,7 @@ open Adaptify.FSharp.Core
 
 open Aardvark.Base
 open Aardvark.Base.Geometry
+open Aardvark.electron.shell
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
 open Aardvark.Rendering
@@ -1303,7 +1304,7 @@ module ViewerApp =
             { m with viewerMode = vm }
         | OpenSceneFileLocation p,_,_ ->                
             let argument = sprintf "/select, \"%s\"" p
-            Process.Start("explorer.exe", argument) |> ignore
+            shell.openPath(argument) |> ignore
             m
         | NoAction s,_,_ -> 
             if s.IsEmptyOrNull() |> not then 

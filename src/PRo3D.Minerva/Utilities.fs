@@ -5,6 +5,7 @@ open System.IO
 open System.Diagnostics
 
 open Aardvark.Base
+open Aardvark.electron.shell
 open Aardvark.Rendering
 open Aardvark.Rendering.Text 
 open FSharp.Data.Adaptive
@@ -49,7 +50,7 @@ module Files =
 
     let openExplorer filePath =
         let argument = sprintf "/select, \"%s\"" filePath
-        Process.Start("explorer.exe", argument) |> ignore
+        shell.openPath(argument) |> ignore
 
     let downloadAndOpenTif (featureId:string) (model:MinervaModel) =
         // https://minerva.eox.at/store/datafile/FRB_495137799RADLF0492626FHAZ00323M1/frb_495137799radlf0492626fhaz00323m1.tif

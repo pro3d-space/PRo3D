@@ -6,6 +6,7 @@ open Aardvark.UI
 open Aardvark.VRVis
 open FSharp.Data.Adaptive
 open Adaptify.FSharp.Core
+open Aardvark.electron.shell
 open Aardvark.SceneGraph.IO
 open Aardvark.SceneGraph.SgPrimitives
 open Aardvark.Rendering
@@ -156,7 +157,7 @@ module SceneObjectsApp =
             let test = Path.GetDirectoryName so.importPath
             match File.Exists(so.importPath) with
             | true -> 
-                Process.Start("explorer.exe", test) |> ignore
+                shell.openPath(test) |> ignore
                 model
             | false -> model
         | SelectSO id ->

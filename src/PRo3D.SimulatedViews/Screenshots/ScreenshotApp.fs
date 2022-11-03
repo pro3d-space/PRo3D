@@ -1,6 +1,7 @@
 ﻿namespace PRo3D.SimulatedViews
 
 open Aardvark.Base
+open Aardvark.electron.shell
 open Aardvark.UI
 open PRo3D.Base
 open System.IO
@@ -70,7 +71,7 @@ module ScreenshotApp =
         | SetImageFormat format ->
             { m with imageFormat = format }
         | OpenFolder ->
-            System.Diagnostics.Process.Start("explorer.exe", outputPath) |> ignore
+            shell.openPath(outputPath) |> ignore
             m
 
     let view (m : AdaptiveScreenshotModel) = 

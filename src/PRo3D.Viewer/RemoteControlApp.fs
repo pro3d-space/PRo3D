@@ -4,6 +4,7 @@ open System
 open System.Diagnostics
 open FSharp.Data.Adaptive    
 open Aardvark.Base
+open Aardvark.electron.shell
 open Aardvark.UI
 open PRo3D.Base
 open PRo3D.Core
@@ -149,7 +150,7 @@ module RemoteControlApp =
                 System.IO.File.Delete "./remote.mdl"
                 m
             | OpenFolder path ->
-                Process.Start("explorer.exe", path) |> ignore
+                shell.openPath(path) |> ignore
                 m
             | RoverMessage a ->                
                 let m = { m with Rover = RoverApp.update m.Rover a }                                
