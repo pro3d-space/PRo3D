@@ -9,11 +9,20 @@ module RemoteApi =
         member x.LoadScene(fullPath : string) = 
             ViewerAction.LoadScene fullPath |> emit
 
+        member x.SaveScene(fullPath : string) = 
+            ViewerAction.SaveScene fullPath |> emit
+
         member x.ImportOpc(folders : array<string>) =
             List.ofArray folders |> ViewerAction.DiscoverAndImportOpcs |> emit
 
 
     type LoadScene = 
+        {
+            // absolute path
+            sceneFile : string
+        }
+
+    type SaveScene = 
         {
             // absolute path
             sceneFile : string
@@ -50,6 +59,14 @@ module RemoteApi =
                     RequestErrors.BAD_REQUEST "Oops, something went wrong here!"
             )
 
+        let saveScene (api : Api) = 
+            path "/saveScene" >=> request (fun r -> 
+                let str = r.rawForm |> getUTF8
+                let command : SaveScene = str |> JsonSerializer.Deserialize
+                api.SaveScene command.sceneFile 
+                Successful.OK "done"
+            )
+
         let importOpc (api : Api) = 
             path "/importOpc" >=> request (fun r -> 
                 let str = r.rawForm |> getUTF8
@@ -62,4 +79,5 @@ module RemoteApi =
             choose [
                 loadScene api
                 importOpc api
+                saveScene api
             ]

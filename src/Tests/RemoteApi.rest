@@ -20,3 +20,12 @@ Content-Type: application/json
 		"D:/pro3d/Job_0121_000760_MSLMST_0002_opc"
 	]
 }
+
+###
+
+POST http://localhost:4321/api/saveScene
+Content-Type: application/json
+
+{
+	"sceneFile": "D:/pro3d/VictoriaCrater/vcviewplanenr_updated.pro3d"
+}
