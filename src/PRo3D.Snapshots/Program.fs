@@ -160,6 +160,8 @@ let startApplication (startupArgs : CLStartupArgs) =
                 useMapping = "true"
                 data_samples = None
                 backgroundColor = "black"
+                port = None
+                disableCors = false
             }
 
         let port = getFreePort()
