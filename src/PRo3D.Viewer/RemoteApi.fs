@@ -1,6 +1,7 @@
 ﻿namespace PRo3D.Viewer
 
 open PRo3D.Viewer
+open PRo3D.Core
 
 module RemoteApi =
 
@@ -14,6 +15,10 @@ module RemoteApi =
 
         member x.ImportOpc(folders : array<string>) =
             List.ofArray folders |> ViewerAction.DiscoverAndImportOpcs |> emit
+
+        member x.LocateSurfaces(fullPaths : array<string>) =
+            ViewerAction.SurfaceActions (fullPaths |> Array.toList |> Surface.ChangeImportDirectories) |> emit
+
 
 
     type LoadScene = 
@@ -29,6 +34,12 @@ module RemoteApi =
         }
 
     type ImportOpc = 
+        {
+            // absolute path
+            folders : array<string>
+        }
+
+    type ChangeImportDirectories = 
         {
             // absolute path
             folders : array<string>
@@ -59,6 +70,14 @@ module RemoteApi =
                     RequestErrors.BAD_REQUEST "Oops, something went wrong here!"
             )
 
+        let discoverSurfaces (api : Api) = 
+            path "/discoverSurfaces" >=> request (fun r -> 
+                let str = r.rawForm |> getUTF8
+                let command : ChangeImportDirectories = str |> JsonSerializer.Deserialize
+                api.LocateSurfaces(command.folders)
+                Successful.OK "done"
+            )
+
         let saveScene (api : Api) = 
             path "/saveScene" >=> request (fun r -> 
                 let str = r.rawForm |> getUTF8
@@ -80,4 +99,5 @@ module RemoteApi =
                 loadScene api
                 importOpc api
                 saveScene api
+                discoverSurfaces api
             ]
