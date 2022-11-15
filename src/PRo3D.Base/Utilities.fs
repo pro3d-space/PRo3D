@@ -310,8 +310,9 @@ module Shader =
             restartStrip()
         }
 
+
     let markPatchBorders (v : Effects.Vertex) =
-        fragment {    
+        fragment { 
             if uniform?selected then
                 if   (v.tc.X >= 0.99) && (v.tc.X <= 1.0) || (v.tc.X >= 0.0) && (v.tc.X <= 0.01) then
                     return V4d(0.69, 0.85, 0.0, 1.0)

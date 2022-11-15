@@ -222,11 +222,12 @@ module Sg =
         let trafo = { TrafoController.initial with pose = pose; previewTrafo = Pose.toTrafo pose; mode = TrafoMode.Local }
     
         let sgSurface = {
-                surface    = s.guid
-                sceneGraph = sg
-                globalBB   = bb
-                picking    = Picking.KdTree kd
-                trafo      = trafo
+                surface     = s.guid
+                sceneGraph  = sg
+                globalBB    = bb
+                picking     = Picking.KdTree kd
+                trafo       = trafo
+                hasTextures = true
                 //transformation = Init.Transformations
             }
         sgSurface

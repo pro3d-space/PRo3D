@@ -363,6 +363,8 @@ module ViewerUtils =
                         return (fppm * fpvm) // * ts.Forward
                     } 
 
+                let useTexcoords = surface.hasTextures
+
                 let structuralOnOff (visible : aval<bool>) (sg : ISg<_>) : ISg<_> = 
                     visible 
                     |> AVal.map (fun visible -> 
@@ -377,6 +379,7 @@ module ViewerUtils =
                     |> Sg.trafo trafo //(Transformations.fullTrafo surf refsys)
                     |> Sg.modifySamplerState DefaultSemantic.DiffuseColorTexture samplerDescription
                     |> Sg.uniform "selected"      (isSelected) // isSelected
+                    |> Sg.uniform "useTexcoords" (AVal.constant false) //(useTexcoords) 
                     |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
                     |> addAttributeFalsecolorMappingParameters surf
                     |> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
@@ -463,7 +466,9 @@ module ViewerUtils =
                   }
           }
 
+
     
+    //let mutable useTC = true
 
     let surfaceEffect =
         Effect.compose [
@@ -472,12 +477,16 @@ module ViewerUtils =
             stableTrafoTest             |> toEffect
 
             triangleFilterX                |> toEffect
-            Shader.OPCFilter.improvedDiffuseTexture |> toEffect
+
             fixAlpha |> toEffect
+
+            //if useTC then
+            //Shader.OPCFilter.improvedDiffuseTexture |> toEffect  //XXLAURA
+            PRo3D.Base.Shader.markPatchBorders |> toEffect //XXLAURA
+           
             
             // selection coloring makes gamma correction pointless. remove if we are happy with markPatchBorders
             // Shader.selectionColor          |> toEffect
-            PRo3D.Base.Shader.markPatchBorders |> toEffect
             //PRo3D.Base.Shader.differentColor   |> toEffect
                         
             OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
@@ -502,6 +511,7 @@ module ViewerUtils =
                 fun x -> ( x 
                     |> AMap.map(fun _ sf -> 
                         let bla = m.scene.surfacesModel.surfaces.flat
+
                         viewSingleSurfaceSg 
                             sf 
                             bla 
@@ -518,6 +528,7 @@ module ViewerUtils =
                     |> ASet.map snd                     
                 )                
             )
+
         //grouped   
         let sgs =
             alist {        
@@ -549,10 +560,21 @@ module ViewerUtils =
             |> Sg.set
             |> (camera |> Sg.camera)
 
+    let checkHasTexture (sf : amap<Guid, AdaptiveSgSurface>) =
+        let t = sf |> AMap.toAVal 
+        t |> AVal.map( fun x -> 
+                        let tt =
+                            x 
+                            |> HashMap.toValueList
+                            |> List.map (fun surf -> if (surf.hasTextures |> AVal.force) then Some true else None)
+                            |> List.filter Option.isSome
+                        if tt.IsEmpty then false else true) |> AVal.force
+                                //|> AVal.map(fun hastc -> if (hastc |> not) then useTC <- false))
+
     let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (allowFootprint : bool) (m:AdaptiveModel)  =
         let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true
-
+        //let mutable useTC = true
         //avoids kdtree intersections for certain interactions
         let surfacePicking = 
             m.interaction 
@@ -566,8 +588,12 @@ module ViewerUtils =
         let refSystem = m.scene.referenceSystem
         let grouped = 
             sgGrouped |> AList.map(
-                fun x -> ( x 
-                    |> AMap.map(fun _ surface ->                         
+                
+                fun x ->
+                //let useTC = checkHasTexture x
+                ( x 
+                    |> AMap.map(fun _ surface ->
+                        
                         viewSingleSurfaceSg 
                             surface 
                             m.scene.surfacesModel.surfaces.flat
@@ -580,25 +606,27 @@ module ViewerUtils =
                             m.scene.viewPlans.selectedViewPlan
                             usehighlighting filterTexture
                             allowFootprint
+                        
                        )
                     |> AMap.toASet 
                     |> ASet.map snd                     
-                )                
+                ) //, useTC                
             )
 
         //grouped   
         let last = grouped |> AList.tryLast
-
+        
         alist {                    
-            for set in grouped do            
+            for set in grouped do  
                 let sg = 
-                    set 
+                    set
                     |> Sg.set
-                    |> Sg.effect [surfaceEffect]
+                    |> Sg.effect [surfaceEffect] //(snd set) ]
                     |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-                    |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()
+                    |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
+                    
 
-                yield RenderCommand.SceneGraph sg
+                yield RenderCommand.SceneGraph (sg)
 
                 //if i = c then //now gets rendered multiple times
                  // assign priorities globally, or for each anno and make sets

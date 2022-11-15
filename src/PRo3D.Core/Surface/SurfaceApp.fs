@@ -181,6 +181,7 @@ module SurfaceUtils =
                 globalBB    = bb
                 sceneGraph  = sg
                 picking     = Picking.KdTree(kdTrees |> HashMap.ofList) //Picking.PickMesh meshes
+                hasTextures = true
                 //transformation = Init.Transformations
             }
                  
@@ -248,17 +249,17 @@ module SurfaceUtils =
                         if hasTexture && hasTexCoords then
 
                             let texCoordsArray = 
-                                (mesh.FaceVertexAttributes.[-DefaultSemantic.DiffuseColorCoordinates].ToArrayOfT<V2d>())
+                                (mesh.FaceVertexAttributes.[DefaultSemantic.DiffuseColorCoordinates].ToArrayOfT<V2d>())
                                 |> Array.map(fun f -> V2d(f.X, 1.0-f.Y))
 
-                            mesh.FaceVertexAttributes.[-DefaultSemantic.DiffuseColorCoordinates] <- texCoordsArray
-                          
+                            mesh.FaceVertexAttributes.[DefaultSemantic.DiffuseColorCoordinates] <- texCoordsArray
 
                         mesh.GetIndexedGeometry(PolyMesh.GetGeometryOptions.Default))
 
                 let isgs = 
                     igs 
                     |> List.map (fun ig -> 
+                        let igsg = ig.Sg //|> Aardvark.SceneGraph.SgFSharp.Sg.texture DefaultSemantic.DiffuseColorTexture (AVal.constant (DefaultTextures.blackTex.GetValue()))
                         textureOption
                         |> Option.map(fun potPath -> 
                             potPath
@@ -269,8 +270,8 @@ module SurfaceUtils =
                                     FileTexture(texPath,config) :> ITexture
                                 ig.Sg
                                 |> Aardvark.SceneGraph.SgFSharp.Sg.texture DefaultSemantic.DiffuseColorTexture (AVal.constant texture))
-                            |> Option.defaultValue ig.Sg)
-                        |> Option.defaultValue ig.Sg
+                            |> Option.defaultValue igsg ) //ig.Sg)
+                        |> Option.defaultValue igsg //ig.Sg
                         |> Sg.noEvents)
                   
                 isgs 
@@ -467,6 +468,7 @@ module SurfaceUtils =
                 globalBB        = bb
                 sceneGraph      = sg
                 picking         = Picking.KdTree(kdTrees |> HashMap.ofList) 
+                hasTextures     = obj.TextureCoordinates.IsEmptyOrNull() |> not
                 //transformation = Init.Transformations
             }
                  

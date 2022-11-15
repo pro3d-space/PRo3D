@@ -543,6 +543,7 @@ type SgSurface = {
     globalBB    : Box3d
     sceneGraph  : ISg
     picking     : Picking
+    hasTextures : bool
     //transformation  : Transformations
 }
 
