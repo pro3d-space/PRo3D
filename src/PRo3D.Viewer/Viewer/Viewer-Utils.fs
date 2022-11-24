@@ -361,9 +361,7 @@ module ViewerUtils =
                         //let! t = trafo
                         //return (t.Forward * fpvm * fppm) //* t.Forward 
                         return (fppm * fpvm) // * ts.Forward
-                    } 
-
-                let useTexcoords = surface.hasTextures
+                    }
 
                 let structuralOnOff (visible : aval<bool>) (sg : ISg<_>) : ISg<_> = 
                     visible 
@@ -379,7 +377,6 @@ module ViewerUtils =
                     |> Sg.trafo trafo //(Transformations.fullTrafo surf refsys)
                     |> Sg.modifySamplerState DefaultSemantic.DiffuseColorTexture samplerDescription
                     |> Sg.uniform "selected"      (isSelected) // isSelected
-                    |> Sg.uniform "useTexcoords" (AVal.constant false) //(useTexcoords) 
                     |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
                     |> addAttributeFalsecolorMappingParameters surf
                     |> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
@@ -480,9 +477,8 @@ module ViewerUtils =
 
             fixAlpha |> toEffect
 
-            //if useTC then
-            //Shader.OPCFilter.improvedDiffuseTexture |> toEffect  //XXLAURA
-            PRo3D.Base.Shader.markPatchBorders |> toEffect //XXLAURA
+            PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect  
+            PRo3D.Base.OPCFilter.markPatchBorders |> toEffect 
            
             
             // selection coloring makes gamma correction pointless. remove if we are happy with markPatchBorders
@@ -560,16 +556,16 @@ module ViewerUtils =
             |> Sg.set
             |> (camera |> Sg.camera)
 
-    let checkHasTexture (sf : amap<Guid, AdaptiveSgSurface>) =
-        let t = sf |> AMap.toAVal 
-        t |> AVal.map( fun x -> 
-                        let tt =
-                            x 
-                            |> HashMap.toValueList
-                            |> List.map (fun surf -> if (surf.hasTextures |> AVal.force) then Some true else None)
-                            |> List.filter Option.isSome
-                        if tt.IsEmpty then false else true) |> AVal.force
-                                //|> AVal.map(fun hastc -> if (hastc |> not) then useTC <- false))
+    //let checkHasTexture (sf : amap<Guid, AdaptiveSgSurface>) =
+    //    let t = sf |> AMap.toAVal 
+    //    t |> AVal.map( fun x -> 
+    //                    let tt =
+    //                        x 
+    //                        |> HashMap.toValueList
+    //                        |> List.map (fun surf -> if (surf.hasTextures |> AVal.force) then Some true else None)
+    //                        |> List.filter Option.isSome
+    //                    if tt.IsEmpty then false else true) |> AVal.force
+    //                            //|> AVal.map(fun hastc -> if (hastc |> not) then useTC <- false))
 
     let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (allowFootprint : bool) (m:AdaptiveModel)  =
         let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting

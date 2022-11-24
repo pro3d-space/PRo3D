@@ -51,76 +51,76 @@ type SurfaceAppAction =
 
 
 
-module ReusableSeperatelyTestableFunctions = 
+//module ReusableSeperatelyTestableFunctions = 
 
-	// this one is a bit ugly but performs inplace (modifies the array)
-	let patchUVConvention (ig : IndexedGeometry) =
-		match ig.IndexedAttributes.[DefaultSemantic.DiffuseColorCoordinates] with
-		| :? array<V2f> as vertices -> 
-			for i in 0 .. vertices.Length - 1 do 
-				vertices.[i] <- V2f(vertices.[i].X, 1.0f - vertices.[i].Y)
-		| :? array<V2d> as vertices -> 
-			for i in 0 .. vertices.Length - 1 do 
-				vertices.[i] <- V2d(vertices.[i].X, 1.0 - vertices.[i].Y)
+//    // this one is a bit ugly but performs inplace (modifies the array)
+//    let patchUVConvention (ig : IndexedGeometry) =
+//        match ig.IndexedAttributes.[DefaultSemantic.DiffuseColorCoordinates] with
+//        | :? array<V2f> as vertices -> 
+//            for i in 0 .. vertices.Length - 1 do 
+//                vertices.[i] <- V2f(vertices.[i].X, 1.0f - vertices.[i].Y)
+//        | :? array<V2d> as vertices -> 
+//            for i in 0 .. vertices.Length - 1 do 
+//            vertices.[i] <- V2d(vertices.[i].X, 1.0 - vertices.[i].Y)
 
-		| v -> failwithf "UVs must be V2f or V2d (is: %A)" (v.GetType().GetElementType())
+//        | v -> failwithf "UVs must be V2f or V2d (is: %A)" (v.GetType().GetElementType())
 
-	let sgOfPolyMesh (texturePath : Option<string>) (mesh : PolyMesh) =
-		// i think bb center is a good value to for offsetting the data (what do you think?... at least it easier to get it robustly)
-		let shift = Trafo3d.Translation(-mesh.BoundingBox3d.Center) // largecoordate - center => smaller coordinates
-		let mesh = 
-			mesh.Transformed(shift) // large coordiante + (-shift) => small coordinate
-		
-		let ig = mesh.GetIndexedGeometry() // use high-level getIndexedGeometry function - low level access to arrays is error prone 
-		let hasCoordiantes = ig.IndexedAttributes.Contains(DefaultSemantic.DiffuseColorCoordinates)
-		
-		let applyTextureOrReplacement (sg : ISg) = 
-			match texturePath with
-			| None -> 
-				// i use fileTexture directly instead of Sg.texture - does this suffice? what do you think
-				sg |> Sg.texture DefaultSemantic.DiffuseColorTexture DefaultTextures.checkerboard
-			| Some texturePath ->
-				sg |> Sg.fileTexture DefaultSemantic.DiffuseColorTexture texturePath true // yes generate mipmaps
+//    let sgOfPolyMesh (texturePath : Option<string>) (mesh : PolyMesh) =
+//        // i think bb center is a good value to for offsetting the data (what do you think?... at least it easier to get it robustly)
+//        let shift = Trafo3d.Translation(-mesh.BoundingBox3d.Center) // largecoordate - center => smaller coordinates
+//        let mesh = 
+//            mesh.Transformed(shift) // large coordiante + (-shift) => small coordinate
 
-		// create the scene graph. note that, depending on the shader the sg is potentially missing coordinates etc
-		Sg.ofIndexedGeometry ig
-		// internally this creates https://github.com/aardvark-platform/aardvark.rendering/blob/032bce5ee4ce25d9b876c1f978231325f7d6e253/src/Aardvark.SceneGraph/SgFSharp.fs#L724
-		// and https://github.com/aardvark-platform/aardvark.rendering/blob/032bce5ee4ce25d9b876c1f978231325f7d6e253/src/Aardvark.SceneGraph/SgFSharp.fs#L58
-		// which is a single value - this allows us to have a placeholder independet of vertex array length...
-		// note: if sg already has coordiantes, it overwrides this value anyways.. so no harm to apply it always..
-		// less complex code less problems....
-		|> Sg.vertexBufferValue' DefaultSemantic.DiffuseColorCoordinates V4f.Zero
-		// anyways, let us create a uniform, just in case the shader needs to know whether correct coordinates have been applied
-		|> Sg.uniform' "HasDiffuseColorCoordinates" hasCoordiantes
-		|> Sg.vertexBufferValue' DefaultSemantic.Normals V4f.Zero
-		|> Sg.uniform' "HasNormals" hasCoordiantes
-		// do the same for the texture
-		|> Sg.texture DefaultSemantic.DiffuseColorTexture DefaultTextures.checkerboard
-		|> applyTextureOrReplacement
-		|> Sg.uniform' "HasDiffuseColorTexture" texturePath
-		|> Sg.trafo' shift.Inverse // apply inverse centering trafo to make it correct again
+//        let ig = mesh.GetIndexedGeometry() // use high-level getIndexedGeometry function - low level access to arrays is error prone 
+//        let hasCoordiantes = ig.IndexedAttributes.Contains(DefaultSemantic.DiffuseColorCoordinates)
+    
+//        let applyTextureOrReplacement (sg : ISg) = 
+//            match texturePath with
+//            | None -> 
+//                // i use fileTexture directly instead of Sg.texture - does this suffice? what do you think
+//                sg |> Sg.texture DefaultSemantic.DiffuseColorTexture DefaultTextures.checkerboard
+//            | Some texturePath ->
+//                sg |> Sg.fileTexture DefaultSemantic.DiffuseColorTexture texturePath true // yes generate mipmaps
 
-	// creates a scene graph, transforms all objects into the 
-	let createSceneGraph (obj : WavefrontObject) = 
-		// i use to list here, in order to get error immediately at this point and not lazily later when rendering...
-		let meshes = obj.GetFaceSetMeshes(true) |> Seq.toList // create double meshes. later we will reduce it to float
+//        // create the scene graph. note that, depending on the shader the sg is potentially missing coordinates etc
+//        Sg.ofIndexedGeometry ig
+//        // internally this creates https://github.com/aardvark-platform/aardvark.rendering/blob/032bce5ee4ce25d9b876c1f978231325f7d6e253/src/Aardvark.SceneGraph/SgFSharp.fs#L724
+//        // and https://github.com/aardvark-platform/aardvark.rendering/blob/032bce5ee4ce25d9b876c1f978231325f7d6e253/src/Aardvark.SceneGraph/SgFSharp.fs#L58
+//        // which is a single value - this allows us to have a placeholder independet of vertex array length...
+//        // note: if sg already has coordiantes, it overwrides this value anyways.. so no harm to apply it always..
+//        // less complex code less problems....
+//        |> Sg.vertexBufferValue' DefaultSemantic.DiffuseColorCoordinates V4f.Zero
+//        // anyways, let us create a uniform, just in case the shader needs to know whether correct coordinates have been applied
+//        |> Sg.uniform' "HasDiffuseColorCoordinates" hasCoordiantes
+//        |> Sg.vertexBufferValue' DefaultSemantic.Normals V4f.Zero
+//        |> Sg.uniform' "HasNormals" hasCoordiantes
+//        // do the same for the texture
+//        |> Sg.texture DefaultSemantic.DiffuseColorTexture DefaultTextures.checkerboard
+//        |> applyTextureOrReplacement
+//        |> Sg.uniform' "HasDiffuseColorTexture" texturePath
+//        |> Sg.trafo' shift.Inverse // apply inverse centering trafo to make it correct again
 
-		let texturePath = 
-			obj.Materials
-			|> Seq.tryHead
-			// use option.bind to collapse option<option<..>>
-			|> Option.bind (fun mat -> 
-				mat.MapItems |> Seq.tryPick (fun item -> 
-					match item.Value with
-					| :? string as value when item.Key = WavefrontMaterial.Property.DiffuseColorMap -> 
-						Some value
-					| _ -> 
-						None
-				)
-			)
-		meshes
-		|> List.map (sgOfPolyMesh texturePath)
-		|> Sg.ofList
+//    // creates a scene graph, transforms all objects into the 
+//    let createSceneGraph (obj : WavefrontObject) = 
+//        // i use to list here, in order to get error immediately at this point and not lazily later when rendering...
+//        let meshes = obj.GetFaceSetMeshes(true) |> Seq.toList // create double meshes. later we will reduce it to float
+
+//        let texturePath = 
+//            obj.Materials
+//            |> Seq.tryHead
+//            // use option.bind to collapse option<option<..>>
+//            |> Option.bind (fun mat -> 
+//                mat.MapItems |> Seq.tryPick (fun item -> 
+//                    match item.Value with
+//                    | :? string as value when item.Key = WavefrontMaterial.Property.DiffuseColorMap -> 
+//                        Some value
+//                    | _ -> 
+//                        None
+//                )
+//        )
+//        meshes
+//        |> List.map (sgOfPolyMesh texturePath)
+//        |> Sg.ofList
 
 module SurfaceUtils =    
     
@@ -255,7 +255,6 @@ module SurfaceUtils =
                 globalBB    = bb
                 sceneGraph  = sg
                 picking     = Picking.KdTree(kdTrees |> HashMap.ofList) //Picking.PickMesh meshes
-                hasTextures = true
                 //transformation = Init.Transformations
             }
                  
@@ -280,6 +279,103 @@ module SurfaceUtils =
             normalIndices   : int[]
             materialIndex   : int
         } 
+
+        let getVertexColors (obj : WavefrontObject) =
+            if (obj.VertexColors.IsEmptyOrNull() |> not) then
+                    let isfloat = obj.VertexColors |> Seq.take 100 |> Seq.tryFind(fun c -> (c.R > 1.0f || c.G > 1.0f || c.B > 1.0f)) |> Option.isNone
+                          
+                    let colorArray = 
+                        obj.VertexColors 
+                        |> Seq.toArray 
+                          
+                    let colorArray2 =
+                        if isfloat then
+                            colorArray |> Array.map(fun c -> C4b((float c.R), (float c.G), (float c.B)))
+                        else
+                            colorArray |> Array.map(fun c -> C4b((int c.R), (int c.G), (int c.B)))
+                                  
+                    colorArray2
+                else [||]
+
+        // this one is a bit ugly but performs inplace (modifies the array)
+        let patchUVConvention (ig : IndexedGeometry) =
+            match ig.IndexedAttributes.[DefaultSemantic.DiffuseColorCoordinates] with
+            | :? array<V2f> as vertices -> 
+                for i in 0 .. vertices.Length - 1 do 
+                    vertices.[i] <- V2f(vertices.[i].X, 1.0f - vertices.[i].Y)
+            | :? array<V2d> as vertices -> 
+                for i in 0 .. vertices.Length - 1 do 
+                vertices.[i] <- V2d(vertices.[i].X, 1.0 - vertices.[i].Y)
+
+            | v -> failwithf "UVs must be V2f or V2d (is: %A)" (v.GetType().GetElementType())
+
+        let sgOfPolyMesh (texturePath : Option<string>) (vColor : C4b[]) (mesh : PolyMesh) =
+            // apply vertex color
+            if vColor.IsEmptyOrNull() |> not then
+                mesh.VertexAttributes.[DefaultSemantic.Colors] <- vColor
+             
+            // i think bb center is a good value to for offsetting the data (what do you think?... at least it easier to get it robustly)
+            let shift = Trafo3d.Translation(-mesh.BoundingBox3d.Center) // largecoordate - center => smaller coordinates
+            let mesh = 
+                mesh.Transformed(shift) // large coordiante + (-shift) => small coordinate
+
+            let ig = mesh.GetIndexedGeometry() // use high-level getIndexedGeometry function - low level access to arrays is error prone 
+            let hasCoordiantes = ig.IndexedAttributes.Contains(DefaultSemantic.DiffuseColorCoordinates)
+            if hasCoordiantes then
+                patchUVConvention ig
+    
+            let applyTextureOrReplacement (sg : ISg) = 
+                match texturePath with
+                | None -> 
+                    // i use fileTexture directly instead of Sg.texture - does this suffice? what do you think
+                    sg |> Sg.texture DefaultSemantic.DiffuseColorTexture DefaultTextures.checkerboard
+                | Some texturePath ->
+                    sg |> Sg.fileTexture DefaultSemantic.DiffuseColorTexture texturePath true // yes generate mipmaps
+
+            // create the scene graph. note that, depending on the shader the sg is potentially missing coordinates etc
+            Sg.ofIndexedGeometry ig
+            // internally this creates https://github.com/aardvark-platform/aardvark.rendering/blob/032bce5ee4ce25d9b876c1f978231325f7d6e253/src/Aardvark.SceneGraph/SgFSharp.fs#L724
+            // and https://github.com/aardvark-platform/aardvark.rendering/blob/032bce5ee4ce25d9b876c1f978231325f7d6e253/src/Aardvark.SceneGraph/SgFSharp.fs#L58
+            // which is a single value - this allows us to have a placeholder independet of vertex array length...
+            // note: if sg already has coordiantes, it overwrides this value anyways.. so no harm to apply it always..
+            // less complex code less problems....
+            |> Sg.vertexBufferValue DefaultSemantic.DiffuseColorCoordinates (V2d.Zero |> AVal.constant)
+            |> Sg.vertexBufferValue DefaultSemantic.Colors (C4b.Zero |> AVal.constant)
+            // anyways, let us create a uniform, just in case the shader needs to know whether correct coordinates have been applied
+            |> Sg.uniform "HasDiffuseColorCoordinates" (hasCoordiantes |> AVal.constant)
+            |> Sg.vertexBufferValue DefaultSemantic.Normals (V4f.Zero |> AVal.constant)
+            |> Sg.uniform "HasNormals" (hasCoordiantes |> AVal.constant)
+            |> Sg.uniform "HasDiffuseColorTexture" ((match texturePath with | None -> false | Some v -> true)|> AVal.constant)
+            // do the same for the texture
+            //|> Sg.texture DefaultSemantic.DiffuseColorTexture DefaultTextures.checkerboard
+            |> applyTextureOrReplacement
+            |> Sg.trafo' shift.Inverse // apply inverse centering trafo to make it correct againoordiantes
+            
+
+        // creates a scene graph, transforms all objects into the 
+        let createSceneGraph (obj : WavefrontObject) = 
+            // i use to list here, in order to get error immediately at this point and not lazily later when rendering...
+            let meshes = obj.GetFaceSetMeshes(true) |> Seq.toList // create double meshes. later we will reduce it to float
+
+            let texturePath = 
+                obj.Materials
+                |> Seq.tryHead
+                // use option.bind to collapse option<option<..>>
+                |> Option.bind (fun mat -> 
+                    mat.MapItems |> Seq.tryPick (fun item -> 
+                        match item.Value with
+                        | :? string as value when item.Key = WavefrontMaterial.Property.DiffuseColorMap -> 
+                            Some value
+                        | _ -> 
+                            None
+                    )
+            )
+
+            let vertexColors = obj |> getVertexColors
+            meshes
+            |> List.map (sgOfPolyMesh texturePath vertexColors)
+            |> Sg.ofList
+
 
         let createSgsofOBJ (obj : WavefrontObject) (box : Box3d) = //  (l2gTrafo : Trafo3d)= 
             if obj.Materials.IsEmptyOrNull() || obj.Materials.Count = 1 then
@@ -527,11 +623,11 @@ module SurfaceUtils =
             let pose = Pose.translate (bb.Center) 
             let trafo = { TrafoController.initial with pose = pose; previewTrafo = Pose.toTrafo pose; mode = TrafoMode.Local }
 
-            let sgs = createSgsofOBJ obj bb
+            let sgs = createSceneGraph obj //createSgsofOBJ obj bb //
 
             let sg = 
                 sgs
-                |> Sg.ofList
+                //|> Sg.ofList
                 |> Sg.requirePicking
                 |> Sg.noEvents
                 |> Sg.scale 1.0
@@ -541,8 +637,7 @@ module SurfaceUtils =
                 trafo           = trafo
                 globalBB        = bb
                 sceneGraph      = sg
-                picking         = Picking.KdTree(kdTrees |> HashMap.ofList) 
-                hasTextures     = obj.TextureCoordinates.IsEmptyOrNull() |> not
+                picking         = Picking.KdTree(kdTrees |> HashMap.ofList)
                 //transformation = Init.Transformations
             }
                  
@@ -560,6 +655,7 @@ module SurfaceUtils =
 
             sgObjects
 
+        
 
 
     module SurfaceAttributes = 

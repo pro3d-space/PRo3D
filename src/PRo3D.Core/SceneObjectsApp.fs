@@ -114,7 +114,6 @@ module SceneObjectsUtils =
             globalBB    = bb
             sceneGraph  = sg
             picking     = Picking.NoPicking 
-            hasTextures = true
         }
 
              

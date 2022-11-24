@@ -227,7 +227,6 @@ module Sg =
                 globalBB    = bb
                 picking     = Picking.KdTree kd
                 trafo       = trafo
-                hasTextures = true
                 //transformation = Init.Transformations
             }
         sgSurface
