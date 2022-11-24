@@ -221,6 +221,11 @@ module TraverseApp =
 
                         let xyz = CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
                         
+                        let note = 
+                            match x.properties |> Map.tryFind "Note" with
+                            | Some n -> n |> M20.parseString
+                            | None -> ""
+
                         { 
                             version        = Sol.current
                             location       = xyz
@@ -230,7 +235,7 @@ module TraverseApp =
                             pitch          = x.properties.["pitch"]        |> M20.parseDouble 
                             roll           = x.properties.["roll"]         |> M20.parseDouble 
                             tilt           = x.properties.["tilt"]         |> M20.parseDouble 
-                            note           = x.properties.["Note"]         |> M20.parseString
+                            note           = note
                             distanceM      = x.properties.["dist_m"]       |> M20.parseDouble 
                             totalDistanceM = 
                                 match (x.properties.TryFind "dist_total_m") with

@@ -1,3 +1,10 @@
+## 4.10.1
+- making projection measurments fit for profile extractions #247 containing to following features
+  - exported projection measurements contain all sampling points
+  - when creating a projection measurement users can control the sampling rate #203
+  - the selected annotation can be exported as csv in the for of absolute elevation over distance #221
+- also supports MSL traverse ingestion
+
 ## 4.10.0
 - added configurable sampling scheme to measurement projections (viewpoint, sky) as requested in #203
 

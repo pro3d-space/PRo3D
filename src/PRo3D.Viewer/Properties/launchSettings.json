@@ -2,7 +2,6 @@
   "profiles": {
     "PRo3D.Viewer": {
       "commandName": "Project",
-      "commandLineArgs": "-loadRecent",
       "nativeDebugging": true
     }
   }
