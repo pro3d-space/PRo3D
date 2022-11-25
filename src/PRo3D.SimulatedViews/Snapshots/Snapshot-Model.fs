@@ -307,6 +307,28 @@ type CameraSnapshotAnimation = {
 with 
   static member defaultNearplane = 0.1
   static member defaultFarplane  = 100000.0
+  static member defaultFoV = 30.0
+  member  snapshotAnimation.Frustum = 
+      let resolution = V3i (snapshotAnimation.resolution.X, snapshotAnimation.resolution.Y, 1)
+
+      let foV = 
+          match snapshotAnimation.fieldOfView with
+          | Some fov -> fov
+          | None -> CameraSnapshotAnimation.defaultFoV
+
+      let near =
+          match snapshotAnimation.nearplane with
+          | Some near -> near
+          | None -> CameraSnapshotAnimation.defaultNearplane
+
+      let far =
+          match snapshotAnimation.farplane with
+          | Some far -> far
+          | None -> CameraSnapshotAnimation.defaultFarplane
+      let frustum =
+          Frustum.perspective foV near far (float(resolution.X)/float(resolution.Y))
+      frustum
+
   static member TestData =
       {
           fieldOfView = Some 5.47
