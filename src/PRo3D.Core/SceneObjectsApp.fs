@@ -114,6 +114,7 @@ module SceneObjectsUtils =
             globalBB    = bb
             sceneGraph  = sg
             picking     = Picking.NoPicking 
+            isObj       = true //???? laura
         }
 
              

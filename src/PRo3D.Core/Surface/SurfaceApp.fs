@@ -255,6 +255,7 @@ module SurfaceUtils =
                 globalBB    = bb
                 sceneGraph  = sg
                 picking     = Picking.KdTree(kdTrees |> HashMap.ofList) //Picking.PickMesh meshes
+                isObj       = true
                 //transformation = Init.Transformations
             }
                  
@@ -332,6 +333,7 @@ module SurfaceUtils =
                 | Some texturePath ->
                     sg |> Sg.fileTexture DefaultSemantic.DiffuseColorTexture texturePath true // yes generate mipmaps
 
+            
             // create the scene graph. note that, depending on the shader the sg is potentially missing coordinates etc
             Sg.ofIndexedGeometry ig
             // internally this creates https://github.com/aardvark-platform/aardvark.rendering/blob/032bce5ee4ce25d9b876c1f978231325f7d6e253/src/Aardvark.SceneGraph/SgFSharp.fs#L724
@@ -638,6 +640,7 @@ module SurfaceUtils =
                 globalBB        = bb
                 sceneGraph      = sg
                 picking         = Picking.KdTree(kdTrees |> HashMap.ofList)
+                isObj           = true
                 //transformation = Init.Transformations
             }
                  

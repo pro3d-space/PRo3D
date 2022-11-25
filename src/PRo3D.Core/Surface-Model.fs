@@ -543,6 +543,9 @@ type SgSurface = {
     globalBB    : Box3d
     sceneGraph  : ISg
     picking     : Picking
+
+    [<NonAdaptive>]
+    isObj       : bool
     //transformation  : Transformations
 }
 

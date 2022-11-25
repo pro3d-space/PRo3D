@@ -51,7 +51,7 @@ module Lenses =
 
 module OPCFilter =
         type UniformScope with
-            member x.DiffuseColorTexture : ShaderTextureHandle = uniform?DiffuseColorTexture
+            member x.DiffuseColorTexture : ShaderTextureHandle = x?DiffuseColorTexture
             member x.HasDiffuseColorCoordinates : bool = x?HasDiffuseColorCoordinates
             member x.HasDiffuseColorTexture : bool = x?HasDiffuseColorTexture
             member x.selected : bool = x?selected
@@ -65,7 +65,7 @@ module OPCFilter =
                 addressV WrapMode.Wrap
             }
 
-        let improvedDiffuseTexture (v : Effects.Vertex) =
+        let improvedDiffuseTextureAndColor (v : Effects.Vertex) =
             fragment {
             if uniform.HasDiffuseColorTexture then
                 let texColor = diffuseSampler.Sample(v.tc,-1.0)
@@ -74,9 +74,15 @@ module OPCFilter =
                 return v.c
             }
 
+        let improvedDiffuseTexture (v : Effects.Vertex) =
+            fragment {
+                let texColor = diffuseSampler.Sample(v.tc,-1.0)
+                return texColor
+            }
+
         let markPatchBorders (v : Effects.Vertex) =
             fragment { 
-            if uniform.HasDiffuseColorTexture then
+            //if uniform.HasDiffuseColorTexture then
                 if uniform.selected then
                     if (v.tc.X >= 0.99) && (v.tc.X <= 1.0) || (v.tc.X >= 0.0) && (v.tc.X <= 0.01) then
                         return V4d(0.69, 0.85, 0.0, 1.0)
@@ -85,7 +91,7 @@ module OPCFilter =
                     else
                         return v.c
                 else return v.c
-            else return v.c
+            //else return v.c
             }
 
         let EffectOPCFilter =

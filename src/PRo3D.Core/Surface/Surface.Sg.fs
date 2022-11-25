@@ -194,7 +194,8 @@ module Sg =
                     )
             )
             |> SgFSharp.Sg.ofList  
-
+           
+           
                                                 
         g, patchHierarchies, kdTrees
     
@@ -227,6 +228,7 @@ module Sg =
                 globalBB    = bb
                 picking     = Picking.KdTree kd
                 trafo       = trafo
+                isObj       = false
                 //transformation = Init.Transformations
             }
         sgSurface

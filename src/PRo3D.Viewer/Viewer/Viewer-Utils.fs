@@ -467,6 +467,19 @@ module ViewerUtils =
     
     //let mutable useTC = true
 
+    let objEffect =
+        Effect.compose [
+            PRo3D.Base.Shader.footprintV   |> toEffect 
+
+            stableTrafoTest             |> toEffect
+
+            triangleFilterX                |> toEffect
+           
+            fixAlpha |> toEffect
+
+            PRo3D.Base.OPCFilter.improvedDiffuseTextureAndColor |> toEffect
+        ]
+
     let surfaceEffect =
         Effect.compose [
             PRo3D.Base.Shader.footprintV   |> toEffect 
@@ -474,7 +487,7 @@ module ViewerUtils =
             stableTrafoTest             |> toEffect
 
             triangleFilterX                |> toEffect
-
+           
             fixAlpha |> toEffect
 
             PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect  
@@ -556,17 +569,7 @@ module ViewerUtils =
             |> Sg.set
             |> (camera |> Sg.camera)
 
-    //let checkHasTexture (sf : amap<Guid, AdaptiveSgSurface>) =
-    //    let t = sf |> AMap.toAVal 
-    //    t |> AVal.map( fun x -> 
-    //                    let tt =
-    //                        x 
-    //                        |> HashMap.toValueList
-    //                        |> List.map (fun surf -> if (surf.hasTextures |> AVal.force) then Some true else None)
-    //                        |> List.filter Option.isSome
-    //                    if tt.IsEmpty then false else true) |> AVal.force
-    //                            //|> AVal.map(fun hastc -> if (hastc |> not) then useTC <- false))
-
+  
     let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (allowFootprint : bool) (m:AdaptiveModel)  =
         let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true
@@ -590,18 +593,27 @@ module ViewerUtils =
                 ( x 
                     |> AMap.map(fun _ surface ->
                         
-                        viewSingleSurfaceSg 
-                            surface 
-                            m.scene.surfacesModel.surfaces.flat
-                            m.frustum 
-                            selected 
-                            surfacePicking
-                            surface.globalBB
-                            refSystem 
-                            m.footPrint 
-                            m.scene.viewPlans.selectedViewPlan
-                            usehighlighting filterTexture
-                            allowFootprint
+                        let s = 
+                            viewSingleSurfaceSg 
+                                surface 
+                                m.scene.surfacesModel.surfaces.flat
+                                m.frustum 
+                                selected 
+                                surfacePicking
+                                surface.globalBB
+                                refSystem 
+                                m.footPrint 
+                                m.scene.viewPlans.selectedViewPlan
+                                usehighlighting filterTexture
+                                allowFootprint
+
+                        match surface.isObj with
+                        | true -> s |> Sg.effect [objEffect] 
+                        | false -> 
+                            s
+                            |> Sg.effect [surfaceEffect] 
+                            |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
+                            |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
                         
                        )
                     |> AMap.toASet 
@@ -614,13 +626,10 @@ module ViewerUtils =
         
         alist {                    
             for set in grouped do  
-                let sg = 
-                    set
-                    |> Sg.set
-                    |> Sg.effect [surfaceEffect] //(snd set) ]
-                    |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-                    |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
-                    
+                let sg = set|> Sg.set
+                    //|> Sg.effect [surfaceEffect] 
+                    //|> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
+                    //|> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
 
                 yield RenderCommand.SceneGraph (sg)
 
