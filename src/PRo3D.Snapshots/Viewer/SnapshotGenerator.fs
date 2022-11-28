@@ -124,7 +124,11 @@ module SnapshotGenerator =
     let getAnimationActions (anim : SnapshotAnimation) =       
         match anim with
         | SnapshotAnimation.CameraAnimation a ->
-            Seq.singleton (ViewerAction.SetRenderViewportSize a.resolution |> ViewerMessage)
+            seq {
+                yield ViewerAction.SetRenderViewportSize a.resolution |> ViewerMessage
+                yield ViewerAction.SetFrustum a.Frustum |> ViewerMessage
+            }
+
         | SnapshotAnimation.BookmarkAnimation a ->
             [
              (ViewerAction.SetFrustum (SnapshotApp.calculateFrustum a)) |> ViewerMessage
