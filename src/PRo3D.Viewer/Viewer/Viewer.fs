@@ -1565,9 +1565,14 @@ module ViewerApp =
             { m with drawing = { m.drawing with automaticGeoJsonExport = autoExport } }
         | SetSceneState state, _, _ ->
             Optic.set _sceneState state m
+        | ChangeDashboardMode mode, _ ,_ ->
+            {m with dashboardMode = mode.name
+                    scene = { m.scene with dockConfig = mode.dockConfig}
+            }
         | unknownAction, _, _ -> 
             Log.line "[Viewer] Message not handled: %s" (string unknownAction)
             m       
+
                    
    //let mutable lastMillis = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() //DEBUG
     let update 
