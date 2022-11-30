@@ -2,6 +2,7 @@
 
 open PRo3D.Viewer
 open PRo3D.Core
+open System.IO
 
 module RemoteApi =
 
@@ -11,7 +12,9 @@ module RemoteApi =
             ViewerAction.LoadScene fullPath |> emit
 
         member x.SaveScene(fullPath : string) = 
-            ViewerAction.SaveScene fullPath |> emit
+            let dirName = Path.GetDirectoryName(fullPath)
+            if Directory.Exists dirName |> not then Directory.CreateDirectory dirName |> ignore
+            ViewerAction.SaveAs fullPath |> emit
 
         member x.ImportOpc(folders : array<string>) =
             List.ofArray folders |> ViewerAction.DiscoverAndImportOpcs |> emit
