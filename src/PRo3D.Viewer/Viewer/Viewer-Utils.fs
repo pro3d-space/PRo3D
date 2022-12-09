@@ -478,6 +478,7 @@ module ViewerUtils =
             fixAlpha |> toEffect
 
             PRo3D.Base.OPCFilter.improvedDiffuseTextureAndColor |> toEffect
+            PRo3D.Base.Shader.mapColorAdaption  |> toEffect   
         ]
 
     let surfaceEffect =
@@ -589,7 +590,6 @@ module ViewerUtils =
             sgGrouped |> AList.map(
                 
                 fun x ->
-                //let useTC = checkHasTexture x
                 ( x 
                     |> AMap.map(fun _ surface ->
                         

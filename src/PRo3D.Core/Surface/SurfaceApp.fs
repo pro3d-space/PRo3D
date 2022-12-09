@@ -49,79 +49,6 @@ type SurfaceAppAction =
 | SetPreTrafo               of string
 
 
-
-
-//module ReusableSeperatelyTestableFunctions = 
-
-//    // this one is a bit ugly but performs inplace (modifies the array)
-//    let patchUVConvention (ig : IndexedGeometry) =
-//        match ig.IndexedAttributes.[DefaultSemantic.DiffuseColorCoordinates] with
-//        | :? array<V2f> as vertices -> 
-//            for i in 0 .. vertices.Length - 1 do 
-//                vertices.[i] <- V2f(vertices.[i].X, 1.0f - vertices.[i].Y)
-//        | :? array<V2d> as vertices -> 
-//            for i in 0 .. vertices.Length - 1 do 
-//            vertices.[i] <- V2d(vertices.[i].X, 1.0 - vertices.[i].Y)
-
-//        | v -> failwithf "UVs must be V2f or V2d (is: %A)" (v.GetType().GetElementType())
-
-//    let sgOfPolyMesh (texturePath : Option<string>) (mesh : PolyMesh) =
-//        // i think bb center is a good value to for offsetting the data (what do you think?... at least it easier to get it robustly)
-//        let shift = Trafo3d.Translation(-mesh.BoundingBox3d.Center) // largecoordate - center => smaller coordinates
-//        let mesh = 
-//            mesh.Transformed(shift) // large coordiante + (-shift) => small coordinate
-
-//        let ig = mesh.GetIndexedGeometry() // use high-level getIndexedGeometry function - low level access to arrays is error prone 
-//        let hasCoordiantes = ig.IndexedAttributes.Contains(DefaultSemantic.DiffuseColorCoordinates)
-    
-//        let applyTextureOrReplacement (sg : ISg) = 
-//            match texturePath with
-//            | None -> 
-//                // i use fileTexture directly instead of Sg.texture - does this suffice? what do you think
-//                sg |> Sg.texture DefaultSemantic.DiffuseColorTexture DefaultTextures.checkerboard
-//            | Some texturePath ->
-//                sg |> Sg.fileTexture DefaultSemantic.DiffuseColorTexture texturePath true // yes generate mipmaps
-
-//        // create the scene graph. note that, depending on the shader the sg is potentially missing coordinates etc
-//        Sg.ofIndexedGeometry ig
-//        // internally this creates https://github.com/aardvark-platform/aardvark.rendering/blob/032bce5ee4ce25d9b876c1f978231325f7d6e253/src/Aardvark.SceneGraph/SgFSharp.fs#L724
-//        // and https://github.com/aardvark-platform/aardvark.rendering/blob/032bce5ee4ce25d9b876c1f978231325f7d6e253/src/Aardvark.SceneGraph/SgFSharp.fs#L58
-//        // which is a single value - this allows us to have a placeholder independet of vertex array length...
-//        // note: if sg already has coordiantes, it overwrides this value anyways.. so no harm to apply it always..
-//        // less complex code less problems....
-//        |> Sg.vertexBufferValue' DefaultSemantic.DiffuseColorCoordinates V4f.Zero
-//        // anyways, let us create a uniform, just in case the shader needs to know whether correct coordinates have been applied
-//        |> Sg.uniform' "HasDiffuseColorCoordinates" hasCoordiantes
-//        |> Sg.vertexBufferValue' DefaultSemantic.Normals V4f.Zero
-//        |> Sg.uniform' "HasNormals" hasCoordiantes
-//        // do the same for the texture
-//        |> Sg.texture DefaultSemantic.DiffuseColorTexture DefaultTextures.checkerboard
-//        |> applyTextureOrReplacement
-//        |> Sg.uniform' "HasDiffuseColorTexture" texturePath
-//        |> Sg.trafo' shift.Inverse // apply inverse centering trafo to make it correct again
-
-//    // creates a scene graph, transforms all objects into the 
-//    let createSceneGraph (obj : WavefrontObject) = 
-//        // i use to list here, in order to get error immediately at this point and not lazily later when rendering...
-//        let meshes = obj.GetFaceSetMeshes(true) |> Seq.toList // create double meshes. later we will reduce it to float
-
-//        let texturePath = 
-//            obj.Materials
-//            |> Seq.tryHead
-//            // use option.bind to collapse option<option<..>>
-//            |> Option.bind (fun mat -> 
-//                mat.MapItems |> Seq.tryPick (fun item -> 
-//                    match item.Value with
-//                    | :? string as value when item.Key = WavefrontMaterial.Property.DiffuseColorMap -> 
-//                        Some value
-//                    | _ -> 
-//                        None
-//                )
-//        )
-//        meshes
-//        |> List.map (sgOfPolyMesh texturePath)
-//        |> Sg.ofList
-
 module SurfaceUtils =    
     
     /// creates a surface from opc folder path
@@ -175,102 +102,6 @@ module SurfaceUtils =
             stream.CopyTo(fileStream)
             fileStream.Close ()
 
-        //TODO TO use loadObject from master
-        let loadObject (surface : Surface) : SgSurface =
-            Log.line "[OBJ] Please wait while the file is being loaded..." 
-            let obj = Loader.Assimp.load (surface.importPath)  
-            Log.line "[OBJ] The file was loaded successfully!" 
-            let dir = Path.GetDirectoryName(surface.importPath)
-            let filename = Path.GetFileNameWithoutExtension surface.importPath
-            let kdTreePath = Path.combine [dir; filename + ".aakd"] //Path.ChangeExtension(s.importPath, name)
-            let mutable count = 0
-            let kdTrees = 
-                if File.Exists(kdTreePath) |> not then
-                    obj.meshes 
-                    |> Array.map(fun x ->
-                        let kdPath = sprintf "%s_%i.kd" surface.importPath count          
-                        let pos = x.geometry.IndexedAttributes.[DefaultSemantic.Positions] |> unbox<V3f[]>
-                        
-                        //let indices = x.geometry.IndexArray |> unbox<int[]> potential problem with indices
-                        let t = 
-                            pos                      
-                            |> Seq.map(fun x -> x.ToV3d())
-                            |> Seq.chunkBySize 3
-                            |> Seq.filter(fun x -> x.Length = 3)
-                            |> Seq.map(fun x -> Triangle3d x)
-                            |> Seq.filter(fun x -> (IntersectionController.triangleIsNan x |> not)) |> Seq.toArray
-                            |> TriangleSet
-                                              
-                        Log.startTimed "Building kdtrees for %s" (Path.GetFileName surface.importPath |> Path.GetFileName)
-                        let tree = 
-                            KdIntersectionTree(t, 
-                                KdIntersectionTree.BuildFlags.MediumIntersection + KdIntersectionTree.BuildFlags.Hierarchical) //|> PRo3D.Serialization.save kdTreePath                  
-                        Log.stop()
-                        
-                        saveKdTree (kdPath, tree) |> ignore
-                        
-                        let kd : KdTrees.LazyKdTree = {
-                            kdTree        = Some (tree.ToConcreteKdIntersectionTree());
-                            affine        = Trafo3d.Identity
-                            boundingBox   = tree.BoundingBox3d
-                            kdtreePath    = kdPath
-                            objectSetPath = ""                  
-                            coordinatesPath = ""
-                            texturePath = ""
-                          } 
-                        
-                        count <- count + 1
-                        
-                        kd.boundingBox, (KdTrees.Level0KdTree.LazyKdTree kd)
-                    ) 
-                    |> Array.toList
-                    |> Serialization.save kdTreePath
-                
-                else
-                    Serialization.loadAs<List<Box3d*KdTrees.Level0KdTree>> kdTreePath
-                    |> List.map(fun kd -> 
-                        match kd with 
-                        | _, KdTrees.Level0KdTree.InCoreKdTree tree -> (tree.boundingBox, (KdTrees.Level0KdTree.InCoreKdTree tree))
-                        | _, KdTrees.Level0KdTree.LazyKdTree tree -> 
-                           let loadedTree = if File.Exists(tree.kdtreePath) then Some (tree.kdtreePath |> KdTrees.loadKdtree) else None
-                           (tree.boundingBox, (KdTrees.Level0KdTree.LazyKdTree {tree with kdTree = loadedTree}))
-                    )
-
-            let bb = obj.bounds
-            let sg = 
-                obj
-                |> Sg.adapter
-                |> Sg.requirePicking
-                |> Sg.noEvents
-                |> Sg.scale 1.0
-                //|> Sg.uniform "RoverMVP" (AVal.constant M44f.Identity)
-                //|> Sg.uniform "HasRoverMVP" (AVal.constant false)
-
-            let pose = Pose.translate bb.Center // bb.Center V3d.Zero
-            let trafo = { TrafoController.initial with pose = pose; previewTrafo = Pose.toTrafo pose; mode = TrafoMode.Local }
-
-            {
-                surface     = surface.guid    
-                trafo       = trafo
-                globalBB    = bb
-                sceneGraph  = sg
-                picking     = Picking.KdTree(kdTrees |> HashMap.ofList) //Picking.PickMesh meshes
-                isObj       = true
-                //transformation = Init.Transformations
-            }
-                 
-        let createSgObjects _ _ surfaces =
-            let sghs =
-              surfaces
-                |> IndexList.toList 
-                |> List.map loadObject
-
-            let sgObjects =
-                sghs 
-                  |> List.map (fun d -> (d.surface, d))
-                  |> HashMap.ofList       
-
-            sgObjects
 
         //-- WAVEFRONT --------------------------------------------------------
 
@@ -379,7 +210,7 @@ module SurfaceUtils =
             |> Sg.ofList
 
 
-        let createSgsofOBJ (obj : WavefrontObject) (box : Box3d) = //  (l2gTrafo : Trafo3d)= 
+        let createSgsofOBJ (obj : WavefrontObject) (box : Box3d) = 
             if obj.Materials.IsEmptyOrNull() || obj.Materials.Count = 1 then
                 let textureOption = 
                     obj.Materials
@@ -431,7 +262,6 @@ module SurfaceUtils =
                 let isgs = 
                     igs 
                     |> List.map (fun ig -> 
-                        let igsg = ig.Sg //|> Aardvark.SceneGraph.SgFSharp.Sg.texture DefaultSemantic.DiffuseColorTexture (AVal.constant (DefaultTextures.blackTex.GetValue()))
                         textureOption
                         |> Option.map(fun potPath -> 
                             potPath
@@ -442,8 +272,8 @@ module SurfaceUtils =
                                     FileTexture(texPath,config) :> ITexture
                                 ig.Sg
                                 |> Aardvark.SceneGraph.SgFSharp.Sg.texture DefaultSemantic.DiffuseColorTexture (AVal.constant texture))
-                            |> Option.defaultValue igsg ) //ig.Sg)
-                        |> Option.defaultValue igsg //ig.Sg
+                            |> Option.defaultValue ig.Sg)
+                        |> Option.defaultValue ig.Sg
                         |> Sg.noEvents)
                   
                 isgs 
@@ -556,7 +386,7 @@ module SurfaceUtils =
 
                 isgs
 
-        // TEST LAURA: load .obj with wavefront (Martins code from dibit)
+        // TEST LAURA: load .obj with wavefront (Martins code from dibit) (+ Harris updates Nov.22)
         let loadObjectWavefront (surface : Surface) : SgSurface =
             Log.line "[OBJ WAVEFRONT] Please wait while the file is being loaded..."
             let obj = ObjParser.Load(surface.importPath, true)
@@ -573,21 +403,33 @@ module SurfaceUtils =
                         let kdPath = sprintf "%s_%i.kd" surface.importPath count
                         Log.line "loading positions and indices of OBJ-Object"
                         
-                        let positions = x.PositionArray 
-                        let indices = x.VertexIndexArray 
+                        //let positions = x.PositionArray 
+                        //let indices = x.VertexIndexArray 
 
                         Log.line "start building kdTree"
-                        let t = 
-                            indices 
-                            |> Seq.map(fun x -> positions.[x])
+                        let triMesh = x.TriangulatedCopy()
+                        let test = 
+                            triMesh.Faces 
+                            |> Seq.collect (fun face -> face.Polygon3d.Points )
                             |> Seq.chunkBySize 3
                             |> Seq.map(fun x -> Triangle3d x)
                             |> Seq.filter(fun x -> (IntersectionController.triangleIsNan x |> not)) |> Seq.toArray
                             |> TriangleSet
+                                                                                
+
+                        //Log.line "start building kdTree"
+                        //let t = 
+                        //    indices 
+                        //    |> Seq.map(fun x -> positions.[x])
+                        //    |> Seq.chunkBySize 3
+                        //    |> Seq.filter(fun x -> x.Length = 3)
+                        //    |> Seq.map(fun x -> Triangle3d x)
+                        //    |> Seq.filter(fun x -> (IntersectionController.triangleIsNan x |> not)) |> Seq.toArray
+                        //    |> TriangleSet
                     
                         Log.startTimed "Building kdtrees for %s" (Path.GetFileName surface.importPath |> Path.GetFileName)
                         let tree = 
-                            KdIntersectionTree(t, 
+                            KdIntersectionTree(test, 
                                 KdIntersectionTree.BuildFlags.MediumIntersection + KdIntersectionTree.BuildFlags.Hierarchical) //|> PRo3D.Serialization.save kdTreePath                  
                         Log.stop()
                         
@@ -625,7 +467,7 @@ module SurfaceUtils =
             let pose = Pose.translate (bb.Center) 
             let trafo = { TrafoController.initial with pose = pose; previewTrafo = Pose.toTrafo pose; mode = TrafoMode.Local }
 
-            let sgs = createSceneGraph obj //createSgsofOBJ obj bb //
+            let sgs = createSceneGraph obj 
 
             let sg = 
                 sgs
@@ -1179,6 +1021,9 @@ module SurfaceApp =
 
                                 yield GuiEx.iconCheckBox s.isActive (ToggleActiveFlag key) 
                                 |> UI.wrapToolTip DataPosition.Bottom "Toggle IsActive"
+
+                                yield i [clazz "sync icon"; onClick (fun _ -> RebuildKdTrees key)] [] 
+                                    |> UI.wrapToolTip DataPosition.Bottom "rebuild kdTree"           
             
                                 let! path = s.importPath
                                 let isobj = Path.GetExtension path = ".obj"
