@@ -1,8 +1,6 @@
 ### General
 
-Our approach is pretty much standard, but optimized for simple yet reviews by the community.
-
-The path from discovering a bug or implementing a feature can be summarized as follows:
+The process for contributing to PRo3D is optimized for easy peer reviews by the community:
  * Create an issue for the feature/bug
  * Discuss the feature with the community. High-frequency discussion should happen in our discord channel
  * Implement the feature in a feature branch `features/thename`
