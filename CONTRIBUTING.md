@@ -1,13 +1,11 @@
-When contributing to this repository, please first discuss the change you wish to make via issue, email, or any other method with the owners of this repository before making a change.
+### General
 
-Starting from develop please create a feature branch so that we can follow our branching model (see below).
+Our approach is pretty much standard, but optimized for simple yet reviews by the community.
 
-Please note we have a code of conduct, please follow it in all your interactions with the project.
-
-## Branches and Deployment
-
-We use the git-branch model as described here: https://nvie.com/posts/a-successful-git-branching-model/
-
-In short, we use feature branches, PRs to merge back to develop and create release branches starting there.
-Also note that due to our automatic deployment systems our deployment heavily builds on tags which are automatically
-created via changes in RELEASE_NOTES.md
+The path from discovering a bug or implementing a feature can be summarized as follows:
+ * Create an issue for the feature/bug
+ * Discuss the feature with the community. High-frequency discussion should happen in our discord channel
+ * Implement the feature in a feature branch `features/thename`
+ * Create a PR, ask for contributors to review the PR and merges the PR when done
+ * For creating a new release, change the PRODUCT_RELEASE_NOTES.md accordingly. For details please look at https://github.com/pro3d-space/PRo3D/blob/main/docs/Build-Deploy-System.md
+ * The CI will trigger a build and create a tag accordingly
