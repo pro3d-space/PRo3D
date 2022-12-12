@@ -1,3 +1,8 @@
+## 4.10.2
+- build kdtrees for objs from faces of triangulated mesh copy for #264
+- bugfix for large coordinates
+- load obj without textures; show vertex colors instead
+
 ## 4.10.1
 - making projection measurments fit for profile extractions #247 containing to following features
   - exported projection measurements contain all sampling points
