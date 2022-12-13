@@ -361,7 +361,7 @@ module ViewerUtils =
                         //let! t = trafo
                         //return (t.Forward * fpvm * fppm) //* t.Forward 
                         return (fppm * fpvm) // * ts.Forward
-                    } 
+                    }
 
                 let structuralOnOff (visible : aval<bool>) (sg : ISg<_>) : ISg<_> = 
                     visible 
@@ -463,7 +463,23 @@ module ViewerUtils =
                   }
           }
 
+
     
+    //let mutable useTC = true
+
+    let objEffect =
+        Effect.compose [
+            PRo3D.Base.Shader.footprintV   |> toEffect 
+
+            stableTrafoTest             |> toEffect
+
+            triangleFilterX                |> toEffect
+           
+            fixAlpha |> toEffect
+
+            PRo3D.Base.OPCFilter.improvedDiffuseTextureAndColor |> toEffect
+            PRo3D.Base.Shader.mapColorAdaption  |> toEffect   
+        ]
 
     let surfaceEffect =
         Effect.compose [
@@ -472,12 +488,15 @@ module ViewerUtils =
             stableTrafoTest             |> toEffect
 
             triangleFilterX                |> toEffect
-            Shader.OPCFilter.improvedDiffuseTexture |> toEffect
+           
             fixAlpha |> toEffect
+
+            PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect  
+            PRo3D.Base.OPCFilter.markPatchBorders |> toEffect 
+           
             
             // selection coloring makes gamma correction pointless. remove if we are happy with markPatchBorders
             // Shader.selectionColor          |> toEffect
-            PRo3D.Base.Shader.markPatchBorders |> toEffect
             //PRo3D.Base.Shader.differentColor   |> toEffect
                         
             OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
@@ -502,6 +521,7 @@ module ViewerUtils =
                 fun x -> ( x 
                     |> AMap.map(fun _ sf -> 
                         let bla = m.scene.surfacesModel.surfaces.flat
+
                         viewSingleSurfaceSg 
                             sf 
                             bla 
@@ -518,6 +538,7 @@ module ViewerUtils =
                     |> ASet.map snd                     
                 )                
             )
+
         //grouped   
         let sgs =
             alist {        
@@ -549,10 +570,11 @@ module ViewerUtils =
             |> Sg.set
             |> (camera |> Sg.camera)
 
+  
     let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (allowFootprint : bool) (m:AdaptiveModel)  =
         let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true
-
+        //let mutable useTC = true
         //avoids kdtree intersections for certain interactions
         let surfacePicking = 
             m.interaction 
@@ -566,39 +588,50 @@ module ViewerUtils =
         let refSystem = m.scene.referenceSystem
         let grouped = 
             sgGrouped |> AList.map(
-                fun x -> ( x 
-                    |> AMap.map(fun _ surface ->                         
-                        viewSingleSurfaceSg 
-                            surface 
-                            m.scene.surfacesModel.surfaces.flat
-                            m.frustum 
-                            selected 
-                            surfacePicking
-                            surface.globalBB
-                            refSystem 
-                            m.footPrint 
-                            m.scene.viewPlans.selectedViewPlan
-                            usehighlighting filterTexture
-                            allowFootprint
+                
+                fun x ->
+                ( x 
+                    |> AMap.map(fun _ surface ->
+                        
+                        let s = 
+                            viewSingleSurfaceSg 
+                                surface 
+                                m.scene.surfacesModel.surfaces.flat
+                                m.frustum 
+                                selected 
+                                surfacePicking
+                                surface.globalBB
+                                refSystem 
+                                m.footPrint 
+                                m.scene.viewPlans.selectedViewPlan
+                                usehighlighting filterTexture
+                                allowFootprint
+
+                        match surface.isObj with
+                        | true -> s |> Sg.effect [objEffect] 
+                        | false -> 
+                            s
+                            |> Sg.effect [surfaceEffect] 
+                            |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
+                            |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
+                        
                        )
                     |> AMap.toASet 
                     |> ASet.map snd                     
-                )                
+                ) //, useTC                
             )
 
         //grouped   
         let last = grouped |> AList.tryLast
-
+        
         alist {                    
-            for set in grouped do            
-                let sg = 
-                    set 
-                    |> Sg.set
-                    |> Sg.effect [surfaceEffect]
-                    |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-                    |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()
+            for set in grouped do  
+                let sg = set|> Sg.set
+                    //|> Sg.effect [surfaceEffect] 
+                    //|> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
+                    //|> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
 
-                yield RenderCommand.SceneGraph sg
+                yield RenderCommand.SceneGraph (sg)
 
                 //if i = c then //now gets rendered multiple times
                  // assign priorities globally, or for each anno and make sets

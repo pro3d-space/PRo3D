@@ -53,6 +53,7 @@ nuget Chiron                                ~> 6.3.1
 nuget RestSharp                             ~> 106.6.9
 
 nuget Microsoft.Diagnostics.Runtime         ~> 2.0.1
+nuget Microsoft.AspNetCore.Authentication.JwtBearer ~> 6.0.10
 
 nuget Giraffe
 nuget Saturn
