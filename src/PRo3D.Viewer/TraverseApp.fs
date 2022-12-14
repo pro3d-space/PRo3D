@@ -212,62 +212,62 @@ module TraverseApp =
     
 
     type TraverseParseError =
-       | PropertyNotFound of propertyName : string * feature : GeoJsonFeature
-       | PropertyHasWrongType of propertyName : string * feature : GeoJsonFeature * expected : string * got : string * str : string
+       | PropertyNotFound         of propertyName : string * feature : GeoJsonFeature
+       | PropertyHasWrongType     of propertyName : string * feature : GeoJsonFeature * expected : string * got : string * str : string
+       | GeometryTypeNotSupported of geometryType : string
     
 
-    let error v = FSharp.Core.Error v
 
     let (.|) (point : GeoJsonFeature) (propertyName : string) : Result<Json, TraverseParseError> =
         match point.properties |> Map.tryFind propertyName with
         | None -> PropertyNotFound(propertyName, point) |> error
         | Some v -> v |> Ok
 
-    let parseIntProperty (point : GeoJsonFeature) (propertyName : string) : Result<int, TraverseParseError> =
+    // the parsing functions are a bit verbose but focus on good error reporting....
+
+
+    let parseIntProperty (feature : GeoJsonFeature) (propertyName : string) : Result<int, TraverseParseError> =
         result {
-            match point.|propertyName with
+            let json = feature.|propertyName
+            match json with
             | Result.Ok(Json.String p) -> 
                 return! 
                     Result.Int.tryParse p 
                     |> Result.mapError (fun _ -> 
-                        PropertyHasWrongType(propertyName, point, "int", "string which could not be parsed to an int.", p)
+                        PropertyHasWrongType(propertyName, feature, "int", "string which could not be parsed to an int.", sprintf "%A" json)
                     )
             | Result.Ok(Json.Number n) -> 
-                if (int n).Equals(n) then  // here we might have gotten a double, instead of inplicity truncating, we report is an error
+                if ((float n) % 1.0) = 0 then  // here we might have gotten a double, instead of inplicity truncating, we report is an error
                     return int n
                 else
                     return! 
-                        PropertyHasWrongType(propertyName, point, "int", "decimal which was not an integer.", p.ToString())
+                        PropertyHasWrongType(propertyName, feature, "int", "decimal which was not an integer.", sprintf "%A" n)
                         |> error
             | Result.Ok(e) -> 
                 return! 
                     error (
-                        PropertyHasWrongType(propertyName, point, "Json.Number", e.ToString(), e.ToString())
+                        PropertyHasWrongType(propertyName, feature, "Json.Number", e.ToString(), sprintf "%A" json)
                     )
             | Result.Error e -> 
                 return! Result.Error e
         }
 
-    let parseDoubleProperty (point : GeoJsonFeature) (propertyName : string) : Result<float, TraverseParseError> =
+    let parseDoubleProperty (feature : GeoJsonFeature) (propertyName : string) : Result<float, TraverseParseError> =
         result {
-            match point.|propertyName with
+            let json = feature.|propertyName 
+            match json with
             | Result.Ok(Json.String p) -> 
                 return! 
                     Result.Double.tryParse p 
                     |> Result.mapError (fun _ -> 
-                        PropertyHasWrongType(propertyName, point, "double", "string which could not be parsed to a double", p)
+                        PropertyHasWrongType(propertyName, feature, "double", "string which could not be parsed to a double", sprintf "%A" json)
                     )
             | Result.Ok(Json.Number n) -> 
-                if (int n).Equals(n) then  // here we might have gotten a double, instead of inplicity truncating, we report is an error
-                    return int n
-                else
-                    return! 
-                        PropertyHasWrongType(propertyName, point, "double", "string which could not be parsed to an int", p.ToString())
-                        |> error
+                return double n
             | Result.Ok(e) -> 
                 return! 
                     error (
-                        PropertyHasWrongType(propertyName, point, "Json.Number", e.ToString(), e.ToString())
+                        PropertyHasWrongType(propertyName, feature, "Json.Number", sprintf "%A" e, sprintf "%A" json)
                     )
             | Result.Error e -> 
                 return! Result.Error e
@@ -287,157 +287,87 @@ module TraverseApp =
             let! yaw            = parseDoubleProperty x  "yaw"    
             let! pitch          = parseDoubleProperty x  "pitch"      
             let! roll           = parseDoubleProperty x  "roll"      
-            let! tilt           = parseDoubleProperty x  "tilt"         
-            let! note           = parseStringProperty x  "Note"       
+            let! tilt           = parseDoubleProperty x  "tilt"          
             let! distanceM      = parseDoubleProperty x  "dist_m"     
             return 
                 { sol with 
                     solNumber = solNumber; site = site; yaw = yaw; pitch = pitch; 
-                    roll = roll; tilt = tilt; note = note; distanceM = distanceM
+                    roll = roll; tilt = tilt; distanceM = distanceM
                 }
         }
 
     let parseFeature (x : GeoJsonFeature) =
         result {
-            match x.geometry with
-            | GeoJsonGeometry.Point p ->
-                match p with
-                | Coordinate.TwoDim y ->
-                    //x ... lon
-                    //y ... lat
+            let! position = 
+                result {
+                    match x.geometry with
+                    | GeoJsonGeometry.Point p ->
+                        match p with
+                        | Coordinate.TwoDim y ->
+                            //x ... lon
+                            //y ... lat
 
-                    let! elev_goid = parseDoubleProperty x "elev_geoid"
+                            let! elev_goid = parseDoubleProperty x "elev_geoid"
                         
-                    let latLonAlt = 
-                        V3d (
-                            y.Y, 
-                            360.0 - y.X, 
-                            elev_goid                            
-                        )
+                            let latLonAlt = 
+                                V3d (
+                                    y.Y, 
+                                    360.0 - y.X, 
+                                    elev_goid                            
+                                )
 
-                    let xyz = CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
-                    let! sol = parseProperties { Sol.initial with version = Sol.current; location = xyz } x
+                            return CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
 
-                    match parseDoubleProperty x "dist_total_m", parseDoubleProperty x "dist_total" with
-                        | Result.Ok dist, _ | _, Result.Ok  dist -> 
-                            return { sol with totalDistanceM = dist }
-                        | _ ->
-                            return { sol with totalDistanceM = 0.0 }
+                        | Coordinate.ThreeDim y ->
 
+                            let latLonAlt =  //y.YXZ
+                                V3d (
+                                    y.Y, 
+                                    360.0 - y.X, 
+                                    y.Z                                 
+                                )
 
-                | Coordinate.ThreeDim y ->
+                            return CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
 
-                    let latLonAlt =  //y.YXZ
-                        V3d (
-                            y.Y, 
-                            360.0 - y.X, 
-                            y.Z                                 
-                        )
-
-                    let xyz = CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
+                    | e -> 
+                        return! error (GeometryTypeNotSupported (string e))
+                }
                         
-                    let note = 
-                        match x.properties |> Map.tryFind "Note" with
-                        | Some n -> n |> M20.parseString
-                        | None -> ""
+            let! sol = parseProperties { Sol.initial with version = Sol.current; location = position; } x
 
-                    return { 
-                        version        = Sol.current
-                        location       = xyz
-                        solNumber      = x.properties.["sol"]          |> M20.parseInt 
-                        site           = x.properties.["site"]         |> M20.parseInt 
-                        yaw            = x.properties.["yaw"]          |> M20.parseDouble 
-                        pitch          = x.properties.["pitch"]        |> M20.parseDouble 
-                        roll           = x.properties.["roll"]         |> M20.parseDouble 
-                        tilt           = x.properties.["tilt"]         |> M20.parseDouble 
-                        note           = note
-                        distanceM      = x.properties.["dist_m"]       |> M20.parseDouble 
-                        totalDistanceM = 
-                            match (x.properties.TryFind "dist_total_m") with
-                            | Some dm -> x.properties.["dist_total_m"] |> M20.parseDouble 
-                            | None ->
-                                match (x.properties.TryFind "dist_total") with
-                                | Some d -> x.properties.["dist_total"] |> M20.parseDouble 
-                                | None -> 0.0
-                    }                      
+            // note is (now) optional for all cases. 
+            // Previsouly note was mandatory in 2D, and optional in 3D - not sure whether this was intentioanl @ThomasOrtner
+            let sol = 
+                match parseStringProperty x "Note" with
+                | Result.Ok note -> { sol with note = note }
+                | _ -> sol
+        
+
+            // either choose dist_total_m or dist_total - or default to zero if nothing? @ThomasOrnter - is this defaulting correct or an error?
+            match parseDoubleProperty x "dist_total_m", parseDoubleProperty x "dist_total" with
+                | Result.Ok dist, _ | _, Result.Ok  dist -> 
+                    return { sol with totalDistanceM = dist }
+                | _ ->
+                    return { sol with totalDistanceM = 0.0 }
         }
 
     let parseTraverse (traverse : GeoJsonFeatureCollection) = 
         let sols = 
-            traverse.features                 
-            |> List.map(fun x ->
-                match x.geometry with
-                | GeoJsonGeometry.Point p ->
-                    match p with
-                    | Coordinate.TwoDim y ->
-                        //x ... lon
-                        //y ... lat
-                        
-                        let latLonAlt = 
-                            V3d (
-                                y.Y, 
-                                360.0 - y.X, 
-                                x.properties.["elev_geoid"] |> M20.parseDouble                                
-                            )
-
-                        let xyz = CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
-
-                        { 
-                            version        = Sol.current
-                            location       = xyz
-                            solNumber      = x.properties.["sol"]          |> M20.parseInt 
-                            site           = x.properties.["site"]         |> M20.parseInt 
-                            yaw            = x.properties.["yaw"]          |> M20.parseDouble
-                            pitch          = x.properties.["pitch"]        |> M20.parseDouble
-                            roll           = x.properties.["roll"]         |> M20.parseDouble
-                            tilt           = x.properties.["tilt"]         |> M20.parseDouble
-                            note           = x.properties.["Note"]         |> M20.parseString
-                            distanceM      = x.properties.["dist_m"]       |> M20.parseDouble
-                            totalDistanceM = 
-                                match (x.properties.TryFind "dist_total_m") with
-                                | Some dm -> x.properties.["dist_total_m"] |> M20.parseDouble 
-                                | None ->
-                                    match (x.properties.TryFind "dist_total") with
-                                    | Some d -> x.properties.["dist_total"] |> M20.parseDouble 
-                                    | None -> 0.0
-                        }
-
-                    | Coordinate.ThreeDim y ->
-
-                        let latLonAlt =  //y.YXZ
-                            V3d (
-                                y.Y, 
-                                360.0 - y.X, 
-                                y.Z                                 
-                            )
-
-                        let xyz = CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
-                        
-                        let note = 
-                            match x.properties |> Map.tryFind "Note" with
-                            | Some n -> n |> M20.parseString
-                            | None -> ""
-
-                        { 
-                            version        = Sol.current
-                            location       = xyz
-                            solNumber      = x.properties.["sol"]          |> M20.parseInt 
-                            site           = x.properties.["site"]         |> M20.parseInt 
-                            yaw            = x.properties.["yaw"]          |> M20.parseDouble 
-                            pitch          = x.properties.["pitch"]        |> M20.parseDouble 
-                            roll           = x.properties.["roll"]         |> M20.parseDouble 
-                            tilt           = x.properties.["tilt"]         |> M20.parseDouble 
-                            note           = note
-                            distanceM      = x.properties.["dist_m"]       |> M20.parseDouble 
-                            totalDistanceM = 
-                                match (x.properties.TryFind "dist_total_m") with
-                                | Some dm -> x.properties.["dist_total_m"] |> M20.parseDouble 
-                                | None ->
-                                    match (x.properties.TryFind "dist_total") with
-                                    | Some d -> x.properties.["dist_total"] |> M20.parseDouble 
-                                    | None -> 0.0
-                        }                        
-                | _ -> failwith "not point"
+            traverse.features        
+            |> List.mapi (fun i e -> (i,e)) // tag the elements for better error reporting
+            |> List.choose (fun (idx, feature) ->
+                match parseFeature feature with
+                | Result.Ok r -> Some r
+                | Result.Error e -> 
+                    // we skip this one in case of errors, see // see https://github.com/pro3d-space/PRo3D/issues/263
+                    Report.Warn(
+                        String.concat Environment.NewLine [
+                            sprintf "[Traverse] could not parse or interpret feature %d in the feature list.\n" idx 
+                            sprintf "[Traverse] the detailled error is: %A" e
+                            "[Traverse] we simply skip this one..." 
+                        ]
+                    )
+                    None
             )                
 
         sols
