@@ -34,7 +34,6 @@ type SurfaceAppAction =
 | MakeRelative              of Guid
 | RemoveSurface             of Guid*list<Index>
 | PickSurface               of SceneHit*string
-| OpenFolder                of Guid
 | RebuildKdTrees            of Guid
 | ToggleActiveFlag          of Guid
 | ChangeImportDirectory     of Guid*string
@@ -645,20 +644,6 @@ module SurfaceApp =
             let groups = GroupsApp.removeLeaf model.surfaces id path true
             let sg' = model.sgSurfaces |> HashMap.remove id
             { model with surfaces = groups; sgSurfaces = sg'} |> SurfaceModel.triggerSgGrouping              
-        | OpenFolder id ->
-            let surf = id |> SurfaceModel.getSurface model
-            match surf with
-            | Some s -> 
-                match s with 
-                | Leaf.Surfaces sf ->
-                    let path = Files.getSurfaceFolder sf scenePath
-                    match path with
-                    | Some p -> 
-                        Process.Start("explorer.exe", p) |> ignore
-                        model
-                    | None -> model
-                | _ -> failwith "can only contain surfaces"
-            | None -> model
         | RebuildKdTrees id ->                
             let surf = id |> SurfaceModel.getSurface model
             match surf with
@@ -916,6 +901,7 @@ module SurfaceApp =
                   | None -> false )
 
     let viewSurfacesInGroups 
+        (scenePath : aval<Option<string>>)
         (path         : list<Index>) 
         (model        : AdaptiveGroupsModel) 
         (singleSelect : AdaptiveSurface*list<Index> -> SurfaceAppAction) 
@@ -978,23 +964,22 @@ module SurfaceApp =
                     AVal.map2 (fun a b -> sprintf "%.0f|%s" a b) (s.priority.value) s.name
 
 
-                let folder = "todo" // help - how do i get scenePath here @ThomasOrtner - is this even possible?
-                    //s.Current |> AVal.map (fun sf  ->
-                    //    Files.getSurfaceFolder sf scenePath 
-                    //)
-                    //let surf = id |> SurfaceModel.getSurface model
-                    //match surf with
-                    //| Some s -> 
-                    //    match s with 
-                    //    | Leaf.Surfaces sf ->
-                    //        let path = Files.getSurfaceFolder sf scenePath
-                    //        match path with
-                    //        | Some p -> 
-                    //            Process.Start("explorer.exe", p) |> ignore
-                    //            model
-                    //        | None -> model
-                    //    | _ -> failwith "can only contain surfaces"
-                    //| None -> model
+                let surfacePath = 
+                    (s.Current, scenePath) ||> AVal.map2 Files.getSurfaceFolder
+
+                let openFolderAttributes =
+                    amap {
+                        let! surfacePath = surfacePath
+                        match surfacePath with
+                        | None -> 
+                            Log.warn "no surface path, disabling folder icon"
+                            yield clazz "folder disabled icon"; 
+                        | Some surfacePath -> 
+                            let openFolderJs = Electron.openPath surfacePath
+                            yield clientEvent "onclick" openFolderJs
+                            yield clazz "folder icon"; 
+                    } |> AttributeMap.ofAMap
+
 
                 //[clientEvent "onclick" (sprintf "aardvark.electron.shell.showItemInFolder('%s');" (Helpers.escape path)) ] <---- this is the way to go for "reveal in explorer/finder"
             
@@ -1012,7 +997,7 @@ module SurfaceApp =
                                 yield i [clazz "home icon"; onClick (fun _ -> FlyToSurface key)] [] 
                                     |> UI.wrapToolTip DataPosition.Bottom "Fly to surface"                                                     
             
-                                yield i [clazz "folder icon"; onClick (fun _ -> OpenFolder key)] [] 
+                                yield Incremental.i openFolderAttributes AList.empty
                                     |> UI.wrapToolTip DataPosition.Bottom "Open Folder"                             
             
                                 //yield Incremental.i (absRelIcons) (AList.empty)
@@ -1046,13 +1031,13 @@ module SurfaceApp =
                 ]
         }
            
-    let rec viewTree path (group : AdaptiveNode) (model : AdaptiveGroupsModel) : alist<DomNode<SurfaceAppAction>> =
+    let rec viewTree (scenePath : aval<Option<string>>) path (group : AdaptiveNode) (model : AdaptiveGroupsModel) : alist<DomNode<SurfaceAppAction>> =
 
         alist {
 
             let! s = model.activeGroup
             let color = sprintf "color: %s" (Html.ofC4b C4b.White)                
-            let children = AList.collecti (fun i v -> viewTree (i::path) v model) group.subNodes    
+            let children = AList.collecti (fun i v -> viewTree scenePath (i::path) v model) group.subNodes    
             let activeAttributes = GroupsApp.setActiveGroupAttributeMap path model group GroupsMessage
                                    
             let toggleIcon = 
@@ -1114,7 +1099,7 @@ module SurfaceApp =
                             if isExpanded then yield! children
                             
                             if isExpanded then 
-                                yield! viewSurfacesInGroups path model singleSelect multiSelect lift group.leaves
+                                yield! viewSurfacesInGroups scenePath path model singleSelect multiSelect lift group.leaves
                         }
                     )  
                             
@@ -1124,11 +1109,11 @@ module SurfaceApp =
         }
 
 
-    let viewSurfacesGroups (model:AdaptiveSurfaceModel) = 
+    let viewSurfacesGroups (scenePath : aval<Option<string>>) (model:AdaptiveSurfaceModel) = 
         require GuiEx.semui (
             Incremental.div 
               (AttributeMap.ofList [clazz "ui celled list"]) 
-              (viewTree [] model.surfaces.rootGroup model.surfaces)            
+              (viewTree scenePath [] model.surfaces.rootGroup model.surfaces)            
         )    
         
 
@@ -1289,7 +1274,7 @@ module SurfaceApp =
             return (GroupsApp.viewGroupButtons ts |> UI.map GroupsMessage)
         } 
     
-    let surfaceUI (colorPaletteStore : string) (model:AdaptiveSurfaceModel) =
+    let surfaceUI (scenePath : aval<Option<string>>) (colorPaletteStore : string) (model:AdaptiveSurfaceModel) =
         let item2 = 
             model.surfaces.lastSelectedItem 
                 |> AVal.bind (fun x -> 
@@ -1305,7 +1290,7 @@ module SurfaceApp =
                         | _ -> surfacesLeafButtonns model
                 )
         div[][                            
-            yield GuiEx.accordion "Surfaces" "Cubes" true [ viewSurfacesGroups model ]
+            yield GuiEx.accordion "Surfaces" "Cubes" true [ viewSurfacesGroups scenePath model ]
             yield GuiEx.accordion "Properties" "Content" false [
               Incremental.div AttributeMap.empty (AList.ofAValSingle item2)
                
