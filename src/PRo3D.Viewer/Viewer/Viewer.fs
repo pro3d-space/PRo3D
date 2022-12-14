@@ -1301,10 +1301,6 @@ module ViewerApp =
             { m with tabMenu = tab }
         | SwitchViewerMode  vm ,_,_ -> 
             { m with viewerMode = vm }
-        | OpenSceneFileLocation p,_,_ ->                
-            let argument = sprintf "/select, \"%s\"" p
-            Process.Start("explorer.exe", argument) |> ignore
-            m
         | NoAction s,_,_ -> 
             if s.IsEmptyOrNull() |> not then 
                 Log.line "[Viewer.fs] No Action %A" s

@@ -644,7 +644,7 @@ module Gui =
                     let icon = 
                         match scenePath with
                         | Some p -> 
-                            i [clazz "large folder icon" ; onClick (fun _ -> OpenSceneFileLocation p)] [] 
+                            i [clazz "large folder icon" ; clientEvent "onclick" (Electron.showItemInFolder p)] [] 
                             |> UI.wrapToolTip DataPosition.Bottom "open folder"
                         | None -> div [] []  
                           
@@ -812,7 +812,7 @@ module Gui =
                     FrustumProperties.view m.frustumModel |> UI.map FrustumMessage
                 ]
                 GuiEx.accordion "Screenshots" "Settings" false [
-                    ScreenshotApp.view m.scene.screenshotModel |> UI.map ScreenshotMessage
+                    ScreenshotApp.view m.screenshotDirectory m.scene.screenshotModel |> UI.map ScreenshotMessage
                 ]
                 GuiEx.accordion "Data Management" "Settings" false [
                     Html.table [  
