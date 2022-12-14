@@ -3,7 +3,8 @@
 The process for contributing to PRo3D is optimized for easy peer reviews by the community:
  * Create an issue for the feature/bug
  * Discuss the feature with the community. High-frequency discussion should happen in our discord channel
- * Implement the feature in a feature branch `features/thename`
+ * Implement the feature in a feature branch `features/thename` or `bugs/bugname`
  * Create a PR, ask for contributors to review the PR and merges the PR when done
- * For creating a new release, change the PRODUCT_RELEASE_NOTES.md accordingly. For details please look at https://github.com/pro3d-space/PRo3D/blob/main/docs/Build-Deploy-System.md
+ * For creating a new release (in develop), change the PRODUCT_RELEASE_NOTES.md / package.json accordingly. For details please look at https://github.com/pro3d-space/PRo3D/blob/main/docs/Build-Deploy-System.md 
  * The CI will trigger a build and create a tag accordingly
+ * Please put into the release - the version, humand readable description of the new features/fixes and references to issues etc. (in github choose the release, press the edit button, apply the changes and use the "publish release" button)
