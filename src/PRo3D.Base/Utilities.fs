@@ -1214,3 +1214,15 @@ module ScreenshotUtilities =
             let screenshot = getScreenshotUrl baseAddress cs width height
             let filename = getScreenshotFilename folder name cs format
             wc.DownloadFile(screenshot,filename)        
+
+
+module JsInterop = 
+    let escapePath (s : string) =
+        s.Replace("\\", "\\\\")
+
+module Electron =
+    let openPath (s : string) =
+        sprintf "top.aardvark.electron.shell.openPath('%s');" (JsInterop.escapePath s)
+    
+    let showItemInFolder (s : string) =
+        sprintf "top.aardvark.electron.shell.showItemInFolder('%s');" (JsInterop.escapePath s)

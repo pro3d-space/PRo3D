@@ -132,7 +132,6 @@ type ViewerAction =
 //| ScaleToolAction                 of ScaleToolAction
 //| LinkingActions                  of PRo3D.Linking.LinkingAction    
 | SetTabMenu                      of TabMenu
-| OpenSceneFileLocation           of string
 | NoAction                        of string
 | OrientationCube                 of ISg
 | UpdateDockConfig                of DockConfig
