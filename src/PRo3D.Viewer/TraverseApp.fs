@@ -172,44 +172,8 @@ module TraversePropertiesApp =
                 })
 
 
-module Result =
-
-
-    type ResultBuilder() =
-        member x.Return(v :'v) : Result<'v,_> = Ok v
-        member x.ReturnFrom(v : Result<_,_>) = v
-        member x.Bind(m : Result<'a,'e>, f : 'a -> Result<'b,'e>) =
-            match m with
-            | Result.Ok v -> f v
-            | Result.Error e -> Result.Error e
-
-    let result = ResultBuilder()
-
-    module Double =
-        
-        let tryParse (v : string) : Result<float, unit> =
-            match Double.TryParse(v, Globalization.NumberStyles.Any, Globalization.CultureInfo.InvariantCulture) with
-            | (true, v) -> Result.Ok v
-            | _ -> Result.Error ()
-
-    module Int =
-        
-        let tryParse (v : string) : Result<int, unit> =
-            match Int32.TryParse(v) with
-            | (true, v) -> Result.Ok v
-            | _ -> Result.Error()
-
-    let mapError (f : 'e0 -> 'e1)  (v : Result<'ok,'e0>) =
-        match v with
-        | Result.Error e -> Result.Error (f e)
-        | Result.Ok ok -> Result.Ok ok
-
-    let error (e : 'e) = Result.Error e
-
 module TraverseApp =
 
-    open Result
-    
 
     type TraverseParseError =
        | PropertyNotFound         of propertyName : string * feature : GeoJsonFeature
@@ -281,14 +245,22 @@ module TraverseApp =
 
 
     let parseProperties (sol : Sol) (x : GeoJsonFeature) : Result<Sol, TraverseParseError> =
+        let reportErrorAndUseDefault (v : 'a) (r : Result<_,_>) =
+            r |> Result.defaultValue' (fun e -> Log.warn "could not parse property: %A\n\n.Using fallback: %A" e v; v)
+
         result {
-            let! solNumber      = parseIntProperty x  "sol"
-            let! site           = parseIntProperty x  "site"   
-            let! yaw            = parseDoubleProperty x  "yaw"    
-            let! pitch          = parseDoubleProperty x  "pitch"      
-            let! roll           = parseDoubleProperty x  "roll"      
-            let! tilt           = parseDoubleProperty x  "tilt"          
-            let! distanceM      = parseDoubleProperty x  "dist_m"     
+            let! solNumber      = parseIntProperty x  "sol" // not optional
+            let! yaw            = parseDoubleProperty x  "yaw"     // not optional
+            let! pitch          = parseDoubleProperty x  "pitch"   // not optional 
+            let! roll           = parseDoubleProperty x  "roll"    // not optional
+
+            // those are optional (still print a warning)
+            let! tilt      = parseDoubleProperty x  "tilt"    |> reportErrorAndUseDefault  0.0    
+            let! distanceM = parseDoubleProperty x  "dist_m"  |> reportErrorAndUseDefault  0.0    
+
+            // not sure whether site should be optional (make it optional if needed), https://github.com/pro3d-space/PRo3D/issues/263
+            let! site      = parseIntProperty x  "site"  
+                                  
             return 
                 { sol with 
                     solNumber = solNumber; site = site; yaw = yaw; pitch = pitch; 
