@@ -87,14 +87,11 @@ module ViewPlanApp =
         let m = {vp with roverModel = roverModel}
         // update selected view plan and viewplans
         match vp.selectedViewPlan with
-        | Some v -> 
-            // TODO v5: refactor            
-            let viewPlans = updateViewPlans v (vp.viewPlans)
-            let m = { m with viewPlans = viewPlans |> HashMap.map (fun _ _ -> v) }
-            
-            match roverModel.selectedRover with
-            | Some r -> { m with selectedViewPlan = Some { v with rover = r }}
-            | None -> m
+        | Some id -> 
+            // TODO v5: refactor 
+            let selectedVp = vp.viewPlans |> HashMap.find id
+            let viewPlans = updateViewPlans selectedVp (vp.viewPlans)
+            { m with viewPlans = viewPlans |> HashMap.map (fun _ _ -> selectedVp) }
         | None -> m     
 
     let getPlaneNormalSign 
@@ -132,18 +129,22 @@ module ViewPlanApp =
         adaptive {
             let! selected = vp.selectedViewPlan
             let fail = (uint32(1024), uint32(1024))
-            
+          
             match selected with
-            | AdaptiveSome v -> 
-                let! selectedI = v.selectedInstrument
-                match selectedI with
-                | AdaptiveSome i -> 
-                    let! intrinsics = i.intrinsics
-                    let horRes  = intrinsics.horizontalResolution
-                    let vertRes = intrinsics.verticalResolution
-                    return (horRes, vertRes)
-                | AdaptiveNone -> return fail
-            | AdaptiveNone -> return fail
+            | Some id -> 
+                let! selectedVp = vp.viewPlans |> AMap.tryFind id
+                match selectedVp with
+                | Some v ->
+                    let! selectedI = v.selectedInstrument
+                    match selectedI with
+                    | AdaptiveSome i -> 
+                        let! intrinsics = i.intrinsics
+                        let horRes  = intrinsics.horizontalResolution
+                        let vertRes = intrinsics.verticalResolution
+                        return (horRes, vertRes)
+                    | AdaptiveNone -> return fail
+                | None -> return fail
+            | None -> return fail
         } 
         
     let trafoFromTranslatedBase
@@ -367,7 +368,7 @@ module ViewPlanApp =
         { model with 
             viewPlans        = HashMap.add newViewPlan.id newViewPlan model.viewPlans
             working          = List.Empty
-            selectedViewPlan = Some newViewPlan 
+            selectedViewPlan = Some newViewPlan.id 
         }
 
     let removeViewPlan 
@@ -402,15 +403,18 @@ module ViewPlanApp =
             let view     = CameraView.look extr.position extr.camLookAt.Normalized extr.camUp.Normalized
             let ifrustum = Frustum.perspective (hfov.DegreesFromGons()) frust.near frust.far (resh/resv)
             
+            let i' = { i with extrinsics = extr}
+            let vp' = { vp with selectedInstrument = Some i';} 
+            
             let m' = {
-              model with 
+              model with
                 instrumentCam     = view    // CHECK-merge { model.instrumentCam with view = view }
                 instrumentFrustum = ifrustum 
             }
             
             //Log.line "%A" model.instrumentCam.ViewTrafo
             
-            let f = FootPrint.updateFootprint i vp.position m'
+            let f = FootPrint.updateFootprint i' vp.position m'
             f,m'
             
         | None -> 
@@ -431,31 +435,32 @@ module ViewPlanApp =
             | Some i -> Some (r.instruments |> HashMap.find i.id)
             | None   -> None
 
-        let vp = { vp with rover = r; selectedInstrument = i }  
-        let m  = {
-            model with 
-                selectedViewPlan = Some vp
-                viewPlans        = model.viewPlans |> HashMap.alter vp.id id
-        }
+        let vp' = { vp with rover = r; selectedInstrument = i }  
+        let m  = { model with
+                    selectedViewPlan = Some vp'.id
+                    viewPlans        = model.viewPlans |> HashMap.alter vp'.id  (Option.map(fun _ -> vp')) //id 
+                    roverModel       = roverModel}
 
-        let fp, m = updateInstrumentCam vp m fp
-        fp, { m with roverModel = roverModel }
+        let fp, m = updateInstrumentCam vp' m fp
+        fp, m //{ m with roverModel = roverModel }
 
     let selectViewplan outerModel _footprint id model =
         let viewPlanToSelect = model.viewPlans |> HashMap.tryFind id
-        match viewPlanToSelect with 
-        | Some viewplan ->                
-            match model.selectedViewPlan with
-            | Some selected when selected.id = viewplan.id ->                    
+        match viewPlanToSelect, model.selectedViewPlan with
+        | Some a, Some b ->
+            if a.id = b then 
                 outerModel, { model with selectedViewPlan = None }
-            | _ ->                   
+            else
                 let footPrint = Optic.get _footprint outerModel
-                let footPrint, model = updateInstrumentCam viewplan model footPrint
+                let footPrint, model = updateInstrumentCam a model footPrint
                 let newOuterModel = Optic.set _footprint footPrint outerModel
-                newOuterModel, { model with selectedViewPlan = Some viewplan }
-        | None ->
-            Log.line "[ViewplanApp] viewplan with selected id does not exist"
-            outerModel, model
+                newOuterModel, { model with selectedViewPlan = Some a.id }
+        | Some a, None -> 
+            let footPrint = Optic.get _footprint outerModel
+            let footPrint, model = updateInstrumentCam a model footPrint
+            let newOuterModel = Optic.set _footprint footPrint outerModel
+            newOuterModel, { model with selectedViewPlan = Some a.id }
+        | None, _ -> outerModel, model
 
     //let update (model : ViewPlanModel) (camState:CameraControllerState) (action : Action) =
     let update 
@@ -544,7 +549,7 @@ module ViewPlanApp =
         | RemoveViewPlan id ->
             let vp' = 
                 match model.selectedViewPlan with
-                | Some v -> if v.id = id then None else Some v
+                | Some v -> if v = id then None else Some v
                 | None -> None
 
             let vps = removeViewPlan model.viewPlans id
@@ -552,37 +557,40 @@ module ViewPlanApp =
 
         | SelectInstrument i -> 
             match model.selectedViewPlan with
-            | Some vp -> 
-                let newVp         = { vp with selectedInstrument = i }
+            | Some id-> 
+                let selectedVp = model.viewPlans |> HashMap.find id
+                let newVp         = { selectedVp with selectedInstrument = i }
                 let fp            = Optic.get _footprint outerModel
                 let fp', m'       = updateInstrumentCam newVp model fp
                 let newOuterModel = Optic.set _footprint fp' outerModel
 
                 let viewPlans = model.viewPlans |> HashMap.add newVp.id newVp 
 
-                newOuterModel, { m' with selectedViewPlan = Some newVp; viewPlans = viewPlans }
-            | None -> outerModel, model                                                     
+                newOuterModel, { m' with viewPlans = viewPlans }
+            | None -> outerModel, model                                                                   
 
         | SelectAxis a       -> 
             match model.selectedViewPlan with
-            | Some vp -> 
-                let newVp = { vp with selectedAxis = a }
+            | Some id -> 
+                let selectedVp = model.viewPlans |> HashMap.find id 
+                let newVp = { selectedVp with selectedAxis = a }
                 let viewPlans = model.viewPlans |> HashMap.add newVp.id newVp 
 
-                outerModel, { model with selectedViewPlan = Some newVp; viewPlans = viewPlans }
+                outerModel, { model with viewPlans = viewPlans }
             | None -> outerModel, model    
 
         | ChangeAngle (id,a) -> 
             match model.selectedViewPlan with
-            | Some vp -> 
-                match vp.rover.axes.TryFind id with
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid 
+                match selectedVp.rover.axes.TryFind id with
                 | Some ax -> 
                     let angle = Utilities.PRo3DNumeric.update ax.angle a
                     //printfn "numeric angle: %A" angle
                     let ax' = { ax with angle = angle }
 
-                    let rover = { vp.rover with axes = (vp.rover.axes |> HashMap.update id (fun _ -> ax')) }
-                    let vp' = { vp with rover = rover; currentAngle = angle; }
+                    let rover = { selectedVp.rover with axes = (selectedVp.rover.axes |> HashMap.update id (fun _ -> ax')) }
+                    let vp' = { selectedVp with rover = rover; currentAngle = angle; }
 
                     let angleUpdate = { 
                         roverId       = vp'.rover.id
@@ -595,30 +603,33 @@ module ViewPlanApp =
                     let roverModel = RoverApp.updateAnglePlatform angleUpdate model.roverModel
 
                     let fp = Optic.get _footprint outerModel
-                    let fp, model = updateRovers model roverModel vp' fp
+                    let fp, model' = updateRovers model roverModel vp' fp
                     let newOuterModel = Optic.set _footprint fp outerModel
+
+                    //let viewPlans = model.viewPlans |> HashMap.add vp'.id vp'
                                                 
-                    newOuterModel, model
+                    newOuterModel, model' //{ model with viewPlans = viewPlans }
                 | None -> outerModel, model
             | None -> outerModel, model
 
         | ChangeFocal (id, f) ->
             match model.selectedViewPlan with
-            | Some vp -> 
-                match vp.selectedInstrument with
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid 
+                match selectedVp.selectedInstrument with
                 | Some inst ->   
                     let focal = Numeric.update inst.focal f
                     let inst' =  { inst with focal = focal }
 
                     let instruments' = 
-                      vp.rover.instruments 
+                      selectedVp.rover.instruments 
                         |> HashMap.update id (fun x -> 
                            match x with
                            | Some _ -> inst'
                            | None   -> failwith "instrument not found")
 
-                    let rover = { vp.rover with instruments = instruments'}
-                    let vp' = { vp with rover = rover; selectedInstrument = Some inst' }
+                    let rover = { selectedVp.rover with instruments = instruments'}
+                    let vp' = { selectedVp with rover = rover; selectedInstrument = Some inst' }
 
                     let focusUpdate = {
                         roverId      = vp'.rover.id
@@ -633,14 +644,15 @@ module ViewPlanApp =
                     
                     newOuterModel, m'
                 | None -> outerModel, model                                       
-            | None -> outerModel, model 
+            | None -> outerModel, model  
 
         | SetVPName t -> 
             match model.selectedViewPlan with
-            | Some vp -> 
-                let vp' = {vp with name = t}
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid 
+                let vp' = {selectedVp with name = t}
                 let viewPlans = model.viewPlans |> HashMap.add vp'.id vp'
-                outerModel, {model with selectedViewPlan = Some vp'; viewPlans = viewPlans }              
+                outerModel, {model with viewPlans = viewPlans }              
             | None -> outerModel, model
 
         | ToggleFootprint ->   
@@ -873,21 +885,24 @@ module ViewPlanApp =
 
             let viewPlans =
                 aset {
+                    let! selected' = model.selectedViewPlan
                     for _,vp in model.viewPlans do 
                         
                         let! showVectors = vp.isVisible
                         if showVectors then
                             yield drawPlatformCoordinateCross vp near length thickness cam
-                            let! selected = model.selectedViewPlan
-                            let id = vp.id
+
+                            let selected =
+                                match selected' with
+                                | Some sel -> sel = vp.id 
+                                | None -> false
                             
                             let gg = 
-                                match selected with
-                                | AdaptiveSome s -> 
+                                if selected then
                                     let sg = drawRover vp near length thickness cam model.roverModel
-                                    let condition = ~~(s.id = id)
-                                    sg |> Sg.onOff (condition)
-                                | AdaptiveNone -> 
+                                    //let condition = ~~(sid = vp.id)
+                                    sg //|> Sg.onOff (condition)
+                                else
                                     Sg.empty
                             yield gg    
                 } |> Sg.set
@@ -924,7 +939,7 @@ module ViewPlanApp =
 
             Incremental.div listAttributes (
                 alist { 
-                    
+                    let! selected = m.selectedViewPlan
                     let viewPlans = 
                         m.viewPlans 
                         |> AMap.toASetValues 
@@ -947,17 +962,14 @@ module ViewPlanApp =
                             amap {                                
                                 yield clazz "large cube middle aligned icon";
 
-                                //TODO refactor broken adaptive behavior, use hashmap lookup instead of viewplan copy
-                                let! selected = m.selectedViewPlan
                                 let color =
                                     match selected with
-                                    | AdaptiveSome sel -> 
-                                        Log.line "selection changed in view"
-                                        (if sel.id = vpid then C4b.VRVisGreen else C4b.White)
-                                    | AdaptiveNone -> 
-                                        C4b.White
+                                      | Some sel -> 
+                                        AVal.constant (if sel = vpid then C4b.VRVisGreen else C4b.Gray) 
+                                      | None -> AVal.constant C4b.Gray
                                                                          
-                                let bgc = color |> Html.ofC4b |> sprintf "color: %s"
+                                let! c = color
+                                let bgc = sprintf "color: %s" (Html.ofC4b c)
 
                                 yield style bgc
                                 yield onClick (fun _ -> SelectViewPlan vpid)
@@ -1089,10 +1101,17 @@ module ViewPlanApp =
 
 
         let viewRoverProperties lifter (fpVisible:aval<bool>) (model : AdaptiveViewPlanModel) = 
-            model.selectedViewPlan 
-            |> AVal.map(fun x ->
-                match x with 
-                | AdaptiveSome x -> viewRoverProperties' x.rover x fpVisible |> UI.map lifter
-                | AdaptiveNone ->   div[][] |> UI.map lifter)
+            adaptive {
+                let! guid = model.selectedViewPlan
+                let empty = div[][] |> UI.map lifter 
+
+                match guid with
+                | Some id -> 
+                  let! vp = model.viewPlans |> AMap.tryFind id
+                  match vp with
+                  | Some x -> return (viewRoverProperties' x.rover x fpVisible |> UI.map lifter)
+                  | None -> return empty
+                | None -> return empty
+            }  
 
        

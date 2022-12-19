@@ -240,15 +240,18 @@ module ViewerIO =
     //    { m with linkingModel = m.linkingModel |> LinkingApp.initFeatures m.minervaModel.data.features }
       
     let loadLastFootPrint (m:Model) = 
-        let fp = 
+        let fp, viewPlans' = 
             m.scene.viewPlans.selectedViewPlan 
             |> Option.bind(fun vp -> 
-                vp.selectedInstrument |> Option.map(fun instr -> (instr,vp)))
+                let selectedVp = m.scene.viewPlans.viewPlans |> HashMap.find vp
+                selectedVp.selectedInstrument |> Option.map(fun instr -> (instr,vp)))
             |> Option.map(fun (instr, vp) -> 
-                FootPrint.updateFootprint instr vp.position m.scene.viewPlans)
-            |> Option.defaultValue ViewPlanModel.initFootPrint
-       
-        { m with footPrint = fp }
+                let selectedVp = m.scene.viewPlans.viewPlans |> HashMap.find vp
+                let footPrint = FootPrint.updateFootprint instr selectedVp.position m.scene.viewPlans
+                ViewPlanApp.updateInstrumentCam selectedVp m.scene.viewPlans footPrint)
+            |> Option.defaultValue (ViewPlanModel.initFootPrint, m.scene.viewPlans)
+
+        { m with scene = {m.scene with viewPlans = viewPlans'};  footPrint = fp }
            
     let saveEverything (path:string) (m:Model) =         
 
