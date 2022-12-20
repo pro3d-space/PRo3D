@@ -494,6 +494,10 @@ Target.create "CompileDebug" (fun _ ->
     )
 )
 
+Target.create "AddAdaptifyPackages" (fun _ -> 
+    MsBuild.test()
+)
+
 Target.create "CompileInstruments" (fun _ ->
     let cfg = "Debug" //if config.debug then "Debug" else "Release"
     

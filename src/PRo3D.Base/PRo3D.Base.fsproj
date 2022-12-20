@@ -16,10 +16,10 @@
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="paket.references" />
     <Compile Include="ErrorReporting.fs" />
     <EmbeddedResource Include="resources\CooTransformationConfig.zip" />
     <Compile Include="MissingHelpers.fs" />
-    <None Include="paket.references" />
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="ChironExt.fs" />
     <Compile Include="GuiEx.fs" />

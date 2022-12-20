@@ -10,7 +10,6 @@ Aardvark.SceneGraph
 Aardvark.SceneGraph.IO
 Aardvark.SceneGraph.Opc
 
-Adaptify.MSBuild
 Adaptify.Core
 
 Aardvark.Geometry

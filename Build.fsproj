@@ -4,11 +4,16 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
   </PropertyGroup>
-  <ItemGroup>
+  <ItemGroup> 
     <None Include="paket.dependencies" />
     <None Include="paket.references" />
+    <Compile Include="AdaptifyHelpers.fs" />
     <Compile Include="Helpers.fs" />
     <Compile Include="Build.fs" />
+  </ItemGroup>
+  <ItemGroup>
+	<PackageReference Include="Microsoft.Build" Version="15.1.548" ExcludeAssets="runtime" />
+	<PackageReference Include="Microsoft.Build.Utilities.Core" Version="15.1.548" ExcludeAssets="runtime" />
   </ItemGroup>
   <Import Project=".paket\Paket.Restore.targets" />
 </Project>

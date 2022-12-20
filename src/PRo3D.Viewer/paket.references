@@ -15,7 +15,6 @@ Aardvark.Geometry.PointTree
 Aardvark.UI.Primitives
 Aardvark.Service
       
-Adaptify.MSBuild
 Adaptify.Core
 
 FSharp.Core
