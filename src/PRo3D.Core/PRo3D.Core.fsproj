@@ -5,12 +5,9 @@
     <TargetFramework>net6.0</TargetFramework>
     <GenerateLenses>True</GenerateLenses>
   </PropertyGroup>
-
   <PropertyGroup>
     <InPublish>False</InPublish>
   </PropertyGroup>
-
-  
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>..\..\bin\Debug\</OutputPath>
     <NoWarn>0686</NoWarn>
@@ -24,13 +21,21 @@
     <Compile Include="Config.fs" />
     <Compile Include="Core-Types.fs" />
     <Compile Include="ReferenceSystem-Model.fs" />
+    <Compile Include="ReferenceSystem-Model.g.fs" />
     <Compile Include="Surface-Model.fs" />
+    <Compile Include="Surface-Model.g.fs" />
     <Compile Include="SceneObjects-Model.fs" />
+    <Compile Include="SceneObjects-Model.g.fs" />
     <Compile Include="Bookmark-Model.fs" />
+    <Compile Include="Bookmark-Model.g.fs" />
     <Compile Include="Groups-Model.fs" />
+    <Compile Include="Groups-Model.g.fs" />
     <Compile Include="ScaleBars-Model.fs" />
+    <Compile Include="ScaleBars-Model.g.fs" />
     <Compile Include="GeologicSurface-Model.fs" />
+    <Compile Include="GeologicSurface-Model.g.fs" />
     <Compile Include="ViewConfigModel.fs" />
+    <Compile Include="ViewConfigModel.g.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="Sg.fs" />
     <Compile Include="UI.fs" />
@@ -39,6 +44,7 @@
     <Compile Include="GroupsApp.fs" />
     <Compile Include="OrientationCube.fs" />
     <Compile Include="Traverse-Model.fs" />
+    <Compile Include="Traverse-Model.g.fs" />
     <Compile Include="Surface\Translation.fs" />
     <Compile Include="Surface\Surface-Properties.fs" />
     <Compile Include="Surface\Surface.Files.fs" />
@@ -47,6 +53,7 @@
     <Compile Include="Surface\SurfaceUtils.fs" />
     <Compile Include="Drawing\Drawing-Properties.fs" />
     <Compile Include="Drawing\Drawing-Model.fs" />
+    <Compile Include="Drawing\Drawing-Model.g.fs" />
     <Compile Include="Drawing\DrawingUtilities.fs" />
     <Compile Include="Drawing\Drawing.UI.fs" />
     <Compile Include="Drawing\Drawing.Sg.fs" />
@@ -54,6 +61,7 @@
     <Compile Include="Drawing\PackedRendering.fs" />
     <Compile Include="Drawing\Drawing-App.fs" />
     <Compile Include="SequencedBookmarks\SequencedBookmarks-Model.fs" />
+    <Compile Include="SequencedBookmarks\SequencedBookmarks-Model.g.fs" />
     <Compile Include="SequencedBookmarks\BookmarkUtils.fs" />
     <Compile Include="SequencedBookmarks\BookmarkAnimations.fs" />
     <Compile Include="SequencedBookmarks\SequencedBookmarksApp.fs" />
@@ -61,10 +69,13 @@
     <Compile Include="ScaleBarsApp.fs" />
     <Compile Include="GeologicSurfaceApp.fs" />
     <Compile Include="Validator/HeightValidator-Model.fs" />
+    <Compile Include="Validator\HeightValidator-Model.g.fs" />
     <Compile Include="Validator/HeightValidatorApp.fs" />
     <Compile Include="Importers/MeasurementsImporter.fs" />
+    <Compile Include="Importers\MeasurementsImporter.g.fs" />
     <Compile Include="Importers/AnnotationGroupsImporter.fs" />
     <Compile Include="Importers/SurfaceTrafoImporter.fs" />
+    <Compile Include="Importers\SurfaceTrafoImporter.g.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

@@ -9,19 +9,15 @@
     <GenerateLenses>True</GenerateLenses>
     <IncludeAllContentForSelfExtract>True</IncludeAllContentForSelfExtract>
   </PropertyGroup>
-  
   <PropertyGroup>
     <InPublish>False</InPublish>
   </PropertyGroup>
-  
   <PropertyGroup Condition="$(InPublish)">
     <!-- this is replaced by build script-->
     <!-- <PublishSingleFile>true</PublishSingleFile> -->
     <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
     <!--<PublishTrimmed>true</PublishTrimmed>-->
   </PropertyGroup>
-
-  
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>..\..\bin\Debug\</OutputPath>
     <NoWarn>0686</NoWarn>
@@ -40,21 +36,21 @@
     <None Include="paket.references" />
     <Compile Include="Config.fs" />
     <Compile Include="Models\Model.fs" />
+    <Compile Include="Models\Model.g.fs" />
     <Compile Include="Models\VersionedModel.fs" />
     <Compile Include="Models\Lenses.fs" />
     <Compile Include="Utilities.fs" />
     <Compile Include="Navigation-Model.fs" />
-    <Compile Include="Navigation.fs" />  
+    <Compile Include="Navigation.fs" />
     <Compile Include="ViewconfigApp.fs" />
     <Compile Include="DockConfigs.fs" />
     <Compile Include="DashboardModes.fs" />
     <Compile Include="Viewer-Model.fs" />
+    <Compile Include="Viewer-Model.g.fs" />
     <Compile Include="Bookmarks.fs" />
     <Compile Include="TraverseApp.fs" />
     <Compile Include="Scene.fs" />
-
     <Compile Include="LensConfigs.fs" />
-
     <Compile Include="AnnotationRendering.fs" />
     <Compile Include="Viewer\Viewer-Utils.fs" />
     <Compile Include="Viewer\ViewerGUI.fs" />
@@ -66,6 +62,7 @@
     <Compile Include="CommandLine\CommandLineUtils.fs" />
     <Compile Include="CommandLine\CommandLine.fs" />
     <Compile Include="RemoteControlModel.fs" />
+    <Compile Include="RemoteControlModel.g.fs" />
     <Compile Include="RemoteControlApp.fs" />
     <Compile Include="Program.fs" />
     <Content Include="resources\rotationcubeXYZ\back.png">
@@ -123,7 +120,7 @@
     </EmbeddedResource>
     <EmbeddedResource Include="resources\semui-overrides.css" />
     <EmbeddedResource Include="resources\ElementQueries.js" />
-	<EmbeddedResource Include="resources\ResizeSensor.js" />
+    <EmbeddedResource Include="resources\ResizeSensor.js" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />

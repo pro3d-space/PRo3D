@@ -7,17 +7,14 @@
     <AssemblyName>PRo3D.Linking</AssemblyName>
     <GenerateLenses>True</GenerateLenses>
   </PropertyGroup>
-
   <PropertyGroup>
     <InPublish>False</InPublish>
   </PropertyGroup>
-
   <PropertyGroup Condition="$(InPublish)">
     <!-- this is replaced by build script-->
     <PublishSingleFile>true</PublishSingleFile>
     <RuntimeIdentifier>win10-x64</RuntimeIdentifier>
   </PropertyGroup>
-  
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>..\..\bin\Debug</OutputPath>
   </PropertyGroup>
@@ -30,8 +27,10 @@
   <ItemGroup>
     <None Include="paket.references" />
     <Compile Include="Linking\LinkingModel.fs" />
+    <Compile Include="Linking\LinkingModel.g.fs" />
     <Compile Include="Linking\LinkingApp.fs" />
     <Compile Include="Model.fs" />
+    <Compile Include="Model.g.fs" />
     <Compile Include="App.fs" />
     <Compile Include="Program.fs" />
     <EmbeddedResource Include="resources\linkingstyle.css">
