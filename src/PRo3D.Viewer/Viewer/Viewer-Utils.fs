@@ -287,9 +287,9 @@ module ViewerUtils =
                             // TODO https://github.com/pro3d-space/PRo3D/issues/117
                             // i'm not sure whether swithcYZTrafo is the right one here. Firstly, i think we should change the naming (also in the UI).
                             // Secondly, do we need this as a third option: 
-                            return Trafo3d.FromOrthoNormalBasis(V3d.IOO,-V3d.OIO,-V3d.OOI)
+                            //return Trafo3d.FromOrthoNormalBasis(V3d.IOO,-V3d.OIO,-V3d.OOI)
                             // this was here before:
-                            //return Sg.switchYZTrafo
+                            return Sg.switchYZTrafo
                         else
                             return Trafo3d.Scale(scaleFactor) * (fullTrafo * preTransform)
                     }
@@ -497,7 +497,7 @@ module ViewerUtils =
                         let lView = V3d.OOO - v.vp.XYZ |> Vec.normalize
                         let nView = uniform.ModelViewTrafo.TransformDir(v.n) |> Vec.normalize
                         let diffuse = Vec.dot nView lView |> abs
-                        return V4d(v.c.XYZ * max ambient diffuse, 1.0)
+                        return V4d(v.c.XYZ * diffuse + ambient * V3d.III, 1.0)
                     else
                         return v.c
             }
@@ -506,7 +506,7 @@ module ViewerUtils =
     let objEffect =
         Effect.compose [
             Shader.footprintV       |> toEffect 
-            Shader.stableTrafo             |> toEffect
+            Shader.stableTrafo      |> toEffect
             Shader.triangleFilterX  |> toEffect
 
             Shader.textureOrLightingIfPossible |> toEffect
