@@ -1,3 +1,6 @@
+## 4.11.0-prerelease3
+- #274: objs with multiple geometries fixed
+
 ## 4.10.3
 - #179 and #246: serialization of viewplans
 - #256: load scenes with wrong obj path and possibility to reload the obj
