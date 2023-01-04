@@ -54,6 +54,7 @@ type PropertyActions =
     | DrawingMessage    of DrawingAction
     | AnnotationMessage of AnnotationProperties.Action
 
+
 //type CorrelationPanelsMessage = 
 //| CorrPlotMessage               of CorrelationPlotAction
 //| SemanticAppMessage            of SemanticAction
@@ -95,7 +96,7 @@ type ViewerAction =
 | ImportSurface                   of list<string>
 | ImportDiscoveredSurfaces        of list<string>
 | ImportDiscoveredSurfacesThreads of list<string>
-| ImportObject                    of list<string>
+| ImportObject                    of preferredLoader : MeshLoaderType * filePaths : list<string>
 | ImportSceneObject               of list<string>
 | ImportPRo3Dv1Annotations        of list<string>
 | ImportSurfaceTrafo              of list<string>
