@@ -303,7 +303,7 @@ module Gui =
                         Dialogs.onChooseFiles (curry ViewerAction.ImportObject MeshLoaderType.Wavefront);
                         clientEvent "onclick" (jsImportOBJDialog)
                     ] [
-                        text "Import (*.obj) using the aardvark wavefront loader"
+                        text "Import (*.obj)"
                     ]
                     //div [ clazz "ui inverted item"; 
                     //    Dialogs.onChooseFiles (curry ViewerAction.ImportObject MeshLoaderType.GlTf);
