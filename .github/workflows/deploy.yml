@@ -1,10 +1,6 @@
 name: Deploy
 on:
   push:
-    branches:
-      - autorelease
-      - develop
-      - bugs/fixMultiObjs
     paths:
       - PRODUCT_RELEASE_NOTES.md
       - aardium/package.json
