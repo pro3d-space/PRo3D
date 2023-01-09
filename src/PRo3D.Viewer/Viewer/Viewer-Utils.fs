@@ -233,26 +233,7 @@ module ViewerUtils =
 
             attr    
 
-    type Vertex = {
-        [<Position>]        pos     : V4d
-        [<Color>]           c       : V4d
-        [<TexCoord>]        tc      : V2d
-        [<Semantic("ViewSpacePos")>] vp : V4d
-        [<Semantic("FootPrintProj")>] tc0     : V4d
-    }
 
-    let stableTrafoTest (v : Vertex) =
-          vertex {
-              let mvp : M44d = uniform?MVP?ModelViewTrafo
-              let vp = mvp * v.pos
-
-              return 
-                  { v with
-                      pos = uniform.ProjTrafo * vp
-                      c = v.c
-                      vp = uniform.ModelViewTrafo * v.pos
-                  }
-          }
         
     let viewSingleSurfaceSg 
         (surface         : AdaptiveSgSurface) 
@@ -263,13 +244,14 @@ module ViewerUtils =
         (globalBB        : aval<Box3d>) 
         (refsys          : AdaptiveReferenceSystem)
         (fp              : AdaptiveFootPrint) 
-        (vp              : aval<AdaptiveOptionCase<ViewPlan, AdaptiveViewPlan, AdaptiveViewPlan>>) 
+        (vpVisible       : aval<bool>)
         (useHighlighting : aval<bool>)
         (filterTexture   : aval<bool>)
         (allowFootprint  : bool) =
 
         adaptive {
             let! exists = (surfacesMap |> AMap.keys) |> ASet.contains surface.surface
+            let! surf = AMap.tryFind surface.surface surfacesMap
             if exists then
               
                 let surf = lookUp (surface.surface) surfacesMap
@@ -301,7 +283,12 @@ module ViewerUtils =
                         let! sketchFab = surface.transformation.isSketchFab
                         if flipZ then 
                             return Trafo3d.Scale(scaleFactor) * Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * preTransform)
-                        else if sketchFab then                            
+                        else if sketchFab then      
+                            // TODO https://github.com/pro3d-space/PRo3D/issues/117
+                            // i'm not sure whether swithcYZTrafo is the right one here. Firstly, i think we should change the naming (also in the UI).
+                            // Secondly, do we need this as a third option: 
+                            //return Trafo3d.FromOrthoNormalBasis(V3d.IOO,-V3d.OIO,-V3d.OOI)
+                            // this was here before:
                             return Sg.switchYZTrafo
                         else
                             return Trafo3d.Scale(scaleFactor) * (fullTrafo * preTransform)
@@ -341,15 +328,7 @@ module ViewerUtils =
                     adaptive {
                         if not allowFootprint then return false
                         else
-                            let! vp = vp
-                            match vp with
-                            | AdaptiveSome vp -> 
-                                return! vp.isVisible 
-                            | _ -> 
-                                return false
-                            //let! visible = fp.isVisible
-                            //let! id = fp.vpId
-                            //return (vp.IsSome && visible)
+                            return! vpVisible
                     }
                 
                 let footprintViewProj = 
@@ -421,76 +400,129 @@ module ViewerUtils =
         let far = m.scene.config.farPlane.value
         (Navigation.UI.frustum near far)
 
-    let fixAlpha (v : Vertex) =
-        fragment {         
-           return V4d(v.c.X, v.c.Y,v.c.Z, 1.0)           
+
+    module Shader =
+
+        open FShade
+
+        type Vertex = {
+            [<Position>]        pos     : V4d
+            [<Color>]           c       : V4d
+            [<TexCoord>]        tc      : V2d
+
+            [<Semantic("ViewSpacePos")>] 
+            vp : V4d
+
+            [<Semantic("FootPrintProj")>] 
+            tc0     : V4d
+
+            [<Normal>] n : V3d
+            //[<SourceVertexIndex>]  sv      : int
         }
 
-    let triangleFilterX (input : Triangle<Vertex>) =
-        triangle {
-            let p0 = input.P0.vp.XYZ
-            let p1 = input.P1.vp.XYZ
-            let p2 = input.P2.vp.XYZ
+        //let stableTrafo (v : Vertex) =
+        //      vertex {
+        //          let mvp : M44d = uniform?MVP?ModelViewTrafo
+        //          let vp = mvp * v.pos
 
-            let maxSize = uniform?TriangleSize
+        //          return 
+        //              { v with
+        //                  pos = uniform.ProjTrafo * vp
+        //                  c = v.c
+        //                  vp = uniform.ModelViewTrafo * v.pos
+        //              }
+        //      }
 
-            let a = (p1 - p0)
-            let b = (p2 - p1)
-            let c = (p0 - p2)
+        let fixAlpha (v : Vertex) =
+            fragment {         
+               return V4d(v.c.X, v.c.Y,v.c.Z, 1.0)           
+            }
 
-            let alpha = a.Length < maxSize
-            let beta  = b.Length < maxSize
-            let gamma = c.Length < maxSize
+        let triangleFilterX (input : Triangle<Vertex>) =
+            triangle {
+                let p0 = input.P0.vp.XYZ
+                let p1 = input.P1.vp.XYZ
+                let p2 = input.P2.vp.XYZ
 
-            let check = (alpha && beta && gamma)
-            if check then
-                yield input.P0 
-                yield input.P1
-                yield input.P2
-        }
+                let maxSize = uniform?TriangleSize
+
+                let a = (p1 - p0)
+                let b = (p2 - p1)
+                let c = (p0 - p2)
+
+                let alpha = a.Length < maxSize
+                let beta  = b.Length < maxSize
+                let gamma = c.Length < maxSize
+
+                let check = (alpha && beta && gamma)
+                if check then
+                    yield input.P0 
+                    yield input.P1
+                    yield input.P2
+            }
          
 
-    let stableTrafo (v : Vertex) =
-          vertex {
-              let p = uniform.ModelViewProjTrafo * v.pos
+        let stableTrafo (v : Vertex) =
+            vertex {
+                let p = uniform.ModelViewProjTrafo * v.pos
 
+                return 
+                    { v with
+                        pos = p
+                        c = v.c
+                        vp = uniform.ModelViewTrafo * v.pos
+                    }
+            }
 
-              return 
-                  { v with
-                      pos = p
-                      c = v.c
-                      vp = uniform.ModelViewTrafo * v.pos
-                  }
-          }
+        type UniformScope with
+            member x.HasNormals : bool = x?HasNormals
 
+        let private diffuseSampler =
+            sampler2d {
+                texture uniform.DiffuseColorTexture
+                filter Filter.Anisotropic
+                maxAnisotropy 16
+                addressU WrapMode.Wrap
+                addressV WrapMode.Wrap
+            }
 
-    
-    //let mutable useTC = true
+        let textureOrLightingIfPossible (v : Vertex) =
+            fragment {
+                if uniform.HasDiffuseColorTexture then
+                    let texColor = diffuseSampler.Sample(v.tc,-1.0) // TODO: to why is -1 being used here as lod offset?
+                    return texColor
+                else
+                    if uniform.HasNormals then 
+                        let ambient = 0.2
+                        let lView = V3d.OOO - v.vp.XYZ |> Vec.normalize
+                        let nView = uniform.ModelViewTrafo.TransformDir(v.n) |> Vec.normalize
+                        let diffuse = Vec.dot nView lView |> abs
+                        return V4d(v.c.XYZ * diffuse + ambient * V3d.III, 1.0)
+                    else
+                        return v.c
+            }
+
 
     let objEffect =
         Effect.compose [
-            PRo3D.Base.Shader.footprintV   |> toEffect 
+            Shader.footprintV       |> toEffect 
+            Shader.stableTrafo      |> toEffect
+            Shader.triangleFilterX  |> toEffect
 
-            stableTrafoTest             |> toEffect
+            Shader.textureOrLightingIfPossible |> toEffect
 
-            triangleFilterX                |> toEffect
-           
-            fixAlpha |> toEffect
-
-            PRo3D.Base.OPCFilter.improvedDiffuseTextureAndColor |> toEffect
-            PRo3D.Base.Shader.mapColorAdaption  |> toEffect   
+            Shader.mapColorAdaption  |> toEffect   
+            Shader.fixAlpha          |> toEffect
         ]
 
     let surfaceEffect =
         Effect.compose [
-            PRo3D.Base.Shader.footprintV   |> toEffect 
-
-            stableTrafoTest             |> toEffect
-
-            triangleFilterX                |> toEffect
+            Shader.footprintV        |> toEffect 
+            Shader.stableTrafo       |> toEffect
+            Shader.triangleFilterX   |> toEffect
            
-            fixAlpha |> toEffect
-
+           
+            Shader.fixAlpha |> toEffect
             PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect  
             PRo3D.Base.OPCFilter.markPatchBorders |> toEffect 
            
@@ -500,13 +532,24 @@ module ViewerUtils =
             //PRo3D.Base.Shader.differentColor   |> toEffect
                         
             OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
-         //   PRo3D.Base.Shader.falseColorLegend2 |> toEffect
+            //PRo3D.Base.Shader.falseColorLegend2 |> toEffect
             PRo3D.Base.Shader.mapColorAdaption  |> toEffect            
             
             
             PRo3D.Base.Shader.footPrintF        |> toEffect
-            
         ]
+
+    let isViewPlanVisible (m:AdaptiveModel) =
+        adaptive {
+            let! id = m.scene.viewPlans.selectedViewPlan
+            match id with
+            | Some v -> 
+                let! vp = m.scene.viewPlans.viewPlans |> AMap.tryFind v
+                match vp with
+                | Some selVp -> return! selVp.isVisible
+                | None -> return false
+            | None -> return false
+        }
 
     //TODO TO refactor screenshot specific
     let getSurfacesScenegraphs (m:AdaptiveModel) =
@@ -516,22 +559,24 @@ module ViewerUtils =
         let usehighlighting = true |> AVal.constant //m.scene.config.useSurfaceHighlighting
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
+        let vpVisible = isViewPlanVisible m
+
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 
                     |> AMap.map(fun _ sf -> 
-                        let bla = m.scene.surfacesModel.surfaces.flat
+                        let surfaces = m.scene.surfacesModel.surfaces.flat
 
                         viewSingleSurfaceSg 
                             sf 
-                            bla 
+                            surfaces 
                             m.frustum 
                             selected 
                             m.ctrlFlag 
                             sf.globalBB 
                             refSystem 
                             m.footPrint 
-                            m.scene.viewPlans.selectedViewPlan
+                            vpVisible
                             usehighlighting m.filterTexture
                             true)
                     |> AMap.toASet 
@@ -584,16 +629,14 @@ module ViewerUtils =
                 | _ -> true
             )
 
+        let vpVisible = isViewPlanVisible m
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
         let grouped = 
             sgGrouped |> AList.map(
-                
-                fun x ->
-                ( x 
-                    |> AMap.map(fun _ surface ->
-                        
-                        let s = 
+                fun x -> ( x 
+                    |> AMap.map(fun _ surface ->   
+                        let s =
                             viewSingleSurfaceSg 
                                 surface 
                                 m.scene.surfacesModel.surfaces.flat
@@ -603,22 +646,25 @@ module ViewerUtils =
                                 surface.globalBB
                                 refSystem 
                                 m.footPrint 
-                                m.scene.viewPlans.selectedViewPlan
+                                vpVisible
                                 usehighlighting filterTexture
                                 allowFootprint
 
                         match surface.isObj with
-                        | true -> s |> Sg.effect [objEffect] 
+                        | true -> 
+                            s 
+                            |> Sg.effect [
+                                objEffect
+                            ] 
                         | false -> 
                             s
                             |> Sg.effect [surfaceEffect] 
                             |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
                             |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
-                        
                        )
                     |> AMap.toASet 
                     |> ASet.map snd                     
-                ) //, useTC                
+                )                 
             )
 
         //grouped   

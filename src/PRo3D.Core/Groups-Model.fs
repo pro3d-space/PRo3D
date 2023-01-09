@@ -432,8 +432,7 @@ module SurfaceModel =
         {
             version     = current
             surfaces    = surfaces
-            sgSurfaces  = HashMap.Empty //sgs //
-            //sgSurfaceObjs = hmap.Empty
+            sgSurfaces  = HashMap.Empty 
             sgGrouped   = IndexList.Empty
             kdTreeCache = HashMap.Empty
             debugPreTrafo = ""

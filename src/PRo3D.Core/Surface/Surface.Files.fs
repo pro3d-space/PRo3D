@@ -26,8 +26,6 @@ open PRo3D.Core.Surface
 open PRo3DCompability
 
 
-
-  
 module Files = 
        open System.IO
        open Aardvark.Prinziple
@@ -175,7 +173,7 @@ module Files =
              | None -> None
          else
            match surface.surfaceType with
-             | SurfaceType.SurfaceOBJ -> 
+             | SurfaceType.Mesh -> 
                let p = Path.GetDirectoryName surface.importPath
                if Directory.Exists p then Some p else None
              |_-> 
@@ -247,7 +245,7 @@ module Files =
                 match surfaces |> HashMap.tryFind s.surface with
                 | Some surf ->
                     match surf.surfaceType with 
-                    | SurfaceType.SurfaceOBJ -> Some s
+                    | SurfaceType.Mesh -> Some s
                     | _ -> 
                         let kd = 
                             ks 
@@ -294,5 +292,3 @@ module Files =
                | None -> 
                    Log.error "can't make surface relative. no valid scene path has not been saved yet."
                    surfaceModel
-
-       

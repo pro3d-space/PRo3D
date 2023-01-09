@@ -308,11 +308,13 @@ module SnapshotUtils =
                           (navModel     : NavigationModel) =
         let snapSgs, snapSurfs = getSurfacesInSnapshotGroup m
         let snapshotObjGuids = snapSgs |> List.map fst
-        let surfaces = m.surfaces.flat 
-                            |> HashMap.toList
-                            |> List.map(fun (_,v) -> v |> Leaf.toSurface)
-                            |> List.filter (fun s -> s.surfaceType = SurfaceType.SurfaceOBJ)
-                            |> List.filter (fun s -> not (List.contains s.guid snapshotObjGuids))
+        let surfaces = 
+            m.surfaces.flat 
+            |> HashMap.toList
+            |> List.map(fun (_,v) -> v |> Leaf.toSurface)
+            |> List.filter (fun s -> s.surfaceType = SurfaceType.Mesh)
+            |> List.filter (fun s -> not (List.contains s.guid snapshotObjGuids))
+
         let placeObjs = placeObjs frustum filename  refSystem navModel placementParameters
         let m = applyToModel surfaces m placeObjs
         m

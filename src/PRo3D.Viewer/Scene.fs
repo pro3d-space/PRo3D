@@ -178,29 +178,28 @@ module SceneLoader =
         |> SurfaceModel.triggerSgGrouping 
         |> (flip <| Optic.set _surfaceModelLens) m
 
-    let importObj (runtime : IRuntime) (signature: IFramebufferSignature)(surfaces : IndexList<Surface>) (m : Model) =
+    let importObj (loaderType : MeshLoaderType) (surfaces : IndexList<Surface>) (m : Model) =
       
-        let existingSurfaces = 
-            m.scene.surfacesModel.surfaces.flat
-            |> Leaf.toSurfaces
-            |> HashMap.toList 
-            |> List.map snd 
-            |> IndexList.ofList
-
-        //let allSurfaces = existingSurfaces |> IndexList.append surfaces //????
-        let sChildren = surfaces |> IndexList.map Leaf.Surfaces
+        let leafs = surfaces |> IndexList.map Leaf.Surfaces
 
         let m = 
             m.scene.surfacesModel.surfaces 
-            |> GroupsApp.addLeaves m.scene.surfacesModel.surfaces.activeGroup.path sChildren 
+            |> GroupsApp.addLeaves m.scene.surfacesModel.surfaces.activeGroup.path leafs 
             |> (flip <| Optic.set (_surfaceModelLens >-> SurfaceModel.surfaces_)) m
 
-        //handle sg surfaces
+        let loadedSgSurfaces =
+            match loaderType with
+            | MeshLoaderType.Assimp ->
+                SurfaceUtils.ObjectFiles.AssimpLoader.createSgObjects surfaces
+            | MeshLoaderType.GlTf -> 
+                failwith "not implemented"
+            | MeshLoaderType.Wavefront -> 
+                SurfaceUtils.ObjectFiles.CustomWavefrontLoader.createSgObjectsWavefront surfaces
+            | _ -> 
+                SurfaceUtils.ObjectFiles.AssimpLoader.createSgObjects surfaces 
+
         let m = 
-            surfaces
-            //|> IndexList.filter (fun s -> s.surfaceType = SurfaceType.SurfaceOBJ)
-            |> SurfaceUtils.ObjectFiles.createSgObjectsWavefront runtime signature
-            |> HashMap.union m.scene.surfacesModel.sgSurfaces
+            HashMap.union m.scene.surfacesModel.sgSurfaces loadedSgSurfaces
             |> (flip <| Optic.set (_surfaceModelLens >-> SurfaceModel.sgSurfaces_)) m
                     
         m.scene.surfacesModel 
@@ -246,12 +245,13 @@ module SceneLoader =
         let sgSurfaces = 
             Sg.createSgSurfaces runtime signature opcSurfs |> Files.expandLazyKdTreePaths scenePath surfaces        
 
+        // TODO hs: should how to handle multiple loaders here?
         let objSurfs = 
             surfacesList 
-            |> IndexList.filter ( fun x -> x.surfaceType = SurfaceType.SurfaceOBJ)
+            |> IndexList.filter ( fun x -> x.surfaceType = SurfaceType.Mesh)
 
         let sgSurfaceObj = 
-            SurfaceUtils.ObjectFiles.createSgObjectsWavefront runtime signature objSurfs //|> Files.expandLazyKdTreePaths scenePath surfaces      
+            SurfaceUtils.ObjectFiles.CustomWavefrontLoader.createSgObjectsWavefront objSurfs //|> Files.expandLazyKdTreePaths scenePath surfaces      
             
         let sgs = sgSurfaces |> HashMap.union sgSurfaceObj
 

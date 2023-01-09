@@ -23,8 +23,8 @@
     <Compile Include="ReferenceSystem-Model.fs" />
     <Compile Include="ReferenceSystem-Model.g.fs" />
     <Compile Include="Surface-Model.fs" />
-    <Compile Include="Surface-Model.g.fs" />
-    <Compile Include="SceneObjects-Model.fs" />
+    <Compile Include="Surface-Model.g.fs" />    <Compile Include="SceneObjects-Model.fs" />
+    <Compile Include="glTF.fs" />
     <Compile Include="SceneObjects-Model.g.fs" />
     <Compile Include="Bookmark-Model.fs" />
     <Compile Include="Bookmark-Model.g.fs" />
