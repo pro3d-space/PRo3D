@@ -40,9 +40,10 @@ module SnapshotGenerator =
             let hasLoadedAny = 
                 match args.objPaths with
                 | Some objs ->
+                    // TODO @RebeccaNowak what loader should be used here?
                     for x in objs do
                         mApp.updateSync Guid.Empty  (x |> List.singleton 
-                                                       |> ViewerAction.ImportObject 
+                                                       |> (curry ViewerAction.ImportObject MeshLoaderType.Wavefront)
                                                        |> ViewerMessage
                                                        |> Seq.singleton)
                     true

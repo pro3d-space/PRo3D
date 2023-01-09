@@ -272,6 +272,10 @@ module Gui =
         let jsImportOBJDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select *.obj files to import', filters: [{ name: 'OBJ (*.obj)', extensions: ['obj']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
         
+        let jsImportglTfDialog =
+            "top.aardvark.dialog.showOpenDialog({tile: 'Select *.gltf files to import', filters: [{ name: 'glTF (*.gltf)', extensions: ['gltf']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+        
+
         let jsImportSceneObjectDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select *.obj or *.dae files to import', filters: [{ name: 'OBJ (*.obj)', extensions: ['obj']}, { name: 'DAE (*.dae)', extensions: ['dae']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
@@ -289,14 +293,26 @@ module Gui =
                     ] [
                         text "Import OPCs"
                     ]
+                    //div [ clazz "ui inverted item"; 
+                    //    Dialogs.onChooseFiles (curry ViewerAction.ImportObject MeshLoaderType.Assimp);
+                    //    clientEvent "onclick" (jsImportOBJDialog)
+                    //] [
+                    //    text "Import (*.obj) using assimp"
+                    //]
                     div [ clazz "ui inverted item"; 
-                        Dialogs.onChooseFiles ImportObject;
+                        Dialogs.onChooseFiles (curry ViewerAction.ImportObject MeshLoaderType.Wavefront);
                         clientEvent "onclick" (jsImportOBJDialog)
                     ] [
-                        text "Import (*.obj)"
+                        text "Import (*.obj) using the aardvark wavefront loader"
                     ]
+                    //div [ clazz "ui inverted item"; 
+                    //    Dialogs.onChooseFiles (curry ViewerAction.ImportObject MeshLoaderType.GlTf);
+                    //    clientEvent "onclick" (jsImportOBJDialog)
+                    //] [
+                    //    text "Import (*.gltf) "
+                    //]
                     div [ clazz "ui inverted item"; 
-                        Dialogs.onChooseFiles ImportObject;
+                        Dialogs.onChooseFiles (curry ViewerAction.ImportObject MeshLoaderType.Ply);
                         clientEvent "onclick" (jsImportPLYDialog)
                     ] [
                         text "Import (*.ply)"

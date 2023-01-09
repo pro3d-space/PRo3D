@@ -250,7 +250,7 @@ module ViewerApp =
         | Interactions.DrawAnnotation, _ -> 
             let m = 
                 match surf.surfaceType with
-                | SurfaceType.SurfaceOBJ -> { m with drawing = { m.drawing with projection = Projection.Linear } } //TODO LF ... why is this happening?
+                | SurfaceType.Mesh -> { m with drawing = { m.drawing with projection = Projection.Linear } } //TODO LF ... why is this happening?
                 | _ -> m
             
             let view = 
@@ -682,7 +682,7 @@ module ViewerApp =
                 let surfaces = 
                     paths 
                     |> List.filter (fun x -> Files.isSurfaceFolder x || Files.isZippedOpcFolder x)
-                    |> List.map (SurfaceUtils.mk SurfaceType.SurfaceOPC m.scene.config.importTriangleSize.value)
+                    |> List.map (SurfaceUtils.mk SurfaceType.SurfaceOPC MeshLoaderType.Unkown m.scene.config.importTriangleSize.value)
                     |> IndexList.ofList
 
                 let m = SceneLoader.import' runtime signature surfaces m 
@@ -704,7 +704,7 @@ module ViewerApp =
                 let surfaces = 
                     surfacePaths 
                     |> List.filter (fun x -> Files.isSurfaceFolder x || Files.isZippedOpcFolder x)
-                    |> List.map (SurfaceUtils.mk SurfaceType.SurfaceOPC m.scene.config.importTriangleSize.value)
+                    |> List.map (SurfaceUtils.mk SurfaceType.SurfaceOPC MeshLoaderType.Unkown m.scene.config.importTriangleSize.value)
                     |> IndexList.ofList
 
                     
@@ -736,18 +736,21 @@ module ViewerApp =
                 }
                     
                 m |> UserFeedback.queueFeedback feedback
-        | ImportObject (objPaths),_,_ -> 
-            match objPaths |> List.tryHead with
-            | Some path ->  
+        | ImportObject (preferredLoader, objPaths), _, _ -> 
+            match objPaths  with
+            | [path] ->
+
                 let objects =                   
                     path 
-                    |> SurfaceUtils.mk SurfaceType.SurfaceOBJ m.scene.config.importTriangleSize.value
+                    |> SurfaceUtils.mk SurfaceType.Mesh preferredLoader m.scene.config.importTriangleSize.value
                     |> IndexList.single                                
                 m 
-                |> SceneLoader.importObj runtime signature objects 
+                |> SceneLoader.importObj preferredLoader objects 
                 |> ViewerIO.loadLastFootPrint
                 |> updateSceneWithNewSurface     
-            | None -> m     
+            | _ -> 
+                Log.line "[Viewer] can only import exactly one file, given: %d" (List.length objPaths)
+                m     
         | ImportSceneObject sl,_,_ -> 
             match sl |> List.tryHead with
             | Some path ->  

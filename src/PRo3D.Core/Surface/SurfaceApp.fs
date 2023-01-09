@@ -53,7 +53,7 @@ type SurfaceAppAction =
 module SurfaceUtils =    
     
     /// creates a surface from opc folder path
-    let mk (stype:SurfaceType) (maxTriangleSize : float) path =                 
+    let mk (stype:SurfaceType) (preferredLoader : MeshLoaderType) (maxTriangleSize : float) path =                 
     
         let names = Files.getOPCNames path                
         {
@@ -75,10 +75,12 @@ module SurfaceUtils =
             scalarLayers    = HashMap.Empty //IndexList.empty
             selectedScalar  = None
             textureLayers   = IndexList.empty
-            selectedTexture = None            
+            selectedTexture = None         
     
             triangleSize    = { Init.triangleSize with value = maxTriangleSize }
+
             surfaceType     = stype
+            preferredLoader = preferredLoader
     
             colorCorrection = Init.initColorCorrection
             homePosition    = None
@@ -104,408 +106,552 @@ module SurfaceUtils =
             fileStream.Close ()
 
 
-        //-- WAVEFRONT --------------------------------------------------------
+        module AssimpLoader =
 
-        type Face = {
-            positionIndices : int[]
-            texCoordIndices : int[]
-            normalIndices   : int[]
-            materialIndex   : int
-        } 
 
-        let getVertexColors (obj : WavefrontObject) =
-            if (obj.VertexColors.IsEmptyOrNull() |> not) then
-                    let isfloat = obj.VertexColors |> Seq.take 100 |> Seq.tryFind(fun c -> (c.R > 1.0f || c.G > 1.0f || c.B > 1.0f)) |> Option.isNone
+            let loadObject (surface : Surface) : SgSurface =
+                Log.line "[OBJ] Please wait while the file is being loaded..." 
+                let obj = Loader.Assimp.load (surface.importPath)  
+                Log.line "[OBJ] The file was loaded successfully!" 
+                let dir = Path.GetDirectoryName(surface.importPath)
+                let filename = Path.GetFileNameWithoutExtension surface.importPath
+                let kdTreePath = Path.combine [dir; filename + ".aakd"] //Path.ChangeExtension(s.importPath, name)
+                let mutable count = 0
+                let kdTrees = 
+                    if File.Exists(kdTreePath) |> not then
+                        obj.meshes 
+                        |> Array.map(fun x ->
+                            let kdPath = sprintf "%s_%i.kd" surface.importPath count          
+                            let pos = x.geometry.IndexedAttributes.[DefaultSemantic.Positions] |> unbox<V3f[]>
+                        
+                            //let indices = x.geometry.IndexArray |> unbox<int[]> potential problem with indices
+                            let t = 
+                                pos                      
+                                |> Seq.map(fun x -> x.ToV3d())
+                                |> Seq.chunkBySize 3
+                                |> Seq.filter(fun x -> x.Length = 3)
+                                |> Seq.map(fun x -> Triangle3d x)
+                                |> Seq.filter(fun x -> (IntersectionController.triangleIsNan x |> not)) |> Seq.toArray
+                                |> TriangleSet
+                                              
+                            Log.startTimed "Building kdtrees for %s" (Path.GetFileName surface.importPath |> Path.GetFileName)
+                            let tree = 
+                                KdIntersectionTree(t, 
+                                    KdIntersectionTree.BuildFlags.MediumIntersection + KdIntersectionTree.BuildFlags.Hierarchical) //|> PRo3D.Serialization.save kdTreePath                  
+                            Log.stop()
+                        
+                            saveKdTree (kdPath, tree) |> ignore
+                        
+                            let kd : KdTrees.LazyKdTree = {
+                                kdTree        = Some (tree.ToConcreteKdIntersectionTree());
+                                affine        = Trafo3d.Identity
+                                boundingBox   = tree.BoundingBox3d
+                                kdtreePath    = kdPath
+                                objectSetPath = ""                  
+                                coordinatesPath = ""
+                                texturePath = ""
+                              } 
+                        
+                            count <- count + 1
+                        
+                            kd.boundingBox, (KdTrees.Level0KdTree.LazyKdTree kd)
+                        ) 
+                        |> Array.toList
+                        |> Serialization.save kdTreePath
+                
+                    else
+                        Serialization.loadAs<List<Box3d*KdTrees.Level0KdTree>> kdTreePath
+                        |> List.map(fun kd -> 
+                            match kd with 
+                            | _, KdTrees.Level0KdTree.InCoreKdTree tree -> (tree.boundingBox, (KdTrees.Level0KdTree.InCoreKdTree tree))
+                            | _, KdTrees.Level0KdTree.LazyKdTree tree -> 
+                               let loadedTree = if File.Exists(tree.kdtreePath) then Some (tree.kdtreePath |> KdTrees.loadKdtree) else None
+                               (tree.boundingBox, (KdTrees.Level0KdTree.LazyKdTree {tree with kdTree = loadedTree}))
+                        )
+
+                let bb = obj.bounds
+                let sg = 
+                    obj
+                    |> Sg.adapter
+                    |> Sg.requirePicking
+                    |> Sg.noEvents
+                    |> Sg.scale 1.0
+                    //|> Sg.uniform "RoverMVP" (AVal.constant M44f.Identity)
+                    //|> Sg.uniform "HasRoverMVP" (AVal.constant false)
+
+                let pose = Pose.translate bb.Center // bb.Center V3d.Zero
+                let trafo = { TrafoController.initial with pose = pose; previewTrafo = Pose.toTrafo pose; mode = TrafoMode.Local }
+
+                {
+                    surface     = surface.guid    
+                    trafo       = trafo
+                    globalBB    = bb
+                    sceneGraph  = sg
+                    picking     = Picking.KdTree(kdTrees |> HashMap.ofList) //Picking.PickMesh meshes
+                    isObj       = true
+                    //transformation = Init.Transformations
+                }
+                 
+            let createSgObjects surfaces =
+                let sghs =
+                  surfaces
+                    |> IndexList.toList 
+                    |> List.map loadObject
+
+                let sgObjects =
+                    sghs 
+                      |> List.map (fun d -> (d.surface, d))
+                      |> HashMap.ofList       
+
+                sgObjects
+
+        module CustomWavefrontLoader =
+
+            type Face = {
+                positionIndices : int[]
+                texCoordIndices : int[]
+                normalIndices   : int[]
+                materialIndex   : int
+            } 
+
+            let getVertexColors (obj : WavefrontObject) =
+                if (obj.VertexColors.IsEmptyOrNull() |> not) then
+                        let isfloat = obj.VertexColors |> Seq.take 100 |> Seq.tryFind(fun c -> (c.R > 1.0f || c.G > 1.0f || c.B > 1.0f)) |> Option.isNone
                           
-                    let colorArray = 
-                        obj.VertexColors 
-                        |> Seq.toArray 
+                        let colorArray = 
+                            obj.VertexColors 
+                            |> Seq.toArray 
                           
-                    let colorArray2 =
-                        if isfloat then
-                            colorArray |> Array.map(fun c -> C4b((float c.R), (float c.G), (float c.B)))
-                        else
-                            colorArray |> Array.map(fun c -> C4b((int c.R), (int c.G), (int c.B)))
+                        let colorArray2 =
+                            if isfloat then
+                                colorArray |> Array.map(fun c -> C4b((float c.R), (float c.G), (float c.B)))
+                            else
+                                colorArray |> Array.map(fun c -> C4b((int c.R), (int c.G), (int c.B)))
                                   
-                    colorArray2
-                else [||]
+                        colorArray2
+                    else [||]
 
-        // this one is a bit ugly but performs inplace (modifies the array)
-        let patchUVConvention (ig : IndexedGeometry) =
-            match ig.IndexedAttributes.[DefaultSemantic.DiffuseColorCoordinates] with
-            | :? array<V2f> as vertices -> 
-                for i in 0 .. vertices.Length - 1 do 
-                    vertices.[i] <- V2f(vertices.[i].X, 1.0f - vertices.[i].Y)
-            | :? array<V2d> as vertices -> 
-                for i in 0 .. vertices.Length - 1 do 
-                vertices.[i] <- V2d(vertices.[i].X, 1.0 - vertices.[i].Y)
+            // this one is a bit ugly but performs inplace (modifies the array)
+            let patchUVConvention (ig : IndexedGeometry) =
+                match ig.IndexedAttributes.[DefaultSemantic.DiffuseColorCoordinates] with
+                | :? array<V2f> as vertices -> 
+                    for i in 0 .. vertices.Length - 1 do 
+                        vertices.[i] <- V2f(vertices.[i].X, 1.0f - vertices.[i].Y)
+                | :? array<V2d> as vertices -> 
+                    for i in 0 .. vertices.Length - 1 do 
+                    vertices.[i] <- V2d(vertices.[i].X, 1.0 - vertices.[i].Y)
 
-            | v -> failwithf "UVs must be V2f or V2d (is: %A)" (v.GetType().GetElementType())
+                | v -> failwithf "UVs must be V2f or V2d (is: %A)" (v.GetType().GetElementType())
 
-        let sgOfPolyMesh (texturePath : Option<string>) (vColor : C4b[]) (mesh : PolyMesh) =
-            // apply vertex color
-            if vColor.IsEmptyOrNull() |> not then
-                mesh.VertexAttributes.[DefaultSemantic.Colors] <- vColor
+            let sgOfPolyMesh (texturePath : Option<string>) (vColor : C4b[]) (mesh : PolyMesh) =
+                // apply vertex color
+                if vColor.IsEmptyOrNull() |> not then
+                    mesh.VertexAttributes.[DefaultSemantic.Colors] <- vColor
              
-            // i think bb center is a good value to for offsetting the data (what do you think?... at least it easier to get it robustly)
-            let shift = Trafo3d.Translation(-mesh.BoundingBox3d.Center) // largecoordate - center => smaller coordinates
-            let mesh = 
-                mesh.Transformed(shift) // large coordiante + (-shift) => small coordinate
+                let shift = Trafo3d.Translation(-mesh.BoundingBox3d.Center) // largecoordate - center => smaller coordinates
+                let mesh = 
+                    mesh.Transformed(shift) // large coordiante + (-shift) => small coordinate
 
-            let ig = mesh.GetIndexedGeometry() // use high-level getIndexedGeometry function - low level access to arrays is error prone 
-            let hasCoordiantes = ig.IndexedAttributes.Contains(DefaultSemantic.DiffuseColorCoordinates)
-            if hasCoordiantes then
-                patchUVConvention ig
-    
-            let applyTextureOrReplacement (sg : ISg) = 
-                match texturePath with
-                | None -> 
-                    // i use fileTexture directly instead of Sg.texture - does this suffice? what do you think
-                    sg |> Sg.texture DefaultSemantic.DiffuseColorTexture DefaultTextures.checkerboard
-                | Some texturePath ->
-                    sg |> Sg.fileTexture DefaultSemantic.DiffuseColorTexture texturePath true // yes generate mipmaps
+                let mesh =
+                    match texturePath with
+                    | None -> 
+                        // if we have not texture, make sure there are normals
+                        if mesh.VertexAttributes.Contains(DefaultSemantic.Normals) then
+                            mesh
+                        else
+                            mesh.WithPerVertexIndexedNormals(30.0 * Constant.RadiansPerDegree)
+                    | _ -> 
+                        mesh
+
+                let ig = mesh.GetIndexedGeometry() // use high-level getIndexedGeometry function - low level access to arrays is error prone 
+
+                let hasCoordiantes = ig.IndexedAttributes.Contains(DefaultSemantic.DiffuseColorCoordinates)
+                if hasCoordiantes then
+                    patchUVConvention ig
+
+                let hasTextureAndCoords = 
+                    hasCoordiantes && Option.isSome texturePath
+
+                let applyTextureOrReplacement (sg : ISg) = 
+                    match texturePath with
+                    | None -> 
+                        // i use fileTexture directly instead of Sg.texture - does this suffice? what do you think
+                        sg |> Sg.texture DefaultSemantic.DiffuseColorTexture DefaultTextures.checkerboard
+                    | Some texturePath ->
+                        sg |> Sg.fileTexture DefaultSemantic.DiffuseColorTexture texturePath true // yes generate mipmaps
+
 
             
-            // create the scene graph. note that, depending on the shader the sg is potentially missing coordinates etc
-            Sg.ofIndexedGeometry ig
-            // internally this creates https://github.com/aardvark-platform/aardvark.rendering/blob/032bce5ee4ce25d9b876c1f978231325f7d6e253/src/Aardvark.SceneGraph/SgFSharp.fs#L724
-            // and https://github.com/aardvark-platform/aardvark.rendering/blob/032bce5ee4ce25d9b876c1f978231325f7d6e253/src/Aardvark.SceneGraph/SgFSharp.fs#L58
-            // which is a single value - this allows us to have a placeholder independet of vertex array length...
-            // note: if sg already has coordiantes, it overwrides this value anyways.. so no harm to apply it always..
-            // less complex code less problems....
-            |> Sg.vertexBufferValue DefaultSemantic.DiffuseColorCoordinates (V2d.Zero |> AVal.constant)
-            |> Sg.vertexBufferValue DefaultSemantic.Colors (C4b.Zero |> AVal.constant)
-            // anyways, let us create a uniform, just in case the shader needs to know whether correct coordinates have been applied
-            |> Sg.uniform "HasDiffuseColorCoordinates" (hasCoordiantes |> AVal.constant)
-            |> Sg.vertexBufferValue DefaultSemantic.Normals (V4f.Zero |> AVal.constant)
-            |> Sg.uniform "HasNormals" (hasCoordiantes |> AVal.constant)
-            |> Sg.uniform "HasDiffuseColorTexture" ((match texturePath with | None -> false | Some v -> true)|> AVal.constant)
-            // do the same for the texture
-            //|> Sg.texture DefaultSemantic.DiffuseColorTexture DefaultTextures.checkerboard
-            |> applyTextureOrReplacement
-            |> Sg.trafo' shift.Inverse // apply inverse centering trafo to make it correct againoordiantes
+                // create the scene graph. note that, depending on the shader the sg is potentially missing coordinates etc
+                Sg.ofIndexedGeometry ig
+                // internally this creates https://github.com/aardvark-platform/aardvark.rendering/blob/032bce5ee4ce25d9b876c1f978231325f7d6e253/src/Aardvark.SceneGraph/SgFSharp.fs#L724
+                // and https://github.com/aardvark-platform/aardvark.rendering/blob/032bce5ee4ce25d9b876c1f978231325f7d6e253/src/Aardvark.SceneGraph/SgFSharp.fs#L58
+                // which is a single value - this allows us to have a placeholder independet of vertex array length...
+                // note: if sg already has coordiantes, it overwrides this value anyways.. so no harm to apply it always..
+                // less complex code less problems....
+                |> Sg.vertexBufferValue DefaultSemantic.Colors (V4f.One |> AVal.constant)
+
+                // handle texture related stuff
+                |> Sg.vertexBufferValue DefaultSemantic.DiffuseColorCoordinates (V2d.Zero |> AVal.constant)
+                // anyways, let us create a uniform, just in case the shader needs to know whether correct coordinates have been applied
+                |> Sg.uniform "HasDiffuseColorCoordinates" (hasCoordiantes |> AVal.constant)
+                |> Sg.uniform "HasDiffuseColorTexture" (hasTextureAndCoords |> AVal.constant)
+                |> applyTextureOrReplacement
+
+                |> Sg.vertexBufferValue DefaultSemantic.Normals (V4f.OOII |> AVal.constant)
+                |> Sg.uniform "HasNormals" (ig.IndexedAttributes.Contains(DefaultSemantic.Normals) |> AVal.constant)
+
+                |> Sg.trafo' shift.Inverse // apply inverse centering trafo to position the scene correctly
             
 
-        // creates a scene graph, transforms all objects into the 
-        let createSceneGraph (obj : WavefrontObject) = 
-            // i use to list here, in order to get error immediately at this point and not lazily later when rendering...
-            let meshes = obj.GetFaceSetMeshes(true) |> Seq.toList // create double meshes. later we will reduce it to float
+            // creates a scene graph, transforms all objects into the 
+            let createSceneGraph (obj : WavefrontObject) = 
+                let meshes = obj.GetFaceSetMeshes(true) |> Seq.toArray // create double meshes. later we will reduce it to float
 
-            let texturePath = 
-                obj.Materials
-                |> Seq.tryHead
-                // use option.bind to collapse option<option<..>>
-                |> Option.bind (fun mat -> 
-                    mat.MapItems |> Seq.tryPick (fun item -> 
-                        match item.Value with
-                        | :? string as value when item.Key = WavefrontMaterial.Property.DiffuseColorMap -> 
-                            Some value
-                        | _ -> 
-                            None
+                let meshesWithMaterial =
+                    meshes |> Array.collect (fun pm ->
+                        let mats = pm.FaceAttributes.[PolyMesh.Property.Material] :?> int[]
+                        let diff = System.Collections.Generic.HashSet mats
+
+                        if diff.Count = 1 then
+                            let mid = Seq.head diff
+                            pm.InstanceAttributes.[PolyMesh.Property.Material] <- mid
+                            [| pm |]
+                        else
+                            diff |> Seq.toArray |> Array.map (fun mid ->
+                                let faces = System.Collections.Generic.HashSet<int>()
+                                for i in 0 .. pm.FaceCount - 1 do
+                                    if mats.[i] = mid then faces.Add i |> ignore
+                                let res = pm.SubSetOfFaces(faces)
+                                res.InstanceAttributes.[PolyMesh.Property.Material] <- mid
+                                res
+                            )
                     )
-            )
 
-            let vertexColors = obj |> getVertexColors
-            meshes
-            |> List.map (sgOfPolyMesh texturePath vertexColors)
-            |> Sg.ofList
+                let vertexColors = obj |> getVertexColors
+                meshesWithMaterial
+                |> Array.choose (fun mesh -> 
+                    match mesh.InstanceAttributes.TryGetValue PolyMesh.Property.Material with
+                    | (true, (:? int as v)) ->
+                        if v >= 0 && v < obj.Materials.Count then
+                            let mat = obj.Materials[v]
+                            let texturePath =
+                                mat.MapItems |> Seq.tryPick (fun item -> 
+                                    match item.Value with
+                                    | :? string as value when item.Key = WavefrontMaterial.Property.DiffuseColorMap -> 
+                                        Some value
+                                    | _ -> 
+                                        None
+                                )
+                            Some (sgOfPolyMesh texturePath vertexColors mesh)
+                        else 
+                            None
+                    | _ -> 
+                        None
+                )
+                |> Sg.ofArray
 
 
-        let createSgsofOBJ (obj : WavefrontObject) (box : Box3d) = 
-            if obj.Materials.IsEmptyOrNull() || obj.Materials.Count = 1 then
-                let textureOption = 
-                    obj.Materials
-                    |> Seq.tryHead
-                    |> Option.map(fun mat -> mat.MapItems |> Seq.tryFind(fun item -> item.Key = WavefrontMaterial.Property.DiffuseColorMap) |> Option.map(fun item -> (string item.Value)))
+            let createSgsofOBJ (obj : WavefrontObject) (box : Box3d) = 
+                if obj.Materials.IsEmptyOrNull() || obj.Materials.Count = 1 then
+                    let textureOption = 
+                        obj.Materials
+                        |> Seq.tryHead
+                        |> Option.map(fun mat -> mat.MapItems |> Seq.tryFind(fun item -> item.Key = WavefrontMaterial.Property.DiffuseColorMap) |> Option.map(fun item -> (string item.Value)))
              
               
-                let meshes = 
-                    obj.GetFaceSetMeshes(true)
-                    |> Seq.toList
+                    let meshes = 
+                        obj.GetFaceSetMeshes(true)
+                        |> Seq.toList
 
-                let igs  = 
-                    meshes 
-                    |> List.map(fun mesh -> 
+                    let igs  = 
+                        meshes 
+                        |> List.map(fun mesh -> 
                       
-                        let posArray = mesh.VertexAttributes.[DefaultSemantic.Positions].ToArrayOfT<V3d>() //|> Array.map(fun p -> p - box.Min)
+                            let posArray = mesh.VertexAttributes.[DefaultSemantic.Positions].ToArrayOfT<V3d>() //|> Array.map(fun p -> p - box.Min)
 
-                        mesh.VertexAttributes.[DefaultSemantic.Positions] <- posArray
+                            mesh.VertexAttributes.[DefaultSemantic.Positions] <- posArray
 
-                        if (obj.VertexColors.IsEmptyOrNull() |> not) then
-                            let isfloat = obj.VertexColors |> Seq.take 100 |> Seq.tryFind(fun c -> (c.R > 1.0f || c.G > 1.0f || c.B > 1.0f)) |> Option.isNone
+                            if (obj.VertexColors.IsEmptyOrNull() |> not) then
+                                let isfloat = obj.VertexColors |> Seq.take 100 |> Seq.tryFind(fun c -> (c.R > 1.0f || c.G > 1.0f || c.B > 1.0f)) |> Option.isNone
                           
-                            let colorArray = 
-                                obj.VertexColors 
-                                |> Seq.toArray 
+                                let colorArray = 
+                                    obj.VertexColors 
+                                    |> Seq.toArray 
                           
-                            let colorArray2 =
-                                if isfloat then
-                                    colorArray |> Array.map(fun c -> C4b((float c.R), (float c.G), (float c.B)))
-                                else
-                                    colorArray |> Array.map(fun c -> C4b((int c.R), (int c.G), (int c.B)))
+                                let colorArray2 =
+                                    if isfloat then
+                                        colorArray |> Array.map(fun c -> C4b((float c.R), (float c.G), (float c.B)))
+                                    else
+                                        colorArray |> Array.map(fun c -> C4b((int c.R), (int c.G), (int c.B)))
                                   
-                            mesh.VertexAttributes.[DefaultSemantic.Colors] <- colorArray2
+                                mesh.VertexAttributes.[DefaultSemantic.Colors] <- colorArray2
 
                       
-                        let hasTexCoords = obj.TextureCoordinates.IsEmptyOrNull() |> not                      
-                        let hasTexture   = textureOption |> Option.map(fun tO -> tO |> Option.isSome) |> Option.defaultValue false
+                            let hasTexCoords = obj.TextureCoordinates.IsEmptyOrNull() |> not                      
+                            let hasTexture   = textureOption |> Option.map(fun tO -> tO |> Option.isSome) |> Option.defaultValue false
                       
-                        if hasTexture && hasTexCoords then
+                            if hasTexture && hasTexCoords then
 
-                            let texCoordsArray = 
-                                (mesh.FaceVertexAttributes.[DefaultSemantic.DiffuseColorCoordinates].ToArrayOfT<V2d>())
-                                |> Array.map(fun f -> V2d(f.X, 1.0-f.Y))
+                                let texCoordsArray = 
+                                    (mesh.FaceVertexAttributes.[DefaultSemantic.DiffuseColorCoordinates].ToArrayOfT<V2d>())
+                                    |> Array.map(fun f -> V2d(f.X, 1.0-f.Y))
 
-                            mesh.FaceVertexAttributes.[DefaultSemantic.DiffuseColorCoordinates] <- texCoordsArray
+                                mesh.FaceVertexAttributes.[DefaultSemantic.DiffuseColorCoordinates] <- texCoordsArray
 
-                        mesh.GetIndexedGeometry(PolyMesh.GetGeometryOptions.Default))
+                            mesh.GetIndexedGeometry(PolyMesh.GetGeometryOptions.Default))
 
-                let isgs = 
-                    igs 
-                    |> List.map (fun ig -> 
-                        textureOption
-                        |> Option.map(fun potPath -> 
-                            potPath
+                    let isgs = 
+                        igs 
+                        |> List.map (fun ig -> 
+                            textureOption
+                            |> Option.map(fun potPath -> 
+                                potPath
     
-                            |> Option.map(fun texPath ->
+                                |> Option.map(fun texPath ->
+                                    let texture = 
+                                        let config = { wantMipMaps = true; wantSrgb = false; wantCompressed = false }
+                                        FileTexture(texPath,config) :> ITexture
+                                    ig.Sg
+                                    |> Aardvark.SceneGraph.SgFSharp.Sg.texture DefaultSemantic.DiffuseColorTexture (AVal.constant texture))
+                                |> Option.defaultValue ig.Sg)
+                            |> Option.defaultValue ig.Sg
+                            |> Sg.noEvents)
+                  
+                    isgs 
+          
+                else
+               
+                    let vertexList      = obj.Vertices.ToListOfT<V4d>()
+
+                    let offset          = vertexList |> Seq.head
+
+                    let positions       = vertexList |> Seq.toList |> List.map(fun p -> V3d(p.X-offset.X, p.Y-offset.Y, p.Z-offset.Z))
+                    let colors          = if obj.VertexColors.IsEmptyOrNull() then None else Some(obj.VertexColors |> Seq.toList)
+                    let coordsOption    = if obj.TextureCoordinates.IsEmptyOrNull() then None else Some (obj.TextureCoordinates |> Seq.toList)
+                    let normalsOption   = if obj.Normals.IsEmptyOrNull() then None else Some (obj.Normals |> Seq.toList)
+                    let faceSets        = obj.FaceSets |> Seq.toList
+
+                    let createISgOfFaces (diffuseTextureFile : Option<string>) (color : Option<C3f>) (faces : List<Face>) =                 
+                        let posIndices, texCoordIndices, normalIndices = faces |> List.map(fun f -> (f.positionIndices, f.texCoordIndices, f.normalIndices)) |> List.unzip3
+    
+                        let posIComplete     = posIndices      |> Array.concat
+                        let texCoordComplete = texCoordIndices |> Array.concat
+                        let normalsComplete  = normalIndices   |> Array.concat
+
+                        let matColor = color |> Option.map(fun c -> C3f(c.R, c.G, c.B)) |> Option.defaultValue C3f.White
+    
+                        let faceSetPositions, faceSetColors = 
+                            colors
+                            |> Option.map(fun cList -> 
+                                posIComplete
+                                |> Array.map(fun value -> positions.[value], cList.[value])
+                                |> Array.unzip)
+                            |> Option.defaultValue (
+                                posIComplete
+                                |> Array.map(fun value -> positions.[value], matColor)
+                                |> Array.unzip)
+                      
+                  
+                        let def = [
+                            DefaultSemantic.Positions, (faceSetPositions) :> Array
+                            DefaultSemantic.Colors, (faceSetColors) :> Array                    
+                        ]
+    
+                        let def = 
+                            coordsOption 
+                            |> Option.map(fun coords -> 
+                                let faceSetTexCoords =
+                                    texCoordComplete
+                                    |> Array.mapi(fun _ value -> V2f(coords.[value].X, (1.0f- coords.[value].Y)))
+                              
+                                def |> List.append [DefaultSemantic.DiffuseColorCoordinates, (faceSetTexCoords) :> Array])
+                            |> Option.defaultValue def
+    
+                        let def = 
+                            normalsOption
+                            |> Option.map(fun normals ->
+                                let faceSetNormals = 
+                                    normalsComplete
+                                    |> Array.mapi(fun _ n -> normals.[n])
+                          
+                                def |> List.append [DefaultSemantic.Normals, (faceSetNormals) :> Array])
+                            |> Option.defaultValue def
+                                                  
+                        let indexAttributes = def |> SymDict.ofList 
+    
+                        let index = [|0 .. posIComplete.Length-1|]
+    
+                        let geometry =
+                            IndexedGeometry(
+                                Mode              = IndexedGeometryMode.TriangleList,
+                                IndexArray        = index,
+                                IndexedAttributes = indexAttributes
+                            )       
+                      
+                        let sg = 
+                            diffuseTextureFile 
+                            |> Option.map(fun texPath -> 
                                 let texture = 
                                     let config = { wantMipMaps = true; wantSrgb = false; wantCompressed = false }
                                     FileTexture(texPath,config) :> ITexture
-                                ig.Sg
-                                |> Aardvark.SceneGraph.SgFSharp.Sg.texture DefaultSemantic.DiffuseColorTexture (AVal.constant texture))
-                            |> Option.defaultValue ig.Sg)
-                        |> Option.defaultValue ig.Sg
-                        |> Sg.noEvents)
-                  
-                isgs 
-          
-            else
-               
-                let vertexList      = obj.Vertices.ToListOfT<V4d>()
-
-                let offset          = vertexList |> Seq.head
-
-                let positions       = vertexList |> Seq.toList |> List.map(fun p -> V3d(p.X-offset.X, p.Y-offset.Y, p.Z-offset.Z))
-                let colors          = if obj.VertexColors.IsEmptyOrNull() then None else Some(obj.VertexColors |> Seq.toList)
-                let coordsOption    = if obj.TextureCoordinates.IsEmptyOrNull() then None else Some (obj.TextureCoordinates |> Seq.toList)
-                let normalsOption   = if obj.Normals.IsEmptyOrNull() then None else Some (obj.Normals |> Seq.toList)
-                let faceSets        = obj.FaceSets |> Seq.toList
-
-                let createISgOfFaces (diffuseTextureFile : Option<string>) (color : Option<C3f>) (faces : List<Face>) =                 
-                    let posIndices, texCoordIndices, normalIndices = faces |> List.map(fun f -> (f.positionIndices, f.texCoordIndices, f.normalIndices)) |> List.unzip3
-    
-                    let posIComplete     = posIndices      |> Array.concat
-                    let texCoordComplete = texCoordIndices |> Array.concat
-                    let normalsComplete  = normalIndices   |> Array.concat
-
-                    let matColor = color |> Option.map(fun c -> C3f(c.R, c.G, c.B)) |> Option.defaultValue C3f.White
-    
-                    let faceSetPositions, faceSetColors = 
-                        colors
-                        |> Option.map(fun cList -> 
-                            posIComplete
-                            |> Array.map(fun value -> positions.[value], cList.[value])
-                            |> Array.unzip)
-                        |> Option.defaultValue (
-                            posIComplete
-                            |> Array.map(fun value -> positions.[value], matColor)
-                            |> Array.unzip)
-                      
-                  
-                    let def = [
-                        DefaultSemantic.Positions, (faceSetPositions) :> Array
-                        DefaultSemantic.Colors, (faceSetColors) :> Array                    
-                    ]
-    
-                    let def = 
-                        coordsOption 
-                        |> Option.map(fun coords -> 
-                            let faceSetTexCoords =
-                                texCoordComplete
-                                |> Array.mapi(fun _ value -> V2f(coords.[value].X, (1.0f- coords.[value].Y)))
-                              
-                            def |> List.append [DefaultSemantic.DiffuseColorCoordinates, (faceSetTexCoords) :> Array])
-                        |> Option.defaultValue def
-    
-                    let def = 
-                        normalsOption
-                        |> Option.map(fun normals ->
-                            let faceSetNormals = 
-                                normalsComplete
-                                |> Array.mapi(fun _ n -> normals.[n])
-                          
-                            def |> List.append [DefaultSemantic.Normals, (faceSetNormals) :> Array])
-                        |> Option.defaultValue def
-                                                  
-                    let indexAttributes = def |> SymDict.ofList 
-    
-                    let index = [|0 .. posIComplete.Length-1|]
-    
-                    let geometry =
-                        IndexedGeometry(
-                            Mode              = IndexedGeometryMode.TriangleList,
-                            IndexArray        = index,
-                            IndexedAttributes = indexAttributes
-                        )       
-                      
-                    let sg = 
-                        diffuseTextureFile 
-                        |> Option.map(fun texPath -> 
-                            let texture = 
-                                let config = { wantMipMaps = true; wantSrgb = false; wantCompressed = false }
-                                FileTexture(texPath,config) :> ITexture
                          
-                            geometry.Sg
-                            |> Aardvark.SceneGraph.SgFSharp.Sg.texture DefaultSemantic.DiffuseColorTexture (AVal.constant texture))
-                        |> Option.defaultValue geometry.Sg
-                        |> Sg.noEvents
+                                geometry.Sg
+                                |> Aardvark.SceneGraph.SgFSharp.Sg.texture DefaultSemantic.DiffuseColorTexture (AVal.constant texture))
+                            |> Option.defaultValue geometry.Sg
+                            |> Sg.noEvents
     
     
-                    sg
+                        sg
     
-                let isgs = 
-                    faceSets
-                    |> List.map(fun fs  -> 
-                        fs.FirstIndices.RemoveAt(fs.FirstIndices.Count-1)
-                        fs.FirstIndices
-                        |> Seq.mapi (fun i firstIndex -> 
-                            {
-                            positionIndices = [| fs.VertexIndices.[firstIndex]; fs.VertexIndices.[firstIndex+1]; fs.VertexIndices.[firstIndex+2]|]        
-                            texCoordIndices = [| fs.TexCoordIndices.[firstIndex]; fs.TexCoordIndices.[firstIndex+1]; fs.TexCoordIndices.[firstIndex+2]|]
-                            normalIndices   = [| fs.NormalIndices.[firstIndex]; fs.NormalIndices.[firstIndex+1]; fs.TexCoordIndices.[firstIndex+2]|]
-                            materialIndex   = fs.MaterialIndices.[i]                        
-                            })
-                        |> List.ofSeq
-                        |> List.groupBy(fun face -> face.materialIndex)
-                        )
-                    |> List.concat
-                    |> List.map(fun (matIndex,faceList) -> 
-                        let currMapItems = obj.Materials.Item(matIndex).MapItems
-                        let color    =  currMapItems |> Seq.tryFind(fun item -> item.Key = WavefrontMaterial.Property.DiffuseColor) |> Option.map(fun item -> (item.Value :?> C3f))
-                        let fileName =  currMapItems |> Seq.tryFind(fun item -> item.Key = WavefrontMaterial.Property.DiffuseColorMap) |> Option.map(fun item -> (string item.Value)) //materials.[matIndex]. |> Seq.tryFind WavefrontMaterial.Property.DiffuseColorMap
-                        createISgOfFaces fileName color faceList)
+                    let isgs = 
+                        faceSets
+                        |> List.map(fun fs  -> 
+                            fs.FirstIndices.RemoveAt(fs.FirstIndices.Count-1)
+                            fs.FirstIndices
+                            |> Seq.mapi (fun i firstIndex -> 
+                                {
+                                positionIndices = [| fs.VertexIndices.[firstIndex]; fs.VertexIndices.[firstIndex+1]; fs.VertexIndices.[firstIndex+2]|]        
+                                texCoordIndices = [| fs.TexCoordIndices.[firstIndex]; fs.TexCoordIndices.[firstIndex+1]; fs.TexCoordIndices.[firstIndex+2]|]
+                                normalIndices   = [| fs.NormalIndices.[firstIndex]; fs.NormalIndices.[firstIndex+1]; fs.TexCoordIndices.[firstIndex+2]|]
+                                materialIndex   = fs.MaterialIndices.[i]                        
+                                })
+                            |> List.ofSeq
+                            |> List.groupBy(fun face -> face.materialIndex)
+                            )
+                        |> List.concat
+                        |> List.map(fun (matIndex,faceList) -> 
+                            let currMapItems = obj.Materials.Item(matIndex).MapItems
+                            let color    =  currMapItems |> Seq.tryFind(fun item -> item.Key = WavefrontMaterial.Property.DiffuseColor) |> Option.map(fun item -> (item.Value :?> C3f))
+                            let fileName =  currMapItems |> Seq.tryFind(fun item -> item.Key = WavefrontMaterial.Property.DiffuseColorMap) |> Option.map(fun item -> (string item.Value)) //materials.[matIndex]. |> Seq.tryFind WavefrontMaterial.Property.DiffuseColorMap
+                            createISgOfFaces fileName color faceList)
 
-                isgs
+                    isgs
 
-        // TEST LAURA: load .obj with wavefront (Martins code from dibit) (+ Harris updates Nov.22)
-        let loadObjectWavefront (surface : Surface) : SgSurface =
-            Log.line "[OBJ WAVEFRONT] Please wait while the file is being loaded..."
-            let obj = ObjParser.Load(surface.importPath, true)
-            Log.line "[OBJ WAVEFRONT] The file was loaded successfully!" 
-            let dir = Path.GetDirectoryName(surface.importPath)
-            let filename = Path.GetFileNameWithoutExtension surface.importPath
-            let kdTreePath = Path.combine [dir; filename + ".aakd"] 
-            let meshes = obj.GetFaceSetMeshes(true) //|> Seq.toList
-            let mutable count = 0
-            let kdTrees = 
-                if File.Exists(kdTreePath) |> not then
-                    meshes
-                    |> Seq.map(fun x ->
-                        let kdPath = sprintf "%s_%i.kd" surface.importPath count
-                        Log.line "loading positions and indices of OBJ-Object"
+            // TEST LAURA: load .obj with wavefront (Martins code from dibit) (+ Harris updates Nov.22)
+            let loadObjectWavefront (surface : Surface) : SgSurface =
+                Log.line "[OBJ WAVEFRONT] Please wait while the file is being loaded..."
+                let obj = ObjParser.Load(surface.importPath, true)
+                Log.line "[OBJ WAVEFRONT] The file was loaded successfully!" 
+                let dir = Path.GetDirectoryName(surface.importPath)
+                let filename = Path.GetFileNameWithoutExtension surface.importPath
+                let kdTreePath = Path.combine [dir; filename + ".aakd"] 
+                let meshes = obj.GetFaceSetMeshes(true) |> Seq.toList
+                let mutable count = 0
+                let kdTrees = 
+                    if File.Exists(kdTreePath) |> not then
+                        meshes
+                        |> List.map(fun x ->
+                            let kdPath = sprintf "%s_%i.kd" surface.importPath count
+                            Log.line "loading positions and indices of OBJ-Object"
                         
-                        //let positions = x.PositionArray 
-                        //let indices = x.VertexIndexArray 
+                            //let positions = x.PositionArray 
+                            //let indices = x.VertexIndexArray 
 
-                        Log.line "start building kdTree"
-                        let triMesh = x.TriangulatedCopy()
-                        let test = 
-                            triMesh.Faces 
-                            |> Seq.collect (fun face -> face.Polygon3d.Points )
-                            |> Seq.chunkBySize 3
-                            |> Seq.map(fun x -> Triangle3d x)
-                            |> Seq.filter(fun x -> (IntersectionController.triangleIsNan x |> not)) |> Seq.toArray
-                            |> TriangleSet
+                            Log.line "start building kdTree"
+                            let triMesh = x.TriangulatedCopy()
+                            let test = 
+                                triMesh.Faces 
+                                |> Seq.collect (fun face -> face.Polygon3d.Points )
+                                |> Seq.chunkBySize 3
+                                |> Seq.map(fun x -> Triangle3d x)
+                                |> Seq.filter(fun x -> (IntersectionController.triangleIsNan x |> not)) |> Seq.toArray
+                                |> TriangleSet
                                                                                 
 
-                        //Log.line "start building kdTree"
-                        //let t = 
-                        //    indices 
-                        //    |> Seq.map(fun x -> positions.[x])
-                        //    |> Seq.chunkBySize 3
-                        //    |> Seq.filter(fun x -> x.Length = 3)
-                        //    |> Seq.map(fun x -> Triangle3d x)
-                        //    |> Seq.filter(fun x -> (IntersectionController.triangleIsNan x |> not)) |> Seq.toArray
-                        //    |> TriangleSet
+                            //Log.line "start building kdTree"
+                            //let t = 
+                            //    indices 
+                            //    |> Seq.map(fun x -> positions.[x])
+                            //    |> Seq.chunkBySize 3
+                            //    |> Seq.filter(fun x -> x.Length = 3)
+                            //    |> Seq.map(fun x -> Triangle3d x)
+                            //    |> Seq.filter(fun x -> (IntersectionController.triangleIsNan x |> not)) |> Seq.toArray
+                            //    |> TriangleSet
                     
-                        Log.startTimed "Building kdtrees for %s" (Path.GetFileName surface.importPath |> Path.GetFileName)
-                        let tree = 
-                            KdIntersectionTree(test, 
-                                KdIntersectionTree.BuildFlags.MediumIntersection + KdIntersectionTree.BuildFlags.Hierarchical) //|> PRo3D.Serialization.save kdTreePath                  
-                        Log.stop()
+                            Log.startTimed "Building kdtrees for %s" (Path.GetFileName surface.importPath |> Path.GetFileName)
+                            let tree = 
+                                KdIntersectionTree(test, 
+                                    KdIntersectionTree.BuildFlags.MediumIntersection + KdIntersectionTree.BuildFlags.Hierarchical) //|> PRo3D.Serialization.save kdTreePath                  
+                            Log.stop()
                         
-                        saveKdTree (kdPath, tree) |> ignore
+                            saveKdTree (kdPath, tree) |> ignore
                         
-                        let kd : KdTrees.LazyKdTree = {
-                            kdTree        = Some (tree.ToConcreteKdIntersectionTree());
-                            affine        = Trafo3d.Identity
-                            boundingBox   = tree.BoundingBox3d
-                            kdtreePath    = kdPath
-                            objectSetPath = ""                  
-                            coordinatesPath = ""
-                            texturePath = ""
-                            } 
+                            let kd : KdTrees.LazyKdTree = {
+                                kdTree        = Some (tree.ToConcreteKdIntersectionTree());
+                                affine        = Trafo3d.Identity
+                                boundingBox   = tree.BoundingBox3d
+                                kdtreePath    = kdPath
+                                objectSetPath = ""                  
+                                coordinatesPath = ""
+                                texturePath = ""
+                                } 
                         
-                        count <- count + 1
-                        kd.boundingBox, (KdTrees.Level0KdTree.LazyKdTree kd)
-                    ) 
-                    |> Seq.toList
-                    |> Serialization.save kdTreePath
+                            count <- count + 1
+                            kd.boundingBox, (KdTrees.Level0KdTree.LazyKdTree kd)
+                        ) 
+                        |> Serialization.save kdTreePath
                 
-                else
-                    Serialization.loadAs<List<Box3d*KdTrees.Level0KdTree>> kdTreePath
-                    |> List.map(fun kd -> 
-                        match kd with 
-                        | _, KdTrees.Level0KdTree.InCoreKdTree tree -> (tree.boundingBox, (KdTrees.Level0KdTree.InCoreKdTree tree))
-                        | _, KdTrees.Level0KdTree.LazyKdTree tree -> 
-                           let loadedTree = if File.Exists(tree.kdtreePath) then 
-                                                Some (tree.kdtreePath |> KdTrees.loadKdtree) 
-                                            else None
-                           (tree.boundingBox, (KdTrees.Level0KdTree.LazyKdTree {tree with kdTree = loadedTree}))
-                    )
+                    else
+                        Serialization.loadAs<List<Box3d*KdTrees.Level0KdTree>> kdTreePath
+                        |> List.map(fun kd -> 
+                            match kd with 
+                            | _, KdTrees.Level0KdTree.InCoreKdTree tree -> (tree.boundingBox, (KdTrees.Level0KdTree.InCoreKdTree tree))
+                            | _, KdTrees.Level0KdTree.LazyKdTree tree -> 
+                               let loadedTree = if File.Exists(tree.kdtreePath) then 
+                                                    Some (tree.kdtreePath |> KdTrees.loadKdtree) 
+                                                else None
+                               (tree.boundingBox, (KdTrees.Level0KdTree.LazyKdTree {tree with kdTree = loadedTree}))
+                        )
 
-            let bb  = meshes |> Seq.toList |> List.fold(fun x y -> x |> Box3d.extendBy y.BoundingBox3d) (meshes |> Seq.toList).Head.BoundingBox3d
-            let pose = Pose.translate (bb.Center) 
-            let trafo = { TrafoController.initial with pose = pose; previewTrafo = Pose.toTrafo pose; mode = TrafoMode.Local }
+                let bb  = 
+                    match meshes with
+                    | [] -> 
+                        Box3d.Invalid
+                    | m::_ -> 
+                        meshes |> List.fold (fun accum y -> Box3d.extendBy accum y.BoundingBox3d) m.BoundingBox3d
 
-            let sgs = createSceneGraph obj 
+                let pose = Pose.translate (bb.Center) 
+                let trafo = { TrafoController.initial with pose = pose; previewTrafo = Pose.toTrafo pose; mode = TrafoMode.Local }
 
-            let sg = 
-                sgs
-                //|> Sg.ofList
-                |> Sg.requirePicking
-                |> Sg.noEvents
-                |> Sg.scale 1.0
+                let sgs = createSceneGraph obj 
 
-            {
-                surface         = surface.guid    
-                trafo           = trafo
-                globalBB        = bb
-                sceneGraph      = sg
-                picking         = Picking.KdTree(kdTrees |> HashMap.ofList)
-                isObj           = true
-                //transformation = Init.Transformations
-            }
+                let sg = 
+                    sgs
+                    //|> Sg.ofList
+                    |> Sg.requirePicking
+                    |> Sg.noEvents
+                    |> Sg.scale 1.0
+
+                {
+                    surface         = surface.guid    
+                    trafo           = trafo
+                    globalBB        = bb
+                    sceneGraph      = sg
+                    picking         = Picking.KdTree(kdTrees |> HashMap.ofList)
+                    isObj           = true
+                    //transformation = Init.Transformations
+                }
                  
 
-        let createSgObjectsWavefront _ _ surfaces =
-            let sghs =
-              surfaces
-                |> IndexList.toList 
-                |> List.filter(fun s ->
-                    let dirExists = File.Exists s.importPath
-                    if dirExists |> not then 
-                        Log.error "[Surface.Sg] could not find %s" s.importPath
-                    dirExists
-                )
-                |> List.map loadObjectWavefront
+            let createSgObjectsWavefront surfaces =
+                let sghs =
+                  surfaces
+                    |> IndexList.toList 
+                    |> List.filter(fun s ->
+                        let dirExists = File.Exists s.importPath
+                        if dirExists |> not then 
+                            Log.error "[Surface.Sg] could not find %s" s.importPath
+                        dirExists
+                    )
+                    |> List.map loadObjectWavefront
 
-            let sgObjects =
-                sghs 
-                  |> List.map (fun d -> (d.surface, d))
-                  |> HashMap.ofList       
+                let sgObjects =
+                    sghs 
+                      |> List.map (fun d -> (d.surface, d))
+                      |> HashMap.ofList       
 
-            sgObjects
+                sgObjects
 
         
 
