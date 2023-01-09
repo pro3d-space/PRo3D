@@ -1,3 +1,6 @@
+## 4.11.0-prerelease4
+- NewScene crash fixed: https://github.com/pro3d-space/PRo3D/issues/277
+
 ## 4.11.0-prerelease3
 - #274: objs with multiple geometries fixed
 
