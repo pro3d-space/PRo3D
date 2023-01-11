@@ -381,14 +381,14 @@ function ready() {
       runOffscreenServer(opt.server);
   }
   else {
-	var plat = os.platform();
-
-    var name = plat == 'darwin' ? "PRo3D.Viewer" : "PRo3D.Viewer.exe";
+	  var plat = os.platform();
+    var name = plat == 'darwin' || plat == 'linux' ? "PRo3D.Viewer" : "PRo3D.Viewer.exe";
     var p = path.join(path.dirname(process.resourcesPath), "build", "build", name)
-    console.warn("path = " + p)
+    console.warn("probing path = " + p)
     if (fs.existsSync("./build/build/" + name)) {
       console.log('dev')
       p = "./build/build/" + name;
+      console.log('running process: ' + p);
     } else {
       console.log('deployed.')
     }
@@ -399,7 +399,7 @@ function ready() {
 	
 	
 	
-	const WINDOW_WIDTH = 640;
+	  const WINDOW_WIDTH = 640;
     const WINDOW_HEIGHT = 300;
   
     //Definindo centro da tela principal
