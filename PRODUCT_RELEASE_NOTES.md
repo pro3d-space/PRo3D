@@ -1,3 +1,6 @@
+## 4.12.0-prerelease2
+- testing linux deployment
+
 ## 4.12.0-prerelease1
 - testing linux deployment
 
