@@ -1,3 +1,6 @@
+## 4.12.0-prerelease1
+- testing linux deployment
+
 ## 4.11.0-prerelease4
 - NewScene crash fixed: https://github.com/pro3d-space/PRo3D/issues/277
 

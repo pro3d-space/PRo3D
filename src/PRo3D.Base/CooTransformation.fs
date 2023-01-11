@@ -98,7 +98,7 @@ module CooTransformation =
             else
                 Log.line "[InstrumentPlatforms] Instrument dll sucessfully initialized"
         with e -> 
-            if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then
+            if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) ||  System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux)  then
                 Log.warn "Instrument platform failed to initialize - not yet supported? https://github.com/pro3d-space/PRo3D/issues/196 --> %A" e
 
     let deInitCooTrafo () = 
