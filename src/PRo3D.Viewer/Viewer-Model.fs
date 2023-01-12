@@ -161,6 +161,7 @@ type ViewerAction =
 | TraverseMessage                of TraverseAction
 | SetSceneState                  of SceneState
 | StopGeoJsonAutoExport        
+| LoadPoseTreeFile
 | Nop
 
 and MailboxState = {

@@ -46,7 +46,7 @@ open PRo3D.ViewerLenses
  
 open Aether
 open Aether.Operators
-
+open Chiron 
 open PRo3D.Core.Surface
 
 type UserFeedback<'a> = {
@@ -1564,6 +1564,13 @@ module ViewerApp =
             { m with drawing = { m.drawing with automaticGeoJsonExport = autoExport } }
         | SetSceneState state, _, _ ->
             Optic.set _sceneState state m
+        | LoadPoseTreeFile, _, _ -> //RNO WIP
+            let data = SimulatedViews.PoseTreeData.dummyData
+            data
+            |> Json.serialize 
+            |> Json.formatWith JsonFormattingOptions.Pretty 
+            |> Serialization.Chiron.writeToFile "poseTreeDummyData.json"
+            m
         | unknownAction, _, _ -> 
             Log.line "[Viewer] Message not handled: %s" (string unknownAction)
             m       
