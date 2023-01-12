@@ -30,9 +30,7 @@ open PRo3D.Core.Surface
 open PRo3D.Viewer
 open PRo3D.SimulatedViews
 
-
 open Adaptify.FSharp.Core
-open OpcViewer.Base.Shader
 
 module ViewerUtils =    
     type Self = Self
@@ -58,32 +56,18 @@ module ViewerUtils =
         let pi = PixImage.Create(s)
         PixTexture2d(PixImageMipMap [| pi |], true) :> ITexture    
     
-    let toModSurface (leaf : AdaptiveLeafCase) = 
-         adaptive {
-            let c = leaf
-            match c with 
-                | AdaptiveSurfaces s -> return s
-                | _ -> return c |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
-            }
-             
-    let lookUp guid (table:amap<Guid, AdaptiveLeafCase>) =
-        
-        let entry = table |> AMap.find guid
 
-        entry |> AVal.bind(fun x -> x |> toModSurface)
-    
-    let addImageCorrectionParameters (surf:aval<AdaptiveSurface>)  (isg:ISg<'a>) =
-        
-            //AVal.bind(fun x -> lookUp (x.surface) blarg )
-        let contr    = surf |> AVal.bind( fun x -> x.colorCorrection.contrast.value )
-        let useContr = surf |> AVal.bind( fun x -> x.colorCorrection.useContrast )
-        let bright   = surf |> AVal.bind( fun x -> x.colorCorrection.brightness.value )
-        let useB     = surf |> AVal.bind( fun x -> x.colorCorrection.useBrightn) 
-        let gamma    = surf |> AVal.bind( fun x -> x.colorCorrection.gamma.value )
-        let useG     = surf |> AVal.bind( fun x -> x.colorCorrection.useGamma )
-        let useGray  = surf |> AVal.bind( fun x -> x.colorCorrection.useGrayscale )
-        let useColor = surf |> AVal.bind( fun x -> x.colorCorrection.useColor )
-        let color    = surf |> AVal.bind( fun x -> x.colorCorrection.color.c )
+    let addImageCorrectionParameters (surf: AdaptiveSurface)  (isg:ISg<'a>) =
+
+        let contr    = surf.colorCorrection.contrast.value 
+        let useContr = surf.colorCorrection.useContrast 
+        let bright   = surf.colorCorrection.brightness.value 
+        let useB     = surf.colorCorrection.useBrightn
+        let gamma    = surf.colorCorrection.gamma.value 
+        let useG     = surf.colorCorrection.useGamma 
+        let useGray  = surf.colorCorrection.useGrayscale 
+        let useColor = surf.colorCorrection.useColor 
+        let color    = surf.colorCorrection.color.c 
 
         isg
             |> Sg.uniform "useContrastS"   useContr  //image correction
@@ -96,18 +80,17 @@ module ViewerUtils =
             |> Sg.uniform "useColorS"      useColor
             |> Sg.uniform "colorS"         color
 
-    let addAttributeFalsecolorMappingParameters (surf:aval<AdaptiveSurface>)  (isg:ISg<'a>) =
+    let addAttributeFalsecolorMappingParameters (surf : AdaptiveSurface)  (isg:ISg<'a>) =
             
         let selectedScalar =
             adaptive {
-                let! s = surf
-                let! scalar = s.selectedScalar
+                let! scalar = surf.selectedScalar
                 match scalar with
                 | AdaptiveSome _ -> return true
                 | _ -> return false
             }  
       
-        let scalar = surf |> AVal.bind( fun x -> x.selectedScalar )        
+        let scalar = surf.selectedScalar   
       
 
         let interval = scalar |> AVal.bind ( fun x ->
@@ -250,37 +233,31 @@ module ViewerUtils =
         (allowFootprint  : bool) =
 
         adaptive {
-            let! exists = (surfacesMap |> AMap.keys) |> ASet.contains surface.surface
-            let! surf = AMap.tryFind surface.surface surfacesMap
-            if exists then
-              
-                let surf = lookUp (surface.surface) surfacesMap
-                    //AVal.bind(fun x -> lookUp (x.surface) blarg )
-                
-                let isSelected = AVal.map2(fun x y ->
-                    match x with
-                    | Some id -> (id = surface.surface) && y
-                    | None -> false) selectedId useHighlighting
+            match! AMap.tryFind surface.surface surfacesMap with
+            | Some (AdaptiveSurfaces surf) -> 
+
+                let isSelected = 
+                    (selectedId, useHighlighting) ||> AVal.map2(fun x y ->
+                        match x with
+                        | Some id -> (id = surface.surface) && y
+                        | None -> false
+                    )
                 
                 let createSg (sg : ISg) =
                     sg 
                     |> Sg.noEvents 
-                    |> Sg.cullMode(surf |> AVal.bind(fun x -> x.cullMode))
-                    |> Sg.fillMode(surf |> AVal.bind(fun x -> x.fillMode))
+                    |> Sg.cullMode(surf.cullMode)
+                    |> Sg.fillMode(surf.fillMode)
                                                 
-                let triangleFilter = 
-                    surf |> AVal.bind(fun s -> s.triangleSize.value)
-                
-                
+                let triangleFilter = surf.triangleSize.value
 
                 let trafo =
                     adaptive {
-                        let! fullTrafo = SurfaceTransformations.fullTrafo surf refsys
-                        let! surface = surf
-                        let! scaleFactor = surface.scaling.value
-                        let! preTransform = surface.preTransform
-                        let! flipZ = surface.transformation.flipZ
-                        let! sketchFab = surface.transformation.isSketchFab
+                        let! fullTrafo = SurfaceTransformations.fullTrafoForSurface surf refsys
+                        let! scaleFactor = surf.scaling.value
+                        let! preTransform = surf.preTransform
+                        let! flipZ = surf.transformation.flipZ
+                        let! sketchFab = surf.transformation.isSketchFab
                         if flipZ then 
                             return Trafo3d.Scale(scaleFactor) * Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * preTransform)
                         else if sketchFab then      
@@ -305,16 +282,10 @@ module ViewerUtils =
                     |> AVal.map(fun k ->
                         match k.shape with
                         | PickShape.Box bb -> bb
-                        | _ -> Box3d.Invalid)
+                        | _ -> Box3d.Invalid
+                    )
                     
-                let trafoObj =
-                   adaptive {
-                        let! s = surf
-                        let! t = s.preTransform
-                        return t
-                    }
 
-                
                 let samplerDescription : aval<SamplerState -> SamplerState> = 
                     filterTexture 
                     |> AVal.map (fun filterTexture ->  
@@ -326,7 +297,8 @@ module ViewerUtils =
                         
                 let footprintVisible = //AVal.map2 (fun (vp:Option<AdaptiveViewPlan>) vis -> (vp.IsSome && vis)) vp, fp.isVisible
                     adaptive {
-                        if not allowFootprint then return false
+                        if not allowFootprint then 
+                            return false
                         else
                             return! vpVisible
                     }
@@ -359,27 +331,26 @@ module ViewerUtils =
                     |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
                     |> addAttributeFalsecolorMappingParameters surf
                     |> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
-                    |> addImageCorrectionParameters surf
+                    |> addImageCorrectionParameters  surf
                     |> Sg.uniform "FootprintVisible" footprintVisible
                     |> Sg.uniform "FootprintModelViewProj" (M44d.Identity |> AVal.constant)
                     |> Sg.applyFootprint footprintViewProj
                     |> Sg.noEvents
                     |> Sg.texture (Sym.ofString "FootPrintTexture") fp.projTex
-                    |> Sg.LodParameters( getLodParameters surf refsys frustum )
-                    |> Sg.AttributeParameters( attributeParameters surf )
-                    |> OpcViewer.Base.Sg.pickable' pickable
+                    |> Sg.LodParameters( getLodParameters  (AVal.constant surf) refsys frustum )
+                    |> Sg.AttributeParameters( attributeParameters  (AVal.constant surf) )
+                    |> Sg.pickable' pickable
                     |> Sg.noEvents 
                     |> Sg.withEvents [
                         SceneEventKind.Click, (
                            fun sceneHit -> 
-                             let surfM = surf       |> AVal.force
-                             let name  = surfM.name |> AVal.force        
+                             let name  = surf.name |> AVal.force        
                              let surfacePicking = surfacePicking |> AVal.force
                              //Log.warn "[SurfacePicking] spawning picksurface action %s" name //TODO remove spanwning altogether when interaction is not "PickSurface"
                              true, Seq.ofList [PickSurface (sceneHit, name, surfacePicking)])
                        ]  
                     // handle surface visibility
-                    |> Sg.onOff (surf |> AVal.bind(fun x -> x.isVisible)) // on off variant
+                    |> Sg.onOff (surf.isVisible) // on off variant
                     //|> structuralOnOff  (surf |> AVal.bind(fun x -> x.isVisible)) // structural variant
                     |> Sg.andAlso (
                         (Sg.wireBox (C4b.VRVisGreen |> AVal.constant) pickBox) 
@@ -391,8 +362,9 @@ module ViewerUtils =
                         |> Sg.onOff isSelected
                     )                                
                 return surfaceSg
-            else
+            | _ -> 
                 return Sg.empty
+
         } |> Sg.dynamic
         
     let frustum (m:AdaptiveModel) =
