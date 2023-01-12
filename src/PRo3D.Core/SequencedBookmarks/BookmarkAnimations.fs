@@ -31,7 +31,7 @@ module BookmarkAnimations =
     module Primitives =
         /// Creates an animation that interpolates between two bookmarks
         let interpolateBm (settings : AnimationSettings) 
-                          (src : SequencedBookmark) (dst : SequencedBookmark) = //IAnimation<'Model, SequencedBookmark> =
+                          (src : SequencedBookmarkModel) (dst : SequencedBookmarkModel) = //IAnimation<'Model, SequencedBookmark> =
 
             let pause = 
                 if src.delay.value > 0.0 then
@@ -66,7 +66,7 @@ module BookmarkAnimations =
                     toNext
             pause@[toNext]
 
-        let inline slerpBm (src : SequencedBookmark) (dst : SequencedBookmark) : IAnimation<'Model, SequencedBookmark> =
+        let inline slerpBm (src : SequencedBookmarkModel) (dst : SequencedBookmarkModel) : IAnimation<'Model, SequencedBookmarkModel> =
             let slerped = Primitives.slerp (CameraView.orientation src.bookmark.cameraView)
                                            (CameraView.orientation dst.bookmark.cameraView)
             slerped
@@ -96,8 +96,8 @@ module BookmarkAnimations =
     /// The accuracy of the parameterization depends on the given epsilon, where values closer to zero result in higher accuracy.
     /// </summary>
     /// <exception cref="ArgumentException">Thrown if the sequence is empty.</exception>
-    let smoothBookmarkPath (epsilon : float) (bookmarks : SequencedBookmark seq) 
-                : IAnimation<'Model, SequencedBookmark>[] =
+    let smoothBookmarkPath (epsilon : float) (bookmarks : SequencedBookmarkModel seq) 
+                : IAnimation<'Model, SequencedBookmarkModel>[] =
         let bookmarks = Array.ofSeq bookmarks
 
         if Seq.isEmpty bookmarks then
@@ -159,7 +159,7 @@ module BookmarkAnimations =
     let private addGlobalAttributes (m : SequencedBookmarks)
                                     (lenses : BookmarkLenses<'a>) 
                                     (outerModel : 'a)
-                                    (animation : IAnimation<'a,SequencedBookmark>) =
+                                    (animation : IAnimation<'a,SequencedBookmarkModel>) =
 
         let animation = 
             match m.animationSettings.useGlobalAnimation with
@@ -181,7 +181,8 @@ module BookmarkAnimations =
                 //|> Animation.onFinalize restoreState
                 //|> Animation.onStop restoreState
                 |> Animation.onProgress (fun name value model ->
-                            Optic.set lenses.setModel_ value model 
+                    Optic.set lenses.setModel_ 
+                                (SequencedBookmark.LoadedBookmark value) model 
                     )
 
         let animation =
@@ -241,7 +242,7 @@ module BookmarkAnimations =
     let smoothPathAllBookmarks (m : SequencedBookmarks)
                                (lenses : BookmarkLenses<'a>)
                                (outerModel      : 'a) =
-        let bookmarks = orderedBookmarks m
+        let bookmarks = orderedLoadedBookmarks m
         let animation =
             bookmarks
             |> smoothBookmarkPath m.animationSettings.smoothingFactor.value
@@ -264,7 +265,7 @@ module BookmarkAnimations =
     let pathWithPausing (m : SequencedBookmarks)
                         (lenses : BookmarkLenses<'a>)
                         (outerModel      : 'a) =
-        let bookmarks = orderedBookmarks m
+        let bookmarks = orderedLoadedBookmarks m
         let animations =
             bookmarks
             |> List.pairwise 
@@ -293,9 +294,8 @@ module BookmarkAnimations =
                    (navigationModel : Lens<'a,NavigationModel>) 
                    (outerModel      : 'a) =
         let views = 
-            m.orderList
-            |> List.map (fun id -> HashMap.find id m.bookmarks)
-            |> List.map (fun (bm : SequencedBookmark) -> bm.cameraView)
+            orderedLoadedBookmarks m
+            |> List.map (fun (bm : SequencedBookmarkModel) -> bm.cameraView)
 
         let view_ = navigationModel 
                     >-> NavigationModel.camera_
@@ -314,7 +314,7 @@ module BookmarkAnimations =
     let toBookmarkFromView (m : SequencedBookmarks)
                            (outerModel      : 'a) 
                            (lenses : BookmarkLenses<'a>)
-                           (f : SequencedBookmarks -> option<SequencedBookmark>) =
+                           (f : SequencedBookmarks -> option<SequencedBookmarkModel>) =
         let view_ = lenses.navigationModel_ 
                     >-> NavigationModel.camera_
                     >-> CameraControllerState.view_

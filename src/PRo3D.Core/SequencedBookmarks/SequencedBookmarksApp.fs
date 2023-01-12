@@ -22,7 +22,7 @@ open Aether.Operators
 
 module SequencedBookmark =
 
-    let update (m : SequencedBookmark) (msg : SequencedBookmarkAction) =
+    let update (m : SequencedBookmarkModel) (msg : SequencedBookmarkAction) =
         match msg with
         | SetName name ->
             {m with bookmark = {m.bookmark with name = name}}
@@ -83,13 +83,13 @@ module SequencedBookmarksApp =
             let newSBm = 
                 getNewSBookmark nav state  m.bookmarks.Count
             let oderList' = m.orderList@[newSBm.key]
-            let m = {m with bookmarks = m.bookmarks |> HashMap.add newSBm.key newSBm;
+            let m = {m with bookmarks = m.bookmarks |> HashMap.add newSBm.key (SequencedBookmark.LoadedBookmark newSBm)
                             orderList = oderList';
                             selectedBookmark = Some newSBm.key}
             outerModel, m
 
         | SequencedBookmarksAction.FlyToSBM id ->
-            toBookmarkFromView m outerModel lenses (find id)
+            toBookmarkFromView m outerModel lenses (tryFind id)
         | RemoveSBM id -> 
             let selSBm = 
                 match m.selectedBookmark with
@@ -109,7 +109,8 @@ module SequencedBookmarksApp =
                 let outerModel = 
                     match selected with
                     | Some sel -> // apply bookmark state
-                        Optic.set lenses.setModel_ sel outerModel
+                        Optic.set lenses.setModel_ (SequencedBookmark.LoadedBookmark sel)
+                                                   outerModel
                     | None ->
                         outerModel
                 outerModel, m
@@ -118,7 +119,7 @@ module SequencedBookmarksApp =
         | SetSceneState id ->
             let updState bm =
                 {bm with sceneState = Some (Optic.get lenses.sceneState_ outerModel)}
-            let m = updateOne m id updState
+            let m = loadAndUpdate m id updState
             Log.line "[Sequenced Bookmarks] Updated scene state."
             outerModel, m
         | SaveSceneState ->
@@ -177,13 +178,8 @@ module SequencedBookmarksApp =
                     m.orderList
             outerModel, { m with orderList = orderList' }
         | SequencedBookmarkMessage (key, msg) ->  
-            let sbm = m.bookmarks |> HashMap.tryFind key
-            match sbm with
-            | Some sb ->
-                let bookmark = (SequencedBookmark.update sb msg)
-                let bookmarks' = m.bookmarks |> HashMap.alter sb.key (function | Some _ -> Some bookmark | None -> None )
-                outerModel, { m with bookmarks = bookmarks'} 
-            | None -> outerModel, m
+            let m = loadAndUpdate m key (fun sb -> SequencedBookmark.update sb msg)
+            outerModel, m
         | Play ->
             if Animator.exists AnimationSlot.camera outerModel 
                 && Animator.isPaused AnimationSlot.camera outerModel then
@@ -341,8 +337,11 @@ module SequencedBookmarksApp =
 
                         let index = order |> List.findIndex(fun x -> x = id)
                         let headerText = 
-                            //AVal.map (fun a -> sprintf "%s" (a + " Index:" + index.ToString())) bookmark.name
-                            AVal.map (fun a -> sprintf "%s" (a)) bookmark.name
+                            match bookmark with
+                            | AdaptiveSequencedBookmark.AdaptiveLoadedBookmark bookmark ->
+                                AVal.map (fun a -> sprintf "%s" (a)) bookmark.name
+                            | AdaptiveSequencedBookmark.AdaptiveNotYetLoaded bm ->
+                                "Not Loaded" |> AVal.constant
 
                         let headerAttributes =
                             amap {
@@ -357,7 +356,7 @@ module SequencedBookmarksApp =
                                 yield Incremental.div (AttributeMap.ofList [style infoc])(
                                     alist {
                                         //let! hc = headerColor
-                                        yield div[clazz "header"; style bgc][
+                                        yield div [clazz "header"; style bgc] [
                                             Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
                                          ]                
                                         //yield i [clazz "large cube middle aligned icon"; style bgc; onClick (fun _ -> SelectSO soid)][]           
@@ -415,7 +414,8 @@ module SequencedBookmarksApp =
                     ]
                     div [clazz "ui basic label"] [
                         i [clazz "globe icon"] [] 
-                        Incremental.text (model.savedSceneState |> AVal.map (fun x -> stateLabel x))
+                        Incremental.text (model.savedSceneState 
+                                          |> AVal.map (fun x -> stateLabel x))
                     ]
                     div [
                         clazz "ui button"
@@ -426,9 +426,8 @@ module SequencedBookmarksApp =
                 ]
             ] 
 
-
-        let viewProps (m:AdaptiveSequencedBookmark) (useGlobalAnimation : aval<bool>) =
-            
+        // RNO should be moved and renamed
+        let viewPropsBmModel (m : AdaptiveSequencedBookmarkModel) (useGlobalAnimation : aval<bool>) =
             let view = m.bookmark.cameraView
             let notWithGlobalAnimation content =
                 alist {
@@ -487,15 +486,19 @@ module SequencedBookmarksApp =
             adaptive {
                 let! selBm = model.selectedBookmark
                 //let! delay = HashMap.tryFind selBm. model.animationInfo
-                let empty = div[ style "font-style:italic"][ text "no bookmark selected" ] 
+                let empty = div [ style "font-style:italic"] [ text "no bookmark selected" ] 
                 
                 match selBm with
                 | Some id -> 
                     let! scB = model.bookmarks |> AMap.tryFind id 
                     match scB with
                     | Some s -> 
-                        let bmProps = (viewProps s )
-                        return div [] [bmProps model.animationSettings.useGlobalAnimation]
+                        match s with
+                        | AdaptiveSequencedBookmark.AdaptiveLoadedBookmark s ->
+                            let bmProps = (viewPropsBmModel s )
+                            return div [] [bmProps model.animationSettings.useGlobalAnimation]
+                        | AdaptiveSequencedBookmark.AdaptiveNotYetLoaded s ->
+                            return div [ style "font-style:italic"] [ text "not loaded" ] 
                     | None -> 
                         return empty
                 | None -> return empty

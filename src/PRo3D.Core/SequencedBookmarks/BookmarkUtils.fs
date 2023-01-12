@@ -14,11 +14,15 @@ open System
 open System.IO
 open PRo3D.Base
 open PRo3D.Core.SequencedBookmarks
+open Chiron
 
 open Aether
 open Aether.Operators
 
 module BookmarkUtils =
+    let tryFind (id : Guid) (m : SequencedBookmarks) =
+        HashMap.tryFind id m.bookmarks
+        |> Option.bind SequencedBookmark.tryLoad
 
     let getNewSBookmark (navigation : NavigationModel) 
                         (sceneState : SceneState)
@@ -36,11 +40,11 @@ module BookmarkUtils =
             }
         let sequencedBookmark =
             {
-                version    = SequencedBookmark.current
+                version    = SequencedBookmarkModel.current
                 bookmark   = bookmark
                 sceneState = Some sceneState
-                duration   = SequencedBookmark.initDuration 3.0
-                delay      = SequencedBookmark.initDelay 0.0
+                duration   = SequencedBookmarkDefaults.initDuration 3.0
+                delay      = SequencedBookmarkDefaults.initDelay 0.0
             }
         sequencedBookmark
 
@@ -63,7 +67,7 @@ module BookmarkUtils =
         remove index orderList
 
     let selectSBookmark (m : SequencedBookmarks) (id : Guid) =
-        let sbm = m.bookmarks |> HashMap.tryFind id
+        let sbm = tryFind id m
         match sbm, m.selectedBookmark with
         | Some a, Some b ->
             if a.key = b then 
@@ -78,6 +82,18 @@ module BookmarkUtils =
         m.orderList
             |> List.map (fun x -> HashMap.find x m.bookmarks)
 
+
+
+    let orderedLoadedBookmarks  (m : SequencedBookmarks) =
+        m.orderList
+        |> List.map (fun x -> 
+                        let b = HashMap.find x m.bookmarks
+                        let b = SequencedBookmark.tryLoad b
+                        b
+                    )
+        |> List.filter (fun x -> Option.isSome x)
+        |> List.map (fun x -> x.Value)
+
     let moveCursor (f : int -> int) (m : SequencedBookmarks) =
         match m.selectedBookmark with
         | Some key -> 
@@ -88,7 +104,7 @@ module BookmarkUtils =
                 if x < 0 then
                     List.length m.orderList + x
                 else x
-            HashMap.tryFind m.orderList.[nextIndex] m.bookmarks
+            tryFind m.orderList.[nextIndex] m
         | None -> None
 
     let updateOne (m : SequencedBookmarks) (key : Guid) 
@@ -97,10 +113,26 @@ module BookmarkUtils =
             HashMap.alter 
                 key (fun x -> 
                     match x with
-                    | Some x -> Some (f x)
+                    | Some x -> Some (f x )
                     | None -> None) m.bookmarks
         {m with bookmarks = bookmarks}
-            
+
+    let loadAndUpdate (m : SequencedBookmarks) (key : Guid) 
+                      (f : SequencedBookmarkModel -> SequencedBookmarkModel) =
+        let updState original =
+            match original with
+            | SequencedBookmark.LoadedBookmark bm -> 
+                f bm |> SequencedBookmark.LoadedBookmark
+            | SequencedBookmark.NotYetLoaded notLoadedBm ->
+                let bm = SequencedBookmark.tryLoad original
+                match bm with
+                | Some bm -> 
+                    f bm |> SequencedBookmark.LoadedBookmark
+                | None ->
+                    original
+
+        let m = updateOne m key updState        
+        m
 
     let next (m : SequencedBookmarks) =
         moveCursor (fun x -> x + 1) m
@@ -111,8 +143,5 @@ module BookmarkUtils =
     let selected (m : SequencedBookmarks) =
         match m.selectedBookmark with
         | Some sel ->
-            HashMap.tryFind sel m.bookmarks
+            tryFind sel m
         | None -> None
-
-    let find (id : Guid) (m : SequencedBookmarks) =
-        HashMap.tryFind id m.bookmarks

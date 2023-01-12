@@ -173,7 +173,7 @@ with
 /// uses bookmarks once when they start, and camera-only
 /// updates between bookmarks
 type BookmarkTransformation = 
-    | Bookmark of SequencedBookmarks.SequencedBookmark
+    | Bookmark of SequencedBookmarks.SequencedBookmarkModel
     | Camera of SnapshotCamera
 with 
     static member ToJson x =

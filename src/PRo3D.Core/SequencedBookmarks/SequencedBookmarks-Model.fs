@@ -133,7 +133,7 @@ type SceneState =
 /// An extended Bookmark for use with animations
 /// allows saving and restoring of annotation/surface/sceneObjects/geologicObject states
 [<ModelType>]
-type SequencedBookmark = { //WIP RNO
+type SequencedBookmarkModel = { 
     [<NonAdaptive>]
     version             : int
 
@@ -144,16 +144,17 @@ type SequencedBookmark = { //WIP RNO
     ///how long an animation rests on this bookmark before proceeding to the next one
     delay               : NumericInput
     duration            : NumericInput
-} with member this.key =
+} with 
+    member this.key =
         this.bookmark.key
-       member this.cameraView =
+    member this.cameraView =
         this.bookmark.cameraView
-       member this.name =
+    member this.name =
         this.bookmark.name
+    member this.path =
+        sprintf "%s_%s" "SequencedBookmark_" (this.key |> string)
 
-module SequencedBookmark =
-    let current = 0   
-
+module SequencedBookmarkDefaults =
     let initSmoothing value =
         {
             value   = value
@@ -181,13 +182,16 @@ module SequencedBookmark =
             format  = "{0:0.0}"
         }
 
+module SequencedBookmarkModel =
+    let current = 0   
+
     let init bookmark = 
         {
             version = current
             bookmark = bookmark
             sceneState = None
-            delay = initDelay 0.0
-            duration = initDuration 5.0
+            delay = SequencedBookmarkDefaults.initDelay 0.0
+            duration = SequencedBookmarkDefaults.initDuration 5.0
         }
 
     let read0 = 
@@ -203,25 +207,25 @@ module SequencedBookmark =
                 version                 = 0              
                 bookmark                = bookmark             
                 sceneState              = sceneState
-                delay                   = initDelay delay                
-                duration                = initDuration duration             
+                delay                   = SequencedBookmarkDefaults.initDelay delay                
+                duration                = SequencedBookmarkDefaults.initDuration duration             
             }
         }
 
 
-type SequencedBookmark with
-    static member FromJson( _ : SequencedBookmark) =
+type SequencedBookmarkModel with
+    static member FromJson( _ : SequencedBookmarkModel) =
         json {
             let! v = Json.read "version"
             match v with
-            | 0 -> return! SequencedBookmark.read0
+            | 0 -> return! SequencedBookmarkModel.read0
             | _ -> 
                 return! v 
                 |> sprintf "don't know version %A  of SequencedBookmark" 
                 |> Json.error
         }
 
-    static member ToJson(x : SequencedBookmark) =
+    static member ToJson(x : SequencedBookmarkModel) =
         json {
             do! Json.write "version"    x.version
             do! Json.write "bookmark"   x.bookmark
@@ -230,7 +234,88 @@ type SequencedBookmark with
             do! Json.write "duration"   x.duration.value
         }
 
+type UnloadedSequencedBookmark =
+    {
+        path     : string
+        key      : Guid
+    }
+    static member FromJson( _ : UnloadedSequencedBookmark) =
+        json {
+            let! path = Json.read "path"
+            let! key   = Json.read "key"
+            return {
+                path = path
+                key  = key
+            }
+        }
 
+    static member ToJson(x : UnloadedSequencedBookmark) =
+        json {
+            do! Json.write "path" x.path
+            do! Json.write "key"   x.key
+        }
+
+[<ModelType>]
+type SequencedBookmark =
+    | LoadedBookmark of SequencedBookmarkModel
+    | NotYetLoaded   of UnloadedSequencedBookmark
+    static member FromJson( _ : SequencedBookmark) =
+        json {
+            let! path = Json.read "path"
+            return SequencedBookmark.NotYetLoaded path
+        }
+
+    static member ToJson(x : SequencedBookmark) =
+        let unloadedBookmark = 
+            match x with
+            | LoadedBookmark b ->  {path = b.path; key = b.key}
+            | NotYetLoaded b -> b
+
+        json {
+            do! Json.write "sequencedBookmark" unloadedBookmark
+        }
+    member this.key =
+        match this with
+        | LoadedBookmark b -> b.key
+        | NotYetLoaded b   -> b.key
+    member this.isLoaded =
+        match this with
+        | LoadedBookmark _ -> true
+        | NotYetLoaded _   -> false
+
+module SequencedBookmark =
+    let isLoaded m =
+        match m with
+        | LoadedBookmark _ -> true
+        | NotYetLoaded _   -> false
+
+    /// tries to load a bookmark are prints errors to log if it fails
+    let tryLoad (bookmark : SequencedBookmark) =
+        match bookmark with
+        | SequencedBookmark.NotYetLoaded m ->
+            try
+                let json =
+                    m.path
+                        |> Serialization.readFromFile
+                        |> Json.parse 
+                let (loadedBookmark : SequencedBookmarkModel) =
+                        json
+                        |> Json.deserialize
+                Some loadedBookmark
+            with e ->
+                Log.error "Error Loading Bookmark %s" m.path
+                Log.error "%s" e.Message
+                None
+        | SequencedBookmark.LoadedBookmark m ->
+            Some m
+            
+    let tryLoad' (bookmark : SequencedBookmark) =
+        let optLoaded = tryLoad bookmark
+        match optLoaded with
+        | Some loaded -> SequencedBookmark.LoadedBookmark loaded
+        | None -> bookmark
+
+        
 
 [<ModelType>]
 type AnimationSettings = {
@@ -248,12 +333,12 @@ type AnimationSettings = {
     static member init = 
         {
             useGlobalAnimation  = false
-            globalDuration      = SequencedBookmark.initDuration 20.0
+            globalDuration      = SequencedBookmarkDefaults.initDuration 20.0
             loopMode            = AnimationLoopMode.NoLoop
             useEasing           = true
             applyStateOnSelect  = false
             smoothPath          = true
-            smoothingFactor     = SequencedBookmark.initSmoothing 0.1
+            smoothingFactor     = SequencedBookmarkDefaults.initSmoothing 0.1
         }
     static member FromJson( _ : AnimationSettings) =
         json {
@@ -267,8 +352,8 @@ type AnimationSettings = {
             let! (globalDuration : option<float>) = Json.tryRead "globalDuration"
             let globalDuration =
                 match globalDuration with
-                | Some x -> SequencedBookmark.initDuration x
-                | None   -> SequencedBookmark.initDuration 10.0
+                | Some x -> SequencedBookmarkDefaults.initDuration x
+                | None   -> SequencedBookmarkDefaults.initDuration 10.0
 
             let! (loopMode : option<int32>) = Json.tryRead "globalDuration"
             let loopMode =
@@ -297,8 +382,8 @@ type AnimationSettings = {
             let! (smoothingFactor : option<float>) = Json.tryRead "smoothingFactor"
             let smoothingFactor =
                 match smoothingFactor with
-                | Some x -> SequencedBookmark.initSmoothing x
-                | None   -> SequencedBookmark.initSmoothing 0.1
+                | Some x -> SequencedBookmarkDefaults.initSmoothing x
+                | None   -> SequencedBookmarkDefaults.initSmoothing 0.1
 
             return {
                 useGlobalAnimation = useGlobalAnimation
@@ -323,7 +408,7 @@ type AnimationSettings = {
         }
 
 type AnimationTimeStepContent =
-    | Bookmark of SequencedBookmark
+    | Bookmark of SequencedBookmarkModel
     | Camera   of Aardvark.Rendering.CameraView
 
 type AnimationTimeStep =
@@ -395,19 +480,115 @@ module SequencedBookmarks =
             format  = "{0:0.0}"
         }
     
-    let current = 0    
+    let current = 1
     let read0 = 
         json {
 
+            let! (seqBookmarks : option<list<SequencedBookmarkModel>>)  = 
+                Json.tryRead "sequencedBookmarks"
+            let! (bookmarks    : option<list<Bookmark>>)           = 
+                Json.tryRead "bookmarks"
+            let bookmarks = 
+                match seqBookmarks, bookmarks with
+                | Some sb, _ ->
+                    sb 
+                    |> List.map(fun (a : SequencedBookmarkModel) ->
+                        (a.bookmark.key, SequencedBookmark.LoadedBookmark a)) 
+                    |> HashMap.ofList
+                | _, Some b ->
+                    b 
+                    |> List.map(fun (a : Bookmark) -> 
+                        (a.key, SequencedBookmark.LoadedBookmark 
+                                    (SequencedBookmarkModel.init a))
+                        ) 
+                    |> HashMap.ofList
+                | _,_ -> HashMap.empty
+
+            let! orderList          = Json.read "orderList"
+            let! selected           = Json.read "selectedBookmark"
+            let! generateOnStop     = Json.tryRead "generateOnStop"
+            let generateOnStop =
+                match generateOnStop with
+                | Some g -> g
+                | None -> false
+                
+            let! resolution = Json.parseOption (Json.tryRead "resolution") V2i.Parse 
+            let resolution =
+                match resolution with
+                | Some r -> r
+                | None -> V2i (initResolution.value)
+            let! (outputPath : option<string>) = Json.tryRead "outputPath"
+            
+            let outputPath = 
+                match outputPath with
+                | Some p -> 
+                    if p = "" then defaultOutputPath () else p
+                | None -> defaultOutputPath ()
+                    
+            let! updateJsonBeforeRendering = Json.tryRead "updateJsonBeforeRendering"
+            let updateJsonBeforeRendering =
+                match updateJsonBeforeRendering with
+                | Some b -> b
+                | None   -> false
+            let! (fpsSetting : option<string>) = Json.tryRead "fpsSetting"
+            let fpsSetting =
+                match fpsSetting with
+                | Some s -> FPSSetting.Parse (s)
+                | None   -> FPSSetting.Full
+            let! (debug : option<bool>) = Json.tryRead "debug"
+            let debug =
+                match debug with
+                | Some true -> true
+                | Some false -> false
+                | None -> false
+
+            let! animationSettings = Json.tryRead "animationSettings"
+            let animationSettings =
+                match animationSettings with
+                | Some animationSettings -> animationSettings
+                | None ->
+                    AnimationSettings.init
+
+            let! (sceneState : option<SceneState>) = Json.tryRead "originalSceneState"
+                
+            return 
+                {
+                    version             = current
+                    bookmarks           = bookmarks
+                    savedSceneState     = sceneState
+                    orderList           = orderList
+                    selectedBookmark    = selected
+                    snapshotThreads     = ThreadPool.Empty
+                    animationSettings   = animationSettings
+                    lastSavedBookmark   = None
+                    savedTimeSteps      = []
+                    isRecording         = false
+                    isCancelled         = false
+                    isGenerating        = false
+                    debug               = debug
+                    generateOnStop      = generateOnStop
+                    resolutionX         = {initResolution with value = float resolution.X}
+                    resolutionY         = {initResolution with value = float resolution.Y}
+                    outputPath          = outputPath
+                    currentFps          = None
+                    lastStart           = None
+                    fpsSetting          = fpsSetting
+                    updateJsonBeforeRendering = updateJsonBeforeRendering
+                }
+        }  
+
+    let read1 = 
+        json {
             let! (seqBookmarks : option<list<SequencedBookmark>>)  = Json.tryRead "sequencedBookmarks"
             let! (bookmarks    : option<list<Bookmark>>)           = Json.tryRead "bookmarks"
             let bookmarks = 
                 match seqBookmarks, bookmarks with
                 | Some sb, _ ->
-                    sb |> List.map (fun (a : SequencedBookmark) -> (a.bookmark.key, a)) 
+                    sb |> List.map (fun (a : SequencedBookmark) -> (a.key, a)) 
                        |> HashMap.ofList
                 | _, Some b ->
-                    b |> List.map(fun (a : Bookmark) -> (a.key, SequencedBookmark.init a)) 
+                    b |> List.map(fun (a : Bookmark) -> (a.key, SequencedBookmark.LoadedBookmark
+                                                                    <| SequencedBookmarkModel.init a)) 
                       |> HashMap.ofList
                 | _,_ -> HashMap.empty
 
