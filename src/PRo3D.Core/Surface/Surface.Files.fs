@@ -39,8 +39,8 @@ module Files =
        /// </summary>
        let isOpcFolder (path : string) = 
            printfn "isOpc: %A" path
-           let imagePath = Path.combine [path; "images"]
-           let patchPath = Path.combine [path; "patches"]
+           let imagePath = Path.combine [path; "Images"]
+           let patchPath = Path.combine [path; "Patches"]
            (Directory.Exists imagePath) &&
            (Directory.Exists patchPath) && 
             File.Exists(Path.combine [patchPath;"patchhierarchy.xml"])
