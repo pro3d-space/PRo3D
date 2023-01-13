@@ -45,7 +45,7 @@ type SurfaceAppAction =
 | ScalarsColorLegendMessage of FalseColorLegendApp.Action
 | ColorCorrectionMessage    of ColorCorrectionProperties.Action
 | SetHomePosition           
-| TranslationMessage        of TranslationApp.Action
+| TranslationMessage        of TransformationApp.Action
 | SetPreTrafo               of string
 
 
@@ -69,7 +69,7 @@ module SurfaceUtils =
             relativePaths   = false
             quality         = Init.quality
             priority        = Init.priority
-            scaling         = Init.scaling
+            scaling         = Transformations.Initial.scaling //Init.scaling
             preTransform    = Trafo3d.Identity            
             scalarLayers    = HashMap.Empty //IndexList.empty
             selectedScalar  = None
@@ -845,8 +845,8 @@ module SurfaceApp =
                 match model.surfaces.singleSelectLeaf with
                 | Some s -> 
                     let surface = model.surfaces.flat |> HashMap.find s |> Leaf.toSurface
-                    let t =  { surface.transformation with pivot = refSys.origin }
-                    let transformation' = (TranslationApp.update t msg)
+                    //let t =  { surface.transformation with pivot = refSys.origin }
+                    let transformation' = (TransformationApp.update surface.transformation msg)
                     let s' = { surface with transformation = transformation' }
                     //let homePosition = 
                     //  match surface.homePosition with
@@ -1195,7 +1195,7 @@ module SurfaceApp =
                   let leaf = model.surfaces.flat |> AMap.find i 
                   let! surf = leaf 
                   let x = match surf with | AdaptiveSurfaces s -> s | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
-                  return TranslationApp.UI.view x.transformation |> UI.map TranslationMessage
+                  return TransformationApp.UI.view x.transformation |> UI.map TranslationMessage
                 else
                   return empty
               | None -> return empty

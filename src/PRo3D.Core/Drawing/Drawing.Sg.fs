@@ -413,7 +413,7 @@ module Sg =
          (view             : aval<CameraView>) =
         
         anno.text 
-        |> AVal.map2 (fun show text -> (String.IsNullOrEmpty text) || show ) anno.showText
+        |> AVal.map3 (fun show visible text -> (String.IsNullOrEmpty text) || (show && visible) ) anno.showText anno.visible
         |> optionalSet (drawText view config anno)
         |> Sg.set
 

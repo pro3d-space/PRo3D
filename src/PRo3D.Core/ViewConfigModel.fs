@@ -26,7 +26,7 @@ type ViewConfigModel = {
     drawOrientationCube     : bool
     filterTexture           : bool
     //useSurfaceHighlighting  : bool
-    //showExplorationPoint    : bool
+    showExplorationPointGui : bool
     }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -115,7 +115,7 @@ module ViewConfigModel =
         pickingTolerance    = initPickingTolerance
         filterTexture       = false
         //useSurfaceHighlighting = true
-        //showExplorationPoint = true
+        showExplorationPointGui = true
     }
        
     module V0 =
@@ -147,6 +147,7 @@ module ViewConfigModel =
                     offset                = depthOffset
                     pickingTolerance      = initPickingTolerance
                     filterTexture         = false
+                    showExplorationPointGui = true
                 }
             }
     module V1 =
@@ -179,6 +180,7 @@ module ViewConfigModel =
                     offset                = depthoffset
                     pickingTolerance      = initPickingTolerance
                     filterTexture         = false
+                    showExplorationPointGui = true
                 }
             }
 
@@ -213,6 +215,7 @@ module ViewConfigModel =
                     offset                = depthoffset
                     pickingTolerance      = pickingTolerance
                     filterTexture         = false
+                    showExplorationPointGui = true
                 }
             }
 
@@ -245,6 +248,7 @@ module ViewConfigModel =
                     offset                = depthoffset
                     pickingTolerance      = initPickingTolerance
                     filterTexture         = filterTexture 
+                    showExplorationPointGui = true
                 }
             }
 

@@ -631,6 +631,11 @@ module Gui =
                      ]
                 | Interactions.PlaceScaleBar ->
                     return ScaleBarsDrawing.UI.viewScaleBarToolsHorizontal m.scaleBarsDrawing |> UI.map ScaleBarsDrawingMessage
+                | Interactions.PickPivotPoint ->
+                    return Html.Layout.horizontal [
+                        Html.Layout.boxH [text "for:"]
+                        Html.Layout.boxH [ Html.Layout.boxH [ Html.SemUi.dropDown m.pivotType SetPivotType ] ]
+                     ]
                 | _ -> 
                   return div [] []
             }
@@ -675,6 +680,7 @@ module Gui =
             | Interactions.PlaceSurface          -> "not implemented"
             | Interactions.PlaceScaleBar         -> sprintf "%s+click to place scale bar" ctrl
             | Interactions.PlaceSceneObject      -> sprintf "%s+click to place scene object" ctrl
+            | Interactions.PickPivotPoint        -> sprintf "%s+click to place pivot point" ctrl
             //| Interactions.PickLinking           -> "CTRL+click to place point on surface"
             | _ -> ""
         
@@ -889,6 +895,9 @@ module Gui =
                 // Todo: properties
                 GuiEx.accordion "Properties" "Content" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(ScaleBarsApp.UI.viewProperties m.scene.scaleBars))
+                ]
+                GuiEx.accordion "Transformation" "expand arrows alternate " false [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(ScaleBarsApp.UI.viewTranslationTools m.scene.scaleBars))
                 ]
             ] 
             |> UI.map ScaleBarsMessage
