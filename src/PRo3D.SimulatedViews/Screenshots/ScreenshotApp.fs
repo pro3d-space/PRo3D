@@ -1,5 +1,6 @@
 ﻿namespace PRo3D.SimulatedViews
 
+open FSharp.Data.Adaptive
 open Aardvark.Base
 open Aardvark.UI
 open PRo3D.Base
@@ -69,20 +70,25 @@ module ScreenshotApp =
             m
         | SetImageFormat format ->
             { m with imageFormat = format }
-        | OpenFolder ->
-            System.Diagnostics.Process.Start("explorer.exe", outputPath) |> ignore
-            m
 
-    let view (m : AdaptiveScreenshotModel) = 
+    let view (screenshotFolder : aval<string>) (m : AdaptiveScreenshotModel) = 
         let formatDropdown =
             Html.SemUi.dropDown m.imageFormat SetImageFormat
+
+
+        let openFolderAttributes = 
+            amap {
+                yield clazz "ui icon button"; 
+                let! screenshotFolder = screenshotFolder
+                let electronCommand = Electron.openPath screenshotFolder  
+                yield clientEvent "onclick" electronCommand
+            } |> AttributeMap.ofAMap
 
         require GuiEx.semui (
             div [] [
                 button [clazz "ui icon button"; onClick (fun _ -> CreateScreenshot)] [
                     i [clazz "camera icon"] [] ] 
-                button [clazz "ui icon button"; onClick (fun _ -> OpenFolder)] [
-                    i [clazz "folder icon"] [] ] 
+                Incremental.button openFolderAttributes (AList.ofList [i [clazz "folder icon"] []])
                 Html.table [  
                     Html.row "Width (pixel):"  [Numeric.view' [NumericInputType.InputBox] m.width]
                     |> UI.map SetWidth

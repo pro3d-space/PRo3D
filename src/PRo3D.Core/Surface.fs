@@ -60,6 +60,15 @@ module SurfaceTransformations =
             
             return fullTrafo' s rSys
         }
+    
+    let fullTrafoForSurface (surf : AdaptiveSurface) (refsys : AdaptiveReferenceSystem) = 
+        adaptive {
+            let s = surf
+            let! s = s.Current
+            let! rSys = refsys.Current
+            
+            return fullTrafo' s rSys
+        }
 module DebugKdTreesX = 
    
     let getInvalidIndices3f (positions : V3f[]) =

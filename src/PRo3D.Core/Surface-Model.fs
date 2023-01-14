@@ -362,12 +362,21 @@ type SurfaceTrafo = {
 
 type SurfaceType = 
     | SurfaceOPC = 0
-    | SurfaceOBJ = 1
+    | Mesh = 1
+
+
+type MeshLoaderType = 
+    | Unkown    = 0
+    | Assimp    = 1
+    | GlTf      = 2
+    | Wavefront = 3
+    | Ply       = 4
+
 
 [<ModelType>]
 type Surface = {
     
-    version       : int
+    version         : int
 
     guid            : System.Guid
     
@@ -389,14 +398,15 @@ type Surface = {
                     
     preTransform    : Trafo3d
     
-    scalarLayers    : HashMap<int, ScalarLayer> //IndexList<ScalarLayer>
+    scalarLayers    : HashMap<int, ScalarLayer> 
     selectedScalar  : option<ScalarLayer>
 
     textureLayers   : IndexList<TextureLayer>
     selectedTexture : option<TextureLayer>
 
-    [<Adaptify.NonAdaptiveAttribute>]
+    [<NonAdaptiveAttribute>]
     surfaceType     : SurfaceType     
+    preferredLoader : MeshLoaderType
 
     colorCorrection : ColorCorrection
     homePosition    : Option<CameraView>
@@ -430,6 +440,8 @@ module Surface =
             let! surfaceType     = Json.read "surfaceType"    
             let! colorCorrection = Json.read "colorCorrection"
             let! transformation  = Json.read "transformation"
+
+            let! preferredLoader = Json.readOrDefault "preferredMeshLoader" 0
 
             let! (cameraView : list<string>) = Json.read "homePosition"
             let cameraView = cameraView |> List.map V3d.Parse
@@ -470,7 +482,8 @@ module Surface =
                     selectedScalar  = selectedScalar
                     textureLayers   = textureLayers
                     selectedTexture = selectedTexture
-                    surfaceType     = surfaceType |> enum<SurfaceType>
+                    surfaceType     = surfaceType     |> enum<SurfaceType>
+                    preferredLoader = preferredLoader |> enum<MeshLoaderType>
                     colorCorrection = colorCorrection
                     homePosition    = view
                     transformation  = transformation
@@ -513,6 +526,7 @@ type Surface with
             do! Json.write "selectedTexture" x.selectedTexture
             do! Json.write "surfaceType" (x.surfaceType |> int)
             do! Json.write "colorCorrection" x.colorCorrection
+            do! Json.write "preferredMeshLoader" (x.preferredLoader |> int)
 
             let home =
                 match x.homePosition with
@@ -546,7 +560,6 @@ type SgSurface = {
 
     [<NonAdaptive>]
     isObj       : bool
-    //transformation  : Transformations
 }
 
 

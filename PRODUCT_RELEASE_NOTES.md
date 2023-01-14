@@ -1,6 +1,16 @@
+## 4.11.0-prerelease4
+- NewScene crash fixed: https://github.com/pro3d-space/PRo3D/issues/277
+
+## 4.11.0-prerelease3
+- #274: objs with multiple geometries fixed
+
+## 4.10.3
+- #179 and #246: serialization of viewplans
+- #256: load scenes with wrong obj path and possibility to reload the obj
+
 ## 4.10.2
 - build kdtrees for objs from faces of triangulated mesh copy for #264
-- bugfix for large coordinates
+- bugfix for large coordinates 
 - load obj without textures; show vertex colors instead
 
 ## 4.10.1

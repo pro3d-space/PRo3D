@@ -47,6 +47,7 @@ module Files =
         let argument = sprintf "\"%s\"" imagePath
         Process.Start(impactViewer, argument) |> ignore
 
+    [<Obsolete("use electron for opening folders platform indepently, see https://github.com/pro3d-space/PRo3D/issues/252")>] 
     let openExplorer filePath =
         let argument = sprintf "/select, \"%s\"" filePath
         Process.Start("explorer.exe", argument) |> ignore

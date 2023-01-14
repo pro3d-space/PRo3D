@@ -67,11 +67,11 @@ module OPCFilter =
 
         let improvedDiffuseTextureAndColor (v : Effects.Vertex) =
             fragment {
-            if uniform.HasDiffuseColorTexture then
-                let texColor = diffuseSampler.Sample(v.tc,-1.0)
-                return texColor
-            else
-                return v.c
+                if uniform.HasDiffuseColorTexture then
+                    let texColor = diffuseSampler.Sample(v.tc,-1.0)
+                    return texColor
+                else
+                    return v.c
             }
 
         let improvedDiffuseTexture (v : Effects.Vertex) =
@@ -587,18 +587,12 @@ module Shader =
 
     let footprintV (v : FootPrintVertex) =
         vertex {
-            //let vp = uniform.ModelViewTrafo * v.pos
-            //let p = uniform.ProjTrafo * vp
-            
             let footprintProjM  : M44d   = uniform?FootprintModelViewProj // was proj * view (earlier there was pretransform in it?)
-            //let textureProjM    : M44d   = uniform?textureProj
-            
             return { 
                 v with 
                     tc0 = footprintProjM * v.pos; 
                     //sv = 0
-                    //tc1 = textureProjM   * v.wp; 
-            } //v.pos
+            } 
         }
 
     let footPrintF (v : FootPrintVertex) =
@@ -1214,3 +1208,15 @@ module ScreenshotUtilities =
             let screenshot = getScreenshotUrl baseAddress cs width height
             let filename = getScreenshotFilename folder name cs format
             wc.DownloadFile(screenshot,filename)        
+
+
+module JsInterop = 
+    let escapePath (s : string) =
+        s.Replace("\\", "\\\\")
+
+module Electron =
+    let openPath (s : string) =
+        sprintf "top.aardvark.electron.shell.openPath('%s');" (JsInterop.escapePath s)
+    
+    let showItemInFolder (s : string) =
+        sprintf "top.aardvark.electron.shell.showItemInFolder('%s');" (JsInterop.escapePath s)

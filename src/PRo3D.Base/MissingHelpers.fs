@@ -110,3 +110,47 @@ module Font =
     
     let create name style =
         FontSquirrel.Hack.Regular
+
+namespace Aardvark.Base
+
+[<AutoOpen>]
+module Result =
+
+    open System
+
+
+    type ResultBuilder() =
+        member x.Return(v :'v) : Result<'v,_> = Ok v
+        member x.ReturnFrom(v : Result<_,_>) = v
+        member x.Bind(m : Result<'a,'e>, f : 'a -> Result<'b,'e>) =
+            match m with
+            | Result.Ok v -> f v
+            | Result.Error e -> Result.Error e
+
+    let result = ResultBuilder()
+
+    module Double =
+        
+        let tryParse (v : string) : Result<float, unit> =
+            match Double.TryParse(v, Globalization.NumberStyles.Any, Globalization.CultureInfo.InvariantCulture) with
+            | (true, v) -> Result.Ok v
+            | _ -> Result.Error ()
+
+    module Int =
+        
+        let tryParse (v : string) : Result<int, unit> =
+            match Int32.TryParse(v) with
+            | (true, v) -> Result.Ok v
+            | _ -> Result.Error()
+
+    let mapError (f : 'e0 -> 'e1)  (v : Result<'ok,'e0>) =
+        match v with
+        | Result.Error e -> Result.Error (f e)
+        | Result.Ok ok -> Result.Ok ok
+
+    let error (e : 'e) = Result.Error e
+
+    let defaultValue' (fallback : 'e -> 'a) (r : Result<'a,'e>)  =
+        match r with
+        | Result.Ok v -> Result.Ok v
+        | Result.Error e -> Result.Ok (fallback e)
