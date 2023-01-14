@@ -1,3 +1,7 @@
+## 4.11.1
+- #110, #126, #138, #144, #145, #166, #212, #231, #259,
+- Transformations, hide exploration center, visibility of annotations- and scalebar text
+
 ## 4.11.0-prerelease4
 - NewScene crash fixed: https://github.com/pro3d-space/PRo3D/issues/277
 
