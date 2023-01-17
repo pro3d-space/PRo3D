@@ -45,6 +45,7 @@ module BookmarkUtils =
                 sceneState = Some sceneState
                 duration   = SequencedBookmarkDefaults.initDuration 3.0
                 delay      = SequencedBookmarkDefaults.initDelay 0.0
+                basePath   = None
             }
         sequencedBookmark
 
@@ -81,8 +82,6 @@ module BookmarkUtils =
     let orderedBookmarks  (m : SequencedBookmarks) =
         m.orderList
             |> List.map (fun x -> HashMap.find x m.bookmarks)
-
-
 
     let orderedLoadedBookmarks  (m : SequencedBookmarks) =
         m.orderList
@@ -133,6 +132,48 @@ module BookmarkUtils =
 
         let m = updateOne m key updState        
         m
+
+    let loadAll (m : SequencedBookmarks) =
+        let bookmarks = 
+            m.bookmarks
+            |> HashMap.map (fun guid bm -> SequencedBookmark.tryLoad' bm)
+        {m with bookmarks = bookmarks}
+
+    let unloadBookmarks (m : SequencedBookmarks) =
+        let bookmarks = 
+            m.bookmarks
+            |> HashMap.map (fun g bm ->SequencedBookmark.unload bm)
+        {m with bookmarks = bookmarks}
+
+    let updatePath (basePath : string) (bm : SequencedBookmark) =
+        match bm with
+        | SequencedBookmark.LoadedBookmark loaded ->
+            SequencedBookmark.LoadedBookmark {loaded with basePath = Some basePath}
+        | SequencedBookmarks.NotYetLoaded notLoaded ->
+            bm
+
+    let updatePaths (basePath : string) (m : SequencedBookmarks) =
+        let bookmarks = 
+            HashMap.map (fun g bm -> updatePath basePath bm) m.bookmarks
+        {m with bookmarks = bookmarks}
+
+    let saveSequencedBookmarks (basePath:string) 
+                               (bookmarks : SequencedBookmarks) =      
+        let bookmarks = updatePaths basePath bookmarks
+        if not (Directory.Exists basePath) then
+            Directory.CreateDirectory basePath |> ignore
+
+        for guid, bm in bookmarks.bookmarks do
+            match bm with
+            | SequencedBookmarks.SequencedBookmark.LoadedBookmark bm ->
+                let bmPath = Path.Combine ( basePath, bm.path )
+                bm
+                |> Json.serialize
+                |> Json.formatWith JsonFormattingOptions.SingleLine
+                |> Serialization.Chiron.writeToFile bmPath
+            | SequencedBookmarks.SequencedBookmark.NotYetLoaded bm ->
+                () // no need to write bookmark if not loaded (no changes)
+        bookmarks
 
     let next (m : SequencedBookmarks) =
         moveCursor (fun x -> x + 1) m

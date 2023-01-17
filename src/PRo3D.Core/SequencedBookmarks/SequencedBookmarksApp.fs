@@ -74,6 +74,8 @@ module SequencedBookmarksApp =
             let animationSettings = AnimationSettings.update m.animationSettings msg
             let m = {m with animationSettings = animationSettings}
             outerModel, m
+        | LoadBookmarks -> 
+            outerModel, BookmarkUtils.loadAll m
         | SaveAnimation ->
             // do in outer model
             outerModel, m
@@ -310,62 +312,55 @@ module SequencedBookmarksApp =
     module UI =
         
         let viewSequencedBookmarks (m : AdaptiveSequencedBookmarks) =
-
+            let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
             let itemAttributes =
                 amap {
                     yield clazz "ui divided list inverted segment"
                     yield style "overflow-y : visible"
                 } |> AttributeMap.ofAMap
 
-            Incremental.div itemAttributes (
+            let content = 
                 alist {
-
                     let! selected = m.selectedBookmark
-                    
                     let! order = m.orderList
                     
                     for id in order do 
-                        
-                        let! bookmark = m.bookmarks |> AMap.find id
-                        let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
-                   
                         let color =
                             match selected with
-                              | Some sel -> 
-                                AVal.constant (if sel = id then C4b.VRVisGreen else C4b.Gray) 
-                              | None -> AVal.constant C4b.Gray
-
-                        let index = order |> List.findIndex(fun x -> x = id)
-                        let headerText = 
-                            match bookmark with
-                            | AdaptiveSequencedBookmark.AdaptiveLoadedBookmark bookmark ->
-                                AVal.map (fun a -> sprintf "%s" (a)) bookmark.name
-                            | AdaptiveSequencedBookmark.AdaptiveNotYetLoaded bm ->
-                                "Not Loaded" |> AVal.constant
+                            | Some sel -> 
+                                (if sel = id then C4b.VRVisGreen else C4b.Gray) 
+                            | None -> 
+                                C4b.Gray
+                        let bgc = sprintf "color: %s" (Html.ofC4b color)
 
                         let headerAttributes =
                             amap {
                                 yield onClick (fun _ -> SelectSBM id)
                             } 
                             |> AttributeMap.ofAMap
-        
-                        let! c = color
-                        let bgc = sprintf "color: %s" (Html.ofC4b c)
+
+                        let! bookmark = m.bookmarks |> AMap.tryFind id
+
+                        let headerText = 
+                            match bookmark with
+                            | Some (AdaptiveSequencedBookmark.AdaptiveLoadedBookmark bookmark) ->
+                                AVal.map (fun a -> sprintf "%s" (a)) bookmark.name
+                            | Some (AdaptiveSequencedBookmark.AdaptiveNotYetLoaded bm) ->
+                                AVal.map (fun x -> sprintf "Not Loaded: %s" (string x)) bm.key
+                            | None ->
+                                Log.error "[SequencedBookmarksApp] Could not find bookmark %s" (string id)
+                                AVal.constant "Bookmark not found"
+                        
                         yield div [clazz "item"; style infoc] [
                             div [clazz "content"; style infoc] [                     
                                 yield Incremental.div (AttributeMap.ofList [style infoc])(
                                     alist {
-                                        //let! hc = headerColor
                                         yield div [clazz "header"; style bgc] [
                                             Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
-                                         ]                
-                                        //yield i [clazz "large cube middle aligned icon"; style bgc; onClick (fun _ -> SelectSO soid)][]           
+                                            ]                
         
                                         yield i [clazz "home icon"; onClick (fun _ -> FlyToSBM id)] []
                                             |> UI.wrapToolTip DataPosition.Bottom "fly to bookmark"          
-        
-                                        //yield Incremental.i toggleMap AList.empty 
-                                        //|> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
 
                                         yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveSBM id)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Remove"     
@@ -377,14 +372,14 @@ module SequencedBookmarksApp =
                                         
                                         yield i [clazz "arrow alternate circle down outline icon"; onClick (fun _ -> MoveDown id)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Move down"
-                                        
-                                   
                                     } 
                                 )                                     
                             ]
                         ]
-                     
-                } )
+                } 
+
+            Incremental.div itemAttributes content
+                
 
         let private stateLabel (state : option<SceneState>) =
             match state with
@@ -498,7 +493,10 @@ module SequencedBookmarksApp =
                             let bmProps = (viewPropsBmModel s )
                             return div [] [bmProps model.animationSettings.useGlobalAnimation]
                         | AdaptiveSequencedBookmark.AdaptiveNotYetLoaded s ->
-                            return div [ style "font-style:italic"] [ text "not loaded" ] 
+                            return div [ style "font-style:italic"] 
+                                       [button [style "inverted";onClick (fun _ -> LoadBookmarks)] 
+                                               [text "Load All Bookmarks"]
+                                       ]
                     | None -> 
                         return empty
                 | None -> return empty

@@ -43,12 +43,13 @@ type AnimationSettingsAction =
 type SequencedBookmarksAction =
     | SequencedBookmarkMessage of (Guid * SequencedBookmarkAction)
     | AnimationSettingsMessage of AnimationSettingsAction
+    | LoadBookmarks
     | FlyToSBM       of Guid
     | RemoveSBM      of Guid
     | SelectSBM      of Guid
     | MoveUp         of Guid
     | MoveDown       of Guid
-    | SetSceneState of Guid
+    | SetSceneState  of Guid
     | SaveSceneState
     | RestoreSceneState
     | AddSBookmark  
@@ -136,8 +137,11 @@ type SceneState =
 type SequencedBookmarkModel = { 
     [<NonAdaptive>]
     version             : int
-
     bookmark            : Bookmark
+
+    // path for saving this bookmark
+    basePath            : option<string>
+
     /// the scene state is set during sequenced bookmark animation
     sceneState          : option<SceneState>
 
@@ -152,7 +156,20 @@ type SequencedBookmarkModel = {
     member this.name =
         this.bookmark.name
     member this.path =
-        sprintf "%s_%s" "SequencedBookmark_" (this.key |> string)
+        match this.basePath with
+        | Some basePath ->
+            Path.combine 
+                [
+                    basePath
+                    this.filename
+                ]
+        | None ->
+            Log.warn "[SequencedBookmarks] Bookmark has no basePath."
+            this.filename
+
+    member this.filename =
+        sprintf "%s_%s.pro3d.sbm" "SBookmark" (this.key |> string)
+
 
 module SequencedBookmarkDefaults =
     let initSmoothing value =
@@ -192,6 +209,7 @@ module SequencedBookmarkModel =
             sceneState = None
             delay = SequencedBookmarkDefaults.initDelay 0.0
             duration = SequencedBookmarkDefaults.initDuration 5.0
+            basePath = None
         }
 
     let read0 = 
@@ -209,6 +227,7 @@ module SequencedBookmarkModel =
                 sceneState              = sceneState
                 delay                   = SequencedBookmarkDefaults.initDelay delay                
                 duration                = SequencedBookmarkDefaults.initDuration duration             
+                basePath                = None
             }
         }
 
@@ -234,6 +253,7 @@ type SequencedBookmarkModel with
             do! Json.write "duration"   x.duration.value
         }
 
+[<ModelType>]
 type UnloadedSequencedBookmark =
     {
         path     : string
@@ -261,18 +281,24 @@ type SequencedBookmark =
     | NotYetLoaded   of UnloadedSequencedBookmark
     static member FromJson( _ : SequencedBookmark) =
         json {
-            let! path = Json.read "path"
-            return SequencedBookmark.NotYetLoaded path
+            let! (unloaded : option<UnloadedSequencedBookmark>)
+                    = Json.tryRead "unloadedBookmark"
+            match unloaded with
+            | Some unloaded -> 
+                return SequencedBookmark.NotYetLoaded unloaded
+            | None ->
+                let! (loaded : SequencedBookmarkModel) =
+                        Json.read "loadedBookmark"
+                return SequencedBookmark.LoadedBookmark loaded
         }
 
     static member ToJson(x : SequencedBookmark) =
-        let unloadedBookmark = 
-            match x with
-            | LoadedBookmark b ->  {path = b.path; key = b.key}
-            | NotYetLoaded b -> b
-
         json {
-            do! Json.write "sequencedBookmark" unloadedBookmark
+            match x with
+            | LoadedBookmark b ->  
+                do! Json.write "loadedBookmark" {path = b.path; key = b.key}
+            | NotYetLoaded b -> 
+                do! Json.write "unloadedBookmark" b
         }
     member this.key =
         match this with
@@ -315,7 +341,12 @@ module SequencedBookmark =
         | Some loaded -> SequencedBookmark.LoadedBookmark loaded
         | None -> bookmark
 
-        
+    let unload (m : SequencedBookmark) =
+        match m with
+        | SequencedBookmark.LoadedBookmark bm ->       
+            SequencedBookmark.NotYetLoaded {path = bm.path; key = bm.key}
+        | SequencedBookmark.NotYetLoaded bm ->
+            m
 
 [<ModelType>]
 type AnimationSettings = {
@@ -698,6 +729,7 @@ type SequencedBookmarks with
             let! v = Json.read "version"
             match v with
             | 0 -> return! SequencedBookmarks.read0
+            | 1 -> return! SequencedBookmarks.read1
             | _ ->
                 return! v
                 |> sprintf "don't know version %A  of SequencedBookmarks"
