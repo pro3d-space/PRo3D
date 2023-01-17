@@ -66,14 +66,14 @@ module BookmarkAnimations =
                     toNext
             pause@[toNext]
 
-        let inline slerpBm (src : SequencedBookmarkModel) (dst : SequencedBookmarkModel) : IAnimation<'Model, SequencedBookmarkModel> =
+        let inline slerpBm (src : SequencedBookmarkModel) (dst : SequencedBookmarkModel) 
+                            : IAnimation<'Model, SequencedBookmarkModel> =
             let slerped = Primitives.slerp (CameraView.orientation src.bookmark.cameraView)
                                            (CameraView.orientation dst.bookmark.cameraView)
             slerped
             |> Animation.map (fun ( x : Rot3d)  -> 
-                                    {dst with bookmark = 
-                                                    {dst.bookmark with cameraView = CameraView.withOrientation x dst.cameraView}} 
-                                ) 
+                {dst with bookmark = 
+                            {dst.bookmark with cameraView = CameraView.withOrientation x dst.cameraView}}) 
 
     let calculateCurrentFps (m                : SequencedBookmarks) =
         let nr = m.savedTimeSteps.Length

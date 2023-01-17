@@ -85,7 +85,10 @@ module SequencedBookmarksApp =
             let newSBm = 
                 getNewSBookmark nav state  m.bookmarks.Count
             let oderList' = m.orderList@[newSBm.key]
-            let m = {m with bookmarks = m.bookmarks |> HashMap.add newSBm.key (SequencedBookmark.LoadedBookmark newSBm)
+            let bookmarks = 
+                m.bookmarks 
+                |> HashMap.add newSBm.key (SequencedBookmark.LoadedBookmark newSBm)
+            let m = {m with bookmarks = bookmarks
                             orderList = oderList';
                             selectedBookmark = Some newSBm.key}
             outerModel, m
@@ -101,7 +104,10 @@ module SequencedBookmarksApp =
             let bookmarks' = m.bookmarks |> HashMap.remove id
             let index = m.orderList |> List.toSeq |> Seq.findIndex(fun x -> x = id)
             let orderList' = removeGuid index m.orderList 
-            outerModel, { m with bookmarks = bookmarks'; orderList = orderList'; selectedBookmark = selSBm; }
+            outerModel, { m with bookmarks = bookmarks'
+                                 orderList = orderList'
+                                 selectedBookmark = selSBm         
+                        }
        
         | SelectSBM id ->
             match m.animationSettings.applyStateOnSelect with
@@ -145,13 +151,15 @@ module SequencedBookmarksApp =
                     if (index-1) > 0 then
                         let part0 = [for x in 0..(index-2) do yield m.orderList.[x]]
                         if index < (m.orderList.Length-1) then
-                            let part1 = [for x in (index+1)..(m.orderList.Length-1) do yield m.orderList.[x]]
+                            let part1 = [for x in (index+1)..(m.orderList.Length-1) do 
+                                            yield m.orderList.[x]]
                             part0@[m.orderList.[index]]@[m.orderList.[index-1]]@part1
                         else
                             part0@[m.orderList.[index]]@[m.orderList.[index-1]]
                     else
                         if index < (m.orderList.Length-1) then
-                            let part1 = [for x in (index+1)..(m.orderList.Length-1) do yield m.orderList.[x]]
+                            let part1 = [for x in (index+1)..(m.orderList.Length-1) do 
+                                            yield m.orderList.[x]]
                             [m.orderList.[index]]@[m.orderList.[index-1]]@part1
                         else
                             [m.orderList.[index]]@[m.orderList.[index-1]]
@@ -164,7 +172,8 @@ module SequencedBookmarksApp =
             let orderList' =
                 if index < (m.orderList.Length-1) then
                     if (index+1) < (m.orderList.Length-1) then
-                        let partMax = [for x in (index+2)..(m.orderList.Length-1) do yield m.orderList.[x]]
+                        let partMax = [for x in (index+2)..(m.orderList.Length-1) 
+                                            do yield m.orderList.[x]]
                         if (index) > 0 then
                             let partMin = [for x in 0..(index-1) do yield m.orderList.[x]]
                             partMin@[m.orderList.[index+1]]@[m.orderList.[index]]@partMax
@@ -365,12 +374,15 @@ module SequencedBookmarksApp =
                                         yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveSBM id)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Remove"     
                                         yield i [clazz "globe icon"; onClick (fun _ -> SetSceneState id)] [] 
-                                            |> UI.wrapToolTip DataPosition.Bottom "Replace scene state for this bookmark with current state. Does not replace view."
+                                            |> UI.wrapToolTip DataPosition.Bottom 
+                                                "Replace scene state for this bookmark with current state. Does not replace view."
 
-                                        yield i [clazz "arrow alternate circle up outline icon"; onClick (fun _ -> MoveUp id)] [] 
+                                        yield i [clazz "arrow alternate circle up outline icon"; 
+                                                 onClick (fun _ -> MoveUp id)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Move up"
                                         
-                                        yield i [clazz "arrow alternate circle down outline icon"; onClick (fun _ -> MoveDown id)] [] 
+                                        yield i [clazz "arrow alternate circle down outline icon"; 
+                                                 onClick (fun _ -> MoveDown id)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Move down"
                                     } 
                                 )                                     
@@ -422,7 +434,8 @@ module SequencedBookmarksApp =
             ] 
 
         // RNO should be moved and renamed
-        let viewPropsBmModel (m : AdaptiveSequencedBookmarkModel) (useGlobalAnimation : aval<bool>) =
+        let viewPropsBmModel (m : AdaptiveSequencedBookmarkModel) 
+                             (useGlobalAnimation : aval<bool>) =
             let view = m.bookmark.cameraView
             let notWithGlobalAnimation content =
                 alist {
@@ -435,13 +448,15 @@ module SequencedBookmarksApp =
             let duration = 
                 Numeric.view' [InputBox] m.duration
                     |> UI.map  (fun msg -> 
-                        SequencedBookmarkMessage (m.bookmark.key, SequencedBookmarkAction.SetDuration msg)) 
+                        SequencedBookmarkMessage 
+                            (m.bookmark.key, SequencedBookmarkAction.SetDuration msg)) 
                     |> notWithGlobalAnimation
                 
             let delay =
                 Numeric.view' [InputBox] m.delay 
                     |> UI.map  (fun msg -> 
-                        SequencedBookmarkMessage (m.bookmark.key, SequencedBookmarkAction.SetDelay msg)) 
+                        SequencedBookmarkMessage 
+                            (m.bookmark.key, SequencedBookmarkAction.SetDelay msg)) 
                     |> notWithGlobalAnimation
                 
 
@@ -603,7 +618,9 @@ module SequencedBookmarksApp =
             let updateJsonButton =
                 let info =
                     i [clazz "info icon"] [] 
-                    |> UI.wrapToolTip DataPosition.Bottom "Only available if \"Alllow JSON Editing\" is selected. Updates the settings for image generation in the JSON file. Manual changes to the JSON file will be overwritten!"
+                    |> UI.wrapToolTip DataPosition.Bottom "Only available if \"Alllow JSON Editing\" is selected. 
+                                                           Updates the settings for image generation in the JSON file. 
+                                                           Manual changes to the JSON file will be overwritten!"
                 let onlyButton = 
                     model.updateJsonBeforeRendering
                         |> AVal.map (fun b ->
@@ -658,7 +675,9 @@ module SequencedBookmarksApp =
                         Html.row "Allow JSON Editing" 
                             [GuiEx.iconCheckBox (model.updateJsonBeforeRendering |> AVal.map not) ToggleUpdateJsonBeforeRendering;
                                 i [clazz "info icon"] [] 
-                                    |> UI.wrapToolTip DataPosition.Bottom "If selected, the JSON file will NOT be updated before rendering. If you change settings in the user interface after recording, they will not be reflected in the JSON file."
+                                    |> UI.wrapToolTip DataPosition.Bottom "If selected, the JSON file will NOT be updated before rendering. 
+                                                                           If you change settings in the user interface after recording, 
+                                                                           they will not be reflected in the JSON file."
                             ]
                         Html.row "Update JSON" 
                             [
@@ -668,7 +687,8 @@ module SequencedBookmarksApp =
                         Html.row "Debug" 
                             [GuiEx.iconCheckBox model.debug ToggleDebug;
                                     i [clazz "info icon"] [] 
-                                        |> UI.wrapToolTip DataPosition.Bottom "Leaves the window with information about the rendering process open after rendering and uses verbose mode."
+                                        |> UI.wrapToolTip DataPosition.Bottom "Leaves the window with information about the rendering
+                                                                               process open after rendering and uses verbose mode."
                             ]
 
                         Html.row "Image Resolution:"  

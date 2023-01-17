@@ -740,7 +740,9 @@ type SequencedBookmarks with
         let resolution = (V2i(x.resolutionX.value, x.resolutionY.value))
         json {
             do! Json.write "version"                    x.version
-            do! Json.write "sequencedBookmarks"         (x.bookmarks |> HashMap.toList |> List.map snd)
+            do! Json.write "sequencedBookmarks"         (x.bookmarks 
+                                                         |> HashMap.toList 
+                                                         |> List.map snd)
             do! Json.write "orderList"                  x.orderList
             do! Json.write "selectedBookmark"           x.selectedBookmark
             if x.savedSceneState.IsSome then

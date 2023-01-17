@@ -20,6 +20,9 @@ open Aether
 open Aether.Operators
 
 module BookmarkUtils =
+
+    /// tries to find a bookmark and also tries to
+    /// load it if it is not loaded
     let tryFind (id : Guid) (m : SequencedBookmarks) =
         HashMap.tryFind id m.bookmarks
         |> Option.bind SequencedBookmark.tryLoad
@@ -116,6 +119,8 @@ module BookmarkUtils =
                     | None -> None) m.bookmarks
         {m with bookmarks = bookmarks}
 
+    /// loads the bookmark from the filesystem if it is not loaded already,
+    /// updates the loaded bookmark and returns it
     let loadAndUpdate (m : SequencedBookmarks) (key : Guid) 
                       (f : SequencedBookmarkModel -> SequencedBookmarkModel) =
         let updState original =
@@ -129,22 +134,29 @@ module BookmarkUtils =
                     f bm |> SequencedBookmark.LoadedBookmark
                 | None ->
                     original
-
         let m = updateOne m key updState        
         m
 
+    /// tries to load all bookmarks from the filesystem, 
+    /// if a bookmark cannot be loaded an error is printed to log,
+    /// and the bookmark is returned as SequencedBookmark.NotYetLoaded
     let loadAll (m : SequencedBookmarks) =
         let bookmarks = 
             m.bookmarks
             |> HashMap.map (fun guid bm -> SequencedBookmark.tryLoad' bm)
         {m with bookmarks = bookmarks}
 
+    /// after unloading, all bookmarks are if the type
+    /// SequencedBookmark.NotYetLoaded (UnloadedSequencedBookmark)
     let unloadBookmarks (m : SequencedBookmarks) =
         let bookmarks = 
             m.bookmarks
             |> HashMap.map (fun g bm ->SequencedBookmark.unload bm)
         {m with bookmarks = bookmarks}
 
+    /// updates the path of the bookmark with the given basePath
+    /// IF the bookmark is loaded the bookmark is returned as-is 
+    /// if it is not loaded
     let updatePath (basePath : string) (bm : SequencedBookmark) =
         match bm with
         | SequencedBookmark.LoadedBookmark loaded ->
@@ -152,11 +164,16 @@ module BookmarkUtils =
         | SequencedBookmarks.NotYetLoaded notLoaded ->
             bm
 
+    /// updates the path of each bookmark with the given basePath
+    /// IF the bookmark is loaded the bookmark is returned as-is 
+    /// if it is not loaded
     let updatePaths (basePath : string) (m : SequencedBookmarks) =
         let bookmarks = 
             HashMap.map (fun g bm -> updatePath basePath bm) m.bookmarks
         {m with bookmarks = bookmarks}
 
+    /// updates the paths of all bookmarks and
+    /// saves bookmarks to file system
     let saveSequencedBookmarks (basePath:string) 
                                (bookmarks : SequencedBookmarks) =      
         let bookmarks = updatePaths basePath bookmarks
