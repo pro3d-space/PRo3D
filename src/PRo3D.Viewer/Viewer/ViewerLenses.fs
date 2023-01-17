@@ -147,42 +147,52 @@ module ViewerLenses =
             Log.warn "[Viewer] Getting selected bookmark or new bookmark."
             let sel = BookmarkUtils.selected m.scene.sequencedBookmarks
             match sel with
-            | Some sel -> sel
+            | Some sel -> SequencedBookmark.LoadedBookmark sel
             | None -> 
-                SequencedBookmark.init 
+                SequencedBookmarkModel.init 
                       (Bookmarks.getNewBookmark (Optic.get _view m)
                                                 m.scene.navigationMode
                                                 m.scene.exploreCenter
                                                 m.scene.bookmarks.flat.Count)
+                    |> SequencedBookmark.LoadedBookmark
         ),
         (fun sb m ->
-            // update camera to bookmark's camera
-            let m = Optic.set _view sb.cameraView m
-            let lastBookmark = Optic.get _lastSavedBookmark m
+            let update (sb : SequencedBookmarkModel) = 
+                // update camera to bookmark's camera
+                let m = Optic.set _view sb.cameraView m
+                let lastBookmark = Optic.get _lastSavedBookmark m
 
-            // update the scene state if the bookmark contains one
-            let inline updateSceneState sb m =
-                match sb.sceneState with
-                | Some state ->
-                    Optic.set _sceneState state m
-                | None -> m
+                // update the scene state if the bookmark contains one
+                let inline updateSceneState sb m =
+                    match sb.sceneState with
+                    | Some state ->
+                        Optic.set _sceneState state m
+                    | None -> m
 
-            // check whether animation is being recorded, and whether this frame constitutes a change to a new bookmark
-            match lastBookmark with
-            | Some key when key = sb.key ->
-                // not recording, same bookmark
-                m // nothing to do except update the view which we did above
-            | Some key when key <> sb.key ->
-                // new bookmark, so we need to update the scene state
-                updateSceneState sb m
-                |> Optic.set _lastSavedBookmark (Some sb.key)
-            | None ->
-                updateSceneState sb m
-                |> Optic.set _lastSavedBookmark (Some sb.key)
-            | _ -> 
-                Log.line "[ViewerLenses] Impossible case."
-                m
-                
+                // check whether animation is being recorded, and whether this frame constitutes a change to a new bookmark
+                match lastBookmark with
+                | Some key when key = sb.key ->
+                    // not recording, same bookmark
+                    m // nothing to do except update the view which we did above
+                | Some key when key <> sb.key ->
+                    // new bookmark, so we need to update the scene state
+                    updateSceneState sb m
+                    |> Optic.set _lastSavedBookmark (Some sb.key)
+                | None ->
+                    updateSceneState sb m
+                    |> Optic.set _lastSavedBookmark (Some sb.key)
+                | _ -> 
+                    Log.line "[ViewerLenses] Impossible case."
+                    m                
+            match sb with
+            | SequencedBookmark.LoadedBookmark loaded ->
+                update loaded
+            | SequencedBookmark.NotYetLoaded notLoaded ->
+                match SequencedBookmark.tryLoad sb with
+                | Some loaded ->
+                    update loaded
+                | None ->
+                    m
         )
 
     let bookmarkLenses =
