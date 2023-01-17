@@ -16,6 +16,7 @@ nuget Aardvark.Base                         ~> 5.2.12
 nuget Aardvark.Base.Incremental             ~> 5.2.12
 nuget Aardvark.Base.FSharp                  ~> 5.2.12
 nuget Aardvark.Geometry                     ~> 5.2.12
+nuget Aardvark.PixImage.DevIL
 
 nuget Aardvark.Rendering                    ~> 5.3.5
 nuget Aardvark.Application.Slim             ~> 5.3.5
