@@ -38,17 +38,22 @@ module Files =
        /// checks if "path" is a valid opc folder containing "images" or "Images", "patches" or "Patches", and patchhierarchy.xml
        /// </summary>
        let isOpcFolder (path : string) = 
-           printfn "[Surface.Files] checking potential opc path: %A" path
-           let imagesProbingPaths = 
-                OpcPaths.Images_DirNames |> List.map (fun imageSuffix -> Path.combine [path; imageSuffix])
-           let patchesProbingPaths =
-                OpcPaths.Patches_DirNames|> List.map (fun patchSuffix -> Path.combine [path; patchSuffix])
+           let isOpcFolder =
+               let imagesProbingPaths = 
+                    OpcPaths.Images_DirNames |> List.map (fun imageSuffix -> Path.combine [path; imageSuffix])
+               let patchesProbingPaths =
+                    OpcPaths.Patches_DirNames|> List.map (fun patchSuffix -> Path.combine [path; patchSuffix])
 
-           let imagesFound = imagesProbingPaths |> List.exists Directory.Exists
-           let patchesFound = imagesProbingPaths |> List.exists Directory.Exists
-           let patchHierarchyProbingPath = Path.Combine(path, OpcPaths.PatchHierarchy_FileName)
+               let imagesPath = imagesProbingPaths |> List.tryFind Directory.Exists
+               let patchesPath = imagesProbingPaths |> List.tryFind Directory.Exists
+               let patchHierarchyXmlPath = 
+                    patchesPath 
+                    |> Option.map (fun patchPath -> Path.Combine(patchPath, OpcPaths.PatchHierarchy_FileName))
 
-           imagesFound && patchesFound && Directory.Exists patchHierarchyProbingPath
+               imagesPath.IsSome && patchesPath.IsSome && patchHierarchyXmlPath.IsSome
+
+           printfn "[Surface.Files] is opc path: %A" path
+           isOpcFolder
 
        /// <summary>
        /// checks if "path" is a valid surface folder i.e. contains at least one opc folder
