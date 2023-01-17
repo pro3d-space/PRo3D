@@ -45,7 +45,7 @@ module Files =
                     OpcPaths.Patches_DirNames|> List.map (fun patchSuffix -> Path.combine [path; patchSuffix])
 
                let imagesPath = imagesProbingPaths |> List.tryFind Directory.Exists
-               let patchesPath = imagesProbingPaths |> List.tryFind Directory.Exists
+               let patchesPath = patchesProbingPaths |> List.tryFind Directory.Exists
                let patchHierarchyXmlPath = 
                     patchesPath 
                     |> Option.map (fun patchPath -> Path.Combine(patchPath, OpcPaths.PatchHierarchy_FileName))
