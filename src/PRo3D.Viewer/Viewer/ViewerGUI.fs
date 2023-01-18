@@ -629,7 +629,7 @@ module Gui =
                                             clientEvent "onclick" "aardvark.electron.shell.openExternal('https://github.com/pro3d-space/PRo3D/blob/develop/CREDITS.MD')"] [
                                             text "3rd Party Licences"
                                         ]
-                                        menuItem "Load Pose Tree" ViewerAction.LoadPoseTreeFile //RNO WIP
+                                        menuItem "Load Pose Definition File" ViewerAction.LoadPoseDefinitionFile
 
                                         div [clazz "ui item"; clientEvent "onclick" "sendCrashDump()"] [
                                             text "Send log to maintainers"

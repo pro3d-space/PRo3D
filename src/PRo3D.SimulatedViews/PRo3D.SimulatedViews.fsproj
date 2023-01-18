@@ -29,7 +29,7 @@
     <Compile Include="Snapshots\ObjectPlacement-Model.fs" />      
     <Compile Include="Snapshots\Snapshot-Model.fs" />      
     <Compile Include="Snapshots\SnapshotSettings-Model.fs" />      
-    <Compile Include="Snapshots\PoseTree-Model.fs" />      
+    <Compile Include="Snapshots\PoseData-Model.fs" />      
     <Compile Include="Snapshots\HaltonPlacement.fs" />      
     <Compile Include="Snapshots\ObjectPlacementApp.fs" />      
     <Compile Include="Snapshots\GroupExtensions.fs" />      

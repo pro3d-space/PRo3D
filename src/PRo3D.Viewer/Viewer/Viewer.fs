@@ -1564,12 +1564,18 @@ module ViewerApp =
             { m with drawing = { m.drawing with automaticGeoJsonExport = autoExport } }
         | SetSceneState state, _, _ ->
             Optic.set _sceneState state m
-        | LoadPoseTreeFile, _, _ -> //RNO WIP
-            let data = SimulatedViews.PoseTreeData.dummyData
+        | LoadPoseDefinitionFile, _, _ -> //RNO WIP
+            let data = SimulatedViews.PoseData.dummyData
             data
             |> Json.serialize 
             |> Json.formatWith JsonFormattingOptions.Pretty 
             |> Serialization.Chiron.writeToFile "poseTreeDummyData.json"
+
+            let poseData : PoseData = 
+                "poseTreeDummyData.json"
+                    |> Serialization.readFromFile
+                    |> Json.parse 
+                    |> Json.deserialize       
             m
         | unknownAction, _, _ -> 
             Log.line "[Viewer] Message not handled: %s" (string unknownAction)
