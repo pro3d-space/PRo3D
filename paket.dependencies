@@ -37,8 +37,8 @@ nuget Aardvark.UI                           ~> 5.3.1
 nuget Aardvark.UI.Primitives                ~> 5.3.1
 nuget Aardvark.Service.Giraffe              ~> 5.3.1
 
-nuget Adaptify.MSBuild                      = 1.1.5
-nuget Adaptify.Core                         = 1.1.5
+nuget Adaptify.MSBuild                      ~> 1.1.8
+nuget Adaptify.Core                         ~> 1.1.8
 
 
 nuget Aardvark.Data.Wavefront               ~> 5.2.5
@@ -53,6 +53,7 @@ nuget Chiron                                ~> 6.3.1
 nuget RestSharp                             ~> 106.6.9
 
 nuget Microsoft.Diagnostics.Runtime         ~> 2.0.1
+nuget Microsoft.AspNetCore.Authentication.JwtBearer ~> 6.0.10
 
 nuget Giraffe
 nuget Saturn
@@ -94,3 +95,8 @@ nuget Fake.Tools.Git
 nuget fake-cli
 nuget Argu
 nuget Mono.Cecil
+
+nuget Microsoft.Build                = 17.3.2
+nuget Microsoft.Build.Framework      = 17.3.2
+nuget Microsoft.Build.Tasks.Core     = 17.3.2
+nuget Microsoft.Build.Utilities.Core = 17.3.2

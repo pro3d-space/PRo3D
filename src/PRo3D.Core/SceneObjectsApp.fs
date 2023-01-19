@@ -17,12 +17,13 @@ open System.IO
 open System.Diagnostics
 
 open Aardvark.UI.Primitives
+
+open PRo3D.Base
 //open CSharpUtils
 
 type SceneObjectAction =
     | FlyToSO               of Guid
     | RemoveSO              of Guid
-    | OpenFolder            of Guid
     | IsVisible             of Guid
     | SelectSO              of Guid
     | PlaceSO               of V3d
@@ -114,6 +115,7 @@ module SceneObjectsUtils =
             globalBB    = bb
             sceneGraph  = sg
             picking     = Picking.NoPicking 
+            isObj       = true //???? laura
         }
 
              
@@ -133,6 +135,15 @@ module SceneObjectsUtils =
 
 module SceneObjectsApp = 
 
+    let getFolderForObject (model : SceneObjectsModel) (id : Guid) =
+        match HashMap.tryFind id model.sceneObjects with
+        | None -> None
+        | Some sceneObject -> 
+            if File.Exists(sceneObject.importPath) then 
+                Some sceneObject.importPath
+            else 
+                None
+
     let update 
         (model : SceneObjectsModel) 
         (act : SceneObjectAction) = 
@@ -151,14 +162,6 @@ module SceneObjectsApp =
 
             let sceneObjects = HashMap.remove id model.sceneObjects
             { model with sceneObjects = sceneObjects; selectedSceneObject = selSO }
-        | OpenFolder id ->
-            let so = model.sceneObjects |> HashMap.find id
-            let test = Path.GetDirectoryName so.importPath
-            match File.Exists(so.importPath) with
-            | true -> 
-                Process.Start("explorer.exe", test) |> ignore
-                model
-            | false -> model
         | SelectSO id ->
             let so = model.sceneObjects |> HashMap.tryFind id
             match so, model.selectedSceneObject with
@@ -203,6 +206,13 @@ module SceneObjectsApp =
 
     module UI =
 
+        let getOpenFolderAttributes (so : AdaptiveSceneObject) =
+            amap {
+                yield clazz "folder icon"
+                let! path = so.importPath
+                yield clientEvent "onclick" (Electron.openPath path)
+            } |>  AttributeMap.ofAMap
+
         let viewHeader (m:AdaptiveSceneObject) (soid:Guid) toggleMap= 
             [
                 Incremental.text m.name; text " "
@@ -210,7 +220,7 @@ module SceneObjectsApp =
                 i [clazz "home icon"; onClick (fun _ -> FlyToSO soid)] []
                 |> UI.wrapToolTip DataPosition.Bottom "Fly to scene object"                                                     
             
-                i [clazz "folder icon"; onClick (fun _ -> OpenFolder soid)] [] 
+                Incremental.i (getOpenFolderAttributes m) AList.empty
                 |> UI.wrapToolTip DataPosition.Bottom "Open Folder"                             
             
                 Incremental.i toggleMap AList.empty 
@@ -269,6 +279,8 @@ module SceneObjectsApp =
 
                         let! c = color
                         let bgc = sprintf "color: %s" (Html.ofC4b c)
+
+                
                                      
                         yield Incremental.div (AttributeMap.ofList [style infoc])(
                             alist {
@@ -279,7 +291,7 @@ module SceneObjectsApp =
                                 yield i [clazz "home icon"; onClick (fun _ -> FlyToSO soid)] []
                                     |> UI.wrapToolTip DataPosition.Bottom "Fly to scene object"                                                     
             
-                                yield i [clazz "folder icon"; onClick (fun _ -> OpenFolder soid)] [] 
+                                yield Incremental.i (getOpenFolderAttributes so) AList.empty
                                     |> UI.wrapToolTip DataPosition.Bottom "Open Folder"                             
             
                                 yield Incremental.i toggleMap AList.empty 

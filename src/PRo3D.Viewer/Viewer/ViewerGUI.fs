@@ -210,14 +210,16 @@ module Gui =
     let textOverlaysInstrumentView (m : AdaptiveViewPlanModel)  = 
         let instrument =
             adaptive {
-                let! vp = m.selectedViewPlan
-                let! inst = 
-                    match Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption vp with
-                    | Some v -> AVal.bindAdaptiveOption v.selectedInstrument "No instrument selected" (fun a -> a.id)
-                    | None -> AVal.constant("")
-        
-                return inst
-            }
+                let! id = m.selectedViewPlan
+                match id with
+                | Some v -> 
+                    let! vp = m.viewPlans |> AMap.tryFind v
+                    match vp with
+                    | Some selVp -> 
+                        return! (AVal.bindAdaptiveOption selVp.selectedInstrument "No instrument selected" (fun a -> a.id)) 
+                    | None -> return ""
+                | None -> return "" 
+            } 
         div [js "oncontextmenu" "event.preventDefault();"] [                         
             yield div [clazz "ui"; style "position: absolute; top: 15px; left: 15px; float:left" ] [
                 //arrowOverlay
@@ -270,6 +272,10 @@ module Gui =
         let jsImportOBJDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select *.obj files to import', filters: [{ name: 'OBJ (*.obj)', extensions: ['obj']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
         
+        let jsImportglTfDialog =
+            "top.aardvark.dialog.showOpenDialog({tile: 'Select *.gltf files to import', filters: [{ name: 'glTF (*.gltf)', extensions: ['gltf']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+        
+
         let jsImportSceneObjectDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select *.obj or *.dae files to import', filters: [{ name: 'OBJ (*.obj)', extensions: ['obj']}, { name: 'DAE (*.dae)', extensions: ['dae']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
@@ -287,14 +293,26 @@ module Gui =
                     ] [
                         text "Import OPCs"
                     ]
+                    //div [ clazz "ui inverted item"; 
+                    //    Dialogs.onChooseFiles (curry ViewerAction.ImportObject MeshLoaderType.Assimp);
+                    //    clientEvent "onclick" (jsImportOBJDialog)
+                    //] [
+                    //    text "Import (*.obj) using assimp"
+                    //]
                     div [ clazz "ui inverted item"; 
-                        Dialogs.onChooseFiles ImportObject;
+                        Dialogs.onChooseFiles (curry ViewerAction.ImportObject MeshLoaderType.Wavefront);
                         clientEvent "onclick" (jsImportOBJDialog)
                     ] [
                         text "Import (*.obj)"
                     ]
+                    //div [ clazz "ui inverted item"; 
+                    //    Dialogs.onChooseFiles (curry ViewerAction.ImportObject MeshLoaderType.GlTf);
+                    //    clientEvent "onclick" (jsImportOBJDialog)
+                    //] [
+                    //    text "Import (*.gltf) "
+                    //]
                     div [ clazz "ui inverted item"; 
-                        Dialogs.onChooseFiles ImportObject;
+                        Dialogs.onChooseFiles (curry ViewerAction.ImportObject MeshLoaderType.Ply);
                         clientEvent "onclick" (jsImportPLYDialog)
                     ] [
                         text "Import (*.ply)"
@@ -411,6 +429,24 @@ module Gui =
                             clientEvent "onclick" jsLocateSurfacesDialog 
                         ] [
                             text "Locate Surfaces"
+                        ]
+                }
+        
+            Incremental.div(AttributeMap.Empty) ui |> UI.map SurfaceActions   
+            
+        let fixAllBrokenOBJPaths =
+            let jsLocateOBJDialog = 
+                "top.aardvark.dialog.showOpenDialog({title:'Select directory to locate OBJs', filters: [{ name: 'OBJs (*.obj)', extensions: ['obj']}], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+            let ui = 
+                alist {
+                    yield
+                        div [ 
+                            clazz "ui item";
+                            Dialogs.onChooseFiles  SurfaceAppAction.ChangeOBJImportDirectories;
+                            clientEvent "onclick" jsLocateOBJDialog 
+                        ][
+                            text "Locate OBJ Surfaces"
                         ]
                 }
         
@@ -557,6 +593,8 @@ module Gui =
                                     div [ clazz "menu"] [
                                         //fixes all broken surface import paths
                                         fixAllBrokenPaths
+                                        //fixes all broken obj import paths
+                                        fixAllBrokenOBJPaths
 
                                         let jsOpenOldAnnotationsFileDialogue = "top.aardvark.dialog.showOpenDialog({title:'Import legacy annotations from PRo3D 1.0' , filters: [{ name: 'Annotations (*.xml)', extensions: ['xml']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
@@ -644,7 +682,7 @@ module Gui =
                     let icon = 
                         match scenePath with
                         | Some p -> 
-                            i [clazz "large folder icon" ; onClick (fun _ -> OpenSceneFileLocation p)] [] 
+                            i [clazz "large folder icon" ; clientEvent "onclick" (Electron.showItemInFolder p)] [] 
                             |> UI.wrapToolTip DataPosition.Bottom "open folder"
                         | None -> div [] []  
                           
@@ -812,7 +850,7 @@ module Gui =
                     FrustumProperties.view m.frustumModel |> UI.map FrustumMessage
                 ]
                 GuiEx.accordion "Screenshots" "Settings" false [
-                    ScreenshotApp.view m.scene.screenshotModel |> UI.map ScreenshotMessage
+                    ScreenshotApp.view m.screenshotDirectory m.scene.screenshotModel |> UI.map ScreenshotMessage
                 ]
                 GuiEx.accordion "Data Management" "Settings" false [
                     Html.table [  
@@ -1073,7 +1111,7 @@ module Gui =
             | Some "surfaces" -> 
                 require (viewerDependencies) (
                     body bodyAttributes
-                        [SurfaceApp.surfaceUI Config.colorPaletteStore m.scene.surfacesModel |> UI.map SurfaceActions |> UI.map ViewerMessage] 
+                        [SurfaceApp.surfaceUI m.scene.scenePath Config.colorPaletteStore m.scene.surfacesModel |> UI.map SurfaceActions |> UI.map ViewerMessage] 
                 )
             | Some "annotations" -> 
                 require (viewerDependencies) (body bodyAttributes [Annotations.annotationUI m

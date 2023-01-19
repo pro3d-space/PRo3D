@@ -13,6 +13,8 @@ open PRo3D.Core.Surface
 open Adaptify.FSharp.Core
 
 module SurfaceUtils =
+
+    [<Obsolete("toModSurface might throw and is not safe to use. see https://github.com/pro3d-space/PRo3D/issues/277")>]
     let toModSurface (leaf : AdaptiveLeafCase) = 
          adaptive {
             let c = leaf
@@ -21,8 +23,18 @@ module SurfaceUtils =
                 | _ -> return c |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
             }
          
-    let lookUp guid (surfaces:amap<Guid, AdaptiveLeafCase>) =
-        let entry = surfaces |> AMap.find guid
+    [<Obsolete("lookup might throw and is not safe to use. see https://github.com/pro3d-space/PRo3D/issues/277")>]
+    let lookUp (guid : Guid) (table:amap<Guid, AdaptiveLeafCase>) =
+        let entry = 
+            adaptive { 
+                match! table |> AMap.tryFind guid with
+                | None -> 
+                    // we can only throw here..... see https://github.com/pro3d-space/PRo3D/issues/277
+                    return failwithf "surface with guid %A not found" guid
+                | Some e -> 
+                    return e
+            }
+
         entry |> AVal.bind(fun x -> x |> toModSurface)
 
     let toAvalSurfaces (surfaces : amap<Guid, AdaptiveLeafCase>) =

@@ -88,4 +88,3 @@ type ScreenshotAction =
     | SetBackgroundColor of ColorPicker.Action
     | CreateScreenshot
     | SetImageFormat     of ImageFormat
-    | OpenFolder
