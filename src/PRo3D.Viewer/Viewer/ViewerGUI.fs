@@ -1018,7 +1018,7 @@ module Gui =
         let sequencedBookmarksUI (m : AdaptiveModel) =           
           div [] [
               yield br []
-              yield (SequencedBookmarksApp.UI.viewGUI m.scene.sequencedBookmarks)
+              yield (SequencedBookmarksApp.UI.viewBookmarkControls m.scene.sequencedBookmarks)
               yield GuiEx.accordion "SequencedBookmarks" "Write" true [
                   SequencedBookmarksApp.UI.viewSequencedBookmarks m.scene.sequencedBookmarks
               ]        
