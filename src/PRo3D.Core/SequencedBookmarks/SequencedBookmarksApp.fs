@@ -319,7 +319,6 @@ module SequencedBookmarksApp =
 
 
     module UI =
-        
         let viewSequencedBookmarks (m : AdaptiveSequencedBookmarks) =
             let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
             let itemAttributes =
@@ -402,7 +401,7 @@ module SequencedBookmarksApp =
             | None -> 
                 "No saved scene state"
 
-        let viewGUI  (model : AdaptiveSequencedBookmarks) = 
+        let viewBookmarkControls  (model : AdaptiveSequencedBookmarks) = 
             div [clazz "ui vertical buttons inverted"] [
                 button [
                     clazz "ui labeled icon button"; 
@@ -632,7 +631,7 @@ module SequencedBookmarksApp =
                     alist {
                             let! b = onlyButton
                             yield b
-                            yield info
+                            //yield info
                           }
 
                 Incremental.div ([] |> AttributeMap.ofList ) alst
@@ -655,8 +654,8 @@ module SequencedBookmarksApp =
 
                 Incremental.div attributes content
 
-
-            require GuiEx.semui (
+            // RNO tooltips are deactivated, because they cause html body content to disappear
+            require GuiEx.semui ( 
                 div [] [
                     Html.table [            
                         Html.row "Save Camera Animation:" 
@@ -664,8 +663,8 @@ module SequencedBookmarksApp =
                                 button [
                                     onMouseClick (fun _ -> StopRecording )
                                 ] [text "Save"]
-                                i [clazz "info icon"] [] 
-                                    |> UI.wrapToolTip DataPosition.Bottom "No smooth path, no easing, no global animation."     
+                                //i [clazz "info icon"] [] 
+                                //    |> UI.wrapToolTip DataPosition.Bottom "No smooth path, no easing, no global animation."     
                             ]
                         Html.row "Generate Images:" 
                             [
@@ -674,10 +673,10 @@ module SequencedBookmarksApp =
 
                         Html.row "Allow JSON Editing" 
                             [GuiEx.iconCheckBox (model.updateJsonBeforeRendering |> AVal.map not) ToggleUpdateJsonBeforeRendering;
-                                i [clazz "info icon"] [] 
-                                    |> UI.wrapToolTip DataPosition.Bottom "If selected, the JSON file will NOT be updated before rendering. 
-                                                                           If you change settings in the user interface after recording, 
-                                                                           they will not be reflected in the JSON file."
+                                //i [clazz "info icon"] [] 
+                                    //|> UI.wrapToolTip DataPosition.Bottom "If selected, the JSON file will NOT be updated before rendering. 
+                                    //                                       If you change settings in the user interface after recording, 
+                                    //                                       they will not be reflected in the JSON file."
                             ]
                         Html.row "Update JSON" 
                             [
@@ -686,9 +685,9 @@ module SequencedBookmarksApp =
                             ]
                         Html.row "Debug" 
                             [GuiEx.iconCheckBox model.debug ToggleDebug;
-                                    i [clazz "info icon"] [] 
-                                        |> UI.wrapToolTip DataPosition.Bottom "Leaves the window with information about the rendering
-                                                                               process open after rendering and uses verbose mode."
+                                    //i [clazz "info icon"] [] 
+                                    //    |> UI.wrapToolTip DataPosition.Bottom "Leaves the window with information about the rendering
+                                    //                                           process open after rendering and uses verbose mode."
                             ]
 
                         Html.row "Image Resolution:"  
