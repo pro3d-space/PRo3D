@@ -50,6 +50,7 @@ module ViewerIO =
             scene               : string                           
             annotations         : string
             correlations        : string
+            bookmarksFolder     : string
 
             //deprecated
             [<Obsolete>]
@@ -65,7 +66,11 @@ module ViewerIO =
                 scene               = scenepath          
                 annotations         = scenepath |> Serialization.changeExtension ".pro3d.ann"
                 correlations        = scenepath |> Serialization.changeExtension ".pro3d.corr"
-                
+                bookmarksFolder     = Path.combine 
+                                        [
+                                            (Path.GetDirectoryName scenepath)
+                                            (Path.GetFileNameWithoutExtension scenepath)
+                                        ]
                 annotationGroups    = scenepath |> Serialization.changeExtension ".ann" 
                 annotationsFlat     = scenepath |> Serialization.changeExtension ".ann.json" 
                 annotationDepr      = scenepath |> Serialization.changeExtension ".ann_old" 
@@ -252,19 +257,27 @@ module ViewerIO =
             |> Option.defaultValue (ViewPlanModel.initFootPrint, m.scene.viewPlans)
 
         { m with scene = {m.scene with viewPlans = viewPlans'};  footPrint = fp }
-           
-    let saveEverything (path:string) (m:Model) =         
 
+    let loadSequencedBookmarks (m : Model) =
+        let bookmarks = BookmarkUtils.loadAll m.scene.sequencedBookmarks
+        {m with scene = {m.scene with sequencedBookmarks = bookmarks}}
+
+    let saveEverything (path:string) (m:Model) =         
         if path.IsEmptyOrNull() then m
         else
            //saving scene
             let scenePaths = path |> ScenePaths.create             
-            let cameraState = m.navigation.camera.view            
-            let scene = { m.scene with scenePath      = Some scenePaths.scene; 
-                                       cameraView     = cameraState;
-                                       exploreCenter  = m.navigation.exploreCenter
-                                       navigationMode = m.navigation.navigationMode}
-            scene
+            let cameraState = m.navigation.camera.view        
+            let bookmarks = BookmarkUtils.saveSequencedBookmarks scenePaths.bookmarksFolder
+                                                                 m.scene.sequencedBookmarks
+
+            let scene = { m.scene with scenePath          = Some scenePaths.scene; 
+                                       cameraView         = cameraState;
+                                       exploreCenter      = m.navigation.exploreCenter
+                                       navigationMode     = m.navigation.navigationMode
+                                       sequencedBookmarks = bookmarks
+                        }
+            {scene with sequencedBookmarks = BookmarkUtils.unloadBookmarks bookmarks}
             |> Json.serialize 
             |> Json.formatWith JsonFormattingOptions.Pretty
             |> Serialization.Chiron.writeToFile scenePaths.scene
