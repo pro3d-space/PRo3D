@@ -1681,8 +1681,8 @@ module ViewerApp =
                     fun p -> 
                         match p with
                         | w::h::[] -> 
-                            let w : int = Pickler.json.UnPickleOfString w
-                            let h : int = Pickler.json.UnPickleOfString h
+                            let w : float = Pickler.json.UnPickleOfString w
+                            let h : float = Pickler.json.UnPickleOfString h
                             printfn "%A" (w,h)
                             ResizeMainControl(V2i(w,h),id)
                         | _ -> Nop 
