@@ -1,3 +1,6 @@
+## 4.12.0-prerelease5
+- opc rendering now works on linux
+
 ## 4.12.0-prerelease4
 - opc rendering now works on linux
 
