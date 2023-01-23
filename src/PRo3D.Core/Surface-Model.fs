@@ -13,7 +13,6 @@ open Aardvark.UI.Trafos
 open Aardvark.VRVis
 open Aardvark.VRVis.Opc
 
-open DevILSharp.ILU
 open Chiron
 
 open PRo3D.Base

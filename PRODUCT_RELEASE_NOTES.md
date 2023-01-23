@@ -1,3 +1,15 @@
+## 4.12.0-prerelease4
+- opc rendering now works on linux
+
+## 4.12.0-prerelease3
+- workaround for case-sensitivity problem in isOpc: https://github.com/pro3d-space/PRo3D/issues/280
+
+## 4.12.0-prerelease2
+- testing linux deployment
+
+## 4.12.0-prerelease1
+- testing linux deployment
+
 ## 4.11.1
 - #110, #126, #138, #144, #145, #166, #212, #231, #259,
 - Transformations, hide exploration center, visibility of annotations- and scalebar text

@@ -325,7 +325,7 @@ Target.create "PublishToElectron" (fun _ ->
 Target.create "CopyToElectron" (fun _ -> 
 
     if Directory.Exists "./aardium/build/build" then 
-        Directory.Delete("./aardium/build/build", true)
+        Directory.Delete("./aardium/build/build", true) 
 
     // 0.0 copy version over into source code...
     let programFs = File.ReadAllLines "src/PRo3D.Viewer/Program.fs"
@@ -352,6 +352,22 @@ Target.create "CopyToElectron" (fun _ ->
          )
          for f in System.IO.Directory.GetFiles("./lib/Native/JR.Wrappers/mac/") do    
             File.Copy(f, Path.Combine("aardium/build/build", Path.GetFileName f))
+    elif System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux) then
+        "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
+                { o with
+                    Framework = Some "net6.0"
+                    Runtime = Some "linux-x64"
+                    Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
+                    //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
+                    Configuration = DotNet.BuildConfiguration.Release
+                    VersionSuffix = Some notes.NugetVersion
+                    OutputPath = Some "aardium/build/build"
+                }
+        )
+        for f in System.IO.Directory.GetFiles("./lib/Native/JR.Wrappers/linux/AMD64") do    
+            let target = Path.Combine("aardium/build/build", Path.GetFileName f)
+            printfn "copy: %s => %s" f target
+            File.Copy(f, target)
     else
         "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
             { o with

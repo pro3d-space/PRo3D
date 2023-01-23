@@ -65,7 +65,7 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "4.10.3"
+let viewerVersion       = "4.11.0-prerelease4"
 let catchDomainErrors   = false
 
 open System.IO
@@ -212,7 +212,7 @@ let main argv =
         Log.line "render control config: %A" (Config.data_samples, Config.backgroundColor, Config.useMapping)
     
 
-        Aardvark.Rendering.GL.RuntimeConfig.SupressSparseBuffers <- true
+        Aardvark.Rendering.GL.RuntimeConfig.SuppressSparseBuffers <- true
         //app.ShaderCachePath <- None
 
         PRo3D.Core.Drawing.DrawingApp.usePackedAnnotationRendering <- true
