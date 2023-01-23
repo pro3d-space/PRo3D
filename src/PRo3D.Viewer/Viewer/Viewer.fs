@@ -348,9 +348,28 @@ module ViewerApp =
             let scm = ScaleBarsApp.update m.scene.scaleBars msg
             { m with scene = { m.scene with scaleBars = scm } }
         | Interactions.PlaceSceneObject, ViewerMode.Standard -> 
-            let action = (SceneObjectAction.PlaceSceneObject(p)) 
+            //let action = (SceneObjectAction.PlaceSceneObject(p))
+            let action = (SceneObjectAction.TranslationMessage( TransformationApp.Action.SetPickedTranslation(p)))
             let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel action
             { m with scene = { m.scene with sceneObjectsModel = sobjs } }
+        | Interactions.PickPivotPoint, ViewerMode.Standard -> 
+            match m.pivotType with
+            | PickPivot.SurfacePivot     -> 
+                let action = (SurfaceAppAction.TranslationMessage( TransformationApp.Action.SetPickedPivotPoint p )) 
+                let surfaceModel =
+                    SurfaceApp.update m.scene.surfacesModel action m.scene.scenePath m.navigation.camera.view m.scene.referenceSystem
+                { m with scene = { m.scene with surfacesModel = surfaceModel } }
+            //| PickPivot.ScaleBarPivot    -> 
+            //    let action = (ScaleBarsAction.TranslationMessage( TransformationApp.Action.SetPickedPivotPoint p )) 
+            //    let scaleBars' =
+            //        ScaleBarsApp.update m.scene.scaleBars action 
+            //    { m with scene = { m.scene with scaleBars = scaleBars' } }
+            | PickPivot.SceneObjectPivot -> 
+                let action = (SceneObjectAction.TranslationMessage( TransformationApp.Action.SetPickedPivotPoint p )) 
+                let so' =
+                    SceneObjectsApp.update m.scene.sceneObjectsModel action 
+                { m with scene = { m.scene with sceneObjectsModel = so' } }
+            | _ -> m
         | _ -> m       
 
     let mutable lastHash = -1    
@@ -475,7 +494,7 @@ module ViewerApp =
                 | SurfaceAppAction.FlyToSurface id -> 
                     let surf = m |> Optic.get _sgSurfaces |> HashMap.tryFind id
                     let surface = m.scene.surfacesModel.surfaces.flat |> HashMap.find id |> Leaf.toSurface 
-                    let superTrafo = SurfaceTransformations.fullTrafo' surface m.scene.referenceSystem
+                    let superTrafo = TransformationApp.fullTrafo' surface.transformation m.scene.referenceSystem //SurfaceTransformations.fullTrafo' surface m.scene.referenceSystem
                     match (surface.homePosition) with
                     | Some hp ->                        
                         let animationMessage = 
@@ -647,7 +666,7 @@ module ViewerApp =
                 match msg with
                 | SceneObjectAction.FlyToSO id -> 
                     let sceneObj = sobjs.sceneObjects |> HashMap.find id
-                    let superTrafo = SceneObjectTransformations.fullTrafo' sceneObj.transformation m.scene.referenceSystem
+                    let superTrafo = TransformationApp.fullTrafo' sceneObj.transformation m.scene.referenceSystem //SceneObjectTransformations.fullTrafo' sceneObj.transformation m.scene.referenceSystem
 
                     let sgSo = sobjs.sgSceneObjects |> HashMap.find id
                     let bb = sgSo.globalBB.Transformed(sceneObj.preTransform.Forward * superTrafo.Forward)
@@ -1801,7 +1820,8 @@ module ViewerApp =
                 |> Sg.map ReferenceSystemMessage  
 
             let exploreCenter =
-                Navigation.Sg.view m.navigation            
+                Navigation.Sg.view m.navigation
+                |> Sg.onOff m.scene.config.showExplorationPointGui
           
             let homePosition =
                 Sg.viewHomePosition m.scene.surfacesModel

@@ -54,7 +54,10 @@ type PropertyActions =
     | DrawingMessage    of DrawingAction
     | AnnotationMessage of AnnotationProperties.Action
 
-
+type PickPivot =
+    | SurfacePivot      = 0
+    | SceneObjectPivot  = 1
+   // | ScaleBarPivot     = 2
 //type CorrelationPanelsMessage = 
 //| CorrPlotMessage               of CorrelationPlotAction
 //| SemanticAppMessage            of SemanticAction
@@ -160,7 +163,8 @@ type ViewerAction =
 | ScreenshotMessage              of ScreenshotAction
 | TraverseMessage                of TraverseAction
 | SetSceneState                  of SceneState
-| StopGeoJsonAutoExport        
+| StopGeoJsonAutoExport  
+| SetPivotType                   of PickPivot
 | Nop
 
 and MailboxState = {
@@ -529,6 +533,7 @@ type Model = {
     multiSelectBox   : Option<MultiSelectionBox>
     shiftFlag        : bool
     picking          : bool
+    pivotType        : PickPivot
     ctrlFlag         : bool
     frustum          : Frustum
     viewPortSizes    : HashMap<string, V2i>
@@ -658,6 +663,7 @@ module Viewer =
             multiSelectBox  = None
             shiftFlag       = false
             picking         = false
+            pivotType       = PickPivot.SurfacePivot
             ctrlFlag        = false
 
             messagingMailbox = msgBox

@@ -29,25 +29,25 @@ open Adaptify.FSharp.Core
 open Aardvark.Base.Coder
 
 type SurfaceAppAction =
-| SurfacePropertiesMessage   of SurfaceProperties.Action
-| FlyToSurface               of Guid
-| MakeRelative               of Guid
-| RemoveSurface              of Guid*list<Index>
-| PickSurface                of SceneHit*string
-| OpenFolder                 of Guid
-| RebuildKdTrees             of Guid
-| ToggleActiveFlag           of Guid
-| ChangeImportDirectory      of Guid*string
-| ChangeImportDirectories    of list<string>
+| SurfacePropertiesMessage  of SurfaceProperties.Action
+| FlyToSurface              of Guid
+| MakeRelative              of Guid
+| RemoveSurface             of Guid*list<Index>
+| PickSurface               of SceneHit*string
+| OpenFolder                of Guid
+| RebuildKdTrees            of Guid
+| ToggleActiveFlag          of Guid
+| ChangeImportDirectory     of Guid*string
+| ChangeImportDirectories   of list<string>
 | ChangeOBJImportDirectories of list<string>
-| GroupsMessage              of GroupsAppAction
-//| PickObject                 of V3d
-| PlaceSurface               of V3d
-| ScalarsColorLegendMessage  of FalseColorLegendApp.Action
-| ColorCorrectionMessage     of ColorCorrectionProperties.Action
-| SetHomePosition            
-| TranslationMessage         of TranslationApp.Action
-| SetPreTrafo                of string
+| GroupsMessage             of GroupsAppAction
+//| PickObject                of V3d
+| PlaceSurface              of V3d
+| ScalarsColorLegendMessage of FalseColorLegendApp.Action
+| ColorCorrectionMessage    of ColorCorrectionProperties.Action
+| SetHomePosition           
+| TranslationMessage        of TransformationApp.Action
+| SetPreTrafo               of string
 
 
 module SurfaceUtils =    
@@ -70,7 +70,7 @@ module SurfaceUtils =
             relativePaths   = false
             quality         = Init.quality
             priority        = Init.priority
-            scaling         = Init.scaling
+            scaling         = Transformations.Initial.scaling //Init.scaling
             preTransform    = Trafo3d.Identity            
             scalarLayers    = HashMap.Empty //IndexList.empty
             selectedScalar  = None
@@ -1021,8 +1021,8 @@ module SurfaceApp =
                 match model.surfaces.singleSelectLeaf with
                 | Some s -> 
                     let surface = model.surfaces.flat |> HashMap.find s |> Leaf.toSurface
-                    let t =  { surface.transformation with pivot = refSys.origin }
-                    let transformation' = (TranslationApp.update t msg)
+                    //let t =  { surface.transformation with pivot = refSys.origin }
+                    let transformation' = (TransformationApp.update surface.transformation msg)
                     let s' = { surface with transformation = transformation' }
                     //let homePosition = 
                     //  match surface.homePosition with
@@ -1371,7 +1371,7 @@ module SurfaceApp =
                   let leaf = model.surfaces.flat |> AMap.find i 
                   let! surf = leaf 
                   let x = match surf with | AdaptiveSurfaces s -> s | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
-                  return TranslationApp.UI.view x.transformation |> UI.map TranslationMessage
+                  return TransformationApp.UI.view x.transformation |> UI.map TranslationMessage
                 else
                   return empty
               | None -> return empty

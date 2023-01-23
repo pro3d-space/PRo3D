@@ -21,6 +21,7 @@ type Interactions =
     | SelectArea            = 15
     | PlaceScaleBar         = 16
     | PlaceSceneObject      = 17
+    | PickPivotPoint        = 18
 
 module Interactions =
     // excludes interactions from dropdown in topmenu
