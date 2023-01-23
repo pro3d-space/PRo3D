@@ -168,7 +168,7 @@ module ViewerUtils =
             let sizes = V2i(1024,768)
             let! quality = s.quality.value
             //let! trafo = AVal.map2(fun a b -> a * b) s.preTransform s.transformation.trafo //combine pre and current transform
-            let! trafo = SurfaceTransformations.fullTrafo surf refsys
+            let! trafo =  TransformationApp.fullTrafo s.transformation refsys //SurfaceTransformations.fullTrafo surf refsys
             
             return { frustum = frustum; size = sizes; factor = quality; trafo = trafo }
         }
@@ -253,14 +253,13 @@ module ViewerUtils =
 
                 let trafo =
                     adaptive {
-                        let! fullTrafo = SurfaceTransformations.fullTrafoForSurface surf refsys
-                        let! scaleFactor = surf.scaling.value
+                        let! fullTrafo = TransformationApp.fullTrafo surf.transformation refsys
                         let! preTransform = surf.preTransform
                         let! flipZ = surf.transformation.flipZ
                         let! sketchFab = surf.transformation.isSketchFab
                         if flipZ then 
-                            return Trafo3d.Scale(scaleFactor) * Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * preTransform)
-                        else if sketchFab then      
+                            return Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * preTransform)
+                        else if sketchFab then
                             // TODO https://github.com/pro3d-space/PRo3D/issues/117
                             // i'm not sure whether swithcYZTrafo is the right one here. Firstly, i think we should change the naming (also in the UI).
                             // Secondly, do we need this as a third option: 
@@ -268,7 +267,8 @@ module ViewerUtils =
                             // this was here before:
                             return Sg.switchYZTrafo
                         else
-                            return Trafo3d.Scale(scaleFactor) * (fullTrafo * preTransform)
+                            return (fullTrafo * preTransform)
+                            //return Trafo3d.Scale(scaleFactor) * (fullTrafo * preTransform)
                     }
 
                 let pickable = 
@@ -360,7 +360,12 @@ module ViewerUtils =
                             DefaultSurfaces.vertexColor |> toEffect
                         ] 
                         |> Sg.onOff isSelected
-                    )                                
+                    )
+                    // pivot point
+                    |> Sg.andAlso (
+                        surf.transformation |> TransformationApp.Sg.view
+                        //|> Sg.dynamic
+                    )    
                 return surfaceSg
             | _ -> 
                 return Sg.empty

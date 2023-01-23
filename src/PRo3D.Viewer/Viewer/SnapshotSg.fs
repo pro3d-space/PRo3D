@@ -234,7 +234,7 @@ module SnapshotSg =
                 |> Sg.map ReferenceSystemMessage  
 
             let exploreCenter =
-                Navigation.Sg.view m.navigation            
+                Navigation.Sg.view m.navigation          
           
             let homePosition =
                 Sg.viewHomePosition m.scene.surfacesModel
