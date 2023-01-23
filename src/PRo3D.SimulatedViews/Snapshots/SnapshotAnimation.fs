@@ -207,7 +207,6 @@ module SnapshotAnimation =
     let fromBookmarks (bm          : SequencedBookmarks)  
                       (cameraView  : CameraView)
                       (fieldOfView : float)
-                      //(frustum     : Frustum)
                       (nearPlane   : float) 
                       (farPlane    : float) =
         let frustum =

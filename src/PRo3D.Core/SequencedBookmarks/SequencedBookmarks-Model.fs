@@ -131,6 +131,47 @@ type SceneState =
             do! Json.write "stateTraverse"         x.stateTraverses
         }
 
+type FrustumParameters = {
+    resolution  : V2i
+    fieldOfView : float
+    nearplane   : float
+    farplane    : float
+}
+
+module FrustumParameters =
+    let dummyData id =
+        {
+            farplane         = 100000.0
+            nearplane        = 0.0002
+            fieldOfView      = 6.543
+            resolution       = V2i (1648, 1200)
+        }
+
+type FrustumParameters with
+    static member FromJson( _ : FrustumParameters) =
+        json {
+            let! farplane       = Json.read "farplane"      
+            let! nearplane      = Json.read "nearplane"   
+            let! fieldOfView   = Json.read "fieldOfView"
+            let! resolution    = Json.read "resolution" 
+
+            return
+                {
+                    farplane       = farplane      
+                    nearplane      = nearplane     
+                    fieldOfView    = fieldOfView
+                    resolution     = resolution |> V2i.Parse
+                }
+        }
+
+    static member ToJson(x : FrustumParameters) =
+        json {
+            do! Json.write "farplane"         x.farplane
+            do! Json.write "nearplane"        x.nearplane
+            do! Json.write "fieldOfView"      x.fieldOfView
+            do! Json.write "resolution"       (x.resolution.ToString ())
+        }
+
 /// An extended Bookmark for use with animations
 /// allows saving and restoring of annotation/surface/sceneObjects/geologicObject states
 [<ModelType>]
@@ -138,6 +179,9 @@ type SequencedBookmarkModel = {
     [<NonAdaptive>]
     version             : int
     bookmark            : Bookmark
+
+    frustumParameters   : option<FrustumParameters>
+    poseDataPath        : option<string>
 
     // path for saving this bookmark
     basePath            : option<string>
@@ -200,22 +244,37 @@ module SequencedBookmarkDefaults =
         }
 
 module SequencedBookmarkModel =
-    let current = 0   
+    let current = 0
 
     let init bookmark = 
         {
-            version = current
-            bookmark = bookmark
-            sceneState = None
-            delay = SequencedBookmarkDefaults.initDelay 0.0
-            duration = SequencedBookmarkDefaults.initDuration 5.0
-            basePath = None
+            version             = current
+            bookmark            = bookmark
+            frustumParameters   = None
+            poseDataPath        = None
+            sceneState          = None
+            delay               = SequencedBookmarkDefaults.initDelay 0.0
+            duration            = SequencedBookmarkDefaults.initDuration 5.0
+            basePath            = None
+        }
+
+    let init' bookmark sceneState frustumParameters 
+              poseDataPath =
+        {
+            version             = current
+            bookmark            = bookmark
+            frustumParameters   = frustumParameters
+            poseDataPath        = poseDataPath
+            sceneState          = sceneState
+            delay               = SequencedBookmarkDefaults.initDelay 0.0
+            duration            = SequencedBookmarkDefaults.initDuration 5.0
+            basePath            = None
         }
 
     let read0 = 
         json {
             let! bookmark   = Json.read "bookmark"
-            
+            let! frustumParameters = Json.tryRead "frustumParameters"
             let! sceneState = Json.read "sceneState"
 
             let! delay      = Json.read "delay"
@@ -224,6 +283,8 @@ module SequencedBookmarkModel =
             return {
                 version                 = 0              
                 bookmark                = bookmark             
+                frustumParameters       = frustumParameters
+                poseDataPath            = None
                 sceneState              = sceneState
                 delay                   = SequencedBookmarkDefaults.initDelay delay                
                 duration                = SequencedBookmarkDefaults.initDuration duration             

@@ -168,7 +168,7 @@ let startApplication (startupArgs : CLStartupArgs) =
         let (mainApp, mModel) =
             SimulatedViews.PRo3DUtils.start 
                 runtime signature false messagingMailbox 
-                sendQueue dumpFile cacheFile uri 8 ""
+                sendQueue dumpFile cacheFile uri 8 "" viewerVersion
 
         let s = 
             {MailboxState.empty with update = 

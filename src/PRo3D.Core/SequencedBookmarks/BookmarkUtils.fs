@@ -43,12 +43,14 @@ module BookmarkUtils =
             }
         let sequencedBookmark =
             {
-                version    = SequencedBookmarkModel.current
-                bookmark   = bookmark
-                sceneState = Some sceneState
-                duration   = SequencedBookmarkDefaults.initDuration 3.0
-                delay      = SequencedBookmarkDefaults.initDelay 0.0
-                basePath   = None
+                version             = SequencedBookmarkModel.current
+                bookmark            = bookmark
+                sceneState          = Some sceneState
+                frustumParameters   = None
+                poseDataPath        = None
+                duration            = SequencedBookmarkDefaults.initDuration 3.0
+                delay               = SequencedBookmarkDefaults.initDelay 0.0
+                basePath            = None
             }
         sequencedBookmark
 

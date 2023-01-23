@@ -59,6 +59,8 @@ module ViewerLenses =
     let _geologicSurfacesModel = Model.scene_ >->  Scene.geologicSurfacesModel_
     let _geologicSurfaces      = _geologicSurfacesModel >-> GeologicSurfacesModel.geologicSurfaces_
         
+    let _sequencedBookmarks = Model.scene_ >-> Scene.sequencedBookmarks_ 
+
     let _sceneState : ((Model -> SceneState) * (SceneState -> Model -> Model)) =
         let inline haveSameKeys (a : HashMap<'a, 'b>) (b : HashMap<'a, 'c>) =
             if a.Count <> b.Count then false

@@ -279,6 +279,27 @@ module SequencedBookmarksApp =
             | None -> 
                 outerModel, m
 
+    let addBookmarks (m : SequencedBookmarks) (bookmarks : seq<SequencedBookmark>) =
+        let bookmarksWithKeys = 
+            bookmarks
+            |> Seq.map (fun x -> x.key, x)
+        let allBookmarks =
+            m.bookmarks
+            |> HashMap.union (HashMap.ofSeq bookmarksWithKeys)
+        let orderList =
+            m.orderList 
+            |> List.append (bookmarks 
+                            |> Seq.map (fun x -> x.key)
+                            |> List.ofSeq)
+        {m with bookmarks = allBookmarks
+                orderList = orderList}
+        
+    let withResultion (m : SequencedBookmarks) (resolution : V2i) =
+        {m with 
+            resolutionX = {m.resolutionX with value = resolution.X}
+            resolutionY = {m.resolutionY with value = resolution.Y}
+        }
+
     let generateSnapshots m runProcess scenePath =
         let jsonPathName = Path.combine [m.outputPath;"batchRendering.json"]
         if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform

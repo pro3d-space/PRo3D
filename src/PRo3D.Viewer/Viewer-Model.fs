@@ -500,6 +500,7 @@ type MultiSelectionBox =
 
 [<ModelType>]
 type Model = { 
+    viewerVersion        : string
     startupArgs          : StartupArgs
     dashboardMode        : string
     scene                : Scene
@@ -616,6 +617,7 @@ module Viewer =
         numberOfSamples    
         screenshotDirectory
         animatorLens
+        viewerVersion
         : Model = 
 
         {     
@@ -648,7 +650,7 @@ module Viewer =
                     sequencedBookmarks    = SequencedBookmarks.initial //with outputPath = Config.besideExecuteable}
                     screenshotModel       = ScreenshotModel.initial
                 }
-
+            viewerVersion   = viewerVersion
             dashboardMode   = DashboardModes.core.name
             navigation      = navInit
 

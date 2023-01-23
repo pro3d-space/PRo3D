@@ -318,6 +318,7 @@ let main argv =
                 renderingUrl 
                 ViewerApp.dataSamples
                 appData
+                viewerVersion
 
         let s = {MailboxState.empty with update = 
                                             (fun a -> 

@@ -564,7 +564,6 @@ module ViewerApp =
                         bm
                         m.scene.cameraView 
                         (m.frustum |> Frustum.horizontalFieldOfViewInDegrees)
-                        //m.frustum
                         m.scene.config.nearPlane.value
                         m.scene.config.farPlane.value
                 SnapshotAnimation.writeToFile snapshotAnimation jsonPathName   
@@ -953,6 +952,7 @@ module ViewerApp =
                     m.numberOfSamples 
                     m.screenshotDirectory
                     _animator
+                    m.viewerVersion
 
             { initialModel with recent = m.recent} |> ViewerIO.loadRoverData
         | KeyDown k, _, _ ->
@@ -1565,18 +1565,25 @@ module ViewerApp =
         | SetSceneState state, _, _ ->
             Optic.set _sceneState state m
         | LoadPoseDefinitionFile, _, _ -> //RNO WIP
-            let data = SimulatedViews.PoseData.dummyData
-            data
-            |> Json.serialize 
-            |> Json.formatWith JsonFormattingOptions.Pretty 
-            |> Serialization.Chiron.writeToFile "poseTreeDummyData.json"
+            //let data = SimulatedViews.PoseData.dummyData
+            //data
+            //|> Json.serialize 
+            //|> Json.formatWith JsonFormattingOptions.Pretty 
+            //|> Serialization.Chiron.writeToFile "poseTreeDummyData.json"
 
             let poseData : PoseData = 
                 "poseTreeDummyData.json"
-                    |> Serialization.readFromFile
-                    |> Json.parse 
-                    |> Json.deserialize       
+                |> Serialization.readFromFile
+                |> Json.parse 
+                |> Json.deserialize       
+
+            let sceneState = Optic.get _sceneState m 
+            let bookmarks = PoseData.toSequencedBookmarks poseData sceneState 
+                            |> SequencedBookmarksApp.addBookmarks m.scene.sequencedBookmarks
+
+            let m = Optic.set _sequencedBookmarks bookmarks m
             m
+
         | unknownAction, _, _ -> 
             Log.line "[Viewer] Message not handled: %s" (string unknownAction)
             m       
@@ -2031,12 +2038,13 @@ module ViewerApp =
         (renderingUrl        : string)
         (dataSamples         : int)
         (screenshotDirectory : string)
+        (viewerVersion       : string)
         =
 
         let m = 
             if startEmpty |> not then
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl 
-                                            dataSamples screenshotDirectory _animator
+                                            dataSamples screenshotDirectory _animator viewerVersion
                 |> SceneLoader.loadLastScene runtime signature                
                 |> SceneLoader.loadLogBrush
                 |> ViewerIO.loadRoverData                
@@ -2051,7 +2059,7 @@ module ViewerApp =
                 
             else
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl
-                                            dataSamples screenshotDirectory _animator
+                                            dataSamples screenshotDirectory _animator viewerVersion
                 |> ViewerIO.loadRoverData
 
         App.start {
