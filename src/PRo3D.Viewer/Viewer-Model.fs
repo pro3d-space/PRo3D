@@ -564,6 +564,25 @@ type Model = {
 
     [<NonAdaptive>]
     animator             : Anewmation.Animator<Model>
+
+    provenanceModel      : ProvenanceModel
+} 
+and Node = {
+    input : Option<PMessage>
+    state : PModel
+}
+and ProvenanceModel = {
+    states : list<Node>
+}
+
+and PMessage =
+| SetCameraView of CameraView
+| AddAnnotation of Drawing.DrawingModel
+
+and PModel = {
+    cameraView  : CameraView
+    frustum     : Frustum
+    drawing     : Drawing.DrawingModel
 }
 
 type ViewerAnimationAction =
@@ -646,6 +665,8 @@ module Viewer =
                     traverses             = TraverseModel.initial
                     sequencedBookmarks    = SequencedBookmarks.initial //with outputPath = Config.besideExecuteable}
                     screenshotModel       = ScreenshotModel.initial
+
+                    provenanceModel = ProvenanceModel.initial
                 }
 
             dashboardMode   = DashboardModes.core.name

@@ -40,7 +40,6 @@
     <None Include="paket.references" />
     <Compile Include="Config.fs" />
     <Compile Include="Models\Model.fs" />
-    <Compile Include="Models\VersionedModel.fs" />
     <Compile Include="Models\Lenses.fs" />
     <Compile Include="Utilities.fs" />
     <Compile Include="Navigation-Model.fs" />
@@ -56,6 +55,8 @@
     <Compile Include="LensConfigs.fs" />
 
     <Compile Include="AnnotationRendering.fs" />
+
+    <Compile Include="Provenance.fs" />
     <Compile Include="Viewer\Viewer-Utils.fs" />
     <Compile Include="Viewer\ViewerGUI.fs" />
     <Compile Include="Viewer\Viewer-IO.fs" />

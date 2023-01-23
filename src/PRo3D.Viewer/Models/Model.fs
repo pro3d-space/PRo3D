@@ -6,11 +6,6 @@ open FSharp.Data.Adaptive
 open Adaptify
 open Aardvark.UI
 open Aardvark.UI.Primitives
-open Aardvark.Application
-
-open Aardvark.SceneGraph
-open Aardvark.SceneGraph.Opc
-open Aardvark.VRVis
 open Aardvark.Rendering
 
 open PRo3D.Base
@@ -161,16 +156,6 @@ module JsonTypes =
         s  
         |> IndexList.map ofV3d
         |> IndexList.toList
-
-
-    let rec fold f s xs =
-        match xs with
-        | x::xs -> 
-                let r = fold f s xs
-                f x r
-        | [] -> s
-
-    let sum = [ 1 .. 10 ] |> List.fold (fun s e -> s * e) 1
 
     let sumDistance (polyline : Points) : double =
         polyline  
