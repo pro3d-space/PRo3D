@@ -477,7 +477,7 @@ module PoseData =
                         bookmark sceneState frustumParameters (Some m.path))
                       |> SequencedBookmark.LoadedBookmark
 
-        }
+        } |> List.ofSeq
             
 
 

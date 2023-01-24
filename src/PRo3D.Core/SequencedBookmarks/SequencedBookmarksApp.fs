@@ -279,13 +279,13 @@ module SequencedBookmarksApp =
             | None -> 
                 outerModel, m
 
-    let addBookmarks (m : SequencedBookmarks) (bookmarks : seq<SequencedBookmark>) =
+    let addBookmarks (m : SequencedBookmarks) (bookmarks : list<SequencedBookmark>) =
         let bookmarksWithKeys = 
             bookmarks
-            |> Seq.map (fun x -> x.key, x)
+            |> List.map (fun x -> x.key, x)
         let allBookmarks =
             m.bookmarks
-            |> HashMap.union (HashMap.ofSeq bookmarksWithKeys)
+            |> HashMap.union (HashMap.ofList bookmarksWithKeys)
         let orderList =
             m.orderList 
             |> List.append (bookmarks 

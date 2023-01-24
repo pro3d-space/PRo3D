@@ -185,11 +185,10 @@ module BookmarkUtils =
         for guid, bm in bookmarks.bookmarks do
             match bm with
             | SequencedBookmarks.SequencedBookmark.LoadedBookmark bm ->
-                let bmPath = Path.Combine ( basePath, bm.path )
                 bm
                 |> Json.serialize
                 |> Json.formatWith JsonFormattingOptions.SingleLine
-                |> Serialization.Chiron.writeToFile bmPath
+                |> Serialization.Chiron.writeToFile bm.path
             | SequencedBookmarks.SequencedBookmark.NotYetLoaded bm ->
                 () // no need to write bookmark if not loaded (no changes)
         bookmarks
