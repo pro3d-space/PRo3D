@@ -160,6 +160,7 @@ type ViewerAction =
 | ScreenshotMessage              of ScreenshotAction
 | TraverseMessage                of TraverseAction
 | SetSceneState                  of SceneState
+| WriteBookmarkMetadata          of string * SequencedBookmarkModel
 | StopGeoJsonAutoExport        
 | LoadPoseDefinitionFile
 | Nop

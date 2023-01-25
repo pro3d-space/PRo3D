@@ -209,9 +209,27 @@ module SnapshotAnimation =
                       (fieldOfView : float)
                       (nearPlane   : float) 
                       (farPlane    : float) =
-        let frustum =
-          Frustum.perspective fieldOfView nearPlane farPlane
-                              (float(bm.resolutionX.value)/float(bm.resolutionY.value))
+        let defaultFrustum () =
+            {
+                resolution  = V2i(bm.resolutionX.value, bm.resolutionY.value)
+                fieldOfView = fieldOfView
+                nearplane   = nearPlane
+                farplane    = farPlane
+            }
+
+        let frustum = 
+            let bookmarks = BookmarkUtils.orderedLoadedBookmarks bm
+            // currently using frustum parameters of first bookmark
+            // could be extended to allow changing frustum parameters for each bookmark
+            match List.tryHead bookmarks with 
+            | Some first ->
+                let frustumParas = first.frustumParameters
+                match frustumParas with
+                | Some frustumParas ->
+                    frustumParas
+                | None -> defaultFrustum ()
+            | None -> defaultFrustum ()
+
         if bm.orderList.Length > 0 then                  
             let snapshots =
                 match bm.fpsSetting with
@@ -225,14 +243,16 @@ module SnapshotAnimation =
             let snapshotAnimation : BookmarkSnapshotAnimation =
                 {
                     snapshots   = snapshots
-                    fieldOfView = Some (frustum |> Frustum.horizontalFieldOfViewInDegrees)
-                    resolution  = V2i (bm.resolutionX.value, bm.resolutionY.value)
-                    nearplane   = nearPlane
-                    farplane    = farPlane
+                    fieldOfView = Some (frustum.perspective 
+                                        |> Frustum.horizontalFieldOfViewInDegrees)
+                    resolution  = frustum.resolution
+                    nearplane   = frustum.nearplane
+                    farplane    = frustum.farplane
                 } 
             snapshotAnimation |> SnapshotAnimation.BookmarkAnimation     
         else 
-            currentFrameToAnimation bm cameraView frustum nearPlane farPlane
+            currentFrameToAnimation bm cameraView frustum.perspective 
+                                    frustum.nearplane frustum.farplane
 
     let readTestAnimation () =
         try

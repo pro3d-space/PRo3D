@@ -221,7 +221,7 @@ module SnapshotApp =
             let snapshot = a.snapshots.[i]
             let fullPathName = Path.combine [app.outputFolder;snapshot.filename]
             let actions = (app.getSnapshotActions (Snapshot.Bookmark snapshot) NearFarRecalculation.NoRecalculation fullPathName)
-            if app.verbose then Log.line "[Snapshots] Updating parameters for next frame."
+            if app.verbose then Log.line "[Snapshots] BookmarkAnimation: Updating parameters for next frame."
             app.mutableApp.updateSync (Guid.NewGuid ()) actions 
 
             renderAndSave (sprintf "%s.png" fullPathName) app.verbose parameters

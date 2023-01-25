@@ -6,11 +6,13 @@ open Aardvark.Rendering
 
 open Adaptify
 open Chiron
+open System.Text.Json
+open System.Text.Json.Serialization
+open System.Text.Json.Nodes
 open PRo3D.Base
 open PRo3D.Core
 
 open PRo3D.Core.SequencedBookmarks
-open System.Text.Json.Nodes
 
 type PoseId = string
 
@@ -438,11 +440,90 @@ module PoseData =
             cameraDefinitions   = PoseCameraDefinition.dummyData
             renderingSettings   = PoseRenderingSettings.dummyData
             layerDefinitions    = PoseLayerDefinition.dummyData // not in use yet, for future extension
-            layoutDefinitions    = PoseLayoutDefinition.dummyData // not in use yet, for future extension
+            layoutDefinitions   = PoseLayoutDefinition.dummyData // not in use yet, for future extension
         }
 
-    let toSequencedBookmarks (m : PoseData) (sceneState : SceneState) =
-        seq {
+    type MetadataBuilder = 
+        {
+            poseKey  : string
+            fromView : SnapshotCamera -> string
+        }
+
+    let toMetadataWithView (view     : CameraView)
+                           (metadata : list<JsonProperty>)  = 
+        let view : SnapshotCamera =
+            {
+                location = view.Location
+                forward  = view.Forward
+                up       = view.Up
+            }
+        let stream = new System.IO.MemoryStream ()
+        let jsonWriter = new Utf8JsonWriter (stream, JsonWriterOptions ())
+        jsonWriter.WriteStartObject ("poseData")
+        for item in metadata do
+            let str = JsonSerializer.Serialize(item)
+            jsonWriter.WriteRawValue str
+        let viewStr = 
+            (Json.serialize view)
+            |> Json.formatWith JsonFormattingOptions.SingleLine 
+        jsonWriter.WriteRawValue viewStr
+        jsonWriter.WriteEndObject ()
+        jsonWriter.Flush ()
+        let reader = new System.IO.StreamReader ( stream )
+        let text = reader.ReadToEnd()
+        jsonWriter.Dispose ()
+        stream.Dispose ()
+        reader.Dispose ()
+        text
+
+    let toSequencedBookmarks (m    : PoseData) (sceneState : SceneState) =
+        let text = System.IO.File.ReadAllText(m.path)
+        let doc = JsonDocument.Parse (text)
+        let ok, poses = doc.RootElement.TryGetProperty ("poses") //TODO RNO deal with fail
+        //let test = JsonNode.Parse text
+        //let poses = test["poses"]
+        //let jsonObj = new JsonObject ();
+        //for pose in poses.AsArray () do
+        //    pose.
+
+        let jsonArray = JsonArray ()
+        //let allMetadata = // TODO RNO refactor
+        //    let metadata = 
+        //        [
+        //            for pose in poses.EnumerateArray () do
+        //                let ok, keyProp = pose.TryGetProperty ("key")
+        //                let key = keyProp.GetString ()
+        //                yield key, [
+        //                    for item in pose.EnumerateObject () do
+        //                        if item.Name = "view" then
+        //                            () // let ok, view = pose.TryGetProperty ("view")
+        //                        else
+        //                            yield item
+        //                ] 
+        //        ]
+
+        //    metadata 
+
+        let allMetadata =
+            [
+                for pose in poses.EnumerateArray () do
+                    let text = pose.GetRawText()
+                    let ok, keyProp = pose.TryGetProperty ("key")
+                    let key = keyProp.GetString ()
+                    //let stream = new System.IO.MemoryStream ()
+                    //let jsonWriter = new Utf8JsonWriter (stream)
+                    
+                    //jsonWriter.WriteStartObject();
+                    //pose.WriteTo(jsonWriter)
+                    //jsonWriter.WriteEndObject();
+                    //jsonWriter.Flush ()
+                    //let reader = new System.IO.StreamReader ( stream )
+                    //let text = reader.ReadToEnd()
+                    yield key, text
+            ]
+                
+
+        [
             for pose in m.poses do
                 let camPose = List.tryFind 
                                 (fun  (x : PoseCameraDefinition) -> x.cameraId = pose.cameraId)  
@@ -472,14 +553,18 @@ module PoseData =
 
                 let sceneState = 
                     Some sceneState 
-                        
+
+                let metadata =
+                    allMetadata
+                    |> List.tryFind (fun (key, x) -> key = pose.key)
+                    |> Option.map snd
+                    //|> Option.map (toMetadataWithView bookmark.cameraView)
+                    
                 yield (SequencedBookmarkModel.init' 
-                        bookmark sceneState frustumParameters (Some m.path))
+                        bookmark sceneState frustumParameters (Some m.path)) metadata
                       |> SequencedBookmark.LoadedBookmark
 
-        } |> List.ofSeq
-            
-
+        ] 
 
 type PoseData with 
     static member FromJson( _ : PoseData) =
@@ -500,5 +585,19 @@ type PoseData with
             do! Json.write "cameraDefinitions" x.cameraDefinitions
             do! Json.write "renderingSettings" x.renderingSettings
             do! Json.write "layerDefinitions"  x.layerDefinitions
-            do! Json.write "layoutDefinitions"  x.layoutDefinitions
+            do! Json.write "layoutDefinitions" x.layoutDefinitions
         }
+
+    static member writeDummyData path =
+        PoseData.dummyData
+        |> Json.serialize 
+        |> Json.formatWith JsonFormattingOptions.Pretty 
+        |> Serialization.Chiron.writeToFile path
+
+    static member read path =
+        let poseData : PoseData = 
+            path
+            |> Serialization.readFromFile
+            |> Json.parse 
+            |> Json.deserialize               
+        {poseData with path = path}

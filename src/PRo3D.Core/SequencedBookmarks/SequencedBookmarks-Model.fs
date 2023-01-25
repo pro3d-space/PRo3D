@@ -10,6 +10,7 @@ open PRo3D.Base
 open PRo3D.Core
 
 open Chiron
+open System.Text.Json
 open Aether
 open Aether.Operators
 
@@ -136,7 +137,13 @@ type FrustumParameters = {
     fieldOfView : float
     nearplane   : float
     farplane    : float
-}
+} with
+     member this.perspective =
+        Aardvark.Rendering.Frustum.perspective 
+                this.fieldOfView 
+                this.nearplane 
+                this.farplane
+                ((float this.resolution.X) / (float this.resolution.Y))
 
 module FrustumParameters =
     let dummyData id =
@@ -179,7 +186,7 @@ type SequencedBookmarkModel = {
     [<NonAdaptive>]
     version             : int
     bookmark            : Bookmark
-
+    metadata            : option<string> // TODO RNO refactor
     frustumParameters   : option<FrustumParameters>
     poseDataPath        : option<string>
 
@@ -250,6 +257,7 @@ module SequencedBookmarkModel =
         {
             version             = current
             bookmark            = bookmark
+            metadata            = None
             frustumParameters   = None
             poseDataPath        = None
             sceneState          = None
@@ -259,10 +267,11 @@ module SequencedBookmarkModel =
         }
 
     let init' bookmark sceneState frustumParameters 
-              poseDataPath =
+              poseDataPath metadata =
         {
             version             = current
             bookmark            = bookmark
+            metadata            = metadata
             frustumParameters   = frustumParameters
             poseDataPath        = poseDataPath
             sceneState          = sceneState
@@ -275,23 +284,25 @@ module SequencedBookmarkModel =
         json {
             let! bookmark   = Json.read "bookmark"
             let! frustumParameters = Json.tryRead "frustumParameters"
+            let! poseDataPath      = Json.tryRead "poseDataPath"
             let! sceneState = Json.read "sceneState"
 
             let! delay      = Json.read "delay"
             let! duration   = Json.read "duration"
+            let! metadata   = Json.tryRead "metadata"
 
             return {
                 version                 = 0              
                 bookmark                = bookmark             
                 frustumParameters       = frustumParameters
-                poseDataPath            = None
+                metadata                = metadata
+                poseDataPath            = poseDataPath
                 sceneState              = sceneState
                 delay                   = SequencedBookmarkDefaults.initDelay delay                
                 duration                = SequencedBookmarkDefaults.initDuration duration             
                 basePath                = None
             }
         }
-
 
 type SequencedBookmarkModel with
     static member FromJson( _ : SequencedBookmarkModel) =
@@ -312,6 +323,12 @@ type SequencedBookmarkModel with
             do! Json.write "sceneState" x.sceneState
             do! Json.write "delay"      x.delay.value
             do! Json.write "duration"   x.duration.value
+            if x.poseDataPath.IsSome then
+                do! Json.write "poseDataPath" x.poseDataPath
+            if x.frustumParameters.IsSome then
+                do! Json.write "frustumParameters" x.frustumParameters
+            if x.metadata.IsSome then
+                do! Json.write "metadata" x.metadata
         }
 
 [<ModelType>]
@@ -513,6 +530,7 @@ type AnimationTimeStep =
 type SequencedBookmarks = {
     version           : int
     bookmarks         : HashMap<Guid,SequencedBookmark>
+    poseDataPath      : option<string>
     /// currently not in use, could be used to save and resotre a certain state independantly of bookmarks
     savedSceneState   : Option<SceneState>
     orderList         : List<Guid>
@@ -599,6 +617,7 @@ module SequencedBookmarks =
             let! orderList          = Json.read "orderList"
             let! selected           = Json.read "selectedBookmark"
             let! generateOnStop     = Json.tryRead "generateOnStop"
+            let! poseDataPath       = Json.tryRead "poseDataPath"
             let generateOnStop =
                 match generateOnStop with
                 | Some g -> g
@@ -647,6 +666,7 @@ module SequencedBookmarks =
                 {
                     version             = current
                     bookmarks           = bookmarks
+                    poseDataPath        = poseDataPath
                     savedSceneState     = sceneState
                     orderList           = orderList
                     selectedBookmark    = selected
@@ -683,7 +703,7 @@ module SequencedBookmarks =
                                                                     <| SequencedBookmarkModel.init a)) 
                       |> HashMap.ofList
                 | _,_ -> HashMap.empty
-
+            let! poseDataPath       = Json.read "poseDataPath"
             let! orderList          = Json.read "orderList"
             let! selected           = Json.read "selectedBookmark"
             let! generateOnStop     = Json.tryRead "generateOnStop"
@@ -735,6 +755,7 @@ module SequencedBookmarks =
                 {
                     version             = current
                     bookmarks           = bookmarks
+                    poseDataPath        = poseDataPath
                     savedSceneState     = sceneState
                     orderList           = orderList
                     selectedBookmark    = selected
@@ -763,7 +784,8 @@ module SequencedBookmarks =
         {
             version             = current
             bookmarks           = HashMap.Empty
-            savedSceneState  = None
+            poseDataPath        = None
+            savedSceneState     = None
             orderList           = List.empty
             selectedBookmark    = None
             snapshotThreads     = ThreadPool.Empty
@@ -805,6 +827,8 @@ type SequencedBookmarks with
                                                          |> HashMap.toList 
                                                          |> List.map snd)
             do! Json.write "orderList"                  x.orderList
+            if x.poseDataPath.IsSome then
+                do! Json.write "poseDataPath"           x.poseDataPath
             do! Json.write "selectedBookmark"           x.selectedBookmark
             if x.savedSceneState.IsSome then
                 do! Json.write "originalSceneState"     x.savedSceneState.Value

@@ -110,14 +110,37 @@ module SnapshotGenerator =
                 |> List.map ViewerMessage
                 |> List.toSeq    
             | BookmarkTransformation.Bookmark bookmark ->
+                Log.line "[SnapshotGenerator] Getting bookmark actions for %s" filename
                 let actions = 
-                    match bookmark.sceneState with
-                    | Some state ->
-                        [
-                            ViewerAction.SetSceneState state
-                            ViewerAction.SetCamera bookmark.cameraView
-                        ]
-                    | None -> []
+                    let sceneStateAction = 
+                        match bookmark.sceneState with
+                        | Some state ->
+                            [ViewerAction.SetSceneState state]
+                        | None -> []
+
+                    let frustumAction =
+                        match bookmark.frustumParameters with
+                        | Some fp -> 
+                            [ViewerAction.SetFrustum fp.perspective]
+                        | None ->
+                            []
+
+                    let writeMetadataAction =
+                        match bookmark.metadata with
+                        | Some metadata ->
+                            let dir = System.IO.Path.GetDirectoryName filename
+                            let filename = System.IO.Path.GetFileNameWithoutExtension filename
+                            let filename = sprintf "%s.json" filename
+                            let path = System.IO.Path.Combine (dir, filename)
+                            [ViewerAction.WriteBookmarkMetadata (path, bookmark)]
+                        | None -> []
+
+                    sceneStateAction
+                    @frustumAction
+                    @writeMetadataAction
+                    @[
+                        ViewerAction.SetCamera bookmark.cameraView
+                    ]
                 actions
                 |> List.map ViewerMessage
                 |> List.toSeq    

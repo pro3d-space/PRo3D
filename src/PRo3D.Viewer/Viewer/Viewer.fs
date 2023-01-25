@@ -1565,25 +1565,25 @@ module ViewerApp =
         | SetSceneState state, _, _ ->
             Optic.set _sceneState state m
         | LoadPoseDefinitionFile, _, _ -> //RNO WIP
-            //let data = SimulatedViews.PoseData.dummyData
-            //data
-            //|> Json.serialize 
-            //|> Json.formatWith JsonFormattingOptions.Pretty 
-            //|> Serialization.Chiron.writeToFile "poseTreeDummyData.json"
-
-            let poseData : PoseData = 
-                "poseTreeDummyData.json"
-                |> Serialization.readFromFile
-                |> Json.parse 
-                |> Json.deserialize       
-
+            let path = "poseTreeDummyData.json"
+            //SimulatedViews.PoseData.writeDummyData path
+            let poseData : PoseData = SimulatedViews.PoseData.read path
             let sceneState = Optic.get _sceneState m 
-            let bookmarks = PoseData.toSequencedBookmarks poseData sceneState 
+            let bookmarks = PoseData.toSequencedBookmarks poseData sceneState
                             |> SequencedBookmarksApp.addBookmarks m.scene.sequencedBookmarks
-
+            let bookmarks = {bookmarks with poseDataPath = Some path}
             let m = Optic.set _sequencedBookmarks bookmarks m
             m
-
+        | WriteBookmarkMetadata (path, bm) , _, _ ->
+            match bm.metadata with
+            | Some md ->
+                Log.line "[Viewer] Writing metadata to %s" path
+                System.IO.File.WriteAllText(path, md)
+                m
+            | None ->
+                Log.line "[Viewer] No metadata for bookmark %s" bm.name
+                m
+            
         | unknownAction, _, _ -> 
             Log.line "[Viewer] Message not handled: %s" (string unknownAction)
             m       

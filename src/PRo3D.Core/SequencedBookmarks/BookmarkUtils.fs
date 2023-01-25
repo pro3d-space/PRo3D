@@ -45,6 +45,7 @@ module BookmarkUtils =
             {
                 version             = SequencedBookmarkModel.current
                 bookmark            = bookmark
+                metadata            = None
                 sceneState          = Some sceneState
                 frustumParameters   = None
                 poseDataPath        = None

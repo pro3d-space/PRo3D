@@ -174,7 +174,7 @@ with
 /// updates between bookmarks
 type BookmarkTransformation = 
     | Bookmark of SequencedBookmarks.SequencedBookmarkModel
-    | Camera of SnapshotCamera
+    | Camera   of SnapshotCamera
 with 
     static member ToJson x =
         match x with
