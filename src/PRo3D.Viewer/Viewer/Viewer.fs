@@ -497,7 +497,8 @@ module ViewerApp =
 
             let surfaceModel = 
                 match msg with
-                | SurfaceAppAction.ChangeImportDirectories _ ->
+                | SurfaceAppAction.ChangeImportDirectories _ 
+                | SurfaceAppAction.ChangeOBJImportDirectories _ ->
                     model.scene.surfacesModel 
                     |> SceneLoader.prepareSurfaceModel runtime signature model.scene.scenePath
                 | _ -> 
@@ -615,8 +616,7 @@ module ViewerApp =
             
         | RoverMessage msg,_,_ ->
             let roverModel = RoverApp.update m.scene.viewPlans.roverModel msg
-            let viewPlanModel = ViewPlanApp.updateViewPlanFroAdaptiveRover roverModel m.scene.viewPlans
-            { m with scene = { m.scene with viewPlans = viewPlanModel }}
+            { m with scene = { m.scene with viewPlans = {m.scene.viewPlans with roverModel = roverModel }}}
         | ViewPlanMessage msg,_,_ ->
             let model, viewPlanModel = ViewPlanApp.update m.scene.viewPlans msg _navigation _footprint m.scene.scenePath m
 
@@ -633,8 +633,8 @@ module ViewerApp =
                 | _ ->
                     m.animations             
 
-            { m with 
-                scene = { m.scene with viewPlans = viewPlanModel }
+            { model with 
+                scene = { model.scene with viewPlans = viewPlanModel }
                 footPrint = model.footPrint
                 animations = animations
             } 
@@ -1720,7 +1720,7 @@ module ViewerApp =
              |> Sg.cullMode (AVal.constant CullMode.None)
 
         // instrument view control
-        let icmds = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed discsInst false m // m.scene.surfacesModel.sgGrouped overlayed discs m
+        let icmds = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed discsInst false true runtime m // m.scene.surfacesModel.sgGrouped overlayed discs m
                         |> AList.map ViewerUtils.mapRenderCommand
         let icam = 
             AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
@@ -1945,7 +1945,7 @@ module ViewerApp =
 
 
         //render OPCs in priority groups
-        let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested true m
+        let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested true false runtime m
                         |> AList.map ViewerUtils.mapRenderCommand
         onBoot "attachResize('__ID__')" (
             DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)

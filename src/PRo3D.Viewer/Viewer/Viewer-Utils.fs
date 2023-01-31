@@ -237,8 +237,9 @@ module ViewerUtils =
         [<Position>]        pos     : V4d
         [<Color>]           c       : V4d
         [<TexCoord>]        tc      : V2d
-        [<Semantic("ViewSpacePos")>] vp : V4d
-        [<Semantic("FootPrintProj")>] tc0     : V4d
+        [<Semantic("ViewSpacePos")>]  vp    : V4d
+        [<Semantic("FootPrintProj")>] tc0   : V4d
+        [<Semantic("DepthTex")>]      tc1   : V4d
     }
 
     let stableTrafoTest (v : Vertex) =
@@ -263,10 +264,12 @@ module ViewerUtils =
         (globalBB        : aval<Box3d>) 
         (refsys          : AdaptiveReferenceSystem)
         (fp              : AdaptiveFootPrint) 
-        (vp              : aval<AdaptiveOptionCase<ViewPlan, AdaptiveViewPlan, AdaptiveViewPlan>>) 
+        (vpVisible       : aval<bool>)
         (useHighlighting : aval<bool>)
         (filterTexture   : aval<bool>)
-        (allowFootprint  : bool) =
+        (allowFootprint  : bool) 
+        (depthTexture    : IAdaptiveResource<IBackendTexture>)  
+        (allowDepthview  : bool) =
 
         adaptive {
             let! exists = (surfacesMap |> AMap.keys) |> ASet.contains surface.surface
@@ -341,15 +344,18 @@ module ViewerUtils =
                     adaptive {
                         if not allowFootprint then return false
                         else
-                            let! vp = vp
-                            match vp with
-                            | AdaptiveSome vp -> 
-                                return! vp.isVisible 
-                            | _ -> 
-                                return false
-                            //let! visible = fp.isVisible
-                            //let! id = fp.vpId
-                            //return (vp.IsSome && visible)
+                            let! fpVisible = fp.isVisible
+                            let! vpV = vpVisible
+                            return (fpVisible && vpV)
+                    }
+
+                let depthVisible = 
+                    adaptive {
+                        if not allowDepthview then return false
+                        else
+                            let! depthVisible = fp.isDepthVisible
+                            let! vpV = vpVisible
+                            return (depthVisible && vpV)
                     }
                 
                 let footprintViewProj = 
@@ -369,6 +375,8 @@ module ViewerUtils =
                         if visible then sg else Sg.empty
                     )
                     |> Sg.dynamic
+
+                let! texTest = depthTexture
                 
                 let surfaceSg =
                     surface.sceneGraph
@@ -381,11 +389,13 @@ module ViewerUtils =
                     |> addAttributeFalsecolorMappingParameters surf
                     |> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
                     |> addImageCorrectionParameters surf
-                    |> Sg.uniform "FootprintVisible" footprintVisible
-                    |> Sg.uniform "FootprintModelViewProj" (M44d.Identity |> AVal.constant)
-                    |> Sg.applyFootprint footprintViewProj
+                    |> Sg.uniform "DepthVisible" depthVisible
+                    //|> Sg.uniform "FootprintVisible" footprintVisible
+                    //|> Sg.uniform "FootprintModelViewProj" (M44d.Identity |> AVal.constant)
+                    //|> Sg.applyFootprint footprintViewProj
                     |> Sg.noEvents
-                    |> Sg.texture (Sym.ofString "FootPrintTexture") fp.projTex
+                    |> Sg.texture (Sym.ofString "DepthTexture") (texTest |> AVal.constant) // depthTexture
+                    //|> Sg.texture (Sym.ofString "FootPrintTexture") fp.projTex
                     |> Sg.LodParameters( getLodParameters surf refsys frustum )
                     |> Sg.AttributeParameters( attributeParameters surf )
                     |> OpcViewer.Base.Sg.pickable' pickable
@@ -415,6 +425,119 @@ module ViewerUtils =
             else
                 return Sg.empty
         } |> Sg.dynamic
+
+    let getSimpleSingleSurfaceSg 
+        (surface         : AdaptiveSgSurface) 
+        (surfacesMap     : amap<Guid, AdaptiveLeafCase>)
+        (frustum         : aval<Frustum>)
+        (refsys          : AdaptiveReferenceSystem) =
+
+        adaptive {
+          let! exists = (surfacesMap |> AMap.keys) |> ASet.contains surface.surface
+          if exists then
+            
+            let surf = lookUp (surface.surface) surfacesMap
+
+            let createSg (sg : ISg) =
+                    sg 
+                    |> Sg.noEvents 
+                    |> Sg.cullMode(surf |> AVal.bind(fun x -> x.cullMode))
+                    |> Sg.fillMode(surf |> AVal.bind(fun x -> x.fillMode))
+            
+            let triangleFilter = 
+                    surf |> AVal.bind(fun s -> s.triangleSize.value)
+
+            let trafo =
+                adaptive {
+                    let! fullTrafo = SurfaceTransformations.fullTrafo surf refsys
+                    let! surface = surf
+                    let! scaleFactor = surface.scaling.value
+                    let! preTransform = surface.preTransform
+                    let! flipZ = surface.transformation.flipZ
+                    let! sketchFab = surface.transformation.isSketchFab
+                    if flipZ then 
+                        return Trafo3d.Scale(scaleFactor) * Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * preTransform)
+                    else if sketchFab then                            
+                        return Sg.switchYZTrafo
+                    else
+                        return Trafo3d.Scale(scaleFactor) * (fullTrafo * preTransform)
+                }
+
+            let triangleFilterX (input : Triangle<Vertex>) =
+                triangle {
+                    let p0 = input.P0.pos.XYZ
+                    let p1 = input.P1.pos.XYZ
+                    let p2 = input.P2.pos.XYZ
+
+                    let maxSize = uniform?TriangleSize
+
+                    let a = (p1 - p0)
+                    let b = (p2 - p1)
+                    let c = (p0 - p2)
+
+                    let alpha = a.Length < maxSize
+                    let beta  = b.Length < maxSize
+                    let gamma = c.Length < maxSize
+
+                    let check = (alpha && beta && gamma)
+                    if check then
+                        yield input.P0 
+                        yield input.P1
+                        yield input.P2
+                }
+            
+            let test =             
+              surface.sceneGraph
+                |> AVal.map createSg
+                |> Sg.dynamic
+                |> Sg.trafo trafo 
+                |> Sg.uniform "TriangleSize"   triangleFilter 
+                |> Sg.onOff (surf |> AVal.bind(fun x -> x.isVisible))
+                |> Sg.LodParameters( getLodParameters surf refsys frustum )
+                |> Sg.noEvents 
+                |> Sg.effect [
+                    triangleFilterX     |> toEffect
+                    Shader.stableTrafo  |> toEffect 
+                    Shader.OPCFilter.improvedDiffuseTexture |> toEffect
+                ]
+            return test
+                      else
+            return Sg.empty
+        } |> Sg.dynamic
+
+    let getSimpleSurfacesSg 
+        (m:AdaptiveModel) =  
+        let sgGrouped = m.scene.surfacesModel.sgGrouped 
+        let surfs = m.scene.surfacesModel.surfaces.flat
+        let refSystem = m.scene.referenceSystem
+            
+        let surfacesToSg surfaces =
+            surfaces
+              |> AMap.map (fun guid sf -> getSimpleSingleSurfaceSg sf surfs m.frustum refSystem)
+              |> AMap.toASet 
+              |> ASet.map snd    
+              |> Sg.set
+
+        let grouped = 
+            sgGrouped |> AList.map surfacesToSg
+        let sg = grouped |> AList.toASet |> Sg.set
+
+        sg
+            
+
+    let getDepth 
+        (m:AdaptiveModel) 
+        (runtime : IRuntime) =  
+        
+        let depthsignature = 
+            runtime.CreateFramebufferSignature ([
+                DefaultSemantic.Colors, TextureFormat.Rgba8
+                DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
+            ], 8)
+        
+        (getSimpleSurfacesSg m)
+            |> Sg.compile runtime depthsignature
+            |> RenderTask.renderToDepth (V2i(4096, 4096)|> AVal.constant)  
         
     let frustum (m:AdaptiveModel) =
         let near = m.scene.config.nearPlane.value
@@ -453,8 +576,6 @@ module ViewerUtils =
     let stableTrafo (v : Vertex) =
           vertex {
               let p = uniform.ModelViewProjTrafo * v.pos
-
-
               return 
                   { v with
                       pos = p
@@ -463,11 +584,31 @@ module ViewerUtils =
                   }
           }
 
-    
+    let private depthmap =
+        sampler2d {
+            texture uniform?DepthTexture
+            filter Filter.MinMagLinear
+            addressU FShade.WrapMode.Border
+            addressV FShade.WrapMode.Border
+            borderColor C4f.White
+        }  
 
+    let depthImageF (v : Vertex) =
+        fragment {     
+            let mutable color = v.c
+            if uniform?DepthVisible then
+                //let fpt = v.tc0.XYZ / v.tc0.W
+                let texColor = v.c * depthmap.Sample(v.tc, -1.0) //
+                color <- V4d(texColor.XYZ, 1.0)
+
+            return color
+        }
+
+    
     let surfaceEffect =
         Effect.compose [
-            PRo3D.Base.Shader.footprintV   |> toEffect 
+            //PRo3D.Base.Shader.footprintV   |> toEffect 
+            //PRo3D.Base.Shader.depthImageV  |> toEffect 
 
             stableTrafoTest             |> toEffect
 
@@ -482,21 +623,40 @@ module ViewerUtils =
                         
             OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
          //   PRo3D.Base.Shader.falseColorLegend2 |> toEffect
-            PRo3D.Base.Shader.mapColorAdaption  |> toEffect            
+            PRo3D.Base.Shader.mapColorAdaption  |> toEffect  
+
+            PRo3D.Base.Shader.depthImageF        |> toEffect
             
-            
-            PRo3D.Base.Shader.footPrintF        |> toEffect
+            //PRo3D.Base.Shader.footPrintF        |> toEffect
             
         ]
 
+    let isViewPlanVisible (m:AdaptiveModel) =
+        adaptive {
+            let! id = m.scene.viewPlans.selectedViewPlan
+            match id with
+            | Some v -> 
+                let! vp = m.scene.viewPlans.viewPlans |> AMap.tryFind v
+                match vp with
+                | Some selVp -> return! selVp.isVisible
+                | None -> return false
+            | None -> return false
+        }
+
     //TODO TO refactor screenshot specific
-    let getSurfacesScenegraphs (m:AdaptiveModel) =
+    let getSurfacesScenegraphs (runtime : IRuntime) (m:AdaptiveModel) =
         let sgGrouped = m.scene.surfacesModel.sgGrouped
         
       //  let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
         let usehighlighting = true |> AVal.constant //m.scene.config.useSurfaceHighlighting
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
+        let vpVisible = isViewPlanVisible m
+
+        let depthTexture = getDepth m runtime 
+
+
+
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 
@@ -511,9 +671,11 @@ module ViewerUtils =
                             sf.globalBB 
                             refSystem 
                             m.footPrint 
-                            m.scene.viewPlans.selectedViewPlan
+                            vpVisible
                             usehighlighting m.filterTexture
-                            true)
+                            true
+                            depthTexture
+                            false)
                     |> AMap.toASet 
                     |> ASet.map snd                     
                 )                
@@ -540,8 +702,8 @@ module ViewerUtils =
         sgs
   
     //TODO TO refactor screenshot specific
-    let getSurfacesSgWithCamera (m : AdaptiveModel) =
-        let sgs = getSurfacesScenegraphs m
+    let getSurfacesSgWithCamera (runtime : IRuntime) (m : AdaptiveModel) =
+        let sgs = getSurfacesScenegraphs runtime m
         let camera =
             AVal.map2 (fun v f -> Camera.create v f) m.scene.cameraView m.frustum 
         sgs 
@@ -549,7 +711,15 @@ module ViewerUtils =
             |> Sg.set
             |> (camera |> Sg.camera)
 
-    let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (allowFootprint : bool) (m:AdaptiveModel)  =
+    let renderCommands 
+        (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) 
+        overlayed 
+        depthTested 
+        (allowFootprint : bool) 
+        (allowDepthview : bool) 
+        (runtime : IRuntime) 
+        (m:AdaptiveModel)  =
+
         let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true
 
@@ -562,6 +732,9 @@ module ViewerUtils =
                 | _ -> true
             )
 
+        let depthTexture = getDepth m runtime
+
+        let vpVisible = isViewPlanVisible m
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
         let grouped = 
@@ -577,9 +750,11 @@ module ViewerUtils =
                             surface.globalBB
                             refSystem 
                             m.footPrint 
-                            m.scene.viewPlans.selectedViewPlan
+                            vpVisible
                             usehighlighting filterTexture
                             allowFootprint
+                            depthTexture
+                            allowDepthview
                        )
                     |> AMap.toASet 
                     |> ASet.map snd                     
@@ -598,6 +773,8 @@ module ViewerUtils =
                     |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
                     |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()
 
+                //yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
+
                 yield RenderCommand.SceneGraph sg
 
                 //if i = c then //now gets rendered multiple times
@@ -615,6 +792,7 @@ module ViewerUtils =
             yield RenderCommand.SceneGraph overlayed
 
         }
+
 
 module Jezero =
     open PRo3D.Base

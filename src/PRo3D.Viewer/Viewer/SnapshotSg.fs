@@ -73,6 +73,19 @@ open PRo3D.ViewerApp
 
 /// PRo3D Sg for batch rendering (snapshots)
 module SnapshotSg =
+
+    let isViewPlanVisible (m:AdaptiveModel) =
+        adaptive {
+            let! id = m.scene.viewPlans.selectedViewPlan
+            match id with
+            | Some v -> 
+                let! vp = m.scene.viewPlans.viewPlans |> AMap.tryFind v
+                match vp with
+                | Some selVp -> return! selVp.isVisible
+                | None -> return false
+            | None -> return false
+        }
+
     /// creaste simple sg for debugging purposes
     let createDebugSg (m:AdaptiveModel) =
         let camera = AVal.map2 (fun v f -> Camera.create v f) m.navigation.camera.view m.frustum 
@@ -94,7 +107,7 @@ module SnapshotSg =
 
     /// create scengegraph using Rendering.RenderCommands
     let createSceneGraph (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) 
-                         overlayed depthTested (allowFootprint : bool) 
+                         overlayed depthTested (runtime : IRuntime) (allowFootprint : bool) 
                          (m:AdaptiveModel)  =
         let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true
@@ -107,7 +120,8 @@ module SnapshotSg =
                 | Interactions.PickAnnotation | Interactions.PickLog -> false
                 | _ -> true
             )
-
+        let depthTexture = getDepth m runtime
+        let vpVisible = isViewPlanVisible m
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
         let grouped = 
@@ -123,9 +137,11 @@ module SnapshotSg =
                             surface.globalBB
                             refSystem 
                             m.footPrint 
-                            m.scene.viewPlans.selectedViewPlan
+                            vpVisible
                             usehighlighting filterTexture
                             allowFootprint
+                            depthTexture
+                            false
                        )
                     |> AMap.toASet 
                     |> ASet.map snd                     
@@ -345,7 +361,7 @@ module SnapshotSg =
             ] |> Sg.ofList
 
         let camera = AVal.map2 (fun v f -> Camera.create v f) m.navigation.camera.view m.frustum 
-        let sg = createSceneGraph m.scene.surfacesModel.sgGrouped overlayed depthTested true m
+        let sg = createSceneGraph m.scene.surfacesModel.sgGrouped overlayed depthTested runtime true m
         sg
             |> Sg.noEvents
             |> Sg.camera camera

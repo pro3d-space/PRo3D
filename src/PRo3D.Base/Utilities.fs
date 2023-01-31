@@ -511,6 +511,43 @@ module Shader =
             |> mapGamma
         }
 
+    type DepthVertex =
+        {
+            [<Position>]                pos     : V4d 
+            [<Color>]                   c       : V4d
+            [<TexCoord>]                tc      : V2d
+            //[<Semantic("DepthTex")>]    tc1     : V4d
+        }
+
+    let private depthmap =
+        sampler2d {
+            texture uniform?DepthTexture
+            filter Filter.MinMagLinear
+            addressU WrapMode.Border
+            addressV WrapMode.Border
+            borderColor C4f.White
+        }  
+
+    //let depthImageV (v : DepthVertex) =
+    //    vertex {
+    //        //let footprintProjM  : M44d   = uniform?FootprintModelViewProj
+    //        return { 
+    //            v with 
+    //                tc = v.tc.XYZ / v.tc0.W; //footprintProjM * v.pos; 
+    //        } 
+    //    }
+
+    let depthImageF (v : DepthVertex) =
+        fragment {     
+            let mutable color = v.c
+            if uniform?DepthVisible then
+                //let fpt = v.tc0.XYZ / v.tc0.W
+                let texColor = v.c * depthmap.Sample(v.tc, -1.0) //
+                color <- V4d(texColor.XYZ, 1.0)
+
+            return color
+        }
+
     type FootPrintVertex =
         {
             [<Position>]                pos     : V4d            
@@ -523,18 +560,17 @@ module Shader =
             //[<Semantic("LightDir")>]    ldir    : V3d
             [<Semantic("FootPrintProj")>] tc0     : V4d
             //[<Semantic("Tex1")>]        tc1     : V4d
-
         }
 
-    let private footprintmap =
-        sampler2d {
-            texture uniform?FootPrintTexture
-            filter Filter.MinMagMipPoint
-            borderColor (C4f(0.0,0.0,0.0,0.0))
-            addressU WrapMode.Border
-            addressV WrapMode.Border
-            addressW WrapMode.Border
-        }  
+    //let private footprintmap =
+    //    sampler2d {
+    //        texture uniform?FootPrintTexture
+    //        filter Filter.MinMagMipPoint
+    //        borderColor (C4f(0.0,0.0,0.0,0.0))
+    //        addressU WrapMode.Border
+    //        addressV WrapMode.Border
+    //        addressW WrapMode.Border
+    //    }  
 
     let footprintV (v : FootPrintVertex) =
         vertex {
@@ -574,6 +610,9 @@ module Shader =
                         
             return color
         }
+
+    
+
 
 module Sg =    
 

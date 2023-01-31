@@ -32,8 +32,73 @@ type Intrinsics = {
     vignettingMap                   : string    
 }
 
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module Intrinsics =    
+    
+    let current = 0   
+    let read0 =
+        json {
+            let! horizontalFieldOfView            = Json.read "horizontalFieldOfView"
+            let! verticalFieldOfView              = Json.read "verticalFieldOfView"
+            let! horizontalResolution             = Json.read "horizontalResolution"
+            let! verticalResolution               = Json.read "verticalResolution"
+            let! horizontalPrinciplePoint         = Json.read "horizontalPrinciplePoint"
+            let! verticalPrinciplePoint           = Json.read "verticalPrinciplePoint"
+            let! horizontalFocalLengthPerPixel    = Json.read "horizontalFocalLengthPerPixel"
+            let! verticalFocalLengthPerPixel      = Json.read "verticalFocalLengthPerPixel"
+            let! horizontalDistortionMap          = Json.read "horizontalDistortionMap"
+            let! verticalDistortionMap            = Json.read "verticalDistortionMap"
+            let! vignettingMap                    = Json.read "vignettingMap"
+            
+            return 
+                {
+                   // version       = current
+                    horizontalFieldOfView       = horizontalFieldOfView
+                    verticalFieldOfView         = verticalFieldOfView
+                    horizontalResolution        = horizontalResolution
+                    verticalResolution          = verticalResolution
+                    horizontalPrinciplePoint    = horizontalPrinciplePoint
+                    verticalPrinciplePoint      = verticalPrinciplePoint
+                    horizontalFocalLengthPerPixel   = horizontalFocalLengthPerPixel
+                    verticalFocalLengthPerPixel     = verticalFocalLengthPerPixel
+                    horizontalDistortionMap         = horizontalDistortionMap
+                    verticalDistortionMap           = verticalDistortionMap
+                    vignettingMap                   = vignettingMap
+                }
+        }
+
+type Intrinsics with
+    static member FromJson(_ : Intrinsics) =
+        json {
+            //let! v = Json.read "version"
+            //match v with 
+            //| 0 -> return! Intrinsics.read0
+            //| _ -> 
+            //    return! v 
+            //    |> sprintf "don't know version %A  of Intrinsics"
+            //    |> Json.error
+            return! Intrinsics.read0
+        }
+    static member ToJson(x : Intrinsics) =
+        json {
+            //do! Json.write "version" x.version
+            do! Json.write "horizontalFieldOfView" x.horizontalFieldOfView
+            do! Json.write "verticalFieldOfView" x.verticalFieldOfView
+            do! Json.write "horizontalResolution" x.horizontalResolution
+            do! Json.write "verticalResolution" x.verticalResolution
+            do! Json.write "horizontalPrinciplePoint" x.horizontalPrinciplePoint    
+            do! Json.write "verticalPrinciplePoint" x.verticalPrinciplePoint
+            do! Json.write "horizontalFocalLengthPerPixel" x.horizontalFocalLengthPerPixel
+            do! Json.write "verticalFocalLengthPerPixel" x.verticalFocalLengthPerPixel
+            do! Json.write "horizontalDistortionMap" x.horizontalDistortionMap
+            do! Json.write "verticalDistortionMap" x.verticalDistortionMap    
+            do! Json.write "vignettingMap" x.vignettingMap
+        }
+
 [<ModelType>]
 type Extrinsics = {
+    //version         : int
+
     position    : V3d
     camUp       : V3d
     camLookAt   : V3d
@@ -41,24 +106,65 @@ type Extrinsics = {
 }
 
 module Extrinsics =
+    let current = 0   
     let transformed (t:M44d) (ex:Extrinsics)=
         {
+            //version  = ex.version
             position = t.TransformPos ex.position
             camUp    = t.TransformDir ex.camUp
             camLookAt= t.TransformDir ex.camLookAt
             box      = ex.box.Transformed t
         }
 
+    let read0 =
+        json {
+            let! position   = Json.read "position"
+            let! camUp      = Json.read "camUp"
+            let! camLookAt  = Json.read "camLookAt" 
+            let! box        = Json.read "box"
+            
+            return 
+                {
+                    //version     = current
+                    position    = position |> V3d.Parse
+                    camUp       = camUp |> V3d.Parse
+                    camLookAt   = camLookAt |> V3d.Parse
+                    box         = box |> Box3d.Parse
+                }
+        }
+
+type Extrinsics with
+    static member FromJson(_ : Extrinsics) =
+        json {
+            //let! v = Json.read "version"
+            //match v with 
+            //| 0 -> return! Extrinsics.read0
+            //| _ -> 
+            //    return! v 
+            //    |> sprintf "don't know version %A  of Extrinsics"
+            //    |> Json.error
+            return! Extrinsics.read0
+        }
+    static member ToJson(x : Extrinsics) =
+        json {
+            //do! Json.write "version" x.version
+            do! Json.write "position" (x.position.ToString())
+            do! Json.write "camUp" (x.camUp.ToString())
+            do! Json.write "camLookAt" (x.camLookAt.ToString())
+            do! Json.write "box" (x.box.ToString())
+        }
+
 type InstrumentType = 
-    | WACL       // Left Wide Angle Camera (PanCam)        
-    | WACR       // Right Wide Angle Camera (PanCam)
-    | HRC        // High Resolution Camera
-    | WISDOM     // penetrating radar
-    | CLUPI      // Close UP Imager microscope
-    | ISEM       // Infrared Spectrometer
-    | DRILL      // Drill
-    | RIM        // Rover Inspection Mirror
-    | Undefined
+    | WACL     = 0   // Left Wide Angle Camera (PanCam)        
+    | WACR     = 1   // Right Wide Angle Camera (PanCam)
+    | HRC      = 2   // High Resolution Camera
+    | WISDOM   = 3   // penetrating radar
+    | CLUPI    = 4   // Close UP Imager microscope
+    | ISEM     = 5   // Infrared Spectrometer
+    | DRILL    = 6  // Drill
+    | RIM      = 7  // Rover Inspection Mirror
+    | Undefined = 8
+
 //type ArnoldSnapshot = {
 //    location      : V3d
 //    forward       : V3d
@@ -137,6 +243,7 @@ type InstrumentType =
 
 [<ModelType>]
 type Instrument = {
+    //version                 : int
     id                      : string
     iType                   : InstrumentType
     calibratedFocalLengths  : list<double>
@@ -146,6 +253,57 @@ type Instrument = {
     extrinsics              : Extrinsics   
     index                   : int
 }
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module Instrument =    
+    
+    let current = 0   
+    let read0 =
+        json {
+            let! id            = Json.read "id"
+            let! iType         = Json.read "iType"
+            let! calibratedFocalLengths = Json.read "calibratedFocalLengths"
+            let! focal         = Json.readWith Ext.fromJson<NumericInput,Ext> "focal"
+            let! intrinsics    = Json.read "intrinsics"
+            let! extrinsics    = Json.read "extrinsics"
+            let! index         = Json.read "index"
+            
+            return 
+                {
+                    //version       = current
+                    id            = id
+                    iType         = iType |> enum<InstrumentType>
+                    calibratedFocalLengths      = calibratedFocalLengths
+                    focal         = focal
+                    intrinsics    = intrinsics
+                    extrinsics    = extrinsics
+                    index          = index
+                }
+        }
+
+type Instrument with
+    static member FromJson(_ : Instrument) =
+        json {
+            //let! v = Json.read "version"
+            //match v with 
+            //| 0 -> return! Instrument.read0
+            //| _ -> 
+            //    return! v 
+            //    |> sprintf "don't know version %A  of Instrument"
+            //    |> Json.error
+            return! Instrument.read0
+        }
+    static member ToJson(x : Instrument) =
+        json {
+            //do! Json.write "version" x.version
+            do! Json.write "id" x.id
+            do! Json.write "iType" (x.iType |> int)
+            do! Json.write "calibratedFocalLengths" x.calibratedFocalLengths
+            do! Json.writeWith Ext.toJson<NumericInput,Ext> "focal" x.focal
+            do! Json.write "intrinsics" x.intrinsics
+            do! Json.write "extrinsics" x.extrinsics    
+            do! Json.write "index" x.index
+        }
 
 type AxisAngleUpdate = {
     roverId : string
@@ -176,6 +334,32 @@ type Axis = {
 }
 
 module Axis =
+    let current = 0
+    let read0 =
+        json {
+            let! id             = Json.read "id"
+            let! description    = Json.read "description"
+            let! startPoint     = Json.read "startPoint"
+            let! endPoint       = Json.read "endPoint"
+            let! index          = Json.read "index"
+            let! angle          = Json.readWith Ext.fromJson<NumericInput,Ext> "angle"
+            let! degreesMapped  = Json.read "degreesMapped"
+            let! degreesNegated = Json.read "degreesNegated"
+
+            return 
+                {
+                    //version         = current
+                    id              = id
+                    description     = description
+                    startPoint      = startPoint |> V3d.Parse
+                    endPoint        = endPoint |> V3d.Parse
+                    index           = index
+                    angle           = angle
+                    degreesMapped   = degreesMapped
+                    degreesNegated  = degreesNegated
+                }
+
+            }
 
     module Mapping =
         let to180 (min : float) (max : float) (v : float) = 
@@ -201,7 +385,30 @@ module Axis =
         else 
             v
 
-        
+type Axis with
+    static member FromJson(_ : Axis) =
+        json {
+            //let! v = Json.read "version"
+            //match v with 
+            //| 0 -> return! Axis.read0
+            //| _ -> 
+            //    return! v 
+            //    |> sprintf "don't know version %A  of Axis"
+            //    |> Json.error
+            return! Axis.read0
+        }
+    static member ToJson(x : Axis) =
+        json {
+            //do! Json.write "version" x.version
+            do! Json.write "id" x.id
+            do! Json.write "description" x.description
+            do! Json.write "startPoint" (x.startPoint.ToString())
+            do! Json.write "endPoint" (x.endPoint.ToString())
+            do! Json.write "index" x.index
+            do! Json.writeWith Ext.toJson<NumericInput,Ext> "angle" x.angle
+            do! Json.write "degreesMapped" x.degreesMapped  
+            do! Json.write "degreesNegated" x.degreesNegated
+        }       
 
 [<ModelType>]
 type Rover = {
@@ -212,6 +419,55 @@ type Rover = {
     axes             : HashMap<string, Axis>
     box              : Box3d   
 }
+
+module Rover = 
+    let current = 0   
+    let read0 =
+        json {
+            let! id                 = Json.read "id"
+            let! platform2Ground    = Json.read "platform2Ground"
+            let! wheelPositions     = Json.readWith Ext.fromJson<list<V3d>,Ext> "wheelPositions"
+            let! inst               = Json.read "instruments"
+            let instruments = inst |> List.map(fun (a : Instrument) -> (a.id, a)) |> HashMap.ofList
+            let! axes               = Json.read "axes"
+            let axes = axes |> List.map(fun (a : Axis) -> (a.id, a)) |> HashMap.ofList
+            let! box                = Json.read "box"
+
+            return 
+                {
+                    //version             = current
+                    id                  = id
+                    platform2Ground     = platform2Ground |> M44d.Parse
+                    wheelPositions      = wheelPositions
+                    instruments         = instruments
+                    axes                = axes
+                    box                 = box |> Box3d.Parse
+                }
+
+            }
+
+type Rover with
+    static member FromJson(_ : Rover) =
+        json {
+            //let! v = Json.read "version"
+            //match v with 
+            //| 0 -> return! Rover.read0
+            //| _ -> 
+            //    return! v 
+            //    |> sprintf "don't know version %A  of Rover"
+            //    |> Json.error
+            return! Rover.read0
+        }
+    static member ToJson(x : Rover) =
+        json {
+            //do! Json.write "version" x.version
+            do! Json.write "id" x.id
+            do! Json.write "platform2Ground" (x.platform2Ground.ToString())
+            do! Json.writeWith (Ext.toJson<list<V3d>,Ext>) "wheelPositions" x.wheelPositions
+            do! Json.write "instruments" (x.instruments |> HashMap.toList |> List.map snd)
+            do! Json.write "axes" (x.axes |> HashMap.toList |> List.map snd)
+            do! Json.write "box" (x.box.ToString()) 
+        }
 
 [<ModelType>]
 type RoverModel = {
@@ -376,7 +632,10 @@ type FootPrint = {
     instViewMatrix      : M44d
     projTex             : ITexture
     globalToLocalPos    : V3d
+    depthTexture        : option<IBackendTexture>
+    isDepthVisible      : bool
 }
+
 
 [<ModelType>]
 type ViewPlan = {
@@ -398,6 +657,7 @@ type ViewPlan = {
 
 module ViewPlan =
     let current = 0
+
     let initialAngle = {
         value = 0.0
         min =  0.0
@@ -405,6 +665,83 @@ module ViewPlan =
         step = 0.1
         format = "{0:0.0}"
     }
+
+    let read0 =
+        json {
+            let! id             = Json.read "id"
+            let! name           = Json.read "name"
+            let! position       = Json.read "position"
+            let! lookAt         = Json.read "lookAt"
+
+            let! (viewerState : list<string>) = Json.read "viewerState"
+            let viewerState = viewerState |> List.map V3d.Parse
+            let viewerState = CameraView(viewerState.[0],viewerState.[1],viewerState.[2],viewerState.[3], viewerState.[4])
+
+            let! vectorsVisible = Json.read "vectorsVisible"
+            let! rover          = Json.read "rover"
+            let! roverTrafo     = Json.read "roverTrafo"
+            let! isVisible      = Json.read "isVisible"
+
+            let! selectedInstrument  = Json.read "selectedInstrument"
+            let! selectedAxis        = Json.read "selectedAxis"
+            let! currentAngle   = Json.readWith Ext.fromJson<NumericInput,Ext> "currentAngle"
+
+            return 
+                {
+                    version         = current
+                    id            = id |> Guid
+                    name            = name
+
+                    position    = position |> V3d.Parse
+                    lookAt      = lookAt |> V3d.Parse
+                    viewerState = viewerState
+                    rover       = rover
+                    roverTrafo  = roverTrafo |> Trafo3d.Parse
+
+                    isVisible   = isVisible
+
+                    vectorsVisible = vectorsVisible
+
+                    selectedInstrument = selectedInstrument
+                    selectedAxis       = selectedAxis
+
+                    currentAngle = currentAngle
+                }
+        }
+
+type ViewPlan with
+    static member FromJson(_ : ViewPlan) =
+        json {
+            let! v = Json.read "version"
+            match v with 
+            | 0 -> return! ViewPlan.read0
+            | _ -> 
+                return! v 
+                |> sprintf "don't know version %A  of ViewPlan"
+                |> Json.error
+        }
+    static member ToJson(x : ViewPlan) =
+        json {
+            do! Json.write "version" x.version
+            do! Json.write "id" x.id
+            do! Json.write "name" x.name
+            do! Json.write "position" (x.position.ToString())
+            do! Json.write "lookAt" (x.lookAt.ToString())
+            let camView = x.viewerState
+            let camView = 
+                [camView.Sky; camView.Location; camView.Forward; camView.Up ; camView.Right] 
+                |> List.map(fun x -> x.ToString())
+            do! Json.write "viewerState" camView
+
+            do! Json.write "rover" x.rover
+            do! Json.write  "roverTrafo"   (x.roverTrafo.ToString())
+            do! Json.write "isVisible" x.isVisible 
+            do! Json.write "vectorsVisible" x.vectorsVisible 
+
+            do! Json.write "selectedInstrument" x.selectedInstrument
+            do! Json.write "selectedAxis" x.selectedAxis  
+            do! Json.writeWith Ext.toJson<NumericInput,Ext> "currentAngle" x.currentAngle
+        }
 
     //let initial = {
     //    version = current
@@ -428,7 +765,7 @@ module ViewPlan =
 type ViewPlanModel = {
     version             : int
     viewPlans           : HashMap<Guid,ViewPlan>
-    selectedViewPlan    : Option<ViewPlan>
+    selectedViewPlan    : Option<Guid>
     working             : list<V3d> // pos + lookAt
     roverModel          : RoverModel
     instrumentCam       : CameraView
@@ -438,7 +775,7 @@ type ViewPlanModel = {
 }
 
 module ViewPlanModel = 
-    let current = 0 
+    let current = 1 
            
     let initPixTex = 
         let res = V2i((int)1024, (int)1024)
@@ -453,6 +790,8 @@ module ViewPlanModel =
         instViewMatrix      = M44d.Identity
         projTex             = initPixTex
         globalToLocalPos    = V3d.OOO
+        depthTexture        = None
+        isDepthVisible      = false
     }
 
     let initial = {
@@ -483,31 +822,124 @@ module ViewPlanModel =
             }
         }    
 
+    let readV1 = 
+        json {                           
+
+            let! viewPlans = Json.read "viewPlans"
+            let viewPlans = viewPlans |> List.map(fun (a : ViewPlan) -> (a.id, a)) |> HashMap.ofList
+
+            return {
+                version           = current
+                viewPlans         = viewPlans 
+                selectedViewPlan  = None
+                working           = list.Empty
+                roverModel        = RoverModel.initial
+                instrumentCam     = CameraView.lookAt V3d.Zero V3d.One V3d.OOI
+                instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
+                footPrint         = initFootPrint                
+            }
+        }    
+
 type ViewPlanModel with
     static member FromJson(_:ViewPlanModel) = 
         json {
             let! v = Json.read "version"
             match v with
             | 0 -> return! ViewPlanModel.readV0
-            | _ -> return! v |> sprintf "don't know version %d of Traverse" |> Json.error
+            | 1 -> return! ViewPlanModel.readV1
+            | _ -> return! v |> sprintf "don't know version %d of ViewPlanModel" |> Json.error
+        }
+    static member ToJson (x : ViewPlanModel) =
+        json {
+            do! Json.write "version"             x.version
+            do! Json.write "viewPlans"       (x.viewPlans |> HashMap.toList |> List.map snd)
         }
 
 module FootPrint = 
         
-    let getFootprintsPath (scenePath:string) =
+    let getDataPath (scenePath:string) (dirName:string) =
         let path = Path.GetDirectoryName scenePath
-        Path.combine [path;"FootPrints"]
+        let fpPath = Path.combine [path;dirName]
+        if not (Directory.Exists fpPath) then Directory.CreateDirectory(fpPath) |> ignore
+        fpPath
+
+    let initDepthImage 
+        (runtimeInstance: IRuntime) 
+        (vp:ViewPlanModel) 
+        (scenePath:string) =
+
+        let fpPath = getDataPath scenePath "DepthData"
+
+        match vp.selectedViewPlan with
+        | Some id -> 
+            let selectedVp = vp.viewPlans |> HashMap.find id
+            let now = DateTime.Now
+            let roverName = selectedVp.rover.id
+            let width, height =
+                match selectedVp.selectedInstrument with
+                | Some i -> 
+                    let horRes = i.intrinsics.horizontalResolution/uint32(2)
+                    let vertRes = i.intrinsics.verticalResolution/uint32(2)
+                    int(horRes), int(vertRes)
+                | None -> 
+                    512, 512
+            //let fovH = frustum |> Frustum.horizontalFieldOfViewInDegrees
+            //let asp = frustum |> Frustum.aspect
+            //let fovV = Math.Round((fovH / asp), 0)
+
+            let resolution = V3i (width, height, 1)
+            let depth = runtimeInstance.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Depth24Stencil8, 1, 8);
+
+            //let signature = 
+            //    runtimeInstance.CreateFramebufferSignature [
+            //    DefaultSemantic.Depth, { format = RenderbufferFormat.Depth24Stencil8; samples = 1 }
+            //    ]
+
+            //let fbo = 
+            //    runtimeInstance.CreateFramebuffer(
+            //        signature, 
+            //        Map.ofList [
+            //            DefaultSemantic.Depth, depth.GetOutputView()
+            //        ]
+            //    )
+        
+            //let description = fbo |> OutputDescription.ofFramebuffer
+            //let projTrafo  = Frustum.projTrafo(frustum)
+
+            //let render2TextureSg =
+            //    renderSg
+            //    |> Sg.viewTrafo vT
+            //    |> Sg.projTrafo (Mod.constant projTrafo)
+            //    |> Sg.effect [
+            //        toEffect DefaultSurfaces.trafo 
+            //        toEffect DefaultSurfaces.diffuseTexture
+            //    ]
+
+            //let vR = float res.Y
+            //let pixelSizeNear = pixelSizeCm frustum.near vR fovV
+            //let pixelSizeFar = pixelSizeCm frustum.far vR fovV
+
+            //let mat = Matrix<float32>(int64 size.X, int64 size.Y)
+
+            //let task : IRenderTask =  runtimeInstance.CompileRender(signature, render2TextureSg)
+            //let taskclear : IRenderTask = runtimeInstance.CompileClear(signature,Mod.constant C4f.Black,Mod.constant 1.0)
+            //let realTask = RenderTask.ofList [taskclear; task]
+            { vp with footPrint = {vp.footPrint with depthTexture = Some depth}}
+        | None -> vp
+
+        
        
     let createFootprintData (vp:ViewPlanModel) (scenePath:string) =
 
-        let fpPath = getFootprintsPath scenePath
+        let fpPath = getDataPath scenePath "FootPrints"
 
         match vp.selectedViewPlan with
-        | Some v -> 
+        | Some id -> 
+            let selectedVp = vp.viewPlans |> HashMap.find id
             let now = DateTime.Now
-            let roverName = v.rover.id
+            let roverName = selectedVp.rover.id
             let instrumentName = 
-                match v.selectedInstrument with
+                match selectedVp.selectedInstrument with
                 | Some i -> i.id
                 | None -> ""
                        
@@ -524,7 +956,7 @@ module FootPrint =
                 )
 
             let width, height =
-                match v.selectedInstrument with
+                match selectedVp.selectedInstrument with
                 | Some i -> 
                     let horRes = i.intrinsics.horizontalResolution/uint32(2)
                     let vertRes = i.intrinsics.verticalResolution/uint32(2)
@@ -532,7 +964,7 @@ module FootPrint =
                 | None -> 
                     512, 512
             // save png file
-            try Utilities.takeScreenshotFromAllViews "http://localhost:54322" width height pngName fpPath ".png" with e -> printfn "error: %A" e
+            try Utilities.takeScreenshotFromAllViews "http://localhost:54322" width height pngName fpPath ".png" with e -> printfn "error: %A" e //"http://localhost:54322"
            
             let fileInfo = {
                 fileType = "PNGImage"
@@ -541,20 +973,20 @@ module FootPrint =
             }
 
             let calibration = {
-                instrumentPlatformXmlFileName       = v.rover.id + ".xml"
+                instrumentPlatformXmlFileName       = selectedVp.rover.id + ".xml"
                 instrumentPlatformXmlFileVersion    = 1.0
             }
 
             let roverInfo = {
-                position = v.position
-                lookAtPosition = v.lookAt
-                placementTrafo = v.roverTrafo
+                position = selectedVp.position
+                lookAtPosition = selectedVp.lookAt
+                placementTrafo = selectedVp.roverTrafo
             }
 
-            let panAx = v.rover.axes.TryFind "Pan Axis" |> Option.map(fun x -> x.angle.value )
+            let panAx = selectedVp.rover.axes.TryFind "Pan Axis" |> Option.map(fun x -> x.angle.value )
             let panVal = match panAx with | Some av -> av | None -> 1.0
 
-            let tiltAx = v.rover.axes.TryFind "Tilt Axis" |> Option.map(fun x -> x.angle.value )
+            let tiltAx = selectedVp.rover.axes.TryFind "Tilt Axis" |> Option.map(fun x -> x.angle.value )
             let tiltVal = match tiltAx with | Some av -> av | None -> 1.0
             let angles = {
                 panAxis = panVal
@@ -562,7 +994,7 @@ module FootPrint =
             }
 
             let focal =
-                match v.selectedInstrument with
+                match selectedVp.selectedInstrument with
                 | Some i -> i.focal.value
                 | None -> 1.0
 
@@ -601,11 +1033,6 @@ module FootPrint =
     
     let updateFootprint (instrument:Instrument) (roverpos:V3d) (model:ViewPlanModel) =
         
-        let id = 
-            match model.selectedViewPlan with
-            | Some vp -> Some vp.id
-            | None -> None
-        
         let res = V2i((int)instrument.intrinsics.horizontalResolution, (int)instrument.intrinsics.verticalResolution)
         //let image = PixImage<byte>(Col.Format.RGB,res).ToPixImage(Col.Format.RGB)
        
@@ -619,12 +1046,14 @@ module FootPrint =
 
         let fp = 
             { 
-                vpId             = id
-                isVisible        = true
+                vpId             = model.selectedViewPlan
+                isVisible        = model.footPrint.isVisible //true
                 projectionMatrix = (model.instrumentFrustum |> Frustum.projTrafo).Forward
                 instViewMatrix   = model.instrumentCam.ViewTrafo.Forward
                 projTex          = DefaultTextures.blackTex.GetValue()
                 globalToLocalPos = roverpos //transformenExt.position
+                depthTexture     = None
+                isDepthVisible   = model.footPrint.isDepthVisible
             }
         fp //{ model with footPrint = fp }
     
