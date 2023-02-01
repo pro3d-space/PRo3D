@@ -26,8 +26,6 @@ open PRo3D.Core.Surface
 open PRo3DCompability
 
 
-
-  
 module Files = 
        open System.IO
        open Aardvark.Prinziple
@@ -40,12 +38,22 @@ module Files =
        /// checks if "path" is a valid opc folder containing "images" or "Images", "patches" or "Patches", and patchhierarchy.xml
        /// </summary>
        let isOpcFolder (path : string) = 
-           printfn "isOpc: %A" path
-           let imagePath = Path.combine [path; "images"]
-           let patchPath = Path.combine [path; "patches"]
-           (Directory.Exists imagePath) &&
-           (Directory.Exists patchPath) && 
-            File.Exists(Path.combine [patchPath;"patchhierarchy.xml"])
+           let isOpcFolder =
+               let imagesProbingPaths = 
+                    OpcPaths.Images_DirNames |> List.map (fun imageSuffix -> Path.combine [path; imageSuffix])
+               let patchesProbingPaths =
+                    OpcPaths.Patches_DirNames|> List.map (fun patchSuffix -> Path.combine [path; patchSuffix])
+
+               let imagesPath = imagesProbingPaths |> List.tryFind Directory.Exists
+               let patchesPath = patchesProbingPaths |> List.tryFind Directory.Exists
+               let patchHierarchyXmlPath = 
+                    patchesPath 
+                    |> Option.map (fun patchPath -> Path.Combine(patchPath, OpcPaths.PatchHierarchy_FileName))
+
+               imagesPath.IsSome && patchesPath.IsSome && patchHierarchyXmlPath.IsSome
+
+           printfn "[Surface.Files] is opc path: %A" path
+           isOpcFolder
 
        /// <summary>
        /// checks if "path" is a valid surface folder i.e. contains at least one opc folder
@@ -175,25 +183,30 @@ module Files =
              | None -> None
          else
            match surface.surfaceType with
-             | SurfaceType.SurfaceOBJ -> 
+             | SurfaceType.Mesh -> 
                let p = Path.GetDirectoryName surface.importPath
                if Directory.Exists p then Some p else None
              |_-> 
                let p = surface.importPath
                if Directory.Exists p then Some p else None
 
+
+        // glub/gah/gugu/ghzu/aaa
+        //ghzu/aaaa
+
+        // aaa/ghzu/gugu/gah/glub
+
+
        /// strips away parts of a file path until the remaining depth is reached
-       /// [RNO] TODO CAN THROW ERRORS - REWRITE!!
+       let private regex = System.Text.RegularExpressions.Regex("\\\\|/")
        let relativePath (path : string) (remaining : int) = 
-           let parts = 
-               path.Split('\\') 
-           //match parts.Length < remaining
-           parts
-               |> List.ofArray 
-               |> List.rev 
-               |> List.take remaining 
-               |> List.rev 
-               |> Path.combine
+           let parts = regex.Split(path)
+           if parts.Length > remaining then 
+                Array.skip (parts.Length - remaining) parts 
+                |> Path.combine
+                |> Some
+           else 
+                None
 
        let sceneRelativePath (path : string) = 
            relativePath path 5 
@@ -204,40 +217,60 @@ module Files =
        let expandLazyKdTreePaths (scenePath : option<string>) (surfaces : HashMap<Guid, Surface>) (sgSurfaces : HashMap<Guid, SgSurface>) =
          let expand surf tree =
              match tree with 
-             | KdTrees.Level0KdTree.LazyKdTree lk when surf.relativePaths && scenePath.IsSome -> // scene is portable                                        
+             | KdTrees.Level0KdTree.LazyKdTree lk when surf.relativePaths && scenePath.IsSome -> // scene is portable   
+             
                  let path = Path.Combine((Path.GetDirectoryName scenePath.Value),"Surfaces")
-                 let kdTreeSub   = lk.kdtreePath    |> sceneRelativePath
-                 let triangleSub = lk.objectSetPath |> sceneRelativePath
-                        
-                 KdTrees.LazyKdTree { 
-                     lk with 
-                         kdtreePath    = Path.Combine(path, kdTreeSub)
-                         objectSetPath = Path.Combine(path, triangleSub)
-                 }
-             | KdTrees.Level0KdTree.LazyKdTree lk -> // surfaces have absolute paths        
-                 let kdTreeSub   = lk.kdtreePath    |> surfaceRelativePath
-                 let triangleSub = lk.objectSetPath |> surfaceRelativePath                                                                                
-                        
-                 KdTrees.LazyKdTree {
-                     lk with 
-                         kdtreePath    = Path.Combine(surf.importPath, kdTreeSub)
-                         objectSetPath = Path.Combine(surf.importPath, triangleSub)
-                 }
-             | KdTrees.Level0KdTree.InCoreKdTree ik -> KdTrees.InCoreKdTree ik // kdtrees can be loaded as is
+
+                 match sceneRelativePath lk.kdtreePath, sceneRelativePath lk.objectSetPath with
+                 | Some kdTreeSub, Some triangleSub -> 
+                     KdTrees.LazyKdTree { 
+                         lk with 
+                             kdtreePath    = Path.Combine(path, kdTreeSub)
+                             objectSetPath = Path.Combine(path, triangleSub)
+                     } |> Some
+                 | _ -> 
+                     Log.warn "[expandLazyKdTreePaths] could not create relative paths for %A" (lk.kdtreePath, lk.objectSetPath)
+                     None
+             | KdTrees.Level0KdTree.LazyKdTree lk -> // surfaces have absolute paths      
+
+                 match surfaceRelativePath lk.kdtreePath, surfaceRelativePath  lk.objectSetPath with
+                 | Some kdTreeSub, Some triangleSub ->
+                     KdTrees.LazyKdTree {
+                         lk with 
+                             kdtreePath    = Path.Combine(surf.importPath, kdTreeSub)
+                             objectSetPath = Path.Combine(surf.importPath, triangleSub)
+                     } |> Some
+                 | _ -> 
+                     Log.warn "[expandLazyKdTreePaths] could not create relative paths for %A" (lk.kdtreePath, lk.objectSetPath)
+                     None
+             | KdTrees.Level0KdTree.InCoreKdTree ik -> 
+
+                 KdTrees.InCoreKdTree ik |> Some // kdtrees can be loaded as is
          
          sgSurfaces 
           |> HashMap.choose (fun _ s -> 
             match s.picking with
               | Picking.NoPicking -> None
               | Picking.KdTree ks ->
-                let surf = surfaces |> HashMap.find s.surface
-                match surf.surfaceType with 
-                | SurfaceType.SurfaceOBJ -> Some s
+                match surfaces |> HashMap.tryFind s.surface with
+                | Some surf ->
+                    match surf.surfaceType with 
+                    | SurfaceType.Mesh -> Some s
+                    | _ -> 
+                        let kd = 
+                            ks 
+                            |> HashMap.choose (fun box k -> 
+                                    // here we skip failed kd-trees if necessary
+                                    expand surf k
+                               )
+
+                        { s with picking = Picking.KdTree kd } |> Some
                 | _ -> 
-                    let kd = 
-                        ks |> HashMap.map (fun _ k -> expand surf k)
-                    { s with picking = Picking.KdTree kd } |> Some
-              | Picking.PickMesh ms -> s |> Some
+                    // note: for robustness we skip unknown surfaces
+                    Log.warn "[expandLazyKdTreePaths] surface not found. Cannot pick"
+                    None
+              | Picking.PickMesh ms -> 
+                s |> Some
           )                
 
        let makeSurfaceRelative guid (surfaceModel : SurfaceModel) (scenePath : option<string>) =
@@ -269,5 +302,3 @@ module Files =
                | None -> 
                    Log.error "can't make surface relative. no valid scene path has not been saved yet."
                    surfaceModel
-
-       

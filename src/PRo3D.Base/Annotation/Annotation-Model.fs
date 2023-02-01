@@ -855,6 +855,14 @@ with
 module Annotation =
          
     module Initial =
+        let samplingAmount = {
+            value   = 1.0
+            min     = 0.001
+            max     = 1000.0
+            step    = 0.001
+            format  = "{0:0.000}"
+        }
+
         let thickness = {
             value   = 3.0
             min     = 1.0
@@ -924,3 +932,21 @@ module Annotation =
 
     let initial =
         make Projection.Viewpoint None Geometry.Polyline { c = C4b.Magenta } Initial.thickness ""
+
+    let retrievePoints (a : Annotation) =
+        let points = 
+            if a.segments.Count = 0 then
+                a.points |> IndexList.toSeq
+            else
+                a.segments 
+                |> IndexList.toSeq 
+                |> Seq.map(fun x -> 
+                    seq {
+                        yield x.startPoint
+                        yield! (x.points |> IndexList.toSeq)
+                        yield x.endPoint
+                    }
+                ) 
+                |> Seq.concat
+
+        points |> Seq.toList

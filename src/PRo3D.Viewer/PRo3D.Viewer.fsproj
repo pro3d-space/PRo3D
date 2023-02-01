@@ -5,7 +5,7 @@
   </PropertyGroup>
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <GenerateLenses>True</GenerateLenses>
     <IncludeAllContentForSelfExtract>True</IncludeAllContentForSelfExtract>
   </PropertyGroup>
@@ -126,10 +126,8 @@
 	<EmbeddedResource Include="resources\ResizeSensor.js" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\PRo3D.2D3DLinking\PRo3D.Linking.fsproj" />
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
     <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
-    <ProjectReference Include="..\PRo3D.Minerva\PRo3D.Minerva.fsproj" />
     <ProjectReference Include="..\PRo3D.SimulatedViews\PRo3D.SimulatedViews.fsproj" />
   </ItemGroup>
   <ItemGroup>

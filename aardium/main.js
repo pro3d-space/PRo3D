@@ -381,20 +381,23 @@ function ready() {
       runOffscreenServer(opt.server);
   }
   else {
-	var plat = os.platform();
-
-    var name = plat == 'darwin' ? "PRo3D.Viewer" : "PRo3D.Viewer.exe";
+	  var plat = os.platform();
+    var name = plat == 'darwin' || plat == 'linux' ? "PRo3D.Viewer" : "PRo3D.Viewer.exe";
     var p = path.join(path.dirname(process.resourcesPath), "build", "build", name)
-    console.warn("path = " + p)
+    console.warn("probing path = " + p)
     if (fs.existsSync("./build/build/" + name)) {
       console.log('dev')
       p = "./build/build/" + name;
+      console.log('running process: ' + p);
     } else {
       console.log('deployed.')
     }
 
     var args = process.argv;
     args.shift();
+	
+	
+	
 	
 	  const WINDOW_WIDTH = 640;
     const WINDOW_HEIGHT = 300;
@@ -423,19 +426,24 @@ function ready() {
     splash.show()
     console.log('showed.')
 	
-
-    const runningProcess = proc.spawn(p, ["--server"].concat(args));
-    console.log('spawned.' + ["--server"].concat(args))
-    const rx = /.*url:[ \t]+(.*)/;        
+	const rx = /.*url:[ \t]+(.*)/;        
 
    	var spawned = false;
 
-    var sendLog = function(){
+    var buffer = "";
+    var sendLog = function(s){
+		var data = JSON.parse(s);
+		if(data.text != undefined) {
+			buffer = buffer.concat("\n", data.text);
+		}
     };
 
     const server =
       ws.createServer(function (conn) {
         conn.on("error", function() { console.warn("err");});
+		conn.send(JSON.stringify({type: "stdout", text: buffer })); 
+		buffer = ""; 
+		
         sendLog = function(data) {
             // ignore otherwise
             if(conn.readyState == conn.OPEN)
@@ -447,6 +455,8 @@ function ready() {
     const logging = new BrowserWindow({ 
         width: 500, 
         height: 400, 
+		x: 100,
+		y: 100,
         frame: true, 
         title: "PRo3D Log",
         webPreferences : {  
@@ -461,16 +471,22 @@ function ready() {
       server.close();
     })
 
+	
 
-    runningProcess.stderr.on("data", (data) => {
+    const runningProcess = proc.spawn(p, ["--server"].concat(args));
+    console.log('spawned.' + ["--server"].concat(args))
+	
+	runningProcess.stderr.on("data", (data) => {
+	  console.log("err: " + data);
       sendLog(JSON.stringify({type: "stderr", text: data.toString() }));
     });
     runningProcess.stdout.on("data", (data) => {
+		console.log("log: " + data);
 		if(spawned){
-			console.log("log: " + data);
-      sendLog(JSON.stringify({type: "stdout", text: data.toString() }));
+			sendLog(JSON.stringify({type: "stdout", text: data.toString() }));
 		}
 		else{
+			sendLog(JSON.stringify({type: "stdout", text: data.toString() }));
 			const m = data.toString().match(rx);
 			if (m) { 
 				console.log('matched.' + data)
@@ -481,6 +497,7 @@ function ready() {
 			}
 		}
     });
+
       
     // Quit when all windows are closed.
     app.on('window-all-closed', function () {

@@ -5,7 +5,6 @@
     <TargetFramework>net6.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="build.fsx" />
     <None Include="paket.dependencies" />
     <None Include="paket.references" />
     <Compile Include="Helpers.fs" />

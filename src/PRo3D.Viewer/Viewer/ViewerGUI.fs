@@ -272,6 +272,10 @@ module Gui =
         let jsImportOBJDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select *.obj files to import', filters: [{ name: 'OBJ (*.obj)', extensions: ['obj']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
         
+        let jsImportglTfDialog =
+            "top.aardvark.dialog.showOpenDialog({tile: 'Select *.gltf files to import', filters: [{ name: 'glTF (*.gltf)', extensions: ['gltf']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+        
+
         let jsImportSceneObjectDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select *.obj or *.dae files to import', filters: [{ name: 'OBJ (*.obj)', extensions: ['obj']}, { name: 'DAE (*.dae)', extensions: ['dae']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
@@ -289,14 +293,26 @@ module Gui =
                     ] [
                         text "Import OPCs"
                     ]
+                    //div [ clazz "ui inverted item"; 
+                    //    Dialogs.onChooseFiles (curry ViewerAction.ImportObject MeshLoaderType.Assimp);
+                    //    clientEvent "onclick" (jsImportOBJDialog)
+                    //] [
+                    //    text "Import (*.obj) using assimp"
+                    //]
                     div [ clazz "ui inverted item"; 
-                        Dialogs.onChooseFiles ImportObject;
+                        Dialogs.onChooseFiles (curry ViewerAction.ImportObject MeshLoaderType.Wavefront);
                         clientEvent "onclick" (jsImportOBJDialog)
                     ] [
                         text "Import (*.obj)"
                     ]
+                    //div [ clazz "ui inverted item"; 
+                    //    Dialogs.onChooseFiles (curry ViewerAction.ImportObject MeshLoaderType.GlTf);
+                    //    clientEvent "onclick" (jsImportOBJDialog)
+                    //] [
+                    //    text "Import (*.gltf) "
+                    //]
                     div [ clazz "ui inverted item"; 
-                        Dialogs.onChooseFiles ImportObject;
+                        Dialogs.onChooseFiles (curry ViewerAction.ImportObject MeshLoaderType.Ply);
                         clientEvent "onclick" (jsImportPLYDialog)
                     ] [
                         text "Import (*.ply)"
@@ -445,6 +461,9 @@ module Gui =
         let jsExportAnnotationsAsCSVDialog =
             "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
 
+        let jsExportProfileAsCSVDialog =
+            "top.aardvark.dialog.showSaveDialog({ title: 'Export Profile (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
+
         let jsExportAnnotationsAsGeoJSONDialog =
             "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
               
@@ -483,6 +502,13 @@ module Gui =
                                 clientEvent "onclick" jsExportAnnotationsAsCSVDialog
                             ] [
                                 text "visible as table (*.csv)"
+                            ]     
+                            div [ 
+                                clazz "ui inverted item"
+                                Dialogs.onSaveFile ExportAsProfileCsv
+                                clientEvent "onclick" jsExportProfileAsCSVDialog
+                            ]  [
+                                text "selected as profile (*.csv)"
                             ]     
                             div [ 
                                 clazz "ui inverted item"
@@ -643,6 +669,11 @@ module Gui =
                      ]
                 | Interactions.PlaceScaleBar ->
                     return ScaleBarsDrawing.UI.viewScaleBarToolsHorizontal m.scaleBarsDrawing |> UI.map ScaleBarsDrawingMessage
+                | Interactions.PickPivotPoint ->
+                    return Html.Layout.horizontal [
+                        Html.Layout.boxH [text "for:"]
+                        Html.Layout.boxH [ Html.Layout.boxH [ Html.SemUi.dropDown m.pivotType SetPivotType ] ]
+                     ]
                 | _ -> 
                   return div [] []
             }
@@ -656,7 +687,7 @@ module Gui =
                     let icon = 
                         match scenePath with
                         | Some p -> 
-                            i [clazz "large folder icon" ; onClick (fun _ -> OpenSceneFileLocation p)] [] 
+                            i [clazz "large folder icon" ; clientEvent "onclick" (Electron.showItemInFolder p)] [] 
                             |> UI.wrapToolTip DataPosition.Bottom "open folder"
                         | None -> div [] []  
                           
@@ -687,30 +718,31 @@ module Gui =
             | Interactions.PlaceSurface          -> "not implemented"
             | Interactions.PlaceScaleBar         -> sprintf "%s+click to place scale bar" ctrl
             | Interactions.PlaceSceneObject      -> sprintf "%s+click to place scene object" ctrl
+            | Interactions.PickPivotPoint        -> sprintf "%s+click to place pivot point" ctrl
             //| Interactions.PickLinking           -> "CTRL+click to place point on surface"
             | _ -> ""
         
-        let topMenuItems (m:AdaptiveModel) = [ 
+        let topMenuItems (model : AdaptiveModel) = [ 
             div [style "font-weight: bold;margin-left: 1px; margin-right:1px"] 
-                [Incremental.text (m.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]
-            Navigation.UI.viewNavigationModes m.navigation  |> UI.map NavigationMessage 
+                [Incremental.text (model.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]
+            Navigation.UI.viewNavigationModes model.navigation  |> UI.map NavigationMessage 
               
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large wizard icon"] [] ]
-                Html.Layout.boxH [ CustomGui.dropDown Interactions.hideSet m.interaction SetInteraction ]
-                Incremental.div  AttributeMap.empty (AList.ofAValSingle (dynamicTopMenu m))
+                Html.Layout.boxH [ CustomGui.dropDown Interactions.hideSet model.interaction SetInteraction ]
+                Incremental.div  AttributeMap.empty (AList.ofAValSingle (dynamicTopMenu model))
                 Html.Layout.boxH [ 
                     div [style "font-style:italic; width:100%; text-align:right"] [
-                        Incremental.text (m.interaction |> AVal.map interactionText)
+                        Incremental.text (model.interaction |> AVal.map interactionText)
                     ]]
             ]
               
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large Globe icon"] [] ]
-                Html.Layout.boxH [ Html.SemUi.dropDown m.scene.referenceSystem.planet ReferenceSystemAction.SetPlanet ] |> UI.map ReferenceSystemMessage
+                Html.Layout.boxH [ Html.SemUi.dropDown model.scene.referenceSystem.planet ReferenceSystemAction.SetPlanet ] |> UI.map ReferenceSystemMessage
             ] 
             Html.Layout.horizontal [
-                scenepath m
+                scenepath model
             ]        
         ]        
         
@@ -824,7 +856,7 @@ module Gui =
                     FrustumProperties.view m.frustumModel |> UI.map FrustumMessage
                 ]
                 GuiEx.accordion "Screenshots" "Settings" false [
-                    ScreenshotApp.view m.scene.screenshotModel |> UI.map ScreenshotMessage
+                    ScreenshotApp.view m.screenshotDirectory m.scene.screenshotModel |> UI.map ScreenshotMessage
                 ]
                 GuiEx.accordion "Data Management" "Settings" false [
                     Html.table [  
@@ -901,6 +933,9 @@ module Gui =
                 // Todo: properties
                 GuiEx.accordion "Properties" "Content" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(ScaleBarsApp.UI.viewProperties m.scene.scaleBars))
+                ]
+                GuiEx.accordion "Transformation" "expand arrows alternate " false [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(ScaleBarsApp.UI.viewTranslationTools m.scene.scaleBars))
                 ]
             ] 
             |> UI.map ScaleBarsMessage
@@ -992,7 +1027,7 @@ module Gui =
         let sequencedBookmarksUI (m : AdaptiveModel) =           
           div [] [
               yield br []
-              yield (SequencedBookmarksApp.UI.viewGUI m.scene.sequencedBookmarks)
+              yield (SequencedBookmarksApp.UI.viewBookmarkControls m.scene.sequencedBookmarks)
               yield GuiEx.accordion "SequencedBookmarks" "Write" true [
                   SequencedBookmarksApp.UI.viewSequencedBookmarks m.scene.sequencedBookmarks
               ]        
@@ -1076,8 +1111,8 @@ module Gui =
                                 yield (ComparisonApp.viewLegend m.scene.comparisonApp)
                                 yield scalarsColorLegend m
                                 yield selectionRectangle m
-                                yield PRo3D.Linking.LinkingApp.sceneOverlay m.linkingModel |> UI.map LinkingActions
-                                                                                           |> UI.map ViewerMessage
+                                //yield PRo3D.Linking.LinkingApp.sceneOverlay m.linkingModel |> UI.map LinkingActions
+                                //                                                           |> UI.map ViewerMessage
                             }
                         )
                     ]                
@@ -1085,7 +1120,7 @@ module Gui =
             | Some "surfaces" -> 
                 require (viewerDependencies) (
                     body bodyAttributes
-                        [SurfaceApp.surfaceUI Config.colorPaletteStore m.scene.surfacesModel |> UI.map SurfaceActions |> UI.map ViewerMessage] 
+                        [SurfaceApp.surfaceUI m.scene.scenePath Config.colorPaletteStore m.scene.surfacesModel |> UI.map SurfaceActions |> UI.map ViewerMessage] 
                 )
             | Some "annotations" -> 
                 require (viewerDependencies) (body bodyAttributes [Annotations.annotationUI m
@@ -1146,30 +1181,30 @@ module Gui =
                 require (viewerDependencies) (body bodyAttributes [Config.configUI m |> UI.map ViewerMessage])
             | Some "viewplanner" -> 
                 require (viewerDependencies) (body bodyAttributes [ViewPlanner.viewPlannerUI m |> UI.map ViewerMessage])
-            | Some "minerva" -> 
-               //let pos = m.scene.navigation.camera.view |> AVal.map(fun x -> x.Location)
-                let minervaItems = 
-                    PRo3D.Minerva.MinervaApp.viewFeaturesGui m.minervaModel |> List.map (UI.map MinervaActions)
+            //| Some "minerva" -> 
+            //   //let pos = m.scene.navigation.camera.view |> AVal.map(fun x -> x.Location)
+            //    let minervaItems = 
+            //        PRo3D.Minerva.MinervaApp.viewFeaturesGui m.minervaModel |> List.map (UI.map MinervaActions)
 
-                let linkingItems =
-                    [
-                        Html.SemUi.accordion "Linked Products" "Image" false [
-                            PRo3D.Linking.LinkingApp.viewSideBar m.linkingModel |> UI.map LinkingActions
-                        ]
-                    ]
+            //    let linkingItems =
+            //        [
+            //            Html.SemUi.accordion "Linked Products" "Image" false [
+            //                PRo3D.Linking.LinkingApp.viewSideBar m.linkingModel |> UI.map LinkingActions
+            //            ]
+            //        ]
 
-                require (viewerDependencies @ Html.semui) (
-                    body bodyAttributes (minervaItems  @ linkingItems
-                                            |> List.map ( UI.map ViewerMessage))
-                )
-            | Some "linking" ->
-                require (viewerDependencies) (
-                    body bodyAttributes [
-                        PRo3D.Linking.LinkingApp.viewHorizontalBar m.minervaModel.session.selection.highlightedFrustra m.linkingModel 
-                                |> UI.map LinkingActions
-                                |> UI.map ViewerMessage
-                    ]
-                )
+            //    require (viewerDependencies @ Html.semui) (
+            //        body bodyAttributes (minervaItems  @ linkingItems
+            //                                |> List.map ( UI.map ViewerMessage))
+            //    )
+            //| Some "linking" ->
+            //    require (viewerDependencies) (
+            //        body bodyAttributes [
+            //            PRo3D.Linking.LinkingApp.viewHorizontalBar m.minervaModel.session.selection.highlightedFrustra m.linkingModel 
+            //                    |> UI.map LinkingActions
+            //                    |> UI.map ViewerMessage
+            //        ]
+            //    )
             //| Some "corr_logs" ->
             //    CorrelationPanelsApp.viewLogs m.correlationPlot
             //    |> UI.map CorrelationPanelMessage

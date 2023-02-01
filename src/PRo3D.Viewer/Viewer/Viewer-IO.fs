@@ -9,8 +9,8 @@ open Aardvark.Rendering
 
 open PRo3D
 open PRo3D.Base
-open PRo3D.Minerva
-open PRo3D.Linking
+//open PRo3D.Minerva
+//open PRo3D.Linking
 open PRo3D.Core
 open PRo3D.Core.Drawing
 open PRo3D.Viewer
@@ -50,6 +50,7 @@ module ViewerIO =
             scene               : string                           
             annotations         : string
             correlations        : string
+            bookmarksFolder     : string
 
             //deprecated
             [<Obsolete>]
@@ -65,7 +66,11 @@ module ViewerIO =
                 scene               = scenepath          
                 annotations         = scenepath |> Serialization.changeExtension ".pro3d.ann"
                 correlations        = scenepath |> Serialization.changeExtension ".pro3d.corr"
-                
+                bookmarksFolder     = Path.combine 
+                                        [
+                                            (Path.GetDirectoryName scenepath)
+                                            (Path.GetFileNameWithoutExtension scenepath)
+                                        ]
                 annotationGroups    = scenepath |> Serialization.changeExtension ".ann" 
                 annotationsFlat     = scenepath |> Serialization.changeExtension ".ann.json" 
                 annotationDepr      = scenepath |> Serialization.changeExtension ".ann_old" 
@@ -201,43 +206,43 @@ module ViewerIO =
         )
         |> Option.defaultValue m
 
-    let loadMinerva dumpFile cacheFile (m:Model) =
+    //let loadMinerva dumpFile cacheFile (m:Model) =
               
-        let data = MinervaModel.loadDumpCSV dumpFile cacheFile 
+    //    let data = MinervaModel.loadDumpCSV dumpFile cacheFile 
 
-        let whiteListFile = Path.ChangeExtension(dumpFile, "white")
-        let whiteListIds =
-            if whiteListFile |> File.Exists then
-                File.readAllLines whiteListFile |> HashSet.ofArray
-            else 
-                data.features |> IndexList.map(fun x -> x.id) |> IndexList.toList |> HashSet.ofList
+    //    let whiteListFile = Path.ChangeExtension(dumpFile, "white")
+    //    let whiteListIds =
+    //        if whiteListFile |> File.Exists then
+    //            File.readAllLines whiteListFile |> HashSet.ofArray
+    //        else 
+    //            data.features |> IndexList.map(fun x -> x.id) |> IndexList.toList |> HashSet.ofList
             
-        let validFeatures = data.features |> IndexList.filter (fun x -> whiteListIds |> HashSet.contains x.id)
-        let data = { data with features = validFeatures }
+    //    let validFeatures = data.features |> IndexList.filter (fun x -> whiteListIds |> HashSet.contains x.id)
+    //    let data = { data with features = validFeatures }
 
-        let minerva = 
-            MinervaApp.update m.navigation.camera.view m.frustum m.minervaModel MinervaAction.Load
-            |> fun m -> { m with data = data }
-            |> MinervaApp.updateProducts data
-            |> MinervaApp.loadTifs1087    
+    //    let minerva = 
+    //        MinervaApp.update m.navigation.camera.view m.frustum m.minervaModel MinervaAction.Load
+    //        |> fun m -> { m with data = data }
+    //        |> MinervaApp.updateProducts data
+    //        |> MinervaApp.loadTifs1087    
 
-        //refactor ... make chain
-        let filtered = QueryApp.applyFilterQueries minerva.data.features minerva.session.queryFilter
+    //    //refactor ... make chain
+    //    let filtered = QueryApp.applyFilterQueries minerva.data.features minerva.session.queryFilter
 
-        let newModel = 
-            { 
-                minerva with 
-                    session = { 
-                        minerva.session with
-                            filteredFeatures = filtered 
-                    } 
-            } |> MinervaApp.updateFeaturesForRendering        
+    //    let newModel = 
+    //        { 
+    //            minerva with 
+    //                session = { 
+    //                    minerva.session with
+    //                        filteredFeatures = filtered 
+    //                } 
+    //        } |> MinervaApp.updateFeaturesForRendering        
 
-        { m with minervaModel = newModel }
+    //    { m with minervaModel = newModel }
 
-    // minerva has to be preloaded at this point
-    let loadLinking (m: Model) = 
-        { m with linkingModel = m.linkingModel |> LinkingApp.initFeatures m.minervaModel.data.features }
+    //// minerva has to be preloaded at this point
+    //let loadLinking (m: Model) = 
+    //    { m with linkingModel = m.linkingModel |> LinkingApp.initFeatures m.minervaModel.data.features }
       
     let loadLastFootPrint (m:Model) = 
         let fp, viewPlans' = 
@@ -252,19 +257,27 @@ module ViewerIO =
             |> Option.defaultValue (ViewPlanModel.initFootPrint, m.scene.viewPlans)
 
         { m with scene = {m.scene with viewPlans = viewPlans'};  footPrint = fp }
-           
-    let saveEverything (path:string) (m:Model) =         
 
+    let loadSequencedBookmarks (m : Model) =
+        let bookmarks = BookmarkUtils.loadAll m.scene.sequencedBookmarks
+        {m with scene = {m.scene with sequencedBookmarks = bookmarks}}
+
+    let saveEverything (path:string) (m:Model) =         
         if path.IsEmptyOrNull() then m
         else
            //saving scene
             let scenePaths = path |> ScenePaths.create             
-            let cameraState = m.navigation.camera.view            
-            let scene = { m.scene with scenePath      = Some scenePaths.scene; 
-                                       cameraView     = cameraState;
-                                       exploreCenter  = m.navigation.exploreCenter
-                                       navigationMode = m.navigation.navigationMode}
-            scene
+            let cameraState = m.navigation.camera.view        
+            let bookmarks = BookmarkUtils.saveSequencedBookmarks scenePaths.bookmarksFolder
+                                                                 m.scene.sequencedBookmarks
+
+            let scene = { m.scene with scenePath          = Some scenePaths.scene; 
+                                       cameraView         = cameraState;
+                                       exploreCenter      = m.navigation.exploreCenter
+                                       navigationMode     = m.navigation.navigationMode
+                                       sequencedBookmarks = bookmarks
+                        }
+            {scene with sequencedBookmarks = BookmarkUtils.unloadBookmarks bookmarks}
             |> Json.serialize 
             |> Json.formatWith JsonFormattingOptions.Pretty
             |> Serialization.Chiron.writeToFile scenePaths.scene
@@ -278,24 +291,24 @@ module ViewerIO =
             let drawing =                 
                 scenePaths |> saveVersioned' m.drawing
             
-            //saving minerva session
-            let minerva = 
-                try
-                MinervaApp.update 
-                    m.navigation.camera.view
-                    m.frustum
-                    m.minervaModel
-                    MinervaAction.Save
-                with e -> 
-                    Log.warn "[Minerva] update failed, could not save, using old model: %A" e
-                    m.minervaModel
+            ////saving minerva session
+            //let minerva = 
+            //    try
+            //    MinervaApp.update 
+            //        m.navigation.camera.view
+            //        m.frustum
+            //        m.minervaModel
+            //        MinervaAction.Save
+            //    with e -> 
+            //        Log.warn "[Minerva] update failed, could not save, using old model: %A" e
+            //        m.minervaModel
 
             //saving correlations session                        
             
             { m with 
                 scene        = scene 
                 //correlationPlot = { m.correlationPlot with semanticApp = m.correlationPlot.semanticApp }
-                drawing      = drawing
-                minervaModel = minerva } 
+                drawing      = drawing }
+                //minervaModel = minerva } 
             |> Model.stashAndSaveRecent path
 

@@ -102,7 +102,7 @@ let startApplication (startupArgs : CLStartupArgs) =
         use app = new OpenGlApplication()
         let runtime = app.Runtime         
 
-        Aardvark.Rendering.GL.RuntimeConfig.SupressSparseBuffers <- true
+        Aardvark.Rendering.GL.RuntimeConfig.SuppressSparseBuffers <- true
         PRo3D.Core.Drawing.DrawingApp.usePackedAnnotationRendering <- false
 
         Sg.hackRunner <- runtime.CreateLoadRunner 1 |> Some

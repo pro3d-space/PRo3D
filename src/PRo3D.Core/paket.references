@@ -1,6 +1,7 @@
 Aardvark.Base
 Aardvark.Base.Incremental
 Aardvark.Base.FSharp
+Aardvark.PixImage.DevIL
 
 Aardvark.Rendering
 Aardvark.Application.Slim.GL

@@ -65,7 +65,7 @@ type Result =
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "4.9.3-prerelease2"
+let viewerVersion       = "4.11.0-prerelease4"
 let catchDomainErrors   = false
 
 open System.IO
@@ -127,7 +127,7 @@ let main argv =
     else  
         Log.warn "execute"
     Config.besideExecuteable <- workingDirectory
-    PRo3D.Minerva.Config.besideExecuteable <- workingDirectory
+    //PRo3D.Minerva.Config.besideExecuteable <- workingDirectory
     
 
     let startupArgs = (CommandLine.parseArguments argv)
@@ -212,7 +212,7 @@ let main argv =
         Log.line "render control config: %A" (Config.data_samples, Config.backgroundColor, Config.useMapping)
     
 
-        Aardvark.Rendering.GL.RuntimeConfig.SupressSparseBuffers <- true
+        Aardvark.Rendering.GL.RuntimeConfig.SuppressSparseBuffers <- true
         //app.ShaderCachePath <- None
 
         PRo3D.Core.Drawing.DrawingApp.usePackedAnnotationRendering <- true
@@ -272,20 +272,22 @@ let main argv =
         let dumpFile =
             match argsKv |> HashMap.tryFind "dump" with
             | Some file -> file
-            | None when Minerva.Config.ShowMinervaErrors ->
-                Log.warn "need dump file ... dump=\"[dumpfilepath]\" -> using defaultPath '.\MinervaData\dump.csv'"
-                @".\MinervaData\dump.csv"
-            | _ -> 
-                @".\MinervaData\dump.csv"
+            | _ -> "dump.csv"
+            //| None when Minerva.Config.ShowMinervaErrors ->
+            //    Log.warn "need dump file ... dump=\"[dumpfilepath]\" -> using defaultPath '.\MinervaData\dump.csv'"
+            //    @".\MinervaData\dump.csv"
+            //| _ -> 
+            //    @".\MinervaData\dump.csv"
 
         let cacheFile =
             match argsKv |> HashMap.tryFind "cache" with
             | Some file -> file
-            | None when Minerva.Config.ShowMinervaErrors ->
-                Log.warn "need cache file ... cache=\"[cachefilepath]\" -> using defaultPath '.\MinervaData\dump.cache'"
-                @".\MinervaData\dump.cache"
-            | _ -> 
-                @".\MinervaData\dump.cache"
+            | _ -> "dump.cache"
+            //| None when Minerva.Config.ShowMinervaErrors ->
+            //    Log.warn "need cache file ... cache=\"[cachefilepath]\" -> using defaultPath '.\MinervaData\dump.cache'"
+            //    @".\MinervaData\dump.cache"
+            //| _ -> 
+            //    @".\MinervaData\dump.cache"
 
         //let access =
         //    match argsKv |> HashMap.tryFind "access" with
@@ -465,7 +467,7 @@ let main argv =
                 height 800
                 debug true
                 title titlestr
-
+                
 
                 windowoptions {|  minWidth = 180; minHeight = 180; title = titlestr;|}
                 hideDock true

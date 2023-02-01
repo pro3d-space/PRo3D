@@ -17,16 +17,17 @@ open System.IO
 open System.Diagnostics
 
 open Aardvark.UI.Primitives
+
+open PRo3D.Base
 //open CSharpUtils
 
 type SceneObjectAction =
     | FlyToSO               of Guid
     | RemoveSO              of Guid
-    | OpenFolder            of Guid
     | IsVisible             of Guid
     | SelectSO              of Guid
     | PlaceSO               of V3d
-    | TranslationMessage    of TranslationApp.Action
+    | TranslationMessage    of TransformationApp.Action
     | PlaceSceneObject      of V3d
 
 
@@ -54,7 +55,7 @@ module SceneObjectTransformations =
         adaptive {
            let! translation = tansform.translation.value
            let! yaw = tansform.yaw.value
-           let! pivot = tansform.pivot
+           let! pivot = tansform.pivot.value
             
            return fullTrafo'' translation yaw pivot refsys
         }
@@ -62,7 +63,7 @@ module SceneObjectTransformations =
     let fullTrafo' (tansform : Transformations) (refsys : ReferenceSystem) = 
         let translation = tansform.translation.value
         let yaw = tansform.yaw.value
-        let pivot = tansform.pivot
+        let pivot = tansform.pivot.value
             
         fullTrafo'' translation yaw pivot refsys
 
@@ -77,7 +78,7 @@ module SceneObjectsUtils =
                
                 isVisible       = true
                 position        = V3d.Zero       
-                scaling         = InitSceneObjectParams.scaling
+                //scaling         = InitSceneObjectParams.scaling
                 transformation  = InitSceneObjectParams.transformations
                 preTransform    = Trafo3d.Identity 
             }
@@ -114,6 +115,7 @@ module SceneObjectsUtils =
             globalBB    = bb
             sceneGraph  = sg
             picking     = Picking.NoPicking 
+            isObj       = true 
         }
 
              
@@ -133,6 +135,15 @@ module SceneObjectsUtils =
 
 module SceneObjectsApp = 
 
+    let getFolderForObject (model : SceneObjectsModel) (id : Guid) =
+        match HashMap.tryFind id model.sceneObjects with
+        | None -> None
+        | Some sceneObject -> 
+            if File.Exists(sceneObject.importPath) then 
+                Some sceneObject.importPath
+            else 
+                None
+
     let update 
         (model : SceneObjectsModel) 
         (act : SceneObjectAction) = 
@@ -151,14 +162,6 @@ module SceneObjectsApp =
 
             let sceneObjects = HashMap.remove id model.sceneObjects
             { model with sceneObjects = sceneObjects; selectedSceneObject = selSO }
-        | OpenFolder id ->
-            let so = model.sceneObjects |> HashMap.find id
-            let test = Path.GetDirectoryName so.importPath
-            match File.Exists(so.importPath) with
-            | true -> 
-                Process.Start("explorer.exe", test) |> ignore
-                model
-            | false -> model
         | SelectSO id ->
             let so = model.sceneObjects |> HashMap.tryFind id
             match so, model.selectedSceneObject with
@@ -176,7 +179,7 @@ module SceneObjectsApp =
                 let sobj = model.sceneObjects |> HashMap.tryFind id
                 match sobj with
                 | Some so ->
-                    let transformation' = (TranslationApp.update so.transformation msg)
+                    let transformation' = (TransformationApp.update so.transformation msg)
                     let selSO = { so with transformation = transformation' }
                     let sceneObjs = model.sceneObjects |> HashMap.alter so.guid (function | Some _ -> Some selSO | None -> None )
                     { model with sceneObjects = sceneObjs} 
@@ -203,6 +206,13 @@ module SceneObjectsApp =
 
     module UI =
 
+        let getOpenFolderAttributes (so : AdaptiveSceneObject) =
+            amap {
+                yield clazz "folder icon"
+                let! path = so.importPath
+                yield clientEvent "onclick" (Electron.openPath path)
+            } |>  AttributeMap.ofAMap
+
         let viewHeader (m:AdaptiveSceneObject) (soid:Guid) toggleMap= 
             [
                 Incremental.text m.name; text " "
@@ -210,7 +220,7 @@ module SceneObjectsApp =
                 i [clazz "home icon"; onClick (fun _ -> FlyToSO soid)] []
                 |> UI.wrapToolTip DataPosition.Bottom "Fly to scene object"                                                     
             
-                i [clazz "folder icon"; onClick (fun _ -> OpenFolder soid)] [] 
+                Incremental.i (getOpenFolderAttributes m) AList.empty
                 |> UI.wrapToolTip DataPosition.Bottom "Open Folder"                             
             
                 Incremental.i toggleMap AList.empty 
@@ -269,6 +279,8 @@ module SceneObjectsApp =
 
                         let! c = color
                         let bgc = sprintf "color: %s" (Html.ofC4b c)
+
+                
                                      
                         yield Incremental.div (AttributeMap.ofList [style infoc])(
                             alist {
@@ -279,7 +291,7 @@ module SceneObjectsApp =
                                 yield i [clazz "home icon"; onClick (fun _ -> FlyToSO soid)] []
                                     |> UI.wrapToolTip DataPosition.Bottom "Fly to scene object"                                                     
             
-                                yield i [clazz "folder icon"; onClick (fun _ -> OpenFolder soid)] [] 
+                                yield Incremental.i (getOpenFolderAttributes so) AList.empty
                                     |> UI.wrapToolTip DataPosition.Bottom "Open Folder"                             
             
                                 yield Incremental.i toggleMap AList.empty 
@@ -301,7 +313,7 @@ module SceneObjectsApp =
                 | Some id -> 
                   let! so = model.sceneObjects |> AMap.tryFind id
                   match so with
-                  | Some s -> return (TranslationApp.UI.view s.transformation |> UI.map TranslationMessage)
+                  | Some s -> return (TransformationApp.UI.view s.transformation |> UI.map TranslationMessage)
                   | None -> return empty
                 | None -> return empty
             }  
@@ -332,18 +344,18 @@ module SceneObjectsApp =
                             let! s = sceneObj
                             let! rSys = refsys.Current
                             let! t = s.preTransform
-                            let! fullTrafo = SceneObjectTransformations.fullTrafo s.transformation rSys
+                            let! fullTrafo = TransformationApp.fullTrafo s.transformation refsys //SceneObjectTransformations.fullTrafo s.transformation rSys
                             
-                            let! sc = s.scaling.value
+                            //let! sc = s.transformation.scaling.value // s.scaling.value
                             let! flipZ = s.transformation.flipZ
                             let! sketchFab = s.transformation.isSketchFab
 
                             if flipZ then 
-                                return Trafo3d.Scale(sc) * Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * t)
+                                return Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * t)
                             else if sketchFab then
-                                return Trafo3d.Scale(sc) * Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * t)
+                                return Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * t)
                             else
-                                return Trafo3d.Scale(sc) * (fullTrafo * t) //(t * fullTrafo)
+                                return (fullTrafo * t) //(t * fullTrafo)
                         }
 
                     let! sgSObj = sgSurf.sceneGraph
@@ -368,7 +380,12 @@ module SceneObjectsApp =
                                 DefaultSurfaces.vertexColor |> toEffect
                             ] 
                             |> Sg.onOff (selected |> AVal.constant)
-                            )                      
+                            )
+                        |> Sg.andAlso ( 
+                            // pivot point
+                            so.transformation 
+                            |> TransformationApp.Sg.view
+                            )     
                                                         
                     return surfaceSg
                 else

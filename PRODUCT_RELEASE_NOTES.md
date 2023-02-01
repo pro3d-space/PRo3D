@@ -1,5 +1,57 @@
-## 4.9.3-prerelease2
+## 4.12.0-prerelease5
+- opc rendering now works on linux
+
+## 4.12.0-prerelease4
+- opc rendering now works on linux
+
+## 4.12.0-prerelease3
+- workaround for case-sensitivity problem in isOpc: https://github.com/pro3d-space/PRo3D/issues/280
+
+## 4.12.0-prerelease2
+- testing linux deployment
+
+## 4.12.0-prerelease1
+- testing linux deployment
+
+## 4.11.1
+- #110, #126, #138, #144, #145, #166, #212, #231, #259,
+- Transformations, hide exploration center, visibility of annotations- and scalebar text
+
+## 4.11.0-prerelease4
+- NewScene crash fixed: https://github.com/pro3d-space/PRo3D/issues/277
+
+## 4.11.0-prerelease3
+- #274: objs with multiple geometries fixed
+
+## 4.10.3
+- #179 and #246: serialization of viewplans
+- #256: load scenes with wrong obj path and possibility to reload the obj
+
+## 4.10.2
+- build kdtrees for objs from faces of triangulated mesh copy for #264
+- bugfix for large coordinates 
+- load obj without textures; show vertex colors instead
+
+## 4.10.1
+- making projection measurments fit for profile extractions #247 containing to following features
+  - exported projection measurements contain all sampling points
+  - when creating a projection measurement users can control the sampling rate #203
+  - the selected annotation can be exported as csv in the for of absolute elevation over distance #221
+- also supports MSL traverse ingestion
+
+## 4.10.0
+- added configurable sampling scheme to measurement projections (viewpoint, sky) as requested in #203
+
+## 4.9.7
+- bugfix: near/farplane not set correctly in batch rendering [#241](https://github.com/pro3d-space/PRo3D/issues/241)
+
+## 4.9.5
+- fixed kdtree paths on osx
+- switched to dotnet6 
+
+## 4.9.4-prerelease3
 - testing autodeploy
+
 ## 4.9.2-prerelease5
 - bugfix: frustum now set correctly when batch rendering
 
@@ -13,7 +65,7 @@
 - new import for objs with large coordinates
 
 ## 4.9.1-prerelease2
-
+ 
 - bugfix: reading scene with sequenced bookmarks could lead to an error
 - bugfix: scale bars not updated correctly when updating scene state for sequenced bookmarks
 

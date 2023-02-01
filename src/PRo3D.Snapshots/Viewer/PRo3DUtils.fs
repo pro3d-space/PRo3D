@@ -38,8 +38,8 @@ open System.Collections.Concurrent
                     |> ViewerIO.loadAnnotations
                     |> ViewerIO.loadCorrelations
                     |> ViewerIO.loadLastFootPrint
-                    |> ViewerIO.loadMinerva dumpFile cacheFile
-                    |> ViewerIO.loadLinking
+                    //|> ViewerIO.loadMinerva dumpFile cacheFile
+                    //|> ViewerIO.loadLinking
                     |> SceneLoader.addScaleBarSegments
                     |> SceneLoader.addGeologicSurfaces
                 else

@@ -40,9 +40,10 @@ module SnapshotGenerator =
             let hasLoadedAny = 
                 match args.objPaths with
                 | Some objs ->
+                    // TODO @RebeccaNowak what loader should be used here?
                     for x in objs do
                         mApp.updateSync Guid.Empty  (x |> List.singleton 
-                                                       |> ViewerAction.ImportObject 
+                                                       |> (curry ViewerAction.ImportObject MeshLoaderType.Wavefront)
                                                        |> ViewerMessage
                                                        |> Seq.singleton)
                     true
@@ -124,7 +125,11 @@ module SnapshotGenerator =
     let getAnimationActions (anim : SnapshotAnimation) =       
         match anim with
         | SnapshotAnimation.CameraAnimation a ->
-            Seq.singleton (ViewerAction.SetRenderViewportSize a.resolution |> ViewerMessage)
+            seq {
+                yield ViewerAction.SetRenderViewportSize a.resolution |> ViewerMessage
+                yield ViewerAction.SetFrustum a.Frustum |> ViewerMessage
+            }
+
         | SnapshotAnimation.BookmarkAnimation a ->
             [
              (ViewerAction.SetFrustum (SnapshotApp.calculateFrustum a)) |> ViewerMessage

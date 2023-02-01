@@ -49,6 +49,54 @@ module Lenses =
     let set'   (lens : Lens<'s,'a>) (state : 's) (value : 'a) : 's = lens.Set(state, value)
     let update (lens : Lens<'s,'a>) (f : 'a->'a) (state : 's) : 's = lens.Update(state, f)
 
+module OPCFilter =
+        type UniformScope with
+            member x.DiffuseColorTexture : ShaderTextureHandle = x?DiffuseColorTexture
+            member x.HasDiffuseColorCoordinates : bool = x?HasDiffuseColorCoordinates
+            member x.HasDiffuseColorTexture : bool = x?HasDiffuseColorTexture
+            member x.selected : bool = x?selected
+
+        let private diffuseSampler =
+            sampler2d {
+                texture uniform.DiffuseColorTexture
+                filter Filter.Anisotropic
+                maxAnisotropy 16
+                addressU WrapMode.Wrap
+                addressV WrapMode.Wrap
+            }
+
+        let improvedDiffuseTextureAndColor (v : Effects.Vertex) =
+            fragment {
+                if uniform.HasDiffuseColorTexture then
+                    let texColor = diffuseSampler.Sample(v.tc,-1.0)
+                    return texColor
+                else
+                    return v.c
+            }
+
+        let improvedDiffuseTexture (v : Effects.Vertex) =
+            fragment {
+                let texColor = diffuseSampler.Sample(v.tc,-1.0)
+                return texColor
+            }
+
+        let markPatchBorders (v : Effects.Vertex) =
+            fragment { 
+            //if uniform.HasDiffuseColorTexture then
+                if uniform.selected then
+                    if (v.tc.X >= 0.99) && (v.tc.X <= 1.0) || (v.tc.X >= 0.0) && (v.tc.X <= 0.01) then
+                        return V4d(0.69, 0.85, 0.0, 1.0)
+                    elif (v.tc.Y >= 0.99) && (v.tc.Y <= 1.0) || (v.tc.Y >= 0.0) && (v.tc.Y <= 0.01) then
+                        return V4d(0.69, 0.85, 0.0, 1.0)
+                    else
+                        return v.c
+                else return v.c
+            //else return v.c
+            }
+
+        let EffectOPCFilter =
+            toEffect improvedDiffuseTexture
+
 module Utilities =
     type ClientStatistics =
       {
@@ -310,8 +358,9 @@ module Shader =
             restartStrip()
         }
 
+
     let markPatchBorders (v : Effects.Vertex) =
-        fragment {    
+        fragment { 
             if uniform?selected then
                 if   (v.tc.X >= 0.99) && (v.tc.X <= 1.0) || (v.tc.X >= 0.0) && (v.tc.X <= 0.01) then
                     return V4d(0.69, 0.85, 0.0, 1.0)
@@ -574,18 +623,12 @@ module Shader =
 
     let footprintV (v : FootPrintVertex) =
         vertex {
-            //let vp = uniform.ModelViewTrafo * v.pos
-            //let p = uniform.ProjTrafo * vp
-            
             let footprintProjM  : M44d   = uniform?FootprintModelViewProj // was proj * view (earlier there was pretransform in it?)
-            //let textureProjM    : M44d   = uniform?textureProj
-            
             return { 
                 v with 
                     tc0 = footprintProjM * v.pos; 
                     //sv = 0
-                    //tc1 = textureProjM   * v.wp; 
-            } //v.pos
+            } 
         }
 
     let footPrintF (v : FootPrintVertex) =
@@ -1204,3 +1247,15 @@ module ScreenshotUtilities =
             let screenshot = getScreenshotUrl baseAddress cs width height
             let filename = getScreenshotFilename folder name cs format
             wc.DownloadFile(screenshot,filename)        
+
+
+module JsInterop = 
+    let escapePath (s : string) =
+        s.Replace("\\", "\\\\")
+
+module Electron =
+    let openPath (s : string) =
+        sprintf "top.aardvark.electron.shell.openPath('%s');" (JsInterop.escapePath s)
+    
+    let showItemInFolder (s : string) =
+        sprintf "top.aardvark.electron.shell.showItemInFolder('%s');" (JsInterop.escapePath s)

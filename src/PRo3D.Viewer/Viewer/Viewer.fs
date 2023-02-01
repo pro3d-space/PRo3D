@@ -40,8 +40,8 @@ open PRo3D.Core.Surface
 open PRo3D.Viewer
 
 open PRo3D.SimulatedViews
-open PRo3D.Minerva
-open PRo3D.Linking
+//open PRo3D.Minerva
+//open PRo3D.Linking
 open PRo3D.ViewerLenses
  
 open Aether
@@ -250,7 +250,7 @@ module ViewerApp =
         | Interactions.DrawAnnotation, _ -> 
             let m = 
                 match surf.surfaceType with
-                | SurfaceType.SurfaceOBJ -> { m with drawing = { m.drawing with projection = Projection.Linear } } //TODO LF ... why is this happening?
+                | SurfaceType.Mesh -> { m with drawing = { m.drawing with projection = Projection.Linear } } //TODO LF ... why is this happening?
                 | _ -> m
             
             let view = 
@@ -308,28 +308,28 @@ module ViewerApp =
                 SurfaceApp.update
                    m.scene.surfacesModel action m.scene.scenePath m.navigation.camera.view m.scene.referenceSystem
             { m with scene = { m.scene with surfacesModel = surfaceModel' } }
-        | Interactions.PickMinervaFilter, ViewerMode.Standard ->
-            let action = PRo3D.Minerva.QueryAction.SetFilterLocation p |> PRo3D.Minerva.MinervaAction.QueryMessage
-            let minerva = MinervaApp.update m.navigation.camera.view m.frustum m.minervaModel action
-            { m with minervaModel = minerva }
-        | Interactions.PickLinking, ViewerMode.Standard ->
-            Log.startTimed "Pick Linking - filter"
-            let filtered = m.minervaModel.session.filteredFeatures |> IndexList.map (fun f -> f.id) |> IndexList.toList |> HashSet.ofList
-            Log.stop()
+        //| Interactions.PickMinervaFilter, ViewerMode.Standard ->
+        //    let action = PRo3D.Minerva.QueryAction.SetFilterLocation p |> PRo3D.Minerva.MinervaAction.QueryMessage
+        //    let minerva = MinervaApp.update m.navigation.camera.view m.frustum m.minervaModel action
+        //    { m with minervaModel = minerva }
+        //| Interactions.PickLinking, ViewerMode.Standard ->
+        //    Log.startTimed "Pick Linking - filter"
+        //    let filtered = m.minervaModel.session.filteredFeatures |> IndexList.map (fun f -> f.id) |> IndexList.toList |> HashSet.ofList
+        //    Log.stop()
 
-            Log.startTimed "Pick Linking - checkPoint"
-            let linkingAction, minervaAction = LinkingApp.checkPoint p filtered m.linkingModel
-            Log.stop()
+        //    Log.startTimed "Pick Linking - checkPoint"
+        //    let linkingAction, minervaAction = LinkingApp.checkPoint p filtered m.linkingModel
+        //    Log.stop()
 
-            Log.startTimed "Pick Linking - update minerva"
-            let minerva' = MinervaApp.update m.navigation.camera.view m.frustum m.minervaModel minervaAction
-            Log.stop()
+        //    Log.startTimed "Pick Linking - update minerva"
+        //    let minerva' = MinervaApp.update m.navigation.camera.view m.frustum m.minervaModel minervaAction
+        //    Log.stop()
 
-            Log.startTimed "Pick Linking - update linking"
-            let linking' = LinkingApp.update m.linkingModel linkingAction
-            Log.stop()
+        //    Log.startTimed "Pick Linking - update linking"
+        //    let linking' = LinkingApp.update m.linkingModel linkingAction
+        //    Log.stop()
 
-            { m with linkingModel = linking'; minervaModel = minerva' }
+        //    { m with linkingModel = linking'; minervaModel = minerva' }
         | Interactions.TrueThickness, ViewerMode.Standard -> m
         //    let msg = PlaneExtrude.App.Action.PointsMsg(Utils.Picking.Action.AddPoint p)
         //    let pe = PlaneExtrude.App.update m.scene.referenceSystem m.scaleTools.planeExtrude msg
@@ -348,9 +348,28 @@ module ViewerApp =
             let scm = ScaleBarsApp.update m.scene.scaleBars msg
             { m with scene = { m.scene with scaleBars = scm } }
         | Interactions.PlaceSceneObject, ViewerMode.Standard -> 
-            let action = (SceneObjectAction.PlaceSceneObject(p)) 
+            //let action = (SceneObjectAction.PlaceSceneObject(p))
+            let action = (SceneObjectAction.TranslationMessage( TransformationApp.Action.SetPickedTranslation(p)))
             let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel action
             { m with scene = { m.scene with sceneObjectsModel = sobjs } }
+        | Interactions.PickPivotPoint, ViewerMode.Standard -> 
+            match m.pivotType with
+            | PickPivot.SurfacePivot     -> 
+                let action = (SurfaceAppAction.TranslationMessage( TransformationApp.Action.SetPickedPivotPoint p )) 
+                let surfaceModel =
+                    SurfaceApp.update m.scene.surfacesModel action m.scene.scenePath m.navigation.camera.view m.scene.referenceSystem
+                { m with scene = { m.scene with surfacesModel = surfaceModel } }
+            //| PickPivot.ScaleBarPivot    -> 
+            //    let action = (ScaleBarsAction.TranslationMessage( TransformationApp.Action.SetPickedPivotPoint p )) 
+            //    let scaleBars' =
+            //        ScaleBarsApp.update m.scene.scaleBars action 
+            //    { m with scene = { m.scene with scaleBars = scaleBars' } }
+            | PickPivot.SceneObjectPivot -> 
+                let action = (SceneObjectAction.TranslationMessage( TransformationApp.Action.SetPickedPivotPoint p )) 
+                let so' =
+                    SceneObjectsApp.update m.scene.sceneObjectsModel action 
+                { m with scene = { m.scene with sceneObjectsModel = so' } }
+            | _ -> m
         | _ -> m       
 
     let mutable lastHash = -1    
@@ -475,7 +494,7 @@ module ViewerApp =
                 | SurfaceAppAction.FlyToSurface id -> 
                     let surf = m |> Optic.get _sgSurfaces |> HashMap.tryFind id
                     let surface = m.scene.surfacesModel.surfaces.flat |> HashMap.find id |> Leaf.toSurface 
-                    let superTrafo = SurfaceTransformations.fullTrafo' surface m.scene.referenceSystem
+                    let superTrafo = TransformationApp.fullTrafo' surface.transformation m.scene.referenceSystem //SurfaceTransformations.fullTrafo' surface m.scene.referenceSystem
                     match (surface.homePosition) with
                     | Some hp ->                        
                         let animationMessage = 
@@ -647,7 +666,7 @@ module ViewerApp =
                 match msg with
                 | SceneObjectAction.FlyToSO id -> 
                     let sceneObj = sobjs.sceneObjects |> HashMap.find id
-                    let superTrafo = SceneObjectTransformations.fullTrafo' sceneObj.transformation m.scene.referenceSystem
+                    let superTrafo = TransformationApp.fullTrafo' sceneObj.transformation m.scene.referenceSystem //SceneObjectTransformations.fullTrafo' sceneObj.transformation m.scene.referenceSystem
 
                     let sgSo = sobjs.sgSceneObjects |> HashMap.find id
                     let bb = sgSo.globalBB.Transformed(sceneObj.preTransform.Forward * superTrafo.Forward)
@@ -682,7 +701,7 @@ module ViewerApp =
                 let surfaces = 
                     paths 
                     |> List.filter (fun x -> Files.isSurfaceFolder x || Files.isZippedOpcFolder x)
-                    |> List.map (SurfaceUtils.mk SurfaceType.SurfaceOPC m.scene.config.importTriangleSize.value)
+                    |> List.map (SurfaceUtils.mk SurfaceType.SurfaceOPC MeshLoaderType.Unkown m.scene.config.importTriangleSize.value)
                     |> IndexList.ofList
 
                 let m = SceneLoader.import' runtime signature surfaces m 
@@ -704,7 +723,7 @@ module ViewerApp =
                 let surfaces = 
                     surfacePaths 
                     |> List.filter (fun x -> Files.isSurfaceFolder x || Files.isZippedOpcFolder x)
-                    |> List.map (SurfaceUtils.mk SurfaceType.SurfaceOPC m.scene.config.importTriangleSize.value)
+                    |> List.map (SurfaceUtils.mk SurfaceType.SurfaceOPC MeshLoaderType.Unkown m.scene.config.importTriangleSize.value)
                     |> IndexList.ofList
 
                     
@@ -736,18 +755,21 @@ module ViewerApp =
                 }
                     
                 m |> UserFeedback.queueFeedback feedback
-        | ImportObject (objPaths),_,_ -> 
-            match objPaths |> List.tryHead with
-            | Some path ->  
+        | ImportObject (preferredLoader, objPaths), _, _ -> 
+            match objPaths  with
+            | [path] ->
+
                 let objects =                   
                     path 
-                    |> SurfaceUtils.mk SurfaceType.SurfaceOBJ m.scene.config.importTriangleSize.value
+                    |> SurfaceUtils.mk SurfaceType.Mesh preferredLoader m.scene.config.importTriangleSize.value
                     |> IndexList.single                                
                 m 
-                |> SceneLoader.importObj runtime signature objects 
+                |> SceneLoader.importObj preferredLoader objects 
                 |> ViewerIO.loadLastFootPrint
                 |> updateSceneWithNewSurface     
-            | None -> m     
+            | _ -> 
+                Log.line "[Viewer] can only import exactly one file, given: %d" (List.length objPaths)
+                m     
         | ImportSceneObject sl,_,_ -> 
             match sl |> List.tryHead with
             | Some path ->  
@@ -938,7 +960,7 @@ module ViewerApp =
                 Log.error "[PRo3D] could not load file: %s, error: %s" path msg
                 m
 
-            |> ViewerIO.loadMinerva SceneLoader.Minerva.defaultDumpFile SceneLoader.Minerva.defaultCacheFile
+            //|> ViewerIO.loadMinerva SceneLoader.Minerva.defaultDumpFile SceneLoader.Minerva.defaultCacheFile
             |> SceneLoader.addGeologicSurfaces            
 
         | NewScene,_,_ ->
@@ -985,8 +1007,8 @@ module ViewerApp =
                 match k with 
                 | Keyboard.Modifier ->
                     match m.interaction with
-                    | Interactions.PickMinervaProduct -> 
-                        { m with minervaModel = { m.minervaModel with picking = true }; ctrlFlag = true}
+                    //| Interactions.PickMinervaProduct -> 
+                    //    { m with minervaModel = { m.minervaModel with picking = true }; ctrlFlag = true}
                     |_ -> { m with ctrlFlag = true}
                 | _ -> m
 
@@ -1012,10 +1034,10 @@ module ViewerApp =
             let m =
                 match (m.interaction, k) with
                 | Interactions.DrawAnnotation, _ -> m
-                | _, Aardvark.Application.Keys.Enter -> 
-                    let view = m.navigation.camera.view                                                                  
-                    let minerva = MinervaApp.update view m.frustum m.minervaModel PRo3D.Minerva.MinervaAction.ApplyFilters
-                    { m with minervaModel = minerva }
+                //| _, Aardvark.Application.Keys.Enter -> 
+                //    let view = m.navigation.camera.view                                                                  
+                //    let minerva = MinervaApp.update view m.frustum m.minervaModel PRo3D.Minerva.MinervaAction.ApplyFilters
+                //    { m with minervaModel = minerva }
                 | _ -> m
 
             let sensitivity = m.scene.config.navigationSensitivity.value
@@ -1168,7 +1190,7 @@ module ViewerApp =
                     let view = m.navigation.camera.view
                     let d = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing DrawingAction.StopPicking 
                     { m with drawing = d; ctrlFlag = false; picking = false }
-                | Interactions.PickMinervaProduct -> { m with minervaModel = { m.minervaModel with picking = false }}
+                //| Interactions.PickMinervaProduct -> { m with minervaModel = { m.minervaModel with picking = false }}
                 |_-> { m with ctrlFlag = false; picking = false }
             | _ -> m                                  
         | SetInteraction t,_,_ -> 
@@ -1301,10 +1323,6 @@ module ViewerApp =
             { m with tabMenu = tab }
         | SwitchViewerMode  vm ,_,_ -> 
             { m with viewerMode = vm }
-        | OpenSceneFileLocation p,_,_ ->                
-            let argument = sprintf "/select, \"%s\"" p
-            Process.Start("explorer.exe", argument) |> ignore
-            m
         | NoAction s,_,_ -> 
             if s.IsEmptyOrNull() |> not then 
                 Log.line "[Viewer.fs] No Action %A" s
@@ -1332,40 +1350,40 @@ module ViewerApp =
         //    _m
         //    //  _m.shutdown ()
                 
-        | MinervaActions a,_,_ ->
-            let currentView = m.navigation.camera.view
-            match a with 
-            | Minerva.MinervaAction.SelectByIds ids -> // AND fly to its center
-                let minerva' = MinervaApp.update currentView m.frustum m.minervaModel a                                                                               
-                // Fly to center of selected prodcuts
-                let center = Box3d(minerva'.selectedSgFeatures.positions).Center
-                let newForward = (center - currentView.Location).Normalized             
-                { m with minervaModel = minerva'; animations = createAnimation center newForward currentView.Up m.animations }   
-            | Minerva.MinervaAction.FlyToProduct v -> 
-                let newForward = (v - currentView.Location).Normalized             
-                { m with animations = createAnimation v newForward currentView.Up m.animations }
-            | _ ->                
-                let minerva' = MinervaApp.update currentView m.frustum m.minervaModel a                                                                               
-                //let linking' = PRo3D.Linking.LinkingApp.update currentView m.frustum injectLinking (PRo3D.Linking.LinkingAction(a))
-                //MailboxAction.ViewerAction
-                //ViewerAction.MinervaActions
-                //a |> ViewerAction.MinervaActions |> MailboxAction.ViewerAction
-                { m with minervaModel = minerva' }
-        | LinkingActions a,_,_ ->
-            match a with
-            | PRo3D.Linking.LinkingAction.MinervaAction d ->
-                { m with minervaModel = MinervaApp.update m.navigation.camera.view m.frustum m.minervaModel d }
-            | PRo3D.Linking.LinkingAction.OpenFrustum d ->
-                let linking' = PRo3D.Linking.LinkingApp.update m.linkingModel a         
+        //| MinervaActions a,_,_ ->
+        //    let currentView = m.navigation.camera.view
+        //    match a with 
+        //    | Minerva.MinervaAction.SelectByIds ids -> // AND fly to its center
+        //        let minerva' = MinervaApp.update currentView m.frustum m.minervaModel a                                                                               
+        //        // Fly to center of selected prodcuts
+        //        let center = Box3d(minerva'.selectedSgFeatures.positions).Center
+        //        let newForward = (center - currentView.Location).Normalized             
+        //        { m with minervaModel = minerva'; animations = createAnimation center newForward currentView.Up m.animations }   
+        //    | Minerva.MinervaAction.FlyToProduct v -> 
+        //        let newForward = (v - currentView.Location).Normalized             
+        //        { m with animations = createAnimation v newForward currentView.Up m.animations }
+        //    | _ ->                
+        //        let minerva' = MinervaApp.update currentView m.frustum m.minervaModel a                                                                               
+        //        //let linking' = PRo3D.Linking.LinkingApp.update currentView m.frustum injectLinking (PRo3D.Linking.LinkingAction(a))
+        //        //MailboxAction.ViewerAction
+        //        //ViewerAction.MinervaActions
+        //        //a |> ViewerAction.MinervaActions |> MailboxAction.ViewerAction
+        //        { m with minervaModel = minerva' }
+        //| LinkingActions a,_,_ ->
+        //    match a with
+        //    | PRo3D.Linking.LinkingAction.MinervaAction d ->
+        //        { m with minervaModel = MinervaApp.update m.navigation.camera.view m.frustum m.minervaModel d }
+        //    | PRo3D.Linking.LinkingAction.OpenFrustum d ->
+        //        let linking' = PRo3D.Linking.LinkingApp.update m.linkingModel a         
 
-                let camera' = { m.navigation.camera with view = CameraView.ofTrafo d.f.camTrafo }
-                { m with navigation = { m.navigation with camera = camera' }; overlayFrustum = Some(d.f.camFrustum); linkingModel = linking' }
-            | PRo3D.Linking.LinkingAction.CloseFrustum ->
-                let linking' = PRo3D.Linking.LinkingApp.update m.linkingModel a
-                //let camera' = { m.navigation.camera with view = rememberCam }
-                { m with overlayFrustum = None; linkingModel = linking' } //navigation = { m.navigation with camera = camera' }}
-            | _ -> 
-                { m with linkingModel = PRo3D.Linking.LinkingApp.update m.linkingModel a }
+        //        let camera' = { m.navigation.camera with view = CameraView.ofTrafo d.f.camTrafo }
+        //        { m with navigation = { m.navigation with camera = camera' }; overlayFrustum = Some(d.f.camFrustum); linkingModel = linking' }
+        //    | PRo3D.Linking.LinkingAction.CloseFrustum ->
+        //        let linking' = PRo3D.Linking.LinkingApp.update m.linkingModel a
+        //        //let camera' = { m.navigation.camera with view = rememberCam }
+        //        { m with overlayFrustum = None; linkingModel = linking' } //navigation = { m.navigation with camera = camera' }}
+        //    | _ -> 
+        //        { m with linkingModel = PRo3D.Linking.LinkingApp.update m.linkingModel a }
         | OnResize (a,id),_,_ ->              
             Log.line "[RenderControl Resized] %A" a
             { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y); viewPortSizes = HashMap.add id a m.viewPortSizes }
@@ -1802,7 +1820,8 @@ module ViewerApp =
                 |> Sg.map ReferenceSystemMessage  
 
             let exploreCenter =
-                Navigation.Sg.view m.navigation            
+                Navigation.Sg.view m.navigation
+                |> Sg.onOff m.scene.config.showExplorationPointGui
           
             let homePosition =
                 Sg.viewHomePosition m.scene.surfacesModel
@@ -1815,8 +1834,8 @@ module ViewerApp =
                     m.navigation.camera.view
                 |> Sg.map ViewPlanMessage           
 
-            let solText = 
-                MinervaApp.getSolBillboards m.minervaModel m.navigation.camera.view near |> Sg.map MinervaActions
+            //let solText = 
+            //    MinervaApp.getSolBillboards m.minervaModel m.navigation.camera.view near |> Sg.map MinervaActions
                 
             //let correlationLogs, _ =
             //    PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
@@ -1870,40 +1889,40 @@ module ViewerApp =
                 refSystem; 
                 viewPlans; 
                 homePosition; 
-                solText; 
+             //   solText; 
                 annotationTexts |> Sg.noEvents
                 heightValidation
                 scaleBarTexts
                 traverse
             ] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
-        let minervaSg =
-            let minervaFeatures = 
-                MinervaApp.viewFeaturesSg m.minervaModel |> Sg.map MinervaActions 
+        //let minervaSg =
+        //    let minervaFeatures = 
+        //        MinervaApp.viewFeaturesSg m.minervaModel |> Sg.map MinervaActions 
 
-            let filterLocation =
-                MinervaApp.viewFilterLocation m.minervaModel |> Sg.map MinervaActions
+        //    let filterLocation =
+        //        MinervaApp.viewFilterLocation m.minervaModel |> Sg.map MinervaActions
 
-            Sg.ofList [minervaFeatures] //;filterLocation]
+        //    Sg.ofList [minervaFeatures] //;filterLocation]
 
         //let all = m.minervaModel.data.features
-        let selected = 
-            m.minervaModel.session.selection.highlightedFrustra
-            |> AList.ofASet
-            |> AList.toAVal 
-            |> AVal.map (fun x ->
-                x
-                |> IndexList.take 500
-            )
-            |> AList.ofAVal
-            |> ASet.ofAList
+        //let selected = 
+        //    m.minervaModel.session.selection.highlightedFrustra
+        //    |> AList.ofASet
+        //    |> AList.toAVal 
+        //    |> AVal.map (fun x ->
+        //        x
+        //        |> IndexList.take 500
+        //    )
+        //    |> AList.ofAVal
+        //    |> ASet.ofAList
         
-        let linkingSg = 
-            PRo3D.Linking.LinkingApp.view 
-                m.minervaModel.hoveredProduct 
-                selected 
-                m.linkingModel
-            |> Sg.map LinkingActions
+        //let linkingSg = 
+        //    PRo3D.Linking.LinkingApp.view 
+        //        m.minervaModel.hoveredProduct 
+        //        selected 
+        //        m.linkingModel
+        //    |> Sg.map LinkingActions
 
         let heightValidationDiscs =
             HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
@@ -1933,9 +1952,9 @@ module ViewerApp =
 
         let depthTested = 
             [
-                linkingSg; 
+             //   linkingSg; 
                 annotationSg; 
-                minervaSg; 
+                //minervaSg; 
                 heightValidationDiscs; 
                 scaleBars; 
                 sceneObjects; 
@@ -1991,13 +2010,14 @@ module ViewerApp =
                 |> ThreadPool.map Navigation.ArcBallAction |> ThreadPool.map NavigationMessage
             | _ -> failwith "invalid nav mode"
          
-        let minerva = MinervaApp.threads m.minervaModel |> ThreadPool.map MinervaActions
+      //  let minerva = MinervaApp.threads m.minervaModel |> ThreadPool.map MinervaActions
 
         let sBookmarks = SequencedBookmarksApp.threads m.scene.sequencedBookmarks |> ThreadPool.map SequencedBookmarkMessage
 
-        unionMany [drawing; animation; nav; m.scene.feedbackThreads; minerva; sBookmarks]
+        unionMany [drawing; animation; nav; m.scene.feedbackThreads; sBookmarks]
             |> ThreadPool.map ViewerMessage
-            |> ThreadPool.union (Anewmation.Animator.threads m.animator 
+            |> ThreadPool.union (
+                Anewmation.Animator.threads m.animator 
                                     |> ThreadPool.map AnewmationMessage)
         
     let loadWaypoints m = 
@@ -2030,10 +2050,12 @@ module ViewerApp =
                 |> ViewerIO.loadAnnotations
                 |> ViewerIO.loadCorrelations
                 |> ViewerIO.loadLastFootPrint
-                |> ViewerIO.loadMinerva dumpFile cacheFile
-                |> ViewerIO.loadLinking
+                |> ViewerIO.loadSequencedBookmarks
+                //|> ViewerIO.loadMinerva dumpFile cacheFile
+                //|> ViewerIO.loadLinking
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
+                
             else
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl
                                             dataSamples screenshotDirectory _animator

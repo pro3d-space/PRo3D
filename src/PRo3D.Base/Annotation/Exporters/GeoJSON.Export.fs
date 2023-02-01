@@ -47,13 +47,7 @@ module GeoJSONExport =
 
         // add sampled points to the export
         let points = 
-            if a.segments.Count = 0 then
-                a.points |> IndexList.toList
-            else
-                a.segments 
-                |> IndexList.toList 
-                |> List.map(fun x -> x.points |> IndexList.toList) 
-                |> List.concat
+            a |> Annotation.retrievePoints
         
         let coordinates = 
             match planet with 
@@ -132,6 +126,8 @@ module GeoJSONExport =
                                 ("id", annotation.key.ToString() |> Json.String)
                                 ("color", annotation.color.c.ToString() |> Json.String)
                                 ("geometry", annotation.geometry.ToString() |> Json.String)
+                                ("text", annotation.text |> Json.String)
+                                ("surfaceName", annotation.surfaceName |> Json.String)
                                 // extend as desired. https://github.com/pro3d-space/PRo3D/issues/185
                             ]
                     }

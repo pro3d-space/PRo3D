@@ -32,7 +32,7 @@ open Adaptify
 
 open Aether
 open Aether.Operators
-open PRo3D.Minerva
+//open PRo3D.Minerva
 
 #nowarn "0686"
 
@@ -54,6 +54,10 @@ type PropertyActions =
     | DrawingMessage    of DrawingAction
     | AnnotationMessage of AnnotationProperties.Action
 
+type PickPivot =
+    | SurfacePivot      = 0
+    | SceneObjectPivot  = 1
+   // | ScaleBarPivot     = 2
 //type CorrelationPanelsMessage = 
 //| CorrPlotMessage               of CorrelationPlotAction
 //| SemanticAppMessage            of SemanticAction
@@ -95,7 +99,7 @@ type ViewerAction =
 | ImportSurface                   of list<string>
 | ImportDiscoveredSurfaces        of list<string>
 | ImportDiscoveredSurfacesThreads of list<string>
-| ImportObject                    of list<string>
+| ImportObject                    of preferredLoader : MeshLoaderType * filePaths : list<string>
 | ImportSceneObject               of list<string>
 | ImportPRo3Dv1Annotations        of list<string>
 | ImportSurfaceTrafo              of list<string>
@@ -128,11 +132,10 @@ type ViewerAction =
 | Translate                       of string * TrafoController.Action
 | Rotate                          of string * TrafoController.Action
 | SurfaceActions                  of SurfaceAppAction
-| MinervaActions                  of PRo3D.Minerva.MinervaAction
+//| MinervaActions                  of PRo3D.Minerva.MinervaAction
 //| ScaleToolAction                 of ScaleToolAction
-| LinkingActions                  of PRo3D.Linking.LinkingAction    
+//| LinkingActions                  of PRo3D.Linking.LinkingAction    
 | SetTabMenu                      of TabMenu
-| OpenSceneFileLocation           of string
 | NoAction                        of string
 | OrientationCube                 of ISg
 | UpdateDockConfig                of DockConfig
@@ -160,7 +163,8 @@ type ViewerAction =
 | ScreenshotMessage              of ScreenshotAction
 | TraverseMessage                of TraverseAction
 | SetSceneState                  of SceneState
-| StopGeoJsonAutoExport        
+| StopGeoJsonAutoExport  
+| SetPivotType                   of PickPivot
 | Nop
 
 and MailboxState = {
@@ -529,13 +533,14 @@ type Model = {
     multiSelectBox   : Option<MultiSelectionBox>
     shiftFlag        : bool
     picking          : bool
+    pivotType        : PickPivot
     ctrlFlag         : bool
     frustum          : Frustum
     viewPortSizes    : HashMap<string, V2i>
     overlayFrustum   : Option<Frustum>
     
-    minervaModel     : PRo3D.Minerva.MinervaModel
-    linkingModel     : PRo3D.Linking.LinkingModel
+    //minervaModel     : PRo3D.Minerva.MinervaModel
+    //linkingModel     : PRo3D.Linking.LinkingModel
     //correlationPlot : CorrelationPanelModel
     //pastCorrelation : Option<CorrelationPanelModel>
 
@@ -654,10 +659,11 @@ module Viewer =
             startupArgs     = startupArgs            
             drawing         = Drawing.DrawingModel.initialdrawing
             properties      = NoProperties
-            interaction     = Interactions.PlaceRover
+            interaction     = Interactions.DrawAnnotation
             multiSelectBox  = None
             shiftFlag       = false
             picking         = false
+            pivotType       = PickPivot.SurfacePivot
             ctrlFlag        = false
 
             messagingMailbox = msgBox
@@ -685,13 +691,13 @@ module Viewer =
                     cam        = CameraController.initial.view
                 }
            
-            minervaModel = MinervaModel.initial // CHECK-merge PRo3D.Minerva.Initial.model msgBox2
+            //minervaModel = MinervaModel.initial // CHECK-merge PRo3D.Minerva.Initial.model msgBox2
 
             //scaleTools = 
             //    {
             //         planeExtrude = PlaneExtrude.App.initial
             //    }
-            linkingModel = PRo3D.Linking.LinkingModel.initial
+            //linkingModel = PRo3D.Linking.LinkingModel.initial
             
            // correlationPlot = CorrelationPanelModel.initial
             //pastCorrelation = None
