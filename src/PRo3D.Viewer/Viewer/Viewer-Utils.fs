@@ -343,7 +343,7 @@ module ViewerUtils =
                     |> Sg.dynamic
 
                 //let! texTest = depthTexture
-                let texTest = DefaultTextures.checkerboard.GetValue() //depthTexture
+                let! texTest = DefaultTextures.checkerboard 
                 
                 let surfaceSg =
                     surface.sceneGraph
@@ -357,12 +357,13 @@ module ViewerUtils =
                     |> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
                     |> addImageCorrectionParameters  surf
                     |> Sg.uniform "DepthVisible" depthVisible
-                    //|> Sg.uniform "FootprintVisible" footprintVisible
-                    //|> Sg.uniform "FootprintModelViewProj" (M44d.Identity |> AVal.constant)
-                    //|> Sg.applyFootprint footprintViewProj
+                    |> Sg.uniform "FootprintVisible" footprintVisible
+                    |> Sg.uniform "FootprintModelViewProj" (M44d.Identity |> AVal.constant)
+                    |> Sg.applyFootprint footprintViewProj
                     |> Sg.noEvents
-                    |> Sg.texture (Sym.ofString "DepthTexture") (texTest |> AVal.constant) // depthTexture
-                    //|> Sg.texture (Sym.ofString "FootPrintTexture") fp.projTex
+                    |> Sg.texture (Sym.ofString "ColorMapTexture") (AVal.constant colormap)
+                    //|> Sg.texture (Sym.ofString "DepthTexture") (texTest |> AVal.constant) // depthTexture
+                    |> Sg.texture (Sym.ofString "FootPrintTexture") fp.projTex
                     |> Sg.LodParameters( getLodParameters  (AVal.constant surf) refsys frustum )
                     |> Sg.AttributeParameters( attributeParameters  (AVal.constant surf) )
                     |> Sg.pickable' pickable
@@ -496,12 +497,51 @@ module ViewerUtils =
         let sg = grouped |> AList.toASet |> Sg.set
 
         sg
-            
+    
+    //let getVPResolution (m:AdaptiveModel) =
+    //    adaptive {
+    //        let! id = m.scene.viewPlans.selectedViewPlan
+    //        match id with
+    //        | Some id -> 
+    //            let selectedVp = m.scene.viewPlans.viewPlans |> AMap.find id
+    //            let width, height =
+    //                match selectedVp.selectedInstrument with
+    //                | Some i -> 
+    //                    let horRes = i.intrinsics.horizontalResolution/uint32(2)
+    //                    let vertRes = i.intrinsics.verticalResolution/uint32(2)
+    //                    int(horRes), int(vertRes)
+    //                | None -> 
+    //                    512, 512
+    //            return V2i(width, height)
+    //        | None -> return V2i(512, 512)
+
+
+    //        //match id with
+    //        //| Some v -> 
+    //        //    let! vp = m.scene.viewPlans.viewPlans |> AMap.tryFind v
+    //        //    match vp with
+    //        //    | Some selVp -> 
+    //        //        let width, height =
+    //        //            match selVp.selectedInstrument with
+    //        //            | Some i -> 
+    //        //                let horRes = i.intrinsics.horizontalResolution/uint32(2)
+    //        //                let vertRes = i.intrinsics.verticalResolution/uint32(2)
+    //        //                int(horRes), int(vertRes)
+    //        //            | None -> 
+    //        //                512, 512
+    //        //        return V2i(width, height)
+    //        //    | None -> return V2i(512, 512)
+    //        //| None -> return V2i(512, 512)
+    //    }
 
     let getDepth 
         (m:AdaptiveModel) 
-        (runtime : IRuntime) =  
-        
+        (runtime : IRuntime) = 
+        //let resolution = V3i (a.resolution.X, a.resolution.Y, 1)
+        //
+
+        let resolution = V2i(512, 512) |> AVal.constant //getVPResolution m
+
         let depthsignature = 
             runtime.CreateFramebufferSignature ([
                 DefaultSemantic.Colors, TextureFormat.Rgba8
@@ -510,7 +550,7 @@ module ViewerUtils =
         
         (getSimpleSurfacesSg m)
             |> Sg.compile runtime depthsignature
-            |> RenderTask.renderToDepth (V2i(4096, 4096)|> AVal.constant)  
+            |> RenderTask.renderToDepth resolution 
         
     let frustum (m:AdaptiveModel) =
         let near = m.scene.config.nearPlane.value
@@ -666,7 +706,7 @@ module ViewerUtils =
             PRo3D.Base.Shader.mapColorAdaption  |> toEffect  
 
             //PRo3D.Base.Shader.depthImageF        |> toEffect
-            PRo3D.Base.Shader.depthImageF        |> toEffect
+            PRo3D.Base.Shader.depthCalculation     |> toEffect //depthImageF        |> toEffect
 
             PRo3D.Base.Shader.footPrintF        |> toEffect
         ]
