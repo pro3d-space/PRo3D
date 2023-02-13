@@ -161,8 +161,9 @@ type ViewerAction =
 | TraverseMessage                of TraverseAction
 | SetSceneState                  of SceneState
 | WriteBookmarkMetadata          of string * SequencedBookmarkModel
+| WriteCameraMetadata            of string * SnapshotCamera
 | StopGeoJsonAutoExport        
-| LoadPoseDefinitionFile
+| LoadPoseDefinitionFile         of list<string>
 | Nop
 
 and MailboxState = {

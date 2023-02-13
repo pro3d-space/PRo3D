@@ -1564,12 +1564,13 @@ module ViewerApp =
             { m with drawing = { m.drawing with automaticGeoJsonExport = autoExport } }
         | SetSceneState state, _, _ ->
             Optic.set _sceneState state m
-        | LoadPoseDefinitionFile, _, _ -> //RNO WIP
-            let path = "poseTreeDummyData.json"
+        | LoadPoseDefinitionFile path, _, _ -> //RNO WIP
+            //let path = "poseTreeDummyData.json"
+            let path = path.Head
             //SimulatedViews.PoseData.writeDummyData path
             let poseData : PoseData = SimulatedViews.PoseData.read path
             let sceneState = Optic.get _sceneState m 
-            let bookmarks = PoseData.toSequencedBookmarks poseData sceneState
+            let bookmarks = PoseData.toSequencedBookmarks poseData sceneState m.viewerVersion
                             |> SequencedBookmarksApp.addBookmarks m.scene.sequencedBookmarks
             let bookmarks = {bookmarks with poseDataPath = Some path}
             let m = Optic.set _sequencedBookmarks bookmarks m
@@ -1583,7 +1584,8 @@ module ViewerApp =
             | None ->
                 Log.line "[Viewer] No metadata for bookmark %s" bm.name
                 m
-            
+        | WriteCameraMetadata (path, camera),_,_ ->
+            m
         | unknownAction, _, _ -> 
             Log.line "[Viewer] Message not handled: %s" (string unknownAction)
             m       

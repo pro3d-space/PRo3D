@@ -476,7 +476,9 @@ module PoseData =
         reader.Dispose ()
         text
 
-    let toSequencedBookmarks (m    : PoseData) (sceneState : SceneState) =
+    let toSequencedBookmarks (m    : PoseData) 
+                             (sceneState : SceneState) 
+                             (pro3dVersion : string) =
         let text = System.IO.File.ReadAllText(m.path)
         let doc = JsonDocument.Parse (text)
         let ok, poses = doc.RootElement.TryGetProperty ("poses") //TODO RNO deal with fail
@@ -510,16 +512,20 @@ module PoseData =
                     let text = pose.GetRawText()
                     let ok, keyProp = pose.TryGetProperty ("key")
                     let key = keyProp.GetString ()
+                    let withoutBrace = text.Length - 2 //TODO RNO refactor
+                    let foo = text[0..withoutBrace]
+                    let bar = sprintf "%s,\n\"pro3DVersion\": \"%s\"}" foo pro3dVersion
+                    
                     //let stream = new System.IO.MemoryStream ()
                     //let jsonWriter = new Utf8JsonWriter (stream)
                     
                     //jsonWriter.WriteStartObject();
-                    //pose.WriteTo(jsonWriter)
+                    //pose.WriteTo(jsonWriter) // fails silently
                     //jsonWriter.WriteEndObject();
                     //jsonWriter.Flush ()
                     //let reader = new System.IO.StreamReader ( stream )
                     //let text = reader.ReadToEnd()
-                    yield key, text
+                    yield key, bar
             ]
                 
 

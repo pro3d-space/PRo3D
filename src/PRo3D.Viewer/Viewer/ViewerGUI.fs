@@ -629,7 +629,14 @@ module Gui =
                                             clientEvent "onclick" "aardvark.electron.shell.openExternal('https://github.com/pro3d-space/PRo3D/blob/develop/CREDITS.MD')"] [
                                             text "3rd Party Licences"
                                         ]
-                                        menuItem "Load Pose Definition File" ViewerAction.LoadPoseDefinitionFile
+
+                                        let jsOpenPose = "top.aardvark.dialog.showOpenDialog({title:'Import Pose File' , filters: [{ name: 'Pose Data (*.json)', extensions: ['json']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+                                        div [ clazz "ui item";
+                                              Dialogs.onChooseFiles ViewerAction.LoadPoseDefinitionFile
+                                              clientEvent "onclick" jsOpenPose ] [
+                                              text "Load Pose Definition File"
+                                        ]
 
                                         div [clazz "ui item"; clientEvent "onclick" "sendCrashDump()"] [
                                             text "Send log to maintainers"
