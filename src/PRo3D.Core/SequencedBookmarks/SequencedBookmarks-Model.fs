@@ -703,7 +703,7 @@ module SequencedBookmarks =
                                                                     <| SequencedBookmarkModel.init a)) 
                       |> HashMap.ofList
                 | _,_ -> HashMap.empty
-            let! poseDataPath       = Json.read "poseDataPath"
+            let! poseDataPath       = Json.tryRead "poseDataPath"
             let! orderList          = Json.read "orderList"
             let! selected           = Json.read "selectedBookmark"
             let! generateOnStop     = Json.tryRead "generateOnStop"
