@@ -984,6 +984,7 @@ module ViewerApp =
                     m.numberOfSamples 
                     m.screenshotDirectory
                     _animator
+                |> PRo3D.Core.Provenance.emptyWithModel
 
             { initialModel with recent = m.recent} |> ViewerIO.loadRoverData
 
@@ -1505,8 +1506,8 @@ module ViewerApp =
 
             Anewmation.Animator.update msg m   
 
-        | ProvenanceMessage (Provenance.ProvenanceMessage.ActivateNode s) -> 
-            m
+        | ProvenanceMessage msg -> 
+            Provenance.update msg m
             
     let updateWithProvenanceTracking 
                 (runtime   : IRuntime) 
@@ -1954,6 +1955,7 @@ module ViewerApp =
             if startEmpty |> not then
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl 
                                             dataSamples screenshotDirectory _animator
+                |> Provenance.emptyWithModel
                 |> SceneLoader.loadLastScene runtime signature                
                 |> SceneLoader.loadLogBrush
                 |> ViewerIO.loadRoverData                
@@ -1967,6 +1969,7 @@ module ViewerApp =
             else
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl
                                             dataSamples screenshotDirectory _animator
+                |> Provenance.emptyWithModel
                 |> ViewerIO.loadRoverData
 
         App.start {

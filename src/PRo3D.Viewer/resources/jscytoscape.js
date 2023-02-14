@@ -96,8 +96,9 @@
 					// later..
 				}
 				else {
+					debugger;
 					cy.add(p.edge);
-					removals.push(p.edge.id);
+					removals.push(key);
 				}
 			}
 			removals.forEach(x => delete pendings[x]);

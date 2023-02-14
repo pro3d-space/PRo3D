@@ -14,21 +14,25 @@ open Aardvark.UI.Primitives
 
 open PRo3D.Navigation
 open PRo3D.Viewer
+open Aardvark.UI.Anewmation
+open Aardvark.UI.Animation
 
 module Provenance =
 
 
-    //let applyPModel (baseModel : Model) (model : PModel) : Model =
-    //    let setCameraView =
-    //        PRo3D.Viewer.Model.navigation_ >-> NavigationModel.camera_ >-> CameraControllerState.view_
+    let applyPModel (baseModel : Model) (model : PModel) : Model =
+        let setCameraView =
+            PRo3D.Viewer.Model.navigation_ >-> NavigationModel.camera_ >-> CameraControllerState.view_
          
-    //    let baseModel = 
-    //        baseModel 
-    //        |> Optic.set setCameraView   model.cameraView 
-    //        |> Optic.set Model.frustum_  model.frustum
-    //        |> Optic.set Model.drawing_  model.drawing
+        let setDrawing =
+            PRo3D.Viewer.Model.drawing_ 
+
+        let baseModel = 
+            baseModel 
+            |> Optic.set setCameraView  model.cameraView 
+            |> Optic.set setDrawing model.annotations
            
-    //    baseModel
+        baseModel
 
     let toAction (model : Model) (msg : PMessage) : list<ViewerAction> =
         match msg with
@@ -79,6 +83,14 @@ module Provenance =
             annotations = model.drawing
         }
 
+    
+    let emptyWithModel (m : Model) = 
+        { m with 
+            provenanceModel = 
+                { 
+                    nodes = HashMap.ofList [ "input", { id = "input"; model = reduceModel m |> Some }]; edges = HashMap.empty; lastEdge = None 
+                }
+        }
 
     let track (oldModel : Model) (newModel : Model) (msg : ViewerAnimationAction) : Model =
         let reducedModel = reduceModel newModel
@@ -135,3 +147,38 @@ module Provenance =
                 ) 
             )
         ]
+
+    /// Creates an animation that interpolates between the camera views src and dst.
+    let interpolate (src : CameraView) (dst : CameraView) : IAnimation<'Model, CameraView> =
+        let animPos = Animation.Primitives.lerp src.Location dst.Location
+        let animOri = Animation.Primitives.slerp src.Orientation dst.Orientation
+
+        (animPos, animOri)
+        ||> Animation.map2 (fun pos ori -> CameraView.orient pos ori dst.Sky)
+
+    let animateView (oldModel : Model) (newModel : Model) : Model =
+        let view = newModel.navigation.camera.view
+        let animationMessage = 
+            CameraAnimations.animateForwardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
+        let animations = AnimationApp.update newModel.animations (AnimationAction.PushAnimation(animationMessage))
+        { newModel with animations = animations }
+
+
+    let update (msg : Provenance.ProvenanceMessage) (m : Model) : Model =
+        match msg with 
+        | Provenance.ProvenanceMessage.ActivateNode s -> 
+            match m.provenanceModel.nodes |> HashMap.tryFind s with
+            | None -> m
+            | Some n -> 
+                match n.model with
+                | None -> 
+                    Log.warn "no model. rewind and replay not implemented"
+                    m
+                | Some pm -> 
+                    let newModel = applyPModel m pm
+                    let animated = animateView m newModel
+
+                    // let us create a new branch
+                 
+
+                    animated

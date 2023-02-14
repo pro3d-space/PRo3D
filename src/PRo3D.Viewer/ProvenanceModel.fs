@@ -116,7 +116,7 @@ module Provenance =
 module ProvenanceModel = 
     open System.Threading
     
-    let initial = { nodes = HashMap.ofList [ "input", { id = "input"; model = None }]; edges = HashMap.empty; lastEdge = None }
+    let invalid = { nodes = HashMap.empty; edges = HashMap.empty; lastEdge = None }
 
     let private newNodeId = 
         let mutable id = 0
@@ -166,67 +166,6 @@ module ProvenanceModel =
             | Some es -> Some es.message
             | _ -> None
         | _ -> None
-
-
-    //module CytoscapeJs =
-
-    //    open System.Text.Json
-    //    open Chiron
-
-    //    let toDataJson (m : ProvenanceModel) =
-    //        let createNode (label : string) =
-    //            json {
-    //                Chiron.o
-    //            }
-    //        json {
-    //            do! Json.write "node" (
-    //                Chiron.Object [
-    //                    do
-    //                ]
-    //            )
-    //        }
-            
-
-    //module GraphVis  =
-    //    open System.IO
-    //    open Cyjs.NET
-    //    open Elements
-
-
-    //    let toGraph (m : ProvenanceModel) =
-    //        CyGraph.initEmpty ()
-    //        |> CyGraph.withElements [
-    //                yield node "input" [ CyParam.label "input scene"  ]
-    //                for (id,n) in m.nodes |> HashMap.toSeq do
-    //                    yield node id [ CyParam.label "internal"  ]
-
-    //                for (source, outputs) in m.edges |> HashMap.toSeq do
-    //                    let sourceId =
-    //                        match source with
-    //                        | Source m -> "input"
-    //                        | Label input -> input
-    //                    for (targetId, e) in outputs |> HashMap.toSeq do
-    //                        let humanReadable = PMessage.toHumanReadable e.message
-    //                        yield edge e.id sourceId targetId [ CyParam.label humanReadable ]
-    //            ]
-    //        |> CyGraph.withStyle "edge" [ 
-    //                CyParam.content =. CyParam.label
-    //                CyParam.color "#A00975"
-    //        ]
-    //        |> CyGraph.withLayout (
-    //            Layout.initCose (Layout.LayoutOptions.Cose(ComponentSpacing=40)) 
-    //        )
-
-    //    let writeHtml (m : ProvenanceModel) (fileName : string) = 
-    //        Newtonsoft.Json.JsonConvert.DefaultSettings <- fun () -> 
-    //            let a = Newtonsoft.Json.JsonSerializerSettings ()
-    //            a.ReferenceLoopHandling <- Newtonsoft.Json.ReferenceLoopHandling.Ignore
-    //            a
-
-            
-    //        let html = m |> toGraph |> HTML.toEmbeddedHTML  
-    //        File.WriteAllText(Path.ChangeExtension(fileName, ".html"), html)
-
 
     module Thoth =
         

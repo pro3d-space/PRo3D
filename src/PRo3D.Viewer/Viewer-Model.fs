@@ -720,7 +720,8 @@ module Viewer =
             screenshotDirectory = screenshotDirectory
             animator            = Anewmation.Animator.initial animatorLens
 
-            provenanceModel = ProvenanceModel.initial
-    }
+            provenanceModel = ProvenanceModel.invalid
+
+        } 
 
 
