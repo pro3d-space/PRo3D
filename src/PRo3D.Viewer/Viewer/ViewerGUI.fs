@@ -581,6 +581,7 @@ module Gui =
                                           menuItem "PRo3D Core" (ChangeDashboardMode DashboardModes.core)
                                           menuItem "Surface Comparison" (ChangeDashboardMode DashboardModes.comparison)
                                           menuItem "Render Only" (ChangeDashboardMode DashboardModes.renderOnly)
+                                          menuItem "Provenance" (ChangeDashboardMode DashboardModes.provenance)
                                         ]   
                                 
                                 //scene objects
@@ -1210,6 +1211,8 @@ module Gui =
             //        body bodyAttributes [
             //            CorrelationPanelsApp.viewMappings m.correlationPlot |> UI.map CorrelationPanelMessage
             //        ] )
+            | Some "provenance" ->
+                require (viewerDependencies) (body bodyAttributes [Provenance.view m |> UI.map ProvenanceMessage])
             | None -> 
                 require (viewerDependencies) (
                     onBoot (sprintf "document.title = '%s'" Config.title) (

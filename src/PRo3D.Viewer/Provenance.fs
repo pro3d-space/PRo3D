@@ -1,4 +1,4 @@
-﻿namespace PRo3D.Viewer
+﻿namespace PRo3D.Core
 
 open Aether
 open Aether.Operators
@@ -13,34 +13,26 @@ open Aardvark.Rendering
 open Aardvark.UI.Primitives
 
 open PRo3D.Navigation
+open PRo3D.Viewer
 
 module Provenance =
 
-    module ProvenanceModel =
-        let initial = { states = [] }
 
-    let reduce (m : Model) : PModel = 
-        { 
-            cameraView = m.navigation.camera.view;
-            frustum = m.frustum
-            drawing = m.drawing
-        }
-
-    let applyPModel (baseModel : Model) (model : PModel) : Model =
-        let setCameraView =
-            PRo3D.Viewer.Model.navigation_ >-> NavigationModel.camera_ >-> CameraControllerState.view_
+    //let applyPModel (baseModel : Model) (model : PModel) : Model =
+    //    let setCameraView =
+    //        PRo3D.Viewer.Model.navigation_ >-> NavigationModel.camera_ >-> CameraControllerState.view_
          
-        let baseModel = 
-            baseModel 
-            |> Optic.set setCameraView   model.cameraView 
-            |> Optic.set Model.frustum_  model.frustum
-            |> Optic.set Model.drawing_  model.drawing
+    //    let baseModel = 
+    //        baseModel 
+    //        |> Optic.set setCameraView   model.cameraView 
+    //        |> Optic.set Model.frustum_  model.frustum
+    //        |> Optic.set Model.drawing_  model.drawing
            
-        baseModel
+    //    baseModel
 
-    let toAction (pModel : Model) (msg : PMessage) : list<ViewerAction> =
+    let toAction (model : Model) (msg : PMessage) : list<ViewerAction> =
         match msg with
-        | SetCameraView view -> 
+        | PMessage.SetCameraView view -> 
             [ ViewerAction.SetCamera view ]
 
     let collapse (o : PMessage) (n : PMessage) =
@@ -48,31 +40,98 @@ module Provenance =
         | PMessage.SetCameraView _, PMessage.SetCameraView c -> Some (PMessage.SetCameraView c)
         | _ , _ -> None
 
-    let addNode (pm : ProvenanceModel) (s : PModel) (msg : PMessage) =
-        match pm.states with
-        | [] -> { pm with states = [{ input = Some msg; state = s }] }
-        | x::xs ->
-            match x.input with
-            | None -> { pm with states = { input = Some msg; state = s} :: pm.states }
-            | Some lastMsg ->
-                match collapse lastMsg msg with
-                | None -> { pm with states = { input = Some msg; state = s} :: pm.states }
-                | Some r -> { pm with states = { input = Some msg; state = s} :: xs }
 
-    let reduceAction (newModel : Model) (msg : ViewerAnimationAction) =
+    type ProcenanceAction<'msg> =
+        | TrackMessage of 'msg
+        | OverwrideLastNode of 'msg
+        | Ignore
+
+    let reduceAction (oldModel : Model) (newModel : Model) (lastMsg : Option<PMessage>) (msg : ViewerAnimationAction) : ProcenanceAction<PMessage>  =
+        printfn "%A" msg
         match msg with
         | ViewerMessage (ViewerAction.NavigationMessage (Action.FreeFlyAction freeFly)) -> 
-            PMessage.SetCameraView newModel.navigation.camera.view |> Some
+            let msg = PMessage.SetCameraView newModel.navigation.camera.view
+            match lastMsg with
+            | Some (PMessage.SetCameraView _) -> 
+                msg |> OverwrideLastNode
+            | _ -> 
+                msg |> TrackMessage
+
+        | ViewerMessage (ViewerAction.DrawingMessage DrawingAction.Finish) -> 
+            match oldModel.drawing.working with
+            | Some working -> 
+                PMessage.FinishAnnotation working.key |> TrackMessage
+            | None -> 
+                Log.warn "annot log finish annotation message"
+                Ignore
+        | ViewerMessage (ViewerAction.DrawingMessage (DrawingAction.Move p)) -> 
+            Ignore
+        | ViewerMessage (ViewerAction.DrawingMessage m) -> 
+            match oldModel.drawing.working, newModel.drawing.working with
+            | Some o, None -> PMessage.FinishAnnotation o.key |> TrackMessage
+            | _ -> Ignore
         | _ -> 
-            None
+            Ignore
+
+    let reduceModel (model : Model) : PModel =
+        { 
+            cameraView = model.scene.cameraView
+            annotations = model.drawing
+        }
 
 
-    let createMessage (model : Model) (msg : ViewerAnimationAction) (update : Model -> Model) : Model =
-        let newModel = update model
-        let pModel = reduce newModel
-        match reduceAction newModel msg with
-        | Some pMsg -> 
-            { model with provenanceModel = addNode model.provenanceModel pModel pMsg }
-        | _ -> 
-            model
+    let track (oldModel : Model) (newModel : Model) (msg : ViewerAnimationAction) : Model =
+        let reducedModel = reduceModel newModel
+        match reduceAction oldModel newModel (ProvenanceModel.tryTip newModel.provenanceModel) msg with
+        | TrackMessage pMsg -> 
+            let provenaceModel = ProvenanceModel.newNode newModel.provenanceModel reducedModel pMsg
+            { newModel with provenanceModel = provenaceModel }
+        | OverwrideLastNode pMsg -> 
+            let provenaceModel = ProvenanceModel.updateTip newModel.provenanceModel pMsg reducedModel
+            { newModel with provenanceModel = provenaceModel }
+        | Ignore -> 
+            newModel
 
+
+    open Aardvark.UI
+    open Aardvark.UI.Primitives
+
+    let dependencies = 
+        [
+            { url = "./jscytoscape.js"; name = "jscytoscapejs"; kind = Script }
+            { url = "https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.23.0/cytoscape.min.js"; name = "jscytoscapejslib"; kind = Script }
+            { url = "https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"; name = "dagre"; kind = Script }
+            { url = "https://cdn.rawgit.com/cytoscape/cytoscape.js-dagre/1.5.0/cytoscape-dagre.js"; name = "graphlib"; kind = Script }
+            //{ url = "https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.min.js"; name = "dagre"; kind = Script }
+        ]
+
+    let view (m : AdaptiveModel) =
+        div [style "width: 100%; height: 100%"] [
+            let nodes = 
+                m.provenanceModel.nodes 
+                |> AMap.map (fun k v -> v |> ProvenanceModel.Thoth.CyNode.fromPNode |> ProvenanceModel.Thoth.CyNode.toJs)
+                |> AMap.toASetValues
+                |> ASet.channel
+
+            let edges = 
+                m.provenanceModel.edges 
+                |> AMap.map (fun k v -> v |> ProvenanceModel.Thoth.CyEdge.fromPNode |> ProvenanceModel.Thoth.CyEdge.toJs)
+                |> AMap.toASetValues 
+                |> ASet.channel
+
+            let events = 
+                onEvent' "clickNode" [] (fun s -> 
+                    match s with
+                    | [v] -> 
+                        let nodeId : string = Pickler.unpickleOfJson v
+                        [Provenance.ProvenanceMessage.ActivateNode nodeId]
+                    | _ ->
+                        []
+                )
+
+            require dependencies (
+                onBoot' ["provenanceNodes", nodes; "provenanceEdges", edges] "jscytoscape('__ID__')" (
+                    div [style "width: 100%; height: 100%"; events] []
+                ) 
+            )
+        ]

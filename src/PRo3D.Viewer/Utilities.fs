@@ -48,3 +48,29 @@ module Net =
         let clientStats : list<PRo3D.Base.Utilities.ClientStatistics> =
             Pickler.unpickleOfJson jsonString
         (wc, clientStats)
+
+
+namespace Aardvark.UI
+
+module Events =
+    open Aardvark.Application
+
+    let onKeyDown' (cb : Keys -> 'msg) =
+        "onkeydown" ,
+        AttributeValue.Event(
+            Event.ofDynamicArgs
+                ["event.repeat"; "event.keyCode"]
+                (fun args ->
+                    match args with
+                        | rep :: keyCode :: _ ->
+                            if rep <> "true" then
+                                let keyCode = int (float keyCode)
+                                let key = KeyConverter.keyFromVirtualKey keyCode
+                                Seq.delay (fun () -> cb key)
+                            else
+                                Seq.empty
+                        | _ ->
+                            Seq.empty
+                )
+        )
+        

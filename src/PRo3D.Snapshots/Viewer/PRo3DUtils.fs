@@ -51,6 +51,6 @@ open System.Collections.Concurrent
                 unpersist = Unpersist.instance
                 threads   = ViewerApp.threadPool
                 view      = ViewerApp.view runtime //localhost
-                update    = ViewerApp.update runtime signature sendQueue messagingMailbox
+                update    = ViewerApp.updateInternal runtime signature sendQueue messagingMailbox
                 initial   = m
             }

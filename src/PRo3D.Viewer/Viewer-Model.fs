@@ -121,7 +121,7 @@ type ViewerAction =
 | SetKind                         of TrafoKind
 | SetInteraction                  of Interactions        
 | SetMode                         of TrafoMode
-| TransforAdaptiveSurface                of System.Guid * Trafo3d
+| TransforAdaptiveSurface         of System.Guid * Trafo3d
 | ImportTrafo                     of list<string>
 | TransformAllSurfaces            of list<SnapshotSurfaceUpdate>
 | RecalculateFarPlane
@@ -143,7 +143,7 @@ type ViewerAction =
 | StartImportMessaging            of list<string>
 | Logging                         of string * ViewerAction
 | ThreadsDone                     of string    
-| SnapshotThreadDone             of string
+| SnapshotThreadDone              of string
 | OnResize                        of V2i * string
 | StartDragging                   of V2i * MouseButtons
 | Dragging                        of V2i
@@ -202,6 +202,7 @@ type Scene = {
     geologicSurfacesModel : GeologicSurfacesModel
     sequencedBookmarks    : SequencedBookmarks
     screenshotModel       : ScreenshotModel
+
 }
 
 module Scene =
@@ -567,26 +568,10 @@ type Model = {
 
     provenanceModel      : ProvenanceModel
 } 
-and Node = {
-    input : Option<PMessage>
-    state : PModel
-}
-and ProvenanceModel = {
-    states : list<Node>
-}
-
-and PMessage =
-| SetCameraView of CameraView
-| AddAnnotation of Drawing.DrawingModel
-
-and PModel = {
-    cameraView  : CameraView
-    frustum     : Frustum
-    drawing     : Drawing.DrawingModel
-}
 
 type ViewerAnimationAction =
     | ViewerMessage of ViewerAction
+    | ProvenanceMessage of Provenance.ProvenanceMessage
     | AnewmationMessage of AnimatorMessage<Model>
 
 module Viewer =
@@ -636,6 +621,9 @@ module Viewer =
         animatorLens
         : Model = 
 
+        let defaultDashboard = DashboardModes.provenance// DashboardModes.defaultDashboard
+        let defaultDockConfig = defaultDashboard.dockConfig //DockConfigs.m2020    
+
         {     
             scene = 
                 {
@@ -652,7 +640,7 @@ module Viewer =
                     referenceSystem       = ReferenceSystem.initial                    
                     bookmarks             = GroupsModel.initial
                     scaleBars             = ScaleBarsModel.initial
-                    dockConfig            = DockConfigs.m2020                    
+                    dockConfig            = defaultDockConfig                
                     closedPages           = list.Empty 
                     firstImport           = true
                     userFeedback          = ""
@@ -665,11 +653,9 @@ module Viewer =
                     traverses             = TraverseModel.initial
                     sequencedBookmarks    = SequencedBookmarks.initial //with outputPath = Config.besideExecuteable}
                     screenshotModel       = ScreenshotModel.initial
-
-                    provenanceModel = ProvenanceModel.initial
                 }
 
-            dashboardMode   = DashboardModes.core.name
+            dashboardMode   = defaultDashboard.name
             navigation      = navInit
 
             startupArgs     = startupArgs            
@@ -733,6 +719,8 @@ module Viewer =
             numberOfSamples     = numberOfSamples    
             screenshotDirectory = screenshotDirectory
             animator            = Anewmation.Animator.initial animatorLens
+
+            provenanceModel = ProvenanceModel.initial
     }
 
 
