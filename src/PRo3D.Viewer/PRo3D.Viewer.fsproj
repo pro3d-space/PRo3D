@@ -49,7 +49,7 @@
     <Compile Include="DashboardModes.fs" />
     <Compile Include="ProvenanceModel.fs" />
     <Compile Include="Viewer-Model.fs" />
-    <Compile Include="Provenance.fs" />
+    <Compile Include="ProvenanceApp.fs" />
     <Compile Include="Bookmarks.fs" />
     <Compile Include="TraverseApp.fs" />
     <Compile Include="Scene.fs" />

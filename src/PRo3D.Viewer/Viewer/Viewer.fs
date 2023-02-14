@@ -984,7 +984,7 @@ module ViewerApp =
                     m.numberOfSamples 
                     m.screenshotDirectory
                     _animator
-                |> PRo3D.Core.Provenance.emptyWithModel
+                |> ProvenanceApp.emptyWithModel
 
             { initialModel with recent = m.recent} |> ViewerIO.loadRoverData
 
@@ -1507,7 +1507,7 @@ module ViewerApp =
             Anewmation.Animator.update msg m   
 
         | ProvenanceMessage msg -> 
-            Provenance.update msg m
+            ProvenanceApp.update msg m
             
     let updateWithProvenanceTracking 
                 (runtime   : IRuntime) 
@@ -1517,7 +1517,7 @@ module ViewerApp =
                 (m         : Model) 
                 (msg       : ViewerAnimationAction) =
         let newModel = updateInternal runtime signature sendQueue mailbox m msg 
-        Provenance.track m newModel msg
+        ProvenanceApp.track m newModel msg
 
 
 
@@ -1955,7 +1955,7 @@ module ViewerApp =
             if startEmpty |> not then
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl 
                                             dataSamples screenshotDirectory _animator
-                |> Provenance.emptyWithModel
+                |> ProvenanceApp.emptyWithModel
                 |> SceneLoader.loadLastScene runtime signature                
                 |> SceneLoader.loadLogBrush
                 |> ViewerIO.loadRoverData                
@@ -1969,7 +1969,7 @@ module ViewerApp =
             else
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl
                                             dataSamples screenshotDirectory _animator
-                |> Provenance.emptyWithModel
+                |> ProvenanceApp.emptyWithModel
                 |> ViewerIO.loadRoverData
 
         App.start {

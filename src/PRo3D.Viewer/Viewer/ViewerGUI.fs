@@ -1212,7 +1212,7 @@ module Gui =
             //            CorrelationPanelsApp.viewMappings m.correlationPlot |> UI.map CorrelationPanelMessage
             //        ] )
             | Some "provenance" ->
-                require (viewerDependencies) (body bodyAttributes [Provenance.view m |> UI.map ProvenanceMessage])
+                require (viewerDependencies) (body bodyAttributes [ProvenanceApp.view m |> UI.map ProvenanceMessage])
             | None -> 
                 require (viewerDependencies) (
                     onBoot (sprintf "document.title = '%s'" Config.title) (

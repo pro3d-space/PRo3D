@@ -107,7 +107,7 @@ type ProvenanceModel =
         lastEdge : Option<EdgeId> 
     } 
 
-module Provenance =
+module ProvenanceApp =
 
     type ProvenanceMessage = 
     | ActivateNode of nodeId : string

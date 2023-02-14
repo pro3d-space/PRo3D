@@ -17,7 +17,7 @@ open PRo3D.Viewer
 open Aardvark.UI.Anewmation
 open Aardvark.UI.Animation
 
-module Provenance =
+module ProvenanceApp =
 
 
     let applyPModel (baseModel : Model) (model : PModel) : Model =
@@ -34,10 +34,10 @@ module Provenance =
            
         baseModel
 
-    let toAction (model : Model) (msg : PMessage) : list<ViewerAction> =
-        match msg with
-        | PMessage.SetCameraView view -> 
-            [ ViewerAction.SetCamera view ]
+    //let toAction (model : Model) (msg : PMessage) : list<ViewerAction> =
+    //    match msg with
+    //    | PMessage.SetCameraView view -> 
+    //        [ ViewerAction.SetCamera view ]
 
     let collapse (o : PMessage) (n : PMessage) =
         match o, n with
@@ -136,7 +136,7 @@ module Provenance =
                     match s with
                     | [v] -> 
                         let nodeId : string = Pickler.unpickleOfJson v
-                        [Provenance.ProvenanceMessage.ActivateNode nodeId]
+                        [ProvenanceApp.ProvenanceMessage.ActivateNode nodeId]
                     | _ ->
                         []
                 )
@@ -164,9 +164,9 @@ module Provenance =
         { newModel with animations = animations }
 
 
-    let update (msg : Provenance.ProvenanceMessage) (m : Model) : Model =
+    let update (msg : ProvenanceApp.ProvenanceMessage) (m : Model) : Model =
         match msg with 
-        | Provenance.ProvenanceMessage.ActivateNode s -> 
+        | ProvenanceApp.ProvenanceMessage.ActivateNode s -> 
             match m.provenanceModel.nodes |> HashMap.tryFind s with
             | None -> m
             | Some n -> 

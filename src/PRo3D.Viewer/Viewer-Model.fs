@@ -459,7 +459,6 @@ type Scene with
             do! Json.write "screenshotModel"    x.screenshotModel
         }
 
-[<ModelType>] 
 type SceneHandle = {
     path        : string
     name        : string
@@ -571,7 +570,7 @@ type Model = {
 
 type ViewerAnimationAction =
     | ViewerMessage of ViewerAction
-    | ProvenanceMessage of Provenance.ProvenanceMessage
+    | ProvenanceMessage of ProvenanceApp.ProvenanceMessage
     | AnewmationMessage of AnimatorMessage<Model>
 
 module Viewer =

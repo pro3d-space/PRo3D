@@ -55,7 +55,7 @@ namespace Aardvark.UI
 module Events =
     open Aardvark.Application
 
-    let onKeyDown' (cb : Keys -> 'msg) =
+    let onKeyDown' (cb : Keys -> seq<'msg>) =
         "onkeydown" ,
         AttributeValue.Event(
             Event.ofDynamicArgs
