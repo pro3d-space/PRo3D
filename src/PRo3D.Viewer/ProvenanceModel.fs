@@ -25,6 +25,7 @@ type PMessage =
     | SetCameraView of CameraView
     | FinishAnnotation of System.Guid
     | DrawingMessage of Drawing.DrawingAction
+    | Branch
 
     with
         static member ToJson (n : PMessage) =
@@ -49,6 +50,7 @@ module PMessage =
         | PMessage.SetCameraView _ -> "Set Camera"
         | PMessage.FinishAnnotation _ -> "Finish Annotation"
         | PMessage.DrawingMessage _ -> "Drawing"
+        | PMessage.Branch -> "(branch)"
 
 
 
@@ -125,6 +127,16 @@ module ProvenanceModel =
         let mutable id = 0
         fun () -> Interlocked.Increment(&id) |> sprintf "e%d" //Guid.NewGuid() |> string
 
+
+    let afterNode (input : PInput) (pm : ProvenanceModel) (newPModel : PModel) (msg : PMessage) : ProvenanceModel =
+        
+        let newNodeId = newNodeId()
+        let newNode = { id = newNodeId; model = Some newPModel }
+        let edge = { message = msg; id = newEdgeId(); sourceId = input; targetId = newNodeId }
+        let edges = HashMap.add edge.id edge pm.edges
+
+        { nodes = HashMap.add newNode.id newNode pm.nodes; edges = edges; lastEdge = Some edge.id }
+
     let newNode (pm : ProvenanceModel) (newPModel : PModel) (msg : PMessage) : ProvenanceModel =
         let input = 
             match pm.lastEdge with
@@ -136,12 +148,7 @@ module ProvenanceModel =
                 | Some e -> Label e.targetId
 
 
-        let newNodeId = newNodeId()
-        let newNode = { id = newNodeId; model = Some newPModel }
-        let edge = { message = msg; id = newEdgeId(); sourceId = input; targetId = newNodeId }
-        let edges = HashMap.add edge.id edge pm.edges
-
-        { nodes = HashMap.add newNode.id newNode pm.nodes; edges = edges; lastEdge = Some edge.id }
+        afterNode input pm newPModel msg
 
     let updateTip (pm : ProvenanceModel) (msg : PMessage) (newPModel : PModel) = 
         match pm.lastEdge with

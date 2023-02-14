@@ -53,6 +53,8 @@ module ProvenanceApp =
     let reduceAction (oldModel : Model) (newModel : Model) (lastMsg : Option<PMessage>) (msg : ViewerAnimationAction) : ProcenanceAction<PMessage>  =
         printfn "%A" msg
         match msg with
+        | ViewerMessage (ViewerAction.NavigationMessage (Action.FreeFlyAction FreeFlyController.Message.Rendered)) -> 
+            Ignore
         | ViewerMessage (ViewerAction.NavigationMessage (Action.FreeFlyAction freeFly)) -> 
             let msg = PMessage.SetCameraView newModel.navigation.camera.view
             match lastMsg with
@@ -179,6 +181,8 @@ module ProvenanceApp =
                     let animated = animateView m newModel
 
                     // let us create a new branch
-                 
-
-                    animated
+                    let newPModel = reduceModel animated
+                    { animated with
+                        provenanceModel = 
+                            ProvenanceModel.afterNode (Label n.id) m.provenanceModel newPModel PMessage.Branch 
+                    }
