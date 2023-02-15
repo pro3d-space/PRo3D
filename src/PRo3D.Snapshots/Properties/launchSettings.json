@@ -2,7 +2,7 @@
   "profiles": {
     "PRo3D.Viewer": {
       "commandName": "Project",
-      "commandLineArgs": "--scn \"snapshotScene.pro3d\" --asnap \"C:\\Users\\rnowak\\Desktop\\Pro3D\\PRo3D\\bin\\Debug\\net6.0\\images\\batchRendering.json\" --out \"C:\\Users\\rnowak\\Desktop\\Pro3D\\PRo3D\\bin\\Debug\\net6.0\\images\" --exitOnFinish"
+      "commandLineArgs": "--scn \"D:\\Data\\PRo3D\\sceneTestPoses.pro3d\" --asnap \"C:\\Users\\rnowak\\Desktop\\Pro3D\\PRo3D\\bin\\Debug\\net6.0\\images\\batchRendering.json\" --out \"C:\\Users\\rnowak\\Desktop\\Pro3D\\PRo3D\\bin\\Debug\\net6.0\\images\" --exitOnFinish --verbose"
     }
   }
 }

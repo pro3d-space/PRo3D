@@ -164,6 +164,7 @@ type ViewerAction =
 | WriteCameraMetadata            of string * SnapshotCamera
 | StopGeoJsonAutoExport        
 | LoadPoseDefinitionFile         of list<string>
+| SBookmarksToPoseDefinition
 | Nop
 
 and MailboxState = {

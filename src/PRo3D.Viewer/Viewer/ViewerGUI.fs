@@ -637,7 +637,7 @@ module Gui =
                                               clientEvent "onclick" jsOpenPose ] [
                                               text "Load Pose Definition File"
                                         ]
-
+                                        //menuItem "Create Pose File from SBookmarks" SBookmarksToPoseDefinition // for debugging
                                         div [clazz "ui item"; clientEvent "onclick" "sendCrashDump()"] [
                                             text "Send log to maintainers"
                                         ]

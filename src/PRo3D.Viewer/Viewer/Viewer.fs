@@ -1564,10 +1564,9 @@ module ViewerApp =
             { m with drawing = { m.drawing with automaticGeoJsonExport = autoExport } }
         | SetSceneState state, _, _ ->
             Optic.set _sceneState state m
-        | LoadPoseDefinitionFile path, _, _ -> //RNO WIP
-            //let path = "poseTreeDummyData.json"
+        | LoadPoseDefinitionFile path, _, _ -> 
             let path = path.Head
-            //SimulatedViews.PoseData.writeDummyData path
+            //SimulatedViews.PoseData.writeDummyData path // for debugging
             let poseData : PoseData = SimulatedViews.PoseData.read path
             let sceneState = Optic.get _sceneState m 
             let bookmarks = PoseData.toSequencedBookmarks poseData sceneState m.viewerVersion
@@ -1575,11 +1574,24 @@ module ViewerApp =
             let bookmarks = {bookmarks with poseDataPath = Some path}
             let m = Optic.set _sequencedBookmarks bookmarks m
             m
+        | SBookmarksToPoseDefinition, _, _ -> //RNO for creating dummy data for testing batch rendering with pose files
+            let poseData = PoseData.fromSequencedBookmarks m.scene.sequencedBookmarks 
+            poseData
+            |> Json.serialize 
+            |> Json.formatWith JsonFormattingOptions.Pretty 
+            |> Serialization.Chiron.writeToFile poseData.path
+            m
         | WriteBookmarkMetadata (path, bm) , _, _ ->
             match bm.metadata with
             | Some md ->
                 Log.line "[Viewer] Writing metadata to %s" path
-                System.IO.File.WriteAllText(path, md)
+                if m.startupArgs.verbose then
+                    let timer = Stopwatch.StartNew()
+                    System.IO.File.WriteAllText(path, md)
+                    timer.Stop()
+                    printfn "Finished writing file after %A milliseconds" timer.ElapsedMilliseconds
+                else
+                    System.IO.File.WriteAllText(path, md)
                 m
             | None ->
                 Log.line "[Viewer] No metadata for bookmark %s" bm.name

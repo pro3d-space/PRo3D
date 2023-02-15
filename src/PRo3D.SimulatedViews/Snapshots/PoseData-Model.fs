@@ -476,19 +476,37 @@ module PoseData =
         reader.Dispose ()
         text
 
+    // create SBM dummy 
+    let fromSequencedBookmarks (bookmarks : SequencedBookmarks) =
+        let ordered = BookmarkUtils.orderedLoadedBookmarks bookmarks
+        let poses = 
+            [
+                for bm in ordered do 
+                    let camera = SnapshotCamera.fromCamera bm.cameraView
+                    yield {Pose.dummyData bm.filename with view = camera}
+            ]
+        {   
+            dummyData with poses = poses
+                           path  = "poseDummyDataFromBm.json"            
+        }
+
     let toSequencedBookmarks (m    : PoseData) 
                              (sceneState : SceneState) 
                              (pro3dVersion : string) =
         let text = System.IO.File.ReadAllText(m.path)
         let doc = JsonDocument.Parse (text)
         let ok, poses = doc.RootElement.TryGetProperty ("poses") //TODO RNO deal with fail
+        let ok, renderingSettings = doc.RootElement.TryGetProperty ("renderingSettings") //TODO RNO deal with fail
+        let ok, cameraDefinitions = doc.RootElement.TryGetProperty ("cameraDefinitions") //TODO RNO deal with fail
+        let ok, layerDefinitions = doc.RootElement.TryGetProperty ("layerDefinitions") //TODO RNO deal with fail
+
+        //let ok, poses = doc.RootElement.TryGetProperty ("layoutDefinitions") //TODO RNO deal with fail
         //let test = JsonNode.Parse text
         //let poses = test["poses"]
         //let jsonObj = new JsonObject ();
         //for pose in poses.AsArray () do
         //    pose.
 
-        let jsonArray = JsonArray ()
         //let allMetadata = // TODO RNO refactor
         //    let metadata = 
         //        [
@@ -512,9 +530,12 @@ module PoseData =
                     let text = pose.GetRawText()
                     let ok, keyProp = pose.TryGetProperty ("key")
                     let key = keyProp.GetString ()
-                    let withoutBrace = text.Length - 2 //TODO RNO refactor
-                    let foo = text[0..withoutBrace]
-                    let bar = sprintf "%s,\n\"pro3DVersion\": \"%s\"}" foo pro3dVersion
+                    let iWithoutBrace = text.Length - 2 //TODO RNO refactor
+                    let metaDataText = text[0..iWithoutBrace]
+                    let metaDataText = sprintf "%s,\n\"renderingSettings\": %s" metaDataText (renderingSettings.GetRawText ())
+                    let metaDataText = sprintf "%s,\n\"cameraDefinitions\": %s" metaDataText (cameraDefinitions.GetRawText ())
+                    let metaDataText = sprintf "%s,\n\"layerDefinitions\": %s" metaDataText (layerDefinitions.GetRawText ())
+                    let withVersion = sprintf "%s,\n\"pro3DVersion\": \"%s\"}" metaDataText pro3dVersion
                     
                     //let stream = new System.IO.MemoryStream ()
                     //let jsonWriter = new Utf8JsonWriter (stream)
@@ -525,7 +546,7 @@ module PoseData =
                     //jsonWriter.Flush ()
                     //let reader = new System.IO.StreamReader ( stream )
                     //let text = reader.ReadToEnd()
-                    yield key, bar
+                    yield key, withVersion
             ]
                 
 

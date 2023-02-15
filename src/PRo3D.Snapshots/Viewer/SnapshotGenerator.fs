@@ -27,6 +27,8 @@ module SnapshotGenerator =
             let hasLaodedScene = 
                 match args.scenePath with
                 | Some sp ->
+                    if args.verbose then
+                        Log.line "Loading %s" sp
                     mApp.updateSync Guid.Empty (ViewerAction.LoadScene sp |> ViewerMessage |> Seq.singleton)
                     true
                 | None -> false
@@ -34,6 +36,8 @@ module SnapshotGenerator =
             let hasLoadedOpc = 
                 match args.opcPaths with
                 | Some opcs ->
+                    if args.verbose then
+                        Log.line "Loading %s" (opcs |> List.reduce (fun a b -> sprintf "%s %s" a b))
                     mApp.updateSync Guid.Empty (ViewerAction.ImportDiscoveredSurfaces opcs |> ViewerMessage |>  Seq.singleton)
                     true
                 | None -> false
@@ -42,6 +46,8 @@ module SnapshotGenerator =
                 | Some objs ->
                     // TODO @RebeccaNowak what loader should be used here?
                     for x in objs do
+                        if args.verbose then
+                            Log.line "Loading %s" x
                         mApp.updateSync Guid.Empty  (x |> List.singleton 
                                                        |> (curry ViewerAction.ImportObject MeshLoaderType.Wavefront)
                                                        |> ViewerMessage
@@ -135,10 +141,10 @@ module SnapshotGenerator =
                             [ViewerAction.WriteBookmarkMetadata (path, bookmark)]
                         | None -> []
 
-                    sceneStateAction
-                    @frustumAction
-                    @writeMetadataAction
-                    @[
+                    sceneStateAction@
+                    frustumAction@
+                    writeMetadataAction@
+                    [
                         ViewerAction.SetCamera bookmark.cameraView
                     ]
                 actions
