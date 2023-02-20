@@ -1972,10 +1972,12 @@ module ViewerApp =
                 |> ProvenanceApp.emptyWithModel
                 |> ViewerIO.loadRoverData
 
-        App.start {
+        let app = {
             unpersist = Unpersist.instance
             threads   = threadPool
             view      = view runtime //localhost
             update    = updateWithProvenanceTracking runtime signature sendQueue messagingMailbox
             initial   = m
         }
+        app.startAndGetState()
+

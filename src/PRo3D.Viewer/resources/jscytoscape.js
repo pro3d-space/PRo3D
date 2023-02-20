@@ -1,6 +1,7 @@
 ﻿function jscytoscape(id) {
 	var nodes = aardvark.getChannel(id, "provenanceNodes");
 	var edges = aardvark.getChannel(id, "provenanceEdges");
+	var selectedNode = aardvark.getChannel(id, "selectedNode");
 	var cy = cytoscape({
 		container: document.getElementById(id),
 
@@ -127,4 +128,33 @@
 		}
 	};
 
+
+
+	// testing code....
+
+	let socket = new WebSocket("ws://localhost:4321/api/provenanceGraph");
+
+	socket.onopen = function (e) {
+		console.warn("[open] Connection established");
+		alert("Sending to server");
+	};
+
+	socket.onmessage = function (event) {
+		console.warn(`[message] Data received from server: ${event.data}`);
+		socket.send("thanks");
+	};
+
+	socket.onclose = function (event) {
+		if (event.wasClean) {
+			console.warn(`[close] Connection closed cleanly, code=${event.code} reason=${event.reason}`);
+		} else {
+			// e.g. server process killed or network down
+			// event.code is usually 1006 in this case
+			console.warn('[close] Connection died');
+		}
+	};
+
+	socket.onerror = function (error) {
+		console.warn(`[error]`);
+	};
 }

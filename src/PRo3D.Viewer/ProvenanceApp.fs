@@ -19,6 +19,8 @@ open Aardvark.UI.Animation
 
 module ProvenanceApp =
 
+    open ProvenanceApp
+
 
     let applyPModel (baseModel : Model) (model : PModel) : Model =
         let setCameraView =
@@ -29,7 +31,6 @@ module ProvenanceApp =
 
         let baseModel = 
             baseModel 
-            |> Optic.set setCameraView  model.cameraView 
             |> Optic.set setDrawing model.annotations
            
         baseModel
@@ -51,7 +52,6 @@ module ProvenanceApp =
         | Ignore
 
     let reduceAction (oldModel : Model) (newModel : Model) (lastMsg : Option<PMessage>) (msg : ViewerAnimationAction) : ProcenanceAction<PMessage>  =
-        printfn "%A" msg
         match msg with
         | ViewerMessage (ViewerAction.NavigationMessage (Action.FreeFlyAction FreeFlyController.Message.Rendered)) -> 
             Ignore
@@ -81,7 +81,7 @@ module ProvenanceApp =
 
     let reduceModel (model : Model) : PModel =
         { 
-            cameraView = model.scene.cameraView
+            cameraView = model.navigation.camera.view
             annotations = model.drawing
         }
 
@@ -90,21 +90,45 @@ module ProvenanceApp =
         { m with 
             provenanceModel = 
                 { 
-                    nodes = HashMap.ofList [ "input", { id = "input"; model = reduceModel m |> Some }]; edges = HashMap.empty; lastEdge = None 
+                    nodes = HashMap.ofList [ "input", { id = "input"; model = reduceModel m |> Some }]; edges = HashMap.empty; lastEdge = None
+                    automaticRecording = false
+                    currentTrail = []
+                    selectedNode = None
                 }
         }
 
     let track (oldModel : Model) (newModel : Model) (msg : ViewerAnimationAction) : Model =
-        let reducedModel = reduceModel newModel
-        match reduceAction oldModel newModel (ProvenanceModel.tryTip newModel.provenanceModel) msg with
-        | TrackMessage pMsg -> 
-            let provenaceModel = ProvenanceModel.newNode newModel.provenanceModel reducedModel pMsg
-            { newModel with provenanceModel = provenaceModel }
-        | OverwrideLastNode pMsg -> 
-            let provenaceModel = ProvenanceModel.updateTip newModel.provenanceModel pMsg reducedModel
-            { newModel with provenanceModel = provenaceModel }
-        | Ignore -> 
-            newModel
+        if newModel.provenanceModel.automaticRecording then
+            let action = reduceAction oldModel newModel (ProvenanceModel.tryTip newModel.provenanceModel) msg
+            let reducedModel = reduceModel newModel
+            match action with
+            | TrackMessage pMsg -> 
+                let provenaceModel = ProvenanceModel.newNode newModel.provenanceModel reducedModel pMsg
+                { newModel with provenanceModel = provenaceModel }
+            | OverwrideLastNode pMsg -> 
+                let provenaceModel = ProvenanceModel.updateTip pMsg reducedModel newModel.provenanceModel 
+                { newModel with provenanceModel = provenaceModel }
+            | Ignore -> 
+                newModel
+        else
+            let last =
+                match newModel.provenanceModel.currentTrail with
+                | mostRecent :: xs -> Some mostRecent
+                | _ -> (ProvenanceModel.tryTip newModel.provenanceModel)
+            let action = reduceAction oldModel newModel last msg
+            match action with
+            | TrackMessage pMsg -> 
+                let newTrail = pMsg :: newModel.provenanceModel.currentTrail
+                Optic.set (Model.provenanceModel_ >-> ProvenanceModel.currentTrail_) newTrail newModel
+            | OverwrideLastNode pMsg -> 
+                let newTrail = 
+                    match newModel.provenanceModel.currentTrail with
+                    | _ :: rest -> pMsg :: rest // override last element in trail
+                    | _ -> [pMsg]
+                Optic.set (Model.provenanceModel_ >-> ProvenanceModel.currentTrail_) newTrail newModel
+            | _ -> 
+                newModel
+
 
 
     open Aardvark.UI
@@ -133,20 +157,40 @@ module ProvenanceApp =
                 |> AMap.toASetValues 
                 |> ASet.channel
 
+            let selectedNode =
+                m.provenanceModel.selectedNode
+                |> AVal.map (Option.map (fun v -> v.id))
+                |> AVal.channel
+
             let events = 
                 onEvent' "clickNode" [] (fun s -> 
                     match s with
                     | [v] -> 
                         let nodeId : string = Pickler.unpickleOfJson v
-                        [ProvenanceApp.ProvenanceMessage.ActivateNode nodeId]
+                        [ProvenanceMessage.ActivateNode nodeId]
                     | _ ->
                         []
                 )
 
             require dependencies (
-                onBoot' ["provenanceNodes", nodes; "provenanceEdges", edges] "jscytoscape('__ID__')" (
-                    div [style "width: 100%; height: 100%"; events] []
-                ) 
+                div [style "width:100%; height: 100%"] [
+                    div [style "width: 100%; padding: 5px; border: white; border-style: solid"] [
+                        let buttonAttibs =
+                            amap {
+                                yield onClick (fun _ -> ProvenanceMessage.ToggleAutomaticRecording)
+                                let! automaticRecording = m.provenanceModel.automaticRecording
+                                if automaticRecording then 
+                                    yield clazz "ui green tiny button"
+                                else 
+                                    yield clazz "ui gray tiny button"
+                            } |> AttributeMap.ofAMap
+                        yield Incremental.button buttonAttibs (AList.ofList [text "Automatic tracking"])
+                        yield button [clazz "ui tiny button"; onClick (fun _ -> ProvenanceMessage.CreateNode)] [text "Track step"] 
+                    ]
+                    onBoot' ["provenanceNodes", nodes; "provenanceEdges", edges; "selectedNode", selectedNode] "jscytoscape('__ID__')" (
+                        div [style "width: 100%; height: 100%"; events] []
+                    ) 
+                ]
             )
         ]
 
@@ -158,17 +202,16 @@ module ProvenanceApp =
         (animPos, animOri)
         ||> Animation.map2 (fun pos ori -> CameraView.orient pos ori dst.Sky)
 
-    let animateView (oldModel : Model) (newModel : Model) : Model =
-        let view = newModel.navigation.camera.view
+    let animateView (model : Model) (view : CameraView) : Model =
         let animationMessage = 
             CameraAnimations.animateForwardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
-        let animations = AnimationApp.update newModel.animations (AnimationAction.PushAnimation(animationMessage))
-        { newModel with animations = animations }
+        let animations = AnimationApp.update model.animations (AnimationAction.PushAnimation(animationMessage))
+        { model with animations = animations }
 
 
     let update (msg : ProvenanceApp.ProvenanceMessage) (m : Model) : Model =
         match msg with 
-        | ProvenanceApp.ProvenanceMessage.ActivateNode s -> 
+        | ProvenanceMessage.ActivateNode s -> 
             match m.provenanceModel.nodes |> HashMap.tryFind s with
             | None -> m
             | Some n -> 
@@ -178,11 +221,37 @@ module ProvenanceApp =
                     m
                 | Some pm -> 
                     let newModel = applyPModel m pm
-                    let animated = animateView m newModel
+                    let animated = 
+                        animateView newModel pm.cameraView
+                        |> Optic.set (Model.provenanceModel_ >-> ProvenanceModel.selectedNode_) (Some n)
 
                     // let us create a new branch
                     let newPModel = reduceModel animated
-                    { animated with
-                        provenanceModel = 
-                            ProvenanceModel.afterNode (Label n.id) m.provenanceModel newPModel PMessage.Branch 
-                    }
+                    if m.provenanceModel.automaticRecording then
+                        let pm = ProvenanceModel.afterNode (Label n.id) m.provenanceModel newPModel PMessage.Branch 
+                        animated
+                        |> Optic.set Model.provenanceModel_ pm
+                    else 
+                        animated
+
+        | ProvenanceMessage.ToggleAutomaticRecording -> 
+            Optic.map (Model.provenanceModel_ >-> ProvenanceModel.automaticRecording_) not m
+
+        | ProvenanceMessage.CreateNode -> 
+            let reducedModel = reduceModel m
+            let trailMessage = 
+                match m.provenanceModel.currentTrail with
+                | [] -> "nothing happened"
+                | msgs -> msgs |> List.map PMessage.toHumanReadable |> String.concat System.Environment.NewLine
+            let pMsg = PMessage.CreateNode trailMessage
+            let pModel = 
+                match m.provenanceModel.selectedNode with
+                | Some n -> 
+                    ProvenanceModel.afterNode (Label n.id) m.provenanceModel reducedModel pMsg
+                    |> ProvenanceModel.updateTip pMsg reducedModel
+                | _ -> 
+                    ProvenanceModel.newNode m.provenanceModel reducedModel pMsg
+                    |> ProvenanceModel.updateTip pMsg reducedModel
+            m 
+            |> Optic.set Model.provenanceModel_ pModel 
+            |> Optic.set (Model.provenanceModel_ >-> ProvenanceModel.currentTrail_) [] 

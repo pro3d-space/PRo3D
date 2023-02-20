@@ -1,13 +1,15 @@
 ﻿namespace PRo3D.Viewer
 
+open System
 open PRo3D.Viewer
 open PRo3D.Core
 open System.IO
+open FSharp.Data.Adaptive
 
 
 module RemoteApi =
 
-    type Api(emit : ViewerAction -> unit) = 
+    type Api(emit : ViewerAction -> unit, p : AdaptiveProvenanceModel) = 
 
         member x.LoadScene(fullPath : string) = 
             ViewerAction.LoadScene fullPath |> emit
@@ -22,6 +24,10 @@ module RemoteApi =
 
         member x.LocateSurfaces(fullPaths : array<string>) =
             ViewerAction.SurfaceActions (fullPaths |> Array.toList |> Surface.ChangeImportDirectories) |> emit
+
+        member x.ProvenanceModel = p
+
+
 
 
 
@@ -57,10 +63,15 @@ module RemoteApi =
         open Suave.Filters
         open Suave.Operators
 
+        open Suave.Sockets.Control
+        open Suave.WebSocket
+        open Suave.Sockets
+
         open System
         open System.IO
 
         open System.Text.Json
+        open System.Collections.Concurrent
 
         let getUTF8 (str: byte []) = System.Text.Encoding.UTF8.GetString(str)
 
@@ -98,6 +109,91 @@ module RemoteApi =
                 api.ImportOpc command.folders 
                 Successful.OK "done"
             )
+
+        module Thoth =
+        
+            open Thoth.Json.Net
+            open PRo3D.Viewer.ProvenanceModel.Thoth
+
+            module Node =
+
+                let encoder (op : SetOperation<CyNode>) : JsonValue =
+                    Encode.object [
+                        "count", Encode.int op.Count
+                        "element", PRo3D.Viewer.ProvenanceModel.Thoth.CyNode.encode op.Value
+                    ]
+
+                let toJson (op : SetOperation<CyNode>) : string =
+                    op |> encoder |> Encode.toString 4
+
+            module Edge = 
+                
+                let encoder (op : SetOperation<CyEdge>) : JsonValue =
+                    Encode.object [
+                        "count", Encode.int op.Count
+                        "element", PRo3D.Viewer.ProvenanceModel.Thoth.CyEdge.encode op.Value
+                    ]
+
+                let toJson (op : SetOperation<CyEdge>) : string =
+                    op |> encoder |> Encode.toString 4
+    
+
+        let provenanceGraphWebSocket (api : Api) =
+
+            let nodes = 
+                api.ProvenanceModel.nodes |> AMap.toASetValues
+            let edges =
+                api.ProvenanceModel.edges |> AMap.toASetValues
+
+
+            let nodeQueue = new BlockingCollection<_>(ConcurrentQueue<_>())
+            let nodeSub =
+                nodes.AddCallback(fun countingHashSet deltas -> 
+                    deltas 
+                    |> HashSetDelta.map (SetOperation.map PRo3D.Viewer.ProvenanceModel.Thoth.CyNode.fromPNode)
+                    |> HashSetDelta.toSeq
+                    |> Seq.map Thoth.Node.toJson
+                    |> Seq.iter nodeQueue.Add
+                )
+                
+            let edgesSub =
+                edges.AddCallback(fun countingHashSet deltas -> 
+                    deltas 
+                    |> HashSetDelta.map (SetOperation.map PRo3D.Viewer.ProvenanceModel.Thoth.CyEdge.fromPNode)
+                    |> HashSetDelta.toSeq
+                    |> Seq.map Thoth.Edge.toJson
+                    |> Seq.iter nodeQueue.Add
+                )
+
+            WebSocket.handShake (fun webSocket ctx -> 
+                socket {
+                    let mutable loop = true
+
+                    while loop do
+                        let! ct = SocketOp.ofAsync Async.CancellationToken
+                        let jsonMessage = nodeQueue.Take(ct)
+
+                        let byteResponse =
+                            jsonMessage
+                            |> System.Text.Encoding.ASCII.GetBytes
+                            |> ByteSegment
+
+                        do! webSocket.send Text byteResponse true
+
+                        let! msg = webSocket.read()
+
+                        match msg with
+                        | (Text, data, true) ->
+                            ()
+
+                        | (Close, _, _) ->
+                            let emptyResponse = [||] |> ByteSegment
+                            do! webSocket.send Close emptyResponse true
+                            loop <- false
+
+                        | _ -> ()
+                }
+            )
         
         let webPart (api : Api) = 
             choose [
@@ -105,4 +201,5 @@ module RemoteApi =
                 importOpc api
                 saveScene api
                 discoverSurfaces api
+                prefix "/provenanceGraph" >=> provenanceGraphWebSocket api
             ]

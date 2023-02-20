@@ -26,6 +26,7 @@ type PMessage =
     | FinishAnnotation of System.Guid
     | DrawingMessage of Drawing.DrawingAction
     | Branch
+    | CreateNode of string
 
     with
         static member ToJson (n : PMessage) =
@@ -51,6 +52,7 @@ module PMessage =
         | PMessage.FinishAnnotation _ -> "Finish Annotation"
         | PMessage.DrawingMessage _ -> "Drawing"
         | PMessage.Branch -> "(branch)"
+        | PMessage.CreateNode s -> sprintf "user node: %s" s
 
 
 
@@ -107,24 +109,33 @@ type ProvenanceModel =
         nodes : HashMap<NodeId, PNode>; 
         edges : HashMap<EdgeId, PEdge>; 
         lastEdge : Option<EdgeId> 
+        selectedNode : Option<PNode>
+        
+
+        automaticRecording : bool
+
+        currentTrail : list<PMessage> 
     } 
 
 module ProvenanceApp =
 
     type ProvenanceMessage = 
     | ActivateNode of nodeId : string
+    | ToggleAutomaticRecording
+    | CreateNode 
     
 
 module ProvenanceModel = 
     open System.Threading
     
-    let invalid = { nodes = HashMap.empty; edges = HashMap.empty; lastEdge = None }
+    let invalid = 
+        { nodes = HashMap.empty; edges = HashMap.empty; lastEdge = None; automaticRecording = false; currentTrail = []; selectedNode = None }
 
     let private newNodeId = 
-        let mutable id = 0
+        let mutable id = 1
         fun () -> Interlocked.Increment(&id) |> sprintf "n%d" //Guid.NewGuid() |> string
     let private newEdgeId = 
-        let mutable id = 0
+        let mutable id = 1
         fun () -> Interlocked.Increment(&id) |> sprintf "e%d" //Guid.NewGuid() |> string
 
 
@@ -135,7 +146,7 @@ module ProvenanceModel =
         let edge = { message = msg; id = newEdgeId(); sourceId = input; targetId = newNodeId }
         let edges = HashMap.add edge.id edge pm.edges
 
-        { nodes = HashMap.add newNode.id newNode pm.nodes; edges = edges; lastEdge = Some edge.id }
+        { pm with nodes = HashMap.add newNode.id newNode pm.nodes; edges = edges; lastEdge = Some edge.id; selectedNode = Some newNode }
 
     let newNode (pm : ProvenanceModel) (newPModel : PModel) (msg : PMessage) : ProvenanceModel =
         let input = 
@@ -150,7 +161,7 @@ module ProvenanceModel =
 
         afterNode input pm newPModel msg
 
-    let updateTip (pm : ProvenanceModel) (msg : PMessage) (newPModel : PModel) = 
+    let updateTip (msg : PMessage) (newPModel : PModel) (pm : ProvenanceModel) = 
         match pm.lastEdge with
         | None -> failwith "should not update tip if there is none"
         | Some eId ->
@@ -162,7 +173,7 @@ module ProvenanceModel =
                 let edges = HashMap.add newEdge.id newEdge (HashMap.remove eId pm.edges)
                 let nodes = HashMap.add newNode.id newNode (HashMap.remove e.targetId pm.nodes)  
 
-                { pm with edges = edges; nodes = nodes; lastEdge = Some newEdge.id }
+                { pm with edges = edges; nodes = nodes; lastEdge = Some newEdge.id; selectedNode = Some newNode }
             | _ -> failwith "wrong tip"
 
 

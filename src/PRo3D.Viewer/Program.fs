@@ -304,7 +304,7 @@ let main argv =
 
         let renderingUrl = sprintf "http://localhost:%d" port
 
-        let mainApp = 
+        let (adaptiveModel, mainApp) = 
             ViewerApp.start 
                 runtime 
                 signature 
@@ -355,7 +355,8 @@ let main argv =
             ]
 
         let remoteApi =
-            let api = RemoteApi.Api(fun msg -> mainApp.updateSync Guid.Empty [ViewerAnimationAction.ViewerMessage msg])
+            let applyMessage msg = mainApp.updateSync Guid.Empty [ViewerAnimationAction.ViewerMessage msg]
+            let api = RemoteApi.Api(applyMessage, adaptiveModel.provenanceModel)
             RemoteApi.Suave.webPart api
 
         let suaveServer = 
