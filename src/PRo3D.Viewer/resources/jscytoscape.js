@@ -136,12 +136,14 @@
 
 	socket.onopen = function (e) {
 		console.warn("[open] Connection established");
-		alert("Sending to server");
+		console.warn("Sending to server");
 	};
 
 	socket.onmessage = function (event) {
 		console.warn(`[message] Data received from server: ${event.data}`);
-		socket.send("thanks");
+
+
+		socket.send("ok");
 	};
 
 	socket.onclose = function (event) {

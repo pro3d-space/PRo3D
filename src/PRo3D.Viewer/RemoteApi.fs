@@ -4,6 +4,7 @@ open System
 open PRo3D.Viewer
 open PRo3D.Core
 open System.IO
+open Aardvark.Base
 open FSharp.Data.Adaptive
 
 
@@ -27,6 +28,9 @@ module RemoteApi =
 
         member x.ProvenanceModel = p
 
+        member x.GetProvenanceGraphJson() =
+            let v = p.Current.GetValue()
+            ProvenanceModel.Thoth.toJs v
 
 
 
@@ -110,10 +114,22 @@ module RemoteApi =
                 Successful.OK "done"
             )
 
+        let getProvenanceGraph (api : Api) = 
+            path "/getProvenanceGraph" >=> request (fun r -> 
+                let json = api.GetProvenanceGraphJson()
+                Successful.OK json
+            )
+
         module Thoth =
         
             open Thoth.Json.Net
+            
             open PRo3D.Viewer.ProvenanceModel.Thoth
+
+            type GraphElement =
+                | NodeElement of CyNode
+                | EdgeElement of CyEdge
+
 
             module Node =
 
@@ -123,9 +139,6 @@ module RemoteApi =
                         "element", PRo3D.Viewer.ProvenanceModel.Thoth.CyNode.encode op.Value
                     ]
 
-                let toJson (op : SetOperation<CyNode>) : string =
-                    op |> encoder |> Encode.toString 4
-
             module Edge = 
                 
                 let encoder (op : SetOperation<CyEdge>) : JsonValue =
@@ -134,36 +147,47 @@ module RemoteApi =
                         "element", PRo3D.Viewer.ProvenanceModel.Thoth.CyEdge.encode op.Value
                     ]
 
-                let toJson (op : SetOperation<CyEdge>) : string =
-                    op |> encoder |> Encode.toString 4
+            module Operations =
+
+                let encodeSetOperation (op : SetOperation<GraphElement>) : JsonValue =
+                    let e = 
+                        match op.Value with
+                        | GraphElement.NodeElement e -> PRo3D.Viewer.ProvenanceModel.Thoth.CyNode.encode e
+                        | GraphElement.EdgeElement e -> PRo3D.Viewer.ProvenanceModel.Thoth.CyEdge.encode e
+                    Encode.object [
+                        "count", Encode.int op.Count
+                        "element", e
+                    ]
+
+                let operationsToJson (ops : array<SetOperation<GraphElement>>) =
+                    ops |> Array.map encodeSetOperation |> Encode.array |> Encode.toString 4
     
 
         let provenanceGraphWebSocket (api : Api) =
 
             let nodes = 
-                api.ProvenanceModel.nodes |> AMap.toASetValues
+                api.ProvenanceModel.nodes 
+                |> AMap.toASetValues 
+                |> ASet.map PRo3D.Viewer.ProvenanceModel.Thoth.CyNode.fromPNode
+                |> ASet.map Thoth.GraphElement.NodeElement
+
             let edges =
-                api.ProvenanceModel.edges |> AMap.toASetValues
+                api.ProvenanceModel.edges 
+                |> AMap.toASetValues 
+                |> ASet.map PRo3D.Viewer.ProvenanceModel.Thoth.CyEdge.fromPNode
+                |> ASet.map Thoth.GraphElement.EdgeElement
 
+            let elements = ASet.union nodes edges
 
-            let nodeQueue = new BlockingCollection<_>(ConcurrentQueue<_>())
-            let nodeSub =
-                nodes.AddCallback(fun countingHashSet deltas -> 
-                    deltas 
-                    |> HashSetDelta.map (SetOperation.map PRo3D.Viewer.ProvenanceModel.Thoth.CyNode.fromPNode)
-                    |> HashSetDelta.toSeq
-                    |> Seq.map Thoth.Node.toJson
-                    |> Seq.iter nodeQueue.Add
-                )
-                
-            let edgesSub =
-                edges.AddCallback(fun countingHashSet deltas -> 
-                    deltas 
-                    |> HashSetDelta.map (SetOperation.map PRo3D.Viewer.ProvenanceModel.Thoth.CyEdge.fromPNode)
-                    |> HashSetDelta.toSeq
-                    |> Seq.map Thoth.Edge.toJson
-                    |> Seq.iter nodeQueue.Add
-                )
+            let elementsReader = elements.GetReader()
+            let changes = new BlockingCollection<_>(ConcurrentQueue<_>())
+            let addDeltas () = 
+                let deltas = 
+                    elementsReader.GetChanges()
+                    |> HashSetDelta.toArray
+                changes.Add (Thoth.Operations.operationsToJson deltas )
+
+            let nodeSub = elements.AddCallback(fun _ _ -> addDeltas()) 
 
             WebSocket.handShake (fun webSocket ctx -> 
                 socket {
@@ -171,7 +195,7 @@ module RemoteApi =
 
                     while loop do
                         let! ct = SocketOp.ofAsync Async.CancellationToken
-                        let jsonMessage = nodeQueue.Take(ct)
+                        let jsonMessage = changes.Take(ct)
 
                         let byteResponse =
                             jsonMessage
@@ -190,6 +214,7 @@ module RemoteApi =
                             let emptyResponse = [||] |> ByteSegment
                             do! webSocket.send Close emptyResponse true
                             loop <- false
+                            nodeSub.Dispose()
 
                         | _ -> ()
                 }
@@ -201,5 +226,6 @@ module RemoteApi =
                 importOpc api
                 saveScene api
                 discoverSurfaces api
+                getProvenanceGraph api
                 prefix "/provenanceGraph" >=> provenanceGraphWebSocket api
             ]

@@ -131,12 +131,15 @@ module ProvenanceModel =
     let invalid = 
         { nodes = HashMap.empty; edges = HashMap.empty; lastEdge = None; automaticRecording = false; currentTrail = []; selectedNode = None }
 
-    let private newNodeId = 
+    let newNodeId = 
         let mutable id = 1
-        fun () -> Interlocked.Increment(&id) |> sprintf "n%d" //Guid.NewGuid() |> string
-    let private newEdgeId = 
+        fun () -> 
+            //Interlocked.Increment(&id) |> sprintf "n%d" 
+            Guid.NewGuid() |> string
+    let newEdgeId = 
         let mutable id = 1
-        fun () -> Interlocked.Increment(&id) |> sprintf "e%d" //Guid.NewGuid() |> string
+        fun () -> //Interlocked.Increment(&id) |> sprintf "e%d" 
+            Guid.NewGuid() |> string
 
 
     let afterNode (input : PInput) (pm : ProvenanceModel) (newPModel : PModel) (msg : PMessage) : ProvenanceModel =

@@ -87,14 +87,20 @@ module ProvenanceApp =
 
     
     let emptyWithModel (m : Model) = 
+        
+        let pm = { 
+            nodes = 
+                HashMap.ofList [ ] 
+            edges = HashMap.empty; lastEdge = None
+            automaticRecording = false
+            currentTrail = []
+            selectedNode = None
+        } 
+        let pm = ProvenanceModel.newNode pm (reduceModel m) (PMessage.CreateNode "initial")
+
+
         { m with 
-            provenanceModel = 
-                { 
-                    nodes = HashMap.ofList [ "input", { id = "input"; model = reduceModel m |> Some }]; edges = HashMap.empty; lastEdge = None
-                    automaticRecording = false
-                    currentTrail = []
-                    selectedNode = None
-                }
+            provenanceModel = pm
         }
 
     let track (oldModel : Model) (newModel : Model) (msg : ViewerAnimationAction) : Model =
