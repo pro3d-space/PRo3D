@@ -634,6 +634,7 @@ type FootPrint = {
     globalToLocalPos    : V3d
     depthTexture        : option<IBackendTexture>
     isDepthVisible      : bool
+    depthColorLegend    : FalseColorsModel
 }
 
 
@@ -792,6 +793,7 @@ module ViewPlanModel =
         globalToLocalPos    = V3d.OOO
         depthTexture        = None
         isDepthVisible      = false
+        depthColorLegend    = FalseColorsModel.initDepthLegend
     }
 
     let initial = {
@@ -863,7 +865,7 @@ module FootPrint =
         if not (Directory.Exists fpPath) then Directory.CreateDirectory(fpPath) |> ignore
         fpPath
 
-    let initDepthImage 
+    let initNewDepthImage 
         (runtimeInstance: IRuntime) 
         (vp:ViewPlanModel) 
         (scenePath:string) =
@@ -1054,6 +1056,7 @@ module FootPrint =
                 globalToLocalPos = roverpos //transformenExt.position
                 depthTexture     = None
                 isDepthVisible   = model.footPrint.isDepthVisible
+                depthColorLegend = model.footPrint.depthColorLegend //FalseColorsModel.initDepthLegend
             }
         fp //{ model with footPrint = fp }
     

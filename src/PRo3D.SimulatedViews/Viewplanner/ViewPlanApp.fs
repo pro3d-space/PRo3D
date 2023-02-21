@@ -20,6 +20,7 @@ open Aardvark.UI.Primitives
 open CSharpUtils
 open IPWrappers
 
+open PRo3D
 open PRo3D.Base
 open PRo3D.Core
 open PRo3D.Core.Surface
@@ -47,6 +48,7 @@ module ViewPlanApp =
     | SaveFootPrint
     | OpenFootprintFolder
     | ToggleDepth
+    | DepthColorLegendMessage   of FalseColorLegendApp.Action
     | SaveDepthData
     | OpenDepthDataFolder
 
@@ -686,6 +688,13 @@ module ViewPlanApp =
             let model' = {model with footPrint = fp'}
             newOuterModel, model'
 
+        | DepthColorLegendMessage msg -> 
+            let fp = Optic.get _footprint outerModel
+            let fp' = { fp with depthColorLegend = FalseColorLegendApp.update fp.depthColorLegend msg }
+            let newOuterModel = Optic.set _footprint fp' outerModel
+            let model' = {model with footPrint = fp'}
+            newOuterModel, model'
+
         | SaveDepthData -> 
             match scenepath with
             | Some sp -> outerModel, (FootPrint.createFootprintData model sp)
@@ -1057,8 +1066,12 @@ module ViewPlanApp =
                 )
               | AdaptiveNone -> div[][])
 
+        let viewDepthColorLegendUI (m : AdaptiveViewPlanModel) = 
+            m.footPrint.depthColorLegend
+            |> FalseColorLegendApp.viewDepthLegendProperties DepthColorLegendMessage 
+            |> AVal.constant
 
-        let viewDepthImageProperties (diVisible:aval<bool>) (m : AdaptiveViewPlan) = 
+        let viewDepthImageProperties (diVisible:aval<bool>) (model : AdaptiveViewPlanModel) (m : AdaptiveViewPlan) = 
           m.selectedInstrument 
             |> AVal.map(fun x ->
               match x with 
@@ -1066,9 +1079,13 @@ module ViewPlanApp =
                 require GuiEx.semui (
                     Html.table [  
                         Html.row "show depth:"  [GuiEx.iconCheckBox diVisible ToggleDepth]
-                        Html.row "export depth:"  [button [clazz "ui button tiny"; onClick (fun _ -> SaveDepthData )][]]
-                        Html.row "open depth data folder:"  [button [clazz "ui button tiny"; onClick (fun _ -> OpenDepthDataFolder )][]]
-                    ]
+                        //Html.row "export depth:"  [button [clazz "ui button tiny"; onClick (fun _ -> SaveDepthData )][]]
+                        //Html.row "open depth data folder:"  [button [clazz "ui button tiny"; onClick (fun _ -> OpenDepthDataFolder )][]]
+                        Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDepthColorLegendUI model))
+                        ] 
+                    //]
+                    
+
                 )
               | AdaptiveNone -> div[][])
 
@@ -1109,7 +1126,7 @@ module ViewPlanApp =
 
             }
 
-        let viewRoverProperties' (r : AdaptiveRover) (m : AdaptiveViewPlan) (fpVisible:aval<bool>) (diVisible:aval<bool>) =
+        let viewRoverProperties' (model : AdaptiveViewPlanModel) (r : AdaptiveRover) (m : AdaptiveViewPlan) (fpVisible:aval<bool>) (diVisible:aval<bool>) =
             require GuiEx.semui (
                 Html.table [
                      Html.row "Change VPName:"[ Html.SemUi.textBox m.name SetVPName ]
@@ -1125,8 +1142,13 @@ module ViewPlanApp =
                         Incremental.div AttributeMap.empty (AList.ofAValSingle ( viewFootprintProperties fpVisible m ))
                      ]
                      Html.row "Depthimage:" [   
-                        Incremental.div AttributeMap.empty (AList.ofAValSingle ( viewDepthImageProperties diVisible m ))
+                        Incremental.div AttributeMap.empty (AList.ofAValSingle ( viewDepthImageProperties diVisible model m ))
                      ]
+                     //Html.row div [] [
+                     //   GuiEx.accordion "Depth ColorLegend" "paint brush" false [
+                     //       Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDepthColorLegendUI model))
+                     //   ] 
+                     //   ]
                      ]
                 
             )
@@ -1153,7 +1175,7 @@ module ViewPlanApp =
                 | Some id -> 
                   let! vp = model.viewPlans |> AMap.tryFind id
                   match vp with
-                  | Some x -> return (viewRoverProperties' x.rover x fpVisible diVisible |> UI.map lifter)
+                  | Some x -> return (viewRoverProperties' model x.rover x fpVisible diVisible |> UI.map lifter)
                   | None -> return empty
                 | None -> return empty
             }  

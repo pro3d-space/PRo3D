@@ -120,7 +120,6 @@ module SnapshotSg =
                 | Interactions.PickAnnotation | Interactions.PickLog -> false
                 | _ -> true
             )
-        let depthTexture = getDepth m runtime
         let vpVisible = isViewPlanVisible m
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
@@ -140,7 +139,6 @@ module SnapshotSg =
                             vpVisible
                             usehighlighting filterTexture
                             allowFootprint
-                            depthTexture
                             false
                        )
                     |> AMap.toASet 

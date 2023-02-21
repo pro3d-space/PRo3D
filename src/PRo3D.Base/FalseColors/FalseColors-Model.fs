@@ -139,6 +139,40 @@ module FalseColorsModel =
             numOfRG  = 1.0
         }
 
+    let depthInterv  = {
+        value   = 5.0
+        min     = 0.0
+        max     = 90.0
+        step    = 0.1
+        format = "{0:0.00}"
+    } 
+    let initMinDepth = {
+        value   = 0.0
+        min     = 0.0
+        max     = 100.0
+        step    = 1.0
+        format  = "{0:0.0}"
+    }
+    let initMaxDepth = {
+        value   = 50.0
+        min     = 1.0
+        max     = 10000.0
+        step    = 1.0
+        format  = "{0:0.0}"
+    }
+
+    let initDepthLegend = 
+        {
+            version         = current
+            useFalseColors  = false
+            lowerBound      = initMinDepth
+            upperBound      = initMaxDepth
+            interval        = depthInterv
+            invertMapping   = false
+            lowerColor      = { c = C4b.Blue }
+            upperColor      = { c = C4b.Red }
+        }
+
 type FalseColorsModel with
     static member FromJson(_ : FalseColorsModel) =
         json {

@@ -158,6 +158,18 @@ module ViewerUtils =
             |> Sg.uniform "MinMax"         rangeToMinMax
             |> Sg.texture (Sym.ofString "ColorMapTexture") (AVal.constant colormap)
 
+    let addDepthMappingParameters (fp : AdaptiveFootPrint)   (isg:ISg<'a>) =
+        isg 
+            |> Sg.uniform "falseColors"    fp.depthColorLegend.useFalseColors 
+            |> Sg.uniform "startC"         ((C4b.Blue |> AVal.constant) |> AVal.map(fun x -> ((float)(HSVf.FromC3f (x.ToC3f())).H)))  
+            |> Sg.uniform "endC"           ((C4b.Red |> AVal.constant)  |> AVal.map(fun x -> ((float)(HSVf.FromC3f (x.ToC3f())).H)))  
+            |> Sg.uniform "interval"       fp.depthColorLegend.interval.value
+            |> Sg.uniform "inverted"       (false |> AVal.constant)
+            |> Sg.uniform "lowerBound"     fp.depthColorLegend.lowerBound.value 
+            |> Sg.uniform "upperBound"     fp.depthColorLegend.upperBound.value
+            |> Sg.uniform "MinMax"         (AVal.constant(V2d(0.0,1.0)))
+            |> Sg.texture (Sym.ofString "ColorMapTexture") (AVal.constant colormap)
+
     let getLodParameters 
         (surf:aval<AdaptiveSurface>) 
         (refsys:AdaptiveReferenceSystem) 
@@ -238,8 +250,7 @@ module ViewerUtils =
         (vpVisible       : aval<bool>)
         (useHighlighting : aval<bool>)
         (filterTexture   : aval<bool>)
-        (allowFootprint  : bool) 
-        (depthTexture    : IAdaptiveResource<IBackendTexture>)  
+        (allowFootprint  : bool)  
         (allowDepthview  : bool) =
 
         adaptive {
@@ -353,7 +364,8 @@ module ViewerUtils =
                     |> Sg.modifySamplerState DefaultSemantic.DiffuseColorTexture samplerDescription
                     |> Sg.uniform "selected"      (isSelected) // isSelected
                     |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
-                    |> addAttributeFalsecolorMappingParameters surf
+                    //|> addAttributeFalsecolorMappingParameters surf
+                    |> addDepthMappingParameters fp
                     |> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
                     |> addImageCorrectionParameters  surf
                     |> Sg.uniform "DepthVisible" depthVisible
@@ -362,7 +374,6 @@ module ViewerUtils =
                     |> Sg.applyFootprint footprintViewProj
                     |> Sg.noEvents
                     |> Sg.texture (Sym.ofString "ColorMapTexture") (AVal.constant colormap)
-                    //|> Sg.texture (Sym.ofString "DepthTexture") (texTest |> AVal.constant) // depthTexture
                     |> Sg.texture (Sym.ofString "FootPrintTexture") fp.projTex
                     |> Sg.LodParameters( getLodParameters  (AVal.constant surf) refsys frustum )
                     |> Sg.AttributeParameters( attributeParameters  (AVal.constant surf) )
@@ -503,9 +514,10 @@ module ViewerUtils =
     //        let! id = m.scene.viewPlans.selectedViewPlan
     //        match id with
     //        | Some id -> 
-    //            let selectedVp = m.scene.viewPlans.viewPlans |> AMap.find id
+    //            let! selectedVp = m.scene.viewPlans.viewPlans |> AMap.find id
+    //            let! inst = selectedVp.selectedInstrument
     //            let width, height =
-    //                match selectedVp.selectedInstrument with
+    //                match inst with
     //                | Some i -> 
     //                    let horRes = i.intrinsics.horizontalResolution/uint32(2)
     //                    let vertRes = i.intrinsics.verticalResolution/uint32(2)
@@ -532,7 +544,7 @@ module ViewerUtils =
     //        //        return V2i(width, height)
     //        //    | None -> return V2i(512, 512)
     //        //| None -> return V2i(512, 512)
-    //    }
+        //}
 
     let getDepth 
         (m:AdaptiveModel) 
@@ -659,17 +671,7 @@ module ViewerUtils =
                         return v.c
             }
 
-        //let depthImageF (v : Vertex) =
-        //    fragment {     
-        //        let mutable color = v.c
-        //        if uniform?DepthVisible then
-        //            //let fpt = v.tc0.XYZ / v.tc0.W
-        //            let texColor = v.c * diffuseSampler.Sample(v.tc, -1.0) //
-        //            color <- V4d(texColor.XYZ, 1.0)
-
-        //        return color
-        //    }
-
+       
 
     let objEffect =
         Effect.compose [
@@ -685,8 +687,7 @@ module ViewerUtils =
 
     let surfaceEffect =
         Effect.compose [
-
-            //PRo3D.Base.Shader.depthImageV        |> toEffect
+            
             Shader.footprintV        |> toEffect 
             Shader.stableTrafo       |> toEffect
             Shader.triangleFilterX   |> toEffect
@@ -706,7 +707,7 @@ module ViewerUtils =
             PRo3D.Base.Shader.mapColorAdaption  |> toEffect  
 
             //PRo3D.Base.Shader.depthImageF        |> toEffect
-            PRo3D.Base.Shader.depthCalculation     |> toEffect //depthImageF        |> toEffect
+            PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect
 
             PRo3D.Base.Shader.footPrintF        |> toEffect
         ]
@@ -733,10 +734,6 @@ module ViewerUtils =
         let refSystem = m.scene.referenceSystem
         let vpVisible = isViewPlanVisible m
 
-        let depthTexture = getDepth m runtime 
-
-
-
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 
@@ -755,7 +752,6 @@ module ViewerUtils =
                             vpVisible
                             usehighlighting m.filterTexture
                             true
-                            depthTexture
                             false)
                     |> AMap.toASet 
                     |> ASet.map snd                     
@@ -814,8 +810,6 @@ module ViewerUtils =
                 | _ -> true
             )
 
-        let depthTexture = getDepth m runtime
-
         let vpVisible = isViewPlanVisible m
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
@@ -836,7 +830,6 @@ module ViewerUtils =
                                 vpVisible
                                 usehighlighting filterTexture
                                 allowFootprint
-                                depthTexture
                                 allowDepthview
 
                         match surface.isObj with

@@ -61,7 +61,22 @@ module FalseColorLegendApp =
                     Html.row "lower color:"             [ColorPicker.viewAdvanced ColorPicker.defaultPalette colorPaletteStore "pro3d" model.lowerColor |> UI.map SetLowerColor ]
                     Html.row "invert mapping:"          [GuiEx.iconCheckBox model.invertMapping InvertMapping ]
                 ]                
-            )                   
+            )
+
+        let viewDepthLegendProperties (model:AdaptiveFalseColorsModel) = 
+            require GuiEx.semui (
+                Html.table [  
+                    Html.row "show legend:"             [GuiEx.iconCheckBox model.useFalseColors UseFalseColors ]
+                    Html.row "max:"                     [Numeric.view' [InputBox] model.upperBound |> UI.map SetUpperBound ]
+                    Html.row "min:"                     [Numeric.view' [InputBox] model.lowerBound |> UI.map SetLowerBound ]
+                    Html.row "interval:"                [Numeric.view' [InputBox] model.interval |> UI.map SetInterval ]
+                    //Html.row "upper color:"             [ColorPicker.viewAdvanced ColorPicker.defaultPalette colorPaletteStore "pro3d" model.upperColor |> UI.map SetUpperColor ]
+                    //Html.row "lower color:"             [ColorPicker.viewAdvanced ColorPicker.defaultPalette colorPaletteStore "pro3d" model.lowerColor |> UI.map SetLowerColor ]
+                    //tml.row "invert mapping:"          [GuiEx.iconCheckBox model.invertMapping InvertMapping ]
+                ]                
+            )
+            
+
 
     module Draw =
         open System.Linq.Expressions
@@ -302,5 +317,8 @@ module FalseColorLegendApp =
 
     let viewScalarsLegendProperties paletteFile lifter (model : AdaptiveFalseColorsModel) = 
         UI.viewScalarMappingProperties paletteFile model |> UI.map lifter
+
+    let viewDepthLegendProperties lifter (model : AdaptiveFalseColorsModel) = 
+        UI.viewDepthLegendProperties  model |> UI.map lifter
 
    

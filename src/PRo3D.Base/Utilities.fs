@@ -560,23 +560,6 @@ module Shader =
             |> mapGamma
         }
 
-    type DepthVertex =
-        {
-            [<Position>]                pos     : V4d 
-            [<Color>]                   c       : V4d
-            [<TexCoord>]                tc      : V2d
-            //[<Semantic("DepthTex")>]    tc1     : V4d
-        }
-
-    let private depthmap =
-        sampler2d {
-            texture uniform?DepthTexture
-            filter Filter.MinMagLinear
-            addressU WrapMode.Border
-            addressV WrapMode.Border
-            borderColor C4f.White
-        }  
-
     let private colormap =
         sampler2d {
             texture uniform?ColorMapTexture
@@ -585,53 +568,6 @@ module Shader =
             addressV WrapMode.Wrap
     }
 
-    [<ReflectedDefinition>]
-    let mapFalseDepthColors value : float =   
-
-        let fcUpperBound     = 1000.0 //uniform?upperBound
-        let fcLowerBound     = 1.0 //uniform?lowerBound
-        let fcUpperHueBound  = 40.0 //360.0 //uniform?endC
-        let fcLowerHueBound  = 0.0 //uniform?startC
-
-        let interval    = 5.0 // fcUpperBound / 10.0 //if (invert = false) then fcInterval   else -1.0 * fcInterval        
-    
-        let rangeValue = fcUpperBound - fcLowerBound + interval
-        let normInterv = (interval / rangeValue)
-    
-        //map range to 0..1 according to lower/upperbound
-        let k = (value - fcLowerBound + interval) / rangeValue
-    
-        //discretize lookup
-        let bucket = floor (k / normInterv)
-        let k = ((float) bucket) * normInterv |> clamp 0.0 1.0
-    
-        let uH = fcUpperHueBound * 255.0
-        let lH = fcLowerHueBound * 255.0
-        //map values to hue range
-        let fcHueUpperBound = if (uH < lH) then uH + 1.0 else uH
-        let rangeHue = uH - lH // fcHueUpperBound - lH
-        (k * rangeHue) + lH
-        //(rangeHue) + lH
-
-    //let depthImageV (v : DepthVertex) =
-    //    vertex {
-    //        //let footprintProjM  : M44d   = uniform?FootprintModelViewProj
-    //        return { 
-    //            v with 
-    //                tc = v.tc.XYZ / v.tc0.W; //footprintProjM * v.pos; 
-    //        } 
-    //    }
-
-    let depthImageF (v : DepthVertex) =
-        fragment {     
-            let mutable color = v.c
-            if uniform?DepthVisible then
-                //let fpt = v.tc0.XYZ / v.tc0.W
-                let texColor = depthmap.Sample(v.tc, -1.0).X * V3d.III  //v.c * depthmap.Sample(v.tc, -1.0) //
-                color <- V4d(texColor.XYZ, 1.0)
-
-            return color
-        }
 
     type FootPrintVertex =
         {
@@ -690,16 +626,15 @@ module Shader =
             return color
         }
 
-    
-    let depthCalculation (v : FootPrintVertex) =
+    let depthCalculation2 (v : FootPrintVertex) =
         fragment {     
             let mutable color = v.c
             if uniform?DepthVisible then
-                let depth = v.tc0.Z/v.tc0.W
-                let mapping = mapFalseDepthColors (depth)
-                let mappingV2d = V2d(mapping, 0.5)
-                let c = colormap.Sample(mappingV2d).XYZ
-                let texColor =  v.c *  V4d(c.XYZ, 1.0)
+                let depth = v.tc0.Z 
+
+                let hue = mapFalseColors depth 
+                let c = hsv2rgb ((clamp 0.0 255.0 hue)/ 255.0 ) 1.0 1.0 
+                let texColor = v.c * V4d(c.X, c.Y, c.Z, 1.0)
                 color <- texColor
 
             return color
