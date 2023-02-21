@@ -72,7 +72,11 @@ module ProvenanceApp =
                 Ignore
         | ViewerMessage (ViewerAction.DrawingMessage (DrawingAction.Move p)) -> 
             Ignore
-        | ViewerMessage (ViewerAction.DrawingMessage m) -> 
+        | ViewerMessage (ViewerAction.DrawingMessage DrawingAction.Nop) -> 
+            Ignore
+        | ViewerMessage (ViewerAction.LoadScene s) ->   
+            TrackMessage (PMessage.LoadScene s)
+        | ViewerMessage (ViewerAction.DrawingMessage _) | ViewerMessage (ViewerAction.PickSurface(_,_,_)) -> 
             match oldModel.drawing.working, newModel.drawing.working with
             | Some o, None -> PMessage.FinishAnnotation o.key |> TrackMessage
             | _ -> Ignore
@@ -122,6 +126,7 @@ module ProvenanceApp =
                 | mostRecent :: xs -> Some mostRecent
                 | _ -> (ProvenanceModel.tryTip newModel.provenanceModel)
             let action = reduceAction oldModel newModel last msg
+            let reducedModel = reduceModel newModel
             match action with
             | TrackMessage pMsg -> 
                 let newTrail = pMsg :: newModel.provenanceModel.currentTrail
@@ -131,7 +136,10 @@ module ProvenanceApp =
                     match newModel.provenanceModel.currentTrail with
                     | _ :: rest -> pMsg :: rest // override last element in trail
                     | _ -> [pMsg]
-                Optic.set (Model.provenanceModel_ >-> ProvenanceModel.currentTrail_) newTrail newModel
+                //let provenaceModel = ProvenanceModel.updateTip pMsg reducedModel newModel.provenanceModel 
+                newModel 
+                //|> Optic.set Model.provenanceModel_ provenaceModel
+                |> Optic.set (Model.provenanceModel_ >-> ProvenanceModel.currentTrail_) newTrail 
             | _ -> 
                 newModel
 
@@ -261,3 +269,4 @@ module ProvenanceApp =
             m 
             |> Optic.set Model.provenanceModel_ pModel 
             |> Optic.set (Model.provenanceModel_ >-> ProvenanceModel.currentTrail_) [] 
+

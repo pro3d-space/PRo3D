@@ -27,6 +27,7 @@ type PMessage =
     | DrawingMessage of Drawing.DrawingAction
     | Branch
     | CreateNode of string
+    | LoadScene of string
 
     with
         static member ToJson (n : PMessage) =
@@ -53,6 +54,7 @@ module PMessage =
         | PMessage.DrawingMessage _ -> "Drawing"
         | PMessage.Branch -> "(branch)"
         | PMessage.CreateNode s -> sprintf "user node: %s" s
+        | PMessage.LoadScene s -> sprintf "load scene: %s" s
 
 
 

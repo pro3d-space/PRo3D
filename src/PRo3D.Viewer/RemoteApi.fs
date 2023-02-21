@@ -131,6 +131,9 @@ module RemoteApi =
                 | EdgeElement of CyEdge
 
 
+            type GraphChange = { edges : array<CyEdge>; nodes : array<CyNode> }
+
+
             module Node =
 
                 let encoder (op : SetOperation<CyNode>) : JsonValue =
