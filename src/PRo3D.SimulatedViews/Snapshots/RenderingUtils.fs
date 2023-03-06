@@ -45,7 +45,7 @@ module Rendering =
                 let scaleFactor = (max - min)
                 let inline scale x =
                     (x - min) / scaleFactor
-                let matFloat = mat.Map scale
+                let mat = mat.Map scale
                 let matByte = mat.ToByteColor ()
                 Some (PixImage<byte>(matByte)) //, Some (PixImage<float32>(matFloat))
               | _,_ -> None //, None

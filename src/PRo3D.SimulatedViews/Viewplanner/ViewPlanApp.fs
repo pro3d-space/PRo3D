@@ -1079,9 +1079,6 @@ module ViewPlanApp =
                 require GuiEx.semui (
                     Html.table [  
                         Html.row "show depth:"  [GuiEx.iconCheckBox diVisible ToggleDepth]
-                        //Html.row "export depth:"  [button [clazz "ui button tiny"; onClick (fun _ -> SaveDepthData )][]]
-                        //Html.row "open depth data folder:"  [button [clazz "ui button tiny"; onClick (fun _ -> OpenDepthDataFolder )][]]
-                        Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDepthColorLegendUI model))
                         ] 
                     //]
                     
@@ -1144,11 +1141,10 @@ module ViewPlanApp =
                      Html.row "Depthimage:" [   
                         Incremental.div AttributeMap.empty (AList.ofAValSingle ( viewDepthImageProperties diVisible model m ))
                      ]
-                     //Html.row div [] [
-                     //   GuiEx.accordion "Depth ColorLegend" "paint brush" false [
-                     //       Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDepthColorLegendUI model))
-                     //   ] 
-                     //   ]
+                     Html.row "Colors:" [   
+                        Incremental.div AttributeMap.empty (AList.ofAValSingle (viewDepthColorLegendUI model))
+                     ]
+                     
                      ]
                 
             )

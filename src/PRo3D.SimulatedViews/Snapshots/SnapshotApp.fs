@@ -47,8 +47,7 @@ type SnapshotApp<'model,'aModel, 'msg> =
     // render an additional image where OBJs are drawn as one-coloured blobs 
     renderMask           : bool // originally for Mars-DL project; not in use
     // render an additional image with depth information 
-    renderDepthB         : bool // byte for *.png, originally for Mars-DL project; not in use
-    renderDepthF         : bool // float fpr *.fif
+    renderDepth          : bool // byte for *.png, originally for Mars-DL project; not in use
     verbose              : bool
   }
 
@@ -149,7 +148,7 @@ module SnapshotApp =
         let task = app.runtime.CompileRender(signature, sg)
         
         let (size, depth) = 
-            match (app.renderDepthB || app.renderDepthF) with 
+            match app.renderDepth with 
             | true -> Some a.resolution, Some depth
             | false -> None, None
 
@@ -202,7 +201,7 @@ module SnapshotApp =
         app.mutableApp.updateSync (Guid.NewGuid ()) (app.getAnimationActions app.snapshotAnimation)
 
         let (size, depth) = 
-            match (app.renderDepthB || app.renderDepthF) with 
+            match app.renderDepth with 
             | true -> Some a.resolution, Some depth
             | false -> None, None
 
