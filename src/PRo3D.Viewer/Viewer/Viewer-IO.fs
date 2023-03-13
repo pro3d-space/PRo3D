@@ -252,7 +252,42 @@ module ViewerIO =
             |> Option.defaultValue (ViewPlanModel.initFootPrint, m.scene.viewPlans)
 
         { m with scene = {m.scene with viewPlans = viewPlans'};  footPrint = fp }
-           
+         
+    type SerializedModel =
+        {
+            sceneAsJson : string
+            drawingAsJson : string
+            version : string
+        } 
+
+    module SerializedModel =
+
+        open System.Text.Json
+        
+        let toJson (s : SerializedModel) =
+            JsonSerializer.Serialize(s)
+
+        let fromJson (s : string) =
+            JsonSerializer.Deserialize(s)
+
+    let getSerializedModel  (m : Model) : SerializedModel  =
+        let sceneJson =        
+            let cameraState = m.navigation.camera.view            
+            let scene = 
+                { m.scene with 
+                    cameraView     = cameraState;
+                    exploreCenter  = m.navigation.exploreCenter
+                    navigationMode = m.navigation.navigationMode
+                }
+            scene
+            |> Json.serialize 
+            |> Json.formatWith JsonFormattingOptions.Pretty
+
+        let drawingJson =
+            PRo3D.Core.Drawing.IO.getSerialized m.drawing
+
+        { sceneAsJson = sceneJson; drawingAsJson = drawingJson; version = "1" }
+
     let saveEverything (path:string) (m:Model) =         
 
         if path.IsEmptyOrNull() then m

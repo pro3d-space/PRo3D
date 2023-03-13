@@ -471,7 +471,7 @@ module DrawingApp =
             | AddAnnotations path, _,_ ->
                 match path |> List.tryHead with
                 | Some p -> 
-                    let annos = DrawingUtilities.IO.loadAnnotations p
+                    let annos = DrawingUtilities.IO.loadAnnotationsFromFile p
                     Log.line "[Drawing] Merging annotations"                
                     let merged = GroupsApp.union model.annotations annos.annotations
                     { model with annotations = merged }

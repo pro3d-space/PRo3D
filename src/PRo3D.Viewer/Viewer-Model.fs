@@ -111,8 +111,14 @@ type ViewerAction =
 | PickObject                      of V3d*Guid
 | SaveScene                       of string
 | SaveAs                          of string
+| SetScenePath                    of string // used to set hint path in scene (e.g. to be used in top menu bar)
 | OpenScene                       of list<string>
-| LoadScene                       of string
+| LoadScene                       of string // path to the scene file
+
+// fine grained loading for provex provenance tracking and PRo3D api
+| LoadSerializedScene             of string // serialized scene file (content of .pro3d)
+| LoadSerializedDrawingModel      of string
+
 | NewScene
 | KeyDown                         of key : Aardvark.Application.Keys
 | KeyUp                           of key : Aardvark.Application.Keys      

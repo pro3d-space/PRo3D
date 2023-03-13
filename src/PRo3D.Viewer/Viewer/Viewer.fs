@@ -962,9 +962,13 @@ module ViewerApp =
         | SaveAs s,_,_ ->
             ViewerIO.saveEverything s m
             |> ViewerIO.loadLastFootPrint
+        | ViewerAction.SetScenePath s, _, _ -> 
+            let scene = { m.scene with scenePath      = Some s }
+            { m with scene = scene }
+
         | LoadScene path,_,_ ->                
 
-            match SceneLoading.loadScene m runtime signature path with
+            match SceneLoading.loadSceneFromFile m runtime signature path with
             | SceneLoading.SceneLoadResult.Loaded(newModel,converted,path) -> 
                 Log.line "[PRo3D] loaded scene: %s" path
                 newModel
@@ -973,7 +977,14 @@ module ViewerApp =
                 m
 
             //|> ViewerIO.loadMinerva SceneLoader.Minerva.defaultDumpFile SceneLoader.Minerva.defaultCacheFile
-            |> SceneLoader.addGeologicSurfaces            
+            |> SceneLoader.addGeologicSurfaces     
+            
+        | LoadSerializedScene json, _, _ -> // serialized scene file (content of .pro3d)
+            SceneLoading.loadSceneFromJson m runtime signature json
+
+        | LoadSerializedDrawingModel json, _, _ -> 
+            let drawingModel = Drawing.IO. json 
+            m
 
         | NewScene,_,_ ->
             let initialModel = 

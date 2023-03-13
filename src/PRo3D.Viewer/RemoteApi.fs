@@ -1,6 +1,7 @@
 ﻿namespace PRo3D.Viewer
 
 open System
+open PRo3D
 open PRo3D.Viewer
 open PRo3D.Core
 open System.IO
@@ -10,7 +11,52 @@ open FSharp.Data.Adaptive
 
 module RemoteApi =
 
-    type Api(emit : ViewerAction -> unit, p : AdaptiveProvenanceModel) = 
+    module ProvenanceGraph =
+        
+        open Thoth.Json.Net
+            
+        open PRo3D.Viewer.ProvenanceModel.Thoth
+
+        type GraphElement =
+            | NodeElement of CyNode
+            | EdgeElement of CyEdge
+
+
+        type Graph = { edges : array<CyEdge>; nodes : array<CyNode> }
+
+
+        module Node =
+
+            let encoder (op : SetOperation<CyNode>) : JsonValue =
+                Encode.object [
+                    "count", Encode.int op.Count
+                    "element", PRo3D.Viewer.ProvenanceModel.Thoth.CyNode.encode op.Value
+                ]
+
+        module Edge = 
+                
+            let encoder (op : SetOperation<CyEdge>) : JsonValue =
+                Encode.object [
+                    "count", Encode.int op.Count
+                    "element", PRo3D.Viewer.ProvenanceModel.Thoth.CyEdge.encode op.Value
+                ]
+
+        module Operations =
+
+            let encodeSetOperation (op : SetOperation<GraphElement>) : JsonValue =
+                let e = 
+                    match op.Value with
+                    | GraphElement.NodeElement e -> PRo3D.Viewer.ProvenanceModel.Thoth.CyNode.encode e
+                    | GraphElement.EdgeElement e -> PRo3D.Viewer.ProvenanceModel.Thoth.CyEdge.encode e
+                Encode.object [
+                    "count", Encode.int op.Count
+                    "element", e
+                ]
+
+            let operationsToJson (ops : array<SetOperation<GraphElement>>) =
+                ops |> Array.map encodeSetOperation |> Encode.array |> Encode.toString 4
+
+    type Api(emit : ViewerAction -> unit, p : AdaptiveProvenanceModel, m : AdaptiveModel) = 
 
         member x.LoadScene(fullPath : string) = 
             ViewerAction.LoadScene fullPath |> emit
@@ -28,10 +74,23 @@ module RemoteApi =
 
         member x.ProvenanceModel = p
 
+        [<Obsolete>]
         member x.GetProvenanceGraphJson() =
             let v = p.Current.GetValue()
             ProvenanceModel.Thoth.toJs v
+            
+        // gets the current state of the model (including model and scene serialization)
+        // virtualScenePath is displayed in the top menu (normally it shows  path to the scene)
+        member x.GetCheckpointState(model : Model, virtualScenePath : string) : ViewerIO.SerializedModel =
+            let serializedModel = ViewerIO.getSerializedModel model
+            ViewerAction.SetScenePath virtualScenePath |> emit
+            serializedModel
 
+        member x.SetSceneFromCheckpoint(s : ViewerIO.SerializedModel, 
+                                        p : ProvenanceGraph.Graph, activeNode : Option<string>) : unit =
+            let scene = ViewerAction.LoadSerializedScene s.sceneAsJson
+            let drawing = ViewerAction.LoadSerializedDrawingModel s.drawingAsJson
+            failwith ""
 
 
 
@@ -59,6 +118,41 @@ module RemoteApi =
             folders : array<string>
         }
 
+    module SuaveHelpers =
+
+       let getUTF8 (str: byte []) = System.Text.Encoding.UTF8.GetString(str)
+
+    module SuaveV2 =
+        open Suave
+        open Suave.Filters
+        open Suave.Operators
+
+        open Suave.Sockets.Control
+        open Suave.WebSocket
+        open Suave.Sockets
+
+        open System
+        open System.IO
+
+        open System.Text.Json
+        open System.Collections.Concurrent
+
+        open SuaveHelpers
+
+        //let loadScene (api : Api) = 
+        //    path "/getScene" >=> request (fun r -> 
+        //        if File.Exists command.sceneFile then
+        //            api.LoadScene command.sceneFile 
+        //            Successful.OK "done"
+        //        else
+        //            RequestErrors.BAD_REQUEST "Oops, something went wrong here!"
+        //    )
+
+        //let getProvenanceGraph (api : Api) = 
+        //    path "/getProvenanceGraph" >=> request (fun r -> 
+        //        let json = api.GetProvenanceGraphJson()
+        //        Successful.OK json
+        //    )
 
 
     module Suave = 
@@ -77,8 +171,11 @@ module RemoteApi =
         open System.Text.Json
         open System.Collections.Concurrent
 
-        let getUTF8 (str: byte []) = System.Text.Encoding.UTF8.GetString(str)
+        open SuaveHelpers
+        open ProvenanceGraph
 
+
+   
         let loadScene (api : Api) = 
             path "/loadScene" >=> request (fun r -> 
                 let str = r.rawForm |> getUTF8
@@ -114,56 +211,7 @@ module RemoteApi =
                 Successful.OK "done"
             )
 
-        let getProvenanceGraph (api : Api) = 
-            path "/getProvenanceGraph" >=> request (fun r -> 
-                let json = api.GetProvenanceGraphJson()
-                Successful.OK json
-            )
 
-        module Thoth =
-        
-            open Thoth.Json.Net
-            
-            open PRo3D.Viewer.ProvenanceModel.Thoth
-
-            type GraphElement =
-                | NodeElement of CyNode
-                | EdgeElement of CyEdge
-
-
-            type GraphChange = { edges : array<CyEdge>; nodes : array<CyNode> }
-
-
-            module Node =
-
-                let encoder (op : SetOperation<CyNode>) : JsonValue =
-                    Encode.object [
-                        "count", Encode.int op.Count
-                        "element", PRo3D.Viewer.ProvenanceModel.Thoth.CyNode.encode op.Value
-                    ]
-
-            module Edge = 
-                
-                let encoder (op : SetOperation<CyEdge>) : JsonValue =
-                    Encode.object [
-                        "count", Encode.int op.Count
-                        "element", PRo3D.Viewer.ProvenanceModel.Thoth.CyEdge.encode op.Value
-                    ]
-
-            module Operations =
-
-                let encodeSetOperation (op : SetOperation<GraphElement>) : JsonValue =
-                    let e = 
-                        match op.Value with
-                        | GraphElement.NodeElement e -> PRo3D.Viewer.ProvenanceModel.Thoth.CyNode.encode e
-                        | GraphElement.EdgeElement e -> PRo3D.Viewer.ProvenanceModel.Thoth.CyEdge.encode e
-                    Encode.object [
-                        "count", Encode.int op.Count
-                        "element", e
-                    ]
-
-                let operationsToJson (ops : array<SetOperation<GraphElement>>) =
-                    ops |> Array.map encodeSetOperation |> Encode.array |> Encode.toString 4
     
 
         let provenanceGraphWebSocket (api : Api) =
@@ -172,13 +220,13 @@ module RemoteApi =
                 api.ProvenanceModel.nodes 
                 |> AMap.toASetValues 
                 |> ASet.map PRo3D.Viewer.ProvenanceModel.Thoth.CyNode.fromPNode
-                |> ASet.map Thoth.GraphElement.NodeElement
+                |> ASet.map GraphElement.NodeElement
 
             let edges =
                 api.ProvenanceModel.edges 
                 |> AMap.toASetValues 
                 |> ASet.map PRo3D.Viewer.ProvenanceModel.Thoth.CyEdge.fromPNode
-                |> ASet.map Thoth.GraphElement.EdgeElement
+                |> ASet.map GraphElement.EdgeElement
 
             let elements = ASet.union nodes edges
 
@@ -188,7 +236,7 @@ module RemoteApi =
                 let deltas = 
                     elementsReader.GetChanges()
                     |> HashSetDelta.toArray
-                changes.Add (Thoth.Operations.operationsToJson deltas )
+                changes.Add (Operations.operationsToJson deltas )
 
             let nodeSub = elements.AddCallback(fun _ _ -> addDeltas()) 
 
@@ -229,6 +277,5 @@ module RemoteApi =
                 importOpc api
                 saveScene api
                 discoverSurfaces api
-                getProvenanceGraph api
                 prefix "/provenanceGraph" >=> provenanceGraphWebSocket api
             ]

@@ -326,29 +326,16 @@ module SceneLoader =
         let cam' = { cam with view = view' }
         Optic.set _camera cam' m
 
-    let loadScene path m runtime signature =
-        //try            
-        //    //let s = Serialization.loadAs<Scene> path
 
-        let scene = 
-            path
-            |> Serialization.Chiron.readFromFile 
-            |> Json.parse 
-            |> Json.deserialize
-
-        let scene = 
-            { scene  with scenePath = Some path }
-            |> expandRelativePaths
-           
+    let private applyScene (scene : Scene) (m : Model) (runtime : IRuntime) (signature : IFramebufferSignature)=
         let m = 
             m 
             |> Model.withScene scene
             |> resetControllerState
             |> updateNavigation
 
-        //let cameraView = m.scene.cameraView
 
-        let m = { m with frustum = setFrustum m } //|> Optic.set _cameraView cameraView
+        let m = { m with frustum = setFrustum m } 
 
 
         let surfaceModel = 
@@ -390,10 +377,28 @@ module SceneLoader =
 
         Optic.set _sceneObjects sOModel m  
 
-        //with e ->            
-        //    Log.error "Could not load selected scenefile %A. It is either outdated or not a valid scene" path
-        //    Log.error "exact error %A" e
-        //    m
+    let loadSceneFromJson (jsonScene : string) (m : Model) (runtime : IRuntime) (signature : IFramebufferSignature) =
+        let scene : Scene = 
+            jsonScene
+            |> Json.parse 
+            |> Json.deserialize
+
+        applyScene scene m runtime signature
+
+    let loadSceneFromFile path m runtime signature =
+
+        let scene = 
+            path
+            |> Serialization.Chiron.readFromFile 
+            |> Json.parse 
+            |> Json.deserialize
+
+        let scene = 
+            { scene  with scenePath = Some path }
+            |> expandRelativePaths
+           
+        applyScene scene m runtime signature
+
     
     let loadLastScene runtime signature m =
         match Serialization.fileExists "./recent" with
@@ -403,7 +408,7 @@ module SceneLoader =
                 match m.recent.recentScenes |> List.sortByDescending (fun v -> v.writeDate) |> List.tryHead with
                 | Some (scenePath) ->
                     try
-                        loadScene scenePath.path m runtime signature
+                        loadSceneFromFile scenePath.path m runtime signature
                     with e ->
                         Log.warn "[Scene] Error parsing last scene: %s. loading empty" scenePath.path
                         Log.error "[Scene] %A" e.Message
