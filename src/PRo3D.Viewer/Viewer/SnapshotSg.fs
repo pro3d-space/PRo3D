@@ -178,8 +178,9 @@ module SnapshotSg =
         let commands = 
             alist {
                 for sgBundle in sgs do
-                    yield RenderCommand.Ordered sgBundle 
                     yield RenderCommand.ClearDepth(1.0) 
+                    yield RenderCommand.Ordered sgBundle
+                    //yield RenderCommand.ClearDepth(1.0) 
                     
                 yield RenderCommand.Unordered [(overlayed :> ISg)] 
             } |> RenderCommand.Ordered
