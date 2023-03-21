@@ -93,12 +93,12 @@ module ProvenanceApp =
     let emptyWithModel (m : Model) = 
         
         let pm = { 
-            nodes = 
-                HashMap.ofList [ ] 
+            nodes = HashMap.empty
             edges = HashMap.empty; lastEdge = None
             automaticRecording = false
             currentTrail = []
             selectedNode = None
+            storage = failwith ""
         } 
         let pm = ProvenanceModel.newNode pm (reduceModel m) (PMessage.CreateNode "initial")
 
@@ -161,13 +161,13 @@ module ProvenanceApp =
         div [style "width: 100%; height: 100%"] [
             let nodes = 
                 m.provenanceModel.nodes 
-                |> AMap.map (fun k v -> v |> ProvenanceModel.Thoth.CyNode.fromPNode |> ProvenanceModel.Thoth.CyNode.toJs)
+                |> AMap.map (fun k v -> v |> ProvenanceModel.Thoth.CyNode.fromPNode Unchecked.defaultof<_> |> ProvenanceModel.Thoth.CyNode.toJs)
                 |> AMap.toASetValues
                 |> ASet.channel
 
             let edges = 
                 m.provenanceModel.edges 
-                |> AMap.map (fun k v -> v |> ProvenanceModel.Thoth.CyEdge.fromPNode |> ProvenanceModel.Thoth.CyEdge.toJs)
+                |> AMap.map (fun k v -> v |> ProvenanceModel.Thoth.CyEdge.fromPEdge |> ProvenanceModel.Thoth.CyEdge.toJs)
                 |> AMap.toASetValues 
                 |> ASet.channel
 

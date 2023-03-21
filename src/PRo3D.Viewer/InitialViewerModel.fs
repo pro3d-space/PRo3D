@@ -168,6 +168,6 @@ module Viewer =
 
             provenanceModel = ProvenanceModel.invalid
 
-        } 
+        } |> ProvenanceApp.emptyWithModel
 
 

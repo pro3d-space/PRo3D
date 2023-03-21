@@ -56,7 +56,9 @@ module RemoteApi =
             let operationsToJson (ops : array<SetOperation<GraphElement>>) =
                 ops |> Array.map encodeSetOperation |> Encode.array |> Encode.toString 4
 
-    type Api(emit : ViewerAction -> unit, p : AdaptiveProvenanceModel, m : AdaptiveModel) = 
+    type Api(emitTopLevel : ViewerAnimationAction -> unit, p : AdaptiveProvenanceModel, m : AdaptiveModel) = 
+
+        let emit s = emitTopLevel (ViewerAnimationAction.ViewerMessage s)
 
         member x.LoadScene(fullPath : string) = 
             ViewerAction.LoadScene fullPath |> emit
@@ -88,9 +90,18 @@ module RemoteApi =
 
         member x.SetSceneFromCheckpoint(s : ViewerIO.SerializedModel, 
                                         p : ProvenanceGraph.Graph, activeNode : Option<string>) : unit =
-            let scene = ViewerAction.LoadSerializedScene s.sceneAsJson
-            let drawing = ViewerAction.LoadSerializedDrawingModel s.drawingAsJson
-            failwith ""
+            let setScene = ViewerAction.LoadSerializedScene s.sceneAsJson
+            let setDrawing = ViewerAction.LoadSerializedDrawingModel s.drawingAsJson
+            setScene |> emit
+            setDrawing |> emit
+
+            
+            match activeNode with
+            | Some nodeId -> 
+                let activateNode = ProvenanceMessage (ProvenanceApp.ProvenanceMessage.ActivateNode nodeId)
+                activateNode |> emitTopLevel
+            | None -> 
+                ()
 
 
 
@@ -214,18 +225,18 @@ module RemoteApi =
 
     
 
-        let provenanceGraphWebSocket (api : Api) =
+        let provenanceGraphWebSocket (storage : PPersistence) (api : Api) =
 
             let nodes = 
                 api.ProvenanceModel.nodes 
                 |> AMap.toASetValues 
-                |> ASet.map PRo3D.Viewer.ProvenanceModel.Thoth.CyNode.fromPNode
+                |> ASet.map (PRo3D.Viewer.ProvenanceModel.Thoth.CyNode.fromPNode storage)
                 |> ASet.map GraphElement.NodeElement
 
             let edges =
                 api.ProvenanceModel.edges 
                 |> AMap.toASetValues 
-                |> ASet.map PRo3D.Viewer.ProvenanceModel.Thoth.CyEdge.fromPNode
+                |> ASet.map (PRo3D.Viewer.ProvenanceModel.Thoth.CyEdge.fromPEdge)
                 |> ASet.map GraphElement.EdgeElement
 
             let elements = ASet.union nodes edges
@@ -271,11 +282,11 @@ module RemoteApi =
                 }
             )
         
-        let webPart (api : Api) = 
+        let webPart (storage : PPersistence) (api : Api) = 
             choose [
                 loadScene api
                 importOpc api
                 saveScene api
                 discoverSurfaces api
-                prefix "/provenanceGraph" >=> provenanceGraphWebSocket api
+                prefix "/provenanceGraph" >=> provenanceGraphWebSocket storage api
             ]

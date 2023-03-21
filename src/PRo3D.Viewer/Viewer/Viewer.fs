@@ -983,8 +983,9 @@ module ViewerApp =
             SceneLoading.loadSceneFromJson m runtime signature json
 
         | LoadSerializedDrawingModel json, _, _ -> 
-            let drawingModel = Drawing.IO. json 
-            m
+            let annotations = DrawingUtilities.IO.loadAnnotationsFromJson json 
+            ViewerIO.replaceAnnotations m annotations
+         
 
         | NewScene,_,_ ->
             let initialModel = 

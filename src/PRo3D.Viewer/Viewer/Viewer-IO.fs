@@ -77,7 +77,7 @@ module ViewerIO =
         
     let tryLoadAnnotations (scenePath : string) : option<Annotations> =
         try        
-            (DrawingUtilities.IO.loadAnnotations scenePath) |> Some
+            (DrawingUtilities.IO.loadAnnotationsFromFile scenePath) |> Some
         with e ->        
             Log.error "[ViewerIO] couldn't load %A" e
             None
@@ -116,6 +116,15 @@ module ViewerIO =
     //            }                    
     //    }
             
+    let replaceAnnotations (m : Model) (annotations : Annotations) =
+         {   
+            m with                    
+                drawing = {
+                    m.drawing with 
+                        annotations    = annotations.annotations
+                        dnsColorLegend = annotations.dnsColorLegend 
+                }
+         }  
 
     let loadAnnotations (m : Model) = 
         m.scene.scenePath 
@@ -123,7 +132,7 @@ module ViewerIO =
             let scenePaths = p |> ScenePaths.create
             scenePaths.annotations |> tryLoadAnnotations
         )
-        |> Option.map(fun g ->                 
+        |> Option.map(fun (g : Annotations) ->                 
 
             //color annotations according to semantics
             //let flat = 
@@ -137,16 +146,7 @@ module ViewerIO =
             //        m.scene.referenceSystem                    
             //        (UpdateAnnotations flat)
             
-            {   
-                m with                    
-                    //correlationPlot = corr
-                    drawing = {
-                        m.drawing with 
-                            annotations    = g.annotations
-                            dnsColorLegend = g.dnsColorLegend 
-                    }
-            }            
-            
+            replaceAnnotations m g
         ) 
         |> Option.defaultValue m
 

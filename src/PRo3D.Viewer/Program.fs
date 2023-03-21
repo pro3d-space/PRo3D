@@ -355,9 +355,9 @@ let main argv =
             ]
 
         let remoteApi =
-            let applyMessage msg = mainApp.updateSync Guid.Empty [ViewerAnimationAction.ViewerMessage msg]
-            let api = RemoteApi.Api(applyMessage, adaptiveModel.provenanceModel)
-            RemoteApi.Suave.webPart api
+            let applyMessage msg = mainApp.updateSync Guid.Empty [msg]
+            let api = RemoteApi.Api(applyMessage, adaptiveModel.provenanceModel, adaptiveModel)
+            RemoteApi.Suave.webPart Unchecked.defaultof<_> api
 
         let suaveServer = 
             WebPart.startServer port [

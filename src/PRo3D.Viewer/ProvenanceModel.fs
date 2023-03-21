@@ -19,7 +19,6 @@ module FsPickler =
     let serializer = JsonSerializer()
 
 
-
 [<RequireQualifiedAccess>]
 type PMessage = 
     | SetCameraView of CameraView
@@ -57,7 +56,6 @@ module PMessage =
         | PMessage.LoadScene s -> sprintf "load scene: %s" s
 
 
-
 type NodeId = string
 type EdgeId = string
 
@@ -72,30 +70,12 @@ type PInput =
     | Source of source : PModel
     | Label  of input : NodeId
 
-    with
-        static member ToJson (n : PInput) =
-            json {
-                match n with
-                | Source _ -> ()
-                | Label l -> 
-                    do! Json.write "inputId" l
-            }
-
 
 type PNode = 
     {
         id     : NodeId
         model  : Option<PModel>
-    } with
-        static member ToJson (n : PNode) =
-            json {
-                do! Json.write "id" n.id
-            }
-        static member FromJson (_ : PNode) =
-            json {
-                let! id = Json.read "id"
-                return { id = id; model = None }
-            }
+    } 
 
 type PEdge =
     {
@@ -104,6 +84,16 @@ type PEdge =
         message : PMessage
         id : string
     }  
+
+type Payload =
+    | JsonSerialized of string
+    | BlobId of string
+
+type PPersistence =
+    abstract member GetPayloadForModel : PModel -> Payload
+    abstract member GetPayloadForEdge : PEdge -> Payload
+    abstract member ReadModel : Payload -> PModel
+    abstract member ReadEdge : Payload -> PEdge
 
 [<ModelType>]
 type ProvenanceModel = 
@@ -117,6 +107,8 @@ type ProvenanceModel =
         automaticRecording : bool
 
         currentTrail : list<PMessage> 
+
+        storage : PPersistence
     } 
 
 module ProvenanceApp =
@@ -131,7 +123,9 @@ module ProvenanceModel =
     open System.Threading
     
     let invalid = 
-        { nodes = HashMap.empty; edges = HashMap.empty; lastEdge = None; automaticRecording = false; currentTrail = []; selectedNode = None }
+        { storage = failwith ""; nodes = HashMap.empty; edges = HashMap.empty; 
+          lastEdge = None; automaticRecording = false; currentTrail = []; selectedNode = None 
+        }
 
     let newNodeId = 
         let mutable id = 1
@@ -194,10 +188,40 @@ module ProvenanceModel =
         
         open Thoth.Json.Net
 
+        module Payload =
+
+            let decoder : Decoder<Payload> =
+                Decode.object (fun get -> 
+                    let kind = get.Required.Field "kind" Decode.string
+                    match kind with
+                    | "jsonSerialized" -> 
+                        let data = get.Required.Field "jsonSerialized" Decode.string
+                        Payload.JsonSerialized data
+                    | "blobId" ->
+                        let id = get.Required.Field "blobId" Decode.string 
+                        Payload.BlobId id
+                    | _ -> 
+                        failwith "unknown tag: %A" kind
+                )
+
+            let encoder (p : Payload) : JsonValue =
+                match p with
+                | Payload.JsonSerialized value -> 
+                    Encode.object [
+                        "kind", Encode.string "jsonSerialized"
+                        "jsonSerialized", Encode.string value
+                    ]
+                | Payload.BlobId id -> 
+                    Encode.object [
+                        "kind", Encode.string "blobId"
+                        "blobId", Encode.string id
+                    ]
+    
+
         type CyNodeData =  
             {
                 id : string
-                payload : string
+                payload : Option<Payload>
             }
 
         module CyNodeData =
@@ -206,14 +230,14 @@ module ProvenanceModel =
                 Decode.object (fun get -> 
                     {
                         id = get.Required.Field "id" Decode.string
-                        payload = get.Required.Field "payload" Decode.string
+                        payload = get.Required.Field "payload" (Decode.option Payload.decoder)
                     }
                 )
     
             let encoder (node : CyNodeData) : JsonValue =
                 Encode.object [
                     "id", Encode.string node.id
-                    "payload", Encode.string node.payload
+                    "payload", Encode.option Payload.encoder node.payload
                 ]
     
 
@@ -224,7 +248,7 @@ module ProvenanceModel =
                 sourceId : string
                 targetId : string
                 label : string
-                payload : Option<string>
+                payload : Option<Payload>
             }
 
         module CyEdgeData =
@@ -236,7 +260,7 @@ module ProvenanceModel =
                         sourceId = get.Required.Field "source" Decode.string
                         targetId = get.Required.Field "target" Decode.string
                         label = get.Required.Field "label" Decode.string
-                        payload = get.Optional.Field "payload" Decode.string
+                        payload = get.Optional.Field "payload" Payload.decoder
                     }
                 )
     
@@ -246,7 +270,7 @@ module ProvenanceModel =
                     "source", Encode.string node.sourceId
                     "target", Encode.string node.targetId
                     "label", Encode.string node.label
-                    "payload", Encode.option Encode.string node.payload
+                    "payload", Encode.option Payload.encoder node.payload
                 ]
 
 
@@ -267,8 +291,13 @@ module ProvenanceModel =
             let toJs (n : CyNode) =
                 n |> encode |> Encode.toString 1 |> e
 
-            let fromPNode (p : PNode) : CyNode =
-                { data = { id = p.id; payload = "" }}
+            let fromPNode (persistence : PPersistence) (p : PNode) : CyNode =
+                { 
+                    data = { 
+                        id = p.id; 
+                        payload = Option.map persistence.GetPayloadForModel p.model
+                    }
+                }
 
         module CyEdge =
             let decoder : Decoder<CyEdge> =
@@ -282,7 +311,7 @@ module ProvenanceModel =
             let toJs (n : CyEdge) =
                 n |> encode |> Encode.toString 1 |> e
 
-            let fromPNode (p : PEdge) : CyEdge =
+            let fromPEdge (p : PEdge) : CyEdge =
                 let id = 
                     match p.sourceId with
                     | Source _ -> "input"
@@ -332,15 +361,14 @@ module ProvenanceModel =
 
 
 
-        let toCy (e : ProvenanceModel) =
-            let input : CyNode = {data = { id = "input"; payload = "" } }
-            let nodes : seq<CyNode> = e.nodes |> HashMap.toSeq |> Seq.map (fun (id,n) -> { data = { id = id; payload = n.id } } )
+        let toCy (storage : PPersistence) (e : ProvenanceModel) =
+            let input : CyNode = { data = { id = "input"; payload = failwith "" } }
+            let nodes : seq<CyNode> = e.nodes |> HashMap.toSeq |> Seq.map (fun (id,n) -> { data = { id = id; payload = failwith "" } } )
             let edges = 
                 e.edges
                 |> Seq.map (fun (edgeId, edge) -> 
                     let source = match edge.sourceId with | Label l -> l | Source s -> "input"
                     { data = { id = edge.id; sourceId = source; targetId = edge.targetId; label = PMessage.toHumanReadable edge.message; payload = None } }
-                    
                 )
             {
                 elements = 
@@ -351,6 +379,23 @@ module ProvenanceModel =
 
             }
 
-        let toJs (e : ProvenanceModel) =
+        let toJs (storage : PPersistence) (e : ProvenanceModel) =
             let js = e |> toCy |> CyDescription.encoder |> Encode.toString 3 
             js
+
+
+        let fromCyJson (storage : PPersistence) (json : string) : Result<ProvenanceModel, string> =
+            let description = Decode.fromString CyDescription.decoder json
+            
+            match description with
+            | Result.Ok d -> 
+                let nodes = 
+                    d.elements.nodes |> Array.map (fun n -> 
+                        let payload = n.data.payload
+                        //match payload with
+                        //| Thoth.Payload.
+                        failwith ""
+                    )
+                failwith ""
+            | Result.Error err -> 
+                Result.Error err
