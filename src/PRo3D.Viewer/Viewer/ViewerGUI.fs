@@ -910,15 +910,16 @@ module Gui =
     module Traverse =
         let traverseUI (m : AdaptiveModel) =
             div [] [
+                yield GuiEx.accordion "Properties" "Content" true [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewProperties m.scene.traverses))
+                ]
+
                 yield GuiEx.accordion "Traverses" "Write" true [
                     TraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
                 ]
                 yield GuiEx.accordion "Sols" "road" true [
                     //TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverse
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverses))
-                ]
-                yield GuiEx.accordion "Properties" "Content" true [
-                    Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewProperties m.scene.traverses))
                 ]
             ] 
             |> UI.map TraverseMessage

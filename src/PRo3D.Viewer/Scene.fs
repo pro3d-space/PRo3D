@@ -366,21 +366,21 @@ module SceneLoader =
         let centerPoint = 
             if (fullBoundingBox.IsEmpty || fullBoundingBox.IsInvalid) then V3d.Zero else fullBoundingBox.Center
 
-        //inferring coordinate system on scene load
-        let suggestedSystem = 
-            Planet.suggestedSystem centerPoint m.scene.referenceSystem.planet
+        ////inferring coordinate system on scene load
+        //let suggestedSystem = 
+        //    Planet.suggestedSystem centerPoint m.scene.referenceSystem.planet
         
-        let (suggestedReferenceSystem,_) = 
-            suggestedSystem
-            |> SetPlanet
-            |> ReferenceSystemApp.update 
-                m.scene.config 
-                LenseConfigs.referenceSystemConfig 
-                m.scene.referenceSystem
+        //let (suggestedReferenceSystem,_) = 
+        //    suggestedSystem
+        //    |> SetPlanet
+        //    |> ReferenceSystemApp.update 
+        //        m.scene.config 
+        //        LenseConfigs.referenceSystemConfig 
+        //        m.scene.referenceSystem
                 
         let m = 
             m
-            |> Optic.set _referenceSystemLens suggestedReferenceSystem
+            |> Optic.set _referenceSystemLens m.scene.referenceSystem //suggestedReferenceSystem
             |> updateCameraUp
 
         // add sg scene objects
