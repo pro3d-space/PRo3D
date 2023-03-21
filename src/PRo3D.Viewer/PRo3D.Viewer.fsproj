@@ -50,6 +50,7 @@
     <Compile Include="ProvenanceModel.fs" />
     <Compile Include="Viewer-Model.fs" />
     <Compile Include="ProvenanceApp.fs" />
+    <Compile Include="InitialViewerModel.fs" />
     <Compile Include="Bookmarks.fs" />
     <Compile Include="TraverseApp.fs" />
     <Compile Include="Scene.fs" />
