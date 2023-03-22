@@ -29,3 +29,33 @@ Content-Type: application/json
 {
 	"sceneFile": "D:/pro3d/VictoriaCrater/vcviewplanenr_updated.pro3d"
 }
+
+### checkpoint
+# @name postCheckpoint
+POST http://localhost:4321/api/v2/getCheckpoint 
+Content-Type: application/json
+
+{
+	"virtualFileName": "node717"
+}
+
+
+###
+
+@data = {{postCheckpoint.response.body.*}}
+
+POST http://localhost:4321/api/v2/restoreCheckpoint
+Content-Type: application/json
+
+{{data}}
+
+### 
+
+@data = {{postCheckpoint.response.body.*}}
+
+POST http://localhost:4321/api/v2/setScene
+Content-Type: application/json
+
+{
+	"checkpointData": {{data}}
+}

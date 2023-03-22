@@ -66,8 +66,57 @@ type PModel =
         annotations : Drawing.DrawingModel
     } 
 
+module PModel =
+
+    module Thoth =
+        
+        open Thoth.Json.Net
+
+        module Decode =
+
+            let v3d : Decoder<V3d> =
+                Decode.array Decode.float |> Decode.map (fun a -> V3d(a[0],a[1],a[2]))
+
+            let cameraView : Decoder<CameraView> =
+                Decode.object (fun get -> 
+                    let camView = get.Required.Field "cv" (Decode.array v3d)
+                    CameraView(camView[0], camView[1], camView[2], camView[3], camView[4])
+                )
+
+        module Encode =
+
+            let v3d (v : V3d) =
+                [| v.X; v.Y; v.Z |] |> Array.map Encode.float |> Encode.array 
+
+            let cameraView (x : CameraView) =
+                let camView = 
+                    [| x.Sky; x.Location; x.Forward; x.Up; x.Right |] |> Array.map v3d
+
+                Encode.object [
+                    "cv", Encode.array camView
+                ]
+                
+
+        module Payload =
+
+            let decoder : Decoder<PModel> =
+                Decode.object (fun get -> 
+                    let cameraView = get.Required.Field "cameraView" Decode.cameraView
+                    let drawingJson = get.Required.Field "drawingModel" Decode.string
+                    let d = PRo3D.Core.Drawing.DrawingUtilities.IO.loadAnnotationsFromJson drawingJson
+                    { cameraView = cameraView; annotations = { PRo3D.Core.Drawing.DrawingModel.initialdrawing with annotations = d.annotations } }
+                )
+
+            let encoder (p : PModel) : JsonValue =
+                let drawingAsJson = PRo3D.Core.Drawing.IO.getSerialized p.annotations
+                Encode.object [
+                    "cameraView", Encode.string "jsonSerialized"
+                    "drawingJson", Encode.string drawingAsJson
+                ]
+
+
+
 type PInput =
-    | Source of source : PModel
     | Label  of input : NodeId
 
 
@@ -90,16 +139,17 @@ type Payload =
     | BlobId of string
 
 type PPersistence =
-    abstract member GetPayloadForModel : PModel -> Payload
-    abstract member GetPayloadForEdge : PEdge -> Payload
-    abstract member ReadModel : Payload -> PModel
-    abstract member ReadEdge : Payload -> PEdge
+    abstract member GetPayloadForModel : string * PModel -> Payload
+    abstract member GetPayloadForMessage : string * PMessage -> Payload
+    abstract member ReadModel  : Payload -> PModel
+    abstract member ReadMessage : Payload -> PMessage
 
 [<ModelType>]
 type ProvenanceModel = 
     { 
-        nodes : HashMap<NodeId, PNode>; 
-        edges : HashMap<EdgeId, PEdge>; 
+        nodes : HashMap<NodeId, PNode> 
+        edges : HashMap<EdgeId, PEdge>
+        initialNode : Option<NodeId>
         lastEdge : Option<EdgeId> 
         selectedNode : Option<PNode>
         
@@ -107,8 +157,6 @@ type ProvenanceModel =
         automaticRecording : bool
 
         currentTrail : list<PMessage> 
-
-        storage : PPersistence
     } 
 
 module ProvenanceApp =
@@ -123,7 +171,7 @@ module ProvenanceModel =
     open System.Threading
     
     let invalid = 
-        { storage = failwith ""; nodes = HashMap.empty; edges = HashMap.empty; 
+        { nodes = HashMap.empty; edges = HashMap.empty; initialNode = None
           lastEdge = None; automaticRecording = false; currentTrail = []; selectedNode = None 
         }
 
@@ -151,7 +199,9 @@ module ProvenanceModel =
         let input = 
             match pm.lastEdge with
             | None -> 
-                Source newPModel
+                match pm.initialNode with
+                | None -> failwith "no start node"
+                | Some s -> Label s
             | Some e -> 
                 match HashMap.tryFind e pm.edges with
                 | None -> failwith "edge of tip not found"
@@ -295,7 +345,7 @@ module ProvenanceModel =
                 { 
                     data = { 
                         id = p.id; 
-                        payload = Option.map persistence.GetPayloadForModel p.model
+                        payload = Option.map (fun m -> persistence.GetPayloadForModel(p.id, m)) p.model
                     }
                 }
 
@@ -314,7 +364,6 @@ module ProvenanceModel =
             let fromPEdge (p : PEdge) : CyEdge =
                 let id = 
                     match p.sourceId with
-                    | Source _ -> "input"
                     | Label s -> s
                 { data = { id = p.id; payload = None; sourceId = id; targetId = p.targetId; label = PMessage.toHumanReadable p.message }}
 
@@ -343,6 +392,7 @@ module ProvenanceModel =
         type CyDescription =
             { 
                 elements : CyElements 
+                startNode : string
             }
 
         module CyDescription =
@@ -351,36 +401,54 @@ module ProvenanceModel =
                 Decode.object (fun get -> 
                     {
                         elements = get.Required.Field "elements" CyElements.decoder
+                        startNode = get.Required.Field "startNode" Decode.string
                     }
                 )
 
             let encoder (d : CyDescription) =
                 Encode.object [
                     "elements", CyElements.encode d.elements
+                    "startNode", Encode.string d.startNode
                 ]
 
 
 
         let toCy (storage : PPersistence) (e : ProvenanceModel) =
-            let input : CyNode = { data = { id = "input"; payload = failwith "" } }
-            let nodes : seq<CyNode> = e.nodes |> HashMap.toSeq |> Seq.map (fun (id,n) -> { data = { id = id; payload = failwith "" } } )
+            let nodes : seq<CyNode> = 
+                e.nodes 
+                |> HashMap.toList 
+                |> Seq.map (fun (id,n) -> 
+                        { 
+                            data = { id = id; payload = n.model |> Option.map (fun m -> storage.GetPayloadForModel(id, m))  } 
+                        } 
+                )
             let edges = 
                 e.edges
                 |> Seq.map (fun (edgeId, edge) -> 
-                    let source = match edge.sourceId with | Label l -> l | Source s -> "input"
-                    { data = { id = edge.id; sourceId = source; targetId = edge.targetId; label = PMessage.toHumanReadable edge.message; payload = None } }
+                    let source = match edge.sourceId with | Label l -> l 
+                    { data = 
+                        { 
+                            id = edge.id; sourceId = source; 
+                            targetId = edge.targetId; 
+                            label = PMessage.toHumanReadable edge.message; 
+                            payload = storage.GetPayloadForMessage(edge.id, edge.message) |> Some
+                        } 
+                    }
                 )
             {
                 elements = 
                     {
-                        nodes = Seq.append [ input ] nodes |> Seq.toArray 
+                        nodes = nodes |> Seq.toArray 
                         edges = edges |> Seq.toArray
                     }
-
+                startNode = 
+                    match e.initialNode with
+                    | None -> failwith "provenance graphs in PRo3D need a startNode"
+                    | Some n -> n
             }
 
         let toJs (storage : PPersistence) (e : ProvenanceModel) =
-            let js = e |> toCy |> CyDescription.encoder |> Encode.toString 3 
+            let js = e |> toCy storage |> CyDescription.encoder |> Encode.toString 3 
             js
 
 
@@ -389,13 +457,110 @@ module ProvenanceModel =
             
             match description with
             | Result.Ok d -> 
-                let nodes = 
+                let nodes : array<PNode> = 
                     d.elements.nodes |> Array.map (fun n -> 
                         let payload = n.data.payload
-                        //match payload with
-                        //| Thoth.Payload.
-                        failwith ""
+                        match payload with
+                        | None -> { id = n.data.id; model = None }
+                        | Some p -> 
+                            { id = n.data.id; model = Some (storage.ReadModel p)}
                     )
-                failwith ""
+                let edges : array<PEdge> =
+                    d.elements.edges |> Array.map (fun n -> 
+                        let message  = 
+                            match n.data.payload with
+                            | None -> PMessage.Branch
+                            | Some p -> 
+                                storage.ReadMessage p 
+                        { sourceId = Label n.data.sourceId; targetId = n.data.targetId; message = message; id = n.data.id }
+                    )
+                let startNode = d.startNode
+
+                let pm : ProvenanceModel = {
+                    invalid with
+                        nodes = nodes |> Array.map (fun n -> n.id, n) |> HashMap.ofArray
+                        edges = edges |> Array.map (fun n -> n.id, n) |> HashMap.ofArray
+                        initialNode = Some startNode
+                        lastEdge = None
+                        selectedNode = None
+                }
+
+                Result.Ok pm
             | Result.Error err -> 
                 Result.Error err
+
+
+    open System.IO
+    open Thoth.Json.Net
+
+    type LocalDirectoryStorage(subDir : string) =
+
+        do if Directory.Exists subDir then () else Directory.CreateDirectory subDir |> ignore
+
+        let getPath (id : string) = Path.ChangeExtension(Path.combine [subDir; id], ".json")
+        let save (id : string) (json : string)= File.writeAllText (getPath id) json
+
+        member x.GetPayloadForModel (id : string, pm : PModel) =
+            let json = PModel.Thoth.Payload.encoder pm |> Encode.toString 0 
+            save id json
+            Payload.BlobId id
+
+        member x.GetPayloadForMessage (id : string, m : PMessage) =
+            Payload.BlobId "not implemented"
+
+        member x.ReadModel(pl : Payload) : PModel =
+            match pl with
+            | Payload.BlobId id ->
+                let json = File.ReadAllText(getPath id)
+                match Decode.fromString PModel.Thoth.Payload.decoder json with
+                | Result.Ok r -> r
+                |_ -> 
+                    failwithf "could not parse payload: %A" id
+            | _ -> failwith "not implemented"
+
+        member x.ReadMessage(p : Payload) : PMessage =
+            PMessage.Branch
+
+        interface PPersistence with
+
+            member x.GetPayloadForModel (id : string, pm : PModel) = x.GetPayloadForModel(id, pm)
+            member x.GetPayloadForMessage (id : string, m : PMessage) = x.GetPayloadForMessage(id, m)
+            member x.ReadModel(pl : Payload) : PModel = x.ReadModel pl
+            member x.ReadMessage(p : Payload) : PMessage = x.ReadMessage p
+
+
+
+    type NopStorage() =
+
+        member x.GetPayloadForModel (id : string, pm : PModel) =
+            let json = PModel.Thoth.Payload.encoder pm |> Encode.toString 0 
+            Payload.JsonSerialized json
+
+        member x.GetPayloadForMessage (id : string, m : PMessage) =
+            Payload.BlobId "not implemented"
+
+        member x.ReadModel(pl : Payload) : PModel =
+            match pl with
+            | Payload.JsonSerialized s -> 
+                match Decode.fromString PModel.Thoth.Payload.decoder s with
+                | Result.Ok r -> r
+                | _ -> failwithf "could not parse payload: %A" id
+            | _ -> failwithf "could not parse payload: %A" id
+
+        member x.ReadMessage(p : Payload) : PMessage =
+            PMessage.Branch
+
+        interface PPersistence with
+
+            member x.GetPayloadForModel (id : string, pm : PModel) = x.GetPayloadForModel(id, pm)
+            member x.GetPayloadForMessage (id : string, m : PMessage) = x.GetPayloadForMessage(id, m)
+            member x.ReadModel(pl : Payload) : PModel = x.ReadModel pl
+            member x.ReadMessage(p : Payload) : PMessage = x.ReadMessage p
+
+
+
+    let localDirectory (subDir : string) =
+        LocalDirectoryStorage(subDir) :> PPersistence
+
+    let nopStorage () = 
+        NopStorage() :> PPersistence

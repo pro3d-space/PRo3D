@@ -56,9 +56,11 @@ module RemoteApi =
             let operationsToJson (ops : array<SetOperation<GraphElement>>) =
                 ops |> Array.map encodeSetOperation |> Encode.array |> Encode.toString 4
 
-    type Api(emitTopLevel : ViewerAnimationAction -> unit, p : AdaptiveProvenanceModel, m : AdaptiveModel) = 
+    type Api(emitTopLevel : ViewerAnimationAction -> unit, p : AdaptiveProvenanceModel, m : AdaptiveModel, storage : PPersistence) = 
 
         let emit s = emitTopLevel (ViewerAnimationAction.ViewerMessage s)
+
+        member x.Storage = storage
 
         member x.LoadScene(fullPath : string) = 
             ViewerAction.LoadScene fullPath |> emit
@@ -75,11 +77,11 @@ module RemoteApi =
             ViewerAction.SurfaceActions (fullPaths |> Array.toList |> Surface.ChangeImportDirectories) |> emit
 
         member x.ProvenanceModel = p
+        member x.FullModel = m
 
-        [<Obsolete>]
         member x.GetProvenanceGraphJson() =
             let v = p.Current.GetValue()
-            ProvenanceModel.Thoth.toJs v
+            ProvenanceModel.Thoth.toJs storage v
             
         // gets the current state of the model (including model and scene serialization)
         // virtualScenePath is displayed in the top menu (normally it shows  path to the scene)
@@ -87,6 +89,12 @@ module RemoteApi =
             let serializedModel = ViewerIO.getSerializedModel model
             ViewerAction.SetScenePath virtualScenePath |> emit
             serializedModel
+
+        member x.SetSceneFromCheckpoint(s : ViewerIO.SerializedModel) : unit =
+            let setScene = ViewerAction.LoadSerializedScene s.sceneAsJson
+            let setDrawing = ViewerAction.LoadSerializedDrawingModel s.drawingAsJson
+            setScene |> emit
+            setDrawing |> emit
 
         member x.SetSceneFromCheckpoint(s : ViewerIO.SerializedModel, 
                                         p : ProvenanceGraph.Graph, activeNode : Option<string>) : unit =
@@ -150,20 +158,59 @@ module RemoteApi =
 
         open SuaveHelpers
 
-        //let loadScene (api : Api) = 
-        //    path "/getScene" >=> request (fun r -> 
-        //        if File.Exists command.sceneFile then
-        //            api.LoadScene command.sceneFile 
-        //            Successful.OK "done"
-        //        else
-        //            RequestErrors.BAD_REQUEST "Oops, something went wrong here!"
-        //    )
+        type SaveCheckpointRequest =
+            {
+                // displayed in pro3d as "file name"
+                virtualFileName : string
+            }
 
-        //let getProvenanceGraph (api : Api) = 
-        //    path "/getProvenanceGraph" >=> request (fun r -> 
-        //        let json = api.GetProvenanceGraphJson()
-        //        Successful.OK json
-        //    )
+
+        let getCheckpoint (api : Api) = 
+             path "/getCheckpoint" >=> request (fun r -> 
+                let str = r.rawForm |> getUTF8
+                let command : SaveCheckpointRequest = str |> JsonSerializer.Deserialize
+                let fullModel = api.GetCheckpointState(api.FullModel.Current.GetValue(), command.virtualFileName)
+                let serialized = fullModel |> JsonSerializer.Serialize
+
+                Successful.OK serialized
+             )
+
+
+        let setSceneFromCheckpoint (api : Api) =
+              path "/restoreCheckpoint" >=> request (fun r -> 
+                let str = r.rawForm |> getUTF8
+                let d  = str |> JsonSerializer.Deserialize
+                api.SetSceneFromCheckpoint(d)
+
+                Successful.OK ""
+             )
+
+        type SerializedProvenanceGraph =
+            {
+                cytoscape : string
+            }
+
+        type SetScene = {
+            checkpointData : ViewerIO.SerializedModel
+            provenanceGraph : ProvenanceGraph.Graph
+            selectedNode : string
+        }
+
+        let setScene (api : Api) =
+            path "/setScene" >=> request (fun r -> 
+                let str = r.rawForm |> getUTF8
+                
+                let command : SetScene = str |> JsonSerializer.Deserialize
+                api.SetSceneFromCheckpoint(command.checkpointData, command.provenanceGraph, Some command.selectedNode)
+
+                Successful.OK ""
+             )
+
+        let getProvenanceGraph (api : Api) =
+            path "/getProvenanceGraph" >=> request (fun r -> 
+                let graphJson = api.GetProvenanceGraphJson()
+                Successful.OK graphJson
+             )
 
 
     module Suave = 
@@ -222,8 +269,6 @@ module RemoteApi =
                 Successful.OK "done"
             )
 
-
-    
 
         let provenanceGraphWebSocket (storage : PPersistence) (api : Api) =
 
@@ -289,4 +334,11 @@ module RemoteApi =
                 saveScene api
                 discoverSurfaces api
                 prefix "/provenanceGraph" >=> provenanceGraphWebSocket storage api
+                prefix "/v2" >=> (choose [
+                    SuaveV2.getCheckpoint api
+                    SuaveV2.setSceneFromCheckpoint api
+                    SuaveV2.setScene api
+                ])
             ]
+
+

@@ -92,15 +92,16 @@ module ProvenanceApp =
     
     let emptyWithModel (m : Model) = 
         
+        let i = { id = ProvenanceModel.newNodeId(); model = reduceModel m |> Some }
+        
         let pm = { 
-            nodes = HashMap.empty
+            nodes = HashMap.ofList [i.id, i]
             edges = HashMap.empty; lastEdge = None
             automaticRecording = false
             currentTrail = []
             selectedNode = None
-            storage = failwith ""
-        } 
-        let pm = ProvenanceModel.newNode pm (reduceModel m) (PMessage.CreateNode "initial")
+            initialNode = Some i.id
+        }
 
 
         { m with 
@@ -158,10 +159,11 @@ module ProvenanceApp =
         ]
 
     let view (m : AdaptiveModel) =
+        let storage = ProvenanceModel.nopStorage ()
         div [style "width: 100%; height: 100%"] [
             let nodes = 
                 m.provenanceModel.nodes 
-                |> AMap.map (fun k v -> v |> ProvenanceModel.Thoth.CyNode.fromPNode Unchecked.defaultof<_> |> ProvenanceModel.Thoth.CyNode.toJs)
+                |> AMap.map (fun k v -> v |> ProvenanceModel.Thoth.CyNode.fromPNode storage |> ProvenanceModel.Thoth.CyNode.toJs)
                 |> AMap.toASetValues
                 |> ASet.channel
 

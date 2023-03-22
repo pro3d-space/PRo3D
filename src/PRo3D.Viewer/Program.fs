@@ -356,8 +356,9 @@ let main argv =
 
         let remoteApi =
             let applyMessage msg = mainApp.updateSync Guid.Empty [msg]
-            let api = RemoteApi.Api(applyMessage, adaptiveModel.provenanceModel, adaptiveModel)
-            RemoteApi.Suave.webPart Unchecked.defaultof<_> api
+            let storage = ProvenanceModel.localDirectory "./provenanceData"
+            let api = RemoteApi.Api(applyMessage, adaptiveModel.provenanceModel, adaptiveModel, storage)
+            RemoteApi.Suave.webPart storage api
 
         let suaveServer = 
             WebPart.startServer port [
