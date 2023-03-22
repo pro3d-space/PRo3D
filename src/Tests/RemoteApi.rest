@@ -32,7 +32,7 @@ Content-Type: application/json
 
 ### checkpoint
 # @name postCheckpoint
-POST http://localhost:4321/api/v2/getCheckpoint 
+POST http://localhost:4321/api/v2/captureSnapshot 
 Content-Type: application/json
 
 {
@@ -44,18 +44,11 @@ Content-Type: application/json
 
 @data = {{postCheckpoint.response.body.*}}
 
-POST http://localhost:4321/api/v2/restoreCheckpoint
-Content-Type: application/json
-
-{{data}}
-
-### 
-
-@data = {{postCheckpoint.response.body.*}}
-
-POST http://localhost:4321/api/v2/setScene
+POST http://localhost:4321/api/v2/activateSnapshot
 Content-Type: application/json
 
 {
-	"checkpointData": {{data}}
+	"scene": {{data}},
+	"graph": null,
+	"selectedId": null
 }
