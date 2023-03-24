@@ -488,6 +488,7 @@ module ViewerUtils =
 
             Shader.textureOrLightingIfPossible |> toEffect
 
+            PRo3D.Base.OPCFilter.improvedDiffuseTextureAndColor |> toEffect
             Shader.mapColorAdaption  |> toEffect   
             Shader.fixAlpha          |> toEffect
         ]
