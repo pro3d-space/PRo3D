@@ -102,7 +102,7 @@ module PModel =
             let decoder : Decoder<PModel> =
                 Decode.object (fun get -> 
                     let cameraView = get.Required.Field "cameraView" Decode.cameraView
-                    let drawingJson = get.Required.Field "drawingModel" Decode.string
+                    let drawingJson = get.Required.Field "drawingJson" Decode.string
                     let d = PRo3D.Core.Drawing.DrawingUtilities.IO.loadAnnotationsFromJson drawingJson
                     { cameraView = cameraView; annotations = { PRo3D.Core.Drawing.DrawingModel.initialdrawing with annotations = d.annotations } }
                 )
@@ -110,7 +110,7 @@ module PModel =
             let encoder (p : PModel) : JsonValue =
                 let drawingAsJson = PRo3D.Core.Drawing.IO.getSerialized p.annotations
                 Encode.object [
-                    "cameraView", Encode.string "jsonSerialized"
+                    "cameraView", Encode.cameraView p.cameraView
                     "drawingJson", Encode.string drawingAsJson
                 ]
 
@@ -159,13 +159,7 @@ type ProvenanceModel =
         currentTrail : list<PMessage> 
     } 
 
-module ProvenanceApp =
 
-    type ProvenanceMessage = 
-    | ActivateNode of nodeId : string
-    | ToggleAutomaticRecording
-    | CreateNode 
-    
 
 module ProvenanceModel = 
     open System.Threading
@@ -251,7 +245,7 @@ module ProvenanceModel =
                         let id = get.Required.Field "blobId" Decode.string 
                         Payload.BlobId id
                     | _ -> 
-                        failwith "unknown tag: %A" kind
+                        failwithf "unknown tag: %A" kind
                 )
 
             let encoder (p : Payload) : JsonValue =
@@ -389,6 +383,7 @@ module ProvenanceModel =
                     "edges", c.edges |> Array.map CyEdge.encode |> Encode.array
                 ]
 
+
         type CyDescription =
             { 
                 elements : CyElements 
@@ -452,40 +447,43 @@ module ProvenanceModel =
             js
 
 
-        let fromCyJson (storage : PPersistence) (json : string) : Result<ProvenanceModel, string> =
+        let applyDescription (storage : PPersistence) (m : ProvenanceModel) (d : CyDescription) : ProvenanceModel =
+            let nodes : array<PNode> = 
+                d.elements.nodes |> Array.map (fun n -> 
+                    let payload = n.data.payload
+                    match payload with
+                    | None -> { id = n.data.id; model = None }
+                    | Some p -> 
+                        { id = n.data.id; model = Some (storage.ReadModel p)}
+                )
+            let edges : array<PEdge> =
+                d.elements.edges |> Array.map (fun n -> 
+                    let message  = 
+                        match n.data.payload with
+                        | None -> PMessage.Branch
+                        | Some p -> 
+                            storage.ReadMessage p 
+                    { sourceId = Label n.data.sourceId; targetId = n.data.targetId; message = message; id = n.data.id }
+                )
+            let startNode = d.startNode
+
+            let pm : ProvenanceModel = {
+                m with
+                    nodes = nodes |> Array.map (fun n -> n.id, n) |> HashMap.ofArray
+                    edges = edges |> Array.map (fun n -> n.id, n) |> HashMap.ofArray
+                    initialNode = Some startNode
+                    lastEdge = None
+                    selectedNode = None
+            }
+
+            pm
+
+        let fromCyJson (storage : PPersistence) (json : string) (m : ProvenanceModel): Result<ProvenanceModel, string> =
             let description = Decode.fromString CyDescription.decoder json
             
             match description with
             | Result.Ok d -> 
-                let nodes : array<PNode> = 
-                    d.elements.nodes |> Array.map (fun n -> 
-                        let payload = n.data.payload
-                        match payload with
-                        | None -> { id = n.data.id; model = None }
-                        | Some p -> 
-                            { id = n.data.id; model = Some (storage.ReadModel p)}
-                    )
-                let edges : array<PEdge> =
-                    d.elements.edges |> Array.map (fun n -> 
-                        let message  = 
-                            match n.data.payload with
-                            | None -> PMessage.Branch
-                            | Some p -> 
-                                storage.ReadMessage p 
-                        { sourceId = Label n.data.sourceId; targetId = n.data.targetId; message = message; id = n.data.id }
-                    )
-                let startNode = d.startNode
-
-                let pm : ProvenanceModel = {
-                    invalid with
-                        nodes = nodes |> Array.map (fun n -> n.id, n) |> HashMap.ofArray
-                        edges = edges |> Array.map (fun n -> n.id, n) |> HashMap.ofArray
-                        initialNode = Some startNode
-                        lastEdge = None
-                        selectedNode = None
-                }
-
-                Result.Ok pm
+                Result.Ok (applyDescription storage m d)
             | Result.Error err -> 
                 Result.Error err
 
@@ -564,3 +562,13 @@ module ProvenanceModel =
 
     let nopStorage () = 
         NopStorage() :> PPersistence
+
+
+ module ProvenanceApp =
+
+    type ProvenanceMessage = 
+    | ActivateNode of nodeId : string
+    | ToggleAutomaticRecording
+    | CreateNode 
+    | SetGraph of graph : ProvenanceModel.Thoth.CyDescription * storage : PPersistence
+    

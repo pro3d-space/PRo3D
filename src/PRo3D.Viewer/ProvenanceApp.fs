@@ -227,6 +227,9 @@ module ProvenanceApp =
 
     let update (msg : ProvenanceApp.ProvenanceMessage) (m : Model) : Model =
         match msg with 
+        | ProvenanceMessage.SetGraph(g, storage) -> 
+            { m with provenanceModel = ProvenanceModel.Thoth.applyDescription storage m.provenanceModel g }
+
         | ProvenanceMessage.ActivateNode s -> 
             match m.provenanceModel.nodes |> HashMap.tryFind s with
             | None -> m

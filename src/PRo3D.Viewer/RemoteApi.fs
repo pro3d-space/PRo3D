@@ -22,7 +22,7 @@ module RemoteApi =
             | EdgeElement of CyEdge
 
 
-        type Graph = { edges : array<CyEdge>; nodes : array<CyNode> }
+        //type Graph = { edges : array<CyEdge>; nodes : array<CyNode> }
 
 
         module Node =
@@ -90,25 +90,19 @@ module RemoteApi =
             ViewerAction.SetScenePath virtualScenePath |> emit
             serializedModel
 
-        member x.SetSceneFromCheckpoint(s : ViewerIO.SerializedModel) : unit =
-            let setScene = ViewerAction.LoadSerializedScene s.sceneAsJson
-            let setDrawing = ViewerAction.LoadSerializedDrawingModel s.drawingAsJson
-            setScene |> emit
-            setDrawing |> emit
-
         member x.SetSceneFromCheckpoint(s : ViewerIO.SerializedModel, 
-                                        p : ProvenanceGraph.Graph, activeNode : Option<string>) : unit =
+                                        p : Option<ProvenanceModel.Thoth.CyDescription>, activeNode : Option<string>) : unit =
             let setScene = ViewerAction.LoadSerializedScene s.sceneAsJson
             let setDrawing = ViewerAction.LoadSerializedDrawingModel s.drawingAsJson
             setScene |> emit
             setDrawing |> emit
 
             
-            match activeNode with
-            | Some nodeId -> 
-                let activateNode = ProvenanceMessage (ProvenanceApp.ProvenanceMessage.ActivateNode nodeId)
-                activateNode |> emitTopLevel
-            | None -> 
+            match activeNode, p with
+            | Some nodeId, Some graph -> 
+                ProvenanceMessage (ProvenanceApp.ProvenanceMessage.SetGraph(graph, storage)) |> emitTopLevel
+                ProvenanceMessage (ProvenanceApp.ProvenanceMessage.ActivateNode nodeId) |> emitTopLevel
+            | _ -> 
                 ()
 
 
@@ -164,9 +158,10 @@ module RemoteApi =
                 virtualFileName : string
             }
 
+        
 
-        let getCheckpoint (api : Api) = 
-             path "/getCheckpoint" >=> request (fun r -> 
+        let captureSnapshot (api : Api) = 
+             path "/captureSnapshot" >=> request (fun r -> 
                 let str = r.rawForm |> getUTF8
                 let command : SaveCheckpointRequest = str |> JsonSerializer.Deserialize
                 let fullModel = api.GetCheckpointState(api.FullModel.Current.GetValue(), command.virtualFileName)
@@ -175,41 +170,54 @@ module RemoteApi =
                 Successful.OK serialized
              )
 
-
-        let setSceneFromCheckpoint (api : Api) =
-              path "/restoreCheckpoint" >=> request (fun r -> 
-                let str = r.rawForm |> getUTF8
-                let d  = str |> JsonSerializer.Deserialize
-                api.SetSceneFromCheckpoint(d)
-
-                Successful.OK ""
-             )
-
-        type SerializedProvenanceGraph =
-            {
-                cytoscape : string
-            }
+        type SerializedGraph = { cyGraph : string }
 
         type SetScene = {
-            checkpointData : ViewerIO.SerializedModel
-            provenanceGraph : ProvenanceGraph.Graph
-            selectedNode : string
+            scene : ViewerIO.SerializedModel
+            graph : Option<ProvenanceModel.Thoth.CyDescription> 
+            selectedNode : Option<string>
         }
 
-        let setScene (api : Api) =
-            path "/setScene" >=> request (fun r -> 
+        module SetScene =
+            open Thoth.Json.Net
+            open ViewerIO
+
+            let serializedModel  : Decoder<ViewerIO.SerializedModel> =
+                Decode.object (fun get -> 
+                    {
+                        sceneAsJson = get.Required.Field "sceneAsJson" Decode.string
+                        drawingAsJson = get.Required.Field "drawingAsJson" Decode.string
+                        version = get.Required.Field "version" Decode.string
+                    }
+                )
+
+            let decoder : Decoder<SetScene> =
+                Decode.object (fun get -> 
+                    {
+                        scene = get.Required.Field "scene" serializedModel
+                        graph = get.Optional.Field "graph" ProvenanceModel.Thoth.CyDescription.decoder 
+                        selectedNode = get.Optional.Field "selectedNode" Decode.string
+                    }
+                )
+
+
+        let activateSnapshot (api : Api) =
+            path "/activateSnapshot" >=> request (fun r -> 
                 let str = r.rawForm |> getUTF8
                 
-                let command : SetScene = str |> JsonSerializer.Deserialize
-                api.SetSceneFromCheckpoint(command.checkpointData, command.provenanceGraph, Some command.selectedNode)
+                match str |> Thoth.Json.Net.Decode.fromString SetScene.decoder with
+                | Result.Ok command -> 
+                    api.SetSceneFromCheckpoint(command.scene, command.graph, command.selectedNode)
 
-                Successful.OK ""
+                    Successful.OK ""
+                | Result.Error e -> 
+                    Suave.ServerErrors.INTERNAL_ERROR e
              )
 
         let getProvenanceGraph (api : Api) =
             path "/getProvenanceGraph" >=> request (fun r -> 
                 let graphJson = api.GetProvenanceGraphJson()
-                Successful.OK graphJson
+                Successful.OK graphJson 
              )
 
 
@@ -333,11 +341,11 @@ module RemoteApi =
                 importOpc api
                 saveScene api
                 discoverSurfaces api
-                prefix "/provenanceGraph" >=> provenanceGraphWebSocket storage api
                 prefix "/v2" >=> (choose [
-                    SuaveV2.getCheckpoint api
-                    SuaveV2.setSceneFromCheckpoint api
-                    SuaveV2.setScene api
+                    SuaveV2.captureSnapshot api
+                    SuaveV2.activateSnapshot api
+                    SuaveV2.getProvenanceGraph api
+                    prefix "/provenanceGraph" >=> provenanceGraphWebSocket storage api
                 ])
             ]
 
