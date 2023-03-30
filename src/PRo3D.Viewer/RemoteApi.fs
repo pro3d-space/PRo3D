@@ -90,10 +90,10 @@ module RemoteApi =
             ViewerAction.SetScenePath virtualScenePath |> emit
             serializedModel
 
-        member x.SetSceneFromCheckpoint(s : ViewerIO.SerializedModel, 
+        member x.SetSceneFromCheckpoint(sceneAsJson : string, drawingAsJson : string, 
                                         p : Option<ProvenanceModel.Thoth.CyDescription>, activeNode : Option<string>) : unit =
-            let setScene = ViewerAction.LoadSerializedScene s.sceneAsJson
-            let setDrawing = ViewerAction.LoadSerializedDrawingModel s.drawingAsJson
+            let setScene = ViewerAction.LoadSerializedScene sceneAsJson
+            let setDrawing = ViewerAction.LoadSerializedDrawingModel drawingAsJson
             setScene |> emit
             setDrawing |> emit
 
@@ -159,15 +159,20 @@ module RemoteApi =
             }
 
         
+        let checkpointTemplate = """ { "sceneAsJson": __SCENE__, "drawingAsJson": __DRAWING__, "version": 1 } """
 
         let captureSnapshot (api : Api) = 
              path "/captureSnapshot" >=> request (fun r -> 
                 let str = r.rawForm |> getUTF8
                 let command : SaveCheckpointRequest = str |> JsonSerializer.Deserialize
                 let fullModel = api.GetCheckpointState(api.FullModel.Current.GetValue(), command.virtualFileName)
-                let serialized = fullModel |> JsonSerializer.Serialize
+     
+                let str = 
+                    checkpointTemplate
+                        .Replace("__SCENE__", fullModel.sceneAsJson)
+                        .Replace("__DRAWING__", fullModel.drawingAsJson)
 
-                Successful.OK serialized
+                Successful.OK str
              )
 
         type SerializedGraph = { cyGraph : string }
@@ -178,40 +183,63 @@ module RemoteApi =
             selectedNode : Option<string>
         }
 
-        module SetScene =
-            open Thoth.Json.Net
-            open ViewerIO
+        //module SetScene =
+        //    open Thoth.Json.Net
+        //    open ViewerIO
 
-            let serializedModel  : Decoder<ViewerIO.SerializedModel> =
-                Decode.object (fun get -> 
-                    {
-                        sceneAsJson = get.Required.Field "sceneAsJson" Decode.string
-                        drawingAsJson = get.Required.Field "drawingAsJson" Decode.string
-                        version = get.Required.Field "version" Decode.string
-                    }
-                )
+        //    let serializedModel  : Decoder<ViewerIO.SerializedModel> =
+        //        Decode.object (fun get -> 
+        //            {
+        //                sceneAsJson = get.Required.Field "sceneAsJson" Decode.string
+        //                drawingAsJson = get.Required.Field "drawingAsJson" Decode.string
+        //                version = get.Required.Field "version" Decode.string
+        //            }
+        //        )
 
-            let decoder : Decoder<SetScene> =
-                Decode.object (fun get -> 
-                    {
-                        scene = get.Required.Field "scene" serializedModel
-                        graph = get.Optional.Field "graph" ProvenanceModel.Thoth.CyDescription.decoder 
-                        selectedNode = get.Optional.Field "selectedNode" Decode.string
-                    }
-                )
+        //    let decoder : Decoder<SetScene> =
+        //        Decode.object (fun get -> 
+        //            {
+        //                scene = get.Required.Field "scene" serializedModel
+        //                graph = get.Optional.Field "graph" ProvenanceModel.Thoth.CyDescription.decoder 
+        //                selectedNode = get.Optional.Field "selectedNode" Decode.string
+        //            }
+        //        )
 
 
         let activateSnapshot (api : Api) =
             path "/activateSnapshot" >=> request (fun r -> 
                 let str = r.rawForm |> getUTF8
-                
-                match str |> Thoth.Json.Net.Decode.fromString SetScene.decoder with
-                | Result.Ok command -> 
-                    api.SetSceneFromCheckpoint(command.scene, command.graph, command.selectedNode)
 
+                let d = JsonDocument.Parse(str)
+                let scene = d.RootElement.GetProperty("scene")
+                let sceneAsJson = scene.GetProperty("sceneAsJson").ToString()
+                let drawingAsJson = scene.GetProperty("drawingAsJson").ToString()
+                let version = scene.GetProperty("version").GetInt32()
+                let graph = 
+                    match scene.TryGetProperty "graph" with
+                    | (true,v) ->
+                        v.ToString() 
+                        |> Thoth.Json.Net.Decode.fromString ProvenanceModel.Thoth.CyDescription.decoder 
+                        |> Some
+                    | _ -> 
+                        None
+
+                let selectedNode = 
+                    match scene.TryGetProperty("selectedNode") with
+                    | (true, v) -> v.GetString() |> Some
+                    | _ -> None
+
+                match graph with
+                | Some (Result.Ok graph) -> 
+                    api.SetSceneFromCheckpoint(sceneAsJson, drawingAsJson, Some graph, selectedNode)
                     Successful.OK ""
-                | Result.Error e -> 
-                    Suave.ServerErrors.INTERNAL_ERROR e
+                | None -> 
+                    api.SetSceneFromCheckpoint(sceneAsJson, drawingAsJson, None, selectedNode)
+                    Successful.OK ""
+                | Some (Result.Error e) -> 
+                    ServerErrors.INTERNAL_ERROR e
+
+
              )
 
         let getProvenanceGraph (api : Api) =
