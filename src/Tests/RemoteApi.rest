@@ -30,8 +30,15 @@ Content-Type: application/json
 	"sceneFile": "D:/pro3d/VictoriaCrater/vcviewplanenr_updated.pro3d"
 }
 
-### checkpoint
-# @name captureSnapshot
+# /captureSnapshot, creates a json representation of the scene (S state)
+# /getProvenanceGraph, gives current state of provenance graph (P states)
+# /activateSnapshot { scene, ?graph, ?selected id }
+# ... graph is the representation obtained from getProvenanceGraph (P states)
+
+
+### 
+
+# @name postCheckpoint
 POST http://localhost:4321/api/v2/captureSnapshot 
 Content-Type: application/json
 
@@ -42,33 +49,33 @@ Content-Type: application/json
 
 ###
 
-@sceneData = {{captureSnapshot.response.body.*}}
+@scene = {{postCheckpoint.response.body.*}}
 
 POST http://localhost:4321/api/v2/activateSnapshot
 Content-Type: application/json
 
 {
-	"scene": {{sceneData}},
-	"graph": null,
-	"selectedId": null
+	"scene": {{scene}}
 }
 
 
 ###
-# @name captureSnapshot
-GET http://localhost:4321/api/v2/getProvenanceGraph
 
+### checkpoint
+# @name getGraph
+GET http://localhost:4321/api/v2/getProvenanceGraph 
+Content-Type: application/json
 
 ###
 
-@graph = {{captureSnapshot.response.body.*}}
+@graph = {{getGraph.response.body.*}}
+@scene = {{postCheckpoint.response.body.*}}
 
 POST http://localhost:4321/api/v2/activateSnapshot
 Content-Type: application/json
-
+ 
 {
-	"scene": {{sceneData}},
+	"scene": {{scene}},
 	"graph": {{graph}},
-	"selectedId": null
+	"selectedNode": "897ad42f-dfea-4808-baec-cbcd06715144"
 }
-
