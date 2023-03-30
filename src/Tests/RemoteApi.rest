@@ -77,5 +77,5 @@ Content-Type: application/json
 {
 	"scene": {{scene}},
 	"graph": {{graph}},
-	"selectedNode": "897ad42f-dfea-4808-baec-cbcd06715144"
+	"selectedNodeId": "897ad42f-dfea-4808-baec-cbcd06715144"
 }

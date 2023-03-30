@@ -224,17 +224,17 @@ module RemoteApi =
                     | _ -> 
                         None
 
-                let selectedNode = 
-                    match d.RootElement.TryGetProperty("selectedNode") with
+                let selectedNodeId = 
+                    match d.RootElement.TryGetProperty("selectedNodeId") with
                     | (true, v) -> v.GetString() |> Some
                     | _ -> None
 
                 match graph with
                 | Some (Result.Ok graph) -> 
-                    api.SetSceneFromCheckpoint(sceneAsJson, drawingAsJson, Some graph, selectedNode)
+                    api.SetSceneFromCheckpoint(sceneAsJson, drawingAsJson, Some graph, selectedNodeId)
                     Successful.OK ""
                 | None -> 
-                    api.SetSceneFromCheckpoint(sceneAsJson, drawingAsJson, None, selectedNode)
+                    api.SetSceneFromCheckpoint(sceneAsJson, drawingAsJson, None, selectedNodeId)
                     Successful.OK ""
                 | Some (Result.Error e) -> 
                     ServerErrors.INTERNAL_ERROR e
