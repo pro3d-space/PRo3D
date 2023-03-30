@@ -31,7 +31,7 @@ Content-Type: application/json
 }
 
 ### checkpoint
-# @name postCheckpoint
+# @name captureSnapshot
 POST http://localhost:4321/api/v2/captureSnapshot 
 Content-Type: application/json
 
@@ -42,13 +42,33 @@ Content-Type: application/json
 
 ###
 
-@data = {{postCheckpoint.response.body.*}}
+@sceneData = {{captureSnapshot.response.body.*}}
 
 POST http://localhost:4321/api/v2/activateSnapshot
 Content-Type: application/json
 
 {
-	"scene": {{data}},
+	"scene": {{sceneData}},
 	"graph": null,
 	"selectedId": null
 }
+
+
+###
+# @name captureSnapshot
+GET http://localhost:4321/api/v2/getProvenanceGraph
+
+
+###
+
+@graph = {{captureSnapshot.response.body.*}}
+
+POST http://localhost:4321/api/v2/activateSnapshot
+Content-Type: application/json
+
+{
+	"scene": {{sceneData}},
+	"graph": {{graph}},
+	"selectedId": null
+}
+

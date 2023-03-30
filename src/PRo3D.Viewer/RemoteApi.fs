@@ -216,7 +216,7 @@ module RemoteApi =
                 let drawingAsJson = scene.GetProperty("drawingAsJson").ToString()
                 let version = scene.GetProperty("version").GetInt32()
                 let graph = 
-                    match scene.TryGetProperty "graph" with
+                    match d.RootElement.TryGetProperty "graph" with
                     | (true,v) ->
                         v.ToString() 
                         |> Thoth.Json.Net.Decode.fromString ProvenanceModel.Thoth.CyDescription.decoder 
@@ -225,7 +225,7 @@ module RemoteApi =
                         None
 
                 let selectedNode = 
-                    match scene.TryGetProperty("selectedNode") with
+                    match d.RootElement.TryGetProperty("selectedNode") with
                     | (true, v) -> v.GetString() |> Some
                     | _ -> None
 
