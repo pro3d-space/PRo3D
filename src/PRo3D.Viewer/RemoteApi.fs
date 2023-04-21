@@ -306,7 +306,7 @@ module RemoteApi =
             )
 
 
-        let provenanceGraphWebSocket (storage : PPersistence) (api : Api) =
+        let provenanceGraphWebSocket (hackDoNotSendInitialState : bool) (storage : PPersistence) (api : Api) =
 
             let nodes = 
                 api.ProvenanceModel.nodes 
@@ -331,6 +331,13 @@ module RemoteApi =
                 changes.Add (Operations.operationsToJson deltas )
 
             let nodeSub = elements.AddCallback(fun _ _ -> addDeltas()) 
+
+            if hackDoNotSendInitialState then
+                // clear all previous state (a bit unclean, inbetween changes could have ben swallowed)
+                // this way only changes after subscribing will be visible in the websocket.
+                // the protocol could be changed, s.t. initial values are tagged
+                addDeltas()  // for sure adds into changes
+                changes.Take() |> ignore // will not block therefore.
 
             WebSocket.handShake (fun webSocket ctx -> 
                 socket {
@@ -373,7 +380,8 @@ module RemoteApi =
                     SuaveV2.captureSnapshot api
                     SuaveV2.activateSnapshot api
                     SuaveV2.getProvenanceGraph api
-                    prefix "/provenanceGraph" >=> provenanceGraphWebSocket storage api
+                    prefix "/provenanceGraph" >=> provenanceGraphWebSocket false storage api
+                    prefix "/provenanceGraphChanges" >=> provenanceGraphWebSocket true storage api
                 ])
             ]
 
