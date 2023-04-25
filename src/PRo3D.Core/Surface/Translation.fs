@@ -29,6 +29,7 @@ module TranslationApp =
     | SetYaw           of Numeric.Action
     | SetPitch         of Numeric.Action
     | SetRoll          of Numeric.Action
+    | SetPivotPoint    of Vector3d.Action
     | FlipZ    
     | ToggleSketchFab
     | ToggleVisible
@@ -55,6 +56,10 @@ module TranslationApp =
             { model with useTranslationArrows = not model.useTranslationArrows}
         | ToggleSketchFab   -> 
             { model with isSketchFab = not model.isSketchFab }
+        | SetPivotPoint p ->   
+            let oldPivot = model.pivot.value
+            let p' = Vector3d.update model.pivot p
+            { model with pivot =  p'; pivotChanged = true; oldPivot = oldPivot} 
    
     module UI =
         
@@ -63,7 +68,14 @@ module TranslationApp =
                 Html.row "north" [Numeric.view' [InputBox] model.x |> UI.map Vector3d.Action.SetX]
                 Html.row "east"  [Numeric.view' [InputBox] model.y |> UI.map Vector3d.Action.SetY]
                 Html.row "up"    [Numeric.view' [InputBox] model.z |> UI.map Vector3d.Action.SetZ]
-            ]       
+            ]   
+            
+        let viewPivotPointInput (model : AdaptiveV3dInput) =  
+            Html.table [                            
+                Html.row "X" [Numeric.view' [InputBox] model.x |> UI.map Vector3d.Action.SetX]
+                Html.row "Y" [Numeric.view' [InputBox] model.y |> UI.map Vector3d.Action.SetY]
+                Html.row "Z" [Numeric.view' [InputBox] model.z |> UI.map Vector3d.Action.SetZ]
+            ]  
 
         let view (model:AdaptiveTransformations) =
             
@@ -76,6 +88,7 @@ module TranslationApp =
                     Html.row "Roll (deg):"      [Numeric.view' [InputBox] model.roll |> UI.map SetRoll]
                     Html.row "flip Z:"          [GuiEx.iconCheckBox model.flipZ FlipZ ]
                     Html.row "sketchFab:"       [GuiEx.iconCheckBox model.isSketchFab ToggleSketchFab ]
-                    Html.row "Pivot Point:"     [Incremental.text (model.pivot |> AVal.map (fun x -> x.ToString ()))]
+                    //Html.row "Pivot Point:"     [Incremental.text (model.pivot |> AVal.map (fun x -> x.ToString ()))]
+                    Html.row "Pivot Point (m):" [viewPivotPointInput model.pivot |> UI.map SetPivotPoint ]
                 ]
             )

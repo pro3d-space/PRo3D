@@ -13,7 +13,6 @@ open Aardvark.UI.Trafos
 open Aardvark.VRVis
 open Aardvark.VRVis.Opc
 
-open DevILSharp.ILU
 open Chiron
 
 open PRo3D.Base
@@ -187,173 +186,173 @@ type AttributeLayer =
     | TextureLayer of TextureLayer
 
 //TODO refactor: transformations are used in many contexts, shouldn't be intertwined with SurfaceModel
-[<ModelType>]
-type Transformations = { 
-    version               : int
-    useTranslationArrows  : bool
-    translation           : V3dInput
-    yaw                   : NumericInput
-    pitch                 : NumericInput
-    roll                  : NumericInput
-    trafo                 : Trafo3d
-    pivot                 : V3d
-    flipZ                 : bool
-    isSketchFab           : bool
-} 
+//[<ModelType>]
+//type Transformations = { 
+//    version               : int
+//    useTranslationArrows  : bool
+//    translation           : V3dInput
+//    yaw                   : NumericInput
+//    pitch                 : NumericInput
+//    roll                  : NumericInput
+//    trafo                 : Trafo3d
+//    pivot                 : V3d
+//    flipZ                 : bool
+//    isSketchFab           : bool
+//} 
 
-module Transformations =
-    module Initial =
-        let yaw = {
-            value   = 0.0
-            min     = -180.0
-            max     = +180.0
-            step    = 0.01
-            format  = "{0:0.00}"
-        }
+//module Transformations =
+//    module Initial =
+//        let yaw = {
+//            value   = 0.0
+//            min     = -180.0
+//            max     = +180.0
+//            step    = 0.01
+//            format  = "{0:0.00}"
+//        }
 
-        let pitch = {
-            value   = 0.0
-            min     = -180.0
-            max     = +180.0
-            step    = 0.01
-            format  = "{0:0.00}"
-        }
+//        let pitch = {
+//            value   = 0.0
+//            min     = -180.0
+//            max     = +180.0
+//            step    = 0.01
+//            format  = "{0:0.00}"
+//        }
 
-        let roll = {
-            value   = 0.0
-            min     = -180.0
-            max     = +180.0
-            step    = 0.01
-            format  = "{0:0.00}"
-        }
+//        let roll = {
+//            value   = 0.0
+//            min     = -180.0
+//            max     = +180.0
+//            step    = 0.01
+//            format  = "{0:0.00}"
+//        }
 
-    let current = 3
+//    let current = 3
     
-    let read0 = 
-        json {            
-            let! useTranslationArrows = Json.read "useTranslationArrows"
-            let! translation          = Json.readWith Ext.fromJson<V3dInput,Ext> "translation"
-            let! yaw                  = Json.readWith Ext.fromJson<NumericInput,Ext> "yaw"
-            let! trafo                = Json.readWith Ext.fromJson<Trafo3d,Ext> "trafo"
-            let! pivot                = Json.read "pivot"            
+//    let read0 = 
+//        json {            
+//            let! useTranslationArrows = Json.read "useTranslationArrows"
+//            let! translation          = Json.readWith Ext.fromJson<V3dInput,Ext> "translation"
+//            let! yaw                  = Json.readWith Ext.fromJson<NumericInput,Ext> "yaw"
+//            let! trafo                = Json.readWith Ext.fromJson<Trafo3d,Ext> "trafo"
+//            let! pivot                = Json.read "pivot"            
             
-            return {
-                version              = current
-                useTranslationArrows = useTranslationArrows
-                translation          = translation
-                yaw                  = yaw
-                pitch                = Initial.pitch
-                roll                 = Initial.roll
-                trafo                = trafo               
-                pivot                = pivot |> V3d.Parse
-                flipZ                = false
-                isSketchFab          = false
-            }
-        }
+//            return {
+//                version              = current
+//                useTranslationArrows = useTranslationArrows
+//                translation          = translation
+//                yaw                  = yaw
+//                pitch                = Initial.pitch
+//                roll                 = Initial.roll
+//                trafo                = trafo               
+//                pivot                = pivot |> V3d.Parse
+//                flipZ                = false
+//                isSketchFab          = false
+//            }
+//        }
 
-    let read1 = 
-        json {            
-            let! useTranslationArrows = Json.read "useTranslationArrows"
-            let! translation          = Json.readWith Ext.fromJson<V3dInput,Ext>     "translation"
-            let! yaw                  = Json.readWith Ext.fromJson<NumericInput,Ext> "yaw"          
-            let! trafo                = Json.readWith Ext.fromJson<Trafo3d,Ext> "trafo"
-            let! pivot                = Json.read "pivot"
-            let! flipZ                = Json.read "flipZ"
+//    let read1 = 
+//        json {            
+//            let! useTranslationArrows = Json.read "useTranslationArrows"
+//            let! translation          = Json.readWith Ext.fromJson<V3dInput,Ext>     "translation"
+//            let! yaw                  = Json.readWith Ext.fromJson<NumericInput,Ext> "yaw"          
+//            let! trafo                = Json.readWith Ext.fromJson<Trafo3d,Ext> "trafo"
+//            let! pivot                = Json.read "pivot"
+//            let! flipZ                = Json.read "flipZ"
             
-            return {
-                version              = current
-                useTranslationArrows = useTranslationArrows
-                translation          = translation
-                yaw                  = yaw
-                pitch                = Initial.pitch
-                roll                 = Initial.roll
-                trafo                = trafo
-                pivot                = pivot |> V3d.Parse
-                flipZ                = flipZ
-                isSketchFab          = false
-            }
-        }
+//            return {
+//                version              = current
+//                useTranslationArrows = useTranslationArrows
+//                translation          = translation
+//                yaw                  = yaw
+//                pitch                = Initial.pitch
+//                roll                 = Initial.roll
+//                trafo                = trafo
+//                pivot                = pivot |> V3d.Parse
+//                flipZ                = flipZ
+//                isSketchFab          = false
+//            }
+//        }
 
-    let read2 = 
-        json {            
-            let! useTranslationArrows = Json.read "useTranslationArrows"
-            let! translation          = Json.readWith Ext.fromJson<V3dInput,Ext>     "translation"
-            let! yaw                  = Json.readWith Ext.fromJson<NumericInput,Ext> "yaw"          
-            let! trafo                = Json.readWith Ext.fromJson<Trafo3d,Ext> "trafo"
-            let! pivot                = Json.read "pivot"
-            let! flipZ                = Json.read "flipZ"
-            let! isSketchFab          = Json.read "isSketchFab"
+//    let read2 = 
+//        json {            
+//            let! useTranslationArrows = Json.read "useTranslationArrows"
+//            let! translation          = Json.readWith Ext.fromJson<V3dInput,Ext>     "translation"
+//            let! yaw                  = Json.readWith Ext.fromJson<NumericInput,Ext> "yaw"          
+//            let! trafo                = Json.readWith Ext.fromJson<Trafo3d,Ext> "trafo"
+//            let! pivot                = Json.read "pivot"
+//            let! flipZ                = Json.read "flipZ"
+//            let! isSketchFab          = Json.read "isSketchFab"
             
-            return {
-                version              = current
-                useTranslationArrows = useTranslationArrows
-                translation          = translation
-                yaw                  = yaw                 
-                pitch                = Initial.pitch
-                roll                 = Initial.roll
-                trafo                = trafo               
-                pivot                = pivot |> V3d.Parse
-                flipZ                = flipZ
-                isSketchFab          = isSketchFab
-            }
-        }
+//            return {
+//                version              = current
+//                useTranslationArrows = useTranslationArrows
+//                translation          = translation
+//                yaw                  = yaw                 
+//                pitch                = Initial.pitch
+//                roll                 = Initial.roll
+//                trafo                = trafo               
+//                pivot                = pivot |> V3d.Parse
+//                flipZ                = flipZ
+//                isSketchFab          = isSketchFab
+//            }
+//        }
 
-    let read3 = 
-        json {            
-            let! useTranslationArrows = Json.read "useTranslationArrows"
-            let! translation          = Json.readWith Ext.fromJson<V3dInput,Ext> "translation"
-            let! yaw                  = Json.readWith Ext.fromJson<NumericInput,Ext> "yaw"
-            let! pitch                = Json.readWith Ext.fromJson<NumericInput,Ext> "pitch"
-            let! roll                 = Json.readWith Ext.fromJson<NumericInput,Ext> "roll"
-            let! trafo                = Json.readWith Ext.fromJson<Trafo3d,Ext> "trafo"
-            let! pivot                = Json.read "pivot"
-            let! flipZ                = Json.read "flipZ"
-            let! isSketchFab          = Json.read "isSketchFab"
+//    let read3 = 
+//        json {            
+//            let! useTranslationArrows = Json.read "useTranslationArrows"
+//            let! translation          = Json.readWith Ext.fromJson<V3dInput,Ext> "translation"
+//            let! yaw                  = Json.readWith Ext.fromJson<NumericInput,Ext> "yaw"
+//            let! pitch                = Json.readWith Ext.fromJson<NumericInput,Ext> "pitch"
+//            let! roll                 = Json.readWith Ext.fromJson<NumericInput,Ext> "roll"
+//            let! trafo                = Json.readWith Ext.fromJson<Trafo3d,Ext> "trafo"
+//            let! pivot                = Json.read "pivot"
+//            let! flipZ                = Json.read "flipZ"
+//            let! isSketchFab          = Json.read "isSketchFab"
             
-            return {
-                version              = current
-                useTranslationArrows = useTranslationArrows
-                translation          = translation
-                yaw                  = yaw
-                pitch                = pitch
-                roll                 = roll
-                trafo                = trafo
-                pivot                = pivot |> V3d.Parse
-                flipZ                = flipZ
-                isSketchFab          = isSketchFab
-            }
-        }
+//            return {
+//                version              = current
+//                useTranslationArrows = useTranslationArrows
+//                translation          = translation
+//                yaw                  = yaw
+//                pitch                = pitch
+//                roll                 = roll
+//                trafo                = trafo
+//                pivot                = pivot |> V3d.Parse
+//                flipZ                = flipZ
+//                isSketchFab          = isSketchFab
+//            }
+//        }
 
-type Transformations with
+//type Transformations with
     
 
-    static member FromJson(_ : Transformations) =
-        json {
-            let! v = Json.read "version"
-            match v with
-            | 0 -> return! Transformations.read0
-            | 1 -> return! Transformations.read1
-            | 2 -> return! Transformations.read2
-            | 3 -> return! Transformations.read3
-            | _ -> 
-                return! v 
-                |> sprintf "don't know version %A  of Transformations"
-                |> Json.error
-        }
+//    static member FromJson(_ : Transformations) =
+//        json {
+//            let! v = Json.read "version"
+//            match v with
+//            | 0 -> return! Transformations.read0
+//            | 1 -> return! Transformations.read1
+//            | 2 -> return! Transformations.read2
+//            | 3 -> return! Transformations.read3
+//            | _ -> 
+//                return! v 
+//                |> sprintf "don't know version %A  of Transformations"
+//                |> Json.error
+//        }
 
-    static member ToJson( x : Transformations) =
-        json {            
-            do! Json.write "version" x.version
-            do! Json.write "useTranslationArrows" x.useTranslationArrows
-            do! Json.writeWith Ext.toJson<V3dInput,Ext> "translation" x.translation
-            do! Json.writeWith Ext.toJson<NumericInput,Ext> "yaw"   x.yaw
-            do! Json.writeWith Ext.toJson<NumericInput,Ext> "pitch" x.pitch
-            do! Json.writeWith Ext.toJson<NumericInput,Ext> "roll"  x.roll
-            do! Json.writeWith Ext.toJson<Trafo3d,Ext> "trafo" x.trafo
-            do! Json.write "pivot" (x.pivot.ToString())
-            do! Json.write "flipZ" x.flipZ
-            do! Json.write "isSketchFab" x.isSketchFab
-        }
+//    static member ToJson( x : Transformations) =
+//        json {            
+//            do! Json.write "version" x.version
+//            do! Json.write "useTranslationArrows" x.useTranslationArrows
+//            do! Json.writeWith Ext.toJson<V3dInput,Ext> "translation" x.translation
+//            do! Json.writeWith Ext.toJson<NumericInput,Ext> "yaw"   x.yaw
+//            do! Json.writeWith Ext.toJson<NumericInput,Ext> "pitch" x.pitch
+//            do! Json.writeWith Ext.toJson<NumericInput,Ext> "roll"  x.roll
+//            do! Json.writeWith Ext.toJson<Trafo3d,Ext> "trafo" x.trafo
+//            do! Json.write "pivot" (x.pivot.ToString())
+//            do! Json.write "flipZ" x.flipZ
+//            do! Json.write "isSketchFab" x.isSketchFab
+//        }
 
 type SurfaceTrafo = {
     id : string
@@ -362,12 +361,21 @@ type SurfaceTrafo = {
 
 type SurfaceType = 
     | SurfaceOPC = 0
-    | SurfaceOBJ = 1
+    | Mesh = 1
+
+
+type MeshLoaderType = 
+    | Unkown    = 0
+    | Assimp    = 1
+    | GlTf      = 2
+    | Wavefront = 3
+    | Ply       = 4
+
 
 [<ModelType>]
 type Surface = {
     
-    version       : int
+    version         : int
 
     guid            : System.Guid
     
@@ -389,14 +397,15 @@ type Surface = {
                     
     preTransform    : Trafo3d
     
-    scalarLayers    : HashMap<int, ScalarLayer> //IndexList<ScalarLayer>
+    scalarLayers    : HashMap<int, ScalarLayer> 
     selectedScalar  : option<ScalarLayer>
 
     textureLayers   : IndexList<TextureLayer>
     selectedTexture : option<TextureLayer>
 
-    [<Adaptify.NonAdaptiveAttribute>]
+    [<NonAdaptiveAttribute>]
     surfaceType     : SurfaceType     
+    preferredLoader : MeshLoaderType
 
     colorCorrection : ColorCorrection
     homePosition    : Option<CameraView>
@@ -430,6 +439,8 @@ module Surface =
             let! surfaceType     = Json.read "surfaceType"    
             let! colorCorrection = Json.read "colorCorrection"
             let! transformation  = Json.read "transformation"
+
+            let! preferredLoader = Json.readOrDefault "preferredMeshLoader" 0
 
             let! (cameraView : list<string>) = Json.read "homePosition"
             let cameraView = cameraView |> List.map V3d.Parse
@@ -470,7 +481,8 @@ module Surface =
                     selectedScalar  = selectedScalar
                     textureLayers   = textureLayers
                     selectedTexture = selectedTexture
-                    surfaceType     = surfaceType |> enum<SurfaceType>
+                    surfaceType     = surfaceType     |> enum<SurfaceType>
+                    preferredLoader = preferredLoader |> enum<MeshLoaderType>
                     colorCorrection = colorCorrection
                     homePosition    = view
                     transformation  = transformation
@@ -513,6 +525,7 @@ type Surface with
             do! Json.write "selectedTexture" x.selectedTexture
             do! Json.write "surfaceType" (x.surfaceType |> int)
             do! Json.write "colorCorrection" x.colorCorrection
+            do! Json.write "preferredMeshLoader" (x.preferredLoader |> int)
 
             let home =
                 match x.homePosition with
@@ -543,7 +556,9 @@ type SgSurface = {
     globalBB    : Box3d
     sceneGraph  : ISg
     picking     : Picking
-    //transformation  : Transformations
+
+    [<NonAdaptive>]
+    isObj       : bool
 }
 
 
@@ -588,13 +603,13 @@ module Init =
         format = "{0:0}"
     }
 
-    let scaling = {
-        value  = 1.00
-        min    = 0.01
-        max    = 50.00
-        step   = 0.01
-        format = "{0:0.00}"
-    }
+    //let scaling = {
+    //    value  = 1.00
+    //    min    = 0.01
+    //    max    = 50.00
+    //    step   = 0.01
+    //    format = "{0:0.00}"
+    //}
 
     // colorCorrection
     let contrast = {
@@ -639,8 +654,8 @@ module Init =
         value   = 0.0
         min     = -10000000.0
         max     = 10000000.0
-        step    = 0.01
-        format  = "{0:0.00}"
+        step    = 0.001
+        format  = "{0:0.000}"
     }
     
     let initTranslation (v : V3d) = {
@@ -657,8 +672,14 @@ module Init =
         yaw                  = Transformations.Initial.yaw
         pitch                = Transformations.Initial.pitch
         roll                 = Transformations.Initial.roll
-        pivot                = V3d.Zero
+        pivot                = initTranslation (V3d.OOO)
+        oldPivot             = V3d.OOO
+        showPivot            = false
+        pivotChanged         = false
         flipZ                = false
         isSketchFab          = false
+        scaling              = Transformations.Initial.scaling
+        trafoChanged         = false
+        firstChangeAfterNewPivot = false
     }
     

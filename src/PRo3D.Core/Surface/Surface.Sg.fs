@@ -194,7 +194,8 @@ module Sg =
                     )
             )
             |> SgFSharp.Sg.ofList  
-
+           
+           
                                                 
         g, patchHierarchies, kdTrees
     
@@ -222,11 +223,12 @@ module Sg =
         let trafo = { TrafoController.initial with pose = pose; previewTrafo = Pose.toTrafo pose; mode = TrafoMode.Local }
     
         let sgSurface = {
-                surface    = s.guid
-                sceneGraph = sg
-                globalBB   = bb
-                picking    = Picking.KdTree kd
-                trafo      = trafo
+                surface     = s.guid
+                sceneGraph  = sg
+                globalBB    = bb
+                picking     = Picking.KdTree kd
+                trafo       = trafo
+                isObj       = false
                 //transformation = Init.Transformations
             }
         sgSurface

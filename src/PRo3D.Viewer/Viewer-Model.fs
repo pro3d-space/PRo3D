@@ -54,6 +54,10 @@ type PropertyActions =
     | DrawingMessage    of DrawingAction
     | AnnotationMessage of AnnotationProperties.Action
 
+type PickPivot =
+    | SurfacePivot      = 0
+    | SceneObjectPivot  = 1
+   // | ScaleBarPivot     = 2
 //type CorrelationPanelsMessage = 
 //| CorrPlotMessage               of CorrelationPlotAction
 //| SemanticAppMessage            of SemanticAction
@@ -95,7 +99,7 @@ type ViewerAction =
 | ImportSurface                   of list<string>
 | ImportDiscoveredSurfaces        of list<string>
 | ImportDiscoveredSurfacesThreads of list<string>
-| ImportObject                    of list<string>
+| ImportObject                    of preferredLoader : MeshLoaderType * filePaths : list<string>
 | ImportSceneObject               of list<string>
 | ImportPRo3Dv1Annotations        of list<string>
 | ImportSurfaceTrafo              of list<string>
@@ -132,7 +136,6 @@ type ViewerAction =
 //| ScaleToolAction                 of ScaleToolAction
 //| LinkingActions                  of PRo3D.Linking.LinkingAction    
 | SetTabMenu                      of TabMenu
-| OpenSceneFileLocation           of string
 | NoAction                        of string
 | OrientationCube                 of ISg
 | UpdateDockConfig                of DockConfig
@@ -160,7 +163,8 @@ type ViewerAction =
 | ScreenshotMessage              of ScreenshotAction
 | TraverseMessage                of TraverseAction
 | SetSceneState                  of SceneState
-| StopGeoJsonAutoExport        
+| StopGeoJsonAutoExport  
+| SetPivotType                   of PickPivot
 | Nop
 
 and MailboxState = {
@@ -206,7 +210,8 @@ type Scene = {
 
 module Scene =
         
-    let current = 2 //20211611 ... added traverse and sequenced bookmarks and comparison app
+    //let current = 2 //20211611 ... added traverse and sequenced bookmarks and comparison app
+    let current = 3 //20220306 ... added viewPlans
     let read0 = 
         json {            
             let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
@@ -360,6 +365,63 @@ module Scene =
                 }
         }
 
+    // added viewPlans
+    let read3 = 
+        json {            
+            let! cameraView      = Json.readWith Ext.fromJson<CameraView,Ext> "cameraView"
+            let! navigationMode  = Json.read "navigationMode"
+            let! exploreCenter   = Json.read "exploreCenter" 
+            
+            let! interactionMode = Json.read "interactionMode"
+            let! surfaceModel    = Json.read "surfaceModel"
+            let! config          = Json.read "config"
+            let! scenePath       = Json.read "scenePath"
+            let! referenceSystem = Json.read "referenceSystem"
+            let! bookmarks       = Json.read "bookmarks"
+            let! viewPlans       = Json.read "viewPlans"
+            let! dockConfig      = Json.read "dockConfig"  
+            let! (comparisonApp : option<ComparisonApp>) = Json.tryRead "comparisonApp"
+            let! scaleBars       = Json.read "scaleBars" 
+            let! sceneObjectsModel      = Json.read "sceneObjectsModel"  
+            let! geologicSurfacesModel  = Json.read "geologicSurfacesModel"
+            let! sequencedBookmarks     = Json.tryRead "sequencedBookmarks"
+            let! screenshotModel        = Json.tryRead "screenshotModel"
+            let! traverse               = Json.tryRead "traverses"
+            //let! viewplans     = Json.tryRead "viewplans"
+
+            return 
+                {
+                    version                 = current
+
+                    cameraView              = cameraView
+                    navigationMode          = navigationMode |> enum<NavigationMode>
+                    exploreCenter           = exploreCenter  |> V3d.Parse
+            
+                    interaction             = interactionMode |> enum<InteractionMode>
+                    surfacesModel           = surfaceModel
+                    config                  = config
+                    scenePath               = scenePath
+                    referenceSystem         = referenceSystem
+                    bookmarks               = bookmarks
+
+                    viewPlans               = viewPlans
+                    dockConfig              = dockConfig |> Serialization.jsonSerializer.UnPickleOfString
+                    closedPages             = List.empty
+                    firstImport             = false
+                    userFeedback            = String.Empty
+                    feedbackThreads         = ThreadPool.empty
+                    scaleBars               = scaleBars
+                    sceneObjectsModel       = sceneObjectsModel
+                    geologicSurfacesModel   = geologicSurfacesModel
+
+                    traverses                = traverse |> Option.defaultValue(TraverseModel.initial)
+                    sequencedBookmarks      = if sequencedBookmarks.IsSome then sequencedBookmarks.Value else SequencedBookmarks.initial
+                    comparisonApp           = if comparisonApp.IsSome then comparisonApp.Value else ComparisonApp.init
+
+                    screenshotModel         = screenshotModel |> Option.defaultValue(ScreenshotModel.initial)
+                }
+        }
+
 type Scene with
     static member FromJson (_ : Scene) =
         json {
@@ -368,6 +430,7 @@ type Scene with
             | 0 -> return! Scene.read0
             | 1 -> return! Scene.read1
             | 2 -> return! Scene.read2
+            | 3 -> return! Scene.read3
             | _ ->
                 return! v 
                 |> sprintf "don't know version %A  of Scene" 
@@ -387,6 +450,7 @@ type Scene with
             do! Json.write "scenePath" x.scenePath
             do! Json.write "referenceSystem" x.referenceSystem
             do! Json.write "bookmarks" x.bookmarks    
+            do! Json.write "viewPlans" x.viewPlans    
             do! Json.write "comparisonApp" (x.comparisonApp)
             do! Json.write "dockConfig" (x.dockConfig |> Serialization.jsonSerializer.PickleToString) 
             do! Json.write "scaleBars" x.scaleBars
@@ -469,6 +533,7 @@ type Model = {
     multiSelectBox   : Option<MultiSelectionBox>
     shiftFlag        : bool
     picking          : bool
+    pivotType        : PickPivot
     ctrlFlag         : bool
     frustum          : Frustum
     viewPortSizes    : HashMap<string, V2i>
@@ -598,6 +663,7 @@ module Viewer =
             multiSelectBox  = None
             shiftFlag       = false
             picking         = false
+            pivotType       = PickPivot.SurfacePivot
             ctrlFlag        = false
 
             messagingMailbox = msgBox

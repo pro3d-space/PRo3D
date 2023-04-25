@@ -27,7 +27,7 @@ module SurfaceProperties =
         | SetQuality     of Numeric.Action
         | SetTriangleSize of Numeric.Action
         | SetPriority    of Numeric.Action
-        | SetScaling     of Numeric.Action
+        //| SetScaling     of Numeric.Action
         | SetScalarMap   of Option<ScalarLayer>
         | SetTexturesMap of Option<TextureLayer>
         | SetHomePosition //of Guid //of Option<CameraView>
@@ -50,8 +50,8 @@ module SurfaceProperties =
             { model with quality = Numeric.update model.quality a }
         | SetPriority a ->
             { model with priority = Numeric.update model.priority a }
-        | SetScaling a ->
-            { model with scaling = Numeric.update model.scaling a }
+        //| SetScaling a ->
+        //    { model with scaling = Numeric.update model.scaling a }
         | SetScalarMap a -> 
             match a with
             | Some s -> 
@@ -109,7 +109,7 @@ module SurfaceProperties =
           Html.row "Priority:"    [Numeric.view' [NumericInputType.InputBox] model.priority |> UI.map SetPriority ]       
           Html.row "Quality:"     [Numeric.view' [NumericInputType.Slider]   model.quality  |> UI.map SetQuality ]
           Html.row "TriangleFilter:" [Numeric.view' [NumericInputType.InputBox]   model.triangleSize  |> UI.map SetTriangleSize ]
-          Html.row "Scale:"       [Numeric.view' [NumericInputType.InputBox]   model.scaling  |> UI.map SetScaling ]
+          //Html.row "Scale:"       [Numeric.view' [NumericInputType.InputBox]   model.scaling  |> UI.map SetScaling ]
           Html.row "Fillmode:"    [Html.SemUi.dropDown model.fillMode SetFillMode]                
           Html.row "Scalars:"     [UI.dropDown'' (model |> scalarLayerList)  (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.selectedScalar)  (fun x -> SetScalarMap (x |> Option.map(fun y -> y.Current |> AVal.force)))   (fun x -> x.label |> AVal.force)]
           //Html.row "Scalars:"     [UI.dropDown'' (model |> scalarLayerList)  model.selectedScalar   (fun x -> SetScalarMap (x |> Option.map(fun y -> y.Current ))) (fun x -> x.label |> AVal.force)]

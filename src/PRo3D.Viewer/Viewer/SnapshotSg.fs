@@ -73,6 +73,19 @@ open PRo3D.ViewerApp
 
 /// PRo3D Sg for batch rendering (snapshots)
 module SnapshotSg =
+
+    let isViewPlanVisible (m:AdaptiveModel) =
+        adaptive {
+            let! id = m.scene.viewPlans.selectedViewPlan
+            match id with
+            | Some v -> 
+                let! vp = m.scene.viewPlans.viewPlans |> AMap.tryFind v
+                match vp with
+                | Some selVp -> return! selVp.isVisible
+                | None -> return false
+            | None -> return false
+        }
+
     /// creaste simple sg for debugging purposes
     let createDebugSg (m:AdaptiveModel) =
         let camera = AVal.map2 (fun v f -> Camera.create v f) m.navigation.camera.view m.frustum 
@@ -108,6 +121,7 @@ module SnapshotSg =
                 | _ -> true
             )
 
+        let vpVisible = isViewPlanVisible m
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
         let grouped = 
@@ -123,7 +137,7 @@ module SnapshotSg =
                             surface.globalBB
                             refSystem 
                             m.footPrint 
-                            m.scene.viewPlans.selectedViewPlan
+                            vpVisible
                             usehighlighting filterTexture
                             allowFootprint
                        )
@@ -220,7 +234,7 @@ module SnapshotSg =
                 |> Sg.map ReferenceSystemMessage  
 
             let exploreCenter =
-                Navigation.Sg.view m.navigation            
+                Navigation.Sg.view m.navigation          
           
             let homePosition =
                 Sg.viewHomePosition m.scene.surfacesModel

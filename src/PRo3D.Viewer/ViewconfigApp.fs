@@ -27,7 +27,7 @@ module ConfigProperties =
         | ToggleLodColors
         | ToggleOrientationCube 
         | ToggleSurfaceHighlighting
-        //| ToggleExplorationPoint
+        | ToggleExplorationPointGui
         
 
     let update (model : ViewConfigModel) (act : Action) =
@@ -57,11 +57,12 @@ module ConfigProperties =
             model // {model with useSurfaceHighlighting = not model.useSurfaceHighlighting}
         | SetPickingTolerance tolerance ->
             { model with pickingTolerance = Numeric.update model.pickingTolerance tolerance }
+        | ToggleExplorationPointGui -> {model with showExplorationPointGui = not model.showExplorationPointGui}
         | Nop -> model
         | _ -> 
             Log.warn "[ConfigProperties] Unknown action %A" act
             model
-        //| ToggleExplorationPoint -> {model with showExplorationPoint = not model.showExplorationPoint}
+        
            
 
     let view (model : AdaptiveViewConfigModel) =    
@@ -79,7 +80,7 @@ module ConfigProperties =
                 Html.row "Lod colors:"              [GuiEx.iconCheckBox model.lodColoring ToggleLodColors]
                 Html.row "Orientation Cube: "       [GuiEx.iconCheckBox model.drawOrientationCube ToggleOrientationCube]
               //  Html.row "Surface highlighting: "   [GuiEx.iconCheckBox model.useSurfaceHighlighting ToggleSurfaceHighlighting]
-               // Html.row "Exploration Point: "      [GuiEx.iconCheckBox model.showExplorationPoint ToggleExplorationPoint]
+                Html.row "Exploration Point: "      [GuiEx.iconCheckBox model.showExplorationPointGui ToggleExplorationPointGui]
             ]
         )
 

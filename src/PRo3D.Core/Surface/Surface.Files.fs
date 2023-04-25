@@ -26,8 +26,6 @@ open PRo3D.Core.Surface
 open PRo3DCompability
 
 
-
-  
 module Files = 
        open System.IO
        open Aardvark.Prinziple
@@ -40,12 +38,22 @@ module Files =
        /// checks if "path" is a valid opc folder containing "images" or "Images", "patches" or "Patches", and patchhierarchy.xml
        /// </summary>
        let isOpcFolder (path : string) = 
-           printfn "isOpc: %A" path
-           let imagePath = Path.combine [path; "images"]
-           let patchPath = Path.combine [path; "patches"]
-           (Directory.Exists imagePath) &&
-           (Directory.Exists patchPath) && 
-            File.Exists(Path.combine [patchPath;"patchhierarchy.xml"])
+           let isOpcFolder =
+               let imagesProbingPaths = 
+                    OpcPaths.Images_DirNames |> List.map (fun imageSuffix -> Path.combine [path; imageSuffix])
+               let patchesProbingPaths =
+                    OpcPaths.Patches_DirNames|> List.map (fun patchSuffix -> Path.combine [path; patchSuffix])
+
+               let imagesPath = imagesProbingPaths |> List.tryFind Directory.Exists
+               let patchesPath = patchesProbingPaths |> List.tryFind Directory.Exists
+               let patchHierarchyXmlPath = 
+                    patchesPath 
+                    |> Option.map (fun patchPath -> Path.Combine(patchPath, OpcPaths.PatchHierarchy_FileName))
+
+               imagesPath.IsSome && patchesPath.IsSome && patchHierarchyXmlPath.IsSome
+
+           printfn "[Surface.Files] is opc path: %A" path
+           isOpcFolder
 
        /// <summary>
        /// checks if "path" is a valid surface folder i.e. contains at least one opc folder
@@ -175,7 +183,7 @@ module Files =
              | None -> None
          else
            match surface.surfaceType with
-             | SurfaceType.SurfaceOBJ -> 
+             | SurfaceType.Mesh -> 
                let p = Path.GetDirectoryName surface.importPath
                if Directory.Exists p then Some p else None
              |_-> 
@@ -247,7 +255,7 @@ module Files =
                 match surfaces |> HashMap.tryFind s.surface with
                 | Some surf ->
                     match surf.surfaceType with 
-                    | SurfaceType.SurfaceOBJ -> Some s
+                    | SurfaceType.Mesh -> Some s
                     | _ -> 
                         let kd = 
                             ks 
@@ -294,5 +302,3 @@ module Files =
                | None -> 
                    Log.error "can't make surface relative. no valid scene path has not been saved yet."
                    surfaceModel
-
-       

@@ -250,7 +250,7 @@ module ViewerApp =
         | Interactions.DrawAnnotation, _ -> 
             let m = 
                 match surf.surfaceType with
-                | SurfaceType.SurfaceOBJ -> { m with drawing = { m.drawing with projection = Projection.Linear } } //TODO LF ... why is this happening?
+                | SurfaceType.Mesh -> { m with drawing = { m.drawing with projection = Projection.Linear } } //TODO LF ... why is this happening?
                 | _ -> m
             
             let view = 
@@ -348,9 +348,28 @@ module ViewerApp =
             let scm = ScaleBarsApp.update m.scene.scaleBars msg
             { m with scene = { m.scene with scaleBars = scm } }
         | Interactions.PlaceSceneObject, ViewerMode.Standard -> 
-            let action = (SceneObjectAction.PlaceSceneObject(p)) 
+            //let action = (SceneObjectAction.PlaceSceneObject(p))
+            let action = (SceneObjectAction.TranslationMessage( TransformationApp.Action.SetPickedTranslation(p)))
             let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel action
             { m with scene = { m.scene with sceneObjectsModel = sobjs } }
+        | Interactions.PickPivotPoint, ViewerMode.Standard -> 
+            match m.pivotType with
+            | PickPivot.SurfacePivot     -> 
+                let action = (SurfaceAppAction.TranslationMessage( TransformationApp.Action.SetPickedPivotPoint p )) 
+                let surfaceModel =
+                    SurfaceApp.update m.scene.surfacesModel action m.scene.scenePath m.navigation.camera.view m.scene.referenceSystem
+                { m with scene = { m.scene with surfacesModel = surfaceModel } }
+            //| PickPivot.ScaleBarPivot    -> 
+            //    let action = (ScaleBarsAction.TranslationMessage( TransformationApp.Action.SetPickedPivotPoint p )) 
+            //    let scaleBars' =
+            //        ScaleBarsApp.update m.scene.scaleBars action 
+            //    { m with scene = { m.scene with scaleBars = scaleBars' } }
+            | PickPivot.SceneObjectPivot -> 
+                let action = (SceneObjectAction.TranslationMessage( TransformationApp.Action.SetPickedPivotPoint p )) 
+                let so' =
+                    SceneObjectsApp.update m.scene.sceneObjectsModel action 
+                { m with scene = { m.scene with sceneObjectsModel = so' } }
+            | _ -> m
         | _ -> m       
 
     let mutable lastHash = -1    
@@ -475,7 +494,7 @@ module ViewerApp =
                 | SurfaceAppAction.FlyToSurface id -> 
                     let surf = m |> Optic.get _sgSurfaces |> HashMap.tryFind id
                     let surface = m.scene.surfacesModel.surfaces.flat |> HashMap.find id |> Leaf.toSurface 
-                    let superTrafo = SurfaceTransformations.fullTrafo' surface m.scene.referenceSystem
+                    let superTrafo = TransformationApp.fullTrafo' surface.transformation m.scene.referenceSystem //SurfaceTransformations.fullTrafo' surface m.scene.referenceSystem
                     match (surface.homePosition) with
                     | Some hp ->                        
                         let animationMessage = 
@@ -497,7 +516,8 @@ module ViewerApp =
 
             let surfaceModel = 
                 match msg with
-                | SurfaceAppAction.ChangeImportDirectories _ ->
+                | SurfaceAppAction.ChangeImportDirectories _ 
+                | SurfaceAppAction.ChangeOBJImportDirectories _ ->
                     model.scene.surfacesModel 
                     |> SceneLoader.prepareSurfaceModel runtime signature model.scene.scenePath
                 | _ -> 
@@ -615,8 +635,7 @@ module ViewerApp =
             
         | RoverMessage msg,_,_ ->
             let roverModel = RoverApp.update m.scene.viewPlans.roverModel msg
-            let viewPlanModel = ViewPlanApp.updateViewPlanFroAdaptiveRover roverModel m.scene.viewPlans
-            { m with scene = { m.scene with viewPlans = viewPlanModel }}
+            { m with scene = { m.scene with viewPlans = {m.scene.viewPlans with roverModel = roverModel }}}
         | ViewPlanMessage msg,_,_ ->
             let model, viewPlanModel = ViewPlanApp.update m.scene.viewPlans msg _navigation _footprint m.scene.scenePath m
 
@@ -633,8 +652,8 @@ module ViewerApp =
                 | _ ->
                     m.animations             
 
-            { m with 
-                scene = { m.scene with viewPlans = viewPlanModel }
+            { model with 
+                scene = { model.scene with viewPlans = viewPlanModel }
                 footPrint = model.footPrint
                 animations = animations
             } 
@@ -647,7 +666,7 @@ module ViewerApp =
                 match msg with
                 | SceneObjectAction.FlyToSO id -> 
                     let sceneObj = sobjs.sceneObjects |> HashMap.find id
-                    let superTrafo = SceneObjectTransformations.fullTrafo' sceneObj.transformation m.scene.referenceSystem
+                    let superTrafo = TransformationApp.fullTrafo' sceneObj.transformation m.scene.referenceSystem //SceneObjectTransformations.fullTrafo' sceneObj.transformation m.scene.referenceSystem
 
                     let sgSo = sobjs.sgSceneObjects |> HashMap.find id
                     let bb = sgSo.globalBB.Transformed(sceneObj.preTransform.Forward * superTrafo.Forward)
@@ -682,7 +701,7 @@ module ViewerApp =
                 let surfaces = 
                     paths 
                     |> List.filter (fun x -> Files.isSurfaceFolder x || Files.isZippedOpcFolder x)
-                    |> List.map (SurfaceUtils.mk SurfaceType.SurfaceOPC m.scene.config.importTriangleSize.value)
+                    |> List.map (SurfaceUtils.mk SurfaceType.SurfaceOPC MeshLoaderType.Unkown m.scene.config.importTriangleSize.value)
                     |> IndexList.ofList
 
                 let m = SceneLoader.import' runtime signature surfaces m 
@@ -704,7 +723,7 @@ module ViewerApp =
                 let surfaces = 
                     surfacePaths 
                     |> List.filter (fun x -> Files.isSurfaceFolder x || Files.isZippedOpcFolder x)
-                    |> List.map (SurfaceUtils.mk SurfaceType.SurfaceOPC m.scene.config.importTriangleSize.value)
+                    |> List.map (SurfaceUtils.mk SurfaceType.SurfaceOPC MeshLoaderType.Unkown m.scene.config.importTriangleSize.value)
                     |> IndexList.ofList
 
                     
@@ -736,18 +755,21 @@ module ViewerApp =
                 }
                     
                 m |> UserFeedback.queueFeedback feedback
-        | ImportObject (objPaths),_,_ -> 
-            match objPaths |> List.tryHead with
-            | Some path ->  
+        | ImportObject (preferredLoader, objPaths), _, _ -> 
+            match objPaths  with
+            | [path] ->
+
                 let objects =                   
                     path 
-                    |> SurfaceUtils.mk SurfaceType.SurfaceOBJ m.scene.config.importTriangleSize.value
+                    |> SurfaceUtils.mk SurfaceType.Mesh preferredLoader m.scene.config.importTriangleSize.value
                     |> IndexList.single                                
                 m 
-                |> SceneLoader.importObj runtime signature objects 
+                |> SceneLoader.importObj preferredLoader objects 
                 |> ViewerIO.loadLastFootPrint
                 |> updateSceneWithNewSurface     
-            | None -> m     
+            | _ -> 
+                Log.line "[Viewer] can only import exactly one file, given: %d" (List.length objPaths)
+                m     
         | ImportSceneObject sl,_,_ -> 
             match sl |> List.tryHead with
             | Some path ->  
@@ -1301,10 +1323,6 @@ module ViewerApp =
             { m with tabMenu = tab }
         | SwitchViewerMode  vm ,_,_ -> 
             { m with viewerMode = vm }
-        | OpenSceneFileLocation p,_,_ ->                
-            let argument = sprintf "/select, \"%s\"" p
-            Process.Start("explorer.exe", argument) |> ignore
-            m
         | NoAction s,_,_ -> 
             if s.IsEmptyOrNull() |> not then 
                 Log.line "[Viewer.fs] No Action %A" s
@@ -1802,7 +1820,8 @@ module ViewerApp =
                 |> Sg.map ReferenceSystemMessage  
 
             let exploreCenter =
-                Navigation.Sg.view m.navigation            
+                Navigation.Sg.view m.navigation
+                |> Sg.onOff m.scene.config.showExplorationPointGui
           
             let homePosition =
                 Sg.viewHomePosition m.scene.surfacesModel
@@ -2031,10 +2050,12 @@ module ViewerApp =
                 |> ViewerIO.loadAnnotations
                 |> ViewerIO.loadCorrelations
                 |> ViewerIO.loadLastFootPrint
+                |> ViewerIO.loadSequencedBookmarks
                 //|> ViewerIO.loadMinerva dumpFile cacheFile
                 //|> ViewerIO.loadLinking
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
+                
             else
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl
                                             dataSamples screenshotDirectory _animator
