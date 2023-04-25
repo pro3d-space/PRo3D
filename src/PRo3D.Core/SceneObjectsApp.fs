@@ -344,7 +344,8 @@ module SceneObjectsApp =
                             let! s = sceneObj
                             let! rSys = refsys.Current
                             let! t = s.preTransform
-                            let! fullTrafo = TransformationApp.fullTrafo s.transformation refsys //SceneObjectTransformations.fullTrafo s.transformation rSys
+                            let! so = s.Current
+                            let fullTrafo = TransformationApp.fullTrafo' so.transformation rSys 
                             
                             //let! sc = s.transformation.scaling.value // s.scaling.value
                             let! flipZ = s.transformation.flipZ

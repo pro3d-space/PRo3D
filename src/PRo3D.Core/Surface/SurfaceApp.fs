@@ -1021,8 +1021,11 @@ module SurfaceApp =
                 match model.surfaces.singleSelectLeaf with
                 | Some s -> 
                     let surface = model.surfaces.flat |> HashMap.find s |> Leaf.toSurface
-                    //let t =  { surface.transformation with pivot = refSys.origin }
-                    let transformation' = (TransformationApp.update surface.transformation msg)
+                    let t =  if surface.transformation.usePivot then    
+                                surface.transformation
+                             else 
+                                { surface.transformation with pivot = Vector3d.updateV3d surface.transformation.pivot refSys.origin }
+                    let transformation' = (TransformationApp.update t msg) //surface.transformation msg)
                     let s' = { surface with transformation = transformation' }
                     //let homePosition = 
                     //  match surface.homePosition with
