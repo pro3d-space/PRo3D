@@ -357,6 +357,7 @@ let main argv =
         let remoteApi =
             let applyMessage msg = mainApp.updateSync Guid.Empty [msg]
             let storage = ProvenanceModel.localDirectory "./provenanceData"
+            let storage = ProvenanceModel.nopStorage()
             let api = RemoteApi.Api(applyMessage, adaptiveModel.provenanceModel, adaptiveModel, storage)
             RemoteApi.Suave.webPart storage api
 

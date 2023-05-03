@@ -13,7 +13,6 @@
 		<NoWarn>0686</NoWarn>
 	</PropertyGroup>
   <ItemGroup>
-    <None Include="File1.fsx" />
     <None Include="Playground.fsx" />
     <None Include="RemoteApi.rest" />
     <None Include="paket.references" />
