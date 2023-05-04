@@ -310,22 +310,27 @@ module SurfaceUtils =
 
                 let meshesWithMaterial =
                     meshes |> Array.collect (fun pm ->
-                        let mats = pm.FaceAttributes.[PolyMesh.Property.Material] :?> int[]
-                        let diff = System.Collections.Generic.HashSet mats
+                        if pm.FaceAttributes.Contains(PolyMesh.Property.Material) then
+                            let mats = pm.FaceAttributes.[PolyMesh.Property.Material] :?> int[]
+                            let diff = System.Collections.Generic.HashSet mats
 
-                        if diff.Count = 1 then
-                            let mid = Seq.head diff
-                            pm.InstanceAttributes.[PolyMesh.Property.Material] <- mid
+                            if diff.Count = 1 then
+                                let mid = Seq.head diff
+                                pm.InstanceAttributes.[PolyMesh.Property.Material] <- mid
+                                [| pm |]
+                            else
+                                diff |> Seq.toArray |> Array.map (fun mid ->
+                                    let faces = System.Collections.Generic.HashSet<int>()
+                                    for i in 0 .. pm.FaceCount - 1 do
+                                        if mats.[i] = mid then faces.Add i |> ignore
+                                    let res = pm.SubSetOfFaces(faces)
+                                    res.InstanceAttributes.[PolyMesh.Property.Material] <- mid
+                                    res
+                                )
+                        else 
+                            let posArray = pm.VertexAttributes.[DefaultSemantic.Positions].ToArrayOfT<V3d>() 
+                            pm.VertexAttributes.[DefaultSemantic.Positions] <- posArray
                             [| pm |]
-                        else
-                            diff |> Seq.toArray |> Array.map (fun mid ->
-                                let faces = System.Collections.Generic.HashSet<int>()
-                                for i in 0 .. pm.FaceCount - 1 do
-                                    if mats.[i] = mid then faces.Add i |> ignore
-                                let res = pm.SubSetOfFaces(faces)
-                                res.InstanceAttributes.[PolyMesh.Property.Material] <- mid
-                                res
-                            )
                     )
 
                 let vertexColors = obj |> getVertexColors
@@ -347,186 +352,187 @@ module SurfaceUtils =
                         else 
                             None
                     | _ -> 
-                        None
+                        //None
+                        Some (sgOfPolyMesh None vertexColors mesh)
                 )
                 |> Sg.ofArray
 
 
-            let createSgsofOBJ (obj : WavefrontObject) (box : Box3d) = 
-                if obj.Materials.IsEmptyOrNull() || obj.Materials.Count = 1 then
-                    let textureOption = 
-                        obj.Materials
-                        |> Seq.tryHead
-                        |> Option.map(fun mat -> mat.MapItems |> Seq.tryFind(fun item -> item.Key = WavefrontMaterial.Property.DiffuseColorMap) |> Option.map(fun item -> (string item.Value)))
+            //let createSgsofOBJ (obj : WavefrontObject) (box : Box3d) = 
+            //    if obj.Materials.IsEmptyOrNull() || obj.Materials.Count = 1 then
+            //        let textureOption = 
+            //            obj.Materials
+            //            |> Seq.tryHead
+            //            |> Option.map(fun mat -> mat.MapItems |> Seq.tryFind(fun item -> item.Key = WavefrontMaterial.Property.DiffuseColorMap) |> Option.map(fun item -> (string item.Value)))
              
               
-                    let meshes = 
-                        obj.GetFaceSetMeshes(true)
-                        |> Seq.toList
+            //        let meshes = 
+            //            obj.GetFaceSetMeshes(true)
+            //            |> Seq.toList
 
-                    let igs  = 
-                        meshes 
-                        |> List.map(fun mesh -> 
+            //        let igs  = 
+            //            meshes 
+            //            |> List.map(fun mesh -> 
                       
-                            let posArray = mesh.VertexAttributes.[DefaultSemantic.Positions].ToArrayOfT<V3d>() //|> Array.map(fun p -> p - box.Min)
+            //                let posArray = mesh.VertexAttributes.[DefaultSemantic.Positions].ToArrayOfT<V3d>() //|> Array.map(fun p -> p - box.Min)
 
-                            mesh.VertexAttributes.[DefaultSemantic.Positions] <- posArray
+            //                mesh.VertexAttributes.[DefaultSemantic.Positions] <- posArray
 
-                            if (obj.VertexColors.IsEmptyOrNull() |> not) then
-                                let isfloat = obj.VertexColors |> Seq.take 100 |> Seq.tryFind(fun c -> (c.R > 1.0f || c.G > 1.0f || c.B > 1.0f)) |> Option.isNone
+            //                if (obj.VertexColors.IsEmptyOrNull() |> not) then
+            //                    let isfloat = obj.VertexColors |> Seq.take 100 |> Seq.tryFind(fun c -> (c.R > 1.0f || c.G > 1.0f || c.B > 1.0f)) |> Option.isNone
                           
-                                let colorArray = 
-                                    obj.VertexColors 
-                                    |> Seq.toArray 
+            //                    let colorArray = 
+            //                        obj.VertexColors 
+            //                        |> Seq.toArray 
                           
-                                let colorArray2 =
-                                    if isfloat then
-                                        colorArray |> Array.map(fun c -> C4b((float c.R), (float c.G), (float c.B)))
-                                    else
-                                        colorArray |> Array.map(fun c -> C4b((int c.R), (int c.G), (int c.B)))
+            //                    let colorArray2 =
+            //                        if isfloat then
+            //                            colorArray |> Array.map(fun c -> C4b((float c.R), (float c.G), (float c.B)))
+            //                        else
+            //                            colorArray |> Array.map(fun c -> C4b((int c.R), (int c.G), (int c.B)))
                                   
-                                mesh.VertexAttributes.[DefaultSemantic.Colors] <- colorArray2
+            //                    mesh.VertexAttributes.[DefaultSemantic.Colors] <- colorArray2
 
                       
-                            let hasTexCoords = obj.TextureCoordinates.IsEmptyOrNull() |> not                      
-                            let hasTexture   = textureOption |> Option.map(fun tO -> tO |> Option.isSome) |> Option.defaultValue false
+            //                let hasTexCoords = obj.TextureCoordinates.IsEmptyOrNull() |> not                      
+            //                let hasTexture   = textureOption |> Option.map(fun tO -> tO |> Option.isSome) |> Option.defaultValue false
                       
-                            if hasTexture && hasTexCoords then
+            //                if hasTexture && hasTexCoords then
 
-                                let texCoordsArray = 
-                                    (mesh.FaceVertexAttributes.[DefaultSemantic.DiffuseColorCoordinates].ToArrayOfT<V2d>())
-                                    |> Array.map(fun f -> V2d(f.X, 1.0-f.Y))
+            //                    let texCoordsArray = 
+            //                        (mesh.FaceVertexAttributes.[DefaultSemantic.DiffuseColorCoordinates].ToArrayOfT<V2d>())
+            //                        |> Array.map(fun f -> V2d(f.X, 1.0-f.Y))
 
-                                mesh.FaceVertexAttributes.[DefaultSemantic.DiffuseColorCoordinates] <- texCoordsArray
+            //                    mesh.FaceVertexAttributes.[DefaultSemantic.DiffuseColorCoordinates] <- texCoordsArray
 
-                            mesh.GetIndexedGeometry(PolyMesh.GetGeometryOptions.Default))
+            //                mesh.GetIndexedGeometry(PolyMesh.GetGeometryOptions.Default))
 
-                    let isgs = 
-                        igs 
-                        |> List.map (fun ig -> 
-                            textureOption
-                            |> Option.map(fun potPath -> 
-                                potPath
+            //        let isgs = 
+            //            igs 
+            //            |> List.map (fun ig -> 
+            //                textureOption
+            //                |> Option.map(fun potPath -> 
+            //                    potPath
     
-                                |> Option.map(fun texPath ->
-                                    let texture = 
-                                        let config = { wantMipMaps = true; wantSrgb = false; wantCompressed = false }
-                                        FileTexture(texPath,config) :> ITexture
-                                    ig.Sg
-                                    |> Aardvark.SceneGraph.SgFSharp.Sg.texture DefaultSemantic.DiffuseColorTexture (AVal.constant texture))
-                                |> Option.defaultValue ig.Sg)
-                            |> Option.defaultValue ig.Sg
-                            |> Sg.noEvents)
+            //                    |> Option.map(fun texPath ->
+            //                        let texture = 
+            //                            let config = { wantMipMaps = true; wantSrgb = false; wantCompressed = false }
+            //                            FileTexture(texPath,config) :> ITexture
+            //                        ig.Sg
+            //                        |> Aardvark.SceneGraph.SgFSharp.Sg.texture DefaultSemantic.DiffuseColorTexture (AVal.constant texture))
+            //                    |> Option.defaultValue ig.Sg)
+            //                |> Option.defaultValue ig.Sg
+            //                |> Sg.noEvents)
                   
-                    isgs 
+            //        isgs 
           
-                else
+            //    else
                
-                    let vertexList      = obj.Vertices.ToListOfT<V4d>()
+            //        let vertexList      = obj.Vertices.ToListOfT<V4d>()
 
-                    let offset          = vertexList |> Seq.head
+            //        let offset          = vertexList |> Seq.head
 
-                    let positions       = vertexList |> Seq.toList |> List.map(fun p -> V3d(p.X-offset.X, p.Y-offset.Y, p.Z-offset.Z))
-                    let colors          = if obj.VertexColors.IsEmptyOrNull() then None else Some(obj.VertexColors |> Seq.toList)
-                    let coordsOption    = if obj.TextureCoordinates.IsEmptyOrNull() then None else Some (obj.TextureCoordinates |> Seq.toList)
-                    let normalsOption   = if obj.Normals.IsEmptyOrNull() then None else Some (obj.Normals |> Seq.toList)
-                    let faceSets        = obj.FaceSets |> Seq.toList
+            //        let positions       = vertexList |> Seq.toList |> List.map(fun p -> V3d(p.X-offset.X, p.Y-offset.Y, p.Z-offset.Z))
+            //        let colors          = if obj.VertexColors.IsEmptyOrNull() then None else Some(obj.VertexColors |> Seq.toList)
+            //        let coordsOption    = if obj.TextureCoordinates.IsEmptyOrNull() then None else Some (obj.TextureCoordinates |> Seq.toList)
+            //        let normalsOption   = if obj.Normals.IsEmptyOrNull() then None else Some (obj.Normals |> Seq.toList)
+            //        let faceSets        = obj.FaceSets |> Seq.toList
 
-                    let createISgOfFaces (diffuseTextureFile : Option<string>) (color : Option<C3f>) (faces : List<Face>) =                 
-                        let posIndices, texCoordIndices, normalIndices = faces |> List.map(fun f -> (f.positionIndices, f.texCoordIndices, f.normalIndices)) |> List.unzip3
+            //        let createISgOfFaces (diffuseTextureFile : Option<string>) (color : Option<C3f>) (faces : List<Face>) =                 
+            //            let posIndices, texCoordIndices, normalIndices = faces |> List.map(fun f -> (f.positionIndices, f.texCoordIndices, f.normalIndices)) |> List.unzip3
     
-                        let posIComplete     = posIndices      |> Array.concat
-                        let texCoordComplete = texCoordIndices |> Array.concat
-                        let normalsComplete  = normalIndices   |> Array.concat
+            //            let posIComplete     = posIndices      |> Array.concat
+            //            let texCoordComplete = texCoordIndices |> Array.concat
+            //            let normalsComplete  = normalIndices   |> Array.concat
 
-                        let matColor = color |> Option.map(fun c -> C3f(c.R, c.G, c.B)) |> Option.defaultValue C3f.White
+            //            let matColor = color |> Option.map(fun c -> C3f(c.R, c.G, c.B)) |> Option.defaultValue C3f.White
     
-                        let faceSetPositions, faceSetColors = 
-                            colors
-                            |> Option.map(fun cList -> 
-                                posIComplete
-                                |> Array.map(fun value -> positions.[value], cList.[value])
-                                |> Array.unzip)
-                            |> Option.defaultValue (
-                                posIComplete
-                                |> Array.map(fun value -> positions.[value], matColor)
-                                |> Array.unzip)
+            //            let faceSetPositions, faceSetColors = 
+            //                colors
+            //                |> Option.map(fun cList -> 
+            //                    posIComplete
+            //                    |> Array.map(fun value -> positions.[value], cList.[value])
+            //                    |> Array.unzip)
+            //                |> Option.defaultValue (
+            //                    posIComplete
+            //                    |> Array.map(fun value -> positions.[value], matColor)
+            //                    |> Array.unzip)
                       
                   
-                        let def = [
-                            DefaultSemantic.Positions, (faceSetPositions) :> Array
-                            DefaultSemantic.Colors, (faceSetColors) :> Array                    
-                        ]
+            //            let def = [
+            //                DefaultSemantic.Positions, (faceSetPositions) :> Array
+            //                DefaultSemantic.Colors, (faceSetColors) :> Array                    
+            //            ]
     
-                        let def = 
-                            coordsOption 
-                            |> Option.map(fun coords -> 
-                                let faceSetTexCoords =
-                                    texCoordComplete
-                                    |> Array.mapi(fun _ value -> V2f(coords.[value].X, (1.0f- coords.[value].Y)))
+            //            let def = 
+            //                coordsOption 
+            //                |> Option.map(fun coords -> 
+            //                    let faceSetTexCoords =
+            //                        texCoordComplete
+            //                        |> Array.mapi(fun _ value -> V2f(coords.[value].X, (1.0f- coords.[value].Y)))
                               
-                                def |> List.append [DefaultSemantic.DiffuseColorCoordinates, (faceSetTexCoords) :> Array])
-                            |> Option.defaultValue def
+            //                    def |> List.append [DefaultSemantic.DiffuseColorCoordinates, (faceSetTexCoords) :> Array])
+            //                |> Option.defaultValue def
     
-                        let def = 
-                            normalsOption
-                            |> Option.map(fun normals ->
-                                let faceSetNormals = 
-                                    normalsComplete
-                                    |> Array.mapi(fun _ n -> normals.[n])
+            //            let def = 
+            //                normalsOption
+            //                |> Option.map(fun normals ->
+            //                    let faceSetNormals = 
+            //                        normalsComplete
+            //                        |> Array.mapi(fun _ n -> normals.[n])
                           
-                                def |> List.append [DefaultSemantic.Normals, (faceSetNormals) :> Array])
-                            |> Option.defaultValue def
+            //                    def |> List.append [DefaultSemantic.Normals, (faceSetNormals) :> Array])
+            //                |> Option.defaultValue def
                                                   
-                        let indexAttributes = def |> SymDict.ofList 
+            //            let indexAttributes = def |> SymDict.ofList 
     
-                        let index = [|0 .. posIComplete.Length-1|]
+            //            let index = [|0 .. posIComplete.Length-1|]
     
-                        let geometry =
-                            IndexedGeometry(
-                                Mode              = IndexedGeometryMode.TriangleList,
-                                IndexArray        = index,
-                                IndexedAttributes = indexAttributes
-                            )       
+            //            let geometry =
+            //                IndexedGeometry(
+            //                    Mode              = IndexedGeometryMode.TriangleList,
+            //                    IndexArray        = index,
+            //                    IndexedAttributes = indexAttributes
+            //                )       
                       
-                        let sg = 
-                            diffuseTextureFile 
-                            |> Option.map(fun texPath -> 
-                                let texture = 
-                                    let config = { wantMipMaps = true; wantSrgb = false; wantCompressed = false }
-                                    FileTexture(texPath,config) :> ITexture
+            //            let sg = 
+            //                diffuseTextureFile 
+            //                |> Option.map(fun texPath -> 
+            //                    let texture = 
+            //                        let config = { wantMipMaps = true; wantSrgb = false; wantCompressed = false }
+            //                        FileTexture(texPath,config) :> ITexture
                          
-                                geometry.Sg
-                                |> Aardvark.SceneGraph.SgFSharp.Sg.texture DefaultSemantic.DiffuseColorTexture (AVal.constant texture))
-                            |> Option.defaultValue geometry.Sg
-                            |> Sg.noEvents
+            //                    geometry.Sg
+            //                    |> Aardvark.SceneGraph.SgFSharp.Sg.texture DefaultSemantic.DiffuseColorTexture (AVal.constant texture))
+            //                |> Option.defaultValue geometry.Sg
+            //                |> Sg.noEvents
     
     
-                        sg
+            //            sg
     
-                    let isgs = 
-                        faceSets
-                        |> List.map(fun fs  -> 
-                            fs.FirstIndices.RemoveAt(fs.FirstIndices.Count-1)
-                            fs.FirstIndices
-                            |> Seq.mapi (fun i firstIndex -> 
-                                {
-                                positionIndices = [| fs.VertexIndices.[firstIndex]; fs.VertexIndices.[firstIndex+1]; fs.VertexIndices.[firstIndex+2]|]        
-                                texCoordIndices = [| fs.TexCoordIndices.[firstIndex]; fs.TexCoordIndices.[firstIndex+1]; fs.TexCoordIndices.[firstIndex+2]|]
-                                normalIndices   = [| fs.NormalIndices.[firstIndex]; fs.NormalIndices.[firstIndex+1]; fs.TexCoordIndices.[firstIndex+2]|]
-                                materialIndex   = fs.MaterialIndices.[i]                        
-                                })
-                            |> List.ofSeq
-                            |> List.groupBy(fun face -> face.materialIndex)
-                            )
-                        |> List.concat
-                        |> List.map(fun (matIndex,faceList) -> 
-                            let currMapItems = obj.Materials.Item(matIndex).MapItems
-                            let color    =  currMapItems |> Seq.tryFind(fun item -> item.Key = WavefrontMaterial.Property.DiffuseColor) |> Option.map(fun item -> (item.Value :?> C3f))
-                            let fileName =  currMapItems |> Seq.tryFind(fun item -> item.Key = WavefrontMaterial.Property.DiffuseColorMap) |> Option.map(fun item -> (string item.Value)) //materials.[matIndex]. |> Seq.tryFind WavefrontMaterial.Property.DiffuseColorMap
-                            createISgOfFaces fileName color faceList)
+            //        let isgs = 
+            //            faceSets
+            //            |> List.map(fun fs  -> 
+            //                fs.FirstIndices.RemoveAt(fs.FirstIndices.Count-1)
+            //                fs.FirstIndices
+            //                |> Seq.mapi (fun i firstIndex -> 
+            //                    {
+            //                    positionIndices = [| fs.VertexIndices.[firstIndex]; fs.VertexIndices.[firstIndex+1]; fs.VertexIndices.[firstIndex+2]|]        
+            //                    texCoordIndices = [| fs.TexCoordIndices.[firstIndex]; fs.TexCoordIndices.[firstIndex+1]; fs.TexCoordIndices.[firstIndex+2]|]
+            //                    normalIndices   = [| fs.NormalIndices.[firstIndex]; fs.NormalIndices.[firstIndex+1]; fs.TexCoordIndices.[firstIndex+2]|]
+            //                    materialIndex   = fs.MaterialIndices.[i]                        
+            //                    })
+            //                |> List.ofSeq
+            //                |> List.groupBy(fun face -> face.materialIndex)
+            //                )
+            //            |> List.concat
+            //            |> List.map(fun (matIndex,faceList) -> 
+            //                let currMapItems = obj.Materials.Item(matIndex).MapItems
+            //                let color    =  currMapItems |> Seq.tryFind(fun item -> item.Key = WavefrontMaterial.Property.DiffuseColor) |> Option.map(fun item -> (item.Value :?> C3f))
+            //                let fileName =  currMapItems |> Seq.tryFind(fun item -> item.Key = WavefrontMaterial.Property.DiffuseColorMap) |> Option.map(fun item -> (string item.Value)) //materials.[matIndex]. |> Seq.tryFind WavefrontMaterial.Property.DiffuseColorMap
+            //                createISgOfFaces fileName color faceList)
 
-                    isgs
+            //        isgs
 
             // TEST LAURA: load .obj with wavefront (Martins code from dibit) (+ Harris updates Nov.22)
             let loadObjectWavefront (surface : Surface) : SgSurface =
