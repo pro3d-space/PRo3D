@@ -560,6 +560,15 @@ module Shader =
             |> mapGamma
         }
 
+    let private colormap =
+        sampler2d {
+            texture uniform?ColorMapTexture
+            filter Filter.MinMagMipLinear
+            addressU WrapMode.Wrap
+            addressV WrapMode.Wrap
+    }
+
+
     type FootPrintVertex =
         {
             [<Position>]                pos     : V4d            
@@ -572,18 +581,17 @@ module Shader =
             //[<Semantic("LightDir")>]    ldir    : V3d
             [<Semantic("FootPrintProj")>] tc0     : V4d
             //[<Semantic("Tex1")>]        tc1     : V4d
-
         }
 
-    let private footprintmap =
-        sampler2d {
-            texture uniform?FootPrintTexture
-            filter Filter.MinMagMipPoint
-            borderColor (C4f(0.0,0.0,0.0,0.0))
-            addressU WrapMode.Border
-            addressV WrapMode.Border
-            addressW WrapMode.Border
-        }  
+    //let private footprintmap =
+    //    sampler2d {
+    //        texture uniform?FootPrintTexture
+    //        filter Filter.MinMagMipPoint
+    //        borderColor (C4f(0.0,0.0,0.0,0.0))
+    //        addressU WrapMode.Border
+    //        addressV WrapMode.Border
+    //        addressW WrapMode.Border
+    //    }  
 
     let footprintV (v : FootPrintVertex) =
         vertex {
@@ -617,6 +625,23 @@ module Shader =
                         
             return color
         }
+
+    let depthCalculation2 (v : FootPrintVertex) =
+        fragment {     
+            let mutable color = v.c
+            if uniform?DepthVisible then
+                let depth = v.tc0.Z 
+
+                let hue = mapFalseColors depth 
+                let c = hsv2rgb ((clamp 0.0 255.0 hue)/ 255.0 ) 1.0 1.0 
+                let texColor = v.c * V4d(c.X, c.Y, c.Z, 1.0)
+                color <- texColor
+
+            return color
+        }
+
+    
+
 
 module Sg =    
 

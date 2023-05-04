@@ -1738,7 +1738,7 @@ module ViewerApp =
              |> Sg.cullMode (AVal.constant CullMode.None)
 
         // instrument view control
-        let icmds = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed discsInst false m // m.scene.surfacesModel.sgGrouped overlayed discs m
+        let icmds = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed discsInst false true runtime m // m.scene.surfacesModel.sgGrouped overlayed discs m
                         |> AList.map ViewerUtils.mapRenderCommand
         let icam = 
             AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
@@ -1964,7 +1964,7 @@ module ViewerApp =
 
 
         //render OPCs in priority groups
-        let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested true m
+        let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested true false runtime m
                         |> AList.map ViewerUtils.mapRenderCommand
         onBoot "attachResize('__ID__')" (
             DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)

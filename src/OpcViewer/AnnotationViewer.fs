@@ -121,7 +121,7 @@ module AnnotationViewer =
                         transact (fun _ -> hoveredAnnotation.Value <- id)
                     else 
                         transact (fun _ -> hoveredAnnotation.Value <- -1)
-                    //r.SaveAsImage("guh.tiff")
+                    //r.SaveAsImage("guh")
                     ()
             )
 

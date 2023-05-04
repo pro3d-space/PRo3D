@@ -34,6 +34,15 @@ module Shader =
             comparison ComparisonFunction.LessOrEqual
         }
 
+    let private depthSampler =
+        sampler2d {
+            texture uniform?DepthTexture
+            filter Filter.Anisotropic
+            maxAnisotropy 16
+            addressU WrapMode.Wrap
+            addressV WrapMode.Wrap
+        }
+
     let improvedDiffuseTexture (v : Effects.Vertex) =
         fragment {
             let texColor = diffuseSampler.Sample(v.tc,-1.0)

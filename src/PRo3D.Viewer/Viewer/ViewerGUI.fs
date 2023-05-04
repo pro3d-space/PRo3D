@@ -83,6 +83,23 @@ module Gui =
             ] |> AttributeMap.ofList
     
         Incremental.Svg.svg attributes (SurfaceApp.showColorLegend m.scene.surfacesModel)
+
+    let depthColorLegend (m : AdaptiveModel) =
+
+        let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendBasics "DepthLegend" m.footPrint.depthColorLegend
+                
+        let attributes =
+            [        
+                "display"               => "block"; 
+                "width"                 => "55px"; 
+                "height"                => "75%"; 
+                "preserveAspectRatio"   => "xMidYMid meet"; 
+                "viewBox"               => "0 0 5% 100%" 
+                "style"                 => "position:absolute; left: 0%; top: 25%"
+                "pointer-events"        => "None"
+            ] |> AttributeMap.ofList
+        
+        Incremental.Svg.svg attributes falseColorSvg
     
     let selectionRectangle (m : AdaptiveModel) =
         
@@ -882,7 +899,7 @@ module Gui =
     module ViewPlanner =
         let viewPlanProperties (model : AdaptiveModel) =
               //model.scene.viewPlans |> ViewPlan.UI.viewRoverProperties ViewPlanMessage 
-              model.scene.viewPlans |> ViewPlanApp.UI.viewRoverProperties ViewPlanMessage model.footPrint.isVisible
+              model.scene.viewPlans |> ViewPlanApp.UI.viewRoverProperties ViewPlanMessage model.footPrint.isVisible model.footPrint.isDepthVisible
         
         let viewPlannerUI (m : AdaptiveModel) =             
             div [] [
@@ -1075,6 +1092,7 @@ module Gui =
                         alist {
                             yield viewInstrumentView runtime id m 
                             yield textOverlaysInstrumentView m.scene.viewPlans
+                            yield depthColorLegend m
                         } )
                     ]
                 )

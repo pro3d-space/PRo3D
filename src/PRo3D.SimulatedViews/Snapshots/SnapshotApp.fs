@@ -47,7 +47,7 @@ type SnapshotApp<'model,'aModel, 'msg> =
     // render an additional image where OBJs are drawn as one-coloured blobs 
     renderMask           : bool // originally for Mars-DL project; not in use
     // render an additional image with depth information 
-    renderDepth          : bool // originally for Mars-DL project; not in use
+    renderDepth          : bool // byte for *.png, originally for Mars-DL project; not in use
     verbose              : bool
   }
 
