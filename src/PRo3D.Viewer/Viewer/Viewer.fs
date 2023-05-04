@@ -265,7 +265,7 @@ module ViewerApp =
         | Interactions.PlaceCoordinateSystem, ViewerMode.Standard ->                                   
             let (refSystem',_) = 
                 p 
-                |> ReferenceSystemAction.InferCoordSystem
+                |> ReferenceSystemAction.UpdateUpNorth //updates position
                 |> ReferenceSystemApp.update 
                     m.scene.config 
                     LenseConfigs.referenceSystemConfig 
