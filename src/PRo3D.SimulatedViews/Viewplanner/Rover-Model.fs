@@ -934,6 +934,8 @@ module FootPrint =
     let createFootprintData (vp:ViewPlanModel) (scenePath:string) =
 
         let fpPath = getDataPath scenePath "FootPrints"
+        if (not (Directory.Exists fpPath)) then 
+            Directory.CreateDirectory fpPath |> ignore
 
         match vp.selectedViewPlan with
         | Some id -> 

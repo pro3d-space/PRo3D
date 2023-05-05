@@ -677,7 +677,9 @@ module ViewPlanApp =
             match scenepath with
             | Some sp -> 
                 let fpPath = FootPrint.getDataPath sp "FootPrints"
-                if (Directory.Exists fpPath) then Process.Start("explorer.exe", fpPath) |> ignore
+                if (not (Directory.Exists fpPath)) then 
+                    Directory.CreateDirectory fpPath |> ignore
+                Process.Start("explorer.exe", fpPath) |> ignore
                 outerModel, model
             | None -> outerModel, model   
 
