@@ -330,7 +330,7 @@ module InitScaleBarsParams =
         isSketchFab          = false
         scaling              = Transformations.Initial.scaling
         trafoChanged         = false
-        firstChangeAfterNewPivot = false
+        usePivot             = false
     }
 
     let thickness = {

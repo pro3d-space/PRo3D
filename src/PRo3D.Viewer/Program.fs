@@ -1,4 +1,4 @@
-open System
+open System 
 
 //open System.Windows.Forms
 open System.Collections.Concurrent
@@ -303,7 +303,7 @@ let main argv =
 
         //Log.line "[Viewer] scene: %A" loadedScnx
         
-        let port = getFreePort()
+        let port = 54322 //getFreePort()
         let renderingUrl = sprintf "http://localhost:%d" port
 
         let mainApp = 

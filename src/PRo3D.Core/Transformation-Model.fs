@@ -39,7 +39,7 @@ type Transformations = {
     isSketchFab           : bool
     scaling               : NumericInput
     trafoChanged          : bool
-    firstChangeAfterNewPivot : bool
+    usePivot              : bool
 } 
 
 
@@ -92,7 +92,7 @@ module Transformations =
             value = v    
         }
 
-    let current = 5 //4 //21.12.2022 laura
+    let current = 6 //4 //21.12.2022 laura
     
     let read0 = 
         json {            
@@ -120,7 +120,7 @@ module Transformations =
                 isSketchFab          = false
                 scaling              = Initial.scaling
                 trafoChanged         = false
-                firstChangeAfterNewPivot = false
+                usePivot             = false
             }
         }
 
@@ -150,7 +150,7 @@ module Transformations =
                 isSketchFab          = false
                 scaling              = Initial.scaling
                 trafoChanged         = false
-                firstChangeAfterNewPivot = false
+                usePivot             = false
             }
         }
 
@@ -181,7 +181,7 @@ module Transformations =
                 isSketchFab          = isSketchFab
                 scaling              = Initial.scaling
                 trafoChanged         = false
-                firstChangeAfterNewPivot = false
+                usePivot             = false
             }
         }
 
@@ -215,7 +215,7 @@ module Transformations =
                 isSketchFab          = isSketchFab
                 scaling              = Initial.scaling
                 trafoChanged         = false
-                firstChangeAfterNewPivot = false
+                usePivot             = false
             }
         }
 
@@ -250,7 +250,7 @@ module Transformations =
                 isSketchFab          = isSketchFab
                 scaling              = Initial.scaling //scaling
                 trafoChanged         = false
-                firstChangeAfterNewPivot = false
+                usePivot             = false
             }
         }
 
@@ -284,7 +284,43 @@ module Transformations =
                 isSketchFab          = isSketchFab
                 scaling              = scaling
                 trafoChanged         = false
-                firstChangeAfterNewPivot = false
+                usePivot             = false
+            }
+        }
+    
+    // 18.4.2023 usePivot
+    let read6 = 
+        json {            
+            let! useTranslationArrows = Json.read "useTranslationArrows"
+            let! translation          = Json.readWith Ext.fromJson<V3dInput,Ext> "translation"
+            let! scaling              = Json.readWith Ext.fromJson<NumericInput,Ext> "scaling"
+            let! yaw                  = Json.readWith Ext.fromJson<NumericInput,Ext> "yaw"
+            let! pitch                = Json.readWith Ext.fromJson<NumericInput,Ext> "pitch"
+            let! roll                 = Json.readWith Ext.fromJson<NumericInput,Ext> "roll"
+            let! trafo                = Json.readWith Ext.fromJson<Trafo3d,Ext> "trafo"
+            let! pivot                = Json.readWith Ext.fromJson<V3dInput,Ext> "pivot"
+            let! showPivot            = Json.read "showPivot"
+            let! flipZ                = Json.read "flipZ"
+            let! isSketchFab          = Json.read "isSketchFab"
+            let! usePivot             = Json.read "usePivot"
+            
+            return {
+                version              = current
+                useTranslationArrows = useTranslationArrows
+                translation          = translation
+                yaw                  = yaw
+                pitch                = pitch
+                roll                 = roll
+                trafo                = trafo
+                pivot                = pivot
+                oldPivot             = pivot.value
+                showPivot            = showPivot
+                pivotChanged         = false
+                flipZ                = flipZ
+                isSketchFab          = isSketchFab
+                scaling              = scaling
+                trafoChanged         = false
+                usePivot             = usePivot
             }
         }
 
@@ -301,6 +337,7 @@ type Transformations with
             | 3 -> return! Transformations.read3
             | 4 -> return! Transformations.read4
             | 5 -> return! Transformations.read5
+            | 6 -> return! Transformations.read6
             | _ -> 
                 return! v 
                 |> sprintf "don't know version %A  of Transformations"
@@ -321,53 +358,8 @@ type Transformations with
             do! Json.write "showPivot" x.showPivot
             do! Json.write "flipZ" x.flipZ
             do! Json.write "isSketchFab" x.isSketchFab
+            do! Json.write "usePivot" x.usePivot
         }
 
 
      
-
-
-//module Init =
-//    open MBrace.FsPickler
-//    open MBrace.FsPickler.Combinators    
-//    open Aardvark.Geometry
-
-    
-//    let scaling = {
-//        value  = 1.00
-//        min    = 0.01
-//        max    = 50.00
-//        step   = 0.01
-//        format = "{0:0.00}"
-//    }
-
-//    let translationInput = {
-//        value   = 0.0
-//        min     = -10000000.0
-//        max     = 10000000.0
-//        step    = 0.01
-//        format  = "{0:0.00}"
-//    }
-    
-//    let initTranslation (v : V3d) = {
-//        x     = { translationInput with value = v.X }
-//        y     = { translationInput with value = v.Y }
-//        z     = { translationInput with value = v.Z }
-//        value = v    
-//    }
-//    let transformations = {
-//        version              = Transformations.current
-//        useTranslationArrows = false
-//        translation          = initTranslation (V3d.OOO)
-//        trafo                = Trafo3d.Identity
-//        yaw                  = Transformations.Initial.yaw
-//        pitch                = Transformations.Initial.pitch
-//        roll                 = Transformations.Initial.roll
-//        pivot                = initTranslation (V3d.OOO)
-//        oldPivot             = V3d.OOO
-//        showPivot            = false
-//        pivotChanged         = false
-//        flipZ                = false
-//        isSketchFab          = false
-//    }
-    

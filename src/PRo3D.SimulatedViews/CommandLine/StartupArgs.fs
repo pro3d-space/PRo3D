@@ -17,6 +17,7 @@ type CLStartupArgs = {
   showExplorationPoint  : bool
   showReferenceSystem   : bool
   renderDepth           : bool
+  //renderDepthTif        : bool
   renderMask            : bool
   exitOnFinish          : bool
   areValid              : bool
@@ -42,6 +43,7 @@ type CLStartupArgs = {
         showExplorationPoint  = true
         showReferenceSystem   = true
         renderDepth           = false
+        //renderDepthTif        = false
         renderMask            = false
         exitOnFinish          = false
         areValid              = true

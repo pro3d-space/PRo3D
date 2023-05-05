@@ -16,7 +16,7 @@ module CommandLine =
         Log.line @"--out [path]                                   path to a folder where output images will be saved; if the folder does not exist it will be created"
 
         Log.line @""
-        Log.line @"--renderDepth                                  render the depth map as well and save it as an additional image file"      
+        Log.line @"--renderDepth                                  render the depth map as well and save it as an additional image file"
         Log.line @"--exitOnFinish                                 quit PRo3D once all screenshots have been saved"
         Log.line @"--verbose                                      use verbose mode"      
         Log.line @"--excentre                                     show exploration centre"
@@ -66,6 +66,7 @@ module CommandLine =
                 let outFolder           = checkAndCreateDir (parseArg "--out" argv)
                 let exitOnFinish        = (argv |> hasFlag "exitOnFinish")
                 let renderDepth         = (argv |> hasFlag "renderDepth")
+                //let renderDepthTif      = (argv |> hasFlag "renderDepthTif")
                 let renderMask          = (argv |> hasFlag "renderMask")
                 let frameId             = parseInt "--frameId" argv 
                 let frameCount          = parseInt "--frameCount" argv 
@@ -120,6 +121,7 @@ module CommandLine =
                             showExplorationPoint  = showExplorationCentre
                             showReferenceSystem   = showReferenceSystem
                             renderDepth           = renderDepth
+                            //renderDepthTif        = renderDepthTif
                             renderMask            = renderMask
                             exitOnFinish          = exitOnFinish
                             areValid              = surfPathsValid && snapPathValid
@@ -144,6 +146,7 @@ module CommandLine =
                             showExplorationPoint  = showExplorationCentre
                             showReferenceSystem   = showReferenceSystem
                             renderDepth           = false
+                            //renderDepthTif        = false
                             renderMask            = false
                             exitOnFinish          = false
                             areValid              = true
