@@ -1,3 +1,12 @@
+## 4.12.0-prerelease6
+- show depth (+ gui and legend) in instrument view
+- #234, snapshots: --renderDepth writes a depth image as tiff
+- bugfix: #329 obj without textures import
+- bugfix: #157 planet reset stopped
+- bugfix: #324 traverse updates
+- #314: surface transformation with pivot revised
+- bugfix for "save footprint"
+
 ## 4.12.0-prerelease5
 - opc rendering now works on linux
 
