@@ -79,7 +79,7 @@
 	nodes.onmessage = function (e) {
 		var count = e.cnt;
 		var node = JSON.parse(e.value); // decodeURIComponent(e);
-		console.warn(count + "  " + node);
+		// console.warn(count + "  " + node);
 		if (count == -1) {
 			var collection = cy.elements('node[id =\'' + node.data.id + '\']');
 			cy.remove(collection);
@@ -110,7 +110,7 @@
 	edges.onmessage = function (e) {
 		var count = e.cnt;
 		var edge = JSON.parse(e.value); // decodeURIComponent(e);
-		console.warn(count + "  " + edge);
+		// console.warn(count + "  " + edge);
 		if (count == -1) {
 			var collection = cy.elements('edge[id =\'' + edge.data.id + '\']');
 			cy.remove(collection);
@@ -140,9 +140,7 @@
 	};
 
 	socket.onmessage = function (event) {
-		console.warn(`[message] Data received from server: ${event.data}`);
-
-
+		console.log(`[VS test: message] Data received from server: ${event.data}`);
 		socket.send("ok");
 	};
 

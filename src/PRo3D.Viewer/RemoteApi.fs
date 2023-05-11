@@ -370,39 +370,37 @@ module RemoteApi =
 
 
         let provenanceGraphWebSocket (hackDoNotSendInitialState : bool) (storage : PPersistence) (api : Api) =
-
-            let nodes = 
-                api.ProvenanceModel.nodes 
-                |> AMap.toASetValues 
-                |> ASet.map (PRo3D.Viewer.ProvenanceModel.Thoth.CyNode.fromPNode storage)
-                |> ASet.map GraphElement.NodeElement
-
-            let edges =
-                api.ProvenanceModel.edges 
-                |> AMap.toASetValues 
-                |> ASet.map (PRo3D.Viewer.ProvenanceModel.Thoth.CyEdge.fromPEdge)
-                |> ASet.map GraphElement.EdgeElement
-
-            let elements = ASet.union nodes edges
-
-            let elementsReader = elements.GetReader()
-            let changes = new BlockingCollection<_>(ConcurrentQueue<_>())
-            let addDeltas () = 
-                let deltas = 
-                    elementsReader.GetChanges()
-                    |> HashSetDelta.toArray
-                changes.Add (Operations.operationsToJson deltas )
-
-            let nodeSub = elements.AddCallback(fun _ _ -> addDeltas()) 
-
-            if hackDoNotSendInitialState then
-                // clear all previous state (a bit unclean, inbetween changes could have ben swallowed)
-                // this way only changes after subscribing will be visible in the websocket.
-                // the protocol could be changed, s.t. initial values are tagged
-                addDeltas()  // for sure adds into changes
-                changes.Take() |> ignore // will not block therefore.
-
             WebSocket.handShake (fun webSocket ctx -> 
+                let nodes = 
+                    api.ProvenanceModel.nodes 
+                    |> AMap.toASetValues 
+                    |> ASet.map (PRo3D.Viewer.ProvenanceModel.Thoth.CyNode.fromPNode storage)
+                    |> ASet.map GraphElement.NodeElement
+
+                let edges =
+                    api.ProvenanceModel.edges 
+                    |> AMap.toASetValues 
+                    |> ASet.map (PRo3D.Viewer.ProvenanceModel.Thoth.CyEdge.fromPEdge)
+                    |> ASet.map GraphElement.EdgeElement
+
+                let elements = ASet.union nodes edges
+
+                let elementsReader = elements.GetReader()
+                let changes = new BlockingCollection<_>(ConcurrentQueue<_>())
+                let addDeltas () = 
+                    let deltas = 
+                        elementsReader.GetChanges()
+                        |> HashSetDelta.toArray
+                    changes.Add (Operations.operationsToJson deltas )
+
+                let nodeSub = elements.AddCallback(fun _ _ -> addDeltas()) 
+
+                if hackDoNotSendInitialState then
+                    // clear all previous state (a bit unclean, inbetween changes could have ben swallowed)
+                    // this way only changes after subscribing will be visible in the websocket.
+                    // the protocol could be changed, s.t. initial values are tagged
+                    addDeltas()  // for sure adds into changes
+                    changes.Take() |> ignore // will not block therefore.
                 socket {
                     let mutable loop = true
 
