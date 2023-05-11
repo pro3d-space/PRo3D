@@ -2,7 +2,7 @@
   "profiles": {
     "PRo3D.Viewer": {
       "commandName": "Project",
-      "commandLineArgs": " --disableCors --port 4321",
+      "commandLineArgs": "--disableCors --port 4321",
       "nativeDebugging": true
     }
   }

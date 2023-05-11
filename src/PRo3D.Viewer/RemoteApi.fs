@@ -50,6 +50,35 @@ module RemoteApi =
                 ops |> Array.map encoder |> Encode.array |> Encode.toString 4
 
 
+        module GeoJson =
+            open Thoth.Json.Net
+
+            let encodeAnnotations (planet : Base.Planet) (annotations : list<Annotation>) =
+                Encode.object [
+                    "type", Encode.string "FeatureCollection"
+                    "features", 
+                        Encode.array [|
+                            for a in annotations do
+                                yield Encode.object [
+                                    "type", Encode.string "Feature"
+                                    "geometry", Encode.object [
+                                        "type", Encode.string "Point"
+                                        "coordinates", 
+                                            let p = a.points |> IndexList.first
+                                            let latLonAlt = PRo3D.Base.CooTransformation.getLatLonAlt planet p
+                                            Encode.array [|
+                                                Encode.float -latLonAlt.longitude
+                                                Encode.float latLonAlt.latitude
+                                            |]
+                                    ]
+                                ]
+                        |]
+                    ]
+
+            let toJson (planet : Base.Planet) (annotations : list<Annotation>) =
+                encodeAnnotations planet annotations |> Encode.toString 4
+               
+
 
 
     module ProvenanceGraph =
@@ -484,7 +513,9 @@ module RemoteApi =
                                 |> HashMap.values
                                 |> Seq.choose (function Leaf.Annotations s -> Some s | _ -> None)
                                 |> Seq.toList
-                            let json = Base.Annotation.GeoJSONExport.toGeoJsonString (Base.Planet.Mars |> Some) annotations
+
+                            let json = GeoJsonExport.GeoJson.toJson Base.Planet.Mars annotations
+                            //let json = Base.Annotation.GeoJSONExport.toGeoJsonString (Base.Planet.Mars |> Some) annotations
                             Successful.OK json
                         )
                     ]
