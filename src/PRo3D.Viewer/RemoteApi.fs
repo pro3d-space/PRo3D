@@ -59,16 +59,22 @@ module RemoteApi =
                     "features", 
                         Encode.array [|
                             for a in annotations do
+                                let points = a.points |> IndexList.toArray
+                                let geometryType = if points.Length >= 2 then "Polygon" else "Point"
                                 yield Encode.object [
                                     "type", Encode.string "Feature"
                                     "geometry", Encode.object [
-                                        "type", Encode.string "Point"
+                                        "type", Encode.string geometryType
                                         "coordinates", 
-                                            let p = a.points |> IndexList.first
-                                            let latLonAlt = PRo3D.Base.CooTransformation.getLatLonAlt planet p
                                             Encode.array [|
-                                                Encode.float -latLonAlt.longitude
-                                                Encode.float latLonAlt.latitude
+                                                for p in a.points |> IndexList.toArray do
+                                                    let latLonAlt = PRo3D.Base.CooTransformation.getLatLonAlt planet p
+                                                    yield 
+                                                        Encode.array [|
+                                                            Encode.float -latLonAlt.longitude
+                                                            Encode.float latLonAlt.latitude
+                                                            Encode.float latLonAlt.altitude
+                                                        |]
                                             |]
                                     ]
                                 ]
