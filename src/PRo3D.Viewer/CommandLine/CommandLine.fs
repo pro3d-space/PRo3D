@@ -31,6 +31,7 @@ module CommandLine =
         Log.line @"--backgroundColor cssColor          use another background color"
         Log.line @"--port port                         specify port for main app explicitly. By default a free port is choosen automatically."
         Log.line @"--disableCors                       disables CORS for local remote apps"
+        Log.line @"--remoteApi                         enables PRo3D REST API"
         
         Log.line @"--snap [path\snapshot.json]         path to a snapshot file containing camera views (old format)"
         Log.line @""
@@ -56,8 +57,8 @@ module CommandLine =
             let magFilter           = not (argv |> hasFlag "noMagFilter")
             let port                = parseArg "--port" argv
             let disableCors         = argv |> hasFlag "disableCors"
-                
-                
+            let enableRemoteApi     = argv |> hasFlag "remoteApi"    
+            
 
             let samples             = parseArg "--samples" argv
             let backgroundColor     = parseArg "--backgroundColor" argv
@@ -86,6 +87,7 @@ module CommandLine =
                         serverMode            = server
                         port                  = port
                         disableCors           = disableCors
+                        enableRemoteApi       = enableRemoteApi
                     
                         useMapping            = if noMapping then "false" else "true"
                         data_samples          = samples

@@ -60,6 +60,7 @@ type StartupArgs = {
     useAsyncLoading       : bool
     serverMode            : bool
     port                  : Option<string>
+    enableRemoteApi       : bool
     disableCors           : bool
     magnificationFilter   : bool
     remoteApp             : bool
@@ -85,6 +86,7 @@ type StartupArgs = {
           verbose               = false      
           disableCors           = false
           port                  = None
+          enableRemoteApi       = false
       }
 
 

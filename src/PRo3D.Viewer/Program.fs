@@ -355,13 +355,18 @@ let main argv =
             ]
 
         let remoteApi =
-            let applyMessage msg = mainApp.updateSync Guid.Empty [msg]
+            match startupArgs.enableRemoteApi with
+            | true -> 
+                Log.line "attaching remote API"
+                let applyMessage msg = mainApp.updateSync Guid.Empty [msg]
 
-            let storage = ProvenanceModel.localDirectory "./provenanceData"
-            let storage = ProvenanceModel.nopStorage()
+                let storage = ProvenanceModel.localDirectory "./provenanceData"
+                let storage = ProvenanceModel.nopStorage()
 
-            let api = RemoteApi.Api(applyMessage, adaptiveModel.provenanceModel, adaptiveModel, storage)
-            RemoteApi.Suave.webPart storage api
+                let api = RemoteApi.Api(applyMessage, adaptiveModel.provenanceModel, adaptiveModel, storage)
+                RemoteApi.Suave.webPart storage api
+            | _ ->
+                choose []
 
         let suaveServer = 
             WebPart.startServer port [

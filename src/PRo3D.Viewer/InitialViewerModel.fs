@@ -67,7 +67,7 @@ module Viewer =
         (animatorLens        : Lens<Model, Animator<Model>>)
         : Model = 
 
-        let defaultDashboard = DashboardModes.provenance// DashboardModes.defaultDashboard
+        let defaultDashboard = DashboardModes.defaultDashboard //DashboardModes.defaultDashboard
         let defaultDockConfig = defaultDashboard.dockConfig //DockConfigs.m2020    
 
         {     
@@ -111,6 +111,7 @@ module Viewer =
             multiSelectBox  = None
             shiftFlag       = false
             picking         = false
+            pivotType       = PickPivot.SurfacePivot
             ctrlFlag        = false
 
             messagingMailbox = msgBox
