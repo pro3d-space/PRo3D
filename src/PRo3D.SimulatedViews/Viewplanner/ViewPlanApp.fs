@@ -20,6 +20,7 @@ open Aardvark.UI.Primitives
 open CSharpUtils
 open IPWrappers
 
+open PRo3D
 open PRo3D.Base
 open PRo3D.Core
 open PRo3D.Core.Surface
@@ -46,6 +47,11 @@ module ViewPlanApp =
     | ToggleFootprint
     | SaveFootPrint
     | OpenFootprintFolder
+    | ToggleDepth
+    | DepthColorLegendMessage   of FalseColorLegendApp.Action
+    | SaveDepthData
+    | OpenDepthDataFolder
+
             
     let loadRoverData 
         (model : ViewPlanModel) 
@@ -659,7 +665,8 @@ module ViewPlanApp =
             let fp = Optic.get _footprint outerModel
             let fp' = { fp with isVisible = not fp.isVisible }
             let newOuterModel = Optic.set _footprint fp' outerModel
-            newOuterModel, model
+            let model' = {model with footPrint = fp'}
+            newOuterModel, model'
 
         | SaveFootPrint -> 
             match scenepath with
@@ -669,10 +676,40 @@ module ViewPlanApp =
         | OpenFootprintFolder ->
             match scenepath with
             | Some sp -> 
-                let fpPath = FootPrint.getFootprintsPath sp
+                let fpPath = FootPrint.getDataPath sp "FootPrints"
+                if (not (Directory.Exists fpPath)) then 
+                    Directory.CreateDirectory fpPath |> ignore
+                Process.Start("explorer.exe", fpPath) |> ignore
+                outerModel, model
+            | None -> outerModel, model   
+
+        | ToggleDepth ->   
+            let fp = Optic.get _footprint outerModel
+            let fp' = { fp with isDepthVisible = not fp.isDepthVisible }
+            let newOuterModel = Optic.set _footprint fp' outerModel
+            let model' = {model with footPrint = fp'}
+            newOuterModel, model'
+
+        | DepthColorLegendMessage msg -> 
+            let fp = Optic.get _footprint outerModel
+            let fp' = { fp with depthColorLegend = FalseColorLegendApp.update fp.depthColorLegend msg }
+            let newOuterModel = Optic.set _footprint fp' outerModel
+            let model' = {model with footPrint = fp'}
+            newOuterModel, model'
+
+        | SaveDepthData -> 
+            match scenepath with
+            | Some sp -> outerModel, (FootPrint.createFootprintData model sp)
+            | None -> outerModel, model
+
+        | OpenDepthDataFolder ->
+            match scenepath with
+            | Some sp -> 
+                let fpPath = FootPrint.getDataPath sp "DepthData"
                 if (Directory.Exists fpPath) then Process.Start("explorer.exe", fpPath) |> ignore
                 outerModel, model
-            | None -> outerModel, model        
+            | None -> outerModel, model   
+
 
     module Sg =     
         let drawWorking (model:AdaptiveViewPlanModel) =
@@ -1031,6 +1068,26 @@ module ViewPlanApp =
                 )
               | AdaptiveNone -> div[][])
 
+        let viewDepthColorLegendUI (m : AdaptiveViewPlanModel) = 
+            m.footPrint.depthColorLegend
+            |> FalseColorLegendApp.viewDepthLegendProperties DepthColorLegendMessage 
+            |> AVal.constant
+
+        let viewDepthImageProperties (diVisible:aval<bool>) (model : AdaptiveViewPlanModel) (m : AdaptiveViewPlan) = 
+          m.selectedInstrument 
+            |> AVal.map(fun x ->
+              match x with 
+              | AdaptiveSome _ -> 
+                require GuiEx.semui (
+                    Html.table [  
+                        Html.row "show depth:"  [GuiEx.iconCheckBox diVisible ToggleDepth]
+                        ] 
+                    //]
+                    
+
+                )
+              | AdaptiveNone -> div[][])
+
 
         //let instrumentsDd (r:AdaptiveRover) (m : AdaptiveViewPlan) = 
         //    UI.dropDown'' (r.instruments |> RoverApp.mapTolist) m.selectedInstrument (fun x -> SelectInstrument (x |> Option.map(fun y -> y.Current |> AVal.force))) (fun x -> (x.id |> AVal.force) )   
@@ -1068,7 +1125,7 @@ module ViewPlanApp =
 
             }
 
-        let viewRoverProperties' (r : AdaptiveRover) (m : AdaptiveViewPlan) (fpVisible:aval<bool>) =
+        let viewRoverProperties' (model : AdaptiveViewPlanModel) (r : AdaptiveRover) (m : AdaptiveViewPlan) (fpVisible:aval<bool>) (diVisible:aval<bool>) =
             require GuiEx.semui (
                 Html.table [
                      Html.row "Change VPName:"[ Html.SemUi.textBox m.name SetVPName ]
@@ -1083,6 +1140,13 @@ module ViewPlanApp =
                      Html.row "Footprint:" [   
                         Incremental.div AttributeMap.empty (AList.ofAValSingle ( viewFootprintProperties fpVisible m ))
                      ]
+                     Html.row "Depthimage:" [   
+                        Incremental.div AttributeMap.empty (AList.ofAValSingle ( viewDepthImageProperties diVisible model m ))
+                     ]
+                     Html.row "Colors:" [   
+                        Incremental.div AttributeMap.empty (AList.ofAValSingle (viewDepthColorLegendUI model))
+                     ]
+                     
                      ]
                 
             )
@@ -1100,7 +1164,7 @@ module ViewPlanApp =
             ]
 
 
-        let viewRoverProperties lifter (fpVisible:aval<bool>) (model : AdaptiveViewPlanModel) = 
+        let viewRoverProperties lifter (fpVisible:aval<bool>) (diVisible:aval<bool>) (model : AdaptiveViewPlanModel) = 
             adaptive {
                 let! guid = model.selectedViewPlan
                 let empty = div[][] |> UI.map lifter 
@@ -1109,7 +1173,7 @@ module ViewPlanApp =
                 | Some id -> 
                   let! vp = model.viewPlans |> AMap.tryFind id
                   match vp with
-                  | Some x -> return (viewRoverProperties' x.rover x fpVisible |> UI.map lifter)
+                  | Some x -> return (viewRoverProperties' model x.rover x fpVisible diVisible |> UI.map lifter)
                   | None -> return empty
                 | None -> return empty
             }  

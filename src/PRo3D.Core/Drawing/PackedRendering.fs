@@ -415,7 +415,7 @@ module PackedRendering =
                 let r = Array.map (fun m -> let r : M44d = v * m in M44f.op_Explicit r) i.modelTrafos
                 r
             )
-          let indirect = instanceAttribs |> AVal.map (fun i -> IndirectBuffer.ofArray true i.drawCallInfos)
+          let indirect = instanceAttribs |> AVal.map (fun i -> IndirectBuffer.ofArray' true i.drawCallInfos)
           let sg = 
               Sg.indirectDraw IndexedGeometryMode.LineList indirect
               |> Sg.vertexAttribute DefaultSemantic.Positions (instanceAttribs |> AVal.map (fun i -> i.points))

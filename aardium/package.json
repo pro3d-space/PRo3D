@@ -1,7 +1,7 @@
 {
   "name": "PRo3D",
   "productName": "PRo3D.Viewer",
-  "version": "4.11.0-prerelease4",
+  "version": "4.12.0-prerelease6",
   "description": "PRo3D, short for Planetary Robotics 3D Viewer, is an interactive 3D visualization tool to allow planetary scientists to work with high-resolution 3D reconstructions of the Martian surface.",
   "license": "AGPL",
   "copyright": "VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH",
@@ -13,12 +13,13 @@
     "postinstall": "./node_modules/.bin/electron-rebuild node-shared-mem",
     "start": "electron . --debug --autoclose",
     "dist:win32-old": "electron-packager . Aardium --platform=win32 --arch=x64 --icon ./aardvark.ico --out dist --overwrite",
-    "dist:linux": "electron-packager . Aardium --platform=linux --arch=x64 --icon ./aardvark.png --out dist --overwrite && cd dist/Aardium-linux-x64 && tar -zcvf ../Aardium-Linux-x64.tar.gz .",
+    "dist:linux-old": "electron-packager . Aardium --platform=linux --arch=x64 --icon ./aardvark.png --out dist --overwrite && cd dist/Aardium-linux-x64 && tar -zcvf ../Aardium-Linux-x64.tar.gz .",
     "dist:darwin-old": "electron-packager . Aardium --osx-sign.entitlements='entitlements.plist' --osx-sign.hardenedRuntime=true  --platform=darwin --arch=x64 --icon ./aardvark.icns --out dist --overwrite && cd dist/Aardium-darwin-x64 && tar -zcvf ../Aardium-Darwin-x64.tar.gz .",
     "dist": "run-script-os",
     "dist:darwin:x64": "bash ./signbuild.sh && electron-builder --c.buildVersion=$BUILD_VERSION --c.artifactName='${productName}-${buildVersion}-${arch}.${ext}' --publish always",
     "dist:darwin:arm64": "bash ./signbuild.sh && electron-builder --c.buildVersion=$BUILD_VERSION --c.artifactName='${productName}-${buildVersion}-${arch}.${ext}' --publish always",
-    "dist::win32": "electron-builder --c.buildVersion='%BUILD_VERSION%' --c.artifactName='${productName}-${buildVersion}-${arch}.${ext}' --publish always"
+    "dist::win32": "electron-builder --c.buildVersion='%BUILD_VERSION%' --c.artifactName='${productName}-${buildVersion}-${arch}.${ext}' --publish always",
+    "dist:linux:x64": "electron-builder --c.buildVersion=$BUILD_VERSION --c.artifactName='${productName}-${buildVersion}-${arch}.${ext}' --publish always"
   },
   "main": "main.js",
   "repository": "https://github.com/electron/electron-quick-start",
@@ -79,6 +80,10 @@
       "entitlementsInherit": "build/entitlements.mac.plist",
       "gatekeeperAssess": false
     },
-    "afterSign": "scripts/notarize.js"
+    "afterSign": "scripts/notarize.js",
+
+    "linux": {
+      "target": ["AppImage"]
+    }
   }
 }

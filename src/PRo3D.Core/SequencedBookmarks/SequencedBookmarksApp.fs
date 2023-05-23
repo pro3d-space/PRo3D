@@ -22,7 +22,7 @@ open Aether.Operators
 
 module SequencedBookmark =
 
-    let update (m : SequencedBookmark) (msg : SequencedBookmarkAction) =
+    let update (m : SequencedBookmarkModel) (msg : SequencedBookmarkAction) =
         match msg with
         | SetName name ->
             {m with bookmark = {m.bookmark with name = name}}
@@ -74,6 +74,8 @@ module SequencedBookmarksApp =
             let animationSettings = AnimationSettings.update m.animationSettings msg
             let m = {m with animationSettings = animationSettings}
             outerModel, m
+        | LoadBookmarks -> 
+            outerModel, BookmarkUtils.loadAll m
         | SaveAnimation ->
             // do in outer model
             outerModel, m
@@ -83,13 +85,16 @@ module SequencedBookmarksApp =
             let newSBm = 
                 getNewSBookmark nav state  m.bookmarks.Count
             let oderList' = m.orderList@[newSBm.key]
-            let m = {m with bookmarks = m.bookmarks |> HashMap.add newSBm.key newSBm;
+            let bookmarks = 
+                m.bookmarks 
+                |> HashMap.add newSBm.key (SequencedBookmark.LoadedBookmark newSBm)
+            let m = {m with bookmarks = bookmarks
                             orderList = oderList';
                             selectedBookmark = Some newSBm.key}
             outerModel, m
 
         | SequencedBookmarksAction.FlyToSBM id ->
-            toBookmarkFromView m outerModel lenses (find id)
+            toBookmarkFromView m outerModel lenses (tryFind id)
         | RemoveSBM id -> 
             let selSBm = 
                 match m.selectedBookmark with
@@ -99,7 +104,10 @@ module SequencedBookmarksApp =
             let bookmarks' = m.bookmarks |> HashMap.remove id
             let index = m.orderList |> List.toSeq |> Seq.findIndex(fun x -> x = id)
             let orderList' = removeGuid index m.orderList 
-            outerModel, { m with bookmarks = bookmarks'; orderList = orderList'; selectedBookmark = selSBm; }
+            outerModel, { m with bookmarks = bookmarks'
+                                 orderList = orderList'
+                                 selectedBookmark = selSBm         
+                        }
        
         | SelectSBM id ->
             match m.animationSettings.applyStateOnSelect with
@@ -109,7 +117,8 @@ module SequencedBookmarksApp =
                 let outerModel = 
                     match selected with
                     | Some sel -> // apply bookmark state
-                        Optic.set lenses.setModel_ sel outerModel
+                        Optic.set lenses.setModel_ (SequencedBookmark.LoadedBookmark sel)
+                                                   outerModel
                     | None ->
                         outerModel
                 outerModel, m
@@ -118,7 +127,7 @@ module SequencedBookmarksApp =
         | SetSceneState id ->
             let updState bm =
                 {bm with sceneState = Some (Optic.get lenses.sceneState_ outerModel)}
-            let m = updateOne m id updState
+            let m = loadAndUpdate m id updState
             Log.line "[Sequenced Bookmarks] Updated scene state."
             outerModel, m
         | SaveSceneState ->
@@ -142,13 +151,15 @@ module SequencedBookmarksApp =
                     if (index-1) > 0 then
                         let part0 = [for x in 0..(index-2) do yield m.orderList.[x]]
                         if index < (m.orderList.Length-1) then
-                            let part1 = [for x in (index+1)..(m.orderList.Length-1) do yield m.orderList.[x]]
+                            let part1 = [for x in (index+1)..(m.orderList.Length-1) do 
+                                            yield m.orderList.[x]]
                             part0@[m.orderList.[index]]@[m.orderList.[index-1]]@part1
                         else
                             part0@[m.orderList.[index]]@[m.orderList.[index-1]]
                     else
                         if index < (m.orderList.Length-1) then
-                            let part1 = [for x in (index+1)..(m.orderList.Length-1) do yield m.orderList.[x]]
+                            let part1 = [for x in (index+1)..(m.orderList.Length-1) do 
+                                            yield m.orderList.[x]]
                             [m.orderList.[index]]@[m.orderList.[index-1]]@part1
                         else
                             [m.orderList.[index]]@[m.orderList.[index-1]]
@@ -161,7 +172,8 @@ module SequencedBookmarksApp =
             let orderList' =
                 if index < (m.orderList.Length-1) then
                     if (index+1) < (m.orderList.Length-1) then
-                        let partMax = [for x in (index+2)..(m.orderList.Length-1) do yield m.orderList.[x]]
+                        let partMax = [for x in (index+2)..(m.orderList.Length-1) 
+                                            do yield m.orderList.[x]]
                         if (index) > 0 then
                             let partMin = [for x in 0..(index-1) do yield m.orderList.[x]]
                             partMin@[m.orderList.[index+1]]@[m.orderList.[index]]@partMax
@@ -177,13 +189,8 @@ module SequencedBookmarksApp =
                     m.orderList
             outerModel, { m with orderList = orderList' }
         | SequencedBookmarkMessage (key, msg) ->  
-            let sbm = m.bookmarks |> HashMap.tryFind key
-            match sbm with
-            | Some sb ->
-                let bookmark = (SequencedBookmark.update sb msg)
-                let bookmarks' = m.bookmarks |> HashMap.alter sb.key (function | Some _ -> Some bookmark | None -> None )
-                outerModel, { m with bookmarks = bookmarks'} 
-            | None -> outerModel, m
+            let m = loadAndUpdate m key (fun sb -> SequencedBookmark.update sb msg)
+            outerModel, m
         | Play ->
             if Animator.exists AnimationSlot.camera outerModel 
                 && Animator.isPaused AnimationSlot.camera outerModel then
@@ -312,80 +319,78 @@ module SequencedBookmarksApp =
 
 
     module UI =
-        
         let viewSequencedBookmarks (m : AdaptiveSequencedBookmarks) =
-
+            let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
             let itemAttributes =
                 amap {
                     yield clazz "ui divided list inverted segment"
                     yield style "overflow-y : visible"
                 } |> AttributeMap.ofAMap
 
-            Incremental.div itemAttributes (
+            let content = 
                 alist {
-
                     let! selected = m.selectedBookmark
-                    
                     let! order = m.orderList
                     
                     for id in order do 
-                        
-                        let! bookmark = m.bookmarks |> AMap.find id
-                        let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
-                   
                         let color =
                             match selected with
-                              | Some sel -> 
-                                AVal.constant (if sel = id then C4b.VRVisGreen else C4b.Gray) 
-                              | None -> AVal.constant C4b.Gray
-
-                        let index = order |> List.findIndex(fun x -> x = id)
-                        let headerText = 
-                            //AVal.map (fun a -> sprintf "%s" (a + " Index:" + index.ToString())) bookmark.name
-                            AVal.map (fun a -> sprintf "%s" (a)) bookmark.name
+                            | Some sel -> 
+                                (if sel = id then C4b.VRVisGreen else C4b.Gray) 
+                            | None -> 
+                                C4b.Gray
+                        let bgc = sprintf "color: %s" (Html.ofC4b color)
 
                         let headerAttributes =
                             amap {
                                 yield onClick (fun _ -> SelectSBM id)
                             } 
                             |> AttributeMap.ofAMap
-        
-                        let! c = color
-                        let bgc = sprintf "color: %s" (Html.ofC4b c)
+
+                        let! bookmark = m.bookmarks |> AMap.tryFind id
+
+                        let headerText = 
+                            match bookmark with
+                            | Some (AdaptiveSequencedBookmark.AdaptiveLoadedBookmark bookmark) ->
+                                AVal.map (fun a -> sprintf "%s" (a)) bookmark.name
+                            | Some (AdaptiveSequencedBookmark.AdaptiveNotYetLoaded bm) ->
+                                AVal.map (fun x -> sprintf "Not Loaded: %s" (string x)) bm.key
+                            | None ->
+                                Log.error "[SequencedBookmarksApp] Could not find bookmark %s" (string id)
+                                AVal.constant "Bookmark not found"
+                        
                         yield div [clazz "item"; style infoc] [
                             div [clazz "content"; style infoc] [                     
                                 yield Incremental.div (AttributeMap.ofList [style infoc])(
                                     alist {
-                                        //let! hc = headerColor
-                                        yield div[clazz "header"; style bgc][
+                                        yield div [clazz "header"; style bgc] [
                                             Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
-                                         ]                
-                                        //yield i [clazz "large cube middle aligned icon"; style bgc; onClick (fun _ -> SelectSO soid)][]           
+                                            ]                
         
                                         yield i [clazz "home icon"; onClick (fun _ -> FlyToSBM id)] []
                                             |> UI.wrapToolTip DataPosition.Bottom "fly to bookmark"          
-        
-                                        //yield Incremental.i toggleMap AList.empty 
-                                        //|> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
 
                                         yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveSBM id)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Remove"     
                                         yield i [clazz "globe icon"; onClick (fun _ -> SetSceneState id)] [] 
-                                            |> UI.wrapToolTip DataPosition.Bottom "Replace scene state for this bookmark with current state. Does not replace view."
+                                            |> UI.wrapToolTip DataPosition.Bottom 
+                                                "Replace scene state for this bookmark with current state. Does not replace view."
 
-                                        yield i [clazz "arrow alternate circle up outline icon"; onClick (fun _ -> MoveUp id)] [] 
+                                        yield i [clazz "arrow alternate circle up outline icon"; 
+                                                 onClick (fun _ -> MoveUp id)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Move up"
                                         
-                                        yield i [clazz "arrow alternate circle down outline icon"; onClick (fun _ -> MoveDown id)] [] 
+                                        yield i [clazz "arrow alternate circle down outline icon"; 
+                                                 onClick (fun _ -> MoveDown id)] [] 
                                             |> UI.wrapToolTip DataPosition.Bottom "Move down"
-                                        
-                                   
                                     } 
                                 )                                     
                             ]
                         ]
-                     
-                } )
+                } 
+
+            Incremental.div itemAttributes content
+                
 
         let private stateLabel (state : option<SceneState>) =
             match state with
@@ -396,7 +401,7 @@ module SequencedBookmarksApp =
             | None -> 
                 "No saved scene state"
 
-        let viewGUI  (model : AdaptiveSequencedBookmarks) = 
+        let viewBookmarkControls  (model : AdaptiveSequencedBookmarks) = 
             div [clazz "ui vertical buttons inverted"] [
                 button [
                     clazz "ui labeled icon button"; 
@@ -415,7 +420,8 @@ module SequencedBookmarksApp =
                     ]
                     div [clazz "ui basic label"] [
                         i [clazz "globe icon"] [] 
-                        Incremental.text (model.savedSceneState |> AVal.map (fun x -> stateLabel x))
+                        Incremental.text (model.savedSceneState 
+                                          |> AVal.map (fun x -> stateLabel x))
                     ]
                     div [
                         clazz "ui button"
@@ -426,9 +432,9 @@ module SequencedBookmarksApp =
                 ]
             ] 
 
-
-        let viewProps (m:AdaptiveSequencedBookmark) (useGlobalAnimation : aval<bool>) =
-            
+        // RNO should be moved and renamed
+        let viewPropsBmModel (m : AdaptiveSequencedBookmarkModel) 
+                             (useGlobalAnimation : aval<bool>) =
             let view = m.bookmark.cameraView
             let notWithGlobalAnimation content =
                 alist {
@@ -441,13 +447,15 @@ module SequencedBookmarksApp =
             let duration = 
                 Numeric.view' [InputBox] m.duration
                     |> UI.map  (fun msg -> 
-                        SequencedBookmarkMessage (m.bookmark.key, SequencedBookmarkAction.SetDuration msg)) 
+                        SequencedBookmarkMessage 
+                            (m.bookmark.key, SequencedBookmarkAction.SetDuration msg)) 
                     |> notWithGlobalAnimation
                 
             let delay =
                 Numeric.view' [InputBox] m.delay 
                     |> UI.map  (fun msg -> 
-                        SequencedBookmarkMessage (m.bookmark.key, SequencedBookmarkAction.SetDelay msg)) 
+                        SequencedBookmarkMessage 
+                            (m.bookmark.key, SequencedBookmarkAction.SetDelay msg)) 
                     |> notWithGlobalAnimation
                 
 
@@ -487,15 +495,22 @@ module SequencedBookmarksApp =
             adaptive {
                 let! selBm = model.selectedBookmark
                 //let! delay = HashMap.tryFind selBm. model.animationInfo
-                let empty = div[ style "font-style:italic"][ text "no bookmark selected" ] 
+                let empty = div [ style "font-style:italic"] [ text "no bookmark selected" ] 
                 
                 match selBm with
                 | Some id -> 
                     let! scB = model.bookmarks |> AMap.tryFind id 
                     match scB with
                     | Some s -> 
-                        let bmProps = (viewProps s )
-                        return div [] [bmProps model.animationSettings.useGlobalAnimation]
+                        match s with
+                        | AdaptiveSequencedBookmark.AdaptiveLoadedBookmark s ->
+                            let bmProps = (viewPropsBmModel s )
+                            return div [] [bmProps model.animationSettings.useGlobalAnimation]
+                        | AdaptiveSequencedBookmark.AdaptiveNotYetLoaded s ->
+                            return div [ style "font-style:italic"] 
+                                       [button [style "inverted";onClick (fun _ -> LoadBookmarks)] 
+                                               [text "Load All Bookmarks"]
+                                       ]
                     | None -> 
                         return empty
                 | None -> return empty
@@ -602,7 +617,9 @@ module SequencedBookmarksApp =
             let updateJsonButton =
                 let info =
                     i [clazz "info icon"] [] 
-                    |> UI.wrapToolTip DataPosition.Bottom "Only available if \"Alllow JSON Editing\" is selected. Updates the settings for image generation in the JSON file. Manual changes to the JSON file will be overwritten!"
+                    |> UI.wrapToolTip DataPosition.Bottom "Only available if \"Alllow JSON Editing\" is selected. 
+                                                           Updates the settings for image generation in the JSON file. 
+                                                           Manual changes to the JSON file will be overwritten!"
                 let onlyButton = 
                     model.updateJsonBeforeRendering
                         |> AVal.map (fun b ->
@@ -614,7 +631,7 @@ module SequencedBookmarksApp =
                     alist {
                             let! b = onlyButton
                             yield b
-                            yield info
+                            //yield info
                           }
 
                 Incremental.div ([] |> AttributeMap.ofList ) alst
@@ -637,8 +654,8 @@ module SequencedBookmarksApp =
 
                 Incremental.div attributes content
 
-
-            require GuiEx.semui (
+            // RNO tooltips are deactivated, because they cause html body content to disappear
+            require GuiEx.semui ( 
                 div [] [
                     Html.table [            
                         Html.row "Save Camera Animation:" 
@@ -646,8 +663,8 @@ module SequencedBookmarksApp =
                                 button [
                                     onMouseClick (fun _ -> StopRecording )
                                 ] [text "Save"]
-                                i [clazz "info icon"] [] 
-                                    |> UI.wrapToolTip DataPosition.Bottom "No smooth path, no easing, no global animation."     
+                                //i [clazz "info icon"] [] 
+                                //    |> UI.wrapToolTip DataPosition.Bottom "No smooth path, no easing, no global animation."     
                             ]
                         Html.row "Generate Images:" 
                             [
@@ -656,8 +673,10 @@ module SequencedBookmarksApp =
 
                         Html.row "Allow JSON Editing" 
                             [GuiEx.iconCheckBox (model.updateJsonBeforeRendering |> AVal.map not) ToggleUpdateJsonBeforeRendering;
-                                i [clazz "info icon"] [] 
-                                    |> UI.wrapToolTip DataPosition.Bottom "If selected, the JSON file will NOT be updated before rendering. If you change settings in the user interface after recording, they will not be reflected in the JSON file."
+                                //i [clazz "info icon"] [] 
+                                    //|> UI.wrapToolTip DataPosition.Bottom "If selected, the JSON file will NOT be updated before rendering. 
+                                    //                                       If you change settings in the user interface after recording, 
+                                    //                                       they will not be reflected in the JSON file."
                             ]
                         Html.row "Update JSON" 
                             [
@@ -666,8 +685,9 @@ module SequencedBookmarksApp =
                             ]
                         Html.row "Debug" 
                             [GuiEx.iconCheckBox model.debug ToggleDebug;
-                                    i [clazz "info icon"] [] 
-                                        |> UI.wrapToolTip DataPosition.Bottom "Leaves the window with information about the rendering process open after rendering and uses verbose mode."
+                                    //i [clazz "info icon"] [] 
+                                    //    |> UI.wrapToolTip DataPosition.Bottom "Leaves the window with information about the rendering
+                                    //                                           process open after rendering and uses verbose mode."
                             ]
 
                         Html.row "Image Resolution:"  

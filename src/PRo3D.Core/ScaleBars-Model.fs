@@ -292,19 +292,19 @@ type ScaleBarsModel with
 module InitScaleBarsParams =
 
     let translationInput = {
-        value   = 0.0
-        min     = -10000000.0
-        max     = 10000000.0
-        step    = 0.01
-        format  = "{0:0.00}"
+        value   = 0.000
+        min     = -10000000.001
+        max     = 10000000.000
+        step    = 0.001
+        format  = "{0:0.000}"
     }
 
     let yaw = {
-        value   = 0.0
-        min     = -180.0
-        max     = +180.0
-        step    = 0.01
-        format  = "{0:0.00}"
+        value   = 0.000
+        min     = -180.001
+        max     = +180.000
+        step    = 0.001
+        format  = "{0:0.000}"
     }
 
     let initTranslation (v : V3d) = {
@@ -322,9 +322,15 @@ module InitScaleBarsParams =
         yaw                  = yaw
         pitch                = Transformations.Initial.pitch
         roll                 = Transformations.Initial.roll
-        pivot                = V3d.Zero
+        pivot                = initTranslation (V3d.OOO)
+        oldPivot             = V3d.OOO
+        showPivot            = false
+        pivotChanged         = false
         flipZ                = false
         isSketchFab          = false
+        scaling              = Transformations.Initial.scaling
+        trafoChanged         = false
+        usePivot             = false
     }
 
     let thickness = {
@@ -345,10 +351,10 @@ module InitScaleBarsParams =
     
     let text = {
         value   = 0.05
-        min     = 0.01
+        min     = 0.001
         max     = 5.0
-        step    = 0.01
-        format  = "{0:0.00}"
+        step    = 0.001
+        format  = "{0:0.000}"
     }
 
     let subdivisions = {

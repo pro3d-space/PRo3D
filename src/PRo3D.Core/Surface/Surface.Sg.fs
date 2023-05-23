@@ -43,6 +43,19 @@ module FootprintSg =
             n.Child?FootprintVP <- n.ViewProj
 
 
+//module DepthSg = 
+//    open Aardvark.SceneGraph.Sg
+    
+//    type DepthApplicator(vp : aval<M44d>, child : ISg)  =
+//        inherit AbstractApplicator(child)
+//        member x.ViewProj = vp
+
+//    [<Rule>]
+//    type DepthSem() =
+//        member x.DepthVP(n : DepthApplicator, scope : Ag.Scope) =
+//            n.Child?DepthVP <- n.ViewProj
+
+
 module Sg =
 
     
@@ -51,6 +64,12 @@ module Sg =
 
     let applyFootprint (v : aval<M44d>) (sg : ISg) = 
         FootprintSg.FootprintApplicator(v, sg) :> ISg
+
+    //type Ag.Scope with
+    //    member x.DepthVP : aval<M44d> = x?DepthVP
+
+    //let applyDepth (v : aval<M44d>) (sg : ISg) = 
+    //    DepthSg.DepthApplicator(v, sg) :> ISg
 
     type SgHelper = {
         surf   : Surface

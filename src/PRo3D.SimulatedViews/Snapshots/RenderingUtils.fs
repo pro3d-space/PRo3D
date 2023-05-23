@@ -5,6 +5,7 @@ open Aardvark.Base
 open Aardvark.Rendering
 open Aardvark.SceneGraph.``Sg RuntimeCommand Extensions``
 open Aardvark.UI 
+//open PixImageDevil //DevILSharp
 
 type RenderParameters =
     {
@@ -34,7 +35,7 @@ module Rendering =
     let render (r : RenderParameters) = 
         r.clearTask.Run(r.outputDescription) |> ignore
         r.task.Run(r.outputDescription) |> ignore
-        let depthImage = 
+        let depthImageByte, deptImageFloat = 
             match r.size, r.depthTexture with
               | Some size, Some depthTexture ->
                 let mat = Matrix<float32>(int64 size.X, int64 size.Y)
@@ -43,14 +44,19 @@ module Rendering =
                 let max = Array.max mat.Data
                 let min = Array.min mat.Data
                 let scaleFactor = (max - min)
+                Log.line "[SNAPSHOT] Min: %f, Max: %f, scale: %f" min max scaleFactor
                 let inline scale x =
                     (x - min) / scaleFactor
+
                 let mat = mat.Map scale
-                let mat = mat.ToByteColor ()
-                Some (PixImage<byte>(mat))
-              | _,_ -> None
+                let matD = mat.ToDoubleColor()
+                let matB = mat.ToByteColor ()
+                //let mat = mat.Map scale
+                //let mat = mat.ToByteColor ()
+                Some (PixImage<byte>(matB)), Some (PixImage<float>(matD))
+              | _,_ -> None, None
         let colorImage = r.runtime.Download(r.colorTexture) |> Some
-        (colorImage, depthImage)
+        (colorImage, depthImageByte, deptImageFloat)
 
     let tryRender (r : RenderParameters) =
         let result = 
@@ -59,18 +65,22 @@ module Rendering =
             with 
             | e ->
                 Log.error "%s" e.Message
-                None, None
+                None, None, None
         result
 
     type SnapshotFilenames =
         {
             baseName : string
-            depth      : string
+            depth    : string
+            tifDepth : string
         }
 
     let mutable filecounter = 0
     let genSnapshotFilenames (filename : string) : SnapshotFilenames =
         let parts = String.split '.' filename
+        let name = filename |> System.IO.Path.GetFileNameWithoutExtension
+        let path = filename |> System.IO.Path.GetFullPath
+        let test = System.IO.Path.ChangeExtension(filename, (sprintf "tiff"))
        
         match String.length filename, parts with
         | 0, _ -> 
@@ -78,16 +88,20 @@ module Rendering =
             {
                 baseName = sprintf "no_filename_%2i.png" filecounter
                 depth = sprintf "no_filename_%2i_depth.png" filecounter
+                tifDepth = sprintf "no_filename_%2i_depth.tiff" filecounter
             }
         | _, [path;ending] ->
             {
                 baseName = sprintf "%s.%s" path ending
                 depth = sprintf "%s_depth.%s" path ending
+                tifDepth = sprintf "%s_depth.tiff" path
             }
         | _,_ -> 
             {
                 baseName = filename
                 depth = sprintf "%s_depth.png" filename
+                tifDepth = sprintf "%s" test
+
             }
 
     let renderAndSave (filename : string)
@@ -96,23 +110,39 @@ module Rendering =
         match verbose with
         | true -> Report.Verbosity <- 3
         | false -> Report.Verbosity <- -1
-        let (col, depth) = tryRender p
+        let (col, depthByte, depthFloat) = tryRender p
+        let names = genSnapshotFilenames filename
         Report.Verbosity <- 3
-        match depth, String.contains "mask" filename with
-        | Some depth, false ->
-            let names = genSnapshotFilenames filename
+        match depthByte, String.contains "mask" filename with
+        | Some depthB, false ->
             try 
-                depth.SaveAsImage(names.depth) 
-                depth.TryDispose () |> ignore
+                depthB.SaveAsImage(names.depth)
+                depthB.TryDispose () |> ignore
                 Log.line "[SNAPSHOT] Saved %s" names.depth
             with e ->
                 Log.error "[SNAPSHOT] Could not save image %s" names.baseName
                 Log.error "%s" e.Message
         | _,_ -> ()
+
+        match depthFloat, String.contains "mask" filename with
+        | Some depthF, false ->
+            try 
+                //let test = PixImageDevil.SaveAsImageDevil(depthF, names.tifDepth, PixFileFormat.Tiff, PixSaveOptions.Default, 90 )
+                let saveParams = PixSaveParams(PixFileFormat.Tiff)
+                let loader = PixImageDevil.Loader
+                loader.SaveToFile(names.tifDepth, depthF, saveParams) |> ignore
+                depthF.TryDispose () |> ignore
+                Log.line "[SNAPSHOT] Saved %s" names.tifDepth
+            with e ->
+                Log.error "[SNAPSHOT] Could not save image %s" names.tifDepth
+                Log.error "%s" e.Message
+        | _,_ -> ()
+
         try
             match col with
             | Some col ->
                 col.SaveAsImage(filename) 
+                //let test = PixImageDevil.SaveAsImageDevil(depthFloat.Value, names.tifDepth, PixFileFormat.Tiff, PixSaveOptions.UseDevil, 90 )
                 col.TryDispose () |> ignore
                 Log.line "[SNAPSHOT] %s" filename
             | None -> 

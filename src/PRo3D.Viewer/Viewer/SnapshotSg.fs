@@ -107,7 +107,7 @@ module SnapshotSg =
 
     /// create scengegraph using Rendering.RenderCommands
     let createSceneGraph (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) 
-                         overlayed depthTested (allowFootprint : bool) 
+                         overlayed depthTested (runtime : IRuntime) (allowFootprint : bool) 
                          (m:AdaptiveModel)  =
         let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true
@@ -120,7 +120,6 @@ module SnapshotSg =
                 | Interactions.PickAnnotation | Interactions.PickLog -> false
                 | _ -> true
             )
-
         let vpVisible = isViewPlanVisible m
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
@@ -140,6 +139,7 @@ module SnapshotSg =
                             vpVisible
                             usehighlighting filterTexture
                             allowFootprint
+                            false
                        )
                     |> AMap.toASet 
                     |> ASet.map snd                     
@@ -178,8 +178,9 @@ module SnapshotSg =
         let commands = 
             alist {
                 for sgBundle in sgs do
-                    yield RenderCommand.Ordered sgBundle 
                     yield RenderCommand.ClearDepth(1.0) 
+                    yield RenderCommand.Ordered sgBundle
+                    //yield RenderCommand.ClearDepth(1.0) 
                     
                 yield RenderCommand.Unordered [(overlayed :> ISg)] 
             } |> RenderCommand.Ordered
@@ -234,7 +235,7 @@ module SnapshotSg =
                 |> Sg.map ReferenceSystemMessage  
 
             let exploreCenter =
-                Navigation.Sg.view m.navigation            
+                Navigation.Sg.view m.navigation          
           
             let homePosition =
                 Sg.viewHomePosition m.scene.surfacesModel
@@ -359,7 +360,7 @@ module SnapshotSg =
             ] |> Sg.ofList
 
         let camera = AVal.map2 (fun v f -> Camera.create v f) m.navigation.camera.view m.frustum 
-        let sg = createSceneGraph m.scene.surfacesModel.sgGrouped overlayed depthTested true m
+        let sg = createSceneGraph m.scene.surfacesModel.sgGrouped overlayed depthTested runtime true m
         sg
             |> Sg.noEvents
             |> Sg.camera camera

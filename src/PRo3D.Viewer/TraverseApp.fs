@@ -129,8 +129,10 @@ module TraversePropertiesApp =
     
                     let! selected = m.selectedSol
                     let! sols = m.sols
+
+                    let reversedSols = sols |> List.rev
                     
-                    for sol in sols do
+                    for sol in reversedSols do
                                                     
                         let color =
                             match selected with

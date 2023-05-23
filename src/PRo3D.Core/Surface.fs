@@ -48,7 +48,7 @@ module SurfaceTransformations =
         
         let rot = yawRotation * pitchRotation * rollRotation
         
-        let originTrafo = -surf.transformation.pivot |> Trafo3d.Translation
+        let originTrafo = -surf.transformation.pivot.value |> Trafo3d.Translation
         
         originTrafo * rot * originTrafo.Inverse * refSysRotation.Inverse * trans * refSysRotation    
     
@@ -201,7 +201,7 @@ module SurfaceIntersection =
                         //else
                         //    return Trafo3d.Scale(scaleFactor) * (fullTrafo * preTransform)
 
-                        let fullTrafo = SurfaceTransformations.fullTrafo' surf refSys
+                        let fullTrafo = TransformationApp.fullTrafo' surf.transformation refSys //SurfaceTransformations.fullTrafo' surf refSys
                         //get bbs that are hit
                         let hitBoxes =
                             kd

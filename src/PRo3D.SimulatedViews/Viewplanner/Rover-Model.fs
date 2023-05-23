@@ -632,7 +632,11 @@ type FootPrint = {
     instViewMatrix      : M44d
     projTex             : ITexture
     globalToLocalPos    : V3d
+    depthTexture        : option<IBackendTexture>
+    isDepthVisible      : bool
+    depthColorLegend    : FalseColorsModel
 }
+
 
 [<ModelType>]
 type ViewPlan = {
@@ -787,6 +791,9 @@ module ViewPlanModel =
         instViewMatrix      = M44d.Identity
         projTex             = initPixTex
         globalToLocalPos    = V3d.OOO
+        depthTexture        = None
+        isDepthVisible      = false
+        depthColorLegend    = FalseColorsModel.initDepthLegend
     }
 
     let initial = {
@@ -852,13 +859,83 @@ type ViewPlanModel with
 
 module FootPrint = 
         
-    let getFootprintsPath (scenePath:string) =
+    let getDataPath (scenePath:string) (dirName:string) =
         let path = Path.GetDirectoryName scenePath
-        Path.combine [path;"FootPrints"]
+        let fpPath = Path.combine [path;dirName]
+        if not (Directory.Exists fpPath) then Directory.CreateDirectory(fpPath) |> ignore
+        fpPath
+
+    let initNewDepthImage 
+        (runtimeInstance: IRuntime) 
+        (vp:ViewPlanModel) 
+        (scenePath:string) =
+
+        let fpPath = getDataPath scenePath "DepthData"
+
+        match vp.selectedViewPlan with
+        | Some id -> 
+            let selectedVp = vp.viewPlans |> HashMap.find id
+            let now = DateTime.Now
+            let roverName = selectedVp.rover.id
+            let width, height =
+                match selectedVp.selectedInstrument with
+                | Some i -> 
+                    let horRes = i.intrinsics.horizontalResolution/uint32(2)
+                    let vertRes = i.intrinsics.verticalResolution/uint32(2)
+                    int(horRes), int(vertRes)
+                | None -> 
+                    512, 512
+            //let fovH = frustum |> Frustum.horizontalFieldOfViewInDegrees
+            //let asp = frustum |> Frustum.aspect
+            //let fovV = Math.Round((fovH / asp), 0)
+
+            let resolution = V3i (width, height, 1)
+            let depth = runtimeInstance.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Depth24Stencil8, 1, 8);
+
+            //let signature = 
+            //    runtimeInstance.CreateFramebufferSignature [
+            //    DefaultSemantic.Depth, { format = RenderbufferFormat.Depth24Stencil8; samples = 1 }
+            //    ]
+
+            //let fbo = 
+            //    runtimeInstance.CreateFramebuffer(
+            //        signature, 
+            //        Map.ofList [
+            //            DefaultSemantic.Depth, depth.GetOutputView()
+            //        ]
+            //    )
+        
+            //let description = fbo |> OutputDescription.ofFramebuffer
+            //let projTrafo  = Frustum.projTrafo(frustum)
+
+            //let render2TextureSg =
+            //    renderSg
+            //    |> Sg.viewTrafo vT
+            //    |> Sg.projTrafo (Mod.constant projTrafo)
+            //    |> Sg.effect [
+            //        toEffect DefaultSurfaces.trafo 
+            //        toEffect DefaultSurfaces.diffuseTexture
+            //    ]
+
+            //let vR = float res.Y
+            //let pixelSizeNear = pixelSizeCm frustum.near vR fovV
+            //let pixelSizeFar = pixelSizeCm frustum.far vR fovV
+
+            //let mat = Matrix<float32>(int64 size.X, int64 size.Y)
+
+            //let task : IRenderTask =  runtimeInstance.CompileRender(signature, render2TextureSg)
+            //let taskclear : IRenderTask = runtimeInstance.CompileClear(signature,Mod.constant C4f.Black,Mod.constant 1.0)
+            //let realTask = RenderTask.ofList [taskclear; task]
+            { vp with footPrint = {vp.footPrint with depthTexture = Some depth}}
+        | None -> vp
+
+        
        
     let createFootprintData (vp:ViewPlanModel) (scenePath:string) =
 
-        let fpPath = getFootprintsPath scenePath
+        let fpPath = getDataPath scenePath "FootPrints"
+        if (not (Directory.Exists fpPath)) then 
+            Directory.CreateDirectory fpPath |> ignore
 
         match vp.selectedViewPlan with
         | Some id -> 
@@ -891,7 +968,7 @@ module FootPrint =
                 | None -> 
                     512, 512
             // save png file
-            try Utilities.takeScreenshotFromAllViews "http://localhost:54322" width height pngName fpPath ".png" with e -> printfn "error: %A" e
+            try Utilities.takeScreenshotFromAllViews "http://localhost:54322" width height pngName fpPath ".png" with e -> printfn "error: %A" e //"http://localhost:54322"
            
             let fileInfo = {
                 fileType = "PNGImage"
@@ -974,11 +1051,14 @@ module FootPrint =
         let fp = 
             { 
                 vpId             = model.selectedViewPlan
-                isVisible        = true
+                isVisible        = model.footPrint.isVisible //true
                 projectionMatrix = (model.instrumentFrustum |> Frustum.projTrafo).Forward
                 instViewMatrix   = model.instrumentCam.ViewTrafo.Forward
                 projTex          = DefaultTextures.blackTex.GetValue()
                 globalToLocalPos = roverpos //transformenExt.position
+                depthTexture     = None
+                isDepthVisible   = model.footPrint.isDepthVisible
+                depthColorLegend = model.footPrint.depthColorLegend //FalseColorsModel.initDepthLegend
             }
         fp //{ model with footPrint = fp }
     

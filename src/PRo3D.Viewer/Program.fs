@@ -1,4 +1,4 @@
-open System
+open System 
 
 //open System.Windows.Forms
 open System.Collections.Concurrent
@@ -55,7 +55,7 @@ type Result =
       result : string;
    }
 
-let viewerVersion       = "4.10.3"
+let viewerVersion       = "4.12.0-prerelease6"
 let catchDomainErrors   = false
 
 open System.IO
@@ -201,7 +201,7 @@ let main argv =
         Log.line "render control config: %A" (Config.data_samples, Config.backgroundColor, Config.useMapping)
     
 
-        Aardvark.Rendering.GL.RuntimeConfig.SupressSparseBuffers <- true
+        Aardvark.Rendering.GL.RuntimeConfig.SuppressSparseBuffers <- true
         //app.ShaderCachePath <- None
 
         PRo3D.Core.Drawing.DrawingApp.usePackedAnnotationRendering <- true
