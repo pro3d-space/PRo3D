@@ -148,22 +148,6 @@ let startApplication (startupArgs : CLStartupArgs) =
 
         //Log.startTimed "[Viewer] reading json scene"
 
-        let viewerArgs : PRo3D.StartupArgs = 
-            {
-                verbose = startupArgs.verbose
-                showExplorationPoint = startupArgs.showExplorationPoint
-                startEmpty = false
-                useAsyncLoading = false
-                magnificationFilter = startupArgs.magnificationFilter
-                serverMode = false
-                remoteApp  = false
-                useMapping = "true"
-                data_samples = None
-                backgroundColor = "black"
-                port = None
-                disableCors = false
-                enableRemoteApi = false
-            }
 
         let port = getFreePort()
         let uri = sprintf "http://localhost:%d" port

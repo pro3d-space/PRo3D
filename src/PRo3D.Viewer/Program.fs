@@ -315,6 +315,7 @@ let main argv =
                 cacheFile 
                 renderingUrl 
                 ViewerApp.dataSamples
+                startupArgs.enableProvenanceTracking
                 appData
 
         let s = {MailboxState.empty with update = 
@@ -353,6 +354,9 @@ let main argv =
                             setCORSHeaders
                             >=> OK "CORS approved" )
             ]
+
+        if startupArgs.enableProvenanceTracking && not startupArgs.enableRemoteApi then
+            failwith "provenance tracking requires remote api to be enabled "
 
         let remoteApi =
             match startupArgs.enableRemoteApi with

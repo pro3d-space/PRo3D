@@ -1542,13 +1542,17 @@ module ViewerApp =
             
     let updateWithProvenanceTracking 
                 (runtime   : IRuntime) 
+                (enableProvenance : bool)
                 (signature : IFramebufferSignature) 
                 (sendQueue : BlockingCollection<string>) 
                 (mailbox   : MessagingMailbox) 
                 (m         : Model) 
                 (msg       : ViewerAnimationAction) =
         let newModel = updateInternal runtime signature sendQueue mailbox m msg 
-        ProvenanceApp.track m newModel msg
+        if enableProvenance then
+            ProvenanceApp.track m newModel msg
+        else
+            newModel
 
 
 
@@ -1980,6 +1984,7 @@ module ViewerApp =
         (cacheFile           : string)
         (renderingUrl        : string)
         (dataSamples         : int)
+        (enableProvenance    : bool)
         (screenshotDirectory : string)
         =
 
@@ -2010,7 +2015,7 @@ module ViewerApp =
             unpersist = Unpersist.instance
             threads   = threadPool
             view      = view runtime //localhost
-            update    = updateWithProvenanceTracking runtime signature sendQueue messagingMailbox
+            update    = updateWithProvenanceTracking runtime enableProvenance signature sendQueue messagingMailbox
             initial   = m
         }
         app.startAndGetState()

@@ -64,6 +64,7 @@ type StartupArgs = {
     disableCors           : bool
     magnificationFilter   : bool
     remoteApp             : bool
+    enableProvenanceTracking : bool
 
     useMapping            : string
     data_samples          : Option<string>
@@ -87,6 +88,7 @@ type StartupArgs = {
           disableCors           = false
           port                  = None
           enableRemoteApi       = false
+          enableProvenanceTracking = false
       }
 
 
