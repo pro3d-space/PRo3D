@@ -162,6 +162,7 @@ let startApplication (startupArgs : CLStartupArgs) =
                 backgroundColor = "black"
                 port = None
                 disableCors = false
+                enableRemoteApi = false
             }
 
         let port = getFreePort()
