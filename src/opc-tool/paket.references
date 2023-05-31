@@ -1,0 +1,12 @@
+﻿FSharp.Core
+
+
+Aardvark.Base
+Aardvark.Base.Incremental
+Aardvark.Base.FSharp
+
+Aardvark.SceneGraph.Opc
+Aardvark.GeoSpatial.Opc
+OPCViewer.Base
+
+Uncodium.Eigensystems
