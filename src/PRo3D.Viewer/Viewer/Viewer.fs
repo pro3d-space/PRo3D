@@ -502,16 +502,6 @@ module ViewerApp =
                     | ViewerMode.Standard -> m.navigation.camera.view
                     | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam
 
-                let m =
-                    match m.interaction with
-                    | Interactions.DrawAnnotation | Interactions.PickAnnotation ->
-                        let view = m.navigation.camera.view
-                        let m = { m with drawing = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing msg } |> stash
-                        match msg with
-                        | Drawing.DrawingAction.Finish -> { m with tabMenu = TabMenu.Annotations }
-                        | _ -> m                     
-                    | _ -> m
-
                 let drawing = 
                     DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing msg
 
