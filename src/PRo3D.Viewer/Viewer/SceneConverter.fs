@@ -119,12 +119,15 @@ module SceneLoading =
                 annotationDepr      = scenepath |> changeExtension ".ann_old"
             }
 
+    let loadSceneFromJson  (m : Model) (runtime : IRuntime) (signature : IFramebufferSignature) (sceneJson : string) =
+        SceneLoader.loadSceneFromJson sceneJson m runtime signature 
+
     // load using new projects aka .pro3d file
-    let loadNewStyleScene (m : Model) (runtime : IRuntime) (signature : IFramebufferSignature) (sceneFile : string) =
+    let loadNewStyleSceneFromFile (m : Model) (runtime : IRuntime) (signature : IFramebufferSignature) (sceneFile : string) =
         match Path.GetExtension sceneFile with 
         | ".pro3d" ->
             try 
-                SceneLoader.loadScene sceneFile m runtime signature 
+                SceneLoader.loadSceneFromFile sceneFile m runtime signature 
                 |> Model.stashAndSaveRecent sceneFile
                 |> ViewerIO.loadRoverData
                 |> ViewerIO.loadAnnotations  
@@ -142,26 +145,26 @@ module SceneLoading =
 
     // if scene file is an old one (*.scn) the file is upgraded automatically to *.pro3d. The resulting file path
     // is returned as well as info if conversion was necessary.
-    let loadScene (m : Model) (runtime : IRuntime) (signature : IFramebufferSignature) (sceneFile : string)  = 
+    let loadSceneFromFile (m : Model) (runtime : IRuntime) (signature : IFramebufferSignature) (sceneFile : string)  = 
         if not (File.Exists sceneFile) then
             SceneLoadResult.Error (sprintf "Scene file %s does not exist" sceneFile, None)
         else
             match Path.GetExtension sceneFile with
                 | ".pro3d" -> 
-                    match loadNewStyleScene m runtime signature sceneFile with
+                    match loadNewStyleSceneFromFile m runtime signature sceneFile with
                         | Choice1Of2 m -> SceneLoadResult.Loaded(m, false,sceneFile)
                         | Choice2Of2 (message, exn) -> SceneLoadResult.Error(message,exn)
                 | ".scn" -> 
                     let convertedFile = Path.ChangeExtension(sceneFile, "pro3d")
                     if File.Exists convertedFile then
-                        match loadNewStyleScene m runtime signature convertedFile with
+                        match loadNewStyleSceneFromFile m runtime signature convertedFile with
                             | Choice1Of2 m -> SceneLoadResult.Loaded(m, false,sceneFile)
                             | Choice2Of2 (message, exn) -> SceneLoadResult.Error(message,exn)
                     else
                         Log.warn "[PRo3d] old scene. Converting %s" sceneFile
                         match convertSceneTo sceneFile with
                             | Choice1Of2 () -> 
-                                match loadNewStyleScene m runtime signature convertedFile with
+                                match loadNewStyleSceneFromFile m runtime signature convertedFile with
                                     | Choice1Of2 m -> SceneLoadResult.Loaded(m, true, convertedFile)
                                     | Choice2Of2 (message, exn) -> SceneLoadResult.Error(message,exn)
                             | Choice2Of2 err -> 

@@ -76,26 +76,41 @@ module GeoJSONExport =
             coordinates |> List.map ThreeDim |> GeoJsonGeometry.LineString
         | _ ->
             Point(V3d.NaN |> ThreeDim)
-                  
+          
+          
+    let geoJsonGeometryToJson (geometry : GeoJsonGeometry) =
+        geometry
+        |> Json.serialize
+
+    let toGeoJsonString 
+        (planet      : option<Planet>) 
+        (annotations : list<Annotation>) 
+        : string = 
+
+        let geometryCollection =
+            annotations
+            |> List.map(annotationToGeoJsonGeometry planet)
+            |> GeoJsonGeometry.GeometryCollection
+
+        geometryCollection
+        |> Json.serialize
+        |> Json.formatWith JsonFormattingOptions.Pretty
+
+        
+
     let writeGeoJSON 
         (planet      : option<Planet>) 
         (path        : string) 
         (annotations : list<Annotation>) 
         : unit = 
 
-        if path.IsEmpty() then ()
-    
-        let geometryCollection =
-            annotations
-            |> List.map(annotationToGeoJsonGeometry (planet))
-            |> GeoJsonGeometry.GeometryCollection
+        if path.IsEmpty() then 
+            ()
+        else
+            toGeoJsonString planet annotations
+            |> Serialization.writeToFile path
 
-        geometryCollection
-        |> Json.serialize
-        |> Json.formatWith JsonFormattingOptions.Pretty
-        |> Serialization.writeToFile path
-
-        ()            
+                 
 
     let writeGeoJSON_XYZ 
         (path        : string)

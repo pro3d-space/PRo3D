@@ -231,13 +231,7 @@ module DrawingUtilities =
                 }
         
         //TODO refactor to types
-        let loadAnnotations annotationPath =             
-            
-            let (annotations : Annotations) = 
-                annotationPath
-                |> Serialization.readFromFile
-                |> Json.parse 
-                |> Json.deserialize                                    
+        let loadAnnotationse (annotations : Annotations) =             
             
             let annotations =
                 { annotations with 
@@ -271,3 +265,22 @@ module DrawingUtilities =
                     
             { annotations with annotations = annoModel} 
       
+
+        let loadAnnotationsFromFile (annotationsFile : string) =             
+            
+            let (annotations : Annotations) = 
+                annotationsFile
+                |> Serialization.readFromFile
+                |> Json.parse 
+                |> Json.deserialize   
+
+            loadAnnotationse annotations
+
+        let loadAnnotationsFromJson (annotationsJson : string) =             
+            
+            let (annotations : Annotations) = 
+                annotationsJson
+                |> Json.parse 
+                |> Json.deserialize   
+
+            loadAnnotationse annotations

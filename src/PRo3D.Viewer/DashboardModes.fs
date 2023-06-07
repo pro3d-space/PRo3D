@@ -27,4 +27,16 @@ module DashboardModes =
             dockConfig = DockConfigs.renderOnly
         }
 
+    let defaultDashboard =
+        {
+            name = "default"
+            dockConfig = DockConfigs.m2020
+        }
+
+    let provenance =
+        {
+            name       = "Provenance"
+            dockConfig = DockConfigs.provenance
+        }
+
     

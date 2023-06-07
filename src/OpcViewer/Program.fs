@@ -83,7 +83,7 @@ let main argv =
         //let annotations = @"F:\pro3d\data\20200220_DinosaurQuarry2\notrafo.pro3d.ann"
 
         let annotations = 
-            PRo3D.Core.Drawing.DrawingUtilities.IO.loadAnnotations annotations
+            PRo3D.Core.Drawing.DrawingUtilities.IO.loadAnnotationsFromFile annotations
 
         FSharp.Data.Adaptive.ShallowEqualityComparer.Set {
             new System.Collections.Generic.IEqualityComparer<Trafo3d> with

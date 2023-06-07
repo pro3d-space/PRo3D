@@ -82,7 +82,7 @@ module ViewerIO =
         
     let tryLoadAnnotations (scenePath : string) : option<Annotations> =
         try        
-            (DrawingUtilities.IO.loadAnnotations scenePath) |> Some
+            (DrawingUtilities.IO.loadAnnotationsFromFile scenePath) |> Some
         with e ->        
             Log.error "[ViewerIO] couldn't load %A" e
             None
@@ -121,6 +121,15 @@ module ViewerIO =
     //            }                    
     //    }
             
+    let replaceAnnotations (m : Model) (annotations : Annotations) =
+         {   
+            m with                    
+                drawing = {
+                    m.drawing with 
+                        annotations    = annotations.annotations
+                        dnsColorLegend = annotations.dnsColorLegend 
+                }
+         }  
 
     let loadAnnotations (m : Model) = 
         m.scene.scenePath 
@@ -128,7 +137,7 @@ module ViewerIO =
             let scenePaths = p |> ScenePaths.create
             scenePaths.annotations |> tryLoadAnnotations
         )
-        |> Option.map(fun g ->                 
+        |> Option.map(fun (g : Annotations) ->                 
 
             //color annotations according to semantics
             //let flat = 
@@ -142,16 +151,7 @@ module ViewerIO =
             //        m.scene.referenceSystem                    
             //        (UpdateAnnotations flat)
             
-            {   
-                m with                    
-                    //correlationPlot = corr
-                    drawing = {
-                        m.drawing with 
-                            annotations    = g.annotations
-                            dnsColorLegend = g.dnsColorLegend 
-                    }
-            }            
-            
+            replaceAnnotations m g
         ) 
         |> Option.defaultValue m
 
@@ -262,18 +262,53 @@ module ViewerIO =
         let bookmarks = BookmarkUtils.loadAll m.scene.sequencedBookmarks
         {m with scene = {m.scene with sequencedBookmarks = bookmarks}}
 
+    type SerializedModel =
+        {
+            sceneAsJson : string
+            drawingAsJson : string
+            version : string
+        } 
+
+    module SerializedModel =
+
+        open System.Text.Json
+        
+        let toJson (s : SerializedModel) =
+            JsonSerializer.Serialize(s)
+
+        let fromJson (s : string) =
+            JsonSerializer.Deserialize(s)
+
+    let getSerializedModel  (m : Model) : SerializedModel  =
+        let sceneJson =        
+            let cameraState = m.navigation.camera.view            
+            let scene = 
+                { m.scene with 
+                    cameraView     = cameraState;
+                    exploreCenter  = m.navigation.exploreCenter
+                    navigationMode = m.navigation.navigationMode
+                }
+            scene
+            |> Json.serialize 
+            |> Json.formatWith JsonFormattingOptions.Pretty
+
+        let drawingJson =
+            PRo3D.Core.Drawing.IO.getSerialized m.drawing
+
+        { sceneAsJson = sceneJson; drawingAsJson = drawingJson; version = "1" }
+
     let saveEverything (path:string) (m:Model) =         
         if path.IsEmptyOrNull() then m
         else
            //saving scene
             let scenePaths = path |> ScenePaths.create             
-            let cameraState = m.navigation.camera.view        
+            let cameraState = m.navigation.camera.view            
             let bookmarks = BookmarkUtils.saveSequencedBookmarks scenePaths.bookmarksFolder
                                                                  m.scene.sequencedBookmarks
 
-            let scene = { m.scene with scenePath          = Some scenePaths.scene; 
-                                       cameraView         = cameraState;
-                                       exploreCenter      = m.navigation.exploreCenter
+            let scene = { m.scene with scenePath      = Some scenePaths.scene; 
+                                       cameraView     = cameraState;
+                                       exploreCenter  = m.navigation.exploreCenter
                                        navigationMode     = m.navigation.navigationMode
                                        sequencedBookmarks = bookmarks
                         }
