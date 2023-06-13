@@ -54,7 +54,10 @@ type PropertyActions =
     | DrawingMessage    of DrawingAction
     | AnnotationMessage of AnnotationProperties.Action
 
-
+type PickPivot =
+    | SurfacePivot      = 0
+    | SceneObjectPivot  = 1
+   // | ScaleBarPivot     = 2
 //type CorrelationPanelsMessage = 
 //| CorrPlotMessage               of CorrelationPlotAction
 //| SemanticAppMessage            of SemanticAction
@@ -94,7 +97,7 @@ type ViewerAction =
 | SetFrustum                      of Frustum
 | SetRenderViewportSize           of V2i
 | ImportSurface                   of list<string>
-| ImportDiscoveredSurfaces        of list<string>
+| DiscoverAndImportOpcs        of list<string>
 | ImportDiscoveredSurfacesThreads of list<string>
 | ImportObject                    of preferredLoader : MeshLoaderType * filePaths : list<string>
 | ImportSceneObject               of list<string>
@@ -111,8 +114,14 @@ type ViewerAction =
 | PickObject                      of V3d*Guid
 | SaveScene                       of string
 | SaveAs                          of string
+| SetScenePath                    of string // used to set hint path in scene (e.g. to be used in top menu bar)
 | OpenScene                       of list<string>
-| LoadScene                       of string
+| LoadScene                       of string // path to the scene file
+
+// fine grained loading for provex provenance tracking and PRo3D api
+| LoadSerializedScene             of string // serialized scene file (content of .pro3d)
+| LoadSerializedDrawingModel      of string
+
 | NewScene
 | KeyDown                         of key : Aardvark.Application.Keys
 | KeyUp                           of key : Aardvark.Application.Keys      
@@ -121,7 +130,7 @@ type ViewerAction =
 | SetKind                         of TrafoKind
 | SetInteraction                  of Interactions        
 | SetMode                         of TrafoMode
-| TransforAdaptiveSurface                of System.Guid * Trafo3d
+| TransforAdaptiveSurface         of System.Guid * Trafo3d
 | ImportTrafo                     of list<string>
 | TransformAllSurfaces            of list<SnapshotSurfaceUpdate>
 | RecalculateFarPlane
@@ -143,7 +152,7 @@ type ViewerAction =
 | StartImportMessaging            of list<string>
 | Logging                         of string * ViewerAction
 | ThreadsDone                     of string    
-| SnapshotThreadDone             of string
+| SnapshotThreadDone              of string
 | OnResize                        of V2i * string
 | StartDragging                   of V2i * MouseButtons
 | Dragging                        of V2i
@@ -163,6 +172,7 @@ type ViewerAction =
 | WriteBookmarkMetadata          of string * SequencedBookmarkModel
 | WriteCameraMetadata            of string * SnapshotCamera
 | StopGeoJsonAutoExport        
+| SetPivotType                   of PickPivot
 | LoadPoseDefinitionFile         of list<string>
 | SBookmarksToPoseDefinition
 | Nop
@@ -206,6 +216,7 @@ type Scene = {
     geologicSurfacesModel : GeologicSurfacesModel
     sequencedBookmarks    : SequencedBookmarks
     screenshotModel       : ScreenshotModel
+
 }
 
 module Scene =
@@ -462,7 +473,6 @@ type Scene with
             do! Json.write "screenshotModel"    x.screenshotModel
         }
 
-[<ModelType>] 
 type SceneHandle = {
     path        : string
     name        : string
@@ -534,6 +544,7 @@ type Model = {
     multiSelectBox   : Option<MultiSelectionBox>
     shiftFlag        : bool
     picking          : bool
+    pivotType        : PickPivot
     ctrlFlag         : bool
     frustum          : Frustum
     viewPortSizes    : HashMap<string, V2i>
@@ -569,155 +580,13 @@ type Model = {
 
     [<NonAdaptive>]
     animator             : Anewmation.Animator<Model>
-}
+
+    provenanceModel      : ProvenanceModel
+} 
 
 type ViewerAnimationAction =
     | ViewerMessage of ViewerAction
+    | ProvenanceMessage of ProvenanceApp.ProvenanceMessage
     | AnewmationMessage of AnimatorMessage<Model>
-
-module Viewer =
-    open System.Threading
-
-    let processMailboxAction (state:MailboxState) (cancelTokenSrc:CancellationTokenSource) (inbox:MessagingMailbox) (action : MailboxAction) =
-        match action with
-        | MailboxAction.InitMailboxState s -> s
-        | MailboxAction.DrawingAction a ->        
-            a |> ViewerAction.DrawingMessage |> Seq.singleton |> state.update 
-            state
-        | MailboxAction.ViewerAction a ->        
-            a |> Seq.singleton |> state.update 
-            state
-        
-
-    let initMessageLoop (cancelTokenSrc:CancellationTokenSource) (inbox:MessagingMailbox) =
-        let rec messageLoop state = async {
-            let! msg = inbox.Receive()
-            
-            let newState =
-                try msg |> processMailboxAction state cancelTokenSrc inbox
-                with
-                | e ->
-                    Log.line "ViewerMgmt Error: Dropping msg (Exception:  %O)" e
-                    state
-            
-            return! messageLoop newState
-        }
-        messageLoop MailboxState.empty
-
-    let navInit = 
-        let init = NavigationModel.initial
-        let init = Optic.set (NavigationModel.camera_ >-> CameraControllerState.sensitivity_) 3.0 init
-        let init = Optic.set (NavigationModel.camera_ >-> CameraControllerState.panFactor_) 0.0008 init
-        let init = Optic.set (NavigationModel.camera_ >-> CameraControllerState.zoomFactor_) 0.0008 init
-        init        
-
-    let sceneElm = {id = "scene"; title = (Some "Scene"); weight = 0.4; deleteInvisible = None; isCloseable = None }   
-
-    let initial
-        msgBox 
-        (startupArgs    : StartupArgs)
-        renderingUrl       
-        numberOfSamples    
-        screenshotDirectory
-        animatorLens
-        viewerVersion
-        : Model = 
-
-        {     
-            scene = 
-                {
-                    version           = Scene.current
-                    cameraView        = CameraView.ofTrafo Trafo3d.Identity
-                    navigationMode    = NavigationMode.FreeFly
-                    exploreCenter     = V3d.Zero
-                        
-                    interaction     = InteractionMode.PickOrbitCenter
-                    surfacesModel   = SurfaceModel.initial
-                    config          = ViewConfigModel.initial 
-                    scenePath       = None
-
-                    referenceSystem       = ReferenceSystem.initial                    
-                    bookmarks             = GroupsModel.initial
-                    scaleBars             = ScaleBarsModel.initial
-                    dockConfig            = DockConfigs.m2020                    
-                    closedPages           = list.Empty 
-                    firstImport           = true
-                    userFeedback          = ""
-                    feedbackThreads       = ThreadPool.empty
-                    comparisonApp         = PRo3D.ComparisonApp.init                    
-                    viewPlans             = ViewPlanModel.initial
-                    sceneObjectsModel     = SceneObjectsModel.initial
-                    geologicSurfacesModel = GeologicSurfacesModel.initial
-
-                    traverses             = TraverseModel.initial
-                    sequencedBookmarks    = SequencedBookmarks.initial //with outputPath = Config.besideExecuteable}
-                    screenshotModel       = ScreenshotModel.initial
-                }
-            viewerVersion   = viewerVersion
-            dashboardMode   = DashboardModes.core.name
-            navigation      = navInit
-
-            startupArgs     = startupArgs            
-            drawing         = Drawing.DrawingModel.initialdrawing
-            properties      = NoProperties
-            interaction     = Interactions.DrawAnnotation
-            multiSelectBox  = None
-            shiftFlag       = false
-            picking         = false
-            ctrlFlag        = false
-
-            messagingMailbox = msgBox
-            mailboxState     = MailboxState.empty
-
-            frustum         = Frustum.perspective 60.0 0.1 10000.0 1.0
-            overlayFrustum  = None
-            aspect          = 1.6   // CHECK-merge
-
-            recent          = { recentScenes = List.empty }
-            waypoints       = IndexList.empty
-
-            trafoKind       = TrafoKind.Rotate
-            trafoMode       = TrafoMode.Local            
-
-            scaleBarsDrawing = InitScaleBarsParams.initialScaleBarDrawing
-            past            = None
-            future          = None
-
-            tabMenu = TabMenu.Surfaces
-            animations = 
-                { 
-                    animations = IndexList.empty
-                    animation  = Animate.On
-                    cam        = CameraController.initial.view
-                }
-           
-            //minervaModel = MinervaModel.initial // CHECK-merge PRo3D.Minerva.Initial.model msgBox2
-
-            //scaleTools = 
-            //    {
-            //         planeExtrude = PlaneExtrude.App.initial
-            //    }
-            //linkingModel = PRo3D.Linking.LinkingModel.initial
-            
-           // correlationPlot = CorrelationPanelModel.initial
-            //pastCorrelation = None
-            //instrumentCamera = { CameraController.initial with view = CameraView.lookAt V3d.Zero V3d.One V3d.OOI }        
-            //instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
-            viewerMode      = ViewerMode.Standard
-            footPrint       = ViewPlanModel.initFootPrint
-            viewPortSizes   = HashMap.empty
-
-            snapshotThreads      = ThreadPool.empty
-            showExplorationPoint = startupArgs.showExplorationPoint
-            heighValidation      = HeightValidatorModel.init()
-            frustumModel         = FrustumModel.init 0.1 10000.0
-            
-            filterTexture = false
-
-            renderingUrl        = renderingUrl       
-            numberOfSamples     = numberOfSamples    
-            screenshotDirectory = screenshotDirectory
-            animator            = Anewmation.Animator.initial animatorLens
-    }
 
 

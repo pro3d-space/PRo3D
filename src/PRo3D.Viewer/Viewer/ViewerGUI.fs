@@ -83,6 +83,23 @@ module Gui =
             ] |> AttributeMap.ofList
     
         Incremental.Svg.svg attributes (SurfaceApp.showColorLegend m.scene.surfacesModel)
+
+    let depthColorLegend (m : AdaptiveModel) =
+
+        let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendBasics "DepthLegend" m.footPrint.depthColorLegend
+                
+        let attributes =
+            [        
+                "display"               => "block"; 
+                "width"                 => "55px"; 
+                "height"                => "75%"; 
+                "preserveAspectRatio"   => "xMidYMid meet"; 
+                "viewBox"               => "0 0 5% 100%" 
+                "style"                 => "position:absolute; left: 0%; top: 25%"
+                "pointer-events"        => "None"
+            ] |> AttributeMap.ofList
+        
+        Incremental.Svg.svg attributes falseColorSvg
     
     let selectionRectangle (m : AdaptiveModel) =
         
@@ -303,7 +320,7 @@ module Gui =
                         Dialogs.onChooseFiles (curry ViewerAction.ImportObject MeshLoaderType.Wavefront);
                         clientEvent "onclick" (jsImportOBJDialog)
                     ] [
-                        text "Import (*.obj) using the aardvark wavefront loader"
+                        text "Import (*.obj)"
                     ]
                     //div [ clazz "ui inverted item"; 
                     //    Dialogs.onChooseFiles (curry ViewerAction.ImportObject MeshLoaderType.GlTf);
@@ -581,6 +598,7 @@ module Gui =
                                           menuItem "PRo3D Core" (ChangeDashboardMode DashboardModes.core)
                                           menuItem "Surface Comparison" (ChangeDashboardMode DashboardModes.comparison)
                                           menuItem "Render Only" (ChangeDashboardMode DashboardModes.renderOnly)
+                                          menuItem "Provenance" (ChangeDashboardMode DashboardModes.provenance)
                                         ]   
                                 
                                 //scene objects
@@ -677,6 +695,11 @@ module Gui =
                      ]
                 | Interactions.PlaceScaleBar ->
                     return ScaleBarsDrawing.UI.viewScaleBarToolsHorizontal m.scaleBarsDrawing |> UI.map ScaleBarsDrawingMessage
+                | Interactions.PickPivotPoint ->
+                    return Html.Layout.horizontal [
+                        Html.Layout.boxH [text "for:"]
+                        Html.Layout.boxH [ Html.Layout.boxH [ Html.SemUi.dropDown m.pivotType SetPivotType ] ]
+                     ]
                 | _ -> 
                   return div [] []
             }
@@ -721,6 +744,7 @@ module Gui =
             | Interactions.PlaceSurface          -> "not implemented"
             | Interactions.PlaceScaleBar         -> sprintf "%s+click to place scale bar" ctrl
             | Interactions.PlaceSceneObject      -> sprintf "%s+click to place scene object" ctrl
+            | Interactions.PickPivotPoint        -> sprintf "%s+click to place pivot point" ctrl
             //| Interactions.PickLinking           -> "CTRL+click to place point on surface"
             | _ -> ""
         
@@ -884,7 +908,7 @@ module Gui =
     module ViewPlanner =
         let viewPlanProperties (model : AdaptiveModel) =
               //model.scene.viewPlans |> ViewPlan.UI.viewRoverProperties ViewPlanMessage 
-              model.scene.viewPlans |> ViewPlanApp.UI.viewRoverProperties ViewPlanMessage model.footPrint.isVisible
+              model.scene.viewPlans |> ViewPlanApp.UI.viewRoverProperties ViewPlanMessage model.footPrint.isVisible model.footPrint.isDepthVisible
         
         let viewPlannerUI (m : AdaptiveModel) =             
             div [] [
@@ -912,15 +936,16 @@ module Gui =
     module Traverse =
         let traverseUI (m : AdaptiveModel) =
             div [] [
+                yield GuiEx.accordion "Properties" "Content" true [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewProperties m.scene.traverses))
+                ]
+
                 yield GuiEx.accordion "Traverses" "Write" true [
                     TraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
                 ]
                 yield GuiEx.accordion "Sols" "road" true [
                     //TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverse
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverses))
-                ]
-                yield GuiEx.accordion "Properties" "Content" true [
-                    Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewProperties m.scene.traverses))
                 ]
             ] 
             |> UI.map TraverseMessage
@@ -935,6 +960,9 @@ module Gui =
                 // Todo: properties
                 GuiEx.accordion "Properties" "Content" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(ScaleBarsApp.UI.viewProperties m.scene.scaleBars))
+                ]
+                GuiEx.accordion "Transformation" "expand arrows alternate " false [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(ScaleBarsApp.UI.viewTranslationTools m.scene.scaleBars))
                 ]
             ] 
             |> UI.map ScaleBarsMessage
@@ -1074,6 +1102,7 @@ module Gui =
                         alist {
                             yield viewInstrumentView runtime id m 
                             yield textOverlaysInstrumentView m.scene.viewPlans
+                            yield depthColorLegend m
                         } )
                     ]
                 )
@@ -1218,6 +1247,8 @@ module Gui =
             //        body bodyAttributes [
             //            CorrelationPanelsApp.viewMappings m.correlationPlot |> UI.map CorrelationPanelMessage
             //        ] )
+            | Some "provenance" ->
+                require (viewerDependencies) (body bodyAttributes [ProvenanceApp.view m |> UI.map ProvenanceMessage])
             | None -> 
                 require (viewerDependencies) (
                     onBoot (sprintf "document.title = '%s'" Config.title) (

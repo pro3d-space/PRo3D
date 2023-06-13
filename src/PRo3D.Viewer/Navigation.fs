@@ -107,7 +107,7 @@ module Navigation =
             ]
 
     module Sg =
-        let view (model:AdaptiveNavigationModel) =
+        let view (model:AdaptiveNavigationModel)=
             let point = PRo3D.Base.Sg.dot (AVal.constant C4b.Magenta) (AVal.constant 3.0) model.exploreCenter 
-            Sg.ofList [point]
+            Sg.ofList [point] 
            

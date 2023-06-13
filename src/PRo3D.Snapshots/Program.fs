@@ -102,7 +102,7 @@ let startApplication (startupArgs : CLStartupArgs) =
         use app = new OpenGlApplication()
         let runtime = app.Runtime         
 
-        Aardvark.Rendering.GL.RuntimeConfig.SupressSparseBuffers <- true
+        Aardvark.Rendering.GL.RuntimeConfig.SuppressSparseBuffers <- true
         PRo3D.Core.Drawing.DrawingApp.usePackedAnnotationRendering <- false
 
         Sg.hackRunner <- runtime.CreateLoadRunner 1 |> Some
@@ -148,19 +148,6 @@ let startApplication (startupArgs : CLStartupArgs) =
 
         //Log.startTimed "[Viewer] reading json scene"
 
-        let viewerArgs : PRo3D.StartupArgs = 
-            {
-                verbose = startupArgs.verbose
-                showExplorationPoint = startupArgs.showExplorationPoint
-                startEmpty = false
-                useAsyncLoading = false
-                magnificationFilter = startupArgs.magnificationFilter
-                serverMode = false
-                remoteApp  = false
-                useMapping = "true"
-                data_samples = None
-                backgroundColor = "black"
-            }
 
         let port = getFreePort()
         let uri = sprintf "http://localhost:%d" port

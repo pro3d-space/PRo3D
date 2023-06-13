@@ -24,6 +24,7 @@
     <Compile Include="Config.fs" />
     <Compile Include="Core-Types.fs" />
     <Compile Include="ReferenceSystem-Model.fs" />
+    <Compile Include="Transformation-Model.fs" />
     <Compile Include="Surface-Model.fs" />
     <Compile Include="glTF.fs" />
     <Compile Include="SceneObjects-Model.fs" />
@@ -36,6 +37,7 @@
     <Compile Include="Sg.fs" />
     <Compile Include="UI.fs" />
     <Compile Include="ReferenceSystem.fs" />
+    <Compile Include="TransformationApp.fs" />
     <Compile Include="Surface.fs" />
     <Compile Include="GroupsApp.fs" />
     <Compile Include="OrientationCube.fs" />

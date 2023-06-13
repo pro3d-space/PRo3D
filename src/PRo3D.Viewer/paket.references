@@ -12,6 +12,8 @@ Aardvark.Geometry
 Aardvark.Geometry.Intersection
 Aardvark.Geometry.PointTree
 
+Aardvark.PixImage.DevIL
+
 Aardvark.UI.Primitives
 Aardvark.Service
       
@@ -31,3 +33,5 @@ Aardvark.GeoSpatial.Opc
 OPCViewer.Base
 Chiron
 
+Cyjs.NET
+Thoth.Json.Net

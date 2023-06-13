@@ -25,7 +25,7 @@ type SceneObject = {
    
     isVisible       : bool
     position        : V3d        
-    scaling         : NumericInput
+    //scaling         : NumericInput
     transformation  : Transformations
     preTransform    : Trafo3d
 }
@@ -35,7 +35,7 @@ type SceneObject = {
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module SceneObject =    
     
-    let current = 0   
+    let current = 1 // 0   Laura 21.12.
     let read0 =
         json {
             let! guid            = Json.read "guid"
@@ -43,7 +43,7 @@ module SceneObject =
             let! importPath      = Json.read "importPath" 
             let! isVisible       = Json.read "isVisible"
             let! position        = Json.read "position"
-            let! scaling         = Json.readWith Ext.fromJson<NumericInput,Ext> "scaling"
+            //let! scaling         = Json.readWith Ext.fromJson<NumericInput,Ext> "scaling"
             let! transformation  = Json.read "transformation"
             let! preTransform    = Json.read "preTransform"
             
@@ -55,7 +55,30 @@ module SceneObject =
                     importPath      = importPath
                     isVisible       = isVisible
                     position        = position |> V3d.Parse
-                    scaling         = scaling
+                    //scaling         = scaling
+                    transformation  = transformation
+                    preTransform    = preTransform |> Trafo3d.Parse
+                }
+        }
+
+    let read1 =
+        json {
+            let! guid            = Json.read "guid"
+            let! name            = Json.read "name"
+            let! importPath      = Json.read "importPath" 
+            let! isVisible       = Json.read "isVisible"
+            let! position        = Json.read "position"
+            let! transformation  = Json.read "transformation"
+            let! preTransform    = Json.read "preTransform"
+            
+            return 
+                {
+                    version       = current
+                    guid            = guid |> Guid
+                    name            = name
+                    importPath      = importPath
+                    isVisible       = isVisible
+                    position        = position |> V3d.Parse
                     transformation  = transformation
                     preTransform    = preTransform |> Trafo3d.Parse
                 }
@@ -67,6 +90,7 @@ type SceneObject with
             let! v = Json.read "version"
             match v with 
             | 0 -> return! SceneObject.read0
+            | 1 -> return! SceneObject.read1
             | _ -> 
                 return! v 
                 |> sprintf "don't know version %A  of SceneObject"
@@ -80,7 +104,7 @@ type SceneObject with
             do! Json.write "importPath" x.importPath
             do! Json.write "isVisible" x.isVisible    
             do! Json.write "position" (x.position.ToString())
-            do! Json.writeWith Ext.toJson<NumericInput,Ext> "scaling" x.scaling
+            //do! Json.writeWith Ext.toJson<NumericInput,Ext> "scaling" x.scaling
             do! Json.write "transformation" x.transformation  
             do! Json.write "preTransform" (x.preTransform.ToString())
         }
@@ -144,28 +168,28 @@ type SceneObjectsModel with
 //TODO refactor: do we really need the transformation init code multiple times?
 module InitSceneObjectParams =
 
-    let scaling = {
-        value  = 1.00
-        min    = 0.01
-        max    = 50.00
-        step   = 0.01
-        format = "{0:0.00}"
-    }
+    //let scaling = {
+    //    value  = 1.00
+    //    min    = 0.01
+    //    max    = 50.00
+    //    step   = 0.01
+    //    format = "{0:0.00}"
+    //}
 
     let translationInput = {
-        value   = 0.0
+        value   = 0.000
         min     = -10000000.0
         max     = 10000000.0
-        step    = 0.01
-        format  = "{0:0.00}"
+        step    = 0.001
+        format  = "{0:0.000}"
     }
 
     let yaw = {
-        value   = 0.0
+        value   = 0.000
         min     = -180.0
         max     = +180.0
-        step    = 0.01
-        format  = "{0:0.00}"
+        step    = 0.001
+        format  = "{0:0.000}"
     }
 
     let initTranslation (v : V3d) = {
@@ -183,9 +207,15 @@ module InitSceneObjectParams =
         pitch                = Transformations.Initial.pitch
         roll                 = Transformations.Initial.roll
         yaw                  = yaw
-        pivot                = V3d.Zero
+        pivot                = initTranslation (V3d.OOO)
+        oldPivot             = V3d.OOO
+        showPivot            = false
+        pivotChanged         = false
         flipZ                = false
         isSketchFab          = false
+        scaling              = Transformations.Initial.scaling
+        trafoChanged         = false
+        usePivot             = false
     }
 
     let initNoffset = {

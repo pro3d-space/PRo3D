@@ -29,7 +29,11 @@ module CommandLine =
         Log.line @"--samples count                     specify multisampling count"
         Log.line @"--noMapping                         use mapped render target"
         Log.line @"--backgroundColor cssColor          use another background color"
-                 
+        Log.line @"--port port                         specify port for main app explicitly. By default a free port is choosen automatically."
+        Log.line @"--disableCors                       disables CORS for local remote apps"
+        Log.line @"--remoteApi                         enables PRo3D REST API"
+        Log.line @"--enableProvenance                  enabled provenance tracking feature."
+        
         Log.line @"--snap [path\snapshot.json]         path to a snapshot file containing camera views (old format)"
         Log.line @""
         Log.line @"Examples:"
@@ -52,6 +56,11 @@ module CommandLine =
             let remoteApp           = (argv |> hasFlag "remoteControl")
             let server              = (argv |> hasFlag "server") 
             let magFilter           = not (argv |> hasFlag "noMagFilter")
+            let port                = parseArg "--port" argv
+            let disableCors         = argv |> hasFlag "disableCors"
+            let enableRemoteApi     = argv |> hasFlag "remoteApi"    
+            let enableProvenanceTracking = argv |> hasFlag "enableProvenance"
+            
 
             let samples             = parseArg "--samples" argv
             let backgroundColor     = parseArg "--backgroundColor" argv
@@ -66,6 +75,9 @@ module CommandLine =
             Log.line "[Arguments] Show exploration centre%s" (b2str showExplorationCentre)
             Log.line "[Arguments] Show reference system%s" (b2str showReferenceSystem)
             Log.line "[Arguments] Remote control app%s" (b2str remoteApp)
+            Log.line "[Arguments] ProvenanceTracking: %s" (b2str enableProvenanceTracking)
+            Log.line "[Arguments] Remote API: %s" (b2str enableRemoteApi)
+            Log.line "[Arguments] Disable CORS: %s" (b2str disableCors)
 
             Log.line "[Arguments] render control config %A" (samples, backgroundColor, noMapping)
             let args : StartupArgs = 
@@ -78,6 +90,11 @@ module CommandLine =
                         magnificationFilter   = magFilter
                         remoteApp             = remoteApp
                         serverMode            = server
+                        port                  = port
+                        disableCors           = disableCors
+                        enableRemoteApi       = enableRemoteApi
+                        enableProvenanceTracking = enableProvenanceTracking
+                    
                         useMapping            = if noMapping then "false" else "true"
                         data_samples          = samples
                         backgroundColor       = match backgroundColor with Some b -> b | None -> StartupArgs.initArgs.backgroundColor

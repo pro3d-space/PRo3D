@@ -1,34 +1,30 @@
 name: Deploy
 on:
-  push:
-    branches:
-      - autorelease
-      - develop
-      - bugs/fixMultiObjs
+  push: 
     paths:
       - PRODUCT_RELEASE_NOTES.md
       - aardium/package.json
       - .github/workflows/deploy.yml 
 jobs:
   mac_arm64:
-    name: OSX (arm64)
-    runs-on: macos-latest
-    steps:  
-      - name: Checkout
-        uses: actions/checkout@v2
-      - uses: actions/checkout@v2
-      - name: Setup .NET 6.0
-        uses: actions/setup-dotnet@v1
-        with:
-          dotnet-version: 6.0.x
-      - name: Yarn Install
-        working-directory: aardium
-        run: yarn install
-      - name: Add Cert to Keychain
-        uses: apple-actions/import-codesign-certs@v1
-        with: 
-          p12-file-base64: ${{ secrets.MAC_CERT_BASE64 }}
-          p12-password: ${{ secrets.MAC_CERT_PASSWORD }}
+   name: OSX (arm64)
+   runs-on: macos-latest
+   steps:  
+     - name: Checkout
+       uses: actions/checkout@v2
+     - uses: actions/checkout@v2
+     - name: Setup .NET 6.0
+       uses: actions/setup-dotnet@v1
+       with:
+         dotnet-version: 6.0.x
+     - name: Yarn Install
+       working-directory: aardium
+       run: yarn install
+     - name: Add Cert to Keychain
+       uses: apple-actions/import-codesign-certs@v1
+       with: 
+         p12-file-base64: ${{ secrets.MAC_CERT_BASE64 }}
+         p12-password: ${{ secrets.MAC_CERT_PASSWORD }}
 
   mac_x64:
     name: OSX (x64)
@@ -80,3 +76,27 @@ jobs:
         env:
             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: .\build.cmd PublishToElectron
+
+  linux_x64:
+    name: linux
+    runs-on: ubuntu-latest
+    steps:  
+      - name: Install Snapcraft
+        uses: samuelmeuli/action-snapcraft@v1
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '6.0.100'
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '5.0.100'
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Yarn Install
+        working-directory: aardium
+        run: yarn install
+      - name: Build
+        env:
+            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash ./build.sh PublishToElectron

@@ -117,7 +117,7 @@ type ScaleBarsAction =
     | IsVisible     of Guid
     | SelectSB      of Guid
     | AddScaleBar   of (V3d*ScaleBarDrawing*CameraView)
-    | TranslationMessage    of TranslationApp.Action
+    | TranslationMessage    of TransformationApp.Action
     | PropertiesMessage     of ScaleBarProperties.Action
 
 
@@ -252,7 +252,7 @@ module ScaleBarTransformations =
         adaptive {
            let! translation = tansform.translation.value
            let! yaw = tansform.yaw.value
-           let! pivot = tansform.pivot
+           let! pivot = tansform.pivot.value
             
            return fullTrafo'' translation yaw pivot refsys
         }
@@ -260,7 +260,7 @@ module ScaleBarTransformations =
     let fullTrafo' (tansform : Transformations) (refsys : ReferenceSystem) = 
         let translation = tansform.translation.value
         let yaw = tansform.yaw.value
-        let pivot = tansform.pivot
+        let pivot = tansform.pivot.value
             
         fullTrafo'' translation yaw pivot refsys
         
@@ -308,7 +308,7 @@ module ScaleBarsApp =
                 let scB = model.scaleBars |> HashMap.tryFind id
                 match scB with
                 | Some sb ->
-                    let transformation' = (TranslationApp.update sb.transformation msg)
+                    let transformation' = (TransformationApp.update sb.transformation msg)
                     let sb' = { sb with transformation = transformation' }
                     let scaleBars = model.scaleBars |> HashMap.alter sb.guid (function | Some _ -> Some sb' | None -> None )
                     { model with scaleBars = scaleBars} 
@@ -413,7 +413,7 @@ module ScaleBarsApp =
                 | Some id -> 
                     let! scB = model.scaleBars |> AMap.tryFind id
                     match scB with
-                    | Some s -> return (TranslationApp.UI.view s.transformation |> UI.map TranslationMessage)
+                    | Some s -> return (TransformationApp.UI.translationView s.transformation |> UI.map TranslationMessage)
                     | None -> return empty
                 | None -> return empty
             }  
@@ -440,14 +440,15 @@ module ScaleBarsApp =
 
         let getSgSegmentCylinder
             (segment : AdaptivescSegment)
-            (thickness : aval<float>) =
+            (thickness : aval<float>) 
+            (translation : Trafo3d) =
             adaptive {
                 let! p1 = segment.startPoint
                 let! p2 = segment.endPoint
 
                 let length = Vec.Distance(p1,p2)
                 let dir = p2 - p1
-                let trafo =  (Trafo3d.RotateInto(V3d.ZAxis, dir.Normalized) * Trafo3d.Translation(p1))
+                let trafo =  (Trafo3d.RotateInto(V3d.ZAxis, dir.Normalized) * (Trafo3d.Translation(p1) * translation))
                 return Sg.cylinder 30 segment.color thickness (AVal.constant length)             
                         |> Sg.noEvents
                         |> Sg.uniform "WorldPos" (segment.startPoint)
@@ -463,14 +464,15 @@ module ScaleBarsApp =
 
         let getSgSegmentCylinderMask
             (segment : AdaptivescSegment)
-            (thickness : aval<float>) =
+            (thickness : aval<float>) 
+            (translation : Trafo3d) =
             adaptive {
                 let! p1 = segment.startPoint
                 let! p2 = segment.endPoint
 
                 let length = Vec.Distance(p1,p2)
                 let dir = p2 - p1
-                let trafo =  (Trafo3d.RotateInto(V3d.ZAxis, dir.Normalized) * Trafo3d.Translation(p1))
+                let trafo =  (Trafo3d.RotateInto(V3d.ZAxis, dir.Normalized) * (Trafo3d.Translation(p1) * translation))
                 return Sg.cylinder 30 segment.color thickness (AVal.constant length)             
                         |> Sg.noEvents
                         |> Sg.uniform "WorldPos" (segment.startPoint)
@@ -529,11 +531,11 @@ module ScaleBarsApp =
                 let trafo =
                     adaptive {
                         let! pos = scaleBar.position
-                        return (Trafo3d.Translation pos)
+                        return (Trafo3d.Translation pos) //(TransformationApp.fullTrafo scaleBar.transformation) //
                     }
 
                 let text = 
-                    Sg.text view near (AVal.constant 60.0) scaleBar.position trafo scaleBar.textsize.value scaleBar.text
+                    Sg.text view near (AVal.constant 60.0) scaleBar.position scaleBar.transformation.trafo scaleBar.textsize.value scaleBar.text
                 
                 // do this for all lineparts
                 let sgSegments = 
@@ -580,6 +582,8 @@ module ScaleBarsApp =
                     | Pivot.Middle -> return pos
                     | _ -> return pos                    
                 }
+
+            let isVisible = AVal.map2(fun t v -> t && v ) scaleBar.textVisible scaleBar.isVisible
             
             Sg.text 
                 view 
@@ -589,7 +593,7 @@ module ScaleBarsApp =
                 (labelPosition |> AVal.map Trafo3d.Translation) 
                 scaleBar.textsize.value 
                 scaleBar.text
-            |> Sg.onOff scaleBar.textVisible
+            |> Sg.onOff isVisible
 
         let viewTextLabels
             (scaleBarsModel : AdaptiveScaleBarsModel) 
@@ -626,11 +630,14 @@ module ScaleBarsApp =
                     | Some sel -> sel = (scaleBar.guid |> AVal.force)
                     | None -> false
 
-            
+                //translation along north, east, up 
+                let! translation = scaleBar.transformation.translation.value
+                let trans = translation |> Trafo3d.Translation
+
                 let trafo =
                     adaptive {
                         let! pos = scaleBar.position
-                        return (Trafo3d.Translation pos)
+                        return (Trafo3d.Translation pos) * trans
                     }                
 
                 let pickFunc = Sg.pickEventsHelper scaleBar.guid (AVal.constant selected) scaleBar.thickness.value trafo
@@ -639,7 +646,7 @@ module ScaleBarsApp =
                 // do this for all lineparts
                 let sgSegments = 
                     scaleBar.scSegments 
-                    |> AList.map( fun seg -> getSgSegmentCylinder seg scaleBar.thickness.value ) 
+                    |> AList.map( fun seg -> getSgSegmentCylinder seg scaleBar.thickness.value trans ) 
                     |> AList.toASet
                     |> Sg.set
                
@@ -658,7 +665,7 @@ module ScaleBarsApp =
                     if selected then
                         let cylinder = 
                             scaleBar.scSegments 
-                            |> AList.map( fun seg -> getSgSegmentCylinderMask seg scaleBar.thickness.value ) 
+                            |> AList.map( fun seg -> getSgSegmentCylinderMask seg scaleBar.thickness.value trans ) 
                             |> AList.toASet
                             |> Sg.set
                         OutlineEffect.createForSg 2 RenderPass.main C4f.VRVisGreen cylinder
