@@ -135,7 +135,7 @@ module FrustumProperties =
     let view (model : AdaptiveFrustumModel) =    
         require GuiEx.semui (
             Html.table [  
-                Html.row "use Focal:"   [GuiEx.iconCheckBox model.toggleFocal ToggleUseFocal]
+                //Html.row "use Focal:"   [GuiEx.iconCheckBox model.toggleFocal ToggleUseFocal] // disabled because of https://github.com/pro3d-space/PRo3D/issues/261
                 Html.row "Focal (mm):"  [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox] model.focal |> UI.map UpdateFocal ]  
 
             ]

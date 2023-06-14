@@ -424,17 +424,17 @@ type FrustumModel = {
     }
 module FrustumModel =
     let focal = {
-        value   = 100.0
-        min     = 28.0
-        max     = 100.0
-        step    = 1.0
-        format  = "{0:0}"
+        value   = 10.25 
+        min     = 10.0
+        max     = 1000.0
+        step    = 0.01
+        format  = "{0:0.00}"
     }
-    let hfov = 2.0 * atan(11.84 /(100.0*2.0))
+    let hfov = 2.0 * atan(11.84 /(focal.value*2.0))
     
     let init near far =
         {
-            toggleFocal             = false
+            toggleFocal             = true
             focal                   = focal
             oldFrustum              = Frustum.perspective 60.0 0.1 10000.0 1.0
             frustum                 = Frustum.perspective (hfov.DegreesFromRadians()) near far 1.0 //Frustum.perspective 60.0 0.1 10000.0 1.0
