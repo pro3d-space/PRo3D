@@ -80,6 +80,38 @@ module ViewerUtils =
             |> Sg.uniform "useColorS"      useColor
             |> Sg.uniform "colorS"         color
 
+
+    let addRadiometryParameters (surf: AdaptiveSurface)  (isg:ISg<'a>) =
+
+        let useRad   = surf.radiometry.useRadiometry 
+        let abR =
+            adaptive {
+                let! minR     = surf.radiometry.minR.value
+                let! maxR     = surf.radiometry.maxR.value
+                return V2d(minR,maxR)
+            }
+            
+        let abG =
+            adaptive {
+                let! minG     = surf.radiometry.minG.value
+                let! maxG     = surf.radiometry.maxG.value
+                return V2d(minG,maxG)
+            } 
+
+        let abB =
+            adaptive {
+                let! minB     = surf.radiometry.minB.value
+                let! maxB     = surf.radiometry.maxB.value
+                return V2d(minB,maxB)
+            } 
+
+        isg
+            |> Sg.uniform "useRadiometry"  useRad  
+            |> Sg.uniform "abR"     abR
+            |> Sg.uniform "abG"     abG
+            |> Sg.uniform "abB"     abB
+
+
     let addAttributeFalsecolorMappingParameters (surf : AdaptiveSurface)  (isg:ISg<'a>) =
             
         let selectedScalar =
@@ -368,6 +400,7 @@ module ViewerUtils =
                     |> addDepthMappingParameters fp
                     |> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
                     |> addImageCorrectionParameters  surf
+                    |> addRadiometryParameters surf
                     |> Sg.uniform "DepthVisible" depthVisible
                     |> Sg.uniform "FootprintVisible" footprintVisible
                     |> Sg.uniform "FootprintModelViewProj" (M44d.Identity |> AVal.constant)
@@ -683,6 +716,7 @@ module ViewerUtils =
 
             PRo3D.Base.OPCFilter.improvedDiffuseTextureAndColor |> toEffect
             Shader.mapColorAdaption  |> toEffect   
+            PRo3D.Base.Shader.mapRadiometry |> toEffect
             Shader.fixAlpha          |> toEffect
         ]
 
@@ -706,6 +740,7 @@ module ViewerUtils =
             OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
             //PRo3D.Base.Shader.falseColorLegend2 |> toEffect
             PRo3D.Base.Shader.mapColorAdaption  |> toEffect  
+            PRo3D.Base.Shader.mapRadiometry |> toEffect
 
             //PRo3D.Base.Shader.depthImageF        |> toEffect
             PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect
