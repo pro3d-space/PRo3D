@@ -31,6 +31,10 @@ module ViewerLenses =
     let _camera     = _navigation >-> NavigationModel.camera_
     let _view       = _camera >-> CameraControllerState.view_
 
+    // view config
+    let _viewConfigModel = Model.scene_ >-> Scene.config_
+    let _frustumModel = _viewConfigModel >-> ViewConfigModel.frustumModel_
+
     // drawing
     let _drawing         = Model.drawing_
     let _annotations     = _drawing >-> DrawingModel.annotations_
@@ -59,6 +63,7 @@ module ViewerLenses =
     let _geologicSurfacesModel = Model.scene_ >->  Scene.geologicSurfacesModel_
     let _geologicSurfaces      = _geologicSurfacesModel >-> GeologicSurfacesModel.geologicSurfaces_
         
+    // sequenced bookmarks
     let _sequencedBookmarks = Model.scene_ >-> Scene.sequencedBookmarks_ 
 
     let _sceneState : ((Model -> SceneState) * (SceneState -> Model -> Model)) =

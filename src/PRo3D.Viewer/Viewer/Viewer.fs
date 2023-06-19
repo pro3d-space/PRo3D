@@ -700,20 +700,23 @@ module ViewerApp =
                    
             { m with scene = { m.scene with sceneObjectsModel = sobjs}; animations = animation}
         | FrustumMessage msg,_,_ ->
-            let frustumModel = FrustumProperties.update m.frustumModel msg
+            let frustumModel = FrustumProperties.update m.scene.config.frustumModel msg
             match msg with
             | FrustumProperties.Action.ToggleUseFocal ->
                 if frustumModel.toggleFocal then
                     let fm = {frustumModel with oldFrustum = m.frustum}
-                    { m with frustum = frustumModel.frustum; frustumModel = fm}
+                    let m = Optic.set _frustumModel fm m
+                    { m with frustum = frustumModel.frustum}
                 else
-                    { m with frustum = frustumModel.oldFrustum; frustumModel = frustumModel }
+                    let m = Optic.set _frustumModel frustumModel m
+                    { m with frustum = frustumModel.oldFrustum}
             | FrustumProperties.Action.UpdateFocal f ->
                 if frustumModel.toggleFocal then
                     let frustum' = FrustumProperties.updateFrustum frustumModel.focal.value m.frustum.near m.frustum.far 
-                    { m with frustum = frustum'; frustumModel = {frustumModel with frustum = frustum'}}
+                    let m = Optic.set _frustumModel {frustumModel with frustum = frustum'} m
+                    { m with frustum = frustum'}
                 else
-                    { m with frustumModel = frustumModel }
+                    Optic.set _frustumModel frustumModel m
         | ImportSurface sl,_,_ ->                 
             match sl with
             | [] -> m

@@ -211,3 +211,37 @@ type Ext with
         json {       
             return 1
         }
+
+
+    // Frustum
+    static member ToJson1 (ext : Ext, x : Frustum) =
+        json {
+            do! Json.write "left"      x.left   
+            do! Json.write "right"     x.right   
+            do! Json.write "bottom"    x.bottom
+            do! Json.write "top"       x.top     
+            do! Json.write "near"      x.near   
+            do! Json.write "far"       x.far     
+            do! Json.write "isOrtho"   x.isOrtho     
+        }
+
+    static member FromJson1(_: Ext, _ : Frustum) = 
+        json {
+            let! left       = Json.read "left"   
+            let! right      = Json.read "right"  
+            let! bottom     = Json.read "bottom" 
+            let! top        = Json.read "top"    
+            let! near       = Json.read "near"   
+            let! far        = Json.read "far"    
+            let! isOrtho    = Json.read "isOrtho"
+
+            return {
+                left       = left    
+                right      = right   
+                bottom     = bottom  
+                top        = top     
+                near       = near    
+                far        = far     
+                isOrtho    = isOrtho 
+            }
+        }

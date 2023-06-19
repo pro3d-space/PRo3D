@@ -879,7 +879,7 @@ module Gui =
                     CameraProperties.view m.scene.referenceSystem m.navigation.camera
                 ]
                 GuiEx.accordion "Frustum" "Settings" false [
-                    FrustumProperties.view m.frustumModel |> UI.map FrustumMessage
+                    FrustumProperties.view m.scene.config.frustumModel |> UI.map FrustumMessage
                 ]
                 GuiEx.accordion "Screenshots" "Settings" false [
                     ScreenshotApp.view m.screenshotDirectory m.scene.screenshotModel |> UI.map ScreenshotMessage

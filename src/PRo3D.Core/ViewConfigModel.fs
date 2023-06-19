@@ -5,9 +5,60 @@ open FSharp.Data.Adaptive
 open Adaptify
 open Aardvark.UI
 open Chiron
+
 open PRo3D.Base
+open Aardvark.Rendering
 
 #nowarn "0686"
+
+[<ModelType>]
+type FrustumModel = {
+    toggleFocal             : bool
+    focal                   : NumericInput
+    oldFrustum              : Frustum
+    frustum                 : Frustum
+    }
+
+module FrustumModel =
+    let focal = {
+        value   = 10.25 
+        min     = 10.0
+        max     = 1000.0
+        step    = 0.01
+        format  = "{0:0.00}"
+    }
+    let hfov = 2.0 * atan(11.84 /(focal.value*2.0))
+    
+    let init near far =
+        {
+            toggleFocal             = true
+            focal                   = focal
+            oldFrustum              = Frustum.perspective 60.0 0.1 10000.0 1.0
+            frustum                 = Frustum.perspective (hfov.DegreesFromRadians()) near far 1.0 //Frustum.perspective 60.0 0.1 10000.0 1.0
+        }
+
+type FrustumModel with
+    static member ToJson (x : FrustumModel) =
+        json {
+          do! Json.write      "toggleFocal"  x.toggleFocal
+          do! Json.write      "focal"        x.focal.value      
+          do! Json.writeWith  (Ext.toJson<Frustum, Ext>) "frustumOld"   x.oldFrustum
+          do! Json.writeWith  (Ext.toJson<Frustum, Ext>) "frustum"      x.frustum    
+        }
+    static member FromJson (x : FrustumModel) =
+        json {
+            let! toggleFocal = Json.read "toggleFocal"
+            let! focal       = Json.read "focal"      
+            let! oldFrustum  = Json.readWith Ext.fromJson<Frustum, Ext> "frustumOld"
+            let! frustum     = Json.readWith Ext.fromJson<Frustum, Ext> "frustum"   
+
+            return {
+                toggleFocal = toggleFocal 
+                focal       = {FrustumModel.focal with value = focal}
+                oldFrustum  = oldFrustum  
+                frustum     = frustum     
+            }
+        }
 
 [<ModelType>]
 type ViewConfigModel = {
@@ -15,6 +66,7 @@ type ViewConfigModel = {
     version                 : int
     nearPlane               : NumericInput
     farPlane                : NumericInput
+    frustumModel            : FrustumModel    
     navigationSensitivity   : NumericInput
     importTriangleSize      : NumericInput
     arrowLength             : NumericInput
@@ -98,12 +150,13 @@ module ViewConfigModel =
        format = "{0:0.000}"
     }       
 
-    let current = 2
+    let current = 4
  
     let initial = {
         version = current
         nearPlane             = initNearPlane
         farPlane              = initFarPlane
+        frustumModel         = FrustumModel.init 0.1 10000.0
         navigationSensitivity = initNavSens
         arrowLength         = initArrowLength
         arrowThickness      = initArrowThickness
@@ -137,6 +190,7 @@ module ViewConfigModel =
                     version               = current
                     nearPlane             = nearPlane
                     farPlane              = farPlane
+                    frustumModel          = FrustumModel.init 0.1 10000.0
                     navigationSensitivity = navigationSensitivity
                     arrowLength           = arrowLength
                     arrowThickness        = arrowThickness
@@ -170,6 +224,7 @@ module ViewConfigModel =
                     version               = current
                     nearPlane             = nearPlane
                     farPlane              = farPlane
+                    frustumModel          = FrustumModel.init 0.1 10000.0
                     navigationSensitivity = navigationSensitivity
                     arrowLength           = arrowLength
                     arrowThickness        = arrowThickness
@@ -205,6 +260,7 @@ module ViewConfigModel =
                     version               = current
                     nearPlane             = nearPlane
                     farPlane              = farPlane
+                    frustumModel          = FrustumModel.init 0.1 10000.0
                     navigationSensitivity = navigationSensitivity
                     arrowLength           = arrowLength
                     arrowThickness        = arrowThickness
@@ -238,6 +294,42 @@ module ViewConfigModel =
                     version               = current
                     nearPlane             = nearPlane
                     farPlane              = farPlane
+                    frustumModel          = FrustumModel.init 0.1 10000.0
+                    navigationSensitivity = navigationSensitivity
+                    arrowLength           = arrowLength
+                    arrowThickness        = arrowThickness
+                    dnsPlaneSize          = dnsPlaneSize
+                    lodColoring           = lodColoring
+                    importTriangleSize    = importTriangleSize      
+                    drawOrientationCube   = drawOrientationCube
+                    offset                = depthoffset
+                    pickingTolerance      = initPickingTolerance
+                    filterTexture         = filterTexture 
+                    showExplorationPointGui = true
+                }
+            }
+
+    module V4 = //moved Frustum model to ViewConfigModel for screen space scaling with focal length 
+        let read = 
+            json {
+                let! nearPlane                     = Json.readWith Ext.fromJson<NumericInput,Ext> "nearPlane"
+                let! farPlane                      = Json.readWith Ext.fromJson<NumericInput,Ext> "farPlane"
+                let! frustumModel                  = Json.read "frustumModel"
+                let! navigationSensitivity         = Json.readWith Ext.fromJson<NumericInput,Ext> "navigationSensitivity"
+                let! arrowLength                   = Json.readWith Ext.fromJson<NumericInput,Ext> "arrowLength"
+                let! arrowThickness                = Json.readWith Ext.fromJson<NumericInput,Ext> "arrowThickness"
+                let! dnsPlaneSize                  = Json.readWith Ext.fromJson<NumericInput,Ext> "dnsPlaneSize"
+                let! (lodColoring : bool)          = Json.read "lodColoring"
+                let! importTriangleSize            = Json.readWith Ext.fromJson<NumericInput,Ext> "importTriangleSize"
+                let! (drawOrientationCube : bool)  = Json.read "drawOrientationCube"                        
+                let! depthoffset                   = Json.readWith Ext.fromJson<NumericInput,Ext> "depthOffset"
+                let! (filterTexture : bool)        = Json.read "filterTexture"                        
+        
+                return {            
+                    version               = current
+                    nearPlane             = nearPlane
+                    farPlane              = farPlane
+                    frustumModel          = frustumModel
                     navigationSensitivity = navigationSensitivity
                     arrowLength           = arrowLength
                     arrowThickness        = arrowThickness
@@ -261,6 +353,7 @@ type ViewConfigModel with
             | 1 -> return! ViewConfigModel.V1.read
             | 2 -> return! ViewConfigModel.V2.read
             | 3 -> return! ViewConfigModel.V3.read
+            | 4 -> return! ViewConfigModel.V4.read
             | _ -> return! v |> sprintf "don't know version %A  of ViewConfigModel" |> Json.error
         }
     static member ToJson (x : ViewConfigModel) =
@@ -274,6 +367,7 @@ type ViewConfigModel with
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "navigationSensitivity" x.navigationSensitivity
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "farPlane"              x.farPlane
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "nearPlane"             x.nearPlane
+            do! Json.write                                    "frustumModel"          x.frustumModel
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "offset"                x.offset
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "depthOffset"           x.offset
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "pickingTolerance"      x.pickingTolerance

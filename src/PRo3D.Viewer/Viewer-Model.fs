@@ -570,8 +570,6 @@ type Model = {
 
     heighValidation      : HeightValidatorModel
 
-    frustumModel         : FrustumModel    
-
     filterTexture        : bool
 
     numberOfSamples      : int
