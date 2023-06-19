@@ -371,5 +371,6 @@ type ViewConfigModel with
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "offset"                x.offset
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "depthOffset"           x.offset
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "pickingTolerance"      x.pickingTolerance
+            do! Json.write "filterTexture" x.filterTexture
             do! Json.write "version" x.version
         }

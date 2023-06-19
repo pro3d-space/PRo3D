@@ -56,6 +56,7 @@ type MInnerConfig<'ma> =
         getArrowLength    : 'ma -> aval<float>
         getArrowThickness : 'ma -> aval<float>
         getNearDistance   : 'ma -> aval<float>
+        getHorizontalFieldOfView : 'ma -> aval<float>
     }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]

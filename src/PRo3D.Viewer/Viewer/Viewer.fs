@@ -122,6 +122,9 @@ module ViewerApp =
             getArrowLength    = fun (x:AdaptiveViewConfigModel) -> x.arrowLength.value
             getArrowThickness = fun (x:AdaptiveViewConfigModel) -> x.arrowThickness.value
             getNearDistance   = fun (x:AdaptiveViewConfigModel) -> x.nearPlane.value
+            getHorizontalFieldOfView = fun (x:AdaptiveViewConfigModel) -> 
+                                            x.frustumModel.frustum 
+                                            |> AVal.map Frustum.horizontalFieldOfViewInDegrees
         }
     
     let drawingConfig : DrawingApp.SmallConfig<ReferenceSystem> =
@@ -134,7 +137,8 @@ module ViewerApp =
     let mdrawingConfig : DrawingApp.MSmallConfig<AdaptiveViewConfigModel> =
         {            
             getNearPlane        = fun x -> x.nearPlane.value
-            getHfov             = fun (x:AdaptiveViewConfigModel) -> ((AVal.init 60.0) :> aval<float>)
+            getHfov             = fun (x:AdaptiveViewConfigModel) -> x.frustumModel.frustum 
+                                                                     |> AVal.map Frustum.horizontalFieldOfViewInDegrees //((AVal.init 60.0) :> aval<float>)
             getArrowThickness   = fun (x:AdaptiveViewConfigModel) -> x.arrowThickness.value
             getArrowLength      = fun (x:AdaptiveViewConfigModel) -> x.arrowLength.value
             getDnsPlaneSize     = fun (x:AdaptiveViewConfigModel) -> x.dnsPlaneSize.value

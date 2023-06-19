@@ -564,11 +564,10 @@ module ViewerUtils =
             |> Sg.compile runtime depthsignature
             |> RenderTask.renderToDepth resolution 
         
-    let frustum (m:AdaptiveModel) =
-        let near = m.scene.config.nearPlane.value
-        let far = m.scene.config.farPlane.value
-        (Navigation.UI.frustum near far)
-
+    //let frustum (m:AdaptiveModel) =
+    //    let near = m.scene.config.nearPlane.value
+    //    let far = m.scene.config.farPlane.value
+    //    (Navigation.UI.frustum near far)
 
     module Shader =
 

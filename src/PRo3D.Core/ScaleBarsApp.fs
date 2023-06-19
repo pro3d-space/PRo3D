@@ -565,7 +565,8 @@ module ScaleBarsApp =
         let viewSingleText
             (scaleBar   : AdaptiveScaleBar) 
             (view       : aval<CameraView>)
-            (near       : aval<float>) =
+            (near       : aval<float>)
+            (hfov       : aval<float>) =
 
             let labelPosition =
                 adaptive {
@@ -588,7 +589,7 @@ module ScaleBarsApp =
             Sg.text 
                 view 
                 near 
-                ~~60.0 
+                hfov //~~60.0 // RNO hfov was hardcoded here!
                 labelPosition 
                 (labelPosition |> AVal.map Trafo3d.Translation) 
                 scaleBar.textsize.value 
@@ -604,13 +605,11 @@ module ScaleBarsApp =
             let near = minnerConfig.getNearDistance mbigConfig
 
             let scaleBars = scaleBarsModel.scaleBars
+            let hfov = minnerConfig.getHorizontalFieldOfView mbigConfig
             
             scaleBars 
             |> AMap.map( fun id sb ->
-                viewSingleText
-                    sb
-                    view
-                    near                    
+                viewSingleText sb view near hfov
             )
             |> AMap.toASet 
             |> ASet.map snd 
