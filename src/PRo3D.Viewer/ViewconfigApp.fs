@@ -39,7 +39,7 @@ module ConfigProperties =
         | SetFarPlane s ->
             { model with farPlane = Numeric.update model.farPlane s }
         | SetNavigationSensitivity s ->
-            Log.warn "sense %A" s
+            // Log.warn "sense %A" s //debug
             { model with navigationSensitivity = Numeric.update model.navigationSensitivity s }
         | SetArrowLength al ->
             { model with arrowLength = Numeric.update model.arrowLength al }
