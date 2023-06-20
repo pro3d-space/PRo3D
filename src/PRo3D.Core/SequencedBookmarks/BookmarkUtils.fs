@@ -15,11 +15,16 @@ open System.IO
 open PRo3D.Base
 open PRo3D.Core.SequencedBookmarks
 open Chiron
-
+open Aardvark.UI.Anewmation
 open Aether
 open Aether.Operators
 
 module BookmarkUtils =
+    /// Links the animation to a field in the model by registering
+    /// a callback that uses the given lens to modify its value as the animation progresses.
+    let linkPrism (lens : Prism<'Model, 'Value>) (animation : IAnimation<'Model, 'Value>) =
+        animation |> AnimationCallbackExtensions.Animation.onProgress (fun _ -> Optic.set lens)
+
 
     /// tries to find a bookmark and also tries to
     /// load it if it is not loaded

@@ -121,6 +121,12 @@ module ViewerLenses =
                 | Some t -> t
                 | None -> m.scene.traverses
 
+            let frustum =
+                FrustumUtils.calculateFrustum
+                    state.stateConfig.frustumModel.focal.value
+                    state.stateConfig.nearPlane.value 
+                    state.stateConfig.farPlane.value
+
             {m with
                 drawing = {m.drawing with annotations = state.stateAnnoatations}
                 scene   = 
@@ -133,14 +139,12 @@ module ViewerLenses =
                         referenceSystem         = state.stateReferenceSystem
                         traverses               = traverses
                     }
+                frustum = frustum
             }
         )
 
     let _savedTimeSteps =
         Model.scene_ >-> Scene.sequencedBookmarks_ >-> SequencedBookmarks.savedTimeSteps_  
-
-    let _lastSavedBookmark =
-        Model.scene_ >-> Scene.sequencedBookmarks_ >-> SequencedBookmarks.lastSavedBookmark_  
 
     let _selectedBookmark =
        Model.scene_ >-> Scene.sequencedBookmarks_ >-> SequencedBookmarks.selectedBookmark_  
@@ -167,7 +171,6 @@ module ViewerLenses =
             let update (sb : SequencedBookmarkModel) = 
                 // update camera to bookmark's camera
                 let m = Optic.set _view sb.cameraView m
-                let lastBookmark = Optic.get _lastSavedBookmark m
 
                 // update the scene state if the bookmark contains one
                 let inline updateSceneState sb m =
@@ -175,22 +178,7 @@ module ViewerLenses =
                     | Some state ->
                         Optic.set _sceneState state m
                     | None -> m
-
-                // check whether animation is being recorded, and whether this frame constitutes a change to a new bookmark
-                match lastBookmark with
-                | Some key when key = sb.key ->
-                    // not recording, same bookmark
-                    m // nothing to do except update the view which we did above
-                | Some key when key <> sb.key ->
-                    // new bookmark, so we need to update the scene state
-                    updateSceneState sb m
-                    |> Optic.set _lastSavedBookmark (Some sb.key)
-                | None ->
-                    updateSceneState sb m
-                    |> Optic.set _lastSavedBookmark (Some sb.key)
-                | _ -> 
-                    Log.line "[ViewerLenses] Impossible case."
-                    m                
+                updateSceneState sb m            
             match sb with
             | SequencedBookmark.LoadedBookmark loaded ->
                 update loaded

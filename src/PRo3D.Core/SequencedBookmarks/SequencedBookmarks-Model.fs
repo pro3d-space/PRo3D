@@ -88,6 +88,20 @@ type SceneState =
         stateReferenceSystem  : ReferenceSystem  
         stateTraverses        : option<TraverseModel>
     } with
+    static member stateConfig_ =
+        (
+            (fun (self : SceneState) -> self.stateConfig), 
+            (fun (value) (self : SceneState) -> { self with stateConfig = value })
+        )
+    static member frustum_ =
+        SceneState.stateConfig_
+            >-> ViewConfigModel.frustumModel_ 
+            >-> FrustumModel.frustum_ 
+    static member focalLength_ =
+        SceneState.stateConfig_
+            >-> ViewConfigModel.frustumModel_ 
+            >-> FrustumModel.focal_ 
+            >-> NumericInput.value_
     static member FromJson( _ : SceneState) =
         json {
             let isValid = true
@@ -200,6 +214,24 @@ type SequencedBookmarkModel = {
     delay               : NumericInput
     duration            : NumericInput
 } with 
+    static member _sceneState =
+        (
+            (fun (self : SequencedBookmarkModel) -> self.sceneState), 
+            (fun (value) (self : SequencedBookmarkModel) -> { self with sceneState = Some value })
+        )
+    static member _frustum =
+        SequencedBookmarkModel._sceneState >?> SceneState.frustum_
+    static member _focalLength =
+        SequencedBookmarkModel._sceneState >?> SceneState.focalLength_
+    static member _stateConfig =
+        SequencedBookmarkModel._sceneState >?> SceneState.stateConfig_
+    static member _bookmark =
+        (
+            (fun (self : SequencedBookmarkModel) -> self.bookmark), 
+            (fun (value) (self : SequencedBookmarkModel) -> { self with bookmark = value})
+        )
+    static member _cameraView =
+        SequencedBookmarkModel._bookmark >-> Bookmark.cameraView_
     member this.key =
         this.bookmark.key
     member this.cameraView =
@@ -220,6 +252,7 @@ type SequencedBookmarkModel = {
 
     member this.filename =
         sprintf "%s_%s.pro3d.sbm" "SBookmark" (this.key |> string)
+
 
 
 module SequencedBookmarkDefaults =

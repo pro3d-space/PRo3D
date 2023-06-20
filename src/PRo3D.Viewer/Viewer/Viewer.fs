@@ -716,7 +716,7 @@ module ViewerApp =
                     { m with frustum = frustumModel.oldFrustum}
             | FrustumProperties.Action.UpdateFocal f ->
                 if frustumModel.toggleFocal then
-                    let frustum' = FrustumProperties.updateFrustum frustumModel.focal.value m.frustum.near m.frustum.far 
+                    let frustum' = FrustumUtils.calculateFrustum frustumModel.focal.value m.frustum.near m.frustum.far 
                     let m = Optic.set _frustumModel {frustumModel with frustum = frustum'} m
                     { m with frustum = frustum'}
                 else

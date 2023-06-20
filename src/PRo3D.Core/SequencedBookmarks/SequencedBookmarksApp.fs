@@ -201,7 +201,7 @@ module SequencedBookmarksApp =
                     let m = selectSBookmark m firstBookmark
                     match m.animationSettings.useGlobalAnimation with
                     | true ->
-                        smoothPathAllBookmarks m lenses outerModel
+                        pathWithPausing m lenses outerModel//smoothPathAllBookmarks m lenses outerModel //does not work with focal length
                     | false ->
                         pathWithPausing m lenses outerModel
                 | None ->
