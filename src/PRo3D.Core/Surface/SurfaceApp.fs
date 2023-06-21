@@ -45,6 +45,7 @@ type SurfaceAppAction =
 | PlaceSurface              of V3d
 | ScalarsColorLegendMessage of FalseColorLegendApp.Action
 | ColorCorrectionMessage    of ColorCorrectionProperties.Action
+| RadiometryMessage         of RadiometryProperties.Action
 | SetHomePosition           
 | TranslationMessage        of TransformationApp.Action
 | SetPreTrafo               of string
@@ -85,6 +86,7 @@ module SurfaceUtils =
             colorCorrection = Init.initColorCorrection
             homePosition    = None
             transformation  = Init.transformations
+            radiometry      = Init.initRadiometry
         }       
    
 
@@ -946,6 +948,15 @@ module SurfaceApp =
                     model |> SurfaceModel.updateSingleSurface s'                        
                 | None -> model
             m
+        | RadiometryMessage msg ->       
+            let m = 
+                match model.surfaces.singleSelectLeaf with
+                | Some s -> 
+                    let surface = model.surfaces.flat |> HashMap.find s |> Leaf.toSurface
+                    let s' = { surface with radiometry = (RadiometryProperties.update surface.radiometry msg) }
+                    model |> SurfaceModel.updateSingleSurface s'                        
+                | None -> model
+            m
         | SetPreTrafo str -> 
             //let m = 
             //    match model.surfaces.singleSelectLeaf, str.Length > 0 with
@@ -1384,7 +1395,25 @@ module SurfaceApp =
                 else
                   return empty
               | None -> return empty
-        }                          
+        } 
+        
+    let viewRadiometryTools (model:AdaptiveSurfaceModel) =
+        adaptive {
+            let! guid = model.surfaces.singleSelectLeaf
+            let empty = div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map RadiometryMessage 
+            
+            match guid with
+                | Some i -> 
+                  let! exists = (model.surfaces.flat |> AMap.keys) |> ASet.contains i
+                  if exists then
+                    let leaf = model.surfaces.flat |> AMap.find i // TODO to: common - make a map here!
+                    let! surf = leaf 
+                    let radiometry = match surf with | AdaptiveSurfaces s -> s.radiometry | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
+                    return RadiometryProperties.view radiometry |> UI.map RadiometryMessage
+                  else 
+                    return empty
+                | None -> return empty 
+        }            
 
     let viewColorCorrectionTools (paletteFile : string) (model:AdaptiveSurfaceModel) =
         adaptive {
@@ -1503,7 +1532,14 @@ module SurfaceApp =
                 
             yield GuiEx.accordion "Color Adaptation" "file image outline" false [
                 Incremental.div AttributeMap.empty (AList.ofAValSingle(viewColorCorrectionTools colorPaletteStore model))
+                Incremental.div AttributeMap.empty (AList.ofAValSingle(viewRadiometryTools model))
             ] 
+
+            //yield GuiEx.accordion "Radiometry" "file image outline" false [
+            //    Incremental.div AttributeMap.empty (AList.ofAValSingle(viewRadiometryTools model))
+            //    Incremental.div AttributeMap.empty (AList.ofAValSingle(viewRadiometryTools model))
+            //] 
+            
 
             yield GuiEx.accordion "Scalars ColorLegend" "paint brush" true [
                 Incremental.div AttributeMap.empty (AList.ofAValSingle(viewColorLegendTools colorPaletteStore model))

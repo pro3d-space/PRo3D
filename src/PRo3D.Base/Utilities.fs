@@ -560,6 +560,22 @@ module Shader =
             |> mapGamma
         }
 
+    let mapRadiometry (v : Effects.Vertex) =
+        fragment { 
+            if (uniform?useRadiometry) then
+                let abR : V3d =  uniform?abR
+                let abG : V3d =  uniform?abG
+                let abB : V3d =  uniform?abB
+                let nc = V4d(v.c.X*255.0, v.c.Y*255.0, v.c.Z*255.0, 255.0)
+        
+                let red    = (myTrunc (abR.X + ((nc.X * (abR.Y-abR.X)) / 255.0))) / 255.0
+                let green  = (myTrunc (abG.X + ((nc.Y * (abG.Y-abG.X)) / 255.0))) / 255.0
+                let blue   = (myTrunc (abB.X + ((nc.Z * (abB.Y-abB.X)) / 255.0))) / 255.0
+                return V4d(red, green, blue, 1.0)
+            else
+                return v.c
+        }
+
     let private colormap =
         sampler2d {
             texture uniform?ColorMapTexture
