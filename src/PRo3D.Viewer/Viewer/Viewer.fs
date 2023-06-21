@@ -449,13 +449,13 @@ module ViewerApp =
             { m with animations = a } |> Optic.set _view a.cam
         | SetCamera cv,_,false -> Optic.set _view cv m
         | SetCameraAndFrustum (cv, hfov, _),_,false -> 
-            Log.line "[Viewer] SetCameraAndFrustum not implemented!"
+            Log.warn "[Viewer] SetCameraAndFrustum not implemented!"
             m
         | SetCameraAndFrustum2 (cv,frustum),_,false ->
             let m = Optic.set _view cv m
             { m with frustum = frustum }
         | SetFrustum frustum,_,_ -> 
-            Log.line "[Viewer] Setting Frustum"
+            Log.line "[Viewer] Setting Frustum %s" (string frustum)
             { m with frustum = frustum }
         | AnnotationGroupsMessageViewer msg,_,_ ->
             let ag = m.drawing.annotations 
@@ -721,6 +721,8 @@ module ViewerApp =
                     { m with frustum = frustum'}
                 else
                     Optic.set _frustumModel frustumModel m
+            | _ -> 
+                Optic.set _frustumModel frustumModel m
         | ImportSurface sl,_,_ ->                 
             match sl with
             | [] -> m

@@ -95,6 +95,16 @@ module SnapshotAnimation =
             renderMask  = renderMask
         }
 
+    let lerpFrames (fromValue : float) (toValue : float) (nrOfFrames : int) =
+        let delta = 
+            [0..nrOfFrames - 1]
+                |> List.map (fun frameIndex -> float frameIndex / float nrOfFrames)
+
+        let focals =
+            delta
+            |> List.map (fun delta -> lerp fromValue toValue delta)
+        focals 
+
     let lerpCamera (fromC : CameraView) (toC : CameraView)
                    (nrOfFrames : int) =
         let slerp (src : Rot3d) (dst : Rot3d) (t : float) =
@@ -132,6 +142,13 @@ module SnapshotAnimation =
             content  = AnimationTimeStepContent.Camera view
         }
 
+    let newConfigStep filename view frustum =
+        {
+            filename = filename
+            content  = AnimationTimeStepContent.Configuration (view, frustum)
+
+        }
+
     let timeStepsFromBookmarks (bm          : SequencedBookmarks) 
                                (fps         : int)=
         let lerpit ((fromBm : Guid), (toBm : Guid)) =
@@ -141,20 +158,45 @@ module SnapshotAnimation =
             | Some fromBm, Some toBm ->
                 let seconds = toBm.duration.value
                 let nrOfFrames = seconds * (float fps)
-                toBm, lerpCamera fromBm.cameraView toBm.cameraView (int nrOfFrames)
+                let lerpedCamera = lerpCamera fromBm.cameraView toBm.cameraView (int nrOfFrames)
+                let lerpedFocal =
+                    match fromBm.sceneState, toBm.sceneState with
+                    | Some fromState, Some toState ->
+                        let lerped = 
+                            lerpFrames fromState.stateConfig.frustumModel.focal.value 
+                                            toState.stateConfig.frustumModel.focal.value
+                                            (nrOfFrames |> round |> int)
+                        let lerpedFrustra = 
+                            lerped 
+                            |> List.map (fun focal ->
+                                FrustumUtils.calculateFrustum
+                                    focal
+                                    toState.stateConfig.nearPlane.value
+                                    toState.stateConfig.farPlane.value)
+                        lerpedFrustra
+                    | _ ->
+                        []
+                toBm, lerpedCamera , lerpedFocal
             | _,_ -> 
                 failwith "[Sequenced Bookmarks] A bookmark that is in order list was not found in the hashmap."
 
-        let toSteps fps (bm : SequencedBookmarkModel, cameras : list<CameraView>) =
+        let toSteps fps (bm : SequencedBookmarkModel, cameras : list<CameraView>, frustra : list<Frustum>) =
             seq {
-                for c in cameras do
-                    yield newCamStep bm.name c
+                match frustra with
+                | [] ->
+                    for c in cameras do
+                        yield newCamStep bm.name c    
+                | _ -> 
+                    for (c, f) in List.zip cameras frustra do
+                        yield newConfigStep bm.name bm.cameraView f
+                    
                 yield newBmStep bm.name bm
                 if bm.delay.value > 0.0 then
                     let seconds = bm.delay.value
                     let nrOfFrames = int (seconds * fps)
                     for nr in [0..nrOfFrames] do
                         yield newCamStep bm.name bm.cameraView
+
             } |> List.ofSeq
 
         let timeStepsNoNumbers = 
@@ -217,17 +259,25 @@ module SnapshotAnimation =
                 farplane    = farPlane
             }
 
-        let frustum = 
+        let frustum = //TODO RNO refactor frustum calculation and setting frustum for btach rendering
             let bookmarks = BookmarkUtils.orderedLoadedBookmarks bm
             // currently using frustum parameters of first bookmark
             // could be extended to allow changing frustum parameters for each bookmark
             match List.tryHead bookmarks with 
             | Some first ->
                 let frustumParas = first.frustumParameters
-                match frustumParas with
-                | Some frustumParas ->
+                match frustumParas, first.sceneState with
+                | Some frustumParas, _ ->
                     frustumParas
-                | None -> defaultFrustum ()
+                | None, Some state ->
+                    let f = 
+                        FrustumUtils.calculateFrustum 
+                            state.stateConfig.frustumModel.focal.value
+                            nearPlane
+                            farPlane
+                    {defaultFrustum () with fieldOfView = Frustum.horizontalFieldOfViewInDegrees f}
+                | None, None ->
+                    defaultFrustum ()
             | None -> defaultFrustum ()
 
         if bm.orderList.Length > 0 then                  

@@ -572,14 +572,14 @@ module SequencedBookmarksApp =
                                               button [clazz "ui icon button"; onMouseClick (fun _ -> StepForward )] [ //
                                                   i [clazz "step forward icon"] [] ] 
                                           ] ]
-                  Html.row "Global Animation:" 
-                    [GuiEx.iconCheckBox model.animationSettings.useGlobalAnimation ToggleGlobalAnimation
-                        |> UI.map AnimationSettingsMessage;
-                                    i [clazz "info icon"] [] 
-                                        |> UI.wrapToolTip DataPosition.Bottom "Use a smooth path past all bookmarks, duration and delay cannot be set for individual bookmarks if this is selected."
-                    ]
-                  Html.row "Duration:" [Incremental.div AttributeMap.empty duration]
-                  Html.row "Smoothing Factor" [Incremental.div AttributeMap.empty smoothingFactor]
+                  //Html.row "Global Animation:" // RNO deactivated because it does not work with focal length animations
+                  //  [GuiEx.iconCheckBox model.animationSettings.useGlobalAnimation ToggleGlobalAnimation
+                  //      |> UI.map AnimationSettingsMessage;
+                  //                  i [clazz "info icon"] [] 
+                  //                      |> UI.wrapToolTip DataPosition.Bottom "Use a smooth path past all bookmarks, duration and delay cannot be set for individual bookmarks if this is selected."
+                  //  ]
+                  //Html.row "Duration:" [Incremental.div AttributeMap.empty duration]
+                  //Html.row "Smoothing Factor" [Incremental.div AttributeMap.empty smoothingFactor]
 
                   Html.row "Loop:"   [Html.SemUi.dropDown model.animationSettings.loopMode SetLoopMode
                                         |> UI.map AnimationSettingsMessage ]

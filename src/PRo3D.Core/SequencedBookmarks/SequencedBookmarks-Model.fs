@@ -550,8 +550,10 @@ type AnimationSettings = {
         }
 
 type AnimationTimeStepContent =
-    | Bookmark of SequencedBookmarkModel
-    | Camera   of Aardvark.Rendering.CameraView
+    | Bookmark      of SequencedBookmarkModel
+    | Camera        of Aardvark.Rendering.CameraView
+    | Configuration of (Aardvark.Rendering.CameraView 
+                        * Aardvark.Rendering.Frustum)
 
 type AnimationTimeStep =
     {

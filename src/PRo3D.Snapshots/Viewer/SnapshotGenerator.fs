@@ -13,6 +13,7 @@ open Aardvark.Rendering.Text
 open System.Collections.Concurrent
 open System.Runtime.Serialization
 open PRo3D
+open PRo3D.Base
 open PRo3D.Core.Surface
 open PRo3D.Viewer
 open PRo3D.OrientationCube
@@ -116,6 +117,17 @@ module SnapshotGenerator =
                 actions
                 |> List.map ViewerMessage
                 |> List.toSeq    
+            | BookmarkTransformation.Configuration config ->
+                let actions = 
+                    [
+                        ViewerAction.SetCamera config.camera.view
+                        ViewerAction.FrustumMessage (FrustumProperties.Action.SetFrustum config.frustum)
+                        ViewerAction.SetFrustum config.frustum
+
+                    ]
+                actions
+                |> List.map ViewerMessage
+                |> List.toSeq    
             | BookmarkTransformation.Bookmark bookmark ->
                 Log.line "[SnapshotGenerator] Getting bookmark actions for %s" filename
                 let actions = 
@@ -126,10 +138,21 @@ module SnapshotGenerator =
                         | None -> []
 
                     let frustumAction =
-                        match bookmark.frustumParameters with
-                        | Some fp -> 
+                        match bookmark.frustumParameters, bookmark.sceneState with
+                        | Some fp, None -> 
                             [ViewerAction.SetFrustum fp.perspective]
-                        | None ->
+                        | Some fp, Some state ->
+                            let aspectRatio = (float fp.resolution.X) / (float fp.resolution.Y)
+                            let frustum = 
+                                FrustumUtils.calculateFrustum' 
+                                    state.stateConfig.frustumModel.focal.value
+                                    fp.nearplane
+                                    fp.farplane
+                                    aspectRatio
+                            [ViewerAction.SetFrustum frustum]
+                        | None, Some state ->
+                            [ViewerAction.SetFrustum state.stateConfig.frustumModel.frustum]
+                        | None, None ->
                             []
 
                     let writeMetadataAction =

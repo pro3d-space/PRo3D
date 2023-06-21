@@ -192,11 +192,12 @@ module SnapshotSg =
     // duplicate code, see Viewer.fs
     // could be resolved by dividing up code in Viewer.fs
     // duplicated to minimise merge troubles, but should be changed once merge is done // TODO RNO
-    let viewRenderView (runtime : IRuntime) (id : string) (viewportSize : aval<V2i>) (m: AdaptiveModel) = 
+    let viewRenderView (runtime : IRuntime) (id : string) 
+                       (viewportSize : aval<V2i>) (m: AdaptiveModel) = 
         //PRo3D.Core.Drawing.DrawingApp.usePackedAnnotationRendering <- false  // not the problem
         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) 
                                 m.overlayFrustum m.frustum // use overlay frustum if Some()
-        let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
+        //let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
 
         let annotations, discs = 
             DrawingApp.view 
@@ -225,7 +226,7 @@ module SnapshotSg =
             Sg.ofList[ds;annos;]
 
         let overlayed =
-            let near = m.scene.config.nearPlane.value
+            //let near = m.scene.config.nearPlane.value
 
             let refSystem =
                 Sg.view
@@ -266,7 +267,7 @@ module SnapshotSg =
             let heightValidation =
                 HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation            
             
-            let orientationCube = PRo3D.OrientationCube.Sg.view m.navigation.camera.view m.scene.config m.scene.referenceSystem
+            //let orientationCube = PRo3D.OrientationCube.Sg.view m.navigation.camera.view m.scene.config m.scene.referenceSystem
 
             let annotationTexts =
                 DrawingApp.viewTextLabels 

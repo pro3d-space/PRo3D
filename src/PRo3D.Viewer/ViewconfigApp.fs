@@ -116,6 +116,7 @@ module FrustumProperties =
     type Action =
          | UpdateFocal           of Numeric.Action
          | ToggleUseFocal
+         | SetFrustum of Frustum
 
     let update (model : FrustumModel) (act : Action) =
         match act with
@@ -123,7 +124,9 @@ module FrustumProperties =
             { model with toggleFocal = not model.toggleFocal}
         | UpdateFocal f ->
             { model with focal = Numeric.update model.focal f }
-        
+        | SetFrustum f -> // RNO would be cleaner to set individual values as well, this might lead to values and frustum being inconsistent
+            let m = {model with frustum    = f}
+            m
 
     let view (model : AdaptiveFrustumModel) =    
         require GuiEx.semui (
