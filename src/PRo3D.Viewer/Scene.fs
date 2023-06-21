@@ -144,6 +144,7 @@ module SceneLoader =
             |> addLegacyTrafos
             |> addSurfaceAttributes
             |> IndexList.map( fun x -> { x with colorCorrection = Init.initColorCorrection}) 
+            |> IndexList.map( fun x -> { x with radiometry = Init.initRadiometry})
               
         let existingSurfaces = 
             model.scene.surfacesModel.surfaces.flat

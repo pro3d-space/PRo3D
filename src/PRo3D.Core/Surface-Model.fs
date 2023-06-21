@@ -143,6 +143,70 @@ type ColorCorrection with
              do! Json.write "useGrayscale" x.useGrayscale 
         }
 
+[<ModelType>]
+type Radiometry = {
+    version       : int
+    useRadiometry : bool
+
+    minR          : NumericInput
+    maxR          : NumericInput
+
+    minG          : NumericInput
+    maxG          : NumericInput
+
+    minB          : NumericInput
+    maxB          : NumericInput
+}
+
+module Radiometry =
+    let current = 0
+    let read0 =
+        json {  
+            let! useRadiometry  = Json.read "useRadiometry" 
+            let! minR   = Json.readWith Ext.fromJson<NumericInput,Ext> "minR" 
+            let! maxR   = Json.readWith Ext.fromJson<NumericInput,Ext> "maxR"
+            let! minG   = Json.readWith Ext.fromJson<NumericInput,Ext> "minG" 
+            let! maxG   = Json.readWith Ext.fromJson<NumericInput,Ext> "maxG"
+            let! minB   = Json.readWith Ext.fromJson<NumericInput,Ext> "minB" 
+            let! maxB   = Json.readWith Ext.fromJson<NumericInput,Ext> "maxB"
+            return {
+                version      = current    
+                useRadiometry  = useRadiometry 
+                
+                minR = minR         
+                maxR = maxR         
+                
+                minG = minG         
+                maxG = maxG        
+                
+                minB = minB        
+                maxB = maxB 
+            }
+        }
+
+type Radiometry with 
+    static member FromJson( _ : Radiometry) =
+        json {
+            let! v = Json.read "version"
+            match v with
+            | 0 -> return! Radiometry.read0
+            | _ -> 
+                return! v 
+                |> sprintf "don't know version %A of Radiometry" 
+                |> Json.error        
+        }
+    static member ToJson (x : Radiometry) =
+        json {
+             do! Json.write "version" x.version
+             do! Json.write "useRadiometry"  x.useRadiometry  
+             do! Json.writeWith Ext.toJson<NumericInput,Ext> "minR" x.minR
+             do! Json.writeWith Ext.toJson<NumericInput,Ext> "maxR" x.maxR  
+             do! Json.writeWith Ext.toJson<NumericInput,Ext> "minG" x.minG
+             do! Json.writeWith Ext.toJson<NumericInput,Ext> "maxG" x.maxG  
+             do! Json.writeWith Ext.toJson<NumericInput,Ext> "minB" x.minB
+             do! Json.writeWith Ext.toJson<NumericInput,Ext> "maxB" x.maxB  
+        }
+
 type TextureLayer = {
     version : int
     label   : string
@@ -372,197 +436,6 @@ type MeshLoaderType =
     | Ply       = 4
 
 
-[<ModelType>]
-type Surface = {
-    
-    version         : int
-
-    guid            : System.Guid
-    
-    name            : string
-    importPath      : string
-    opcNames        : list<string>
-    opcPaths        : list<string>    
-    relativePaths   : bool
-                    
-    fillMode        : FillMode
-    cullMode        : CullMode
-    isVisible       : bool
-    isActive        : bool
-    quality         : NumericInput
-    priority        : NumericInput
-                    
-    triangleSize    : NumericInput
-    scaling         : NumericInput
-                    
-    preTransform    : Trafo3d
-    
-    scalarLayers    : HashMap<int, ScalarLayer> 
-    selectedScalar  : option<ScalarLayer>
-
-    textureLayers   : IndexList<TextureLayer>
-    selectedTexture : option<TextureLayer>
-
-    [<NonAdaptiveAttribute>]
-    surfaceType     : SurfaceType     
-    preferredLoader : MeshLoaderType
-
-    colorCorrection : ColorCorrection
-    homePosition    : Option<CameraView>
-    transformation  : Transformations
-}
-
-module Surface =
-    let current = 0    
-
-    let read0 =
-        json {
-            let! guid            = Json.read "guid"
-            let! name            = Json.read "name"
-            let! importPath      = Json.read "importPath"  
-            let! opcNames        = Json.read "opcNames"       
-            let! opcPaths        = Json.read "opcPaths"       
-            let! relativePaths   = Json.read "relativePaths"
-            let! fillMode        = Json.read "fillMode"       
-            let! cullMode        = Json.read "cullMode"       
-            let! isVisible       = Json.read "isVisible"      
-            let! isActive        = Json.read "isActive"       
-            let! quality         = Json.readWith Ext.fromJson<NumericInput,Ext> "quality"
-            let! priority        = Json.readWith Ext.fromJson<NumericInput,Ext> "priority"
-            let! triangleSize    = Json.readWith Ext.fromJson<NumericInput,Ext> "triangleSize"   
-            let! scaling         = Json.readWith Ext.fromJson<NumericInput,Ext> "scaling"
-            let! preTransform    = Json.read "preTransform"
-            let! scalarLayers    = Json.read "scalarLayers"  
-            let! selectedScalar  = Json.read "selectedScalar"
-            let! textureLayers   = Json.read "textureLayers"
-            let! selectedTexture = Json.read "selectedTexture"
-            let! surfaceType     = Json.read "surfaceType"    
-            let! colorCorrection = Json.read "colorCorrection"
-            let! transformation  = Json.read "transformation"
-
-            let! preferredLoader = Json.readOrDefault "preferredMeshLoader" 0
-
-            let! (cameraView : list<string>) = Json.read "homePosition"
-            let cameraView = cameraView |> List.map V3d.Parse
-            let view = 
-                match cameraView.Length with
-                | 5 -> 
-                    CameraView(
-                        cameraView.[0],
-                        cameraView.[1],
-                        cameraView.[2],
-                        cameraView.[3], 
-                        cameraView.[4]
-                    ) |> Some
-                | _ -> None
-
-            let scalarLayers  = scalarLayers  |> HashMap.ofList
-            let textureLayers = textureLayers |> IndexList.ofList
-
-            return 
-                {
-                    version         = current
-                    guid            = guid |> Guid
-                    name            = name
-                    importPath      = importPath
-                    opcNames        = opcNames
-                    opcPaths        = opcPaths
-                    relativePaths   = relativePaths
-                    fillMode        = fillMode |> enum<FillMode>
-                    cullMode        = cullMode |> enum<CullMode>
-                    isVisible       = isVisible
-                    isActive        = isActive
-                    quality         = quality
-                    priority        = priority
-                    triangleSize    = triangleSize
-                    scaling         = scaling
-                    preTransform    = preTransform |> Trafo3d.Parse
-                    scalarLayers    = scalarLayers
-                    selectedScalar  = selectedScalar
-                    textureLayers   = textureLayers
-                    selectedTexture = selectedTexture
-                    surfaceType     = surfaceType     |> enum<SurfaceType>
-                    preferredLoader = preferredLoader |> enum<MeshLoaderType>
-                    colorCorrection = colorCorrection
-                    homePosition    = view
-                    transformation  = transformation
-                }
-        }
-     
-type Surface with
-    static member FromJson( _ : Surface) =
-        json {
-            let! v = Json.read "version"
-            match v with 
-            | 0 -> return! Surface.read0
-            | _ -> 
-                return! v 
-                |> sprintf "don't know version %A  of Surface" 
-                |> Json.error         
-        }
-
-    static member ToJson (x : Surface) =
-        json {
-            do! Json.write "version" x.version
-            do! Json.write "guid" x.guid
-            do! Json.write "name" x.name
-            do! Json.write "importPath" x.importPath
-            do! Json.write "opcNames" x.opcNames
-            do! Json.write "opcPaths" x.opcPaths
-            do! Json.write "relativePaths" x.relativePaths
-            do! Json.write "fillMode" (x.fillMode |> int)
-            do! Json.write "cullMode" (x.cullMode |> int)
-            do! Json.write "isVisible" x.isVisible
-            do! Json.write "isActive" x.isActive
-            do! Json.writeWith Ext.toJson<NumericInput,Ext> "quality" x.quality
-            do! Json.writeWith Ext.toJson<NumericInput,Ext> "priority" x.priority
-            do! Json.writeWith Ext.toJson<NumericInput,Ext> "triangleSize" x.triangleSize
-            do! Json.writeWith Ext.toJson<NumericInput,Ext> "scaling" x.scaling
-            do! Json.write "preTransform" (x.preTransform.ToString())
-            do! Json.write "scalarLayers" (x.scalarLayers |> HashMap.toList)
-            do! Json.write "selectedScalar" x.selectedScalar
-            do! Json.write "textureLayers" (x.textureLayers |> IndexList.toList)
-            do! Json.write "selectedTexture" x.selectedTexture
-            do! Json.write "surfaceType" (x.surfaceType |> int)
-            do! Json.write "colorCorrection" x.colorCorrection
-            do! Json.write "preferredMeshLoader" (x.preferredLoader |> int)
-
-            let home =
-                match x.homePosition with
-                | None -> []
-                | Some h -> 
-                    [
-                        h.Sky
-                        h.Location
-                        h.Forward 
-                        h.Up
-                        h.Right
-                    ] |> List.map(fun x -> x.ToString())
-
-            do! Json.write "homePosition" home
-            do! Json.write "transformation" x.transformation            
-        }
-
-type Picking =
-| PickMesh of ISg
-| KdTree   of HashMap<Box3d,KdTrees.Level0KdTree>
-| NoPicking
-
-[<ModelType>]
-type SgSurface = {    
-    [<NonAdaptive>]
-    surface     : Guid    
-    trafo       : Transformation
-    globalBB    : Box3d
-    sceneGraph  : ISg
-    picking     : Picking
-
-    [<NonAdaptive>]
-    isObj       : bool
-}
-
-
-
 module Init =
     open MBrace.FsPickler
     open MBrace.FsPickler.Combinators    
@@ -650,6 +523,65 @@ module Init =
         useGrayscale = false
     } 
 
+    let minR = {
+        value = 0.0
+        min =  0.00
+        max = 255.0
+        step = 1.0
+        format = "{0:0}"
+    }
+
+    let maxR = {
+        value = 255.0
+        min =  0.00
+        max = 255.0
+        step = 1.0
+        format = "{0:0}"
+    }
+
+    let minG = {
+        value = 0.0
+        min =  0.00
+        max = 255.0
+        step = 1.0
+        format = "{0:0}"
+    }
+
+    let maxG = {
+        value = 255.0
+        min =  0.00
+        max = 255.0
+        step = 1.0
+        format = "{0:0}"
+    }
+
+    let minB = {
+        value = 0.0
+        min =  0.00
+        max = 255.0
+        step = 1.0
+        format = "{0:0}"
+    }
+
+    let maxB = {
+        value = 255.0
+        min =  0.00
+        max = 255.0
+        step = 1.0
+        format = "{0:0}"
+    }
+
+    let initRadiometry = {
+        version      = Radiometry.current
+        useRadiometry = false
+        minR = minR
+        maxR = maxR
+        minG = minG
+        maxG = maxG
+        minB = minB
+        maxB = maxB
+        }
+
     let translationInput = {
         value   = 0.0
         min     = -10000000.0
@@ -683,3 +615,276 @@ module Init =
         usePivot             = false
     }
     
+
+[<ModelType>]
+type Surface = {
+    
+    version         : int
+
+    guid            : System.Guid
+    
+    name            : string
+    importPath      : string
+    opcNames        : list<string>
+    opcPaths        : list<string>    
+    relativePaths   : bool
+                    
+    fillMode        : FillMode
+    cullMode        : CullMode
+    isVisible       : bool
+    isActive        : bool
+    quality         : NumericInput
+    priority        : NumericInput
+                    
+    triangleSize    : NumericInput
+    scaling         : NumericInput
+                    
+    preTransform    : Trafo3d
+    
+    scalarLayers    : HashMap<int, ScalarLayer> 
+    selectedScalar  : option<ScalarLayer>
+
+    textureLayers   : IndexList<TextureLayer>
+    selectedTexture : option<TextureLayer>
+
+    [<NonAdaptiveAttribute>]
+    surfaceType     : SurfaceType     
+    preferredLoader : MeshLoaderType
+
+    colorCorrection : ColorCorrection
+    homePosition    : Option<CameraView>
+    transformation  : Transformations
+    radiometry      : Radiometry
+}
+
+module Surface =
+    let current = 1 //16.06.2023 Laura: radiometry   
+
+    let read0 =
+        json {
+            let! guid            = Json.read "guid"
+            let! name            = Json.read "name"
+            let! importPath      = Json.read "importPath"  
+            let! opcNames        = Json.read "opcNames"       
+            let! opcPaths        = Json.read "opcPaths"       
+            let! relativePaths   = Json.read "relativePaths"
+            let! fillMode        = Json.read "fillMode"       
+            let! cullMode        = Json.read "cullMode"       
+            let! isVisible       = Json.read "isVisible"      
+            let! isActive        = Json.read "isActive"       
+            let! quality         = Json.readWith Ext.fromJson<NumericInput,Ext> "quality"
+            let! priority        = Json.readWith Ext.fromJson<NumericInput,Ext> "priority"
+            let! triangleSize    = Json.readWith Ext.fromJson<NumericInput,Ext> "triangleSize"   
+            let! scaling         = Json.readWith Ext.fromJson<NumericInput,Ext> "scaling"
+            let! preTransform    = Json.read "preTransform"
+            let! scalarLayers    = Json.read "scalarLayers"  
+            let! selectedScalar  = Json.read "selectedScalar"
+            let! textureLayers   = Json.read "textureLayers"
+            let! selectedTexture = Json.read "selectedTexture"
+            let! surfaceType     = Json.read "surfaceType"    
+            let! colorCorrection = Json.read "colorCorrection"
+            let! transformation  = Json.read "transformation"
+
+            let! preferredLoader = Json.readOrDefault "preferredMeshLoader" 0
+
+            let! (cameraView : list<string>) = Json.read "homePosition"
+            let cameraView = cameraView |> List.map V3d.Parse
+            let view = 
+                match cameraView.Length with
+                | 5 -> 
+                    CameraView(
+                        cameraView.[0],
+                        cameraView.[1],
+                        cameraView.[2],
+                        cameraView.[3], 
+                        cameraView.[4]
+                    ) |> Some
+                | _ -> None
+
+            let scalarLayers  = scalarLayers  |> HashMap.ofList
+            let textureLayers = textureLayers |> IndexList.ofList
+
+            return 
+                {
+                    version         = current
+                    guid            = guid |> Guid
+                    name            = name
+                    importPath      = importPath
+                    opcNames        = opcNames
+                    opcPaths        = opcPaths
+                    relativePaths   = relativePaths
+                    fillMode        = fillMode |> enum<FillMode>
+                    cullMode        = cullMode |> enum<CullMode>
+                    isVisible       = isVisible
+                    isActive        = isActive
+                    quality         = quality
+                    priority        = priority
+                    triangleSize    = triangleSize
+                    scaling         = scaling
+                    preTransform    = preTransform |> Trafo3d.Parse
+                    scalarLayers    = scalarLayers
+                    selectedScalar  = selectedScalar
+                    textureLayers   = textureLayers
+                    selectedTexture = selectedTexture
+                    surfaceType     = surfaceType     |> enum<SurfaceType>
+                    preferredLoader = preferredLoader |> enum<MeshLoaderType>
+                    colorCorrection = colorCorrection
+                    homePosition    = view
+                    transformation  = transformation
+                    radiometry      = Init.initRadiometry
+                }
+        }
+
+    let read1 =
+        json {
+            let! guid            = Json.read "guid"
+            let! name            = Json.read "name"
+            let! importPath      = Json.read "importPath"  
+            let! opcNames        = Json.read "opcNames"       
+            let! opcPaths        = Json.read "opcPaths"       
+            let! relativePaths   = Json.read "relativePaths"
+            let! fillMode        = Json.read "fillMode"       
+            let! cullMode        = Json.read "cullMode"       
+            let! isVisible       = Json.read "isVisible"      
+            let! isActive        = Json.read "isActive"       
+            let! quality         = Json.readWith Ext.fromJson<NumericInput,Ext> "quality"
+            let! priority        = Json.readWith Ext.fromJson<NumericInput,Ext> "priority"
+            let! triangleSize    = Json.readWith Ext.fromJson<NumericInput,Ext> "triangleSize"   
+            let! scaling         = Json.readWith Ext.fromJson<NumericInput,Ext> "scaling"
+            let! preTransform    = Json.read "preTransform"
+            let! scalarLayers    = Json.read "scalarLayers"  
+            let! selectedScalar  = Json.read "selectedScalar"
+            let! textureLayers   = Json.read "textureLayers"
+            let! selectedTexture = Json.read "selectedTexture"
+            let! surfaceType     = Json.read "surfaceType"    
+            let! colorCorrection = Json.read "colorCorrection"
+            let! transformation  = Json.read "transformation"
+            let! radiometry      = Json.read "radiometry"
+
+            let! preferredLoader = Json.readOrDefault "preferredMeshLoader" 0
+
+            let! (cameraView : list<string>) = Json.read "homePosition"
+            let cameraView = cameraView |> List.map V3d.Parse
+            let view = 
+                match cameraView.Length with
+                | 5 -> 
+                    CameraView(
+                        cameraView.[0],
+                        cameraView.[1],
+                        cameraView.[2],
+                        cameraView.[3], 
+                        cameraView.[4]
+                    ) |> Some
+                | _ -> None
+
+            let scalarLayers  = scalarLayers  |> HashMap.ofList
+            let textureLayers = textureLayers |> IndexList.ofList
+
+            return 
+                {
+                    version         = current
+                    guid            = guid |> Guid
+                    name            = name
+                    importPath      = importPath
+                    opcNames        = opcNames
+                    opcPaths        = opcPaths
+                    relativePaths   = relativePaths
+                    fillMode        = fillMode |> enum<FillMode>
+                    cullMode        = cullMode |> enum<CullMode>
+                    isVisible       = isVisible
+                    isActive        = isActive
+                    quality         = quality
+                    priority        = priority
+                    triangleSize    = triangleSize
+                    scaling         = scaling
+                    preTransform    = preTransform |> Trafo3d.Parse
+                    scalarLayers    = scalarLayers
+                    selectedScalar  = selectedScalar
+                    textureLayers   = textureLayers
+                    selectedTexture = selectedTexture
+                    surfaceType     = surfaceType     |> enum<SurfaceType>
+                    preferredLoader = preferredLoader |> enum<MeshLoaderType>
+                    colorCorrection = colorCorrection
+                    homePosition    = view
+                    transformation  = transformation
+                    radiometry      = radiometry
+                }
+        }
+     
+type Surface with
+    static member FromJson( _ : Surface) =
+        json {
+            let! v = Json.read "version"
+            match v with 
+            | 0 -> return! Surface.read0
+            | 1 -> return! Surface.read1
+            | _ -> 
+                return! v 
+                |> sprintf "don't know version %A  of Surface" 
+                |> Json.error         
+        }
+
+    static member ToJson (x : Surface) =
+        json {
+            do! Json.write "version" x.version
+            do! Json.write "guid" x.guid
+            do! Json.write "name" x.name
+            do! Json.write "importPath" x.importPath
+            do! Json.write "opcNames" x.opcNames
+            do! Json.write "opcPaths" x.opcPaths
+            do! Json.write "relativePaths" x.relativePaths
+            do! Json.write "fillMode" (x.fillMode |> int)
+            do! Json.write "cullMode" (x.cullMode |> int)
+            do! Json.write "isVisible" x.isVisible
+            do! Json.write "isActive" x.isActive
+            do! Json.writeWith Ext.toJson<NumericInput,Ext> "quality" x.quality
+            do! Json.writeWith Ext.toJson<NumericInput,Ext> "priority" x.priority
+            do! Json.writeWith Ext.toJson<NumericInput,Ext> "triangleSize" x.triangleSize
+            do! Json.writeWith Ext.toJson<NumericInput,Ext> "scaling" x.scaling
+            do! Json.write "preTransform" (x.preTransform.ToString())
+            do! Json.write "scalarLayers" (x.scalarLayers |> HashMap.toList)
+            do! Json.write "selectedScalar" x.selectedScalar
+            do! Json.write "textureLayers" (x.textureLayers |> IndexList.toList)
+            do! Json.write "selectedTexture" x.selectedTexture
+            do! Json.write "surfaceType" (x.surfaceType |> int)
+            do! Json.write "colorCorrection" x.colorCorrection
+            do! Json.write "preferredMeshLoader" (x.preferredLoader |> int)
+            do! Json.write "radiometry" x.radiometry
+
+            let home =
+                match x.homePosition with
+                | None -> []
+                | Some h -> 
+                    [
+                        h.Sky
+                        h.Location
+                        h.Forward 
+                        h.Up
+                        h.Right
+                    ] |> List.map(fun x -> x.ToString())
+
+            do! Json.write "homePosition" home
+            do! Json.write "transformation" x.transformation            
+        }
+
+type Picking =
+| PickMesh of ISg
+| KdTree   of HashMap<Box3d,KdTrees.Level0KdTree>
+| NoPicking
+
+[<ModelType>]
+type SgSurface = {    
+    [<NonAdaptive>]
+    surface     : Guid    
+    trafo       : Transformation
+    globalBB    : Box3d
+    sceneGraph  : ISg
+    picking     : Picking
+
+    [<NonAdaptive>]
+    isObj       : bool
+}
+
+
+
+
