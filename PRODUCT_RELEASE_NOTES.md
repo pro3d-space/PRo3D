@@ -1,3 +1,7 @@
+## 4.12.0-prerelease7
+- #261 Zooming enhancements
+- #167 radiometry
+
 ## 4.12.0-prerelease6
 - show depth (+ gui and legend) in instrument view
 - #234, snapshots: --renderDepth writes a depth image as tiff
