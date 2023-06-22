@@ -46,7 +46,7 @@ open PRo3D.ViewerLenses
  
 open Aether
 open Aether.Operators
-
+open Chiron 
 open PRo3D.Core.Surface
 
 type UserFeedback<'a> = {
@@ -122,6 +122,9 @@ module ViewerApp =
             getArrowLength    = fun (x:AdaptiveViewConfigModel) -> x.arrowLength.value
             getArrowThickness = fun (x:AdaptiveViewConfigModel) -> x.arrowThickness.value
             getNearDistance   = fun (x:AdaptiveViewConfigModel) -> x.nearPlane.value
+            getHorizontalFieldOfView = fun (x:AdaptiveViewConfigModel) -> 
+                                            x.frustumModel.frustum 
+                                            |> AVal.map Frustum.horizontalFieldOfViewInDegrees
         }
     
     let drawingConfig : DrawingApp.SmallConfig<ReferenceSystem> =
@@ -134,7 +137,8 @@ module ViewerApp =
     let mdrawingConfig : DrawingApp.MSmallConfig<AdaptiveViewConfigModel> =
         {            
             getNearPlane        = fun x -> x.nearPlane.value
-            getHfov             = fun (x:AdaptiveViewConfigModel) -> ((AVal.init 60.0) :> aval<float>)
+            getHfov             = fun (x:AdaptiveViewConfigModel) -> x.frustumModel.frustum 
+                                                                     |> AVal.map Frustum.horizontalFieldOfViewInDegrees //((AVal.init 60.0) :> aval<float>)
             getArrowThickness   = fun (x:AdaptiveViewConfigModel) -> x.arrowThickness.value
             getArrowLength      = fun (x:AdaptiveViewConfigModel) -> x.arrowLength.value
             getDnsPlaneSize     = fun (x:AdaptiveViewConfigModel) -> x.dnsPlaneSize.value
@@ -445,13 +449,13 @@ module ViewerApp =
             { m with animations = a } |> Optic.set _view a.cam
         | SetCamera cv,_,false -> Optic.set _view cv m
         | SetCameraAndFrustum (cv, hfov, _),_,false -> 
-            Log.line "[Viewer] SetCameraAndFrustum not implemented!"
+            Log.warn "[Viewer] SetCameraAndFrustum not implemented!"
             m
         | SetCameraAndFrustum2 (cv,frustum),_,false ->
             let m = Optic.set _view cv m
             { m with frustum = frustum }
         | SetFrustum frustum,_,_ -> 
-            Log.line "[Viewer] Setting Frustum"
+            Log.line "[Viewer] Setting Frustum %s" (string frustum)
             { m with frustum = frustum }
         | AnnotationGroupsMessageViewer msg,_,_ ->
             let ag = m.drawing.annotations 
@@ -604,7 +608,6 @@ module ViewerApp =
                         bm
                         m.scene.cameraView 
                         (m.frustum |> Frustum.horizontalFieldOfViewInDegrees)
-                        //m.frustum
                         m.scene.config.nearPlane.value
                         m.scene.config.farPlane.value
                 SnapshotAnimation.writeToFile snapshotAnimation jsonPathName   
@@ -701,20 +704,25 @@ module ViewerApp =
                    
             { m with scene = { m.scene with sceneObjectsModel = sobjs}; animations = animation}
         | FrustumMessage msg,_,_ ->
-            let frustumModel = FrustumProperties.update m.frustumModel msg
+            let frustumModel = FrustumProperties.update m.scene.config.frustumModel msg
             match msg with
             | FrustumProperties.Action.ToggleUseFocal ->
                 if frustumModel.toggleFocal then
                     let fm = {frustumModel with oldFrustum = m.frustum}
-                    { m with frustum = frustumModel.frustum; frustumModel = fm}
+                    let m = Optic.set _frustumModel fm m
+                    { m with frustum = frustumModel.frustum}
                 else
-                    { m with frustum = frustumModel.oldFrustum; frustumModel = frustumModel }
+                    let m = Optic.set _frustumModel frustumModel m
+                    { m with frustum = frustumModel.oldFrustum}
             | FrustumProperties.Action.UpdateFocal f ->
                 if frustumModel.toggleFocal then
-                    let frustum' = FrustumProperties.updateFrustum frustumModel.focal.value m.frustum.near m.frustum.far 
-                    { m with frustum = frustum'; frustumModel = {frustumModel with frustum = frustum'}}
+                    let frustum' = FrustumUtils.calculateFrustum frustumModel.focal.value m.frustum.near m.frustum.far 
+                    let m = Optic.set _frustumModel {frustumModel with frustum = frustum'} m
+                    { m with frustum = frustum'}
                 else
-                    { m with frustumModel = frustumModel }
+                    Optic.set _frustumModel frustumModel m
+            | _ -> 
+                Optic.set _frustumModel frustumModel m
         | ImportSurface sl,_,_ ->                 
             match sl with
             | [] -> m
@@ -1005,6 +1013,7 @@ module ViewerApp =
                     m.numberOfSamples 
                     m.screenshotDirectory
                     _animator
+                    m.viewerVersion
                 |> ProvenanceApp.emptyWithModel
 
             { initialModel with recent = m.recent} |> ViewerIO.loadRoverData
@@ -1497,8 +1506,40 @@ module ViewerApp =
             { m with drawing = { m.drawing with automaticGeoJsonExport = autoExport } }
         | SetSceneState state, _, _ ->
             Optic.set _sceneState state m
-
-
+        | LoadPoseDefinitionFile path, _, _ -> 
+            let path = path.Head
+            //SimulatedViews.PoseData.writeDummyData path // for debugging
+            let poseData : PoseData = SimulatedViews.PoseData.read path
+            let sceneState = Optic.get _sceneState m 
+            let bookmarks = PoseData.toSequencedBookmarks poseData sceneState m.viewerVersion
+                            |> SequencedBookmarksApp.addBookmarks m.scene.sequencedBookmarks
+            let bookmarks = {bookmarks with poseDataPath = Some path}
+            let m = Optic.set _sequencedBookmarks bookmarks m
+            m
+        | SBookmarksToPoseDefinition, _, _ -> //RNO for creating dummy data for testing batch rendering with pose files
+            let poseData = PoseData.fromSequencedBookmarks m.scene.sequencedBookmarks 
+            poseData
+            |> Json.serialize 
+            |> Json.formatWith JsonFormattingOptions.Pretty 
+            |> Serialization.Chiron.writeToFile poseData.path
+            m
+        | WriteBookmarkMetadata (path, bm) , _, _ ->
+            match bm.metadata with
+            | Some md ->
+                Log.line "[Viewer] Writing metadata to %s" path
+                if m.startupArgs.verbose then
+                    let timer = Stopwatch.StartNew()
+                    System.IO.File.WriteAllText(path, md)
+                    timer.Stop()
+                    printfn "Finished writing file after %A milliseconds" timer.ElapsedMilliseconds
+                else
+                    System.IO.File.WriteAllText(path, md)
+                m
+            | None ->
+                Log.line "[Viewer] No metadata for bookmark %s" bm.name
+                m
+        | WriteCameraMetadata (path, camera),_,_ ->
+            m
         | unknownAction, _, _ -> 
             Log.line "[Viewer] Message not handled: %s" (string unknownAction)
             m       
@@ -1591,9 +1632,9 @@ module ViewerApp =
                 onEvent "resizeControl"  [] (
                     fun p -> 
                         match p with
-                        | w::h::[] -> 
-                            let w : int = Pickler.json.UnPickleOfString w
-                            let h : int = Pickler.json.UnPickleOfString h
+                        | w::h::[] ->
+                            let w : float = Pickler.json.UnPickleOfString w
+                            let h : float = Pickler.json.UnPickleOfString h 
                             printfn "%A" (w,h)
                             ResizeMainControl(V2i(w,h),id)
                         | _ -> Nop 
@@ -1617,8 +1658,8 @@ module ViewerApp =
                     fun p -> 
                         match p with
                         | w::h::[] -> 
-                            let w : int = Pickler.json.UnPickleOfString w
-                            let h : int = Pickler.json.UnPickleOfString h
+                            let w : float = Pickler.json.UnPickleOfString w
+                            let h : float = Pickler.json.UnPickleOfString h
                             printfn "%A" (w,h)
                             ResizeMainControl(V2i(w,h),id)
                         | _ -> Nop 
@@ -1976,12 +2017,13 @@ module ViewerApp =
         (dataSamples         : int)
         (enableProvenance    : bool)
         (screenshotDirectory : string)
+        (viewerVersion       : string)
         =
 
         let m = 
             if startEmpty |> not then
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl 
-                                            dataSamples screenshotDirectory _animator
+                                            dataSamples screenshotDirectory _animator viewerVersion
                 |> ProvenanceApp.emptyWithModel
                 |> SceneLoader.loadLastScene runtime signature                
                 |> SceneLoader.loadLogBrush
@@ -1997,7 +2039,7 @@ module ViewerApp =
                 
             else
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl
-                                            dataSamples screenshotDirectory _animator
+                                            dataSamples screenshotDirectory _animator viewerVersion
                 |> ProvenanceApp.emptyWithModel
                 |> ViewerIO.loadRoverData
 

@@ -7,8 +7,10 @@ open Aardvark.UI
 
 open Adaptify
 open Chiron
-open PRo3D.Base.Json
+open PRo3D.Base
 open PRo3D.Core
+
+#nowarn "0686"
 
 type SnapshotType = 
   | Camera
@@ -169,12 +171,34 @@ with
         do! Json.write            "renderMask"         x.renderMask 
     }  
 
+type CameraConfiguration =
+    {
+        camera  : SnapshotCamera
+        frustum : Frustum
+    } 
+    static member ToJson (x : CameraConfiguration) =
+        json {
+          do! Json.write      "camera"  x.camera
+          do! Json.writeWith  (Ext.toJson<Frustum, Ext>) "frustum" x.frustum    
+        }
+    static member FromJson (x : CameraConfiguration) =
+        json {
+            let! camera  = Json.read "camera"
+            let! frustum = Json.readWith Ext.fromJson<Frustum, Ext> "frustum"   
+
+            return {
+                camera  = camera 
+                frustum = frustum     
+            }
+        }
+
 /// a snapshot that uses sequenced bookmarks for updates
 /// uses bookmarks once when they start, and camera-only
 /// updates between bookmarks
 type BookmarkTransformation = 
     | Bookmark of SequencedBookmarks.SequencedBookmarkModel
-    | Camera of SnapshotCamera
+    | Camera   of SnapshotCamera
+    | Configuration of CameraConfiguration
 with 
     static member ToJson x =
         match x with
@@ -182,6 +206,8 @@ with
             Json.write "Bookmark" x
         | BookmarkTransformation.Camera x -> 
             Json.write "Camera" x
+        | BookmarkTransformation.Configuration x -> 
+            Json.write "Configuration" x
 
     static member FromJson(_ : BookmarkTransformation) = 
         json { 
@@ -190,8 +216,13 @@ with
             | Some camera -> 
                 return BookmarkTransformation.Camera camera
             | None ->
-                let! bookmark = Json.read "Bookmark"
-                return BookmarkTransformation.Bookmark bookmark
+                let! config = Json.tryRead "Configuration"
+                match config with
+                | Some config ->
+                    return BookmarkTransformation.Configuration config
+                | None ->
+                    let! bookmark = Json.read "Bookmark"
+                    return BookmarkTransformation.Bookmark bookmark
         }
 
 type BookmarkSnapshot = {

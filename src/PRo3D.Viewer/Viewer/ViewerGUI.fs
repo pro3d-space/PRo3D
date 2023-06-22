@@ -648,6 +648,14 @@ module Gui =
                                             text "3rd Party Licences"
                                         ]
 
+                                        let jsOpenPose = "top.aardvark.dialog.showOpenDialog({title:'Import Pose File' , filters: [{ name: 'Pose Data (*.json)', extensions: ['json']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+                                        div [ clazz "ui item";
+                                              Dialogs.onChooseFiles ViewerAction.LoadPoseDefinitionFile
+                                              clientEvent "onclick" jsOpenPose ] [
+                                              text "Load Pose Definition File"
+                                        ]
+                                        //menuItem "Create Pose File from SBookmarks" SBookmarksToPoseDefinition // for debugging
                                         div [clazz "ui item"; clientEvent "onclick" "sendCrashDump()"] [
                                             text "Send log to maintainers"
                                         ]
@@ -871,7 +879,7 @@ module Gui =
                     CameraProperties.view m.scene.referenceSystem m.navigation.camera
                 ]
                 GuiEx.accordion "Frustum" "Settings" false [
-                    FrustumProperties.view m.frustumModel |> UI.map FrustumMessage
+                    FrustumProperties.view m.scene.config.frustumModel |> UI.map FrustumMessage
                 ]
                 GuiEx.accordion "Screenshots" "Settings" false [
                     ScreenshotApp.view m.screenshotDirectory m.scene.screenshotModel |> UI.map ScreenshotMessage

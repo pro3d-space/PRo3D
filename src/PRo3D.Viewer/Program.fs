@@ -317,6 +317,7 @@ let main argv =
                 ViewerApp.dataSamples
                 startupArgs.enableProvenanceTracking
                 appData
+                viewerVersion
 
         let s = {MailboxState.empty with update = 
                                             (fun a -> 

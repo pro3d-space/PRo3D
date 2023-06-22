@@ -735,7 +735,8 @@ module ViewPlanApp =
                 |> ASet.ofAValSingle 
                 |> Sg.set
 
-            Sg.ofList [point0; point1]                
+            Sg.ofList [point0; point1]      
+        let directionMarker = Sg.directionMarker ~~60.0
 
         let drawPlatformCoordinateCross 
             (viewPlan  : AdaptiveViewPlan)
@@ -766,9 +767,9 @@ module ViewPlanApp =
             let tilt   = { marker with direction = tiltVec;   color = (AVal.constant C4b.Red)}
 
             Sg.ofList [
-                lookAt |> Sg.directionMarker near cam
-                right  |> Sg.directionMarker near cam
-                tilt   |> Sg.directionMarker near cam                    
+                lookAt |> directionMarker near cam
+                right  |> directionMarker near cam
+                tilt   |> directionMarker near cam                    
             ] 
             |> Sg.onOff viewPlan.isVisible
         
@@ -817,6 +818,7 @@ module ViewPlanApp =
             (length         : aval<float>)
             (thickness      : aval<float>)
             (cam            : aval<CameraView>) =
+            let directionMarker = Sg.directionMarker ~~60.0
 
             alist {                
                 
@@ -853,14 +855,14 @@ module ViewPlanApp =
                             let lookAt = { marker with direction = camLookAtTrans; color = (AVal.constant C4b.Cyan)}
                             yield Sg.ofList [
                                 Sg.point camPosTrans (AVal.constant C4b.Cyan) cam // position
-                                lookAt |> Sg.directionMarker near cam 
-                                up     |> Sg.directionMarker near cam
+                                lookAt |> directionMarker near cam 
+                                up     |> directionMarker near cam
                             ]
                         | false -> 
                             let lookAt = { marker with direction = camLookAtTrans; color = (AVal.constant C4b.Blue)}                              
                             yield Sg.ofList [
-                                lookAt |> Sg.directionMarker near cam 
-                                up     |> Sg.directionMarker near cam
+                                lookAt |> directionMarker near cam 
+                                up     |> directionMarker near cam
                             ]
                     | AdaptiveNone -> 
                         yield Sg.ofList []

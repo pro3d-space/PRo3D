@@ -17,6 +17,6 @@ function attachResize(id) {
     new ResizeSensor(jQuery('.mainrendercontrol'), function () {
         var elem = $('.mainrendercontrol');
 
-        aardvark.processEvent(id, "resizeControl", elem.width(), elem.height());
+        aardvark.processEvent(id, "resizeControl", elem.width().toFixed(), elem.height().toFixed());
     });
 }
