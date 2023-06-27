@@ -220,7 +220,23 @@ module SnapshotAnimation =
             |> List.concat
 
         let firstBm = BookmarkUtils.tryFind bm.orderList.[0] bm
-
+        let firstBm =
+            match firstBm with
+            | Some firstBm ->
+                match firstBm.sceneState with
+                | Some state ->
+                    let frustum = 
+                        FrustumUtils.calculateFrustum'
+                            state.stateConfig.frustumModel.focal.value
+                            state.stateConfig.nearPlane.value
+                            state.stateConfig.farPlane.value
+                            (bm.resolutionX.value / bm.resolutionY.value)
+                    Some (Optic.set SequencedBookmarkModel._frustum frustum firstBm)
+                | None ->
+                    Some firstBm
+            | None ->
+                firstBm
+        
         let timeStepsNoNumbers = 
             [newBmStep firstBm.Value.name firstBm.Value] @ timeStepsNoNumbers
 
