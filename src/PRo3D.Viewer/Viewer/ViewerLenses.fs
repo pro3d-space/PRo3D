@@ -122,11 +122,16 @@ module ViewerLenses =
                 | None -> m.scene.traverses
 
             let frustum =
-                FrustumUtils.calculateFrustum
-                    state.stateConfig.frustumModel.focal.value
-                    state.stateConfig.nearPlane.value 
-                    state.stateConfig.farPlane.value
+                match m.startupArgs.isBatchRendering with
+                | false ->
+                    FrustumUtils.calculateFrustum
+                        state.stateConfig.frustumModel.focal.value
+                        state.stateConfig.nearPlane.value 
+                        state.stateConfig.farPlane.value
+                | true ->
+                        state.stateConfig.frustumModel.frustum
 
+                    
             {m with
                 drawing = {m.drawing with annotations = state.stateAnnoatations}
                 scene   = 
@@ -138,6 +143,7 @@ module ViewerLenses =
                         config                  = state.stateConfig
                         referenceSystem         = state.stateReferenceSystem
                         traverses               = traverses
+                        
                     }
                 frustum = frustum
             }
