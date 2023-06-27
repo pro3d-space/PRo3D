@@ -46,7 +46,7 @@ all resources should be embedded using dotnet embedded resources to allow "singl
 - change RELEASE_NOTES.md, commit, push
 - in a commmand line use: ```SET GH_TOKEN=... && ./build.{cmd|sh} PublishToElectron```
 
-# Manual eelease as a zip file
+# Manual release as a zip file
 
 ```SET GH_TOKEN=... && ./build.{cmd|sh} GitHubRelease```
 
