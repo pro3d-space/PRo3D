@@ -3,19 +3,11 @@
 Earlier pro3d used aardium, a electron package to host the content of pro3d in a self-contained browser. 
 In order to simplify the deployment process and align all platforms (e.g. mac requires signing) we switched to a completely electron based deployment in 4.9.3 and up.
 
-# Automatic Releases (triggered by pushing to develop branch)
+# Automatic Releases
 
 ## TL;DR
 
-The idea is that by pushing into the `develop` branch, the CI automatically runs all steps to produce a draft release on github.
-
-Thus, for creating a release you need to do:
-  - merge your feature to `develop`
-  - prepare a commit for the release by adjusting the version numbers
-    - change the file `PRODUCT_RELEASE_NOTES.md` and introduce a new version
-    - change `aardium/package.json`'s version accordingly (feel free to automate this step)
-  - when done, merge into the autorelease branch which then triggers an automatic release (and creates a draft release on github)
-  - Wait for the CI to finish, and adjust the newly created release and publish the draft
+Deployments are triggered by github actions. Currently this is configured in such a way that each commit which touches one of those [files](https://github.com/pro3d-space/PRo3D/blob/bee4f8716e9fcfd94b78112f2d2777867b7685c3/.github/workflows/deploy.yml#L4) triggers a release.
 
 ## Details
 
