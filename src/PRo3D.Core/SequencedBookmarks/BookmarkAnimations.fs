@@ -34,7 +34,7 @@ module BookmarkAnimations =
         let frustum_ = ViewConfigModel.frustumModel_ >-> FrustumModel.frustum_
         let focal_   = ViewConfigModel.frustumModel_ >-> FrustumModel.focal_ >-> NumericInput.value_
 
-        let interpVcm (src : ViewConfigModel) (dst : ViewConfigModel) 
+        let interpVcm (src : ViewConfigModel) (dst : ViewConfigModel)
                 : IAnimation<'Model, ViewConfigModel> =
             //let animFocal = Primitives.lerp src.frustumModel.focal.value src.frustumModel.focal.value
             let animFocal = Animation.create (lerp src.frustumModel.focal.value dst.frustumModel.focal.value)
@@ -46,6 +46,7 @@ module BookmarkAnimations =
                                         focal
                                         dst.nearPlane.value 
                                         dst.farPlane.value
+                                        
                                 dst 
                                 |> Optic.set frustum_ newFrustum 
                                 |> Optic.set focal_   focal
@@ -55,7 +56,8 @@ module BookmarkAnimations =
         /// Creates an animation that interpolates between two bookmarks
         let interpolateBm (settings : AnimationSettings) 
                           (setSeqbookmark : Lens<'a, SequencedBookmark>)
-                          (src : SequencedBookmarkModel) (dst : SequencedBookmarkModel) = //IAnimation<'Model, SequencedBookmark> =
+                          (src : SequencedBookmarkModel) (dst : SequencedBookmarkModel)
+                          = //IAnimation<'Model, SequencedBookmark> =
 
             let pause = 
                 if src.delay.value > 0.0 then
@@ -303,6 +305,7 @@ module BookmarkAnimations =
     let pathWithPausing (m : SequencedBookmarks)
                         (lenses : BookmarkLenses<'a>)
                         (outerModel      : 'a) =
+        let aspectRatio = m.resolutionX.value / m.resolutionY.value
         let bookmarks = orderedLoadedBookmarks m
         let animations =
             bookmarks

@@ -98,5 +98,6 @@ module CommandLine =
                         useMapping            = if noMapping then "false" else "true"
                         data_samples          = samples
                         backgroundColor       = match backgroundColor with Some b -> b | None -> StartupArgs.initArgs.backgroundColor
+                        isBatchRendering      = false
                     }
             args

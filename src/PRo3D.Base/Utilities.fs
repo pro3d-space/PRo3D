@@ -568,9 +568,15 @@ module Shader =
                 let abB : V3d =  uniform?abB
                 let nc = V4d(v.c.X*255.0, v.c.Y*255.0, v.c.Z*255.0, 255.0)
         
-                let red    = (myTrunc (abR.X + ((nc.X * (abR.Y-abR.X)) / 255.0))) / 255.0
-                let green  = (myTrunc (abG.X + ((nc.Y * (abG.Y-abG.X)) / 255.0))) / 255.0
-                let blue   = (myTrunc (abB.X + ((nc.Z * (abB.Y-abB.X)) / 255.0))) / 255.0
+                let rClamped = clamp abR.X abR.Y nc.X 
+                let red = ((rClamped - abR.X) / (abR.Y - abR.X))
+
+                let gClamped = clamp abG.X abG.Y nc.Y 
+                let green = ((gClamped - abG.X) / (abG.Y - abG.X))
+
+                let bClamped = clamp abB.X abB.Y nc.Z 
+                let blue = ((bClamped - abB.X) / (abB.Y - abB.X))
+
                 return V4d(red, green, blue, 1.0)
             else
                 return v.c

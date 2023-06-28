@@ -70,6 +70,8 @@ type StartupArgs = {
     data_samples          : Option<string>
     backgroundColor       : string
 
+    isBatchRendering      : bool
+
     verbose               : bool    
 
 } with 
@@ -89,6 +91,7 @@ type StartupArgs = {
           port                  = None
           enableRemoteApi       = false
           enableProvenanceTracking = false
+          isBatchRendering      = false
       }
 
 

@@ -456,7 +456,14 @@ module ViewerApp =
             { m with frustum = frustum }
         | SetFrustum frustum,_,_ -> 
             Log.line "[Viewer] Setting Frustum %s" (string frustum)
-            { m with frustum = frustum }
+            let frustumModel = 
+                Optic.get _frustumModel m
+            let frustumModel =
+                {frustumModel with frustum = frustum}
+            { m with frustum = frustum}
+            |> Optic.set _frustumModel frustumModel 
+            |> Optic.set _frustumModel frustumModel 
+
         | AnnotationGroupsMessageViewer msg,_,_ ->
             let ag = m.drawing.annotations 
                 

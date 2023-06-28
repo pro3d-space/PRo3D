@@ -10,6 +10,8 @@ open MBrace.FsPickler.Json
 
 open Aardvark.UI
 open Chiron
+open Aether
+
 open PRo3D.Core
 open PRo3D.Core.SequencedBookmarks
 
@@ -158,42 +160,53 @@ module SnapshotAnimation =
             | Some fromBm, Some toBm ->
                 let seconds = toBm.duration.value
                 let nrOfFrames = seconds * (float fps)
-                let lerpedCamera = lerpCamera fromBm.cameraView toBm.cameraView (int nrOfFrames)
-                let lerpedFocal =
+                let lerpedCamera = lerpCamera fromBm.cameraView toBm.cameraView (nrOfFrames |> round |> int)
+                let lerpedFrusta =
                     match fromBm.sceneState, toBm.sceneState with
                     | Some fromState, Some toState ->
                         let lerped = 
                             lerpFrames fromState.stateConfig.frustumModel.focal.value 
                                             toState.stateConfig.frustumModel.focal.value
                                             (nrOfFrames |> round |> int)
+                        Log.line "%s" (lerped |> List.map (sprintf "%f ") |> List.reduce (+))
                         let lerpedFrustra = 
                             lerped 
                             |> List.map (fun focal ->
-                                FrustumUtils.calculateFrustum
+                                FrustumUtils.calculateFrustum'
                                     focal
                                     toState.stateConfig.nearPlane.value
-                                    toState.stateConfig.farPlane.value)
+                                    toState.stateConfig.farPlane.value
+                                    (bm.resolutionX.value / bm.resolutionY.value))
+                        Log.line "%s" (lerpedFrustra |> List.map string |> List.reduce (+))
+                        
                         lerpedFrustra
                     | _ ->
                         []
-                toBm, lerpedCamera , lerpedFocal
+                toBm, lerpedCamera , lerpedFrusta
             | _,_ -> 
                 failwith "[Sequenced Bookmarks] A bookmark that is in order list was not found in the hashmap."
 
-        let toSteps fps (bm : SequencedBookmarkModel, cameras : list<CameraView>, frustra : list<Frustum>) =
+        let toSteps fps (bm : SequencedBookmarkModel, cameras : list<CameraView>, frusta : list<Frustum>) =
+            let lastFrustum = List.tryLast frusta    
+            let withLastFrustum bm = 
+                match lastFrustum with
+                | Some lastFrustum ->
+                    Optic.set SequencedBookmarkModel._frustum lastFrustum bm
+                | None ->
+                    bm
             seq {
-                match frustra with
+                match frusta with
                 | [] ->
                     for c in cameras do
                         yield newCamStep bm.name c    
                 | _ -> 
-                    for (c, f) in List.zip cameras frustra do
-                        yield newConfigStep bm.name bm.cameraView f
-                    
-                yield newBmStep bm.name bm
+                    for (c, f) in List.zip cameras frusta do
+                        yield newConfigStep bm.name c f
+                
+                yield newBmStep bm.name (withLastFrustum bm)
                 if bm.delay.value > 0.0 then
                     let seconds = bm.delay.value
-                    let nrOfFrames = int (seconds * fps)
+                    let nrOfFrames = (seconds * fps) |> round |> int
                     for nr in [0..nrOfFrames] do
                         yield newCamStep bm.name bm.cameraView
 
@@ -207,7 +220,23 @@ module SnapshotAnimation =
             |> List.concat
 
         let firstBm = BookmarkUtils.tryFind bm.orderList.[0] bm
-
+        let firstBm =
+            match firstBm with
+            | Some firstBm ->
+                match firstBm.sceneState with
+                | Some state ->
+                    let frustum = 
+                        FrustumUtils.calculateFrustum'
+                            state.stateConfig.frustumModel.focal.value
+                            state.stateConfig.nearPlane.value
+                            state.stateConfig.farPlane.value
+                            (bm.resolutionX.value / bm.resolutionY.value)
+                    Some (Optic.set SequencedBookmarkModel._frustum frustum firstBm)
+                | None ->
+                    Some firstBm
+            | None ->
+                firstBm
+        
         let timeStepsNoNumbers = 
             [newBmStep firstBm.Value.name firstBm.Value] @ timeStepsNoNumbers
 
@@ -249,36 +278,39 @@ module SnapshotAnimation =
     let fromBookmarks (bm          : SequencedBookmarks)  
                       (cameraView  : CameraView)
                       (fieldOfView : float)
-                      (nearPlane   : float) 
-                      (farPlane    : float) =
+                      (nearplane   : float) 
+                      (farplane    : float) =
         let defaultFrustum () =
             {
                 resolution  = V2i(bm.resolutionX.value, bm.resolutionY.value)
                 fieldOfView = fieldOfView
-                nearplane   = nearPlane
-                farplane    = farPlane
+                nearplane   = nearplane
+                farplane    = farplane
             }
 
         let frustum = //TODO RNO refactor frustum calculation and setting frustum for btach rendering
             let bookmarks = BookmarkUtils.orderedLoadedBookmarks bm
-            // currently using frustum parameters of first bookmark
-            // could be extended to allow changing frustum parameters for each bookmark
+            let frustumFromState state = 
+                FrustumUtils.calculateFrustum' 
+                    state.stateConfig.frustumModel.focal.value
+                    nearplane
+                    farplane
+                    (bm.resolutionX.value / bm.resolutionY.value)
+
             match List.tryHead bookmarks with 
             | Some first ->
                 let frustumParas = first.frustumParameters
                 match frustumParas, first.sceneState with
-                | Some frustumParas, _ ->
-                    frustumParas
+                | Some frustumParas, Some state ->
+                    frustumFromState state
                 | None, Some state ->
-                    let f = 
-                        FrustumUtils.calculateFrustum 
-                            state.stateConfig.frustumModel.focal.value
-                            nearPlane
-                            farPlane
-                    {defaultFrustum () with fieldOfView = Frustum.horizontalFieldOfViewInDegrees f}
+                    frustumFromState state
+                | Some frustumParas, None ->
+                    frustumParas.perspective     
                 | None, None ->
-                    defaultFrustum ()
-            | None -> defaultFrustum ()
+                    (defaultFrustum ()).perspective
+            | None ->  
+                (defaultFrustum ()).perspective
 
         if bm.orderList.Length > 0 then                  
             let snapshots =
@@ -293,16 +325,16 @@ module SnapshotAnimation =
             let snapshotAnimation : BookmarkSnapshotAnimation =
                 {
                     snapshots   = snapshots
-                    fieldOfView = Some (frustum.perspective 
+                    fieldOfView = Some (frustum 
                                         |> Frustum.horizontalFieldOfViewInDegrees)
-                    resolution  = frustum.resolution
-                    nearplane   = frustum.nearplane
-                    farplane    = frustum.farplane
+                    resolution  = V2i(bm.resolutionX.value, bm.resolutionY.value)
+                    nearplane   = nearplane
+                    farplane    = farplane
                 } 
             snapshotAnimation |> SnapshotAnimation.BookmarkAnimation     
         else 
-            currentFrameToAnimation bm cameraView frustum.perspective 
-                                    frustum.nearplane frustum.farplane
+            currentFrameToAnimation bm cameraView frustum 
+                                    nearplane farplane
 
     let readTestAnimation () =
         try
