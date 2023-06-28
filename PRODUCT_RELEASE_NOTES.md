@@ -1,3 +1,7 @@
+## 4.12.0-prerelease8
+- various fixes for focal length, batch rendering
+- radiometry calculation changed
+
 ## 4.12.0-prerelease7
 - #261 Zooming enhancements
 - #167 radiometry
