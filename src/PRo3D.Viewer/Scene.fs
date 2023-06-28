@@ -82,8 +82,14 @@ module SceneLoader =
                 |> HashMap.map(fun _ x -> Leaf.Surfaces x)
             
             let sm = { m.surfacesModel.surfaces with flat = flat' }                
+            let sequencedBookmarks = 
+                let basePath = PRo3D.Core.BookmarkUtils.basePathFromScenePath p
+                BookmarkUtils.updatePaths basePath m.sequencedBookmarks
+            { m with surfacesModel = { m.surfacesModel with surfaces = sm }
+                     sequencedBookmarks = sequencedBookmarks
+            }
+
             
-            { m with surfacesModel = { m.surfacesModel with surfaces = sm }}
         | None -> m        
 
     let private readLine (filePath:string) =
