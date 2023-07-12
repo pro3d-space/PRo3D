@@ -1009,6 +1009,22 @@ module ViewerApp =
         | LoadSerializedDrawingModel json, _, _ -> 
             let annotations = DrawingUtilities.IO.loadAnnotationsFromJson json 
             ViewerIO.replaceAnnotations m annotations
+        | ImportSerializedDrawingModel(json, source), _, _ -> 
+            let drawing = DrawingUtilities.IO.loadAnnotationsFromJson json 
+            //let importedGroup = { drawing.annotations with rootGroup = { drawing.annotations.rootGroup with name = source }}
+            //let newGroup = 
+            //    { GroupsApp.createEmptyGroup () with 
+            //        name = source
+            //        leaves = annotations.annotations. |> List.map Leaf.Annotations |> IndexList.ofList 
+            //    }
+
+            let importedGroup = { drawing.annotations.rootGroup with name = source }
+
+            let msg = GroupsAppAction.AddAndSelectGroup ([], importedGroup)
+            let groups = GroupsApp.update m.drawing.annotations msg
+            //let groups = GroupsApp.union importedGroup.annotations m.drawing.annotations 
+            let model = { m with drawing = { m.drawing with annotations = groups } }
+            model
          
 
         | NewScene,_,_ ->

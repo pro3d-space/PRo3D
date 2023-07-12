@@ -79,3 +79,17 @@ Content-Type: application/json
 	"graph": {{graph}},
 	"selectedNodeId": "897ad42f-dfea-4808-baec-cbcd06715144"
 }
+
+### importAnnotations
+# *scene*: the scene from which annotations are taken. the implementation might just use
+# drawing as json, but could also extract information from the scene itself. so pass the whole
+# payload (just the same as for activateSnapshot)
+# *source*: a string which indicates the source of the annotations. ideally this is a friendly name
+# of the source or just the node id.
+POST http://localhost:4321/api/v2/importAnnotations
+Content-Type: application/json
+ 
+{
+	"scene": {{scene}}, 
+	"source": "imported annotations from n19298"
+}

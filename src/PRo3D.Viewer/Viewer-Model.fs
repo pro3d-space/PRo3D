@@ -121,6 +121,7 @@ type ViewerAction =
 // fine grained loading for provex provenance tracking and PRo3D api
 | LoadSerializedScene             of string // serialized scene file (content of .pro3d)
 | LoadSerializedDrawingModel      of string
+| ImportSerializedDrawingModel    of drawingAsJson : string * source : string
 
 | NewScene
 | KeyDown                         of key : Aardvark.Application.Keys

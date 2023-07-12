@@ -182,6 +182,10 @@ module RemoteApi =
                 ()
 
 
+        member x.ImportDrawingModel(drawingAsJson : string, source : string) : unit =
+            let setDrawing = ViewerAction.ImportSerializedDrawingModel(drawingAsJson, source)
+            setDrawing |> emit
+
 
     type LoadScene = 
         {
@@ -312,6 +316,20 @@ module RemoteApi =
                 Successful.OK ""
             | Some (Result.Error e) -> 
                 ServerErrors.INTERNAL_ERROR e
+
+        let importAnnotations (api : Api) (r : HttpRequest) =
+            let str = r.rawForm |> getUTF8
+
+            let d = JsonDocument.Parse(str)
+            let scene = d.RootElement.GetProperty("scene")
+            let drawingAsJson = scene.GetProperty("drawingAsJson").ToString()
+            let source = 
+                match d.RootElement.TryGetProperty("source") with
+                | (true, v) -> v.GetString()
+                | _ -> ""
+
+            api.ImportDrawingModel(drawingAsJson, source)
+            Successful.OK ""
 
 
              
@@ -503,6 +521,7 @@ module RemoteApi =
                         path "/captureSnapshot"    >=> request (SuaveV2.captureSnapshot api)
                         path "/activateSnapshot"   >=> request (SuaveV2.activateSnapshot api)
                         path "/getProvenanceGraph" >=> request (SuaveV2.getProvenanceGraph api)
+                        path "/importAnnotations"  >=> request (SuaveV2.importAnnotations api)
                         prefix "/provenanceGraph"  >=> provenanceGraphWebSocket false storage api
                         prefix "/provenanceGraphChanges" >=> provenanceGraphWebSocket true storage api
                     ]
