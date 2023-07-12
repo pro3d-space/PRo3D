@@ -180,8 +180,8 @@ module SnapshotSg =
                 for sgBundle in sgs do
                     yield RenderCommand.ClearDepth(1.0) 
                     yield RenderCommand.Ordered sgBundle
-                    //yield RenderCommand.ClearDepth(1.0) 
                     
+                yield RenderCommand.ClearDepth(1.0) 
                 yield RenderCommand.Unordered [(overlayed :> ISg)] 
             } |> RenderCommand.Ordered
 
@@ -192,10 +192,12 @@ module SnapshotSg =
     // duplicate code, see Viewer.fs
     // could be resolved by dividing up code in Viewer.fs
     // duplicated to minimise merge troubles, but should be changed once merge is done // TODO RNO
-    let viewRenderView (runtime : IRuntime) (id : string) (viewportSize : aval<V2i>) (m: AdaptiveModel) = 
+    let viewRenderView (runtime : IRuntime) (id : string) 
+                       (viewportSize : aval<V2i>) (m: AdaptiveModel) = 
         //PRo3D.Core.Drawing.DrawingApp.usePackedAnnotationRendering <- false  // not the problem
-        let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
-        let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
+        let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) 
+                                m.overlayFrustum m.frustum // use overlay frustum if Some()
+        //let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
 
         let annotations, discs = 
             DrawingApp.view 
@@ -224,7 +226,7 @@ module SnapshotSg =
             Sg.ofList[ds;annos;]
 
         let overlayed =
-            let near = m.scene.config.nearPlane.value
+            //let near = m.scene.config.nearPlane.value
 
             let refSystem =
                 Sg.view
@@ -265,7 +267,7 @@ module SnapshotSg =
             let heightValidation =
                 HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation            
             
-            let orientationCube = PRo3D.OrientationCube.Sg.view m.navigation.camera.view m.scene.config m.scene.referenceSystem
+            //let orientationCube = PRo3D.OrientationCube.Sg.view m.navigation.camera.view m.scene.config m.scene.referenceSystem
 
             let annotationTexts =
                 DrawingApp.viewTextLabels 
@@ -292,34 +294,6 @@ module SnapshotSg =
                 scaleBarTexts
                 traverse
             ] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
-
-        //let minervaSg =
-        //    let minervaFeatures = 
-        //        MinervaApp.viewFeaturesSg m.minervaModel |> Sg.map MinervaActions 
-
-        //    let filterLocation =
-        //        MinervaApp.viewFilterLocation m.minervaModel |> Sg.map MinervaActions
-
-        //    Sg.ofList [minervaFeatures] //;filterLocation]
-
-        //let all = m.minervaModel.data.features
-        //let selected = 
-        //    m.minervaModel.session.selection.highlightedFrustra
-        //    |> AList.ofASet
-        //    |> AList.toAVal 
-        //    |> AVal.map (fun x ->
-        //        x
-        //        |> IndexList.take 500
-        //    )
-        //    |> AList.ofAVal
-        //    |> ASet.ofAList
-        
-        //let linkingSg = 
-        //    PRo3D.Linking.LinkingApp.view 
-        //        m.minervaModel.hoveredProduct 
-        //        selected 
-        //        m.linkingModel
-        //    |> Sg.map LinkingActions
 
         let heightValidationDiscs =
             HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
@@ -360,7 +334,8 @@ module SnapshotSg =
             ] |> Sg.ofList
 
         let camera = AVal.map2 (fun v f -> Camera.create v f) m.navigation.camera.view m.frustum 
-        let sg = createSceneGraph m.scene.surfacesModel.sgGrouped overlayed depthTested runtime true m
+        let sg = createSceneGraph m.scene.surfacesModel.sgGrouped 
+                                  overlayed depthTested runtime true m
         sg
             |> Sg.noEvents
             |> Sg.camera camera

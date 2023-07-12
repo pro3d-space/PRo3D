@@ -65,6 +65,7 @@ module Viewer =
         (numberOfSamples     : int)   
         (screenshotDirectory : string)
         (animatorLens        : Lens<Model, Animator<Model>>)
+        (viewerVerson        : string)
         : Model = 
 
         let defaultDashboard = DashboardModes.defaultDashboard //DashboardModes.defaultDashboard
@@ -101,6 +102,7 @@ module Viewer =
                     screenshotModel       = ScreenshotModel.initial
                 }
 
+            viewerVersion   = viewerVerson
             dashboardMode   = defaultDashboard.name
             navigation      = navInit
 
@@ -158,7 +160,6 @@ module Viewer =
             snapshotThreads      = ThreadPool.empty
             showExplorationPoint = startupArgs.showExplorationPoint
             heighValidation      = HeightValidatorModel.init()
-            frustumModel         = FrustumModel.init 0.1 10000.0
             
             filterTexture = false
 

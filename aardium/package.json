@@ -1,7 +1,7 @@
 {
   "name": "PRo3D",
   "productName": "PRo3D.Viewer",
-  "version": "4.12.0-prerelease6",
+  "version": "4.12.0-prerelease8",
   "description": "PRo3D, short for Planetary Robotics 3D Viewer, is an interactive 3D visualization tool to allow planetary scientists to work with high-resolution 3D reconstructions of the Martian surface.",
   "license": "AGPL",
   "copyright": "VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH",

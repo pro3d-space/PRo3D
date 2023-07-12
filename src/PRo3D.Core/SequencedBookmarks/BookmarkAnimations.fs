@@ -17,9 +17,11 @@ open PRo3D.Core.BookmarkUtils
 
 open Aether
 open Aether.Operators
+open Chiron
 
 /// Animations for sequenced bookmarks
 module BookmarkAnimations =
+
     module AnimationSlot =
         let private getName (slot : string) (entity : V2i) =
             Sym.ofString <| sprintf "%A/%s" entity slot
@@ -29,13 +31,38 @@ module BookmarkAnimations =
         //let appearance = getName "appearance"
 
     module Primitives =
+        let frustum_ = ViewConfigModel.frustumModel_ >-> FrustumModel.frustum_
+        let focal_   = ViewConfigModel.frustumModel_ >-> FrustumModel.focal_ >-> NumericInput.value_
+
+        let interpVcm (src : ViewConfigModel) (dst : ViewConfigModel)
+                : IAnimation<'Model, ViewConfigModel> =
+            //let animFocal = Primitives.lerp src.frustumModel.focal.value src.frustumModel.focal.value
+            let animFocal = Animation.create (lerp src.frustumModel.focal.value dst.frustumModel.focal.value)
+                            |> Animation.seconds 1
+            animFocal
+            |> Animation.map (fun focal -> 
+                                let newFrustum = 
+                                    FrustumUtils.calculateFrustum
+                                        focal
+                                        dst.nearPlane.value 
+                                        dst.farPlane.value
+                                        
+                                dst 
+                                |> Optic.set frustum_ newFrustum 
+                                |> Optic.set focal_   focal
+                                )
+
+
         /// Creates an animation that interpolates between two bookmarks
         let interpolateBm (settings : AnimationSettings) 
-                          (src : SequencedBookmarkModel) (dst : SequencedBookmarkModel) = //IAnimation<'Model, SequencedBookmark> =
+                          (setSeqbookmark : Lens<'a, SequencedBookmark>)
+                          (src : SequencedBookmarkModel) (dst : SequencedBookmarkModel)
+                          = //IAnimation<'Model, SequencedBookmark> =
 
             let pause = 
                 if src.delay.value > 0.0 then
                     let dummyAnimation = Animation.create (fun _ -> src.cameraView)
+                   
                     // TODO RNO add other interpolations
                     [
                         dummyAnimation
@@ -47,9 +74,22 @@ module BookmarkAnimations =
             
             let toNext = 
                 let animCam = Animation.Camera.interpolate src.bookmark.cameraView dst.bookmark.cameraView
-                // TODO RNO add other interpolations
-                animCam
-                |> Animation.map (fun view -> {dst with bookmark = {dst.bookmark with cameraView = view}})
+                              |> Animation.map (fun view -> 
+                                    {dst with bookmark = {dst.bookmark with cameraView = view}})
+                match src.sceneState, dst.sceneState with
+                | Some srcState, Some dstState ->
+                    let _view = SequencedBookmarkModel._cameraView
+
+                    let animFocal =
+                        (interpVcm srcState.stateConfig dstState.stateConfig) 
+                        |> Animation.map (fun vcm -> 
+                            Optic.set SequencedBookmarkModel._stateConfig vcm dst) 
+                    
+                    Animation.map2 (fun c f -> f |> Optic.set _view (Optic.get _view c)) 
+                                    animCam animFocal
+                | _ -> 
+                    animCam
+                
 
             let toNext =
                 if settings.useGlobalAnimation then
@@ -265,11 +305,12 @@ module BookmarkAnimations =
     let pathWithPausing (m : SequencedBookmarks)
                         (lenses : BookmarkLenses<'a>)
                         (outerModel      : 'a) =
+        let aspectRatio = m.resolutionX.value / m.resolutionY.value
         let bookmarks = orderedLoadedBookmarks m
         let animations =
             bookmarks
             |> List.pairwise 
-            |> List.map (fun (a,b) -> Primitives.interpolateBm m.animationSettings a b)
+            |> List.map (fun (a,b) -> Primitives.interpolateBm m.animationSettings lenses.setModel_ a b)
             |> List.concat
             |> List.map (Animation.onStart (fun name x m -> 
                                                     Log.line "[Bookmark Animation] Selected bookmark %s" x.name

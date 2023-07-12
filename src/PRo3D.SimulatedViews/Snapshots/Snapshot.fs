@@ -84,5 +84,13 @@ module Snapshot =
                     transformation = SnapshotCamera.fromCamera cam 
                                      |> BookmarkTransformation.Camera
                 } 
+            | AnimationTimeStepContent.Configuration (cam, frustum) ->
+                {
+                    filename       = step.filename
+                    transformation = {camera  = SnapshotCamera.fromCamera cam
+                                      frustum = frustum}
+                                     |> BookmarkTransformation.Configuration
+                } 
+
         steps
             |> List.map toSnapshot

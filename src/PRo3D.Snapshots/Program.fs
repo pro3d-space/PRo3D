@@ -46,7 +46,7 @@ open FSharp.Data.Adaptive
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "4.9.1-Snapshots"
+let viewerVersion       = "4.12.0-Snapshots"
 let catchDomainErrors   = false
 
 open System.IO
@@ -155,7 +155,7 @@ let startApplication (startupArgs : CLStartupArgs) =
         let (mainApp, mModel) =
             SimulatedViews.PRo3DUtils.start 
                 runtime signature false messagingMailbox 
-                sendQueue dumpFile cacheFile uri 8 ""
+                sendQueue dumpFile cacheFile uri 8 "" viewerVersion
 
         let s = 
             {MailboxState.empty with update = 

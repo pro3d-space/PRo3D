@@ -560,6 +560,28 @@ module Shader =
             |> mapGamma
         }
 
+    let mapRadiometry (v : Effects.Vertex) =
+        fragment { 
+            if (uniform?useRadiometry) then
+                let abR : V3d =  uniform?abR
+                let abG : V3d =  uniform?abG
+                let abB : V3d =  uniform?abB
+                let nc = V4d(v.c.X*255.0, v.c.Y*255.0, v.c.Z*255.0, 255.0)
+        
+                let rClamped = clamp abR.X abR.Y nc.X 
+                let red = ((rClamped - abR.X) / (abR.Y - abR.X))
+
+                let gClamped = clamp abG.X abG.Y nc.Y 
+                let green = ((gClamped - abG.X) / (abG.Y - abG.X))
+
+                let bClamped = clamp abB.X abB.Y nc.Z 
+                let blue = ((bClamped - abB.X) / (abB.Y - abB.X))
+
+                return V4d(red, green, blue, 1.0)
+            else
+                return v.c
+        }
+
     let private colormap =
         sampler2d {
             texture uniform?ColorMapTexture
@@ -1245,3 +1267,17 @@ module Electron =
     
     let showItemInFolder (s : string) =
         sprintf "top.aardvark.electron.shell.showItemInFolder('%s');" (JsInterop.escapePath s)
+
+module FrustumUtils =
+    let calculateFrustum (focal : float) (near : float) (far: float) =
+        // http://paulbourke.net/miscellaneous/lens/
+        // https://photo.stackexchange.com/questions/41273/how-to-calculate-the-fov-in-degrees-from-focal-length-or-distance
+        let hfov = 2.0 * atan(11.84 /(focal*2.0))
+        Frustum.perspective (hfov.DegreesFromRadians()) near far 1.0
+
+    let calculateFrustum' (focal : float) (near : float) 
+                          (far: float) (aspect : float) =
+        // http://paulbourke.net/miscellaneous/lens/
+        // https://photo.stackexchange.com/questions/41273/how-to-calculate-the-fov-in-degrees-from-focal-length-or-distance
+        let hfov = 2.0 * atan(11.84 /(focal*2.0))
+        Frustum.perspective (hfov.DegreesFromRadians()) near far aspect

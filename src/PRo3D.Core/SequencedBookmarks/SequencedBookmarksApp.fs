@@ -201,7 +201,7 @@ module SequencedBookmarksApp =
                     let m = selectSBookmark m firstBookmark
                     match m.animationSettings.useGlobalAnimation with
                     | true ->
-                        smoothPathAllBookmarks m lenses outerModel
+                        pathWithPausing m lenses outerModel//smoothPathAllBookmarks m lenses outerModel //does not work with focal length
                     | false ->
                         pathWithPausing m lenses outerModel
                 | None ->
@@ -278,6 +278,27 @@ module SequencedBookmarksApp =
                 outerModel, m
             | None -> 
                 outerModel, m
+
+    let addBookmarks (m : SequencedBookmarks) (bookmarks : list<SequencedBookmark>) =
+        let bookmarksWithKeys = 
+            bookmarks
+            |> List.map (fun x -> x.key, x)
+        let allBookmarks =
+            m.bookmarks
+            |> HashMap.union (HashMap.ofList bookmarksWithKeys)
+        let orderList =
+            m.orderList 
+            |> List.append (bookmarks 
+                            |> Seq.map (fun x -> x.key)
+                            |> List.ofSeq)
+        {m with bookmarks = allBookmarks
+                orderList = orderList}
+        
+    let withResultion (m : SequencedBookmarks) (resolution : V2i) =
+        {m with 
+            resolutionX = {m.resolutionX with value = resolution.X}
+            resolutionY = {m.resolutionY with value = resolution.Y}
+        }
 
     let generateSnapshots m runProcess scenePath =
         let jsonPathName = Path.combine [m.outputPath;"batchRendering.json"]
@@ -551,14 +572,14 @@ module SequencedBookmarksApp =
                                               button [clazz "ui icon button"; onMouseClick (fun _ -> StepForward )] [ //
                                                   i [clazz "step forward icon"] [] ] 
                                           ] ]
-                  Html.row "Global Animation:" 
-                    [GuiEx.iconCheckBox model.animationSettings.useGlobalAnimation ToggleGlobalAnimation
-                        |> UI.map AnimationSettingsMessage;
-                                    i [clazz "info icon"] [] 
-                                        |> UI.wrapToolTip DataPosition.Bottom "Use a smooth path past all bookmarks, duration and delay cannot be set for individual bookmarks if this is selected."
-                    ]
-                  Html.row "Duration:" [Incremental.div AttributeMap.empty duration]
-                  Html.row "Smoothing Factor" [Incremental.div AttributeMap.empty smoothingFactor]
+                  //Html.row "Global Animation:" // RNO deactivated because it does not work with focal length animations
+                  //  [GuiEx.iconCheckBox model.animationSettings.useGlobalAnimation ToggleGlobalAnimation
+                  //      |> UI.map AnimationSettingsMessage;
+                  //                  i [clazz "info icon"] [] 
+                  //                      |> UI.wrapToolTip DataPosition.Bottom "Use a smooth path past all bookmarks, duration and delay cannot be set for individual bookmarks if this is selected."
+                  //  ]
+                  //Html.row "Duration:" [Incremental.div AttributeMap.empty duration]
+                  //Html.row "Smoothing Factor" [Incremental.div AttributeMap.empty smoothingFactor]
 
                   Html.row "Loop:"   [Html.SemUi.dropDown model.animationSettings.loopMode SetLoopMode
                                         |> UI.map AnimationSettingsMessage ]

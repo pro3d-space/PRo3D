@@ -15,11 +15,16 @@ open System.IO
 open PRo3D.Base
 open PRo3D.Core.SequencedBookmarks
 open Chiron
-
+open Aardvark.UI.Anewmation
 open Aether
 open Aether.Operators
 
 module BookmarkUtils =
+    /// Links the animation to a field in the model by registering
+    /// a callback that uses the given lens to modify its value as the animation progresses.
+    let linkPrism (lens : Prism<'Model, 'Value>) (animation : IAnimation<'Model, 'Value>) =
+        animation |> AnimationCallbackExtensions.Animation.onProgress (fun _ -> Optic.set lens)
+
 
     /// tries to find a bookmark and also tries to
     /// load it if it is not loaded
@@ -43,12 +48,15 @@ module BookmarkUtils =
             }
         let sequencedBookmark =
             {
-                version    = SequencedBookmarkModel.current
-                bookmark   = bookmark
-                sceneState = Some sceneState
-                duration   = SequencedBookmarkDefaults.initDuration 3.0
-                delay      = SequencedBookmarkDefaults.initDelay 0.0
-                basePath   = None
+                version             = SequencedBookmarkModel.current
+                bookmark            = bookmark
+                metadata            = None
+                sceneState          = Some sceneState
+                frustumParameters   = None
+                poseDataPath        = None
+                duration            = SequencedBookmarkDefaults.initDuration 3.0
+                delay               = SequencedBookmarkDefaults.initDelay 0.0
+                basePath            = None
             }
         sequencedBookmark
 
@@ -183,11 +191,10 @@ module BookmarkUtils =
         for guid, bm in bookmarks.bookmarks do
             match bm with
             | SequencedBookmarks.SequencedBookmark.LoadedBookmark bm ->
-                let bmPath = Path.Combine ( basePath, bm.path )
                 bm
                 |> Json.serialize
                 |> Json.formatWith JsonFormattingOptions.SingleLine
-                |> Serialization.Chiron.writeToFile bmPath
+                |> Serialization.Chiron.writeToFile bm.path
             | SequencedBookmarks.SequencedBookmark.NotYetLoaded bm ->
                 () // no need to write bookmark if not loaded (no changes)
         bookmarks

@@ -155,7 +155,8 @@ module ColorCorrectionProperties =
 
     let view (paletteFile : string) (model : AdaptiveColorCorrection) =        
       require GuiEx.semui (
-        Html.table [        
+        Html.table [  
+          Html.row ""                     []
           Html.row "use color:"           [GuiEx.iconCheckBox model.useColor UseColor ]
           Html.row "color:"               [ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" model.color |> UI.map SetColor ]
           Html.row "grayscale:"           [GuiEx.iconCheckBox model.useGrayscale UseGrayScale ]
@@ -165,5 +166,47 @@ module ColorCorrectionProperties =
           Html.row "set contrast:"        [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]   model.contrast  |> UI.map SetContrast ] 
           Html.row "use gamma:"           [GuiEx.iconCheckBox model.useGamma UseGamma ]
           Html.row "set gamma:"           [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]   model.gamma  |> UI.map SetGamma ] 
+        ]
+      )
+
+
+module RadiometryProperties =    
+
+    type Action =
+        | UseRadiometry
+        | SetMinR    of Numeric.Action
+        | SetMaxR    of Numeric.Action
+        | SetMinG    of Numeric.Action
+        | SetMaxG    of Numeric.Action
+        | SetMinB    of Numeric.Action
+        | SetMaxB    of Numeric.Action
+
+    let update (model : Radiometry) (act : Action) =        
+      match act with
+        | UseRadiometry  ->
+            { model with useRadiometry = (not model.useRadiometry) }
+        | SetMinR minr ->
+            { model with minR = Numeric.update model.minR minr }
+        | SetMaxR maxr ->
+            { model with maxR = Numeric.update model.maxR maxr }
+        | SetMinG ming ->
+            { model with minG = Numeric.update model.minG ming }
+        | SetMaxG maxg ->
+            { model with maxG = Numeric.update model.maxG maxg }
+        | SetMinB minb ->
+            { model with minB = Numeric.update model.minB minb }
+        | SetMaxB maxb ->
+            { model with maxB = Numeric.update model.maxB maxb }
+
+    let view (model : AdaptiveRadiometry) =        
+      require GuiEx.semui (
+        Html.table [        
+          Html.row "use radiometry:"      [GuiEx.iconCheckBox model.useRadiometry UseRadiometry ]
+          Html.row "set min R:"      [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]   model.minR  |> UI.map SetMinR ]
+          Html.row "set max R:"      [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]   model.maxR  |> UI.map SetMaxR ]
+          Html.row "set min G:"      [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]   model.minG  |> UI.map SetMinG ]
+          Html.row "set max G:"      [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]   model.maxG  |> UI.map SetMaxG ]
+          Html.row "set min B:"      [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]   model.minB  |> UI.map SetMinB ]
+          Html.row "set max B:"      [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]   model.maxB  |> UI.map SetMaxB ]
         ]
       )

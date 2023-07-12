@@ -144,6 +144,7 @@ module SceneLoader =
             |> addLegacyTrafos
             |> addSurfaceAttributes
             |> IndexList.map( fun x -> { x with colorCorrection = Init.initColorCorrection}) 
+            |> IndexList.map( fun x -> { x with radiometry = Init.initRadiometry})
               
         let existingSurfaces = 
             model.scene.surfacesModel.surfaces.flat
@@ -281,12 +282,11 @@ module SceneLoader =
 
         { model with sgSceneObjects = sgSurfaces }
 
-   
-          
     let setFrustum (m:Model) =
-       let near = m.scene.config.nearPlane.value
-       let far = m.scene.config.farPlane.value
-       Frustum.perspective 60.0 near far 1.0
+        FrustumUtils.calculateFrustum 
+            m.scene.config.frustumModel.focal.value
+            m.scene.config.nearPlane.value
+            m.scene.config.farPlane.value
            
     let resetControllerState (m : Model) = 
       

@@ -26,12 +26,15 @@ open System.Collections.Concurrent
             (renderingUrl        : string)
             (dataSamples         : int)
             (screenshotDirectory : string)
-            =
+            (viewerVersion       : string) =
 
+            let startupArgs = 
+                {StartupArgs.initArgs with isBatchRendering = true}
             let m = 
                 if startEmpty |> not then
-                    PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl 
+                    PRo3D.Viewer.Viewer.initial messagingMailbox startupArgs renderingUrl 
                                                 dataSamples screenshotDirectory ViewerLenses._animator
+                                                viewerVersion
                     |> SceneLoader.loadLastScene runtime signature                
                     |> SceneLoader.loadLogBrush
                     |> ViewerIO.loadRoverData                
@@ -45,6 +48,7 @@ open System.Collections.Concurrent
                 else
                     PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl
                                                 dataSamples screenshotDirectory ViewerLenses._animator
+                                                viewerVersion
                     |> ViewerIO.loadRoverData
 
             SimulatedViews.AppExtension.start' {

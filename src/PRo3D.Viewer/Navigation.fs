@@ -84,12 +84,12 @@ module Navigation =
                 getFarPlane  : 'ma -> aval<float>
             }
 
-        let frustum near far =
-            adaptive {
-                let! near = near
-                let! far = far
-                return (Frustum.perspective 90.0 near far 1.0)
-                }
+        //let frustum near far =
+        //    adaptive {
+        //        let! near = near
+        //        let! far = far
+        //        return (Frustum.perspective 90.0 near far 1.0)
+        //        }
 
         let renderControlAttributes (model : AdaptiveNavigationModel) near far =
             amap {

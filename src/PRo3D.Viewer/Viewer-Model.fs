@@ -169,8 +169,12 @@ type ViewerAction =
 | ScreenshotMessage              of ScreenshotAction
 | TraverseMessage                of TraverseAction
 | SetSceneState                  of SceneState
+| WriteBookmarkMetadata          of string * SequencedBookmarkModel
+| WriteCameraMetadata            of string * SnapshotCamera
 | StopGeoJsonAutoExport        
 | SetPivotType                   of PickPivot
+| LoadPoseDefinitionFile         of list<string>
+| SBookmarksToPoseDefinition
 | Nop
 
 and MailboxState = {
@@ -509,6 +513,7 @@ type MultiSelectionBox =
 
 [<ModelType>]
 type Model = { 
+    viewerVersion        : string
     startupArgs          : StartupArgs
     dashboardMode        : string
     scene                : Scene
@@ -564,8 +569,6 @@ type Model = {
     showExplorationPoint : bool
 
     heighValidation      : HeightValidatorModel
-
-    frustumModel         : FrustumModel    
 
     filterTexture        : bool
 

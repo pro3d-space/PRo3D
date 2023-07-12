@@ -45,7 +45,7 @@ module Sg =
     //            |> Sg.trafo(trafo)
 
     //TODO refactor: confusing use of variable names and transformations, seems very complicated for a line with a label
-    let directionMarker (near:aval<float>) (cam:aval<CameraView>) (style : MarkerStyle) =
+    let directionMarker (hfov : aval<float>)  (near:aval<float>) (cam:aval<CameraView>) (style : MarkerStyle) =
         aset{
            
             //let! dirs = style.direction
@@ -78,7 +78,7 @@ module Sg =
                 style.text 
                   |> AVal.map(fun x ->
                     match x with 
-                      | Some text -> Sg.text cam near ~~60.0 nLabelPos nPosTrafo ~~0.05 ~~text
+                      | Some text -> Sg.text cam near hfov nLabelPos nPosTrafo ~~0.05 ~~text
                       | None -> Sg.empty)
 
             yield Sg.drawLines al (~~0.0)style.color style.thickness posTrafo
@@ -136,16 +136,16 @@ module Sg =
         let eastV = 
             (east, position) ||> AVal.map2 (fun edir position -> [| position; position + edir.Normalized |])
 
-
+        let hfov = minnerConfig.getHorizontalFieldOfView mbigConfig
         let nLabelPos = AVal.map2(fun l r -> l + r) position model.north.value
         let nPosTrafo = nLabelPos |> AVal.map(fun d -> Trafo3d.Translation(d))
-        let label = Sg.text cam near (AVal.constant 60.0) nLabelPos nPosTrafo (AVal.constant 0.05) (AVal.constant "N")
+        let label = Sg.text cam near hfov nLabelPos nPosTrafo (AVal.constant 0.05) (AVal.constant "N")
 
         Sg.ofList [
             point model.origin (AVal.constant C4b.Red) cam
             //sizeText
             Sg.drawLines upV (AVal.constant 0.0)(AVal.constant C4b.Blue) thickness posTrafo 
-            styleUp |> directionMarker near cam 
+            directionMarker hfov near cam styleUp 
             Sg.drawLines northV (AVal.constant 0.0)(AVal.constant C4b.Red) thickness posTrafo 
             Sg.drawLines eastV (AVal.constant 0.0)(AVal.constant C4b.Green) thickness posTrafo
             label                     
@@ -166,6 +166,8 @@ module Sg =
         let east = AVal.map2(fun (up:V3d) (n:V3d) -> n.Cross(up) ) model.up.value model.northO // model.north.value
 
         let size = model.selectedScale |> AVal.map scaleToSize
+        let hfov = minnerConfig.getHorizontalFieldOfView mbigConfig
+        let directionMarker = directionMarker hfov
 
         let styleUp : MarkerStyle = {
             position  = model.origin
@@ -270,7 +272,7 @@ module Sg =
             Sg.text 
                 cam 
                 near 
-                (AVal.constant 60.0) 
+                (minnerConfig.getHorizontalFieldOfView mbigConfig)
                 model.origin 
                 (model.origin |> AVal.map Trafo3d.Translation) 
                 (AVal.constant 0.05)
@@ -280,7 +282,7 @@ module Sg =
             Sg.ofList [
                 point model.origin (AVal.constant C4b.Red) cam
                 sizeText
-                styleUp    |> directionMarker near cam  
+                styleUp    |> directionMarker near cam 
                 styleNorth |> directionMarker near cam
                 //styleNorth90 |> directionMarker near cam
                 styleEast  |> directionMarker near cam
@@ -318,7 +320,6 @@ module Sg =
                 | _ -> xyzSystem 
             )
             
-
         currentSystem |> Sg.dynamic |> Sg.onOff(model.isVisible)
         //[refsystem] |> Sg.ofList |> Sg.onOff(model.isVisible)  
  
