@@ -1974,11 +1974,11 @@ module ViewerApp =
 
         let viewerDependencies = [
             { kind = Stylesheet;  name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.css" }
-            { kind = Stylesheet;  name = "semui-overrides"; url = "semui-overrides.css" }
+            { kind = Stylesheet;  name = "semui-overrides"; url = "./resources/semui-overrides.css" }
             { kind = Script;      name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.js" }
-            { kind = Script;      name = "errorReporting";  url = "./errorReporting.js"  }
-            { kind = Script;      name = "resize";  url = "./ResizeSensor.js"  }
-            { kind = Script;      name = "resizeElem";  url = "./ElementQueries.js"  }
+            { kind = Script;      name = "errorReporting";  url = "./resources/errorReporting.js"  }
+            { kind = Script;      name = "resize";  url = "./resources/ResizeSensor.js"  }
+            { kind = Script;      name = "resizeElem";  url = "./resources/ElementQueries.js"  }
         ]
         
         let bodyAttributes : list<Attribute<ViewerAnimationAction>> = 

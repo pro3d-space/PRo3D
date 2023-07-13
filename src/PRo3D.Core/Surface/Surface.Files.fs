@@ -52,7 +52,7 @@ module Files =
 
                imagesPath.IsSome && patchesPath.IsSome && patchHierarchyXmlPath.IsSome
 
-           printfn "[Surface.Files] is opc path: %A" path
+           printfn "[Surface.Files] is opc path: %A => %b" path isOpcFolder
            isOpcFolder
 
        /// <summary>
