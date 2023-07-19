@@ -120,7 +120,7 @@ NUGET
       Aardvark.Geometry.Clustering (5.2.25)
       Aardvark.Geometry.Intersection (5.2.25)
       Aardvark.Rendering (>= 5.4.1)
-    Aardvark.GeoSpatial.Opc (5.10.1)
+    Aardvark.GeoSpatial.Opc (5.10.5)
       Aardvark.Base (>= 5.2.13 < 5.3)
       Aardvark.Base.FSharp (>= 5.2.13 < 5.3)
       Aardvark.Base.IO (>= 5.2.13 < 5.3)

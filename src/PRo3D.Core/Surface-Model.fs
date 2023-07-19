@@ -372,6 +372,14 @@ type MeshLoaderType =
     | Ply       = 4
 
 
+
+type TransferFunction =
+    {
+        tf : ColorMaps.TF
+        textureCombiner : TextureCombiner
+    }
+
+
 [<ModelType>]
 type Surface = {
     
@@ -400,8 +408,11 @@ type Surface = {
     scalarLayers    : HashMap<int, ScalarLayer> 
     selectedScalar  : option<ScalarLayer>
 
-    textureLayers   : IndexList<TextureLayer>
-    selectedTexture : option<TextureLayer>
+    textureLayers      : IndexList<TextureLayer>
+    primaryTexture     : Option<TextureLayer>
+    secondaryTexture   : Option<TextureLayer>
+    transferFunction   : Option<TransferFunction>
+    opcxPath        : Option<string>
 
     [<NonAdaptiveAttribute>]
     surfaceType     : SurfaceType     
@@ -435,7 +446,9 @@ module Surface =
             let! scalarLayers    = Json.read "scalarLayers"  
             let! selectedScalar  = Json.read "selectedScalar"
             let! textureLayers   = Json.read "textureLayers"
+
             let! selectedTexture = Json.read "selectedTexture"
+
             let! surfaceType     = Json.read "surfaceType"    
             let! colorCorrection = Json.read "colorCorrection"
             let! transformation  = Json.read "transformation"
@@ -459,6 +472,7 @@ module Surface =
             let scalarLayers  = scalarLayers  |> HashMap.ofList
             let textureLayers = textureLayers |> IndexList.ofList
 
+
             return 
                 {
                     version         = current
@@ -480,12 +494,15 @@ module Surface =
                     scalarLayers    = scalarLayers
                     selectedScalar  = selectedScalar
                     textureLayers   = textureLayers
-                    selectedTexture = selectedTexture
+                    primaryTexture   = selectedTexture
+                    secondaryTexture = None
+                    transferFunction = None
                     surfaceType     = surfaceType     |> enum<SurfaceType>
                     preferredLoader = preferredLoader |> enum<MeshLoaderType>
                     colorCorrection = colorCorrection
                     homePosition    = view
                     transformation  = transformation
+                    opcxPath        = None
                 }
         }
      
@@ -522,7 +539,7 @@ type Surface with
             do! Json.write "scalarLayers" (x.scalarLayers |> HashMap.toList)
             do! Json.write "selectedScalar" x.selectedScalar
             do! Json.write "textureLayers" (x.textureLayers |> IndexList.toList)
-            do! Json.write "selectedTexture" x.selectedTexture
+            do! Json.write "selectedTexture" x.primaryTexture
             do! Json.write "surfaceType" (x.surfaceType |> int)
             do! Json.write "colorCorrection" x.colorCorrection
             do! Json.write "preferredMeshLoader" (x.preferredLoader |> int)

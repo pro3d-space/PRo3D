@@ -75,7 +75,10 @@ module SurfaceUtils =
             scalarLayers    = HashMap.Empty //IndexList.empty
             selectedScalar  = None
             textureLayers   = IndexList.empty
-            selectedTexture = None         
+            primaryTexture  = None  
+            
+            secondaryTexture = None
+            transferFunction = None
     
             triangleSize    = { Init.triangleSize with value = maxTriangleSize }
 
@@ -85,6 +88,7 @@ module SurfaceUtils =
             colorCorrection = Init.initColorCorrection
             homePosition    = None
             transformation  = Init.transformations
+            opcxPath        = None
         }       
    
 

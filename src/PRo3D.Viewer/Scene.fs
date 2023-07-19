@@ -117,7 +117,8 @@ module SceneLoader =
                { s with 
                    scalarLayers  = layers |> SurfaceProperties.getScalarsHmap //SurfaceProperties.getScalars
                    textureLayers = textures
-                   selectedTexture = textures |> IndexList.tryFirst
+                   primaryTexture = textures |> IndexList.tryFirst
+                   opcxPath = Some path
                }
            match Serialization.fileExists p with
            | Some path->        
