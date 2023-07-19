@@ -20,6 +20,7 @@
     <NoWarn>0686</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="AardvarkUIReworks.fs" />
     <EmbeddedResource Include="resources/groupmappings" />
     <Compile Include="Config.fs" />
     <Compile Include="Core-Types.fs" />

@@ -648,6 +648,61 @@ module Shader =
             return color
         }
 
+
+    let private secondaryTextureSampler =
+        sampler2d {
+            texture uniform?SecondaryTexture
+            filter Filter.MinMagMipLinear
+            addressU WrapMode.Wrap
+            addressV WrapMode.Wrap
+        }
+
+
+    let private transferFunctionSampler =
+        sampler2d {
+            texture uniform?SecondaryTextureTransferFunction
+            filter Filter.MinMagPoint
+            addressU WrapMode.Clamp
+            addressV WrapMode.Clamp
+        }
+
+    type UniformScope with
+        member x.TextureCombiner : TextureCombiner = uniform?TextureCombiner
+        member x.TransferFunctionMode : TransferFunctionMode = uniform?TransferFunctionMode
+        member x.TFRange : V2d = uniform?TFRange
+
+    let secondaryTexture (v : Effects.Vertex) =
+        fragment {    
+            // weired mutable style to prevent fshade from creating deeply nested stuff.
+            let mutable color = v.c
+            match uniform.TextureCombiner with
+            | TextureCombiner.Primary -> 
+                color <- v.c
+            | _ -> 
+                let secondaryColor =
+                    match uniform.TransferFunctionMode with
+                    | TransferFunctionMode.Ramp -> 
+                        let range = uniform.TFRange
+                        let e = secondaryTextureSampler.Sample(v.tc)
+                        if e.X > range.X && e.X < range.Y then
+                            let my = (e.X - range.X) / (range.Y - range.X)
+                            let c = transferFunctionSampler.Sample(V2d(my,0.0))
+                            c
+                        else
+                            v.c
+                    | _ -> 
+                        v.c
+                match uniform.TextureCombiner with
+                | TextureCombiner.Secondary -> 
+                    color <- secondaryColor
+                | TextureCombiner.Multiply -> 
+                    color <- V4d(v.c.XYZ * secondaryColor.XYZ, 1.0)
+                | _ -> 
+                    color <- v.c
+
+            return color
+        }
+
     let depthCalculation2 (v : FootPrintVertex) =
         fragment {     
             let mutable color = v.c
