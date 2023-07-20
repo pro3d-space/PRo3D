@@ -621,7 +621,11 @@ type TransferFunction =
     {
         tf : ColorMaps.TF
         textureCombiner : TextureCombiner
+        blendFactor : float
     }
+
+module TransferFunction =
+    let empty = { tf = ColorMaps.TF.Passthrough; textureCombiner = TextureCombiner.Primary; blendFactor = 1.0 }
 
 
 [<ModelType>]
@@ -655,7 +659,7 @@ type Surface = {
     textureLayers   : IndexList<TextureLayer>
     primaryTexture     : Option<TextureLayer>
     secondaryTexture   : Option<TextureLayer>
-    transferFunction   : Option<TransferFunction>
+    transferFunction   : TransferFunction
     opcxPath        : Option<string>
 
     [<NonAdaptiveAttribute>]
@@ -741,7 +745,7 @@ module Surface =
                     textureLayers   = textureLayers
                     primaryTexture   = selectedTexture
                     secondaryTexture = None
-                    transferFunction = None
+                    transferFunction = TransferFunction.empty
                     surfaceType     = surfaceType     |> enum<SurfaceType>
                     preferredLoader = preferredLoader |> enum<MeshLoaderType>
                     colorCorrection = colorCorrection

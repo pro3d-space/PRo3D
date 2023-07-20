@@ -423,49 +423,38 @@ module ViewerUtils =
 
                     |> Sg.texture "SecondaryTextureTransferFunction" (
                         surf.transferFunction |> AVal.map (fun tf -> 
-                            match tf with
-                            | None -> NullTexture.Instance
-                            | Some tf -> 
-                                match tf.tf with
-                                | ColorMaps.TF.Passthrough -> NullTexture.Instance
-                                | ColorMaps.TF.Ramp(_,_,name) ->
-                                    match Map.tryFind name ColorMaps.colorMaps with
-                                    | None -> NullTexture.Instance
-                                    | Some l ->
-                                        try 
-                                            l.Value :> ITexture
-                                        with e -> 
-                                            Log.warn "SecondaryTextureTransferFunction: %A" e
-                                            NullTexture.Instance
+                            match tf.tf with
+                            | ColorMaps.TF.Passthrough -> NullTexture.Instance
+                            | ColorMaps.TF.Ramp(_,_,name) ->
+                                match Map.tryFind name ColorMaps.colorMaps with
+                                | None -> NullTexture.Instance
+                                | Some l ->
+                                    try 
+                                        l.Value :> ITexture
+                                    with e -> 
+                                        Log.warn "SecondaryTextureTransferFunction: %A" e
+                                        NullTexture.Instance
                         )
                     )
                     |> Sg.uniform "TextureCombiner" (
-                        surf.transferFunction |> AVal.map (fun tf -> 
-                            match tf with
-                            | None -> TextureCombiner.Unknown
-                            | Some tf -> 
-                                tf.textureCombiner 
-                        )
+                        surf.transferFunction |> AVal.map (fun tf -> tf.textureCombiner)
                     )
                     |> Sg.uniform "TransferFunctionMode" (
                         surf.transferFunction |> AVal.map (fun tf -> 
-                            match tf with
-                            | None -> TransferFunctionMode.Unknown
-                            | Some tf -> 
-                                match tf.tf with
-                                | ColorMaps.TF.Passthrough -> TransferFunctionMode.Passthrough
-                                | ColorMaps.TF.Ramp(_,_,_) -> TransferFunctionMode.Ramp
+                            match tf.tf with
+                            | ColorMaps.TF.Passthrough -> TransferFunctionMode.Passthrough
+                            | ColorMaps.TF.Ramp(_,_,_) -> TransferFunctionMode.Ramp
                         )
                     )
                     |> Sg.uniform "TFRange" (
                         surf.transferFunction |> AVal.map (fun tf -> 
-                            match tf with
-                            | None -> V2d.OI
-                            | Some tf -> 
-                                match tf.tf with
-                                | ColorMaps.TF.Passthrough -> V2d.OI
-                                | ColorMaps.TF.Ramp(min,max,_) -> V2d(min, max)
+                            match tf.tf with
+                            | ColorMaps.TF.Passthrough -> V2d.OI
+                            | ColorMaps.TF.Ramp(min,max,_) -> V2d(min, max)
                         )
+                    )
+                    |> Sg.uniform "TFBlendFactor" (
+                        surf.transferFunction |> AVal.map (fun tf -> tf.blendFactor)
                     )
 
 
