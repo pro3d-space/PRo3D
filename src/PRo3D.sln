@@ -25,7 +25,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{EC91D5A1-9C4B-45A2-843C-CB687BF9581F}"
 	ProjectSection(SolutionItems) = preProject
 		..\docs\Build-Deploy-System.md = ..\docs\Build-Deploy-System.md
-		Multitexture.md = Multitexture.md
+		..\docs\Feature-Multitexture.md = ..\docs\Feature-Multitexture.md
 		..\paket.dependencies = ..\paket.dependencies
 		..\docs\spice.md = ..\docs\spice.md
 		..\docs\Structure.md = ..\docs\Structure.md
