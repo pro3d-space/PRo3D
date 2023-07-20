@@ -49,7 +49,7 @@ module NoSemUi =
         ]
 
 
-    let numeric (cfg : NumericConfig<'a>) (atts : AttributeMap<'msg>) (value : aval<'a>) (update : 'a -> 'msg) =
+    let numeric (cfg : NumericConfig<'a>) (inputType : string) (atts : AttributeMap<'msg>) (value : aval<'a>) (update : 'a -> 'msg) =
 
         let value = if value.IsConstant then AVal.custom (fun t -> value.GetValue t) else value
 
@@ -83,7 +83,7 @@ module NoSemUi =
                             input (att [
 
                                 attribute "value" (value.GetValue() |> pickle)
-                                attribute "type" "text"
+                                attribute "type" inputType
                                 attribute "min" (pickle cfg.min)
                                 attribute "max" (pickle cfg.max)
                                 attribute "step" (pickle cfg.smallStep)

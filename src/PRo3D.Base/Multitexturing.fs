@@ -44,6 +44,7 @@ type TextureCombiner =
     | Primary = 1
     | Secondary = 2
     | Multiply = 3
+    | Blend = 4
 
 type TransferFunctionMode =
     | Unknown = 0

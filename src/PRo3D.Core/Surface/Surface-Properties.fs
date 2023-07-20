@@ -18,6 +18,11 @@ open PRo3D.Core.Surface
 
 module SurfaceProperties =        
 
+    [<Literal>]
+    let ramp = "Ramp"
+    [<Literal>]
+    let passthrough = "Passthrough"
+
     type Action =
         | SetFillMode    of FillMode
         | SetCullMode    of CullMode
@@ -37,6 +42,7 @@ module SurfaceProperties =
         | SetTFMax of float
         | SetColorMappingName of Option<string>
         | SetTextureCombiner of TextureCombiner
+        | SetBlendFactor of float
 
         | SetHomePosition //of Guid //of Option<CameraView>
 
@@ -73,41 +79,31 @@ module SurfaceProperties =
         | SetSecondaryTexture texture ->                
             { model with secondaryTexture = texture } |> Console.print
 
-        | SetTransferFunctionMode None -> 
-            { model with transferFunction = None }
-        | SetTransferFunctionMode name -> 
+        | SetTransferFunctionMode (Some name) -> 
             match name with
-            | Some "Ramp" -> 
+            | _ when name = ramp -> 
                 match model.transferFunction with
-                | Some { tf = ColorMaps.TF.Ramp(_,_,_); textureCombiner = _ } -> model
-                | _ -> { model with transferFunction = Some {  tf = ColorMaps.TF.Ramp(0.0, 1.0, ColorMaps.colorMaps |> Map.toSeq |> Seq.head |> fst); textureCombiner = TextureCombiner.Multiply } }
-            | Some "Passthrough" -> 
-                { model with transferFunction = Some { tf = ColorMaps.TF.Passthrough; textureCombiner = TextureCombiner.Multiply }}
-            | None -> { model with transferFunction = None }
-            | Some name -> 
+                | { tf = ColorMaps.TF.Ramp(_,_,_); textureCombiner = _ } -> model
+                | _ -> { model with transferFunction = { model.transferFunction with tf = ColorMaps.TF.Ramp(0.0, 1.0, ColorMaps.colorMaps |> Map.toSeq |> Seq.head |> fst); } }
+            | _ when name = passthrough-> 
+                { model with transferFunction = { model.transferFunction with tf = ColorMaps.TF.Passthrough }}
+            | _ -> 
                 Log.warn "unkonwn tf mode: %s" name
                 model
+        | SetTransferFunctionMode None -> model
+
         | SetTFMin min -> 
-            match model.transferFunction with
-            | None -> model
-            | Some tf -> 
-                { model with transferFunction = Some { tf with tf = ColorMaps.TF.trySetMin min tf.tf;  }  }
+            { model with transferFunction = { model.transferFunction with tf = ColorMaps.TF.trySetMin min model.transferFunction.tf; } }
         | SetTFMax max -> 
-            match model.transferFunction with
-            | None -> model
-            | Some tf -> 
-                { model with transferFunction = Some { tf with tf = ColorMaps.TF.trySetMax max tf.tf }  }
+            { model with transferFunction = { model.transferFunction with tf = ColorMaps.TF.trySetMax max model.transferFunction.tf; } }
+
         | SetColorMappingName None -> model
         | SetColorMappingName (Some name) -> 
-            match model.transferFunction with
-            | None -> model
-            | Some tf -> 
-                { model with transferFunction = Some { tf with tf = ColorMaps.TF.trySetName name tf.tf }  }
+            { model with transferFunction = { model.transferFunction with tf = ColorMaps.TF.trySetName name model.transferFunction.tf }  }
         | SetTextureCombiner c -> 
-            match model.transferFunction with
-            | None -> model
-            | Some tf -> 
-                { model with transferFunction = Some { tf with textureCombiner = c } }
+            { model with transferFunction = { model.transferFunction with textureCombiner = c } }
+        | SetBlendFactor f -> 
+            { model with transferFunction = { model.transferFunction with blendFactor = f }}
 
 
         | SetHomePosition -> model
@@ -172,47 +168,53 @@ module SurfaceProperties =
                 
                 let tfToName (tf : ColorMaps.TF) =
                     match tf with
-                    | ColorMaps.TF.Ramp(_,_,_) -> "Ramp"
-                    | ColorMaps.TF.Passthrough -> "Passthrough"
+                    | ColorMaps.TF.Ramp(_,_,_) -> ramp
+                    | ColorMaps.TF.Passthrough -> passthrough
                 
                 
-                yield Html.row "Transfer Function" [ div [] [UI.dropDown'' (AList.ofList ["Passthrough"; "Ramp"]) (model.transferFunction |> AVal.map (function None -> None | Some tf -> Some (tfToName tf.tf))) SetTransferFunctionMode (fun a -> a)]]
+                yield Html.row "Transfer Function" [ div [] [UI.dropDown'' (AList.ofList [ramp; passthrough]) (model.transferFunction |> AVal.map (fun tf -> Some (tfToName tf.tf))) SetTransferFunctionMode (fun a -> a)]]
                 yield Html.row "Secondary Texture:"   [UI.dropDown'' model.textureLayers model.secondaryTexture (fun x -> SetSecondaryTexture x) (fun x -> x.label)]
                 
                 let! tf = model.transferFunction
-                match tf with
-                | None -> ()
-                | Some tf -> 
-                        yield Html.row "Texture Combiner" [Html.SemUi.dropDown (AVal.constant tf.textureCombiner) SetTextureCombiner]   
 
-                        match tf.tf with
-                        | ColorMaps.TF.Ramp(min,max,name) ->
-                            yield Html.row "Min" [
-                                yield Aardvark.UI.NoSemUi.numeric { min = 0.0; max = 1.0; smallStep = 0.01; largeStep = 0.1 } AttributeMap.empty (
-                                    match tf.tf with 
-                                    | ColorMaps.TF.Ramp(min, max, name) -> min |> AVal.constant
-                                    | _ -> 0.0 |> AVal.constant
-                                ) SetTFMin
-                            ]
-                            yield Html.row "Max" [
-                                yield Aardvark.UI.NoSemUi.numeric { min = 0.0; max = 1.0; smallStep = 0.01; largeStep = 0.1 } AttributeMap.empty (
-                                    match tf.tf with 
-                                    | ColorMaps.TF.Ramp(min, max, name) -> max |> AVal.constant
-                                    | _ -> 0.0 |> AVal.constant
-                                ) SetTFMax
-                            ]
-                            let toColorMapName (tf : ColorMaps.TF) =
-                                match tf with
-                                | ColorMaps.TF.Ramp(_,_,s) -> Some s
-                                | _ -> None
-                            //let candidates =
-                            //    let availableColorMaps = ColorMaps.colorMaps |> List.map (fun (s,_) -> Some s, s) |> Map.ofList
-                            //    Map.union (Map.ofList [None, "No color map"]) availableColorMaps
-                            //yield Simple.dropDown [] (toColorMapName tf.tf |> AVal.constant) SetColorMappingName candidates
-                            yield Html.row "Color Map" [
-                                yield UI.dropDown'' (ColorMaps.colorMaps |> Map.toSeq |> Seq.map fst |> AList.ofSeq) (toColorMapName tf.tf |> AVal.constant) (fun x -> SetColorMappingName x) (fun s -> s)
-                            ]
-                        | _ -> ()
+                yield Html.row "Texture Combiner" [Html.SemUi.dropDown (AVal.constant tf.textureCombiner) SetTextureCombiner]  
+                        
+                match tf.textureCombiner with
+                | TextureCombiner.Blend -> 
+                    yield 
+                        Html.row "Blend Factor" [Aardvark.UI.NoSemUi.numeric { min = 0.0; max = 1.0; smallStep = 0.01; largeStep = 0.1 } "range" AttributeMap.empty (
+                                tf.blendFactor |> AVal.constant 
+                            ) SetBlendFactor
+                        ]
+                | _ -> 
+                    ()
+
+                match tf.tf with
+                | ColorMaps.TF.Ramp(min,max,name) ->
+                    yield Html.row "Min" [
+                        yield Aardvark.UI.NoSemUi.numeric { min = 0.0; max = 1.0; smallStep = 0.01; largeStep = 0.1 } "text" AttributeMap.empty (
+                            match tf.tf with 
+                            | ColorMaps.TF.Ramp(min, max, name) -> min |> AVal.constant
+                            | _ -> 0.0 |> AVal.constant
+                        ) SetTFMin
+                    ]
+                    yield Html.row "Max" [
+                        yield Aardvark.UI.NoSemUi.numeric { min = 0.0; max = 1.0; smallStep = 0.01; largeStep = 0.1 } "text" AttributeMap.empty (
+                            match tf.tf with 
+                            | ColorMaps.TF.Ramp(min, max, name) -> max |> AVal.constant
+                            | _ -> 0.0 |> AVal.constant
+                        ) SetTFMax
+                    ]
+                    let toColorMapName (tf : ColorMaps.TF) =
+                        match tf with
+                        | ColorMaps.TF.Ramp(_,_,s) -> Some s
+                        | _ -> None
+
+                    yield Html.row "Color Map" [
+                        yield UI.dropDown'' (ColorMaps.colorMaps |> Map.toSeq |> Seq.map fst |> AList.ofSeq) (toColorMapName tf.tf |> AVal.constant) (fun x -> SetColorMappingName x) (fun s -> s)
+                    ]
+                | _ -> ()
+
                     
             }
       )

@@ -78,7 +78,7 @@ module SurfaceUtils =
             primaryTexture  = None  
             
             secondaryTexture = None
-            transferFunction = None
+            transferFunction = TransferFunction.empty
     
             triangleSize    = { Init.triangleSize with value = maxTriangleSize }
 

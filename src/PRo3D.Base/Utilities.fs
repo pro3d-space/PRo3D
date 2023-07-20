@@ -648,6 +648,7 @@ module Shader =
         member x.TextureCombiner : TextureCombiner = uniform?TextureCombiner
         member x.TransferFunctionMode : TransferFunctionMode = uniform?TransferFunctionMode
         member x.TFRange : V2d = uniform?TFRange
+        member x.TFBlendFactor : float = uniform?TFBlendFactor
 
     let secondaryTexture (v : Effects.Vertex) =
         fragment {    
@@ -668,6 +669,8 @@ module Shader =
                             c
                         else
                             v.c
+                    | TransferFunctionMode.Passthrough -> 
+                        secondaryTextureSampler.Sample(v.tc)
                     | _ -> 
                         v.c
                 match uniform.TextureCombiner with
@@ -675,6 +678,8 @@ module Shader =
                     color <- secondaryColor
                 | TextureCombiner.Multiply -> 
                     color <- V4d(v.c.XYZ * secondaryColor.XYZ, 1.0)
+                | TextureCombiner.Blend ->
+                    color <- V4d(v.c.XYZ * (1.0 - uniform.TFBlendFactor) + secondaryColor.XYZ * uniform.TFBlendFactor, 1.0)
                 | _ -> 
                     color <- v.c
 
