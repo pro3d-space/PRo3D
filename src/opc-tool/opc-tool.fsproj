@@ -5,6 +5,12 @@
     <TargetFramework>net6.0</TargetFramework>
     <RootNamespace>opc_tool</RootNamespace>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <OutputPath>..\..\bin\Debug\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <OutputPath>..\..\bin\Release</OutputPath>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Include="KdTreesCopy.fs" />
     <None Include="paket.references" />
