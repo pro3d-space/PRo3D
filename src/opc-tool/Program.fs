@@ -37,7 +37,7 @@ let main args =
     PRo3D.Base.Serialization.registry.RegisterFactory (fun _ -> PRo3D.Core.Surface.Init.incorePickler)
 
     let hierarchies =
-        Directory.GetDirectories(@"F:\pro3d\data\OpcMcz")
+        Directory.GetDirectories(@"F:\pro3d\data\OpcHera")
 
     traverse hierarchies
 

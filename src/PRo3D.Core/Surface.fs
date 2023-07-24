@@ -93,9 +93,9 @@ module DebugKdTreesX =
         |> Seq.toArray
         |> TriangleSet
 
-    let loadTriangles (kd : LazyKdTree) =
+    let loadTriangles' (affine: Trafo3d) (araPath : string) =
         
-        let positions = kd.objectSetPath |> Aara.fromFile<V3f>
+        let positions = araPath |> Aara.fromFile<V3f>
                 
         let invalidIndices = getInvalidIndices3f positions.Data |> List.toArray
         let size = positions.Size.XY.ToV2i()
@@ -105,8 +105,12 @@ module DebugKdTreesX =
        // Log.warn "num of indices: %A" indices.Length
                        
         positions.Data 
-        |> Array.map (fun x ->  x.ToV3d() |> kd.affine.Forward.TransformPos) 
+        |> Array.map (fun x ->  x.ToV3d() |> affine.Forward.TransformPos) 
         |> getTriangleSet indices
+
+    let loadTriangles (kd : LazyKdTree) =
+        
+        loadTriangles' kd.affine kd.objectSetPath 
 
     let loadObjectSet (cache : HashMap<string, ConcreteKdIntersectionTree>) (lvl0Tree : Level0KdTree) =             
         match lvl0Tree with

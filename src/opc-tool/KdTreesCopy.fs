@@ -164,27 +164,35 @@ module KdTrees =
                     kd0Paths
                     |> List.mapi (fun i (info,kdPath) ->
                         
+                        let dir = h.opcPaths.Patches_DirAbsPath +/ info.Name
+                        let pos =
+                            match mode with
+                            | XYZ -> info.Positions
+                            | SvBR -> info.Positions2d.Value
+
+                        let objectSetPath = dir +/ pos
                         let trafo = mode |> ViewerModality.matchy info.Local2Global info.Local2Global2d
 
                         let createConcreteTree () : ConcreteKdIntersectionTree = 
-                            let (ig, time) = Patch.load h.opcPaths mode info
-                            let triangles = 
-                                match ig.IndexArray, ig.IndexedAttributes[DefaultSemantic.Positions] with
-                                | (:? array<int> as idx), (:? array<V3f> as p) ->
-                                    let triangles = List<Triangle3d>()
-                                    for i in 0 .. 3 .. idx.Length - 1 do
-                                        let t = Triangle3d(V3d p[idx[i]], V3d p[idx[i + 1]], V3d p[idx[i + 2]])
-                                        let nan = t.P0.IsNaN || t.P1.IsNaN || t.P2.IsNaN
-                                        if nan then 
-                                            ()
-                                        else
-                                            triangles.Add(t.Transformed trafo.Forward)
+                            let triangleSet = PRo3D.Core.Surface.DebugKdTreesX.loadTriangles' trafo objectSetPath
+                            //let (ig, time) = Patch.load h.opcPaths mode info
+                            //let triangles = 
+                            //    match ig.IndexArray, ig.IndexedAttributes[DefaultSemantic.Positions] with
+                            //    | (:? array<int> as idx), (:? array<V3f> as p) ->
+                            //        let triangles = List<Triangle3d>()
+                            //        for i in 0 .. 3 .. idx.Length - 1 do
+                            //            let t = Triangle3d(V3d p[idx[i]], V3d p[idx[i + 1]], V3d p[idx[i + 2]])
+                            //            let nan = t.P0.IsNaN || t.P1.IsNaN || t.P2.IsNaN
+                            //            if nan then 
+                            //                ()
+                            //            else
+                            //                triangles.Add(t.Transformed trafo.Forward)
 
-                                    triangles
-                                | _ -> 
-                                    failwith "no index or position array"
-                            let set = Aardvark.Geometry.TriangleSet(triangles)
-                            let kdTree = KdIntersectionTree(set, KdIntersectionTree.BuildFlags.Default, 0.0, 0.001)
+                            //        triangles
+                            //    | _ -> 
+                            //        failwith "no index or position array"
+                            //let triangleSet = Aardvark.Geometry.TriangleSet(triangles)
+                            let kdTree = KdIntersectionTree(triangleSet, KdIntersectionTree.BuildFlags.Default, 0.0, 0.001)
                             saveKdTree kdTree kdPath
                             ConcreteKdIntersectionTree(kdTree, Trafo3d.Identity)
 
@@ -198,23 +206,18 @@ module KdTrees =
                             else
                                 createConcreteTree()
 
-                        let pos =
-                            match mode with
-                            | XYZ -> info.Positions
-                            | SvBR -> info.Positions2d.Value
 
-                        let dir = h.opcPaths.Patches_DirAbsPath +/ info.Name
 
                         let lazyTree: LazyKdTree =
                             { kdTree = None
-                              objectSetPath = dir +/ pos
+                              objectSetPath = objectSetPath
                               coordinatesPath = dir +/ (List.head info.Coordinates)
                               texturePath = Patch.extractTexturePath (OpcPaths h.opcPaths.Opc_DirAbsPath) info 0
                               kdtreePath = kdPath
                               affine =
                                 mode
                                 |> ViewerModality.matchy info.Local2Global info.Local2Global2d
-                              boundingBox = t.KdIntersectionTree.BoundingBox3d.Transformed(trafo) 
+                              boundingBox = t.KdIntersectionTree.BoundingBox3d //.Transformed(trafo) 
                             }
 
                         Report.Progress(float i / float num)
