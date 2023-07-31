@@ -25,10 +25,30 @@ open PRo3D.Core.PackedRendering
 open PRo3D.Base
 
 
+module QTree =
+
+    open Aardvark.SceneGraph.Opc
+
+    let rec foldCulled (consider : Box3d -> bool) (f : Patch -> 's -> 's) (seed : 's) (tree : QTree<Patch>) =
+        match tree with
+        | Node(p, children) -> 
+            if consider p.info.GlobalBoundingBox then
+                Seq.fold (foldCulled consider f) seed children
+            else
+                seed
+        | Leaf(p) -> 
+            if consider p.info.GlobalBoundingBox then
+                f p seed
+            else
+                seed
+
+        
+
+
 module AnnotationViewer = 
 
     
-    let createAnnotationSg (win : IRenderWindow) (view : aval<CameraView>) (frustum : aval<Frustum>) (showOld : aval<bool>) (annotations : Annotations) =
+    let createAnnotationSg (win : IRenderWindow) (view : aval<CameraView>) (frustum : aval<Frustum>) (showOld : aval<bool>) (pick : Annotation -> unit) (annotations : Annotations) =
         let model = AdaptiveGroupsModel.Create annotations.annotations
         let runtime = win.Runtime
 
@@ -132,9 +152,17 @@ module AnnotationViewer =
                     transact (fun _ -> 
                         if hovered >= 0 && hovered < ids.Length then
                             picked.Value <- Some ids.[hovered]
+                            match HashMap.tryFind ids[hovered] annotations.annotations.flat with
+                            | None -> ()
+                            | Some anno -> 
+                                match anno with
+                                | Leaf.Annotations a -> 
+                                    pick a
+                                | _ -> ()
                         else 
                             picked.Value <- None
                     )
+
             )
 
         let overlay = 
@@ -242,16 +270,23 @@ module AnnotationViewer =
 
         let showSurface = true
 
-        let sg = 
+        let sg, hierarchies = 
             if showSurface && runner.IsSome then
                 let runner = runner.Value
-                scene.patchHierarchies |> Seq.toList |> List.map (fun basePath -> 
-                    let h = PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths basePath)
-                    let t = PatchLod.toRoseTree h.tree
-                    Sg.patchLod win.FramebufferSignature runner basePath scene.lodDecider false false ViewerModality.XYZ PatchLod.CoordinatesMapping.Local true t
-                ) |> Sg.ofList 
+                let hierarchies = 
+                    scene.patchHierarchies 
+                    |> Seq.toList 
+                    |> List.map (fun basePath -> 
+                        PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths basePath), basePath
+                    )
+                let sg =
+                    hierarchies |> List.map (fun (h, basePath) -> 
+                        let t = PatchLod.toRoseTree h.tree
+                        Sg.patchLod win.FramebufferSignature runner basePath scene.lodDecider false false ViewerModality.XYZ PatchLod.CoordinatesMapping.Local true t
+                    ) |> Sg.ofList 
+                sg, hierarchies
             else 
-                Sg.empty
+                Sg.empty, []
 
         let speed = AVal.init scene.speed
 
@@ -293,12 +328,60 @@ module AnnotationViewer =
             )
         )
 
+        let pick (a : Annotation) =
+            let points = a.points |> IndexList.toArray
+            let plane = CSharpUtils.PlaneFitting.Fit(points)
+            let projectedPolygon = 
+                points 
+                |> Array.map (fun p -> plane.ProjectToPlaneSpace p)
+                |> Polygon2d
+
+            let intersectsQuery (globalBoundingBox : Box3d) =
+                let corners = globalBoundingBox.ComputeCorners()
+                let p = plane.ProjectToPlaneSpace(corners) |> Polygon2d
+                let boxHull = p.ComputeConvexHullIndexPolygon().ToPolygon2d()
+                boxHull.Intersects(projectedPolygon)
+
+            let globalCoordWithinQuery (p : V3d) =
+                let projected = plane.ProjectToPlaneSpace(p) 
+                projectedPolygon.Contains(projected)
+
+            let handlePatch (paths : OpcPaths) (p : Patch) (s : List<V3d>) =
+                let ig, t = Patch.load paths ViewerModality.XYZ p.info
+                let dir = paths.Patches_DirAbsPath +/ p.info.Name
+                //let positions = paths.Patches_DirAbsPath +/ p.info.Name +/ p.info.Positions |> fromFile<V3f>
+                match ig.IndexArray, ig.IndexedAttributes[DefaultSemantic.Positions] with
+                | (:? array<int> as idx), (:? array<V3f> as v) ->
+                    for i in 0 .. 3 .. idx.Length - 1 do
+                        let vertices = [| V3d v[idx[i]]; V3d v[idx[i + 1]]; V3d v[idx[i + 2]] |]
+                        if vertices |> Array.exists (fun v -> v.IsNaN) then ()
+                        else
+                            let transformed = vertices |> Array.map p.info.Local2Global.TransformPos
+                            for v in transformed do
+                                if globalCoordWithinQuery v then
+                                    s.Add(v)
+                                else
+                                    ()
+
+                | _ -> 
+                    failwith "no index or position array"
+                s
+
+            let hits = 
+                hierarchies |> List.map (fun (h, basePath) -> 
+                    let result = List<V3d>()
+                    let paths = OpcPaths basePath
+                    let result = QTree.foldCulled intersectsQuery (handlePatch paths) (List<V3d>()) h.tree
+                    printfn "%A" result
+                )
+
+            ()
 
 
 
         let sg = 
             sg
-            |> Sg.andAlso (createAnnotationSg win view frustum showOld annotations)
+            |> Sg.andAlso (createAnnotationSg win view frustum showOld pick annotations)
             |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
             |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo)
             //|> Sg.transform preTransform

@@ -18,8 +18,10 @@ let main argv =
             useCompressedTextures = true
             preTransform     = Trafo3d.Identity
             patchHierarchies = 
-                    System.IO.Directory.GetDirectories(@"I:\OPC\2020-08-06-Jezero-OPC") 
-                    |> Seq.collect System.IO.Directory.GetDirectories
+                    Seq.delay (fun _ -> 
+                        System.IO.Directory.GetDirectories(@"I:\OPC\2020-08-06-Jezero-OPC") 
+                        |> Seq.collect System.IO.Directory.GetDirectories
+                    )
             boundingBox      = Box3d.Parse("[[709869.947406691, 3140052.258326461, 1075121.095408683], [710116.986329168, 3140296.918390740, 1075374.689812710]]") 
             near             = 0.1
             far              = 10000.0
@@ -39,8 +41,10 @@ let main argv =
                 useCompressedTextures = true
                 preTransform     = Trafo3d.Identity
                 patchHierarchies = 
-                        System.IO.Directory.GetDirectories(@"I:\OPC\Shaler_OPCs_2019\Shaler_Navcam") 
-                        |> Seq.collect System.IO.Directory.GetDirectories
+                        Seq.delay (fun _ -> 
+                            System.IO.Directory.GetDirectories(@"I:\OPC\Shaler_OPCs_2019\Shaler_Navcam") 
+                            |> Seq.collect System.IO.Directory.GetDirectories
+                        )
                 boundingBox      = Box3d.Parse("[[-2490137.664354247, 2285874.562728135, -271408.476700304], [-2490136.248131170, 2285875.658034266, -271406.605430601]]") 
                 near             = 0.1
                 far              = 10000.0
@@ -53,8 +57,26 @@ let main argv =
                 useCompressedTextures = true
                 preTransform     = Trafo3d.Identity
                 patchHierarchies = 
+                        Seq.delay (fun _ -> 
+                            System.IO.Directory.GetDirectories(@"F:\pro3d\data\20200220_DinosaurQuarry2") 
+                            |> Seq.collect System.IO.Directory.GetDirectories
+                        )
+                boundingBox      = Box3d.Parse("[[-15.699694740, 4.338130733, -0.514935397], [-4.960646670, 36.914955133, 5.004174588]]") 
+                near             = 0.1
+                far              = 10000.0
+                speed            = 5.0
+                lodDecider       =  DefaultMetrics.mars2 
+            }
+
+        let scene =
+            { 
+                useCompressedTextures = true
+                preTransform     = Trafo3d.Identity
+                patchHierarchies = 
+                    Seq.delay (fun _ -> 
                         System.IO.Directory.GetDirectories(@"F:\pro3d\data\20200220_DinosaurQuarry2") 
                         |> Seq.collect System.IO.Directory.GetDirectories
+                    )
                 boundingBox      = Box3d.Parse("[[-15.699694740, 4.338130733, -0.514935397], [-4.960646670, 36.914955133, 5.004174588]]") 
                 near             = 0.1
                 far              = 10000.0
@@ -76,10 +98,26 @@ let main argv =
         //        lodDecider       =  DefaultMetrics.mars2 
         //    }
 
+        let scene =
+            { 
+                useCompressedTextures = true
+                preTransform     = Trafo3d.Identity
+                patchHierarchies = 
+                    Seq.delay (fun _ -> 
+                        System.IO.Directory.GetDirectories(@"F:\pro3d\data\OpcHera") 
+                    )
+                boundingBox      = Box3d.Parse("[[-0.089070135, -0.087013945, -0.056419425], [0.086516376, 0.000000000, 0.058683879]]") 
+                near             = 0.1
+                far              = 10000.0
+                speed            = 5.0
+                lodDecider       =  DefaultMetrics.mars2 
+            }
+
         Aardvark.Rendering.GL.RuntimeConfig.UseNewRenderTask <- true
 
         let annotations = @"I:\OPC\Shaler_OPCs_2019\crazy2.pro3d.ann"
         let annotations = @"F:\pro3d\data\20200220_DinosaurQuarry2\strangetest.pro3d.ann"
+        let annotations = @"F:\pro3d\data\OpcHera\annos.pro3d.ann"
         //let annotations = @"F:\pro3d\data\20200220_DinosaurQuarry2\notrafo.pro3d.ann"
 
         let annotations = 
