@@ -104,9 +104,9 @@ let main argv =
                 preTransform     = Trafo3d.Identity
                 patchHierarchies = 
                     Seq.delay (fun _ -> 
-                        System.IO.Directory.GetDirectories(@"F:\pro3d\data\OpcHera") 
+                        System.IO.Directory.GetDirectories(@"D:\assets\OpcMcz") 
                     )
-                boundingBox      = Box3d.Parse("[[-0.089070135, -0.087013945, -0.056419425], [0.086516376, 0.000000000, 0.058683879]]") 
+                boundingBox      = Box3d.Parse("[[699507.902347501, 3142696.785742886, 1072717.259930025], [699508.165976587, 3142697.102699531, 1072717.505653937]]") 
                 near             = 0.1
                 far              = 10000.0
                 speed            = 5.0
@@ -118,7 +118,7 @@ let main argv =
         let annotations = @"I:\OPC\Shaler_OPCs_2019\crazy2.pro3d.ann"
         let annotations = @"F:\pro3d\data\20200220_DinosaurQuarry2\strangetest.pro3d.ann"
         let annotations = @"F:\pro3d\data\OpcHera\annos.pro3d.ann"
-        //let annotations = @"F:\pro3d\data\20200220_DinosaurQuarry2\notrafo.pro3d.ann"
+        let annotations = @"D:\assets\OpcMcz\singleAnno.pro3d.ann"
 
         let annotations = 
             PRo3D.Core.Drawing.DrawingUtilities.IO.loadAnnotationsFromFile annotations

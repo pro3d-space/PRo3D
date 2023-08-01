@@ -23,6 +23,7 @@ open Adaptify.FSharp.Core
 
 open PRo3D.Core.PackedRendering
 open PRo3D.Base
+open Aardvark.Geometry
 
 
 module QTree =
@@ -330,7 +331,13 @@ module AnnotationViewer =
 
         let pick (a : Annotation) =
             let points = a.points |> IndexList.toArray
-            let plane = CSharpUtils.PlaneFitting.Fit(points)
+            let lineRegression = (new LinearRegression3d(points)).TryGetRegressionInfo()
+            let plane = 
+                match lineRegression with
+                | None -> 
+                    Log.warn "line regression failed"
+                    CSharpUtils.PlaneFitting.Fit(points)
+                | Some p -> p.Plane
             let projectedPolygon = 
                 points 
                 |> Array.map (fun p -> plane.ProjectToPlaneSpace p)
@@ -368,12 +375,14 @@ module AnnotationViewer =
                 s
 
             let hits = 
-                hierarchies |> List.map (fun (h, basePath) -> 
+                let points = List<V3d>()
+                hierarchies |> List.fold (fun points (h, basePath) -> 
                     let result = List<V3d>()
                     let paths = OpcPaths basePath
-                    let result = QTree.foldCulled intersectsQuery (handlePatch paths) (List<V3d>()) h.tree
+                    let result = QTree.foldCulled intersectsQuery (handlePatch paths) points h.tree
                     printfn "%A" result
-                )
+                    points
+                ) points
 
             ()
 
