@@ -68,7 +68,8 @@ module Viewer =
         (viewerVerson        : string)
         : Model = 
 
-        let defaultDashboard = DashboardModes.defaultDashboard //DashboardModes.defaultDashboard
+        let defaultDashboard =  DashboardModes.defaultDashboard //DashboardModes.defaultDashboard
+        let defaultDashboard = DashboardModes.provenance
         let defaultDockConfig = defaultDashboard.dockConfig //DockConfigs.m2020    
 
         {     
