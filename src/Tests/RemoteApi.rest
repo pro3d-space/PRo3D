@@ -36,7 +36,7 @@ Content-Type: application/json
 # ... graph is the representation obtained from getProvenanceGraph (P states)
 
 
-### 
+### create a snapshot
 
 # @name postCheckpoint
 POST http://localhost:4321/api/v2/captureSnapshot 
@@ -47,7 +47,7 @@ Content-Type: application/json
 }
 
 
-###
+### activate snapshot ...
 
 @scene = {{postCheckpoint.response.body.*}}
 
@@ -91,5 +91,22 @@ Content-Type: application/json
  
 {
 	"scene": {{scene}}, 
+	"source": "imported annotations from n19298"
+}
+
+
+###
+
+@graph = {{getGraph.response.body.*}}
+
+@scene = {{postCheckpoint.response.body.*}}
+
+POST http://localhost:4321/api/v2/activateSnapshot
+Content-Type: application/json
+ 
+{
+	"scene": {{scene}},
+	"graph": {{graph}},
+	"selectedNodeId": "897ad42f-dfea-4808-baec-cbcd06715144",
 	"source": "imported annotations from n19298"
 }
