@@ -182,7 +182,7 @@ module RemoteApi =
                 ()
 
         member x.ApplyGraphAndGetCheckpointState(sceneAsJson : string, drawingAsJson : string, 
-                                                 p : Option<ProvenanceModel.Thoth.CyDescription>, activeNode : Option<string>) : ViewerIO.SerializedModel =
+                                                 p : Option<ProvenanceModel.Thoth.CyDescription>, activeNode : Option<string>) : Model * ViewerIO.SerializedModel =
 
             let nopSendQueue = new System.Collections.Concurrent.BlockingCollection<_>()
             let nopMailbox = new MessagingMailbox(fun _ -> async { return () })
@@ -205,11 +205,15 @@ module RemoteApi =
                 ()
 
             let serializedModel = ViewerIO.getSerializedModel currentModel
-            serializedModel
+            currentModel, serializedModel
 
 
         member x.ImportDrawingModel(drawingAsJson : string, source : string) : unit =
             let setDrawing = ViewerAction.ImportSerializedDrawingModel(drawingAsJson, source)
+            setDrawing |> emit
+
+        member x.ImportDrawingModel(drawing : GroupsModel, source : string) : unit =
+            let setDrawing = ViewerAction.ImportDrawingModel(drawing, source)
             setDrawing |> emit
 
 
@@ -360,7 +364,7 @@ module RemoteApi =
             Successful.OK ""
 
 
-        let importAnnotationsFromGraph (api : Api) (r : HttpRequest) =
+        let getFullStateFor (api : Api) (importAnnotations : bool) (r : HttpRequest) =
             let str = r.rawForm |> getUTF8
 
             let d = JsonDocument.Parse(str)
@@ -389,11 +393,13 @@ module RemoteApi =
     
             match graph with
             | Some (Result.Ok graph) -> 
-                let fullModel = api.ApplyGraphAndGetCheckpointState(sceneAsJson, drawingAsJson, Some graph, selectedNodeId)
+                let model, fullModel = api.ApplyGraphAndGetCheckpointState(sceneAsJson, drawingAsJson, Some graph, selectedNodeId)
+                if importAnnotations then api.ImportDrawingModel(model.drawing.annotations, source)
                 Successful.OK (serializeCheckpoint fullModel)
             | None -> 
-                let fullModel = api.ApplyGraphAndGetCheckpointState(sceneAsJson, drawingAsJson, None, selectedNodeId)
-                Successful.OK ""
+                let  model, fullModel = api.ApplyGraphAndGetCheckpointState(sceneAsJson, drawingAsJson, None, selectedNodeId)
+                if importAnnotations then api.ImportDrawingModel(model.drawing.annotations, source)
+                Successful.OK (serializeCheckpoint fullModel)
             | Some (Result.Error e) -> 
                 ServerErrors.INTERNAL_ERROR e
 
@@ -587,7 +593,8 @@ module RemoteApi =
                         path "/activateSnapshot"   >=> request (SuaveV2.activateSnapshot api)
                         path "/getProvenanceGraph" >=> request (SuaveV2.getProvenanceGraph api)
                         path "/importAnnotations"  >=> request (SuaveV2.importAnnotations api)
-                        path "/importAnnotationsFromGraph"  >=> request (SuaveV2.importAnnotationsFromGraph api)
+                        path "/getFullStateFor"  >=> request (SuaveV2.getFullStateFor api false)
+                        path "/importAnnotationsFromGraph"  >=> request (SuaveV2.getFullStateFor api true)
                         prefix "/provenanceGraph"  >=> provenanceGraphWebSocket false storage api
                         prefix "/provenanceGraphChanges" >=> provenanceGraphWebSocket true storage api
                     ]

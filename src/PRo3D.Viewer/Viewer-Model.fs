@@ -122,6 +122,7 @@ type ViewerAction =
 | LoadSerializedScene             of string // serialized scene file (content of .pro3d)
 | LoadSerializedDrawingModel      of string
 | ImportSerializedDrawingModel    of drawingAsJson : string * source : string
+| ImportDrawingModel              of annotations : GroupsModel * source : string
 
 | NewScene
 | KeyDown                         of key : Aardvark.Application.Keys

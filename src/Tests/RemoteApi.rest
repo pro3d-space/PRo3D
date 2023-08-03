@@ -95,18 +95,16 @@ Content-Type: application/json
 }
 
 
-###
-
+### importAnnotationsFromGraph 
+## the selected node must be present in the provided graph.
 @graph = {{getGraph.response.body.*}}
-
 @scene = {{postCheckpoint.response.body.*}}
-
-POST http://localhost:4321/api/v2/activateSnapshot
+POST http://localhost:4321/api/v2/importAnnotationsFromGraph
 Content-Type: application/json
  
 {
 	"scene": {{scene}},
 	"graph": {{graph}},
-	"selectedNodeId": "897ad42f-dfea-4808-baec-cbcd06715144",
+	"selectedNodeId": "e6ad81ec-f641-4253-9701-c36e41faf266",
 	"source": "imported annotations from n19298"
 }
