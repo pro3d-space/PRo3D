@@ -29,7 +29,14 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Tests", "Tests\Tests.fsproj", "{D71C7F9E-2847-4218-9FE9-31777CD0B470}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "opc-tool", "opc-tool\opc-tool.fsproj", "{BF2F6AE3-F87E-400E-A511-7A0F107089A7}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "opc-tool", "opc-tool\opc-tool.fsproj", "{BF2F6AE3-F87E-400E-A511-7A0F107089A7}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docs", "Docs", "{235F058E-EA9C-4858-854A-7DDECC0C5724}"
+	ProjectSection(SolutionItems) = preProject
+		..\docs\Build-Deploy-System.md = ..\docs\Build-Deploy-System.md
+		OpcTool.md = OpcTool.md
+		..\docs\Structure.md = ..\docs\Structure.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

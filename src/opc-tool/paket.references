@@ -10,3 +10,5 @@ Aardvark.GeoSpatial.Opc
 OPCViewer.Base
 
 Uncodium.Eigensystems
+
+CommandLineParser.FSharp 

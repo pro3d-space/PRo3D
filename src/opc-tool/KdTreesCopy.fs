@@ -192,8 +192,17 @@ module KdTrees =
                             //    | _ -> 
                             //        failwith "no index or position array"
                             //let triangleSet = Aardvark.Geometry.TriangleSet(triangles)
-                            let kdTree = KdIntersectionTree(triangleSet, KdIntersectionTree.BuildFlags.Default, 0.0, 0.001)
+                            Log.startTimed $"Building KdTree for {dir}"
+                            let flags = 
+                                 KdIntersectionTree.BuildFlags.Picking ||| KdIntersectionTree.BuildFlags.FastBuild
+                                 
+                            let kdTree = KdIntersectionTree(triangleSet, flags )
+                            Log.stop()
+                            Log.startTimed "saving KdTree to: %s" kdPath
                             saveKdTree kdTree kdPath
+                            Log.stop()
+                            let fi = FileInfo(kdPath)
+                            Log.line $"{kdPath} has size: {Mem(fi.Length)}."
                             ConcreteKdIntersectionTree(kdTree, Trafo3d.Identity)
 
                         let t = 
@@ -235,16 +244,15 @@ module KdTrees =
 
 
         if System.IO.File.Exists(cacheFile) && not forceRebuild then
-            Log.line "Found lazy kdtree cache"
+            Log.line "Found lazy KdTree cache"
 
             if load then
                 try
                     let trees = loadAs<list<Box3d * Level0KdTree>> cacheFile b
-                    //      let trees = trees |> List.filter(fun (_,(LazyKdTree k)) -> k.kdtreePath = blar)
                     trees |> HashMap.ofList
                 with
                 | e ->
-                    Log.warn "could not load lazy kdtree cache. (%A) rebuilding..." e
+                    Log.warn "could not load lazy KdTree cache. (%A) rebuilding..." e
                     loadAndCreateCache ()
             else
                 HashMap.empty
@@ -252,10 +260,6 @@ module KdTrees =
             loadAndCreateCache ()
 
     let loadKdTrees
-        (h: PatchHierarchy)
-        (trafo: Trafo3d)
-        (mode: ViewerModality)
-        (b: BinarySerializer)
-        (forceRebuild : bool)f
-        : HashMap<Box3d, Level0KdTree> =
+        (h: PatchHierarchy) (trafo: Trafo3d) (mode: ViewerModality)
+        (b: BinarySerializer) (forceRebuild : bool) : HashMap<Box3d, Level0KdTree> =
         loadKdTrees' (h) (trafo) (true) mode b forceRebuild
