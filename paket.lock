@@ -259,6 +259,8 @@ NUGET
       Aether (>= 8.2)
       FParsec (>= 1.0.3)
       FSharp.Core (>= 4.3.4)
+    CommandLineParser.FSharp (2.9.1)
+      FSharp.Core (>= 4.5.1)
     CommonMark.NET (0.15.1)
     Cyjs.NET (0.0.4)
       DynamicObj (>= 0.0.3)
