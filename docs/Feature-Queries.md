@@ -5,7 +5,7 @@
 
 The goal of this feature is to provide scientists with a tool for quering 3D data from PRo3D in a very flexible way.
 This is particularly interesting in combination with the [multitexturing feature](./Feature-Multitexture.md).
-Given a 3D query (e.g. a polyline annotation), instrument data (when available as layer in the opc) can for example be extracted for particular regions.
+In short, given a 3D query (e.g. a polyline annotation), attribute data (such as instrument data layers, or reconstruction layers such as eleveation or area) can be extracted for particular regions. 
 
 While this functionality could be integrated in the UI, currently it extends the PRo3D API which means - by using a REST interface, 
 scientists can query 3D data for example in jupyter notebooks and work with the data directly.
@@ -29,6 +29,7 @@ Content-Type: application/json
 	"annotationId": "theId",
 	"queryAttributes": [ // what attributes to include in the result, depends on use-case and data, for example: 
 		"Ele", // elevation data
+		"Are", // area
 		...
 	]
 }
