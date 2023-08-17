@@ -66,6 +66,9 @@ nuget Cyjs.NET       ~> 0.0.4
 nuget Thoth.Json.Net ~> 11.0.0
 
 
+nuget CommandLineParser.FSharp ~> 2.9.1
+
+
 group Test
     framework: net6.0, net6.0-windows
     source https://api.nuget.org/v3/index.json
