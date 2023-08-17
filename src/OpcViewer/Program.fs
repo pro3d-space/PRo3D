@@ -118,7 +118,7 @@ let main argv =
         let annotations = @"I:\OPC\Shaler_OPCs_2019\crazy2.pro3d.ann"
         let annotations = @"F:\pro3d\data\20200220_DinosaurQuarry2\strangetest.pro3d.ann"
         let annotations = @"F:\pro3d\data\OpcHera\annos.pro3d.ann"
-        let annotations = @"D:\assets\OpcMcz\singleAnno.pro3d.ann"
+        //let annotations = @"D:\assets\OpcMcz\singleAnno.pro3d.ann"
 
         let annotations = 
             PRo3D.Core.Drawing.DrawingUtilities.IO.loadAnnotationsFromFile annotations

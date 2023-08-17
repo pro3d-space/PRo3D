@@ -353,31 +353,33 @@ module AnnotationViewer =
                 let projected = plane.ProjectToPlaneSpace(p) 
                 projectedPolygon.Contains(projected)
 
-            let handlePatch (paths : OpcPaths) (p : Patch) (s : List<V3d>) =
+            let handlePatch (paths : OpcPaths) (p : Patch) (s : List<V3d[]>) =
                 let ig, t = Patch.load paths ViewerModality.XYZ p.info
                 let dir = paths.Patches_DirAbsPath +/ p.info.Name
                 //let positions = paths.Patches_DirAbsPath +/ p.info.Name +/ p.info.Positions |> fromFile<V3f>
-                match ig.IndexArray, ig.IndexedAttributes[DefaultSemantic.Positions] with
-                | (:? array<int> as idx), (:? array<V3f> as v) ->
-                    for i in 0 .. 3 .. idx.Length - 1 do
-                        let vertices = [| V3d v[idx[i]]; V3d v[idx[i + 1]]; V3d v[idx[i + 2]] |]
-                        if vertices |> Array.exists (fun v -> v.IsNaN) then ()
-                        else
-                            let transformed = vertices |> Array.map p.info.Local2Global.TransformPos
-                            for v in transformed do
-                                if globalCoordWithinQuery v then
-                                    s.Add(v)
-                                else
-                                    ()
+                let positions = 
+                    match ig.IndexedAttributes[DefaultSemantic.Positions] with
+                    | (:? array<V3f> as v) when not (isNull v) -> v
+                    | _ -> failwith "[Queries] Patch has no V3f[] positions"
 
-                | _ -> 
-                    failwith "no index or position array"
+                let result = Array.zeroCreate positions.Length
+                for i in 0 .. positions.Length - 1 do
+                    let v = positions[i]
+                    if v.IsNaN then result[i] <- V3d.NaN
+                    else
+                        let v = V3d v
+                        let transformed = p.info.Local2Global.TransformPos (V3d v)
+                        if not transformed.IsNaN && globalCoordWithinQuery v then
+                            result[i] <- V3d.NaN
+                        else
+                            ()
+
+                s.Add(result)
                 s
 
             let hits = 
-                let points = List<V3d>()
+                let points = List<V3d[]>()
                 hierarchies |> List.fold (fun points (h, basePath) -> 
-                    let result = List<V3d>()
                     let paths = OpcPaths basePath
                     let result = QTree.foldCulled intersectsQuery (handlePatch paths) points h.tree
                     printfn "%A" result
