@@ -490,13 +490,15 @@ module RemoteApi =
 
                 let nodeSub = elements.AddCallback(fun _ _ -> addDeltas()) 
 
-                if hackDoNotSendInitialState then
-                    // clear all previous state (a bit unclean, inbetween changes could have ben swallowed)
-                    // this way only changes after subscribing will be visible in the websocket.
-                    // the protocol could be changed, s.t. initial values are tagged
-                    addDeltas()  // for sure adds into changes
-                    changes.Take() |> ignore // will not block therefore.
+                System.Threading.Thread.Sleep(2000)
                 socket {
+                    if hackDoNotSendInitialState then
+                        // clear all previous state (a bit unclean, inbetween changes could have ben swallowed)
+                        // this way only changes after subscribing will be visible in the websocket.
+                        // the protocol could be changed, s.t. initial values are tagged
+                        addDeltas()  // for sure adds into changes
+                        changes.Take() |> ignore // will not block therefore.
+
                     let mutable loop = true
 
                     while loop do
@@ -595,8 +597,14 @@ module RemoteApi =
                         path "/importAnnotations"  >=> request (SuaveV2.importAnnotations api)
                         path "/getFullStateFor"  >=> request (SuaveV2.getFullStateFor api false)
                         path "/importAnnotationsFromGraph"  >=> request (SuaveV2.getFullStateFor api true)
-                        prefix "/provenanceGraph"  >=> provenanceGraphWebSocket false storage api
-                        prefix "/provenanceGraphChanges" >=> provenanceGraphWebSocket true storage api
+                        path "/provenanceGraph" >=> (fun ctx -> 
+                            Log.line "connect to ws with initial state..."
+                            provenanceGraphWebSocket false storage api ctx
+                        )
+                        path "/provenanceGraphChanges" >=> (fun ctx -> 
+                            Log.line "connect to ws without initial state..."
+                            provenanceGraphWebSocket true storage api ctx
+                        ) 
                     ]
                 )
                 prefix "/integration" >=> (
