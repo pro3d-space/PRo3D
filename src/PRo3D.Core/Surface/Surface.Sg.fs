@@ -117,13 +117,10 @@ module Sg =
         let runner = 
             match hackRunner with
             | None -> 
-                printfn "create runner"
-                //let  r = runtime.CreateLoadRunner 2
-                //hackRunner <- Some (r)
-                failwith ""
+                failwith "GL runner was not initialized."
+
             | Some h -> h
-        let preTransform = scene.preTransform
-    
+
         let patchHierarchies = 
             scene.patchHierarchies
             |> Seq.map Prinziple.registerIfZipped
@@ -186,7 +183,7 @@ module Sg =
         let map = 
             Map.ofList [
                 "FootprintModelViewProj", fun scope (patch : RenderPatch) -> 
-                    let viewTrafo = scope |> unbox<aval<M44d>>
+                    let viewTrafo,_ = scope |> unbox<aval<M44d> * obj>
                     let r = AVal.map2 (fun viewTrafo (model : Trafo3d) -> viewTrafo * model.Forward) viewTrafo patch.trafo 
                     r :> IAdaptiveValue
             ]
@@ -194,23 +191,44 @@ module Sg =
         // create level of detail hierarchy (Sg)
         let g = 
             patchHierarchies 
-            |> List.map (fun h ->                                  
-                Sg.patchLod' 
-                    signature
-                    runner 
-                    h.opcPaths.Opc_DirAbsPath
-                    lodDeciderMars //scene.lodDecider 
-                    scene.useCompressedTextures
-                    true
-                    ViewerModality.XYZ
-                    PatchLod.CoordinatesMapping.Local
-                    useAsyncLoading
-                    (PatchLod.toRoseTree h.tree)
-                    map
-                    (fun n s -> 
+            |> List.map (fun h ->      
+                let patchLodWithTextures = 
+                    let context (n : PatchNode) (s : Ag.Scope) =
                         let vp = s.FootprintVP
-                        vp :> obj
-                    )
+                        let secondaryTexture = SecondaryTexture.getSecondary n s
+                        (vp, secondaryTexture)  :> obj
+
+                    let extractTextureScope f (p : OpcPaths) (lodScope : obj) (r : RenderPatch) =
+                        let (_, textures) = unbox<aval<M44d> * obj> lodScope
+                        f p textures r 
+
+                    let getTextures = extractTextureScope SecondaryTexture.textures
+                    let getVertexAttributes = extractTextureScope SecondaryTexture.vertexAttributes
+
+                    PatchNode(signature, runner, h.opcPaths.Opc_DirAbsPath, lodDeciderMars, scene.useCompressedTextures, true, ViewerModality.XYZ, 
+                                PatchLod.CoordinatesMapping.Local, useAsyncLoading, context, map,
+                                PatchLod.toRoseTree h.tree,
+                                Some (getTextures h.opcPaths), Some (getVertexAttributes h.opcPaths), Aardvark.Base.PixImagePfim.Loader)
+
+                //let plainPatchLod =
+                //    Sg.patchLod' 
+                //        signature
+                //        runner 
+                //        h.opcPaths.Opc_DirAbsPath
+                //        lodDeciderMars //scene.lodDecider 
+                //        scene.useCompressedTextures
+                //        true
+                //        ViewerModality.XYZ
+                //        PatchLod.CoordinatesMapping.Local
+                //        useAsyncLoading
+                //        (PatchLod.toRoseTree h.tree)
+                //        map
+                //        (fun n s -> 
+                //            let vp = s.FootprintVP
+                //            vp :> obj
+                //        )
+                //plainPatchLod
+                patchLodWithTextures
             )
             |> SgFSharp.Sg.ofList  
            

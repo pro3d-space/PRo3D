@@ -233,7 +233,7 @@ module ViewerUtils =
                 | AdaptiveSome m -> m.label |> AVal.map Some
                 | AdaptiveNone -> AVal.constant None //scalar |> Option.map(fun x -> x.index) //option<aval<int>>
             
-            let! texture = s.selectedTexture 
+            let! texture = s.primaryTexture 
             let attr : AttributeParameters = 
                 {
                     selectedTexture = texture |> Option.map(fun x -> x.index)
@@ -249,13 +249,13 @@ module ViewerUtils =
             let scalar' = 
                 match scalar with
                 | Some m -> m.label |> Some
-                | None -> None //scalar |> Option.map(fun x -> x.index) //option<aval<int>>
+                | None -> None
             
-            let texture = s.selectedTexture 
+            let texture = s.primaryTexture 
             let attr : AttributeParameters = 
                 {
                     selectedTexture = texture |> Option.map(fun x -> x.index)
-                    selectedScalar  = scalar'//scalar  |> Option.map(fun x -> x.index |> AVal.force)
+                    selectedScalar  = scalar'
                 }
 
             attr    
@@ -410,8 +410,54 @@ module ViewerUtils =
                     |> Sg.texture (Sym.ofString "FootPrintTexture") fp.projTex
                     |> Sg.LodParameters( getLodParameters  (AVal.constant surf) refsys frustum )
                     |> Sg.AttributeParameters( attributeParameters  (AVal.constant surf) )
+                    
+                    |> SecondaryTexture.Sg.applySecondaryTextureId (
+                            surf.secondaryTexture 
+                            |> AVal.map (function
+                                | None -> -1
+                                | Some s -> s.index
+                            )
+                    )
                     |> Sg.pickable' pickable
                     |> Sg.noEvents 
+
+                    |> Sg.texture "SecondaryTextureTransferFunction" (
+                        surf.transferFunction |> AVal.map (fun tf -> 
+                            match tf.tf with
+                            | ColorMaps.TF.Passthrough -> NullTexture.Instance
+                            | ColorMaps.TF.Ramp(_,_,name) ->
+                                match Map.tryFind name ColorMaps.colorMaps with
+                                | None -> NullTexture.Instance
+                                | Some l ->
+                                    try 
+                                        l.Value :> ITexture
+                                    with e -> 
+                                        Log.warn "SecondaryTextureTransferFunction: %A" e
+                                        NullTexture.Instance
+                        )
+                    )
+                    |> Sg.uniform "TextureCombiner" (
+                        surf.transferFunction |> AVal.map (fun tf -> tf.textureCombiner)
+                    )
+                    |> Sg.uniform "TransferFunctionMode" (
+                        surf.transferFunction |> AVal.map (fun tf -> 
+                            match tf.tf with
+                            | ColorMaps.TF.Passthrough -> TransferFunctionMode.Passthrough
+                            | ColorMaps.TF.Ramp(_,_,_) -> TransferFunctionMode.Ramp
+                        )
+                    )
+                    |> Sg.uniform "TFRange" (
+                        surf.transferFunction |> AVal.map (fun tf -> 
+                            match tf.tf with
+                            | ColorMaps.TF.Passthrough -> V2d.OI
+                            | ColorMaps.TF.Ramp(min,max,_) -> V2d(min, max)
+                        )
+                    )
+                    |> Sg.uniform "TFBlendFactor" (
+                        surf.transferFunction |> AVal.map (fun tf -> tf.blendFactor)
+                    )
+
+
                     |> Sg.withEvents [
                         SceneEventKind.Click, (
                            fun sceneHit -> 
@@ -730,6 +776,7 @@ module ViewerUtils =
             Shader.fixAlpha |> toEffect
             PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect  
             PRo3D.Base.OPCFilter.markPatchBorders |> toEffect 
+
            
             
             // selection coloring makes gamma correction pointless. remove if we are happy with markPatchBorders
@@ -740,6 +787,8 @@ module ViewerUtils =
             //PRo3D.Base.Shader.falseColorLegend2 |> toEffect
             PRo3D.Base.Shader.mapColorAdaption  |> toEffect  
             PRo3D.Base.Shader.mapRadiometry |> toEffect
+
+            Shader.secondaryTexture |> toEffect 
 
             //PRo3D.Base.Shader.depthImageF        |> toEffect
             PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect

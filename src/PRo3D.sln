@@ -24,7 +24,11 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PRo3D.Lite", "PRo3D.Lite\PR
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{EC91D5A1-9C4B-45A2-843C-CB687BF9581F}"
 	ProjectSection(SolutionItems) = preProject
+		..\docs\Build-Deploy-System.md = ..\docs\Build-Deploy-System.md
+		..\docs\Feature-Multitexture.md = ..\docs\Feature-Multitexture.md
 		..\paket.dependencies = ..\paket.dependencies
+		..\docs\spice.md = ..\docs\spice.md
+		..\docs\Structure.md = ..\docs\Structure.md
 	EndProjectSection
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Tests", "Tests\Tests.fsproj", "{D71C7F9E-2847-4218-9FE9-31777CD0B470}"

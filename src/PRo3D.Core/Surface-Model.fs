@@ -616,6 +616,18 @@ module Init =
     }
     
 
+
+type TransferFunction =
+    {
+        tf : ColorMaps.TF
+        textureCombiner : TextureCombiner
+        blendFactor : float
+    }
+
+module TransferFunction =
+    let empty = { tf = ColorMaps.TF.Passthrough; textureCombiner = TextureCombiner.Primary; blendFactor = 1.0 }
+
+
 [<ModelType>]
 type Surface = {
     
@@ -645,7 +657,10 @@ type Surface = {
     selectedScalar  : option<ScalarLayer>
 
     textureLayers   : IndexList<TextureLayer>
-    selectedTexture : option<TextureLayer>
+    primaryTexture     : Option<TextureLayer>
+    secondaryTexture   : Option<TextureLayer>
+    transferFunction   : TransferFunction
+    opcxPath        : Option<string>
 
     [<NonAdaptiveAttribute>]
     surfaceType     : SurfaceType     
@@ -680,7 +695,9 @@ module Surface =
             let! scalarLayers    = Json.read "scalarLayers"  
             let! selectedScalar  = Json.read "selectedScalar"
             let! textureLayers   = Json.read "textureLayers"
+
             let! selectedTexture = Json.read "selectedTexture"
+
             let! surfaceType     = Json.read "surfaceType"    
             let! colorCorrection = Json.read "colorCorrection"
             let! transformation  = Json.read "transformation"
@@ -704,6 +721,7 @@ module Surface =
             let scalarLayers  = scalarLayers  |> HashMap.ofList
             let textureLayers = textureLayers |> IndexList.ofList
 
+
             return 
                 {
                     version         = current
@@ -725,13 +743,16 @@ module Surface =
                     scalarLayers    = scalarLayers
                     selectedScalar  = selectedScalar
                     textureLayers   = textureLayers
-                    selectedTexture = selectedTexture
+                    primaryTexture   = selectedTexture
+                    secondaryTexture = None
+                    transferFunction = TransferFunction.empty
                     surfaceType     = surfaceType     |> enum<SurfaceType>
                     preferredLoader = preferredLoader |> enum<MeshLoaderType>
                     colorCorrection = colorCorrection
                     homePosition    = view
                     transformation  = transformation
                     radiometry      = Init.initRadiometry
+                    opcxPath        = None
                 }
         }
 
@@ -801,7 +822,10 @@ module Surface =
                     scalarLayers    = scalarLayers
                     selectedScalar  = selectedScalar
                     textureLayers   = textureLayers
-                    selectedTexture = selectedTexture
+                    primaryTexture   = selectedTexture
+                    secondaryTexture = None
+                    transferFunction = TransferFunction.empty
+                    opcxPath        = None
                     surfaceType     = surfaceType     |> enum<SurfaceType>
                     preferredLoader = preferredLoader |> enum<MeshLoaderType>
                     colorCorrection = colorCorrection
@@ -845,7 +869,7 @@ type Surface with
             do! Json.write "scalarLayers" (x.scalarLayers |> HashMap.toList)
             do! Json.write "selectedScalar" x.selectedScalar
             do! Json.write "textureLayers" (x.textureLayers |> IndexList.toList)
-            do! Json.write "selectedTexture" x.selectedTexture
+            do! Json.write "selectedTexture" x.primaryTexture
             do! Json.write "surfaceType" (x.surfaceType |> int)
             do! Json.write "colorCorrection" x.colorCorrection
             do! Json.write "preferredMeshLoader" (x.preferredLoader |> int)

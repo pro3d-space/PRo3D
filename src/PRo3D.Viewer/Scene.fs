@@ -110,18 +110,23 @@ module SceneLoader =
         surfaces 
         |> IndexList.map(fun s -> s, s.importPath |> getOPCxPath)
         |> IndexList.map(fun(s,p) -> 
-           match (Serialization.fileExists p) with
-           | Some path->        
+           let loadOpcX (path : string) =
                let layers = SurfaceUtils.SurfaceAttributes.read path
                let textures = layers |> SurfaceProperties.getTextures
-        
+               
                { s with 
                    scalarLayers  = layers |> SurfaceProperties.getScalarsHmap //SurfaceProperties.getScalars
                    textureLayers = textures
-                   selectedTexture = textures |> IndexList.tryFirst
+                   primaryTexture = textures |> IndexList.tryFirst
+                   opcxPath = Some path
                }
+           match Serialization.fileExists p with
+           | Some path->        
+               loadOpcX path
            | None ->
-               s
+               match Directory.EnumerateFiles(s.importPath, "*.opcx") |> Seq.toList with
+               | [singleOpcX] -> loadOpcX singleOpcX
+               | _ -> s
         )
 
     let addGeologicSurfaces (m:Model) = 
