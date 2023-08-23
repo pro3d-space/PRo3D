@@ -59,7 +59,12 @@ Almost done, just waiting for feedback of the design to finish the surface level
 
 src/Tests contains a jupyter notebooks which shows of quering annotations.
 
+Annotation could be: 
+![annotation-for-cutout](https://github.com/pro3d-space/PRo3D/assets/513281/bdaec9f0-2132-40ee-8ddf-0d01043a5a3f)
+Later the data can be retrieved using a notebook, also there is a rest entrypoint for retrieving an obj directly:
+![cutout](https://github.com/pro3d-space/PRo3D/assets/513281/ede507aa-9722-4b01-b1b0-f3cf665c3a67)
 
+Seealso the entry points: https://github.com/pro3d-space/PRo3D/blob/8fbdabdd1c723d461d43af989c451f7414eef0d8/src/PRo3D.Viewer/RemoteApi.fs#L600
 
 ## Caveats
 
