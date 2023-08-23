@@ -1,5 +1,6 @@
 ﻿namespace Aardvark.Opc
 
+open System.IO
 open Aardvark.Base
 open Aardvark.Rendering
 open Aardvark.Application
@@ -26,6 +27,10 @@ open PRo3D.Base
 open Aardvark.Geometry
 
 
+
+
+
+
 module QTree =
 
     open Aardvark.SceneGraph.Opc
@@ -44,7 +49,15 @@ module QTree =
                 seed
 
         
-
+type QueryAttribute = { channels : int; array : System.Array }
+type QueryResult = 
+    {
+        attributes        : Map<string, QueryAttribute>
+        globalPositions   : IReadOnlyList<V3d>
+        localPositions    : IReadOnlyList<V3f>
+        patchFileInfoPath : string
+        indices           : IReadOnlyList<int>
+    }
 
 module AnnotationViewer = 
 
@@ -113,8 +126,7 @@ module AnnotationViewer =
                 
                 let r = pickColors.GetValue(AdaptiveToken.Top,RenderToken.Empty)
                 let offset = V3i(p.Position.X,p.Position.Y,0)
-                printfn "rt size: %A" r.Size
-                if p.Position.X < r.Size.X - 1 && p.Position.Y < r.Size.Y - 1 then
+                if p.Position.X < r.Size.X - 1 && p.Position.Y < r.Size.Y - 1 && p.Position.X >= 0  then
                     let r = runtime.Download(r,0,0,Box2i.FromMinAndSize(p.Position, V2i(1,1))) |> unbox<PixImage<float32>>
                     let m = r.GetMatrix<C4f>()
                     //let center = m.Size.XY / 2L
@@ -158,7 +170,7 @@ module AnnotationViewer =
                             | Some anno -> 
                                 match anno with
                                 | Leaf.Annotations a -> 
-                                    pick a
+                                    try pick a with e -> Log.warn "pick failed. %A" e
                                 | _ -> ()
                         else 
                             picked.Value <- None
@@ -175,7 +187,7 @@ module AnnotationViewer =
                 do! DefaultSurfaces.trafo
                 do! LensShader.lens
             }
-            |> Sg.uniform "MousePosition" ((win.Mouse.Position, win.Sizes) ||> AVal.map2 (fun (p : PixelPosition) s -> printf "%A" p.NormalizedPosition; V2d(p.NormalizedPosition.X,1.0-p.NormalizedPosition.Y)))
+            |> Sg.uniform "MousePosition" ((win.Mouse.Position, win.Sizes) ||> AVal.map2 (fun (p : PixelPosition) s -> V2d(p.NormalizedPosition.X,1.0-p.NormalizedPosition.Y)))
             |> Sg.viewTrafo' Trafo3d.Identity
             |> Sg.projTrafo' Trafo3d.Identity
 
@@ -296,7 +308,7 @@ module AnnotationViewer =
         let view = initialView |> DefaultCameraController.controlWithSpeed speed win.Mouse win.Keyboard win.Time
         let frustum = win.Sizes |> AVal.map (fun s -> Frustum.perspective 60.0 scene.near scene.far (float s.X / float s.Y))
 
-        let lodVisEnabled = cval true
+        let lodVisEnabled = cval false
         let fillMode = cval FillMode.Fill
         let showOld = cval false
 
@@ -306,10 +318,6 @@ module AnnotationViewer =
 
         win.Keyboard.KeyDown(Keys.PageDown).Values.Add(fun _ -> 
             transact (fun _ -> speed.Value <- speed.Value / 1.5)
-        )
-
-        win.Keyboard.KeyDown(Keys.L).Values.Add(fun _ -> 
-            transact (fun _ -> lodVisEnabled.Value <- not lodVisEnabled.Value)
         )
 
         win.Keyboard.KeyDown(Keys.L).Values.Add(fun _ -> 
@@ -329,70 +337,183 @@ module AnnotationViewer =
             )
         )
 
-        let pick (a : Annotation) =
-            let points = a.points |> IndexList.toArray
-            let lineRegression = (new LinearRegression3d(points)).TryGetRegressionInfo()
+        let resultPoints = cval [||]
+
+        let pick (hit : List<QueryResult> -> unit) (a : Annotation) =
+            let corners = a.points |> IndexList.toSeq
+            let segmentPoints = a.segments |> Seq.collect (fun s -> s.points)
+            let points = Seq.concat [corners; segmentPoints]
+            let lineRegression = 
+                let regression = new LinearRegression3d(points)
+                regression.TryGetRegressionInfo()
             let plane = 
                 match lineRegression with
                 | None -> 
                     Log.warn "line regression failed"
-                    CSharpUtils.PlaneFitting.Fit(points)
+                    CSharpUtils.PlaneFitting.Fit(points |> Seq.toArray)
                 | Some p -> p.Plane
             let projectedPolygon = 
                 points 
-                |> Array.map (fun p -> plane.ProjectToPlaneSpace p)
+                |> Seq.map (fun p -> plane.ProjectToPlaneSpace p)
                 |> Polygon2d
 
             let intersectsQuery (globalBoundingBox : Box3d) =
-                let corners = globalBoundingBox.ComputeCorners()
-                let p = plane.ProjectToPlaneSpace(corners) |> Polygon2d
-                let boxHull = p.ComputeConvexHullIndexPolygon().ToPolygon2d()
-                boxHull.Intersects(projectedPolygon)
+                let p2w = plane.GetPlaneToWorld()
+                let pointsInWorld = projectedPolygon.Points |> Seq.map (fun p -> p2w.TransformPos(V3d(p,0.0)))
+                pointsInWorld |> Seq.exists (fun p -> globalBoundingBox.Contains p)
+                
 
             let globalCoordWithinQuery (p : V3d) =
                 let projected = plane.ProjectToPlaneSpace(p) 
-                projectedPolygon.Contains(projected)
+                let h = plane.Height(p)
+                projectedPolygon.Contains(projected) && h >= -0.2 && h < 0.2
 
-            let handlePatch (paths : OpcPaths) (p : Patch) (s : List<V3d[]>) =
-                let ig, t = Patch.load paths ViewerModality.XYZ p.info
-                let dir = paths.Patches_DirAbsPath +/ p.info.Name
+            let handlePatch (paths : OpcPaths) (requestedAttributes : list<string>) (p : Patch) (o : List<QueryResult>) =
+                let ig, _ = Patch.load paths ViewerModality.XYZ p.info
+                let pfi = paths.Patches_DirAbsPath +/ p.info.Name
+                let attributes = 
+                    let available = Set.ofList p.info.Attributes
+                    let attributes = 
+                        requestedAttributes |> List.choose (fun l -> 
+                            if Set.contains l available then
+                                let path = paths.Patches_DirAbsPath +/ p.info.Name +/ l
+                                if File.Exists path then
+                                    Some (l, path)
+                                else
+                                    None
+                            else 
+                                Log.warn $"[Queries] requested attribute {l} but patch {p.info.Name} does not provide it." 
+                                Log.line "[Queries] available attributes: %s" (available |> Set.toSeq |> String.concat ",")
+                                None
+                        )
+
+                    attributes
+                    |> List.map (fun (attributeName, filePath) -> 
+                        let arr = filePath |> fromFile<float> // change this to allow different attribute types
+                        attributeName, arr
+                    )
+                    |> Map.ofList
+
                 //let positions = paths.Patches_DirAbsPath +/ p.info.Name +/ p.info.Positions |> fromFile<V3f>
                 let positions = 
                     match ig.IndexedAttributes[DefaultSemantic.Positions] with
                     | (:? array<V3f> as v) when not (isNull v) -> v
                     | _ -> failwith "[Queries] Patch has no V3f[] positions"
 
-                let result = Array.zeroCreate positions.Length
-                for i in 0 .. positions.Length - 1 do
-                    let v = positions[i]
-                    if v.IsNaN then result[i] <- V3d.NaN
-                    else
-                        let v = V3d v
-                        let transformed = p.info.Local2Global.TransformPos (V3d v)
-                        if not transformed.IsNaN && globalCoordWithinQuery v then
-                            result[i] <- V3d.NaN
-                        else
-                            ()
 
-                s.Add(result)
-                s
+                let idxArray = 
+                    if ig.IsIndexed then
+                        match ig.IndexArray with
+                        | :? array<int> as idx -> idx
+                        | _ -> failwith "[Queries] Patch index geometry has no int[] index"
+                    else
+                        failwith "[Queries] Patch index geometry is not indexed."
+
+
+                let attributesInputOutput =
+                    attributes 
+                    |> Map.map (fun name inputArray -> 
+                        inputArray, List<float>()
+                    )
+                let globalOutputPositions = List<V3d>()
+                let localOutputPositions = List<V3f>()
+                let indices = List<int>()
+                
+
+                for startIndex in 0 .. 3 ..  idxArray.Length - 3 do
+                    let tri = [| idxArray[startIndex]; idxArray[startIndex + 1]; idxArray[startIndex + 2] |] 
+                    let localVertices = tri |> Array.map (fun idx -> positions[idx])
+                    if localVertices |> Array.exists (fun v -> v.IsNaN) then
+                        ()
+                    else
+                        let globalVertices = 
+                            localVertices |> Array.map (fun local -> 
+                                let v = V3d local
+                                p.info.Local2Global.TransformPos v
+                            )
+                        let validInside (v : V3d) = globalCoordWithinQuery v
+                        let triWithinQuery = globalVertices |> Array.forall validInside
+                        if triWithinQuery then
+                            indices.Add(localOutputPositions.Count)
+                            indices.Add(localOutputPositions.Count + 1)
+                            indices.Add(localOutputPositions.Count + 2)
+                            attributesInputOutput |> Map.iter (fun name (inputArray, output) -> 
+                                tri |> Array.iter (fun idx -> 
+                                    output.Add(inputArray[idx])
+                                )
+                            )
+                            globalOutputPositions.AddRange(globalVertices)
+                            localOutputPositions.AddRange(localVertices)
+
+                o.Add {
+                    attributes = attributesInputOutput |> Map.map (fun p (i,o) -> { channels = 1; array = o.ToArray() :> System.Array})
+                    globalPositions = globalOutputPositions :> IReadOnlyList<V3d>
+                    patchFileInfoPath = pfi
+                    localPositions = localOutputPositions :> IReadOnlyList<V3f>
+                    indices = indices :> IReadOnlyList<int>
+                }
+                o
+
+            let requestedAttributes = ["AccuracyMap.aara"]
 
             let hits = 
-                let points = List<V3d[]>()
+                let points = List<QueryResult>()
                 hierarchies |> List.fold (fun points (h, basePath) -> 
                     let paths = OpcPaths basePath
-                    let result = QTree.foldCulled intersectsQuery (handlePatch paths) points h.tree
+                    let result = QTree.foldCulled intersectsQuery (handlePatch paths requestedAttributes) points h.tree
                     printfn "%A" result
                     points
                 ) points
+             
+            printfn "hits: %A" hits
+            hit hits
 
-            ()
+
+        let hit (hits : List<QueryResult>) =
+            let allVertices = hits |> Seq.collect (fun h -> h.globalPositions) |> Seq.toArray
+            let objGeometries = 
+                hits 
+                |> Seq.map (fun h -> 
+                    let colors =
+                        match h.attributes |> Map.toSeq |> Seq.tryHead with
+                        | None -> None
+                        | Some (name, att) -> 
+                            match att.array with
+                            | :? array<float> as v when v.Length > 0 -> 
+                                let min, max = v.Min(), v.Max()
+                                if max - min > 0 then
+                                    let colors = v |> Array.map (fun v -> if v.IsNaN() then C3b.Black else (v - min) / (max - min) |> TransferFunction.transferPlasma)
+                                    Some colors
+                                else 
+                                    None
+                            | _ -> 
+                                None
+
+                    let geometry = 
+                        {
+                            colors = colors
+                            indices = h.indices |> Seq.toArray
+                            vertices = h.localPositions |> Seq.map V3d  |> Seq.toArray
+                        }
+                    geometry
+                )
+            RudimentaryObjExport.writeToString objGeometries |> File.writeAllText "./annotation.obj"
+            resultPoints.Value <- allVertices |> Seq.toArray
 
 
+        let points =
+            Sg.instancedGeometry ((view, resultPoints) ||> AVal.map2 (fun view pos -> pos |> Array.map (fun p -> Trafo3d.Translation(V3d p) * view.ViewTrafo))) (IndexedGeometryPrimitives.solidPhiThetaSphere (Sphere3d(V3d.Zero, 0.01)) 8 C4b.White)
+            |> Sg.viewTrafo (AVal.constant Trafo3d.Identity)
+            |> Sg.shader {
+                do! DefaultSurfaces.instanceTrafo
+                do! DefaultSurfaces.trafo
+                do! DefaultSurfaces.vertexColor
+            }
 
         let sg = 
             sg
-            |> Sg.andAlso (createAnnotationSg win view frustum showOld pick annotations)
+            |> Sg.andAlso (createAnnotationSg win view frustum showOld (pick hit) annotations)
+            |> Sg.andAlso points
             |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
             |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo)
             //|> Sg.transform preTransform

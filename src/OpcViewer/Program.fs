@@ -104,7 +104,7 @@ let main argv =
                 preTransform     = Trafo3d.Identity
                 patchHierarchies = 
                     Seq.delay (fun _ -> 
-                        System.IO.Directory.GetDirectories(@"D:\assets\OpcMcz") 
+                        System.IO.Directory.GetDirectories(@"F:\pro3d\data\OpcMcz") 
                     )
                 boundingBox      = Box3d.Parse("[[699507.902347501, 3142696.785742886, 1072717.259930025], [699508.165976587, 3142697.102699531, 1072717.505653937]]") 
                 near             = 0.1
@@ -113,12 +113,45 @@ let main argv =
                 lodDecider       =  DefaultMetrics.mars2 
             }
 
+        //let scene =
+        //    { 
+        //        useCompressedTextures = true
+        //        preTransform     = Trafo3d.Identity
+        //        patchHierarchies = 
+        //            Seq.delay (fun _ -> 
+        //                System.IO.Directory.GetDirectories(@"F:\pro3d\data\OpcHera") 
+        //            )
+        //        boundingBox      = Box3d.Parse("[[-0.089070135, -0.087013945, -0.056419425], [0.086516376, 0.000000000, 0.058683879]]") 
+        //        near             = 0.1
+        //        far              = 10000.0
+        //        speed            = 5.0
+        //        lodDecider       =  DefaultMetrics.mars2 
+        //    }
+
+        //let scene =
+        //    { 
+        //        useCompressedTextures = true
+        //        preTransform     = Trafo3d.Identity
+        //        patchHierarchies = 
+        //            Seq.delay (fun _ -> 
+        //                System.IO.Directory.GetDirectories(@"F:\pro3d\data\dimorphos") 
+        //            )
+        //        boundingBox      = Box3d.Parse("[[-89.181903827, -87.182643300, -56.420779204], [86.522432535, 0.000000000, 58.710996093]]") 
+        //        near             = 0.1
+        //        far              = 10000.0
+        //        speed            = 5.0
+        //        lodDecider       =  DefaultMetrics.mars2 
+        //    }
+
         Aardvark.Rendering.GL.RuntimeConfig.UseNewRenderTask <- true
 
         let annotations = @"I:\OPC\Shaler_OPCs_2019\crazy2.pro3d.ann"
         let annotations = @"F:\pro3d\data\20200220_DinosaurQuarry2\strangetest.pro3d.ann"
-        let annotations = @"F:\pro3d\data\OpcHera\annos.pro3d.ann"
-        //let annotations = @"D:\assets\OpcMcz\singleAnno.pro3d.ann"
+        let annotations = @"F:\pro3d\data\OpcHera\annos2.pro3d.ann"
+        //let annotations = @"F:\pro3d\data\OpcMcz\singleAnno.pro3d.ann"
+        let annotations = @"F:\pro3d\data\OpcMcz\blub.pro3d.ann"
+        //let annotations = @"F:\pro3d\data\OpcMcz\heavy.pro3d.ann"
+        //let annotations = @"F:\pro3d\data\dimorphos\singleanno.pro3d.ann"
 
         let annotations = 
             PRo3D.Core.Drawing.DrawingUtilities.IO.loadAnnotationsFromFile annotations

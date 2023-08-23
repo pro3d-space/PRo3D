@@ -11,6 +11,8 @@
     <OutputPath>..\..\bin\Release</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="TransferFunction.fs" />
+    <Compile Include="RudimentaryObjExport.fs" />
     <Compile Include="TestViewer.fs" />
     <Compile Include="AnnotationViewer.fs" />
     <Compile Include="Program.fs" />
