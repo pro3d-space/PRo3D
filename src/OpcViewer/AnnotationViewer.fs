@@ -34,7 +34,7 @@ open Aardvark.Geometry
 module AnnotationViewer = 
 
     
-    let createAnnotationSg (win : IRenderWindow) (view : aval<CameraView>) (frustum : aval<Frustum>) (showOld : aval<bool>) (pick : Annotation -> unit) (annotations : Annotations) =
+    let createAnnotationSg (win : IRenderWindow) (view : aval<CameraView>) (frustum : aval<Frustum>) (showOld : aval<bool>) (pick : Annotation -> 'a) (annotations : Annotations) =
         let model = AdaptiveGroupsModel.Create annotations.annotations
         let runtime = win.Runtime
 
@@ -142,7 +142,7 @@ module AnnotationViewer =
                             | Some anno -> 
                                 match anno with
                                 | Leaf.Annotations a -> 
-                                    try pick a with e -> Log.warn "pick failed. %A" e
+                                    try pick a |> ignore with e -> Log.warn "pick failed. %A" e
                                 | _ -> ()
                         else 
                             picked.Value <- None

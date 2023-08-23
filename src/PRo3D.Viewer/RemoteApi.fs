@@ -84,9 +84,6 @@ module RemoteApi =
             let toJson (planet : Base.Planet) (annotations : list<Annotation>) =
                 encodeAnnotations planet annotations |> Encode.toString 4
                
-
-
-
     module ProvenanceGraph =
         
         open Thoth.Json.Net
@@ -180,6 +177,43 @@ module RemoteApi =
                 ProvenanceMessage (ProvenanceApp.ProvenanceMessage.ActivateNode nodeId) |> emitTopLevel
             | _ -> 
                 ()
+
+        member x.FindAnnotation(partOfId : Option<string>) =
+            let map = x.FullModel.drawing.annotations.flat.Content.GetValue()
+            match partOfId with
+            | None -> map |> HashMap.toSeq |> Seq.map (string << fst) |> Seq.toArray
+            | Some partOfId -> 
+                map 
+                |> HashMap.toSeq 
+                |> Seq.choose (fun (k,v) -> 
+                    let s = string k
+                    if s.ToLower().Contains(partOfId.ToLower()) then 
+                        Some s 
+                    else 
+                        None
+                )
+                |> Seq.toArray
+
+        member x.QueryAnnotation(annotationId : string, requestedAttributes : list<string>, heightRange : Range1d) =
+            let map = x.FullModel.drawing.annotations.flat.Content.GetValue()
+            match HashMap.tryFind (Guid.Parse(annotationId)) map with
+            | Some (AdaptiveAnnotations annotations) -> 
+                let anno = annotations.Current.GetValue()
+                let sgSurfaces = x.FullModel.scene.surfacesModel.sgSurfaces.Content.GetValue()
+                let opcs = sgSurfaces |> Seq.choose (fun (_,s) -> match s.opcScene.GetValue() with None -> None | Some s -> Some s)
+                let patchHierarchies = 
+                    opcs |> Seq.collect (fun scene -> 
+                        scene.patchHierarchies
+                        |> Seq.map Aardvark.Prinziple.Prinziple.registerIfZipped
+                        |> Seq.map (fun x -> 
+                            Aardvark.SceneGraph.Opc.PatchHierarchy.load PRo3D.Base.Serialization.binarySerializer.Pickle PRo3D.Base.Serialization.binarySerializer.UnPickle (Aardvark.SceneGraph.Opc.OpcPaths x), x
+                        )
+                    )
+                    |> Seq.toList
+                let hits = PRo3D.Base.AnnotationQuery.pickAnnotation patchHierarchies requestedAttributes heightRange ignore anno
+                Some hits
+            | _ -> None
+
 
 
 
@@ -492,6 +526,30 @@ module RemoteApi =
                 }
             )
 
+        let queryAnnotation (api : Api) (f : System.Collections.Generic.List<Base.QueryResult> -> WebPart) (r : HttpRequest)= 
+            let str = r.rawForm |> getUTF8
+            let input = PRo3D.Base.QueryApi.parseRequest str
+            match input with
+            | Result.Ok input -> 
+                match api.QueryAnnotation(input.annotationId, input.queryAttributes, Range1d.FromCenterAndSize(0, input.distanceToPlane)) with
+                | None -> RequestErrors.BAD_REQUEST "Oops, something went wrong here!"
+                | Some r -> 
+                    f r
+
+            | _ -> RequestErrors.BAD_REQUEST "could not parse command"
+
+        let queryAnnotationAsObj (api : Api) = 
+            let toResult r = 
+                let s = PRo3D.Base.AnnotationQuery.queryResultsToObj r
+                Successful.OK s
+            queryAnnotation api toResult
+
+        let queryAnnotationAsJson (api : Api) = 
+            let toJson r = 
+                let s = PRo3D.Base.QueryApi.hitsToJson r
+                Successful.OK s
+            queryAnnotation api toJson
+
         let webPart (storage : PPersistence) (api : Api) = 
             choose [
                 path "/loadScene" >=> request (loadScene api)
@@ -522,6 +580,27 @@ module RemoteApi =
                             //let json = Base.Annotation.GeoJSONExport.toGeoJsonString (Base.Planet.Mars |> Some) annotations
                             Successful.OK json
                         )
+                    ]
+                )
+                prefix "/queries" >=> (
+                    choose [
+                        path "/findAnnotation"  >=> Suave.Writers.setMimeType "application/json; charset=utf-8" >=> (
+                            request (fun r -> 
+                                match r.queryParam "id" with
+                                | Choice1Of2 v -> 
+                                    let a = api.FindAnnotation(Some v)
+                                    let json = Thoth.Json.Net.Encode.Auto.toString a
+                                    Successful.OK json
+                                | Choice2Of2 _ -> 
+                                    let a = api.FindAnnotation(None)
+                                    let json = Thoth.Json.Net.Encode.Auto.toString a
+                                    Successful.OK json
+                            )
+                        )
+                        path "/queryAnnotationAsJson" >=> 
+                            Suave.Writers.setMimeType "application/json; charset=utf-8" 
+                                >=> request (queryAnnotationAsJson api)
+                        path "/queryAnnotationAsObj" >=> request (queryAnnotationAsObj api)
                     ]
                 )
             ]

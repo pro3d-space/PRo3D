@@ -150,6 +150,7 @@ let main argv =
         let annotations = @"F:\pro3d\data\OpcHera\annos2.pro3d.ann"
         //let annotations = @"F:\pro3d\data\OpcMcz\singleAnno.pro3d.ann"
         let annotations = @"F:\pro3d\data\OpcMcz\blub.pro3d.ann"
+        let annotations = @"F:\pro3d\data\OpcMcz\notworking.pro3d.ann"
         //let annotations = @"F:\pro3d\data\OpcMcz\heavy.pro3d.ann"
         //let annotations = @"F:\pro3d\data\dimorphos\singleanno.pro3d.ann"
 

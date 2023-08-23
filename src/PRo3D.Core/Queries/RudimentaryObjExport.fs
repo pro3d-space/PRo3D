@@ -50,3 +50,6 @@ module RudimentaryObjExport =
     let writeToString (objects : seq<WavefrontGeometry>) =
         let s = Seq.fold writeToBuilder (StringBuilder()) objects
         s.ToString()
+
+
+

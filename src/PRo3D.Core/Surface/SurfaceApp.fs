@@ -195,6 +195,7 @@ module SurfaceUtils =
                     sceneGraph  = sg
                     picking     = Picking.KdTree(kdTrees |> HashMap.ofList) //Picking.PickMesh meshes
                     isObj       = true
+                    opcScene    = None
                     //transformation = Init.Transformations
                 }
                  
@@ -642,6 +643,7 @@ module SurfaceUtils =
                     sceneGraph      = sg
                     picking         = Picking.KdTree(kdTrees |> HashMap.ofList)
                     isObj           = true
+                    opcScene        = None
                     //transformation = Init.Transformations
                 }
                  

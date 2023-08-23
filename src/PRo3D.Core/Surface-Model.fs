@@ -904,6 +904,7 @@ type SgSurface = {
     globalBB    : Box3d
     sceneGraph  : ISg
     picking     : Picking
+    opcScene    : Option<Aardvark.GeoSpatial.Opc.Configurations.OpcScene>
 
     [<NonAdaptive>]
     isObj       : bool

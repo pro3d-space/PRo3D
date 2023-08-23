@@ -69,6 +69,9 @@
     <Compile Include="Importers/MeasurementsImporter.fs" />
     <Compile Include="Importers/AnnotationGroupsImporter.fs" />
     <Compile Include="Importers/SurfaceTrafoImporter.fs" />
+    <Compile Include="Queries\TransferFunction.fs" />
+    <Compile Include="Queries\RudimentaryObjExport.fs" />
+    <Compile Include="Queries\AnnotationQuery.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

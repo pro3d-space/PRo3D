@@ -61,13 +61,16 @@ module AnnotationQuery =
             | None -> 
                 Log.warn "[Queries] line regression failed, using fallback"
                 CSharpUtils.PlaneFitting.Fit(points |> Seq.toArray)
-            | Some p -> p.Plane
+            | Some p -> Plane3d(p.Normal.Normalized, p.Center) //p.Plane
 
         let projectedPolygon = 
             points 
             |> Seq.map (fun p -> plane.ProjectToPlaneSpace p)
             |> Polygon2d
 
+        let projectedPolygon = projectedPolygon.ComputeConvexHullIndexPolygon().ToPolygon2d()
+            
+        
         let intersectsQuery (globalBoundingBox : Box3d) =
             let p2w = plane.GetPlaneToWorld()
             let pointsInWorld = projectedPolygon.Points |> Seq.map (fun p -> p2w.TransformPos(V3d(p,0.0)))
@@ -190,8 +193,41 @@ module AnnotationQuery =
             ) points
              
         hit hits
+        hits
 
 
     let pickAnnotation (hierarchies : list<PatchHierarchy * FileName>) (requestedAttributes : list<string>) (heightRange : Range1d) (hit : List<QueryResult> -> unit) (annotation : Annotation) =
         let q = queryFunctionsFromAnnotation heightRange annotation
         pick hierarchies requestedAttributes q (handlePatch q) hit
+
+
+
+    let queryResultsToObj (hits : List<QueryResult>) =
+        let allVertices = hits |> Seq.collect (fun h -> h.globalPositions) |> Seq.toArray
+        let objGeometries = 
+            hits 
+            |> Seq.map (fun h -> 
+                let colors =
+                    match h.attributes |> Map.toSeq |> Seq.tryHead with
+                    | None -> None
+                    | Some (name, att) -> 
+                        match att.array with
+                        | :? array<float> as v when v.Length > 0 -> 
+                            let min, max = v.Min(), v.Max()
+                            if max - min > 0 then
+                                let colors = v |> Array.map (fun v -> if v.IsNaN() then C3b.Black else (v - min) / (max - min) |> TransferFunction.transferPlasma)
+                                Some colors
+                            else 
+                                None
+                        | _ -> 
+                            None
+
+                let geometry = 
+                    {
+                        colors = colors
+                        indices = h.indices |> Seq.toArray
+                        vertices = h.localPositions |> Seq.map V3d  |> Seq.toArray
+                    }
+                geometry
+            )
+        RudimentaryObjExport.writeToString objGeometries 

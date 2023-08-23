@@ -642,7 +642,7 @@ module ViewerApp =
                 let m = shortFeedback "Saved snapshot JSON file." m
                 match m.scene.sequencedBookmarks.generateOnStop with
                 | true -> 
-                    let m = 
+                    let m  = 
                         let bm = generateSnapshots scenePath
                         {m with scene = { m.scene with sequencedBookmarks = bm }}
                     let m = shortFeedback "Snapshot generation started." m
