@@ -13,6 +13,7 @@
   <ItemGroup>
     <Compile Include="TransferFunction.fs" />
     <Compile Include="RudimentaryObjExport.fs" />
+    <Compile Include="AnnotationQuery.fs" />
     <Compile Include="TestViewer.fs" />
     <Compile Include="AnnotationViewer.fs" />
     <Compile Include="Program.fs" />
