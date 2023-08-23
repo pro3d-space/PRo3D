@@ -36,7 +36,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docs", "Docs", "{235F058E-E
 		..\docs\Build-Deploy-System.md = ..\docs\Build-Deploy-System.md
 		..\docs\Feature-Multitexture.md = ..\docs\Feature-Multitexture.md
 		..\docs\Feature-Queries.md = ..\docs\Feature-Queries.md
-		OpcTool.md = OpcTool.md
+		..\docs\OpcTool.md = ..\docs\OpcTool.md
 		..\docs\spice.md = ..\docs\spice.md
 	EndProjectSection
 EndProject
