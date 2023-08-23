@@ -55,6 +55,11 @@ The query returns a json object:
 Almost done, just waiting for feedback of the design to finish the surface level API.
 
 
+## Demo 
+
+src/Tests contains a jupyter notebooks which shows of quering annotations.
+
+
 
 ## Caveats
 
