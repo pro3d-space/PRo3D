@@ -20,6 +20,10 @@ open Aether
 open Aether.Operators
 
 module BookmarkUtils =
+    let basePathFromScenePath (scenePath : string) =
+        Path.combine [Path.GetDirectoryName scenePath; 
+                        Path.GetFileNameWithoutExtension scenePath]
+
     /// Links the animation to a field in the model by registering
     /// a callback that uses the given lens to modify its value as the animation progresses.
     let linkPrism (lens : Prism<'Model, 'Value>) (animation : IAnimation<'Model, 'Value>) =
@@ -163,18 +167,23 @@ module BookmarkUtils =
         {m with bookmarks = bookmarks}
 
     /// updates the path of the bookmark with the given basePath
-    /// IF the bookmark is loaded the bookmark is returned as-is 
-    /// if it is not loaded
+    /// loaded AND unloaded bookmarks are updated
     let updatePath (basePath : string) (bm : SequencedBookmark) =
         match bm with
         | SequencedBookmark.LoadedBookmark loaded ->
+            Log.line "Updating sequenced bookmark base path from %s to %s"
+                (string loaded.basePath) basePath
             SequencedBookmark.LoadedBookmark {loaded with basePath = Some basePath}
         | SequencedBookmarks.NotYetLoaded notLoaded ->
-            bm
+            let newPath = Path.combine [basePath;Path.GetFileName notLoaded.path]
+            if String.equals notLoaded.path newPath then
+                SequencedBookmarks.NotYetLoaded notLoaded
+            else
+                Log.line "Updating sequenced bookmark path from %s to %s" notLoaded.path newPath
+                SequencedBookmarks.NotYetLoaded {notLoaded with path = newPath}
 
     /// updates the path of each bookmark with the given basePath
-    /// IF the bookmark is loaded the bookmark is returned as-is 
-    /// if it is not loaded
+    /// loaded AND unloaded bookmarks are updated
     let updatePaths (basePath : string) (m : SequencedBookmarks) =
         let bookmarks = 
             HashMap.map (fun g bm -> updatePath basePath bm) m.bookmarks
