@@ -354,7 +354,7 @@ module AnnotationViewer =
 
         let sg = 
             sg
-            |> Sg.andAlso (createAnnotationSg win view frustum showOld (AnnotationQuery.pick hierarchies ["AccuracyMap.aara"] hit) annotations)
+            |> Sg.andAlso (createAnnotationSg win view frustum showOld (AnnotationQuery.pickAnnotation hierarchies ["AccuracyMap.aara"] (Range1d(-0.1,0.1)) hit) annotations)
             |> Sg.andAlso points
             |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
             |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo)
