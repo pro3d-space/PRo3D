@@ -49,7 +49,7 @@ PRo3D's performance may vary with the size and type of datasets and the selected
 ## Beta-stage mac osx support
 
 While mac osx support is still experimental, PRo3D generally works on macOS Big Sur and newer.
-On intel macs we require a dedicated graphics card - although not perfect PRo3D now also works on M1 based macs.
+On intel macs we require a dedicated graphics card - although not perfect PRo3D now also works on apple silicon based macs.
 The more memory the better, same as for windows.
 
 We tested the build on:
