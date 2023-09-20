@@ -91,6 +91,9 @@ module SurfaceUtils =
             transformation  = Init.transformations
             opcxPath        = None
             radiometry      = Init.initRadiometry
+
+            filterByDistance = false
+            filterDistance = Surface.Initial.filterDistance 10.0
         }       
    
 

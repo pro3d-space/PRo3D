@@ -650,6 +650,9 @@ type Surface = {
                     
     triangleSize    : NumericInput
     scaling         : NumericInput
+
+    filterByDistance : bool
+    filterDistance   : NumericInput
                     
     preTransform    : Trafo3d
     
@@ -674,6 +677,23 @@ type Surface = {
 
 module Surface =
     let current = 1 //16.06.2023 Laura: radiometry   
+
+    module Initial =
+        let triangleSize = {
+            value = 1.0
+            min = 0.0
+            max = 10000.0
+            step = 0.01
+            format = "{0:0.000}"
+        }
+
+        let filterDistance (dist:float) = {
+            value = dist
+            min = 0.0
+            max = 100000.0
+            step = 0.01
+            format = "{0:0.000}"
+        }
 
     let read0 =
         json {
@@ -753,6 +773,9 @@ module Surface =
                     transformation  = transformation
                     radiometry      = Init.initRadiometry
                     opcxPath        = None
+
+                    filterByDistance = false
+                    filterDistance   = Initial.filterDistance 10.0
                 }
         }
 
@@ -771,6 +794,10 @@ module Surface =
             let! quality         = Json.readWith Ext.fromJson<NumericInput,Ext> "quality"
             let! priority        = Json.readWith Ext.fromJson<NumericInput,Ext> "priority"
             let! triangleSize    = Json.readWith Ext.fromJson<NumericInput,Ext> "triangleSize"   
+
+            let! filterByDistance = Json.tryRead "filterByDistance" 
+            let! filterDistance   = Json.tryRead "filterDistance"
+
             let! scaling         = Json.readWith Ext.fromJson<NumericInput,Ext> "scaling"
             let! preTransform    = Json.read "preTransform"
             let! scalarLayers    = Json.read "scalarLayers"  
@@ -832,6 +859,9 @@ module Surface =
                     homePosition    = view
                     transformation  = transformation
                     radiometry      = radiometry
+
+                    filterByDistance = match filterByDistance with |Some v -> v |None -> false
+                    filterDistance   = match filterDistance with |Some d -> Initial.filterDistance d |None -> Initial.filterDistance 10.0
                 }
         }
      
@@ -888,7 +918,10 @@ type Surface with
                     ] |> List.map(fun x -> x.ToString())
 
             do! Json.write "homePosition" home
-            do! Json.write "transformation" x.transformation            
+            do! Json.write "transformation" x.transformation  
+            
+            do! Json.write "filterByDistance" x.filterByDistance
+            do! Json.write "filterDistance" x.filterDistance.value
         }
 
 type Picking =

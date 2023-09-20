@@ -45,6 +45,8 @@ module SurfaceProperties =
         | SetBlendFactor of float
 
         | SetHomePosition //of Guid //of Option<CameraView>
+        | ToggleFilterByDistance //of Guid //of Option<CameraView>
+        | SetFilterDistance of Numeric.Action //of Guid //of Option<CameraView>
 
     let update (model : Surface) (act : Action) =
         match act with
@@ -60,6 +62,10 @@ module SurfaceProperties =
             { model with isActive = not model.isActive }
         | SetTriangleSize a ->
             { model with triangleSize = Numeric.update model.triangleSize a}
+        | ToggleFilterByDistance ->
+            { model with filterByDistance = not model.filterByDistance }
+        | SetFilterDistance a ->
+            { model with filterDistance = Numeric.update model.filterDistance a}
         | SetQuality a ->
             { model with quality = Numeric.update model.quality a }
         | SetPriority a ->
@@ -155,6 +161,8 @@ module SurfaceProperties =
                 yield Html.row "Priority:"    [Numeric.view' [NumericInputType.InputBox] model.priority |> UI.map SetPriority ]       
                 yield Html.row "Quality:"     [Numeric.view' [NumericInputType.Slider]   model.quality  |> UI.map SetQuality ]
                 yield Html.row "TriangleFilter:" [Numeric.view' [NumericInputType.InputBox]   model.triangleSize  |> UI.map SetTriangleSize ]
+                yield Html.row "DistanceFilter:" [GuiEx.iconCheckBox model.filterByDistance ToggleFilterByDistance ]
+                yield Html.row "FilterDistance:" [Numeric.view' [NumericInputType.InputBox]   model.filterDistance  |> UI.map SetFilterDistance ]
                 // Html.row "Scale:"       [Numeric.view' [NumericInputType.InputBox]   model.scaling  |> UI.map SetScaling ]
                 yield Html.row "Fillmode:"    [Html.SemUi.dropDown model.fillMode SetFillMode]                
                 yield Html.row "Scalars:"     [UI.dropDown'' (model |> scalarLayerList)  (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.selectedScalar)  (fun x -> SetScalarMap (x |> Option.map(fun y -> y.Current |> AVal.force)))   (fun x -> x.label |> AVal.force)]

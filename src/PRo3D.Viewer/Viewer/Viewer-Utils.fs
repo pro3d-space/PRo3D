@@ -385,6 +385,29 @@ module ViewerUtils =
                     )
                     |> Sg.dynamic
 
+                let homePosition =
+                    adaptive {
+                        let! homePosition = surf.homePosition
+                        
+                        match homePosition with
+                        | Some hp -> 
+                            return hp.Location
+                        | None ->
+                            let! bb = surface.globalBB
+                            return bb.Center                        
+                    }               
+                    
+                let filterByDistance =
+                    adaptive {
+                        let! homePosition = surf.homePosition 
+                        
+                        match homePosition with
+                        | Some _ -> 
+                            return! surf.filterByDistance 
+                        | None ->
+                            return false
+                    }               
+
                 //let! texTest = depthTexture
                 let! texTest = DefaultTextures.checkerboard 
                 
@@ -399,6 +422,9 @@ module ViewerUtils =
                     //|> addAttributeFalsecolorMappingParameters surf
                     |> addDepthMappingParameters fp
                     |> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
+                    |> Sg.uniform "HomePosition" homePosition
+                    |> Sg.uniform "FilterByDistance" filterByDistance
+                    |> Sg.uniform "FilterDistance" (surf.filterDistance.value)
                     |> addImageCorrectionParameters  surf
                     |> addRadiometryParameters surf
                     |> Sg.uniform "DepthVisible" depthVisible
@@ -653,7 +679,8 @@ module ViewerUtils =
         open FShade
 
         type Vertex = {
-            [<Position>]        pos     : V4d
+            [<FShade.InstrinsicAttributes.Position>]        pos     : V4d
+            [<WorldPosition>]   wp      : V4d
             [<Color>]           c       : V4d
             [<TexCoord>]        tc      : V2d
 
@@ -701,23 +728,41 @@ module ViewerUtils =
                 let beta  = b.Length < maxSize
                 let gamma = c.Length < maxSize
 
-                let check = (alpha && beta && gamma)
-                if check then
-                    yield input.P0 
-                    yield input.P1
-                    yield input.P2
+                let filterDistanceActive : bool = uniform?FilterByDistance
+                let triangleSizeCheck = (alpha && beta && gamma)
+
+                if filterDistanceActive then
+                    let filterRange : float = uniform?FilterDistance
+                    let homePosition : V3d = uniform?HomePosition
+
+                    let inRange = 
+                        (Vec.Distance(homePosition, input.P0.wp.XYZ)) < filterRange &&
+                        (Vec.Distance(homePosition, input.P1.wp.XYZ)) < filterRange &&
+                        (Vec.Distance(homePosition, input.P2.wp.XYZ)) < filterRange
+
+                    if triangleSizeCheck && inRange then
+                        yield input.P0 
+                        yield input.P1
+                        yield input.P2
+                else
+                    if triangleSizeCheck then
+                        yield input.P0 
+                        yield input.P1
+                        yield input.P2
             }
          
 
         let stableTrafo (v : Vertex) =
             vertex {
                 let p = uniform.ModelViewProjTrafo * v.pos
+                let wp = uniform.ModelTrafo * v.pos
 
                 return 
                     { v with
                         pos = p
                         c = v.c
                         vp = uniform.ModelViewTrafo * v.pos
+                        wp = wp
                     }
             }
 
