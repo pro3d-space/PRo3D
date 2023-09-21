@@ -280,7 +280,9 @@ module RemoteApi =
 
         member x.ImportDrawingModel(drawing : GroupsModel, source : string) : unit =
             let setDrawing = ViewerAction.ImportDrawingModel(drawing, source)
-            setDrawing |> emit    type LoadScene = 
+            setDrawing |> emit    
+            
+    type LoadScene = 
         {
             // absolute path
             sceneFile : string
