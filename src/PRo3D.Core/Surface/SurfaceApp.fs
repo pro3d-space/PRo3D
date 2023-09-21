@@ -76,7 +76,10 @@ module SurfaceUtils =
             scalarLayers    = HashMap.Empty //IndexList.empty
             selectedScalar  = None
             textureLayers   = IndexList.empty
-            selectedTexture = None         
+            primaryTexture  = None  
+    
+            secondaryTexture = None
+            transferFunction = TransferFunction.empty
     
             triangleSize    = { Init.triangleSize with value = maxTriangleSize }
 
@@ -86,6 +89,7 @@ module SurfaceUtils =
             colorCorrection = Init.initColorCorrection
             homePosition    = None
             transformation  = Init.transformations
+            opcxPath        = None
             radiometry      = Init.initRadiometry
         }       
    
@@ -191,6 +195,7 @@ module SurfaceUtils =
                     sceneGraph  = sg
                     picking     = Picking.KdTree(kdTrees |> HashMap.ofList) //Picking.PickMesh meshes
                     isObj       = true
+                    opcScene    = None
                     //transformation = Init.Transformations
                 }
                  
@@ -638,6 +643,7 @@ module SurfaceUtils =
                     sceneGraph      = sg
                     picking         = Picking.KdTree(kdTrees |> HashMap.ofList)
                     isObj           = true
+                    opcScene        = None
                     //transformation = Init.Transformations
                 }
                  

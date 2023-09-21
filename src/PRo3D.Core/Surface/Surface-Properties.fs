@@ -18,6 +18,11 @@ open PRo3D.Core.Surface
 
 module SurfaceProperties =        
 
+    [<Literal>]
+    let ramp = "Ramp"
+    [<Literal>]
+    let passthrough = "Passthrough"
+
     type Action =
         | SetFillMode    of FillMode
         | SetCullMode    of CullMode
@@ -29,7 +34,16 @@ module SurfaceProperties =
         | SetPriority    of Numeric.Action
         //| SetScaling     of Numeric.Action
         | SetScalarMap   of Option<ScalarLayer>
-        | SetTexturesMap of Option<TextureLayer>
+
+        | SetPrimaryTexture of Option<TextureLayer>
+        | SetSecondaryTexture of Option<TextureLayer>
+        | SetTransferFunctionMode of Option<string>
+        | SetTFMin of float
+        | SetTFMax of float
+        | SetColorMappingName of Option<string>
+        | SetTextureCombiner of TextureCombiner
+        | SetBlendFactor of float
+
         | SetHomePosition //of Guid //of Option<CameraView>
 
     let update (model : Surface) (act : Action) =
@@ -59,8 +73,39 @@ module SurfaceProperties =
                 Log.error "[SurfaceProperties] %A" scs
                 { model with selectedScalar = Some s} |> Console.print //; scalarLayers = scs 
             | None -> { model with selectedScalar = None }
-        | SetTexturesMap a ->                
-            { model with selectedTexture = a } |> Console.print
+
+        | SetPrimaryTexture texture ->                
+            { model with primaryTexture = texture } |> Console.print
+        | SetSecondaryTexture texture ->                
+            { model with secondaryTexture = texture } |> Console.print
+
+        | SetTransferFunctionMode (Some name) -> 
+            match name with
+            | _ when name = ramp -> 
+                match model.transferFunction with
+                | { tf = ColorMaps.TF.Ramp(_,_,_); textureCombiner = _ } -> model
+                | _ -> { model with transferFunction = { model.transferFunction with tf = ColorMaps.TF.Ramp(0.0, 1.0, ColorMaps.colorMaps |> Map.toSeq |> Seq.head |> fst); } }
+            | _ when name = passthrough-> 
+                { model with transferFunction = { model.transferFunction with tf = ColorMaps.TF.Passthrough }}
+            | _ -> 
+                Log.warn "unkonwn tf mode: %s" name
+                model
+        | SetTransferFunctionMode None -> model
+
+        | SetTFMin min -> 
+            { model with transferFunction = { model.transferFunction with tf = ColorMaps.TF.trySetMin min model.transferFunction.tf; } }
+        | SetTFMax max -> 
+            { model with transferFunction = { model.transferFunction with tf = ColorMaps.TF.trySetMax max model.transferFunction.tf; } }
+
+        | SetColorMappingName None -> model
+        | SetColorMappingName (Some name) -> 
+            { model with transferFunction = { model.transferFunction with tf = ColorMaps.TF.trySetName name model.transferFunction.tf }  }
+        | SetTextureCombiner c -> 
+            { model with transferFunction = { model.transferFunction with textureCombiner = c } }
+        | SetBlendFactor f -> 
+            { model with transferFunction = { model.transferFunction with blendFactor = f }}
+
+
         | SetHomePosition -> model
             
 
@@ -101,22 +146,77 @@ module SurfaceProperties =
           
     let view (model : AdaptiveSurface) =        
       require GuiEx.semui (
-        Html.table [                                            
-          // Html.row "Path:"        [Incremental.text (model.importPath |> AVal.map (fun x -> sprintf "%A" x ))]                
-          Html.row "Name:"        [Html.SemUi.textBox model.name SetName ]
-          Html.row "Visible:"     [GuiEx.iconCheckBox model.isVisible ToggleVisible ]
-          Html.row "Active:"      [GuiEx.iconCheckBox model.isActive ToggleIsActive ]
-          Html.row "Priority:"    [Numeric.view' [NumericInputType.InputBox] model.priority |> UI.map SetPriority ]       
-          Html.row "Quality:"     [Numeric.view' [NumericInputType.Slider]   model.quality  |> UI.map SetQuality ]
-          Html.row "TriangleFilter:" [Numeric.view' [NumericInputType.InputBox]   model.triangleSize  |> UI.map SetTriangleSize ]
-          //Html.row "Scale:"       [Numeric.view' [NumericInputType.InputBox]   model.scaling  |> UI.map SetScaling ]
-          Html.row "Fillmode:"    [Html.SemUi.dropDown model.fillMode SetFillMode]                
-          Html.row "Scalars:"     [UI.dropDown'' (model |> scalarLayerList)  (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.selectedScalar)  (fun x -> SetScalarMap (x |> Option.map(fun y -> y.Current |> AVal.force)))   (fun x -> x.label |> AVal.force)]
-          //Html.row "Scalars:"     [UI.dropDown'' (model |> scalarLayerList)  model.selectedScalar   (fun x -> SetScalarMap (x |> Option.map(fun y -> y.Current ))) (fun x -> x.label |> AVal.force)]
-          Html.row "Textures:"    [UI.dropDown'' model.textureLayers model.selectedTexture  (fun x -> SetTexturesMap x) (fun x -> x.label)]
-          Html.row "Cull Faces:"  [Html.SemUi.dropDown model.cullMode SetCullMode]
-          Html.row "Set Homeposition:"  [button [clazz "ui button tiny"; onClick (fun _ -> SetHomePosition )] []] //[text "DiscoverOpcs" ]  
-        ]
+        Incremental.table (AttributeMap.ofList [clazz "ui celled striped inverted table unstackable"]) <|
+            alist {
+                // Html.row "Path:"        [Incremental.text (model.importPath |> AVal.map (fun x -> sprintf "%A" x ))]                
+                yield Html.row "Name:"        [Html.SemUi.textBox model.name SetName ]
+                yield Html.row "Visible:"     [GuiEx.iconCheckBox model.isVisible ToggleVisible ]
+                yield Html.row "Active:"      [GuiEx.iconCheckBox model.isActive ToggleIsActive ]
+                yield Html.row "Priority:"    [Numeric.view' [NumericInputType.InputBox] model.priority |> UI.map SetPriority ]       
+                yield Html.row "Quality:"     [Numeric.view' [NumericInputType.Slider]   model.quality  |> UI.map SetQuality ]
+                yield Html.row "TriangleFilter:" [Numeric.view' [NumericInputType.InputBox]   model.triangleSize  |> UI.map SetTriangleSize ]
+                // Html.row "Scale:"       [Numeric.view' [NumericInputType.InputBox]   model.scaling  |> UI.map SetScaling ]
+                yield Html.row "Fillmode:"    [Html.SemUi.dropDown model.fillMode SetFillMode]                
+                yield Html.row "Scalars:"     [UI.dropDown'' (model |> scalarLayerList)  (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.selectedScalar)  (fun x -> SetScalarMap (x |> Option.map(fun y -> y.Current |> AVal.force)))   (fun x -> x.label |> AVal.force)]
+                // Html.row "Scalars:"     [UI.dropDown'' (model |> scalarLayerList)  model.selectedScalar   (fun x -> SetScalarMap (x |> Option.map(fun y -> y.Current ))) (fun x -> x.label |> AVal.force)]
+                 
+                yield Html.row "Cull Faces:"  [Html.SemUi.dropDown model.cullMode SetCullMode]
+                yield Html.row "Set Homeposition:"  [button [clazz "ui button tiny"; onClick (fun _ -> SetHomePosition )] []] //[text "DiscoverOpcs" ]  
+
+                yield Html.row "OPCx Info path:"    [Incremental.text (model.opcxPath |> AVal.map (function None -> "none" | Some p -> p))]
+                yield Html.row "Primary Texture:"   [UI.dropDown'' model.textureLayers model.primaryTexture  (fun x -> SetPrimaryTexture x) (fun x -> x.label)]
+                
+                let tfToName (tf : ColorMaps.TF) =
+                    match tf with
+                    | ColorMaps.TF.Ramp(_,_,_) -> ramp
+                    | ColorMaps.TF.Passthrough -> passthrough
+                
+                
+                yield Html.row "Transfer Function" [ div [] [UI.dropDown'' (AList.ofList [ramp; passthrough]) (model.transferFunction |> AVal.map (fun tf -> Some (tfToName tf.tf))) SetTransferFunctionMode (fun a -> a)]]
+                yield Html.row "Secondary Texture:"   [UI.dropDown'' model.textureLayers model.secondaryTexture (fun x -> SetSecondaryTexture x) (fun x -> x.label)]
+                
+                let! tf = model.transferFunction
+
+                yield Html.row "Texture Combiner" [Html.SemUi.dropDown (AVal.constant tf.textureCombiner) SetTextureCombiner]  
+                        
+                match tf.textureCombiner with
+                | TextureCombiner.Blend -> 
+                    yield 
+                        Html.row "Blend Factor" [Aardvark.UI.NoSemUi.numeric { min = 0.0; max = 1.0; smallStep = 0.01; largeStep = 0.1 } "range" AttributeMap.empty (
+                                tf.blendFactor |> AVal.constant 
+                            ) SetBlendFactor
+                        ]
+                | _ -> 
+                    ()
+
+                match tf.tf with
+                | ColorMaps.TF.Ramp(min,max,name) ->
+                    yield Html.row "Min" [
+                        yield Aardvark.UI.NoSemUi.numeric { min = 0.0; max = 1.0; smallStep = 0.01; largeStep = 0.1 } "text" AttributeMap.empty (
+                            match tf.tf with 
+                            | ColorMaps.TF.Ramp(min, max, name) -> min |> AVal.constant
+                            | _ -> 0.0 |> AVal.constant
+                        ) SetTFMin
+                    ]
+                    yield Html.row "Max" [
+                        yield Aardvark.UI.NoSemUi.numeric { min = 0.0; max = 1.0; smallStep = 0.01; largeStep = 0.1 } "text" AttributeMap.empty (
+                            match tf.tf with 
+                            | ColorMaps.TF.Ramp(min, max, name) -> max |> AVal.constant
+                            | _ -> 0.0 |> AVal.constant
+                        ) SetTFMax
+                    ]
+                    let toColorMapName (tf : ColorMaps.TF) =
+                        match tf with
+                        | ColorMaps.TF.Ramp(_,_,s) -> Some s
+                        | _ -> None
+
+                    yield Html.row "Color Map" [
+                        yield UI.dropDown'' (ColorMaps.colorMaps |> Map.toSeq |> Seq.map fst |> AList.ofSeq) (toColorMapName tf.tf |> AVal.constant) (fun x -> SetColorMappingName x) (fun s -> s)
+                    ]
+                | _ -> ()
+
+                    
+            }
       )
 
 module ColorCorrectionProperties =    

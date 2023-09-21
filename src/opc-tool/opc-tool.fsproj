@@ -3,6 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
+    <RootNamespace>opc_tool</RootNamespace>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>..\..\bin\Debug\</OutputPath>
@@ -11,13 +12,11 @@
     <OutputPath>..\..\bin\Release</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="TestViewer.fs" />
-    <Compile Include="AnnotationViewer.fs" />
-    <Compile Include="Program.fs" />
+    <Compile Include="KdTreesCopy.fs" />
     <None Include="paket.references" />
+    <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\CSharpUtils\CSharpUtils.csproj" />
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
     <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
   </ItemGroup>

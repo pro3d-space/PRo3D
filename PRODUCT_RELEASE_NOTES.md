@@ -1,3 +1,6 @@
+## 4.12.0-prerelease9
+- bugfix sequenced bookmarks paths
+
 ## 4.12.0-prerelease8
 - various fixes for focal length, batch rendering
 - radiometry calculation changed
