@@ -132,6 +132,7 @@
 
 	// testing code....
 
+	/**
 	let socket = new WebSocket("ws://localhost:4321/api/v2/provenanceGraph");
 
 	socket.onopen = function (e) {
@@ -156,5 +157,5 @@
 
 	socket.onerror = function (error) {
 		console.warn(`[error]`);
-	};
+	}; */
 }
