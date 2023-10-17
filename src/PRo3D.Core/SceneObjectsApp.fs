@@ -146,7 +146,8 @@ module SceneObjectsApp =
 
     let update 
         (model : SceneObjectsModel) 
-        (act : SceneObjectAction) = 
+        (act : SceneObjectAction) 
+        (refSys : ReferenceSystem) = 
 
         match act with
         | IsVisible id ->
@@ -179,7 +180,7 @@ module SceneObjectsApp =
                 let sobj = model.sceneObjects |> HashMap.tryFind id
                 match sobj with
                 | Some so ->
-                    let transformation' = (TransformationApp.update so.transformation msg)
+                    let transformation' = (TransformationApp.update so.transformation msg refSys)
                     let selSO = { so with transformation = transformation' }
                     let sceneObjs = model.sceneObjects |> HashMap.alter so.guid (function | Some _ -> Some selSO | None -> None )
                     { model with sceneObjects = sceneObjs} 
