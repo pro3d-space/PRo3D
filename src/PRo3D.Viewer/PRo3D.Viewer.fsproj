@@ -69,6 +69,7 @@
     <Compile Include="CommandLine\CommandLine.fs" />
     <Compile Include="RemoteControlModel.fs" />
     <Compile Include="RemoteControlApp.fs" />
+    <Compile Include="QueriesRemoteApi.fs" />
     <Compile Include="RemoteApi.fs" />
     <Compile Include="Program.fs" />
 

@@ -76,6 +76,7 @@ module Sg =
         bb     : Box3d
         sg     : ISg        
         kdtree : HashMap<Box3d,KdTrees.Level0KdTree>
+        scene  : OpcScene
     }
 
     let mutable hackRunner : Option<Load.Runner> = None
@@ -254,7 +255,7 @@ module Sg =
         |> Seq.map (fun p -> assertInvalidBB p.info.GlobalBoundingBox)
         |> Box3d
        
-    let createSgSurface (s : Surface) sg (bb : Box3d) (kd : HashMap<Box3d,KdTrees.Level0KdTree>) = 
+    let createSgSurface (scene : OpcScene) (s : Surface) sg (bb : Box3d) (kd : HashMap<Box3d,KdTrees.Level0KdTree>) = 
     
         let pose = Pose.translate V3d.Zero // bb.Center
         let trafo = { TrafoController.initial with pose = pose; previewTrafo = Pose.toTrafo pose; mode = TrafoMode.Local }
@@ -266,6 +267,7 @@ module Sg =
                 picking     = Picking.KdTree kd
                 trafo       = trafo
                 isObj       = false
+                opcScene    = Some scene
                 //transformation = Init.Transformations
             }
         sgSurface
@@ -296,19 +298,19 @@ module Sg =
                        lodDecider = DefaultMetrics.mars2
                 }
             )
-            |> List.map (fun d -> createPlainSceneGraph runtime signature d true)
+            |> List.map (fun d -> d, createPlainSceneGraph runtime signature d true)
             |> List.zip surfaces
-            |> List.map(fun (surf, (sg, hierarchies, kdtree)) -> 
+            |> List.map(fun (surf, (d, (sg, hierarchies, kdtree))) -> 
                 let bb = 
                     hierarchies 
                     |> combineLeafBBs 
                     |> transformBox surf.preTransform
 
-                { surf = surf; bb = bb; sg = sg; kdtree = kdtree })
+                { surf = surf; bb = bb; sg = sg; kdtree = kdtree ; scene = d })
         
         let sgSurfaces =
           sghs 
-          |> List.map (fun d -> createSgSurface d.surf d.sg d.bb d.kdtree)
+          |> List.map (fun d -> createSgSurface d.scene d.surf d.sg d.bb d.kdtree)
           |> List.map (fun d -> (d.surface, d))
           |> HashMap.ofList       
         

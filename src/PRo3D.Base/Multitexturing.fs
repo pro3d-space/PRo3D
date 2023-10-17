@@ -5,7 +5,7 @@ open Aardvark.Rendering
 
 module ColorMaps =
 
-    type private Marker = Marker
+    type Marker = Marker
 
     let colorMaps = 
         let loadTexture (name : string) =

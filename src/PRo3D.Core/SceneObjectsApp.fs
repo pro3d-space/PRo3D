@@ -116,6 +116,7 @@ module SceneObjectsUtils =
             sceneGraph  = sg
             picking     = Picking.NoPicking 
             isObj       = true 
+            opcScene    = None
         }
 
              

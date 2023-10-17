@@ -45,7 +45,7 @@ nuget Adaptify.Core                         ~> 1.1.9
 
 
 nuget Aardvark.Data.Wavefront               ~> 5.2.25
-nuget Aardvark.GeoSpatial.Opc               ~> 5.10.7
+nuget Aardvark.GeoSpatial.Opc               ~> 5.10.8
 
 nuget Aardium                               ~> 2.0.10-prerelease0007
 

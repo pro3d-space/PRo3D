@@ -1,5 +1,6 @@
 ﻿namespace Aardvark.Opc
 
+open System.IO
 open Aardvark.Base
 open Aardvark.Rendering
 open Aardvark.Application
@@ -26,30 +27,14 @@ open PRo3D.Base
 open Aardvark.Geometry
 
 
-module QTree =
 
-    open Aardvark.SceneGraph.Opc
 
-    let rec foldCulled (consider : Box3d -> bool) (f : Patch -> 's -> 's) (seed : 's) (tree : QTree<Patch>) =
-        match tree with
-        | Node(p, children) -> 
-            if consider p.info.GlobalBoundingBox then
-                Seq.fold (foldCulled consider f) seed children
-            else
-                seed
-        | Leaf(p) -> 
-            if consider p.info.GlobalBoundingBox then
-                f p seed
-            else
-                seed
-
-        
 
 
 module AnnotationViewer = 
 
     
-    let createAnnotationSg (win : IRenderWindow) (view : aval<CameraView>) (frustum : aval<Frustum>) (showOld : aval<bool>) (pick : Annotation -> unit) (annotations : Annotations) =
+    let createAnnotationSg (win : IRenderWindow) (view : aval<CameraView>) (frustum : aval<Frustum>) (showOld : aval<bool>) (pick : Annotation -> 'a) (annotations : Annotations) =
         let model = AdaptiveGroupsModel.Create annotations.annotations
         let runtime = win.Runtime
 
@@ -113,8 +98,7 @@ module AnnotationViewer =
                 
                 let r = pickColors.GetValue(AdaptiveToken.Top,RenderToken.Empty)
                 let offset = V3i(p.Position.X,p.Position.Y,0)
-                printfn "rt size: %A" r.Size
-                if p.Position.X < r.Size.X - 1 && p.Position.Y < r.Size.Y - 1 then
+                if p.Position.X < r.Size.X - 1 && p.Position.Y < r.Size.Y - 1 && p.Position.X >= 0  then
                     let r = runtime.Download(r,0,0,Box2i.FromMinAndSize(p.Position, V2i(1,1))) |> unbox<PixImage<float32>>
                     let m = r.GetMatrix<C4f>()
                     //let center = m.Size.XY / 2L
@@ -158,7 +142,7 @@ module AnnotationViewer =
                             | Some anno -> 
                                 match anno with
                                 | Leaf.Annotations a -> 
-                                    pick a
+                                    try pick a |> ignore with e -> Log.warn "pick failed. %A" e
                                 | _ -> ()
                         else 
                             picked.Value <- None
@@ -175,7 +159,7 @@ module AnnotationViewer =
                 do! DefaultSurfaces.trafo
                 do! LensShader.lens
             }
-            |> Sg.uniform "MousePosition" ((win.Mouse.Position, win.Sizes) ||> AVal.map2 (fun (p : PixelPosition) s -> printf "%A" p.NormalizedPosition; V2d(p.NormalizedPosition.X,1.0-p.NormalizedPosition.Y)))
+            |> Sg.uniform "MousePosition" ((win.Mouse.Position, win.Sizes) ||> AVal.map2 (fun (p : PixelPosition) s -> V2d(p.NormalizedPosition.X,1.0-p.NormalizedPosition.Y)))
             |> Sg.viewTrafo' Trafo3d.Identity
             |> Sg.projTrafo' Trafo3d.Identity
 
@@ -296,7 +280,7 @@ module AnnotationViewer =
         let view = initialView |> DefaultCameraController.controlWithSpeed speed win.Mouse win.Keyboard win.Time
         let frustum = win.Sizes |> AVal.map (fun s -> Frustum.perspective 60.0 scene.near scene.far (float s.X / float s.Y))
 
-        let lodVisEnabled = cval true
+        let lodVisEnabled = cval false
         let fillMode = cval FillMode.Fill
         let showOld = cval false
 
@@ -306,10 +290,6 @@ module AnnotationViewer =
 
         win.Keyboard.KeyDown(Keys.PageDown).Values.Add(fun _ -> 
             transact (fun _ -> speed.Value <- speed.Value / 1.5)
-        )
-
-        win.Keyboard.KeyDown(Keys.L).Values.Add(fun _ -> 
-            transact (fun _ -> lodVisEnabled.Value <- not lodVisEnabled.Value)
         )
 
         win.Keyboard.KeyDown(Keys.L).Values.Add(fun _ -> 
@@ -329,68 +309,53 @@ module AnnotationViewer =
             )
         )
 
-        let pick (a : Annotation) =
-            let points = a.points |> IndexList.toArray
-            let lineRegression = (new LinearRegression3d(points)).TryGetRegressionInfo()
-            let plane = 
-                match lineRegression with
-                | None -> 
-                    Log.warn "line regression failed"
-                    CSharpUtils.PlaneFitting.Fit(points)
-                | Some p -> p.Plane
-            let projectedPolygon = 
-                points 
-                |> Array.map (fun p -> plane.ProjectToPlaneSpace p)
-                |> Polygon2d
+        let resultPoints = cval [||]
 
-            let intersectsQuery (globalBoundingBox : Box3d) =
-                let corners = globalBoundingBox.ComputeCorners()
-                let p = plane.ProjectToPlaneSpace(corners) |> Polygon2d
-                let boxHull = p.ComputeConvexHullIndexPolygon().ToPolygon2d()
-                boxHull.Intersects(projectedPolygon)
+        let hit (hits : List<QueryResult>) =
+            let allVertices = hits |> Seq.collect (fun h -> h.globalPositions) |> Seq.toArray
+            let objGeometries = 
+                hits 
+                |> Seq.map (fun h -> 
+                    let colors =
+                        match h.attributes |> Map.toSeq |> Seq.tryHead with
+                        | None -> None
+                        | Some (name, att) -> 
+                            match att.array with
+                            | :? array<float> as v when v.Length > 0 -> 
+                                let min, max = v.Min(), v.Max()
+                                if max - min > 0 then
+                                    let colors = v |> Array.map (fun v -> if v.IsNaN() then C3b.Black else (v - min) / (max - min) |> TransferFunction.transferPlasma)
+                                    Some colors
+                                else 
+                                    None
+                            | _ -> 
+                                None
 
-            let globalCoordWithinQuery (p : V3d) =
-                let projected = plane.ProjectToPlaneSpace(p) 
-                projectedPolygon.Contains(projected)
-
-            let handlePatch (paths : OpcPaths) (p : Patch) (s : List<V3d>) =
-                let ig, t = Patch.load paths ViewerModality.XYZ p.info
-                let dir = paths.Patches_DirAbsPath +/ p.info.Name
-                //let positions = paths.Patches_DirAbsPath +/ p.info.Name +/ p.info.Positions |> fromFile<V3f>
-                match ig.IndexArray, ig.IndexedAttributes[DefaultSemantic.Positions] with
-                | (:? array<int> as idx), (:? array<V3f> as v) ->
-                    for i in 0 .. 3 .. idx.Length - 1 do
-                        let vertices = [| V3d v[idx[i]]; V3d v[idx[i + 1]]; V3d v[idx[i + 2]] |]
-                        if vertices |> Array.exists (fun v -> v.IsNaN) then ()
-                        else
-                            let transformed = vertices |> Array.map p.info.Local2Global.TransformPos
-                            for v in transformed do
-                                if globalCoordWithinQuery v then
-                                    s.Add(v)
-                                else
-                                    ()
-
-                | _ -> 
-                    failwith "no index or position array"
-                s
-
-            let hits = 
-                let points = List<V3d>()
-                hierarchies |> List.fold (fun points (h, basePath) -> 
-                    let result = List<V3d>()
-                    let paths = OpcPaths basePath
-                    let result = QTree.foldCulled intersectsQuery (handlePatch paths) points h.tree
-                    printfn "%A" result
-                    points
-                ) points
-
-            ()
+                    let geometry = 
+                        {
+                            colors = colors
+                            indices = h.indices |> Seq.toArray
+                            vertices = h.localPositions |> Seq.map V3d  |> Seq.toArray
+                        }
+                    geometry
+                )
+            RudimentaryObjExport.writeToString objGeometries |> File.writeAllText "./annotation.obj"
+            resultPoints.Value <- allVertices |> Seq.toArray
 
 
+        let points =
+            Sg.instancedGeometry ((view, resultPoints) ||> AVal.map2 (fun view pos -> pos |> Array.map (fun p -> Trafo3d.Translation(V3d p) * view.ViewTrafo))) (IndexedGeometryPrimitives.solidPhiThetaSphere (Sphere3d(V3d.Zero, 0.01)) 8 C4b.White)
+            |> Sg.viewTrafo (AVal.constant Trafo3d.Identity)
+            |> Sg.shader {
+                do! DefaultSurfaces.instanceTrafo
+                do! DefaultSurfaces.trafo
+                do! DefaultSurfaces.vertexColor
+            }
 
         let sg = 
             sg
-            |> Sg.andAlso (createAnnotationSg win view frustum showOld pick annotations)
+            |> Sg.andAlso (createAnnotationSg win view frustum showOld (AnnotationQuery.pickAnnotation hierarchies ["AccuracyMap.aara"] (Range1d(-0.1,0.1)) hit) annotations)
+            |> Sg.andAlso points
             |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
             |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo)
             //|> Sg.transform preTransform
