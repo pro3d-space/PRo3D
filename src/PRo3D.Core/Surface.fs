@@ -185,8 +185,7 @@ module SurfaceIntersection =
             |> HashMap.toList 
             |> List.choose (fun (id,leaf) -> 
                 match m.sgSurfaces |> HashMap.tryFind id with
-                | None -> None
-                | Some s -> 
+                 | Some s -> 
                     if filterSurface id leaf s then Some s
                     else None
             )

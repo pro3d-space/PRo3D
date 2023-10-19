@@ -40,6 +40,7 @@ type Transformations = {
     scaling               : NumericInput
     trafoChanged          : bool
     usePivot              : bool
+    pivotSize             : NumericInput
 } 
 
 
@@ -92,6 +93,15 @@ module Transformations =
             value = v    
         }
 
+        let initPivotSize size = 
+            {
+                value = size
+                min = 0.3
+                max = 15.0
+                step = 0.1
+                format = "{0:0.00}"
+            }
+
     let current = 6 //4 //21.12.2022 laura
     
     let read0 = 
@@ -121,6 +131,7 @@ module Transformations =
                 scaling              = Initial.scaling
                 trafoChanged         = false
                 usePivot             = false
+                pivotSize            = Initial.initPivotSize 4.0
             }
         }
 
@@ -151,6 +162,7 @@ module Transformations =
                 scaling              = Initial.scaling
                 trafoChanged         = false
                 usePivot             = false
+                pivotSize            = Initial.initPivotSize 4.0
             }
         }
 
@@ -169,7 +181,7 @@ module Transformations =
                 version              = current
                 useTranslationArrows = useTranslationArrows
                 translation          = translation
-                yaw                  = yaw                 
+                yaw                  = yaw            
                 pitch                = Initial.pitch
                 roll                 = Initial.roll
                 trafo                = trafo               
@@ -182,6 +194,7 @@ module Transformations =
                 scaling              = Initial.scaling
                 trafoChanged         = false
                 usePivot             = false
+                pivotSize            = Initial.initPivotSize 4.0
             }
         }
 
@@ -216,6 +229,7 @@ module Transformations =
                 scaling              = Initial.scaling
                 trafoChanged         = false
                 usePivot             = false
+                pivotSize            = Initial.initPivotSize 4.0
             }
         }
 
@@ -251,6 +265,7 @@ module Transformations =
                 scaling              = Initial.scaling //scaling
                 trafoChanged         = false
                 usePivot             = false
+                pivotSize            = Initial.initPivotSize 4.0
             }
         }
 
@@ -285,6 +300,7 @@ module Transformations =
                 scaling              = scaling
                 trafoChanged         = false
                 usePivot             = false
+                pivotSize            = Initial.initPivotSize 4.0
             }
         }
     
@@ -303,6 +319,7 @@ module Transformations =
             let! flipZ                = Json.read "flipZ"
             let! isSketchFab          = Json.read "isSketchFab"
             let! usePivot             = Json.read "usePivot"
+            let! pivotSize            = Json.tryRead "pivotSize"
             
             return {
                 version              = current
@@ -321,6 +338,7 @@ module Transformations =
                 scaling              = scaling
                 trafoChanged         = false
                 usePivot             = usePivot
+                pivotSize            = match pivotSize with |Some p -> Initial.initPivotSize p | None -> Initial.initPivotSize 4.0
             }
         }
 
@@ -359,6 +377,7 @@ type Transformations with
             do! Json.write "flipZ" x.flipZ
             do! Json.write "isSketchFab" x.isSketchFab
             do! Json.write "usePivot" x.usePivot
+            do! Json.write "pivotSize" x.pivotSize.value
         }
 
 

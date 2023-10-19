@@ -1051,7 +1051,7 @@ module SurfaceApp =
                                 surface.transformation
                              else 
                                 { surface.transformation with pivot = Vector3d.updateV3d surface.transformation.pivot refSys.origin }
-                    let transformation' = (TransformationApp.update t msg) //surface.transformation msg)
+                    let transformation' = (TransformationApp.update t msg refSys) //surface.transformation msg)
                     let s' = { surface with transformation = transformation' }
                     //let homePosition = 
                     //  match surface.homePosition with

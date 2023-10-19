@@ -613,6 +613,7 @@ module Init =
         scaling              = Transformations.Initial.scaling
         trafoChanged         = false
         usePivot             = false
+        pivotSize            = Transformations.Initial.initPivotSize 0.4
     }
     
 
