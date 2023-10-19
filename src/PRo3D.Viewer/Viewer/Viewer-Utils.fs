@@ -283,7 +283,8 @@ module ViewerUtils =
         (useHighlighting : aval<bool>)
         (filterTexture   : aval<bool>)
         (allowFootprint  : bool)  
-        (allowDepthview  : bool) =
+        (allowDepthview  : bool) 
+        (view            : aval<CameraView>) =
 
         adaptive {
             match! AMap.tryFind surface.surface surfacesMap with
@@ -385,13 +386,16 @@ module ViewerUtils =
                     )
                     |> Sg.dynamic
 
-                let homePosition =
+               
+                let homePositionViewSpace =
                     adaptive {
                         let! homePosition = surf.homePosition
                         
                         match homePosition with
                         | Some hp -> 
-                            return hp.Location
+                            let! view' = view
+                            let mv = (view' |> CameraView.viewTrafo).Forward
+                            return (mv.TransformPos hp.Location)
                         | None ->
                             let! bb = surface.globalBB
                             return bb.Center                        
@@ -422,7 +426,7 @@ module ViewerUtils =
                     //|> addAttributeFalsecolorMappingParameters surf
                     |> addDepthMappingParameters fp
                     |> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
-                    |> Sg.uniform "HomePosition" homePosition
+                    |> Sg.uniform "HomePositionViewSpace" homePositionViewSpace
                     |> Sg.uniform "FilterByDistance" filterByDistance
                     |> Sg.uniform "FilterDistance" (surf.filterDistance.value)
                     |> addImageCorrectionParameters  surf
@@ -733,12 +737,12 @@ module ViewerUtils =
 
                 if filterDistanceActive then
                     let filterRange : float = uniform?FilterDistance
-                    let homePosition : V3d = uniform?HomePosition
+                    let homePositionVSp : V3d = uniform?HomePositionViewSpace
 
                     let inRange = 
-                        (Vec.Distance(homePosition, input.P0.wp.XYZ)) < filterRange &&
-                        (Vec.Distance(homePosition, input.P1.wp.XYZ)) < filterRange &&
-                        (Vec.Distance(homePosition, input.P2.wp.XYZ)) < filterRange
+                        (Vec.Distance(homePositionVSp, p0)) < filterRange &&
+                        (Vec.Distance(homePositionVSp, p1)) < filterRange &&
+                        (Vec.Distance(homePositionVSp, p2)) < filterRange
 
                     if triangleSizeCheck && inRange then
                         yield input.P0 
@@ -862,6 +866,7 @@ module ViewerUtils =
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
         let vpVisible = isViewPlanVisible m
+        let view = m.navigation.camera.view
 
         let grouped = 
             sgGrouped |> AList.map(
@@ -881,7 +886,8 @@ module ViewerUtils =
                             vpVisible
                             usehighlighting m.filterTexture
                             true
-                            false)
+                            false
+                            view)
                     |> AMap.toASet 
                     |> ASet.map snd                     
                 )                
@@ -942,6 +948,7 @@ module ViewerUtils =
         let vpVisible = isViewPlanVisible m
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
+        let view = m.navigation.camera.view
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 
@@ -960,6 +967,7 @@ module ViewerUtils =
                                 usehighlighting filterTexture
                                 allowFootprint
                                 allowDepthview
+                                view
 
                         match surface.isObj with
                         | true -> 

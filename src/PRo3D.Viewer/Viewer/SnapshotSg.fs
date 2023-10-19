@@ -123,6 +123,7 @@ module SnapshotSg =
         let vpVisible = isViewPlanVisible m
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
+        let view = m.navigation.camera.view
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 
@@ -140,6 +141,7 @@ module SnapshotSg =
                             usehighlighting filterTexture
                             allowFootprint
                             false
+                            view
                        )
                     |> AMap.toASet 
                     |> ASet.map snd                     
