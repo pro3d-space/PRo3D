@@ -1,3 +1,8 @@
+## 4.12.0-prerelease10
+- new trafo version
+- distance filter for surface
+- increased minimum value for depth image colors 
+
 ## 4.12.0-prerelease9
 - bugfix sequenced bookmarks paths
 
