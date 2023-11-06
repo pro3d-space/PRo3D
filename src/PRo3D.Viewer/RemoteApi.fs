@@ -1,4 +1,11 @@
-﻿namespace PRo3D.Viewer
+﻿(* This file contains all REST top level entry points for PRo3D remote control interface. 
+
+   The main app needs to be configured to attach the entrypoints to the app using --remoteApi flag.
+   To enable also provenance features, the --enableProvenance flag needs to specified
+*)
+
+
+namespace PRo3D.Viewer
 
 open System
 open PRo3D
