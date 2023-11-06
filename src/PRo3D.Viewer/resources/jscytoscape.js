@@ -27,14 +27,14 @@
 		style: [{
 				selector: 'node',
 				css: {
-					'content': 'data(id)',
+					'content': '',
 					'text-valign': 'center',
 					'text-halign': 'center',
-					'height': '60px',
-					'width': '60px',
-					'border-color': 'black',
+					'height': '20px',
+					'width': '20px',
+					'border-color': 'gray',
 					'border-opacity': '1',
-					'border-width': '10px'
+					'border-width': '2px'
 				}
 			},
 			{
@@ -53,16 +53,17 @@
 				selector: 'edge',
 				css: {
 					'target-arrow-shape': 'triangle',
-					'content': 'data(label)'
+					'content': 'data(label)',
+					'color' : 'white'
 				}
 			},
 			{
 				selector: ':selected',
 				css: {
 					'background-color': 'black',
-					'line-color': 'black',
-					'target-arrow-color': 'black',
-					'source-arrow-color': 'black'
+					'line-color': 'white',
+					'target-arrow-color': 'white',
+					'source-arrow-color': 'white'
 				}
 			}
 		]
@@ -105,6 +106,8 @@
 			removals.forEach(x => delete pendings[x]);
 
 		}
+
+		cy.layout();
 	}
 
 	edges.onmessage = function (e) {
@@ -126,6 +129,8 @@
 				cy.add(edge);
 			}
 		}
+		
+		cy.layout();
 	};
 
 
