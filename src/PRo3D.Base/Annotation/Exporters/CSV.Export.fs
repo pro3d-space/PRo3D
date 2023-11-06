@@ -16,6 +16,7 @@ module CSVExport =
         dipAngle      : float
         dipAzimuth    : float
         strikeAzimuth : float
+        rake          : float
 
         errorAvg      : float
         errorMin      : float
@@ -43,6 +44,7 @@ module CSVExport =
         dipAngle           : float
         dipAzimuth         : float
         strikeAzimuth      : float
+        rake               : float
 
         manualDip          : float
         trueThickness      : float
@@ -70,7 +72,7 @@ module CSVExport =
         z                  : double
     }
 
-    let toExportAnnotation (lookUp) upVector (a: Annotation) : ExportAnnotation =
+    let toExportAnnotation (lookUp : HashMap<Guid, string>) (upVector : V3d) (a: Annotation) : ExportAnnotation =
       
         let results = 
             match a.results with
@@ -78,6 +80,10 @@ module CSVExport =
             | None -> AnnotationResults.initial
                 
         
+        let computeRake (regInfo : Aardvark.Geometry.RegressionInfo3d) =
+            let x1 = regInfo.Normal |> Vec.cross upVector
+            let rake = x1 |> Vec.dot regInfo.Axis1 |> acos
+            rake
 
 
         let dnsResults = 
@@ -96,6 +102,7 @@ module CSVExport =
                         errorSos        = x.error.sumOfSquares
                         minAngularError = (Constant.DegreesPerRadian * regInfo.AngularErrors.X)
                         maxAngularError = (Constant.DegreesPerRadian * regInfo.AngularErrors.Y)
+                        rake            = computeRake regInfo
                     }
                 | None ->
                     { 
@@ -109,6 +116,7 @@ module CSVExport =
                         errorSos        = x.error.sumOfSquares
                         minAngularError = Double.NaN
                         maxAngularError = Double.NaN
+                        rake            = Double.NaN
                     }
             | None -> 
                 { 
@@ -122,6 +130,7 @@ module CSVExport =
                     errorSos        = Double.NaN
                     minAngularError = Double.NaN
                     maxAngularError = Double.NaN
+                    rake            = Double.NaN
                 }
         
         let points = 
@@ -136,6 +145,7 @@ module CSVExport =
             Calculations.horizontalDelta (points |> Array.toList) upVector
 
         let c = Box3d(points).Center
+
         
         {   
             //non-measurement
@@ -168,6 +178,7 @@ module CSVExport =
             dipAngle      = dnsResults.dipAngle //
             dipAzimuth    = dnsResults.dipAzimuth //
             strikeAzimuth = dnsResults.strikeAzimuth //
+            rake          = dnsResults.rake
             
             //error measures
             errorAvg     = dnsResults.errorAvg
