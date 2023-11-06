@@ -349,12 +349,12 @@ module ViewerApp =
             { m with heighValidation = heightVal }
         | Interactions.PlaceScaleBar, _ ->
             let msg = ScaleBarsAction.AddScaleBar(p, m.scaleBarsDrawing, m.navigation.camera.view)
-            let scm = ScaleBarsApp.update m.scene.scaleBars msg
+            let scm = ScaleBarsApp.update m.scene.scaleBars msg m.scene.referenceSystem
             { m with scene = { m.scene with scaleBars = scm } }
         | Interactions.PlaceSceneObject, ViewerMode.Standard -> 
             //let action = (SceneObjectAction.PlaceSceneObject(p))
             let action = (SceneObjectAction.TranslationMessage( TransformationApp.Action.SetPickedTranslation(p)))
-            let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel action
+            let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel action m.scene.referenceSystem
             { m with scene = { m.scene with sceneObjectsModel = sobjs } }
         | Interactions.PickPivotPoint, ViewerMode.Standard -> 
             match m.pivotType with
@@ -371,7 +371,7 @@ module ViewerApp =
             | PickPivot.SceneObjectPivot -> 
                 let action = (SceneObjectAction.TranslationMessage( TransformationApp.Action.SetPickedPivotPoint p )) 
                 let so' =
-                    SceneObjectsApp.update m.scene.sceneObjectsModel action 
+                    SceneObjectsApp.update m.scene.sceneObjectsModel action m.scene.referenceSystem
                 { m with scene = { m.scene with sceneObjectsModel = so' } }
             | _ -> m
         | _ -> m       
@@ -692,7 +692,7 @@ module ViewerApp =
             let cm = FalseColorLegendApp.update m.drawing.dnsColorLegend msg
             { m with drawing = { m.drawing with dnsColorLegend = cm } }
         | SceneObjectsMessage msg,_,_ -> 
-            let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel msg
+            let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel msg m.scene.referenceSystem
             let animation = 
                 match msg with
                 | SceneObjectAction.FlyToSO id -> 
@@ -915,6 +915,10 @@ module ViewerApp =
 
             if computeExactPick then    // CHECK-merge
 
+                //// hack
+                //let pp = m.navigation.exploreCenter
+                //let navigation' = 
+                //    Navigation.update m.scene.config m.scene.referenceSystem navConf true m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick pp))
                 let fray = p.globalRay.Ray
                 let r = fray.Ray
                 let rayHash = r.GetHashCode()
@@ -958,7 +962,7 @@ module ViewerApp =
 
                             Log.line "[PickSurface] surface hit at %A" hit
 
-                            let cameraLocation = m.navigation.camera.view.Location 
+                            let cameraLocation = m.navigation.camera.view.Location //navigation'.camera.view.Location 
                             let hitF = hitF cameraLocation
                    
                             lastHash <- rayHash
@@ -1465,7 +1469,7 @@ module ViewerApp =
                 | None -> m
             | _ ->
                 //let _scaleBarsModel = (Model.scene_ >-> Scene.scaleBars_ )
-                let scaleBars' = ScaleBarsApp.update m.scene.scaleBars msg
+                let scaleBars' = ScaleBarsApp.update m.scene.scaleBars msg m.scene.referenceSystem
                 let m' = m |> Optic.set _scaleBarsModel scaleBars'  
                 m'
         | GeologicSurfacesMessage msg,_,_-> 
