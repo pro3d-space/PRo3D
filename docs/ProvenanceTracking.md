@@ -7,4 +7,4 @@ The features need to be enabled by command-line-arguments as such:
 DisableCors is required when running PRo3D UI from the PROVEX web app. For communication with the webapp the `remoteApi` needs to be enabled.
 To enable provenace features from within PRo3D `--enable-Provenance``is needed.
 
-More about this stream of features was presented at ASTRA2023.
+More about this stream of features was presented at ASTRA2023 and in the provex specific documentation: https://github.com/pro3d-space/PRo3D/tree/features/provex/provex
