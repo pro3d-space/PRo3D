@@ -17,6 +17,9 @@ jobs:
        uses: actions/setup-dotnet@v1
        with:
          dotnet-version: 6.0.x
+     - name: Install packaging to workaround missing distutils
+       working-directory: aardium
+       run: python3 -m pip install packaging
      - name: Yarn Install
        working-directory: aardium
        run: yarn install
