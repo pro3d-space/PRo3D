@@ -151,7 +151,7 @@ module ProvenanceApp =
 
     let dependencies = 
         [
-            { url = "./jscytoscape.js"; name = "jscytoscapejs"; kind = Script }
+            { url = "./resources/jscytoscape.js"; name = "jscytoscapejs"; kind = Script }
             { url = "https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.23.0/cytoscape.min.js"; name = "jscytoscapejslib"; kind = Script }
             { url = "https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"; name = "dagre"; kind = Script }
             { url = "https://cdn.rawgit.com/cytoscape/cytoscape.js-dagre/1.5.0/cytoscape-dagre.js"; name = "graphlib"; kind = Script }

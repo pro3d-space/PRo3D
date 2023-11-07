@@ -1013,6 +1013,31 @@ module ViewerApp =
         | LoadSerializedDrawingModel json, _, _ -> 
             let annotations = DrawingUtilities.IO.loadAnnotationsFromJson json 
             ViewerIO.replaceAnnotations m annotations
+        | ImportSerializedDrawingModel(json, source), _, _ -> 
+            let drawing = DrawingUtilities.IO.loadAnnotationsFromJson json 
+            let annotations = drawing.annotations |> GroupsModel.patchNames (fun n -> Guid.NewGuid())
+            let importedGroup = { annotations.rootGroup with name = source }
+
+            //let msg = GroupsAppAction.AddAndSelectGroup ([], importedGroup)
+            let groups = 
+                { m.drawing.annotations with 
+                    flat = HashMap.union annotations.flat m.drawing.annotations.flat; 
+                    rootGroup = { m.drawing.annotations.rootGroup with subNodes = IndexList.prepend importedGroup m.drawing.annotations.rootGroup.subNodes }}
+
+            let model = { m with drawing = { m.drawing with annotations = groups } }
+            model
+        | ImportDrawingModel(drawing, source), _, _ -> 
+            let annotations = drawing |> GroupsModel.patchNames (fun n -> Guid.NewGuid())
+            let importedGroup = { annotations.rootGroup with name = source }
+
+            //let msg = GroupsAppAction.AddAndSelectGroup ([], importedGroup)
+            let groups = 
+                { m.drawing.annotations with 
+                    flat = HashMap.union annotations.flat m.drawing.annotations.flat; 
+                    rootGroup = { m.drawing.annotations.rootGroup with subNodes = IndexList.prepend importedGroup m.drawing.annotations.rootGroup.subNodes }}
+
+            let model = { m with drawing = { m.drawing with annotations = groups } }
+            model
          
 
         | NewScene,_,_ ->

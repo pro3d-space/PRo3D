@@ -411,7 +411,7 @@ Target.create "Publish" (fun _ ->
     // 1. publish exe
     "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
         { o with
-            Framework = Some "net5.0"
+            Framework = Some "net6.0"
             Runtime = Some "win10-x64" //-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true
             Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
@@ -424,7 +424,7 @@ Target.create "Publish" (fun _ ->
     // 1. publish exe
     "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
         { o with
-            Framework = Some "net5.0"
+            Framework = Some "net6.0"
             Runtime = Some "osx-x64"
             Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
