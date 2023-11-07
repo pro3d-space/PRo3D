@@ -69,7 +69,8 @@ module Viewer =
         : Model = 
 
         let defaultDashboard =  DashboardModes.defaultDashboard //DashboardModes.defaultDashboard
-        let defaultDashboard = DashboardModes.provenance
+        // use this one for PROVEX workflows if needed.
+        //let defaultDashboard = DashboardModes.provenance
         let defaultDockConfig = defaultDashboard.dockConfig //DockConfigs.m2020    
 
         {     
