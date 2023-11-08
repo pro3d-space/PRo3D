@@ -24,7 +24,10 @@ module AttitudeExport =
         let center = regInfo.Center
 
         let inline n v =
-            Json.Number (decimal v)
+            if isNaN v then 
+                Json.Null() // no nan in json
+            else
+                Json.Number (decimal v)
 
         let x1 = regInfo.Normal |> Vec.cross up
         let rake = x1 |> Vec.dot regInfo.Axis1 |> acos

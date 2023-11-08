@@ -6,32 +6,17 @@ on:
       - aardium/package.json
       - .github/workflows/deploy.yml 
 jobs:
-  mac_arm64:
-   name: OSX (arm64)
-   runs-on: macos-latest
-   steps:  
-     - name: Checkout
-       uses: actions/checkout@v2
-     - uses: actions/checkout@v2
-     - name: Setup .NET 6.0
-       uses: actions/setup-dotnet@v1
-       with:
-         dotnet-version: 6.0.x
-     - name: Yarn Install
-       working-directory: aardium
-       run: yarn install
-     - name: Add Cert to Keychain
-       uses: apple-actions/import-codesign-certs@v1
-       with: 
-         p12-file-base64: ${{ secrets.MAC_CERT_BASE64 }}
-         p12-password: ${{ secrets.MAC_CERT_PASSWORD }}
-
   mac_x64:
     name: OSX (x64)
     runs-on: macos-latest
     steps:  
       - name: Checkout
         uses: actions/checkout@v2
+      - name: Install Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          architecture: 'x64'
       - name: Setup .NET 6.0
         uses: actions/setup-dotnet@v1
         with:
