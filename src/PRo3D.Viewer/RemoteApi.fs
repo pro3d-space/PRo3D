@@ -1,4 +1,11 @@
-﻿namespace PRo3D.Viewer
+﻿(* This file contains all REST top level entry points for PRo3D remote control interface. 
+
+   The main app needs to be configured to attach the entrypoints to the app using --remoteApi flag.
+   To enable also provenance features, the --enableProvenance flag needs to specified
+*)
+
+
+namespace PRo3D.Viewer
 
 open System
 open PRo3D
@@ -215,8 +222,73 @@ module RemoteApi =
             | _ -> None
 
 
+        member x.ApplyGraphAndGetCheckpointState(sceneAsJson : string, drawingAsJson : string, 
+                                                 p : Option<ProvenanceModel.Thoth.CyDescription>, activeNode : Option<string>) : Model * ViewerIO.SerializedModel =
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            let nopSendQueue = new System.Collections.Concurrent.BlockingCollection<_>()
+            let nopMailbox = new MessagingMailbox(fun _ -> async { return () })
+            let mutable currentModel = x.FullModel.Current.GetValue()
+            let emitTopLevel (msg : ViewerAnimationAction) =
+                currentModel <- ViewerApp.updateInternal Unchecked.defaultof<_> Unchecked.defaultof<_> nopSendQueue nopMailbox currentModel msg
+            let emit (msg : ViewerAction) = emitTopLevel (ViewerAnimationAction.ViewerMessage msg)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            let setScene = ViewerAction.LoadSerializedScene sceneAsJson
+            let setDrawing = ViewerAction.LoadSerializedDrawingModel drawingAsJson
+            setScene |> emit
+            setDrawing |> emit
+
+            
+            match activeNode, p with
+            | Some nodeId, Some graph -> 
+                ProvenanceMessage (ProvenanceApp.ProvenanceMessage.SetGraph(graph, storage)) |> emitTopLevel
+                ProvenanceMessage (ProvenanceApp.ProvenanceMessage.ActivateNode nodeId) |> emitTopLevel
+            | _ -> 
+                ()
+
+            let serializedModel = ViewerIO.getSerializedModel currentModel
+            currentModel, serializedModel
+
+
+        member x.ImportDrawingModel(drawingAsJson : string, source : string) : unit =
+            let setDrawing = ViewerAction.ImportSerializedDrawingModel(drawingAsJson, source)
+            setDrawing |> emit
+
+        member x.ImportDrawingModel(drawing : GroupsModel, source : string) : unit =
+            let setDrawing = ViewerAction.ImportDrawingModel(drawing, source)
+            setDrawing |> emit    
+            
     type LoadScene = 
         {
             // absolute path
@@ -271,17 +343,19 @@ module RemoteApi =
         
         let checkpointTemplate = """ { "sceneAsJson": __SCENE__, "drawingAsJson": __DRAWING__, "version": 1 } """
 
-        let captureSnapshot (api : Api) (r : HttpRequest) = 
-            let str = r.rawForm |> getUTF8
-            let command : SaveCheckpointRequest = str |> JsonSerializer.Deserialize
-            let fullModel = api.GetCheckpointState(api.FullModel.Current.GetValue(), command.virtualFileName)
-     
+        let serializeCheckpoint (fullModel : ViewerIO.SerializedModel) =
             let str = 
                 checkpointTemplate
                     .Replace("__SCENE__", fullModel.sceneAsJson)
                     .Replace("__DRAWING__", fullModel.drawingAsJson)
+            str
 
-            Successful.OK str
+        let captureSnapshot (api : Api) (r : HttpRequest) = 
+            let str = r.rawForm |> getUTF8
+            let command : SaveCheckpointRequest = str |> JsonSerializer.Deserialize
+            let fullModel = api.GetCheckpointState(api.FullModel.Current.GetValue(), command.virtualFileName)
+
+            Successful.OK (serializeCheckpoint fullModel)
              
 
         type SerializedGraph = { cyGraph : string }
@@ -347,8 +421,61 @@ module RemoteApi =
             | Some (Result.Error e) -> 
                 ServerErrors.INTERNAL_ERROR e
 
+        let importAnnotations (api : Api) (r : HttpRequest) =
+            let str = r.rawForm |> getUTF8
 
-             
+            let d = JsonDocument.Parse(str)
+            let scene = d.RootElement.GetProperty("scene")
+            let drawingAsJson = scene.GetProperty("drawingAsJson").ToString()
+            let source = 
+                match d.RootElement.TryGetProperty("source") with
+                | (true, v) -> v.GetString()
+                | _ -> ""
+
+            api.ImportDrawingModel(drawingAsJson, source)
+            Successful.OK ""
+
+
+        let getFullStateFor (api : Api) (importAnnotations : bool) (r : HttpRequest) =
+            let str = r.rawForm |> getUTF8
+
+            let d = JsonDocument.Parse(str)
+            let scene = d.RootElement.GetProperty("scene")
+            let sceneAsJson = scene.GetProperty("sceneAsJson").ToString()
+            let drawingAsJson = scene.GetProperty("drawingAsJson").ToString()
+            let source = 
+                match d.RootElement.TryGetProperty("source") with
+                | (true, v) -> v.GetString()
+                | _ -> ""
+
+            let graph = 
+                match d.RootElement.TryGetProperty "graph" with
+                | (true,v) ->
+                    v.ToString() 
+                    |> Thoth.Json.Net.Decode.fromString ProvenanceModel.Thoth.CyDescription.decoder 
+                    |> Some
+                | _ -> 
+                    None
+
+            let selectedNodeId = 
+                match d.RootElement.TryGetProperty("selectedNodeId") with
+                | (true, v) -> v.GetString() |> Some
+                | _ -> None
+
+    
+            match graph with
+            | Some (Result.Ok graph) -> 
+                let model, fullModel = api.ApplyGraphAndGetCheckpointState(sceneAsJson, drawingAsJson, Some graph, selectedNodeId)
+                if importAnnotations then api.ImportDrawingModel(model.drawing.annotations, source)
+                Successful.OK (serializeCheckpoint fullModel)
+            | None -> 
+                let  model, fullModel = api.ApplyGraphAndGetCheckpointState(sceneAsJson, drawingAsJson, None, selectedNodeId)
+                if importAnnotations then api.ImportDrawingModel(model.drawing.annotations, source)
+                Successful.OK (serializeCheckpoint fullModel)
+            | Some (Result.Error e) -> 
+                ServerErrors.INTERNAL_ERROR e
+
+
 
         let getProvenanceGraph (api : Api) (r : HttpRequest) =
             let graphJson = api.GetProvenanceGraphJson()
@@ -435,13 +562,15 @@ module RemoteApi =
 
                 let nodeSub = elements.AddCallback(fun _ _ -> addDeltas()) 
 
-                if hackDoNotSendInitialState then
-                    // clear all previous state (a bit unclean, inbetween changes could have ben swallowed)
-                    // this way only changes after subscribing will be visible in the websocket.
-                    // the protocol could be changed, s.t. initial values are tagged
-                    addDeltas()  // for sure adds into changes
-                    changes.Take() |> ignore // will not block therefore.
+                System.Threading.Thread.Sleep(2000)
                 socket {
+                    if hackDoNotSendInitialState then
+                        // clear all previous state (a bit unclean, inbetween changes could have ben swallowed)
+                        // this way only changes after subscribing will be visible in the websocket.
+                        // the protocol could be changed, s.t. initial values are tagged
+                        addDeltas()  // for sure adds into changes
+                        changes.Take() |> ignore // will not block therefore.
+
                     let mutable loop = true
 
                     while loop do
@@ -561,8 +690,17 @@ module RemoteApi =
                         path "/captureSnapshot"    >=> request (SuaveV2.captureSnapshot api)
                         path "/activateSnapshot"   >=> request (SuaveV2.activateSnapshot api)
                         path "/getProvenanceGraph" >=> request (SuaveV2.getProvenanceGraph api)
-                        prefix "/provenanceGraph"  >=> provenanceGraphWebSocket false storage api
-                        prefix "/provenanceGraphChanges" >=> provenanceGraphWebSocket true storage api
+                        path "/importAnnotations"  >=> request (SuaveV2.importAnnotations api)
+                        path "/getFullStateFor"  >=> request (SuaveV2.getFullStateFor api false)
+                        path "/importAnnotationsFromGraph"  >=> request (SuaveV2.getFullStateFor api true)
+                        path "/provenanceGraph" >=> (fun ctx -> 
+                            Log.line "connect to ws with initial state..."
+                            provenanceGraphWebSocket false storage api ctx
+                        )
+                        path "/provenanceGraphChanges" >=> (fun ctx -> 
+                            Log.line "connect to ws without initial state..."
+                            provenanceGraphWebSocket true storage api ctx
+                        ) 
                     ]
                 )
                 prefix "/integration" >=> (

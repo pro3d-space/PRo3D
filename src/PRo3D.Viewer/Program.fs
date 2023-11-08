@@ -55,7 +55,7 @@ type Result =
       result : string;
    }
 
-let viewerVersion       = "4.12.0-prerelease9"
+let viewerVersion       = "4.20.0-prerelease1"
 let catchDomainErrors   = false
 
 open System.IO
@@ -365,7 +365,7 @@ let main argv =
                 Log.line "attaching remote API"
                 let applyMessage msg = mainApp.updateSync Guid.Empty [msg]
 
-                let storage = ProvenanceModel.localDirectory "./provenanceData"
+                //let storage = ProvenanceModel.localDirectory "./provenanceData"
                 let storage = ProvenanceModel.nopStorage()
 
                 let api = RemoteApi.Api(applyMessage, adaptiveModel.provenanceModel, adaptiveModel, storage)
