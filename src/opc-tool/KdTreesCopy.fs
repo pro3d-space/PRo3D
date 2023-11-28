@@ -9,7 +9,6 @@ open Aardvark.SceneGraph.Opc
 open MBrace.FsPickler
 open MBrace.FsPickler.Combinators
 open FSharp.Data.Adaptive
-open Aardvark.Rendering
 open System.Collections.Generic
 
 module KdTrees =
@@ -76,11 +75,11 @@ module KdTrees =
     let lazyPickler: Pickler<LazyKdTree> =
         Pickler.product makeLazyTree
         ^+ Pickler.field (fun (s: LazyKdTree) -> s.affine) Pickler.auto<Trafo3d>
-           ^+ Pickler.field (fun (s: LazyKdTree) -> s.boundingBox) Pickler.auto<Box3d>
-              ^+ Pickler.field (fun s -> s.kdtreePath) Pickler.string
-                 ^+ Pickler.field (fun s -> s.objectSetPath) Pickler.string
-                    ^+ Pickler.field (fun s -> s.coordinatesPath) Pickler.string
-                       ^. Pickler.field (fun s -> s.texturePath) Pickler.string
+        ^+ Pickler.field (fun (s: LazyKdTree) -> s.boundingBox) Pickler.auto<Box3d>
+        ^+ Pickler.field (fun s -> s.kdtreePath) Pickler.string
+        ^+ Pickler.field (fun s -> s.objectSetPath) Pickler.string
+        ^+ Pickler.field (fun s -> s.coordinatesPath) Pickler.string
+         ^. Pickler.field (fun s -> s.texturePath) Pickler.string
 
     let level0KdTreePickler: Pickler<Level0KdTree> =
         Pickler.sum (fun x k1 k2 ->
@@ -123,7 +122,6 @@ module KdTrees =
         (b: BinarySerializer)
         (forceRebuild : bool)
         : HashMap<Box3d, Level0KdTree> =
-        //ObjectBuilder
 
         let masterKdPath =
             mode
@@ -160,6 +158,7 @@ module KdTrees =
 
                 let num = kd0Paths |> List.ofSeq |> List.length
 
+
                 let kdTrees =
                     kd0Paths
                     |> List.mapi (fun i (info,kdPath) ->
@@ -175,34 +174,20 @@ module KdTrees =
 
                         let createConcreteTree () : ConcreteKdIntersectionTree = 
                             let triangleSet = PRo3D.Core.Surface.DebugKdTreesX.loadTriangles' trafo objectSetPath
-                            //let (ig, time) = Patch.load h.opcPaths mode info
-                            //let triangles = 
-                            //    match ig.IndexArray, ig.IndexedAttributes[DefaultSemantic.Positions] with
-                            //    | (:? array<int> as idx), (:? array<V3f> as p) ->
-                            //        let triangles = List<Triangle3d>()
-                            //        for i in 0 .. 3 .. idx.Length - 1 do
-                            //            let t = Triangle3d(V3d p[idx[i]], V3d p[idx[i + 1]], V3d p[idx[i + 2]])
-                            //            let nan = t.P0.IsNaN || t.P1.IsNaN || t.P2.IsNaN
-                            //            if nan then 
-                            //                ()
-                            //            else
-                            //                triangles.Add(t.Transformed trafo.Forward)
 
-                            //        triangles
-                            //    | _ -> 
-                            //        failwith "no index or position array"
-                            //let triangleSet = Aardvark.Geometry.TriangleSet(triangles)
-                            Log.startTimed $"Building KdTree for {dir}"
-                            let flags = 
-                                 KdIntersectionTree.BuildFlags.Picking ||| KdIntersectionTree.BuildFlags.FastBuild
+                            Log.startTimed $"Building KdTree for {info.Name}"
+                            let flags =
+                                 KdIntersectionTree.BuildFlags.Picking 
+                                 ||| KdIntersectionTree.BuildFlags.FastBuild 
+                                 ||| KdIntersectionTree.BuildFlags.EmptySpaceOptimization
                                  
                             let kdTree = KdIntersectionTree(triangleSet, flags )
                             Log.stop()
-                            Log.startTimed "saving KdTree to: %s" kdPath
+                            Log.startTimed "saving KdTree to: %s" info.Name
                             saveKdTree kdTree kdPath
                             Log.stop()
                             let fi = FileInfo(kdPath)
-                            Log.line $"{kdPath} has size: {Mem(fi.Length)}."
+                            Log.line $"{info.Name} has size: {Mem(fi.Length)}."
                             ConcreteKdIntersectionTree(kdTree, Trafo3d.Identity)
 
                         let t = 
@@ -233,6 +218,8 @@ module KdTrees =
 
                         (lazyTree.boundingBox, (LazyKdTree lazyTree)))
 
+                
+
                 Log.stop ()
 
                 kdTrees |> save cacheFile b |> ignore
@@ -243,17 +230,21 @@ module KdTrees =
                     HashMap.empty
 
 
-        if System.IO.File.Exists(cacheFile) && not forceRebuild then
+        if File.Exists cacheFile then
             Log.line "Found lazy KdTree cache"
 
             if load then
-                try
-                    let trees = loadAs<list<Box3d * Level0KdTree>> cacheFile b
-                    trees |> HashMap.ofList
-                with
-                | e ->
-                    Log.warn "could not load lazy KdTree cache. (%A) rebuilding..." e
-                    loadAndCreateCache ()
+
+                if forceRebuild then
+                    loadAndCreateCache()
+                else
+                    try
+                        let trees = loadAs<list<Box3d * Level0KdTree>> cacheFile b
+                        trees |> HashMap.ofList
+                    with
+                    | e ->
+                        Log.warn "could not load lazy KdTree cache. (%A) rebuilding..." e
+                        loadAndCreateCache ()
             else
                 HashMap.empty
         else
@@ -262,4 +253,4 @@ module KdTrees =
     let loadKdTrees
         (h: PatchHierarchy) (trafo: Trafo3d) (mode: ViewerModality)
         (b: BinarySerializer) (forceRebuild : bool) : HashMap<Box3d, Level0KdTree> =
-        loadKdTrees' (h) (trafo) (true) mode b forceRebuild
+        loadKdTrees' h trafo true mode b forceRebuild 
