@@ -1,8 +1,16 @@
+## 4.20.1
+- added readme to opc-tool
+
+## 4.20.0
+- added opc tool
+
 ## 4.2.0-prerelease1
 - added rake to annotations
 
 ## 4.20.0-prerelease1
-- provex and multitexturing## 4.12.0-prerelease10
+- provex and multitexturing
+
+## 4.12.0-prerelease10
 - new trafo version
 - distance filter for surface
 - increased minimum value for depth image colors 

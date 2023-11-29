@@ -639,9 +639,9 @@ Target.create "Pack" (fun _ ->
 Target.create "Push" (fun _ ->
     let packageNameRx = Regex @"^(?<name>[a-zA-Z_0-9\.-]+?)\.(?<version>([0-9]+\.)*[0-9]+.*?)\.nupkg$"
     
-    if not (Git.Information.isCleanWorkingCopy ".") then
-        Git.Information.showStatus "."
-        failwith "repo not clean"
+    //if not (Git.Information.isCleanWorkingCopy ".") then
+    //    Git.Information.showStatus "."
+    //    failwith "repo not clean"
 
     
     if File.exists "deploy.targets" then
@@ -668,6 +668,7 @@ Target.create "Push" (fun _ ->
                         ".ssh",
                         key
                     )
+                printfn "exists? %s" path
                 if File.exists path then
                     let key = File.ReadAllText(path).Trim()
                     Some (dst, key)
@@ -677,11 +678,11 @@ Target.create "Push" (fun _ ->
             |> Map.ofArray
             
         
-        Git.CommandHelper.directRunGitCommandAndFail "." "fetch --tags"
-        Git.Branches.tag "." notes.NugetVersion
+        //Git.CommandHelper.directRunGitCommandAndFail "." "fetch --tags"
+        //Git.Branches.tag "." notes.NugetVersion
 
-        let branch = Git.Information.getBranchName "."
-        Git.Branches.pushBranch "." "origin" branch
+        //let branch = Git.Information.getBranchName "."
+        //Git.Branches.pushBranch "." "origin" branch
 
         if List.isEmpty packages then
             failwith "no packages produced"
@@ -690,7 +691,7 @@ Target.create "Push" (fun _ ->
             failwith "no deploy targets"
             
         for (dst, key) in Map.toSeq targetsAndKeys do
-            Trace.tracefn "pushing to %s" dst
+            Trace.tracefn "pushing to '%s'." dst 
             let options (o : Paket.PaketPushParams) =
                 { o with 
                     PublishUrl = dst
@@ -700,7 +701,7 @@ Target.create "Push" (fun _ ->
 
             Paket.pushFiles options packages
 
-        Git.Branches.pushTag "." "origin" notes.NugetVersion
+        //Git.Branches.pushTag "." "origin" notes.NugetVersion
     ()
 )
 
@@ -714,6 +715,8 @@ Target.create "Run" (fun _ ->
 "AddNativeResources" ==> "CopyJRWrapper" ==> "Publish" |> ignore
 "AddNativeResources" ==> "PublishToElectron" |> ignore
 "Credits" ==> "PublishToElectron" |> ignore
+"Compile" ==> "Pack" |> ignore
+"Pack" ==> "Push" |> ignore
 
 [<EntryPoint>]
 let main args = 

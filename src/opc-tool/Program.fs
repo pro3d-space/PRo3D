@@ -126,7 +126,7 @@ let generateKdTrees (degreeOfParallelism : Option<int>) (forceKdTreeRebuild : bo
             ()
         
         Log.stop()
-
+ 
     patchHierarchies 
     |> Seq.toList
     |> List.iter createKdTreesForHierarchy
@@ -157,8 +157,6 @@ let main args =
     Console.Write(logo)
     Console.WriteLine()
 
-    Aardvark.Init()
-    PixImageDevil.InitDevil()
 
     let result = Parser.Default.ParseArguments<options>(args)
     match result with
@@ -180,6 +178,12 @@ let main args =
                 )
         Log.line ""
         Log.line ""
+        Log.line "arguments: %A" parsed.Value
+        Log.line "directories: %A" directories
+
+        Aardvark.Init()
+        PixImageDevil.InitDevil()
+
         runForDirectories None parsed.Value.forcekdtreerebuild  parsed.Value.generatedds parsed.Value.overwritedds directories
         0
     | :? NotParsed<options> as notParsed -> 

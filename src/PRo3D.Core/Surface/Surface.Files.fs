@@ -37,7 +37,7 @@ module Files =
        /// <summary>
        /// checks if "path" is a valid opc folder containing "images" or "Images", "patches" or "Patches", and patchhierarchy.xml
        /// </summary>
-       let isOpcFolder (path : string) = 
+       let isOpcFolder' (quite : bool) (path : string) = 
            let isOpcFolder =
                let imagesProbingPaths = 
                     OpcPaths.Images_DirNames |> List.map (fun imageSuffix -> Path.combine [path; imageSuffix])
@@ -52,8 +52,12 @@ module Files =
 
                imagesPath.IsSome && patchesPath.IsSome && patchHierarchyXmlPath.IsSome
 
-           printfn "[Surface.Files] is opc path: %A => %b" path isOpcFolder
+           if not quite then 
+               printfn "[Surface.Files] is opc path: %A => %b" path isOpcFolder
+
            isOpcFolder
+
+       let isOpcFolder (path : string) = isOpcFolder' true path
 
        /// <summary>
        /// checks if "path" is a valid surface folder i.e. contains at least one opc folder
