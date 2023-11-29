@@ -45,13 +45,16 @@ let validateAndConvertTextures (generateDds : bool) (overwriteDdds : bool) (patc
                         | ".tiff" | ".tif" -> Some ImageLoading.TIFF, 0
                         | _ -> 
                             None, 1
-                    use stream =
-                        if texturePath |> isZipped then                  
-                            Prinziple.openRead (texturePath |> Path.GetFullPath) 
-                        else
-                            File.Open(texturePath, FileMode.Open, FileAccess.Read, FileShare.Read)
 
-                    let mip = ImageLoading.loadImageFromStream stream extension
+                    let mip = 
+                        use stream =
+                            if texturePath |> isZipped then                  
+                                Prinziple.openRead (texturePath |> Path.GetFullPath) 
+                            else
+                                File.Open(texturePath, FileMode.Open, FileAccess.Read, FileShare.Read)
+                        
+                        ImageLoading.loadImageFromStream stream extension
+
                     match mip.Images |> Seq.tryHead with
                     | Some i -> 
                         let greaterZero = i.Size.AllGreater(V2i.OO) 
@@ -69,7 +72,6 @@ let validateAndConvertTextures (generateDds : bool) (overwriteDdds : bool) (patc
                                     let tmp = Path.ChangeExtension(Path.GetTempFileName(), ".dds")
                                     try
                                         img.Save(tmp, DevILSharp.ImageType.Dds)
-                                        let img = PixImageDevil.Loader.LoadFromFile(tmp)
                                         File.Move(tmp, texturePath, true)
                                     finally
                                         if File.Exists tmp then File.Delete tmp
@@ -158,14 +160,7 @@ let main args =
     Aardvark.Init()
     PixImageDevil.InitDevil()
 
-    let printUsage() = 
-        printfn "opc-tool (<dir-to-opc-directories> | <opc-directory>"
-        printfn "--help for help."
-        printfn ""
-        printfn "dir-to-opc-directories points to a directory which contains OPC directories."
-        printfn "According to OPC spec, each OPC dir contains a Patches and an Images subdirectory."
-
-    let result = CommandLine.Parser.Default.ParseArguments<options>(args)
+    let result = Parser.Default.ParseArguments<options>(args)
     match result with
     | :? Parsed<options> as parsed -> 
         let directories = 
@@ -191,7 +186,6 @@ let main args =
         ()
         -1
     | _ -> 
-        printUsage()
         -1
 
 

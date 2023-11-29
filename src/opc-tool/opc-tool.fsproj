@@ -7,6 +7,7 @@
     <ToolCommandName>opc-tool</ToolCommandName>
     <RootNamespace>opc_tool</RootNamespace>
     <Copyright>PRo3D contributors.</Copyright>
+    <PackageOutputPath>..\..\bin\</PackageOutputPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>..\..\bin\Debug\</OutputPath>
