@@ -5,6 +5,8 @@ open System.IO
 open Fake.Core
 open Fake.Core.TargetOperators
 open Fake.DotNet
+open Fake.Tools
+open Fake.IO.Globbing.Operators
 
 open Fake.IO
 open Fake.Api
@@ -12,6 +14,7 @@ open Fake.Tools.Git
 
 open System.IO.Compression
 open System.Runtime.InteropServices
+open System.Text.RegularExpressions
 
 initializeContext()
 
@@ -599,6 +602,107 @@ Target.create "GitHubRelease" (fun _ ->
         
 )
 
+
+Target.create "Pack" (fun _ ->
+    let args = 
+        [
+            "paket"
+            "pack"
+            "--version"
+            notes.NugetVersion
+            "--interproject-references"
+            "fix"
+            "--release-notes"
+            sprintf "\"%s\"" (String.concat "\\n" notes.Notes)
+            "--project-url"
+            "\"https://github.com/pro3d-space/PRo3D\""
+            sprintf "\"%s\"" (Path.Combine(__SOURCE_DIRECTORY__, "bin"))
+        ]
+    let ret = 
+        Process.shellExec {
+            ExecParams.Program = "dotnet"
+            WorkingDir = __SOURCE_DIRECTORY__
+            CommandLine = String.concat " " args
+            Args = []
+        }
+    if ret <> 0 then failwithf "paket failed with exit code %d" ret
+
+    "./src/opc-tool/opc-tool.fsproj" |> DotNet.pack (fun o -> 
+        { o with        
+            NoRestore = true
+            NoBuild = true
+            MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true; Properties = ["Version", notes.NugetVersion] }
+        }
+    )
+)
+
+Target.create "Push" (fun _ ->
+    let packageNameRx = Regex @"^(?<name>[a-zA-Z_0-9\.-]+?)\.(?<version>([0-9]+\.)*[0-9]+.*?)\.nupkg$"
+    
+    if not (Git.Information.isCleanWorkingCopy ".") then
+        Git.Information.showStatus "."
+        failwith "repo not clean"
+
+    
+    if File.exists "deploy.targets" then
+        let packages =
+            !!"bin/*.nupkg"
+            |> Seq.filter (fun path ->
+                let name = Path.GetFileName path
+                let m = packageNameRx.Match name
+                if m.Success then
+                    m.Groups.["version"].Value = notes.NugetVersion
+                else
+                    false
+            )
+            |> Seq.toList
+
+        let targetsAndKeys =
+            File.ReadAllLines "deploy.targets"
+            |> Array.map (fun l -> l.Split(' '))
+            |> Array.choose (function [|dst; key|] -> Some (dst, key) | _ -> None)
+            |> Array.choose (fun (dst, key) ->
+                let path = 
+                    Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                        ".ssh",
+                        key
+                    )
+                if File.exists path then
+                    let key = File.ReadAllText(path).Trim()
+                    Some (dst, key)
+                else
+                    None
+            )
+            |> Map.ofArray
+            
+        
+        Git.CommandHelper.directRunGitCommandAndFail "." "fetch --tags"
+        Git.Branches.tag "." notes.NugetVersion
+
+        let branch = Git.Information.getBranchName "."
+        Git.Branches.pushBranch "." "origin" branch
+
+        if List.isEmpty packages then
+            failwith "no packages produced"
+
+        if Map.isEmpty targetsAndKeys then
+            failwith "no deploy targets"
+            
+        for (dst, key) in Map.toSeq targetsAndKeys do
+            Trace.tracefn "pushing to %s" dst
+            let options (o : Paket.PaketPushParams) =
+                { o with 
+                    PublishUrl = dst
+                    ApiKey = key 
+                    WorkingDir = "bin"
+                }
+
+            Paket.pushFiles options packages
+
+        Git.Branches.pushTag "." "origin" notes.NugetVersion
+    ()
+)
 
 "Publish" ==> "GithubRelease" |> ignore
 
