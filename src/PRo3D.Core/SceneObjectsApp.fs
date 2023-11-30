@@ -29,6 +29,7 @@ type SceneObjectAction =
     | PlaceSO               of V3d
     | TranslationMessage    of TransformationApp.Action
     | PlaceSceneObject      of V3d
+    | ChangeSOImportDirectories of list<string>
 
 
 module SceneObjectTransformations = 
@@ -124,6 +125,12 @@ module SceneObjectsUtils =
         let sghs =
           sceneObject
             |> IndexList.toList 
+            |> List.filter(fun (so : SceneObject) ->
+                let dirExists = File.Exists so.importPath
+                if dirExists |> not then 
+                    Log.error "[SceneObject.Sg] could not find %s" so.importPath
+                dirExists
+            )
             |> List.map loadSceneObject
 
         let sgSceneObjects =
@@ -144,6 +151,26 @@ module SceneObjectsApp =
                 Some sceneObject.importPath
             else 
                 None
+
+    let changeSOImportDirectories (model:SceneObjectsModel) (selectedPaths:list<string>) =
+        let sceneObjs =        
+            model.sceneObjects
+            |> HashMap.map(fun id so -> 
+                let newPath = 
+                    selectedPaths
+                    |> List.map(fun p -> 
+                        let name = p |> IO.Path.GetFileName
+                        match name = so.name with
+                        | true -> Some p
+                        | false -> None
+                    )
+                    |> List.choose( fun np -> np) 
+                match newPath.IsEmpty with
+                | true -> so
+                | false -> { so with importPath = newPath.Head } 
+            )
+              
+        { model with sceneObjects = sceneObjs }
 
     let update 
         (model : SceneObjectsModel) 
@@ -203,7 +230,14 @@ module SceneObjectsApp =
                     { model with sceneObjects = sceneObjs} 
                 | None -> model
             | None -> model
+        | ChangeSOImportDirectories sl ->
+            match sl with
+            | [] -> model
+            | paths ->
+                let selectedPaths = paths |> List.choose( fun p -> if File.Exists p then Some p else None)
+                changeSOImportDirectories model selectedPaths  
         |_-> model
+          
 
 
     module UI =

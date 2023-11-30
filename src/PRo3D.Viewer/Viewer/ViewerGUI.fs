@@ -462,12 +462,30 @@ module Gui =
                             clazz "ui item";
                             Dialogs.onChooseFiles  SurfaceAppAction.ChangeOBJImportDirectories;
                             clientEvent "onclick" jsLocateOBJDialog 
-                        ][
+                        ] [
                             text "Locate OBJ Surfaces"
                         ]
                 }
         
             Incremental.div(AttributeMap.Empty) ui |> UI.map SurfaceActions      
+
+        let fixAllBrokenSOPaths =
+            let jsLocateSODialog = 
+                "top.aardvark.dialog.showOpenDialog({title:'Select directory to locate Scene Objects', filters: [{ name: 'OBJ (*.obj)', extensions: ['obj']}, { name: 'DAE (*.dae)', extensions: ['dae']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+            let ui = 
+                alist {
+                    yield
+                        div [ 
+                            clazz "ui item";
+                            Dialogs.onChooseFiles  SceneObjectAction.ChangeSOImportDirectories;
+                            clientEvent "onclick" jsLocateSODialog 
+                        ] [
+                            text "Locate Scene Objects"
+                        ]
+                }
+        
+            Incremental.div(AttributeMap.Empty) ui |> UI.map SceneObjectsMessage      
             
         let jsOpenAnnotationFileDialog = 
             "top.aardvark.dialog.showOpenDialog({ title: 'Import Annotations', filters: [{ name: 'Annotations (*.ann)', extensions: ['ann']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
@@ -613,6 +631,8 @@ module Gui =
                                         fixAllBrokenPaths
                                         //fixes all broken obj import paths
                                         fixAllBrokenOBJPaths
+                                        //fixes all broken scene obj paths
+                                        fixAllBrokenSOPaths
 
                                         let jsOpenOldAnnotationsFileDialogue = "top.aardvark.dialog.showOpenDialog({title:'Import legacy annotations from PRo3D 1.0' , filters: [{ name: 'Annotations (*.xml)', extensions: ['xml']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
@@ -1126,6 +1146,8 @@ module Gui =
                         onMouseDown (fun button pos -> StartDragging (pos, button))
                      //   onMouseMove (fun delta -> Dragging delta)
                         onMouseUp (fun button pos -> EndDragging (pos, button))
+                        //onMouseEnter (fun pos ->  (MouseIn pos))
+                        onMouseOut (fun pos ->  (MouseOut pos))
                         ] |> List.map (ViewerUtils.mapAttribute ViewerMessage)
 
                     body renderViewAttributes [ //[ style "background: #1B1C1E; height:100%; width:100%"] [

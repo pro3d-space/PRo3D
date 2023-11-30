@@ -393,7 +393,8 @@ module DrawingApp =
           
                 match model.working with
                 | Some w when w.points.Count > 0->
-                  { model with working = Some { w with points = w.points |> IndexList.removeAt (w.points.Count - 1) }}
+                  { model with working = Some { w with points = w.points |> IndexList.removeAt (w.points.Count - 1); 
+                                                    segments = w.segments |> IndexList.removeAt (w.segments.Count - 1)}}
                 | Some _ -> { model with working = None }
                 | None -> model
             | SetSegment(segmentIndex,segment), _, _ ->
