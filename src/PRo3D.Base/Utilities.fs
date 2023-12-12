@@ -1329,6 +1329,13 @@ module Electron =
         sprintf "top.aardvark.electron.shell.showItemInFolder('%s');" (JsInterop.escapePath s)
 
 module FrustumUtils =
+    let withAspect (aspect : float) (frustum : Frustum) =
+        Frustum.perspective 
+            (Frustum.horizontalFieldOfViewInDegrees frustum)
+            frustum.near
+            frustum.far
+            aspect
+
     let calculateFrustum (focal : float) (near : float) (far: float) =
         // http://paulbourke.net/miscellaneous/lens/
         // https://photo.stackexchange.com/questions/41273/how-to-calculate-the-fov-in-degrees-from-focal-length-or-distance
