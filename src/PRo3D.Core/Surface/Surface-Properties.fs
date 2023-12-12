@@ -43,6 +43,7 @@ module SurfaceProperties =
         | SetColorMappingName of Option<string>
         | SetTextureCombiner of TextureCombiner
         | SetBlendFactor of float
+        | CountourAppMessage of ContourLineApp.Action
 
         | SetHomePosition //of Guid //of Option<CameraView>
         | ToggleFilterByDistance //of Guid //of Option<CameraView>
@@ -50,6 +51,8 @@ module SurfaceProperties =
 
     let update (model : Surface) (act : Action) =
         match act with
+        | CountourAppMessage act -> 
+            { model with contourModel = ContourLineApp.update model.contourModel act }
         | SetFillMode mode ->
             { model with fillMode = mode }
         | SetCullMode mode ->

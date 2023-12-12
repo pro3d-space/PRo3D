@@ -94,6 +94,9 @@ module SurfaceUtils =
 
             filterByDistance = false
             filterDistance = Surface.Initial.filterDistance 10.0
+
+            
+            contourModel = ContourLineModel.initial
         }       
    
 
@@ -1388,6 +1391,25 @@ module SurfaceApp =
             return (GroupsApp.viewUI model.surfaces|> UI.map GroupsMessage)
         } 
 
+    let viewSurfaceProperty (model : AdaptiveSurfaceModel) (f : AdaptiveSurface -> DomNode<_>) : DomNode<_> =
+        let e =
+            adaptive {
+                match! model.surfaces.singleSelectLeaf with
+                | Some selected ->
+                    match! AMap.tryFind selected model.surfaces.flat with
+                    | None -> 
+                        return div [] []
+                    | Some s ->
+                        match s with
+                        | AdaptiveSurfaces s -> 
+                            return f s
+                        | _ -> 
+                            return div [] []
+                | _ -> 
+                    return div [] []
+            }
+        Incremental.div AttributeMap.empty (AList.ofAValSingle e)
+
     let viewTranslationTools (model:AdaptiveSurfaceModel) =
         adaptive {
             let! guid = model.surfaces.singleSelectLeaf
@@ -1542,6 +1564,12 @@ module SurfaceApp =
             yield GuiEx.accordion "Color Adaptation" "file image outline" false [
                 Incremental.div AttributeMap.empty (AList.ofAValSingle(viewColorCorrectionTools colorPaletteStore model))
                 Incremental.div AttributeMap.empty (AList.ofAValSingle(viewRadiometryTools model))
+            ] 
+
+            yield GuiEx.accordion "Contours" "file image outline" false [
+                div [] [
+                    viewSurfaceProperty model (fun s -> ContourLineApp.view s.contourModel |> UI.map (SurfaceAppAction.SurfacePropertiesMessage << SurfaceProperties.CountourAppMessage))
+                ]
             ] 
 
             //yield GuiEx.accordion "Radiometry" "file image outline" false [

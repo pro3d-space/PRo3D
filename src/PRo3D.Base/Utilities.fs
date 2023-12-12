@@ -671,6 +671,7 @@ module Shader =
         member x.TransferFunctionMode : TransferFunctionMode = uniform?TransferFunctionMode
         member x.TFRange : V2d = uniform?TFRange
         member x.TFBlendFactor : float = uniform?TFBlendFactor
+        member x.SecondaryTextureContour : V4d = uniform?SecondaryTextureContour 
 
     let secondaryTexture (v : Effects.Vertex) =
         fragment {    
@@ -680,15 +681,17 @@ module Shader =
             | TextureCombiner.Primary -> 
                 color <- v.c
             | _ -> 
+                let range = uniform.TFRange
+                let e = secondaryTextureSampler.Sample(v.tc)
+                let width = range.Y - range.X
+                let my = (e.X - range.X) / width
+                
                 let secondaryColor =
                     match uniform.TransferFunctionMode with
                     | TransferFunctionMode.Ramp -> 
-                        let range = uniform.TFRange
-                        let e = secondaryTextureSampler.Sample(v.tc)
-                        if e.X > range.X && e.X < range.Y then
-                            let my = (e.X - range.X) / (range.Y - range.X)
-                            let c = transferFunctionSampler.Sample(V2d(my,0.0))
-                            c
+                        if e.X >= range.X && e.X <= range.Y then
+                            let mappedColor = transferFunctionSampler.Sample(V2d(my,0.0))
+                            mappedColor
                         else
                             v.c
                     | TransferFunctionMode.Passthrough -> 
@@ -707,6 +710,48 @@ module Shader =
 
             return color
         }
+
+    [<ReflectedDefinition>]
+    let lineAlpha (v : float) (center : float) (lineWidth: float) (lineSmooth : float) = 
+        let start = center - lineWidth * 0.5
+        let stop = center + lineSmooth * 0.5
+        if v >= start && v <= stop then
+            1.0
+        else
+           let alpha = 
+                Fun.Smoothstep(v, start - lineSmooth * 0.5, start) -
+                Fun.Smoothstep(v, stop, stop + lineSmooth * 0.5)
+           alpha
+
+
+    let contourLines (v : Effects.Vertex) =
+        fragment {
+            let contourSettings = uniform.SecondaryTextureContour
+                            
+            let lineColor = 
+                if contourSettings.X > 0 then
+
+                    let range = uniform.TFRange
+                    let e = secondaryTextureSampler.Sample(v.tc)
+                    let width = range.Y - range.X
+                    let my = (e.X - range.X) / width
+
+                    let distance = contourSettings.X
+                    let lineWidth = contourSettings.Y
+                    let lineSmoothing = contourSettings.Z
+
+                    let contourDistance = my % distance
+                    let lineAlpha = lineAlpha contourDistance (distance * 0.5) lineWidth lineSmoothing
+
+                    V4d(0.0,0.0,0.0, Fun.Clamp(lineAlpha, 0.0, 1.0))
+                else
+                    V4d.OOOO
+
+
+            let finalColor = v.c.XYZ * (1.0 - lineColor.W)
+            return V4d(finalColor, 1.0)
+        }
+
 
     let depthCalculation2 (v : FootPrintVertex) =
         fragment {     

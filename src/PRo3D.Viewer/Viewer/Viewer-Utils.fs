@@ -469,6 +469,11 @@ module ViewerUtils =
                     |> Sg.uniform "TextureCombiner" (
                         surf.transferFunction |> AVal.map (fun tf -> tf.textureCombiner)
                     )
+                    |> Sg.uniform "SecondaryTextureContour"(
+                        surf.contourModel.Current |> AVal.map (fun m -> 
+                            V4d((if m.enabled then m.distance.value else -1.0), m.width.value, m.border.value, 0.0)
+                        )
+                    )
                     |> Sg.uniform "TransferFunctionMode" (
                         surf.transferFunction |> AVal.map (fun tf -> 
                             match tf.tf with
@@ -838,6 +843,7 @@ module ViewerUtils =
             PRo3D.Base.Shader.mapRadiometry |> toEffect
 
             Shader.secondaryTexture |> toEffect 
+            Shader.contourLines |> toEffect
 
             //PRo3D.Base.Shader.depthImageF        |> toEffect
             PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect

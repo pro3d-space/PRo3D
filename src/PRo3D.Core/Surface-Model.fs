@@ -674,6 +674,8 @@ type Surface = {
     homePosition    : Option<CameraView>
     transformation  : Transformations
     radiometry      : Radiometry
+
+    contourModel    : ContourLineModel
 }
 
 module Surface =
@@ -777,6 +779,8 @@ module Surface =
 
                     filterByDistance = false
                     filterDistance   = Initial.filterDistance 10.0
+
+                    contourModel = ContourLineModel.initial
                 }
         }
 
@@ -863,6 +867,9 @@ module Surface =
 
                     filterByDistance = match filterByDistance with |Some v -> v |None -> false
                     filterDistance   = match filterDistance with |Some d -> Initial.filterDistance d |None -> Initial.filterDistance 10.0
+
+                    
+                    contourModel = ContourLineModel.initial
                 }
         }
      
