@@ -168,16 +168,14 @@ module SnapshotAnimation =
                             lerpFrames fromState.stateConfig.frustumModel.focal.value 
                                             toState.stateConfig.frustumModel.focal.value
                                             (nrOfFrames |> round |> int)
-                        Log.line "%s" (lerped |> List.map (sprintf "%f ") |> List.reduce (+))
                         let lerpedFrustra = 
                             lerped 
                             |> List.map (fun focal ->
                                 FrustumUtils.calculateFrustum'
                                     focal
-                                    toState.stateConfig.nearPlane.value
-                                    toState.stateConfig.farPlane.value
+                                    toState.stateConfig.nearPlane
+                                    toState.stateConfig.farPlane
                                     (bm.resolutionX.value / bm.resolutionY.value))
-                        Log.line "%s" (lerpedFrustra |> List.map string |> List.reduce (+))
                         
                         lerpedFrustra
                     | _ ->
@@ -228,8 +226,8 @@ module SnapshotAnimation =
                     let frustum = 
                         FrustumUtils.calculateFrustum'
                             state.stateConfig.frustumModel.focal.value
-                            state.stateConfig.nearPlane.value
-                            state.stateConfig.farPlane.value
+                            state.stateConfig.nearPlane
+                            state.stateConfig.farPlane
                             (bm.resolutionX.value / bm.resolutionY.value)
                     Some (Optic.set SequencedBookmarkModel._frustum frustum firstBm)
                 | None ->

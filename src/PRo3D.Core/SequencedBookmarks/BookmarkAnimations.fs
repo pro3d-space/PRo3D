@@ -31,11 +31,11 @@ module BookmarkAnimations =
         //let appearance = getName "appearance"
 
     module Primitives =
-        let frustum_ = ViewConfigModel.frustumModel_ >-> FrustumModel.frustum_
-        let focal_   = ViewConfigModel.frustumModel_ >-> FrustumModel.focal_ >-> NumericInput.value_
+        let frustum_ = SceneStateViewConfig.frustumModel_ >-> FrustumModel.frustum_
+        let focal_   = SceneStateViewConfig.frustumModel_ >-> FrustumModel.focal_ >-> NumericInput.value_
 
-        let interpVcm (src : ViewConfigModel) (dst : ViewConfigModel)
-                : IAnimation<'Model, ViewConfigModel> =
+        let interpVcm (src : SceneStateViewConfig) (dst : SceneStateViewConfig)
+                : IAnimation<'Model, SceneStateViewConfig> =
             //let animFocal = Primitives.lerp src.frustumModel.focal.value src.frustumModel.focal.value
             let animFocal = Animation.create (lerp src.frustumModel.focal.value dst.frustumModel.focal.value)
                             |> Animation.seconds 1
@@ -44,8 +44,8 @@ module BookmarkAnimations =
                                 let newFrustum = 
                                     FrustumUtils.calculateFrustum
                                         focal
-                                        dst.nearPlane.value 
-                                        dst.farPlane.value
+                                        dst.nearPlane 
+                                        dst.farPlane
                                         
                                 dst 
                                 |> Optic.set frustum_ newFrustum 
