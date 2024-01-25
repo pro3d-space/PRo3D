@@ -3,7 +3,19 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>opc-tool</ToolCommandName>
     <RootNamespace>opc_tool</RootNamespace>
+    <Copyright>PRo3D contributors.</Copyright>
+    <PackageOutputPath>..\..\bin\</PackageOutputPath>
+    <Authors>PRo3D.Space contributors</Authors>
+    <Owners>pro3d-space</Owners>
+    <PackageReadmeFile>content/OpcTool.md</PackageReadmeFile>
+    <Copyright>PRo3D.Space contributors</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryType>Github</RepositoryType>
+    <RepositoryUrl>https://github.com/pro3d-space/PRo3D</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/pro3d-space/PRo3D</PackageProjectUrl>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>..\..\bin\Debug\</OutputPath>
@@ -12,6 +24,12 @@
     <OutputPath>..\..\bin\Release</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="..\..\docs\OpcTool.md" copyToOutput="true">
+      <IncludeInPackage>true</IncludeInPackage>
+      <CopyToOutput>true</CopyToOutput>
+      <BuildAction>Content</BuildAction>
+    </Content>
+    <None Include="OpcTool.md" />
     <Compile Include="KdTreesCopy.fs" />
     <None Include="paket.references" />
     <Compile Include="Program.fs" />

@@ -2,7 +2,7 @@
   "profiles": {
     "opc-tool": {
       "commandName": "Project",
-      "commandLineArgs": "--force \"F:\\pro3d\\data\\20200220_DinosaurQuarry2\\Dinosaur_Quarry_2 - Kopie\""
+      "commandLineArgs": "--forcekdtreerebuild --generatedds --overwritedds \"I:\\OPC\\20230516_OpcJezero\\OPC_JezeroTest1m_nokdtree\\JezeroTest1m_nokdtree\""
     }
   }
 }
