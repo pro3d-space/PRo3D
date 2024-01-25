@@ -294,10 +294,11 @@ module SceneLoader =
         { model with sgSceneObjects = sgSurfaces }
 
     let setFrustum (m:Model) =
-        FrustumUtils.calculateFrustum 
+        FrustumUtils.calculateFrustum' 
             m.scene.config.frustumModel.focal.value
             m.scene.config.nearPlane.value
             m.scene.config.farPlane.value
+            m.aspect
            
     let resetControllerState (m : Model) = 
       

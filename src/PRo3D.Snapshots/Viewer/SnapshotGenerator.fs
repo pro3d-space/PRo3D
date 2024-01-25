@@ -200,11 +200,6 @@ module SnapshotGenerator =
             let animation = readAnimation args
             match animation with
             | Some (SnapshotAnimation.CameraAnimation data) ->
-                let foV = 
-                    match data.fieldOfView with
-                    | Some fov -> fov
-                    | None -> SnapshotApp.defaultFoV
-                let frustum,_,_,_ = SnapshotApp.calculateFrustumRecalcNearFar data
                 let sg = SnapshotSg.viewRenderView runtime (System.Guid.NewGuid().ToString()) 
                                                    (AVal.constant data.resolution) mModel 
                 let snapshotApp  = 

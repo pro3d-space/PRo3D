@@ -34,7 +34,7 @@ module FrustumModel =
             toggleFocal             = true
             focal                   = focal
             oldFrustum              = Frustum.perspective 60.0 0.1 10000.0 1.0
-            frustum                 = Frustum.perspective (hfov.DegreesFromRadians()) near far 1.0 //Frustum.perspective 60.0 0.1 10000.0 1.0
+            frustum                 = Frustum.perspective (hfov.DegreesFromRadians()) near far 1.0
         }
 
 type FrustumModel with
