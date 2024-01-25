@@ -16,6 +16,7 @@
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
   </PropertyGroup>
   <ItemGroup>
+    <!-- <Compile Include="InteropHelpers.fs" /> -->
     <Compile Include="Multitexturing.fs" />
     <Compile Include="ErrorReporting.fs" />
     <EmbeddedResource Include="resources\CooTransformationConfig.zip" />

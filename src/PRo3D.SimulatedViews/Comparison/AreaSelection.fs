@@ -185,8 +185,7 @@ module AreaSelection =
  //       require GuiEx.semui (
         div [] [
             Html.table ([      
-              Html.row "Selected Area" [div[style "font-weight: bold"] 
-                                       [Incremental.text m.label]]
+              Html.row "Selected Area" [div [style "font-weight: bold"] [Incremental.text m.label]]
               Html.row "Area radius"   [Incremental.text radius]
               Html.row "Area location" [Incremental.text location]
             ])

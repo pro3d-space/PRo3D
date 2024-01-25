@@ -769,7 +769,7 @@ module MinervaApp =
                             Html.row "Folder"         [i [clazz "folder icon"; onClick (fun _ -> OpenFolder feat.id)] []]
                             ]
                         )
-                | None ->  div[style "font-style:italic"][ text "no product selected" ]
+                | None ->  div [style "font-style:italic"] [text "no product selected"]
             )
 
         let featuresGroupedByInstrument features =

@@ -28,22 +28,6 @@ type PMessage =
     | CreateNode of string
     | LoadScene of string
 
-    with
-        static member ToJson (n : PMessage) =
-            json {
-                do! Json.write "version" 1
-                match n with
-                | SetCameraView c -> 
-                    do! Json.write "kind" "SetCameraView"
-                    do! Json.writeWith Ext.toJson<CameraView,Ext> "cameraView" c
-                | FinishAnnotation a -> 
-                    do! Json.write "kind" "FinishAnnotation"
-                    do! Json.write "id" a
-                | DrawingMessage m -> 
-                    do! Json.write "kind" "DrawingMessage"
-                    let serialized = FsPickler.serializer.PickleToString(m)
-                    do! Json.write "serialized" serialized
-            }
 
 module PMessage =
     let toHumanReadable (s : PMessage) =
