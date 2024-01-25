@@ -51,7 +51,7 @@ module Bookmarks =
             let groups = 
                 GroupsApp.addLeafToActiveGroup (Leaf.Bookmarks newBm) true bookmarks
             
-            outerModel, groups
+            outerModel, { groups with lastSelectedItem = SelectedItem.Child }
         | ImportBookmarks pathList ->
             match pathList with
             | filepath :: tail ->

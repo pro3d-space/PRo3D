@@ -72,7 +72,7 @@ module Viewer =
         // use this one for PROVEX workflows if needed.
         //let defaultDashboard = DashboardModes.provenance
         let defaultDockConfig = defaultDashboard.dockConfig //DockConfigs.m2020    
-
+        let viewConfigModel = ViewConfigModel.initial 
         {     
             scene = 
                 {
@@ -83,7 +83,7 @@ module Viewer =
                         
                     interaction     = InteractionMode.PickOrbitCenter
                     surfacesModel   = SurfaceModel.initial
-                    config          = ViewConfigModel.initial 
+                    config          = viewConfigModel
                     scenePath       = None
 
                     referenceSystem       = ReferenceSystem.initial                    
@@ -121,7 +121,7 @@ module Viewer =
             messagingMailbox = msgBox
             mailboxState     = MailboxState.empty
 
-            frustum         = Frustum.perspective 60.0 0.1 10000.0 1.0
+            frustum         = viewConfigModel.frustumModel.frustum //Frustum.perspective 60.0 0.1 10000.0 1.0
             overlayFrustum  = None
             aspect          = 1.6   // CHECK-merge
 

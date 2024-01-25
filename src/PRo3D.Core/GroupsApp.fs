@@ -346,7 +346,7 @@ module GroupsApp =
             (fun (x:Node) -> 
                 { x with subNodes = IndexList.add group x.subNodes })
 
-        { model with rootGroup = updateNodeAt path func model.rootGroup }
+        { model with rootGroup = updateNodeAt path func model.rootGroup; lastSelectedItem = SelectedItem.Group }
 
     let union (left : GroupsModel) (right : GroupsModel) : GroupsModel =
         if left.rootGroup.key = right.rootGroup.key then

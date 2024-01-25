@@ -159,6 +159,8 @@ type ViewerAction =
 | StartDragging                   of V2i * MouseButtons
 | Dragging                        of V2i
 | EndDragging                     of V2i * MouseButtons
+| MouseOut                        of V2i
+| MouseIn                         of V2i
 //| CorrelationPanelMessage         of CorrelationPanelsMessage
 | MakeSnapshot                    of int*int*string
 | ImportSnapshotData              of list<string>

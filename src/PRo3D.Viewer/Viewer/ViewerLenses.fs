@@ -66,6 +66,7 @@ module ViewerLenses =
     // sequenced bookmarks
     let _sequencedBookmarks = Model.scene_ >-> Scene.sequencedBookmarks_ 
 
+    // scene state for saving the state of the scene with sequenced bookmarks
     let _sceneState : ((Model -> SceneState) * (SceneState -> Model -> Model)) =
         let inline haveSameKeys (a : HashMap<'a, 'b>) (b : HashMap<'a, 'c>) =
             if a.Count <> b.Count then false
@@ -74,6 +75,7 @@ module ViewerLenses =
 
         (fun m -> 
             {
+                version                = SceneState.currentVersion
                 isValid                = true
                 timestamp              = System.DateTime.Now
                 stateAnnoatations      = m.drawing.annotations
@@ -81,8 +83,10 @@ module ViewerLenses =
                 stateSceneObjects      = m.scene.sceneObjectsModel
                 stateScaleBars         = m.scene.scaleBars
                 stateGeologicSurfaces  = m.scene.geologicSurfacesModel
-                stateConfig            = m.scene.config
-                stateReferenceSystem   = m.scene.referenceSystem
+                stateConfig            = SceneStateViewConfig.fromViewConfigModel 
+                                            m.scene.config
+                stateReferenceSystem   = SceneStateReferenceSystem.fromReferenceSystem 
+                                            m.scene.referenceSystem
                 stateTraverses         = Some m.scene.traverses
             }
         ), 
@@ -126,12 +130,10 @@ module ViewerLenses =
                 | false ->
                     FrustumUtils.calculateFrustum
                         state.stateConfig.frustumModel.focal.value
-                        state.stateConfig.nearPlane.value 
-                        state.stateConfig.farPlane.value
+                        state.stateConfig.nearPlane 
+                        state.stateConfig.farPlane
                 | true ->
                         state.stateConfig.frustumModel.frustum
-
-                    
             {m with
                 drawing = {m.drawing with annotations = state.stateAnnoatations}
                 scene   = 
@@ -140,8 +142,31 @@ module ViewerLenses =
                         sceneObjectsModel       = state.stateSceneObjects
                         scaleBars               = scaleBars
                         geologicSurfacesModel   = state.stateGeologicSurfaces
-                        config                  = state.stateConfig
-                        referenceSystem         = state.stateReferenceSystem
+                        config                  = 
+                            {m.scene.config with
+                                nearPlane           = 
+                                    {m.scene.config.nearPlane with value = state.stateConfig.nearPlane}
+                                farPlane            = 
+                                    {m.scene.config.farPlane with value = state.stateConfig.farPlane}
+                                frustumModel        = state.stateConfig.frustumModel       
+                                arrowLength         = 
+                                    {m.scene.config.arrowLength with value = state.stateConfig.arrowLength}
+                                arrowThickness      = 
+                                    {m.scene.config.arrowLength with value = state.stateConfig.arrowThickness}
+                                dnsPlaneSize        = 
+                                    {m.scene.config.dnsPlaneSize with value = state.stateConfig.dnsPlaneSize}
+                                lodColoring         = state.stateConfig.lodColoring        
+                                drawOrientationCube = state.stateConfig.drawOrientationCube
+                            }
+                        referenceSystem         = 
+                            {m.scene.referenceSystem with
+                                origin        = state.stateReferenceSystem.origin       
+                                isVisible     = state.stateReferenceSystem.isVisible    
+                                size          = 
+                                    {m.scene.referenceSystem.size with 
+                                        value = state.stateReferenceSystem.size}
+                                selectedScale = state.stateReferenceSystem.selectedScale
+                            }
                         traverses               = traverses
                         
                     }

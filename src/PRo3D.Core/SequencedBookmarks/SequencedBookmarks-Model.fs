@@ -74,9 +74,110 @@ type SequencedBookmarksAction =
     | ToggleUpdateJsonBeforeRendering
     | SaveAnimation
 
+
+/// a reduced version of SceneConfigModel that is saved and restore with sequenced bookmarks
+type SceneStateViewConfig = 
+    {
+        nearPlane               : float
+        farPlane                : float
+        frustumModel            : FrustumModel    
+        arrowLength             : float
+        arrowThickness          : float
+        dnsPlaneSize            : float
+        lodColoring             : bool
+        drawOrientationCube     : bool
+    } with 
+    static member frustumModel_ =
+        (fun c -> c.frustumModel), 
+        (fun (value : FrustumModel) (c : SceneStateViewConfig) -> 
+            { c with frustumModel = value })
+    static member fromViewConfigModel (config : ViewConfigModel) =
+        {
+            nearPlane           = config.nearPlane.value          
+            farPlane            = config.farPlane.value           
+            frustumModel        = config.frustumModel       
+            arrowLength         = config.arrowLength.value        
+            arrowThickness      = config.arrowThickness.value     
+            dnsPlaneSize        = config.dnsPlaneSize.value       
+            lodColoring         = config.lodColoring        
+            drawOrientationCube = config.drawOrientationCube
+        }
+
+    static member FromJson(_ : SceneStateViewConfig) = 
+        json {
+            let! nearPlane           = Json.read "nearPlane"          
+            let! farPlane            = Json.read "farPlane"           
+            let! frustumModel        = Json.read "frustumModel"       
+            let! arrowLength         = Json.read "arrowLength"        
+            let! arrowThickness      = Json.read "arrowThickness"     
+            let! dnsPlaneSize        = Json.read "dnsPlaneSize"       
+            let! lodColoring         = Json.read "lodColoring"        
+            let! drawOrientationCube = Json.read "drawOrientationCube"
+
+            return {
+                nearPlane           = nearPlane          
+                farPlane            = farPlane           
+                frustumModel        = frustumModel       
+                arrowLength         = arrowLength        
+                arrowThickness      = arrowThickness     
+                dnsPlaneSize        = dnsPlaneSize       
+                lodColoring         = lodColoring        
+                drawOrientationCube = drawOrientationCube
+            }
+        }
+    static member ToJson (x : SceneStateViewConfig) =
+        json {  
+            do! Json.write "nearPlane"           x.nearPlane          
+            do! Json.write "farPlane"            x.farPlane           
+            do! Json.write "frustumModel"        x.frustumModel       
+            do! Json.write "arrowLength"         x.arrowLength        
+            do! Json.write "arrowThickness"      x.arrowThickness     
+            do! Json.write "dnsPlaneSize"        x.dnsPlaneSize       
+            do! Json.write "lodColoring"         x.lodColoring        
+            do! Json.write "drawOrientationCube" x.drawOrientationCube
+        }
+
+type SceneStateReferenceSystem =
+    {
+        origin        : V3d
+        isVisible     : bool
+        size          : float
+        selectedScale : string
+    } with
+    static member fromReferenceSystem (refSystem : ReferenceSystem) 
+        : SceneStateReferenceSystem =
+        {
+            origin        = refSystem.origin       
+            isVisible     = refSystem.isVisible    
+            size          = refSystem.size.value         
+            selectedScale = refSystem.selectedScale
+        }
+    static member FromJson(_ : SceneStateReferenceSystem) = 
+        json {
+            let! origin        = Json.read "origin"       
+            let! isVisible     = Json.read "isVisible"    
+            let! size          = Json.read "size"         
+            let! selectedScale = Json.read "selectedScale"
+
+            return {
+                    origin        = origin |> V3d.Parse       
+                    isVisible     = isVisible    
+                    size          = size         
+                    selectedScale = selectedScale 
+            }
+        }
+    static member ToJson(x : SceneStateReferenceSystem) =
+        json {  
+            do! Json.write "origin"         (string x.origin)
+            do! Json.write "isVisible"      x.isVisible          
+            do! Json.write "size"           x.size               
+            do! Json.write "selectedScale"  x.selectedScale      
+        }
+
 /// state of various scene elements for use with animations
 type SceneState =
     {
+        version               : int
         isValid               : bool
         timestamp             : DateTime
         stateAnnoatations     : GroupsModel
@@ -84,8 +185,8 @@ type SceneState =
         stateSceneObjects     : SceneObjectsModel
         stateScaleBars        : ScaleBarsModel
         stateGeologicSurfaces : GeologicSurfacesModel
-        stateConfig           : ViewConfigModel
-        stateReferenceSystem  : ReferenceSystem  
+        stateConfig           : SceneStateViewConfig
+        stateReferenceSystem  : SceneStateReferenceSystem  
         stateTraverses        : option<TraverseModel>
     } with
     static member stateConfig_ =
@@ -95,14 +196,52 @@ type SceneState =
         )
     static member frustum_ =
         SceneState.stateConfig_
-            >-> ViewConfigModel.frustumModel_ 
+            >-> SceneStateViewConfig.frustumModel_ 
             >-> FrustumModel.frustum_ 
     static member focalLength_ =
         SceneState.stateConfig_
-            >-> ViewConfigModel.frustumModel_ 
+            >-> SceneStateViewConfig.frustumModel_ 
             >-> FrustumModel.focal_ 
             >-> NumericInput.value_
-    static member FromJson( _ : SceneState) =
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module SceneState =
+    let currentVersion = 1   
+    let read0 =
+            json {
+                let isValid = true
+                let! timestamp               = Json.tryRead "timestamp"    
+                let timestamp = 
+                    match timestamp with
+                    | Some timestamp -> timestamp
+                    | None -> DateTime.Now
+                let! stateAnnoatations       = Json.read "stateAnnoatations"    
+                let! stateSurfaces           = Json.read "stateSurfaces"        
+                let! stateSceneObjects       = Json.read "stateSceneObjects"    
+                let! stateScaleBars          = Json.read "stateScaleBars"    
+                let! stateGeologicSurfaces   = Json.read "stateGeologicSurfaces"
+                let! stateConfig             = Json.read "stateConfig"
+                let! stateReferenceSystem    = Json.read "stateReferenceSystem"
+                let! stateTraverse           = Json.tryRead "stateTraverse"
+
+                return {
+                    version                 = currentVersion
+                    isValid                 = isValid
+                    timestamp               = timestamp
+                    stateAnnoatations       = stateAnnoatations    
+                    stateSurfaces           = stateSurfaces        
+                    stateSceneObjects       = stateSceneObjects    
+                    stateScaleBars          = stateScaleBars
+                    stateGeologicSurfaces   = stateGeologicSurfaces
+                    stateConfig             = 
+                        SceneStateViewConfig.fromViewConfigModel stateConfig
+                    stateReferenceSystem    = 
+                        SceneStateReferenceSystem.fromReferenceSystem stateReferenceSystem
+                    stateTraverses          = stateTraverse
+                }
+            }
+
+    let read1 = 
         json {
             let isValid = true
             let! timestamp               = Json.tryRead "timestamp"    
@@ -120,6 +259,7 @@ type SceneState =
             let! stateTraverse           = Json.tryRead "stateTraverse"
 
             return {
+                version                 = currentVersion
                 isValid                 = isValid
                 timestamp               = timestamp
                 stateAnnoatations       = stateAnnoatations    
@@ -133,8 +273,24 @@ type SceneState =
             }
         }
 
+type SceneState with
+    static member FromJson( _ : SceneState) =
+        json {
+            let! version = Json.tryRead "version"
+            match version with
+            | None ->
+                return! SceneState.read0
+            | Some v  when v = 1 ->
+                return! SceneState.read1
+            | _ ->
+                return! version 
+                |> sprintf "don't know version %A  of SceneState"
+                |> Json.error
+        }
+
     static member ToJson(x : SceneState) =
         json {
+            do! Json.write "version"               SceneState.currentVersion
             do! Json.write "timestamp"             x.timestamp
             do! Json.write "stateAnnoatations"     x.stateAnnoatations    
             do! Json.write "stateSurfaces"         x.stateSurfaces        
@@ -247,7 +403,7 @@ type SequencedBookmarkModel = {
                     this.filename
                 ]
         | None ->
-            Log.warn "[SequencedBookmarks] Bookmark has no basePath."
+            //Log.warn "[SequencedBookmarks] Bookmark has no basePath." //debugging
             this.filename
 
     member this.filename =

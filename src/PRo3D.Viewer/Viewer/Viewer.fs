@@ -408,6 +408,18 @@ module ViewerApp =
         | Aardvark.Application.Keys.D3 -> DrawingAction.SetSemantic Semantic.Horizon3 
         | _  -> DrawingAction.Nop
 
+    let updateFrustumAspect m (windowSize : V2i) (viewPortSizeId : string) =
+            let aspect = float windowSize.X / float windowSize.Y
+            let m = 
+                { m with frustum = m.frustum 
+                                   |> FrustumUtils.withAspect(aspect); 
+                         viewPortSizes = HashMap.add viewPortSizeId windowSize m.viewPortSizes 
+                         aspect  = aspect}
+            let m = // update FurstumModel to keep it consistent with Frustum in Model
+                m |> Optic.map _frustumModel (fun fm -> 
+                    {fm with frustum = FrustumUtils.withAspect aspect fm.frustum})
+            m
+
     let updateViewer 
         (runtime   : IRuntime) 
         (signature : IFramebufferSignature) 
@@ -462,8 +474,6 @@ module ViewerApp =
                 {frustumModel with frustum = frustum}
             { m with frustum = frustum}
             |> Optic.set _frustumModel frustumModel 
-            |> Optic.set _frustumModel frustumModel 
-
         | AnnotationGroupsMessageViewer msg,_,_ ->
             let ag = m.drawing.annotations 
                 
@@ -723,9 +733,14 @@ module ViewerApp =
                     { m with frustum = frustumModel.oldFrustum}
             | FrustumProperties.Action.UpdateFocal f ->
                 if frustumModel.toggleFocal then
-                    let frustum' = FrustumUtils.calculateFrustum frustumModel.focal.value m.frustum.near m.frustum.far 
+                    let frustum' = 
+                        FrustumUtils.calculateFrustum' frustumModel.focal.value 
+                                                       m.frustum.near 
+                                                       m.frustum.far 
+                                                       m.aspect
                     let m = Optic.set _frustumModel {frustumModel with frustum = frustum'} m
-                    { m with frustum = frustum'}
+                    let m = { m with frustum = frustum'}
+                    m
                 else
                     Optic.set _frustumModel frustumModel m
             | _ -> 
@@ -1345,13 +1360,13 @@ module ViewerApp =
         //        { m with linkingModel = PRo3D.Linking.LinkingApp.update m.linkingModel a }
         | OnResize (a,id),_,_ ->              
             Log.line "[RenderControl Resized] %A" a
-            { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y); viewPortSizes = HashMap.add id a m.viewPortSizes }
+            updateFrustumAspect m a id
         | ResizeMainControl(a,id),_,_ -> 
             printfn "[main] resize %A" (a,id)
-            { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y); viewPortSizes = HashMap.add id a m.viewPortSizes }
+            updateFrustumAspect m a id
         | ResizeInstrumentControl(a,id),_,_ -> 
             printfn "[instrument] resize %A" (a,id)
-            { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y); viewPortSizes = HashMap.add id a m.viewPortSizes }
+            updateFrustumAspect m a id
         //| SetTextureFiltering b,_,_ ->
         //    {m with filterTexture = b}
        // | TestHaltonRayCasting _,_,_->
@@ -1365,12 +1380,20 @@ module ViewerApp =
         //    | true ->
         //        Log.line "[Viewer] No shattercone updates found."
         //        m
-        | StartDragging _,_,_
+        | StartDragging _,_,_ 
         | Dragging _,_,_ 
+        //| MouseOut _,_,_
         | EndDragging _,_,_ -> 
-            match m.multiSelectBox with
-            | Some x -> { m with multiSelectBox = None }
-            | None -> m
+          let m' =
+                match m.multiSelectBox with
+                | Some x -> { m with multiSelectBox = None }
+                | None -> m
+          m' //{m' with navigation = {m'.navigation with camera = {m'.navigation.camera with pan = false }}}
+        | MouseIn _,_,_ ->
+            {m with navigation = {m.navigation with camera = {m.navigation.camera with pan = true }}}
+        | MouseOut _,_,_ ->
+            {m with navigation = {m.navigation with camera = {m.navigation.camera with pan = false }}}
+
        // | CorrelationPanelMessage a,_,_ ->
             //let blurg =
             //    match a with 
@@ -1996,7 +2019,9 @@ module ViewerApp =
         ]
         
         let bodyAttributes : list<Attribute<ViewerAnimationAction>> = 
-            [style "background: #1B1C1E; height:100%; overflow-y:scroll; overflow-x:hidden;" //] //overflow-y : visible
+            [
+            style "background: #1B1C1E; height:100%; overflow-y:scroll; overflow-x:hidden;" //] //overflow-y : visible
+            onMouseUp (fun button pos -> ViewerAnimationAction.ViewerMessage (EndDragging (pos, button)))
             ]
 
         page (
