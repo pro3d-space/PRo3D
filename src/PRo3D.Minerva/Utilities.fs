@@ -35,7 +35,7 @@ module Files =
                 client.DownloadFile(path, imagePath) |> ignore   
                 System.Threading.Thread.Sleep(10)
                 System.Threading.Thread.Sleep(10)
-                PixImage.Create(imagePath).ToPixImage<byte>().SaveAsImage(targetPath)
+                PixImage.Load(imagePath).ToPixImage<byte>().Save(targetPath)
                 System.Threading.Thread.Sleep(10)
             with e -> ()//Log.line "[Minerva] error: %A" e
     
@@ -180,8 +180,8 @@ module Drawing =
                 Sg.empty 
                   |> Sg.pickable (PickShape.Box box)
                   |> Sg.withEvents [
-                      SceneEventKind.Click, (fun sceneHit -> true, Seq.ofList[PickProducts sceneHit]) 
-                      SceneEventKind.Move,  (fun sceneHit -> true, Seq.ofList[HoverProducts sceneHit])
+                      SceneEventKind.Click, (fun sceneHit -> true, Seq.ofList [PickProducts sceneHit]) 
+                      SceneEventKind.Move,  (fun sceneHit -> true, Seq.ofList [HoverProducts sceneHit])
                   ])
         |> Sg.dynamic 
 

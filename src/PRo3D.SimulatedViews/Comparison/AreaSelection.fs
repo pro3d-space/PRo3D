@@ -171,8 +171,7 @@ module AreaSelection =
                             let maxDistance = stats.maxDistance |> AVal.map (fun x -> sprintf "%f" x)
                     
                             [
-                              Html.row "Statistical parameter" [div[style "font-weight: bold"] 
-                                                               [text "value"]]
+                              Html.row "Statistical parameter" [div [style "font-weight: bold"] [text "value"]]
                               Html.row "Minimum distance" [Incremental.text minDistance]
                               Html.row "Average distance" [Incremental.text avgDistance]
                               Html.row "Maximum distance" [Incremental.text maxDistance]

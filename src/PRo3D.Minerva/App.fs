@@ -431,7 +431,7 @@ module MinervaApp =
             
             let docPath = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
             let imagePathTmp = @"visplore\Minerva"
-            let imagePath = Path.combine[docPath; imagePathTmp]
+            let imagePath = Path.combine [docPath; imagePathTmp]
             let filename = "overview.jpg"
             
             Log.startTimed "[Minerva taking] Screenshot %A" (V2i(width, height))
@@ -444,7 +444,7 @@ module MinervaApp =
                 sendReplaceProjectionRequest 
                   (coords |> List.map fst) 
                   (coords |> List.map snd) 
-                  (V2i(width, height)) (Path.combine[imagePath; filename]) 
+                  (V2i(width, height)) (Path.combine [imagePath; filename]) 
                   c
             | None -> ()
             model
@@ -660,7 +660,7 @@ module MinervaApp =
                 Directory.CreateDirectory(minervaFolder) |> ignore
 
             Log.line "[Minerva] saving minerva session"
-            let path = Path.combine[minervaFolder; "minerva.session.json"]
+            let path = Path.combine [minervaFolder; "minerva.session.json"]
             
             model.session 
             |> Json.serialize 
@@ -724,7 +724,7 @@ module MinervaApp =
                         alist {
                             let! hc = selectionColor model f
                             let c = hc |> Html.ofC4b |> sprintf "color: %s"
-                            yield div[clazz "header"; style c][
+                            yield div [clazz "header"; style c] [
                                 div (headerAttributes) ((instr |> instrumentText |> text) |> List.singleton)
                             ]
                             yield div [clazz "ui description"] [
@@ -802,7 +802,7 @@ module MinervaApp =
                         //|> List.sortBy(fun x -> V3d.DistanceSquared(pos, x.geometry.coordinates.Head)) 
                         |> List.take'(20)
                     
-                    yield div [clazz "ui inverted item"][
+                    yield div [clazz "ui inverted item"] [
                         yield Html.SemUi.accordion header "circle" false [            
                           div [clazz "ui list"] (viewFeatures instr model g)
                         ]
@@ -812,9 +812,9 @@ module MinervaApp =
         [
             Html.SemUi.accordion "Visplore" "chart bar" true [
                 div [clazz "ui buttons"] [
-                    button [clazz "ui button tiny"; onClick (fun _ -> ConnectVisplore)][text "Connect"]
-                    button [clazz "ui button tiny"; onClick (fun _ -> SendSelection)][text "Send Selection"]
-                    button [clazz "ui button tiny"; onClick (fun _ -> SendScreenSpaceCoordinates)][text "Snapshot"]
+                    button [clazz "ui button tiny"; onClick (fun _ -> ConnectVisplore)] [text "Connect"]
+                    button [clazz "ui button tiny"; onClick (fun _ -> SendSelection)] [text "Send Selection"]
+                    button [clazz "ui button tiny"; onClick (fun _ -> SendScreenSpaceCoordinates)] [text "Snapshot"]
                     //button [
               //  clazz "ui button"; 
               //  onEvent "onGetRenderId" [] (fun args -> Reset)
@@ -828,15 +828,15 @@ module MinervaApp =
                 div [clazz "ui buttons"] [         
                     //button [clazz "ui button"; onClick (fun _ -> Save)][text "Save"]
               //button [clazz "ui button"; onClick (fun _ -> Load)][text "Load"]
-                    button [clazz "ui button tiny"; onClick (fun _ -> ClearFilter)][text "clear"]
-                    button [clazz "ui button tiny"; onClick (fun _ -> ApplyFilters)][text "apply"]
+                    button [clazz "ui button tiny"; onClick (fun _ -> ClearFilter)] [text "clear"]
+                    button [clazz "ui button tiny"; onClick (fun _ -> ApplyFilters)] [text "apply"]
                 ]
                 h4 [clazz "ui"] [text "Selection"]
                 div [clazz "ui buttons"] [         
-                    button [clazz "ui button tiny"; onClick (fun _ -> ClearSelection)][text "clear"]
-                    button [clazz "ui button tiny"; onClick (fun _ -> FilterFromSelection)][text "to filter"]
-                    button [clazz "ui button tiny"; onClick (fun _ -> LoadTifs "")][text "load images"]
-                    button [clazz "ui button tiny"; onClick (fun _ -> ShowFrustraForSelected)][text "show frustra"]  
+                    button [clazz "ui button tiny"; onClick (fun _ -> ClearSelection)] [text "clear"]
+                    button [clazz "ui button tiny"; onClick (fun _ -> FilterFromSelection)] [text "to filter"]
+                    button [clazz "ui button tiny"; onClick (fun _ -> LoadTifs "")] [text "load images"]
+                    button [clazz "ui button tiny"; onClick (fun _ -> ShowFrustraForSelected)] [text "show frustra"]  
                 ]
                 
                 QueryApp.viewQueryFilters groupedFeatures model.session.queryFilter |> UI.map QueryMessage

@@ -1210,7 +1210,7 @@ module SurfaceApp =
                         yield Incremental.div (AttributeMap.ofList [style infoc])(
                             alist {
                                 let! hc = headerColor
-                                yield div[clazz "header"; style hc][
+                                yield div [clazz "header"; style hc] [
                                    Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
                                 ]                             
             
@@ -1357,8 +1357,8 @@ module SurfaceApp =
                     let! b' = b
                     match b' with 
                         | AdaptiveSurfaces bm -> return isSome bm
-                        | _ -> return div[][]                                                             
-                | None   -> return div[][] 
+                        | _ -> return div [] []                                                             
+                | None   -> return div [] [] 
         }
     
       //failwith ""
@@ -1377,10 +1377,10 @@ module SurfaceApp =
                   let x = match surf with | AdaptiveSurfaces s -> s | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith                                     
                   return SurfaceProperties.view x |> UI.map SurfacePropertiesMessage
                 else
-                  return div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map SurfacePropertiesMessage 
+                  return div [style "font-style:italic"] [ text "no surface selected" ] |> UI.map SurfacePropertiesMessage 
                   
               
-              | None -> return div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map SurfacePropertiesMessage 
+              | None -> return div [style "font-style:italic"] [ text "no surface selected" ] |> UI.map SurfacePropertiesMessage 
         }                          
         
     let surfaceGroupProperties (model:AdaptiveSurfaceModel) =
@@ -1391,7 +1391,7 @@ module SurfaceApp =
     let viewTranslationTools (model:AdaptiveSurfaceModel) =
         adaptive {
             let! guid = model.surfaces.singleSelectLeaf
-            let empty = div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map TranslationMessage 
+            let empty = div [style "font-style:italic"] [text "no surface selected"] |> UI.map TranslationMessage 
 
             match guid with
               | Some i -> 
@@ -1409,7 +1409,7 @@ module SurfaceApp =
     let viewRadiometryTools (model:AdaptiveSurfaceModel) =
         adaptive {
             let! guid = model.surfaces.singleSelectLeaf
-            let empty = div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map RadiometryMessage 
+            let empty = div [style "font-style:italic"] [text "no surface selected"] |> UI.map RadiometryMessage 
             
             match guid with
                 | Some i -> 
@@ -1427,7 +1427,7 @@ module SurfaceApp =
     let viewColorCorrectionTools (paletteFile : string) (model:AdaptiveSurfaceModel) =
         adaptive {
             let! guid = model.surfaces.singleSelectLeaf
-            let empty = div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map ColorCorrectionMessage 
+            let empty = div [ style "font-style:italic"] [ text "no surface selected"] |> UI.map ColorCorrectionMessage 
             
             match guid with
                 | Some i -> 
@@ -1462,11 +1462,11 @@ module SurfaceApp =
                       let! scalar = scalar
                       match AdaptiveOption.toOption scalar with // why is AdaptiveSome here not available
                           | Some s -> return FalseColorLegendApp.UI.viewScalarMappingProperties colorPaletteStore s.colorLegend |> UI.map ScalarsColorLegendMessage
-                          | None -> return div[ style "font-style:italic"][ text "no scalar in properties selected" ] |> UI.map ScalarsColorLegendMessage 
+                          | None -> return div [style "font-style:italic"] [text "no scalar in properties selected" ] |> UI.map ScalarsColorLegendMessage 
                     else
-                      return div[ style "font-style:italic"][ text "no scalar in properties selected" ] |> UI.map ScalarsColorLegendMessage 
+                      return div [style "font-style:italic"] [text "no scalar in properties selected"] |> UI.map ScalarsColorLegendMessage 
                                   
-                | None -> return div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map ScalarsColorLegendMessage 
+                | None -> return div [style "font-style:italic"] [text "no surface selected" ] |> UI.map ScalarsColorLegendMessage 
         }                          
 
     //TODO LF refactor and simplify, use option.map, bind, default value as described in
@@ -1488,10 +1488,10 @@ module SurfaceApp =
                     match AdaptiveOption.toOption scalar with
                     | Some s ->  
                         yield Incremental.Svg.svg AttributeMap.empty (FalseColorLegendApp.Draw.createFalseColorLegendBasics "ScalarLegend" s.colorLegend)
-                    | None -> yield div[][]
+                    | None -> yield div [] []
                 else
-                    yield div[][]
-            | None -> yield div[][]
+                    yield div [] []
+            | None -> yield div [] []
         } 
 
     let surfacesLeafButtonns (model:AdaptiveSurfaceModel) = 
@@ -1502,7 +1502,7 @@ module SurfaceApp =
             let! sel = sel
             match sel with
             | Some _ -> return (GroupsApp.viewLeafButtons ts |> UI.map GroupsMessage)
-            | None -> return div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map GroupsMessage
+            | None -> return div [style "font-style:italic"] [ text "no surface selected"] |> UI.map GroupsMessage
         } 
 
     let surfacesGroupButtons (model:AdaptiveSurfaceModel) = 
@@ -1527,7 +1527,7 @@ module SurfaceApp =
                         | SelectedItem.Group -> surfacesGroupButtons model
                         | _ -> surfacesLeafButtonns model
                 )
-        div[][                            
+        div [] [                            
             yield GuiEx.accordion "Surfaces" "Cubes" true [ viewSurfacesGroups scenePath model ]
             yield GuiEx.accordion "Properties" "Content" false [
               Incremental.div AttributeMap.empty (AList.ofAValSingle item2)

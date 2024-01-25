@@ -67,8 +67,7 @@ module GeologicSurfacesUtils =
         (color : C4b) = 
         
             let diff = points1.Count - points2.Count
-            match diff%2 with
-            | 0 -> 
+            if diff % 2 = 0 then 
                 let plus = diff/2
                 let firstPart =
                     [
@@ -90,7 +89,7 @@ module GeologicSurfacesUtils =
 
                 firstPart@middlePart@endPart
 
-            | 1 -> 
+            else
                 let plusFirst = Math.Ceiling((float)diff/2.0)
                 let plusEnd = diff/2
                 let firstPart =
@@ -391,7 +390,7 @@ module GeologicSurfacesApp =
                                 yield Incremental.div (AttributeMap.ofList [style infoc])(
                                     alist {
                                         //let! hc = headerColor
-                                        yield div[clazz "header"; style bgc][
+                                        yield div [clazz "header"; style bgc] [
                                             Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
                                          ]                
                                         //yield i [clazz "large cube middle aligned icon"; style bgc; onClick (fun _ -> SelectSO soid)][]           
@@ -414,7 +413,7 @@ module GeologicSurfacesApp =
         let viewProperties (model:AdaptiveGeologicSurfacesModel) =
             adaptive {
                 let! guid = model.selectedGeologicSurface
-                let empty = div[ style "font-style:italic"][ text "no geologic surface selected" ] |> UI.map PropertiesMessage 
+                let empty = div [style "font-style:italic"] [text "no geologic surface selected" ] |> UI.map PropertiesMessage 
                 
                 match guid with
                 | Some id -> 

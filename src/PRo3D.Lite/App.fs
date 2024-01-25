@@ -138,10 +138,10 @@ module App =
                                         emit (SetCursor wp)
                                     | _ -> ()
 
-                                    values.runtime.ResolveMultisamples(color.GetOutputView(), resolvedColor, ImageTrafo.Identity)
+                                    values.runtime.ResolveMultisamples(color.GetOutputView(), resolvedColor)
                                     resolvedColor :> ITexture
                                 | _ ->
-                                    NullTexture() :> ITexture
+                                    NullTexture.Instance 
                         }
 
                     let final = 

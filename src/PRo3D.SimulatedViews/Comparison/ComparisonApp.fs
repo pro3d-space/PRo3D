@@ -420,9 +420,9 @@ module ComparisonApp =
                                                   match a with
                                                   | Some a -> 
                                                     AreaComparison.createColorLegend a
-                                                  | None -> div[][])
+                                                  | None -> div [] [])
                             Incremental.div ([] |> AttributeMap.ofList) (AList.ofAValSingle legend)
-                        | None -> div[][]) m.selectedArea
+                        | None -> div [] []) m.selectedArea
         Incremental.div ([] |> AttributeMap.ofList) (AList.ofAValSingle legend)
         
 
@@ -434,7 +434,7 @@ module ComparisonApp =
             | Some name, Some maesurements -> 
                 SurfaceMeasurements.view maesurements
             | _,_    -> 
-                div [][]
+                div [] []
                  
 
         let measurement1 = 
@@ -664,7 +664,7 @@ module ComparisonApp =
 
 
 
-        div [][
+        div [] [
             br []
             div [clazz "ui buttons inverted"] 
                 [updateButton;exportButton]

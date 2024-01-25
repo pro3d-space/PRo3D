@@ -385,7 +385,7 @@ module ScaleBarsApp =
                                 yield Incremental.div (AttributeMap.ofList [style infoc])(
                                     alist {
                                         //let! hc = headerColor
-                                        yield div[clazz "header"; style bgc][
+                                        yield div [clazz "header"; style bgc] [
                                             Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
                                          ]                
                                         //yield i [clazz "large cube middle aligned icon"; style bgc; onClick (fun _ -> SelectSO soid)][]           
@@ -408,7 +408,7 @@ module ScaleBarsApp =
         let viewTranslationTools (model:AdaptiveScaleBarsModel) =
             adaptive {
                 let! guid = model.selectedScaleBar
-                let empty = div[ style "font-style:italic"][ text "no scene object selected" ] |> UI.map TranslationMessage 
+                let empty = div [style "font-style:italic"] [text "no scene object selected"] |> UI.map TranslationMessage 
 
                 match guid with
                 | Some id -> 
@@ -422,7 +422,7 @@ module ScaleBarsApp =
         let viewProperties (model:AdaptiveScaleBarsModel) =
             adaptive {
                 let! guid = model.selectedScaleBar
-                let empty = div[ style "font-style:italic"][ text "no scale bar selected" ] |> UI.map PropertiesMessage 
+                let empty = div [style "font-style:italic"] [text "no scale bar selected"] |> UI.map PropertiesMessage 
                 
                 match guid with
                 | Some id -> 

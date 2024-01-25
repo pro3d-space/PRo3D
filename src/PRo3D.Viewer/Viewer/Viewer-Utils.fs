@@ -53,7 +53,7 @@ module ViewerUtils =
     let colormap = 
         let config = { wantMipMaps = false; wantSrgb = false; wantCompressed = false }
         let s = typeof<Self>.Assembly.GetManifestResourceStream("PRo3D.Viewer.resources.HueColorMap.png")
-        let pi = PixImage.Create(s)
+        let pi = PixImage.Load(s)
         PixTexture2d(PixImageMipMap [| pi |], true) :> ITexture    
     
 
