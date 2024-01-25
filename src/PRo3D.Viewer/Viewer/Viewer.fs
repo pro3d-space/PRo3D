@@ -1365,12 +1365,20 @@ module ViewerApp =
         //    | true ->
         //        Log.line "[Viewer] No shattercone updates found."
         //        m
-        | StartDragging _,_,_
+        | StartDragging _,_,_ 
         | Dragging _,_,_ 
+        //| MouseOut _,_,_
         | EndDragging _,_,_ -> 
-            match m.multiSelectBox with
-            | Some x -> { m with multiSelectBox = None }
-            | None -> m
+          let m' =
+                match m.multiSelectBox with
+                | Some x -> { m with multiSelectBox = None }
+                | None -> m
+          m' //{m' with navigation = {m'.navigation with camera = {m'.navigation.camera with pan = false }}}
+        | MouseIn _,_,_ ->
+            {m with navigation = {m.navigation with camera = {m.navigation.camera with pan = true }}}
+        | MouseOut _,_,_ ->
+            {m with navigation = {m.navigation with camera = {m.navigation.camera with pan = false }}}
+
        // | CorrelationPanelMessage a,_,_ ->
             //let blurg =
             //    match a with 
@@ -1996,7 +2004,9 @@ module ViewerApp =
         ]
         
         let bodyAttributes : list<Attribute<ViewerAnimationAction>> = 
-            [style "background: #1B1C1E; height:100%; overflow-y:scroll; overflow-x:hidden;" //] //overflow-y : visible
+            [
+            style "background: #1B1C1E; height:100%; overflow-y:scroll; overflow-x:hidden;" //] //overflow-y : visible
+            onMouseUp (fun button pos -> ViewerAnimationAction.ViewerMessage (EndDragging (pos, button)))
             ]
 
         page (

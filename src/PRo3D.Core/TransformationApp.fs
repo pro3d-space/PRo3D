@@ -58,27 +58,18 @@ module TransformationApp =
 
            //translation along north, east, up            
            let trans = translation |> Trafo3d.Translation
+           let translationTrafo = refSysRotation.Inverse * trans * refSysRotation
         
            let originTrafo = -pivot |> Trafo3d.Translation
+           let eulerRotation = Trafo3d.RotationEulerInDegrees(roll, pitch, -yaw)
 
            let yawRotation    = Trafo3d.RotationInDegrees(up,  -yaw)
            let pitchRotation  = Trafo3d.RotationInDegrees(east, pitch)
            let rollRotation   = Trafo3d.RotationInDegrees(north,roll)
 
-           let oldOriginTrafo = -oldPivot |> Trafo3d.Translation
-           let rot = yawRotation * pitchRotation * rollRotation
-           let rotAndScaleTrafo = originTrafo * rot * Trafo3d.Scale(scale)  * originTrafo.Inverse
-
-           let newTrafo = refSysRotation.Inverse * trans * refSysRotation * rotAndScaleTrafo //rotAndScaleTrafo  * 
+           let rotAndScale = originTrafo * refSysRotation.Inverse * eulerRotation * Trafo3d.Scale(scale) * refSysRotation  * originTrafo.Inverse 
            
-
-           //if pivotChanged then
-           //    let rotAndScaleTrafo = oldOriginTrafo * rot * Trafo3d.Scale(scale) * oldOriginTrafo.Inverse
-           //    let newPivotTrafo = refSysRotation.Inverse * trans * refSysRotation * rotAndScaleTrafo
-           //    newPivotTrafo
-           //else
-           // newTrafo
-           
+           let newTrafo = translationTrafo * rotAndScale 
            
            newTrafo
     
@@ -99,6 +90,7 @@ module TransformationApp =
             let noP = 
                 Rot3d.Rotation(upP, refsys.noffset.value |> Double.radiansFromDegrees).Transform(northP)
             noP, upP
+            
 
     let fullTrafo 
         (transform : AdaptiveTransformations) 
@@ -168,13 +160,6 @@ module TransformationApp =
                 else 
                     refSys.northO, refSys.up.value
             let east  = north.Cross(up).Normalized
-
-            let yawRotation    = Trafo3d.RotationInDegrees(up,  -transform.yaw.value)
-            let pitchRotation  = Trafo3d.RotationInDegrees(east, transform.pitch.value)
-            let rollRotation   = Trafo3d.RotationInDegrees(north,transform.roll.value)
-
-            let rot = yawRotation * pitchRotation * rollRotation
-
             
             let refSysRotation = Trafo3d.FromOrthoNormalBasis(north, east, up)
             let trans = translation |> Trafo3d.Translation
@@ -277,6 +262,7 @@ module TransformationApp =
                     Html.row "show PivotPoint:" [GuiEx.iconCheckBox model.showPivot TogglePivotVisible ]
                     Html.row "Pivot Point (m):" [viewPivotPointInput model.pivot |> UI.map SetPivotPoint ]
                     Html.row "Pivot Size:"      [Numeric.view' [InputBox] model.pivotSize |> UI.map SetPivotSize]
+                    //Html.row "Reset Trafos:"    [button [clazz "ui button tiny"; onClick (fun _ -> ResetTrafos )] []]
                     //Html.row "Pivot Point:"     [Incremental.text (model.pivot |> AVal.map (fun x -> x.ToString ()))]
                 ]
             )
