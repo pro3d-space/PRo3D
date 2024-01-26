@@ -152,7 +152,7 @@ module HeightValidatorApp =
         
         
         
-        Sg.ofList[posA; posB; inclinedLine; tiltedUp]
+        Sg.ofList [posA; posB; inclinedLine; tiltedUp]
 
     let viewDiscs (model : AdaptiveHeightValidatorModel) =
         
@@ -174,4 +174,4 @@ module HeightValidatorApp =
         
         let upperDisc = Sg.discISg ~~C4b.Magenta ~~1.0 ~~(0.01) upperDiscTrafo
 
-        Sg.ofList[lowerDisc; upperDisc;]
+        Sg.ofList [lowerDisc; upperDisc;]

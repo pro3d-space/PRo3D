@@ -959,14 +959,14 @@ module ViewPlanApp =
 
                 i [clazz "home icon";                                                
                     onClick (fun _ -> FlyToViewPlan id)
-                ][] |> UI.wrapToolTip DataPosition.Bottom "FlyTo"                                                                                
+                ] [] |> UI.wrapToolTip DataPosition.Bottom "FlyTo"                                                                                
 
                 Incremental.i toggleMap AList.empty 
                 |> UI.wrapToolTip DataPosition.Bottom "Toggle Arrows"                                                                     
 
                 i [clazz "Remove icon red";                                             
                     onClick (fun _ -> RemoveViewPlan id)
-                ][] |> UI.wrapToolTip DataPosition.Bottom "Remove"                                         
+                ] [] |> UI.wrapToolTip DataPosition.Bottom "Remove"                                         
             ]    
 
         let viewViewPlans (m:AdaptiveViewPlanModel) = 
@@ -1053,7 +1053,7 @@ module ViewPlanApp =
             |> AVal.map(fun x ->
                 match x with 
                 | AdaptiveSome i -> instrumentProperties i
-                | AdaptiveNone ->   div[][]
+                | AdaptiveNone ->   div [] []
             )
 
         let viewFootprintProperties (fpVisible:aval<bool>) (m : AdaptiveViewPlan) = 
@@ -1064,11 +1064,11 @@ module ViewPlanApp =
                 require GuiEx.semui (
                     Html.table [  
                         Html.row "show footprint:"  [GuiEx.iconCheckBox fpVisible ToggleFootprint]
-                        Html.row "export footprint:"  [button [clazz "ui button tiny"; onClick (fun _ -> SaveFootPrint )][]]
-                        Html.row "open footprint folder:"  [button [clazz "ui button tiny"; onClick (fun _ -> OpenFootprintFolder )][]]
+                        Html.row "export footprint:"  [button [clazz "ui button tiny"; onClick (fun _ -> SaveFootPrint )] []]
+                        Html.row "open footprint folder:"  [button [clazz "ui button tiny"; onClick (fun _ -> OpenFootprintFolder )] []]
                     ]
                 )
-              | AdaptiveNone -> div[][])
+              | AdaptiveNone -> div [] [])
 
         let viewDepthColorLegendUI (m : AdaptiveViewPlanModel) = 
             m.footPrint.depthColorLegend
@@ -1088,7 +1088,7 @@ module ViewPlanApp =
                     
 
                 )
-              | AdaptiveNone -> div[][])
+              | AdaptiveNone -> div [] [])
 
 
         //let instrumentsDd (r:AdaptiveRover) (m : AdaptiveViewPlan) = 
@@ -1107,7 +1107,7 @@ module ViewPlanApp =
                 match selectedI with
                     | AdaptiveSome i ->
                         for axis in (r.axes |> RoverApp.mapTolist) do
-                            yield div[][Incremental.text axis.id; text "(deg)"]
+                            yield div [] [Incremental.text axis.id; text "(deg)"]
                             //yield Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox] axis.angle |> UI.map (fun x -> ChangeAngle (axis.id |> AVal.force,x))
                             //let! value = axis.angle.value
                             //let! max = axis.angle.max
@@ -1121,16 +1121,16 @@ module ViewPlanApp =
                             //    yield Incremental.text (axis.angle.value |> AVal.map string)
                             //yield br[]
                             //yield Incremental.text (axis.startPoint |> AVal.map (sprintf "%A"))
-                            yield div[][text "["; Incremental.text (axis.angle.min |> AVal.map string); text ";"; Incremental.text (axis.angle.max |> AVal.map string); text "]"]
-                            yield br[]
-                    | AdaptiveNone -> yield div[][]
+                            yield div [] [text "["; Incremental.text (axis.angle.min |> AVal.map string); text ";"; Incremental.text (axis.angle.max |> AVal.map string); text "]"]
+                            yield br []
+                    | AdaptiveNone -> yield div [] []
 
             }
 
         let viewRoverProperties' (model : AdaptiveViewPlanModel) (r : AdaptiveRover) (m : AdaptiveViewPlan) (fpVisible:aval<bool>) (diVisible:aval<bool>) =
             require GuiEx.semui (
                 Html.table [
-                     Html.row "Change VPName:"[ Html.SemUi.textBox m.name SetVPName ]
+                     Html.row "Change VPName:" [Html.SemUi.textBox m.name SetVPName]
                      Html.row "Name:"       [ Incremental.text r.id ]
                      Html.row "Instrument:" [ 
                         instrumentsDd r m 
@@ -1155,7 +1155,7 @@ module ViewPlanApp =
 
         let viewSelectRover (m : AdaptiveRoverModel) : DomNode<RoverApp.Action> =
             Html.Layout.horizontal [
-                Html.Layout.boxH [ i [clazz "large Rocket icon"][] ]
+                Html.Layout.boxH [ i [clazz "large Rocket icon"] [] ]
                 Html.Layout.boxH [ 
                     UI.dropDown'' 
                         (RoverApp.roversList m)  
@@ -1169,7 +1169,7 @@ module ViewPlanApp =
         let viewRoverProperties lifter (fpVisible:aval<bool>) (diVisible:aval<bool>) (model : AdaptiveViewPlanModel) = 
             adaptive {
                 let! guid = model.selectedViewPlan
-                let empty = div[][] |> UI.map lifter 
+                let empty = div [] [] |> UI.map lifter 
 
                 match guid with
                 | Some id -> 

@@ -41,7 +41,6 @@ module InitTraverseParams =
     }
 
 
-[<ModelType>]
 type Sol =
     {
         version        : int
@@ -131,7 +130,7 @@ type Traverse =
     {
         version     : int
         guid        : System.Guid
-        tName        : string
+        tName       : string
         sols        : List<Sol>
         selectedSol : option<int>
         showLines   : bool

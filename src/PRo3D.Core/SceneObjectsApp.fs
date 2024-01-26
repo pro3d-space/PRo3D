@@ -320,8 +320,9 @@ module SceneObjectsApp =
                                      
                         yield Incremental.div (AttributeMap.ofList [style infoc])(
                             alist {
-                                yield div[clazz "header"; style bgc][
-                                    Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
+                                yield 
+                                    div [clazz "header"; style bgc] [
+                                        Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
                                     ]            
             
                                 yield i [clazz "home icon"; onClick (fun _ -> FlyToSO soid)] []
@@ -331,7 +332,7 @@ module SceneObjectsApp =
                                     |> UI.wrapToolTip DataPosition.Bottom "Open Folder"                             
             
                                 yield Incremental.i toggleMap AList.empty 
-                                |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
+                                    |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
 
                                 yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveSO soid)] [] 
                                     |> UI.wrapToolTip DataPosition.Bottom "Remove"     
@@ -343,7 +344,7 @@ module SceneObjectsApp =
         let viewTranslationTools (model:AdaptiveSceneObjectsModel) =
             adaptive {
                 let! guid = model.selectedSceneObject
-                let empty = div[ style "font-style:italic"][ text "no scene object selected" ] |> UI.map TranslationMessage 
+                let empty = div [style "font-style:italic"] [text "no scene object selected"] |> UI.map TranslationMessage 
 
                 match guid with
                 | Some id -> 

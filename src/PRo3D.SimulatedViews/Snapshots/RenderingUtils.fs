@@ -116,7 +116,7 @@ module Rendering =
         match depthByte, String.contains "mask" filename with
         | Some depthB, false ->
             try 
-                depthB.SaveAsImage(names.depth)
+                depthB.Save(names.depth)
                 depthB.TryDispose () |> ignore
                 Log.line "[SNAPSHOT] Saved %s" names.depth
             with e ->
@@ -141,7 +141,7 @@ module Rendering =
         try
             match col with
             | Some col ->
-                col.SaveAsImage(filename) 
+                col.Save(filename) 
                 //let test = PixImageDevil.SaveAsImageDevil(depthFloat.Value, names.tifDepth, PixFileFormat.Tiff, PixSaveOptions.UseDevil, 90 )
                 col.TryDispose () |> ignore
                 Log.line "[SNAPSHOT] %s" filename

@@ -8,9 +8,11 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <WarningLevel>4</WarningLevel>
     <OutputPath>..\..\bin\Debug\</OutputPath>
+    <NoWarn>0686</NoWarn>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <OutputPath>..\..\bin\Release\</OutputPath>
+    <NoWarn>0686</NoWarn>
   </PropertyGroup>
   <ItemGroup>      
     <Compile Include="Rabbyte\Drawing\DrawingModel.fs" />      

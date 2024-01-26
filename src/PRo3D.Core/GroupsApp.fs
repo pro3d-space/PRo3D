@@ -590,7 +590,7 @@ module GroupsApp =
 
     let viewSelectionButtons =
         // Html.table [
-        div[][
+        div [] [
             div [clazz "ui buttons inverted"] [
                 
                 button [clazz "ui icon button"; attribute "data-content" "Move Selection"; onMouseClick (fun _ -> MoveLeaves)] [
@@ -626,7 +626,7 @@ module GroupsApp =
                     | Some item -> 
                         return view item |> UI.map lifter
                 | None ->
-                    return div [][] 
+                    return div [] [] 
         }
 
     let deleteLeaf (ts:TreeSelection) =

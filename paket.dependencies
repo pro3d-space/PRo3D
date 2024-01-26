@@ -73,7 +73,7 @@ group Test
     framework: net6.0, net6.0-windows
     source https://api.nuget.org/v3/index.json
 
-	nuget FSharp.Core              ~> 5.0.2 lowest_matching: true
+	nuget FSharp.Core                           ~> 6.0.2 lowest_matching: true
     nuget NUnit                    ~> 3.13.3
     nuget FsUnit                   ~> 5.0.0
     nuget FsCheck                  ~> 2.16.4
