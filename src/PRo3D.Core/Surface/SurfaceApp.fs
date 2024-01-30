@@ -769,9 +769,16 @@ module SurfaceApp =
                         | false -> None
                     )
                     |> List.choose( fun np -> np) 
-                match newPath.IsEmpty with
-                | true -> s
-                | false -> { s with importPath = newPath.Head } 
+                match newPath with
+                | [] -> 
+                    Log.line "[SurfaceApp] No correct path found in %s" (selectedPaths |> String.concat ";")
+                    s
+                | pathsHead::pathsTail -> 
+                    let names = Files.getOPCNames pathsHead   
+                    { s with importPath = pathsHead
+                             opcPaths   = names |> Files.expandNamesToPaths pathsHead
+                             
+                    } 
             )
               
         let flat' = 

@@ -556,16 +556,30 @@ module ViewerApp =
                    
             let model = { m with scene = { m.scene with surfacesModel = s}; animations = animation}
 
-            let surfaceModel = 
+            let model =
                 match msg with
                 | SurfaceAppAction.ChangeImportDirectories _ 
                 | SurfaceAppAction.ChangeOBJImportDirectories _ ->
-                    model.scene.surfacesModel 
-                    |> SceneLoader.prepareSurfaceModel runtime signature model.scene.scenePath
+                    let surfacesModel = 
+                        model.scene.surfacesModel 
+                        |> SceneLoader.prepareSurfaceModel 
+                            runtime signature model.scene.scenePath
+                    let model =
+                        Optic.set _surfacesModel surfacesModel model
+                    let sequencedBookmarks = 
+                        match m.scene.sequencedBookmarks.bookmarks.IsEmpty with
+                        | true ->
+                            m.scene.sequencedBookmarks
+                        | false ->                            
+                            SequencedBookmarksApp.withSurfaceModel 
+                                surfacesModel model.scene.sequencedBookmarks
+                    let model =
+                        Optic.set _sequencedBookmarks sequencedBookmarks model
+                    model
                 | _ -> 
-                    model.scene.surfacesModel
-
-            { model with scene = { model.scene with surfacesModel = surfaceModel} }
+                    model
+            model
+            
         | AnnotationMessage msg,_,_ ->                
             match m.drawing.annotations.singleSelectLeaf with
             | Some selected ->                             
