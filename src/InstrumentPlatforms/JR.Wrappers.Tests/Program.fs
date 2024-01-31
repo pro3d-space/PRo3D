@@ -22,32 +22,37 @@ let init () =
 
 let tests =
     testSequenced <| testList "init" [
-      test "InitDeInit" {
-        let i = init()
-        i.Dispose()
-      }
-      test "CorrectVersion" {
-        use _ = init()
-        let v = JR.CooTransformation.GetDllVersion()
-        Expect.equal v 2u "returned wrong version"
-      }
-      test "LatLonToXyz" {
-        use _ = init()
-        let init = JR.CooTransformation.AddSpiceKernel(spiceKernel)
-        Expect.equal 0 init "spice adding"
-        let mutable lat,lon,alt = 0.0,0.0,0.0
-        let result = JR.CooTransformation.Xyz2LatLonAlt("mars", 1.0, 1.0, 1.0, &lat, &lon, &alt)
-        Expect.equal 0 result "Xyz2LatLonAlt result code"
-      }
-      test "xyzToLatLon" {
+        test "InitDeInit" {
+            let i = init()
+            i.Dispose()
+        }
+        test "CorrectVersion" {
+            use _ = init()
+            let v = JR.CooTransformation.GetDllVersion()
+            Expect.equal v 2u "returned wrong version"
+        }
+
         use _ = init()
         let init = JR.CooTransformation.AddSpiceKernel(spiceKernel)
         Expect.equal 0 init "spice adding"
-        let mutable px,py,pz = 0.0,0.0,0.0
-        let result = JR.CooTransformation.LatLonAlt2Xyz("MARS", 18.447, 77.402, 0, &px, &py, &pz)
-        printfn "%A" (py, py, pz)
-        Expect.equal 0 result "LatLonAlt2Xyz result code"
-      }
+
+        test "LatLonToXyz" {
+            let mutable lat,lon,alt = 0.0,0.0,0.0
+            let result = JR.CooTransformation.Xyz2LatLonAlt("mars", 1.0, 1.0, 1.0, &lat, &lon, &alt)
+            Expect.equal 0 result "Xyz2LatLonAlt result code"
+        }
+        test "xyzToLatLon" {
+            let mutable px,py,pz = 0.0,0.0,0.0
+            let result = JR.CooTransformation.LatLonAlt2Xyz("MARS", 18.447, 77.402, 0, &px, &py, &pz)
+            printfn "%A" (py, py, pz)
+            Expect.equal 0 result "LatLonAlt2Xyz result code"
+        }
+        test "GetRelState" {
+            let mutable px,py,pz = 0.0,0.0,0.0
+            let mutable vx,vy,vz = 0.0,0.0,0.0
+            let result = JR.CooTransformation.GetRelState("MARS", "MARS", "1988 June 13, 3:29:48", "IAU_MARS", &px, &py, &pz, &vx, &vy, &vz)
+            Expect.equal result 0 "GetRelState" // returns -1
+        }
 
     ]
 

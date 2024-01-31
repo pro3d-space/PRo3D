@@ -32,5 +32,11 @@ namespace JR
 
         [DllImport(@"CooTransformation.dll")]
         public static extern int LatLonAlt2Xyz(string pcPlanet, double dLat, double dLon, double dAlt, ref double pdX, ref double pdY, ref double pdZ);
+
+        [DllImport(@"CooTransformation.dll")]
+        public static extern int GetRelState(string pcTargetBody, string pcObserverBody, string pcObserverTime, string pcOutputReferenceFrame,
+                                             ref double pdPosX, ref double pdPosY, ref double pdPosZ,
+                                             ref double pdVelX, ref double pdRelY, ref double pdVelZ);
+
     }
 }
