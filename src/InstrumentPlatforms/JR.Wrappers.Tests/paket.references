@@ -1,0 +1,13 @@
+﻿group Test
+
+Aardvark.Base
+FsCheck
+FsCheck.NUnit
+Expecto
+Expecto.FsCheck
+FSharp.Core
+FsUnit
+NUnit
+NUnit3TestAdapter
+Microsoft.NET.Test.Sdk
+YoloDev.Expecto.TestSdk

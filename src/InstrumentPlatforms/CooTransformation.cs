@@ -15,10 +15,14 @@ namespace JR
         public static extern uint GetDllVersion();
 
         [DllImport(@"CooTransformation.dll")]
-        public static extern int Init(string configDir, string logDir);
+        public static extern int Init(bool logToStdOut, string logDir);
 
         [DllImport(@"CooTransformation.dll")]
         public static extern void DeInit();
+
+
+        [DllImport(@"CooTransformation.dll")]
+        public static extern int AddSpiceKernel(string pSpiceKernelFile);
 
         [DllImport(@"CooTransformation.dll")]
         public static extern int Xyz2LatLonRad(double dX, double dY, double dZ, ref double pdLat, ref double pdLon, ref double pdRad);

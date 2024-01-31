@@ -83,6 +83,7 @@ group Test
     nuget Expecto                  ~> 9.0.4
     nuget Expecto.FsCheck          ~> 9.0.4
     nuget YoloDev.Expecto.TestSdk  ~> 0.12.20
+	nuget Aardvark.Base            ~> 5.2.13
 
     nuget BenchmarkDotNet          ~> 0.13.1
 

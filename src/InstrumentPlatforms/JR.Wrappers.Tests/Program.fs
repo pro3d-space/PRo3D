@@ -1,0 +1,57 @@
+﻿open System
+open Expecto
+open JR
+open System.IO
+
+let config = Path.GetFullPath(Path.Combine("..", "..", "..", "..", "..", "PRo3D.Base/resources"))
+let logDir = Path.Combine(".", "logs")
+let spiceKernel = Path.GetFullPath(Path.Combine(config, "pck00010.tpc"))
+
+
+let init () =
+    if not (Directory.Exists(logDir)) then 
+        Directory.CreateDirectory(logDir) |> ignore
+
+    if Directory.Exists config then printfn "config exists"
+
+    System.Environment.CurrentDirectory <- config
+
+    let r = JR.CooTransformation.Init(true, logDir)
+    if r <> 0 then failwith "init failed."
+    { new IDisposable with member x.Dispose() = JR.CooTransformation.DeInit()}
+
+let tests =
+    testSequenced <| testList "init" [
+      test "InitDeInit" {
+        let i = init()
+        i.Dispose()
+      }
+      test "CorrectVersion" {
+        use _ = init()
+        let v = JR.CooTransformation.GetDllVersion()
+        Expect.equal v 2u "returned wrong version"
+      }
+      test "LatLonToXyz" {
+        use _ = init()
+        let init = JR.CooTransformation.AddSpiceKernel(spiceKernel)
+        Expect.equal 0 init "spice adding"
+        let mutable lat,lon,alt = 0.0,0.0,0.0
+        let result = JR.CooTransformation.Xyz2LatLonAlt("mars", 1.0, 1.0, 1.0, &lat, &lon, &alt)
+        Expect.equal 0 result "Xyz2LatLonAlt result code"
+      }
+      test "xyzToLatLon" {
+        use _ = init()
+        let init = JR.CooTransformation.AddSpiceKernel(spiceKernel)
+        Expect.equal 0 init "spice adding"
+        let mutable px,py,pz = 0.0,0.0,0.0
+        let result = JR.CooTransformation.LatLonAlt2Xyz("MARS", 18.447, 77.402, 0, &px, &py, &pz)
+        printfn "%A" (py, py, pz)
+        Expect.equal 0 result "LatLonAlt2Xyz result code"
+      }
+
+    ]
+
+
+[<EntryPoint>]
+let main args =
+  runTestsWithCLIArgs [] args tests
