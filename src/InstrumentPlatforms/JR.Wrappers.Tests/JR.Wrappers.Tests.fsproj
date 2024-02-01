@@ -5,6 +5,7 @@
     <TargetFramework>net6.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Solarsystem.fs" />
     <None Include="paket.references" />
     <Compile Include="Program.fs" />
   </ItemGroup>

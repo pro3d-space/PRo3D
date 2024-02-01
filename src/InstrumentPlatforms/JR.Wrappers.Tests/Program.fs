@@ -20,7 +20,7 @@ let init () =
     if r <> 0 then failwith "init failed."
     { new IDisposable with member x.Dispose() = JR.CooTransformation.DeInit()}
 
-let tests =
+let tests () =
     testSequenced <| testList "init" [
         test "InitDeInit" {
             let i = init()
@@ -30,6 +30,14 @@ let tests =
             use _ = init()
             let v = JR.CooTransformation.GetDllVersion()
             Expect.equal v 2u "returned wrong version"
+        }
+
+        test "GetRelState" {
+            use _ = init()
+            let mutable px,py,pz = 0.0,0.0,0.0
+            let mutable vx,vy,vz = 0.0,0.0,0.0
+            let result = JR.CooTransformation.GetRelState("MARS", "MARS", "1988 June 13, 3:29:48", "IAU_MARS", &px, &py, &pz, &vx, &vy, &vz)
+            Expect.equal result 0 "GetRelState" // returns -1
         }
 
         use _ = init()
@@ -47,16 +55,11 @@ let tests =
             printfn "%A" (py, py, pz)
             Expect.equal 0 result "LatLonAlt2Xyz result code"
         }
-        test "GetRelState" {
-            let mutable px,py,pz = 0.0,0.0,0.0
-            let mutable vx,vy,vz = 0.0,0.0,0.0
-            let result = JR.CooTransformation.GetRelState("MARS", "MARS", "1988 June 13, 3:29:48", "IAU_MARS", &px, &py, &pz, &vx, &vy, &vz)
-            Expect.equal result 0 "GetRelState" // returns -1
-        }
 
     ]
 
 
 [<EntryPoint>]
 let main args =
-  runTestsWithCLIArgs [] args tests
+    //runTestsWithCLIArgs [] args (tests ())
+    Solarsytsem.run args

@@ -37,6 +37,8 @@ namespace JR
         public static extern int GetRelState(string pcTargetBody, string pcObserverBody, string pcObserverTime, string pcOutputReferenceFrame,
                                              ref double pdPosX, ref double pdPosY, ref double pdPosZ,
                                              ref double pdVelX, ref double pdRelY, ref double pdVelZ);
-
+        
+        [DllImport(@"CooTransformation.dll")]
+        public static extern int Str2Et(string timestamp, ref double rdEt);
     }
 }
