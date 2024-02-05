@@ -17,7 +17,7 @@ open PRo3D
 
 type GroupsAppAction =
     | ToggleExpand          of list<Index>
-    | SetActiveGroup        of Guid*list<Index>*string
+    | SetActiveGroup        of TreeSelection
     | AddGroup              of list<Index>
     | AddLeaves             of list<Index>*IndexList<Leaf>    
     | RemoveGroup           of list<Index>
@@ -38,9 +38,27 @@ type GroupsAppAction =
     | ClearSnapshotsGroup
     | ClearSelection
     | UpdateCam             of Guid
+    | StartDragging         of TreeSelection
+    | Drop                  of TreeSelection
     | Nop
 
 module GroupsApp =
+
+    module DragDrop =
+        let requirements = 
+            [
+             { kind = Script; name = "dragDrop"; url = "dragDrop.js" }
+            ]
+
+        let onDrop action =
+            onEvent "ondrop" ["{ data : event.dataTransfer.getData('data')}"] 
+                    (fun args -> printfn "dragged thing: %A" args; action args)
+
+        let allowDrop () =
+            attribute "ondragover" "allowDrop(event)" 
+        
+        let onDragStart data =
+            attribute "ondragstart" (sprintf "drag(event, '%s')" data)
                                         
     let getNode (path : list<Index>) (root : Node) : Node =
         let rec goDeeper (p : list<Index>) (node : Node) =
@@ -364,9 +382,7 @@ module GroupsApp =
 
     let update (model : GroupsModel) (action : GroupsAppAction) =
         match action with
-        | SetActiveGroup (g, p, s) -> 
-            let selection = { id = g; path = p; name = s}
-
+        | SetActiveGroup selection -> 
             { model with 
                 activeGroup      = selection
                 lastSelectedItem = SelectedItem.Group
@@ -542,6 +558,10 @@ module GroupsApp =
                 lastSelectedItem = SelectedItem.Group } 
         | ClearSnapshotsGroup -> 
             clearGroupAtRoot model "snapshots"
+        | StartDragging selection ->
+            {model with dragging = Some selection}
+        | Drop selection ->
+            {model with dragging = None}
         | _ -> 
             model
 
@@ -582,7 +602,9 @@ module GroupsApp =
                                    (msg : GroupsAppAction -> 'a) =
         amap {
             let! name = group.name
-            let setActive = GroupsAppAction.SetActiveGroup (group.key |> AVal.force, path, name)
+            let setActive = 
+                GroupsAppAction.SetActiveGroup 
+                    (TreeSelection.init (group.key |> AVal.force, path, name))
             let! icon = activeIcon model group
             yield clazz icon
             yield onClick (fun _ -> (msg setActive))

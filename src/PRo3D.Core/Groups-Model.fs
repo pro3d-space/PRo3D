@@ -127,10 +127,17 @@ type Node with
         }
 
 type TreeSelection = {
-    id : Guid
+    id   : Guid
     path : list<Index>
     name : string
-}
+} with 
+    static member init (id, path, name) = 
+        {
+            id   = id
+            path = path
+            name = name
+        }
+    
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Group =
@@ -185,6 +192,7 @@ type GroupsModel = {
     rootGroup            : Node
     activeGroup          : TreeSelection
     activeChild          : TreeSelection
+    dragging             : option<TreeSelection>
     flat                 : HashMap<Guid,Leaf>
     groupsLookup         : HashMap<Guid,string>
     lastSelectedItem     : SelectedItem
@@ -305,6 +313,7 @@ module GroupsModel =
                 lastSelectedItem    = SelectedItem.Child
                 selectedLeaves      = HashSet.Empty 
                 singleSelectLeaf    = None
+                dragging            = None
             }
         }
 
@@ -318,6 +327,7 @@ module GroupsModel =
         lastSelectedItem = SelectedItem.Child
         selectedLeaves   = HashSet.Empty
         singleSelectLeaf = None
+        dragging         = None
     }
 
     
