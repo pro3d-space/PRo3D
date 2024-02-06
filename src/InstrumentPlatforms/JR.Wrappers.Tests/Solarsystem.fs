@@ -30,7 +30,6 @@ module Spice =
     let getRelState (referenceFrame : string) (target : string) (observer : string) (obsTime : string)   = 
         let mutable px,py,pz = 0.0,0.0,0.0
         let mutable vx,vy,vz = 0.0,0.0,0.0
-        let mutable t = 0.0
         let r = CooTransformation.GetRelState(target, observer, obsTime, referenceFrame, &px, &py, &pz, &vx, &vy, &vz)
         if r <> 0 then failwith "[spice] GetRelState failed."
         { pos = V3d(px,py,pz); vel = V3d(vx,vy,vz) }
@@ -62,11 +61,28 @@ module Shaders =
             return v
         }
 
+type AdaptiveLine() =
+    let data = ResizeArray()
+    let arr = cval [||]
+    let mutable last = None
+
+    member x.AddPos(p : V3d) =
+        last <- Some p
+        data.Add(p)
+        arr.Value <- data.ToArray()
+        
+    member x.Positions = arr :> aval<_>
+
+    member x.Last = last
+   
+
+
+
 type BodyState = 
     {
         name : string
         pos : cval<V3d>
-        history : cval<list<V3d>>
+        history : AdaptiveLine
     }
 
 let run argv = 
@@ -81,10 +97,13 @@ let run argv =
     use _ = 
         let r = CooTransformation.Init(true, Path.Combine(".", "logs"))
         if r <> 0 then failwith "could not initialize CooTransformation lib."
-        //let v = CooTransformation.GetDllVersion()
-        //Log.line "[CooTransformation] version: %A" v
         { new IDisposable with member x.Dispose() = CooTransformation.DeInit() }
 
+
+    let spiceFileName = @"F:\pro3d\hera-kernels\kernels\mk\hera_crema_2_0_LPO_ECP_PDP.tm"
+    System.Environment.CurrentDirectory <- Path.GetDirectoryName(spiceFileName)
+    let r = CooTransformation.AddSpiceKernel(spiceFileName)
+    if r <> 0 then failwith "could not add spice kernel"
 
     let bodySources = 
         [| "sun", C4f.White;
@@ -96,44 +115,41 @@ let run argv =
            "phobos", C4f.Red;
            "deimos", C4f.Red;
            "HERA", C4f.Magenta
-           //"jupiter", C4f.White;
-           //"saturn", C4f.Brown;
-           //"uranus", C4f.LightBlue;
-           //"neptune", C4f.Blue
         |]
 
-    let spiceFileName = @"F:\pro3d\hera-kernels\kernels\mk\hera_crema_2_0_LPO_ECP_PDP.tm"
-    System.Environment.CurrentDirectory <- Path.GetDirectoryName(spiceFileName)
-    let r = CooTransformation.AddSpiceKernel(spiceFileName)
-    if r <> 0 then failwith "could not add spice kernel"
-
     let time = cval (DateTime.Parse("2025-03-10 19:08:12.60"))
-    //let time = cval DateTime.UtcNow
 
-    let observer = "MARS" // "SUN"
+    let observer = "HERA" // "SUN"
 
     let lookAtMoon = Spice.getRelState "J2000" "HERA" "MARS" (Time.toUtcFormat time.Value)
     let initialView = CameraView.lookAt V3d.Zero lookAtMoon.pos V3d.OOI
     let speed = 7900.0
     let view = initialView |> DefaultCameraController.controlExt speed win.Mouse win.Keyboard win.Time
     let distanceSunPluto = 5906380000.0
-    let proj = win.Sizes |> AVal.map (fun s -> Frustum.perspective 60.0 10000.0 distanceSunPluto (float s.X / float s.Y))
+    let frustum = win.Sizes |> AVal.map (fun s -> Frustum.perspective 60.0 10000.0 distanceSunPluto (float s.X / float s.Y))
     let aspect = win.Sizes |> AVal.map (fun s -> float s.X / float s.Y)
 
+    let projTrafo = frustum |> AVal.map Frustum.projTrafo
+    let viewProj = 
+        (view, projTrafo) ||> AVal.map2 (fun view projTrafo -> 
+            CameraView.viewTrafo view * projTrafo
+        )
 
-    let getProjPos (t : AdaptiveToken) (pos : V3d) =
-        let view = view.GetValue(t)
-        let frustum = proj.GetValue(t)
-        let vp = CameraView.viewTrafo view * Frustum.projTrafo frustum
+    let getProjPos (t : AdaptiveToken) (clip : bool) (pos : V3d) =
+        let vp = viewProj.GetValue(t)
         let ndc = vp.Forward.TransformPosProj(pos)
-        V3d ndc
+        let box = Box3d.FromPoints(V3d(-1,-1,-1),V3d(1,1,1))
+        if not clip || box.Contains(ndc) then 
+            V3d ndc |> Some
+        else
+            None
 
-    let getCurrentProjPos (pos : V3d) = 
-        getProjPos AdaptiveToken.Top pos
+    let getCurrentProjPos (clip : bool) (pos : V3d) = 
+        getProjPos AdaptiveToken.Top clip pos
 
     let bodies = 
         bodySources |> Array.map (fun (name,_) -> 
-            { name = name; pos = cval V3d.Zero; history = cval [] }
+            { name = name; pos = cval V3d.Zero; history = AdaptiveLine() }
         )
 
 
@@ -141,24 +157,25 @@ let run argv =
         bodies |> Array.iter (fun b -> 
             let time = time.GetValue()
             let rel = Spice.getRelState "J2000" b.name observer (Time.toUtcFormat time)
-            b.pos.Value <- getCurrentProjPos rel.pos
-            b.history.Value <-
-                match b.history.Value with
-                | [] -> [rel.pos]
-                | h::_ -> 
-                    if Vec.distance h b.pos.Value > 0.04 then
-                        rel.pos :: b.history.Value
-                    else
-                        b.history.Value
+            b.pos.Value <- rel.pos
+            match getCurrentProjPos false rel.pos with
+            | None -> ()
+            | Some p -> 
+                match b.history.Last with
+                | Some l -> 
+                    if Vec.distance p l > 0.005 then 
+                        b.history.AddPos rel.pos
+                | None -> 
+                    b.history.AddPos rel.pos
+
 
         )
 
     let colors = bodySources |> Array.map snd 
     let vertices = 
         AVal.custom (fun t -> 
-            bodies |> Array.map (fun b -> 
-                b.pos.GetValue(t) |> V3f
-            )
+            let vp = viewProj.GetValue(t)
+            bodies |> Array.map (fun b -> vp.Forward.TransformPosProj b.pos.Value)
         )
 
     let scale = aspect |> AVal.map (fun aspect -> Trafo3d.Scale(V3d(1.0, aspect, 1.0)))
@@ -166,7 +183,11 @@ let run argv =
     let texts = 
         let contents = 
             bodies |> Array.map (fun  b -> 
-                let p = (b.pos,scale) ||> AVal.map2 (fun p scale -> Trafo3d.Scale(0.05) * scale * Trafo3d.Translation(p))
+                let p = 
+                    (b.pos, viewProj, scale) |||> AVal.map3 (fun p vp scale -> 
+                        let ndc = vp.Forward.TransformPosProj b.pos.Value
+                        Trafo3d.Scale(0.05) * scale * Trafo3d.Translation(ndc.XYO)
+                    )
                 p, AVal.constant b.name
             )
         Sg.texts Font.Symbola C4b.White (ASet.ofArray contents)
@@ -188,15 +209,17 @@ let run argv =
 
     let lineSg = 
         let lines =
-            AVal.custom (fun t -> 
-                bodies |> Array.collect (fun b -> 
-                    let h = b.history.GetValue(t)
-                    h |> Seq.map (getProjPos t) |> Seq.pairwise |> Seq.map Line3d |> Seq.toArray
-                )
+            bodies |> Array.map (fun b -> 
+                let transformedVertices = 
+                    (b.history.Positions, viewProj) ||> AVal.map2 (fun vertices vp -> 
+                        vertices |> Array.map (fun v -> vp.Forward.TransformPosProjFull v |> V4f)
+                    )
+                Sg.draw IndexedGeometryMode.LineStrip
+                |> Sg.vertexAttribute DefaultSemantic.Positions transformedVertices
             )
-        Sg.lines (AVal.constant C4b.Gray) lines
+        Sg.ofArray lines
         |> Sg.shader { 
-            do! DefaultSurfaces.vertexColor
+            do! DefaultSurfaces.constantColor C4f.White
         }
 
     let sg =
@@ -206,7 +229,7 @@ let run argv =
     let s = 
         win.AfterRender.Add(fun _ -> 
             transact (fun _ -> 
-                time.Value <- time.Value + TimeSpan.FromDays(0.01)
+                time.Value <- time.Value + TimeSpan.FromDays(0.1)
                 animationStep()
 
             )
