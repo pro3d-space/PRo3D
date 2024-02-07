@@ -46,19 +46,35 @@ module Shaders =
             [<PointSize>] s : float
             [<Color>] c: V4d
             [<PointCoord>] tc: V2d
+            [<Semantic("Size")>] ndcSize : float
+        }
+
+
+    let private diffuseSampler =
+        sampler2d {
+            texture uniform.DiffuseColorTexture
+            filter Filter.Anisotropic
+            maxAnisotropy 16
+            addressU WrapMode.Wrap
+            addressV WrapMode.Wrap
         }
 
     let splatPoint (v : Vertex) = 
         vertex {
-            return { v with s = 4.0 }
+            return { v with s = v.ndcSize }
         }
 
     let round (v : Vertex) =
         fragment {
             let c = v.tc * 2.0 - V2d.II
+            let p = V3d(c, 1.0 - Vec.length c.XY)
+            let p = p.XZY
+            let thetha = acos (p.Z) / Math.PI
+            let phi = ((float (sign p.Y)) * acos (p.X / Vec.length p.XY)) / (Math.PI * 2.0)
+            let t = diffuseSampler.Sample(V2d(phi, thetha))
             let f = Vec.dot c c - 1.0
             if f > 0.0 then discard()
-            return v
+            return { v with c = t * Vec.dot V3d.III p }
         }
 
 type AdaptiveLine() =
@@ -82,7 +98,9 @@ type BodyState =
     {
         name : string
         pos : cval<V3d>
+        ndcSize : cval<V2d>
         history : AdaptiveLine
+        radius : float
     }
 
 let run argv = 
@@ -105,28 +123,29 @@ let run argv =
     let r = CooTransformation.AddSpiceKernel(spiceFileName)
     if r <> 0 then failwith "could not add spice kernel"
 
+
     let bodySources = 
-        [| "sun", C4f.White;
-           "mercury", C4f.Gray;
-           "venus", C4f.AliceBlue;
-           "earth", C4f.Blue;
-           "moon", C4f.Beige;
-           "mars", C4f.Red;
-           "phobos", C4f.Red;
-           "deimos", C4f.Red;
-           "HERA", C4f.Magenta
+        [| "sun", C4f.White, 1392700.0
+           "mercury", C4f.Gray, 12742.0
+           "venus", C4f.AliceBlue, 12742.0
+           "earth", C4f.Blue, 12742.0
+           "moon", C4f.Beige, 34748.0
+           "mars", C4f.Red, 6779.0
+           "phobos", C4f.Red, 22.533
+           "deimos", C4f.Red, 12.4
+           "HERA", C4f.Magenta, 12742.0
         |]
 
     let time = cval (DateTime.Parse("2025-03-10 19:08:12.60"))
 
-    let observer = "HERA" // "SUN"
+    let observer = "SUN" // "SUN"
 
-    let lookAtMoon = Spice.getRelState "J2000" "HERA" "MARS" (Time.toUtcFormat time.Value)
+    let lookAtMoon = Spice.getRelState "J2000" "EARTH" "MOON" (Time.toUtcFormat time.Value)
     let initialView = CameraView.lookAt V3d.Zero lookAtMoon.pos V3d.OOI
     let speed = 7900.0
     let view = initialView |> DefaultCameraController.controlExt speed win.Mouse win.Keyboard win.Time
     let distanceSunPluto = 5906380000.0
-    let frustum = win.Sizes |> AVal.map (fun s -> Frustum.perspective 60.0 10000.0 distanceSunPluto (float s.X / float s.Y))
+    let frustum = win.Sizes |> AVal.map (fun s -> Frustum.perspective 60.0 1000.0 distanceSunPluto (float s.X / float s.Y))
     let aspect = win.Sizes |> AVal.map (fun s -> float s.X / float s.Y)
 
     let projTrafo = frustum |> AVal.map Frustum.projTrafo
@@ -148,8 +167,8 @@ let run argv =
         getProjPos AdaptiveToken.Top clip pos
 
     let bodies = 
-        bodySources |> Array.map (fun (name,_) -> 
-            { name = name; pos = cval V3d.Zero; history = AdaptiveLine() }
+        bodySources |> Array.map (fun (name,_, diameter) -> 
+            { name = name; pos = cval V3d.Zero; history = AdaptiveLine(); ndcSize = cval V2d.OO; radius = diameter * 0.5 }
         )
 
 
@@ -158,6 +177,7 @@ let run argv =
             let time = time.GetValue()
             let rel = Spice.getRelState "J2000" b.name observer (Time.toUtcFormat time)
             b.pos.Value <- rel.pos
+
             match getCurrentProjPos false rel.pos with
             | None -> ()
             | Some p -> 
@@ -171,11 +191,23 @@ let run argv =
 
         )
 
-    let colors = bodySources |> Array.map snd 
+    let colors = bodySources |> Array.map (fun (_,c,_) -> c) 
     let vertices = 
         AVal.custom (fun t -> 
+            let w = win.Time.GetValue(t)
             let vp = viewProj.GetValue(t)
             bodies |> Array.map (fun b -> vp.Forward.TransformPosProj b.pos.Value)
+        )
+    let sizes =
+        AVal.custom (fun t -> 
+            let p = projTrafo.GetValue(t)
+            let location = view.GetValue(t)
+            let s = win.Sizes.GetValue(t) |> V3d
+            let computeSize (radius : float) (pos : V3d) =
+                let d = V3d(radius, 0.0, Vec.length (location.Location - pos))
+                let ndc = p.Forward.TransformPosProj(d)
+                abs ndc.X * s
+            bodies |> Array.map (fun b -> computeSize b.radius b.pos.Value)
         )
 
     let scale = aspect |> AVal.map (fun aspect -> Trafo3d.Scale(V3d(1.0, aspect, 1.0)))
@@ -192,10 +224,15 @@ let run argv =
             )
         Sg.texts Font.Symbola C4b.White (ASet.ofArray contents)
 
+
+
+
     let planets = 
         Sg.draw IndexedGeometryMode.PointList
+        |> Sg.fileTexture DefaultSemantic.DiffuseColorTexture  @"F:\pro3d\moon.jpg" true
         |> Sg.vertexAttribute' DefaultSemantic.Colors colors
         |> Sg.vertexAttribute  DefaultSemantic.Positions vertices
+        |> Sg.vertexAttribute "Size" sizes
         |> Sg.shader {
             do! Shaders.splatPoint
             do! Shaders.round
@@ -229,7 +266,7 @@ let run argv =
     let s = 
         win.AfterRender.Add(fun _ -> 
             transact (fun _ -> 
-                time.Value <- time.Value + TimeSpan.FromDays(0.1)
+                time.Value <- time.Value + TimeSpan.FromDays(0.01)
                 animationStep()
 
             )
