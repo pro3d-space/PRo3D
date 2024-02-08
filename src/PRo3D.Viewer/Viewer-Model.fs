@@ -32,6 +32,9 @@ open Adaptify
 
 open Aether
 open Aether.Operators
+
+
+
 //open PRo3D.Minerva
 
 #nowarn "0686"
@@ -178,6 +181,7 @@ type ViewerAction =
 | StopGeoJsonAutoExport        
 | SetPivotType                   of PickPivot
 | LoadPoseDefinitionFile         of list<string>
+| GisAppMessage                  of Gis.GisAppAction
 | SBookmarksToPoseDefinition
 | Nop
 
@@ -584,6 +588,7 @@ type Model = {
     animator             : Anewmation.Animator<Model>
 
     provenanceModel      : ProvenanceModel
+    gisApp               : PRo3D.Core.Gis.GisApp
 } 
 
 type ViewerAnimationAction =

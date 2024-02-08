@@ -420,6 +420,26 @@ module ViewerApp =
                     {fm with frustum = FrustumUtils.withAspect aspect fm.frustum})
             m
 
+    let addFlyToSurfaceAnimation (m : Model) (id : SurfaceId) =
+        let surf = m |> Optic.get _sgSurfaces |> HashMap.tryFind id
+        let surface = m.scene.surfacesModel.surfaces.flat |> HashMap.find id |> Leaf.toSurface 
+        let superTrafo = TransformationApp.fullTrafo' surface.transformation m.scene.referenceSystem //SurfaceTransformations.fullTrafo' surface m.scene.referenceSystem
+        match (surface.homePosition) with
+        | Some hp ->                        
+            let animationMessage = 
+                CameraAnimations.animateForwardAndLocation hp.Location hp.Forward hp.Up 2.0 "ForwardAndLocation2s"
+            AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
+        | None ->
+            match surf with
+            | Some s ->
+                let bb = s.globalBB.Transformed(superTrafo.Forward)
+                let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value    
+                let animationMessage = 
+                    CameraAnimations.animateForwardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
+                let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
+                a'
+            | None -> m.animations
+
     let updateViewer 
         (runtime   : IRuntime) 
         (signature : IFramebufferSignature) 
@@ -534,26 +554,8 @@ module ViewerApp =
             let animation = 
                 match msg with
                 | SurfaceAppAction.FlyToSurface id -> 
-                    let surf = m |> Optic.get _sgSurfaces |> HashMap.tryFind id
-                    let surface = m.scene.surfacesModel.surfaces.flat |> HashMap.find id |> Leaf.toSurface 
-                    let superTrafo = TransformationApp.fullTrafo' surface.transformation m.scene.referenceSystem //SurfaceTransformations.fullTrafo' surface m.scene.referenceSystem
-                    match (surface.homePosition) with
-                    | Some hp ->                        
-                        let animationMessage = 
-                            CameraAnimations.animateForwardAndLocation hp.Location hp.Forward hp.Up 2.0 "ForwardAndLocation2s"
-                        AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
-                    | None ->
-                        match surf with
-                        | Some s ->
-                            let bb = s.globalBB.Transformed(superTrafo.Forward)
-                            let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value    
-                            let animationMessage = 
-                                CameraAnimations.animateForwardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
-                            let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
-                            a'
-                        | None -> m.animations
+                    addFlyToSurfaceAnimation m id
                 | _-> m.animations
-                   
             let model = { m with scene = { m.scene with surfacesModel = s}; animations = animation}
 
             let surfaceModel = 
@@ -1599,6 +1601,19 @@ module ViewerApp =
                 m
         | WriteCameraMetadata (path, camera),_,_ ->
             m
+        | GisAppMessage msg, _ , _ ->
+            let m, gisApp = Gis.GisApp.update m.gisApp gisAppLenses m msg
+            let animations = 
+                match msg with
+                | Gis.GisAppAction.SurfacesMessage msg ->
+                    match msg with
+                    | SurfaceAppAction.FlyToSurface id ->
+                        addFlyToSurfaceAnimation m id
+                    | _ ->
+                        m.animations
+                | _ -> m.animations
+            {m with gisApp = gisApp}
+            |> Optic.set ViewerLenses._animation animations
         | unknownAction, _, _ -> 
             Log.line "[Viewer] Message not handled: %s" (string unknownAction)
             m       

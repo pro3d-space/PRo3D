@@ -171,6 +171,7 @@ module Viewer =
             animator            = Anewmation.Animator.initial animatorLens
 
             provenanceModel = ProvenanceModel.invalid
+            gisApp                = Gis.GisApp.inital
 
         } |> ProvenanceApp.emptyWithModel
 

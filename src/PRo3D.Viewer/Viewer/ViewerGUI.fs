@@ -40,6 +40,7 @@ open PRo3D.SimulatedViews
 
 open Adaptify
 open FSharp.Data.Adaptive
+open PRo3D.Core.Gis
 
 module Gui =            
     
@@ -1271,6 +1272,13 @@ module Gui =
             //        ] )
             | Some "provenance" ->
                 require (viewerDependencies) (body bodyAttributes [ProvenanceApp.view m |> UI.map ProvenanceMessage])
+            | Some "gis" ->
+                require (viewerDependencies) (
+                    body bodyAttributes 
+                         [GisApp.view m.gisApp m.scene.surfacesModel 
+                            |> UI.map GisAppMessage
+                            |> UI.map ViewerMessage]
+                )
             | None -> 
                 require (viewerDependencies) (
                     onBoot (sprintf "document.title = '%s'" Config.title) (

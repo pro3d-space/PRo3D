@@ -232,5 +232,13 @@ module ViewerLenses =
             lastStart_        = Model.scene_ >-> Scene.sequencedBookmarks_ >-> SequencedBookmarks.lastStart_
         }
 
+    let gisAppLenses : Gis.GisAppLenses<Model> =
+        {
+            surfacesModel   = _surfacesModel 
+            bookmarks       = _sequencedBookmarks
+            scenePath       = Model.scene_ >-> Scene.scenePath_
+            navigation      = Model.navigation_
+            referenceSystem = Model.scene_ >-> Scene.referenceSystem_
+        }
 
 

@@ -628,13 +628,14 @@ type TransferFunction =
 module TransferFunction =
     let empty = { tf = ColorMaps.TF.Passthrough; textureCombiner = TextureCombiner.Primary; blendFactor = 1.0 }
 
+type SurfaceId = System.Guid
 
 [<ModelType>]
 type Surface = {
     
     version         : int
 
-    guid            : System.Guid
+    guid            : SurfaceId
     
     name            : string
     importPath      : string
