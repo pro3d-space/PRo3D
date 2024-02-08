@@ -23,10 +23,31 @@ type GisBookmark =
         referenceFrame  : GisModels.ReferenceFrame
     }
 
+type GisSurface = {
+    surfaceId       : SurfaceId
+    body            : option<BodySpiceName>
+    referenceFrame  : option<FrameSpiceName>
+}
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module GisSurface =
+    let fromBody surfaceId body =
+        {
+            surfaceId = surfaceId
+            body      = body
+            referenceFrame = None
+        }
+    let fromFrame surfaceId frame =
+        {
+            surfaceId = surfaceId
+            body      = None
+            referenceFrame = frame
+        }
+
 type Entity =
-    | EntitySurface     of (SurfaceId * SpiceName)
+    | EntitySurface     of GisSurface
     | EntitySpaccecraft of Spacecraft
-    | EntityBookmark    of BookmarkId 
+    | EntityBookmark    of GisBookmark 
 
 type GisAppLenses<'viewer> = 
     {
@@ -40,16 +61,16 @@ type GisAppLenses<'viewer> =
 [<ModelType>]
 type GisApp = 
     {
-        bodies          : HashMap<SpiceName, Body>
-        referenceFrames : HashMap<SpiceName, ReferenceFrame>
-        spacecraft      : HashMap<SpiceName, Spacecraft>
+        bodies          : HashMap<BodySpiceName, Body>
+        referenceFrames : HashMap<FrameSpiceName, ReferenceFrame>
+        spacecraft      : HashMap<SpacecraftSpiceName, Spacecraft>
         entities        : HashMap<Guid, Entity>
     }
 
 type GisAppAction =
     | Observe
-    | AssignBody of SpiceName
-    | AssignReferenceFrame of SpiceName
+    | AssignBody of (SurfaceId * option<BodySpiceName>)
+    | AssignReferenceFrame of (SurfaceId * option<FrameSpiceName>) 
     | SurfacesMessage of SurfaceAppAction
 
 

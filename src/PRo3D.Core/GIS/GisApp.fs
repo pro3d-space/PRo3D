@@ -12,6 +12,45 @@ open Aether
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module GisApp = 
+
+    let assignBody (entities : HashMap<SurfaceId, Entity>) 
+                   (surfaceId : SurfaceId)
+                   (body : option<BodySpiceName>) =
+        let oldEntity = 
+            entities
+            |> HashMap.tryFind surfaceId
+        let newEntity = 
+            match oldEntity with
+            | Some oldEntity ->
+                match oldEntity with
+                | Entity.EntitySurface gisSurface ->
+                    Entity.EntitySurface {gisSurface with body = body}
+                | _ -> 
+                    Log.line "[GisApp] Expected EntitySurface but got %s" (string oldEntity)
+                    oldEntity
+            | None ->
+                Entity.EntitySurface (GisSurface.fromBody surfaceId body)
+        HashMap.add surfaceId newEntity entities
+
+    let assignFrame (entities  : HashMap<SurfaceId, Entity>) 
+                    (surfaceId : SurfaceId)
+                    (frame     : option<FrameSpiceName>) =
+        let oldEntity = 
+            entities
+            |> HashMap.tryFind surfaceId
+        let newEntity = 
+            match oldEntity with
+            | Some oldEntity ->
+                match oldEntity with
+                | Entity.EntitySurface gisSurface ->
+                    Entity.EntitySurface {gisSurface with referenceFrame = frame}
+                | _ -> 
+                    Log.line "[GisApp] Expected EntitySurface but got %s" (string oldEntity)
+                    oldEntity
+            | None ->
+                Entity.EntitySurface (GisSurface.fromFrame surfaceId frame)
+        HashMap.add surfaceId newEntity entities
+
     let update (m : GisApp) 
                (lenses : GisAppLenses<'viewer>)
                (viewer : 'viewer)
@@ -30,33 +69,19 @@ module GisApp =
             viewer, m
         | GisAppAction.Observe ->
             viewer, m
-        | GisAppAction.AssignBody body ->
-            viewer, m
-        | GisAppAction.AssignReferenceFrame frame ->
-            viewer, m
+        | GisAppAction.AssignBody (surfaceId, body) ->
+            let entities = assignBody m.entities surfaceId body
+            viewer, {m with entities = entities}
+        | GisAppAction.AssignReferenceFrame (surfaceId, frame) ->
+            let entities = assignFrame m.entities surfaceId frame
+            viewer, {m with entities = entities}
 
-    let private viewSurfaces (m : AdaptiveGisApp) (surfaces : AdaptiveGroupsModel)  =
-        let surfaceNames = 
-            surfaces.flat 
-            |> PRo3D.SurfaceUtils.toAvalSurfaces
-            |> AMap.map (fun key value -> PRo3D.SurfaceUtils.toName value)
-        let surfacesList =
-            surfaceNames
-            |> AMap.toASet
-            |> ASet.toAList
-
-
-        require GuiEx.semui (
-            Incremental.div 
-              (AttributeMap.ofList [clazz "ui celled list"]) 
-              AList.empty      
-        ) 
-
-    let viewSurfacesInGroups 
+    let private viewSurfacesInGroups 
         (path         : list<Index>) 
         (model        : AdaptiveGroupsModel) 
         (lift         : GroupsAppAction -> SurfaceAppAction) 
-        (surfaceIds   : alist<System.Guid>) : alist<DomNode<SurfaceAppAction>> =
+        (surfaceIds   : alist<System.Guid>) 
+        (m            : AdaptiveGisApp) =
         alist {
             let surfaces = 
                 surfaceIds 
@@ -67,42 +92,84 @@ module GisApp =
                 |> AList.choose(function | AdaptiveSurfaces s -> Some s | _-> None )
             
             for s in surfaces do 
-                let! c = SurfaceApp.mkColor model s
-                let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
-            
-                let! key = s.guid                                                                             
-              
                 let headerText = 
                     AVal.map (fun a -> sprintf "%s" a) s.name
-
+                let! key = s.guid
+                let currentlyAssociatedBody = 
+                    AMap.tryFind key m.entities
+                    |> AVal.map (Option.bind (fun x ->
+                        match x with
+                        | Entity.EntitySurface gisSurface -> 
+                            gisSurface.body
+                        | _ -> None
+                        ))
+                let bodySelectionGui =
+                    UI.dropDownWithEmptyText
+                        (m.bodies 
+                            |> AMap.keys
+                            |> ASet.toAList)
+                        currentlyAssociatedBody
+                        (fun x -> AssignBody (key, x))  
+                        (fun x -> x.Value)
+                        "Select Body"
+                let currentlyAssociatedRefFrame = 
+                    AMap.tryFind key m.entities
+                    |> AVal.map (Option.bind (fun x ->
+                        match x with
+                        | Entity.EntitySurface gisSurface -> 
+                            gisSurface.referenceFrame
+                        | _ -> None
+                        ))
+                let refFramesSelectionGui =
+                    UI.dropDownWithEmptyText
+                        (m.referenceFrames 
+                            |> AMap.keys
+                            |> ASet.toAList)
+                        currentlyAssociatedRefFrame
+                        (fun x -> AssignReferenceFrame (key, x))  
+                        (fun x -> x.Value)
+                        "Select Frame"
+                let! c = SurfaceApp.mkColor model s
+                let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
                 let bgc = sprintf "color: %s" (Html.ofC4b c)
-                yield div [clazz "item"; style infoc] [
-                    i [clazz "cube middle aligned icon"; style bgc] [] 
-                    div [clazz "content"; style infoc] [                     
-                        yield Incremental.div (AttributeMap.ofList [style infoc])(
-                            alist {
-                                yield div [clazz "header";] [
-                                   Incremental.span AttributeMap.empty 
+                let content = 
+                    Incremental.div (AttributeMap.ofList [style infoc]) (
+                        alist {
+                            yield div [clazz "header"] [
+                                div [] [
+                                    Incremental.span AttributeMap.empty 
                                                     ([Incremental.text headerText] |> AList.ofList)
-                                   i [clazz "home icon"; 
-                                      onClick (fun _ -> FlyToSurface key)
-                                      style "margin-left: 0.2rem"] [] 
-                                        |> UI.wrapToolTip DataPosition.Bottom "Fly to surface"   
-                                ]                                  
-                            } 
-                        )                                     
+                                    i [
+                                        clazz "home icon"; 
+                                        onClick (fun _ -> FlyToSurface key);
+                                        style "margin-left: 0.2rem;margin-right: 0.4rem"
+                                        ] [] 
+                                    |> UI.wrapToolTip DataPosition.Bottom "Fly to surface"   
+                                    |> UI.map SurfacesMessage
+                                    bodySelectionGui
+                                    refFramesSelectionGui
+                                ]
+                            ] 
+                        } 
+                    )            
+                let items = 
+                    div [clazz "item"; style infoc] [
+                        div [clazz "content"; style infoc] [                     
+                            content           
+                        ]
                     ]
-                ]
+                yield items
         }
 
     let rec viewTree path (group : AdaptiveNode) 
-                     (model : AdaptiveGroupsModel) : alist<DomNode<SurfaceAppAction>> =
+                     (surfaces : AdaptiveGroupsModel) 
+                     (m : AdaptiveGisApp) =
 
         alist {
-            let! s = model.activeGroup
+            let! s = surfaces.activeGroup
             let color = sprintf "color: %s" (Html.ofC4b C4b.White)                
-            let children = AList.collecti (fun i v -> viewTree (i::path) v model) group.subNodes    
-            let activeAttributes = GroupsApp.setActiveGroupAttributeMap path model group GroupsMessage
+            let children = AList.collecti (fun i v -> viewTree (i::path) v surfaces m) group.subNodes    
+            let activeAttributes = GroupsApp.setActiveGroupAttributeMap path surfaces group GroupsMessage
                                    
             let desc =
                 div [style color] [       
@@ -133,16 +200,18 @@ module GisApp =
 
             yield div [ clazz "item"] [
                 Incremental.i itemAttributes AList.empty
+                |> UI.map GisAppAction.SurfacesMessage
                 div [ clazz "content" ] [                         
                     div [ clazz "description noselect"] [desc]
+                    |> UI.map GisAppAction.SurfacesMessage
                     Incremental.div (AttributeMap.ofAMap childrenAttribs) (                          
                         alist { 
                             let! isExpanded = group.expanded
                             if isExpanded then yield! children
                             
                             if isExpanded then 
-                                yield! viewSurfacesInGroups 
-                                        path model lift group.leaves
+                                yield! (viewSurfacesInGroups 
+                                            path surfaces lift group.leaves m)
                         }
                     )  
                 ]
@@ -150,18 +219,21 @@ module GisApp =
                 
         }
 
-    let viewSurfacesGroupsGis (surfaces:AdaptiveGroupsModel) = 
+    let viewSurfacesGroupsGis (surfaces:AdaptiveGroupsModel)
+                              (m : AdaptiveGisApp) = 
         require GuiEx.semui (
             Incremental.div 
               (AttributeMap.ofList [clazz "ui inverted celled list"]) 
-              (viewTree [] surfaces.rootGroup surfaces)            
+              (viewTree [] surfaces.rootGroup surfaces m)            
         )    
-        |> UI.map GisAppAction.SurfacesMessage
 
     let view (m : AdaptiveGisApp) (surfaces : AdaptiveSurfaceModel) =  
         div [] [ 
             yield GuiEx.accordion "Surfaces" "Cubes" false 
-                                  [ viewSurfacesGroupsGis surfaces.surfaces]
+                                  [ viewSurfacesGroupsGis surfaces.surfaces m]
+            yield GuiEx.accordion "Bookmarks" "Cubes" false []
+            yield GuiEx.accordion "Spacecraft" "Cubes" false []
+                
         ]
 
     let inital : GisApp =

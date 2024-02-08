@@ -5,22 +5,58 @@ open Aardvark.Base
 
 module GisModels =
 
-    type SpiceName = SpiceName of string
+    type BodySpiceName = BodySpiceName of string
     with 
         member x.Value = 
-            let (SpiceName v) = x in v
-        static member FromJson(_ : SpiceName) = 
+            let (BodySpiceName v) = x in v
+        static member FromJson(_ : BodySpiceName) = 
             json {
-                let! v  = Json.read "SpiceName"
-                return (SpiceName v)
+                let! v  = Json.read "BodySpiceName"
+                return (BodySpiceName v)
             }
-        static member ToJson (x : SpiceName) =
+        static member ToJson (x : BodySpiceName) =
             json {              
-                do! Json.write "SpiceName" x.Value
+                do! Json.write "BodySpiceName" x.Value
             }
 
-    module SpiceName =
-        let value (SpiceName spiceName) =
+    module BodySpiceName =
+        let value (BodySpiceName spiceName) =
+            spiceName
+
+    type FrameSpiceName = FrameSpiceName of string
+    with 
+        member x.Value = 
+            let (FrameSpiceName v) = x in v
+        static member FromJson(_ : FrameSpiceName) = 
+            json {
+                let! v  = Json.read "FrameSpiceName"
+                return (FrameSpiceName v)
+            }
+        static member ToJson (x : FrameSpiceName) =
+            json {              
+                do! Json.write "FrameSpiceName" x.Value
+            }
+
+    module FrameSpiceName =
+        let value (FrameSpiceName spiceName) =
+            spiceName
+
+    type SpacecraftSpiceName = SpacecraftSpiceName of string
+    with 
+        member x.Value = 
+            let (SpacecraftSpiceName v) = x in v
+        static member FromJson(_ : SpacecraftSpiceName) = 
+            json {
+                let! v  = Json.read "SpacecraftSpiceName"
+                return (SpacecraftSpiceName v)
+            }
+        static member ToJson (x : SpacecraftSpiceName) =
+            json {              
+                do! Json.write "SpacecraftSpiceName" x.Value
+            }
+
+    module SpacecraftSpiceName =
+        let value (SpacecraftSpiceName spiceName) =
             spiceName
 
     /// Reference Frames "A reference frame (or simply “frame”) is specified by an
@@ -32,8 +68,8 @@ module GisModels =
             version     : int
             label       : string
             description : option<string>
-            spiceName   : SpiceName
-            body        : option<SpiceName>
+            spiceName   : FrameSpiceName
+            body        : option<BodySpiceName>
         } 
     with
         static member current = 0
@@ -72,18 +108,18 @@ module GisModels =
     type Body = {
         version      : int
         label        : string
-        spiceName    : SpiceName
+        spiceName    : BodySpiceName
         color        : C4f
         radius       : float
         geometryPath : option<string>
         textureName  : option<string>
-        defaultFrame : SpiceName
+        defaultFrame : FrameSpiceName
     } with
         static member current = 0
         static member private readV0 = 
             json {
                 let! label        = Json.read    "label"       
-                let! spiceName    = Json.read    "spiceName"   
+                let! spiceName    = Json.read    "frameSpiceName"   
                 let! color        = Json.read    "color"       
                 let! radius       = Json.read    "radius"      
                 let! geometryPath = Json.tryRead "geometryPath"
@@ -112,7 +148,7 @@ module GisModels =
             json {              
                 do! Json.write "version"      Body.current
                 do! Json.write "label"        x.label       
-                do! Json.write "spiceName"    x.spiceName   
+                do! Json.write "frameSpiceName"    x.spiceName   
                 do! Json.write "color"        (string x.color)
                 do! Json.write "radius"       x.radius      
                 do! Json.write "geometryPath" x.geometryPath
@@ -126,60 +162,60 @@ module GisModels =
             {
                 version       = Body.current
                 label         = "Mars"        
-                spiceName     = SpiceName "Mars"    
+                spiceName     = BodySpiceName "Mars"    
                 color         = C4f.Red       
                 geometryPath  = None
                 radius        = 3376200.0 //polar radius in meter
                 textureName   = None
-                defaultFrame  = SpiceName "IAU_MARS"
+                defaultFrame  = FrameSpiceName "IAU_MARS"
             }
 
         let earth =
             {
                 version       = Body.current
                 label         = "Earth"        
-                spiceName     = SpiceName "Earth"    
+                spiceName     = BodySpiceName "Earth"    
                 color         = C4f.Blue       
                 geometryPath  = None
                 radius        = 6356800.0 // polar radius in meter
                 textureName   = None
-                defaultFrame  = SpiceName "IAU_EARTH"
+                defaultFrame  = FrameSpiceName "IAU_EARTH"
             }
 
         let moon =
             {
                 version       = Body.current
                 label         = "Moon"        
-                spiceName     = SpiceName "Moon"    
+                spiceName     = BodySpiceName "Moon"    
                 color         = C4f.Silver       
                 geometryPath  = None
                 radius        = 1736000.0 //polar radius in meter
                 textureName   = None
-                defaultFrame  = SpiceName "IAU_MOON" // should maybe used different default?
+                defaultFrame  = FrameSpiceName "IAU_MOON" // should maybe used different default?
             }
 
         let didymos =
             {
                 version       = Body.current
                 label         = "Didymos"       
-                spiceName     = SpiceName "Didymos"  
+                spiceName     = BodySpiceName "Didymos"  
                 color         = C4f.Grey       
                 geometryPath  = None
                 radius        = 382.5 //mean radius +/- 2.5m
                 textureName   = None
-                defaultFrame  = SpiceName "IAU_DIDYMOS" // "DIDYMOS_FIXED" ?
+                defaultFrame  = FrameSpiceName "IAU_DIDYMOS" // "DIDYMOS_FIXED" ?
             }
 
         let dimorphos =
             {
                 version       = Body.current
                 label         = "Dimorphos"  
-                spiceName     = SpiceName "Dimorphos"  
+                spiceName     = BodySpiceName "Dimorphos"  
                 color         = C4f.Grey       
                 geometryPath  = None
                 radius        = 75.5 //mean radius +/- 2.5m
                 textureName   = None
-                defaultFrame  = SpiceName "IAU_DIMORPHOS" // DIMORPHOS_FIXED ?
+                defaultFrame  = FrameSpiceName "IAU_DIMORPHOS" // DIMORPHOS_FIXED ?
             }
         
     [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]    
@@ -191,7 +227,7 @@ module GisModels =
                 version     = ReferenceFrame.current
                 label       = "J2000"
                 description = Some "Defined with Earth's Mean Equator and Mean Equinox (MEME) at 12:00 Terrestrial Time on 1 January 2000"
-                spiceName   = SpiceName "J2000"
+                spiceName   = FrameSpiceName "J2000"
                 body        = None
             }
         let iauMars = 
@@ -199,16 +235,16 @@ module GisModels =
                 version     = ReferenceFrame.current
                 label       = "IAU_MARS"
                 description = Some "Mars body-fixed frame"
-                spiceName   = SpiceName "IAU_MARS"
-                body        = Some (SpiceName "Mars")
+                spiceName   = FrameSpiceName "IAU_MARS"
+                body        = Some (BodySpiceName "Mars")
             }
         let iauEarth = 
             {
                 version     = ReferenceFrame.current
                 label       = "IAU_EARTH"
                 description = Some "Earth body-fixed frame"
-                spiceName   = SpiceName "IAU_EARTH"
-                body        = Some (SpiceName "Earth")
+                spiceName   = FrameSpiceName "IAU_EARTH"
+                body        = Some (BodySpiceName "Earth")
             }
 
 
@@ -234,8 +270,8 @@ module GisModels =
     type Spacecraft =
         {
             label          : string
-            spiceName      : SpiceName
-            referenceFrame : SpiceName
+            spiceName      : SpacecraftSpiceName
+            referenceFrame : FrameSpiceName
         }
 
     [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]    
@@ -243,6 +279,6 @@ module GisModels =
         let heraSpacecraft =
             {
                 label = "Hera Spacecraft"
-                spiceName = SpiceName "HERA_SPACECRAFT" // ?? Need to check!
-                referenceFrame = SpiceName "HERA_SPACECRAFT" // ?? Need to check!
+                spiceName = SpacecraftSpiceName "HERA_SPACECRAFT" // ?? Need to check!
+                referenceFrame = FrameSpiceName "HERA_SPACECRAFT" // ?? Need to check!
             }
