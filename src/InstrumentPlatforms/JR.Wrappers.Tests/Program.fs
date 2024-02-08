@@ -61,5 +61,4 @@ let tests () =
 
 [<EntryPoint>]
 let main args =
-    //runTestsWithCLIArgs [] args (tests ())
-    Solarsytsem.run args
+    runTestsWithCLIArgs [] args (tests ())

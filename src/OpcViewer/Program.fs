@@ -6,12 +6,12 @@ open Aardvark.Base
 open Aardvark.GeoSpatial.Opc
 open Aardvark.Opc
 
-type Kind = Scene | Annotations
+type Kind = Scene | Annotations | Solarsystem
 
 [<EntryPoint>]
 let main argv =
     
-    let kind = Annotations
+    let kind = Solarsystem
 
     let jezero =
         { 
@@ -29,7 +29,27 @@ let main argv =
             lodDecider       =  DefaultMetrics.mars2 
         }
 
-    match  kind with
+    let mola =
+        { 
+            useCompressedTextures = true
+            preTransform     = Trafo3d.Identity
+            patchHierarchies = 
+                    Seq.delay (fun _ -> 
+                        System.IO.Directory.GetDirectories(@"K:\PRo3D Data\MOLA") 
+                    )
+            boundingBox      = Box3d.Parse("[[1042657.138109462, 3023778.035968372, -472791.711967824], [1492041.915577915, 3230435.734121298, -231.611523378]]") 
+            near             = 0.1
+            far              = 10000.0
+            speed            = 5.0
+            lodDecider       =  DefaultMetrics.mars2 
+        }
+
+
+    match kind with
+
+    | Solarsystem -> 
+        Solarsytsem.run mola
+
     | Scene ->
     
         TestViewer.run jezero
