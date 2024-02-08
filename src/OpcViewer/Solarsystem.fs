@@ -109,7 +109,7 @@ type BodyState =
         radius : float
     }
 
-let run (scene : OpcScene) = 
+let run (scenes : list<OpcScene>) = 
     Aardvark.Init()
 
     use app = new OpenGlApplication()
@@ -130,16 +130,18 @@ let run (scene : OpcScene) =
     if r <> 0 then failwith "could not add spice kernel"
 
     let hierarchies = 
-        let runner = win.Runtime.CreateLoadRunner 4 
+        let runner = win.Runtime.CreateLoadRunner 1
         let serializer = FsPickler.CreateBinarySerializer()
 
-        scene.patchHierarchies 
-        |> Seq.toList 
-        |> List.map (fun basePath -> 
-            let h = PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths basePath)
-            let t = PatchLod.toRoseTree h.tree
-            Sg.patchLod win.FramebufferSignature runner basePath scene.lodDecider false false ViewerModality.XYZ PatchLod.CoordinatesMapping.Local true t
-        ) 
+        scenes |> List.collect (fun scene -> 
+            scene.patchHierarchies 
+            |> Seq.toList 
+            |> List.map (fun basePath -> 
+                let h = PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths basePath)
+                let t = PatchLod.toRoseTree h.tree
+                Sg.patchLod win.FramebufferSignature runner basePath scene.lodDecider true true ViewerModality.XYZ PatchLod.CoordinatesMapping.Local true t
+            ) 
+        )
 
 
     let bodySources = 
@@ -151,7 +153,7 @@ let run (scene : OpcScene) =
            //"mars", C4f.Red, 6779.0
            "phobos", C4f.Red, 22.533
            "deimos", C4f.Red, 12.4
-           "HERA", C4f.Magenta, 12742.0
+           "HERA", C4f.Magenta, 0.1
         |]
 
     let time = 
@@ -175,11 +177,14 @@ let run (scene : OpcScene) =
             CameraView.viewTrafo view * projTrafo
         )
 
+    let inNdcBox =
+        let box = Box3d.FromPoints(V3d(-1,-1,-1),V3d(1,1,1))
+        fun (p : V3d) -> box.Contains p
+
     let getProjPos (t : AdaptiveToken) (clip : bool) (pos : V3d) =
         let vp = viewProj.GetValue(t)
         let ndc = vp.Forward.TransformPosProj(pos)
-        let box = Box3d.FromPoints(V3d(-1,-1,-1),V3d(1,1,1))
-        if not clip || box.Contains(ndc) then 
+        if not clip || inNdcBox ndc then 
             V3d ndc |> Some
         else
             None
@@ -239,6 +244,7 @@ let run (scene : OpcScene) =
                 let p = 
                     (b.pos, viewProj, scale) |||> AVal.map3 (fun p vp scale -> 
                         let ndc = vp.Forward.TransformPosProj b.pos.Value
+                        let scale = if inNdcBox ndc then scale else Trafo3d.Scale(0.0)
                         Trafo3d.Scale(0.05) * scale * Trafo3d.Translation(ndc.XYO)
                     )
                 p, AVal.constant b.name
@@ -288,9 +294,9 @@ let run (scene : OpcScene) =
                     Shader.stableTrafo |> toEffect
                     DefaultSurfaces.constantColor C4f.White |> toEffect
                     DefaultSurfaces.diffuseTexture |> toEffect
-                    //Shader.LoDColor |> toEffect
+                    Shader.LoDColor |> toEffect
                 ]
-        |> Sg.uniform "LodVisEnabled" (cval false)
+        |> Sg.uniform "LodVisEnabled" (cval true)
         |> Sg.scale 0.001
 
     let sg =
@@ -300,7 +306,7 @@ let run (scene : OpcScene) =
     let s = 
         win.AfterRender.Add(fun _ -> 
             transact (fun _ -> 
-                time.Value <- time.Value + TimeSpan.FromDays(0.01)
+                time.Value <- time.Value + TimeSpan.FromDays(0.001)
                 animationStep()
 
             )
