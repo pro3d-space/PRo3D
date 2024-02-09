@@ -1,7 +1,10 @@
 ﻿module Solarsytsem
 
+#nowarn "9"
+
 open System
 open System.Threading
+open FSharp.NativeInterop
 open System.IO
 open Aardvark.Base
 open Aardvark.Rendering
@@ -23,6 +26,7 @@ type RelState =
     {
         pos : V3d
         vel : V3d
+        rot : M33d
     }
 
 module Time =
@@ -34,11 +38,13 @@ module Time =
 module Spice = 
 
     let getRelState (referenceFrame : string) (target : string) (observer : string) (obsTime : string)   = 
-        let mutable px,py,pz = 0.0,0.0,0.0
-        let mutable vx,vy,vz = 0.0,0.0,0.0
-        let r = CooTransformation.GetRelState(target, observer, obsTime, referenceFrame, &px, &py, &pz, &vx, &vy, &vz)
+        let p : double[] = Array.zeroCreate 3
+        let m : double[] = Array.zeroCreate 9
+        let pdPosVec = fixed &p[0]
+        let pdRotMat = fixed &m[0]
+        let r = JR.CooTransformation.GetRelState(target, "SUN", observer, obsTime, referenceFrame, NativePtr.toNativeInt pdPosVec, NativePtr.toNativeInt pdRotMat)
         if r <> 0 then failwith "[spice] GetRelState failed."
-        { pos = V3d(px,py,pz); vel = V3d(vx,vy,vz) }
+        { pos = V3d(p[0],p[1],p[2]); vel = V3d.Zero; rot = M33d(m)}
 
 
 module Shaders =
@@ -119,9 +125,10 @@ let run (scenes : list<OpcScene>) =
     //Aardvark.UnpackNativeDependencies(typeof<CooTransformation>.Assembly)
 
     use _ = 
-        let r = CooTransformation.Init(true, Path.Combine(".", "logs"))
+        let r = CooTransformation.Init(true, Path.Combine(".", "logs", "CooTrafo.Log"), 2, 2)
         if r <> 0 then failwith "could not initialize CooTransformation lib."
         { new IDisposable with member x.Dispose() = CooTransformation.DeInit() }
+
 
 
     let spiceFileName = @"F:\pro3d\hera-kernels\kernels\mk\hera_crema_2_0_LPO_ECP_PDP.tm"
@@ -156,19 +163,18 @@ let run (scenes : list<OpcScene>) =
            "HERA", C4f.Magenta, 0.1
         |]
 
-    let time = 
-        let t = DateTime.Parse("2025-03-10 19:08:12.60")
-        cval t
+    let time = cval (DateTime.Parse("2025-03-10 19:08:12.60"))
+    let time = cval (DateTime.Parse("2025-03-11 19:08:12.60"))
 
     let observer = "MARS" // "SUN"
-    let frame = "IAU_MARS"
+    let referenceFrame = "IAU_Mars"
 
-    let lookAtMoon = Spice.getRelState frame "MARS" "deimos" (Time.toUtcFormat time.Value)
-    let initialView = CameraView.lookAt V3d.Zero lookAtMoon.pos V3d.OOI
-    let speed = 7900.0
-    let view = initialView |> DefaultCameraController.controlExt speed win.Mouse win.Keyboard win.Time
-    let distanceSunPluto = 5906380000.0
-    let frustum = win.Sizes |> AVal.map (fun s -> Frustum.perspective 60.0 10.0 distanceSunPluto (float s.X / float s.Y))
+    let targetState = Spice.getRelState referenceFrame "MARS" "HERA" (Time.toUtcFormat time.Value)
+    let initialView = CameraView.lookAt V3d.Zero targetState.pos V3d.OOI |> cval
+    let speed = 7900.0 * 1000.0
+    let view = initialView |> AVal.bind (DefaultCameraController.controlExt speed win.Mouse win.Keyboard win.Time)
+    let distanceSunPluto = 5906380000.0 * 1000.0
+    let frustum = win.Sizes |> AVal.map (fun s -> Frustum.perspective 60.0 1000.0 distanceSunPluto (float s.X / float s.Y))
     let aspect = win.Sizes |> AVal.map (fun s -> float s.X / float s.Y)
 
     let projTrafo = frustum |> AVal.map Frustum.projTrafo
@@ -184,6 +190,7 @@ let run (scenes : list<OpcScene>) =
     let getProjPos (t : AdaptiveToken) (clip : bool) (pos : V3d) =
         let vp = viewProj.GetValue(t)
         let ndc = vp.Forward.TransformPosProj(pos)
+        let box = Box3d.FromPoints(V3d(-1,-1,-1),V3d(1,1,1))
         if not clip || inNdcBox ndc then 
             V3d ndc |> Some
         else
@@ -193,15 +200,15 @@ let run (scenes : list<OpcScene>) =
         getProjPos AdaptiveToken.Top clip pos
 
     let bodies = 
-        bodySources |> Array.map (fun (name,_, diameter) -> 
-            { name = name; pos = cval V3d.Zero; history = AdaptiveLine(); ndcSize = cval V2d.OO; radius = diameter * 0.5 }
+        bodySources |> Array.map (fun (name,_, diameterKm) -> 
+            { name = name; pos = cval V3d.Zero; history = AdaptiveLine(); ndcSize = cval V2d.OO; radius = diameterKm * 1000.0 * 0.5 }
         )
 
 
     let animationStep () = 
         bodies |> Array.iter (fun b -> 
             let time = time.GetValue()
-            let rel = Spice.getRelState frame b.name observer (Time.toUtcFormat time)
+            let rel = Spice.getRelState referenceFrame b.name observer (Time.toUtcFormat time)
             b.pos.Value <- rel.pos
 
             match getCurrentProjPos false rel.pos with
@@ -294,10 +301,9 @@ let run (scenes : list<OpcScene>) =
                     Shader.stableTrafo |> toEffect
                     DefaultSurfaces.constantColor C4f.White |> toEffect
                     DefaultSurfaces.diffuseTexture |> toEffect
-                    Shader.LoDColor |> toEffect
+                    //Shader.LoDColor |> toEffect
                 ]
         |> Sg.uniform "LodVisEnabled" (cval true)
-        |> Sg.scale 0.001
 
     let sg =
         Sg.ofList [ planets; texts; info; lineSg; marsSg ] 

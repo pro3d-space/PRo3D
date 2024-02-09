@@ -38,7 +38,7 @@ module Spice =
         let pdRotMat = fixed &m[0]
         let r = JR.CooTransformation.GetRelState(target, "SUN", observer, obsTime, referenceFrame, NativePtr.toNativeInt pdPosVec, NativePtr.toNativeInt pdRotMat)
         if r <> 0 then failwith "[spice] GetRelState failed."
-        { pos = V3d(p[0],p[1],p[2]); vel = V3d.Zero; rot = M33d.Zero }
+        { pos = V3d(p[0],p[1],p[2]); vel = V3d.Zero; rot = M33d(m)}
 
 
 module Shaders =
@@ -81,7 +81,7 @@ module Shaders =
             let t = v.c //diffuseSampler.Sample(V2d(phi, thetha))
             let f = Vec.dot c c - 1.0
             if f > 0.0 then discard()
-            return { v with c = t * Vec.dot V3d.III p }
+            return { v with c = t }// * Vec.dot V3d.OOI p }
         }
 
 type AdaptiveLine() =
@@ -140,17 +140,19 @@ let run argv =
            "mars", C4f.Red, 6779.0
            "phobos", C4f.Red, 22.533
            "deimos", C4f.Red, 12.4
-           "HERA", C4f.Magenta, 12742.0
+           "HERA", C4f.Magenta, 0.01
         |]
 
     let time = cval (DateTime.Parse("2025-03-10 19:08:12.60"))
+    let time = cval (DateTime.Parse("2025-03-11 19:08:12.60"))
 
-    let observer = "SUN" // "SUN"
+    let observer = "MARS" // "SUN"
+    let referenceFrame = "ECLIPJ2000"
 
-    let lookAtMoon = Spice.getRelState "J2000" "MARS" "HERA" (Time.toUtcFormat time.Value)
-    let initialView = CameraView.lookAt V3d.Zero lookAtMoon.pos V3d.OOI
+    let targetState = Spice.getRelState referenceFrame "MARS" "HERA" (Time.toUtcFormat time.Value)
+    let initialView = CameraView.lookAt V3d.Zero targetState.pos V3d.OOI |> cval
     let speed = 7900.0 * 1000.0
-    let view = initialView |> DefaultCameraController.controlExt speed win.Mouse win.Keyboard win.Time
+    let view = initialView |> AVal.bind (DefaultCameraController.controlExt speed win.Mouse win.Keyboard win.Time)
     let distanceSunPluto = 5906380000.0 * 1000.0
     let frustum = win.Sizes |> AVal.map (fun s -> Frustum.perspective 60.0 1000.0 distanceSunPluto (float s.X / float s.Y))
     let aspect = win.Sizes |> AVal.map (fun s -> float s.X / float s.Y)
@@ -186,7 +188,7 @@ let run argv =
     let animationStep () = 
         bodies |> Array.iter (fun b -> 
             let time = time.GetValue()
-            let rel = Spice.getRelState "J2000" b.name observer (Time.toUtcFormat time)
+            let rel = Spice.getRelState referenceFrame b.name observer (Time.toUtcFormat time)
             b.pos.Value <- rel.pos
 
             match getCurrentProjPos false rel.pos with
@@ -274,9 +276,25 @@ let run argv =
         Sg.ofList [planets; texts; info; lineSg ] 
 
 
+    win.Keyboard.KeyDown(Keys.R).Values.Add(fun _ -> 
+        transact (fun _ -> 
+            let targetState = Spice.getRelState referenceFrame "MARS" "HERA" (Time.toUtcFormat time.Value)
+            let rot = targetState.rot.Transposed
+            let t = Trafo3d.FromBasis(rot.C0, rot.C1, rot.C2, V3d.Zero)
+            let lookAt = CameraView.lookAt V3d.Zero targetState.pos V3d.OOI 
+            let t2 = CameraView.viewTrafo lookAt
+            let c = CameraView.ofTrafo t.Inverse
+            let c2 = CameraView.ofTrafo t
+            initialView.Value <- c
+        )
+    )
+
     let s = 
         win.AfterRender.Add(fun _ -> 
             transact (fun _ -> 
+                //let targetState = Spice.getRelState referenceFrame "MARS" "HERA" (Time.toUtcFormat time.Value)
+                //let lookAt = CameraView.lookAt V3d.Zero targetState.pos V3d.OOI 
+                //initialView.Value <- lookAt
                 time.Value <- time.Value + TimeSpan.FromDays(0.001)
                 animationStep()
 
