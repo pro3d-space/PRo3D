@@ -282,3 +282,8 @@ module GisModels =
                 spiceName = SpacecraftSpiceName "HERA_SPACECRAFT" // ?? Need to check!
                 referenceFrame = FrameSpiceName "HERA_SPACECRAFT" // ?? Need to check!
             }
+
+
+
+
+

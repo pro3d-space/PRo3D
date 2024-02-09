@@ -12,6 +12,14 @@ open Aether
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module GisApp = 
+    type GisAppLenses<'viewer> = 
+        {
+            surfacesModel   : Lens<'viewer, SurfaceModel>
+            bookmarks       : Lens<'viewer, SequencedBookmarks.SequencedBookmarks>
+            scenePath       : Lens<'viewer, option<string>> 
+            navigation      : Lens<'viewer, NavigationModel>
+            referenceSystem : Lens<'viewer, ReferenceSystem>
+        }
 
     let assignBody (entities : HashMap<SurfaceId, Entity>) 
                    (surfaceId : SurfaceId)
@@ -66,6 +74,10 @@ module GisApp =
                     (Optic.get lenses.referenceSystem viewer)
             let viewer = 
                 Optic.set lenses.surfacesModel surfaces viewer
+            viewer, m
+        | GisAppAction.ObservationInfoMessage msg ->
+            let info = ObservationInfo.update m.defaultObservationInfo msg
+            let m = {m with defaultObservationInfo = info}
             viewer, m
         | GisAppAction.Observe ->
             viewer, m
@@ -227,11 +239,19 @@ module GisApp =
               (viewTree [] surfaces.rootGroup surfaces m)            
         )    
 
+       
+
     let view (m : AdaptiveGisApp) (surfaces : AdaptiveSurfaceModel) =  
         div [] [ 
             yield GuiEx.accordion "Surfaces" "Cubes" false 
                                   [ viewSurfacesGroupsGis surfaces.surfaces m]
-            yield GuiEx.accordion "Bookmarks" "Cubes" false []
+            yield GuiEx.accordion "Observation" "Cubes" false [
+                ObservationInfo.view m.defaultObservationInfo m.entities m.referenceFrames
+                |> UI.map ObservationInfoMessage
+            ]
+            yield GuiEx.accordion "GIS Bookmarks" "Cubes" false [
+                
+            ]
             yield GuiEx.accordion "Spacecraft" "Cubes" false []
                 
         ]
@@ -258,8 +278,9 @@ module GisApp =
             ] |> HashMap.ofList
 
         {
-            bodies = bodies
-            referenceFrames = referenceFrames
-            spacecraft = spacecraft
-            entities = HashMap.empty
+            bodies                  = bodies
+            referenceFrames         = referenceFrames
+            spacecraft              = spacecraft
+            entities                = HashMap.empty
+            defaultObservationInfo  = ObservationInfo.inital
         }

@@ -29,6 +29,39 @@ type GisSurface = {
     referenceFrame  : option<FrameSpiceName>
 }
 
+type Entity =
+    | EntitySurface     of GisSurface
+    | EntitySpaccecraft of Spacecraft
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module Entity =
+    let spiceName (entity : Entity) =
+        match entity with
+        | EntitySurface surface ->
+            match surface.body with
+            | Some body ->
+                Some body.Value
+            | None ->
+                Log.line "[GisApp-Model] Surface has no associated body!"
+                None
+        | EntitySpaccecraft spacecraft ->
+            Some spacecraft.spiceName.Value
+
+[<ModelType>]
+type ObservationInfo = {
+    target         : option<Entity>
+    observer       : option<Entity>
+    time           : Calendar
+    referenceFrame : option<ReferenceFrame>
+}
+
+type ObservationInfoAction = 
+    | CalendarMessage   of Calendar.CalendarAction
+    | SetTarget         of option<Entity>
+    | SetObserver       of option<Entity>
+    | SetTime           of DateTime
+    | SetReferenceFrame of option<ReferenceFrame>
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module GisSurface =
     let fromBody surfaceId body =
@@ -44,23 +77,11 @@ module GisSurface =
             referenceFrame = frame
         }
 
-type Entity =
-    | EntitySurface     of GisSurface
-    | EntitySpaccecraft of Spacecraft
-    | EntityBookmark    of GisBookmark 
-
-type GisAppLenses<'viewer> = 
-    {
-        surfacesModel   : Lens<'viewer, SurfaceModel>
-        bookmarks       : Lens<'viewer, SequencedBookmarks.SequencedBookmarks>
-        scenePath       : Lens<'viewer, option<string>> 
-        navigation      : Lens<'viewer, NavigationModel>
-        referenceSystem : Lens<'viewer, ReferenceSystem>
-    }
-
 [<ModelType>]
 type GisApp = 
     {
+        defaultObservationInfo : ObservationInfo
+
         bodies          : HashMap<BodySpiceName, Body>
         referenceFrames : HashMap<FrameSpiceName, ReferenceFrame>
         spacecraft      : HashMap<SpacecraftSpiceName, Spacecraft>
@@ -72,6 +93,7 @@ type GisAppAction =
     | AssignBody of (SurfaceId * option<BodySpiceName>)
     | AssignReferenceFrame of (SurfaceId * option<FrameSpiceName>) 
     | SurfacesMessage of SurfaceAppAction
+    | ObservationInfoMessage of ObservationInfoAction
 
 
     

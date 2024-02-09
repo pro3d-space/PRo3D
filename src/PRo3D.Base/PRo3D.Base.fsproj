@@ -35,7 +35,9 @@
     <Compile Include="CooTransformation.fs" />
     <Compile Include="Serialization.fs" />
     <Compile Include="PlatformIndependent.fs" />    
-    <Compile Include="Utilities.fs" />
+    <Compile Include="Utilities.fs" />    
+    <Compile Include="CalendarApp\CalendarModel.fs" />    
+    <Compile Include="CalendarApp\Calendar.fs" />
     <Compile Include="OutlineEffect.fs" />
     <Compile Include="Navigation-Model.fs" />
     <Compile Include="GisModels.fs" />

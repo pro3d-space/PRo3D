@@ -59,12 +59,14 @@
     <Compile Include="Drawing\Drawing.IO.fs" />
     <Compile Include="Drawing\PackedRendering.fs" />
     <Compile Include="Drawing\Drawing-App.fs" />
+    <Compile Include="GisApp-Model.fs" />
     <Compile Include="SequencedBookmarks\SequencedBookmarks-Model.fs" />
+    <Compile Include="SequencedBookmarks\GisBookmarks-Model.fs" />
     <Compile Include="SequencedBookmarks\BookmarkUtils.fs" />
     <Compile Include="SequencedBookmarks\BookmarkAnimations.fs" />
     <Compile Include="SequencedBookmarks\SequencedBookmarksApp.fs" />
-    <Compile Include="GIS\GisApp-Model.fs" />
-    <Compile Include="GIS\GisApp.fs" />
+    <Compile Include="Gis\ObservationInfo.fs" />
+    <Compile Include="Gis\GisApp.fs" />
     <Compile Include="SceneObjectsApp.fs" />
     <Compile Include="ScaleBarsApp.fs" />
     <Compile Include="GeologicSurfaceApp.fs" />
