@@ -41,6 +41,9 @@ namespace JR
                                              string pcOutputReferenceFrame,
                                              IntPtr pdPosVec,
                                              IntPtr pdRotMat);
-        
+
+
+        [DllImport(@"CooTransformation.dll")]
+        public static extern int GetPositionTransformationMatrix(string pcFrom, string pcTo, string pcDatetime, IntPtr pdRotMat);
     }
 }

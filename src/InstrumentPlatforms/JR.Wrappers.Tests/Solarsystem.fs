@@ -37,8 +37,10 @@ module Spice =
         let pdPosVec = fixed &p[0]
         let pdRotMat = fixed &m[0]
         let r = JR.CooTransformation.GetRelState(target, "SUN", observer, obsTime, referenceFrame, NativePtr.toNativeInt pdPosVec, NativePtr.toNativeInt pdRotMat)
-        if r <> 0 then failwith "[spice] GetRelState failed."
-        { pos = V3d(p[0],p[1],p[2]); vel = V3d.Zero; rot = M33d(m)}
+        if r <> 0 then 
+            Log.warn "[spice] GetRelState failed %s, %s, %s" target observer obsTime
+            { pos = V3d.Zero; vel = V3d.Zero; rot = M33d.Identity } //failwith "[spice] GetRelState failed."
+        else { pos = V3d(p[0],p[1],p[2]); vel = V3d.Zero; rot = M33d(m).Transposed }
 
 
 module Shaders =
@@ -140,13 +142,15 @@ let run argv =
            "mars", C4f.Red, 6779.0
            "phobos", C4f.Red, 22.533
            "deimos", C4f.Red, 12.4
-           "HERA", C4f.Magenta, 0.01
+           "HERA", C4f.Magenta, 0.00001
+           "HERA_AFC-1", C4f.White, 0.00001
         |]
 
     let time = cval (DateTime.Parse("2025-03-10 19:08:12.60"))
-    let time = cval (DateTime.Parse("2025-03-11 19:08:12.60"))
+    let time = cval (DateTime.Parse("2025-03-10 19:08:12.60"))
+    //let time = cval (DateTime.Parse("2024-12-01 19:08:12.60"))
 
-    let observer = "MARS" // "SUN"
+    let observer = "HERA_SA+Y" // "SUN"
     let referenceFrame = "ECLIPJ2000"
 
     let targetState = Spice.getRelState referenceFrame "MARS" "HERA" (Time.toUtcFormat time.Value)
@@ -208,13 +212,15 @@ let run argv =
     let vertices = 
         AVal.custom (fun t -> 
             let w = win.Time.GetValue(t)
+            time.GetValue(t) |> ignore
             let vp = viewProj.GetValue(t)
-            bodies |> Array.map (fun b -> vp.Forward.TransformPosProj b.pos.Value)
+            bodies |> Array.map (fun b -> vp.Forward.TransformPosProj (b.pos.GetValue(t)))
         )
     let sizes =
         AVal.custom (fun t -> 
             let p = projTrafo.GetValue(t)
             let location = view.GetValue(t)
+            time.GetValue(t) |> ignore
             let s = win.Sizes.GetValue(t) |> V3d
             let computeSize (radius : float) (pos : V3d) =
                 let d = V3d(radius, 0.0, Vec.length (location.Location - pos))
@@ -272,34 +278,63 @@ let run argv =
             do! DefaultSurfaces.constantColor C4f.White
         }
 
+    let spacecraftTrafo = cval (Trafo3d.Scale 0.0)
+    let coordinateCross (size : float) (modelTrafo : aval<Trafo3d>)=  
+        let lines (lines : array<Line3d*C4f>) =
+            lines |> Array.collect(fun (l,c) -> [|l.P0; l.P1|]) |> Seq.toArray
+
+        let cross = [|
+                Line3d(V3d.Zero, V3d.XAxis * size), C4f.Red
+                Line3d(V3d.Zero, V3d.YAxis * size), C4f.Green
+                Line3d(V3d.Zero, V3d.ZAxis * size), C4f.Blue
+            |] 
+
+        let vertices =
+            (modelTrafo, viewProj) ||> AVal.map2 (fun m vp -> 
+                let mvp = m * vp
+                lines cross |> Array.map (fun v -> 
+                    let p = mvp.Forward.TransformPosProjFull v 
+                    p |> V4f
+                )
+            )
+
+        Sg.draw IndexedGeometryMode.LineList
+        |> Sg.vertexAttribute DefaultSemantic.Positions vertices
+        |> Sg.vertexArray     DefaultSemantic.Colors    (cross |> Array.collect (fun (l, c) -> [| c; c|]))
+        |> Sg.shader { 
+            do! DefaultSurfaces.vertexColor
+        }
+
+    let heraCoordinateCross = 
+        coordinateCross 1000000000.0 spacecraftTrafo
+
     let sg =
-        Sg.ofList [planets; texts; info; lineSg ] 
+        Sg.ofList [planets; texts; info; lineSg; heraCoordinateCross ] 
 
 
     win.Keyboard.KeyDown(Keys.R).Values.Add(fun _ -> 
         transact (fun _ -> 
-            let targetState = Spice.getRelState referenceFrame "MARS" "HERA" (Time.toUtcFormat time.Value)
-            let rot = targetState.rot.Transposed
-            let t = Trafo3d.FromBasis(rot.C0, rot.C1, rot.C2, V3d.Zero)
-            let lookAt = CameraView.lookAt V3d.Zero targetState.pos V3d.OOI 
-            let t2 = CameraView.viewTrafo lookAt
-            let c = CameraView.ofTrafo t.Inverse
-            let c2 = CameraView.ofTrafo t
-            initialView.Value <- c
+            let targetState = Spice.getRelState referenceFrame "MARS" observer (Time.toUtcFormat time.Value)
+            let rot = targetState.rot
+            let t = Trafo3d.FromBasis(rot.C0, rot.C1, -rot.C2, V3d.Zero)
+            initialView.Value <- CameraView.ofTrafo t.Inverse
         )
     )
 
     let s = 
+        let sw = Diagnostics.Stopwatch.StartNew()
+        animationStep()
         win.AfterRender.Add(fun _ -> 
             transact (fun _ -> 
-                //let targetState = Spice.getRelState referenceFrame "MARS" "HERA" (Time.toUtcFormat time.Value)
-                //let lookAt = CameraView.lookAt V3d.Zero targetState.pos V3d.OOI 
-                //initialView.Value <- lookAt
+                let targetState = Spice.getRelState referenceFrame "MARS" observer (Time.toUtcFormat time.Value)
+                let rot = targetState.rot
+                let t = Trafo3d.FromBasis(rot.C0, rot.C1, rot.C2, V3d.Zero)
+                spacecraftTrafo.Value <- t
+
                 time.Value <- time.Value + TimeSpan.FromDays(0.001)
                 animationStep()
 
             )
-            
         )
 
     

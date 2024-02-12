@@ -45,10 +45,26 @@ let main argv =
         }
 
 
+    let jezereo =
+        { 
+            useCompressedTextures = true
+            preTransform     = Trafo3d.Identity
+            patchHierarchies = 
+                    Seq.delay (fun _ -> 
+                        System.IO.Directory.GetDirectories(@"K:\PRo3D Data\Jezero1") 
+                        |> Seq.collect System.IO.Directory.GetDirectories
+                    )
+            boundingBox      = Box3d.Parse("[[701677.203042967, 3141128.733093360, 1075935.257765322], [701942.935458576, 3141252.724183598, 1076182.681085336]]") 
+            near             = 0.1
+            far              = 10000.0
+            speed            = 5.0
+            lodDecider       =  DefaultMetrics.mars2 
+        }
+
     match kind with
 
     | Solarsystem -> 
-        Solarsytsem.run [mola;]
+        Solarsytsem.run [mola;shaler;jezereo]
 
     | Scene ->
     

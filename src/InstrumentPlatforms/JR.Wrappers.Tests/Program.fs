@@ -53,11 +53,19 @@ let tests () =
             let result = JR.CooTransformation.Xyz2LatLonAlt("mars", 1.0, 1.0, 1.0, &lat, &lon, &alt)
             Expect.equal 0 result "Xyz2LatLonAlt result code"
         }
-        test "xyzToLatLon" {
+        test "XyzToLatLon" {
             let mutable px,py,pz = 0.0,0.0,0.0
             let result = JR.CooTransformation.LatLonAlt2Xyz("MARS", 18.447, 77.402, 0, &px, &py, &pz)
             printfn "%A" (py, py, pz)
             Expect.equal 0 result "LatLonAlt2Xyz result code"
+        }
+
+        test "GetPositionTransformationMatrix" {
+            let t = "2026-12-03 08:15:00.00"
+            let m : double[] = Array.zeroCreate 9
+            let pdMat = fixed &m[0]
+            let result = JR.CooTransformation.GetPositionTransformationMatrix("IAU_EARTH", "J2000", t, NativePtr.toNativeInt pdMat)
+            Expect.equal 0 result "GetPositionTransformationMatrix_AFC"
         }
 
     ]
