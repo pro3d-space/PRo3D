@@ -7,7 +7,7 @@ open PRo3D.Base
 open PRo3D.Core
 open FSharp.Data.Adaptive
 open PRo3D.Core.Surface
-open PRo3D.Base.GisModels
+open PRo3D.Base.Gis
 open Aether
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -79,6 +79,28 @@ module GisApp =
             let info = ObservationInfo.update m.defaultObservationInfo msg
             let m = {m with defaultObservationInfo = info}
             viewer, m
+        | GisAppAction.SpacecraftMessage (id, msg) ->
+            let m = 
+                match msg with
+                | SpacecraftAction.Delete id ->
+                    let spacecraft =
+                        HashMap.remove id m.spacecraft
+                    {m with spacecraft = spacecraft}
+                | _ ->
+                    let spacecraft = 
+                        HashMap.update id (fun s -> 
+                            match s with
+                            | Some s ->
+                                Spacecraft.update s msg
+                            | None   -> Spacecraft.inital ()
+                        ) m.spacecraft
+                    {m with spacecraft = spacecraft}
+            viewer, m
+        | GisAppAction.NewSpacecraft ->
+            let newSpacecraft = Spacecraft.inital ()
+            let spacecraft = 
+                HashMap.add newSpacecraft.id newSpacecraft m.spacecraft
+            viewer, {m with spacecraft = spacecraft}
         | GisAppAction.Observe ->
             viewer, m
         | GisAppAction.AssignBody (surfaceId, body) ->
@@ -239,20 +261,59 @@ module GisApp =
               (viewTree [] surfaces.rootGroup surfaces m)            
         )    
 
-       
+    let viewSpacecraft (m : AdaptiveGisApp) =
+        let rows = 
+            m.spacecraft
+            |> AMap.toASet
+            |> ASet.map snd
+            |> AList.ofASet
+            |> AList.map (fun s -> 
+                Spacecraft.viewAsTr s m.referenceFrames
+                |> UI.map (fun msg -> GisAppAction.SpacecraftMessage (s.id, msg)))
+
+        let headers =
+            [
+                tr [] [
+                    th [] [text "Label"]
+                    th [] [text "Spice Name"]
+                    th [] [text "Reference Frame"]
+                    th [] []
+                ]
+            ] |> AList.ofList
+
+        let actions =
+            [
+                tr [] [
+                    td [attribute "colspan" "4"; style "text-align: right"] [
+                        i [clazz "green plus icon"
+                           onClick (fun _ -> GisAppAction.NewSpacecraft)
+                        ] []
+                    ]
+                ]
+            ] |> AList.ofList
+
+        Incremental.table 
+            ([clazz "ui unstackable inverted table"] |> AttributeMap.ofList)
+            (AList.append (AList.append headers rows) actions)
 
     let view (m : AdaptiveGisApp) (surfaces : AdaptiveSurfaceModel) =  
         div [] [ 
-            yield GuiEx.accordion "Surfaces" "Cubes" false 
-                                  [ viewSurfacesGroupsGis surfaces.surfaces m]
-            yield GuiEx.accordion "Observation" "Cubes" false [
+            div [clazz "ui inverted segment"] [ 
+                h5 [clazz "ui inverted horizontal divider header"
+                    style "padding-top: 1rem"] 
+                   [text "Default Observation Settings"]
                 ObservationInfo.view m.defaultObservationInfo m.entities m.referenceFrames
                 |> UI.map ObservationInfoMessage
             ]
-            yield GuiEx.accordion "GIS Bookmarks" "Cubes" false [
+            GuiEx.accordion "Surfaces" "Cubes" false 
+                                  [ viewSurfacesGroupsGis surfaces.surfaces m]
+
+            GuiEx.accordion "GIS Bookmarks" "Cubes" false [
                 
             ]
-            yield GuiEx.accordion "Spacecraft" "Cubes" false []
+            GuiEx.accordion "Spacecraft" "Cubes" false [
+                viewSpacecraft m
+            ]
                 
         ]
 
@@ -264,7 +325,6 @@ module GisApp =
                 (Body.moon.spiceName, Body.moon )
                 (Body.didymos.spiceName, Body.didymos )
                 (Body.dimorphos.spiceName, Body.dimorphos )
-
             ] |> HashMap.ofList
         let referenceFrames =
             [
@@ -273,10 +333,10 @@ module GisApp =
                 (ReferenceFrame.iauEarth.spiceName, ReferenceFrame.iauEarth)
             ] |> HashMap.ofList
         let spacecraft =
+            let heraSpacecraft = Spacecraft.heraSpacecraft ()
             [
-                (Spacecraft.heraSpacecraft.spiceName, Spacecraft.heraSpacecraft)
+                heraSpacecraft.id, heraSpacecraft
             ] |> HashMap.ofList
-
         {
             bodies                  = bodies
             referenceFrames         = referenceFrames

@@ -10,7 +10,7 @@ open PRo3D.Base
 open PRo3D.Core
 
 open PRo3D.Core.Surface
-open GisModels
+open PRo3D.Base.Gis
 open Aether
 
 [<ModelType>]
@@ -20,7 +20,7 @@ type GisBookmark =
         target          : Body
         oberserver      : Body
         observationTime : DateTime
-        referenceFrame  : GisModels.ReferenceFrame
+        referenceFrame  : ReferenceFrame
     }
 
 type GisSurface = {
@@ -84,9 +84,15 @@ type GisApp =
 
         bodies          : HashMap<BodySpiceName, Body>
         referenceFrames : HashMap<FrameSpiceName, ReferenceFrame>
-        spacecraft      : HashMap<SpacecraftSpiceName, Spacecraft>
+        spacecraft      : HashMap<SpacecraftId, Spacecraft>
         entities        : HashMap<Guid, Entity>
     }
+
+type SpacecraftAction =
+    | SetLabel of string
+    | SetSpiceName of string
+    | SetReferenceFrame of option<FrameSpiceName>
+    | Delete of SpacecraftId
 
 type GisAppAction =
     | Observe
@@ -94,6 +100,8 @@ type GisAppAction =
     | AssignReferenceFrame of (SurfaceId * option<FrameSpiceName>) 
     | SurfacesMessage of SurfaceAppAction
     | ObservationInfoMessage of ObservationInfoAction
+    | SpacecraftMessage of (SpacecraftId * SpacecraftAction)
+    | NewSpacecraft
 
 
     

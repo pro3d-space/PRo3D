@@ -72,6 +72,8 @@
     <Compile Include="QueriesRemoteApi.fs" />
     <Compile Include="RemoteApi.fs" />
     <Compile Include="Program.fs" />
+    <EmbeddedResource Include="resources\calendar.css" />
+    <EmbeddedResource Include="resources\calendar.js" />
 
     <Content Include="resources\rotationcubeXYZ\back.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

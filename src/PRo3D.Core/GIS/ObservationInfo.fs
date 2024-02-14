@@ -7,7 +7,7 @@ open PRo3D.Base
 open PRo3D.Core
 open FSharp.Data.Adaptive
 open PRo3D.Core.Surface
-open PRo3D.Base.GisModels
+open PRo3D.Base.Gis
 open Aether
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -62,7 +62,7 @@ module ObservationInfo =
                     |> ASet.toAList
                     |> AList.map snd)
                 m.referenceFrame
-                (fun x -> SetReferenceFrame x)
+                (fun x -> ObservationInfoAction.SetReferenceFrame x)
                 (fun x -> x.spiceName.Value)
                 "Select Frame"
 
@@ -70,8 +70,11 @@ module ObservationInfo =
             Html.table [                                                
                 Html.row "Observer:" [observerDropdown]
                 Html.row "Target:"   [targetDropdown]
-                //Html.row "Time:"     [Calendar.view m.time false false]
-                //    |> UI.map CalendarMessage
+                Html.row "Time:"     
+                    [
+                        Calendar.view m.time false false 
+                                      Calendar.CalendarType.DateTime
+                    ] |> UI.map CalendarMessage
                 Html.row "Reference Frame:" [frameDropdown]
             ]
         )

@@ -15,10 +15,28 @@ module Calendar =
     type Thing<'a> = { value : 'a }
     let inline thing a = { value = a }
     
+    let private requirements =  
+        [//  Fomantic-UI 2.9.3 - Calendar
+            { kind = Stylesheet; name = "calendar.css"; url = "./resources/calendar.css" }
+            { kind = Script; name = "calendar.js"; url = "./resources/calendar.js" }
+        ]
+
     type CalendarAction =
         | SetDateString of string
         | SetDate of DateTime
         | SetDateJs of list<string>
+
+    type CalendarType = 
+        | Time
+        | Date
+        | DateTime
+    
+    module CalendarType =
+        let string calendarType = 
+            match calendarType with
+            | Time     -> "time"
+            | Date     -> "date"
+            | DateTime -> "datetime"
 
     let parseDate (dateString : string) =
         let sucess, date = DateTime.TryParse dateString
@@ -54,12 +72,13 @@ module Calendar =
             | date::tail ->
                 {m with date = parseDate date}
 
-    let view (m : AdaptiveCalendar) (centre : bool) (disabled : bool) =
+    let view (m : AdaptiveCalendar) (centre : bool) (disabled : bool) 
+             (calendarType : CalendarType) =
         let bootCode = 
             String.concat ";" [
-                yield 
+                yield // could extend to deal with different date formats
                     sprintf "$('#__ID__').calendar({
-                                type:'date',
+                                type:'%s',
                                 className: {table: 'ui inverted celled center aligned unstackable table'},
                                 onChange: function(newDate){
                                                   console.log(newDate);
@@ -67,9 +86,21 @@ module Calendar =
                                                   if(!oldDate || oldDate != newDate) {
                                                     aardvark.processEvent('__ID__', 'onDateChange', newDate.toLocaleDateString());
                                                   }
-                                          }
-                            });"
-            ]
+                                          },
+                                formatter: {
+                                    cellTime: 'H:mm',
+                                    date: 'YYYY-MM-DD',
+                                    datetime: 'YYYY-MM-DD, H:mm',
+                                    dayHeader: 'MMMM YYYY',
+                                    hourHeader: 'MMMM D, YYYY',
+                                    minuteHeader: 'MMMM D, YYYY',
+                                    month: 'MMMM YYYY',
+                                    monthHeader: 'YYYY',
+                                    time: 'H:mm',
+                                    year: 'YYYY'
+                                }
+                            });" (CalendarType.string calendarType)
+            ] 
                                 
         let attributes =
             seq {
@@ -81,20 +112,22 @@ module Calendar =
 
         let divClass =
             if disabled then
-                "ui inverted disabled input left icon"
+                "ui inverted disabled input"
             else 
-                "ui inverted input left icon"
-                                   
-        require (Html.semui) (
-            onBoot bootCode (
-                div attributes [
-                    div [clazz divClass; 
-                        ] [
-                        i [clazz "inverted calendar icon"] []          
-                        input [attribute "placeholder" "Select date"] 
+                "ui inverted input"
+        
+        require requirements (
+            div [] [
+                onBoot bootCode (
+                    div attributes [
+                        div [clazz divClass; 
+                            ] [
+                            //i [clazz "inverted calendar icon"] [] // calendar icon missing          
+                            input [attribute "placeholder" "Select date"] 
+                        ]
                     ]
-                ]
-            )
+                )
+            ]
         )
         
     let init =
