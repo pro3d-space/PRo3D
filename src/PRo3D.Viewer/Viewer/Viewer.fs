@@ -1602,7 +1602,8 @@ module ViewerApp =
         | WriteCameraMetadata (path, camera),_,_ ->
             m
         | GisAppMessage msg, _ , _ ->
-            let m, gisApp = Gis.GisApp.update m.gisApp gisAppLenses m msg
+            let m, gisApp = 
+                 Gis.GisApp.update m.scene.gisApp gisLenses m msg
             let animations = 
                 match msg with
                 | Gis.GisAppAction.SurfacesMessage msg ->
@@ -1612,7 +1613,7 @@ module ViewerApp =
                     | _ ->
                         m.animations
                 | _ -> m.animations
-            {m with gisApp = gisApp}
+            (Optic.set _gisApp gisApp m)
             |> Optic.set ViewerLenses._animation animations
         | unknownAction, _, _ -> 
             Log.line "[Viewer] Message not handled: %s" (string unknownAction)

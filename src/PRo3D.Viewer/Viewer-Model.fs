@@ -224,7 +224,7 @@ type Scene = {
     geologicSurfacesModel : GeologicSurfacesModel
     sequencedBookmarks    : SequencedBookmarks
     screenshotModel       : ScreenshotModel
-
+    gisApp            : PRo3D.Core.Gis.GisApp
 }
 
 module Scene =
@@ -275,6 +275,7 @@ module Scene =
 
                     comparisonApp         = ComparisonApp.init
                     screenshotModel       = ScreenshotModel.initial
+                    gisApp                = Gis.GisApp.inital
                 }
         }
 
@@ -326,6 +327,7 @@ module Scene =
 
                     sequencedBookmarks      = SequencedBookmarks.initial
                     screenshotModel         = ScreenshotModel.initial
+                    gisApp                  = Gis.GisApp.inital
                 }
         }
 
@@ -350,6 +352,7 @@ module Scene =
 
             let! screenshotModel        = Json.tryRead "screenshotModel"
             let! traverse               = Json.tryRead "traverses"
+
 
             return 
                 {
@@ -381,6 +384,7 @@ module Scene =
                     comparisonApp           = if comparisonApp.IsSome then comparisonApp.Value else ComparisonApp.init
 
                     screenshotModel         = screenshotModel |> Option.defaultValue(ScreenshotModel.initial)
+                    gisApp                  = Gis.GisApp.inital
                 }
         }
 
@@ -438,6 +442,7 @@ module Scene =
                     comparisonApp           = if comparisonApp.IsSome then comparisonApp.Value else ComparisonApp.init
 
                     screenshotModel         = screenshotModel |> Option.defaultValue(ScreenshotModel.initial)
+                    gisApp                  = Gis.GisApp.inital
                 }
         }
 
@@ -479,6 +484,7 @@ type Scene with
             do! Json.write "traverses" x.traverses
             do! Json.write "sequencedBookmarks" x.sequencedBookmarks
             do! Json.write "screenshotModel"    x.screenshotModel
+            do! Json.write "gisApp"             x.gisApp
         }
 
 type SceneHandle = {
@@ -588,7 +594,6 @@ type Model = {
     animator             : Anewmation.Animator<Model>
 
     provenanceModel      : ProvenanceModel
-    gisApp               : PRo3D.Core.Gis.GisApp
 } 
 
 type ViewerAnimationAction =

@@ -1275,7 +1275,7 @@ module Gui =
             | Some "gis" ->
                 require (viewerDependencies) (
                     body bodyAttributes 
-                         [GisApp.view m.gisApp m.scene.surfacesModel 
+                         [GisApp.view m.scene.gisApp m.scene.surfacesModel 
                             |> UI.map GisAppMessage
                             |> UI.map ViewerMessage]
                 )

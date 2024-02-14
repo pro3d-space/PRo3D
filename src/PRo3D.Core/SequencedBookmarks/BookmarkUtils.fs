@@ -61,6 +61,7 @@ module BookmarkUtils =
                 duration            = SequencedBookmarkDefaults.initDuration 3.0
                 delay               = SequencedBookmarkDefaults.initDelay 0.0
                 basePath            = None
+                observationInfo     = None
             }
         sequencedBookmark
 

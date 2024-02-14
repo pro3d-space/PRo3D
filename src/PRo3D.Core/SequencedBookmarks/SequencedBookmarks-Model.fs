@@ -54,6 +54,7 @@ type SequencedBookmarksAction =
     | SaveSceneState
     | RestoreSceneState
     | AddSBookmark  
+    | AddGisBookmark
     | Play
     | Pause
     | Stop
@@ -369,6 +370,8 @@ type SequencedBookmarkModel = {
     ///how long an animation rests on this bookmark before proceeding to the next one
     delay               : NumericInput
     duration            : NumericInput
+
+    observationInfo     : option<Gis.ObservationInfo>
 } with 
     static member _sceneState =
         (
@@ -453,6 +456,7 @@ module SequencedBookmarkModel =
             delay               = SequencedBookmarkDefaults.initDelay 0.0
             duration            = SequencedBookmarkDefaults.initDuration 5.0
             basePath            = None
+            observationInfo     = None
         }
 
     let init' bookmark sceneState frustumParameters 
@@ -467,6 +471,7 @@ module SequencedBookmarkModel =
             delay               = SequencedBookmarkDefaults.initDelay 0.0
             duration            = SequencedBookmarkDefaults.initDuration 5.0
             basePath            = None
+            observationInfo     = None
         }
 
     let read0 = 
@@ -479,6 +484,7 @@ module SequencedBookmarkModel =
             let! delay      = Json.read "delay"
             let! duration   = Json.read "duration"
             let! metadata   = Json.tryRead "metadata"
+            let! observationInfo = Json.tryRead "observationInfo"
 
             return {
                 version                 = 0              
@@ -490,6 +496,7 @@ module SequencedBookmarkModel =
                 delay                   = SequencedBookmarkDefaults.initDelay delay                
                 duration                = SequencedBookmarkDefaults.initDuration duration             
                 basePath                = None
+                observationInfo         = observationInfo
             }
         }
 
@@ -576,7 +583,7 @@ type SequencedBookmark =
         | LoadedBookmark _ -> true
         | NotYetLoaded _   -> false
 
-module SequencedBookmark =
+module SequencedBookmark =        
     let isLoaded m =
         match m with
         | LoadedBookmark _ -> true
@@ -759,6 +766,7 @@ type BookmarkLenses<'a> = {
     selectedBookmark_   : Lens<'a, option<Guid>>
     savedTimeSteps_     : Lens<'a, list<AnimationTimeStep>>
     lastStart_          : Lens<'a, option<TimeSpan>>
+    defaultObservationInfo_ : Lens<'a, Gis.ObservationInfo>
 }
                 
 module SequencedBookmarks =

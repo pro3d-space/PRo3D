@@ -102,6 +102,7 @@ module Viewer =
                     traverses             = TraverseModel.initial
                     sequencedBookmarks    = SequencedBookmarks.initial //with outputPath = Config.besideExecuteable}
                     screenshotModel       = ScreenshotModel.initial
+                    gisApp                = Gis.GisApp.inital
                 }
 
             viewerVersion   = viewerVerson
@@ -171,8 +172,6 @@ module Viewer =
             animator            = Anewmation.Animator.initial animatorLens
 
             provenanceModel = ProvenanceModel.invalid
-            gisApp                = Gis.GisApp.inital
-
         } |> ProvenanceApp.emptyWithModel
 
 

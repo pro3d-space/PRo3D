@@ -19,6 +19,7 @@ open PRo3D.Bookmarkings
 open PRo3D.Viewer
 open Aether
 open Aether.Operators
+open PRo3D.Core.Gis
 
 module ViewerLenses =
     // surfaces
@@ -65,6 +66,9 @@ module ViewerLenses =
         
     // sequenced bookmarks
     let _sequencedBookmarks = Model.scene_ >-> Scene.sequencedBookmarks_ 
+
+    // GIS
+    let _gisApp = Model.scene_ >-> Scene.gisApp_
 
     // scene state for saving the state of the scene with sequenced bookmarks
     let _sceneState : ((Model -> SceneState) * (SceneState -> Model -> Model)) =
@@ -230,9 +234,12 @@ module ViewerLenses =
             sequencedBookmarks_ = Model.scene_ >-> Scene.sequencedBookmarks_
             savedTimeSteps_   = _savedTimeSteps
             lastStart_        = Model.scene_ >-> Scene.sequencedBookmarks_ >-> SequencedBookmarks.lastStart_
+            defaultObservationInfo_ = Model.scene_ 
+                                      >-> Scene.gisApp_
+                                      >-> GisApp.defaultObservationInfo_
         }
 
-    let gisAppLenses : Gis.GisApp.GisAppLenses<Model> =
+    let gisLenses : Gis.GisApp.GisLenses<Model> =
         {
             surfacesModel   = _surfacesModel 
             bookmarks       = _sequencedBookmarks

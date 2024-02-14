@@ -63,6 +63,17 @@ module SequencedBookmarksApp =
     let outputPath (m : SequencedBookmarks) = 
         Path.combine [m.outputPath;"batchRendering.json"]
 
+    let addBookmark (newBookmark : SequencedBookmarkModel)
+                    (m : SequencedBookmarks)  =
+        let oderList' = m.orderList@[newBookmark.key]
+        let bookmarks = 
+            m.bookmarks 
+            |> HashMap.add newBookmark.key (SequencedBookmark.LoadedBookmark newBookmark)
+        let m = {m with bookmarks = bookmarks
+                        orderList = oderList';
+                        selectedBookmark = Some newBookmark.key}
+        m
+
     let update 
         (m                : SequencedBookmarks) 
         (act              : SequencedBookmarksAction) 
@@ -84,15 +95,19 @@ module SequencedBookmarksApp =
             let state = Optic.get lenses.sceneState_ outerModel
             let newSBm = 
                 getNewSBookmark nav state  m.bookmarks.Count
-            let oderList' = m.orderList@[newSBm.key]
-            let bookmarks = 
-                m.bookmarks 
-                |> HashMap.add newSBm.key (SequencedBookmark.LoadedBookmark newSBm)
-            let m = {m with bookmarks = bookmarks
-                            orderList = oderList';
-                            selectedBookmark = Some newSBm.key}
+            let m = addBookmark newSBm m
             outerModel, m
-
+        | AddGisBookmark ->
+            let nav = Optic.get lenses.navigationModel_ outerModel
+            let state = Optic.get lenses.sceneState_ outerModel
+            let defaultInfo = 
+                Optic.get lenses.defaultObservationInfo_ outerModel
+            let newSBm = 
+                getNewSBookmark nav state  m.bookmarks.Count
+                |> Optic.set SequencedBookmarkModel.observationInfo_
+                             (Some defaultInfo)
+            let m = addBookmark newSBm m
+            outerModel, m
         | SequencedBookmarksAction.FlyToSBM id ->
             toBookmarkFromView m outerModel lenses (tryFind id)
         | RemoveSBM id -> 
@@ -340,7 +355,7 @@ module SequencedBookmarksApp =
 
 
     module UI =
-        let viewSequencedBookmarks (m : AdaptiveSequencedBookmarks) =
+        let viewSequencedBookmarks (m : AdaptiveSequencedBookmarks) = //TODO RNO refactor
             let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
             let itemAttributes =
                 amap {
@@ -382,7 +397,7 @@ module SequencedBookmarksApp =
                         
                         yield div [clazz "item"; style infoc] [
                             div [clazz "content"; style infoc] [                     
-                                yield Incremental.div (AttributeMap.ofList [style infoc])(
+                                Incremental.div (AttributeMap.ofList [style infoc])(
                                     alist {
                                         yield div [clazz "header"; style bgc] [
                                             Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
@@ -423,7 +438,7 @@ module SequencedBookmarksApp =
                 "No saved scene state"
 
         let viewBookmarkControls  (model : AdaptiveSequencedBookmarks) = 
-            div [clazz "ui vertical buttons inverted"] [
+            let addBookmarkButton =
                 button [
                     clazz "ui labeled icon button"; 
                     onMouseClick (fun _ -> AddSBookmark )
@@ -431,25 +446,51 @@ module SequencedBookmarksApp =
                 ] [ 
                     i [clazz "plus icon"] [] 
                     text "Add Bookmark"
-                ] 
-                div [clazz "ui labeled button";style "margin: 5px"] [
-                    div [
-                        clazz "ui button"
-                        onMouseClick (fun _ -> SaveSceneState )
-                    ] [ 
-                        text "Save Scene State"
-                    ]
-                    div [clazz "ui basic label"] [
-                        i [clazz "globe icon"] [] 
-                        Incremental.text (model.savedSceneState 
-                                          |> AVal.map (fun x -> stateLabel x))
-                    ]
-                    div [
-                        clazz "ui button"
-                        onMouseClick (fun _ -> RestoreSceneState )
-                    ] [ 
-                        text "Restore to Saved"
-                    ]
+                ]
+
+            let addGisBookmarkButton = 
+                button [
+                    clazz "ui labeled icon button"; 
+                    onMouseClick (fun _ -> AddGisBookmark )
+                    style "margin: 5px"
+                ] [ 
+                    i [clazz "plus icon"] [] 
+                    text "Add GIS Bookmark"
+                ]
+
+            let saveSceneStateButton = 
+                div [
+                    clazz "ui button"
+                    onMouseClick (fun _ -> SaveSceneState )
+                ] [ 
+                    text "Save Scene State"
+                ]
+            let savedSceneState =
+                div [clazz "ui basic label"] [
+                    i [clazz "globe icon"] [] 
+                    Incremental.text (model.savedSceneState 
+                                      |> AVal.map (fun x -> stateLabel x))
+                ]
+            let restoreSceneStateButton =
+                div [
+                    clazz "ui button"
+                    onMouseClick (fun _ -> RestoreSceneState )
+                ] [ 
+                    text "Restore to Saved"
+                ]
+
+            table [clazz "ui unstackable inverted table"] [
+                tr [] [
+                    td [] [addBookmarkButton]
+                    td [] [addGisBookmarkButton]
+                ]
+                tr [] [
+                    td [] [saveSceneStateButton]
+                    td [] [restoreSceneStateButton]
+                ]
+                tr [] [
+                    td [] [text "Saved SceneState: "]
+                    td [] [savedSceneState]
                 ]
             ] 
 

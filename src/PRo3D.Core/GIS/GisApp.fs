@@ -12,7 +12,7 @@ open Aether
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module GisApp = 
-    type GisAppLenses<'viewer> = 
+    type GisLenses<'viewer> = 
         {
             surfacesModel   : Lens<'viewer, SurfaceModel>
             bookmarks       : Lens<'viewer, SequencedBookmarks.SequencedBookmarks>
@@ -60,7 +60,7 @@ module GisApp =
         HashMap.add surfaceId newEntity entities
 
     let update (m : GisApp) 
-               (lenses : GisAppLenses<'viewer>)
+               (lenses : GisLenses<'viewer>)
                (viewer : 'viewer)
                (msg : GisAppAction) =
         match msg with
@@ -338,6 +338,7 @@ module GisApp =
                 heraSpacecraft.id, heraSpacecraft
             ] |> HashMap.ofList
         {
+            version                 = GisApp.current
             bodies                  = bodies
             referenceFrames         = referenceFrames
             spacecraft              = spacecraft

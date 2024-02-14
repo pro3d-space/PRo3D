@@ -245,26 +245,6 @@ module ReferenceFrame =
             body        = Some (BodySpiceName "Earth")
         }
 
-/// sugggestion for IDs
-type SampleId = SampleId of System.Guid
-with 
-    static member New () =
-        SampleId (System.Guid.NewGuid ())
-    member x.Value = 
-        let (SampleId v) = x in v
-    static member FromJson(_ : SampleId) = 
-        json {
-            let! v  = Json.read "SampleId"
-            return (SampleId v)
-        }
-    static member ToJson (x : SampleId) =
-        json {              
-            do! Json.write "SampleId" x.Value
-        }
-module SampleId =
-    let value (SampleId id) =
-        id
-
 type SpacecraftId = SpacecraftId of System.Guid
 with 
     static member New () =
