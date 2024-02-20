@@ -120,7 +120,7 @@ let generateKdTrees (degreeOfParallelism : Option<int>) (forceKdTreeRebuild : bo
 
 
         let kdTrees =
-            KdTrees.loadKdTrees' h Trafo3d.Identity true ViewerModality.XYZ serializer forceKdTreeRebuild ignoreMasterKdTree PRo3D.Core.Surface.DebugKdTreesX.loadTriangles'
+            KdTrees.loadKdTrees' h Trafo3d.Identity true ViewerModality.XYZ serializer forceKdTreeRebuild ignoreMasterKdTree PRo3D.Core.Surface.DebugKdTreesX.loadTriangles' false
 
         for (bb,kdTree) in kdTrees do
             match kdTree with
