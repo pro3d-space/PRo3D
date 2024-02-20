@@ -2,7 +2,7 @@
   "profiles": {
     "opc-tool": {
       "commandName": "Project",
-      "commandLineArgs": "--forcekdtreerebuild --generatedds --overwritedds \"I:\\OPC\\20230516_OpcJezero\\OPC_JezeroTest1m_nokdtree\\JezeroTest1m_nokdtree\""
+      "commandLineArgs": "--ignoremasterkdtree \"K:\\PRo3D Data\\SAIIL_02_01-v3-opc\\SAIIL_02_01\""
     }
   }
 }

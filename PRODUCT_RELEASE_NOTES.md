@@ -1,3 +1,6 @@
+## 4.20.2
+- opc tool now supports "ignoreMasterKdTree" option which can be used to force leaf kdtree construction
+
 ## 4.20.1
 - added readme to opc-tool
 

@@ -134,7 +134,7 @@ module Sg =
             [| 
                 for h in patchHierarchies do
                     if createKdTrees then   
-                        yield KdTrees.loadKdTrees h Trafo3d.Identity ViewerModality.XYZ Serialization.binarySerializer                    
+                        yield KdTrees.loadKdTrees h Trafo3d.Identity ViewerModality.XYZ Serialization.binarySerializer false true DebugKdTreesX.loadTriangles'              
                     else 
                         yield HashMap.empty
             |]
