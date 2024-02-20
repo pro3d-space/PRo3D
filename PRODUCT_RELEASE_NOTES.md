@@ -1,3 +1,6 @@
+## 4.21.0-prerelease1
+- added support to re-create kdtrees 
+
 ## 4.20.2
 - opc tool now supports "ignoreMasterKdTree" option which can be used to force leaf kdtree construction
 

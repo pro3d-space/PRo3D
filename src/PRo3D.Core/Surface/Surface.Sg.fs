@@ -112,6 +112,42 @@ module Sg =
             //    Log.warn "%f to %f - avgSize: %f" px (unitPxSize * lodParams.factor) p.triangleSize
         px > unitPxSize * (exp lodParams.factor)
 
+    let computeScreenSpaceArea (b : Box3d) (viewProj : Trafo3d) =
+        let viewSpacePoints =
+            b.ComputeCorners()
+                |> Array.map (fun v ->
+                    viewProj.Forward.TransformPosProj v
+                )
+
+        let poly = viewSpacePoints |> Array.map Vec.xy |> Polygon2d
+
+        let clipped = 
+            poly.ComputeConvexHullIndexPolygon().ToPolygon2d()
+    
+        let bounds = Box3d(viewSpacePoints)
+        if Box3d(-V3d.III, V3d.III).Intersects(bounds) |> not then 0.0
+        else clipped.ComputeArea()
+
+    let marsArea (preTrafo    : Trafo3d)
+        (self        : AdaptiveToken) 
+        (viewTrafo   : aval<Trafo3d>)
+        (projTrafo   : aval<Trafo3d>) 
+        (renderPatch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) 
+        (lodParams   : aval<LodParameters>)
+        (isActive    : aval<bool>) =
+        
+        let isActive = isActive.GetValue self
+        if not isActive then false
+        else
+            let m = renderPatch.trafo.GetValue self
+            let view = viewTrafo.GetValue self
+            let proj = projTrafo.GetValue self
+            let vp   = view * proj
+            let mvp = m * vp
+            let area = computeScreenSpaceArea renderPatch.info.LocalBoundingBox mvp
+                    
+            log area > log 0.8
+
     let createPlainSceneGraph (runtime : IRuntime) (signature : IFramebufferSignature) (scene : OpcScene) (createKdTrees)
         : (ISg * list<PatchHierarchy> * HashMap<Box3d, KdTrees.Level0KdTree>) =
 
@@ -134,7 +170,7 @@ module Sg =
             [| 
                 for h in patchHierarchies do
                     if createKdTrees then   
-                        yield KdTrees.loadKdTrees h Trafo3d.Identity ViewerModality.XYZ Serialization.binarySerializer false true DebugKdTreesX.loadTriangles'              
+                        yield KdTrees.loadKdTrees h Trafo3d.Identity ViewerModality.XYZ Serialization.binarySerializer false false DebugKdTreesX.loadTriangles' true              
                     else 
                         yield HashMap.empty
             |]
@@ -178,7 +214,8 @@ module Sg =
                          | _ -> AVal.constant false :> IAdaptiveValue
              ]
      
-        let lodDeciderMars = lodDeciderMars (scene.preTransform)
+        let lodDeciderMars = lodDeciderMars scene.preTransform
+        let lodDeciderMars = marsArea scene.preTransform
 
 
         let map = 
