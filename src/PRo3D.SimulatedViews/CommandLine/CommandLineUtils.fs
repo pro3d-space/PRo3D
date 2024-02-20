@@ -44,8 +44,7 @@ module CommandLineUtils =
         let list = parseArg flag args
         match list with
         | Some s ->
-            String.split delim s
-                |> Some
+            String.split (string delim) s |> Array.toList |> Some
         | None -> None
     
     /// check whether the given string is the path to an existing directory or file

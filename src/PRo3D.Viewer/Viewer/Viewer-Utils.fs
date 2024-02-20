@@ -1043,7 +1043,8 @@ module Jezero =
                     let parsedPath = 
                         x.importPath 
                         |> Path.GetFileName 
-                        |> String.split('_')
+                        |> String.split "_"
+                        |> Array.toList
                     
                     //let gridCoord = new V2i((parsedPath.[1] |> Int32.Parse), (parsedPath.[2] |> Int32.Parse))
                     //galeBounds.Contains(gridCoord)   
@@ -1082,7 +1083,7 @@ module GaleCrater =
                     let parsedPath = 
                         x.importPath 
                         |> Path.GetFileName 
-                        |> String.split('_')
+                        |> String.split "_"
                     
                     //let gridCoord = new V2i((parsedPath.[1] |> Int32.Parse), (parsedPath.[2] |> Int32.Parse))
                     //galeBounds.Contains(gridCoord)   

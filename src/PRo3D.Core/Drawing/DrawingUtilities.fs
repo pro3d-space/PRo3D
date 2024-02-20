@@ -40,8 +40,8 @@ module DrawingUtilities =
                     s.ReadToEnd().Split(System.Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
                     |> List.ofArray
                     |> List.map(fun x -> 
-                        let line = x |> String.split '='
-                        (line.[0], (line.[1] |> String.split ';'))
+                        let line = x |> String.split "="
+                        (line.[0], (line.[1] |> String.split ";"))
                     )
 
                 [

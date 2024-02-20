@@ -34,6 +34,7 @@ nuget Aardvark.GPGPU                        ~> 5.4.0
 nuget Aardvark.Geometry.Intersection        ~> 5.2.25
 nuget Aardvark.Geometry.PointTree           ~> 5.2.25
 nuget Aardvark.Geometry.PolyMesh            ~> 5.2.25
+nuget Aardvark.Geometry.Clustering          ~> 5.2.25
 
 nuget Aardvark.Service                      ~> 5.4.0
 nuget Aardvark.UI                           ~> 5.4.0
@@ -49,7 +50,7 @@ nuget Aardvark.GeoSpatial.Opc               ~> 5.10.8
 
 nuget Aardium                               ~> 2.0.10-prerelease0007
 
-nuget OPCViewer.Base                        ~> 1.3.0
+nuget OPCViewer.Base                        ~> 1.4.1
 
 nuget Uncodium.Eigensystems                 ~> 1.1.2
 nuget Chiron                                ~> 6.3.1
