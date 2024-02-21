@@ -41,7 +41,6 @@
     <Compile Include="OutlineEffect.fs" />
     <Compile Include="Navigation-Model.fs" />
     <Compile Include="GisModels.fs" />
-    <Compile Include="Spacecraft-Model.fs" />
     <Compile Include="FalseColors\FalseColors-Model.fs" />
     <Compile Include="FalseColors\FalseColorLegendApp.fs" />
     <Compile Include="Annotation\RegressionInfo.fs" />

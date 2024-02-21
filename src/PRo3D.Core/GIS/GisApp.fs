@@ -6,6 +6,7 @@ open Aardvark.UI
 open PRo3D.Base
 open PRo3D.Core
 open FSharp.Data.Adaptive
+open Adaptify.FSharp.Core
 open PRo3D.Core.Surface
 open PRo3D.Base.Gis
 open Aether
@@ -21,43 +22,33 @@ module GisApp =
             referenceSystem : Lens<'viewer, ReferenceSystem>
         }
 
-    let assignBody (entities : HashMap<SurfaceId, Entity>) 
-                   (surfaceId : SurfaceId)
-                   (body : option<BodySpiceName>) =
-        let oldEntity = 
-            entities
+    let assignBody (gisSurfaces : HashMap<SurfaceId, GisSurface>) 
+                   (surfaceId   : SurfaceId)
+                   (entity      : option<EntitySpiceName>) =
+        let oldSurface = 
+            gisSurfaces
             |> HashMap.tryFind surfaceId
-        let newEntity = 
-            match oldEntity with
-            | Some oldEntity ->
-                match oldEntity with
-                | Entity.EntitySurface gisSurface ->
-                    Entity.EntitySurface {gisSurface with body = body}
-                | _ -> 
-                    Log.line "[GisApp] Expected EntitySurface but got %s" (string oldEntity)
-                    oldEntity
+        let newSurface = 
+            match oldSurface with
+            | Some oldSurface ->
+                {oldSurface with entity = entity}
             | None ->
-                Entity.EntitySurface (GisSurface.fromBody surfaceId body)
-        HashMap.add surfaceId newEntity entities
+               GisSurface.fromBody surfaceId entity
+        HashMap.add surfaceId newSurface gisSurfaces
 
-    let assignFrame (entities  : HashMap<SurfaceId, Entity>) 
+    let assignFrame (gisSurfaces : HashMap<SurfaceId, GisSurface>)
                     (surfaceId : SurfaceId)
                     (frame     : option<FrameSpiceName>) =
-        let oldEntity = 
-            entities
+        let oldSurface = 
+            gisSurfaces
             |> HashMap.tryFind surfaceId
-        let newEntity = 
-            match oldEntity with
-            | Some oldEntity ->
-                match oldEntity with
-                | Entity.EntitySurface gisSurface ->
-                    Entity.EntitySurface {gisSurface with referenceFrame = frame}
-                | _ -> 
-                    Log.line "[GisApp] Expected EntitySurface but got %s" (string oldEntity)
-                    oldEntity
+        let newSurface = 
+            match oldSurface with
+            | Some oldSurface ->
+                {oldSurface with referenceFrame = frame}
             | None ->
-                Entity.EntitySurface (GisSurface.fromFrame surfaceId frame)
-        HashMap.add surfaceId newEntity entities
+               GisSurface.fromFrame surfaceId frame
+        HashMap.add surfaceId newSurface gisSurfaces
 
     let update (m : GisApp) 
                (lenses : GisLenses<'viewer>)
@@ -79,36 +70,71 @@ module GisApp =
             let info = ObservationInfo.update m.defaultObservationInfo msg
             let m = {m with defaultObservationInfo = info}
             viewer, m
-        | GisAppAction.SpacecraftMessage (id, msg) ->
+        | GisAppAction.EntityMessage (id, msg) ->
             let m = 
                 match msg with
-                | SpacecraftAction.Delete id ->
-                    let spacecraft =
-                        HashMap.remove id m.spacecraft
-                    {m with spacecraft = spacecraft}
+                | EntityAction.Delete id ->
+                    let entities =
+                        HashMap.remove id m.entities
+                    {m with entities = entities}
+                | EntityAction.Cancel ->
+                    {m with newEntity = None}
+                | EntityAction.Save ->
+                    match m.newEntity with
+                    | Some newEntity ->
+                        let newEntity = Entity.update newEntity EntityAction.Save 
+                        let entities = 
+                            HashMap.add newEntity.spiceName newEntity m.entities
+                        {m with entities  = entities
+                                newEntity = None}
+                    | None -> m
                 | _ ->
-                    let spacecraft = 
-                        HashMap.update id (fun s -> 
-                            match s with
-                            | Some s ->
-                                Spacecraft.update s msg
-                            | None   -> Spacecraft.inital ()
-                        ) m.spacecraft
-                    {m with spacecraft = spacecraft}
+                    match m.newEntity with
+                    | Some newEntity when newEntity.spiceName = id ->
+                        let newEntity = Entity.update newEntity msg
+                        {m with newEntity = Some newEntity}
+                    | _ ->
+                        let entities = 
+                            HashMap.update id (fun s -> 
+                                match s with
+                                | Some s ->
+                                    Entity.update s msg
+                                | None   -> Entity.inital ()
+                            ) m.entities
+
+                        {m with entities = entities}
             viewer, m
-        | GisAppAction.NewSpacecraft ->
-            let newSpacecraft = Spacecraft.inital ()
-            let spacecraft = 
-                HashMap.add newSpacecraft.id newSpacecraft m.spacecraft
-            viewer, {m with spacecraft = spacecraft}
+        | GisAppAction.NewEntity ->
+            let newEntity = Entity.inital ()
+            viewer, {m with newEntity = Some newEntity}
         | GisAppAction.Observe ->
             viewer, m
-        | GisAppAction.AssignBody (surfaceId, body) ->
-            let entities = assignBody m.entities surfaceId body
-            viewer, {m with entities = entities}
+        | GisAppAction.AssignBody (surfaceId, spiceName) ->
+            let gisSurfaces = assignBody m.gisSurfaces surfaceId spiceName
+            viewer, {m with gisSurfaces = gisSurfaces}
         | GisAppAction.AssignReferenceFrame (surfaceId, frame) ->
-            let entities = assignFrame m.entities surfaceId frame
-            viewer, {m with entities = entities}
+            let gisSurfaces = assignFrame m.gisSurfaces surfaceId frame
+            viewer, {m with gisSurfaces = gisSurfaces}
+
+    let private currentlyAssociatedEntity
+        (surface : SurfaceId) 
+        (gisSurfaces : amap<SurfaceId, GisSurface>) 
+        (bodies      : amap<EntitySpiceName, AdaptiveEntity>) =
+        adaptive {
+            let! surf =  AMap.tryFind surface gisSurfaces
+            let spiceName = Option.bind (fun (s : GisSurface) -> s.entity) surf
+            return spiceName
+        }
+
+    let private currentlyAssociatedFrame 
+        (surface : SurfaceId) 
+        (gisSurfaces : amap<SurfaceId, GisSurface>) 
+        (frames      : amap<FrameSpiceName, ReferenceFrame>) =
+        adaptive {
+            let! surf =  AMap.tryFind surface gisSurfaces
+            let spiceName = Option.bind (fun (s : GisSurface) -> s.referenceFrame) surf
+            return spiceName
+        }
 
     let private viewSurfacesInGroups 
         (path         : list<Index>) 
@@ -129,37 +155,29 @@ module GisApp =
                 let headerText = 
                     AVal.map (fun a -> sprintf "%s" a) s.name
                 let! key = s.guid
-                let currentlyAssociatedBody = 
-                    AMap.tryFind key m.entities
-                    |> AVal.map (Option.bind (fun x ->
-                        match x with
-                        | Entity.EntitySurface gisSurface -> 
-                            gisSurface.body
-                        | _ -> None
-                        ))
-                let bodySelectionGui =
+
+                let entity = 
+                    currentlyAssociatedEntity key m.gisSurfaces m.entities
+                    
+                let entitySelectionGui =
                     UI.dropDownWithEmptyText
-                        (m.bodies 
-                            |> AMap.keys
-                            |> ASet.toAList)
-                        currentlyAssociatedBody
+                        (m.entities 
+                            |> AMap.toASet
+                            |> ASet.toAList
+                            |> AList.map fst)
+                        entity 
                         (fun x -> AssignBody (key, x))  
                         (fun x -> x.Value)
-                        "Select Body"
-                let currentlyAssociatedRefFrame = 
-                    AMap.tryFind key m.entities
-                    |> AVal.map (Option.bind (fun x ->
-                        match x with
-                        | Entity.EntitySurface gisSurface -> 
-                            gisSurface.referenceFrame
-                        | _ -> None
-                        ))
+                        "Select Entity"
+                let frame = 
+                    currentlyAssociatedFrame key m.gisSurfaces m.referenceFrames
                 let refFramesSelectionGui =
                     UI.dropDownWithEmptyText
                         (m.referenceFrames 
-                            |> AMap.keys
-                            |> ASet.toAList)
-                        currentlyAssociatedRefFrame
+                            |> AMap.toASet
+                            |> ASet.toAList
+                            |> AList.map fst)
+                        frame
                         (fun x -> AssignReferenceFrame (key, x))  
                         (fun x -> x.Value)
                         "Select Frame"
@@ -167,25 +185,22 @@ module GisApp =
                 let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
                 let bgc = sprintf "color: %s" (Html.ofC4b c)
                 let content = 
-                    Incremental.div (AttributeMap.ofList [style infoc]) (
-                        alist {
-                            yield div [clazz "header"] [
-                                div [] [
-                                    Incremental.span AttributeMap.empty 
-                                                    ([Incremental.text headerText] |> AList.ofList)
-                                    i [
-                                        clazz "home icon"; 
-                                        onClick (fun _ -> FlyToSurface key);
-                                        style "margin-left: 0.2rem;margin-right: 0.4rem"
-                                        ] [] 
-                                    |> UI.wrapToolTip DataPosition.Bottom "Fly to surface"   
-                                    |> UI.map SurfacesMessage
-                                    bodySelectionGui
-                                    refFramesSelectionGui
-                                ]
-                            ] 
-                        } 
-                    )            
+                    div [style infoc] [
+                        div [clazz "header"] [
+                            span [] [Incremental.text headerText]
+                            i [
+                                clazz "home icon"; 
+                                onClick (fun _ -> FlyToSurface key);
+                                style "margin-left: 0.2rem;margin-right: 0.4rem"
+                                ] [] 
+                            |> UI.wrapToolTip DataPosition.Bottom "Fly to surface"   
+                            |> UI.map SurfacesMessage
+                            entitySelectionGui
+                            refFramesSelectionGui
+                        ]
+                    ]
+                        
+                               
                 let items = 
                     div [clazz "item"; style infoc] [
                         div [clazz "content"; style infoc] [                     
@@ -261,15 +276,28 @@ module GisApp =
               (viewTree [] surfaces.rootGroup surfaces m)            
         )    
 
-    let viewSpacecraft (m : AdaptiveGisApp) =
-        let rows = 
-            m.spacecraft
+    let viewEntity (m : AdaptiveGisApp) =
+        let mapper msg s =
+            GisAppAction.EntityMessage (s, msg)
+        let newEntityRow =
+            alist {
+                let! newEntity = m.newEntity
+                match newEntity with
+                | AdaptiveSome newEntity ->
+                    yield (Entity.viewAsTr newEntity m.referenceFrames mapper)
+                | AdaptiveNone ->
+                    ()
+            }
+        let entityRows = 
+            m.entities
             |> AMap.toASet
             |> ASet.map snd
             |> AList.ofASet
             |> AList.map (fun s -> 
-                Spacecraft.viewAsTr s m.referenceFrames
-                |> UI.map (fun msg -> GisAppAction.SpacecraftMessage (s.id, msg)))
+                Entity.viewAsTr s m.referenceFrames mapper)
+        
+        let rows = 
+            AList.append entityRows newEntityRow
 
         let headers =
             [
@@ -286,7 +314,7 @@ module GisApp =
                 tr [] [
                     td [attribute "colspan" "4"; style "text-align: right"] [
                         i [clazz "green plus icon"
-                           onClick (fun _ -> GisAppAction.NewSpacecraft)
+                           onClick (fun _ -> GisAppAction.NewEntity)
                         ] []
                     ]
                 ]
@@ -302,7 +330,8 @@ module GisApp =
                 h5 [clazz "ui inverted horizontal divider header"
                     style "padding-top: 1rem"] 
                    [text "Default Observation Settings"]
-                ObservationInfo.view m.defaultObservationInfo m.entities m.referenceFrames
+                ObservationInfo.view m.defaultObservationInfo 
+                                     m.entities m.referenceFrames
                 |> UI.map ObservationInfoMessage
             ]
             GuiEx.accordion "Surfaces" "Cubes" false 
@@ -311,20 +340,20 @@ module GisApp =
             GuiEx.accordion "GIS Bookmarks" "Cubes" false [
                 
             ]
-            GuiEx.accordion "Spacecraft" "Cubes" false [
-                viewSpacecraft m
+            GuiEx.accordion "Entity" "Cubes" false [
+                viewEntity m
             ]
-                
         ]
 
     let inital : GisApp =
-        let bodies =
+        let entities =
             [
-                (Body.earth.spiceName, Body.earth )
-                (Body.mars.spiceName, Body.mars )
-                (Body.moon.spiceName, Body.moon )
-                (Body.didymos.spiceName, Body.didymos )
-                (Body.dimorphos.spiceName, Body.dimorphos )
+                (Entity.earth.spiceName,     Entity.earth )
+                (Entity.mars.spiceName,      Entity.mars )
+                (Entity.moon.spiceName,      Entity.moon )
+                (Entity.didymos.spiceName,   Entity.didymos )
+                (Entity.dimorphos.spiceName, Entity.dimorphos )
+                (Entity.heraSpacecraft.spiceName, Entity.heraSpacecraft )
             ] |> HashMap.ofList
         let referenceFrames =
             [
@@ -332,16 +361,11 @@ module GisApp =
                 (ReferenceFrame.iauMars.spiceName, ReferenceFrame.iauMars)
                 (ReferenceFrame.iauEarth.spiceName, ReferenceFrame.iauEarth)
             ] |> HashMap.ofList
-        let spacecraft =
-            let heraSpacecraft = Spacecraft.heraSpacecraft ()
-            [
-                heraSpacecraft.id, heraSpacecraft
-            ] |> HashMap.ofList
         {
             version                 = GisApp.current
-            bodies                  = bodies
+            gisSurfaces             = HashMap.empty
             referenceFrames         = referenceFrames
-            spacecraft              = spacecraft
-            entities                = HashMap.empty
+            entities                = entities
+            newEntity               = None
             defaultObservationInfo  = ObservationInfo.inital
         }

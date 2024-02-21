@@ -1,2 +1,0 @@
-﻿module GisBookmarks_Model
-

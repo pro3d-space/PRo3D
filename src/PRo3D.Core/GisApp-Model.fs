@@ -15,69 +15,33 @@ open Chiron
 
 type GisSurface = {
     surfaceId       : SurfaceId
-    body            : option<BodySpiceName>
+    entity          : option<EntitySpiceName>
     referenceFrame  : option<FrameSpiceName>
 } with
     static member FromJson(_ : GisSurface) = 
         json {
             let! surfaceId          = Json.read    "surfaceId"        
-            let! body               = Json.tryRead "body"             
+            let! entity             = Json.tryRead "entity"             
             let! referenceFrame     = Json.tryRead "referenceFrame"
          
             return {
                 surfaceId      = surfaceId     
-                body           = body          
+                entity         = entity          
                 referenceFrame = referenceFrame                   
             }
         }
     static member ToJson (x : GisSurface) =
         json {              
             do! Json.write      "surfaceId"           x.surfaceId     
-            do! Json.write      "body"                x.body              
+            do! Json.write      "entity"              x.entity         
             do! Json.write      "referenceFrame"      x.referenceFrame
         }
 
-type Entity =
-    | EntitySurface     of GisSurface
-    | EntitySpaccecraft of Spacecraft
- with
-    static member ToJson x =
-        match x with
-        | Entity.EntitySurface x -> 
-            Json.write "EntitySurface" x
-        | Entity.EntitySpaccecraft x -> 
-            Json.write "EntitySpaccecraft" x
-
-    static member FromJson(_ : Entity) = 
-        json { 
-            let! entitySurface = Json.tryRead "EntitySurface"
-            match entitySurface with
-            | Some entitySurface -> 
-                return Entity.EntitySurface entitySurface
-            | None ->
-                let! entitySpaccecraft = Json.read "EntitySpaccecraft"
-
-                return Entity.EntitySpaccecraft entitySpaccecraft
-        }
-
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module Entity =
-    let spiceName (entity : Entity) =
-        match entity with
-        | EntitySurface surface ->
-            match surface.body with
-            | Some body ->
-                Some body.Value
-            | None ->
-                Log.line "[GisApp-Model] Surface has no associated body!"
-                None
-        | EntitySpaccecraft spacecraft ->
-            Some spacecraft.spiceName.Value
 
 [<ModelType>]
 type ObservationInfo = {
-    target         : option<Entity>
-    observer       : option<Entity>
+    target         : option<EntitySpiceName>
+    observer       : option<EntitySpiceName>
     time           : Calendar
     referenceFrame : option<ReferenceFrame>
 } with
@@ -112,23 +76,23 @@ type ObservationInfo = {
 
 type ObservationInfoAction = 
     | CalendarMessage   of Calendar.CalendarAction
-    | SetTarget         of option<Entity>
-    | SetObserver       of option<Entity>
+    | SetTarget         of option<EntitySpiceName>
+    | SetObserver       of option<EntitySpiceName>
     | SetTime           of DateTime
     | SetReferenceFrame of option<ReferenceFrame>
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module GisSurface =
-    let fromBody surfaceId body =
+    let fromBody surfaceId entity =
         {
             surfaceId = surfaceId
-            body      = body
+            entity    = entity
             referenceFrame = None
         }
     let fromFrame surfaceId frame =
         {
             surfaceId = surfaceId
-            body      = None
+            entity    = None
             referenceFrame = frame
         }
 
@@ -137,10 +101,10 @@ type GisApp =
     {
         version                : int
         defaultObservationInfo : ObservationInfo
-        bodies                 : HashMap<BodySpiceName, Body>
+        entities               : HashMap<EntitySpiceName, Entity>
+        newEntity              : option<Entity>
         referenceFrames        : HashMap<FrameSpiceName, ReferenceFrame>
-        spacecraft             : HashMap<SpacecraftId, Spacecraft>
-        entities               : HashMap<Guid, Entity>
+        gisSurfaces            : HashMap<SurfaceId, GisSurface>
     } 
 with
     static member current = 0
@@ -149,24 +113,23 @@ module GisAppJson =
     let read0 =
         json {
             let! defaultObservationInfo = Json.read "defaultObservationInfo"
-            let! bodies                 = Json.read "bodies"            
-            let bodies =
-                bodies |> List.map (fun (x : Body) -> x.spiceName, x)
+            let! entities  = Json.read "entities"         
+            let entities =
+                entities |> List.map (fun (x : Entity) -> x.spiceName, x)
             let! referenceFrames        = Json.read "referenceFrames"       
             let referenceFrames =
-                referenceFrames |> List.map (fun (x : ReferenceFrame) -> x.spiceName, x)
-            let! spacecraft             = Json.read "spacecraft"     
-            let spacecraft =
-                spacecraft |> List.map (fun (x : Spacecraft) -> x.id, x)            
-            let! entities               = Json.read "entities"              
+                referenceFrames |> List.map (fun (x : ReferenceFrame) -> x.spiceName, x)     
+            let! gisSurfaces             = Json.read "gisSurfaces"     
+            let gisSurfaces =
+                gisSurfaces |> List.map (fun (x : GisSurface) -> x.surfaceId, x)                     
             
             return {
                 version                = ReferenceFrame.current
                 defaultObservationInfo = defaultObservationInfo
-                bodies                 = HashMap.ofList bodies 
-                referenceFrames        = HashMap.ofList referenceFrames        
-                spacecraft             = HashMap.ofList spacecraft            
-                entities               = HashMap.ofList entities              
+                referenceFrames        = HashMap.ofList referenceFrames               
+                entities               = HashMap.ofList entities          
+                newEntity              = None
+                gisSurfaces            = HashMap.ofList gisSurfaces
             }
         }
     
@@ -174,10 +137,8 @@ type GisApp with
     static member ToJson (x : GisApp) =
         json {              
             do! Json.write "version"                 GisApp.current
-            do! Json.write "defaultObservationInfo"  x.defaultObservationInfo
-            do! Json.write "bodies"                  (x.bodies |> HashMap.toList |> List.map snd)                    
+            do! Json.write "defaultObservationInfo"  x.defaultObservationInfo               
             do! Json.write "referenceFrames"         (x.referenceFrames |> HashMap.toList |> List.map snd)           
-            do! Json.write "spacecraft"              (x.spacecraft |> HashMap.toList |> List.map snd)                
             do! Json.write "entities"                (x.entities |> HashMap.toList |> List.map snd)                  
         }
     static member FromJson (_ : GisApp) =
@@ -191,20 +152,23 @@ type GisApp with
                 |> Json.error
         }
 
-type SpacecraftAction =
-    | SetLabel of string
-    | SetSpiceName of string
+type EntityAction =
+    | SetLabel          of string
+    | SetSpiceName      of string
+    | SetSpiceNameText  of string
     | SetReferenceFrame of option<FrameSpiceName>
-    | Delete of SpacecraftId
+    | Delete            of EntitySpiceName
+    | Cancel
+    | Save              
 
 type GisAppAction =
     | Observe
-    | AssignBody of (SurfaceId * option<BodySpiceName>)
-    | AssignReferenceFrame of (SurfaceId * option<FrameSpiceName>) 
-    | SurfacesMessage of SurfaceAppAction
-    | ObservationInfoMessage of ObservationInfoAction
-    | SpacecraftMessage of (SpacecraftId * SpacecraftAction)
-    | NewSpacecraft
+    | AssignBody                of (SurfaceId * option<EntitySpiceName>)
+    | AssignReferenceFrame      of (SurfaceId * option<FrameSpiceName>) 
+    | SurfacesMessage           of SurfaceAppAction
+    | ObservationInfoMessage    of ObservationInfoAction
+    | EntityMessage             of (EntitySpiceName * EntityAction)
+    | NewEntity
 
 
     

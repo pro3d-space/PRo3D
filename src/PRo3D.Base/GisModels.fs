@@ -2,24 +2,24 @@
 
 open Chiron
 open Aardvark.Base
+open Adaptify
 
-
-type BodySpiceName = BodySpiceName of string
+type EntitySpiceName = EntitySpiceName of string
 with 
     member x.Value = 
-        let (BodySpiceName v) = x in v
-    static member FromJson(_ : BodySpiceName) = 
+        let (EntitySpiceName v) = x in v
+    static member FromJson(_ : EntitySpiceName) = 
         json {
-            let! v  = Json.read "BodySpiceName"
-            return (BodySpiceName v)
+            let! v  = Json.read "EntitySpiceName"
+            return (EntitySpiceName v)
         }
-    static member ToJson (x : BodySpiceName) =
+    static member ToJson (x : EntitySpiceName) =
         json {              
-            do! Json.write "BodySpiceName" x.Value
+            do! Json.write "EntitySpiceName" x.Value
         }
 
-module BodySpiceName =
-    let value (BodySpiceName spiceName) =
+module EntitySpiceName =
+    let value (EntitySpiceName spiceName) =
         spiceName
 
 type FrameSpiceName = FrameSpiceName of string
@@ -40,22 +40,24 @@ module FrameSpiceName =
     let value (FrameSpiceName spiceName) =
         spiceName
 
-type SpacecraftSpiceName = SpacecraftSpiceName of string
-with 
-    member x.Value = 
-        let (SpacecraftSpiceName v) = x in v
-    static member FromJson(_ : SpacecraftSpiceName) = 
-        json {
-            let! v  = Json.read "SpacecraftSpiceName"
-            return (SpacecraftSpiceName v)
-        }
-    static member ToJson (x : SpacecraftSpiceName) =
-        json {              
-            do! Json.write "SpacecraftSpiceName" x.Value
-        }
-module SpacecraftSpiceName =
-    let value (SpacecraftSpiceName spiceName) =
-        spiceName
+//type FrameId = FrameId of System.Guid
+//with 
+//    static member New () =
+//        FrameId (System.Guid.NewGuid ())
+//    member x.Value = 
+//        let (FrameId v) = x in v
+//    static member FromJson(_ : FrameId) = 
+//        json {
+//            let! v  = Json.read "FrameId"
+//            return (FrameId v)
+//        }
+//    static member ToJson (x : FrameId) =
+//        json {              
+//            do! Json.write "FrameId" x.Value
+//        }
+//module FrameId =
+//    let value (FrameId id) =
+//        id
 
 /// Reference Frames "A reference frame (or simply “frame”) is specified by an
 /// ordered set of three mutually orthogonal, possibly time dependent, unit-length direction vectors"
@@ -63,11 +65,14 @@ module SpacecraftSpiceName =
 /// https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/frames.html
 type ReferenceFrame =
     {
+        [<NonAdaptive>]
         version     : int
+        [<NonAdaptive>]
         label       : string
         description : option<string>
+        [<NonAdaptive>]
         spiceName   : FrameSpiceName
-        body        : option<BodySpiceName>
+        entity      : option<EntitySpiceName>
     } 
 with
     static member current = 0
@@ -76,14 +81,14 @@ with
             let! label       = Json.read    "label"
             let! description = Json.tryRead "description"
             let! spiceName   = Json.read    "spiceName"
-            let! body        = Json.tryRead "body"
+            let! entity      = Json.tryRead "entity"
             
             return {
                 version      = ReferenceFrame.current
                 label        = label      
                 description  = description
                 spiceName    = spiceName  
-                body         = body
+                entity       = entity
             }
         }
     static member FromJson(_ : ReferenceFrame) = 
@@ -97,27 +102,56 @@ with
         json {              
             do! Json.write      "version"      ReferenceFrame.current
             do! Json.write      "label"        x.label      
-            do! Json.write      "description"  x.description
+            if x.description.IsSome then
+                do! Json.write  "description"  x.description.Value
             do! Json.write      "spiceName"    x.spiceName  
+            if x.entity.IsSome then
+                do! Json.write  "entity"       x.entity.Value
         }
+
+//type EntityId = EntityId of System.Guid
+//with 
+//    static member New () =
+//        EntityId (System.Guid.NewGuid ())
+//    member x.Value = 
+//        let (EntityId v) = x in v
+//    static member FromJson(_ : EntityId) = 
+//        json {
+//            let! v  = Json.read "EntityId"
+//            return (EntityId v)
+//        }
+//    static member ToJson (x : EntityId) =
+//        json {              
+//            do! Json.write "EntityId" x.Value
+//        }
+//module EntityId =
+//    let value (EntityId id) =
+//        id
+
 
 /// “Body” means a natural body: sun, planet, satellite, comet, asteroid.
 /// https://cosmoguide.org/catalog-file-defining-a-natural-body/
-type Body = {
+[<ModelType>]
+type Entity = {
+    [<NonAdaptive>]
     version      : int
+    [<NonAdaptive>]
+    spiceName    : EntitySpiceName
+    isEditing    : bool
+    // adaptive spiceName text for creating new Entities
+    spiceNameText : string
     label        : string
-    spiceName    : BodySpiceName
     color        : C4f
     radius       : float
     geometryPath : option<string>
     textureName  : option<string>
-    defaultFrame : FrameSpiceName
+    defaultFrame : option<FrameSpiceName>
 } with
     static member current = 0
     static member private readV0 = 
         json {
             let! label        = Json.read    "label"       
-            let! spiceName    = Json.read    "frameSpiceName"   
+            let! spiceName    = Json.read    "spiceName"   
             let! color        = Json.read    "color"       
             let! radius       = Json.read    "radius"      
             let! geometryPath = Json.tryRead "geometryPath"
@@ -125,9 +159,11 @@ type Body = {
             let! defaultFrame = Json.read    "defaultFrame"
             
             return {
-                version      = Body.current
+                version      = Entity.current
                 label        = label       
                 spiceName    = spiceName   
+                spiceNameText = spiceName.Value
+                isEditing    = false
                 color        = C4f.Parse color       
                 radius       = radius      
                 geometryPath = geometryPath
@@ -135,18 +171,18 @@ type Body = {
                 defaultFrame = defaultFrame
             }
         }
-    static member FromJson(_ : Body) = 
+    static member FromJson(_ : Entity) = 
         json {
             let! v = Json.read "version"
             match v with            
-            | 0 -> return! Body.readV0
+            | 0 -> return! Entity.readV0
             | _ -> return! v |> sprintf "don't know version %A  of ReferenceFrame" |> Json.error
         }
-    static member ToJson (x : Body) =
+    static member ToJson (x : Entity) =
         json {              
-            do! Json.write "version"      Body.current
+            do! Json.write "version"      Entity.current
             do! Json.write "label"        x.label       
-            do! Json.write "frameSpiceName"    x.spiceName   
+            do! Json.write "spiceName"    x.spiceName   
             do! Json.write "color"        (string x.color)
             do! Json.write "radius"       x.radius      
             do! Json.write "geometryPath" x.geometryPath
@@ -155,65 +191,88 @@ type Body = {
         }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]    
-module Body =              
+module Entity =              
     let mars =
         {
-            version       = Body.current
+            version       = Entity.current
             label         = "Mars"        
-            spiceName     = BodySpiceName "Mars"    
+            spiceName     = EntitySpiceName "Mars"    
+            spiceNameText = "Mars"
+            isEditing     = false
             color         = C4f.Red       
             geometryPath  = None
             radius        = 3376200.0 //polar radius in meter
             textureName   = None
-            defaultFrame  = FrameSpiceName "IAU_MARS"
+            defaultFrame  = Some (FrameSpiceName "IAU_MARS")
         }
 
     let earth =
         {
-            version       = Body.current
+            version       = Entity.current
             label         = "Earth"        
-            spiceName     = BodySpiceName "Earth"    
+            spiceName     = EntitySpiceName "Earth"    
+            spiceNameText = "Earth"
+            isEditing     = false
             color         = C4f.Blue       
             geometryPath  = None
             radius        = 6356800.0 // polar radius in meter
             textureName   = None
-            defaultFrame  = FrameSpiceName "IAU_EARTH"
+            defaultFrame  = Some (FrameSpiceName "IAU_EARTH")
         }
 
     let moon =
         {
-            version       = Body.current
+            version       = Entity.current
             label         = "Moon"        
-            spiceName     = BodySpiceName "Moon"    
+            spiceName     = EntitySpiceName "Moon"    
+            spiceNameText = "Moon"
+            isEditing     = false
             color         = C4f.Silver       
             geometryPath  = None
             radius        = 1736000.0 //polar radius in meter
             textureName   = None
-            defaultFrame  = FrameSpiceName "IAU_MOON" // should maybe used different default?
+            defaultFrame  = Some (FrameSpiceName "IAU_MOON") // should maybe used different default?
         }
 
     let didymos =
         {
-            version       = Body.current
+            version       = Entity.current
             label         = "Didymos"       
-            spiceName     = BodySpiceName "Didymos"  
+            spiceName     = EntitySpiceName "Didymos"  
+            spiceNameText = "Didymos"
+            isEditing     = false
             color         = C4f.Grey       
             geometryPath  = None
             radius        = 382.5 //mean radius +/- 2.5m
             textureName   = None
-            defaultFrame  = FrameSpiceName "IAU_DIDYMOS" // "DIDYMOS_FIXED" ?
+            defaultFrame  = Some (FrameSpiceName "IAU_DIDYMOS") // "DIDYMOS_FIXED" ?
         }
 
     let dimorphos =
         {
-            version       = Body.current
+            version       = Entity.current
             label         = "Dimorphos"  
-            spiceName     = BodySpiceName "Dimorphos"  
+            spiceName     = EntitySpiceName "Dimorphos"  
+            spiceNameText = "Dimorphos"
+            isEditing     = false
             color         = C4f.Grey       
             geometryPath  = None
             radius        = 75.5 //mean radius +/- 2.5m
             textureName   = None
-            defaultFrame  = FrameSpiceName "IAU_DIMORPHOS" // DIMORPHOS_FIXED ?
+            defaultFrame  = Some (FrameSpiceName "IAU_DIMORPHOS") // DIMORPHOS_FIXED ?
+        }
+    let heraSpacecraft =
+        {
+            version       = Entity.current
+            label         = "Hera Spacecraft"
+            spiceName     = EntitySpiceName "HERA_SPACECRAFT" // ?? Need to check!
+            spiceNameText = "HERA_SPACECRAFT"
+            isEditing     = false
+            color         = C4f.Grey       
+            geometryPath  = None
+            radius        = 2.0 // ?
+            textureName   = None
+            defaultFrame  = Some (FrameSpiceName "IAU_DIMORPHOS") // DIMORPHOS_FIXED ?
         }
         
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]    
@@ -226,7 +285,7 @@ module ReferenceFrame =
             label       = "J2000"
             description = Some "Defined with Earth's Mean Equator and Mean Equinox (MEME) at 12:00 Terrestrial Time on 1 January 2000"
             spiceName   = FrameSpiceName "J2000"
-            body        = None
+            entity      = None
         }
     let iauMars = 
         {
@@ -234,7 +293,7 @@ module ReferenceFrame =
             label       = "IAU_MARS"
             description = Some "Mars body-fixed frame"
             spiceName   = FrameSpiceName "IAU_MARS"
-            body        = Some (BodySpiceName "Mars")
+            entity      = Some (EntitySpiceName "Mars")
         }
     let iauEarth = 
         {
@@ -242,27 +301,8 @@ module ReferenceFrame =
             label       = "IAU_EARTH"
             description = Some "Earth body-fixed frame"
             spiceName   = FrameSpiceName "IAU_EARTH"
-            body        = Some (BodySpiceName "Earth")
+            entity      = Some (EntitySpiceName "Earth")
         }
-
-type SpacecraftId = SpacecraftId of System.Guid
-with 
-    static member New () =
-        SpacecraftId (System.Guid.NewGuid ())
-    member x.Value = 
-        let (SpacecraftId v) = x in v
-    static member FromJson(_ : SpacecraftId) = 
-        json {
-            let! v  = Json.read "SpacecraftId"
-            return (SpacecraftId v)
-        }
-    static member ToJson (x : SpacecraftId) =
-        json {              
-            do! Json.write "SpacecraftId" x.Value
-        }
-module SpacecraftId =
-    let value (SpacecraftId id) =
-        id
 
 
 

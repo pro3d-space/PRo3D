@@ -26,33 +26,28 @@ module ObservationInfo =
             {m with referenceFrame = frame}
 
     let view (m : AdaptiveObservationInfo)
-             (entities : amap<System.Guid, Entity>) 
+             (entities : amap<EntitySpiceName, AdaptiveEntity>) 
              (referenceFrames : amap<FrameSpiceName, ReferenceFrame>) =
-
-        let entityDropdownText entity = 
-            match Entity.spiceName entity with
-            | Some name -> name
-            | None      -> "---"
 
         let observerDropdown =
             UI.dropDownWithEmptyText
                 (entities 
                     |> AMap.toASet
                     |> ASet.toAList
-                    |> AList.map snd)
+                    |> AList.map fst)
                 m.observer
                 (fun x -> SetObserver x)  
-                (fun x -> entityDropdownText x)
+                (fun x -> x.Value)
                 "Select Observer"
         let targetDropdown =
             UI.dropDownWithEmptyText
                 (entities 
                     |> AMap.toASet
                     |> ASet.toAList
-                    |> AList.map snd)
+                    |> AList.map fst)
                 m.target
                 (fun x -> SetTarget x)  
-                (fun x -> entityDropdownText x)
+                (fun x -> x.Value)
                 "Select Target"
 
         let frameDropdown =
