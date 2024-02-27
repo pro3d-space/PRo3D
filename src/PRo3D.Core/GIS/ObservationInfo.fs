@@ -12,6 +12,7 @@ open Aether
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module ObservationInfo =
+
     let update (m : ObservationInfo) (msg : ObservationInfoAction) =
         match msg with
         | ObservationInfoAction.CalendarMessage msg ->

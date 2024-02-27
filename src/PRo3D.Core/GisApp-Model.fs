@@ -45,6 +45,13 @@ type ObservationInfo = {
     time           : Calendar
     referenceFrame : option<ReferenceFrame>
 } with
+    /// returns target, observer and referenceFrame if they are all Some
+    member this.valuesIfComplete =
+        match this.observer, this.target, this.referenceFrame with
+        | Some o, Some t, Some r ->
+            Some (t, o, r)
+        | _ -> // TODO rno extend to provide nice log messages
+            None
     static member FromJson(_ : ObservationInfo) = 
         json {
             let! target         = Json.read    "target"        
