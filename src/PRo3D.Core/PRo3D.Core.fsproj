@@ -64,7 +64,7 @@
     <Compile Include="SequencedBookmarks\BookmarkUtils.fs" />
     <Compile Include="SequencedBookmarks\BookmarkAnimations.fs" />
     <Compile Include="SequencedBookmarks\SequencedBookmarksApp.fs" />
-	<Compile Include="Gis\ObservationInfo.fs" />
+	  <Compile Include="Gis\ObservationInfo.fs" />
     <Compile Include="Gis\Entity.fs" />
     <Compile Include="Gis\GisApp.fs" />
     <Compile Include="SceneObjectsApp.fs" />
