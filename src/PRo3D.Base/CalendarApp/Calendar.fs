@@ -19,6 +19,7 @@ module Calendar =
         [//  Fomantic-UI 2.9.3 - Calendar
             { kind = Stylesheet; name = "calendar.css"; url = "./resources/calendar.css" }
             { kind = Script; name = "calendar.js"; url = "./resources/calendar.js" }
+            { kind = Script; name = "calendarUtils.js"; url = "./resources/calendarUtils.js" }
         ]
 
     type CalendarAction =
@@ -38,6 +39,10 @@ module Calendar =
             | Date     -> "date"
             | DateTime -> "datetime"
 
+    type IsoDateTime = {
+        time : string
+    }
+
     let parseDate (dateString : string) =
         let sucess, date = DateTime.TryParse dateString
         if sucess then
@@ -52,6 +57,7 @@ module Calendar =
                 DateTime.Now
         
     let update (m : Calendar) (msg : CalendarAction) =
+        Log.warn "[Calendar] %s" (string msg)
         match msg with
         | SetDateString str ->
             let result = DateTime.TryParse str
@@ -70,42 +76,18 @@ module Calendar =
                 Log.warn "[Calendar] received empty list from js."
                 m
             | date::tail ->
-                {m with date = parseDate date}
+                let date = parseDate date
+                {m with date = date}
 
     let view (m : AdaptiveCalendar) (centre : bool) (disabled : bool) 
              (calendarType : CalendarType) =
-        let bootCode = 
-            String.concat ";" [
-                yield // could extend to deal with different date formats
-                    sprintf "$('#__ID__').calendar({
-                                type:'%s',
-                                className: {table: 'ui inverted celled center aligned unstackable table'},
-                                onChange: function(newDate){
-                                                  console.log(newDate);
-                                                  var oldDate = $(this).calendar('get date');
-                                                  if(!oldDate || oldDate != newDate) {
-                                                    aardvark.processEvent('__ID__', 'onDateChange', newDate.toLocaleDateString());
-                                                  }
-                                          },
-                                formatter: {
-                                    cellTime: 'H:mm',
-                                    date: 'YYYY-MM-DD',
-                                    datetime: 'YYYY-MM-DD, H:mm',
-                                    dayHeader: 'MMMM YYYY',
-                                    hourHeader: 'MMMM D, YYYY',
-                                    minuteHeader: 'MMMM D, YYYY',
-                                    month: 'MMMM YYYY',
-                                    monthHeader: 'YYYY',
-                                    time: 'H:mm',
-                                    year: 'YYYY'
-                                }
-                            });" (CalendarType.string calendarType)
-            ] 
+        let bootCode = sprintf "createCalendar('__ID__', '%s')" 
+                        (CalendarType.string calendarType);
                                 
         let attributes =
             seq {
                 yield clazz "ui inverted calendar"
-                yield onEvent "onDateChange" [] (fun x -> SetDateJs x)
+                yield onEvent "ondatechange" [] (fun x -> SetDateJs x)
                 if centre then
                     yield style "display: flex;align-items: center;;justify-content: center"
             } |> Seq.toList
@@ -115,19 +97,29 @@ module Calendar =
                 "ui inverted disabled input"
             else 
                 "ui inverted input"
-        
+
+
+        //JS-Standard: YYYY-MM-DDTHH:mm:ss.sss
+        let toJsString (d : DateTime) =
+            let str = sprintf "%04i-%02i-%02iT%02i:%02i:%02i" 
+                              d.Year d.Month d.Day 
+                              d.Hour d.Minute d.Second
+            {time = str}
+
+        let updateCode = "setCalendarDate('__ID__', data);"
+
         require requirements (
-            div [] [
-                onBoot bootCode (
+           div [] [
+                div [] [    
                     div attributes [
                         div [clazz divClass; 
-                            ] [
-                            //i [clazz "inverted calendar icon"] [] // calendar icon missing          
+                            ] [      
                             input [attribute "placeholder" "Select date"] 
                         ]
-                    ]
-                )
-            ]
+                        
+                    ] 
+                ] |> GuiEx.DataChannel.addDataChannel bootCode updateCode None (m.date |> AVal.map toJsString)
+           ] 
         )
         
     let init =

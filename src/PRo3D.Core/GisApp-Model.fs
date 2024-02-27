@@ -167,6 +167,7 @@ type GisAppAction =
     | AssignReferenceFrame      of (SurfaceId * option<FrameSpiceName>) 
     | SurfacesMessage           of SurfaceAppAction
     | ObservationInfoMessage    of ObservationInfoAction
+    | BookmarkObservationInfoMessage of (BookmarkId * ObservationInfoAction)
     | EntityMessage             of (EntitySpiceName * EntityAction)
     | NewEntity
 

@@ -10,6 +10,7 @@ open Adaptify.FSharp.Core
 open PRo3D.Core.Surface
 open PRo3D.Base.Gis
 open Aether
+open PRo3D.Core.SequencedBookmarks
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module GisApp = 
@@ -69,6 +70,21 @@ module GisApp =
         | GisAppAction.ObservationInfoMessage msg ->
             let info = ObservationInfo.update m.defaultObservationInfo msg
             let m = {m with defaultObservationInfo = info}
+            viewer, m
+        | GisAppAction.BookmarkObservationInfoMessage (id, msg) ->
+            let bookmarks = Optic.get lenses.bookmarks viewer
+            let f (bm : SequencedBookmarkModel) =
+                Optic.map SequencedBookmarkModel.observationInfo_ (fun a -> 
+                    match a with
+                    | Some a -> 
+                        ObservationInfo.update a msg
+                        |> Some
+                    | None ->
+                        None
+                    ) bm
+            let bookmarks = SequencedBookmarksApp.updateSelected f bookmarks 
+            let viewer =
+                Optic.set lenses.bookmarks bookmarks viewer
             viewer, m
         | GisAppAction.EntityMessage (id, msg) ->
             let m = 
@@ -213,7 +229,6 @@ module GisApp =
     let rec viewTree path (group : AdaptiveNode) 
                      (surfaces : AdaptiveGroupsModel) 
                      (m : AdaptiveGisApp) =
-
         alist {
             let! s = surfaces.activeGroup
             let color = sprintf "color: %s" (Html.ofC4b C4b.White)                
@@ -324,7 +339,48 @@ module GisApp =
             ([clazz "ui unstackable inverted table"] |> AttributeMap.ofList)
             (AList.append (AList.append headers rows) actions)
 
-    let view (m : AdaptiveGisApp) (surfaces : AdaptiveSurfaceModel) =  
+    let viewSelectedBookmark
+            (bookmark : SequencedBookmarks.AdaptiveSequencedBookmarkModel) 
+            (m : AdaptiveGisApp) =  
+        let info =
+            alist {
+                let! info = bookmark.observationInfo
+                match info with
+                | AdaptiveSome info ->
+                    yield (ObservationInfo.view info m.entities m.referenceFrames
+                            |> UI.map (fun msg -> 
+                        GisAppAction.BookmarkObservationInfoMessage (bookmark.bookmark.key, msg)))
+                | AdaptiveNone ->
+                    ()
+            }
+        Incremental.div AttributeMap.empty info
+
+    let view (m : AdaptiveGisApp)
+             (surfaces : AdaptiveSurfaceModel)
+             (bookmarks : SequencedBookmarks.AdaptiveSequencedBookmarks) =  
+        let bookmarkGisInfo =
+            alist {
+                let! (id : option<System.Guid>) = bookmarks.selectedBookmark 
+                match id with
+                | Some id ->
+                    let! bm = AMap.tryFind id bookmarks.bookmarks
+                    match bm with
+                    | Some (AdaptiveSequencedBookmark.AdaptiveLoadedBookmark bookmark) ->
+                        yield h5 [clazz "ui inverted horizontal divider header"
+                                  style "padding-top: 1rem"] 
+                                 [Incremental.text (bookmark.name 
+                                    |> AVal.map (sprintf "Observation Settings: %s"))]
+                        yield viewSelectedBookmark bookmark m
+                    | Some (AdaptiveSequencedBookmark.AdaptiveNotYetLoaded bm) ->
+                        Log.warn "[SequencedBookmarksApp] Bookmark not loaded %s" (string id)
+                        ()
+                    | None ->
+                        Log.error "[SequencedBookmarksApp] Could not find bookmark %s" (string id)
+                        ()
+                    ()
+                | None ->
+                    ()
+            }
         div [] [ 
             div [clazz "ui inverted segment"] [ 
                 h5 [clazz "ui inverted horizontal divider header"
@@ -333,13 +389,10 @@ module GisApp =
                 ObservationInfo.view m.defaultObservationInfo 
                                      m.entities m.referenceFrames
                 |> UI.map ObservationInfoMessage
+                Incremental.div AttributeMap.empty bookmarkGisInfo
             ]
             GuiEx.accordion "Surfaces" "Cubes" false 
                                   [ viewSurfacesGroupsGis surfaces.surfaces m]
-
-            GuiEx.accordion "GIS Bookmarks" "Cubes" false [
-                
-            ]
             GuiEx.accordion "Entity" "Cubes" false [
                 viewEntity m
             ]

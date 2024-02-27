@@ -6,7 +6,7 @@ open Aardvark.UI
 open Aardvark.UI.Animation
 open Aardvark.UI.Primitives
 open FSharp.Data.Adaptive
-
+open Adaptify.FSharp.Core
 open Aardvark.Rendering
 open Aardvark.UI.Anewmation
 
@@ -74,6 +74,27 @@ module SequencedBookmarksApp =
                         selectedBookmark = Some newBookmark.key}
         m
 
+    let updateSelected 
+            (f : SequencedBookmarkModel -> SequencedBookmarkModel) 
+            (m : SequencedBookmarks) =
+        let m = loadAll m
+        let bookmarks =
+            m.selectedBookmark
+            |> Option.bind (fun key -> HashMap.tryFind key m.bookmarks)
+            |> Option.bind  (fun b -> 
+                match b with
+                | SequencedBookmark.LoadedBookmark b ->
+                    let b = f b |> SequencedBookmark.LoadedBookmark
+                    Some (HashMap.add b.key b m.bookmarks)
+                | _ ->
+                    None
+            )
+        match bookmarks with
+        | Some bookmarks ->
+            {m with bookmarks = bookmarks}
+        | None -> m
+        
+
     let update 
         (m                : SequencedBookmarks) 
         (act              : SequencedBookmarksAction) 
@@ -94,7 +115,7 @@ module SequencedBookmarksApp =
             let nav = Optic.get lenses.navigationModel_ outerModel
             let state = Optic.get lenses.sceneState_ outerModel
             let newSBm = 
-                getNewSBookmark nav state  m.bookmarks.Count
+                getNewSBookmark nav state  m.bookmarks.Count None
             let m = addBookmark newSBm m
             outerModel, m
         | AddGisBookmark ->
@@ -102,10 +123,9 @@ module SequencedBookmarksApp =
             let state = Optic.get lenses.sceneState_ outerModel
             let defaultInfo = 
                 Optic.get lenses.defaultObservationInfo_ outerModel
+                |> Some
             let newSBm = 
-                getNewSBookmark nav state  m.bookmarks.Count
-                |> Optic.set SequencedBookmarkModel.observationInfo_
-                             (Some defaultInfo)
+                getNewSBookmark nav state  m.bookmarks.Count defaultInfo
             let m = addBookmark newSBm m
             outerModel, m
         | SequencedBookmarksAction.FlyToSBM id ->
@@ -601,18 +621,19 @@ module SequencedBookmarksApp =
 
             require GuiEx.semui (
                 Html.table [               
-                  Html.row "Animation:"   [div [clazz "ui buttons inverted"] [
-                                              button [clazz "ui icon button"; onMouseClick (fun _ -> StepBackward )] [ //
-                                                  i [clazz "step backward icon"] [] ] 
-                                              button [clazz "ui icon button"; onMouseClick (fun _ -> Play )] [ //
-                                                  i [clazz "play icon"] [] ] 
-                                              button [clazz "ui icon button"; onMouseClick (fun _ -> Pause )] [ //
-                                                  i [clazz "pause icon"] [] ] 
-                                              button [clazz "ui icon button"; onMouseClick (fun _ -> Stop )] [ //
-                                                  i [clazz "stop icon"] [] ] 
-                                              button [clazz "ui icon button"; onMouseClick (fun _ -> StepForward )] [ //
-                                                  i [clazz "step forward icon"] [] ] 
-                                          ] ]
+                  Html.row "Animation:"   [
+                    div [clazz "ui buttons inverted"] [
+                        button [clazz "ui icon button"; onMouseClick (fun _ -> StepBackward )] [ //
+                            i [clazz "step backward icon"] [] ] 
+                        button [clazz "ui icon button"; onMouseClick (fun _ -> Play )] [ //
+                            i [clazz "play icon"] [] ] 
+                        button [clazz "ui icon button"; onMouseClick (fun _ -> Pause )] [ //
+                            i [clazz "pause icon"] [] ] 
+                        button [clazz "ui icon button"; onMouseClick (fun _ -> Stop )] [ //
+                            i [clazz "stop icon"] [] ] 
+                        button [clazz "ui icon button"; onMouseClick (fun _ -> StepForward )] [ //
+                            i [clazz "step forward icon"] [] ] 
+                    ] ]
                   //Html.row "Global Animation:" // RNO deactivated because it does not work with focal length animations
                   //  [GuiEx.iconCheckBox model.animationSettings.useGlobalAnimation ToggleGlobalAnimation
                   //      |> UI.map AnimationSettingsMessage;
@@ -697,7 +718,6 @@ module SequencedBookmarksApp =
                           }
 
                 Incremental.div ([] |> AttributeMap.ofList ) alst
-                
 
             let outputFolderGui =
                 let attributes = 
@@ -768,6 +788,5 @@ module SequencedBookmarksApp =
 
                 ]
             )            
-       
-
+      
   

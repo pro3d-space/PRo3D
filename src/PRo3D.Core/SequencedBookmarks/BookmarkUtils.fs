@@ -38,7 +38,8 @@ module BookmarkUtils =
 
     let getNewSBookmark (navigation : NavigationModel) 
                         (sceneState : SceneState)
-                        (bookmarkCount:int) =
+                        (bookmarkCount:int) 
+                        (observationInfo) =
          
         let name = sprintf "Bookmark_%d" bookmarkCount //todo to make useful unique names
         let bookmark = 
@@ -61,7 +62,7 @@ module BookmarkUtils =
                 duration            = SequencedBookmarkDefaults.initDuration 3.0
                 delay               = SequencedBookmarkDefaults.initDelay 0.0
                 basePath            = None
-                observationInfo     = None
+                observationInfo     = observationInfo
             }
         sequencedBookmark
 

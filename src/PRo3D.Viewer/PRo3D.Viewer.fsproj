@@ -117,6 +117,7 @@
     <None Include="resources\rotationcube\top.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <EmbeddedResource Include="resources\calendarUtils.js" />
     <EmbeddedResource Include="resources\errorReporting.js" />
     <EmbeddedResource Include="resources\jscytoscape.js" />
     <EmbeddedResource Include="resources\HueColorMap.png" />
