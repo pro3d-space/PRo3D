@@ -115,13 +115,13 @@ module GisApp =
                                 match s with
                                 | Some s ->
                                     Entity.update s msg
-                                | None   -> Entity.inital ()
+                                | None   -> Entity.initial ()
                             ) m.entities
 
                         {m with entities = entities}
             viewer, m
         | GisAppAction.NewEntity ->
-            let newEntity = Entity.inital ()
+            let newEntity = Entity.initial ()
             viewer, {m with newEntity = Some newEntity}
         | GisAppAction.Observe ->
             viewer, m
@@ -398,7 +398,7 @@ module GisApp =
             ]
         ]
 
-    let inital : GisApp =
+    let initial : GisApp =
         let entities =
             [
                 (Entity.earth.spiceName,     Entity.earth )
@@ -420,5 +420,5 @@ module GisApp =
             referenceFrames         = referenceFrames
             entities                = entities
             newEntity               = None
-            defaultObservationInfo  = ObservationInfo.inital
+            defaultObservationInfo  = ObservationInfo.initial
         }

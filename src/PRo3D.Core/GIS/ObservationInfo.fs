@@ -75,7 +75,7 @@ module ObservationInfo =
             ]
         )
 
-    let inital = 
+    let initial = 
         {
             target         = None
             observer       = None

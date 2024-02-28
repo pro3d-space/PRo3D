@@ -122,13 +122,19 @@ module GisAppJson =
             let! defaultObservationInfo = Json.read "defaultObservationInfo"
             let! entities  = Json.read "entities"         
             let entities =
-                entities |> List.map (fun (x : Entity) -> x.spiceName, x)
-            let! referenceFrames        = Json.read "referenceFrames"       
+                entities 
+                |> List.map (fun (x : Entity) -> x.spiceName, x)
+            let! referenceFrames = Json.read "referenceFrames"       
             let referenceFrames =
-                referenceFrames |> List.map (fun (x : ReferenceFrame) -> x.spiceName, x)     
-            let! gisSurfaces             = Json.read "gisSurfaces"     
+                referenceFrames 
+                |> List.map (fun (x : ReferenceFrame) -> x.spiceName, x)     
+            let! gisSurfaces = Json.tryRead "gisSurfaces"     
             let gisSurfaces =
-                gisSurfaces |> List.map (fun (x : GisSurface) -> x.surfaceId, x)                     
+                match gisSurfaces with
+                | Some gisSurfaces ->
+                    gisSurfaces
+                    |> List.map (fun (x : GisSurface) -> x.surfaceId, x)                     
+                | None -> List.empty
             
             return {
                 version                = ReferenceFrame.current
@@ -146,13 +152,14 @@ type GisApp with
             do! Json.write "version"                 GisApp.current
             do! Json.write "defaultObservationInfo"  x.defaultObservationInfo               
             do! Json.write "referenceFrames"         (x.referenceFrames |> HashMap.toList |> List.map snd)           
-            do! Json.write "entities"                (x.entities |> HashMap.toList |> List.map snd)                  
+            do! Json.write "entities"                (x.entities |> HashMap.toList |> List.map snd)   
+            do! Json.write "gisSurfaces"             (x.gisSurfaces |> HashMap.toList |> List.map snd)
         }
     static member FromJson (_ : GisApp) =
         json {
             let! v = Json.read "version"
             match v with
-            | 0 -> return! "TODO!" |> Json.error
+            | 0 -> return! GisAppJson.read0
             | _ ->
                 return! v 
                 |> sprintf "don't know version %A  of Scene" 

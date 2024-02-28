@@ -13,7 +13,7 @@ open Aether
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Entity =
 
-    let inital () =
+    let initial () =
         {
             version       = Entity.current
             label         = "New Entity"        

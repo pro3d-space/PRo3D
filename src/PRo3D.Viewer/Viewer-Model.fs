@@ -224,7 +224,7 @@ type Scene = {
     geologicSurfacesModel : GeologicSurfacesModel
     sequencedBookmarks    : SequencedBookmarks
     screenshotModel       : ScreenshotModel
-    gisApp            : PRo3D.Core.Gis.GisApp
+    gisApp                : PRo3D.Core.Gis.GisApp
 }
 
 module Scene =
@@ -275,7 +275,7 @@ module Scene =
 
                     comparisonApp         = ComparisonApp.init
                     screenshotModel       = ScreenshotModel.initial
-                    gisApp                = Gis.GisApp.inital
+                    gisApp                = Gis.GisApp.initial
                 }
         }
 
@@ -327,7 +327,7 @@ module Scene =
 
                     sequencedBookmarks      = SequencedBookmarks.initial
                     screenshotModel         = ScreenshotModel.initial
-                    gisApp                  = Gis.GisApp.inital
+                    gisApp                  = Gis.GisApp.initial
                 }
         }
 
@@ -384,7 +384,7 @@ module Scene =
                     comparisonApp           = if comparisonApp.IsSome then comparisonApp.Value else ComparisonApp.init
 
                     screenshotModel         = screenshotModel |> Option.defaultValue(ScreenshotModel.initial)
-                    gisApp                  = Gis.GisApp.inital
+                    gisApp                  = Gis.GisApp.initial
                 }
         }
 
@@ -410,6 +410,11 @@ module Scene =
             let! sequencedBookmarks     = Json.tryRead "sequencedBookmarks"
             let! screenshotModel        = Json.tryRead "screenshotModel"
             let! traverse               = Json.tryRead "traverses"
+            let! gisApp                 = Json.tryRead "gisApp"
+            let gisApp = 
+                match gisApp with
+                | Some gisApp -> gisApp
+                | None -> Gis.GisApp.initial
             //let! viewplans     = Json.tryRead "viewplans"
 
             return 
@@ -442,7 +447,7 @@ module Scene =
                     comparisonApp           = if comparisonApp.IsSome then comparisonApp.Value else ComparisonApp.init
 
                     screenshotModel         = screenshotModel |> Option.defaultValue(ScreenshotModel.initial)
-                    gisApp                  = Gis.GisApp.inital
+                    gisApp                  = gisApp
                 }
         }
 
