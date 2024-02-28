@@ -142,11 +142,12 @@ module Sg =
             let m = renderPatch.trafo.GetValue self
             let view = viewTrafo.GetValue self
             let proj = projTrafo.GetValue self
+            let p = lodParams.GetValue self
             let vp   = view * proj
             let mvp = m * vp
             let area = computeScreenSpaceArea renderPatch.info.LocalBoundingBox mvp
                     
-            log area > log 0.8
+            log area > 1.0 - (log p.factor) * 1.2
 
     let createPlainSceneGraph (runtime : IRuntime) (signature : IFramebufferSignature) (scene : OpcScene) (createKdTrees)
         : (ISg * list<PatchHierarchy> * HashMap<Box3d, KdTrees.Level0KdTree>) =

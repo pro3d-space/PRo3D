@@ -50,7 +50,7 @@ nuget Aardvark.GeoSpatial.Opc               ~> 5.10.8
 
 nuget Aardium                               ~> 2.0.10-prerelease0007
 
-nuget OPCViewer.Base                        ~> 1.5.0
+nuget OPCViewer.Base                        ~> 1.5.1
 
 nuget Uncodium.Eigensystems                 ~> 1.1.2
 nuget Chiron                                ~> 6.3.1

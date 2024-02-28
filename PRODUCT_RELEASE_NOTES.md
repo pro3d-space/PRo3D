@@ -1,3 +1,6 @@
+## 4.21.0-prerelease2
+- fixed kdtree loading on NTFS/mac
+ 
 ## 4.21.0-prerelease1
 - added support to re-create kdtrees 
  
