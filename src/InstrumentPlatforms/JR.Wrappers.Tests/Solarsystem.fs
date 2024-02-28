@@ -1,7 +1,10 @@
 ﻿module Solarsytsem
 
+#nowarn "9"
+
 open System
 open System.Threading
+open FSharp.NativeInterop
 open System.IO
 open Aardvark.Base
 open Aardvark.Rendering
@@ -17,6 +20,7 @@ type RelState =
     {
         pos : V3d
         vel : V3d
+        rot : M33d
     }
 
 module Time =
@@ -28,11 +32,15 @@ module Time =
 module Spice = 
 
     let getRelState (referenceFrame : string) (target : string) (observer : string) (obsTime : string)   = 
-        let mutable px,py,pz = 0.0,0.0,0.0
-        let mutable vx,vy,vz = 0.0,0.0,0.0
-        let r = CooTransformation.GetRelState(target, observer, obsTime, referenceFrame, &px, &py, &pz, &vx, &vy, &vz)
-        if r <> 0 then failwith "[spice] GetRelState failed."
-        { pos = V3d(px,py,pz); vel = V3d(vx,vy,vz) }
+        let p : double[] = Array.zeroCreate 3
+        let m : double[] = Array.zeroCreate 9
+        let pdPosVec = fixed &p[0]
+        let pdRotMat = fixed &m[0]
+        let r = JR.CooTransformation.GetRelState(target, "SUN", observer, obsTime, referenceFrame, NativePtr.toNativeInt pdPosVec, NativePtr.toNativeInt pdRotMat)
+        if r <> 0 then 
+            Log.warn "[spice] GetRelState failed %s, %s, %s" target observer obsTime
+            { pos = V3d.Zero; vel = V3d.Zero; rot = M33d.Identity } //failwith "[spice] GetRelState failed."
+        else { pos = V3d(p[0],p[1],p[2]); vel = V3d.Zero; rot = M33d(m).Transposed }
 
 
 module Shaders =
@@ -71,10 +79,11 @@ module Shaders =
             let p = p.XZY
             let thetha = acos (p.Z) / Math.PI
             let phi = ((float (sign p.Y)) * acos (p.X / Vec.length p.XY)) / (Math.PI * 2.0)
-            let t = diffuseSampler.Sample(V2d(phi, thetha))
+            // could be used for texturing
+            let t = v.c //diffuseSampler.Sample(V2d(phi, thetha))
             let f = Vec.dot c c - 1.0
             if f > 0.0 then discard()
-            return { v with c = t * Vec.dot V3d.III p }
+            return { v with c = t }// * Vec.dot V3d.OOI p }
         }
 
 type AdaptiveLine() =
@@ -113,7 +122,7 @@ let run argv =
     //Aardvark.UnpackNativeDependencies(typeof<CooTransformation>.Assembly)
 
     use _ = 
-        let r = CooTransformation.Init(true, Path.Combine(".", "logs"))
+        let r = CooTransformation.Init(true, Path.Combine(".", "logs", "CooTrafo.Log"), 2, 2)
         if r <> 0 then failwith "could not initialize CooTransformation lib."
         { new IDisposable with member x.Dispose() = CooTransformation.DeInit() }
 
@@ -133,18 +142,22 @@ let run argv =
            "mars", C4f.Red, 6779.0
            "phobos", C4f.Red, 22.533
            "deimos", C4f.Red, 12.4
-           "HERA", C4f.Magenta, 12742.0
+           "HERA", C4f.Magenta, 0.00001
+           "HERA_AFC-1", C4f.White, 0.00001
         |]
 
     let time = cval (DateTime.Parse("2025-03-10 19:08:12.60"))
+    let time = cval (DateTime.Parse("2025-03-10 19:08:12.60"))
+    //let time = cval (DateTime.Parse("2024-12-01 19:08:12.60"))
 
-    let observer = "SUN" // "SUN"
+    let observer = "HERA_SA+Y" // "SUN"
+    let referenceFrame = "ECLIPJ2000"
 
-    let lookAtMoon = Spice.getRelState "J2000" "EARTH" "MOON" (Time.toUtcFormat time.Value)
-    let initialView = CameraView.lookAt V3d.Zero lookAtMoon.pos V3d.OOI
-    let speed = 7900.0
-    let view = initialView |> DefaultCameraController.controlExt speed win.Mouse win.Keyboard win.Time
-    let distanceSunPluto = 5906380000.0
+    let targetState = Spice.getRelState referenceFrame "MARS" "HERA" (Time.toUtcFormat time.Value)
+    let initialView = CameraView.lookAt V3d.Zero targetState.pos V3d.OOI |> cval
+    let speed = 7900.0 * 1000.0
+    let view = initialView |> AVal.bind (DefaultCameraController.controlExt speed win.Mouse win.Keyboard win.Time)
+    let distanceSunPluto = 5906380000.0 * 1000.0
     let frustum = win.Sizes |> AVal.map (fun s -> Frustum.perspective 60.0 1000.0 distanceSunPluto (float s.X / float s.Y))
     let aspect = win.Sizes |> AVal.map (fun s -> float s.X / float s.Y)
 
@@ -154,11 +167,15 @@ let run argv =
             CameraView.viewTrafo view * projTrafo
         )
 
+    let inNdcBox =
+        let box = Box3d.FromPoints(V3d(-1,-1,-1),V3d(1,1,1))
+        fun (p : V3d) -> box.Contains p
+
     let getProjPos (t : AdaptiveToken) (clip : bool) (pos : V3d) =
         let vp = viewProj.GetValue(t)
         let ndc = vp.Forward.TransformPosProj(pos)
         let box = Box3d.FromPoints(V3d(-1,-1,-1),V3d(1,1,1))
-        if not clip || box.Contains(ndc) then 
+        if not clip || inNdcBox ndc then 
             V3d ndc |> Some
         else
             None
@@ -167,15 +184,15 @@ let run argv =
         getProjPos AdaptiveToken.Top clip pos
 
     let bodies = 
-        bodySources |> Array.map (fun (name,_, diameter) -> 
-            { name = name; pos = cval V3d.Zero; history = AdaptiveLine(); ndcSize = cval V2d.OO; radius = diameter * 0.5 }
+        bodySources |> Array.map (fun (name,_, diameterKm) -> 
+            { name = name; pos = cval V3d.Zero; history = AdaptiveLine(); ndcSize = cval V2d.OO; radius = diameterKm * 1000.0 * 0.5 }
         )
 
 
     let animationStep () = 
         bodies |> Array.iter (fun b -> 
             let time = time.GetValue()
-            let rel = Spice.getRelState "J2000" b.name observer (Time.toUtcFormat time)
+            let rel = Spice.getRelState referenceFrame b.name observer (Time.toUtcFormat time)
             b.pos.Value <- rel.pos
 
             match getCurrentProjPos false rel.pos with
@@ -195,13 +212,15 @@ let run argv =
     let vertices = 
         AVal.custom (fun t -> 
             let w = win.Time.GetValue(t)
+            time.GetValue(t) |> ignore
             let vp = viewProj.GetValue(t)
-            bodies |> Array.map (fun b -> vp.Forward.TransformPosProj b.pos.Value)
+            bodies |> Array.map (fun b -> vp.Forward.TransformPosProj (b.pos.GetValue(t)))
         )
     let sizes =
         AVal.custom (fun t -> 
             let p = projTrafo.GetValue(t)
             let location = view.GetValue(t)
+            time.GetValue(t) |> ignore
             let s = win.Sizes.GetValue(t) |> V3d
             let computeSize (radius : float) (pos : V3d) =
                 let d = V3d(radius, 0.0, Vec.length (location.Location - pos))
@@ -218,6 +237,7 @@ let run argv =
                 let p = 
                     (b.pos, viewProj, scale) |||> AVal.map3 (fun p vp scale -> 
                         let ndc = vp.Forward.TransformPosProj b.pos.Value
+                        let scale = if inNdcBox ndc then scale else Trafo3d.Scale(0.0)
                         Trafo3d.Scale(0.05) * scale * Trafo3d.Translation(ndc.XYO)
                     )
                 p, AVal.constant b.name
@@ -229,7 +249,6 @@ let run argv =
 
     let planets = 
         Sg.draw IndexedGeometryMode.PointList
-        |> Sg.fileTexture DefaultSemantic.DiffuseColorTexture  @"F:\pro3d\moon.jpg" true
         |> Sg.vertexAttribute' DefaultSemantic.Colors colors
         |> Sg.vertexAttribute  DefaultSemantic.Positions vertices
         |> Sg.vertexAttribute "Size" sizes
@@ -259,18 +278,63 @@ let run argv =
             do! DefaultSurfaces.constantColor C4f.White
         }
 
-    let sg =
-        Sg.ofList [planets; texts; info; lineSg ] 
+    let spacecraftTrafo = cval (Trafo3d.Scale 0.0)
+    let coordinateCross (size : float) (modelTrafo : aval<Trafo3d>)=  
+        let lines (lines : array<Line3d*C4f>) =
+            lines |> Array.collect(fun (l,c) -> [|l.P0; l.P1|]) |> Seq.toArray
 
+        let cross = [|
+                Line3d(V3d.Zero, V3d.XAxis * size), C4f.Red
+                Line3d(V3d.Zero, V3d.YAxis * size), C4f.Green
+                Line3d(V3d.Zero, V3d.ZAxis * size), C4f.Blue
+            |] 
+
+        let vertices =
+            (modelTrafo, viewProj) ||> AVal.map2 (fun m vp -> 
+                let mvp = m * vp
+                lines cross |> Array.map (fun v -> 
+                    let p = mvp.Forward.TransformPosProjFull v 
+                    p |> V4f
+                )
+            )
+
+        Sg.draw IndexedGeometryMode.LineList
+        |> Sg.vertexAttribute DefaultSemantic.Positions vertices
+        |> Sg.vertexArray     DefaultSemantic.Colors    (cross |> Array.collect (fun (l, c) -> [| c; c|]))
+        |> Sg.shader { 
+            do! DefaultSurfaces.vertexColor
+        }
+
+    let heraCoordinateCross = 
+        coordinateCross 1000000000.0 spacecraftTrafo
+
+    let sg =
+        Sg.ofList [planets; texts; info; lineSg; heraCoordinateCross ] 
+
+
+    win.Keyboard.KeyDown(Keys.R).Values.Add(fun _ -> 
+        transact (fun _ -> 
+            let targetState = Spice.getRelState referenceFrame "MARS" observer (Time.toUtcFormat time.Value)
+            let rot = targetState.rot
+            let t = Trafo3d.FromBasis(rot.C0, rot.C1, -rot.C2, V3d.Zero)
+            initialView.Value <- CameraView.ofTrafo t.Inverse
+        )
+    )
 
     let s = 
+        let sw = Diagnostics.Stopwatch.StartNew()
+        animationStep()
         win.AfterRender.Add(fun _ -> 
             transact (fun _ -> 
-                time.Value <- time.Value + TimeSpan.FromDays(0.01)
+                let targetState = Spice.getRelState referenceFrame "MARS" observer (Time.toUtcFormat time.Value)
+                let rot = targetState.rot
+                let t = Trafo3d.FromBasis(rot.C0, rot.C1, rot.C2, V3d.Zero)
+                spacecraftTrafo.Value <- t
+
+                time.Value <- time.Value + TimeSpan.FromDays(0.001)
                 animationStep()
 
             )
-            
         )
 
     

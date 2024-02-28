@@ -85,7 +85,7 @@ module CooTransformation =
             Directory.CreateDirectory logDir |> ignore
 
         Log.line "[CooTransformation] initializing at %s, logging to %s" configDir logDir
-        let errorCode = CooTransformation.Init(configDir, logDir)
+        let errorCode = CooTransformation.Init(true, Path.Combine(logDir, "CooTransformation.log"), 1, 2)
         if errorCode <> 0 then 
             failwithf "[CooTransformation] could not initialize library, config dir: %s, return code: %d" configDir errorCode
         else 
