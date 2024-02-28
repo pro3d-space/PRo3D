@@ -43,7 +43,7 @@ type ObservationInfo = {
     target         : option<EntitySpiceName>
     observer       : option<EntitySpiceName>
     time           : Calendar
-    referenceFrame : option<ReferenceFrame>
+    referenceFrame : option<FrameSpiceName>
 } with
     /// returns target, observer and referenceFrame if they are all Some
     member this.valuesIfComplete =
@@ -86,7 +86,7 @@ type ObservationInfoAction =
     | SetTarget         of option<EntitySpiceName>
     | SetObserver       of option<EntitySpiceName>
     | SetTime           of DateTime
-    | SetReferenceFrame of option<ReferenceFrame>
+    | SetReferenceFrame of option<FrameSpiceName>
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module GisSurface =
@@ -110,6 +110,7 @@ type GisApp =
         defaultObservationInfo : ObservationInfo
         entities               : HashMap<EntitySpiceName, Entity>
         newEntity              : option<Entity>
+        newFrame               : option<ReferenceFrame>
         referenceFrames        : HashMap<FrameSpiceName, ReferenceFrame>
         gisSurfaces            : HashMap<SurfaceId, GisSurface>
     } 
@@ -142,6 +143,7 @@ module GisAppJson =
                 referenceFrames        = HashMap.ofList referenceFrames               
                 entities               = HashMap.ofList entities          
                 newEntity              = None
+                newFrame               = None
                 gisSurfaces            = HashMap.ofList gisSurfaces
             }
         }
@@ -175,6 +177,15 @@ type EntityAction =
     | Cancel
     | Save              
 
+type ReferenceFrameAction = 
+    | SetLabel          of string
+    | SetSpiceName      of string
+    | SetSpiceNameText  of string
+    | SetEntity         of option<EntitySpiceName>
+    | Delete            of FrameSpiceName
+    | Cancel
+    | Save      
+
 type GisAppAction =
     | Observe
     | AssignBody                of (SurfaceId * option<EntitySpiceName>)
@@ -183,7 +194,9 @@ type GisAppAction =
     | ObservationInfoMessage    of ObservationInfoAction
     | BookmarkObservationInfoMessage of (BookmarkId * ObservationInfoAction)
     | EntityMessage             of (EntitySpiceName * EntityAction)
+    | FrameMessage              of (FrameSpiceName * ReferenceFrameAction)
     | NewEntity
+    | NewFrame
 
 
     

@@ -63,15 +63,17 @@ module FrameSpiceName =
 /// ordered set of three mutually orthogonal, possibly time dependent, unit-length direction vectors"
 /// https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/Tutorials/pdf/individual_docs/17_frames_and_coordinate_systems.pdf
 /// https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/frames.html
+[<ModelType>]
 type ReferenceFrame =
     {
         [<NonAdaptive>]
         version     : int
-        [<NonAdaptive>]
         label       : string
         description : option<string>
         [<NonAdaptive>]
         spiceName   : FrameSpiceName
+        spiceNameText : string
+        isEditing   : bool
         entity      : option<EntitySpiceName>
     } 
 with
@@ -88,6 +90,8 @@ with
                 label        = label      
                 description  = description
                 spiceName    = spiceName  
+                spiceNameText = spiceName.Value
+                isEditing    = false
                 entity       = entity
             }
         }
@@ -285,7 +289,9 @@ module ReferenceFrame =
             label       = "J2000"
             description = Some "Defined with Earth's Mean Equator and Mean Equinox (MEME) at 12:00 Terrestrial Time on 1 January 2000"
             spiceName   = FrameSpiceName "J2000"
+            spiceNameText = "J2000"
             entity      = None
+            isEditing   = false
         }
     let iauMars = 
         {
@@ -293,7 +299,9 @@ module ReferenceFrame =
             label       = "IAU_MARS"
             description = Some "Mars body-fixed frame"
             spiceName   = FrameSpiceName "IAU_MARS"
+            spiceNameText = "IAU_MARS"
             entity      = Some (EntitySpiceName "Mars")
+            isEditing   = false
         }
     let iauEarth = 
         {
@@ -301,7 +309,9 @@ module ReferenceFrame =
             label       = "IAU_EARTH"
             description = Some "Earth body-fixed frame"
             spiceName   = FrameSpiceName "IAU_EARTH"
+            spiceNameText = "IAU_EARTH"
             entity      = Some (EntitySpiceName "Earth")
+            isEditing   = false
         }
 
 

@@ -224,7 +224,7 @@ module ViewerLenses =
                             Log.line "[Debug] Call to spice function with 
                                         target: %s observer: %s reference frame:  %s 
                                         time: %s" 
-                                     t.Value o.Value r.spiceName.Value (string info.time.date)
+                                     t.Value o.Value r.Value (string info.time.date)
                             m
                         | None ->
                             m
