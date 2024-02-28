@@ -213,7 +213,26 @@ module ViewerLenses =
                     | Some state ->
                         Optic.set _sceneState state m
                     | None -> m
-                updateSceneState sb m            
+                let m = updateSceneState sb m            
+
+                let m = 
+                    match sb.observationInfo with
+                    | Some info ->
+                        match info.valuesIfComplete with
+                        | Some (t, o, r) ->
+                            // call spice function and transform surfaces here!
+                            Log.line "[Debug] Call to spice function with 
+                                        target: %s observer: %s reference frame:  %s 
+                                        time: %s" 
+                                     t.Value o.Value r.spiceName.Value (string info.time.date)
+                            m
+                        | None ->
+                            m
+                    | None ->
+                        m
+                   
+                m
+
             match sb with
             | SequencedBookmark.LoadedBookmark loaded ->
                 update loaded

@@ -349,7 +349,6 @@ module BookmarkAnimations =
     let pathWithPausing (m : SequencedBookmarks)
                         (lenses : BookmarkLenses<'a>)
                         (outerModel      : 'a) =
-        let aspectRatio = m.resolutionX.value / m.resolutionY.value
         let bookmarks = orderedLoadedBookmarks m
         let animations =
             bookmarks

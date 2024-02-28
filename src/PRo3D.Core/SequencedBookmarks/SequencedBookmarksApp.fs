@@ -236,7 +236,8 @@ module SequencedBookmarksApp =
                     let m = selectSBookmark m firstBookmark
                     match m.animationSettings.useGlobalAnimation with
                     | true ->
-                        pathWithPausing m lenses outerModel//smoothPathAllBookmarks m lenses outerModel //does not work with focal length
+                        //smoothPathAllBookmarks m lenses outerModel //removed because it does not work with focal length
+                        pathWithPausing m lenses outerModel
                     | false ->
                         pathWithPausing m lenses outerModel
                 | None ->
@@ -662,20 +663,18 @@ module SequencedBookmarksApp =
               )
 
         let viewSnapshotGUI (model:AdaptiveSequencedBookmarks) = 
+            // recording not in use because as it is, it only works on
+            // hardware that allows PRo3D to run smoothly
             let startRecordingButton =
                 button [clazz "ui icon button"; onMouseClick (fun _ -> StartRecording )] [ 
                         i [clazz "red circle icon"] [] ] 
-                    
-
             let stopRecordingButton = 
                 button [clazz "ui icon button"; onMouseClick (fun _ -> StopRecording )] [ 
                         i [clazz "red stop icon"] [] ] 
-                    
-
-            let recordingButton =
+            let recordingButton = 
                 model.isRecording |> AVal.map (fun r -> if r then stopRecordingButton else startRecordingButton)
                                   |> AList.ofAValSingle
-
+            
             let generateButton = 
                 button [clazz "ui icon button"; onMouseClick (fun _ -> GenerateSnapshots )] [ 
                     i [clazz "camera icon"] [] ] 
