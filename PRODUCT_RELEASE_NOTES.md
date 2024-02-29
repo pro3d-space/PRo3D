@@ -1,3 +1,6 @@
+## 4.21.0-prerelease3
+- further improved kdtree loading on NTFS/macbook
+
 ## 4.21.0-prerelease2
 - fixed kdtree loading on NTFS/mac
  
