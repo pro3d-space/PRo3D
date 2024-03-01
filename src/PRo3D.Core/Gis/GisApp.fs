@@ -93,17 +93,25 @@ module GisApp =
                     let entities =
                         HashMap.remove id m.entities
                     {m with entities = entities}
-                | EntityAction.Cancel ->
+                | EntityAction.Cancel id ->
                     {m with newEntity = None}
-                | EntityAction.Save ->
+                | EntityAction.Save id ->
                     match m.newEntity with
-                    | Some newEntity ->
-                        let newEntity = Entity.update newEntity EntityAction.Save 
+                    | Some newEntity when newEntity.spiceName = id ->
+                        let newEntity = Entity.update newEntity (EntityAction.Save id)
                         let entities = 
                             HashMap.add newEntity.spiceName newEntity m.entities
                         {m with entities  = entities
                                 newEntity = None}
-                    | None -> m
+                    | _ -> 
+                        let entities = 
+                            HashMap.update id (fun s -> 
+                                match s with
+                                | Some s ->
+                                    Entity.update s msg
+                                | None   -> Entity.initial ()
+                            ) m.entities
+                        {m with entities = entities}
                 | _ ->
                     match m.newEntity with
                     | Some newEntity when newEntity.spiceName = id ->
@@ -328,7 +336,7 @@ module GisApp =
               (viewTree [] surfaces.rootGroup surfaces m)            
         )    
 
-    let viewEntity (m : AdaptiveGisApp) =
+    let viewEntities (m : AdaptiveGisApp) =
         let mapper msg s =
             GisAppAction.EntityMessage (s, msg)
         let newEntityRow =
@@ -336,7 +344,7 @@ module GisApp =
                 let! newEntity = m.newEntity
                 match newEntity with
                 | AdaptiveSome newEntity ->
-                    yield (Entity.viewAsTr newEntity m.referenceFrames mapper)
+                    yield (Entity.newViewAsTr newEntity m.referenceFrames mapper)
                 | AdaptiveNone ->
                     ()
             }
@@ -479,7 +487,7 @@ module GisApp =
             GuiEx.accordion "Surfaces" "Cubes" false 
                                   [ viewSurfacesGroupsGis surfaces.surfaces m]
             GuiEx.accordion "Entities" "Cubes" false [
-                viewEntity m
+                viewEntities m
             ]
             GuiEx.accordion "Reference Frames" "Cubes" false [
                 viewFrames m

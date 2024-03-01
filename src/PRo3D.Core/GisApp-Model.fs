@@ -172,10 +172,15 @@ type EntityAction =
     | SetLabel          of string
     | SetSpiceName      of string
     | SetSpiceNameText  of string
+    | ToggleDraw        
+    | SetTextureName    of string
+    | SetRadius         of float
+    | SetGeometryPath   of string
     | SetReferenceFrame of option<FrameSpiceName>
     | Delete            of EntitySpiceName
-    | Cancel
-    | Save              
+    | Edit              of EntitySpiceName
+    | Cancel            of EntitySpiceName
+    | Save              of EntitySpiceName
 
 type ReferenceFrameAction = 
     | SetLabel          of string

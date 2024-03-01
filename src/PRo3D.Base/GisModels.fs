@@ -40,25 +40,6 @@ module FrameSpiceName =
     let value (FrameSpiceName spiceName) =
         spiceName
 
-//type FrameId = FrameId of System.Guid
-//with 
-//    static member New () =
-//        FrameId (System.Guid.NewGuid ())
-//    member x.Value = 
-//        let (FrameId v) = x in v
-//    static member FromJson(_ : FrameId) = 
-//        json {
-//            let! v  = Json.read "FrameId"
-//            return (FrameId v)
-//        }
-//    static member ToJson (x : FrameId) =
-//        json {              
-//            do! Json.write "FrameId" x.Value
-//        }
-//module FrameId =
-//    let value (FrameId id) =
-//        id
-
 /// Reference Frames "A reference frame (or simply “frame”) is specified by an
 /// ordered set of three mutually orthogonal, possibly time dependent, unit-length direction vectors"
 /// https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/Tutorials/pdf/individual_docs/17_frames_and_coordinate_systems.pdf
@@ -113,26 +94,7 @@ with
                 do! Json.write  "entity"       x.entity.Value
         }
 
-//type EntityId = EntityId of System.Guid
-//with 
-//    static member New () =
-//        EntityId (System.Guid.NewGuid ())
-//    member x.Value = 
-//        let (EntityId v) = x in v
-//    static member FromJson(_ : EntityId) = 
-//        json {
-//            let! v  = Json.read "EntityId"
-//            return (EntityId v)
-//        }
-//    static member ToJson (x : EntityId) =
-//        json {              
-//            do! Json.write "EntityId" x.Value
-//        }
-//module EntityId =
-//    let value (EntityId id) =
-//        id
-
-
+/// Entities are natural bodies or spacecraft.
 /// “Body” means a natural body: sun, planet, satellite, comet, asteroid.
 /// https://cosmoguide.org/catalog-file-defining-a-natural-body/
 [<ModelType>]
@@ -142,6 +104,7 @@ type Entity = {
     [<NonAdaptive>]
     spiceName    : EntitySpiceName
     isEditing    : bool
+    draw         : bool
     // adaptive spiceName text for creating new Entities
     spiceNameText : string
     label        : string
@@ -161,6 +124,8 @@ type Entity = {
             let! geometryPath = Json.tryRead "geometryPath"
             let! textureName  = Json.tryRead "textureName" 
             let! defaultFrame = Json.read    "defaultFrame"
+            let! (draw : option<bool>) = Json.tryRead "draw"
+            let draw = Option.defaultValue false draw
             
             return {
                 version      = Entity.current
@@ -168,6 +133,7 @@ type Entity = {
                 spiceName    = spiceName   
                 spiceNameText = spiceName.Value
                 isEditing    = false
+                draw         = draw
                 color        = C4f.Parse color       
                 radius       = radius      
                 geometryPath = geometryPath
@@ -192,6 +158,7 @@ type Entity = {
             do! Json.write "geometryPath" x.geometryPath
             do! Json.write "textureName"  x.textureName 
             do! Json.write "defaultFrame" x.defaultFrame
+            do! Json.write "draw"         x.draw
         }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]    
@@ -203,6 +170,7 @@ module Entity =
             spiceName     = EntitySpiceName "Mars"    
             spiceNameText = "Mars"
             isEditing     = false
+            draw          = false
             color         = C4f.Red       
             geometryPath  = None
             radius        = 3376200.0 //polar radius in meter
@@ -217,6 +185,7 @@ module Entity =
             spiceName     = EntitySpiceName "Earth"    
             spiceNameText = "Earth"
             isEditing     = false
+            draw          = false
             color         = C4f.Blue       
             geometryPath  = None
             radius        = 6356800.0 // polar radius in meter
@@ -231,6 +200,7 @@ module Entity =
             spiceName     = EntitySpiceName "Moon"    
             spiceNameText = "Moon"
             isEditing     = false
+            draw          = false
             color         = C4f.Silver       
             geometryPath  = None
             radius        = 1736000.0 //polar radius in meter
@@ -245,6 +215,7 @@ module Entity =
             spiceName     = EntitySpiceName "Didymos"  
             spiceNameText = "Didymos"
             isEditing     = false
+            draw          = false
             color         = C4f.Grey       
             geometryPath  = None
             radius        = 382.5 //mean radius +/- 2.5m
@@ -259,6 +230,7 @@ module Entity =
             spiceName     = EntitySpiceName "Dimorphos"  
             spiceNameText = "Dimorphos"
             isEditing     = false
+            draw          = false
             color         = C4f.Grey       
             geometryPath  = None
             radius        = 75.5 //mean radius +/- 2.5m
@@ -272,6 +244,7 @@ module Entity =
             spiceName     = EntitySpiceName "HERA_SPACECRAFT" // ?? Need to check!
             spiceNameText = "HERA_SPACECRAFT"
             isEditing     = false
+            draw          = false
             color         = C4f.Grey       
             geometryPath  = None
             radius        = 2.0 // ?
