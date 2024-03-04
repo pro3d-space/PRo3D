@@ -2,7 +2,7 @@
   "profiles": {
     "opc-tool": {
       "commandName": "Project",
-      "commandLineArgs": "--ignoremasterkdtree \"K:\\PRo3D Data\\SAIIL_02_01-v3-opc\\SAIIL_02_01\""
+      "commandLineArgs": "--ignoremasterkdtree \"F:\\pro3d\\data\\20200220_DinosaurQuarry2\\Dinosaur_Quarry_2\" --forcekdtreerebuild"
     }
   }
 }
