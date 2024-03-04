@@ -216,7 +216,7 @@ module Sg =
              ]
      
         let lodDeciderMars = lodDeciderMars scene.preTransform
-        let lodDeciderMars = marsArea scene.preTransform
+        //let lodDeciderMars = marsArea scene.preTransform
 
 
         let map = 
