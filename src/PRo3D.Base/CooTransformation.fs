@@ -6,6 +6,8 @@ open JR
 open System.IO
 open System.IO.Compression
 
+open PRo3D.Extensions
+
 type Planet = 
 | Earth = 0
 | Mars  = 1
@@ -59,6 +61,8 @@ module CooTransformation =
             V4d(x.longitude, x.latitude, x.altitude, x.radian)
 
 
+    let cleanupDirs = System.Collections.Generic.List<obj>()
+
     let initCooTrafo (appData : string) = 
 
         let jrDir = Path.combine [appData; "JR";]
@@ -90,6 +94,35 @@ module CooTransformation =
             failwithf "[CooTransformation] could not initialize library, config dir: %s, return code: %d" configDir errorCode
         else 
             Log.line "[CooTransformation] Successfully initialized CooTrafo"
+
+        let tryLoadKernelFromDefaultConfig (name : string)= 
+            let tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
+            // actually we want to dispose the temp dir here, however according to spice docs, this should stay alive 
+            // i keep it alive till finalizer cleans up when shutting down....
+            let finalizer  = 
+                { new obj() with 
+                    member x.Finalize() = if Directory.Exists tempDir then Directory.Delete(tempDir, true) 
+                }
+            cleanupDirs.Add(finalizer)
+
+            let di = Directory.CreateDirectory tempDir 
+            if not di.Exists then 
+                Log.warn "could not create temp dir for loading spice kernel"
+                false
+            else
+                for f in Directory.EnumerateFiles(configDir) do File.Copy(f, Path.Combine(tempDir, Path.GetFileName f))
+                let currentDir = try Directory.GetCurrentDirectory() |> Some with e -> Log.warn "could not set directory, which might be needed for loading spice kernels"; None
+                use __ = { new IDisposable with member x.Dispose() = match currentDir with None -> () | Some d -> try Directory.SetCurrentDirectory d with e -> Log.warn "%A" e;  }
+                Directory.SetCurrentDirectory(tempDir)
+                let r = CooTransformation.AddSpiceKernel(name)
+                if r <> 0 then
+                    Log.warn "could not load spice kernel: %s in %s." name tempDir
+                    false
+                else 
+                    true
+
+        if not (tryLoadKernelFromDefaultConfig "pck00010.tpc") then
+            Log.warn "running without default spice kernel."
         
         try
             let error = JR.InstrumentPlatforms.Init(configDir,logDir)
@@ -113,67 +146,67 @@ module CooTransformation =
         | Planet.None | Planet.JPL | Planet.ENU ->
             { latitude = nan; longitude = nan; altitude = nan; radian = 0.0 }
         | _ ->
-            let lat = ref init
-            let lon = ref init
-            let alt = ref init
+            let mutable lat = init
+            let mutable lon = init
+            let mutable alt = init
             
-            let errorCode = CooTransformation.Xyz2LatLonAlt(planet.ToString(), p.X, p.Y, p.Z, lat, lon, alt)
+            let errorCode = CooTransformation.Xyz2LatLonAlt(planet.ToString(), p.X, p.Y, p.Z, &lat, &lon, &alt)
             
             if errorCode <> 0 then
                 Log.line "cootrafo errorcode %A" errorCode
             
             {
-                latitude  = lat.Value
-                longitude = lon.Value
-                altitude  = alt.Value
+                latitude  = lat
+                longitude = lon
+                altitude  = alt
                 radian    = 0.0
             }
 
     let getLatLonRad (p:V3d) : SphericalCoo = 
-        let lat = ref init
-        let lon = ref init
-        let rad = ref init
-        let errorCode = CooTransformation.Xyz2LatLonRad( p.X, p.Y, p.Z, lat, lon, rad)
+        let mutable lat = init
+        let mutable lon = init
+        let mutable rad = init
+        let errorCode = CooTransformation.Xyz2LatLonRad( p.X, p.Y, p.Z, &&lat, &&lon, &&rad)
         
         if errorCode <> 0 then
             Log.line "cootrafo errorcode %A" errorCode
 
         {
-            latitude  = lat.Value
-            longitude = lon.Value
+            latitude  = lat
+            longitude = lon
             altitude  = 0.0
-            radian    = rad.Value
+            radian    = rad
         }
 
     let getXYZFromLatLonAlt (sc:SphericalCoo) (planet:Planet) : V3d = 
         match planet with
         | Planet.None | Planet.JPL | Planet.ENU -> V3d.NaN
         | _ ->
-            let pX = ref init
-            let pY = ref init
-            let pZ = ref init
+            let mutable pX = init
+            let mutable pY = init
+            let mutable pZ = init
             let error = 
-                CooTransformation.LatLonAlt2Xyz(planet.ToString(), sc.latitude, sc.longitude, sc.altitude, pX, pY, pZ )
+                CooTransformation.LatLonAlt2Xyz(planet.ToString(), sc.latitude, sc.longitude, sc.altitude, &pX, &pY, &pZ )
             
             if error <> 0 then
                 Log.line "cootrafo errorcode %A" error
             
-            V3d(pX.Value, pY.Value, pZ.Value)
+            V3d(pX, pY, pZ)
 
     let getXYZFromLatLonAlt' (coordinate :V3d) (planet:Planet) : V3d = 
         match planet with
         | Planet.None | Planet.JPL | Planet.ENU -> V3d.NaN
         | _ ->
-            let pX = ref init
-            let pY = ref init
-            let pZ = ref init
+            let mutable pX = init
+            let mutable pY = init
+            let mutable pZ = init
             let error = 
-                CooTransformation.LatLonAlt2Xyz(planet.ToString(), coordinate.X, coordinate.Y, coordinate.Z, pX, pY, pZ )
+                CooTransformation.LatLonAlt2Xyz(planet.ToString(), coordinate.X, coordinate.Y, coordinate.Z, &pX, &pY, &pZ )
             
             if error <> 0 then
                 Log.line "cootrafo errorcode %A" error
             
-            V3d(pX.Value, pY.Value, pZ.Value)
+            V3d(pX, pY, pZ)
 
     let getHeight (p:V3d) (up:V3d) (planet:Planet) = 
         match planet with

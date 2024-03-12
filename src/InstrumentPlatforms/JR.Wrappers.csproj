@@ -10,4 +10,9 @@
     <OutputPath>..\..\bin\Release</OutputPath>
   </PropertyGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
+  <ItemGroup>
+    <Compile Remove="JR.Wrappers.Tests\**" />
+    <EmbeddedResource Remove="JR.Wrappers.Tests\**" />
+    <None Remove="JR.Wrappers.Tests\**" />
+  </ItemGroup>
 </Project>
