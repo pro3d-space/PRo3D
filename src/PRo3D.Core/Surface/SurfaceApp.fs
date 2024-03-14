@@ -859,8 +859,16 @@ module SurfaceApp =
                 | Some p ->          
                     Log.startTimed "[RebuildKdTrees] loading patch hierarchy"
                     let hs =
-                        Directory.EnumerateDirectories(p) |> Seq.toArray |> Array.map (fun p ->
-                            PatchHierarchy.load Serialization.binarySerializer.Pickle Serialization.binarySerializer.UnPickle (OpcPaths.OpcPaths p)
+                        Directory.EnumerateDirectories(p) |> Seq.toArray |> Array.choose (fun p ->
+                            if Files.isOpcFolder p then
+                                try 
+                                    PatchHierarchy.load Serialization.binarySerializer.Pickle Serialization.binarySerializer.UnPickle (OpcPaths.OpcPaths p) |> Some
+                                with e -> 
+                                    Log.warn "[RebuildKdTrees] failed to load patch hierarchy: %s\nException: %A" p e
+                                    None
+                            else
+                                Log.warn "[RebuildKdTrees] skipping %s for KdTree Generation" p
+                                None
                         )
                     Log.stop()
                     Log.startTimed "[RebuildKdTrees] creating kdtrees"
@@ -869,6 +877,7 @@ module SurfaceApp =
                             KdTrees.loadKdTrees' h Trafo3d.Identity true ViewerModality.XYZ Serialization.binarySerializer true true PRo3D.Core.Surface.DebugKdTreesX.loadTriangles' false    
                         )
                     Log.stop()
+                    Log.line "[RebuildKdTrees] created/validated KdTrees for %d opcs." kdTrees.Length
                     model
                 | None -> model                         
             | _ -> model
