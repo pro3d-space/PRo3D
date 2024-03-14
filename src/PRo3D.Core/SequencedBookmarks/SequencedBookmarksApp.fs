@@ -20,17 +20,6 @@ open PRo3D.Core.BookmarkAnimations
 open Aether
 open Aether.Operators
 
-module SequencedBookmark =
-
-    let update (m : SequencedBookmarkModel) (msg : SequencedBookmarkAction) =
-        match msg with
-        | SetName name ->
-            {m with bookmark = {m.bookmark with name = name}}
-        | SetDelay msg ->
-            {m with delay = Numeric.update m.delay msg}
-        | SetDuration msg ->
-            {m with duration = Numeric.update m.duration msg}
-
 module AnimationSettings =
     let update (m : AnimationSettings) (msg : AnimationSettingsAction)  =
         match msg with
@@ -55,13 +44,35 @@ module AnimationSettings =
            let smoothingFactor = Numeric.update m.smoothingFactor msg
            {m with smoothingFactor = smoothingFactor}
 
-
-
 module SequencedBookmarksApp = 
     let mutable (snapshotProcess : option<System.Diagnostics.Process>) = None
 
     let outputPath (m : SequencedBookmarks) = 
         Path.combine [m.outputPath;"batchRendering.json"]
+
+    let applytoAllBookmarks (f : (SequencedBookmarkModel -> SequencedBookmarkModel))
+                            (m : SequencedBookmarks) =
+        let bookmarks = 
+            m.bookmarks 
+            |> HashMap.map (fun id bm ->
+                match bm with
+                | SequencedBookmark.LoadedBookmark loadedBm ->
+                    let bm = f loadedBm
+                    SequencedBookmark.LoadedBookmark bm
+                | SequencedBookmark.NotYetLoaded notLoadedBm ->
+                    match SequencedBookmark.tryLoad bm with
+                    | Some bm -> 
+                        let bm = f bm
+                        SequencedBookmark.LoadedBookmark bm
+                    | None ->
+                        bm)
+        {m with bookmarks = bookmarks}
+
+    let withSurfaceModel (surfaceModel : SurfaceModel)
+                         (m : SequencedBookmarks) =
+        let f bm = 
+            Optic.set SequencedBookmarkModel._surfaces surfaceModel.surfaces bm
+        applytoAllBookmarks f m
 
     let update 
         (m                : SequencedBookmarks) 
