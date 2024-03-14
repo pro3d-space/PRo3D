@@ -863,20 +863,28 @@ module SurfaceApp =
             | Some (Leaf.Surfaces sf) ->                    
                 let path = Files.getSurfaceFolder sf scenePath
                 match path with
-                | Some p ->                            
-                    let path = @".\20170530_TextureConverter_single\Vrvis.TextureConverter.exe"
-                    if File.Exists(path) then //\Vrvis.TextureConverter.exe") then
-                        let mutable converter = new Process()
-                        Log.line "start processing"                        
-                        converter.StartInfo.FileName <- "Vrvis.TextureConverter.exe"
-                        converter.StartInfo.Arguments <- p + " -overwrite" //-lazy"
-                        converter.StartInfo.UseShellExecute <- true                          
-                        converter.StartInfo.WorkingDirectory <- @".\20170530_TextureConverter_single"                                    
-                        converter.Start() |> ignore    
-                        converter.WaitForExit()
-                           //)
-                    else
-                        Log.line "texture converter not found"                             
+                | Some p ->          
+                    Log.startTimed "[RebuildKdTrees] loading patch hierarchy"
+                    let hs =
+                        Directory.EnumerateDirectories(p) |> Seq.toArray |> Array.choose (fun p ->
+                            if Files.isOpcFolder p then
+                                try 
+                                    PatchHierarchy.load Serialization.binarySerializer.Pickle Serialization.binarySerializer.UnPickle (OpcPaths.OpcPaths p) |> Some
+                                with e -> 
+                                    Log.warn "[RebuildKdTrees] failed to load patch hierarchy: %s\nException: %A" p e
+                                    None
+                            else
+                                Log.warn "[RebuildKdTrees] skipping %s for KdTree Generation" p
+                                None
+                        )
+                    Log.stop()
+                    Log.startTimed "[RebuildKdTrees] creating kdtrees"
+                    let kdTrees =
+                        hs |> Array.mapi (fun i h -> 
+                            KdTrees.loadKdTrees' h Trafo3d.Identity true ViewerModality.XYZ Serialization.binarySerializer true true PRo3D.Core.Surface.DebugKdTreesX.loadTriangles' false    
+                        )
+                    Log.stop()
+                    Log.line "[RebuildKdTrees] created/validated KdTrees for %d opcs." kdTrees.Length
                     model
                 | None -> model                         
             | _ -> model
@@ -1237,7 +1245,7 @@ module SurfaceApp =
                                 yield GuiEx.iconCheckBox s.isActive (ToggleActiveFlag key) 
                                 |> UI.wrapToolTip DataPosition.Bottom "Toggle IsActive"
 
-                                yield i [clazz "sync icon"; onClick (fun _ -> RebuildKdTrees key)] [] 
+                                yield i [clazz "exclamation circle icon"; onClick (fun _ -> RebuildKdTrees key)] [] 
                                     |> UI.wrapToolTip DataPosition.Bottom "rebuild kdTree"           
             
                                 let! path = s.importPath

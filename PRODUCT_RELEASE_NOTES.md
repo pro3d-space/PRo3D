@@ -1,3 +1,19 @@
+## 4.22.0
+- further improved kdtree loading on NTFS/macbook
+
+
+## 4.21.0-prerelease3
+- further improved kdtree loading on NTFS/macbook
+
+## 4.21.0-prerelease2
+- fixed kdtree loading on NTFS/mac
+ 
+## 4.21.0-prerelease1
+- added support to re-create kdtrees 
+ 
+## 4.20.2
+- opc tool now supports "ignoreMasterKdTree" option which can be used to force leaf kdtree construction
+
 ## 4.20.1
 - added readme to opc-tool
 
