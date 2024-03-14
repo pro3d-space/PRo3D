@@ -24,7 +24,7 @@ open Aardvark.Opc
 open Aardvark.SceneGraph.Semantics
 open Aardvark.SceneGraph.Semantics.TrafoSemantics
 
-
+open PRo3D.Extensions
 
 [<Struct>]
 type RelState = 
@@ -47,7 +47,7 @@ module Spice =
         let m : double[] = Array.zeroCreate 9
         let pdPosVec = fixed &p[0]
         let pdRotMat = fixed &m[0]
-        let r = JR.CooTransformation.GetRelState(target, "SUN", observer, obsTime, referenceFrame, NativePtr.toNativeInt pdPosVec, NativePtr.toNativeInt pdRotMat)
+        let r = CooTransformation.GetRelState(target, "SUN", observer, obsTime, referenceFrame, NativePtr.toNativeInt pdPosVec, NativePtr.toNativeInt pdRotMat)
         if r <> 0 then 
             Log.warn "[spice] GetRelState failed."
             None
@@ -378,7 +378,7 @@ let run (scenes : list<OpcScene>) =
         let marr : double[] = Array.zeroCreate 9
         let pdMat = fixed &marr[0]
         time |> AVal.map (fun time -> 
-            let r = JR.CooTransformation.GetPositionTransformationMatrix("IAU_MARS", referenceFrame, Time.toUtcFormat time, NativePtr.toNativeInt pdMat)
+            let r = CooTransformation.GetPositionTransformationMatrix("IAU_MARS", referenceFrame, Time.toUtcFormat time, pdMat)
             if r <> 0 then 
                 Log.warn "GetPositionTransformationMatrix"
                 Trafo3d.Identity

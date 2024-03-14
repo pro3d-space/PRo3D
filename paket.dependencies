@@ -68,6 +68,8 @@ nuget Thoth.Json.Net ~> 11.0.0
 
 nuget CommandLineParser.FSharp ~> 2.9.1
 
+nuget PRo3D.SPICE ~> 1.0.2
+
 
 group Test
     framework: net6.0, net6.0-windows
@@ -99,6 +101,8 @@ group Test
 	nuget Aardvark.Application.Slim.Vulkan      ~> 5.4.0
 
     nuget BenchmarkDotNet          ~> 0.13.1
+
+	nuget PRo3D.SPICE ~> 1.0.2
 
 
 group Build

@@ -11,7 +11,7 @@ type Kind = Scene | Annotations | Solarsystem
 [<EntryPoint>]
 let main argv =
     
-    let kind = Solarsystem
+    let kind = Scene
 
     let shaler =
         { 
@@ -61,6 +61,21 @@ let main argv =
             lodDecider       =  DefaultMetrics.mars2 
         }
 
+    let mola =
+        { 
+            useCompressedTextures = true
+            preTransform     = Trafo3d.Identity
+            patchHierarchies = 
+                    Seq.delay (fun _ -> 
+                        System.IO.Directory.GetDirectories(@"K:\PRo3D Data\MOLA") 
+                    )
+            boundingBox      = Box3d.Parse("[[-432.863518980, 2190669.974376967, -2354936.901768766], [1492041.915577915, 3396466.232556264, -231.471982595]]") 
+            near             = 1000.1
+            far              = 100000000000.0
+            speed            = 15.0
+            lodDecider       =  DefaultMetrics.mars2 
+        }
+
     match kind with
 
     | Solarsystem -> 
@@ -68,7 +83,7 @@ let main argv =
 
     | Scene ->
     
-        TestViewer.run shaler
+        TestViewer.run mola
 
     | Annotations ->
 
