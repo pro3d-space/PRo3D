@@ -63,7 +63,7 @@ module CooTransformation =
 
     let cleanupDirs = System.Collections.Generic.List<obj>()
 
-    let initCooTrafo (appData : string) = 
+    let initCooTrafo (customSpiceKernelPath : Option<string>) (appData : string) = 
 
         let jrDir = Path.combine [appData; "JR";]
         let cooTransformationDir = Path.combine [jrDir; "CooTransformationConfig"]
@@ -95,7 +95,7 @@ module CooTransformation =
         else 
             Log.line "[CooTransformation] Successfully initialized CooTrafo"
 
-        let tryLoadKernelFromDefaultConfig (name : string)= 
+        let tryLoadKernelFromDefaultConfigIsolated (kernelDirectory : string) (name : string)= 
             let tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
             // actually we want to dispose the temp dir here, however according to spice docs, this should stay alive 
             // i keep it alive till finalizer cleans up when shutting down....
@@ -110,7 +110,7 @@ module CooTransformation =
                 Log.warn "could not create temp dir for loading spice kernel"
                 false
             else
-                for f in Directory.EnumerateFiles(configDir) do File.Copy(f, Path.Combine(tempDir, Path.GetFileName f))
+                for f in Directory.EnumerateFiles(kernelDirectory) do File.Copy(f, Path.Combine(tempDir, Path.GetFileName f))
                 let currentDir = try Directory.GetCurrentDirectory() |> Some with e -> Log.warn "could not set directory, which might be needed for loading spice kernels"; None
                 use __ = { new IDisposable with member x.Dispose() = match currentDir with None -> () | Some d -> try Directory.SetCurrentDirectory d with e -> Log.warn "%A" e;  }
                 Directory.SetCurrentDirectory(tempDir)
@@ -121,7 +121,30 @@ module CooTransformation =
                 else 
                     true
 
-        if not (tryLoadKernelFromDefaultConfig "pck00010.tpc") then
+        let tryLoadKernelFromDefaultConfig (kernelDirectory : string) (name : string) = 
+            let currentDir = try Directory.GetCurrentDirectory() |> Some with e -> Log.warn "could not set directory, which might be needed for loading spice kernels"; None
+            use __ = { new IDisposable with member x.Dispose() = match currentDir with None -> () | Some d -> try Directory.SetCurrentDirectory d with e -> Log.warn "%A" e;  }
+            Directory.SetCurrentDirectory(kernelDirectory)
+            let r = CooTransformation.AddSpiceKernel(name)
+            if r <> 0 then
+                Log.warn "could not load spice kernel: %s in %s." name kernelDirectory
+                false
+            else 
+                true
+
+        let spiceDirectory, spiceFileName = 
+            let defaultKernel = configDir, "pck00010.tpc"
+            match customSpiceKernelPath with
+            | None -> defaultKernel
+            | Some filePath -> 
+                let fullPath = Path.GetFullPath(filePath)
+                if not (File.Exists(fullPath)) then
+                    defaultKernel
+                else
+                    Path.GetDirectoryName(filePath), Path.GetFileName filePath
+
+        Log.line $"[SPICE] kernel location: {spiceDirectory}, kernel file name: {spiceFileName}."
+        if not (tryLoadKernelFromDefaultConfig spiceDirectory spiceFileName) then
             Log.warn "running without default spice kernel."
         
         try

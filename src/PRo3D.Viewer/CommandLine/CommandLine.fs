@@ -33,6 +33,7 @@ module CommandLine =
         Log.line @"--disableCors                       disables CORS for local remote apps"
         Log.line @"--remoteApi                         enables PRo3D REST API"
         Log.line @"--enableProvenance                  enabled provenance tracking feature."
+        Log.line @"--defaultSpiceKernel                path to a custom SPICE kernel to be loaded at startup."
         
         Log.line @"--snap [path\snapshot.json]         path to a snapshot file containing camera views (old format)"
         Log.line @""
@@ -70,6 +71,8 @@ module CommandLine =
             let showReferenceSystem = (argv |> Array.contains "--refsystem")
             let verbose = (argv |> Array.contains "--verbose")
 
+            let spiceKernelPath = parseArg "--defaultSpiceKernel" argv
+
             Log.line "[Arguments] Server mode: %s" (b2str server)
             Log.line "[Arguments] Using linear magnification filtering%s" (b2str magFilter)
             Log.line "[Arguments] Show exploration centre%s" (b2str showExplorationCentre)
@@ -78,6 +81,7 @@ module CommandLine =
             Log.line "[Arguments] ProvenanceTracking: %s" (b2str enableProvenanceTracking)
             Log.line "[Arguments] Remote API: %s" (b2str enableRemoteApi)
             Log.line "[Arguments] Disable CORS: %s" (b2str disableCors)
+            Log.line "[Arguments] Default SPICE kernel path: %s" (spiceKernelPath |> Option.defaultValue "no custom path supplied. using PRo3D default.")
 
             Log.line "[Arguments] render control config %A" (samples, backgroundColor, noMapping)
             let args : StartupArgs = 
@@ -99,5 +103,6 @@ module CommandLine =
                         data_samples          = samples
                         backgroundColor       = match backgroundColor with Some b -> b | None -> StartupArgs.initArgs.backgroundColor
                         isBatchRendering      = false
+                        defaultSpiceKernelPath = spiceKernelPath
                     }
             args

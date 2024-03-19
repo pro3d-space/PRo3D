@@ -176,7 +176,7 @@ let main argv =
     let mutable cooTrafoInitialized = false
     let disposables = List<IDisposable>()
     try
-        CooTransformation.initCooTrafo appData
+        CooTransformation.initCooTrafo startupArgs.defaultSpiceKernelPath appData
         cooTrafoInitialized <- true
 
         //use app = new VulkanApplication()
