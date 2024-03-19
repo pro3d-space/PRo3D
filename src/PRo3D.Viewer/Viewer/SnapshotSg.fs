@@ -136,8 +136,8 @@ module SnapshotSg =
                             surfacePicking
                             surface.globalBB
                             refSystem 
-                            m.footPrint
                             None
+                            m.footPrint
                             vpVisible
                             usehighlighting filterTexture
                             allowFootprint

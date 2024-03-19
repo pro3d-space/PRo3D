@@ -978,6 +978,7 @@ module ViewerUtils =
                                 surfacePicking
                                 surface.globalBB
                                 refSystem 
+                                None
                                 m.footPrint 
                                 vpVisible
                                 usehighlighting filterTexture
