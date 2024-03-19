@@ -494,6 +494,16 @@ module GisApp =
             ]
         ]
 
+
+    let getSurfaceAdaptiveToViewerTrafo (m : AdaptiveGisApp) (s : SurfaceId) =
+        adaptive {
+            match! m.gisSurfaces |> AMap.tryFind s with
+            | None -> return Trafo3d.Identity
+            | Some gisSurface -> 
+                return Trafo3d.Identity
+        }
+
+
     let initial : GisApp =
         let entities =
             [

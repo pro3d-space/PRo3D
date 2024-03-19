@@ -278,6 +278,7 @@ module ViewerUtils =
         (surfacePicking  : aval<bool>)
         (globalBB        : aval<Box3d>) 
         (refsys          : AdaptiveReferenceSystem)
+        (surfaceToGlobal : Option<AdaptiveSgSurface -> AdaptiveSurface -> AdaptiveReferenceSystem -> aval<Trafo3d>>)
         (fp              : AdaptiveFootPrint) 
         (vpVisible       : aval<bool>)
         (useHighlighting : aval<bool>)
@@ -412,14 +413,18 @@ module ViewerUtils =
                             return false
                     }               
 
-                //let! texTest = depthTexture
-                let! texTest = DefaultTextures.checkerboard 
-                
+                let surfaceToSolarSystem =
+                    match surfaceToGlobal with
+                    | None -> Trafo3d.Identity |> AVal.constant
+                    | Some f -> 
+                        f surface surf refsys
+
                 let surfaceSg =
                     surface.sceneGraph
                     |> AVal.map createSg
                     |> Sg.dynamic
                     |> Sg.trafo trafo //(Transformations.fullTrafo surf refsys)
+                    |> Sg.trafo surfaceToSolarSystem
                     |> Sg.modifySamplerState DefaultSemantic.DiffuseColorTexture samplerDescription
                     |> Sg.uniform "selected"      (isSelected) // isSelected
                     |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
@@ -874,6 +879,10 @@ module ViewerUtils =
         let vpVisible = isViewPlanVisible m
         let view = m.navigation.camera.view
 
+        let surfaceToSunSystem (sg : AdaptiveSgSurface) (surface : AdaptiveSurface) (r : AdaptiveReferenceSystem) =
+            //Gis.GisApp.computeSurfaceToViewerTrafo sg.
+            AVal.constant Trafo3d.Identity
+
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 
@@ -888,6 +897,7 @@ module ViewerUtils =
                             m.ctrlFlag 
                             sf.globalBB 
                             refSystem 
+                            (Some surfaceToSunSystem)
                             m.footPrint 
                             vpVisible
                             usehighlighting m.filterTexture

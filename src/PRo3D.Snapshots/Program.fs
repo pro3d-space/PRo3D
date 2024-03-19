@@ -96,7 +96,7 @@ let startApplication (startupArgs : CLStartupArgs) =
 
 
     try 
-        CooTransformation.initCooTrafo appData
+        CooTransformation.initCooTrafo None appData
         cooTrafoInitialized <- true
 
         use app = new OpenGlApplication()
