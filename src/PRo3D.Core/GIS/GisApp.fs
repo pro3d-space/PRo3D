@@ -601,6 +601,7 @@ module GisApp =
                         let! (FrameSpiceName frame) = targetReferenceFrameWithDefault
                         let! (EntitySpiceName observer) = observerSpiceBody
                         let! time = time
+                        Log.line "[spice] body: %A" (spiceBody, observer, time, frame)
                         match CooTransformation.getRelState spiceBody "sun" observer time frame with
                         | Some r -> 
                             return Some r
@@ -623,7 +624,8 @@ module GisApp =
         let colors = extractArray (fun t b -> b.color.GetValue(t))
 
         let bodySg = 
-            IndexedGeometryPrimitives.solidSubdivisionSphere (Sphere3d.FromCenterAndRadius(V3d.Zero, 1.0)) 3 C4b.White
+            //IndexedGeometryPrimitives.solidSubdivisionSphere (Sphere3d.FromCenterAndRadius(V3d.Zero, 1.0)) 6 C4b.White
+            IndexedGeometryPrimitives.solidPhiThetaSphere (Sphere3d.FromCenterAndRadius(V3d.Zero, 1.0)) 20 C4b.White
             |> Sg.ofIndexedGeometry
 
         let instancedUniforms = 
