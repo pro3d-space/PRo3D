@@ -1006,8 +1006,6 @@ module ViewerUtils =
         //grouped   
         let last = grouped |> AList.tryLast
 
-        let gisEntities = Gis.GisApp.view3D m.scene.gisApp |> Sg.noEvents
-        
         alist {                    
             for set in grouped do  
                 let sg = set|> Sg.set
@@ -1030,7 +1028,6 @@ module ViewerUtils =
                 yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
 
             yield RenderCommand.SceneGraph overlayed
-            yield RenderCommand.SceneGraph gisEntities
 
         }
 

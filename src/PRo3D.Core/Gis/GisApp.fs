@@ -623,7 +623,7 @@ module GisApp =
         let colors = extractArray (fun t b -> b.color.GetValue(t))
 
         let bodySg = 
-            IndexedGeometryPrimitives.solidSubdivisionSphere Sphere3d.Unit 3 C4b.White
+            IndexedGeometryPrimitives.solidSubdivisionSphere (Sphere3d.FromCenterAndRadius(V3d.Zero, 1.0)) 3 C4b.White
             |> Sg.ofIndexedGeometry
 
         let instancedUniforms = 

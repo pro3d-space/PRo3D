@@ -1823,6 +1823,10 @@ module ViewerApp =
         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
         let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
 
+        
+        let gisEntities = Gis.GisApp.view3D m.scene.gisApp |> Sg.noEvents
+
+
         let annotations, discs = 
             DrawingApp.view 
                 m.scene.config 
@@ -1962,6 +1966,7 @@ module ViewerApp =
                 heightValidation
                 scaleBarTexts
                 traverse
+                gisEntities
             ] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
         //let minervaSg =
