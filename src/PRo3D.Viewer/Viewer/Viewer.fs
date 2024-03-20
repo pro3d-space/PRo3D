@@ -1610,11 +1610,11 @@ module ViewerApp =
             let animations = 
                 match msg with
                 | Gis.GisAppAction.ObservationInfoMessage msg ->
-                    match Gis.GisApp.lookAtObserver m.scene.gisApp with
+                    match Gis.GisApp.lookAtObserver gisApp with
                     | Some newCamera -> 
                         let addObserverAnimation (m : Model) =
                             let animationMessage = 
-                                    CameraAnimations.animateForwardAndLocation newCamera.Location newCamera.Forward V3d.OOI 2.0 "ForwardAndLocation2s"
+                                    CameraAnimations.animateForwardAndLocation newCamera.Location newCamera.Forward V3d.OOI 2.0 "TransitionCameraToObserver"
                             AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                         addObserverAnimation m
                     | _ -> 

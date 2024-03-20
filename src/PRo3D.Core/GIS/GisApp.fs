@@ -579,7 +579,8 @@ module GisApp =
                 let! bodyToObserver = entityPosition
 
                 return 
-                    unitSphereToRadius * bodyFrameToTargetFrame * bodyToObserver
+                    //unitSphereToRadius * bodyFrameToTargetFrame * bodyToObserver
+                    unitSphereToRadius * bodyToObserver
             }
 
 
@@ -683,12 +684,16 @@ module GisApp =
     let lookAtObserver (m : GisApp) =
         match m.defaultObservationInfo.observer, m.defaultObservationInfo.referenceFrame, m.defaultObservationInfo.target with
         | Some (EntitySpiceName observer), Some (FrameSpiceName refFrame), Some (EntitySpiceName target) ->
+            Log.line "look at. target: %A, observer: %A, %A" target observer refFrame
             match CooTransformation.getRelState target "SUN" observer  m.defaultObservationInfo.time.date refFrame with
             | None -> 
                 Log.warn "getRelState failed: %A" (target, "sun", observer, time, m.defaultObservationInfo.time.date, refFrame)
                 None
             | Some rel -> 
-                CameraView.lookAt rel.pos V3d.Zero V3d.OOI |> Some
+                let rot = rel.rot
+                let t = Trafo3d.FromBasis(rot.C0, rot.C1, -rot.C2, V3d.Zero)
+                CameraView.ofTrafo t.Inverse |> Some
+                //CameraView.lookAt rel.pos V3d.Zero V3d.OOI |> Some
         | _ -> None
 
     let view3D (m : AdaptiveGisApp) =

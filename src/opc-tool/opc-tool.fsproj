@@ -29,7 +29,6 @@
       <CopyToOutput>true</CopyToOutput>
       <BuildAction>Content</BuildAction>
     </Content>
-    <None Include="OpcTool.md" />
     <Compile Include="KdTreesCopy.fs" />
     <None Include="paket.references" />
     <Compile Include="Program.fs" />
