@@ -178,6 +178,36 @@ module Entity =
             defaultFrame  = Some (FrameSpiceName "IAU_MARS")
         }
 
+    let deimos =
+        {
+            version       = Entity.current
+            label         = "Deimos"        
+            spiceName     = EntitySpiceName "deimos"    
+            spiceNameText = "Deimos"
+            isEditing     = false
+            draw          = false
+            color         = C4f.Gray       
+            geometryPath  = None
+            radius        = 6250.0 //polar radius in meter
+            textureName   = None
+            defaultFrame  = Some (FrameSpiceName "ECLIPJ2000")
+        }
+
+    let phobos =
+        {
+            version       = Entity.current
+            label         = "Phobos"        
+            spiceName     = EntitySpiceName "Phobos"    
+            spiceNameText = "Phobos"
+            isEditing     = false
+            draw          = false
+            color         = C4f.DarkGoldenRod       
+            geometryPath  = None
+            radius        = 11266.5 //polar radius in meter
+            textureName   = None
+            defaultFrame  = Some (FrameSpiceName "ECLIPJ2000")
+        }
+
     let earth =
         {
             version       = Entity.current
@@ -235,21 +265,21 @@ module Entity =
             geometryPath  = None
             radius        = 75.5 //mean radius +/- 2.5m
             textureName   = None
-            defaultFrame  = Some (FrameSpiceName "IAU_DIMORPHOS") // DIMORPHOS_FIXED ?
+            defaultFrame  = Some (FrameSpiceName "ECLIPJ2000") // DIMORPHOS_FIXED ?
         }
     let heraSpacecraft =
         {
             version       = Entity.current
             label         = "Hera Spacecraft"
-            spiceName     = EntitySpiceName "HERA_SPACECRAFT" // ?? Need to check!
-            spiceNameText = "HERA_SPACECRAFT"
+            spiceName     = EntitySpiceName "HERA" // ?? Need to check!
+            spiceNameText = "HERA"
             isEditing     = false
             draw          = false
             color         = C4f.Grey       
             geometryPath  = None
             radius        = 2.0 // ?
             textureName   = None
-            defaultFrame  = Some (FrameSpiceName "IAU_DIMORPHOS") // DIMORPHOS_FIXED ?
+            defaultFrame  = Some (FrameSpiceName "ECLIPJ2000") // DIMORPHOS_FIXED ?
         }
         
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]    

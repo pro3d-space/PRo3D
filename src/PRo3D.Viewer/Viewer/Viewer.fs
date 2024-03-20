@@ -43,6 +43,7 @@ open PRo3D.SimulatedViews
 //open PRo3D.Minerva
 //open PRo3D.Linking
 open PRo3D.ViewerLenses
+
  
 open Aether
 open Aether.Operators
@@ -419,6 +420,7 @@ module ViewerApp =
                 m |> Optic.map _frustumModel (fun fm -> 
                     {fm with frustum = FrustumUtils.withAspect aspect fm.frustum})
             m
+
 
     let addFlyToSurfaceAnimation (m : Model) (id : SurfaceId) =
         let surf = m |> Optic.get _sgSurfaces |> HashMap.tryFind id
@@ -1604,15 +1606,28 @@ module ViewerApp =
         | GisAppMessage msg, _ , _ ->
             let m, gisApp = 
                  Gis.GisApp.update m.scene.gisApp gisLenses m msg
+
             let animations = 
                 match msg with
+                | Gis.GisAppAction.ObservationInfoMessage msg ->
+                    match Gis.GisApp.lookAtObserver m.scene.gisApp with
+                    | Some newCamera -> 
+                        let addObserverAnimation (m : Model) =
+                            let animationMessage = 
+                                    CameraAnimations.animateForwardAndLocation newCamera.Location newCamera.Forward V3d.OOI 2.0 "ForwardAndLocation2s"
+                            AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
+                        addObserverAnimation m
+                    | _ -> 
+                        m.animations
+
                 | Gis.GisAppAction.SurfacesMessage msg ->
                     match msg with
                     | SurfaceAppAction.FlyToSurface id ->
                         addFlyToSurfaceAnimation m id
                     | _ ->
                         m.animations
-                | _ -> m.animations
+                | _ -> 
+                    m.animations
             (Optic.set _gisApp gisApp m)
             |> Optic.set ViewerLenses._animation animations
         | unknownAction, _, _ -> 

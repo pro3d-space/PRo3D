@@ -1,6 +1,7 @@
-﻿namespace PRo3D.Core.Gis
+﻿#nowarn "9"
+namespace PRo3D.Core.Gis
 
-
+open System
 open Aardvark.Base
 open Aardvark.UI
 open PRo3D.Base
@@ -11,6 +12,13 @@ open PRo3D.Core.Surface
 open PRo3D.Base.Gis
 open Aether
 open PRo3D.Core.SequencedBookmarks
+
+open Aardvark.Rendering
+open Aardvark.SceneGraph
+
+// SPICE
+open PRo3D.Extensions
+open PRo3D.Extensions.FSharp
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module GisApp = 
@@ -495,24 +503,215 @@ module GisApp =
         ]
 
 
+    module CooTransformation =
+
+        let getPositionTransformationMatrix (pcFrom : string) (pcTo : string) (time : DateTime) : Option<M33d> = 
+            let m33d : array<double> = Array.zeroCreate 9
+            let pdRotMat = fixed &m33d[0] 
+            let result = CooTransformation.GetPositionTransformationMatrix(pcFrom, pcTo, CooTransformation.Time.toUtcFormat time, pdRotMat)
+            if result <> 0 then 
+                None
+            else
+                Some (M33d(m33d))
+
+
+    [<Struct>]
+    type RenderableBody = 
+        {
+            trafo : aval<Trafo3d>
+            color : aval<C4b>
+        }
+
+    module Shaders = 
+        open FShade
+
+        type Vertex = {
+            [<Position>] pos : V4d
+            [<Color>] c : V4d
+        }
+
+        let stableBodyTrafo (v : Vertex) =
+            vertex {
+                let ndc = uniform.ModelViewProjTrafo * v.pos
+                return { v with pos = ndc }
+            }
+
+
+
+    let entityToRenderable (targetFrame : aval<Option<FrameSpiceName>>) (time : aval<DateTime>) (relState : aval<Option<CooTransformation.RelState>>) (entity : AdaptiveEntity) =
+        
+        let entityPosition =
+            relState |> AVal.map (function 
+                | None -> Trafo3d.Identity
+                | Some relState -> 
+                    Trafo3d.Translation(relState.pos)
+            )
+        
+        let trafo = 
+            adaptive {
+                let! radius = entity.radius
+                let! entityRefRame = entity.defaultFrame
+                let! tartetRefFrame = targetFrame
+                let! time = time
+
+                // This is the transformation pipeline (in Trafo order, i.e. inverse matrix multiplication order)
+                // BODY (Unit Sphere)
+                // Scale to Radius
+                // Transform from body reference frame to target reference frame
+                // Set position, relative to observer
+
+                let unitSphereToRadius = 
+                    Trafo3d.Scale(radius) // unit sphere has radius 1, scaled by radius, we have real body radius.
+                
+                let bodyFrameToTargetFrame =
+                    match entityRefRame, tartetRefFrame with
+                    | Some (FrameSpiceName bodySpiceFrame), Some (FrameSpiceName targetSpiceFrame) -> 
+                        match CooTransformation.getPositionTransformationMatrix bodySpiceFrame targetSpiceFrame time with
+                        | Some toTarget -> 
+                            let m44d = M44d toTarget
+                            Trafo3d(m44d, m44d.Inverse)
+                        | None -> 
+                            Log.warn "getPositionTransformationMatrix failed: %A" (bodySpiceFrame, targetSpiceFrame, time)
+                            Trafo3d.Identity
+                    | _ -> 
+                        Trafo3d.Identity
+
+                let! bodyToObserver = entityPosition
+
+                return 
+                    unitSphereToRadius * bodyFrameToTargetFrame * bodyToObserver
+            }
+
+
+        { trafo = trafo; color = entity.color |> AVal.map C4b }
+
+
+    let getDefaultReferenceFrame (frame : aval<Option<FrameSpiceName>>) =
+        frame |> AVal.map (Option.defaultValue (FrameSpiceName "J2000"))
+
+    let viewWithObserver (observerSpiceBody : aval<EntitySpiceName>) (targetReferenceFrame : aval<Option<FrameSpiceName>>) (time : aval<DateTime>) (bodies : aset<EntitySpiceName * AdaptiveEntity>) =
+
+        let targetReferenceFrameWithDefault = getDefaultReferenceFrame targetReferenceFrame 
+
+        let renderableBodies =
+            bodies |> ASet.map (fun (EntitySpiceName spiceBody, entity) ->
+                let relState = 
+                    adaptive {
+                        let! (FrameSpiceName frame) = targetReferenceFrameWithDefault
+                        let! (EntitySpiceName observer) = observerSpiceBody
+                        let! time = time
+                        match CooTransformation.getRelState spiceBody "sun" observer time frame with
+                        | Some r -> 
+                            return Some r
+                        | None -> 
+                            Log.warn "getRelState failed: %A" (spiceBody, "sun", observer, time, frame)
+                            return None
+                    }
+                entityToRenderable targetReferenceFrame time relState entity
+            )
+
+        let extractArray (f : AdaptiveToken -> RenderableBody -> 'a) = 
+            renderableBodies.Content
+            |> AVal.bind (fun s -> 
+                AVal.custom (fun t -> 
+                    s |> HashSet.toArray |> Array.map (f t)
+                )
+            )
+
+        let trafos = extractArray (fun t b -> b.trafo.GetValue(t))
+        let colors = extractArray (fun t b -> b.color.GetValue(t))
+
+        let bodySg = 
+            IndexedGeometryPrimitives.solidSubdivisionSphere Sphere3d.Unit 3 C4b.White
+            |> Sg.ofIndexedGeometry
+
+        let instancedUniforms = 
+            Map.ofList [
+                Sym.toString DefaultSemantic.Colors, (typeof<C4b>, colors |> AVal.map (fun c -> c :> Array))
+                "ModelTrafo", (typeof<Trafo3d>, (trafos |> AVal.map (fun t -> t :> Array)))
+            ]
+
+        bodySg
+        |> Sg.instanced' instancedUniforms 
+        |> Sg.shader {
+            do! Shaders.stableBodyTrafo
+        }
+        |> Sg.cullMode' CullMode.Back
+        |> Sg.depthTest' DepthTest.None 
+
+
     let getSurfaceAdaptiveToViewerTrafo (m : AdaptiveGisApp) (s : SurfaceId) =
+        let observer = m.defaultObservationInfo.observer 
+        let observerWithDefault = observer |> AVal.map (Option.defaultValue (EntitySpiceName "mars"))
+        let time = m.defaultObservationInfo.time.date
+        let targetReferenceFrameWithDefault = getDefaultReferenceFrame m.defaultObservationInfo.referenceFrame 
+
         adaptive {
             match! m.gisSurfaces |> AMap.tryFind s with
-            | None -> return Trafo3d.Identity
-            | Some gisSurface -> 
+            | None -> 
                 return Trafo3d.Identity
+            | Some gisSurface -> 
+                let! time = m.defaultObservationInfo.time.date
+                let! observer = observer
+                let! (FrameSpiceName targetRefFrame) = targetReferenceFrameWithDefault
+
+                let surfaceToGlobalReferenceFrame =
+                    match gisSurface.referenceFrame with
+                    | None -> Trafo3d.Identity
+                    | Some (FrameSpiceName surfaceReferenceFrame) -> 
+                        match CooTransformation.getPositionTransformationMatrix surfaceReferenceFrame targetRefFrame time with
+                        | Some toTarget -> 
+                            let m44d = M44d toTarget
+                            Trafo3d(m44d, m44d.Inverse)
+                        | None -> 
+                            Log.warn "getPositionTransformationMatrix failed: %A" (surfaceReferenceFrame,targetRefFrame,time)
+                            Trafo3d.Identity
+
+                let position =
+                    match gisSurface.entity, observer with
+                    | Some (EntitySpiceName body), Some (EntitySpiceName observer) ->
+                        match CooTransformation.getRelState body "sun" observer time targetRefFrame with
+                        | Some r -> Trafo3d.Translation(r.pos)
+                        | None -> 
+                            Log.warn "getRelState failed: %A" (body, "sun", observer, time, targetRefFrame)
+                            Trafo3d.Identity
+                    | _ -> Trafo3d.Identity
+
+                return surfaceToGlobalReferenceFrame * position
         }
+
+    let lookAtObserver (m : GisApp) =
+        match m.defaultObservationInfo.observer, m.defaultObservationInfo.referenceFrame, m.defaultObservationInfo.target with
+        | Some (EntitySpiceName observer), Some (FrameSpiceName refFrame), Some (EntitySpiceName target) ->
+            match CooTransformation.getRelState target "SUN" observer  m.defaultObservationInfo.time.date refFrame with
+            | None -> 
+                Log.warn "getRelState failed: %A" (target, "sun", observer, time, m.defaultObservationInfo.time.date, refFrame)
+                None
+            | Some rel -> 
+                CameraView.lookAt rel.pos V3d.Zero V3d.OOI |> Some
+        | _ -> None
+
+    let view3D (m : AdaptiveGisApp) =
+        let observer = m.defaultObservationInfo.observer 
+        let observerWithDefault = observer |> AVal.map (Option.defaultValue (EntitySpiceName "mars"))
+        let time = m.defaultObservationInfo.time.date
+        let targetReferenceFrame = m.defaultObservationInfo.referenceFrame 
+        viewWithObserver observerWithDefault targetReferenceFrame time (m.entities |> AMap.toASet)
+        |> Sg.onOff (observer |> AVal.map Option.isSome)
+
 
 
     let initial : GisApp =
         let entities =
             [
-                (Entity.earth.spiceName,     Entity.earth )
-                (Entity.mars.spiceName,      Entity.mars )
-                (Entity.moon.spiceName,      Entity.moon )
-                (Entity.didymos.spiceName,   Entity.didymos )
-                (Entity.dimorphos.spiceName, Entity.dimorphos )
-                (Entity.heraSpacecraft.spiceName, Entity.heraSpacecraft )
+                Entity.earth.spiceName,     Entity.earth 
+                Entity.mars.spiceName,      Entity.mars 
+                Entity.deimos.spiceName,    Entity.deimos 
+                Entity.phobos.spiceName,    Entity.phobos 
+                Entity.moon.spiceName,      Entity.moon 
+                //Entity.didymos.spiceName,   Entity.didymos 
+                //Entity.dimorphos.spiceName, Entity.dimorphos 
+                Entity.heraSpacecraft.spiceName, Entity.heraSpacecraft 
             ] |> HashMap.ofList
         let referenceFrames =
             [

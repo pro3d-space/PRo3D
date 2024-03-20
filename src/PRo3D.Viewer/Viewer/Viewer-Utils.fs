@@ -867,9 +867,12 @@ module ViewerUtils =
                 | None -> return false
             | None -> return false
         }
+    let surfaceToSunSystem (m : AdaptiveModel) (sg : AdaptiveSgSurface) (surface : AdaptiveSurface) (r : AdaptiveReferenceSystem) =
+        Gis.GisApp.getSurfaceAdaptiveToViewerTrafo m.scene.gisApp sg.surface
+
 
     //TODO TO refactor screenshot specific
-    let getSurfacesScenegraphs (runtime : IRuntime) (m:AdaptiveModel) =
+    let getSurfacesScenegraphs (runtime : IRuntime) (m : AdaptiveModel) =
         let sgGrouped = m.scene.surfacesModel.sgGrouped
         
       //  let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
@@ -879,9 +882,6 @@ module ViewerUtils =
         let vpVisible = isViewPlanVisible m
         let view = m.navigation.camera.view
 
-        let surfaceToSunSystem (sg : AdaptiveSgSurface) (surface : AdaptiveSurface) (r : AdaptiveReferenceSystem) =
-            //Gis.GisApp.computeSurfaceToViewerTrafo sg.
-            AVal.constant Trafo3d.Identity
 
         let grouped = 
             sgGrouped |> AList.map(
@@ -897,7 +897,7 @@ module ViewerUtils =
                             m.ctrlFlag 
                             sf.globalBB 
                             refSystem 
-                            (Some surfaceToSunSystem)
+                            (surfaceToSunSystem m |> Some)
                             m.footPrint 
                             vpVisible
                             usehighlighting m.filterTexture
@@ -978,7 +978,7 @@ module ViewerUtils =
                                 surfacePicking
                                 surface.globalBB
                                 refSystem 
-                                None
+                                (surfaceToSunSystem m |> Some)
                                 m.footPrint 
                                 vpVisible
                                 usehighlighting filterTexture
@@ -1005,6 +1005,8 @@ module ViewerUtils =
 
         //grouped   
         let last = grouped |> AList.tryLast
+
+        let gisEntities = Gis.GisApp.view3D m.scene.gisApp |> Sg.noEvents
         
         alist {                    
             for set in grouped do  
@@ -1013,7 +1015,7 @@ module ViewerUtils =
                     //|> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
                     //|> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
 
-                yield RenderCommand.SceneGraph (sg)
+                yield RenderCommand.SceneGraph sg
 
                 //if i = c then //now gets rendered multiple times
                  // assign priorities globally, or for each anno and make sets
@@ -1028,6 +1030,7 @@ module ViewerUtils =
                 yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
 
             yield RenderCommand.SceneGraph overlayed
+            yield RenderCommand.SceneGraph gisEntities
 
         }
 

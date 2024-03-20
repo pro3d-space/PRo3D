@@ -79,7 +79,7 @@ module ObservationInfo =
         {
             target         = None
             observer       = None
-            time           = Calendar.init
+            time           = { Calendar.init with date = System.DateTime.Parse("2025-03-10 19:08:12.60") }
             referenceFrame = None
         }
 
