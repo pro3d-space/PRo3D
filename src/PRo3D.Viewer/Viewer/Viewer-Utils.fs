@@ -326,6 +326,15 @@ module ViewerUtils =
                             //return Trafo3d.Scale(scaleFactor) * (fullTrafo * preTransform)
                     }
 
+
+                let surfaceToSolarSystem =
+                    match surfaceToGlobal with
+                    | None -> Trafo3d.Identity |> AVal.constant
+                    | Some f -> 
+                        f surface surf refsys
+
+                let globalBB = (globalBB, surfaceToSolarSystem) ||> AVal.map2 (fun b t -> b.Transformed(t))
+
                 let pickable = 
                     (globalBB, trafo)
                     ||>  AVal.map2( fun (a:Box3d) (b:Trafo3d) -> 
@@ -412,12 +421,6 @@ module ViewerUtils =
                         | None ->
                             return false
                     }               
-
-                let surfaceToSolarSystem =
-                    match surfaceToGlobal with
-                    | None -> Trafo3d.Identity |> AVal.constant
-                    | Some f -> 
-                        f surface surf refsys
 
                 let surfaceSg =
                     surface.sceneGraph
@@ -854,6 +857,17 @@ module ViewerUtils =
             PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect
 
             PRo3D.Base.Shader.footPrintF        |> toEffect
+        ]
+        Effect.compose [
+            
+            Shader.stableTrafo       |> toEffect
+           
+
+            PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect  
+            PRo3D.Base.OPCFilter.markPatchBorders |> toEffect 
+
+
+            OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
         ]
 
     let isViewPlanVisible (m:AdaptiveModel) =

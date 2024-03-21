@@ -1607,18 +1607,46 @@ module ViewerApp =
             let m, gisApp = 
                  Gis.GisApp.update m.scene.gisApp gisLenses m msg
 
-            let animations = 
+            let m =
                 match msg with
                 | Gis.GisAppAction.ObservationInfoMessage msg ->
                     match Gis.GisApp.lookAtObserver gisApp with
                     | Some newCamera -> 
-                        let addObserverAnimation (m : Model) =
-                            let animationMessage = 
-                                    CameraAnimations.animateForwardAndLocation newCamera.Location newCamera.Forward V3d.OOI 2.0 "TransitionCameraToObserver"
-                            AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
-                        addObserverAnimation m
-                    | _ -> 
-                        m.animations
+                        //let p = 
+                        //    m.scene.surfacesModel.surfaces.flat 
+                        //    |> HashMap.map (fun k v -> 
+                        //        let s = Leaf.toSurface v
+                        //        match Gis.GisApp.getSurfaceTrafo gisApp k with
+                        //        | Some trafo -> 
+                        //            //let pose = { position = pos; rotation = Rot3d.Identity; scale = V3d.III }
+                        //            //let trafo = { TrafoController.initial with pose = pose; previewTrafo = Pose.toTrafo pose; mode = TrafoMode.Local }
+                        //            Leaf.Surfaces { 
+                        //                s with transformation = {
+                        //                    s.transformation with
+                        //                        translation = s.transformation.translation |> Optic.set V3dInput.value_ trafo.position
+                        //                }
+                        //            }
+                        //        | _ -> v
+                        //    )
+                        //let m = { m with scene = { m.scene with surfacesModel = { m.scene.surfacesModel with surfaces = { m.scene.surfacesModel.surfaces with flat = p }}}}
+                        { m with navigation = { m.navigation with camera = { m.navigation.camera with view = newCamera } }}
+                    | _ -> m
+                | _ -> m
+
+            let animations = 
+                match msg with
+                //| Gis.GisAppAction.ObservationInfoMessage msg ->
+                //    match Gis.GisApp.lookAtObserver gisApp with
+                //    | Some newCamera -> 
+                //        let addObserverAnimation (m : Model) =
+                //            let animationMessage = 
+                //                CameraAnimations.animateForwardAndLocation newCamera.Location newCamera.Forward V3d.OOI 2.0 "TransitionCameraToObserver"
+                //            let blub =
+                //                CameraAnimations.
+                //            AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage); AnimationAction.PushAnimation blub)
+                //        addObserverAnimation m
+                //    | _ -> 
+                //        m.animations
 
                 | Gis.GisAppAction.SurfacesMessage msg ->
                     match msg with

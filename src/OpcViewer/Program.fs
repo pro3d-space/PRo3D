@@ -35,7 +35,7 @@ let main argv =
             preTransform     = Trafo3d.Identity
             patchHierarchies = 
                     Seq.delay (fun _ -> 
-                        System.IO.Directory.GetDirectories(@"K:\PRo3D Data\MOLA") 
+                        System.IO.Directory.GetDirectories(@"I:\MOLA") 
                     )
             boundingBox      = Box3d.Parse("[[1042657.138109462, 3023778.035968372, -472791.711967824], [1492041.915577915, 3230435.734121298, -231.611523378]]") 
             near             = 0.1
@@ -67,7 +67,7 @@ let main argv =
             preTransform     = Trafo3d.Identity
             patchHierarchies = 
                     Seq.delay (fun _ -> 
-                        System.IO.Directory.GetDirectories(@"K:\PRo3D Data\MOLA") 
+                        System.IO.Directory.GetDirectories(@"I:\MOLA") 
                     )
             boundingBox      = Box3d.Parse("[[-432.863518980, 2190669.974376967, -2354936.901768766], [1492041.915577915, 3396466.232556264, -231.471982595]]") 
             near             = 1000.1
@@ -79,7 +79,7 @@ let main argv =
     match kind with
 
     | Solarsystem -> 
-        Solarsytsem.run [mola;shaler;jezereo]
+        Solarsytsem.run [mola;]
 
     | Scene ->
     

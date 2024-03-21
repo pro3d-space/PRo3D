@@ -512,7 +512,7 @@ module GisApp =
             if result <> 0 then 
                 None
             else
-                Some (M33d(m33d))
+                m33d |> M33d |> Some
 
 
     [<Struct>]
@@ -537,21 +537,72 @@ module GisApp =
             }
 
 
+    [<Struct>]
+    type TransformedBody = 
+        {
+            lookAtBody : CameraView
+            position : V3d
+            alignBodyToObserverFrame : M33d
+        } with
+            member x.Trafo = 
+                let shift = Trafo3d.Translation x.position
+                let m44d = M44d x.alignBodyToObserverFrame
+                let bodyToObserver = Trafo3d(m44d, m44d.Inverse)
+                bodyToObserver * shift
 
-    let entityToRenderable (targetFrame : aval<Option<FrameSpiceName>>) (time : aval<DateTime>) (relState : aval<Option<CooTransformation.RelState>>) (entity : AdaptiveEntity) =
+    module TransformedBody =
+        let trafo (o : TransformedBody) = o.Trafo
+
+    let transformBody (body : EntitySpiceName) (bodyFrame : Option<FrameSpiceName>) (observer : EntitySpiceName) (observerFrame : FrameSpiceName) (time : DateTime) =
+        let (EntitySpiceName body), (EntitySpiceName observer), (FrameSpiceName observerFrame) = body, observer, observerFrame
+        let bodyFrame = 
+            match bodyFrame with
+            | Some (FrameSpiceName bodyFrame) -> bodyFrame
+            | None -> observerFrame
+
+        let suportBody = "sun"
+        let relState = CooTransformation.getRelState body suportBody observer time observerFrame 
+        let rot = CooTransformation.getPositionTransformationMatrix bodyFrame observerFrame time
+        match relState, rot with
+        | Some rel, Some rot -> 
+            let rot = rel.rot
+            let t = Trafo3d.FromBasis(rot.C0, rot.C1, -rot.C2, V3d.Zero)
+            Some { 
+                lookAtBody = CameraView.ofTrafo t.Inverse
+                position = rel.pos
+                alignBodyToObserverFrame = rot
+            }
+        | _ -> 
+            Log.line $"[SPICE] failed to transform body (body = {body}, bodyFrame = {bodyFrame}, observer = {observer}, observerFrame = {observerFrame}."
+            None
+
+    let getSurfaceTrafo (m : GisApp)  (s : SurfaceId) =
+        match m.gisSurfaces |> HashMap.tryFind s with
+        | None -> 
+            None
+        | Some gisSurface ->
+            match gisSurface.entity, m.defaultObservationInfo.observer, m.defaultObservationInfo.referenceFrame with
+            | Some entity, Some observer, Some observerFrame -> 
+                match transformBody entity gisSurface.referenceFrame observer observerFrame m.defaultObservationInfo.time.date with
+                | None -> None
+                | Some t -> 
+                   Some t
+                   //Some (t.position, Rot3d.Identity, V3d.III)
+            | _ -> None
+
         
-        let entityPosition =
-            relState |> AVal.map (function 
-                | None -> Trafo3d.Identity
-                | Some relState -> 
-                    Trafo3d.Translation(relState.pos)
-            )
+    
+    let getFrameWithDefaulting (frame : aval<Option<FrameSpiceName>>) =
+        frame |> AVal.map (Option.defaultValue (FrameSpiceName "J2000"))
+
+    let entityToRenderable (observer : aval<EntitySpiceName>) (targetFrame : aval<Option<FrameSpiceName>>) (time : aval<DateTime>) (entity : AdaptiveEntity) =
         
         let trafo = 
             adaptive {
                 let! radius = entity.radius
-                let! entityRefRame = entity.defaultFrame
-                let! tartetRefFrame = targetFrame
+                let! entityRefRame = entity.defaultFrame 
+                let! tartetRefFrame = getFrameWithDefaulting targetFrame
+                let! observer = observer
                 let! time = time
 
                 // This is the transformation pipeline (in Trafo order, i.e. inverse matrix multiplication order)
@@ -563,20 +614,10 @@ module GisApp =
                 let unitSphereToRadius = 
                     Trafo3d.Scale(radius) // unit sphere has radius 1, scaled by radius, we have real body radius.
                 
-                let bodyFrameToTargetFrame =
-                    match entityRefRame, tartetRefFrame with
-                    | Some (FrameSpiceName bodySpiceFrame), Some (FrameSpiceName targetSpiceFrame) -> 
-                        match CooTransformation.getPositionTransformationMatrix bodySpiceFrame targetSpiceFrame time with
-                        | Some toTarget -> 
-                            let m44d = M44d toTarget
-                            Trafo3d(m44d, m44d.Inverse)
-                        | None -> 
-                            Log.warn "getPositionTransformationMatrix failed: %A" (bodySpiceFrame, targetSpiceFrame, time)
-                            Trafo3d.Identity
-                    | _ -> 
-                        Trafo3d.Identity
-
-                let! bodyToObserver = entityPosition
+                let bodyToObserver = 
+                    transformBody entity.spiceName entityRefRame observer tartetRefFrame time 
+                    |> Option.map TransformedBody.trafo
+                    |> Option.defaultValue Trafo3d.Identity
 
                 return 
                     //unitSphereToRadius * bodyFrameToTargetFrame * bodyToObserver
@@ -587,29 +628,14 @@ module GisApp =
         { trafo = trafo; color = entity.color |> AVal.map C4b }
 
 
-    let getDefaultReferenceFrame (frame : aval<Option<FrameSpiceName>>) =
-        frame |> AVal.map (Option.defaultValue (FrameSpiceName "J2000"))
-
     let viewWithObserver (observerSpiceBody : aval<EntitySpiceName>) (targetReferenceFrame : aval<Option<FrameSpiceName>>) (time : aval<DateTime>) (bodies : aset<EntitySpiceName * AdaptiveEntity>) =
 
-        let targetReferenceFrameWithDefault = getDefaultReferenceFrame targetReferenceFrame 
-
         let renderableBodies =
-            bodies |> ASet.map (fun (EntitySpiceName spiceBody, entity) ->
-                let relState = 
-                    adaptive {
-                        let! (FrameSpiceName frame) = targetReferenceFrameWithDefault
-                        let! (EntitySpiceName observer) = observerSpiceBody
-                        let! time = time
-                        Log.line "[spice] body: %A" (spiceBody, observer, time, frame)
-                        match CooTransformation.getRelState spiceBody "sun" observer time frame with
-                        | Some r -> 
-                            return Some r
-                        | None -> 
-                            Log.warn "getRelState failed: %A" (spiceBody, "sun", observer, time, frame)
-                            return None
-                    }
-                entityToRenderable targetReferenceFrame time relState entity
+            bodies |> ASet.chooseA (fun (EntitySpiceName spiceBody, entity) ->
+                entity.draw |> AVal.map (function 
+                    | true -> entityToRenderable observerSpiceBody targetReferenceFrame time entity |> Some
+                    | _ -> None
+                )
             )
 
         let extractArray (f : AdaptiveToken -> RenderableBody -> 'a) = 
@@ -644,58 +670,55 @@ module GisApp =
 
 
     let getSurfaceAdaptiveToViewerTrafo (m : AdaptiveGisApp) (s : SurfaceId) =
-        let observer = m.defaultObservationInfo.observer 
-        let observerWithDefault = observer |> AVal.map (Option.defaultValue (EntitySpiceName "mars"))
-        let time = m.defaultObservationInfo.time.date
-        let targetReferenceFrameWithDefault = getDefaultReferenceFrame m.defaultObservationInfo.referenceFrame 
+        m.Current |> AVal.map (fun m -> getSurfaceTrafo m s |> Option.map TransformedBody.trafo |> Option.defaultValue Trafo3d.Identity)
+        //let observer = m.defaultObservationInfo.observer 
+        //let observerWithDefault = observer |> AVal.map (Option.defaultValue (EntitySpiceName "mars"))
+        //let time = m.defaultObservationInfo.time.date
+        //let targetReferenceFrameWithDefault = getFrameWithDefaulting m.defaultObservationInfo.referenceFrame 
 
-        adaptive {
-            match! m.gisSurfaces |> AMap.tryFind s with
-            | None -> 
-                return Trafo3d.Identity
-            | Some gisSurface -> 
-                let! time = m.defaultObservationInfo.time.date
-                let! observer = observer
-                let! (FrameSpiceName targetRefFrame) = targetReferenceFrameWithDefault
+        //adaptive {
+        //    match! m.gisSurfaces |> AMap.tryFind s with
+        //    | None -> 
+        //        return Trafo3d.Identity
+        //    | Some gisSurface -> 
+        //        let! time = m.defaultObservationInfo.time.date
+        //        let! observer = observer
+        //        let! (FrameSpiceName targetRefFrame) = targetReferenceFrameWithDefault
 
-                let surfaceToGlobalReferenceFrame =
-                    match gisSurface.referenceFrame with
-                    | None -> Trafo3d.Identity
-                    | Some (FrameSpiceName surfaceReferenceFrame) -> 
-                        match CooTransformation.getPositionTransformationMatrix surfaceReferenceFrame targetRefFrame time with
-                        | Some toTarget -> 
-                            let m44d = M44d toTarget
-                            Trafo3d(m44d, m44d.Inverse)
-                        | None -> 
-                            Log.warn "getPositionTransformationMatrix failed: %A" (surfaceReferenceFrame,targetRefFrame,time)
-                            Trafo3d.Identity
+        //        let surfaceToGlobalReferenceFrame =
+        //            match gisSurface.referenceFrame with
+        //            | None -> Trafo3d.Identity
+        //            | Some (FrameSpiceName surfaceReferenceFrame) -> 
+        //                match CooTransformation.getPositionTransformationMatrix surfaceReferenceFrame targetRefFrame time with
+        //                | Some toTarget -> 
+        //                    let m44d = M44d toTarget
+        //                    Trafo3d(m44d, m44d.Inverse)
+        //                | None -> 
+        //                    Log.warn "getPositionTransformationMatrix failed: %A" (surfaceReferenceFrame,targetRefFrame,time)
+        //                    Trafo3d.Identity
 
-                let position =
-                    match gisSurface.entity, observer with
-                    | Some (EntitySpiceName body), Some (EntitySpiceName observer) ->
-                        match CooTransformation.getRelState body "sun" observer time targetRefFrame with
-                        | Some r -> Trafo3d.Translation(r.pos)
-                        | None -> 
-                            Log.warn "getRelState failed: %A" (body, "sun", observer, time, targetRefFrame)
-                            Trafo3d.Identity
-                    | _ -> Trafo3d.Identity
+        //        let position =
+        //            match gisSurface.entity, observer with
+        //            | Some (EntitySpiceName body), Some (EntitySpiceName observer) ->
+        //                match CooTransformation.getRelState body "sun" observer time targetRefFrame with
+        //                | Some r -> Trafo3d.Translation(r.pos)
+        //                | None -> 
+        //                    Log.warn "getRelState failed: %A" (body, "sun", observer, time, targetRefFrame)
+        //                    Trafo3d.Identity
+        //            | _ -> Trafo3d.Identity
 
-                return surfaceToGlobalReferenceFrame * position
-        }
+        //        return surfaceToGlobalReferenceFrame * position
+        //}
 
     let lookAtObserver (m : GisApp) =
         match m.defaultObservationInfo.observer, m.defaultObservationInfo.referenceFrame, m.defaultObservationInfo.target with
-        | Some (EntitySpiceName observer), Some (FrameSpiceName refFrame), Some (EntitySpiceName target) ->
-            Log.line "look at. target: %A, observer: %A, %A" target observer refFrame
-            match CooTransformation.getRelState target "SUN" observer  m.defaultObservationInfo.time.date refFrame with
+        | Some observer, Some observerFrame, Some target ->
+            Log.line "look at. target: %A, observer: %A, frame: %A" target observer observerFrame
+            match transformBody target None observer observerFrame m.defaultObservationInfo.time.date with
             | None -> 
-                Log.warn "getRelState failed: %A" (target, "sun", observer, time, m.defaultObservationInfo.time.date, refFrame)
                 None
-            | Some rel -> 
-                let rot = rel.rot
-                let t = Trafo3d.FromBasis(rot.C0, rot.C1, -rot.C2, V3d.Zero)
-                CameraView.ofTrafo t.Inverse |> Some
-                //CameraView.lookAt rel.pos V3d.Zero V3d.OOI |> Some
+            | Some t -> 
+                t.lookAtBody |> Some
         | _ -> None
 
     let view3D (m : AdaptiveGisApp) =
