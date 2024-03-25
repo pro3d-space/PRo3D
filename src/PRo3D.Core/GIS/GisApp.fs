@@ -2,6 +2,7 @@
 namespace PRo3D.Core.Gis
 
 open System
+open System.IO
 open Aardvark.Base
 open Aardvark.UI
 open PRo3D.Base
@@ -527,13 +528,48 @@ module GisApp =
 
         type Vertex = {
             [<Position>] pos : V4d
+            [<TexCoord>] tc : V2d
             [<Color>] c : V4d
+            [<Semantic("modelPos")>] modelPos : V3d
         }
+
+        type UniformScope with
+            member x.UniformColor : V4d = uniform?UniformColor
+            member x.HasTexture : bool = uniform?HasTexture
+
+        let private diffuseSampler =
+            sampler2d {
+                texture uniform?DiffuseColorTexture
+                filter Filter.MinMagMipLinear
+                addressU WrapMode.Wrap
+                addressV WrapMode.Wrap
+            }
 
         let stableBodyTrafo (v : Vertex) =
             vertex {
                 let ndc = uniform.ModelViewProjTrafo * v.pos
-                return { v with pos = ndc }
+                return { v with pos = ndc; modelPos = v.pos.XYZ }
+            }
+
+        let color (v : Vertex) =
+            vertex {
+                return { v with c = uniform.UniformColor }
+            }
+
+        let generateUv (v : Vertex) =
+            fragment {
+                let p = v.modelPos
+                let thetha = acos (p.Z) / Math.PI
+                let phi = ((float (sign p.Y)) * acos (p.X / Vec.length p.XY)) / (Math.PI * 2.0)
+                return { v with tc = V2d(phi, thetha)} 
+            }
+
+        let texture (v : Vertex) =
+            fragment {
+                if uniform.HasTexture then 
+                    return { v with c = diffuseSampler.Sample(v.tc) }
+                else
+                    return v
             }
 
 
@@ -563,6 +599,7 @@ module GisApp =
         let suportBody = "sun"
         let relState = CooTransformation.getRelState body suportBody observer time observerFrame 
         let rot = CooTransformation.getPositionTransformationMatrix bodyFrame observerFrame time
+        let switchToLeftHanded = Trafo3d.FromBasis(V3d.IOO, -V3d.OOI, -V3d.OIO, V3d.Zero)
         match relState, rot with
         | Some rel, Some rot -> 
             let rot = rel.rot
@@ -570,7 +607,7 @@ module GisApp =
             Some { 
                 lookAtBody = CameraView.ofTrafo t.Inverse
                 position = rel.pos
-                alignBodyToObserverFrame = rot
+                alignBodyToObserverFrame =  rot * switchToLeftHanded.Forward.UpperLeftM33() //@Rebecca: we need to align this with SPICE spec (we are LH, spice RH? when do we switch it?
             }
         | _ -> 
             Log.line $"[SPICE] failed to transform body (body = {body}, bodyFrame = {bodyFrame}, observer = {observer}, observerFrame = {observerFrame}."
@@ -633,82 +670,81 @@ module GisApp =
         let renderableBodies =
             bodies |> ASet.chooseA (fun (EntitySpiceName spiceBody, entity) ->
                 entity.draw |> AVal.map (function 
-                    | true -> entityToRenderable observerSpiceBody targetReferenceFrame time entity |> Some
+                    | true -> (entityToRenderable observerSpiceBody targetReferenceFrame time entity, entity) |> Some
                     | _ -> None
                 )
             )
 
-        let extractArray (f : AdaptiveToken -> RenderableBody -> 'a) = 
-            renderableBodies.Content
-            |> AVal.bind (fun s -> 
-                AVal.custom (fun t -> 
-                    s |> HashSet.toArray |> Array.map (f t)
+        let instancedRendering () =
+            let extractArray (f : AdaptiveToken -> RenderableBody -> 'a) = 
+                renderableBodies.Content
+                |> AVal.bind (fun s -> 
+                    AVal.custom (fun t -> 
+                        s |> HashSet.toArray |> Array.map (f t << fst)
+                    )
                 )
+
+            let trafos = extractArray (fun t b -> b.trafo.GetValue(t))
+            let colors = extractArray (fun t b -> b.color.GetValue(t))
+
+            let bodySg = 
+                IndexedGeometryPrimitives.solidPhiThetaSphere (Sphere3d.FromCenterAndRadius(V3d.Zero, 1.0)) 20 C4b.White
+                |> Sg.ofIndexedGeometry
+
+            let instancedUniforms = 
+                Map.ofList [
+                    Sym.toString DefaultSemantic.Colors, (typeof<C4b>, colors |> AVal.map (fun c -> c :> Array))
+                    "ModelTrafo", (typeof<Trafo3d>, (trafos |> AVal.map (fun t -> t :> Array)))
+                ]
+
+            bodySg
+            |> Sg.instanced' instancedUniforms 
+            |> Sg.shader {
+                do! Shaders.stableBodyTrafo
+            }
+
+        let nonInstancedRendering () =
+            let body = 
+                //Sg.unitSphere' 12 C4b.White
+                IndexedGeometryPrimitives.solidSubdivisionSphere Sphere3d.Unit 5 C4b.White
+                |> Sg.ofIndexedGeometry
+
+            renderableBodies 
+            |> ASet.map (fun (renderableBody, entity) -> 
+                let texture =
+                    entity.textureName 
+                    |> AVal.map (fun textureName -> 
+                        match textureName with
+                        | None -> nullTexture, false
+                        | Some n -> 
+                            if File.Exists n then
+                                FileTexture(n, true), true
+                            else
+                                Log.warn "texture for entity not found: %A, %s" entity.spiceName n 
+                                nullTexture, false
+                    )
+
+                body
+                |> Sg.diffuseTexture (texture |> AVal.map fst)
+                |> Sg.uniform "HasTexture" (texture |> AVal.map snd)
+                |> Sg.uniform "UniformColor" entity.color
+                |> Sg.trafo renderableBody.trafo
             )
+            |> Sg.set
+            |> Sg.shader {
+                do! Shaders.stableBodyTrafo
+                do! Shaders.color
+                do! Shaders.generateUv
+                do! Shaders.texture
+            }
 
-        let trafos = extractArray (fun t b -> b.trafo.GetValue(t))
-        let colors = extractArray (fun t b -> b.color.GetValue(t))
-
-        let bodySg = 
-            //IndexedGeometryPrimitives.solidSubdivisionSphere (Sphere3d.FromCenterAndRadius(V3d.Zero, 1.0)) 6 C4b.White
-            IndexedGeometryPrimitives.solidPhiThetaSphere (Sphere3d.FromCenterAndRadius(V3d.Zero, 1.0)) 20 C4b.White
-            |> Sg.ofIndexedGeometry
-
-        let instancedUniforms = 
-            Map.ofList [
-                Sym.toString DefaultSemantic.Colors, (typeof<C4b>, colors |> AVal.map (fun c -> c :> Array))
-                "ModelTrafo", (typeof<Trafo3d>, (trafos |> AVal.map (fun t -> t :> Array)))
-            ]
-
-        bodySg
-        |> Sg.instanced' instancedUniforms 
-        |> Sg.shader {
-            do! Shaders.stableBodyTrafo
-        }
-        |> Sg.cullMode' CullMode.Back
-        |> Sg.depthTest' DepthTest.None 
+        nonInstancedRendering () // switch to instancing if needed. 
+        |> Sg.cullMode' CullMode.Front // front because faces LH/RH switched?
+        //|> Sg.depthTest' DepthTest. 
 
 
     let getSurfaceAdaptiveToViewerTrafo (m : AdaptiveGisApp) (s : SurfaceId) =
         m.Current |> AVal.map (fun m -> getSurfaceTrafo m s |> Option.map TransformedBody.trafo |> Option.defaultValue Trafo3d.Identity)
-        //let observer = m.defaultObservationInfo.observer 
-        //let observerWithDefault = observer |> AVal.map (Option.defaultValue (EntitySpiceName "mars"))
-        //let time = m.defaultObservationInfo.time.date
-        //let targetReferenceFrameWithDefault = getFrameWithDefaulting m.defaultObservationInfo.referenceFrame 
-
-        //adaptive {
-        //    match! m.gisSurfaces |> AMap.tryFind s with
-        //    | None -> 
-        //        return Trafo3d.Identity
-        //    | Some gisSurface -> 
-        //        let! time = m.defaultObservationInfo.time.date
-        //        let! observer = observer
-        //        let! (FrameSpiceName targetRefFrame) = targetReferenceFrameWithDefault
-
-        //        let surfaceToGlobalReferenceFrame =
-        //            match gisSurface.referenceFrame with
-        //            | None -> Trafo3d.Identity
-        //            | Some (FrameSpiceName surfaceReferenceFrame) -> 
-        //                match CooTransformation.getPositionTransformationMatrix surfaceReferenceFrame targetRefFrame time with
-        //                | Some toTarget -> 
-        //                    let m44d = M44d toTarget
-        //                    Trafo3d(m44d, m44d.Inverse)
-        //                | None -> 
-        //                    Log.warn "getPositionTransformationMatrix failed: %A" (surfaceReferenceFrame,targetRefFrame,time)
-        //                    Trafo3d.Identity
-
-        //        let position =
-        //            match gisSurface.entity, observer with
-        //            | Some (EntitySpiceName body), Some (EntitySpiceName observer) ->
-        //                match CooTransformation.getRelState body "sun" observer time targetRefFrame with
-        //                | Some r -> Trafo3d.Translation(r.pos)
-        //                | None -> 
-        //                    Log.warn "getRelState failed: %A" (body, "sun", observer, time, targetRefFrame)
-        //                    Trafo3d.Identity
-        //            | _ -> Trafo3d.Identity
-
-        //        return surfaceToGlobalReferenceFrame * position
-        //}
 
     let lookAtObserver (m : GisApp) =
         match m.defaultObservationInfo.observer, m.defaultObservationInfo.referenceFrame, m.defaultObservationInfo.target with
@@ -721,14 +757,13 @@ module GisApp =
                 t.lookAtBody |> Some
         | _ -> None
 
-    let view3D (m : AdaptiveGisApp) =
+    let viewGisEntities (m : AdaptiveGisApp) =
         let observer = m.defaultObservationInfo.observer 
         let observerWithDefault = observer |> AVal.map (Option.defaultValue (EntitySpiceName "mars"))
         let time = m.defaultObservationInfo.time.date
         let targetReferenceFrame = m.defaultObservationInfo.referenceFrame 
         viewWithObserver observerWithDefault targetReferenceFrame time (m.entities |> AMap.toASet)
         |> Sg.onOff (observer |> AVal.map Option.isSome)
-
 
 
     let initial : GisApp =

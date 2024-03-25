@@ -1852,7 +1852,7 @@ module ViewerApp =
         let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
 
         
-        let gisEntities = Gis.GisApp.view3D m.scene.gisApp |> Sg.noEvents
+        let gisEntities = Gis.GisApp.viewGisEntities m.scene.gisApp |> Sg.noEvents
 
 
         let annotations, discs = 
