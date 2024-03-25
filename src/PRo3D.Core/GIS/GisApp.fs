@@ -600,14 +600,15 @@ module GisApp =
         let relState = CooTransformation.getRelState body suportBody observer time observerFrame 
         let rot = CooTransformation.getPositionTransformationMatrix bodyFrame observerFrame time
         let switchToLeftHanded = Trafo3d.FromBasis(V3d.IOO, -V3d.OOI, -V3d.OIO, V3d.Zero)
+        let flipZ = Trafo3d.FromBasis(V3d.IOO, V3d.OIO, -V3d.OOI, V3d.Zero)
         match relState, rot with
         | Some rel, Some rot -> 
-            let rot = rel.rot
-            let t = Trafo3d.FromBasis(rot.C0, rot.C1, -rot.C2, V3d.Zero)
+            let relFrame = rel.rot * flipZ.Forward.UpperLeftM33()
+            let t = Trafo3d.FromBasis(relFrame.C0, relFrame.C1, relFrame.C2, V3d.Zero)
             Some { 
                 lookAtBody = CameraView.ofTrafo t.Inverse
                 position = rel.pos
-                alignBodyToObserverFrame =  rot * switchToLeftHanded.Forward.UpperLeftM33() //@Rebecca: we need to align this with SPICE spec (we are LH, spice RH? when do we switch it?
+                alignBodyToObserverFrame = rot * flipZ.Forward.UpperLeftM33()  //@Rebecca: we need to align this with SPICE spec (we are LH, spice RH? when do we switch it?
             }
         | _ -> 
             Log.line $"[SPICE] failed to transform body (body = {body}, bodyFrame = {bodyFrame}, observer = {observer}, observerFrame = {observerFrame}."
@@ -739,7 +740,7 @@ module GisApp =
             }
 
         nonInstancedRendering () // switch to instancing if needed. 
-        |> Sg.cullMode' CullMode.Front // front because faces LH/RH switched?
+        |> Sg.cullMode' CullMode.Back 
         //|> Sg.depthTest' DepthTest. 
 
 
