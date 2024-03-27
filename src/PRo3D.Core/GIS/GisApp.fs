@@ -185,6 +185,16 @@ module GisApp =
         | GisAppAction.AssignReferenceFrame (surfaceId, frame) ->
             let gisSurfaces = assignFrame m.gisSurfaces surfaceId frame
             viewer, {m with gisSurfaces = gisSurfaces}
+        | GisAppAction.SetSpiceKernel path ->
+            if File.Exists path then
+                System.Environment.CurrentDirectory <- Path.GetDirectoryName(path)
+                let r = CooTransformation.AddSpiceKernel(path)
+                if r <> 0 then 
+                    Log.line "[GisApp] Could not load spice kernel"
+                viewer, {m with spiceKernel = Some path}
+            else
+                Log.line "[GisApp] Could not find path %s" path
+                viewer, m
 
     let private currentlyAssociatedEntity
         (surface : SurfaceId) 
@@ -371,10 +381,10 @@ module GisApp =
         let headers =
             [
                 tr [] [
-                    th [] [text "Label"]
                     th [] [text "Spice Name"]
                     th [] [text "Reference Frame"]
-                    th [] []
+                    th [] [text "Draw"]
+                    th [] [text "Actions"]
                 ]
             ] |> AList.ofList
 
@@ -419,9 +429,9 @@ module GisApp =
         let headers =
             [
                 tr [] [
-                    th [] [text "Label"]
+                    //th [] [text "Label"]
                     th [] [text "Spice Name"]
-                    th [] [text "Entity"]
+                    th [] [text "Associated Entity"]
                     th [] []
                 ]
             ] |> AList.ofList
@@ -487,7 +497,7 @@ module GisApp =
             div [clazz "ui inverted segment"] [ 
                 h5 [clazz "ui inverted horizontal divider header"
                     style "padding-top: 1rem"] 
-                   [text "Default Observation Settings"]
+                   [text "Current Observation Settings"]
                 ObservationInfo.view m.defaultObservationInfo 
                                      m.entities m.referenceFrames
                 |> UI.map ObservationInfoMessage
@@ -500,6 +510,19 @@ module GisApp =
             ]
             GuiEx.accordion "Reference Frames" "Cubes" false [
                 viewFrames m
+            ]
+            GuiEx.accordion "Settings" "" false [
+                require GuiEx.semui (
+                    Html.table [ 
+                        Html.row "Path to Spice Kernel" 
+                            [Html.SemUi.textBox 
+                            (m.spiceKernel 
+                            |> AVal.map (fun x ->
+                                Option.defaultValue "PRo3D Default Spice Kernel Path" x
+                            ))
+                            GisAppAction.SetSpiceKernel ]
+                    ]
+                )
             ]
         ]
 
@@ -531,6 +554,7 @@ module GisApp =
             [<TexCoord>] tc : V2d
             [<Color>] c : V4d
             [<Semantic("modelPos")>] modelPos : V3d
+            [<Normal>] normal : V3d
         }
 
         type UniformScope with
@@ -561,7 +585,7 @@ module GisApp =
                 let p = v.modelPos
                 let thetha = acos (p.Z) / Math.PI
                 let phi = ((float (sign p.Y)) * acos (p.X / Vec.length p.XY)) / (Math.PI * 2.0)
-                return { v with tc = V2d(phi, thetha)} 
+                return { v with tc = V2d(phi, thetha); normal = v.modelPos } 
             }
 
         let texture (v : Vertex) =
@@ -603,12 +627,12 @@ module GisApp =
         let flipZ = Trafo3d.FromBasis(V3d.IOO, V3d.OIO, -V3d.OOI, V3d.Zero)
         match relState, rot with
         | Some rel, Some rot -> 
-            let relFrame = rel.rot * flipZ.Forward.UpperLeftM33()
-            let t = Trafo3d.FromBasis(relFrame.C0, relFrame.C1, relFrame.C2, V3d.Zero)
+            let relFrame = rel.rot 
+            let t = Trafo3d.FromBasis(relFrame.C0, relFrame.C1, -relFrame.C2, V3d.Zero)
             Some { 
                 lookAtBody = CameraView.ofTrafo t.Inverse
                 position = rel.pos
-                alignBodyToObserverFrame = rot * flipZ.Forward.UpperLeftM33()  //@Rebecca: we need to align this with SPICE spec (we are LH, spice RH? when do we switch it?
+                alignBodyToObserverFrame = rot  
             }
         | _ -> 
             Log.line $"[SPICE] failed to transform body (body = {body}, bodyFrame = {bodyFrame}, observer = {observer}, observerFrame = {observerFrame}."
@@ -704,6 +728,14 @@ module GisApp =
                 do! Shaders.stableBodyTrafo
             }
 
+
+        let sunTransformation = //WIP RNO
+            (targetReferenceFrame
+                |> getFrameWithDefaulting, observerSpiceBody, time)  
+            |||> AVal.map3 (fun observerFrame observer time -> 
+                transformBody (EntitySpiceName "sun") (Some observerFrame) observer observerFrame time
+            )
+
         let nonInstancedRendering () =
             let body = 
                 //Sg.unitSphere' 12 C4b.White
@@ -767,7 +799,7 @@ module GisApp =
         |> Sg.onOff (observer |> AVal.map Option.isSome)
 
 
-    let initial : GisApp =
+    let initial (spiceKernel : option<string>) : GisApp =
         let entities =
             [
                 Entity.earth.spiceName,     Entity.earth 
@@ -793,4 +825,5 @@ module GisApp =
             newEntity               = None
             newFrame                = None
             defaultObservationInfo  = ObservationInfo.initial
+            spiceKernel             = spiceKernel 
         }

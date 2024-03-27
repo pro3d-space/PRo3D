@@ -72,7 +72,7 @@ module ReferenceFrame =
             ]
 
         [
-            td [] [Html.SemUi.textBox m.label ReferenceFrameAction.SetLabel]
+            //td [] [Html.SemUi.textBox m.label ReferenceFrameAction.SetLabel]
             td [] [Html.SemUi.textBox m.spiceNameText ReferenceFrameAction.SetSpiceNameText ]
             td [] [entitySelectionGui entites m]
             td [] actions
@@ -88,7 +88,7 @@ module ReferenceFrame =
             ] 
 
         [
-            td [] [Html.SemUi.textBox m.label ReferenceFrameAction.SetLabel]
+            //td [] [Html.SemUi.textBox m.label ReferenceFrameAction.SetLabel]
             td [] [text m.spiceName.Value]
             td [] [entitySelectionGui entities m]
             td [] [

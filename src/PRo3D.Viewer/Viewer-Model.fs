@@ -275,7 +275,7 @@ module Scene =
 
                     comparisonApp         = ComparisonApp.init
                     screenshotModel       = ScreenshotModel.initial
-                    gisApp                = Gis.GisApp.initial
+                    gisApp                = Gis.GisApp.initial None
                 }
         }
 
@@ -327,7 +327,7 @@ module Scene =
 
                     sequencedBookmarks      = SequencedBookmarks.initial
                     screenshotModel         = ScreenshotModel.initial
-                    gisApp                  = Gis.GisApp.initial
+                    gisApp                  = Gis.GisApp.initial None
                 }
         }
 
@@ -384,7 +384,7 @@ module Scene =
                     comparisonApp           = if comparisonApp.IsSome then comparisonApp.Value else ComparisonApp.init
 
                     screenshotModel         = screenshotModel |> Option.defaultValue(ScreenshotModel.initial)
-                    gisApp                  = Gis.GisApp.initial
+                    gisApp                  = Gis.GisApp.initial None
                 }
         }
 
@@ -414,7 +414,7 @@ module Scene =
             let gisApp = 
                 match gisApp with
                 | Some gisApp -> gisApp
-                | None -> Gis.GisApp.initial
+                | None -> Gis.GisApp.initial None
             //let! viewplans     = Json.tryRead "viewplans"
 
             return 

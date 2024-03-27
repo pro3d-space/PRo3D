@@ -88,7 +88,7 @@ module Entity =
             ]
         let cells = 
             [
-                td [] [Html.SemUi.textBox m.label EntityAction.SetLabel]
+                //td [] [Html.SemUi.textBox m.label EntityAction.SetLabel]
                 td [] [Html.SemUi.textBox m.spiceNameText EntityAction.SetSpiceNameText ]
                 td [] [refFramesSelectionGui referenceFrames m]
                 td [] actions
@@ -124,7 +124,7 @@ module Entity =
                         style "text-align: center; font-weight: bold;"]
                        [text ("Spice Name: " + m.spiceName.Value)]
                 ]
-                Html.row "Label" [Html.SemUi.textBox m.label EntityAction.SetLabel]
+                //Html.row "Label" [Html.SemUi.textBox m.label EntityAction.SetLabel]
                 Html.row "Reference Frame" [refFramesSelectionGui referenceFrames m]
                 Html.row "Geometry Path" 
                          [Html.SemUi.textBox 
@@ -166,9 +166,10 @@ module Entity =
             ]
 
         [
-            td [] [Html.SemUi.textBox m.label EntityAction.SetLabel]
+            //td [] [Html.SemUi.textBox m.label EntityAction.SetLabel]
             td [] [text m.spiceName.Value]
             td [] [refFramesSelectionGui referenceFrames m]
+            td [] [GuiEx.iconCheckBox m.draw EntityAction.ToggleDraw]
             td [] actions
         ] 
 

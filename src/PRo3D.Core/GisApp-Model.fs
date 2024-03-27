@@ -113,6 +113,7 @@ type GisApp =
         newFrame               : option<ReferenceFrame>
         referenceFrames        : HashMap<FrameSpiceName, ReferenceFrame>
         gisSurfaces            : HashMap<SurfaceId, GisSurface>
+        spiceKernel            : option<string>
     } 
 with
     static member current = 0
@@ -136,6 +137,7 @@ module GisAppJson =
                     gisSurfaces
                     |> List.map (fun (x : GisSurface) -> x.surfaceId, x)                     
                 | None -> List.empty
+            let! (spiceKernel : option<string>) = Json.tryRead "spiceKernel"
             
             return {
                 version                = ReferenceFrame.current
@@ -145,6 +147,7 @@ module GisAppJson =
                 newEntity              = None
                 newFrame               = None
                 gisSurfaces            = HashMap.ofList gisSurfaces
+                spiceKernel            = spiceKernel
             }
         }
     
@@ -156,6 +159,7 @@ type GisApp with
             do! Json.write "referenceFrames"         (x.referenceFrames |> HashMap.toList |> List.map snd)           
             do! Json.write "entities"                (x.entities |> HashMap.toList |> List.map snd)   
             do! Json.write "gisSurfaces"             (x.gisSurfaces |> HashMap.toList |> List.map snd)
+            do! Json.write "spiceKernel"             (x.spiceKernel)
         }
     static member FromJson (_ : GisApp) =
         json {
@@ -200,6 +204,7 @@ type GisAppAction =
     | BookmarkObservationInfoMessage of (BookmarkId * ObservationInfoAction)
     | EntityMessage             of (EntitySpiceName * EntityAction)
     | FrameMessage              of (FrameSpiceName * ReferenceFrameAction)
+    | SetSpiceKernel            of string
     | NewEntity
     | NewFrame
 
