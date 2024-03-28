@@ -153,3 +153,6 @@ module Calendar =
             maxDate = Some maxDate
             label   = label
         }
+
+    let withDate date  m =
+        {m with date = date}

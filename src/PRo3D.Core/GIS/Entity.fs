@@ -55,8 +55,13 @@ module Entity =
             Log.line "[Entity] Cancel action needs to be handled in parent."
             m
         | EntityAction.Save spicename ->
-            {m with isEditing = false
-                    spiceName = EntitySpiceName m.spiceNameText}
+            {m with isEditing = false}
+        | EntityAction.Close spicename ->
+            {m with isEditing = false}
+        | EntityAction.FlyTo spicename ->
+            Log.line "[Entity] FlyTo action needs to be handled in parent."
+            m
+            
 
     let private refFramesSelectionGui 
             (referenceFrames : amap<FrameSpiceName, AdaptiveReferenceFrame>) 
@@ -91,6 +96,7 @@ module Entity =
                 //td [] [Html.SemUi.textBox m.label EntityAction.SetLabel]
                 td [] [Html.SemUi.textBox m.spiceNameText EntityAction.SetSpiceNameText ]
                 td [] [refFramesSelectionGui referenceFrames m]
+                td [] [GuiEx.iconCheckBox m.draw EntityAction.ToggleDraw]
                 td [] actions
             ] 
 
@@ -105,7 +111,7 @@ module Entity =
                 td [attribute "colspan" "2";style "text-align: right"] [
                     i [
                         clazz "green save icon"
-                        onClick (fun _ -> EntityAction.Save m.spiceName)
+                        onClick (fun _ -> EntityAction.Close m.spiceName)
                     ] []
                 ]
             ]
@@ -116,6 +122,12 @@ module Entity =
                 ([clazz "ui inverted input"] |> AttributeMap.ofList)
                 m.radius 
                 SetRadius)
+
+        let fullWidthText content =
+            div [clazz "fullwidth textcontainer"] [
+                content
+            ]
+
         let rows = 
             [
                 //Html.row "Spice name" [text m.spiceName.Value]
@@ -131,14 +143,16 @@ module Entity =
                             (m.geometryPath 
                                 |> AVal.map (fun x ->
                                 Option.defaultValue "" x
-                            )) EntityAction.SetGeometryPath]
-                Html.row "Texture Name" 
+                            )) EntityAction.SetGeometryPath
+                         |> fullWidthText]
+                Html.row "Texture Path" 
                          [Html.SemUi.textBox 
                             (m.textureName 
                             |> AVal.map (fun x ->
                                 Option.defaultValue "" x
                             ))
-                            EntityAction.SetTextureName]
+                            EntityAction.SetTextureName
+                         |> fullWidthText]
                 Html.row "Radius" [radiusInput]
                 Html.row "Draw Entity" [GuiEx.iconCheckBox m.draw EntityAction.ToggleDraw]
                 actions
@@ -163,10 +177,13 @@ module Entity =
                     clazz "edit icon"
                     onClick (fun _ -> EntityAction.Edit m.spiceName)
                 ] []
+                //i [ // need to consider how to do this - need to define observation point / entity
+                //    clazz "home icon"
+                //    onClick (fun _ -> EntityAction.FlyTo m.spiceName)
+                //] []
             ]
 
         [
-            //td [] [Html.SemUi.textBox m.label EntityAction.SetLabel]
             td [] [text m.spiceName.Value]
             td [] [refFramesSelectionGui referenceFrames m]
             td [] [GuiEx.iconCheckBox m.draw EntityAction.ToggleDraw]

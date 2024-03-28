@@ -114,6 +114,8 @@ type GisApp =
         referenceFrames        : HashMap<FrameSpiceName, ReferenceFrame>
         gisSurfaces            : HashMap<SurfaceId, GisSurface>
         spiceKernel            : option<string>
+        spiceKernelLoadSuccess : bool
+        cameraInObserver       : bool
     } 
 with
     static member current = 0
@@ -138,6 +140,8 @@ module GisAppJson =
                     |> List.map (fun (x : GisSurface) -> x.surfaceId, x)                     
                 | None -> List.empty
             let! (spiceKernel : option<string>) = Json.tryRead "spiceKernel"
+
+            let! cameraInObserver = Json.tryRead "cameraInObserver"
             
             return {
                 version                = ReferenceFrame.current
@@ -148,6 +152,8 @@ module GisAppJson =
                 newFrame               = None
                 gisSurfaces            = HashMap.ofList gisSurfaces
                 spiceKernel            = spiceKernel
+                cameraInObserver       = Option.defaultValue false cameraInObserver
+                spiceKernelLoadSuccess = false
             }
         }
     
@@ -185,6 +191,8 @@ type EntityAction =
     | Edit              of EntitySpiceName
     | Cancel            of EntitySpiceName
     | Save              of EntitySpiceName
+    | Close             of EntitySpiceName
+    | FlyTo             of EntitySpiceName
 
 type ReferenceFrameAction = 
     | SetLabel          of string
@@ -205,6 +213,7 @@ type GisAppAction =
     | EntityMessage             of (EntitySpiceName * EntityAction)
     | FrameMessage              of (FrameSpiceName * ReferenceFrameAction)
     | SetSpiceKernel            of string
+    | ToggleCameraInObserver    
     | NewEntity
     | NewFrame
 

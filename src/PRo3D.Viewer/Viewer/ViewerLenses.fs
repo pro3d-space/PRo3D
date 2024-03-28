@@ -69,6 +69,7 @@ module ViewerLenses =
 
     // GIS
     let _gisApp = Model.scene_ >-> Scene.gisApp_
+    let _observationInfo = _gisApp >-> GisApp.defaultObservationInfo_
 
     // scene state for saving the state of the scene with sequenced bookmarks
     let _sceneState : ((Model -> SceneState) * (SceneState -> Model -> Model)) =
@@ -221,10 +222,19 @@ module ViewerLenses =
                         match info.valuesIfComplete with
                         | Some (t, o, r) ->
                             // call spice function and transform surfaces here!
-                            Log.line "[Debug] Call to spice function with 
+                            Log.line "[debug] call to spice function with 
                                         target: %s observer: %s reference frame:  %s 
                                         time: %s" 
                                      t.Value o.Value r.Value (string info.time.date)
+                            let observationInfo =
+                                {
+                                    target         = Some t
+                                    observer       = Some o
+                                    time           = {m.scene.gisApp.defaultObservationInfo.time with
+                                                            date = info.time.date}
+                                    referenceFrame = Some r
+                                }
+                            let m = Optic.set _observationInfo observationInfo m
                             m
                         | None ->
                             m

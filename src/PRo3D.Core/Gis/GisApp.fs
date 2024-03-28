@@ -60,6 +60,23 @@ module GisApp =
                GisSurface.fromFrame surfaceId frame
         HashMap.add surfaceId newSurface gisSurfaces
 
+    let loadSpiceKernel (path : string) (m : GisApp) =
+        if File.Exists path then
+            System.Environment.CurrentDirectory <- Path.GetDirectoryName(path)
+            let r = CooTransformation.AddSpiceKernel(path)
+            if r <> 0 then 
+                Log.line "[GisApp] Could not load spice kernel"
+                {m with spiceKernel = Some path
+                        spiceKernelLoadSuccess = false}
+            else
+                Log.line "[GisApp] Successfully loaded spice kernel %s" path
+                {m with spiceKernel = Some path
+                        spiceKernelLoadSuccess = true}
+            
+        else
+            Log.line "[GisApp] Could not find path %s" path
+            {m with spiceKernelLoadSuccess = false}
+
     let update (m : GisApp) 
                (lenses : GisLenses<'viewer>)
                (viewer : 'viewer)
@@ -186,16 +203,11 @@ module GisApp =
             let gisSurfaces = assignFrame m.gisSurfaces surfaceId frame
             viewer, {m with gisSurfaces = gisSurfaces}
         | GisAppAction.SetSpiceKernel path ->
-            if File.Exists path then
-                System.Environment.CurrentDirectory <- Path.GetDirectoryName(path)
-                let r = CooTransformation.AddSpiceKernel(path)
-                if r <> 0 then 
-                    Log.line "[GisApp] Could not load spice kernel"
-                viewer, {m with spiceKernel = Some path}
-            else
-                Log.line "[GisApp] Could not find path %s" path
-                viewer, m
-
+            let m = loadSpiceKernel path m
+            viewer, m
+        | GisAppAction.ToggleCameraInObserver ->
+            viewer, {m with cameraInObserver = not m.cameraInObserver}
+            
     let private currentlyAssociatedEntity
         (surface : SurfaceId) 
         (gisSurfaces : amap<SurfaceId, GisSurface>) 
@@ -511,16 +523,36 @@ module GisApp =
             GuiEx.accordion "Reference Frames" "Cubes" false [
                 viewFrames m
             ]
+
+            let kernelPathTextBox = 
+                div [clazz "fullwidth textcontainer"] [
+                    Html.SemUi.textBox 
+                        (m.spiceKernel 
+                        |> AVal.map (fun x ->
+                            Option.defaultValue "PRo3D Default Spice Kernel Path" x
+                        ))
+                        GisAppAction.SetSpiceKernel 
+                ]
+
+            let kernelStatusIcon =
+                let attributes = 
+                    amap {
+                        let! ok = m.spiceKernelLoadSuccess
+                        if ok then
+                            yield clazz "ui green check icon"
+                        else
+                            yield clazz "ui red exclamation icon"
+                    } |> AttributeMap.ofAMap
+
+                Incremental.i attributes AList.empty
+
             GuiEx.accordion "Settings" "" false [
                 require GuiEx.semui (
                     Html.table [ 
                         Html.row "Path to Spice Kernel" 
-                            [Html.SemUi.textBox 
-                            (m.spiceKernel 
-                            |> AVal.map (fun x ->
-                                Option.defaultValue "PRo3D Default Spice Kernel Path" x
-                            ))
-                            GisAppAction.SetSpiceKernel ]
+                                 [kernelPathTextBox;kernelStatusIcon]
+                        Html.row "Animation Camera in Observer"
+                                 [GuiEx.iconCheckBox m.cameraInObserver ToggleCameraInObserver]
                     ]
                 )
             ]
@@ -635,7 +667,7 @@ module GisApp =
                 alignBodyToObserverFrame = rot  
             }
         | _ -> 
-            Log.line $"[SPICE] failed to transform body (body = {body}, bodyFrame = {bodyFrame}, observer = {observer}, observerFrame = {observerFrame}."
+            Log.line $"[SPICE] failed to transform body (body = {body}, bodyFrame = {bodyFrame}, observer = {observer}, observerFrame = {observerFrame}, time = {time}."
             None
 
     let getSurfaceTrafo (m : GisApp)  (s : SurfaceId) =
@@ -651,8 +683,6 @@ module GisApp =
                    Some t
                    //Some (t.position, Rot3d.Identity, V3d.III)
             | _ -> None
-
-        
     
     let getFrameWithDefaulting (frame : aval<Option<FrameSpiceName>>) =
         frame |> AVal.map (Option.defaultValue (FrameSpiceName "J2000"))
@@ -817,13 +847,23 @@ module GisApp =
                 (ReferenceFrame.iauMars.spiceName, ReferenceFrame.iauMars)
                 (ReferenceFrame.iauEarth.spiceName, ReferenceFrame.iauEarth)
             ] |> HashMap.ofList
-        {
-            version                 = GisApp.current
-            gisSurfaces             = HashMap.empty
-            referenceFrames         = referenceFrames
-            entities                = entities
-            newEntity               = None
-            newFrame                = None
-            defaultObservationInfo  = ObservationInfo.initial
-            spiceKernel             = spiceKernel 
-        }
+
+        let m =
+            {
+                version                 = GisApp.current
+                gisSurfaces             = HashMap.empty
+                referenceFrames         = referenceFrames
+                entities                = entities
+                newEntity               = None
+                newFrame                = None
+                defaultObservationInfo  = ObservationInfo.initial
+                spiceKernel             = spiceKernel 
+                spiceKernelLoadSuccess  = true
+                cameraInObserver        = false
+            }
+
+        match spiceKernel with
+        | Some spiceKernel ->
+            loadSpiceKernel spiceKernel m
+        | None ->
+            m
