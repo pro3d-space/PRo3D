@@ -24,6 +24,7 @@
     <OutputPath>..\..\bin\Release</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="KdTree.fs" />
     <Content Include="..\..\docs\OpcTool.md" copyToOutput="true">
       <IncludeInPackage>true</IncludeInPackage>
       <CopyToOutput>true</CopyToOutput>
