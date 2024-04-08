@@ -23,7 +23,7 @@ There are two options to load SPICE kernels.
 #### The UI
 
 1. Initially PRo3D with GIS view enabled looks like this:
-![alt text](./images/Gis-view.png)
+![alt text](./images/gis-view.png)
 
 2. Load the kernel via:
 ![alt text](images/loadKernel.png)
