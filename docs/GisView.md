@@ -23,9 +23,11 @@ There are two options to load SPICE kernels.
 #### The UI
 
 1. Initially PRo3D with GIS view enabled looks like this:
+
 ![alt text](./images/gis-view.png)
 
 2. Load the kernel via:
+
 ![alt text](images/loadKernel.png)
 
 3. Then the Gis View should print the path to the kernel (scroll down, and look at the settings pane within the GIS view):
@@ -36,10 +38,13 @@ There are two options to load SPICE kernels.
 Let us now observe mars from, say phobos.
 1. Set the observation settings (including a time which is in available in the kernel)
 ![](images/observe.png)
+
 2. Next, make sure the proxy visualization for mars is enabled:
 ![](./images/MarsProperties.png)
 and
+
 ![](./images/visibleMars.png)
+
 Also make sure to have the far plane set far away for viewing mars from phobos. Ajust the near *and* far planes accordingly:
 ![](./images/farplane.png)
 
