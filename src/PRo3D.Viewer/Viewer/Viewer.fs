@@ -426,7 +426,7 @@ module ViewerApp =
         let surf = m |> Optic.get _sgSurfaces |> HashMap.tryFind id
         let surface = m.scene.surfacesModel.surfaces.flat |> HashMap.find id |> Leaf.toSurface 
         let superTrafo = TransformationApp.fullTrafo' surface.transformation m.scene.referenceSystem //SurfaceTransformations.fullTrafo' surface m.scene.referenceSystem
-        match (surface.homePosition) with
+        match surface.homePosition with
         | Some hp ->                        
             let animationMessage = 
                 CameraAnimations.animateForwardAndLocation hp.Location hp.Forward hp.Up 2.0 "ForwardAndLocation2s"
@@ -434,7 +434,12 @@ module ViewerApp =
         | None ->
             match surf with
             | Some s ->
-                let bb = s.globalBB.Transformed(superTrafo.Forward)
+                let sunSystemTrafo = 
+                    match Gis.GisApp.getSurfaceTrafo m.scene.gisApp id with
+                    | None -> Trafo3d.Identity
+                    | Some t -> Trafo3d.Translation t.position
+                
+                let bb = s.globalBB.Transformed((superTrafo * sunSystemTrafo).Forward)
                 let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value    
                 let animationMessage = 
                     CameraAnimations.animateForwardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"

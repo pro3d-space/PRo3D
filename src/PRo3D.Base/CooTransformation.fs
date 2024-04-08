@@ -61,7 +61,26 @@ module CooTransformation =
             V4d(x.longitude, x.latitude, x.altitude, x.radian)
 
 
-    let cleanupDirs = System.Collections.Generic.List<obj>()
+    type SPICEKernel = { name : string; directory : string;  }
+
+    type SPICEKernel with
+        member x.FullPath = Path.Combine(x.directory, x.name)
+
+    module SPICEKernel =
+        let ofPath (path : string) =
+            { name = Path.GetFileName path; directory = Path.GetDirectoryName path }
+        let toPath (s : SPICEKernel) = s.FullPath
+
+    let tryLoadKernel (kernelDirectory : string) (name : string) = 
+        let currentDir = try Directory.GetCurrentDirectory() |> Some with e -> Log.warn "could not set directory, which might be needed for loading spice kernels"; None
+        use __ = { new IDisposable with member x.Dispose() = match currentDir with None -> () | Some d -> try Directory.SetCurrentDirectory d with e -> Log.warn "%A" e;  }
+        Directory.SetCurrentDirectory(kernelDirectory)
+        let r = CooTransformation.AddSpiceKernel(name)
+        if r <> 0 then
+            Log.warn "could not load spice kernel: %s in %s." name kernelDirectory
+            None
+        else 
+            Some { name = name; directory = kernelDirectory } 
 
     let initCooTrafo (customSpiceKernelPath : Option<string>) (appData : string) = 
 
@@ -95,42 +114,7 @@ module CooTransformation =
         else 
             Log.line "[CooTransformation] Successfully initialized CooTrafo"
 
-        let tryLoadKernelFromDefaultConfigIsolated (kernelDirectory : string) (name : string)= 
-            let tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
-            // actually we want to dispose the temp dir here, however according to spice docs, this should stay alive 
-            // i keep it alive till finalizer cleans up when shutting down....
-            let finalizer  = 
-                { new obj() with 
-                    member x.Finalize() = if Directory.Exists tempDir then Directory.Delete(tempDir, true) 
-                }
-            cleanupDirs.Add(finalizer)
-
-            let di = Directory.CreateDirectory tempDir 
-            if not di.Exists then 
-                Log.warn "could not create temp dir for loading spice kernel"
-                false
-            else
-                for f in Directory.EnumerateFiles(kernelDirectory) do File.Copy(f, Path.Combine(tempDir, Path.GetFileName f))
-                let currentDir = try Directory.GetCurrentDirectory() |> Some with e -> Log.warn "could not set directory, which might be needed for loading spice kernels"; None
-                use __ = { new IDisposable with member x.Dispose() = match currentDir with None -> () | Some d -> try Directory.SetCurrentDirectory d with e -> Log.warn "%A" e;  }
-                Directory.SetCurrentDirectory(tempDir)
-                let r = CooTransformation.AddSpiceKernel(name)
-                if r <> 0 then
-                    Log.warn "could not load spice kernel: %s in %s." name tempDir
-                    false
-                else 
-                    true
-
-        let tryLoadKernelFromDefaultConfig (kernelDirectory : string) (name : string) = 
-            let currentDir = try Directory.GetCurrentDirectory() |> Some with e -> Log.warn "could not set directory, which might be needed for loading spice kernels"; None
-            use __ = { new IDisposable with member x.Dispose() = match currentDir with None -> () | Some d -> try Directory.SetCurrentDirectory d with e -> Log.warn "%A" e;  }
-            Directory.SetCurrentDirectory(kernelDirectory)
-            let r = CooTransformation.AddSpiceKernel(name)
-            if r <> 0 then
-                Log.warn "could not load spice kernel: %s in %s." name kernelDirectory
-                false
-            else 
-                true
+      
 
         let spiceDirectory, spiceFileName = 
             let defaultKernel = configDir, "pck00010.tpc"
@@ -144,9 +128,12 @@ module CooTransformation =
                     Path.GetDirectoryName(filePath), Path.GetFileName filePath
 
         Log.line $"[SPICE] kernel location: {spiceDirectory}, kernel file name: {spiceFileName}."
-        if not (tryLoadKernelFromDefaultConfig spiceDirectory spiceFileName) then
+        match tryLoadKernel spiceDirectory spiceFileName with
+        | None -> 
             Log.warn "running without default spice kernel."
-        
+        | Some s -> 
+            Log.line "[SPICE] loaded kernel: %s" s.FullPath
+
         try
             let error = JR.InstrumentPlatforms.Init(configDir,logDir)
             if error <> 0 then 

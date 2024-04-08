@@ -113,7 +113,7 @@ type GisApp =
         newFrame               : option<ReferenceFrame>
         referenceFrames        : HashMap<FrameSpiceName, ReferenceFrame>
         gisSurfaces            : HashMap<SurfaceId, GisSurface>
-        spiceKernel            : option<string>
+        spiceKernel            : option<CooTransformation.SPICEKernel>
         spiceKernelLoadSuccess : bool
         cameraInObserver       : bool
     } 
@@ -151,7 +151,7 @@ module GisAppJson =
                 newEntity              = None
                 newFrame               = None
                 gisSurfaces            = HashMap.ofList gisSurfaces
-                spiceKernel            = spiceKernel
+                spiceKernel            = Option.map CooTransformation.SPICEKernel.ofPath spiceKernel
                 cameraInObserver       = Option.defaultValue false cameraInObserver
                 spiceKernelLoadSuccess = false
             }
@@ -165,7 +165,7 @@ type GisApp with
             do! Json.write "referenceFrames"         (x.referenceFrames |> HashMap.toList |> List.map snd)           
             do! Json.write "entities"                (x.entities |> HashMap.toList |> List.map snd)   
             do! Json.write "gisSurfaces"             (x.gisSurfaces |> HashMap.toList |> List.map snd)
-            do! Json.write "spiceKernel"             (x.spiceKernel)
+            do! Json.write "spiceKernel"             (Option.map CooTransformation.SPICEKernel.toPath x.spiceKernel)
         }
     static member FromJson (_ : GisApp) =
         json {

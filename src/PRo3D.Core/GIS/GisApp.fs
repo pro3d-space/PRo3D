@@ -62,20 +62,23 @@ module GisApp =
 
     let loadSpiceKernel (path : string) (m : GisApp) =
         if File.Exists path then
-            System.Environment.CurrentDirectory <- Path.GetDirectoryName(path)
-            let r = CooTransformation.AddSpiceKernel(path)
-            if r <> 0 then 
+            let directory = Path.GetDirectoryName path
+            let name = Path.GetFileName path
+            match CooTransformation.tryLoadKernel directory name with
+            | None -> 
                 Log.line "[GisApp] Could not load spice kernel"
-                {m with spiceKernel = Some path
+                {m with spiceKernel = Some (CooTransformation.SPICEKernel.ofPath path)
                         spiceKernelLoadSuccess = false}
-            else
+            | Some spiceKernel -> 
                 Log.line "[GisApp] Successfully loaded spice kernel %s" path
-                {m with spiceKernel = Some path
+                {m with spiceKernel = Some spiceKernel
                         spiceKernelLoadSuccess = true}
-            
         else
             Log.line "[GisApp] Could not find path %s" path
             {m with spiceKernelLoadSuccess = false}
+
+            
+
 
     let update (m : GisApp) 
                (lenses : GisLenses<'viewer>)
@@ -528,9 +531,8 @@ module GisApp =
                 div [clazz "fullwidth textcontainer"] [
                     Html.SemUi.textBox 
                         (m.spiceKernel 
-                        |> AVal.map (fun x ->
-                            Option.defaultValue "PRo3D Default Spice Kernel Path" x
-                        ))
+                            |> AVal.map (function Some p -> p.FullPath | _ -> "PRo3D Default Spice Kernel Path")
+                        )
                         GisAppAction.SetSpiceKernel 
                 ]
 
@@ -844,6 +846,7 @@ module GisApp =
         let referenceFrames =
             [
                 (ReferenceFrame.j2000.spiceName, ReferenceFrame.j2000)
+                (ReferenceFrame.eclipJ2000.spiceName, ReferenceFrame.eclipJ2000)
                 (ReferenceFrame.iauMars.spiceName, ReferenceFrame.iauMars)
                 (ReferenceFrame.iauEarth.spiceName, ReferenceFrame.iauEarth)
             ] |> HashMap.ofList
@@ -857,7 +860,7 @@ module GisApp =
                 newEntity               = None
                 newFrame                = None
                 defaultObservationInfo  = ObservationInfo.initial
-                spiceKernel             = spiceKernel 
+                spiceKernel             = spiceKernel |> Option.map CooTransformation.SPICEKernel.ofPath  
                 spiceKernelLoadSuccess  = true
                 cameraInObserver        = false
             }

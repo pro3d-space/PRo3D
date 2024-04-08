@@ -296,6 +296,16 @@ module ReferenceFrame =
             entity      = None
             isEditing   = false
         }
+    let eclipJ2000 = 
+        {
+            version     = ReferenceFrame.current
+            label       = "ECLIPJ2000"
+            description = Some "Ecliptic coordinates based upon the J2000 frame."
+            spiceName   = FrameSpiceName "ECLIPJ2000"
+            spiceNameText = "ECLIPJ2000"
+            entity      = None
+            isEditing   = false
+        }
     let iauMars = 
         {
             version     = ReferenceFrame.current
