@@ -1,3 +1,8 @@
+## 4.21.0-prerelease2
+- Bugfix Entity creation
+- Added new default Entities
+- Spice Kernel is now loaded when a scene is loaded and a spice kernel is defined in GisApp
+
 ## 4.21.0-prerelease1
 - added readme to opc-tool
 
