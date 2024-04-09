@@ -1,5 +1,6 @@
 ﻿namespace Aardvark.Opc
 
+open System.IO
 open Aardvark.Base
 open Aardvark.Rendering
 open Aardvark.Application
@@ -23,12 +24,17 @@ open Adaptify.FSharp.Core
 
 open PRo3D.Core.PackedRendering
 open PRo3D.Base
+open Aardvark.Geometry
+
+
+
+
 
 
 module AnnotationViewer = 
 
     
-    let createAnnotationSg (win : IRenderWindow) (view : aval<CameraView>) (frustum : aval<Frustum>) (showOld : aval<bool>) (annotations : Annotations) =
+    let createAnnotationSg (win : IRenderWindow) (view : aval<CameraView>) (frustum : aval<Frustum>) (showOld : aval<bool>) (pick : Annotation -> 'a) (annotations : Annotations) =
         let model = AdaptiveGroupsModel.Create annotations.annotations
         let runtime = win.Runtime
 
@@ -92,8 +98,7 @@ module AnnotationViewer =
                 
                 let r = pickColors.GetValue(AdaptiveToken.Top,RenderToken.Empty)
                 let offset = V3i(p.Position.X,p.Position.Y,0)
-                printfn "rt size: %A" r.Size
-                if p.Position.X < r.Size.X - 1 && p.Position.Y < r.Size.Y - 1 then
+                if p.Position.X < r.Size.X - 1 && p.Position.Y < r.Size.Y - 1 && p.Position.X >= 0  then
                     let r = runtime.Download(r,0,0,Box2i.FromMinAndSize(p.Position, V2i(1,1))) |> unbox<PixImage<float32>>
                     let m = r.GetMatrix<C4f>()
                     //let center = m.Size.XY / 2L
@@ -132,9 +137,17 @@ module AnnotationViewer =
                     transact (fun _ -> 
                         if hovered >= 0 && hovered < ids.Length then
                             picked.Value <- Some ids.[hovered]
+                            match HashMap.tryFind ids[hovered] annotations.annotations.flat with
+                            | None -> ()
+                            | Some anno -> 
+                                match anno with
+                                | Leaf.Annotations a -> 
+                                    try pick a |> ignore with e -> Log.warn "pick failed. %A" e
+                                | _ -> ()
                         else 
                             picked.Value <- None
                     )
+
             )
 
         let overlay = 
@@ -146,7 +159,7 @@ module AnnotationViewer =
                 do! DefaultSurfaces.trafo
                 do! LensShader.lens
             }
-            |> Sg.uniform "MousePosition" ((win.Mouse.Position, win.Sizes) ||> AVal.map2 (fun (p : PixelPosition) s -> printf "%A" p.NormalizedPosition; V2d(p.NormalizedPosition.X,1.0-p.NormalizedPosition.Y)))
+            |> Sg.uniform "MousePosition" ((win.Mouse.Position, win.Sizes) ||> AVal.map2 (fun (p : PixelPosition) s -> V2d(p.NormalizedPosition.X,1.0-p.NormalizedPosition.Y)))
             |> Sg.viewTrafo' Trafo3d.Identity
             |> Sg.projTrafo' Trafo3d.Identity
 
@@ -242,16 +255,23 @@ module AnnotationViewer =
 
         let showSurface = true
 
-        let sg = 
+        let sg, hierarchies = 
             if showSurface && runner.IsSome then
                 let runner = runner.Value
-                scene.patchHierarchies |> Seq.toList |> List.map (fun basePath -> 
-                    let h = PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths basePath)
-                    let t = PatchLod.toRoseTree h.tree
-                    Sg.patchLod win.FramebufferSignature runner basePath scene.lodDecider false false ViewerModality.XYZ PatchLod.CoordinatesMapping.Local true t
-                ) |> Sg.ofList 
+                let hierarchies = 
+                    scene.patchHierarchies 
+                    |> Seq.toList 
+                    |> List.map (fun basePath -> 
+                        PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths basePath), basePath
+                    )
+                let sg =
+                    hierarchies |> List.map (fun (h, basePath) -> 
+                        let t = PatchLod.toRoseTree h.tree
+                        Sg.patchLod win.FramebufferSignature runner basePath scene.lodDecider false false ViewerModality.XYZ PatchLod.CoordinatesMapping.Local true t
+                    ) |> Sg.ofList 
+                sg, hierarchies
             else 
-                Sg.empty
+                Sg.empty, []
 
         let speed = AVal.init scene.speed
 
@@ -260,7 +280,7 @@ module AnnotationViewer =
         let view = initialView |> DefaultCameraController.controlWithSpeed speed win.Mouse win.Keyboard win.Time
         let frustum = win.Sizes |> AVal.map (fun s -> Frustum.perspective 60.0 scene.near scene.far (float s.X / float s.Y))
 
-        let lodVisEnabled = cval true
+        let lodVisEnabled = cval false
         let fillMode = cval FillMode.Fill
         let showOld = cval false
 
@@ -270,10 +290,6 @@ module AnnotationViewer =
 
         win.Keyboard.KeyDown(Keys.PageDown).Values.Add(fun _ -> 
             transact (fun _ -> speed.Value <- speed.Value / 1.5)
-        )
-
-        win.Keyboard.KeyDown(Keys.L).Values.Add(fun _ -> 
-            transact (fun _ -> lodVisEnabled.Value <- not lodVisEnabled.Value)
         )
 
         win.Keyboard.KeyDown(Keys.L).Values.Add(fun _ -> 
@@ -293,12 +309,53 @@ module AnnotationViewer =
             )
         )
 
+        let resultPoints = cval [||]
+
+        let hit (hits : List<QueryResult>) =
+            let allVertices = hits |> Seq.collect (fun h -> h.globalPositions) |> Seq.toArray
+            let objGeometries = 
+                hits 
+                |> Seq.map (fun h -> 
+                    let colors =
+                        match h.attributes |> Map.toSeq |> Seq.tryHead with
+                        | None -> None
+                        | Some (name, att) -> 
+                            match att.array with
+                            | :? array<float> as v when v.Length > 0 -> 
+                                let min, max = v.Min(), v.Max()
+                                if max - min > 0 then
+                                    let colors = v |> Array.map (fun v -> if v.IsNaN() then C3b.Black else (v - min) / (max - min) |> TransferFunction.transferPlasma)
+                                    Some colors
+                                else 
+                                    None
+                            | _ -> 
+                                None
+
+                    let geometry = 
+                        {
+                            colors = colors
+                            indices = h.indices |> Seq.toArray
+                            vertices = h.localPositions |> Seq.map V3d  |> Seq.toArray
+                        }
+                    geometry
+                )
+            RudimentaryObjExport.writeToString objGeometries |> File.writeAllText "./annotation.obj"
+            resultPoints.Value <- allVertices |> Seq.toArray
 
 
+        let points =
+            Sg.instancedGeometry ((view, resultPoints) ||> AVal.map2 (fun view pos -> pos |> Array.map (fun p -> Trafo3d.Translation(V3d p) * view.ViewTrafo))) (IndexedGeometryPrimitives.solidPhiThetaSphere (Sphere3d(V3d.Zero, 0.01)) 8 C4b.White)
+            |> Sg.viewTrafo (AVal.constant Trafo3d.Identity)
+            |> Sg.shader {
+                do! DefaultSurfaces.instanceTrafo
+                do! DefaultSurfaces.trafo
+                do! DefaultSurfaces.vertexColor
+            }
 
         let sg = 
             sg
-            |> Sg.andAlso (createAnnotationSg win view frustum showOld annotations)
+            |> Sg.andAlso (createAnnotationSg win view frustum showOld (AnnotationQuery.pickAnnotation hierarchies ["AccuracyMap.aara"] (Range1d(-0.1,0.1)) hit) annotations)
+            |> Sg.andAlso points
             |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
             |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo)
             //|> Sg.transform preTransform

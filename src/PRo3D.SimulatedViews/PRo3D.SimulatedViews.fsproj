@@ -8,9 +8,11 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <WarningLevel>4</WarningLevel>
     <OutputPath>..\..\bin\Debug\</OutputPath>
+    <NoWarn>0686</NoWarn>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <OutputPath>..\..\bin\Release\</OutputPath>
+    <NoWarn>0686</NoWarn>
   </PropertyGroup>
   <ItemGroup>      
     <Compile Include="Rabbyte\Drawing\DrawingModel.fs" />      
@@ -29,6 +31,7 @@
     <Compile Include="Snapshots\ObjectPlacement-Model.fs" />      
     <Compile Include="Snapshots\Snapshot-Model.fs" />      
     <Compile Include="Snapshots\SnapshotSettings-Model.fs" />      
+    <Compile Include="Snapshots\PoseData-Model.fs" />      
     <Compile Include="Snapshots\HaltonPlacement.fs" />      
     <Compile Include="Snapshots\ObjectPlacementApp.fs" />      
     <Compile Include="Snapshots\GroupExtensions.fs" />      

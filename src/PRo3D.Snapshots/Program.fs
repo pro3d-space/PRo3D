@@ -46,7 +46,7 @@ open FSharp.Data.Adaptive
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "4.9.1-Snapshots"
+let viewerVersion       = "4.12.0-Snapshots"
 let catchDomainErrors   = false
 
 open System.IO
@@ -148,19 +148,6 @@ let startApplication (startupArgs : CLStartupArgs) =
 
         //Log.startTimed "[Viewer] reading json scene"
 
-        let viewerArgs : PRo3D.StartupArgs = 
-            {
-                verbose = startupArgs.verbose
-                showExplorationPoint = startupArgs.showExplorationPoint
-                startEmpty = false
-                useAsyncLoading = false
-                magnificationFilter = startupArgs.magnificationFilter
-                serverMode = false
-                remoteApp  = false
-                useMapping = "true"
-                data_samples = None
-                backgroundColor = "black"
-            }
 
         let port = getFreePort()
         let uri = sprintf "http://localhost:%d" port
@@ -168,7 +155,7 @@ let startApplication (startupArgs : CLStartupArgs) =
         let (mainApp, mModel) =
             SimulatedViews.PRo3DUtils.start 
                 runtime signature false messagingMailbox 
-                sendQueue dumpFile cacheFile uri 8 ""
+                sendQueue dumpFile cacheFile uri 8 "" viewerVersion
 
         let s = 
             {MailboxState.empty with update = 

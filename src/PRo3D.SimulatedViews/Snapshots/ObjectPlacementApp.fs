@@ -162,13 +162,13 @@ module ObjectPlacementApp =
                         let! placement = models |> AMap.find name
                         return name, view placement
                     else 
-                        let empty = div[ style "font-style:italic"][ text "only OBJ models have placement options" ] 
+                        let empty = div [ style "font-style:italic"] [text "only OBJ models have placement options" ] 
                         return name, empty
                 | None ->
-                    let empty = div[ style "font-style:italic"][ text "surface id not found" ]
+                    let empty = div [style "font-style:italic"] [text "surface id not found" ]
                     return "", empty 
             | None -> 
-                let empty = div[ style "font-style:italic"][ text "no surface selected" ] 
+                let empty = div [style "font-style:italic"] [text "no surface selected"] 
                 return "", empty 
         }         
 

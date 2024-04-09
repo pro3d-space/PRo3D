@@ -50,6 +50,17 @@ module Bookmark =
                 }
         }
 
+    let init name view exploreCenter navigationMode = 
+        {
+            version        = current
+            key            = System.Guid.NewGuid ()
+                           
+            name           = name 
+            cameraView     = view
+            exploreCenter  = exploreCenter
+            navigationMode = navigationMode
+        }
+
 type Bookmark with 
     static member FromJson( _ : Bookmark) =
         json {

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "opc-tool": {
+      "commandName": "Project",
+      "commandLineArgs": "--ignoremasterkdtree \"F:\\pro3d\\data\\20200220_DinosaurQuarry2\\Dinosaur_Quarry_2\" --forcekdtreerebuild"
+    }
+  }
+}

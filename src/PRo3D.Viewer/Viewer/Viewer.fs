@@ -46,7 +46,7 @@ open PRo3D.ViewerLenses
  
 open Aether
 open Aether.Operators
-
+open Chiron 
 open PRo3D.Core.Surface
 
 type UserFeedback<'a> = {
@@ -122,6 +122,9 @@ module ViewerApp =
             getArrowLength    = fun (x:AdaptiveViewConfigModel) -> x.arrowLength.value
             getArrowThickness = fun (x:AdaptiveViewConfigModel) -> x.arrowThickness.value
             getNearDistance   = fun (x:AdaptiveViewConfigModel) -> x.nearPlane.value
+            getHorizontalFieldOfView = fun (x:AdaptiveViewConfigModel) -> 
+                                            x.frustumModel.frustum 
+                                            |> AVal.map Frustum.horizontalFieldOfViewInDegrees
         }
     
     let drawingConfig : DrawingApp.SmallConfig<ReferenceSystem> =
@@ -134,7 +137,8 @@ module ViewerApp =
     let mdrawingConfig : DrawingApp.MSmallConfig<AdaptiveViewConfigModel> =
         {            
             getNearPlane        = fun x -> x.nearPlane.value
-            getHfov             = fun (x:AdaptiveViewConfigModel) -> ((AVal.init 60.0) :> aval<float>)
+            getHfov             = fun (x:AdaptiveViewConfigModel) -> x.frustumModel.frustum 
+                                                                     |> AVal.map Frustum.horizontalFieldOfViewInDegrees //((AVal.init 60.0) :> aval<float>)
             getArrowThickness   = fun (x:AdaptiveViewConfigModel) -> x.arrowThickness.value
             getArrowLength      = fun (x:AdaptiveViewConfigModel) -> x.arrowLength.value
             getDnsPlaneSize     = fun (x:AdaptiveViewConfigModel) -> x.dnsPlaneSize.value
@@ -345,12 +349,12 @@ module ViewerApp =
             { m with heighValidation = heightVal }
         | Interactions.PlaceScaleBar, _ ->
             let msg = ScaleBarsAction.AddScaleBar(p, m.scaleBarsDrawing, m.navigation.camera.view)
-            let scm = ScaleBarsApp.update m.scene.scaleBars msg
+            let scm = ScaleBarsApp.update m.scene.scaleBars msg m.scene.referenceSystem
             { m with scene = { m.scene with scaleBars = scm } }
         | Interactions.PlaceSceneObject, ViewerMode.Standard -> 
             //let action = (SceneObjectAction.PlaceSceneObject(p))
             let action = (SceneObjectAction.TranslationMessage( TransformationApp.Action.SetPickedTranslation(p)))
-            let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel action
+            let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel action m.scene.referenceSystem
             { m with scene = { m.scene with sceneObjectsModel = sobjs } }
         | Interactions.PickPivotPoint, ViewerMode.Standard -> 
             match m.pivotType with
@@ -367,7 +371,7 @@ module ViewerApp =
             | PickPivot.SceneObjectPivot -> 
                 let action = (SceneObjectAction.TranslationMessage( TransformationApp.Action.SetPickedPivotPoint p )) 
                 let so' =
-                    SceneObjectsApp.update m.scene.sceneObjectsModel action 
+                    SceneObjectsApp.update m.scene.sceneObjectsModel action m.scene.referenceSystem
                 { m with scene = { m.scene with sceneObjectsModel = so' } }
             | _ -> m
         | _ -> m       
@@ -383,6 +387,38 @@ module ViewerApp =
             msg     = ViewerAction.NoAction ""
         }
         m |> UserFeedback.queueFeedback feedback
+
+    let getDrawingActionForKey (interaction : Interactions) (k : Aardvark.Application.Keys) = 
+        match k with
+        | Aardvark.Application.Keys.Enter    -> DrawingAction.Finish
+        | Aardvark.Application.Keys.Back     -> DrawingAction.RemoveLastPoint
+        | Aardvark.Application.Keys.Escape   -> DrawingAction.ClearWorking
+        | Keyboard.Modifier -> 
+            match interaction with 
+            | Interactions.DrawAnnotation -> DrawingAction.StartDrawing
+            | Interactions.PickAnnotation -> DrawingAction.StartPicking
+            | _ -> DrawingAction.Nop
+        //| Aardvark.Application.Keys.LeftShift -> 
+        //    match m.interaction with                     
+        //    | Interactions.PickAnnotation -> DrawingAction.StartPickingMulti
+        //    | _ -> DrawingAction.Nop
+        | Aardvark.Application.Keys.D0 -> DrawingAction.SetSemantic Semantic.Horizon0
+        | Aardvark.Application.Keys.D1 -> DrawingAction.SetSemantic Semantic.Horizon1
+        | Aardvark.Application.Keys.D2 -> DrawingAction.SetSemantic Semantic.Horizon2
+        | Aardvark.Application.Keys.D3 -> DrawingAction.SetSemantic Semantic.Horizon3 
+        | _  -> DrawingAction.Nop
+
+    let updateFrustumAspect m (windowSize : V2i) (viewPortSizeId : string) =
+            let aspect = float windowSize.X / float windowSize.Y
+            let m = 
+                { m with frustum = m.frustum 
+                                   |> FrustumUtils.withAspect(aspect); 
+                         viewPortSizes = HashMap.add viewPortSizeId windowSize m.viewPortSizes 
+                         aspect  = aspect}
+            let m = // update FurstumModel to keep it consistent with Frustum in Model
+                m |> Optic.map _frustumModel (fun fm -> 
+                    {fm with frustum = FrustumUtils.withAspect aspect fm.frustum})
+            m
 
     let updateViewer 
         (runtime   : IRuntime) 
@@ -425,14 +461,19 @@ module ViewerApp =
             { m with animations = a } |> Optic.set _view a.cam
         | SetCamera cv,_,false -> Optic.set _view cv m
         | SetCameraAndFrustum (cv, hfov, _),_,false -> 
-            Log.line "[Viewer] SetCameraAndFrustum not implemented!"
+            Log.warn "[Viewer] SetCameraAndFrustum not implemented!"
             m
         | SetCameraAndFrustum2 (cv,frustum),_,false ->
             let m = Optic.set _view cv m
             { m with frustum = frustum }
         | SetFrustum frustum,_,_ -> 
-            Log.line "[Viewer] Setting Frustum"
-            { m with frustum = frustum }
+            Log.line "[Viewer] Setting Frustum %s" (string frustum)
+            let frustumModel = 
+                Optic.get _frustumModel m
+            let frustumModel =
+                {frustumModel with frustum = frustum}
+            { m with frustum = frustum}
+            |> Optic.set _frustumModel frustumModel 
         | AnnotationGroupsMessageViewer msg,_,_ ->
             let ag = m.drawing.annotations 
                 
@@ -484,6 +525,7 @@ module ViewerApp =
 
                 let drawing = 
                     DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing msg
+
                 { m with drawing = drawing; } |> stash
         | SurfaceActions msg,_,_ ->
             
@@ -514,16 +556,30 @@ module ViewerApp =
                    
             let model = { m with scene = { m.scene with surfacesModel = s}; animations = animation}
 
-            let surfaceModel = 
+            let model =
                 match msg with
                 | SurfaceAppAction.ChangeImportDirectories _ 
                 | SurfaceAppAction.ChangeOBJImportDirectories _ ->
-                    model.scene.surfacesModel 
-                    |> SceneLoader.prepareSurfaceModel runtime signature model.scene.scenePath
+                    let surfacesModel = 
+                        model.scene.surfacesModel 
+                        |> SceneLoader.prepareSurfaceModel 
+                            runtime signature model.scene.scenePath
+                    let model =
+                        Optic.set _surfacesModel surfacesModel model
+                    let sequencedBookmarks = 
+                        match m.scene.sequencedBookmarks.bookmarks.IsEmpty with
+                        | true ->
+                            m.scene.sequencedBookmarks
+                        | false ->                            
+                            SequencedBookmarksApp.withSurfaceModel 
+                                surfacesModel model.scene.sequencedBookmarks
+                    let model =
+                        Optic.set _sequencedBookmarks sequencedBookmarks model
+                    model
                 | _ -> 
-                    model.scene.surfacesModel
-
-            { model with scene = { model.scene with surfacesModel = surfaceModel} }
+                    model
+            model
+            
         | AnnotationMessage msg,_,_ ->                
             match m.drawing.annotations.singleSelectLeaf with
             | Some selected ->                             
@@ -583,7 +639,6 @@ module ViewerApp =
                         bm
                         m.scene.cameraView 
                         (m.frustum |> Frustum.horizontalFieldOfViewInDegrees)
-                        //m.frustum
                         m.scene.config.nearPlane.value
                         m.scene.config.farPlane.value
                 SnapshotAnimation.writeToFile snapshotAnimation jsonPathName   
@@ -611,7 +666,7 @@ module ViewerApp =
                 let m = shortFeedback "Saved snapshot JSON file." m
                 match m.scene.sequencedBookmarks.generateOnStop with
                 | true -> 
-                    let m = 
+                    let m  = 
                         let bm = generateSnapshots scenePath
                         {m with scene = { m.scene with sequencedBookmarks = bm }}
                     let m = shortFeedback "Snapshot generation started." m
@@ -661,7 +716,7 @@ module ViewerApp =
             let cm = FalseColorLegendApp.update m.drawing.dnsColorLegend msg
             { m with drawing = { m.drawing with dnsColorLegend = cm } }
         | SceneObjectsMessage msg,_,_ -> 
-            let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel msg
+            let sobjs = SceneObjectsApp.update m.scene.sceneObjectsModel msg m.scene.referenceSystem
             let animation = 
                 match msg with
                 | SceneObjectAction.FlyToSO id -> 
@@ -680,20 +735,30 @@ module ViewerApp =
                    
             { m with scene = { m.scene with sceneObjectsModel = sobjs}; animations = animation}
         | FrustumMessage msg,_,_ ->
-            let frustumModel = FrustumProperties.update m.frustumModel msg
+            let frustumModel = FrustumProperties.update m.scene.config.frustumModel msg
             match msg with
             | FrustumProperties.Action.ToggleUseFocal ->
                 if frustumModel.toggleFocal then
                     let fm = {frustumModel with oldFrustum = m.frustum}
-                    { m with frustum = frustumModel.frustum; frustumModel = fm}
+                    let m = Optic.set _frustumModel fm m
+                    { m with frustum = frustumModel.frustum}
                 else
-                    { m with frustum = frustumModel.oldFrustum; frustumModel = frustumModel }
+                    let m = Optic.set _frustumModel frustumModel m
+                    { m with frustum = frustumModel.oldFrustum}
             | FrustumProperties.Action.UpdateFocal f ->
                 if frustumModel.toggleFocal then
-                    let frustum' = FrustumProperties.updateFrustum frustumModel.focal.value m.frustum.near m.frustum.far 
-                    { m with frustum = frustum'; frustumModel = {frustumModel with frustum = frustum'}}
+                    let frustum' = 
+                        FrustumUtils.calculateFrustum' frustumModel.focal.value 
+                                                       m.frustum.near 
+                                                       m.frustum.far 
+                                                       m.aspect
+                    let m = Optic.set _frustumModel {frustumModel with frustum = frustum'} m
+                    let m = { m with frustum = frustum'}
+                    m
                 else
-                    { m with frustumModel = frustumModel }
+                    Optic.set _frustumModel frustumModel m
+            | _ -> 
+                Optic.set _frustumModel frustumModel m
         | ImportSurface sl,_,_ ->                 
             match sl with
             | [] -> m
@@ -708,7 +773,7 @@ module ViewerApp =
                 m
                 |> ViewerIO.loadLastFootPrint
                 |> updateSceneWithNewSurface    
-        | ImportDiscoveredSurfaces sl,_,_ -> 
+        | DiscoverAndImportOpcs sl,_,_ -> 
             //"" |> UpdateUserFeedback |> ViewerAction |> mailbox.Post
             match sl with
             | [] -> m
@@ -742,7 +807,7 @@ module ViewerApp =
                     id      = System.Guid.NewGuid().ToString()
                     text    = "Importing OPCs..."
                     timeout = 5000
-                    msg     = (ImportDiscoveredSurfaces sl)
+                    msg     = (DiscoverAndImportOpcs sl)
                 }
                     
                 m |> UserFeedback.queueFeedback feedback
@@ -879,6 +944,10 @@ module ViewerApp =
 
             if computeExactPick then    // CHECK-merge
 
+                //// hack
+                //let pp = m.navigation.exploreCenter
+                //let navigation' = 
+                //    Navigation.update m.scene.config m.scene.referenceSystem navConf true m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick pp))
                 let fray = p.globalRay.Ray
                 let r = fray.Ray
                 let rayHash = r.GetHashCode()
@@ -922,7 +991,7 @@ module ViewerApp =
 
                             Log.line "[PickSurface] surface hit at %A" hit
 
-                            let cameraLocation = m.navigation.camera.view.Location 
+                            let cameraLocation = m.navigation.camera.view.Location //navigation'.camera.view.Location 
                             let hitF = hitF cameraLocation
                    
                             lastHash <- rayHash
@@ -950,9 +1019,13 @@ module ViewerApp =
         | SaveAs s,_,_ ->
             ViewerIO.saveEverything s m
             |> ViewerIO.loadLastFootPrint
+        | ViewerAction.SetScenePath s, _, _ -> 
+            let scene = { m.scene with scenePath      = Some s }
+            { m with scene = scene }
+
         | LoadScene path,_,_ ->                
 
-            match SceneLoading.loadScene m runtime signature path with
+            match SceneLoading.loadSceneFromFile m runtime signature path with
             | SceneLoading.SceneLoadResult.Loaded(newModel,converted,path) -> 
                 Log.line "[PRo3D] loaded scene: %s" path
                 newModel
@@ -961,7 +1034,40 @@ module ViewerApp =
                 m
 
             //|> ViewerIO.loadMinerva SceneLoader.Minerva.defaultDumpFile SceneLoader.Minerva.defaultCacheFile
-            |> SceneLoader.addGeologicSurfaces            
+            |> SceneLoader.addGeologicSurfaces     
+            
+        | LoadSerializedScene json, _, _ -> // serialized scene file (content of .pro3d)
+            SceneLoading.loadSceneFromJson m runtime signature json
+
+        | LoadSerializedDrawingModel json, _, _ -> 
+            let annotations = DrawingUtilities.IO.loadAnnotationsFromJson json 
+            ViewerIO.replaceAnnotations m annotations
+        | ImportSerializedDrawingModel(json, source), _, _ -> 
+            let drawing = DrawingUtilities.IO.loadAnnotationsFromJson json 
+            let annotations = drawing.annotations |> GroupsModel.patchNames (fun n -> Guid.NewGuid())
+            let importedGroup = { annotations.rootGroup with name = source }
+
+            //let msg = GroupsAppAction.AddAndSelectGroup ([], importedGroup)
+            let groups = 
+                { m.drawing.annotations with 
+                    flat = HashMap.union annotations.flat m.drawing.annotations.flat; 
+                    rootGroup = { m.drawing.annotations.rootGroup with subNodes = IndexList.prepend importedGroup m.drawing.annotations.rootGroup.subNodes }}
+
+            let model = { m with drawing = { m.drawing with annotations = groups } }
+            model
+        | ImportDrawingModel(drawing, source), _, _ -> 
+            let annotations = drawing |> GroupsModel.patchNames (fun n -> Guid.NewGuid())
+            let importedGroup = { annotations.rootGroup with name = source }
+
+            //let msg = GroupsAppAction.AddAndSelectGroup ([], importedGroup)
+            let groups = 
+                { m.drawing.annotations with 
+                    flat = HashMap.union annotations.flat m.drawing.annotations.flat; 
+                    rootGroup = { m.drawing.annotations.rootGroup with subNodes = IndexList.prepend importedGroup m.drawing.annotations.rootGroup.subNodes }}
+
+            let model = { m with drawing = { m.drawing with annotations = groups } }
+            model
+         
 
         | NewScene,_,_ ->
             let initialModel = 
@@ -972,8 +1078,11 @@ module ViewerApp =
                     m.numberOfSamples 
                     m.screenshotDirectory
                     _animator
+                    m.viewerVersion
+                |> ProvenanceApp.emptyWithModel
 
             { initialModel with recent = m.recent} |> ViewerIO.loadRoverData
+
         | KeyDown k, _, _ ->
             let m =
                 match k with
@@ -983,25 +1092,6 @@ module ViewerApp =
                     m
                 | _ -> m
           
-            let drawingAction =
-                match k with
-                | Aardvark.Application.Keys.Enter    -> DrawingAction.Finish
-                | Aardvark.Application.Keys.Back     -> DrawingAction.RemoveLastPoint
-                | Aardvark.Application.Keys.Escape   -> DrawingAction.ClearWorking
-                | Keyboard.Modifier -> 
-                    match m.interaction with 
-                    | Interactions.DrawAnnotation -> DrawingAction.StartDrawing
-                    | Interactions.PickAnnotation -> DrawingAction.StartPicking
-                    | _ -> DrawingAction.Nop
-                //| Aardvark.Application.Keys.LeftShift -> 
-                //    match m.interaction with                     
-                //    | Interactions.PickAnnotation -> DrawingAction.StartPickingMulti
-                //    | _ -> DrawingAction.Nop
-                | Aardvark.Application.Keys.D0 -> DrawingAction.SetSemantic Semantic.Horizon0
-                | Aardvark.Application.Keys.D1 -> DrawingAction.SetSemantic Semantic.Horizon1
-                | Aardvark.Application.Keys.D2 -> DrawingAction.SetSemantic Semantic.Horizon2
-                | Aardvark.Application.Keys.D3 -> DrawingAction.SetSemantic Semantic.Horizon3 
-                | _  -> DrawingAction.Nop
 
             let m =
                 match k with 
@@ -1021,24 +1111,7 @@ module ViewerApp =
                     // (saveSceneAndAnnotations p m)
                 |_-> m
                          
-            let m =
-                match m.interaction with
-                | Interactions.DrawAnnotation | Interactions.PickAnnotation ->
-                    let view = m.navigation.camera.view
-                    let m = { m with drawing = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing drawingAction } |> stash
-                    match drawingAction with
-                    | Drawing.DrawingAction.Finish -> { m with tabMenu = TabMenu.Annotations }
-                    | _ -> m                     
-                | _ -> m
-                                    
-            let m =
-                match (m.interaction, k) with
-                | Interactions.DrawAnnotation, _ -> m
-                //| _, Aardvark.Application.Keys.Enter -> 
-                //    let view = m.navigation.camera.view                                                                  
-                //    let minerva = MinervaApp.update view m.frustum m.minervaModel PRo3D.Minerva.MinervaAction.ApplyFilters
-                //    { m with minervaModel = minerva }
-                | _ -> m
+          
 
             let sensitivity = m.scene.config.navigationSensitivity.value
           
@@ -1058,90 +1131,6 @@ module ViewerApp =
 
             let m = { m with trafoKind = kind }
 
-            //correlations
-            let m = 
-                match (k, m.interaction) with
-                | (Aardvark.Application.Keys.Enter, Interactions.PickAnnotation) -> 
-                        
-                    //let selected =
-                    //    m.drawing.annotations.selectedLeaves 
-                    //    |> HashSet.map (fun x -> x.id)
-
-                    //let correlationPlot = 
-                    //    CorrelationPanelsApp.update
-                    //        m.correlationPlot 
-                    //        m.scene.referenceSystem
-                    //        (LogAssignCrossbeds selected)
-
-                    //{ m with correlationPlot = correlationPlot; pastCorrelation = Some m.correlationPlot } |> shortFeedback "crossbeds assigned"                       
-                    m
-                | (Aardvark.Application.Keys.Enter, Interactions.DrawLog) -> 
-                    ////confirm when in logpick mode
-                    //let correlationPlot = 
-                    //    CorrelationPanelsApp.update 
-                    //        m.correlationPlot 
-                    //        m.scene.referenceSystem
-                    //        (UpdateAnnotations m.drawing.annotations.flat)
-                                                                           
-                    //let correlationPlot, msg =
-                    //    match m.correlationPlot.logginMode with
-                    //    | LoggingMode.PickLoggingPoints ->                                                                  
-                    //        CorrelationPlotAction.FinishLog
-                    //        |> CorrelationPanelsMessage.CorrPlotMessage
-                    //        |> CorrelationPanelsApp.update correlationPlot m.scene.referenceSystem, "finished log"                                
-                    //    | LoggingMode.PickReferencePlane ->
-                    //        correlationPlot, "reference plane selected"
-
-                    //let correlationPlot = 
-                    //    CorrelationPanelsApp.update 
-                    //        correlationPlot 
-                    //        m.scene.referenceSystem
-                    //        LogConfirm
-                            
-                    //{ m with correlationPlot = correlationPlot; pastCorrelation = Some m.correlationPlot } |> shortFeedback msg
-                    m
-                | (Aardvark.Application.Keys.Escape,Interactions.DrawLog) -> 
-                    //let panelUpdate = 
-                    //    CorrelationPanelsApp.update 
-                    //        m.correlationPlot
-                    //        m.scene.referenceSystem
-                    //        CorrelationPanelsMessage.LogCancel
-                    //{ m with correlationPlot = panelUpdate } |> shortFeedback "cancel log"
-                    m
-                | (Aardvark.Application.Keys.Back, Interactions.DrawLog) ->                     
-                    //let panelUpdate = 
-                    //    CorrelationPanelsApp.update
-                    //        m.correlationPlot
-                    //        m.scene.referenceSystem
-                    //        CorrelationPanelsMessage.RemoveLastPoint
-                    //{ m with correlationPlot = panelUpdate } |> shortFeedback "removed last point"
-                    m
-                | (Aardvark.Application.Keys.B, Interactions.DrawLog) ->                     
-                    //match m.pastCorrelation with
-                    //| None -> m
-                    //| Some past -> { m with correlationPlot = past; pastCorrelation = None} |> shortFeedback "undo last correlation"
-                    m
-                | _ -> m
-
-            let m = 
-                match k with 
-                | Aardvark.Application.Keys.Space ->
-                    //let wp = {
-                    //    name = sprintf "wp %d" m.waypoints.Count
-                    //    cv = (_camera.Get m).view
-                    //}
-
-                    //Serialization.save "./logbrush" m.correlationPlot.logBrush |> ignore
-
-                    //let waypoints = IndexList.append wp m.waypoints
-                    //Log.line "saving waypoints %A" waypoints
-                    //Serialization.save "./waypoints.wps" waypoints |> ignore
-                    //{ m with waypoints = waypoints }                                                                                  
-                    m |> shortFeedback "Saved logbrush"
-                | Aardvark.Application.Keys.F8 ->
-                    { m with scene = { m.scene with dockConfig = DockConfigs.m2020 } }
-                | _ -> m
-
             let interaction' = 
                 match k with
                 | Aardvark.Application.Keys.F1 -> Interactions.PickExploreCenter
@@ -1153,7 +1142,6 @@ module ViewerApp =
             let m =
                 match k with 
                 | Aardvark.Application.Keys.F6 ->
-                    //if (m.scene.traverse.sols.IsEmpty) then
                     let waypointPath = 
                         Path.combine [
                             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); 
@@ -1165,8 +1153,6 @@ module ViewerApp =
 
                     let t = TraverseApp.update m.scene.traverses (TraverseAction.LoadTraverse waypointPath)
                     { m with scene = { m.scene with traverses = t }}
-                    //else 
-                    //    { m with scene = { m.scene with traverse = TraverseModel.initial }}
                 | _ -> m
 
             { m with scene = { m.scene with config = c' }; interaction = interaction'}
@@ -1336,6 +1322,8 @@ module ViewerApp =
             let dockconfig = config {content(cont);appName "PRo3D"; useCachedConfig false }
             { m with scene = { m.scene with dockConfig = dockconfig; closedPages = closedPages } }
         | UpdateUserFeedback s,_,_ ->   { m with scene = { m.scene with userFeedback = s } }
+        | ChangeDashboardMode mode, _, _ -> 
+            { m with scene = { m.scene with dockConfig = mode.dockConfig }; dashboardMode = mode.name }
         //| StartImportMessaging sl,_,_ -> 
         //    sl |> ImportDiscoveredSurfaces |> ViewerAction |> mailbox.Post
         //    { m with scene = { m.scene with userFeedback = "Import OPCs..." } }
@@ -1386,13 +1374,13 @@ module ViewerApp =
         //        { m with linkingModel = PRo3D.Linking.LinkingApp.update m.linkingModel a }
         | OnResize (a,id),_,_ ->              
             Log.line "[RenderControl Resized] %A" a
-            { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y); viewPortSizes = HashMap.add id a m.viewPortSizes }
+            updateFrustumAspect m a id
         | ResizeMainControl(a,id),_,_ -> 
             printfn "[main] resize %A" (a,id)
-            { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y); viewPortSizes = HashMap.add id a m.viewPortSizes }
+            updateFrustumAspect m a id
         | ResizeInstrumentControl(a,id),_,_ -> 
             printfn "[instrument] resize %A" (a,id)
-            { m with frustum = m.frustum |> Frustum.withAspect(float a.X / float a.Y); viewPortSizes = HashMap.add id a m.viewPortSizes }
+            updateFrustumAspect m a id
         //| SetTextureFiltering b,_,_ ->
         //    {m with filterTexture = b}
        // | TestHaltonRayCasting _,_,_->
@@ -1406,12 +1394,20 @@ module ViewerApp =
         //    | true ->
         //        Log.line "[Viewer] No shattercone updates found."
         //        m
-        | StartDragging _,_,_
+        | StartDragging _,_,_ 
         | Dragging _,_,_ 
+        //| MouseOut _,_,_
         | EndDragging _,_,_ -> 
-            match m.multiSelectBox with
-            | Some x -> { m with multiSelectBox = None }
-            | None -> m
+          let m' =
+                match m.multiSelectBox with
+                | Some x -> { m with multiSelectBox = None }
+                | None -> m
+          m' //{m' with navigation = {m'.navigation with camera = {m'.navigation.camera with pan = false }}}
+        | MouseIn _,_,_ ->
+            {m with navigation = {m.navigation with camera = {m.navigation.camera with pan = true }}}
+        | MouseOut _,_,_ ->
+            {m with navigation = {m.navigation with camera = {m.navigation.camera with pan = false }}}
+
        // | CorrelationPanelMessage a,_,_ ->
             //let blurg =
             //    match a with 
@@ -1510,7 +1506,7 @@ module ViewerApp =
                 | None -> m
             | _ ->
                 //let _scaleBarsModel = (Model.scene_ >-> Scene.scaleBars_ )
-                let scaleBars' = ScaleBarsApp.update m.scene.scaleBars msg
+                let scaleBars' = ScaleBarsApp.update m.scene.scaleBars msg m.scene.referenceSystem
                 let m' = m |> Optic.set _scaleBarsModel scaleBars'  
                 m'
         | GeologicSurfacesMessage msg,_,_-> 
@@ -1583,12 +1579,46 @@ module ViewerApp =
             { m with drawing = { m.drawing with automaticGeoJsonExport = autoExport } }
         | SetSceneState state, _, _ ->
             Optic.set _sceneState state m
+        | LoadPoseDefinitionFile path, _, _ -> 
+            let path = path.Head
+            //SimulatedViews.PoseData.writeDummyData path // for debugging
+            let poseData : PoseData = SimulatedViews.PoseData.read path
+            let sceneState = Optic.get _sceneState m 
+            let bookmarks = PoseData.toSequencedBookmarks poseData sceneState m.viewerVersion
+                            |> SequencedBookmarksApp.addBookmarks m.scene.sequencedBookmarks
+            let bookmarks = {bookmarks with poseDataPath = Some path}
+            let m = Optic.set _sequencedBookmarks bookmarks m
+            m
+        | SBookmarksToPoseDefinition, _, _ -> //RNO for creating dummy data for testing batch rendering with pose files
+            let poseData = PoseData.fromSequencedBookmarks m.scene.sequencedBookmarks 
+            poseData
+            |> Json.serialize 
+            |> Json.formatWith JsonFormattingOptions.Pretty 
+            |> Serialization.Chiron.writeToFile poseData.path
+            m
+        | WriteBookmarkMetadata (path, bm) , _, _ ->
+            match bm.metadata with
+            | Some md ->
+                Log.line "[Viewer] Writing metadata to %s" path
+                if m.startupArgs.verbose then
+                    let timer = Stopwatch.StartNew()
+                    System.IO.File.WriteAllText(path, md)
+                    timer.Stop()
+                    printfn "Finished writing file after %A milliseconds" timer.ElapsedMilliseconds
+                else
+                    System.IO.File.WriteAllText(path, md)
+                m
+            | None ->
+                Log.line "[Viewer] No metadata for bookmark %s" bm.name
+                m
+        | WriteCameraMetadata (path, camera),_,_ ->
+            m
         | unknownAction, _, _ -> 
             Log.line "[Viewer] Message not handled: %s" (string unknownAction)
             m       
                    
    //let mutable lastMillis = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() //DEBUG
-    let update 
+    let updateInternal 
         (runtime   : IRuntime) 
         (signature : IFramebufferSignature) 
         (sendQueue : BlockingCollection<string>) 
@@ -1609,7 +1639,25 @@ module ViewerApp =
             //| _ -> 
             //    ()
 
-            Anewmation.Animator.update msg m    
+            Anewmation.Animator.update msg m   
+
+        | ProvenanceMessage msg -> 
+            ProvenanceApp.update msg m
+            
+    let updateWithProvenanceTracking 
+                (runtime   : IRuntime) 
+                (enableProvenance : bool)
+                (signature : IFramebufferSignature) 
+                (sendQueue : BlockingCollection<string>) 
+                (mailbox   : MessagingMailbox) 
+                (m         : Model) 
+                (msg       : ViewerAnimationAction) =
+        let newModel = updateInternal runtime signature sendQueue mailbox m msg 
+        if enableProvenance then
+            ProvenanceApp.track m newModel msg
+        else
+            newModel
+
 
 
 
@@ -1648,15 +1696,18 @@ module ViewerApp =
                 attribute "useMapping" "true"
                 //attribute "showFPS" "true"        
                 //attribute "data-renderalways" "true"
-                onKeyDown (KeyDown)
+                Aardvark.UI.Events.onKeyDown' (fun k -> 
+                    let drawingAction = getDrawingActionForKey (m.interaction |> AVal.force) k 
+                    [KeyDown k; DrawingMessage drawingAction]
+                )
                 onKeyUp   (KeyUp)        
                 clazz "mainrendercontrol"
                 onEvent "resizeControl"  [] (
                     fun p -> 
                         match p with
-                        | w::h::[] -> 
-                            let w : int = Pickler.json.UnPickleOfString w
-                            let h : int = Pickler.json.UnPickleOfString h
+                        | w::h::[] ->
+                            let w : float = Pickler.json.UnPickleOfString w
+                            let h : float = Pickler.json.UnPickleOfString h 
                             printfn "%A" (w,h)
                             ResizeMainControl(V2i(w,h),id)
                         | _ -> Nop 
@@ -1680,8 +1731,8 @@ module ViewerApp =
                     fun p -> 
                         match p with
                         | w::h::[] -> 
-                            let w : int = Pickler.json.UnPickleOfString w
-                            let h : int = Pickler.json.UnPickleOfString h
+                            let w : float = Pickler.json.UnPickleOfString w
+                            let h : float = Pickler.json.UnPickleOfString h
                             printfn "%A" (w,h)
                             ResizeMainControl(V2i(w,h),id)
                         | _ -> Nop 
@@ -1974,15 +2025,17 @@ module ViewerApp =
 
         let viewerDependencies = [
             { kind = Stylesheet;  name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.css" }
-            { kind = Stylesheet;  name = "semui-overrides"; url = "semui-overrides.css" }
+            { kind = Stylesheet;  name = "semui-overrides"; url = "./resources/semui-overrides.css" }
             { kind = Script;      name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.js" }
-            { kind = Script;      name = "errorReporting";  url = "./errorReporting.js"  }
-            { kind = Script;      name = "resize";  url = "./ResizeSensor.js"  }
-            { kind = Script;      name = "resizeElem";  url = "./ElementQueries.js"  }
+            { kind = Script;      name = "errorReporting";  url = "./resources/errorReporting.js"  }
+            { kind = Script;      name = "resize";  url = "./resources/ResizeSensor.js"  }
+            { kind = Script;      name = "resizeElem";  url = "./resources/ElementQueries.js"  }
         ]
         
         let bodyAttributes : list<Attribute<ViewerAnimationAction>> = 
-            [style "background: #1B1C1E; height:100%; overflow-y:scroll; overflow-x:hidden;" //] //overflow-y : visible
+            [
+            style "background: #1B1C1E; height:100%; overflow-y:scroll; overflow-x:hidden;" //] //overflow-y : visible
+            onMouseUp (fun button pos -> ViewerAnimationAction.ViewerMessage (EndDragging (pos, button)))
             ]
 
         page (
@@ -2037,13 +2090,16 @@ module ViewerApp =
         (cacheFile           : string)
         (renderingUrl        : string)
         (dataSamples         : int)
+        (enableProvenance    : bool)
         (screenshotDirectory : string)
+        (viewerVersion       : string)
         =
 
         let m = 
             if startEmpty |> not then
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl 
-                                            dataSamples screenshotDirectory _animator
+                                            dataSamples screenshotDirectory _animator viewerVersion
+                |> ProvenanceApp.emptyWithModel
                 |> SceneLoader.loadLastScene runtime signature                
                 |> SceneLoader.loadLogBrush
                 |> ViewerIO.loadRoverData                
@@ -2058,13 +2114,16 @@ module ViewerApp =
                 
             else
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl
-                                            dataSamples screenshotDirectory _animator
+                                            dataSamples screenshotDirectory _animator viewerVersion
+                |> ProvenanceApp.emptyWithModel
                 |> ViewerIO.loadRoverData
 
-        App.start {
+        let app = {
             unpersist = Unpersist.instance
             threads   = threadPool
             view      = view runtime //localhost
-            update    = update runtime signature sendQueue messagingMailbox
+            update    = updateWithProvenanceTracking runtime enableProvenance signature sendQueue messagingMailbox
             initial   = m
         }
+        app.startAndGetState()
+

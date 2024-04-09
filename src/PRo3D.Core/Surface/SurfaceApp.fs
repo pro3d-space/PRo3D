@@ -45,6 +45,7 @@ type SurfaceAppAction =
 | PlaceSurface              of V3d
 | ScalarsColorLegendMessage of FalseColorLegendApp.Action
 | ColorCorrectionMessage    of ColorCorrectionProperties.Action
+| RadiometryMessage         of RadiometryProperties.Action
 | SetHomePosition           
 | TranslationMessage        of TransformationApp.Action
 | SetPreTrafo               of string
@@ -75,7 +76,10 @@ module SurfaceUtils =
             scalarLayers    = HashMap.Empty //IndexList.empty
             selectedScalar  = None
             textureLayers   = IndexList.empty
-            selectedTexture = None         
+            primaryTexture  = None  
+    
+            secondaryTexture = None
+            transferFunction = TransferFunction.empty
     
             triangleSize    = { Init.triangleSize with value = maxTriangleSize }
 
@@ -85,6 +89,14 @@ module SurfaceUtils =
             colorCorrection = Init.initColorCorrection
             homePosition    = None
             transformation  = Init.transformations
+            opcxPath        = None
+            radiometry      = Init.initRadiometry
+
+            filterByDistance = false
+            filterDistance = Surface.Initial.filterDistance 10.0
+
+            
+            contourModel = ContourLineModel.initial
         }       
    
 
@@ -189,6 +201,7 @@ module SurfaceUtils =
                     sceneGraph  = sg
                     picking     = Picking.KdTree(kdTrees |> HashMap.ofList) //Picking.PickMesh meshes
                     isObj       = true
+                    opcScene    = None
                     //transformation = Init.Transformations
                 }
                  
@@ -636,6 +649,7 @@ module SurfaceUtils =
                     sceneGraph      = sg
                     picking         = Picking.KdTree(kdTrees |> HashMap.ofList)
                     isObj           = true
+                    opcScene        = None
                     //transformation = Init.Transformations
                 }
                  
@@ -755,9 +769,16 @@ module SurfaceApp =
                         | false -> None
                     )
                     |> List.choose( fun np -> np) 
-                match newPath.IsEmpty with
-                | true -> s
-                | false -> { s with importPath = newPath.Head } 
+                match newPath with
+                | [] -> 
+                    Log.line "[SurfaceApp] No correct path found in %s" (selectedPaths |> String.concat ";")
+                    s
+                | pathsHead::pathsTail -> 
+                    let names = Files.getOPCNames pathsHead   
+                    { s with importPath = pathsHead
+                             opcPaths   = names |> Files.expandNamesToPaths pathsHead
+                             
+                    } 
             )
               
         let flat' = 
@@ -842,20 +863,28 @@ module SurfaceApp =
             | Some (Leaf.Surfaces sf) ->                    
                 let path = Files.getSurfaceFolder sf scenePath
                 match path with
-                | Some p ->                            
-                    let path = @".\20170530_TextureConverter_single\Vrvis.TextureConverter.exe"
-                    if File.Exists(path) then //\Vrvis.TextureConverter.exe") then
-                        let mutable converter = new Process()
-                        Log.line "start processing"                        
-                        converter.StartInfo.FileName <- "Vrvis.TextureConverter.exe"
-                        converter.StartInfo.Arguments <- p + " -overwrite" //-lazy"
-                        converter.StartInfo.UseShellExecute <- true                          
-                        converter.StartInfo.WorkingDirectory <- @".\20170530_TextureConverter_single"                                    
-                        converter.Start() |> ignore    
-                        converter.WaitForExit()
-                           //)
-                    else
-                        Log.line "texture converter not found"                             
+                | Some p ->          
+                    Log.startTimed "[RebuildKdTrees] loading patch hierarchy"
+                    let hs =
+                        Directory.EnumerateDirectories(p) |> Seq.toArray |> Array.choose (fun p ->
+                            if Files.isOpcFolder p then
+                                try 
+                                    PatchHierarchy.load Serialization.binarySerializer.Pickle Serialization.binarySerializer.UnPickle (OpcPaths.OpcPaths p) |> Some
+                                with e -> 
+                                    Log.warn "[RebuildKdTrees] failed to load patch hierarchy: %s\nException: %A" p e
+                                    None
+                            else
+                                Log.warn "[RebuildKdTrees] skipping %s for KdTree Generation" p
+                                None
+                        )
+                    Log.stop()
+                    Log.startTimed "[RebuildKdTrees] creating kdtrees"
+                    let kdTrees =
+                        hs |> Array.mapi (fun i h -> 
+                            KdTrees.loadKdTrees' h Trafo3d.Identity true ViewerModality.XYZ Serialization.binarySerializer true true PRo3D.Core.Surface.DebugKdTreesX.loadTriangles' false    
+                        )
+                    Log.stop()
+                    Log.line "[RebuildKdTrees] created/validated KdTrees for %d opcs." kdTrees.Length
                     model
                 | None -> model                         
             | _ -> model
@@ -946,6 +975,15 @@ module SurfaceApp =
                     model |> SurfaceModel.updateSingleSurface s'                        
                 | None -> model
             m
+        | RadiometryMessage msg ->       
+            let m = 
+                match model.surfaces.singleSelectLeaf with
+                | Some s -> 
+                    let surface = model.surfaces.flat |> HashMap.find s |> Leaf.toSurface
+                    let s' = { surface with radiometry = (RadiometryProperties.update surface.radiometry msg) }
+                    model |> SurfaceModel.updateSingleSurface s'                        
+                | None -> model
+            m
         | SetPreTrafo str -> 
             //let m = 
             //    match model.surfaces.singleSelectLeaf, str.Length > 0 with
@@ -1031,7 +1069,7 @@ module SurfaceApp =
                                 surface.transformation
                              else 
                                 { surface.transformation with pivot = Vector3d.updateV3d surface.transformation.pivot refSys.origin }
-                    let transformation' = (TransformationApp.update t msg) //surface.transformation msg)
+                    let transformation' = (TransformationApp.update t msg refSys) //surface.transformation msg)
                     let s' = { surface with transformation = transformation' }
                     //let homePosition = 
                     //  match surface.homePosition with
@@ -1190,7 +1228,7 @@ module SurfaceApp =
                         yield Incremental.div (AttributeMap.ofList [style infoc])(
                             alist {
                                 let! hc = headerColor
-                                yield div[clazz "header"; style hc][
+                                yield div [clazz "header"; style hc] [
                                    Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
                                 ]                             
             
@@ -1207,7 +1245,7 @@ module SurfaceApp =
                                 yield GuiEx.iconCheckBox s.isActive (ToggleActiveFlag key) 
                                 |> UI.wrapToolTip DataPosition.Bottom "Toggle IsActive"
 
-                                yield i [clazz "sync icon"; onClick (fun _ -> RebuildKdTrees key)] [] 
+                                yield i [clazz "exclamation circle icon"; onClick (fun _ -> RebuildKdTrees key)] [] 
                                     |> UI.wrapToolTip DataPosition.Bottom "rebuild kdTree"           
             
                                 let! path = s.importPath
@@ -1337,8 +1375,8 @@ module SurfaceApp =
                     let! b' = b
                     match b' with 
                         | AdaptiveSurfaces bm -> return isSome bm
-                        | _ -> return div[][]                                                             
-                | None   -> return div[][] 
+                        | _ -> return div [] []                                                             
+                | None   -> return div [] [] 
         }
     
       //failwith ""
@@ -1357,10 +1395,10 @@ module SurfaceApp =
                   let x = match surf with | AdaptiveSurfaces s -> s | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith                                     
                   return SurfaceProperties.view x |> UI.map SurfacePropertiesMessage
                 else
-                  return div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map SurfacePropertiesMessage 
+                  return div [style "font-style:italic"] [ text "no surface selected" ] |> UI.map SurfacePropertiesMessage 
                   
               
-              | None -> return div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map SurfacePropertiesMessage 
+              | None -> return div [style "font-style:italic"] [ text "no surface selected" ] |> UI.map SurfacePropertiesMessage 
         }                          
         
     let surfaceGroupProperties (model:AdaptiveSurfaceModel) =
@@ -1368,10 +1406,29 @@ module SurfaceApp =
             return (GroupsApp.viewUI model.surfaces|> UI.map GroupsMessage)
         } 
 
+    let viewSurfaceProperty (model : AdaptiveSurfaceModel) (f : AdaptiveSurface -> DomNode<_>) : DomNode<_> =
+        let e =
+            adaptive {
+                match! model.surfaces.singleSelectLeaf with
+                | Some selected ->
+                    match! AMap.tryFind selected model.surfaces.flat with
+                    | None -> 
+                        return div [] []
+                    | Some s ->
+                        match s with
+                        | AdaptiveSurfaces s -> 
+                            return f s
+                        | _ -> 
+                            return div [] []
+                | _ -> 
+                    return div [] []
+            }
+        Incremental.div AttributeMap.empty (AList.ofAValSingle e)
+
     let viewTranslationTools (model:AdaptiveSurfaceModel) =
         adaptive {
             let! guid = model.surfaces.singleSelectLeaf
-            let empty = div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map TranslationMessage 
+            let empty = div [style "font-style:italic"] [text "no surface selected"] |> UI.map TranslationMessage 
 
             match guid with
               | Some i -> 
@@ -1384,12 +1441,30 @@ module SurfaceApp =
                 else
                   return empty
               | None -> return empty
-        }                          
+        } 
+        
+    let viewRadiometryTools (model:AdaptiveSurfaceModel) =
+        adaptive {
+            let! guid = model.surfaces.singleSelectLeaf
+            let empty = div [style "font-style:italic"] [text "no surface selected"] |> UI.map RadiometryMessage 
+            
+            match guid with
+                | Some i -> 
+                  let! exists = (model.surfaces.flat |> AMap.keys) |> ASet.contains i
+                  if exists then
+                    let leaf = model.surfaces.flat |> AMap.find i // TODO to: common - make a map here!
+                    let! surf = leaf 
+                    let radiometry = match surf with | AdaptiveSurfaces s -> s.radiometry | _ -> leaf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
+                    return RadiometryProperties.view radiometry |> UI.map RadiometryMessage
+                  else 
+                    return empty
+                | None -> return empty 
+        }            
 
     let viewColorCorrectionTools (paletteFile : string) (model:AdaptiveSurfaceModel) =
         adaptive {
             let! guid = model.surfaces.singleSelectLeaf
-            let empty = div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map ColorCorrectionMessage 
+            let empty = div [ style "font-style:italic"] [ text "no surface selected"] |> UI.map ColorCorrectionMessage 
             
             match guid with
                 | Some i -> 
@@ -1424,11 +1499,11 @@ module SurfaceApp =
                       let! scalar = scalar
                       match AdaptiveOption.toOption scalar with // why is AdaptiveSome here not available
                           | Some s -> return FalseColorLegendApp.UI.viewScalarMappingProperties colorPaletteStore s.colorLegend |> UI.map ScalarsColorLegendMessage
-                          | None -> return div[ style "font-style:italic"][ text "no scalar in properties selected" ] |> UI.map ScalarsColorLegendMessage 
+                          | None -> return div [style "font-style:italic"] [text "no scalar in properties selected" ] |> UI.map ScalarsColorLegendMessage 
                     else
-                      return div[ style "font-style:italic"][ text "no scalar in properties selected" ] |> UI.map ScalarsColorLegendMessage 
+                      return div [style "font-style:italic"] [text "no scalar in properties selected"] |> UI.map ScalarsColorLegendMessage 
                                   
-                | None -> return div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map ScalarsColorLegendMessage 
+                | None -> return div [style "font-style:italic"] [text "no surface selected" ] |> UI.map ScalarsColorLegendMessage 
         }                          
 
     //TODO LF refactor and simplify, use option.map, bind, default value as described in
@@ -1450,10 +1525,10 @@ module SurfaceApp =
                     match AdaptiveOption.toOption scalar with
                     | Some s ->  
                         yield Incremental.Svg.svg AttributeMap.empty (FalseColorLegendApp.Draw.createFalseColorLegendBasics "ScalarLegend" s.colorLegend)
-                    | None -> yield div[][]
+                    | None -> yield div [] []
                 else
-                    yield div[][]
-            | None -> yield div[][]
+                    yield div [] []
+            | None -> yield div [] []
         } 
 
     let surfacesLeafButtonns (model:AdaptiveSurfaceModel) = 
@@ -1464,7 +1539,7 @@ module SurfaceApp =
             let! sel = sel
             match sel with
             | Some _ -> return (GroupsApp.viewLeafButtons ts |> UI.map GroupsMessage)
-            | None -> return div[ style "font-style:italic"][ text "no surface selected" ] |> UI.map GroupsMessage
+            | None -> return div [style "font-style:italic"] [ text "no surface selected"] |> UI.map GroupsMessage
         } 
 
     let surfacesGroupButtons (model:AdaptiveSurfaceModel) = 
@@ -1489,7 +1564,7 @@ module SurfaceApp =
                         | SelectedItem.Group -> surfacesGroupButtons model
                         | _ -> surfacesLeafButtonns model
                 )
-        div[][                            
+        div [] [                            
             yield GuiEx.accordion "Surfaces" "Cubes" true [ viewSurfacesGroups scenePath model ]
             yield GuiEx.accordion "Properties" "Content" false [
               Incremental.div AttributeMap.empty (AList.ofAValSingle item2)
@@ -1503,7 +1578,20 @@ module SurfaceApp =
                 
             yield GuiEx.accordion "Color Adaptation" "file image outline" false [
                 Incremental.div AttributeMap.empty (AList.ofAValSingle(viewColorCorrectionTools colorPaletteStore model))
+                Incremental.div AttributeMap.empty (AList.ofAValSingle(viewRadiometryTools model))
             ] 
+
+            yield GuiEx.accordion "Contours" "file image outline" false [
+                div [] [
+                    viewSurfaceProperty model (fun s -> ContourLineApp.view s.contourModel |> UI.map (SurfaceAppAction.SurfacePropertiesMessage << SurfaceProperties.CountourAppMessage))
+                ]
+            ] 
+
+            //yield GuiEx.accordion "Radiometry" "file image outline" false [
+            //    Incremental.div AttributeMap.empty (AList.ofAValSingle(viewRadiometryTools model))
+            //    Incremental.div AttributeMap.empty (AList.ofAValSingle(viewRadiometryTools model))
+            //] 
+            
 
             yield GuiEx.accordion "Scalars ColorLegend" "paint brush" true [
                 Incremental.div AttributeMap.empty (AList.ofAValSingle(viewColorLegendTools colorPaletteStore model))

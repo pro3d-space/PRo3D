@@ -15,11 +15,24 @@ open System.IO
 open PRo3D.Base
 open PRo3D.Core.SequencedBookmarks
 open Chiron
-
+open Aardvark.UI.Anewmation
 open Aether
 open Aether.Operators
 
 module BookmarkUtils =
+    /// Returns a path to a folder with the same name as the scene file,
+    /// which lies inside the same folder as the scene file.
+    /// This path is used to store sequenced bookmarks as individual files
+    /// when saving the scene.
+    let basePathFromScenePath (scenePath : string) =
+        Path.combine [Path.GetDirectoryName scenePath; 
+                        Path.GetFileNameWithoutExtension scenePath]
+
+    /// Links the animation to a field in the model by registering
+    /// a callback that uses the given lens to modify its value as the animation progresses.
+    let linkPrism (lens : Prism<'Model, 'Value>) (animation : IAnimation<'Model, 'Value>) =
+        animation |> AnimationCallbackExtensions.Animation.onProgress (fun _ -> Optic.set lens)
+
 
     /// tries to find a bookmark and also tries to
     /// load it if it is not loaded
@@ -43,12 +56,15 @@ module BookmarkUtils =
             }
         let sequencedBookmark =
             {
-                version    = SequencedBookmarkModel.current
-                bookmark   = bookmark
-                sceneState = Some sceneState
-                duration   = SequencedBookmarkDefaults.initDuration 3.0
-                delay      = SequencedBookmarkDefaults.initDelay 0.0
-                basePath   = None
+                version             = SequencedBookmarkModel.current
+                bookmark            = bookmark
+                metadata            = None
+                sceneState          = Some sceneState
+                frustumParameters   = None
+                poseDataPath        = None
+                duration            = SequencedBookmarkDefaults.initDuration 3.0
+                delay               = SequencedBookmarkDefaults.initDelay 0.0
+                basePath            = None
             }
         sequencedBookmark
 
@@ -155,39 +171,76 @@ module BookmarkUtils =
         {m with bookmarks = bookmarks}
 
     /// updates the path of the bookmark with the given basePath
-    /// IF the bookmark is loaded the bookmark is returned as-is 
-    /// if it is not loaded
+    /// loaded AND unloaded bookmarks are updated
     let updatePath (basePath : string) (bm : SequencedBookmark) =
         match bm with
         | SequencedBookmark.LoadedBookmark loaded ->
+            match loaded.basePath with
+            | Some oldBasePath ->
+                if not (oldBasePath = basePath) then
+                    Log.line "[BookmarkUtils] Updating sequenced bookmark base path from %s to %s"
+                             (string oldBasePath) basePath
+            | None -> ()
             SequencedBookmark.LoadedBookmark {loaded with basePath = Some basePath}
         | SequencedBookmarks.NotYetLoaded notLoaded ->
-            bm
+            let newPath = Path.combine [basePath;Path.GetFileName notLoaded.path]
+            if String.equals notLoaded.path newPath then
+                SequencedBookmarks.NotYetLoaded notLoaded
+            else
+                Log.line "Updating sequenced bookmark path from %s to %s" notLoaded.path newPath
+                SequencedBookmarks.NotYetLoaded {notLoaded with path = newPath}
 
     /// updates the path of each bookmark with the given basePath
-    /// IF the bookmark is loaded the bookmark is returned as-is 
-    /// if it is not loaded
+    /// loaded AND unloaded bookmarks are updated
     let updatePaths (basePath : string) (m : SequencedBookmarks) =
         let bookmarks = 
             HashMap.map (fun g bm -> updatePath basePath bm) m.bookmarks
         {m with bookmarks = bookmarks}
 
+    /// Checks the given folder sceneBasePath for 
+    /// sequenced bookmark files, and deletes all files that do
+    /// not have a corresponding bookmark in bookmarks.
+    /// Should be used when saving a scene to clean up saved bookmarks
+    /// that were deleted in the viewer.
+    let cleanUpOldBookmarks (sceneBasePath  : string) 
+                            (bookmarks      : SequencedBookmarks) =    
+        let files = Directory.GetFiles sceneBasePath
+        for filePath in files do
+            let bmGuid = 
+                SequencedBookmark.guidFromFilename filePath           
+            let guidExists =
+                bmGuid
+                |> Option.map (fun guid ->
+                    HashMap.containsKey guid bookmarks.bookmarks) 
+            match guidExists with
+            | Some true ->
+                ()
+            | _ ->
+                Log.line "[BookmarkUtils] Cleaning up old bookmarks %s" 
+                            filePath
+                try 
+                    File.Delete filePath
+                with e ->
+                    Log.line "[BookmarkUtils] Could not clean up old bookmark %s" filePath
+
     /// updates the paths of all bookmarks and
     /// saves bookmarks to file system
     let saveSequencedBookmarks (basePath:string) 
-                               (bookmarks : SequencedBookmarks) =      
+                               (bookmarks : SequencedBookmarks) =    
+        let bookmarks = loadAll bookmarks                               
         let bookmarks = updatePaths basePath bookmarks
         if not (Directory.Exists basePath) then
             Directory.CreateDirectory basePath |> ignore
+        else // if the folder exists, clean up and delete all old bookmarks
+            cleanUpOldBookmarks basePath bookmarks
 
         for guid, bm in bookmarks.bookmarks do
             match bm with
             | SequencedBookmarks.SequencedBookmark.LoadedBookmark bm ->
-                let bmPath = Path.Combine ( basePath, bm.path )
                 bm
                 |> Json.serialize
                 |> Json.formatWith JsonFormattingOptions.SingleLine
-                |> Serialization.Chiron.writeToFile bmPath
+                |> Serialization.Chiron.writeToFile bm.path
             | SequencedBookmarks.SequencedBookmark.NotYetLoaded bm ->
                 () // no need to write bookmark if not loaded (no changes)
         bookmarks

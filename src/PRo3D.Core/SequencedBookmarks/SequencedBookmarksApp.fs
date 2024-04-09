@@ -20,17 +20,6 @@ open PRo3D.Core.BookmarkAnimations
 open Aether
 open Aether.Operators
 
-module SequencedBookmark =
-
-    let update (m : SequencedBookmarkModel) (msg : SequencedBookmarkAction) =
-        match msg with
-        | SetName name ->
-            {m with bookmark = {m.bookmark with name = name}}
-        | SetDelay msg ->
-            {m with delay = Numeric.update m.delay msg}
-        | SetDuration msg ->
-            {m with duration = Numeric.update m.duration msg}
-
 module AnimationSettings =
     let update (m : AnimationSettings) (msg : AnimationSettingsAction)  =
         match msg with
@@ -55,13 +44,35 @@ module AnimationSettings =
            let smoothingFactor = Numeric.update m.smoothingFactor msg
            {m with smoothingFactor = smoothingFactor}
 
-
-
 module SequencedBookmarksApp = 
     let mutable (snapshotProcess : option<System.Diagnostics.Process>) = None
 
     let outputPath (m : SequencedBookmarks) = 
         Path.combine [m.outputPath;"batchRendering.json"]
+
+    let applytoAllBookmarks (f : (SequencedBookmarkModel -> SequencedBookmarkModel))
+                            (m : SequencedBookmarks) =
+        let bookmarks = 
+            m.bookmarks 
+            |> HashMap.map (fun id bm ->
+                match bm with
+                | SequencedBookmark.LoadedBookmark loadedBm ->
+                    let bm = f loadedBm
+                    SequencedBookmark.LoadedBookmark bm
+                | SequencedBookmark.NotYetLoaded notLoadedBm ->
+                    match SequencedBookmark.tryLoad bm with
+                    | Some bm -> 
+                        let bm = f bm
+                        SequencedBookmark.LoadedBookmark bm
+                    | None ->
+                        bm)
+        {m with bookmarks = bookmarks}
+
+    let withSurfaceModel (surfaceModel : SurfaceModel)
+                         (m : SequencedBookmarks) =
+        let f bm = 
+            Optic.set SequencedBookmarkModel._surfaces surfaceModel.surfaces bm
+        applytoAllBookmarks f m
 
     let update 
         (m                : SequencedBookmarks) 
@@ -201,7 +212,7 @@ module SequencedBookmarksApp =
                     let m = selectSBookmark m firstBookmark
                     match m.animationSettings.useGlobalAnimation with
                     | true ->
-                        smoothPathAllBookmarks m lenses outerModel
+                        pathWithPausing m lenses outerModel//smoothPathAllBookmarks m lenses outerModel //does not work with focal length
                     | false ->
                         pathWithPausing m lenses outerModel
                 | None ->
@@ -278,6 +289,27 @@ module SequencedBookmarksApp =
                 outerModel, m
             | None -> 
                 outerModel, m
+
+    let addBookmarks (m : SequencedBookmarks) (bookmarks : list<SequencedBookmark>) =
+        let bookmarksWithKeys = 
+            bookmarks
+            |> List.map (fun x -> x.key, x)
+        let allBookmarks =
+            m.bookmarks
+            |> HashMap.union (HashMap.ofList bookmarksWithKeys)
+        let orderList =
+            m.orderList 
+            |> List.append (bookmarks 
+                            |> Seq.map (fun x -> x.key)
+                            |> List.ofSeq)
+        {m with bookmarks = allBookmarks
+                orderList = orderList}
+        
+    let withResultion (m : SequencedBookmarks) (resolution : V2i) =
+        {m with 
+            resolutionX = {m.resolutionX with value = resolution.X}
+            resolutionY = {m.resolutionY with value = resolution.Y}
+        }
 
     let generateSnapshots m runProcess scenePath =
         let jsonPathName = Path.combine [m.outputPath;"batchRendering.json"]
@@ -551,14 +583,14 @@ module SequencedBookmarksApp =
                                               button [clazz "ui icon button"; onMouseClick (fun _ -> StepForward )] [ //
                                                   i [clazz "step forward icon"] [] ] 
                                           ] ]
-                  Html.row "Global Animation:" 
-                    [GuiEx.iconCheckBox model.animationSettings.useGlobalAnimation ToggleGlobalAnimation
-                        |> UI.map AnimationSettingsMessage;
-                                    i [clazz "info icon"] [] 
-                                        |> UI.wrapToolTip DataPosition.Bottom "Use a smooth path past all bookmarks, duration and delay cannot be set for individual bookmarks if this is selected."
-                    ]
-                  Html.row "Duration:" [Incremental.div AttributeMap.empty duration]
-                  Html.row "Smoothing Factor" [Incremental.div AttributeMap.empty smoothingFactor]
+                  //Html.row "Global Animation:" // RNO deactivated because it does not work with focal length animations
+                  //  [GuiEx.iconCheckBox model.animationSettings.useGlobalAnimation ToggleGlobalAnimation
+                  //      |> UI.map AnimationSettingsMessage;
+                  //                  i [clazz "info icon"] [] 
+                  //                      |> UI.wrapToolTip DataPosition.Bottom "Use a smooth path past all bookmarks, duration and delay cannot be set for individual bookmarks if this is selected."
+                  //  ]
+                  //Html.row "Duration:" [Incremental.div AttributeMap.empty duration]
+                  //Html.row "Smoothing Factor" [Incremental.div AttributeMap.empty smoothingFactor]
 
                   Html.row "Loop:"   [Html.SemUi.dropDown model.animationSettings.loopMode SetLoopMode
                                         |> UI.map AnimationSettingsMessage ]

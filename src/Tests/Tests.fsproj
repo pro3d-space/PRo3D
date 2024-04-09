@@ -13,6 +13,9 @@
 		<NoWarn>0686</NoWarn>
 	</PropertyGroup>
   <ItemGroup>
+    <Compile Include="QueriesDSL.fs" />
+    <None Include="Playground.fsx" />
+    <None Include="RemoteApi.rest" />
     <None Include="paket.references" />
     <Compile Include="BaseTests.fs" />
   </ItemGroup>

@@ -1,0 +1,110 @@
+﻿POST http://localhost:4321/api/loadScene
+Content-Type: application/json
+
+{
+	// in the future this could be a processing ID and pro3d loads data
+	// from webserver/FTP or by other means
+	// since the data could be large, pro3d would need to show a 
+	// loading screen etc....
+	// anyhow this alone should be cool for research and demos
+	"sceneFile": "D:/pro3d/VictoriaCrater/vcviewplanenr.pro3d"
+}
+
+###
+
+POST http://localhost:4321/api/importOpc
+Content-Type: application/json
+
+{
+	"folders": [
+		"D:/pro3d/Job_0121_000760_MSLMST_0002_opc"
+	]
+}
+
+###
+
+POST http://localhost:4321/api/saveScene
+Content-Type: application/json
+
+{
+	"sceneFile": "D:/pro3d/VictoriaCrater/vcviewplanenr_updated.pro3d"
+}
+
+# /captureSnapshot, creates a json representation of the scene (S state)
+# /getProvenanceGraph, gives current state of provenance graph (P states)
+# /activateSnapshot { scene, ?graph, ?selected id }
+# ... graph is the representation obtained from getProvenanceGraph (P states)
+
+
+### create a snapshot
+
+# @name postCheckpoint
+POST http://localhost:4321/api/v2/captureSnapshot 
+Content-Type: application/json
+
+{
+	"virtualFileName": "node717"
+}
+
+
+### activate snapshot ...
+
+@scene = {{postCheckpoint.response.body.*}}
+
+POST http://localhost:4321/api/v2/activateSnapshot
+Content-Type: application/json
+
+{
+	"scene": {{scene}}
+}
+
+
+###
+
+### checkpoint
+# @name getGraph
+GET http://localhost:4321/api/v2/getProvenanceGraph 
+Content-Type: application/json
+
+###
+
+@graph = {{getGraph.response.body.*}}
+@scene = {{postCheckpoint.response.body.*}}
+
+POST http://localhost:4321/api/v2/activateSnapshot
+Content-Type: application/json
+ 
+{
+	"scene": {{scene}},
+	"graph": {{graph}},
+	"selectedNodeId": "897ad42f-dfea-4808-baec-cbcd06715144"
+}
+
+### importAnnotations
+# *scene*: the scene from which annotations are taken. the implementation might just use
+# drawing as json, but could also extract information from the scene itself. so pass the whole
+# payload (just the same as for activateSnapshot)
+# *source*: a string which indicates the source of the annotations. ideally this is a friendly name
+# of the source or just the node id.
+POST http://localhost:4321/api/v2/importAnnotations
+Content-Type: application/json
+ 
+{
+	"scene": {{scene}}, 
+	"source": "imported annotations from n19298"
+}
+
+
+### importAnnotationsFromGraph 
+## the selected node must be present in the provided graph.
+@graph = {{getGraph.response.body.*}}
+@scene = {{postCheckpoint.response.body.*}}
+POST http://localhost:4321/api/v2/importAnnotationsFromGraph
+Content-Type: application/json
+ 
+{
+	"scene": {{scene}},
+	"graph": {{graph}},
+	"selectedNodeId": "e6ad81ec-f641-4253-9701-c36e41faf266",
+	"source": "imported annotations from n19298"
+}

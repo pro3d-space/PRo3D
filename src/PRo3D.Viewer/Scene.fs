@@ -82,8 +82,12 @@ module SceneLoader =
                 |> HashMap.map(fun _ x -> Leaf.Surfaces x)
             
             let sm = { m.surfacesModel.surfaces with flat = flat' }                
-            
-            { m with surfacesModel = { m.surfacesModel with surfaces = sm }}
+            let sequencedBookmarks = 
+                let basePath = PRo3D.Core.BookmarkUtils.basePathFromScenePath p
+                BookmarkUtils.updatePaths basePath m.sequencedBookmarks
+            { m with surfacesModel      = { m.surfacesModel with surfaces = sm }
+                     sequencedBookmarks = sequencedBookmarks
+            }
         | None -> m        
 
     let private readLine (filePath:string) =
@@ -110,18 +114,23 @@ module SceneLoader =
         surfaces 
         |> IndexList.map(fun s -> s, s.importPath |> getOPCxPath)
         |> IndexList.map(fun(s,p) -> 
-           match (Serialization.fileExists p) with
-           | Some path->        
+           let loadOpcX (path : string) =
                let layers = SurfaceUtils.SurfaceAttributes.read path
                let textures = layers |> SurfaceProperties.getTextures
-        
+               
                { s with 
                    scalarLayers  = layers |> SurfaceProperties.getScalarsHmap //SurfaceProperties.getScalars
                    textureLayers = textures
-                   selectedTexture = textures |> IndexList.tryFirst
+                   primaryTexture = textures |> IndexList.tryFirst
+                   opcxPath = Some path
                }
+           match Serialization.fileExists p with
+           | Some path->        
+               loadOpcX path
            | None ->
-               s
+               match Directory.EnumerateFiles(s.importPath, "*.opcx") |> Seq.toList with
+               | [singleOpcX] -> loadOpcX singleOpcX
+               | _ -> s
         )
 
     let addGeologicSurfaces (m:Model) = 
@@ -144,6 +153,7 @@ module SceneLoader =
             |> addLegacyTrafos
             |> addSurfaceAttributes
             |> IndexList.map( fun x -> { x with colorCorrection = Init.initColorCorrection}) 
+            |> IndexList.map( fun x -> { x with radiometry = Init.initRadiometry})
               
         let existingSurfaces = 
             model.scene.surfacesModel.surfaces.flat
@@ -281,12 +291,12 @@ module SceneLoader =
 
         { model with sgSceneObjects = sgSurfaces }
 
-   
-          
     let setFrustum (m:Model) =
-       let near = m.scene.config.nearPlane.value
-       let far = m.scene.config.farPlane.value
-       Frustum.perspective 60.0 near far 1.0
+        FrustumUtils.calculateFrustum' 
+            m.scene.config.frustumModel.focal.value
+            m.scene.config.nearPlane.value
+            m.scene.config.farPlane.value
+            m.aspect
            
     let resetControllerState (m : Model) = 
       
@@ -326,29 +336,16 @@ module SceneLoader =
         let cam' = { cam with view = view' }
         Optic.set _camera cam' m
 
-    let loadScene path m runtime signature =
-        //try            
-        //    //let s = Serialization.loadAs<Scene> path
 
-        let scene = 
-            path
-            |> Serialization.Chiron.readFromFile 
-            |> Json.parse 
-            |> Json.deserialize
-
-        let scene = 
-            { scene  with scenePath = Some path }
-            |> expandRelativePaths
-           
+    let private applyScene (scene : Scene) (m : Model) (runtime : IRuntime) (signature : IFramebufferSignature)=
         let m = 
             m 
             |> Model.withScene scene
             |> resetControllerState
             |> updateNavigation
 
-        //let cameraView = m.scene.cameraView
 
-        let m = { m with frustum = setFrustum m } //|> Optic.set _cameraView cameraView
+        let m = { m with frustum = setFrustum m } 
 
 
         let surfaceModel = 
@@ -390,10 +387,28 @@ module SceneLoader =
 
         Optic.set _sceneObjects sOModel m  
 
-        //with e ->            
-        //    Log.error "Could not load selected scenefile %A. It is either outdated or not a valid scene" path
-        //    Log.error "exact error %A" e
-        //    m
+    let loadSceneFromJson (jsonScene : string) (m : Model) (runtime : IRuntime) (signature : IFramebufferSignature) =
+        let scene : Scene = 
+            jsonScene
+            |> Json.parse 
+            |> Json.deserialize
+
+        applyScene scene m runtime signature
+
+    let loadSceneFromFile path m runtime signature =
+
+        let scene = 
+            path
+            |> Serialization.Chiron.readFromFile 
+            |> Json.parse 
+            |> Json.deserialize
+
+        let scene = 
+            { scene  with scenePath = Some path }
+            |> expandRelativePaths
+           
+        applyScene scene m runtime signature
+
     
     let loadLastScene runtime signature m =
         match Serialization.fileExists "./recent" with
@@ -403,7 +418,7 @@ module SceneLoader =
                 match m.recent.recentScenes |> List.sortByDescending (fun v -> v.writeDate) |> List.tryHead with
                 | Some (scenePath) ->
                     try
-                        loadScene scenePath.path m runtime signature
+                        loadSceneFromFile scenePath.path m runtime signature
                     with e ->
                         Log.warn "[Scene] Error parsing last scene: %s. loading empty" scenePath.path
                         Log.error "[Scene] %A" e.Message

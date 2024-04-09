@@ -16,8 +16,16 @@
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
   </PropertyGroup>
   <ItemGroup>
+    <!-- <Compile Include="InteropHelpers.fs" /> -->
+    <Compile Include="Multitexturing.fs" />
     <Compile Include="ErrorReporting.fs" />
     <EmbeddedResource Include="resources\CooTransformationConfig.zip" />
+
+    <EmbeddedResource Include="resources\plasma.png" />
+    <EmbeddedResource Include="resources\oranges.png" />
+    <EmbeddedResource Include="resources\spectral.png" />
+    
+    
     <Compile Include="MissingHelpers.fs" />
     <None Include="paket.references" />
     <Compile Include="AssemblyInfo.fs" />

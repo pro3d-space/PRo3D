@@ -53,7 +53,7 @@ module ViewerUtils =
     let colormap = 
         let config = { wantMipMaps = false; wantSrgb = false; wantCompressed = false }
         let s = typeof<Self>.Assembly.GetManifestResourceStream("PRo3D.Viewer.resources.HueColorMap.png")
-        let pi = PixImage.Create(s)
+        let pi = PixImage.Load(s)
         PixTexture2d(PixImageMipMap [| pi |], true) :> ITexture    
     
 
@@ -79,6 +79,38 @@ module ViewerUtils =
             |> Sg.uniform "useGrayS"       useGray
             |> Sg.uniform "useColorS"      useColor
             |> Sg.uniform "colorS"         color
+
+
+    let addRadiometryParameters (surf: AdaptiveSurface)  (isg:ISg<'a>) =
+
+        let useRad   = surf.radiometry.useRadiometry 
+        let abR =
+            adaptive {
+                let! minR     = surf.radiometry.minR.value
+                let! maxR     = surf.radiometry.maxR.value
+                return V2d(minR,maxR)
+            }
+            
+        let abG =
+            adaptive {
+                let! minG     = surf.radiometry.minG.value
+                let! maxG     = surf.radiometry.maxG.value
+                return V2d(minG,maxG)
+            } 
+
+        let abB =
+            adaptive {
+                let! minB     = surf.radiometry.minB.value
+                let! maxB     = surf.radiometry.maxB.value
+                return V2d(minB,maxB)
+            } 
+
+        isg
+            |> Sg.uniform "useRadiometry"  useRad  
+            |> Sg.uniform "abR"     abR
+            |> Sg.uniform "abG"     abG
+            |> Sg.uniform "abB"     abB
+
 
     let addAttributeFalsecolorMappingParameters (surf : AdaptiveSurface)  (isg:ISg<'a>) =
             
@@ -201,7 +233,7 @@ module ViewerUtils =
                 | AdaptiveSome m -> m.label |> AVal.map Some
                 | AdaptiveNone -> AVal.constant None //scalar |> Option.map(fun x -> x.index) //option<aval<int>>
             
-            let! texture = s.selectedTexture 
+            let! texture = s.primaryTexture 
             let attr : AttributeParameters = 
                 {
                     selectedTexture = texture |> Option.map(fun x -> x.index)
@@ -217,13 +249,13 @@ module ViewerUtils =
             let scalar' = 
                 match scalar with
                 | Some m -> m.label |> Some
-                | None -> None //scalar |> Option.map(fun x -> x.index) //option<aval<int>>
+                | None -> None
             
-            let texture = s.selectedTexture 
+            let texture = s.primaryTexture 
             let attr : AttributeParameters = 
                 {
                     selectedTexture = texture |> Option.map(fun x -> x.index)
-                    selectedScalar  = scalar'//scalar  |> Option.map(fun x -> x.index |> AVal.force)
+                    selectedScalar  = scalar'
                 }
 
             attr    
@@ -251,7 +283,8 @@ module ViewerUtils =
         (useHighlighting : aval<bool>)
         (filterTexture   : aval<bool>)
         (allowFootprint  : bool)  
-        (allowDepthview  : bool) =
+        (allowDepthview  : bool) 
+        (view            : aval<CameraView>) =
 
         adaptive {
             match! AMap.tryFind surface.surface surfacesMap with
@@ -353,6 +386,32 @@ module ViewerUtils =
                     )
                     |> Sg.dynamic
 
+               
+                let homePositionViewSpace =
+                    adaptive {
+                        let! homePosition = surf.homePosition
+                        
+                        match homePosition with
+                        | Some hp -> 
+                            let! view' = view
+                            let mv = (view' |> CameraView.viewTrafo).Forward
+                            return (mv.TransformPos hp.Location)
+                        | None ->
+                            let! bb = surface.globalBB
+                            return bb.Center                        
+                    }               
+                    
+                let filterByDistance =
+                    adaptive {
+                        let! homePosition = surf.homePosition 
+                        
+                        match homePosition with
+                        | Some _ -> 
+                            return! surf.filterByDistance 
+                        | None ->
+                            return false
+                    }               
+
                 //let! texTest = depthTexture
                 let! texTest = DefaultTextures.checkerboard 
                 
@@ -367,7 +426,11 @@ module ViewerUtils =
                     //|> addAttributeFalsecolorMappingParameters surf
                     |> addDepthMappingParameters fp
                     |> Sg.uniform "TriangleSize"   triangleFilter  //triangle filter
+                    |> Sg.uniform "HomePositionViewSpace" homePositionViewSpace
+                    |> Sg.uniform "FilterByDistance" filterByDistance
+                    |> Sg.uniform "FilterDistance" (surf.filterDistance.value)
                     |> addImageCorrectionParameters  surf
+                    |> addRadiometryParameters surf
                     |> Sg.uniform "DepthVisible" depthVisible
                     |> Sg.uniform "FootprintVisible" footprintVisible
                     |> Sg.uniform "FootprintModelViewProj" (M44d.Identity |> AVal.constant)
@@ -377,8 +440,59 @@ module ViewerUtils =
                     |> Sg.texture (Sym.ofString "FootPrintTexture") fp.projTex
                     |> Sg.LodParameters( getLodParameters  (AVal.constant surf) refsys frustum )
                     |> Sg.AttributeParameters( attributeParameters  (AVal.constant surf) )
+                    
+                    |> SecondaryTexture.Sg.applySecondaryTextureId (
+                            surf.secondaryTexture 
+                            |> AVal.map (function
+                                | None -> -1
+                                | Some s -> s.index
+                            )
+                    )
                     |> Sg.pickable' pickable
                     |> Sg.noEvents 
+
+                    |> Sg.texture "SecondaryTextureTransferFunction" (
+                        surf.transferFunction |> AVal.map (fun tf -> 
+                            match tf.tf with
+                            | ColorMaps.TF.Passthrough -> NullTexture.Instance
+                            | ColorMaps.TF.Ramp(_,_,name) ->
+                                match Map.tryFind name ColorMaps.colorMaps with
+                                | None -> NullTexture.Instance
+                                | Some l ->
+                                    try 
+                                        l.Value :> ITexture
+                                    with e -> 
+                                        Log.warn "SecondaryTextureTransferFunction: %A" e
+                                        NullTexture.Instance
+                        )
+                    )
+                    |> Sg.uniform "TextureCombiner" (
+                        surf.transferFunction |> AVal.map (fun tf -> tf.textureCombiner)
+                    )
+                    |> Sg.uniform "SecondaryTextureContour"(
+                        surf.contourModel.Current |> AVal.map (fun m -> 
+                            V4d((if m.enabled then m.distance.value else -1.0), m.width.value, m.border.value, 0.0)
+                        )
+                    )
+                    |> Sg.uniform "TransferFunctionMode" (
+                        surf.transferFunction |> AVal.map (fun tf -> 
+                            match tf.tf with
+                            | ColorMaps.TF.Passthrough -> TransferFunctionMode.Passthrough
+                            | ColorMaps.TF.Ramp(_,_,_) -> TransferFunctionMode.Ramp
+                        )
+                    )
+                    |> Sg.uniform "TFRange" (
+                        surf.transferFunction |> AVal.map (fun tf -> 
+                            match tf.tf with
+                            | ColorMaps.TF.Passthrough -> V2d.OI
+                            | ColorMaps.TF.Ramp(min,max,_) -> V2d(min, max)
+                        )
+                    )
+                    |> Sg.uniform "TFBlendFactor" (
+                        surf.transferFunction |> AVal.map (fun tf -> tf.blendFactor)
+                    )
+
+
                     |> Sg.withEvents [
                         SceneEventKind.Click, (
                            fun sceneHit -> 
@@ -564,18 +678,18 @@ module ViewerUtils =
             |> Sg.compile runtime depthsignature
             |> RenderTask.renderToDepth resolution 
         
-    let frustum (m:AdaptiveModel) =
-        let near = m.scene.config.nearPlane.value
-        let far = m.scene.config.farPlane.value
-        (Navigation.UI.frustum near far)
-
+    //let frustum (m:AdaptiveModel) =
+    //    let near = m.scene.config.nearPlane.value
+    //    let far = m.scene.config.farPlane.value
+    //    (Navigation.UI.frustum near far)
 
     module Shader =
 
         open FShade
 
         type Vertex = {
-            [<Position>]        pos     : V4d
+            [<FShade.InstrinsicAttributes.Position>]        pos     : V4d
+            [<WorldPosition>]   wp      : V4d
             [<Color>]           c       : V4d
             [<TexCoord>]        tc      : V2d
 
@@ -623,23 +737,41 @@ module ViewerUtils =
                 let beta  = b.Length < maxSize
                 let gamma = c.Length < maxSize
 
-                let check = (alpha && beta && gamma)
-                if check then
-                    yield input.P0 
-                    yield input.P1
-                    yield input.P2
+                let filterDistanceActive : bool = uniform?FilterByDistance
+                let triangleSizeCheck = (alpha && beta && gamma)
+
+                if filterDistanceActive then
+                    let filterRange : float = uniform?FilterDistance
+                    let homePositionVSp : V3d = uniform?HomePositionViewSpace
+
+                    let inRange = 
+                        (Vec.Distance(homePositionVSp, p0)) < filterRange &&
+                        (Vec.Distance(homePositionVSp, p1)) < filterRange &&
+                        (Vec.Distance(homePositionVSp, p2)) < filterRange
+
+                    if triangleSizeCheck && inRange then
+                        yield input.P0 
+                        yield input.P1
+                        yield input.P2
+                else
+                    if triangleSizeCheck then
+                        yield input.P0 
+                        yield input.P1
+                        yield input.P2
             }
          
 
         let stableTrafo (v : Vertex) =
             vertex {
                 let p = uniform.ModelViewProjTrafo * v.pos
+                let wp = uniform.ModelTrafo * v.pos
 
                 return 
                     { v with
                         pos = p
                         c = v.c
                         vp = uniform.ModelViewTrafo * v.pos
+                        wp = wp
                     }
             }
 
@@ -683,6 +815,7 @@ module ViewerUtils =
 
             PRo3D.Base.OPCFilter.improvedDiffuseTextureAndColor |> toEffect
             Shader.mapColorAdaption  |> toEffect   
+            PRo3D.Base.Shader.mapRadiometry |> toEffect
             Shader.fixAlpha          |> toEffect
         ]
 
@@ -697,6 +830,7 @@ module ViewerUtils =
             Shader.fixAlpha |> toEffect
             PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect  
             PRo3D.Base.OPCFilter.markPatchBorders |> toEffect 
+
            
             
             // selection coloring makes gamma correction pointless. remove if we are happy with markPatchBorders
@@ -706,6 +840,10 @@ module ViewerUtils =
             OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
             //PRo3D.Base.Shader.falseColorLegend2 |> toEffect
             PRo3D.Base.Shader.mapColorAdaption  |> toEffect  
+            PRo3D.Base.Shader.mapRadiometry |> toEffect
+
+            Shader.secondaryTexture |> toEffect 
+            Shader.contourLines |> toEffect
 
             //PRo3D.Base.Shader.depthImageF        |> toEffect
             PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect
@@ -734,6 +872,7 @@ module ViewerUtils =
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
         let vpVisible = isViewPlanVisible m
+        let view = m.navigation.camera.view
 
         let grouped = 
             sgGrouped |> AList.map(
@@ -753,7 +892,8 @@ module ViewerUtils =
                             vpVisible
                             usehighlighting m.filterTexture
                             true
-                            false)
+                            false
+                            view)
                     |> AMap.toASet 
                     |> ASet.map snd                     
                 )                
@@ -814,6 +954,7 @@ module ViewerUtils =
         let vpVisible = isViewPlanVisible m
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
+        let view = m.navigation.camera.view
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 
@@ -832,6 +973,7 @@ module ViewerUtils =
                                 usehighlighting filterTexture
                                 allowFootprint
                                 allowDepthview
+                                view
 
                         match surface.isObj with
                         | true -> 
@@ -901,7 +1043,8 @@ module Jezero =
                     let parsedPath = 
                         x.importPath 
                         |> Path.GetFileName 
-                        |> String.split('_')
+                        |> String.split "_"
+                        |> Array.toList
                     
                     //let gridCoord = new V2i((parsedPath.[1] |> Int32.Parse), (parsedPath.[2] |> Int32.Parse))
                     //galeBounds.Contains(gridCoord)   
@@ -940,7 +1083,7 @@ module GaleCrater =
                     let parsedPath = 
                         x.importPath 
                         |> Path.GetFileName 
-                        |> String.split('_')
+                        |> String.split "_"
                     
                     //let gridCoord = new V2i((parsedPath.[1] |> Int32.Parse), (parsedPath.[2] |> Int32.Parse))
                     //galeBounds.Contains(gridCoord)   

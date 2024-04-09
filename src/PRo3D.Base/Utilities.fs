@@ -560,6 +560,28 @@ module Shader =
             |> mapGamma
         }
 
+    let mapRadiometry (v : Effects.Vertex) =
+        fragment { 
+            if (uniform?useRadiometry) then
+                let abR : V3d =  uniform?abR
+                let abG : V3d =  uniform?abG
+                let abB : V3d =  uniform?abB
+                let nc = V4d(v.c.X*255.0, v.c.Y*255.0, v.c.Z*255.0, 255.0)
+        
+                let rClamped = clamp abR.X abR.Y nc.X 
+                let red = ((rClamped - abR.X) / (abR.Y - abR.X))
+
+                let gClamped = clamp abG.X abG.Y nc.Y 
+                let green = ((gClamped - abG.X) / (abG.Y - abG.X))
+
+                let bClamped = clamp abB.X abB.Y nc.Z 
+                let blue = ((bClamped - abB.X) / (abB.Y - abB.X))
+
+                return V4d(red, green, blue, 1.0)
+            else
+                return v.c
+        }
+
     let private colormap =
         sampler2d {
             texture uniform?ColorMapTexture
@@ -625,6 +647,111 @@ module Shader =
                         
             return color
         }
+
+
+    let private secondaryTextureSampler =
+        sampler2d {
+            texture uniform?SecondaryTexture
+            filter Filter.MinMagMipLinear
+            addressU WrapMode.Wrap
+            addressV WrapMode.Wrap
+        }
+
+
+    let private transferFunctionSampler =
+        sampler2d {
+            texture uniform?SecondaryTextureTransferFunction
+            filter Filter.MinMagPoint
+            addressU WrapMode.Clamp
+            addressV WrapMode.Clamp
+        }
+
+    type UniformScope with
+        member x.TextureCombiner : TextureCombiner = uniform?TextureCombiner
+        member x.TransferFunctionMode : TransferFunctionMode = uniform?TransferFunctionMode
+        member x.TFRange : V2d = uniform?TFRange
+        member x.TFBlendFactor : float = uniform?TFBlendFactor
+        member x.SecondaryTextureContour : V4d = uniform?SecondaryTextureContour 
+
+    let secondaryTexture (v : Effects.Vertex) =
+        fragment {    
+            // weired mutable style to prevent fshade from creating deeply nested stuff.
+            let mutable color = v.c
+            match uniform.TextureCombiner with
+            | TextureCombiner.Primary -> 
+                color <- v.c
+            | _ -> 
+                let range = uniform.TFRange
+                let e = secondaryTextureSampler.Sample(v.tc)
+                let width = range.Y - range.X
+                let my = (e.X - range.X) / width
+                
+                let secondaryColor =
+                    match uniform.TransferFunctionMode with
+                    | TransferFunctionMode.Ramp -> 
+                        if e.X >= range.X && e.X <= range.Y then
+                            let mappedColor = transferFunctionSampler.Sample(V2d(my,0.0))
+                            mappedColor
+                        else
+                            v.c
+                    | TransferFunctionMode.Passthrough -> 
+                        secondaryTextureSampler.Sample(v.tc)
+                    | _ -> 
+                        v.c
+                match uniform.TextureCombiner with
+                | TextureCombiner.Secondary -> 
+                    color <- secondaryColor
+                | TextureCombiner.Multiply -> 
+                    color <- V4d(v.c.XYZ * secondaryColor.XYZ, 1.0)
+                | TextureCombiner.Blend ->
+                    color <- V4d(v.c.XYZ * (1.0 - uniform.TFBlendFactor) + secondaryColor.XYZ * uniform.TFBlendFactor, 1.0)
+                | _ -> 
+                    color <- v.c
+
+            return color
+        }
+
+    [<ReflectedDefinition>]
+    let lineAlpha (v : float) (center : float) (lineWidth: float) (lineSmooth : float) = 
+        let start = center - lineWidth * 0.5
+        let stop = center + lineSmooth * 0.5
+        if v >= start && v <= stop then
+            1.0
+        else
+           let alpha = 
+                Fun.Smoothstep(v, start - lineSmooth * 0.5, start) -
+                Fun.Smoothstep(v, stop, stop + lineSmooth * 0.5)
+           alpha
+
+
+    let contourLines (v : Effects.Vertex) =
+        fragment {
+            let contourSettings = uniform.SecondaryTextureContour
+                            
+            let lineColor = 
+                if contourSettings.X > 0 then
+
+                    let range = uniform.TFRange
+                    let e = secondaryTextureSampler.Sample(v.tc)
+                    let width = range.Y - range.X
+                    let my = (e.X - range.X) / width
+
+                    let distance = contourSettings.X
+                    let lineWidth = contourSettings.Y
+                    let lineSmoothing = contourSettings.Z
+
+                    let contourDistance = my % distance
+                    let lineAlpha = lineAlpha contourDistance (distance * 0.5) lineWidth lineSmoothing
+
+                    V4d(0.0,0.0,0.0, Fun.Clamp(lineAlpha, 0.0, 1.0))
+                else
+                    V4d.OOOO
+
+
+            let finalColor = v.c.XYZ * (1.0 - lineColor.W)
+            return V4d(finalColor, 1.0)
+        }
+
 
     let depthCalculation2 (v : FootPrintVertex) =
         fragment {     
@@ -1245,3 +1372,24 @@ module Electron =
     
     let showItemInFolder (s : string) =
         sprintf "top.aardvark.electron.shell.showItemInFolder('%s');" (JsInterop.escapePath s)
+
+module FrustumUtils =
+    let withAspect (aspect : float) (frustum : Frustum) =
+        Frustum.perspective 
+            (Frustum.horizontalFieldOfViewInDegrees frustum)
+            frustum.near
+            frustum.far
+            aspect
+
+    let calculateFrustum (focal : float) (near : float) (far: float) =
+        // http://paulbourke.net/miscellaneous/lens/
+        // https://photo.stackexchange.com/questions/41273/how-to-calculate-the-fov-in-degrees-from-focal-length-or-distance
+        let hfov = 2.0 * atan(11.84 /(focal*2.0))
+        Frustum.perspective (hfov.DegreesFromRadians()) near far 1.0
+
+    let calculateFrustum' (focal : float) (near : float) 
+                          (far: float) (aspect : float) =
+        // http://paulbourke.net/miscellaneous/lens/
+        // https://photo.stackexchange.com/questions/41273/how-to-calculate-the-fov-in-degrees-from-focal-length-or-distance
+        let hfov = 2.0 * atan(11.84 /(focal*2.0))
+        Frustum.perspective (hfov.DegreesFromRadians()) near far aspect

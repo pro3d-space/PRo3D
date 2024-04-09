@@ -6,11 +6,6 @@ open FSharp.Data.Adaptive
 open Adaptify
 open Aardvark.UI
 open Aardvark.UI.Primitives
-open Aardvark.Application
-
-open Aardvark.SceneGraph
-open Aardvark.SceneGraph.Opc
-open Aardvark.VRVis
 open Aardvark.Rendering
 
 open PRo3D.Base
@@ -64,12 +59,18 @@ type StartupArgs = {
     startEmpty            : bool
     useAsyncLoading       : bool
     serverMode            : bool
+    port                  : Option<string>
+    enableRemoteApi       : bool
+    disableCors           : bool
     magnificationFilter   : bool
     remoteApp             : bool
+    enableProvenanceTracking : bool
 
     useMapping            : string
     data_samples          : Option<string>
     backgroundColor       : string
+
+    isBatchRendering      : bool
 
     verbose               : bool    
 
@@ -85,7 +86,13 @@ type StartupArgs = {
           data_samples          = None
           backgroundColor       = "#222222"
           useMapping            = "true"
-          verbose               = false      }
+          verbose               = false      
+          disableCors           = false
+          port                  = None
+          enableRemoteApi       = false
+          enableProvenanceTracking = false
+          isBatchRendering      = false
+      }
 
 
 [<ModelType>]
@@ -105,8 +112,6 @@ module Statistics =
     stdev        = Double.NaN
     sumOfSquares = Double.NaN
   }
-
-
 
 [<ModelType>]
 type OrientationCubeModel = {
@@ -157,16 +162,6 @@ module JsonTypes =
         |> IndexList.map ofV3d
         |> IndexList.toList
 
-
-    let rec fold f s xs =
-        match xs with
-        | x::xs -> 
-                let r = fold f s xs
-                f x r
-        | [] -> s
-
-    let sum = [ 1 .. 10 ] |> List.fold (fun s e -> s * e) 1
-
     let sumDistance (polyline : Points) : double =
         polyline  
         |> List.pairwise 
@@ -179,269 +174,7 @@ type PathProxy = {
     relativePath : option<string>
 }
 
-
-
-
-
 type SurfaceShift = {
     id : string
     shift: float
 }
-
-
-[<ModelType>]
-type ViewConfigModel = {
-    [<NonAdaptive>]
-    version                 : int
-    nearPlane               : NumericInput
-    farPlane                : NumericInput
-    navigationSensitivity   : NumericInput
-    importTriangleSize      : NumericInput
-    arrowLength             : NumericInput
-    arrowThickness          : NumericInput
-    dnsPlaneSize            : NumericInput
-    offset                  : NumericInput
-    pickingTolerance        : NumericInput
-    lodColoring             : bool
-    drawOrientationCube     : bool
-    //useSurfaceHighlighting  : bool
-    //showExplorationPoint    : bool
-    }
-
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module ViewConfigModel =
-    let initNearPlane = {
-        value   = 0.1
-        min     = 0.01
-        max     = 1000.0
-        step    = 0.01
-        format  = "{0:0.00}"
-    }
-    let initFarPlane = {
-        value   = 500000.0
-        min     = 1.0
-        max     = 10000000.0
-        step    = 10.0
-        format  = "{0:0.0}"
-    }
-    let initNavSens = {
-        value   = 2.0
-        min     = -1.0
-        max     = 8.0
-        step    = 0.25
-        format  = "{0:0.00}"
-    }
-    let initArrowLength = {
-        value   = 1.00
-        min     = 0.00
-        max     = 10.0
-        step    = 0.05
-        format  = "{0:0.00}"
-    }
-    let initArrowThickness = {
-        value   = 3.0
-        min     = 0.0
-        max     = 10.0
-        step    = 0.5
-        format  = "{0:0.0}"
-    }
-    let initPlaneSize = {
-        value   = 0.5
-        min     = 0.0
-        max     = 10.0
-        step    = 0.05
-        format  = "{0:0.00}"
-    }
-
-    let initImportTriangleSize = {
-        value = 1000.0
-        min = 0.0
-        max = 1000.0
-        step = 0.01
-        format = "{0:0.000}"
-    }
-
-    let initPickingTolerance = {
-        value  = 0.1
-        min    = 0.01
-        max    = 300.0
-        step   = 0.01
-        format = "{0:0.00}"
-    }
-
-    let depthOffset = {
-       min = -500.0
-       max = 500.0
-       value = 0.001
-       step = 0.001
-       format = "{0:0.000}"
-    }       
-
-    let current = 2
- 
-    let initial = {
-        version = current
-        nearPlane             = initNearPlane
-        farPlane              = initFarPlane
-        navigationSensitivity = initNavSens
-        arrowLength         = initArrowLength
-        arrowThickness      = initArrowThickness
-        dnsPlaneSize        = initPlaneSize
-        lodColoring         = false
-        importTriangleSize  = initImportTriangleSize        
-        drawOrientationCube = false
-        offset              = depthOffset
-        pickingTolerance    = initPickingTolerance
-        //useSurfaceHighlighting = true
-        //showExplorationPoint = true
-    }
-       
-    
-       
-    module V0 =
-        let read = 
-            json {
-                let! nearPlane                    = Json.readWith Ext.fromJson<NumericInput,Ext> "nearPlane"
-                let! farPlane                     = Json.readWith Ext.fromJson<NumericInput,Ext> "farPlane"
-                let! navigationSensitivity        = Json.readWith Ext.fromJson<NumericInput,Ext> "navigationSensitivity"
-                let! arrowLength                  = Json.readWith Ext.fromJson<NumericInput,Ext> "arrowLength"
-                let! arrowThickness               = Json.readWith Ext.fromJson<NumericInput,Ext> "arrowThickness"
-                let! dnsPlaneSize                 = Json.readWith Ext.fromJson<NumericInput,Ext> "dnsPlaneSize"
-                let! (lodColoring : bool)         = Json.read "lodColoring"
-                let! importTriangleSize           = Json.readWith Ext.fromJson<NumericInput,Ext> "importTriangleSize"
-                let! (drawOrientationCube : bool) = Json.read "drawOrientationCube"                        
-                
-                //return initial
-                
-                return {            
-                    version               = current
-                    nearPlane             = nearPlane
-                    farPlane              = farPlane
-                    navigationSensitivity = navigationSensitivity
-                    arrowLength           = arrowLength
-                    arrowThickness        = arrowThickness
-                    dnsPlaneSize          = dnsPlaneSize
-                    lodColoring           = lodColoring
-                    importTriangleSize    = importTriangleSize      
-                    drawOrientationCube   = drawOrientationCube
-                    offset                = depthOffset
-                    pickingTolerance      = initPickingTolerance
-                }
-            }
-    module V1 =
-        let read = 
-            json {
-                let! nearPlane                    = Json.readWith Ext.fromJson<NumericInput,Ext> "nearPlane"
-                let! farPlane                     = Json.readWith Ext.fromJson<NumericInput,Ext> "farPlane"
-                let! navigationSensitivity        = Json.readWith Ext.fromJson<NumericInput,Ext> "navigationSensitivity"
-                let! arrowLength                  = Json.readWith Ext.fromJson<NumericInput,Ext> "arrowLength"
-                let! arrowThickness               = Json.readWith Ext.fromJson<NumericInput,Ext> "arrowThickness"
-                let! dnsPlaneSize                 = Json.readWith Ext.fromJson<NumericInput,Ext> "dnsPlaneSize"
-                let! (lodColoring : bool)         = Json.read "lodColoring"
-                let! importTriangleSize           = Json.readWith Ext.fromJson<NumericInput,Ext> "importTriangleSize"
-                let! (drawOrientationCube : bool) = Json.read "drawOrientationCube"                        
-                let! depthoffset                  = Json.readWith Ext.fromJson<NumericInput,Ext> "depthOffset"
-                
-                //return initial
-                
-                return {            
-                    version               = current
-                    nearPlane             = nearPlane
-                    farPlane              = farPlane
-                    navigationSensitivity = navigationSensitivity
-                    arrowLength           = arrowLength
-                    arrowThickness        = arrowThickness
-                    dnsPlaneSize          = dnsPlaneSize
-                    lodColoring           = lodColoring
-                    importTriangleSize    = importTriangleSize      
-                    drawOrientationCube   = drawOrientationCube
-                    offset                = depthoffset
-                    pickingTolerance      = initPickingTolerance
-                }
-            }
-
-    module V2 =
-        let read = 
-            json {
-                let! nearPlane                    = Json.readWith Ext.fromJson<NumericInput,Ext> "nearPlane"
-                let! farPlane                     = Json.readWith Ext.fromJson<NumericInput,Ext> "farPlane"
-                let! navigationSensitivity        = Json.readWith Ext.fromJson<NumericInput,Ext> "navigationSensitivity"
-                let! arrowLength                  = Json.readWith Ext.fromJson<NumericInput,Ext> "arrowLength"
-                let! arrowThickness               = Json.readWith Ext.fromJson<NumericInput,Ext> "arrowThickness"
-                let! dnsPlaneSize                 = Json.readWith Ext.fromJson<NumericInput,Ext> "dnsPlaneSize"
-                let! (lodColoring : bool)         = Json.read "lodColoring"
-                let! importTriangleSize           = Json.readWith Ext.fromJson<NumericInput,Ext> "importTriangleSize"
-                let! (drawOrientationCube : bool) = Json.read "drawOrientationCube"                        
-                let! depthoffset                  = Json.readWith Ext.fromJson<NumericInput,Ext> "depthOffset"
-                let! pickingTolerance             = Json.readWith Ext.fromJson<NumericInput,Ext> "pickingTolerance"
-                
-                //return initial
-                
-                return {            
-                    version               = current
-                    nearPlane             = nearPlane
-                    farPlane              = farPlane
-                    navigationSensitivity = navigationSensitivity
-                    arrowLength           = arrowLength
-                    arrowThickness        = arrowThickness
-                    dnsPlaneSize          = dnsPlaneSize
-                    lodColoring           = lodColoring
-                    importTriangleSize    = importTriangleSize      
-                    drawOrientationCube   = drawOrientationCube
-                    offset                = depthoffset
-                    pickingTolerance      = pickingTolerance
-                }
-            }
-
-type ViewConfigModel with 
-    static member FromJson(_ : ViewConfigModel) = 
-        json {
-            let! v = Json.read "version"
-            match v with
-            | 0 -> return! ViewConfigModel.V0.read
-            | 1 -> return! ViewConfigModel.V1.read
-            | 2 -> return! ViewConfigModel.V2.read
-            | _ -> return! v |> sprintf "don't know version %A  of ViewConfigModel" |> Json.error
-        }
-    static member ToJson (x : ViewConfigModel) =
-        json {
-            do! Json.write "drawOrientationCube" x.drawOrientationCube                       
-            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "importTriangleSize"    x.importTriangleSize
-            do! Json.write "lodColoring" x.lodColoring
-            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "dnsPlaneSize"          x.dnsPlaneSize
-            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "arrowThickness"        x.arrowThickness
-            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "arrowLength"           x.arrowLength
-            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "navigationSensitivity" x.navigationSensitivity
-            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "farPlane"              x.farPlane
-            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "nearPlane"             x.nearPlane
-            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "offset"                x.offset
-            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "depthOffset"           x.offset
-            do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "pickingTolerance"      x.pickingTolerance
-            do! Json.write "version" x.version
-        }
-
-
-[<ModelType>]
-type FrustumModel = {
-    toggleFocal             : bool
-    focal                   : NumericInput
-    oldFrustum              : Frustum
-    frustum                 : Frustum
-    }
-module FrustumModel =
-    let focal = {
-        value   = 100.0
-        min     = 28.0
-        max     = 100.0
-        step    = 1.0
-        format  = "{0:0}"
-    }
-    let hfov = 2.0 * atan(11.84 /(100.0*2.0))
-    
-    let init near far =
-        {
-            toggleFocal             = false
-            focal                   = focal
-            oldFrustum              = Frustum.perspective 60.0 0.1 10000.0 1.0
-            frustum                 = Frustum.perspective (hfov.DegreesFromRadians()) near far 1.0 //Frustum.perspective 60.0 0.1 10000.0 1.0
-        }

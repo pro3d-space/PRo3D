@@ -29,6 +29,7 @@ type SceneObjectAction =
     | PlaceSO               of V3d
     | TranslationMessage    of TransformationApp.Action
     | PlaceSceneObject      of V3d
+    | ChangeSOImportDirectories of list<string>
 
 
 module SceneObjectTransformations = 
@@ -116,6 +117,7 @@ module SceneObjectsUtils =
             sceneGraph  = sg
             picking     = Picking.NoPicking 
             isObj       = true 
+            opcScene    = None
         }
 
              
@@ -123,6 +125,12 @@ module SceneObjectsUtils =
         let sghs =
           sceneObject
             |> IndexList.toList 
+            |> List.filter(fun (so : SceneObject) ->
+                let dirExists = File.Exists so.importPath
+                if dirExists |> not then 
+                    Log.error "[SceneObject.Sg] could not find %s" so.importPath
+                dirExists
+            )
             |> List.map loadSceneObject
 
         let sgSceneObjects =
@@ -144,9 +152,30 @@ module SceneObjectsApp =
             else 
                 None
 
+    let changeSOImportDirectories (model:SceneObjectsModel) (selectedPaths:list<string>) =
+        let sceneObjs =        
+            model.sceneObjects
+            |> HashMap.map(fun id so -> 
+                let newPath = 
+                    selectedPaths
+                    |> List.map(fun p -> 
+                        let name = p |> IO.Path.GetFileName
+                        match name = so.name with
+                        | true -> Some p
+                        | false -> None
+                    )
+                    |> List.choose( fun np -> np) 
+                match newPath.IsEmpty with
+                | true -> so
+                | false -> { so with importPath = newPath.Head } 
+            )
+              
+        { model with sceneObjects = sceneObjs }
+
     let update 
         (model : SceneObjectsModel) 
-        (act : SceneObjectAction) = 
+        (act : SceneObjectAction) 
+        (refSys : ReferenceSystem) = 
 
         match act with
         | IsVisible id ->
@@ -179,7 +208,7 @@ module SceneObjectsApp =
                 let sobj = model.sceneObjects |> HashMap.tryFind id
                 match sobj with
                 | Some so ->
-                    let transformation' = (TransformationApp.update so.transformation msg)
+                    let transformation' = (TransformationApp.update so.transformation msg refSys)
                     let selSO = { so with transformation = transformation' }
                     let sceneObjs = model.sceneObjects |> HashMap.alter so.guid (function | Some _ -> Some selSO | None -> None )
                     { model with sceneObjects = sceneObjs} 
@@ -201,7 +230,14 @@ module SceneObjectsApp =
                     { model with sceneObjects = sceneObjs} 
                 | None -> model
             | None -> model
+        | ChangeSOImportDirectories sl ->
+            match sl with
+            | [] -> model
+            | paths ->
+                let selectedPaths = paths |> List.choose( fun p -> if File.Exists p then Some p else None)
+                changeSOImportDirectories model selectedPaths  
         |_-> model
+          
 
 
     module UI =
@@ -284,8 +320,9 @@ module SceneObjectsApp =
                                      
                         yield Incremental.div (AttributeMap.ofList [style infoc])(
                             alist {
-                                yield div[clazz "header"; style bgc][
-                                    Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
+                                yield 
+                                    div [clazz "header"; style bgc] [
+                                        Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
                                     ]            
             
                                 yield i [clazz "home icon"; onClick (fun _ -> FlyToSO soid)] []
@@ -295,7 +332,7 @@ module SceneObjectsApp =
                                     |> UI.wrapToolTip DataPosition.Bottom "Open Folder"                             
             
                                 yield Incremental.i toggleMap AList.empty 
-                                |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
+                                    |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
 
                                 yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveSO soid)] [] 
                                     |> UI.wrapToolTip DataPosition.Bottom "Remove"     
@@ -307,7 +344,7 @@ module SceneObjectsApp =
         let viewTranslationTools (model:AdaptiveSceneObjectsModel) =
             adaptive {
                 let! guid = model.selectedSceneObject
-                let empty = div[ style "font-style:italic"][ text "no scene object selected" ] |> UI.map TranslationMessage 
+                let empty = div [style "font-style:italic"] [text "no scene object selected"] |> UI.map TranslationMessage 
 
                 match guid with
                 | Some id -> 

@@ -8,6 +8,7 @@ Farmer
 Fake.DotNet.Cli
 Fake.DotNet.NuGet
 Fake.Tools.Git
+Fake.DotNet.Paket
 Mono.Cecil
 Microsoft.Build                
 Microsoft.Build.Framework      

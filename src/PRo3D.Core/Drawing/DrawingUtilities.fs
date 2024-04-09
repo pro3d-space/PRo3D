@@ -40,8 +40,8 @@ module DrawingUtilities =
                     s.ReadToEnd().Split(System.Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
                     |> List.ofArray
                     |> List.map(fun x -> 
-                        let line = x |> String.split '='
-                        (line.[0], (line.[1] |> String.split ';'))
+                        let line = x |> String.split "="
+                        (line.[0], (line.[1] |> String.split ";"))
                     )
 
                 [
@@ -231,13 +231,7 @@ module DrawingUtilities =
                 }
         
         //TODO refactor to types
-        let loadAnnotations annotationPath =             
-            
-            let (annotations : Annotations) = 
-                annotationPath
-                |> Serialization.readFromFile
-                |> Json.parse 
-                |> Json.deserialize                                    
+        let loadAnnotationse (annotations : Annotations) =             
             
             let annotations =
                 { annotations with 
@@ -271,3 +265,22 @@ module DrawingUtilities =
                     
             { annotations with annotations = annoModel} 
       
+
+        let loadAnnotationsFromFile (annotationsFile : string) =             
+            
+            let (annotations : Annotations) = 
+                annotationsFile
+                |> Serialization.readFromFile
+                |> Json.parse 
+                |> Json.deserialize   
+
+            loadAnnotationse annotations
+
+        let loadAnnotationsFromJson (annotationsJson : string) =             
+            
+            let (annotations : Annotations) = 
+                annotationsJson
+                |> Json.parse 
+                |> Json.deserialize   
+
+            loadAnnotationse annotations

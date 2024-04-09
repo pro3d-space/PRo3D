@@ -24,7 +24,10 @@ module AttitudeExport =
         let center = regInfo.Center
 
         let inline n v =
-            Json.Number (decimal v)
+            if isNaN v then 
+                Json.Null() // no nan in json
+            else
+                Json.Number (decimal v)
 
         let x1 = regInfo.Normal |> Vec.cross up
         let rake = x1 |> Vec.dot regInfo.Axis1 |> acos
@@ -97,26 +100,30 @@ module AttitudeExport =
             Log.warn "[Attitude] annotation %A does not have dns results" uid
             None
 
+
+    let serializeToAttitudeJson (up : V3d) (annotations : list<Annotation>) : string =
+        let attitudePlanes =
+            annotations
+            |> List.choose (fun x -> 
+                tryToJson x.dnsResults (Some x.text) (x.key.ToString()) up (x.points |> IndexList.toSeq)
+            )
+            //|> List.map(fun x ->
+                 
+            //    match x.dnsResults with
+            //    | Some dns ->
+                        
+            //        toJson dns (Some "blurg") (Some (x.key.ToString())) (Some (x.points |> IndexList.toSeq)) dns.regressionInfo
+            //    | None -> 
+            //        failwith "[Attitude.Export] impossible"
+            //)            
+            
+        attitudePlanes
+        |> Json.serialize 
+        |> Json.formatWith JsonFormattingOptions.Pretty
+
     let writeAttitudeJson (path:string) (up : V3d) (annotations : list<Annotation>) : unit = 
 
         if path.IsNullOrEmpty() |> not then
             
-            let attitudePlanes =
-                annotations
-                |> List.choose (fun x -> 
-                    tryToJson x.dnsResults (Some x.text) (x.key.ToString()) up (x.points |> IndexList.toSeq)
-                )
-                //|> List.map(fun x ->
-                 
-                //    match x.dnsResults with
-                //    | Some dns ->
-                        
-                //        toJson dns (Some "blurg") (Some (x.key.ToString())) (Some (x.points |> IndexList.toSeq)) dns.regressionInfo
-                //    | None -> 
-                //        failwith "[Attitude.Export] impossible"
-                //)            
-            
-            attitudePlanes
-            |> Json.serialize 
-            |> Json.formatWith JsonFormattingOptions.Pretty 
+            serializeToAttitudeJson up annotations
             |> Serialization.writeToFile path        

@@ -138,10 +138,10 @@ module App =
                                         emit (SetCursor wp)
                                     | _ -> ()
 
-                                    values.runtime.ResolveMultisamples(color.GetOutputView(), resolvedColor, ImageTrafo.Identity)
+                                    values.runtime.ResolveMultisamples(color.GetOutputView(), resolvedColor)
                                     resolvedColor :> ITexture
                                 | _ ->
-                                    NullTexture() :> ITexture
+                                    NullTexture.Instance 
                         }
 
                     let final = 
@@ -307,8 +307,8 @@ module App =
 
 
     let dependencies = Html.semui @ [
-        { name = "style"; kind = Stylesheet; url = "./style.css"}
-        { name = "semui-overrides"; kind = Stylesheet; url = "semui-overrides.css"}
+        { name = "style"; kind = Stylesheet; url = "./resources/style.css"}
+        { name = "semui-overrides"; kind = Stylesheet; url = "./resources/semui-overrides.css"}
     ] 
 
     let view (runner : Load.Runner) (emit : Message -> unit) (model : AdaptiveModel) =

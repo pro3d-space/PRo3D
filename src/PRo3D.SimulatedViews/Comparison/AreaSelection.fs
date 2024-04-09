@@ -171,8 +171,7 @@ module AreaSelection =
                             let maxDistance = stats.maxDistance |> AVal.map (fun x -> sprintf "%f" x)
                     
                             [
-                              Html.row "Statistical parameter" [div[style "font-weight: bold"] 
-                                                               [text "value"]]
+                              Html.row "Statistical parameter" [div [style "font-weight: bold"] [text "value"]]
                               Html.row "Minimum distance" [Incremental.text minDistance]
                               Html.row "Average distance" [Incremental.text avgDistance]
                               Html.row "Maximum distance" [Incremental.text maxDistance]
@@ -186,8 +185,7 @@ module AreaSelection =
  //       require GuiEx.semui (
         div [] [
             Html.table ([      
-              Html.row "Selected Area" [div[style "font-weight: bold"] 
-                                       [Incremental.text m.label]]
+              Html.row "Selected Area" [div [style "font-weight: bold"] [Incremental.text m.label]]
               Html.row "Area radius"   [Incremental.text radius]
               Html.row "Area location" [Incremental.text location]
             ])

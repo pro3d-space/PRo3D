@@ -20,11 +20,14 @@
     <NoWarn>0686</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="AardvarkUIReworks.fs" />
     <EmbeddedResource Include="resources/groupmappings" />
     <Compile Include="Config.fs" />
     <Compile Include="Core-Types.fs" />
     <Compile Include="ReferenceSystem-Model.fs" />
     <Compile Include="Transformation-Model.fs" />
+    <Compile Include="VisualizationAndTFModel.fs" />
+    <Compile Include="VisualizationAndTFApp.fs" />
     <Compile Include="Surface-Model.fs" />
     <Compile Include="glTF.fs" />
     <Compile Include="SceneObjects-Model.fs" />
@@ -57,6 +60,7 @@
     <Compile Include="Drawing\PackedRendering.fs" />
     <Compile Include="Drawing\Drawing-App.fs" />
     <Compile Include="SequencedBookmarks\SequencedBookmarks-Model.fs" />
+    <Compile Include="SequencedBookmarks\SequencedBookmark.fs" />
     <Compile Include="SequencedBookmarks\BookmarkUtils.fs" />
     <Compile Include="SequencedBookmarks\BookmarkAnimations.fs" />
     <Compile Include="SequencedBookmarks\SequencedBookmarksApp.fs" />
@@ -68,6 +72,9 @@
     <Compile Include="Importers/MeasurementsImporter.fs" />
     <Compile Include="Importers/AnnotationGroupsImporter.fs" />
     <Compile Include="Importers/SurfaceTrafoImporter.fs" />
+    <Compile Include="Queries\TransferFunction.fs" />
+    <Compile Include="Queries\RudimentaryObjExport.fs" />
+    <Compile Include="Queries\AnnotationQuery.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

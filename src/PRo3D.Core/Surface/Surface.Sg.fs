@@ -76,6 +76,7 @@ module Sg =
         bb     : Box3d
         sg     : ISg        
         kdtree : HashMap<Box3d,KdTrees.Level0KdTree>
+        scene  : OpcScene
     }
 
     let mutable hackRunner : Option<Load.Runner> = None
@@ -111,19 +112,53 @@ module Sg =
             //    Log.warn "%f to %f - avgSize: %f" px (unitPxSize * lodParams.factor) p.triangleSize
         px > unitPxSize * (exp lodParams.factor)
 
+    let computeScreenSpaceArea (b : Box3d) (viewProj : Trafo3d) =
+        let viewSpacePoints =
+            b.ComputeCorners()
+                |> Array.map (fun v ->
+                    viewProj.Forward.TransformPosProj v
+                )
+
+        let poly = viewSpacePoints |> Array.map Vec.xy |> Polygon2d
+
+        let clipped = 
+            poly.ComputeConvexHullIndexPolygon().ToPolygon2d()
+    
+        let bounds = Box3d(viewSpacePoints)
+        if Box3d(-V3d.III, V3d.III).Intersects(bounds) |> not then 0.0
+        else clipped.ComputeArea()
+
+    let marsArea (preTrafo    : Trafo3d)
+        (self        : AdaptiveToken) 
+        (viewTrafo   : aval<Trafo3d>)
+        (projTrafo   : aval<Trafo3d>) 
+        (renderPatch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) 
+        (lodParams   : aval<LodParameters>)
+        (isActive    : aval<bool>) =
+        
+        let isActive = isActive.GetValue self
+        if not isActive then false
+        else
+            let m = renderPatch.trafo.GetValue self
+            let view = viewTrafo.GetValue self
+            let proj = projTrafo.GetValue self
+            let p = lodParams.GetValue self
+            let vp   = view * proj
+            let mvp = m * vp
+            let area = computeScreenSpaceArea renderPatch.info.LocalBoundingBox mvp
+                    
+            log area > 1.0 - (log p.factor) * 1.2
+
     let createPlainSceneGraph (runtime : IRuntime) (signature : IFramebufferSignature) (scene : OpcScene) (createKdTrees)
         : (ISg * list<PatchHierarchy> * HashMap<Box3d, KdTrees.Level0KdTree>) =
 
         let runner = 
             match hackRunner with
             | None -> 
-                printfn "create runner"
-                //let  r = runtime.CreateLoadRunner 2
-                //hackRunner <- Some (r)
-                failwith ""
+                failwith "GL runner was not initialized."
+
             | Some h -> h
-        let preTransform = scene.preTransform
-    
+
         let patchHierarchies = 
             scene.patchHierarchies
             |> Seq.map Prinziple.registerIfZipped
@@ -136,7 +171,7 @@ module Sg =
             [| 
                 for h in patchHierarchies do
                     if createKdTrees then   
-                        yield KdTrees.loadKdTrees h Trafo3d.Identity ViewerModality.XYZ Serialization.binarySerializer                    
+                        yield KdTrees.loadKdTrees h Trafo3d.Identity ViewerModality.XYZ Serialization.binarySerializer false false DebugKdTreesX.loadTriangles' true              
                     else 
                         yield HashMap.empty
             |]
@@ -180,13 +215,14 @@ module Sg =
                          | _ -> AVal.constant false :> IAdaptiveValue
              ]
      
-        let lodDeciderMars = lodDeciderMars (scene.preTransform)
+        let lodDeciderMars = lodDeciderMars scene.preTransform
+        //let lodDeciderMars = marsArea scene.preTransform
 
 
         let map = 
             Map.ofList [
                 "FootprintModelViewProj", fun scope (patch : RenderPatch) -> 
-                    let viewTrafo = scope |> unbox<aval<M44d>>
+                    let viewTrafo,_ = scope |> unbox<aval<M44d> * obj>
                     let r = AVal.map2 (fun viewTrafo (model : Trafo3d) -> viewTrafo * model.Forward) viewTrafo patch.trafo 
                     r :> IAdaptiveValue
             ]
@@ -194,23 +230,44 @@ module Sg =
         // create level of detail hierarchy (Sg)
         let g = 
             patchHierarchies 
-            |> List.map (fun h ->                                  
-                Sg.patchLod' 
-                    signature
-                    runner 
-                    h.opcPaths.Opc_DirAbsPath
-                    lodDeciderMars //scene.lodDecider 
-                    scene.useCompressedTextures
-                    true
-                    ViewerModality.XYZ
-                    PatchLod.CoordinatesMapping.Local
-                    useAsyncLoading
-                    (PatchLod.toRoseTree h.tree)
-                    map
-                    (fun n s -> 
+            |> List.map (fun h ->      
+                let patchLodWithTextures = 
+                    let context (n : PatchNode) (s : Ag.Scope) =
                         let vp = s.FootprintVP
-                        vp :> obj
-                    )
+                        let secondaryTexture = SecondaryTexture.getSecondary n s
+                        (vp, secondaryTexture)  :> obj
+
+                    let extractTextureScope f (p : OpcPaths) (lodScope : obj) (r : RenderPatch) =
+                        let (_, textures) = unbox<aval<M44d> * obj> lodScope
+                        f p textures r 
+
+                    let getTextures = extractTextureScope SecondaryTexture.textures
+                    let getVertexAttributes = extractTextureScope SecondaryTexture.vertexAttributes
+
+                    PatchNode(signature, runner, h.opcPaths.Opc_DirAbsPath, lodDeciderMars, scene.useCompressedTextures, true, ViewerModality.XYZ, 
+                                PatchLod.CoordinatesMapping.Local, useAsyncLoading, context, map,
+                                PatchLod.toRoseTree h.tree,
+                                Some (getTextures h.opcPaths), Some (getVertexAttributes h.opcPaths), Aardvark.Base.PixImagePfim.Loader)
+
+                //let plainPatchLod =
+                //    Sg.patchLod' 
+                //        signature
+                //        runner 
+                //        h.opcPaths.Opc_DirAbsPath
+                //        lodDeciderMars //scene.lodDecider 
+                //        scene.useCompressedTextures
+                //        true
+                //        ViewerModality.XYZ
+                //        PatchLod.CoordinatesMapping.Local
+                //        useAsyncLoading
+                //        (PatchLod.toRoseTree h.tree)
+                //        map
+                //        (fun n s -> 
+                //            let vp = s.FootprintVP
+                //            vp :> obj
+                //        )
+                //plainPatchLod
+                patchLodWithTextures
             )
             |> SgFSharp.Sg.ofList  
            
@@ -236,7 +293,7 @@ module Sg =
         |> Seq.map (fun p -> assertInvalidBB p.info.GlobalBoundingBox)
         |> Box3d
        
-    let createSgSurface (s : Surface) sg (bb : Box3d) (kd : HashMap<Box3d,KdTrees.Level0KdTree>) = 
+    let createSgSurface (scene : OpcScene) (s : Surface) sg (bb : Box3d) (kd : HashMap<Box3d,KdTrees.Level0KdTree>) = 
     
         let pose = Pose.translate V3d.Zero // bb.Center
         let trafo = { TrafoController.initial with pose = pose; previewTrafo = Pose.toTrafo pose; mode = TrafoMode.Local }
@@ -248,6 +305,7 @@ module Sg =
                 picking     = Picking.KdTree kd
                 trafo       = trafo
                 isObj       = false
+                opcScene    = Some scene
                 //transformation = Init.Transformations
             }
         sgSurface
@@ -278,19 +336,19 @@ module Sg =
                        lodDecider = DefaultMetrics.mars2
                 }
             )
-            |> List.map (fun d -> createPlainSceneGraph runtime signature d true)
+            |> List.map (fun d -> d, createPlainSceneGraph runtime signature d true)
             |> List.zip surfaces
-            |> List.map(fun (surf, (sg, hierarchies, kdtree)) -> 
+            |> List.map(fun (surf, (d, (sg, hierarchies, kdtree))) -> 
                 let bb = 
                     hierarchies 
                     |> combineLeafBBs 
                     |> transformBox surf.preTransform
 
-                { surf = surf; bb = bb; sg = sg; kdtree = kdtree })
+                { surf = surf; bb = bb; sg = sg; kdtree = kdtree ; scene = d })
         
         let sgSurfaces =
           sghs 
-          |> List.map (fun d -> createSgSurface d.surf d.sg d.bb d.kdtree)
+          |> List.map (fun d -> createSgSurface d.scene d.surf d.sg d.bb d.kdtree)
           |> List.map (fun d -> (d.surface, d))
           |> HashMap.ofList       
         

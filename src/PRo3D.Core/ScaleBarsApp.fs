@@ -269,7 +269,8 @@ module ScaleBarsApp =
 
     let update 
         (model : ScaleBarsModel) 
-        (act   : ScaleBarsAction) = 
+        (act   : ScaleBarsAction) 
+        (refSys : ReferenceSystem) = 
 
         match act with
         | IsVisible id ->
@@ -308,7 +309,7 @@ module ScaleBarsApp =
                 let scB = model.scaleBars |> HashMap.tryFind id
                 match scB with
                 | Some sb ->
-                    let transformation' = (TransformationApp.update sb.transformation msg)
+                    let transformation' = (TransformationApp.update sb.transformation msg refSys)
                     let sb' = { sb with transformation = transformation' }
                     let scaleBars = model.scaleBars |> HashMap.alter sb.guid (function | Some _ -> Some sb' | None -> None )
                     { model with scaleBars = scaleBars} 
@@ -384,7 +385,7 @@ module ScaleBarsApp =
                                 yield Incremental.div (AttributeMap.ofList [style infoc])(
                                     alist {
                                         //let! hc = headerColor
-                                        yield div[clazz "header"; style bgc][
+                                        yield div [clazz "header"; style bgc] [
                                             Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
                                          ]                
                                         //yield i [clazz "large cube middle aligned icon"; style bgc; onClick (fun _ -> SelectSO soid)][]           
@@ -407,7 +408,7 @@ module ScaleBarsApp =
         let viewTranslationTools (model:AdaptiveScaleBarsModel) =
             adaptive {
                 let! guid = model.selectedScaleBar
-                let empty = div[ style "font-style:italic"][ text "no scene object selected" ] |> UI.map TranslationMessage 
+                let empty = div [style "font-style:italic"] [text "no scene object selected"] |> UI.map TranslationMessage 
 
                 match guid with
                 | Some id -> 
@@ -421,7 +422,7 @@ module ScaleBarsApp =
         let viewProperties (model:AdaptiveScaleBarsModel) =
             adaptive {
                 let! guid = model.selectedScaleBar
-                let empty = div[ style "font-style:italic"][ text "no scale bar selected" ] |> UI.map PropertiesMessage 
+                let empty = div [style "font-style:italic"] [text "no scale bar selected"] |> UI.map PropertiesMessage 
                 
                 match guid with
                 | Some id -> 
@@ -512,60 +513,11 @@ module ScaleBarsApp =
                 return [|p1; p2|]
             }
 
-        let viewSingleScaleBarLine 
-            (scaleBar   : AdaptiveScaleBar) 
-            (view       : aval<CameraView>)
-            (viewportSize : aval<V2i>)
-            (near       : aval<float>)
-            (selected   : aval<Option<Guid>>) =
-
-            adaptive {
-                    
-                let! selected' = selected
-                let selected =
-                    match selected' with
-                    | Some sel -> sel = (scaleBar.guid |> AVal.force)
-                    | None -> false
-
-                
-                let trafo =
-                    adaptive {
-                        let! pos = scaleBar.position
-                        return (Trafo3d.Translation pos) //(TransformationApp.fullTrafo scaleBar.transformation) //
-                    }
-
-                let text = 
-                    Sg.text view near (AVal.constant 60.0) scaleBar.position scaleBar.transformation.trafo scaleBar.textsize.value scaleBar.text
-                
-                // do this for all lineparts
-                let sgSegments = 
-                    scaleBar.scSegments 
-                    |> AList.map( fun seg -> getSgSegmentLine seg scaleBar.thickness.value ) 
-                    |> AList.toASet
-                    |> Sg.set            
-
-                let points = getP1P2 scaleBar
-
-                let vm = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
-
-                let selectionSg = 
-                    if selected then
-                        OutlineEffect.createForLineOrPoint view viewportSize PRo3D.Base.OutlineEffect.Line (AVal.constant C4b.VRVisGreen) scaleBar.thickness.value 3.0 RenderPass.main trafo points
-                    else Sg.empty
-                    
-                        
-                return Sg.ofList [
-                        selectionSg //|> Sg.dynamic
-                        sgSegments
-                        text
-                    ] |> Sg.onOff scaleBar.isVisible
-                
-            } |> Sg.dynamic
-
         let viewSingleText
             (scaleBar   : AdaptiveScaleBar) 
             (view       : aval<CameraView>)
-            (near       : aval<float>) =
+            (near       : aval<float>)
+            (hfov       : aval<float>) =
 
             let labelPosition =
                 adaptive {
@@ -588,7 +540,7 @@ module ScaleBarsApp =
             Sg.text 
                 view 
                 near 
-                ~~60.0 
+                hfov 
                 labelPosition 
                 (labelPosition |> AVal.map Trafo3d.Translation) 
                 scaleBar.textsize.value 
@@ -604,13 +556,11 @@ module ScaleBarsApp =
             let near = minnerConfig.getNearDistance mbigConfig
 
             let scaleBars = scaleBarsModel.scaleBars
+            let hfov = minnerConfig.getHorizontalFieldOfView mbigConfig
             
             scaleBars 
             |> AMap.map( fun id sb ->
-                viewSingleText
-                    sb
-                    view
-                    near                    
+                viewSingleText sb view near hfov
             )
             |> AMap.toASet 
             |> ASet.map snd 

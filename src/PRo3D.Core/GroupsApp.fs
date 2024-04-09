@@ -346,7 +346,7 @@ module GroupsApp =
             (fun (x:Node) -> 
                 { x with subNodes = IndexList.add group x.subNodes })
 
-        { model with rootGroup = updateNodeAt path func model.rootGroup }
+        { model with rootGroup = updateNodeAt path func model.rootGroup; lastSelectedItem = SelectedItem.Group }
 
     let union (left : GroupsModel) (right : GroupsModel) : GroupsModel =
         if left.rootGroup.key = right.rootGroup.key then
@@ -590,7 +590,7 @@ module GroupsApp =
 
     let viewSelectionButtons =
         // Html.table [
-        div[][
+        div [] [
             div [clazz "ui buttons inverted"] [
                 
                 button [clazz "ui icon button"; attribute "data-content" "Move Selection"; onMouseClick (fun _ -> MoveLeaves)] [
@@ -621,14 +621,12 @@ module GroupsApp =
             let! selected = model.singleSelectLeaf
             match selected with
                 | Some guid -> 
-                    let! exists = model.flat |> AMap.keys |> ASet.contains guid
-                    if exists then
-                      let item = 
-                        model.flat |> AMap.find guid |> AVal.force // TODO v5: to - wrong adaptive, where was bind on id - why?
-                      return view item |> UI.map lifter
-                    else return div[][] |> UI.map lifter
+                    match! AMap.tryFind guid model.flat with
+                    | None -> return div [] []
+                    | Some item -> 
+                        return view item |> UI.map lifter
                 | None ->
-                    return div[][] |> UI.map lifter
+                    return div [] [] 
         }
 
     let deleteLeaf (ts:TreeSelection) =

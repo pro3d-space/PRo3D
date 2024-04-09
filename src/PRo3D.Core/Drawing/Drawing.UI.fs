@@ -140,7 +140,7 @@ module UI =
                         alist {                          
                             //yield div[][
                             let! hc = headerColor
-                            yield div[clazz "header"; style hc][
+                            yield div [clazz "header"; style hc] [
                                 Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
                             ]
                             yield Incremental.i visibleIcon AList.empty 

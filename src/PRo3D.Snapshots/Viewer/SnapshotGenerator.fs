@@ -13,6 +13,7 @@ open Aardvark.Rendering.Text
 open System.Collections.Concurrent
 open System.Runtime.Serialization
 open PRo3D
+open PRo3D.Base
 open PRo3D.Core.Surface
 open PRo3D.Viewer
 open PRo3D.OrientationCube
@@ -27,6 +28,8 @@ module SnapshotGenerator =
             let hasLaodedScene = 
                 match args.scenePath with
                 | Some sp ->
+                    if args.verbose then
+                        Log.line "Loading %s" sp
                     mApp.updateSync Guid.Empty (ViewerAction.LoadScene sp |> ViewerMessage |> Seq.singleton)
                     true
                 | None -> false
@@ -34,7 +37,10 @@ module SnapshotGenerator =
             let hasLoadedOpc = 
                 match args.opcPaths with
                 | Some opcs ->
-                    mApp.updateSync Guid.Empty (ViewerAction.ImportDiscoveredSurfaces opcs |> ViewerMessage |>  Seq.singleton)
+                    mApp.updateSync Guid.Empty (ViewerAction.DiscoverAndImportOpcs opcs |> ViewerMessage |>  Seq.singleton)
+                    if args.verbose then
+                        Log.line "Loading %s" (opcs |> List.reduce (fun a b -> sprintf "%s %s" a b))
+
                     true
                 | None -> false
             let hasLoadedAny = 
@@ -42,6 +48,8 @@ module SnapshotGenerator =
                 | Some objs ->
                     // TODO @RebeccaNowak what loader should be used here?
                     for x in objs do
+                        if args.verbose then
+                            Log.line "Loading %s" x
                         mApp.updateSync Guid.Empty  (x |> List.singleton 
                                                        |> (curry ViewerAction.ImportObject MeshLoaderType.Wavefront)
                                                        |> ViewerMessage
@@ -109,15 +117,60 @@ module SnapshotGenerator =
                 actions
                 |> List.map ViewerMessage
                 |> List.toSeq    
-            | BookmarkTransformation.Bookmark bookmark ->
+            | BookmarkTransformation.Configuration config ->
                 let actions = 
-                    match bookmark.sceneState with
-                    | Some state ->
-                        [
-                            ViewerAction.SetSceneState state
-                            ViewerAction.SetCamera bookmark.cameraView
-                        ]
-                    | None -> []
+                    [
+                        ViewerAction.SetCamera config.camera.view
+                        ViewerAction.FrustumMessage (FrustumProperties.Action.SetFrustum config.frustum)
+                        ViewerAction.SetFrustum config.frustum
+
+                    ]
+                actions
+                |> List.map ViewerMessage
+                |> List.toSeq    
+            | BookmarkTransformation.Bookmark bookmark ->
+                Log.line "[SnapshotGenerator] Getting bookmark actions for %s" filename
+                let actions = 
+                    let sceneStateAction = 
+                        match bookmark.sceneState with
+                        | Some state ->
+                            [ViewerAction.SetSceneState state]
+                        | None -> []
+
+                    let frustumAction =
+                        match bookmark.frustumParameters, bookmark.sceneState with
+                        | Some fp, None -> 
+                            [ViewerAction.SetFrustum fp.perspective]
+                        | Some fp, Some state ->
+                            let aspectRatio = (float fp.resolution.X) / (float fp.resolution.Y)
+                            let frustum = 
+                                FrustumUtils.calculateFrustum' 
+                                    state.stateConfig.frustumModel.focal.value
+                                    fp.nearplane
+                                    fp.farplane
+                                    aspectRatio
+                            [ViewerAction.SetFrustum frustum]
+                        | None, Some state ->
+                            [ViewerAction.SetFrustum state.stateConfig.frustumModel.frustum]
+                        | None, None ->
+                            []
+
+                    let writeMetadataAction =
+                        match bookmark.metadata with
+                        | Some metadata ->
+                            let dir = System.IO.Path.GetDirectoryName filename
+                            let filename = System.IO.Path.GetFileNameWithoutExtension filename
+                            let filename = sprintf "%s.json" filename
+                            let path = System.IO.Path.Combine (dir, filename)
+                            [ViewerAction.WriteBookmarkMetadata (path, bookmark)]
+                        | None -> []
+
+                    sceneStateAction@
+                    frustumAction@
+                    writeMetadataAction@
+                    [
+                        ViewerAction.SetCamera bookmark.cameraView
+                    ]
                 actions
                 |> List.map ViewerMessage
                 |> List.toSeq    
@@ -147,11 +200,6 @@ module SnapshotGenerator =
             let animation = readAnimation args
             match animation with
             | Some (SnapshotAnimation.CameraAnimation data) ->
-                let foV = 
-                    match data.fieldOfView with
-                    | Some fov -> fov
-                    | None -> SnapshotApp.defaultFoV
-                let frustum,_,_,_ = SnapshotApp.calculateFrustumRecalcNearFar data
                 let sg = SnapshotSg.viewRenderView runtime (System.Guid.NewGuid().ToString()) 
                                                    (AVal.constant data.resolution) mModel 
                 let snapshotApp  = 

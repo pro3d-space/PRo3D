@@ -192,78 +192,6 @@ type GroupsModel = {
     singleSelectLeaf     : option<Guid>
 }
 
-module GroupsModel =
-
-    let current = 0    
-
-    let tryGetSelectedAnnotation (model : GroupsModel) =        
-
-        model.singleSelectLeaf 
-        |> Option.bind(fun id ->
-            model.flat 
-            |> HashMap.tryFind id
-        )
-        |> Option.bind(fun l ->
-            match l with 
-            | Leaf.Annotations a -> Some a
-            | _ -> None
-        )
-        
-    let read0 = 
-        json {              
-            let! rootGroup = Json.read "rootGroup"
-
-            let! flat = Json.read "flat"            
-            let flat = flat |> List.map(fun (a : Leaf) -> (a.id, a)) |> HashMap.ofList
-            
-            let! groupsLookup = Json.read "groupsLookup"
-            let groupsLookup  = groupsLookup |> HashMap.ofList //TODO TO: check if it is possible to create generic hmap from/to json            
-                                    
-            return {
-                version             = current         
-                rootGroup           = rootGroup 
-                activeGroup         = Group.initGroupSelection 
-                activeChild         = Group.initChildSelection 
-                flat                = flat
-                groupsLookup        = groupsLookup
-                lastSelectedItem    = SelectedItem.Child
-                selectedLeaves      = HashSet.Empty 
-                singleSelectLeaf    = None
-            }
-        }
-
-    let initial = {
-        version          = current
-        rootGroup        = Group.initRoot
-        activeGroup      = Group.initGroupSelection
-        activeChild      = Group.initChildSelection
-        flat             = HashMap.Empty
-        groupsLookup     = HashMap.Empty        
-        lastSelectedItem = SelectedItem.Child
-        selectedLeaves   = HashSet.Empty
-        singleSelectLeaf = None
-    }
-
-type GroupsModel with  
-    static member FromJson( _ : GroupsModel) =
-        json {
-            let! version = Json.read "version"
-            match version with
-            | 0 -> return! GroupsModel.read0
-            | _ -> 
-                return! version 
-                |> sprintf "don't know version %d of Groupsmodel" 
-                |> Json.error
-        }
-
-    static member ToJson (x:GroupsModel) = 
-        json {            
-            do! Json.write "version"      x.version
-            do! Json.write "rootGroup"    x.rootGroup
-            do! Json.write "flat"         (x.flat |> HashMap.toList |> List.map snd)
-            do! Json.write "groupsLookup" (x.groupsLookup |> HashMap.toList)
-        }
-
 module Leaf =
     open Aardvark.UI.Incremental
 
@@ -274,6 +202,12 @@ module Leaf =
             Surfaces    { s with isVisible = not s.isVisible }
         | Annotations a -> Annotations { a with visible   = not a.visible }
         | _ -> c
+
+    let setId (g : Guid) (c : Leaf) =
+        match c with
+        | Surfaces s -> Surfaces { s with guid = g}
+        | Bookmarks m -> Bookmarks { m with key = g }
+        | Annotations a -> Annotations { a with key = g }
 
     let setName (c: Leaf) (name: string) =
         match c with
@@ -333,6 +267,126 @@ module Leaf =
             match x with
             | Leaf.Bookmarks b -> Some b
             | _ -> None)
+
+module GroupsModel =
+
+    let current = 0    
+
+    let tryGetSelectedAnnotation (model : GroupsModel) =        
+
+        model.singleSelectLeaf 
+        |> Option.bind(fun id ->
+            model.flat 
+            |> HashMap.tryFind id
+        )
+        |> Option.bind(fun l ->
+            match l with 
+            | Leaf.Annotations a -> Some a
+            | _ -> None
+        )
+        
+    let read0 = 
+        json {              
+            let! rootGroup = Json.read "rootGroup"
+
+            let! flat = Json.read "flat"            
+            let flat = flat |> List.map(fun (a : Leaf) -> (a.id, a)) |> HashMap.ofList
+            
+            let! groupsLookup = Json.read "groupsLookup"
+            let groupsLookup  = groupsLookup |> HashMap.ofList //TODO TO: check if it is possible to create generic hmap from/to json            
+                                    
+            return {
+                version             = current         
+                rootGroup           = rootGroup 
+                activeGroup         = Group.initGroupSelection 
+                activeChild         = Group.initChildSelection 
+                flat                = flat
+                groupsLookup        = groupsLookup
+                lastSelectedItem    = SelectedItem.Child
+                selectedLeaves      = HashSet.Empty 
+                singleSelectLeaf    = None
+            }
+        }
+
+    let initial = {
+        version          = current
+        rootGroup        = Group.initRoot
+        activeGroup      = Group.initGroupSelection
+        activeChild      = Group.initChildSelection
+        flat             = HashMap.Empty
+        groupsLookup     = HashMap.Empty        
+        lastSelectedItem = SelectedItem.Child
+        selectedLeaves   = HashSet.Empty
+        singleSelectLeaf = None
+    }
+
+    
+    // selectedLeaves, singleSelectLeaf, activeGroup, activeChild are not patched
+    let patchNames (g : Guid -> Guid)  (m : GroupsModel) =
+        let leafNewNames, flat = 
+            let m =
+                m.flat 
+                |> HashMap.toList |> List.map (fun (k,v) -> 
+                    let newKey = g k
+                    (k, newKey), (newKey, Leaf.setId newKey v)
+                )
+            let flat = m |> Seq.map snd |> HashMap.ofSeq
+            let newNames = m |> Seq.map fst |> Map.ofSeq
+            newNames, flat
+        
+        let rec getNodes (n : Node) =
+            n :: (List.collect getNodes (IndexList.toList n.subNodes))
+            
+        let nodes = getNodes m.rootGroup
+        let newNodeKeys = 
+            nodes 
+            |> List.map (fun n -> 
+                let newKey = g n.key
+                n.key, newKey
+            )
+            |> Map.ofList
+        
+        let rec mapNodeNames (n : Node) =
+            { n with 
+                key = Map.find n.key newNodeKeys; 
+                leaves = n.leaves |> IndexList.map (fun l -> Map.find l leafNewNames)
+                subNodes = IndexList.map mapNodeNames n.subNodes 
+            }
+
+        let mapAnyName (n : Guid) =
+            match Map.tryFind n newNodeKeys, Map.tryFind n leafNewNames with
+            | Some n, _ -> n
+            | _, Some n -> n
+            | _ -> failwith "[Groups] cannot map name"
+
+        { m with 
+            flat = flat; 
+            rootGroup = mapNodeNames m.rootGroup; 
+            groupsLookup = m.groupsLookup |> HashMap.toSeq |> Seq.map (fun (id, name) -> mapAnyName id, name) |> HashMap.ofSeq
+            singleSelectLeaf = None
+        }
+
+type GroupsModel with  
+    static member FromJson( _ : GroupsModel) =
+        json {
+            let! version = Json.read "version"
+            match version with
+            | 0 -> return! GroupsModel.read0
+            | _ -> 
+                return! version 
+                |> sprintf "don't know version %d of Groupsmodel" 
+                |> Json.error
+        }
+
+    static member ToJson (x:GroupsModel) = 
+        json {            
+            do! Json.write "version"      x.version
+            do! Json.write "rootGroup"    x.rootGroup
+            do! Json.write "flat"         (x.flat |> HashMap.toList |> List.map snd)
+            do! Json.write "groupsLookup" (x.groupsLookup |> HashMap.toList)
+        }
+
+
         
 module Groups = 
     let updateLeaf' id f model =

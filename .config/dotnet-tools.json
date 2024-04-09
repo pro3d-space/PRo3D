@@ -1,18 +1,30 @@
 {
-    "version": 1,
-    "isRoot": true,
-    "tools": {
-      "paket": {
-        "version": "7.0.0-alpha003",
-        "commands": [
-          "paket"
-        ]
-      },
-      "aardpack": {
-        "version": "1.0.10",
-        "commands": [
-          "aardpack"
-        ]
-      }
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "paket": {
+      "version": "7.0.0-alpha003",
+      "commands": [
+        "paket"
+      ]
+    },
+    "aardpack": {
+      "version": "1.0.10",
+      "commands": [
+        "aardpack"
+      ]
+    },
+    "adaptify": {
+      "version": "1.1.9",
+      "commands": [
+        "adaptify"
+      ]
+    },
+    "fantomas": {
+      "version": "6.2.3",
+      "commands": [
+        "fantomas"
+      ]
     }
   }
+}

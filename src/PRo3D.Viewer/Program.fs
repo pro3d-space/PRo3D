@@ -46,26 +46,16 @@ open System.Reflection
 open System.Runtime.InteropServices
 
 
+type EmbeddedRessource = EmbeddedRessource
 
 [<DataContract>]
-type Calc =
-   { 
-      [<field: DataMember(Name = "a")>]
-      a : int;
-      [<field: DataMember(Name = "b")>]
-      b : int;
-   }
- 
- [<DataContract>]
 type Result =
    { 
       [<field: DataMember(Name = "result")>]
       result : string;
    }
 
-type EmbeddedRessource = EmbeddedRessource
-
-let viewerVersion       = "4.11.0-prerelease4"
+let viewerVersion       = "4.20.0-prerelease1"
 let catchDomainErrors   = false
 
 open System.IO
@@ -86,7 +76,6 @@ let getFreePort() =
    
 [<EntryPoint;STAThread>]
 let main argv = 
-
     // ensure appdata is here
     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create) |> printfn "ApplicationData: %s"
     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.Create) |> printfn "LocalApplicationData: %s"
@@ -130,7 +119,7 @@ let main argv =
     //PRo3D.Minerva.Config.besideExecuteable <- workingDirectory
     
 
-    let startupArgs = (CommandLine.parseArguments argv)
+    let startupArgs = CommandLine.parseArguments argv
 
     // --noMapping --samples 8 --backgroundColor red
     Config.backgroundColor <- startupArgs.backgroundColor
@@ -303,10 +292,19 @@ let main argv =
 
         //Log.line "[Viewer] scene: %A" loadedScnx
         
-        let port = 54322 //getFreePort()
+        let port = 
+            match startupArgs.port with
+            | None -> getFreePort ()
+            | Some port -> 
+                match Int32.TryParse port with
+                | (true, v) -> v
+                | _ -> 
+                    Log.warn "could not parse int from port %s" port
+                    getFreePort ()
+
         let renderingUrl = sprintf "http://localhost:%d" port
 
-        let mainApp = 
+        let (adaptiveModel, mainApp) = 
             ViewerApp.start 
                 runtime 
                 signature 
@@ -317,7 +315,9 @@ let main argv =
                 cacheFile 
                 renderingUrl 
                 ViewerApp.dataSamples
+                startupArgs.enableProvenanceTracking
                 appData
+                viewerVersion
 
         let s = {MailboxState.empty with update = 
                                             (fun a -> 
@@ -356,13 +356,29 @@ let main argv =
                             >=> OK "CORS approved" )
             ]
 
+        if startupArgs.enableProvenanceTracking && not startupArgs.enableRemoteApi then
+            failwith "provenance tracking requires remote api to be enabled "
 
+        let remoteApi =
+            match startupArgs.enableRemoteApi with
+            | true -> 
+                Log.line "attaching remote API"
+                let applyMessage msg = mainApp.updateSync Guid.Empty [msg]
+
+                //let storage = ProvenanceModel.localDirectory "./provenanceData"
+                let storage = ProvenanceModel.nopStorage()
+
+                let api = RemoteApi.Api(applyMessage, adaptiveModel.provenanceModel, adaptiveModel, storage)
+                RemoteApi.Suave.webPart storage api
+            | _ ->
+                choose []
 
         let suaveServer = 
-            WebPart.startServerLocalhost port [
-                allow_cors
+            WebPart.startServer port [
+                if startupArgs.disableCors then allow_cors
                 MutableApp.toWebPart' runtime false mainApp
                 path "/websocket" >=> handShake ws
+                prefix "/api" >=> remoteApi
                 Reflection.assemblyWebPart typeof<EmbeddedRessource>.Assembly
                // Reflection.assemblyWebPart typeof<CorrelationDrawing.CorrelationPanelResources>.Assembly //(System.Reflection.Assembly.LoadFrom "PRo3D.CorrelationPanels.dll")
                // prefix "/instrument" >=> MutableApp.toWebPart runtime instrumentApp

@@ -1,3 +1,56 @@
+## 4.22.0
+- further improved kdtree loading on NTFS/macbook
+
+
+## 4.21.0-prerelease3
+- further improved kdtree loading on NTFS/macbook
+
+## 4.21.0-prerelease2
+- fixed kdtree loading on NTFS/mac
+ 
+## 4.21.0-prerelease1
+- added support to re-create kdtrees 
+ 
+## 4.20.2
+- opc tool now supports "ignoreMasterKdTree" option which can be used to force leaf kdtree construction
+
+## 4.20.1
+- added readme to opc-tool
+
+## 4.20.0
+- added opc tool
+
+## 4.2.0-prerelease1
+- added rake to annotations
+
+## 4.20.0-prerelease1
+- provex and multitexturing
+
+## 4.12.0-prerelease10
+- new trafo version
+- distance filter for surface
+- increased minimum value for depth image colors 
+
+## 4.12.0-prerelease9
+- bugfix sequenced bookmarks paths
+
+## 4.12.0-prerelease8
+- various fixes for focal length, batch rendering
+- radiometry calculation changed
+
+## 4.12.0-prerelease7
+- #261 Zooming enhancements
+- #167 radiometry
+
+## 4.12.0-prerelease6
+- show depth (+ gui and legend) in instrument view
+- #234, snapshots: --renderDepth writes a depth image as tiff
+- bugfix: #329 obj without textures import
+- bugfix: #157 planet reset stopped
+- bugfix: #324 traverse updates
+- #314: surface transformation with pivot revised
+- bugfix for "save footprint"
+
 ## 4.12.0-prerelease5
 - opc rendering now works on linux
 
