@@ -250,7 +250,7 @@ module Entity =
             geometryPath  = None
             radius        = 382.5 //mean radius +/- 2.5m
             textureName   = None
-            defaultFrame  = Some (FrameSpiceName "IAU_DIDYMOS") // "DIDYMOS_FIXED" ?
+            defaultFrame  = Some (FrameSpiceName "ECLIPJ2000") 
         }
 
     let dimorphos =
@@ -265,7 +265,7 @@ module Entity =
             geometryPath  = None
             radius        = 75.5 //mean radius +/- 2.5m
             textureName   = None
-            defaultFrame  = Some (FrameSpiceName "ECLIPJ2000") // DIMORPHOS_FIXED ?
+            defaultFrame  = Some (FrameSpiceName "ECLIPJ2000") 
         }
     let heraSpacecraft =
         {

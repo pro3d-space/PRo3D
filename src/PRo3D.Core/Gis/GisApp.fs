@@ -839,8 +839,8 @@ module GisApp =
                 Entity.deimos.spiceName,    Entity.deimos 
                 Entity.phobos.spiceName,    Entity.phobos 
                 Entity.moon.spiceName,      Entity.moon 
-                //Entity.didymos.spiceName,   Entity.didymos 
-                //Entity.dimorphos.spiceName, Entity.dimorphos 
+                Entity.didymos.spiceName,   Entity.didymos 
+                Entity.dimorphos.spiceName, Entity.dimorphos 
                 Entity.heraSpacecraft.spiceName, Entity.heraSpacecraft 
             ] |> HashMap.ofList
         let referenceFrames =

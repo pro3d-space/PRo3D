@@ -55,7 +55,8 @@ module Entity =
             Log.line "[Entity] Cancel action needs to be handled in parent."
             m
         | EntityAction.Save spicename ->
-            {m with isEditing = false}
+            {m with isEditing = false
+                    spiceName = EntitySpiceName m.spiceNameText}
         | EntityAction.Close spicename ->
             {m with isEditing = false}
         | EntityAction.FlyTo spicename ->
