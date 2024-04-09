@@ -134,6 +134,7 @@ module SceneLoading =
                 |> ViewerIO.loadCorrelations
                 |> ViewerIO.loadLastFootPrint
                 |> SceneLoader.addScaleBarSegments
+                |> SceneLoader.loadSceneSpiceKernel
                 |> Choice1Of2 
             with e -> 
                 let error = sprintf "[PRo3D] SceneLoading.loadScene failed: %A" e.Message

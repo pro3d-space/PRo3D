@@ -77,8 +77,12 @@ module GisApp =
             Log.line "[GisApp] Could not find path %s" path
             {m with spiceKernelLoadSuccess = false}
 
-            
-
+    let loadSpiceKernel' (m : GisApp) =
+        match m.spiceKernel with
+        | Some kernel ->
+            loadSpiceKernel kernel.FullPath m
+        | None ->
+            m
 
     let update (m : GisApp) 
                (lenses : GisLenses<'viewer>)
