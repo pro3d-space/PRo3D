@@ -1,3 +1,6 @@
+## 4.21.0-prerelease3
+- bugfix contour lines
+
 ## 4.21.0-prerelease2
 - Bugfix Entity creation
 - Added new default Entities

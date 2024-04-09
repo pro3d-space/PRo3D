@@ -858,17 +858,17 @@ module ViewerUtils =
 
             PRo3D.Base.Shader.footPrintF        |> toEffect
         ]
-        Effect.compose [
+        //Effect.compose [
             
-            Shader.stableTrafo       |> toEffect
+        //    Shader.stableTrafo       |> toEffect
            
 
-            PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect  
-            PRo3D.Base.OPCFilter.markPatchBorders |> toEffect 
+        //    PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect  
+        //    PRo3D.Base.OPCFilter.markPatchBorders |> toEffect 
 
 
-            OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
-        ]
+        //    OpcViewer.Base.Shader.LoDColor.LoDColor |> toEffect                             
+        //]
 
     let isViewPlanVisible (m:AdaptiveModel) =
         adaptive {
