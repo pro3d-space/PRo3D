@@ -1,4 +1,7 @@
-## 4.23.0-prerelease3
+## 4.23.1
+- tweaked kdtree split limit epsilon for smaller kdtrees
+
+## 4.23.0
 - tweaked kdtree split limit epsilon for smaller kdtrees
 
 ## 4.22.0
