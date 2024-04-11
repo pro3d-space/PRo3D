@@ -171,24 +171,24 @@ module Sg =
             [| 
                 for h in patchHierarchies do
                     if createKdTrees then   
-                        yield KdTrees.loadKdTrees h Trafo3d.Identity ViewerModality.XYZ Serialization.binarySerializer false false DebugKdTreesX.loadTriangles' true              
+                        Log.startTimed "[KdTrees] Loading kdtrees: %s" h.opcPaths.Patches_DirAbsPath
+                        let m = Aardvark.VRVis.Opc.KdTrees.loadKdTrees h Trafo3d.Identity ViewerModality.XYZ Serialization.binarySerializer false true DebugKdTreesX.loadTriangles' true    
+                        Log.stop()
+                        if HashMap.isEmpty m then
+                            Log.warn "[KdTrees], KdTree map for %s is empty." h.opcPaths.Patches_DirAbsPath
+                            yield m
+                        else
+                            yield m
                     else 
                         yield HashMap.empty
             |]
 
         let totalKdTrees = kdTreesPerHierarchy.Length
-        Log.line "creating %d kdTrees" totalKdTrees
+        Log.line "fusing %d kdTrees" totalKdTrees
 
         let kdTrees = 
             kdTreesPerHierarchy                     
-            |> Array.Parallel.mapi (fun i e ->
-                Log.start "creating kdtree #%d of %d" i totalKdTrees
-                let r = e
-                Log.stop()
-                r
-            )
-            |> Array.fold (fun a b -> HashMap.union a b) HashMap.empty
-        
+            |> Array.fold HashMap.union HashMap.empty
 
 
         let createShadowContext (f : Aardvark.GeoSpatial.Opc.PatchLod.PatchNode) (scope : Scope) =
