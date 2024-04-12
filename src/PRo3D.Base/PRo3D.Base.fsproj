@@ -17,7 +17,6 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- <Compile Include="InteropHelpers.fs" /> -->
-    <Compile Include="KdTrees.fs" />
     <Compile Include="Multitexturing.fs" />
     <Compile Include="ErrorReporting.fs" />
     <EmbeddedResource Include="resources\CooTransformationConfig.zip" />

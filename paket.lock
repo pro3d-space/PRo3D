@@ -418,7 +418,7 @@ NUGET
     NETStandard.Library (2.0.3)
       Microsoft.NETCore.Platforms (>= 1.1)
     Newtonsoft.Json (13.0.2)
-    OPCViewer.Base (1.6)
+    OPCViewer.Base (1.6.1)
       Aardvark.Base (>= 5.2.14 < 5.3)
       Aardvark.Base.FSharp (>= 5.2.14 < 5.3)
       Aardvark.Geometry.Intersection (>= 5.2.13 < 5.3)
