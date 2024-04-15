@@ -9,6 +9,8 @@ exports.default = async function(context) {
 		return;
 	}
  
+    const appName = context.packager.appInfo.productFilename;
+ 
 	notarize({
 	  appBundleId: 'space.pro3d.app',
 	  appPath: `${appOutDir}/${appName}.app`,

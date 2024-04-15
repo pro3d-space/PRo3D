@@ -20,7 +20,7 @@
     "dist:darwin:arm64": "bash ./signbuild.sh && electron-builder --c.buildVersion=$BUILD_VERSION --c.artifactName='${productName}-${buildVersion}-${arch}.${ext}' --publish always",
     "dist::win32": "electron-builder --c.buildVersion='%BUILD_VERSION%' --c.artifactName='${productName}-${buildVersion}-${arch}.${ext}' --publish always",
     "dist:linux:x64": "electron-builder --c.buildVersion=$BUILD_VERSION --c.artifactName='${productName}-${buildVersion}-${arch}.${ext}' --publish always"
-  },
+  }, 
   "main": "main.js",
   "repository": "https://github.com/electron/electron-quick-start",
   "dependencies": {
