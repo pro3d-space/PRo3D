@@ -31,7 +31,7 @@
     "node-shared-mem": "1.0.12",
     "nodejs-websocket": "^1.7.2"
   },
-  "devDependencies": {
+  "devDependencies": { 
     "dotenv": "^16.0.0",
     "electron": "^18.1.0",
     "electron-builder": "^23.0.3",
