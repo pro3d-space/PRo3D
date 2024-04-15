@@ -35,7 +35,7 @@
     "dotenv": "^16.0.0",
     "electron": "^18.1.0",
     "electron-builder": "^23.0.3",
-    "electron-notarize": "^1.2.1",
+    "@electron/notarize": "^2.3.0",
     "electron-packager": "^15.5.1",
     "electron-rebuild": "^3.2.7",
     "folder-zip-sync": "^1.0.5",
@@ -80,7 +80,7 @@
       "entitlementsInherit": "build/entitlements.mac.plist",
       "gatekeeperAssess": false
     },
-    "afterSign": "scripts/notarize.js",
+    "afterSign": "scripts/notarizeNew.js",
     "linux": {
       "target": [
         "AppImage"
