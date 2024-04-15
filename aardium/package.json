@@ -48,7 +48,7 @@
     "win": {
       "icon": "build/icon.ico",
       "target": "nsis"
-    },
+    }, 
     "nsis": {
       "installerIcon": "build/icon.ico",
       "installerHeaderIcon": "build/icon.ico",
