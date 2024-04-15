@@ -80,7 +80,7 @@
       "entitlementsInherit": "build/entitlements.mac.plist",
       "gatekeeperAssess": false
     },
-    "afterSign": "scripts/notarizeNew.js",
+    "afterSign": "scripts/notarize.js",
     "linux": {
       "target": [
         "AppImage"
