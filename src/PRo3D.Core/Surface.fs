@@ -32,7 +32,7 @@ module SurfaceTransformations =
     //    yawRotation * pitchRotation * rollRotation
 
     /// TODO Refactor : This is not actually the complete trafo!! TODO rename this
-    let fullTrafo' (surf : Surface) (observedSystem : SpiceReferenceSystem) (observer : ObserverSystem) (refsys : ReferenceSystem) = 
+    let fullTrafo' (surf : Surface) (observedSystem : Option<SpiceReferenceSystem>) (observerSystem : Option<ObserverSystem>) (refsys : ReferenceSystem) = 
     
         let north = refsys.northO.Normalized        
         let up    = refsys.up.value.Normalized
@@ -53,9 +53,12 @@ module SurfaceTransformations =
         let originTrafo = -surf.transformation.pivot.value |> Trafo3d.Translation
 
         let spiceTrafo = 
-            CooTransformation.transformBody observedSystem.body (Some observedSystem.referenceFrame) observer.body observer.referenceFrame observer.time
-            |> Option.map (fun t -> t.Trafo) 
-            |> Option.defaultValue Trafo3d.Identity
+            match observedSystem, observerSystem with
+            | Some observedSystem, Some observerSystem ->
+                CooTransformation.transformBody observedSystem.body (Some observedSystem.referenceFrame) observerSystem.body observerSystem.referenceFrame observerSystem.time
+                |> Option.map (fun t -> t.Trafo) 
+                |> Option.defaultValue Trafo3d.Identity
+            | _ -> Trafo3d.Identity
         
         originTrafo * rot * originTrafo.Inverse * refSysRotation.Inverse * trans * refSysRotation * spiceTrafo
     
@@ -67,7 +70,7 @@ module SurfaceTransformations =
             let! observedSytem = observedSystem
             let! observerSystem = observerSystem
             
-            return fullTrafo' s observedSytem observerSystem rSys
+            return fullTrafo' s (Some observedSytem) (Some observerSystem) rSys
         }
     
     let fullTrafoForSurface (surf : AdaptiveSurface) (observedSystem : aval<SpiceReferenceSystem>) (observerSystem: aval<ObserverSystem>) (refsys : AdaptiveReferenceSystem) = 
@@ -78,7 +81,7 @@ module SurfaceTransformations =
             let! observedSystem = observedSystem
             let! observerSystem = observerSystem
             
-            return fullTrafo' s observedSystem observerSystem rSys
+            return fullTrafo' s (Some observedSystem) (Some observerSystem) rSys
         }
 module DebugKdTreesX = 
    

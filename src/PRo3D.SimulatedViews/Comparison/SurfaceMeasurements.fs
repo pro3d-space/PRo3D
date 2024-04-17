@@ -16,7 +16,7 @@ open PRo3D.Comparison.ComparisonUtils
 module SurfaceMeasurements =
 
     let getAxesAngles surface refSystem =
-        let trafo = SurfaceTransformations.fullTrafo' surface refSystem
+        let trafo = SurfaceTransformations.fullTrafo' surface None None refSystem
 
         let mutable rot = V3d.OOO
         let mutable tra = V3d.OOO
@@ -37,7 +37,7 @@ module SurfaceMeasurements =
                       (originMode   : OriginMode) =
         let surfaceFilter (id : Guid) (l : Leaf) (s : SgSurface) = 
             id = surface.guid
-        let trafo = SurfaceTransformations.fullTrafo' surface refSystem
+        let trafo = SurfaceTransformations.fullTrafo' surface None None refSystem
         let mutable rot = V3d.OOO
         let mutable tra = V3d.OOO
         let mutable sca = V3d.OOO

@@ -73,7 +73,7 @@ module TransformationApp =
            let observerationTrafo = 
                 match observedSystem, observerSystem with
                 | Some observedSystem, Some observerSystem ->
-                    match CooTransformation.transformBody observedSystem.body (Some observerSystem.referenceFrame) observerSystem.body observerSystem.referenceFrame observerSystem.time with
+                    match CooTransformation.transformBody observedSystem.body (Some observedSystem.referenceFrame) observerSystem.body observerSystem.referenceFrame observerSystem.time with
                     | None -> Trafo3d.Identity
                     | Some t -> t.Trafo
                 | _ -> Trafo3d.Identity

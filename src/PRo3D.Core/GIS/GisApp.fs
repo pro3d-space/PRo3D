@@ -760,9 +760,6 @@ module GisApp =
         //|> Sg.depthTest' DepthTest. 
 
 
-    let getSurfaceAdaptiveToViewerTrafo (s : SurfaceId) (m : AdaptiveGisApp) =
-        m.Current |> AVal.map (fun m -> getSurfaceTrafo m s |> Option.map TransformedBody.trafo |> Option.defaultValue Trafo3d.Identity)
-
     let getSpiceReferenceSystemFromSurfaces (s : SurfaceId) (m : HashMap<SurfaceId, GisSurface>)  = 
         match HashMap.tryFind s m with
         | None -> None
@@ -779,7 +776,7 @@ module GisApp =
         m.gisSurfaces.Content |> AVal.map (getSpiceReferenceSystemFromSurfaces s)
 
     let getObserver (v : ObservationInfo) =
-        match v.observer, v.referenceFrame with
+        match v.target, v.referenceFrame with
         | Some observer, Some referenceFrame -> Some { body = observer; referenceFrame = referenceFrame; time = v.time.date }
         | _ -> None
 
@@ -793,7 +790,7 @@ module GisApp =
         match m.defaultObservationInfo.observer, m.defaultObservationInfo.referenceFrame, m.defaultObservationInfo.target with
         | Some observer, Some observerFrame, Some target ->
             Log.line "look at. target: %A, observer: %A, frame: %A" target observer observerFrame
-            match CooTransformation.transformBody target None observer observerFrame m.defaultObservationInfo.time.date with
+            match CooTransformation.transformBody observer (Some observerFrame) target observerFrame m.defaultObservationInfo.time.date with
             | None -> 
                 None
             | Some t -> 
@@ -801,7 +798,7 @@ module GisApp =
         | _ -> None
 
     let viewGisEntities (m : AdaptiveGisApp) =
-        let observer = m.defaultObservationInfo.observer 
+        let observer = m.defaultObservationInfo.target 
         let observerWithDefault = observer |> AVal.map (Option.defaultValue (EntitySpiceName "mars"))
         let time = m.defaultObservationInfo.time.date
         let targetReferenceFrame = m.defaultObservationInfo.referenceFrame 

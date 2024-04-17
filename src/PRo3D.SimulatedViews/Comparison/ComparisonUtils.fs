@@ -48,7 +48,7 @@ module ComparisonUtils =
          else None
 
     let almostFullTrafo surface refSystem=
-         let incompleteTrafo = SurfaceTransformations.fullTrafo' surface refSystem
+         let incompleteTrafo = SurfaceTransformations.fullTrafo' surface None None refSystem
          let sc = surface.scaling.value
          let t = surface.preTransform
          Trafo3d.Scale(sc) * (t * incompleteTrafo)
@@ -89,6 +89,8 @@ module ComparisonUtils =
         let ray = new Ray3d (fromLocation, direction)
         let intersected = SurfaceIntersection.doKdTreeIntersection surfaceModel 
                                                                    refSystem 
+                                                                   (constF None)
+                                                                   None
                                                                    (FastRay3d(ray)) 
                                                                    surfaceFilter 
                                                                    cache

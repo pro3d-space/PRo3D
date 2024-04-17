@@ -376,7 +376,7 @@ module CooTransformation =
         match relState, rot with
         | Some rel, Some rot -> 
             let relFrame = rel.rot 
-            let t = Trafo3d.FromBasis(relFrame.C0, relFrame.C1, -relFrame.C2, V3d.Zero)
+            let t = Trafo3d.FromBasis(relFrame.C0, relFrame.C1, -relFrame.C2, -rel.pos)
             Some { 
                 lookAtBody = CameraView.ofTrafo t.Inverse
                 position = rel.pos

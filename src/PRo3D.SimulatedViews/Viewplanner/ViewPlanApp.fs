@@ -127,7 +127,7 @@ module ViewPlanApp =
         let ray = FastRay3d(p, dir)  
                  
         match SurfaceIntersection.doKdTreeIntersection 
-            surfaceModel refSystem ray (fun id l surf -> l.active) cache with
+            surfaceModel refSystem (constF None) None ray (fun id l surf -> l.active) cache with
         | Some (t,_), _ -> ray.Ray.GetPointOnRay(t) |> Some
         | None, _ -> None
 
