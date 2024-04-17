@@ -61,21 +61,24 @@ module GisApp =
         HashMap.add surfaceId newSurface gisSurfaces
 
     let loadSpiceKernel (path : string) (m : GisApp) =
-        if File.Exists path then
-            let directory = Path.GetDirectoryName path
-            let name = Path.GetFileName path
-            match CooTransformation.tryLoadKernel directory name with
-            | None -> 
-                Log.line "[GisApp] Could not load spice kernel"
-                {m with spiceKernel = Some (CooTransformation.SPICEKernel.ofPath path)
-                        spiceKernelLoadSuccess = false}
-            | Some spiceKernel -> 
-                Log.line "[GisApp] Successfully loaded spice kernel %s" path
-                {m with spiceKernel = Some spiceKernel
-                        spiceKernelLoadSuccess = true}
-        else
-            Log.line "[GisApp] Could not find path %s" path
-            {m with spiceKernelLoadSuccess = false}
+        match m.spiceKernel with
+        | Some s when s = CooTransformation.SPICEKernel.ofPath path -> m 
+        | _ -> 
+            if File.Exists path then
+                let directory = Path.GetDirectoryName path
+                let name = Path.GetFileName path
+                match CooTransformation.tryLoadKernel directory name with
+                | None -> 
+                    Log.line "[GisApp] Could not load spice kernel"
+                    {m with spiceKernel = Some (CooTransformation.SPICEKernel.ofPath path)
+                            spiceKernelLoadSuccess = false}
+                | Some spiceKernel -> 
+                    Log.line "[GisApp] Successfully loaded spice kernel %s" path
+                    {m with spiceKernel = Some spiceKernel
+                            spiceKernelLoadSuccess = true}
+            else
+                Log.line "[GisApp] Could not find path %s" path
+                {m with spiceKernelLoadSuccess = false}
 
     let loadSpiceKernel' (m : GisApp) =
         match m.spiceKernel with
