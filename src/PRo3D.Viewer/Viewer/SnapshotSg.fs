@@ -124,10 +124,12 @@ module SnapshotSg =
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
         let view = m.navigation.camera.view
+        let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 
-                    |> AMap.map(fun _ surface ->                         
+                    |> AMap.map(fun guid surface ->              
+                        let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
                         viewSingleSurfaceSg 
                             surface 
                             m.scene.surfacesModel.surfaces.flat
@@ -136,7 +138,8 @@ module SnapshotSg =
                             surfacePicking
                             surface.globalBB
                             refSystem 
-                            None
+                            observationSystem
+                            observerSystem
                             m.footPrint
                             vpVisible
                             usehighlighting filterTexture
@@ -201,11 +204,12 @@ module SnapshotSg =
         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) 
                                 m.overlayFrustum m.frustum // use overlay frustum if Some()
         //let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
-
+        let observer = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
         let annotations, discs = 
             DrawingApp.view 
                 m.scene.config 
                 mdrawingConfig 
+                observer
                 m.navigation.camera.view 
                 frustum
                 runtime

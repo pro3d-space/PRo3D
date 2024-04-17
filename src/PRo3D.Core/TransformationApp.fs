@@ -17,6 +17,7 @@ open Aardvark.VRVis.Opc
 
 open PRo3D.Base
 open PRo3D.Core
+open PRo3D.Base.Gis
 
 open Aardvark.Base.MultimethodTest
         
@@ -50,6 +51,8 @@ module TransformationApp =
         (pivotChanged : bool)
         (north : V3d)
         (up : V3d) 
+        (observedSystem : Option<SpiceReferenceSystem>)
+        (observerSystem : Option<ObserverSystem>)
         (scale:float)  = 
 
            
@@ -67,7 +70,15 @@ module TransformationApp =
            let pitchRotation  = Trafo3d.RotationInDegrees(east, pitch)
            let rollRotation   = Trafo3d.RotationInDegrees(north,roll)
 
-           let rotAndScale = originTrafo * refSysRotation.Inverse * eulerRotation * Trafo3d.Scale(scale) * refSysRotation  * originTrafo.Inverse 
+           let observerationTrafo = 
+                match observedSystem, observerSystem with
+                | Some observedSystem, Some observerSystem ->
+                    match CooTransformation.transformBody observedSystem.body (Some observerSystem.referenceFrame) observerSystem.body observerSystem.referenceFrame observerSystem.time with
+                    | None -> Trafo3d.Identity
+                    | Some t -> t.Trafo
+                | _ -> Trafo3d.Identity
+
+           let rotAndScale = originTrafo * refSysRotation.Inverse  * eulerRotation * Trafo3d.Scale(scale) * refSysRotation  * originTrafo.Inverse * observerationTrafo
            
            let newTrafo = translationTrafo * rotAndScale 
            
@@ -94,7 +105,9 @@ module TransformationApp =
 
     let fullTrafo 
         (transform : AdaptiveTransformations) 
-        (refsys : AdaptiveReferenceSystem) = 
+        (refsys : AdaptiveReferenceSystem)
+        (observedSystem : aval<Option<SpiceReferenceSystem>>)
+        (observerSystem : aval<Option<ObserverSystem>>)= 
         adaptive {
            let! refSys = refsys.Current
            let! translation = transform.translation.value
@@ -109,6 +122,8 @@ module TransformationApp =
            let! scale = transform.scaling.value
            let! usePivot = transform.usePivot
            let! transf = transform.Current
+           let! observedSystem = observedSystem
+           let! observerSystem = observerSystem
 
            let northN, upN =
                if usePivot then
@@ -116,14 +131,16 @@ module TransformationApp =
                else
                 north, up
 
-           let newTrafo = calcFullTrafo translation yaw pitch roll pivot oldPivot pivotChanged northN.Normalized upN.Normalized scale
+           let newTrafo = calcFullTrafo translation yaw pitch roll pivot oldPivot pivotChanged northN.Normalized upN.Normalized observedSystem observerSystem scale
            return newTrafo
         }
            
     
     let fullTrafo' 
         (transform : Transformations) 
-        (refsys : ReferenceSystem) = 
+        (refsys : ReferenceSystem) 
+        (observedSystem : Option<SpiceReferenceSystem>)
+        (observerSystem : Option<ObserverSystem>) =
 
         let north, up = 
             if transform.usePivot then
@@ -141,6 +158,8 @@ module TransformationApp =
             transform.pivotChanged 
             north.Normalized 
             up.Normalized 
+            observedSystem
+            observerSystem
             transform.scaling.value
 
     let resetRotation (model : Transformations) =

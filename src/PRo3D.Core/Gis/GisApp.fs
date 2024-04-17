@@ -565,17 +565,6 @@ module GisApp =
         ]
 
 
-    module CooTransformation =
-
-        let getPositionTransformationMatrix (pcFrom : string) (pcTo : string) (time : DateTime) : Option<M33d> = 
-            let m33d : array<double> = Array.zeroCreate 9
-            let pdRotMat = fixed &m33d[0] 
-            let result = CooTransformation.GetPositionTransformationMatrix(pcFrom, pcTo, CooTransformation.Time.toUtcFormat time, pdRotMat)
-            if result <> 0 then 
-                None
-            else
-                m33d |> M33d |> Some
-
 
     [<Struct>]
     type RenderableBody = 
@@ -635,47 +624,6 @@ module GisApp =
             }
 
 
-    [<Struct>]
-    type TransformedBody = 
-        {
-            lookAtBody : CameraView
-            position : V3d
-            alignBodyToObserverFrame : M33d
-        } with
-            member x.Trafo = 
-                let shift = Trafo3d.Translation x.position
-                let m44d = M44d x.alignBodyToObserverFrame
-                let bodyToObserver = Trafo3d(m44d, m44d.Inverse)
-                bodyToObserver * shift
-
-    module TransformedBody =
-        let trafo (o : TransformedBody) = o.Trafo
-
-    let transformBody (body : EntitySpiceName) (bodyFrame : Option<FrameSpiceName>) (observer : EntitySpiceName) (observerFrame : FrameSpiceName) (time : DateTime) =
-        let (EntitySpiceName body), (EntitySpiceName observer), (FrameSpiceName observerFrame) = body, observer, observerFrame
-        let bodyFrame = 
-            match bodyFrame with
-            | Some (FrameSpiceName bodyFrame) -> bodyFrame
-            | None -> observerFrame
-
-        let suportBody = "sun"
-        let relState = CooTransformation.getRelState body suportBody observer time observerFrame 
-        let rot = CooTransformation.getPositionTransformationMatrix bodyFrame observerFrame time
-        let switchToLeftHanded = Trafo3d.FromBasis(V3d.IOO, -V3d.OOI, -V3d.OIO, V3d.Zero)
-        let flipZ = Trafo3d.FromBasis(V3d.IOO, V3d.OIO, -V3d.OOI, V3d.Zero)
-        match relState, rot with
-        | Some rel, Some rot -> 
-            let relFrame = rel.rot 
-            let t = Trafo3d.FromBasis(relFrame.C0, relFrame.C1, -relFrame.C2, V3d.Zero)
-            Some { 
-                lookAtBody = CameraView.ofTrafo t.Inverse
-                position = rel.pos
-                alignBodyToObserverFrame = rot  
-            }
-        | _ -> 
-            Log.line $"[SPICE] failed to transform body (body = {body}, bodyFrame = {bodyFrame}, observer = {observer}, observerFrame = {observerFrame}, time = {time}."
-            None
-
     let getSurfaceTrafo (m : GisApp)  (s : SurfaceId) =
         match m.gisSurfaces |> HashMap.tryFind s with
         | None -> 
@@ -683,7 +631,7 @@ module GisApp =
         | Some gisSurface ->
             match gisSurface.entity, m.defaultObservationInfo.observer, m.defaultObservationInfo.referenceFrame with
             | Some entity, Some observer, Some observerFrame -> 
-                match transformBody entity gisSurface.referenceFrame observer observerFrame m.defaultObservationInfo.time.date with
+                match CooTransformation.transformBody entity gisSurface.referenceFrame observer observerFrame m.defaultObservationInfo.time.date with
                 | None -> None
                 | Some t -> 
                    Some t
@@ -713,7 +661,7 @@ module GisApp =
                     Trafo3d.Scale(radius) // unit sphere has radius 1, scaled by radius, we have real body radius.
                 
                 let bodyToObserver = 
-                    transformBody entity.spiceName entityRefRame observer tartetRefFrame time 
+                    CooTransformation.transformBody entity.spiceName entityRefRame observer tartetRefFrame time 
                     |> Option.map TransformedBody.trafo
                     |> Option.defaultValue Trafo3d.Identity
 
@@ -769,7 +717,7 @@ module GisApp =
             (targetReferenceFrame
                 |> getFrameWithDefaulting, observerSpiceBody, time)  
             |||> AVal.map3 (fun observerFrame observer time -> 
-                transformBody (EntitySpiceName "sun") (Some observerFrame) observer observerFrame time
+                CooTransformation.transformBody (EntitySpiceName "sun") (Some observerFrame) observer observerFrame time
             )
 
         let nonInstancedRendering () =
@@ -812,14 +760,40 @@ module GisApp =
         //|> Sg.depthTest' DepthTest. 
 
 
-    let getSurfaceAdaptiveToViewerTrafo (m : AdaptiveGisApp) (s : SurfaceId) =
+    let getSurfaceAdaptiveToViewerTrafo (s : SurfaceId) (m : AdaptiveGisApp) =
         m.Current |> AVal.map (fun m -> getSurfaceTrafo m s |> Option.map TransformedBody.trafo |> Option.defaultValue Trafo3d.Identity)
+
+    let getSpiceReferenceSystemFromSurfaces (s : SurfaceId) (m : HashMap<SurfaceId, GisSurface>)  = 
+        match HashMap.tryFind s m with
+        | None -> None
+        | Some r -> 
+            match r.referenceFrame, r.entity with
+            | Some referenceFrame, Some entity -> 
+                Some { referenceFrame = referenceFrame; body = entity;  }
+            | _ -> None
+
+    let getSpiceReferenceSystem (m : GisApp) (s : SurfaceId) = 
+        getSpiceReferenceSystemFromSurfaces s m.gisSurfaces 
+
+    let getSpiceReferenceSystemAdaptive (m : AdaptiveGisApp) (s : SurfaceId) =
+        m.gisSurfaces.Content |> AVal.map (getSpiceReferenceSystemFromSurfaces s)
+
+    let getObserver (v : ObservationInfo) =
+        match v.observer, v.referenceFrame with
+        | Some observer, Some referenceFrame -> Some { body = observer; referenceFrame = referenceFrame; time = v.time.date }
+        | _ -> None
+
+    let getObserverSystem (m : GisApp) =
+        getObserver m.defaultObservationInfo 
+
+    let getObserverSystemAdaptive (m: AdaptiveGisApp) =
+        m.defaultObservationInfo.Current |> AVal.map getObserver
 
     let lookAtObserver (m : GisApp) =
         match m.defaultObservationInfo.observer, m.defaultObservationInfo.referenceFrame, m.defaultObservationInfo.target with
         | Some observer, Some observerFrame, Some target ->
             Log.line "look at. target: %A, observer: %A, frame: %A" target observer observerFrame
-            match transformBody target None observer observerFrame m.defaultObservationInfo.time.date with
+            match CooTransformation.transformBody target None observer observerFrame m.defaultObservationInfo.time.date with
             | None -> 
                 None
             | Some t -> 

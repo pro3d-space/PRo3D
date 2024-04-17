@@ -25,6 +25,7 @@ open OpcViewer.Base
 
 open PRo3D
 open PRo3D.Base
+open PRo3D.Base.Gis
 open PRo3D.Core
 open PRo3D.Core.Surface
 open PRo3D.Viewer
@@ -205,6 +206,8 @@ module ViewerUtils =
     let getLodParameters 
         (surf:aval<AdaptiveSurface>) 
         (refsys:AdaptiveReferenceSystem) 
+        (observedSystem : aval<Option<SpiceReferenceSystem>>) 
+        (observerSystem : aval<Option<ObserverSystem>>)
         (frustum : aval<Frustum>) =
         adaptive {
             let! s = surf
@@ -212,7 +215,7 @@ module ViewerUtils =
             let sizes = V2i(1024,768)
             let! quality = s.quality.value
             //let! trafo = AVal.map2(fun a b -> a * b) s.preTransform s.transformation.trafo //combine pre and current transform
-            let! trafo =  TransformationApp.fullTrafo s.transformation refsys //SurfaceTransformations.fullTrafo surf refsys
+            let! trafo =  TransformationApp.fullTrafo s.transformation refsys observedSystem observerSystem //SurfaceTransformations.fullTrafo surf refsys
             
             return { frustum = frustum; size = sizes; factor = quality; trafo = trafo }
         }
@@ -278,7 +281,8 @@ module ViewerUtils =
         (surfacePicking  : aval<bool>)
         (globalBB        : aval<Box3d>) 
         (refsys          : AdaptiveReferenceSystem)
-        (surfaceToGlobal : Option<AdaptiveSgSurface -> AdaptiveSurface -> AdaptiveReferenceSystem -> aval<Trafo3d>>)
+        (observedSystem : aval<Option<SpiceReferenceSystem>>) 
+        (observerSystem : aval<Option<ObserverSystem>>)
         (fp              : AdaptiveFootPrint) 
         (vpVisible       : aval<bool>)
         (useHighlighting : aval<bool>)
@@ -308,7 +312,7 @@ module ViewerUtils =
 
                 let trafo =
                     adaptive {
-                        let! fullTrafo = TransformationApp.fullTrafo surf.transformation refsys
+                        let! fullTrafo = TransformationApp.fullTrafo surf.transformation refsys observedSystem observerSystem
                         let! preTransform = surf.preTransform
                         let! flipZ = surf.transformation.flipZ
                         let! sketchFab = surf.transformation.isSketchFab
@@ -325,15 +329,6 @@ module ViewerUtils =
                             return (fullTrafo * preTransform)
                             //return Trafo3d.Scale(scaleFactor) * (fullTrafo * preTransform)
                     }
-
-
-                let surfaceToSolarSystem =
-                    match surfaceToGlobal with
-                    | None -> Trafo3d.Identity |> AVal.constant
-                    | Some f -> 
-                        f surface surf refsys
-
-                let globalBB = (globalBB, surfaceToSolarSystem) ||> AVal.map2 (fun b t -> b.Transformed(t))
 
                 let pickable = 
                     (globalBB, trafo)
@@ -427,7 +422,6 @@ module ViewerUtils =
                     |> AVal.map createSg
                     |> Sg.dynamic
                     |> Sg.trafo trafo //(Transformations.fullTrafo surf refsys)
-                    |> Sg.trafo surfaceToSolarSystem
                     |> Sg.modifySamplerState DefaultSemantic.DiffuseColorTexture samplerDescription
                     |> Sg.uniform "selected"      (isSelected) // isSelected
                     |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
@@ -446,7 +440,7 @@ module ViewerUtils =
                     |> Sg.noEvents
                     |> Sg.texture (Sym.ofString "ColorMapTexture") (AVal.constant colormap)
                     |> Sg.texture (Sym.ofString "FootPrintTexture") fp.projTex
-                    |> Sg.LodParameters( getLodParameters  (AVal.constant surf) refsys frustum )
+                    |> Sg.LodParameters ( getLodParameters  (AVal.constant surf) refsys observedSystem observerSystem frustum  )
                     |> Sg.AttributeParameters( attributeParameters  (AVal.constant surf) )
                     
                     |> SecondaryTexture.Sg.applySecondaryTextureId (
@@ -536,7 +530,9 @@ module ViewerUtils =
         (surface         : AdaptiveSgSurface) 
         (surfacesMap     : amap<Guid, AdaptiveLeafCase>)
         (frustum         : aval<Frustum>)
-        (refsys          : AdaptiveReferenceSystem) =
+        (refsys          : AdaptiveReferenceSystem)
+        (observedSystem : aval<Option<SpiceReferenceSystem>>) 
+        (observerSystem : aval<Option<ObserverSystem>>)=
 
         adaptive {
             match! AMap.tryFind surface.surface surfacesMap with
@@ -552,7 +548,7 @@ module ViewerUtils =
 
                 let trafo =
                         adaptive {
-                            let! fullTrafo = TransformationApp.fullTrafo surf.transformation refsys
+                            let! fullTrafo = TransformationApp.fullTrafo surf.transformation refsys observedSystem observerSystem
                             let! preTransform = surf.preTransform
                             let! flipZ = surf.transformation.flipZ
                             let! sketchFab = surf.transformation.isSketchFab
@@ -600,7 +596,7 @@ module ViewerUtils =
                     |> Sg.trafo trafo 
                     |> Sg.uniform "TriangleSize"   triangleFilter 
                     |> Sg.onOff (surf.isVisible)
-                    |> Sg.LodParameters( getLodParameters  (AVal.constant surf) refsys frustum )
+                    |> Sg.LodParameters( getLodParameters  (AVal.constant surf) refsys  observedSystem observerSystem frustum )
                     |> Sg.noEvents 
                     |> Sg.effect [
                         triangleFilterX     |> toEffect
@@ -612,15 +608,22 @@ module ViewerUtils =
                 return Sg.empty
         } |> Sg.dynamic
 
+    let getObserverSystem (m : AdaptiveModel) =
+        Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
+
     let getSimpleSurfacesSg 
         (m:AdaptiveModel) =  
         let sgGrouped = m.scene.surfacesModel.sgGrouped 
         let surfs = m.scene.surfacesModel.surfaces.flat
         let refSystem = m.scene.referenceSystem
+        let observerSystem = getObserverSystem m
             
         let surfacesToSg surfaces =
             surfaces
-              |> AMap.map (fun guid sf -> getSimpleSingleSurfaceSg sf surfs m.frustum refSystem)
+              |> AMap.map (fun guid sf -> 
+                    let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
+                    getSimpleSingleSurfaceSg sf surfs m.frustum refSystem observationSystem observerSystem
+               )
               |> AMap.toASet 
               |> ASet.map snd    
               |> Sg.set
@@ -832,7 +835,7 @@ module ViewerUtils =
             
             Shader.footprintV        |> toEffect 
             Shader.stableTrafo       |> toEffect
-            Shader.triangleFilterX   |> toEffect
+            //Shader.triangleFilterX   |> toEffect
            
            
             Shader.fixAlpha |> toEffect
@@ -881,8 +884,6 @@ module ViewerUtils =
                 | None -> return false
             | None -> return false
         }
-    let surfaceToSunSystem (m : AdaptiveModel) (sg : AdaptiveSgSurface) (surface : AdaptiveSurface) (r : AdaptiveReferenceSystem) =
-        Gis.GisApp.getSurfaceAdaptiveToViewerTrafo m.scene.gisApp sg.surface
 
 
     //TODO TO refactor screenshot specific
@@ -895,14 +896,14 @@ module ViewerUtils =
         let refSystem = m.scene.referenceSystem
         let vpVisible = isViewPlanVisible m
         let view = m.navigation.camera.view
-
+        let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
 
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 
-                    |> AMap.map(fun _ sf -> 
+                    |> AMap.map(fun guid sf -> 
                         let surfaces = m.scene.surfacesModel.surfaces.flat
-
+                        let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
                         viewSingleSurfaceSg 
                             sf 
                             surfaces 
@@ -911,7 +912,8 @@ module ViewerUtils =
                             m.ctrlFlag 
                             sf.globalBB 
                             refSystem 
-                            (surfaceToSunSystem m |> Some)
+                            observationSystem
+                            observerSystem
                             m.footPrint 
                             vpVisible
                             usehighlighting m.filterTexture
@@ -979,10 +981,12 @@ module ViewerUtils =
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
         let view = m.navigation.camera.view
+        let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 
-                    |> AMap.map(fun _ surface ->   
+                    |> AMap.map(fun guid surface ->   
+                        let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
                         let s =
                             viewSingleSurfaceSg 
                                 surface 
@@ -992,7 +996,8 @@ module ViewerUtils =
                                 surfacePicking
                                 surface.globalBB
                                 refSystem 
-                                (surfaceToSunSystem m |> Some)
+                                observationSystem
+                                observerSystem
                                 m.footPrint 
                                 vpVisible
                                 usehighlighting filterTexture

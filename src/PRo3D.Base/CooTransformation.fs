@@ -1,4 +1,5 @@
-﻿namespace PRo3D.Base
+﻿#nowarn "9"
+namespace PRo3D.Base
 
 open System
 open Aardvark.Base

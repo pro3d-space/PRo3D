@@ -10,6 +10,7 @@ open Aardvark.UI
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open PRo3D.Base
+open PRo3D.Base.Gis
 open Chiron
 
 open Adaptify
@@ -385,6 +386,8 @@ type Annotation = {
     key            : Guid
                    
     modelTrafo     : Trafo3d
+
+    referenceSystem : Option<SpiceReferenceSystem>
                    
     geometry       : Geometry
     projection     : Projection         
@@ -488,6 +491,7 @@ with
                 manualDipAngle   = Annotation.initialManualDipAngle
                 manualDipAzimuth = Annotation.initialmanualDipAzimuth
                 bookmarkId       = None
+                referenceSystem  = None
             }
         }
 
@@ -548,6 +552,7 @@ with
                 manualDipAngle   = Annotation.initialManualDipAngle
                 manualDipAzimuth = Annotation.initialmanualDipAzimuth
                 bookmarkId       = None
+                referenceSystem  = None
             }
         }
 
@@ -608,6 +613,7 @@ with
                 manualDipAngle   = Annotation.initialManualDipAngle
                 manualDipAzimuth = Annotation.initialmanualDipAzimuth
                 bookmarkId       = None
+                referenceSystem  = None
             }
         }
 
@@ -671,6 +677,7 @@ with
                 manualDipAngle   = manualDipAngle
                 manualDipAzimuth = Annotation.initialmanualDipAzimuth
                 bookmarkId       = bookmarkId
+                referenceSystem  = None
             }
         }
 
@@ -735,6 +742,7 @@ with
                 manualDipAngle   = manualDipAngle
                 manualDipAzimuth = manualDipAzimuth
                 bookmarkId       = bookmarkId
+                referenceSystem  = None
             }
         }
 
@@ -800,6 +808,7 @@ with
                 manualDipAngle   = manualDipAngle
                 manualDipAzimuth = manualDipAzimuth
                 bookmarkId       = bookmarkId
+                referenceSystem  = None
             }
         }
 
@@ -892,12 +901,13 @@ module Annotation =
         ]
     
     let make 
-        (projection) 
-        (bookmarkId)
-        (geometry) 
-        (color) 
-        (thickness) 
-        (surfName) 
+        (projection : Projection) 
+        (bookmarkId : Option<Guid>)
+        (geometry : Geometry) 
+        (referenceSystem : Option<SpiceReferenceSystem>)
+        (color : ColorInput) 
+        (thickness : NumericInput) 
+        (surfName : string) 
         : Annotation  =
 
         {
@@ -928,10 +938,11 @@ module Annotation =
             manualDipAngle   = Annotation.initialManualDipAngle
             manualDipAzimuth = Annotation.initialmanualDipAzimuth 
             bookmarkId       = bookmarkId
+            referenceSystem  = referenceSystem
         }
 
     let initial =
-        make Projection.Viewpoint None Geometry.Polyline { c = C4b.Magenta } Initial.thickness ""
+        make Projection.Viewpoint None Geometry.Polyline None { c = C4b.Magenta } Initial.thickness ""
 
     let retrievePoints (a : Annotation) =
         let points = 

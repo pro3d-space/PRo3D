@@ -1,8 +1,11 @@
-﻿namespace PRo3D.Base.Gis
+﻿#rnowarn "9"
+namespace PRo3D.Base.Gis
 
+open System
 open Chiron
 open Aardvark.Base
 open Adaptify
+open Aardvark.Rendering
 
 type EntitySpiceName = EntitySpiceName of string
 with 
@@ -327,9 +330,63 @@ module ReferenceFrame =
             isEditing   = false
         }
 
+[<Struct>]
+type TransformedBody = 
+    {
+        lookAtBody : CameraView
+        position : V3d
+        alignBodyToObserverFrame : M33d
+    } with
+        member x.Trafo = 
+            let shift = Trafo3d.Translation x.position
+            let m44d = M44d x.alignBodyToObserverFrame
+            let bodyToObserver = Trafo3d(m44d, m44d.Inverse)
+            bodyToObserver * shift
+
+module TransformedBody =
+    let trafo (o : TransformedBody) = o.Trafo
+
+module CooTransformation =
+    open PRo3D.Extensions
+    open PRo3D.Extensions.FSharp
+    open System
+
+    let getPositionTransformationMatrix (pcFrom : string) (pcTo : string) (time : DateTime) : Option<M33d> = 
+        let m33d : array<double> = Array.zeroCreate 9
+        let pdRotMat = fixed &m33d[0] 
+        let result = CooTransformation.GetPositionTransformationMatrix(pcFrom, pcTo, CooTransformation.Time.toUtcFormat time, pdRotMat)
+        if result <> 0 then 
+            None
+        else
+            m33d |> M33d |> Some
+
+
+    let transformBody (body : EntitySpiceName) (bodyFrame : Option<FrameSpiceName>) (observer : EntitySpiceName) (observerFrame : FrameSpiceName) (time : DateTime) =
+        let (EntitySpiceName body), (EntitySpiceName observer), (FrameSpiceName observerFrame) = body, observer, observerFrame
+        let bodyFrame = 
+            match bodyFrame with
+            | Some (FrameSpiceName bodyFrame) -> bodyFrame
+            | None -> observerFrame
+
+        let suportBody = "sun"
+        let relState = CooTransformation.getRelState body suportBody observer time observerFrame 
+        let rot = getPositionTransformationMatrix bodyFrame observerFrame time
+        let switchToLeftHanded = Trafo3d.FromBasis(V3d.IOO, -V3d.OOI, -V3d.OIO, V3d.Zero)
+        let flipZ = Trafo3d.FromBasis(V3d.IOO, V3d.OIO, -V3d.OOI, V3d.Zero)
+        match relState, rot with
+        | Some rel, Some rot -> 
+            let relFrame = rel.rot 
+            let t = Trafo3d.FromBasis(relFrame.C0, relFrame.C1, -relFrame.C2, V3d.Zero)
+            Some { 
+                lookAtBody = CameraView.ofTrafo t.Inverse
+                position = rel.pos
+                alignBodyToObserverFrame = rot  
+            }
+        | _ -> 
+            Log.line $"[SPICE] failed to transform body (body = {body}, bodyFrame = {bodyFrame}, observer = {observer}, observerFrame = {observerFrame}, time = {time}."
+            None
 
 
 
-
-
-
+type SpiceReferenceSystem = { referenceFrame : FrameSpiceName; body : EntitySpiceName } 
+type ObserverSystem = { referenceFrame : FrameSpiceName; body : EntitySpiceName; time : DateTime }

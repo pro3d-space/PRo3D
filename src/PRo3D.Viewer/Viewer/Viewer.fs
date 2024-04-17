@@ -29,6 +29,7 @@ open Aardvark.VRVis
 
 open PRo3D
 open PRo3D.Base
+open PRo3D.Base.Gis
 open PRo3D.Base.Annotation
 open PRo3D.Core
 open PRo3D.Core.SequencedBookmarks
@@ -250,7 +251,7 @@ module ViewerApp =
 
         (newRenderBox, viewBox)
 
-    let private matchPickingInteraction (bc: BlockingCollection<string>) (p: V3d) (hitFunction:(V3d -> V3d option)) (surf: Surface) (m: Model) = 
+    let private matchPickingInteraction (bc: BlockingCollection<string>) (p: V3d) (referenceSystem : Option<SpiceReferenceSystem>) (hitFunction:(V3d -> V3d option)) (surf: Surface) (m: Model) = 
         match m.interaction, m.viewerMode with
         | Interactions.DrawAnnotation, _ -> 
             let m = 
@@ -264,7 +265,7 @@ module ViewerApp =
                 | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam 
 
             let msg = DrawingAction.AddPointAdv(p, hitFunction, surf.name, None)
-            let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig bc view m.shiftFlag m.drawing msg
+            let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing msg
             //Log.stop()
             { m with drawing = drawing } |> stash
         | Interactions.PlaceCoordinateSystem, ViewerMode.Standard ->                                   
@@ -425,7 +426,9 @@ module ViewerApp =
     let addFlyToSurfaceAnimation (m : Model) (id : SurfaceId) =
         let surf = m |> Optic.get _sgSurfaces |> HashMap.tryFind id
         let surface = m.scene.surfacesModel.surfaces.flat |> HashMap.find id |> Leaf.toSurface 
-        let superTrafo = TransformationApp.fullTrafo' surface.transformation m.scene.referenceSystem //SurfaceTransformations.fullTrafo' surface m.scene.referenceSystem
+        let observedSystem = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp id
+        let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
+        let fullTrafo = TransformationApp.fullTrafo' surface.transformation m.scene.referenceSystem observedSystem observerSystem //SurfaceTransformations.fullTrafo' surface m.scene.referenceSystem
         match surface.homePosition with
         | Some hp ->                        
             let animationMessage = 
@@ -434,12 +437,7 @@ module ViewerApp =
         | None ->
             match surf with
             | Some s ->
-                let sunSystemTrafo = 
-                    match Gis.GisApp.getSurfaceTrafo m.scene.gisApp id with
-                    | None -> Trafo3d.Identity
-                    | Some t -> Trafo3d.Translation t.position
-                
-                let bb = s.globalBB.Transformed((superTrafo * sunSystemTrafo).Forward)
+                let bb = s.globalBB.Transformed(fullTrafo.Forward)
                 let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value    
                 let animationMessage = 
                     CameraAnimations.animateForwardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
@@ -551,7 +549,7 @@ module ViewerApp =
                     | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam
 
                 let drawing = 
-                    DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing msg
+                    DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing msg
 
                 { m with drawing = drawing; } |> stash
         | SurfaceActions msg,_,_ ->
@@ -716,7 +714,9 @@ module ViewerApp =
                 match msg with
                 | SceneObjectAction.FlyToSO id -> 
                     let sceneObj = sobjs.sceneObjects |> HashMap.find id
-                    let superTrafo = TransformationApp.fullTrafo' sceneObj.transformation m.scene.referenceSystem //SceneObjectTransformations.fullTrafo' sceneObj.transformation m.scene.referenceSystem
+                    let observedSystem = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp id
+                    let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
+                    let superTrafo = TransformationApp.fullTrafo' sceneObj.transformation m.scene.referenceSystem observedSystem observerSystem //SceneObjectTransformations.fullTrafo' sceneObj.transformation m.scene.referenceSystem
 
                     let sgSo = sobjs.sgSceneObjects |> HashMap.find id
                     let bb = sgSo.globalBB.Transformed(sceneObj.preTransform.Forward * superTrafo.Forward)
@@ -946,6 +946,9 @@ module ViewerApp =
                 let fray = p.globalRay.Ray
                 let r = fray.Ray
                 let rayHash = r.GetHashCode()
+
+                let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
+                let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
                 
                 if rayHash = lastHash then
                     Log.line "ray hash took over"
@@ -972,14 +975,14 @@ module ViewerApp =
                                 FastRay3d(p + (up * 5000.0), -up)  
                             | _ -> Log.error "projection started without proj mode"; FastRay3d()
                    
-                        match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem ray surfaceFilter cache with
+                        match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray surfaceFilter cache with
                         | Some (t,surf), c ->                             
                             cache <- c; ray.Ray.GetPointOnRay t |> Some
                         | None, c ->
                             cache <- c; None
                                    
                     let result = 
-                        match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem fray surfaceFilter cache with
+                        match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem fray surfaceFilter cache with
                         | Some (t,surf), c ->                         
                             cache <- c
                             let hit = r.GetPointOnRay(t)
@@ -990,7 +993,19 @@ module ViewerApp =
                             let hitF = hitF cameraLocation
                    
                             lastHash <- rayHash
-                            matchPickingInteraction sendQueue hit hitF surf m                                    
+
+                            let observedSystem = observedSystem surf.guid
+                            let spiceTrafo = 
+                                match observedSystem, observerSystem with
+                                | Some observedSystem, Some observerSystem -> 
+                                    CooTransformation.transformBody observedSystem.body (Some observedSystem.referenceFrame) observerSystem.body observerSystem.referenceFrame observerSystem.time
+                                    |> Option.map (fun t -> t.Trafo) 
+                                    |> Option.defaultValue Trafo3d.Identity
+                                | _ -> Trafo3d.Identity
+
+                            let toLocal (v : V3d) = spiceTrafo.Backward.TransformPos(v)
+
+                            matchPickingInteraction sendQueue hit observedSystem (hitF >> Option.map toLocal) surf m                                    
                         | None, _ -> 
                             Log.error "[PickSurface] no hit of %s" name
                             m
@@ -1004,8 +1019,9 @@ module ViewerApp =
             match m.picking with
             | true ->
                 let hitF _ = None
+                let observedSystem = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp id
                 match (m.scene.surfacesModel.surfaces.flat.TryFind id) with
-                | Some x -> matchPickingInteraction sendQueue p hitF (x |> Leaf.toSurface) m 
+                | Some x -> matchPickingInteraction sendQueue p observedSystem hitF (x |> Leaf.toSurface) m 
                 | None -> m
             | false -> m
         | SaveScene s, _,_ ->                 
@@ -1165,11 +1181,11 @@ module ViewerApp =
                 match m.interaction with
                 | Interactions.DrawAnnotation -> 
                     let view = m.navigation.camera.view
-                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing DrawingAction.StopDrawing
+                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.StopDrawing
                     { m with drawing = d; ctrlFlag = false; picking = false }
                 | Interactions.PickAnnotation -> 
                     let view = m.navigation.camera.view
-                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing DrawingAction.StopPicking 
+                    let d = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.StopPicking 
                     { m with drawing = d; ctrlFlag = false; picking = false }
                 //| Interactions.PickMinervaProduct -> { m with minervaModel = { m.minervaModel with picking = false }}
                 |_-> { m with ctrlFlag = false; picking = false }
@@ -1812,10 +1828,12 @@ module ViewerApp =
 
     let viewInstrumentView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
         let frustum = m.frustum 
+        let observer = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
         let annotationsI, discsI = 
             DrawingApp.view 
                 m.scene.config 
                 mdrawingConfig 
+                observer
                 (m.scene.viewPlans.instrumentCam)
                 frustum
                 runtime
@@ -1859,11 +1877,13 @@ module ViewerApp =
         
         let gisEntities = Gis.GisApp.viewGisEntities m.scene.gisApp |> Sg.noEvents
 
+        let observer = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
 
         let annotations, discs = 
             DrawingApp.view 
                 m.scene.config 
-                mdrawingConfig 
+                mdrawingConfig
+                observer
                 m.navigation.camera.view 
                 frustum
                 runtime
