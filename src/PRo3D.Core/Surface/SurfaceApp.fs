@@ -879,12 +879,13 @@ module SurfaceApp =
                         )
                     Log.stop()
                     Log.startTimed "[RebuildKdTrees] creating kdtrees"
-                    let kdTrees =
-                        hs |> Array.mapi (fun i h -> 
-                            KdTrees.loadKdTrees' h Trafo3d.Identity true ViewerModality.XYZ Serialization.binarySerializer true true PRo3D.Core.Surface.DebugKdTreesX.loadTriangles' false    
+                    let cnt = 
+                        hs |> Array.sumBy (fun h -> 
+                            let m = KdTrees.loadKdTrees' h Trafo3d.Identity true ViewerModality.XYZ Serialization.binarySerializer true true PRo3D.Core.Surface.DebugKdTreesX.loadTriangles' false Aardvark.VRVis.Opc.KdTrees.KdTreeParameters.legacyDefault   
+                            HashMap.count m
                         )
                     Log.stop()
-                    Log.line "[RebuildKdTrees] created/validated KdTrees for %d opcs." kdTrees.Length
+                    Log.line "[RebuildKdTrees] created/validated KdTrees for %d opcs." cnt
                     model
                 | None -> model                         
             | _ -> model

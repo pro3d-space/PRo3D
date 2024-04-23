@@ -1,3 +1,10 @@
+
+## 4.23.1
+- tweaked kdtree split limit epsilon for smaller kdtrees
+
+## 4.23.0
+- tweaked kdtree split limit epsilon for smaller kdtrees
+
 ## 4.21.0-prerelease3
 - bugfix contour lines
 
@@ -8,7 +15,6 @@
 
 ## 4.21.0-prerelease1
 - added readme to opc-tool
-
 
 ## 4.22.0
 - further improved kdtree loading on NTFS/macbook
