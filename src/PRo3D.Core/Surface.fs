@@ -149,6 +149,8 @@ module DebugKdTreesX =
     let intersectKdTrees bb (hitObject : Surface) (cache : HashMap<string, ConcreteKdIntersectionTree>) (ray : FastRay3d) (kdTreeMap: HashMap<Box3d, KdTrees.Level0KdTree>) = 
 
         let kdtree, c = kdTreeMap |> HashMap.find bb |> loadObjectSet cache
+        if isNull kdtree.KdIntersectionTree.ObjectSet then
+            Log.warn "object set null"
 
         let kdi = kdtree.KdIntersectionTree 
         let mutable hit = ObjectRayHit.MaxRange
@@ -228,7 +230,7 @@ module SurfaceIntersection =
                         let closestHit =
                             hitBoxes
                             |> List.choose(fun key -> 
-                                //Log.line "intersection: %s; pr: %f" surf.name surf.priority.value                                                             
+                                Log.startTimed "intersection: %s; pr: %f" surf.name surf.priority.value                                                             
                                 //let ray = r.Ray.Transformed(surf.preTransform.Backward) |> FastRay3d  //combine pre and current transform         
                                 let backward = 
                                     if surf.transformation.flipZ then
@@ -241,6 +243,7 @@ module SurfaceIntersection =
                                 let ray = r.Ray.Transformed(backward) |> FastRay3d
                                 let hit, c = 
                                   kd |> DebugKdTreesX.intersectKdTrees key surf cache ray
+                                Log.stop()
                                 cache <- c
                                 hit
                             )
