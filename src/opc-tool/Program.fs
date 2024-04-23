@@ -21,6 +21,8 @@ let logo = """
 
 * validates OPC directories.
 * generates KdTrees.
+
+Examples: opc-tool --forcekdtreerebuild --generatedds --overwritedds --ignoremasterkdtree "K:\PRo3D Data\SAIIL_02_01-v3-opc\SAIIL_02_01"
 """
 
 let validateAndConvertTextures (generateDds : bool) (overwriteDdds : bool) (patchHierarchy : PatchHierarchy) =
@@ -100,7 +102,8 @@ let validateAndConvertTextures (generateDds : bool) (overwriteDdds : bool) (patc
     validationErrors
 
 let generateKdTrees (degreeOfParallelism : Option<int>) (forceKdTreeRebuild : bool) 
-                    (generateDds : bool) (overwriteDds : bool) (patchHierarchies: seq<string>) : unit =
+                    (generateDds : bool) (overwriteDds : bool) (ignoreMasterKdTree : bool) (skipPatchValidation : bool) 
+                    (patchHierarchies: seq<string>) : unit =
     
     let serializer = PRo3D.Base.Serialization.binarySerializer
 
@@ -109,14 +112,15 @@ let generateKdTrees (degreeOfParallelism : Option<int>) (forceKdTreeRebuild : bo
         let h =
             PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths basePath)
 
-        Log.startTimed "validating: %s" h.opcPaths.ShortName
-        let errors = validateAndConvertTextures generateDds overwriteDds h
-        Log.line "validation returned %d errors." errors
-        Log.stop()
+        if skipPatchValidation && not generateDds then
+            Log.startTimed "validating: %s" h.opcPaths.ShortName
+            let errors = validateAndConvertTextures generateDds overwriteDds h
+            Log.line "validation returned %d errors." errors
+            Log.stop()
 
 
         let kdTrees =
-            KdTrees.loadKdTrees' h Trafo3d.Identity true ViewerModality.XYZ serializer forceKdTreeRebuild 
+            KdTrees.loadKdTrees' h Trafo3d.Identity true ViewerModality.XYZ serializer forceKdTreeRebuild ignoreMasterKdTree PRo3D.Core.Surface.DebugKdTreesX.loadTriangles' false
 
         for (bb,kdTree) in kdTrees do
             match kdTree with
@@ -134,20 +138,39 @@ let generateKdTrees (degreeOfParallelism : Option<int>) (forceKdTreeRebuild : bo
     Log.line "Done."
 
 
-let runForDirectories (degreeOfParallelism : Option<int>)  (forceKdTreeRebuild : bool) (generateDds : bool) (overwriteDds : bool)  (opcHierarchyDirectories : array<string>) =
+let runForDirectories (degreeOfParallelism : Option<int>) (forceKdTreeRebuild : bool) 
+                      (generateDds : bool) (overwriteDds : bool) (ignoreMasterKdTree : bool) 
+                      (skipPatchValidation : bool)
+                      (opcHierarchyDirectories : array<string>) =
+
     PRo3D.Base.Serialization.init()
   
     PRo3D.Base.Serialization.registry.RegisterFactory (fun _ -> KdTrees.level0KdTreePickler)
     PRo3D.Base.Serialization.registry.RegisterFactory (fun _ -> PRo3D.Core.Surface.Init.incorePickler)
 
-    generateKdTrees degreeOfParallelism forceKdTreeRebuild generateDds overwriteDds opcHierarchyDirectories
+    generateKdTrees degreeOfParallelism forceKdTreeRebuild generateDds overwriteDds ignoreMasterKdTree skipPatchValidation opcHierarchyDirectories
 
 type options = {
-  [<Option(HelpText = "Prints all messages to standard output.")>] verbose : bool
-  [<Option(HelpText = "Forces rebuild and overwrites existing KdTrees")>] forcekdtreerebuild : bool
-  [<Option(HelpText = "Generate DDS")>] generatedds : bool
-  [<Option(HelpText = "Overwrite DDS")>] overwritedds : bool
-  [<CommandLine.Value(0, HelpText = "Surface Directory")>] surfaceDirectory: string
+  [<Option(HelpText = "Prints all messages to standard output.")>] 
+  verbose : bool
+
+  [<Option(HelpText = "Forces rebuild and overwrites existing kd-trees")>] 
+  forcekdtreerebuild : bool
+
+  [<Option(HelpText = "Ignores master kd-trees and load or creates per-patch kd-trees as well as the lazy kd-tree cache")>] 
+  ignoreMasterKdTree : bool
+
+  [<Option(HelpText = "Generate DDS")>] 
+  generatedds : bool
+
+  [<Option(HelpText = "Skip patch validation (textures, aara files)")>] 
+  skipPatchValidation : bool
+
+  [<Option(HelpText = "Overwrite DDS")>] 
+  overwritedds : bool
+
+  [<CommandLine.Value(0, HelpText = "Surface Directory")>] 
+  surfaceDirectory: string
 }
 
 
@@ -165,7 +188,7 @@ let main args =
             if Files.isOpcFolder parsed.Value.surfaceDirectory then
                 [| parsed.Value.surfaceDirectory |]
             else
-                let directories = Directory.GetDirectories(parsed.Value.surfaceDirectory )
+                let directories = Directory.GetDirectories(parsed.Value.surfaceDirectory)
                 directories 
                 |> Array.filter (fun d -> 
                     let isOpc = Files.isOpcFolder d
@@ -184,7 +207,7 @@ let main args =
         Aardvark.Init()
         PixImageDevil.InitDevil()
 
-        runForDirectories None parsed.Value.forcekdtreerebuild  parsed.Value.generatedds parsed.Value.overwritedds directories
+        runForDirectories None parsed.Value.forcekdtreerebuild  parsed.Value.generatedds parsed.Value.overwritedds parsed.Value.ignoreMasterKdTree parsed.Value.skipPatchValidation directories
         0
     | :? NotParsed<options> as notParsed -> 
         ()

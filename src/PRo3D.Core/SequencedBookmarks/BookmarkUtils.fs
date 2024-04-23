@@ -20,6 +20,10 @@ open Aether
 open Aether.Operators
 
 module BookmarkUtils =
+    /// Returns a path to a folder with the same name as the scene file,
+    /// which lies inside the same folder as the scene file.
+    /// This path is used to store sequenced bookmarks as individual files
+    /// when saving the scene.
     let basePathFromScenePath (scenePath : string) =
         Path.combine [Path.GetDirectoryName scenePath; 
                         Path.GetFileNameWithoutExtension scenePath]
@@ -173,8 +177,12 @@ module BookmarkUtils =
     let updatePath (basePath : string) (bm : SequencedBookmark) =
         match bm with
         | SequencedBookmark.LoadedBookmark loaded ->
-            Log.line "Updating sequenced bookmark base path from %s to %s"
-                (string loaded.basePath) basePath
+            match loaded.basePath with
+            | Some oldBasePath ->
+                if not (oldBasePath = basePath) then
+                    Log.line "[BookmarkUtils] Updating sequenced bookmark base path from %s to %s"
+                             (string oldBasePath) basePath
+            | None -> ()
             SequencedBookmark.LoadedBookmark {loaded with basePath = Some basePath}
         | SequencedBookmarks.NotYetLoaded notLoaded ->
             let newPath = Path.combine [basePath;Path.GetFileName notLoaded.path]
@@ -191,13 +199,42 @@ module BookmarkUtils =
             HashMap.map (fun g bm -> updatePath basePath bm) m.bookmarks
         {m with bookmarks = bookmarks}
 
+    /// Checks the given folder sceneBasePath for 
+    /// sequenced bookmark files, and deletes all files that do
+    /// not have a corresponding bookmark in bookmarks.
+    /// Should be used when saving a scene to clean up saved bookmarks
+    /// that were deleted in the viewer.
+    let cleanUpOldBookmarks (sceneBasePath  : string) 
+                            (bookmarks      : SequencedBookmarks) =    
+        let files = Directory.GetFiles sceneBasePath
+        for filePath in files do
+            let bmGuid = 
+                SequencedBookmark.guidFromFilename filePath           
+            let guidExists =
+                bmGuid
+                |> Option.map (fun guid ->
+                    HashMap.containsKey guid bookmarks.bookmarks) 
+            match guidExists with
+            | Some true ->
+                ()
+            | _ ->
+                Log.line "[BookmarkUtils] Cleaning up old bookmarks %s" 
+                            filePath
+                try 
+                    File.Delete filePath
+                with e ->
+                    Log.line "[BookmarkUtils] Could not clean up old bookmark %s" filePath
+
     /// updates the paths of all bookmarks and
     /// saves bookmarks to file system
     let saveSequencedBookmarks (basePath:string) 
-                               (bookmarks : SequencedBookmarks) =      
+                               (bookmarks : SequencedBookmarks) =    
+        let bookmarks = loadAll bookmarks                               
         let bookmarks = updatePaths basePath bookmarks
         if not (Directory.Exists basePath) then
             Directory.CreateDirectory basePath |> ignore
+        else // if the folder exists, clean up and delete all old bookmarks
+            cleanUpOldBookmarks basePath bookmarks
 
         for guid, bm in bookmarks.bookmarks do
             match bm with

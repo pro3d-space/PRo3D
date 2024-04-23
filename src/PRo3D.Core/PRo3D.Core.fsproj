@@ -61,6 +61,7 @@
     <Compile Include="Drawing\Drawing-App.fs" />
     <Compile Include="GisApp-Model.fs" />
     <Compile Include="SequencedBookmarks\SequencedBookmarks-Model.fs" />
+    <Compile Include="SequencedBookmarks\SequencedBookmark.fs" />
     <Compile Include="SequencedBookmarks\BookmarkUtils.fs" />
     <Compile Include="SequencedBookmarks\BookmarkAnimations.fs" />
     <Compile Include="SequencedBookmarks\SequencedBookmarksApp.fs" />

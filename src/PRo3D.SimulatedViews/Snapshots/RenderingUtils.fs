@@ -77,7 +77,7 @@ module Rendering =
 
     let mutable filecounter = 0
     let genSnapshotFilenames (filename : string) : SnapshotFilenames =
-        let parts = String.split '.' filename
+        let parts = String.split "." filename |> Array.toList
         let name = filename |> System.IO.Path.GetFileNameWithoutExtension
         let path = filename |> System.IO.Path.GetFullPath
         let test = System.IO.Path.ChangeExtension(filename, (sprintf "tiff"))

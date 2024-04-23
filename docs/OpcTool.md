@@ -21,21 +21,26 @@ Das Tool "opc-tool" (Version 4.20.0-prerelease1) wurde erfolgreich installiert.
 * generates KdTrees.
 
 opc-tool 4.10.0.0
-PRo3D contributors.
+PRo3D.Space contributors
 
-  --verbose               Prints all messages to standard output.
+  --verbose                Prints all messages to standard output.
 
-  --forcekdtreerebuild    Forces rebuild and overwrites existing KdTrees
+  --forcekdtreerebuild     Forces rebuild and overwrites existing kd-trees
 
-  --generatedds           Generate DDS
+  --ignoremasterkdtree     Ignores master kd-trees and load or creates per-patch kd-trees as well as the lazy
+                           kd-tree cache
 
-  --overwritedds          Overwrite DDS
+  --generatedds            Generate DDS
 
-  --help                  Display this help screen.
+  --skippatchvalidation    Skip patch validation (textures, aara files)
 
-  --version               Display version information.
+  --overwritedds           Overwrite DDS
 
-  value pos. 0            Surface Directory
+  --help                   Display this help screen.
+
+  --version                Display version information.
+
+  value pos. 0             Surface Directory
 ```
 
 For example: 

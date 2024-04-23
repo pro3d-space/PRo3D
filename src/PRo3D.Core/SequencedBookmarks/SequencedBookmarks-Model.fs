@@ -13,6 +13,7 @@ open Chiron
 open System.Text.Json
 open Aether
 open Aether.Operators
+open System.Text.RegularExpressions
 
 /// used to set whether all recorded frames should be used
 /// for batch rendering, or half
@@ -194,6 +195,11 @@ type SceneState =
         (
             (fun (self : SceneState) -> self.stateConfig), 
             (fun (value) (self : SceneState) -> { self with stateConfig = value })
+        )
+    static member surfaces_ =
+        (
+            (fun (self : SceneState) -> self.stateSurfaces), 
+            (fun (value) (self : SceneState) -> { self with stateSurfaces = value })
         )
     static member frustum_ =
         SceneState.stateConfig_
@@ -384,6 +390,8 @@ type SequencedBookmarkModel = {
         SequencedBookmarkModel._sceneState >?> SceneState.focalLength_
     static member _stateConfig =
         SequencedBookmarkModel._sceneState >?> SceneState.stateConfig_
+    static member _surfaces =
+        SequencedBookmarkModel._sceneState >?> SceneState.surfaces_
     static member _bookmark =
         (
             (fun (self : SequencedBookmarkModel) -> self.bookmark), 
@@ -397,24 +405,12 @@ type SequencedBookmarkModel = {
         this.bookmark.cameraView
     member this.name =
         this.bookmark.name
-    member this.path =
-        match this.basePath with
-        | Some basePath ->
-            Path.combine 
-                [
-                    basePath
-                    this.filename
-                ]
-        | None ->
-            //Log.warn "[SequencedBookmarks] Bookmark has no basePath." //debugging
-            this.filename
-
-    member this.filename =
-        sprintf "%s_%s.pro3d.sbm" "SBookmark" (this.key |> string)
-
-
 
 module SequencedBookmarkDefaults =
+    let filenamePrefix = "SBookmark_"
+    let filenamePostfix = ".pro3d"
+    let filenameExtension = ".sbm"
+
     let initSmoothing value =
         {
             value   = value
@@ -501,6 +497,18 @@ module SequencedBookmarkModel =
         }
 
 type SequencedBookmarkModel with
+    member this.filename =
+        sprintf "%s%s%s%s" 
+            SequencedBookmarkDefaults.filenamePrefix
+            (this.key |> string) 
+            SequencedBookmarkDefaults.filenamePostfix
+            SequencedBookmarkDefaults.filenameExtension
+    member this.path =
+        match this.basePath with
+        | Some basePath ->
+            Path.combine [basePath;this.filename]
+        | None ->
+            this.filename
     static member FromJson( _ : SequencedBookmarkModel) =
         json {
             let! v = Json.read "version"
@@ -603,7 +611,7 @@ module SequencedBookmark =
                         |> Json.deserialize
                 Some loadedBookmark
             with e ->
-                Log.error "Error Loading Bookmark %s" m.path
+                Log.error "[SequencedBookmarks] Error Loading Bookmark %s" m.path
                 Log.error "%s" e.Message
                 None
         | SequencedBookmark.LoadedBookmark m ->
