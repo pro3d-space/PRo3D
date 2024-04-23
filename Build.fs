@@ -16,12 +16,17 @@ open System.IO.Compression
 open System.Runtime.InteropServices
 open System.Text.RegularExpressions
 
-initializeContext()
-
+let ctx = initializeContext()
 
 do Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 
-let notes = ReleaseNotes.load "PRODUCT_RELEASE_NOTES.md"
+let notes = 
+    if System.Environment.GetCommandLineArgs() |> Array.contains "--test" then 
+        printfn "USING TEST RELEASE"
+        ReleaseNotes.load "TEST_RELEASE_NOTES.md"
+    else    
+        ReleaseNotes.load "PRODUCT_RELEASE_NOTES.md"
+
 printfn "%A" notes
 
 let solutionName = "src/PRo3D.sln"
