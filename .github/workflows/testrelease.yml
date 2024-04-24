@@ -25,6 +25,6 @@ jobs:
       - name: Build
         env:
             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: .\build.cmd GitHubRelease
+        run: .\build.cmd GitHubRelease --test
 
   

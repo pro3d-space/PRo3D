@@ -585,7 +585,7 @@ Target.create "GitHubRelease" (fun _ ->
         try
             Branches.tag "." newVersion
             let token =
-                match Environment.environVarOrDefault "github_token" "" with
+                match Environment.environVarOrDefault "GH_TOKEN" "" with
                 | s when not (System.String.IsNullOrWhiteSpace s) -> s
                 | _ -> failwith "please set the github_token environment variable to a github personal access token with repro access."
 
@@ -599,11 +599,12 @@ Target.create "GitHubRelease" (fun _ ->
             //|> GitHub.publishDraft
             |> Async.RunSynchronously
             |> ignore
+
         with e -> 
+            Trace.logf "failed to create github release: %A" e
             Branches.deleteTag "." newVersion
     finally
         ()
-        //Branches.pushTag "." "origin" newVersion
         
 )
 
