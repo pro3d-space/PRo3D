@@ -2,9 +2,8 @@ name: Deploy
 on:
   push: 
     paths:
-      - PRODUCT_RELEASE_NOTES.md
-      - aardium/package.json
-      - .github/workflows/deploy.yml 
+      - TEST_RELEASE_NOTES.md
+      - .github/workflows/testrelease.yml 
 jobs:
   win32_x64:
     name: windows
