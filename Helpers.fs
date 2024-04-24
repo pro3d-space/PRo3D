@@ -281,8 +281,8 @@ module Helpers =
 
     let runOrDefault args =
         try
-            match args with
-            | [| target |] -> Target.runOrDefaultWithArguments target
+            match args |> Array.toList with
+            | target :: _ -> Target.runOrDefaultWithArguments target
             | _ -> Target.runOrDefaultWithArguments "Run"
             0
         with e ->
