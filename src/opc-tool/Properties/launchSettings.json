@@ -2,7 +2,7 @@
   "profiles": {
     "opc-tool": {
       "commandName": "Project",
-      "commandLineArgs": "--ignoremasterkdtree \"F:\\pro3d\\data\\20200220_DinosaurQuarry2\\Dinosaur_Quarry_2\" --forcekdtreerebuild"
+      "commandLineArgs": "--ignoremasterkdtree \"I:\\OPC\\GardenCity\\MSL_Mastcam_Sol_926_id_48427\" --forcekdtreerebuild"
     }
   }
 }

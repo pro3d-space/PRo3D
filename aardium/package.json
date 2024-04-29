@@ -20,7 +20,7 @@
     "dist:darwin:arm64": "bash ./signbuild.sh && electron-builder --c.buildVersion=$BUILD_VERSION --c.artifactName='${productName}-${buildVersion}-${arch}.${ext}' --publish always",
     "dist::win32": "electron-builder --c.buildVersion='%BUILD_VERSION%' --c.artifactName='${productName}-${buildVersion}-${arch}.${ext}' --publish always",
     "dist:linux:x64": "electron-builder --c.buildVersion=$BUILD_VERSION --c.artifactName='${productName}-${buildVersion}-${arch}.${ext}' --publish always"
-  },
+  }, 
   "main": "main.js",
   "repository": "https://github.com/electron/electron-quick-start",
   "dependencies": {
@@ -31,11 +31,11 @@
     "node-shared-mem": "1.0.12",
     "nodejs-websocket": "^1.7.2"
   },
-  "devDependencies": {
+  "devDependencies": { 
     "dotenv": "^16.0.0",
     "electron": "^18.1.0",
     "electron-builder": "^23.0.3",
-    "electron-notarize": "^1.2.1",
+    "@electron/notarize": "^2.3.0",
     "electron-packager": "^15.5.1",
     "electron-rebuild": "^3.2.7",
     "folder-zip-sync": "^1.0.5",
@@ -48,7 +48,7 @@
     "win": {
       "icon": "build/icon.ico",
       "target": "nsis"
-    },
+    }, 
     "nsis": {
       "installerIcon": "build/icon.ico",
       "installerHeaderIcon": "build/icon.ico",
