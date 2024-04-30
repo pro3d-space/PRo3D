@@ -172,7 +172,7 @@ module Sg =
                 for h in patchHierarchies do
                     if createKdTrees then   
                         Log.startTimed "[KdTrees] Loading kdtrees: %s" h.opcPaths.Patches_DirAbsPath
-                        let m = Aardvark.VRVis.Opc.KdTrees.loadKdTrees h Trafo3d.Identity ViewerModality.XYZ Serialization.binarySerializer false true DebugKdTreesX.loadTriangles' true    
+                        let m = Aardvark.VRVis.Opc.KdTrees.loadKdTrees h Trafo3d.Identity ViewerModality.XYZ Serialization.binarySerializer false false DebugKdTreesX.loadTriangles' true    
                         Log.stop()
                         if HashMap.isEmpty m then
                             Log.warn "[KdTrees], KdTree map for %s is empty." h.opcPaths.Patches_DirAbsPath
