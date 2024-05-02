@@ -1,3 +1,6 @@
+## 4.25.0-prerelease1
+- test release for HERA
+
 ## 4.23.1
 - tweaked kdtree split limit epsilon for smaller kdtrees
 

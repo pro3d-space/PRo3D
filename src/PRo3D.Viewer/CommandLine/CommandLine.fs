@@ -56,9 +56,9 @@ module CommandLine =
             let remoteApp           = (argv |> hasFlag "remoteControl")
             let server              = (argv |> hasFlag "server") 
             let magFilter           = not (argv |> hasFlag "noMagFilter")
-            let port                = parseArg "--port" argv
+            let port                = Some "4321" //parseArg "--port" argv
             let disableCors         = argv |> hasFlag "disableCors"
-            let enableRemoteApi     = argv |> hasFlag "remoteApi"    
+            let enableRemoteApi     = true //argv |> hasFlag "remoteApi"    
             let enableProvenanceTracking = argv |> hasFlag "enableProvenance"
             
 
