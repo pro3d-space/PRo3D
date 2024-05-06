@@ -55,7 +55,7 @@ type Result =
       result : string;
    }
 
-let viewerVersion       = "4.20.0-prerelease1"
+let viewerVersion       = "4.23.2"
 let catchDomainErrors   = false
 
 open System.IO
@@ -413,9 +413,6 @@ let main argv =
 
         disposables.Add(suaveServer)
 
-        Log.line "serving at: %s" renderingUrl
-        Log.line "url: %s" renderingUrl
-
         
         //WebPart.startServer 4322 [
         //    MutableApp.toWebPart' runtime false instrumentApp        
@@ -470,7 +467,6 @@ let main argv =
 
         // do not change this line. full url with url needs to be printed for mac deployment!
         Log.line "full url: %s" renderingUrl
-
         System.Threading.Thread.Sleep(100)
 
         if startupArgs.serverMode then  
