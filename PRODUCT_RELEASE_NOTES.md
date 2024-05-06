@@ -1,3 +1,6 @@
+## 4.23.2
+- fixed sequenced bookmark loading in cross-platform scenarios https://github.com/pro3d-space/PRo3D/pull/391
+
 ## 4.23.1
 - tweaked kdtree split limit epsilon for smaller kdtrees
 
