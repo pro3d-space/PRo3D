@@ -51,6 +51,7 @@ module TransformationApp =
         (pivotChanged : bool)
         (north : V3d)
         (up : V3d) 
+        (easttest : V3d) 
         (observedSystem : Option<SpiceReferenceSystem>)
         (observerSystem : Option<ObserverSystem>)
         (scale:float)  = 
@@ -59,17 +60,21 @@ module TransformationApp =
            let east  = north.Cross(up).Normalized
            let refSysRotation = Trafo3d.FromOrthoNormalBasis(north, east, up)
 
-           //translation along north, east, up            
+           //translation along north, east, up directions         
            let trans = translation |> Trafo3d.Translation
            let translationTrafo = refSysRotation.Inverse * trans * refSysRotation
         
            let originTrafo = -pivot |> Trafo3d.Translation
-           let eulerRotation = Trafo3d.RotationEulerInDegrees(roll, pitch, -yaw)
+           //let eulerRotation = Trafo3d.RotationEulerInDegrees(roll, pitch, -yaw) 
 
            let yawRotation    = Trafo3d.RotationInDegrees(up,  -yaw)
            let pitchRotation  = Trafo3d.RotationInDegrees(east, pitch)
            let rollRotation   = Trafo3d.RotationInDegrees(north,roll)
 
+           //let rotationtest = Rot3d.
+
+           let rotation = rollRotation * pitchRotation * yawRotation
+         
            let observerationTrafo = 
                 match observedSystem, observerSystem with
                 | Some observedSystem, Some observerSystem ->
@@ -78,9 +83,16 @@ module TransformationApp =
                     | Some t -> t.Trafo
                 | _ -> Trafo3d.Identity
 
-           let rotAndScale = originTrafo * refSysRotation.Inverse  * eulerRotation * Trafo3d.Scale(scale) * refSysRotation  * originTrafo.Inverse * observerationTrafo
+
+           // translate back to the pivot point (=rotation center)
+           // do rotation around north, east and up
+           // do scaling
+           // translate back from pivot
+           let rotAndScale = originTrafo * rotation * Trafo3d.Scale(scale)  * originTrafo.Inverse //* observerationTrafo
+           //let rotAndScale = originTrafo * refSysRotation.Inverse * eulerRotation * Trafo3d.Scale(scale) * refSysRotation * originTrafo.Inverse
            
-           let newTrafo = translationTrafo * rotAndScale 
+           // do translation than rotation (not sure why this order is working)
+           let newTrafo = rotAndScale * translationTrafo
            
            newTrafo
     
@@ -100,7 +112,7 @@ module TransformationApp =
 
             let noP = 
                 Rot3d.Rotation(upP, refsys.noffset.value |> Double.radiansFromDegrees).Transform(northP)
-            noP, upP
+            noP, upP, eastP
             
 
     let fullTrafo 
@@ -125,13 +137,13 @@ module TransformationApp =
            let! observedSystem = observedSystem
            let! observerSystem = observerSystem
 
-           let northN, upN =
+           let northN, upN, eastN =
                if usePivot then
                    getNorthAndUpFromPivot transf refSys
                else
-                north, up
+                north, up, north.Cross(up)
 
-           let newTrafo = calcFullTrafo translation yaw pitch roll pivot oldPivot pivotChanged northN.Normalized upN.Normalized observedSystem observerSystem scale
+           let newTrafo = calcFullTrafo translation yaw pitch roll pivot oldPivot pivotChanged northN.Normalized upN.Normalized eastN.Normalized observedSystem observerSystem scale
            return newTrafo
         }
            
@@ -142,11 +154,11 @@ module TransformationApp =
         (observedSystem : Option<SpiceReferenceSystem>)
         (observerSystem : Option<ObserverSystem>) =
 
-        let north, up = 
+        let north, up, east = 
             if transform.usePivot then
                 getNorthAndUpFromPivot transform refsys
             else 
-                refsys.northO, refsys.up.value
+                refsys.northO, refsys.up.value, refsys.northO.Cross(refsys.up.value)
 
         calcFullTrafo 
             transform.translation.value 
@@ -158,6 +170,7 @@ module TransformationApp =
             transform.pivotChanged 
             north.Normalized 
             up.Normalized 
+            east.Normalized
             observedSystem
             observerSystem
             transform.scaling.value
@@ -173,12 +186,11 @@ module TransformationApp =
         (translation : V3d)
         (refSys : ReferenceSystem) =
 
-            let north, up = 
+            let north, up, east = 
                 if transform.usePivot then
                     getNorthAndUpFromPivot transform refSys
                 else 
-                    refSys.northO, refSys.up.value
-            let east  = north.Cross(up).Normalized
+                    refSys.northO, refSys.up.value, refSys.northO.Cross(refSys.up.value)
             
             let refSysRotation = Trafo3d.FromOrthoNormalBasis(north, east, up)
             let trans = translation |> Trafo3d.Translation
