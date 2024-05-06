@@ -452,7 +452,7 @@ let main argv =
                 remoteApp.update Guid.Empty act
                 { result = shot.folder }
 
-            let remotePort = 12346
+            let remotePort = 12346 
             let d = WebPart.startServerLocalhost 12346 [ 
                 MutableApp.toWebPart runtime (remoteApp)
                 POST >=> path "/shots" >=> mapJson takeScreenshot
@@ -464,7 +464,7 @@ let main argv =
         else   
             Log.warn "no remote app started"
     
-        System.Threading.Thread.Sleep(500)
+        System.Threading.Thread.Sleep(1000)
         // do not change this line. full url with url needs to be printed for mac deployment!
         Log.line "full url: %s" renderingUrl
 

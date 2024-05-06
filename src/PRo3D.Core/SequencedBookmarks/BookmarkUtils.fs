@@ -21,6 +21,16 @@ open Aether
 open Aether.Operators
 
 module BookmarkUtils =
+
+    // paths could come from windows (via a copied scene file), Path.GetFileNameWithoutExtension won't be able to
+    // deconstruct this properly on osx/linux. Here we try get around this one..
+    // see here: https://github.com/pro3d-space/PRo3D/issues/390
+    let private workaroundForWindowsPaths (s : string) = 
+        if s.Contains("\\") then
+            s.Replace("\\", string Path.DirectorySeparatorChar)
+        else
+            s
+
     /// Returns a path to a folder with the same name as the scene file,
     /// which lies inside the same folder as the scene file.
     /// This path is used to store sequenced bookmarks as individual files
@@ -33,11 +43,7 @@ module BookmarkUtils =
             // paths could come from windows (via a copied scene file), Path.GetFileNameWithoutExtension won't be able to
             // deconstruct this properly on osx/linux. Here we try get around this one..
             // see here: https://github.com/pro3d-space/PRo3D/issues/390
-            let scenPathSlash = 
-                if scenePath.Contains("\\") then
-                    scenePath.Replace("\\", string Path.DirectorySeparatorChar)
-                else
-                    scenePath
+            let scenPathSlash = workaroundForWindowsPaths scenePath
             Path.combine [sceneDirectory; Path.GetFileNameWithoutExtension scenPathSlash]
             
 
@@ -196,7 +202,7 @@ module BookmarkUtils =
             | None -> ()
             SequencedBookmark.LoadedBookmark {loaded with basePath = Some basePath}
         | SequencedBookmarks.NotYetLoaded notLoaded ->
-            let newPath = Path.combine [basePath;Path.GetFileName notLoaded.path]
+            let newPath = Path.combine [basePath;Path.GetFileName (workaroundForWindowsPaths notLoaded.path)]
             if String.equals notLoaded.path newPath then
                 SequencedBookmarks.NotYetLoaded notLoaded
             else
