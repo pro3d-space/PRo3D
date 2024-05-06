@@ -464,10 +464,9 @@ let main argv =
         else   
             Log.warn "no remote app started"
     
-
+        System.Threading.Thread.Sleep(500)
         // do not change this line. full url with url needs to be printed for mac deployment!
         Log.line "full url: %s" renderingUrl
-        System.Threading.Thread.Sleep(100)
 
         if startupArgs.serverMode then  
             Log.line "running server mode. Press Key to close >"
