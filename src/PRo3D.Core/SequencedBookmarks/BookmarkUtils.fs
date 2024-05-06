@@ -12,6 +12,7 @@ open Aardvark.UI.Anewmation
 
 open System
 open System.IO
+open System.Runtime.InteropServices
 open PRo3D.Base
 open PRo3D.Core.SequencedBookmarks
 open Chiron
@@ -25,8 +26,20 @@ module BookmarkUtils =
     /// This path is used to store sequenced bookmarks as individual files
     /// when saving the scene.
     let basePathFromScenePath (scenePath : string) =
-        Path.combine [Path.GetDirectoryName scenePath; 
-                        Path.GetFileNameWithoutExtension scenePath]
+        let sceneDirectory = Path.GetDirectoryName scenePath
+        if RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) then
+            Path.combine [sceneDirectory; Path.GetFileNameWithoutExtension scenePath]
+        else
+            // paths could come from windows (via a copied scene file), Path.GetFileNameWithoutExtension won't be able to
+            // deconstruct this properly on osx/linux. Here we try get around this one..
+            // see here: https://github.com/pro3d-space/PRo3D/issues/390
+            let scenPathSlash = 
+                if scenePath.Contains("\\") then
+                    scenePath.Replace("\\", string Path.DirectorySeparatorChar)
+                else
+                    scenePath
+            Path.combine [sceneDirectory; Path.GetFileNameWithoutExtension scenPathSlash]
+            
 
     /// Links the animation to a field in the model by registering
     /// a callback that uses the given lens to modify its value as the animation progresses.
