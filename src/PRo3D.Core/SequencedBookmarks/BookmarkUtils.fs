@@ -32,6 +32,7 @@ module BookmarkUtils =
         else
             // paths could come from windows (via a copied scene file), Path.GetFileNameWithoutExtension won't be able to
             // deconstruct this properly on osx/linux. Here we try get around this one..
+            // see here: https://github.com/pro3d-space/PRo3D/issues/390
             let scenPathSlash = 
                 if scenePath.Contains("\\") then
                     scenePath.Replace("\\", string Path.DirectorySeparatorChar)
