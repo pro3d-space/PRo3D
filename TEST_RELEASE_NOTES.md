@@ -1,3 +1,6 @@
+## 4.25.0-prerelease4
+- fixed refsystem normalization
+
 ## 4.25.0-prerelease2
 - option for switching euler angle order
 

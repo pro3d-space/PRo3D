@@ -73,10 +73,17 @@ module TransformationApp =
                 | Planet.ENU -> 
                     Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OIO, V3d.OOI) * northCorrection
                 | Planet.Mars ->
-                    let upP = CooTransformation.getUpVector pivot refSystem.planet
-                    let east = V3d.OOI.Cross(upP)
-                    let north = upP.Cross(east)
-                    Trafo3d.FromOrthoNormalBasis(north, east, upP) * northCorrection
+                    //let upP = CooTransformation.getUpVector pivot refSystem.planet
+                    //let east = V3d.OOI.Cross(upP)
+                    //let north = upP.Cross(east)
+                    //Log.line "%A,%A,%A" upP.Length east.Length north.Length
+                    let north = refSystem.northO.Normalized        
+                    let up    = refSystem.up.value.Normalized
+                    let east  = north.Cross(up).Normalized
+              
+                    let refSysRotation = 
+                        Trafo3d.FromOrthoNormalBasis(north, east, up)
+                    refSysRotation
                 | Planet.JPL -> 
                     Trafo3d.FromOrthoNormalBasis(-V3d.IOO, V3d.OIO, -V3d.OOI) * northCorrection
                 | Planet.None -> 
