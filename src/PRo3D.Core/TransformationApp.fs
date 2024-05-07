@@ -61,7 +61,7 @@ module TransformationApp =
                     let upP = CooTransformation.getUpVector pivot refSystem.planet
                     let east = V3d.OOI.Cross(upP)
                     let north = upP.Cross(east)
-                    Trafo3d.FromOrthoNormalBasis(east, north, upP) * northCorrection
+                    Trafo3d.FromOrthoNormalBasis(north, east, upP) * northCorrection
                 | Planet.JPL -> 
                     Trafo3d.FromOrthoNormalBasis(-V3d.IOO, V3d.OIO, -V3d.OOI) * northCorrection
                 | Planet.None -> 
@@ -197,10 +197,10 @@ module TransformationApp =
 
     let updateTransformationForNewPivot 
         (model : Transformations) =
-        let yaw = { model.yaw with value = 0.0 }
-        let pitch = { model.pitch with value = 0.0 }
-        let roll = { model.roll with value = 0.0 }
-        let scale = { model.scaling with value = 1.0}
+        //let yaw = { model.yaw with value = 0.0 }
+        //let pitch = { model.pitch with value = 0.0 }
+        //let roll = { model.roll with value = 0.0 }
+        //let scale = { model.scaling with value = 1.0}
         let pChanged = 
             if not (model.pitch.value = 0.0) && not (model.yaw.value = 0.0) && not (model.roll.value = 0.0) then true else false
         let trafo' = (model.translation.value |> Trafo3d.Translation)
@@ -244,11 +244,12 @@ module TransformationApp =
                 let m' = updateTransformationForNewPivot model
                 { m' with pivot =  p'; oldPivot = p'.value; trafoChanged = false} 
             else model
-        | SetPickedPivotPoint p ->
+        | SetPickedPivotPoint p -> // world position.......
             if model.usePivot then
                 let p' = Vector3d.updateV3d model.pivot p
                 let m' = updateTransformationForNewPivot model
-                { m' with pivot =  p';oldPivot = p'.value; trafoChanged = false} 
+                let fulTrafo : Trafo3d = failwith ""
+                { m' with pivot = { m'.pivot with value = fulTrafo.Inverse.TransformPos(p'.value) }; oldPivot = p'.value; trafoChanged = false} 
              else model
         | TogglePivotVisible -> 
             { model with showPivot = not model.showPivot}
@@ -306,5 +307,5 @@ module TransformationApp =
 
     module Sg =
         let view (model:AdaptiveTransformations) =
-            let point = PRo3D.Base.Sg.dot (AVal.constant C4b.GreenYellow) model.pivotSize.value model.pivot.value 
+            let point = PRo3D.Base.Sg.dot (AVal.constant C4b.GreenYellow) model.pivotSize.value model.pivot.value // object space. we need fullTrafo needed....
             Sg.ofList [point] |> Sg.onOff model.showPivot
