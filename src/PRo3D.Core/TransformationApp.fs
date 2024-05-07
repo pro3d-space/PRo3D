@@ -205,7 +205,7 @@ module TransformationApp =
             if not (model.pitch.value = 0.0) && not (model.yaw.value = 0.0) && not (model.roll.value = 0.0) then true else false
         let trafo' = (model.translation.value |> Trafo3d.Translation)
         //{ model with yaw = yaw; pitch = pitch; roll = roll; trafo = trafo'; scaling = scale}
-        { model with trafo = trafo'; pivotChanged = pChanged; yaw = yaw; pitch = pitch; roll = roll; scaling = scale} 
+        { model with trafo = trafo'; pivotChanged = pChanged; (*yaw = yaw; pitch = pitch; roll = roll; scaling = scale*)} 
     
 
     let update<'a> 
@@ -218,7 +218,7 @@ module TransformationApp =
             let transPivot = refSysTranslation model (t'.value - model.trafo.Forward.C3.XYZ) refSys //refSysTranslation model t'.value refSys
             let pivot = transPivot.Forward.TransformPos model.oldPivot
             let p' = Vector3d.updateV3d model.pivot pivot
-            { model with translation =  t'; pivot = p'; pivotChanged = false; trafoChanged = true} 
+            { model with translation =  t'; (* pivot = p'; pivotChanged = false; *) trafoChanged = true} 
         | SetPickedTranslation p ->
             let p' = Vector3d.updateV3d model.translation p
             { model with translation =  p'; pivotChanged = false; trafoChanged = true }
