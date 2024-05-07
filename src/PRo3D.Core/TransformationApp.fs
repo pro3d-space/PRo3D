@@ -238,18 +238,21 @@ module TransformationApp =
             { model with useTranslationArrows = not model.useTranslationArrows}
         | ToggleSketchFab   -> 
             { model with isSketchFab = not model.isSketchFab; pivotChanged = false }
-        | SetPivotPoint p ->
+        | SetPivotPoint p -> // object space
             if model.usePivot then
                 let p' = Vector3d.update model.pivot p
-                let m' = updateTransformationForNewPivot model
-                { m' with pivot =  p'; oldPivot = p'.value; trafoChanged = false} 
+                //let m' = updateTransformationForNewPivot model
+                //{ m' with pivot =  p'; oldPivot = p'.value; trafoChanged = false} 
+                let fulTrafo : Trafo3d = fullTrafo' model refSys None None
+                { model with pivot = p'; oldPivot = p'.value; trafoChanged = false} 
             else model
-        | SetPickedPivotPoint p -> // world position.......
+        | SetPickedPivotPoint p -> // world space.......
             if model.usePivot then
-                let p' = Vector3d.updateV3d model.pivot p
-                let m' = updateTransformationForNewPivot model
-                let fulTrafo : Trafo3d = failwith ""
-                { m' with pivot = { m'.pivot with value = fulTrafo.Inverse.TransformPos(p'.value) }; oldPivot = p'.value; trafoChanged = false} 
+                let fulTrafo : Trafo3d = fullTrafo' model refSys None None
+                let pivotObjectSpace = fulTrafo.Inverse.TransformPos(p) 
+                let p' = Vector3d.updateV3d model.pivot pivotObjectSpace
+                //let m' = updateTransformationForNewPivot model
+                { model with pivot = p'; oldPivot = p'.value; trafoChanged = false} 
              else model
         | TogglePivotVisible -> 
             { model with showPivot = not model.showPivot}
@@ -306,6 +309,6 @@ module TransformationApp =
             )
 
     module Sg =
-        let view (model:AdaptiveTransformations) =
-            let point = PRo3D.Base.Sg.dot (AVal.constant C4b.GreenYellow) model.pivotSize.value model.pivot.value // object space. we need fullTrafo needed....
+        let viewObjectSpace (model:AdaptiveTransformations) =
+            let point = PRo3D.Base.Sg.dot (AVal.constant C4b.GreenYellow) model.pivotSize.value model.pivot.value 
             Sg.ofList [point] |> Sg.onOff model.showPivot

@@ -517,7 +517,8 @@ module ViewerUtils =
                     )
                     // pivot point
                     |> Sg.andAlso (
-                        surf.transformation |> TransformationApp.Sg.view
+                        TransformationApp.Sg.viewObjectSpace surf.transformation
+                        |> Sg.trafo trafo
                         //|> Sg.dynamic
                     )    
                 return surfaceSg

@@ -427,7 +427,8 @@ module SceneObjectsApp =
                         |> Sg.andAlso ( 
                             // pivot point
                             so.transformation 
-                            |> TransformationApp.Sg.view
+                            |> TransformationApp.Sg.viewObjectSpace
+                            |> Sg.trafo trafo
                             )     
                                                         
                     return surfaceSg
