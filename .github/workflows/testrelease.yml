@@ -1,0 +1,30 @@
+name: TestReleases
+on:
+  push: 
+    paths:
+      - TEST_RELEASE_NOTES.md
+      - .github/workflows/testrelease.yml 
+jobs:
+  win32_x64:
+    name: windows
+    runs-on: windows-latest
+    steps:  
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '6.0.100'
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '5.0.100'
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Yarn Install
+        working-directory: aardium
+        run: yarn install
+      - name: Build
+        env:
+            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .\build.cmd GitHubRelease --test
+
+  
