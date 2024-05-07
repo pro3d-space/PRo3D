@@ -1,5 +1,5 @@
 ## 4.25.0-prerelease1
-- testrelease
+- fixed pivot transformation
 
 ## 4.24.0-prerelease1
 - testrelease
