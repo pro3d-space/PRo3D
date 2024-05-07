@@ -19,11 +19,24 @@ open PRo3D.Base
 open PRo3D.Core
 open PRo3D.Base.Gis
 
-open Aardvark.Base.MultimethodTest
+open Aardvark.UI.Primitives
         
 module TransformationApp =
 
     //open Aardvark.UI.ChoiceModule
+
+    module EulerMode =
+        let getTrafo (m : EulerMode) (x : float) (y : float) (z : float)=
+            let x = Trafo3d.RotationXInDegrees x
+            let y = Trafo3d.RotationYInDegrees y
+            let z = Trafo3d.RotationZInDegrees z
+            match m with
+            | EulerMode.XYZ -> x * y * z
+            | EulerMode.XZY -> x * z * y
+            | EulerMode.YXZ -> y * x * z
+            | EulerMode.YZX -> y * z * x
+            | EulerMode.ZXY -> z * x * y
+            | EulerMode.ZYX -> z * y * x
    
     type Action =
     | SetTranslation        of Vector3d.Action
@@ -40,6 +53,7 @@ module TransformationApp =
     | SetScaling            of Numeric.Action
     | ToggleUsePivot
     | SetPivotSize          of Numeric.Action
+    | SetEulerMode          of EulerMode
    
     let calcFullTrafo 
         (translation : V3d)
@@ -50,7 +64,8 @@ module TransformationApp =
         (refSystem : ReferenceSystem)
         (observedSystem : Option<SpiceReferenceSystem>)
         (observerSystem : Option<ObserverSystem>)
-        (scale:float)  = 
+        (scale:float)
+        (eulerMode : EulerMode) = 
 
            let northCorrection = Trafo3d.RotationZInDegrees(refSystem.noffset.value)
            let refSysBasis = 
@@ -74,7 +89,8 @@ module TransformationApp =
            let fullTrafo = 
                 originTrafo.Inverse * 
                     refSysBasis.Inverse *
-                            Trafo3d.RotationEulerInDegrees(roll, pitch, yaw) 
+                            EulerMode.getTrafo eulerMode roll pitch yaw *
+                            Trafo3d.Scale(scale)
                     * refSysBasis
                 * originTrafo 
                 * Trafo3d.Translation(refSysBasis.Forward.TransformPos(translation))
@@ -139,6 +155,7 @@ module TransformationApp =
            let! transf = transform.Current
            let! observedSystem = observedSystem
            let! observerSystem = observerSystem
+           let! mode = transform.eulerMode
 
            //let northN, upN, eastN =
            //    if usePivot then
@@ -146,7 +163,7 @@ module TransformationApp =
            //    else
            //     north, up, north.Cross(up)
 
-           let newTrafo = calcFullTrafo translation yaw pitch roll (if usePivot then pivot else V3d.Zero) refSys observedSystem observerSystem scale
+           let newTrafo = calcFullTrafo translation yaw pitch roll (if usePivot then pivot else V3d.Zero) refSys observedSystem observerSystem scale mode
            return newTrafo
         }
            
@@ -173,6 +190,7 @@ module TransformationApp =
             observedSystem
             observerSystem
             transform.scaling.value
+            transform.eulerMode
 
     let resetRotation (model : Transformations) =
         let yaw = { model.yaw with value = 0.0}
@@ -263,6 +281,8 @@ module TransformationApp =
         | SetPivotSize s ->    
             let ps = Numeric.update model.pivotSize s
             { model with pivotSize = ps }
+        | SetEulerMode m -> 
+            { model with eulerMode = m }
    
     module UI =
         
@@ -281,7 +301,14 @@ module TransformationApp =
             ]  
 
         let view (model:AdaptiveTransformations) =
-            
+            let mode : aval<EulerMode> = AVal.constant EulerMode.XYZ
+            let modeDropDown = 
+                let values = 
+                    [ EulerMode.XYZ, "XYZ"; EulerMode.XZY, "XZY"; EulerMode.YXZ, "YXZ"; EulerMode.YZX, "YZX"; EulerMode.ZXY, "ZXY"; EulerMode.ZYX, "ZYX"]
+                    |> List.map (fun (m, v) -> m, text v)
+                    |> AMap.ofList
+                SimplePrimitives.dropdownUnclearable AttributeMap.empty values mode SetEulerMode
+
             require GuiEx.semui (
                 Html.table [  
                     //Html.row "Visible:" [GuiEx.iconCheckBox model.useTranslationArrows ToggleVisible ]
@@ -296,6 +323,7 @@ module TransformationApp =
                     Html.row "show PivotPoint:" [GuiEx.iconCheckBox model.showPivot TogglePivotVisible ]
                     Html.row "Pivot Point (m):" [viewPivotPointInput model.pivot |> UI.map SetPivotPoint ]
                     Html.row "Pivot Size:"      [Numeric.view' [InputBox] model.pivotSize |> UI.map SetPivotSize]
+                    Html.row "Mode" [modeDropDown]
                     //Html.row "Reset Trafos:"    [button [clazz "ui button tiny"; onClick (fun _ -> ResetTrafos )] []]
                     //Html.row "Pivot Point:"     [Incremental.text (model.pivot |> AVal.map (fun x -> x.ToString ()))]
                 ]

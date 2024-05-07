@@ -1,3 +1,6 @@
+## 4.25.0-prerelease2
+- option for switching euler angle order
+
 ## 4.25.0-prerelease1
 - fixed pivot transformation
 

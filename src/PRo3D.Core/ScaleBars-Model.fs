@@ -332,6 +332,7 @@ module InitScaleBarsParams =
         trafoChanged         = false
         usePivot             = false
         pivotSize            = Transformations.Initial.initPivotSize 0.4
+        eulerMode            = EulerMode.defaultMode
     }
 
     let thickness = {
