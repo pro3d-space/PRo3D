@@ -16,12 +16,17 @@ open System.IO.Compression
 open System.Runtime.InteropServices
 open System.Text.RegularExpressions
 
-initializeContext()
-
+let ctx = initializeContext()
 
 do Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 
-let notes = ReleaseNotes.load "PRODUCT_RELEASE_NOTES.md"
+let notes = 
+    if System.Environment.GetCommandLineArgs() |> Array.contains "--test" then 
+        printfn "USING TEST RELEASE"
+        ReleaseNotes.load "TEST_RELEASE_NOTES.md"
+    else    
+        ReleaseNotes.load "PRODUCT_RELEASE_NOTES.md"
+
 printfn "%A" notes
 
 let solutionName = "src/PRo3D.sln"
@@ -580,7 +585,7 @@ Target.create "GitHubRelease" (fun _ ->
         try
             Branches.tag "." newVersion
             let token =
-                match Environment.environVarOrDefault "github_token" "" with
+                match Environment.environVarOrDefault "GH_TOKEN" "" with
                 | s when not (System.String.IsNullOrWhiteSpace s) -> s
                 | _ -> failwith "please set the github_token environment variable to a github personal access token with repro access."
 
@@ -589,16 +594,17 @@ Target.create "GitHubRelease" (fun _ ->
             let z = System.IO.Compression.ZipFile.CreateFromDirectory("bin/publish/win-x64", release)
 
             GitHub.createClientWithToken token
-            |> GitHub.draftNewRelease "vrvis" "PRo3D" notes.NugetVersion (notes.SemVer.PreRelease <> None) notes.Notes
+            |> GitHub.draftNewRelease "pro3d-space" "PRo3D" notes.NugetVersion (notes.SemVer.PreRelease <> None) notes.Notes
             |> GitHub.uploadFiles (Seq.singleton release)
             //|> GitHub.publishDraft
             |> Async.RunSynchronously
             |> ignore
+
         with e -> 
+            Trace.logf "failed to create github release: %A" e
             Branches.deleteTag "." newVersion
     finally
         ()
-        //Branches.pushTag "." "origin" newVersion
         
 )
 
