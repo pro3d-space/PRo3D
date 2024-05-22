@@ -1246,7 +1246,10 @@ module SurfaceApp =
                                 yield GuiEx.iconCheckBox s.isActive (ToggleActiveFlag key) 
                                 |> UI.wrapToolTip DataPosition.Bottom "Toggle IsActive"
 
-                                yield i [clazz "exclamation circle icon"; onClick (fun _ -> RebuildKdTrees key)] [] 
+                                yield 
+                                    i [ clazz "exclamation circle icon"; onEvent "generate" [] (fun _ -> RebuildKdTrees key)
+                                        // kdTreeRebuildOptions is in utilities.js
+                                        clientEvent "onclick" "top.aardvark.dialog.showMessageBox(null, kdTreeRebuildOptions).then((r) => { console.warn(r.response); if(r.response == 1) { aardvark.processEvent('__ID__', 'generate');} else { console.warn('user cancelled kdtree construction.'); } });" ] [] 
                                     |> UI.wrapToolTip DataPosition.Bottom "rebuild kdTree"           
             
                                 let! path = s.importPath
