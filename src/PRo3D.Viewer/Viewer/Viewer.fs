@@ -1789,16 +1789,15 @@ module ViewerApp =
              |> Sg.cullMode (AVal.constant CullMode.None)
 
         // instrument view control
-        let icmds = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed discsInst false true runtime m // m.scene.surfacesModel.sgGrouped overlayed discs m
-                        |> AList.map ViewerUtils.mapRenderCommand
+        let icmds (c : ClientValues) = 
+            ViewerUtils.renderCommands c.signature c m.scene.surfacesModel.sgGrouped ioverlayed discsInst false true runtime m // m.scene.surfacesModel.sgGrouped overlayed discs m
+            |> AList.map ViewerUtils.mapRenderCommand
+
         let icam = 
             AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
 
-        //onBoot "attachResize('__ID__')" (
-        //    DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
-        //)
         onBoot "attachResize('__ID__')" (
-            DomNode.RenderControl((instrumentControlAttributes id m), icam, icmds, None) //AttributeMap.Empty
+            DomNode.RenderControl((instrumentControlAttributes id m), icam, icmds, None) 
         )
 
     let viewRenderView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
@@ -2015,8 +2014,10 @@ module ViewerApp =
 
 
         //render OPCs in priority groups
-        let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested true false runtime m
-                        |> AList.map ViewerUtils.mapRenderCommand
+        let cmds  (c : ClientValues)= 
+            ViewerUtils.renderCommands c.signature c m.scene.surfacesModel.sgGrouped overlayed depthTested true false runtime m
+            |> AList.map ViewerUtils.mapRenderCommand
+
         onBoot "attachResize('__ID__')" (
             DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
         )

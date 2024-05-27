@@ -190,6 +190,7 @@ module SnapshotGenerator =
             ]
            
     let animate   (runtime      : IRuntime) 
+                  (signature    : IFramebufferSignature)
                   (mModel       : AdaptiveModel)
                   (mApp         : MutableApp<Model, ViewerAnimationAction>) 
                   (args         : CLStartupArgs) =
@@ -200,8 +201,8 @@ module SnapshotGenerator =
             let animation = readAnimation args
             match animation with
             | Some (SnapshotAnimation.CameraAnimation data) ->
-                let sg = SnapshotSg.viewRenderView runtime (System.Guid.NewGuid().ToString()) 
-                                                   (AVal.constant data.resolution) mModel 
+                let id = Guid.NewGuid() |> string
+                let sg = SnapshotSg.viewRenderView runtime signature id (AVal.constant data.resolution) mModel 
                 let snapshotApp  = 
                     {
                         mutableApp          = mApp
@@ -219,8 +220,8 @@ module SnapshotGenerator =
                     }
                 SnapshotApp.executeAnimation snapshotApp
             | Some (SnapshotAnimation.BookmarkAnimation data) ->
-                let sg = SnapshotSg.viewRenderView runtime (System.Guid.NewGuid().ToString()) 
-                                                   (AVal.constant data.resolution) mModel 
+                let id = Guid.NewGuid() |> string
+                let sg = SnapshotSg.viewRenderView runtime signature id (AVal.constant data.resolution) mModel 
                 let snapshotApp  = 
                     {
                         mutableApp          = mApp

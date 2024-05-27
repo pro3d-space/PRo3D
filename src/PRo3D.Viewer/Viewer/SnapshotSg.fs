@@ -106,7 +106,7 @@ module SnapshotSg =
         sg
 
     /// create scengegraph using Rendering.RenderCommands
-    let createSceneGraph (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) 
+    let createSceneGraph (signature : IFramebufferSignature) (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) 
                          overlayed depthTested (runtime : IRuntime) (allowFootprint : bool) 
                          (m:AdaptiveModel)  =
         let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
@@ -129,6 +129,7 @@ module SnapshotSg =
                 fun x -> ( x 
                     |> AMap.map(fun _ surface ->                         
                         viewSingleSurfaceSg 
+                            signature
                             surface 
                             m.scene.surfacesModel.surfaces.flat
                             m.frustum 
@@ -194,7 +195,7 @@ module SnapshotSg =
     // duplicate code, see Viewer.fs
     // could be resolved by dividing up code in Viewer.fs
     // duplicated to minimise merge troubles, but should be changed once merge is done // TODO RNO
-    let viewRenderView (runtime : IRuntime) (id : string) 
+    let viewRenderView (runtime : IRuntime) (signature : IFramebufferSignature) (id : string) 
                        (viewportSize : aval<V2i>) (m: AdaptiveModel) = 
         //PRo3D.Core.Drawing.DrawingApp.usePackedAnnotationRendering <- false  // not the problem
         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) 
@@ -336,7 +337,7 @@ module SnapshotSg =
             ] |> Sg.ofList
 
         let camera = AVal.map2 (fun v f -> Camera.create v f) m.navigation.camera.view m.frustum 
-        let sg = createSceneGraph m.scene.surfacesModel.sgGrouped 
+        let sg = createSceneGraph signature m.scene.surfacesModel.sgGrouped 
                                   overlayed depthTested runtime true m
         sg
             |> Sg.noEvents

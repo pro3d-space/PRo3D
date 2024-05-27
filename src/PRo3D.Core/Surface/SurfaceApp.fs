@@ -198,10 +198,11 @@ module SurfaceUtils =
                     surface     = surface.guid    
                     trafo       = trafo
                     globalBB    = bb
-                    sceneGraph  = sg
+                    sceneGraph  = Some sg
                     picking     = Picking.KdTree(kdTrees |> HashMap.ofList) //Picking.PickMesh meshes
                     isObj       = true
                     opcScene    = None
+                    patchHierarchies = None
                     //transformation = Init.Transformations
                 }
                  
@@ -646,10 +647,11 @@ module SurfaceUtils =
                     surface         = surface.guid    
                     trafo           = trafo
                     globalBB        = bb
-                    sceneGraph      = sg
+                    sceneGraph      = Some sg
                     picking         = Picking.KdTree(kdTrees |> HashMap.ofList)
                     isObj           = true
                     opcScene        = None
+                    patchHierarchies = None
                     //transformation = Init.Transformations
                 }
                  

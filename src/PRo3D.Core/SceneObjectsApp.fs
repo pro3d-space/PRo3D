@@ -114,10 +114,11 @@ module SceneObjectsUtils =
             surface     = sObject.guid    
             trafo       = trafo
             globalBB    = bb
-            sceneGraph  = sg
+            sceneGraph  = Some sg
             picking     = Picking.NoPicking 
             isObj       = true 
             opcScene    = None
+            patchHierarchies = None
         }
 
              
@@ -396,7 +397,8 @@ module SceneObjectsApp =
                                 return (fullTrafo * t) //(t * fullTrafo)
                         }
 
-                    let! sgSObj = sgSurf.sceneGraph
+                    let! sgSObj = 
+                        sgSurf.sceneGraph |> AVal.map (function None -> failwithf "scene objects should have scene graph" | Some sg -> sg)
                     let! bb = sgSurf.globalBB
                     let bbTest = trafo |> AVal.map(fun t -> bb.Transformed(t))
                         

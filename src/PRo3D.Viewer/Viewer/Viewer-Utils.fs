@@ -32,6 +32,19 @@ open PRo3D.SimulatedViews
 
 open Adaptify.FSharp.Core
 
+module private Extensions =
+    open Aardvark.Base.Ag 
+
+    type RuntimeApplicator(r : IRuntime, child : ISg) =
+        inherit Sg.AbstractApplicator(child)
+        member x.Runtime = r
+
+    [<Rule>]
+    type RuntimeSem() =
+        member x.Runtime(w : RuntimeApplicator, scope : Ag.Scope) = w.Child?Runtime <- w.Runtime
+        
+    let applyRuntime (r : IRuntime) (sg : ISg) = RuntimeApplicator(r,sg) :> ISg
+
 module ViewerUtils =    
     type Self = Self
 
@@ -271,6 +284,7 @@ module ViewerUtils =
 
         
     let viewSingleSurfaceSg 
+        (signature       : IFramebufferSignature)
         (surface         : AdaptiveSgSurface) 
         (surfacesMap     : amap<Guid, AdaptiveLeafCase>)
         (frustum         : aval<Frustum>) 
@@ -296,13 +310,7 @@ module ViewerUtils =
                         | Some id -> (id = surface.surface) && y
                         | None -> false
                     )
-                
-                let createSg (sg : ISg) =
-                    sg 
-                    |> Sg.noEvents 
-                    |> Sg.cullMode(surf.cullMode)
-                    |> Sg.fillMode(surf.fillMode)
-                                                
+                                        
                 let triangleFilter = surf.triangleSize.value
 
                 let trafo =
@@ -410,15 +418,27 @@ module ViewerUtils =
                             return! surf.filterByDistance 
                         | None ->
                             return false
-                    }               
+                    }        
+                    
+                let sceneGraph = 
+                    match surface.patchHierarchies with
+                    | None -> 
+                        Sg.empty
+                    | Some patchHierarchies -> 
+                        surface.opcScene 
+                        |> AVal.map (function 
+                            | None -> 
+                                Sg.empty
+                            | Some scene -> 
+                                PRo3D.Core.Surface.Sg.createSceneGraphCanonical signature scene patchHierarchies
+                                |> Sg.noEvents
+                            )
+                        |> Sg.dynamic
 
-                //let! texTest = depthTexture
-                let! texTest = DefaultTextures.checkerboard 
-                
                 let surfaceSg =
-                    surface.sceneGraph
-                    |> AVal.map createSg
-                    |> Sg.dynamic
+                    sceneGraph
+                    |> Sg.cullMode surf.cullMode
+                    |> Sg.fillMode surf.fillMode
                     |> Sg.trafo trafo //(Transformations.fullTrafo surf refsys)
                     |> Sg.modifySamplerState DefaultSemantic.DiffuseColorTexture samplerDescription
                     |> Sg.uniform "selected"      (isSelected) // isSelected
@@ -524,171 +544,13 @@ module ViewerUtils =
 
         } |> Sg.dynamic
 
-    let getSimpleSingleSurfaceSg 
-        (surface         : AdaptiveSgSurface) 
-        (surfacesMap     : amap<Guid, AdaptiveLeafCase>)
-        (frustum         : aval<Frustum>)
-        (refsys          : AdaptiveReferenceSystem) =
-
-        adaptive {
-            match! AMap.tryFind surface.surface surfacesMap with
-            | Some (AdaptiveSurfaces surf) -> 
-
-                let createSg (sg : ISg) =
-                        sg 
-                        |> Sg.noEvents 
-                        |> Sg.cullMode(surf.cullMode)
-                        |> Sg.fillMode(surf.fillMode)
-            
-                let triangleFilter = surf.triangleSize.value
-
-                let trafo =
-                        adaptive {
-                            let! fullTrafo = TransformationApp.fullTrafo surf.transformation refsys
-                            let! preTransform = surf.preTransform
-                            let! flipZ = surf.transformation.flipZ
-                            let! sketchFab = surf.transformation.isSketchFab
-                            if flipZ then 
-                                return Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * preTransform)
-                            else if sketchFab then
-                                // TODO https://github.com/pro3d-space/PRo3D/issues/117
-                                // i'm not sure whether swithcYZTrafo is the right one here. Firstly, i think we should change the naming (also in the UI).
-                                // Secondly, do we need this as a third option: 
-                                //return Trafo3d.FromOrthoNormalBasis(V3d.IOO,-V3d.OIO,-V3d.OOI)
-                                // this was here before:
-                                return Sg.switchYZTrafo
-                            else
-                                return (fullTrafo * preTransform)
-                                //return Trafo3d.Scale(scaleFactor) * (fullTrafo * preTransform)
-                        }
-
-                let triangleFilterX (input : Triangle<Vertex>) =
-                    triangle {
-                        let p0 = input.P0.pos.XYZ
-                        let p1 = input.P1.pos.XYZ
-                        let p2 = input.P2.pos.XYZ
-
-                        let maxSize = uniform?TriangleSize
-
-                        let a = (p1 - p0)
-                        let b = (p2 - p1)
-                        let c = (p0 - p2)
-
-                        let alpha = a.Length < maxSize
-                        let beta  = b.Length < maxSize
-                        let gamma = c.Length < maxSize
-
-                        let check = (alpha && beta && gamma)
-                        if check then
-                            yield input.P0 
-                            yield input.P1
-                            yield input.P2
-                    }
-            
-                let test =             
-                  surface.sceneGraph
-                    |> AVal.map createSg
-                    |> Sg.dynamic
-                    |> Sg.trafo trafo 
-                    |> Sg.uniform "TriangleSize"   triangleFilter 
-                    |> Sg.onOff (surf.isVisible)
-                    |> Sg.LodParameters( getLodParameters  (AVal.constant surf) refsys frustum )
-                    |> Sg.noEvents 
-                    |> Sg.effect [
-                        triangleFilterX     |> toEffect
-                        Shader.stableTrafo  |> toEffect 
-                        Shader.OPCFilter.improvedDiffuseTexture |> toEffect
-                    ]
-                return test
-            | _ -> 
-                return Sg.empty
-        } |> Sg.dynamic
-
-    let getSimpleSurfacesSg 
-        (m:AdaptiveModel) =  
-        let sgGrouped = m.scene.surfacesModel.sgGrouped 
-        let surfs = m.scene.surfacesModel.surfaces.flat
-        let refSystem = m.scene.referenceSystem
-            
-        let surfacesToSg surfaces =
-            surfaces
-              |> AMap.map (fun guid sf -> getSimpleSingleSurfaceSg sf surfs m.frustum refSystem)
-              |> AMap.toASet 
-              |> ASet.map snd    
-              |> Sg.set
-
-        let grouped = 
-            sgGrouped |> AList.map surfacesToSg
-        let sg = grouped |> AList.toASet |> Sg.set
-
-        sg
-    
-    //let getVPResolution (m:AdaptiveModel) =
-    //    adaptive {
-    //        let! id = m.scene.viewPlans.selectedViewPlan
-    //        match id with
-    //        | Some id -> 
-    //            let! selectedVp = m.scene.viewPlans.viewPlans |> AMap.find id
-    //            let! inst = selectedVp.selectedInstrument
-    //            let width, height =
-    //                match inst with
-    //                | Some i -> 
-    //                    let horRes = i.intrinsics.horizontalResolution/uint32(2)
-    //                    let vertRes = i.intrinsics.verticalResolution/uint32(2)
-    //                    int(horRes), int(vertRes)
-    //                | None -> 
-    //                    512, 512
-    //            return V2i(width, height)
-    //        | None -> return V2i(512, 512)
-
-
-    //        //match id with
-    //        //| Some v -> 
-    //        //    let! vp = m.scene.viewPlans.viewPlans |> AMap.tryFind v
-    //        //    match vp with
-    //        //    | Some selVp -> 
-    //        //        let width, height =
-    //        //            match selVp.selectedInstrument with
-    //        //            | Some i -> 
-    //        //                let horRes = i.intrinsics.horizontalResolution/uint32(2)
-    //        //                let vertRes = i.intrinsics.verticalResolution/uint32(2)
-    //        //                int(horRes), int(vertRes)
-    //        //            | None -> 
-    //        //                512, 512
-    //        //        return V2i(width, height)
-    //        //    | None -> return V2i(512, 512)
-    //        //| None -> return V2i(512, 512)
-        //}
-
-    let getDepth 
-        (m:AdaptiveModel) 
-        (runtime : IRuntime) = 
-        //let resolution = V3i (a.resolution.X, a.resolution.Y, 1)
-        //
-
-        let resolution = V2i(512, 512) |> AVal.constant //getVPResolution m
-
-        let depthsignature = 
-            runtime.CreateFramebufferSignature ([
-                DefaultSemantic.Colors, TextureFormat.Rgba8
-                DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
-            ], 8)
-        
-        (getSimpleSurfacesSg m)
-            |> Sg.compile runtime depthsignature
-            |> RenderTask.renderToDepth resolution 
-        
-    //let frustum (m:AdaptiveModel) =
-    //    let near = m.scene.config.nearPlane.value
-    //    let far = m.scene.config.farPlane.value
-    //    (Navigation.UI.frustum near far)
 
     module Shader =
 
         open FShade
 
         type Vertex = {
-            [<FShade.InstrinsicAttributes.Position>]        pos     : V4d
+            [<Position>]        pos     : V4d
             [<WorldPosition>]   wp      : V4d
             [<Color>]           c       : V4d
             [<TexCoord>]        tc      : V2d
@@ -864,7 +726,7 @@ module ViewerUtils =
         }
 
     //TODO TO refactor screenshot specific
-    let getSurfacesScenegraphs (runtime : IRuntime) (m:AdaptiveModel) =
+    let getSurfacesScenegraphs (runtime : IRuntime) (signature : IFramebufferSignature) (m:AdaptiveModel) =
         let sgGrouped = m.scene.surfacesModel.sgGrouped
         
       //  let renderCommands (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) overlayed depthTested (m:AdaptiveModel) =
@@ -881,6 +743,7 @@ module ViewerUtils =
                         let surfaces = m.scene.surfacesModel.surfaces.flat
 
                         viewSingleSurfaceSg 
+                            signature
                             sf 
                             surfaces 
                             m.frustum 
@@ -921,8 +784,8 @@ module ViewerUtils =
         sgs
   
     //TODO TO refactor screenshot specific
-    let getSurfacesSgWithCamera (runtime : IRuntime) (m : AdaptiveModel) =
-        let sgs = getSurfacesScenegraphs runtime m
+    let getSurfacesSgWithCamera (runtime : IRuntime) (signature : IFramebufferSignature) (m : AdaptiveModel) =
+        let sgs = getSurfacesScenegraphs runtime signature m
         let camera =
             AVal.map2 (fun v f -> Camera.create v f) m.scene.cameraView m.frustum 
         sgs 
@@ -931,6 +794,8 @@ module ViewerUtils =
             |> (camera |> Sg.camera)
 
     let renderCommands 
+        (signature : IFramebufferSignature)
+        (clientValues : Aardvark.Service.ClientValues)
         (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) 
         overlayed 
         depthTested 
@@ -955,54 +820,123 @@ module ViewerUtils =
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
         let view = m.navigation.camera.view
-        let grouped = 
-            sgGrouped |> AList.map(
-                fun x -> ( x 
-                    |> AMap.map(fun _ surface ->   
-                        let s =
-                            viewSingleSurfaceSg 
-                                surface 
-                                m.scene.surfacesModel.surfaces.flat
-                                m.frustum 
-                                selected 
-                                surfacePicking
-                                surface.globalBB
-                                refSystem 
-                                m.footPrint 
-                                vpVisible
-                                usehighlighting filterTexture
-                                allowFootprint
-                                allowDepthview
-                                view
 
-                        match surface.isObj with
-                        | true -> 
-                            s 
-                            |> Sg.effect [
-                                objEffect
-                            ] 
-                        | false -> 
-                            s
-                            |> Sg.effect [surfaceEffect] 
-                            |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-                            |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
-                       )
-                    |> AMap.toASet 
-                    |> ASet.map snd                     
-                )                 
+        let scope = Ag.Scope.Root
+        
+
+        let surfacesAndSceneGraphs = 
+            m.scene.surfacesModel.sgSurfaces
+            |> AMap.map (fun k sgSurface ->
+                let sg = 
+                    let sg = 
+                        viewSingleSurfaceSg signature sgSurface m.scene.surfacesModel.surfaces.flat m.frustum 
+                            selected surfacePicking sgSurface.globalBB refSystem m.footPrint 
+                            vpVisible usehighlighting filterTexture allowFootprint allowDepthview view
+
+                    match sgSurface.isObj with
+                    | true -> 
+                        sg
+                        |> Sg.effect [
+                            objEffect
+                        ] 
+                    | false -> 
+                        sg
+                        |> Sg.effect [surfaceEffect] 
+                        |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
+                        |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
+
+                let fullState = 
+                    sg 
+                    |> Sg.viewTrafo clientValues.viewTrafo
+                    |> Sg.projTrafo clientValues.projTrafo
+                    |> Sg.uniform "ViewportSize" clientValues.size
+                    |> Extensions.applyRuntime runtime
+
+                //let renderObjects = runtime.CompileRender(clientValues.signature, fullState)
+                let renderObjects = Aardvark.SceneGraph.Semantics.RenderObjectSemantics.Semantic.renderObjects scope fullState
+
+                sgSurface, renderObjects
             )
+            |> AMap.chooseA (fun k (sgSurface, sg) -> 
+                m.scene.surfacesModel.surfaces.flat 
+                |> AMap.tryFind k
+                |> AVal.map (function Some (AdaptiveSurfaces surface) -> Some (surface, sgSurface, sg) | _ -> None)
+            )
+
+        
+        let grouped = 
+            surfacesAndSceneGraphs
+            |> AMap.toASetValues
+            |> ASet.mapA (fun (surface, sgSurface, sg) -> surface.priority.value |> AVal.map (fun prio -> (sg, prio)))
+            |> ASet.groupBy (fun (sg, prio) -> prio)
+            |> AMap.map (fun k members -> members |> HashSet.toArray |> Array.map fst)
+            |> AMap.toASet
+            |> ASet.sortBy (fun (prio, members) -> prio)
+            |> AList.map snd
+    
+
+            //|> HashMap.toList
+            //|> List.groupBy(fun (_,x) -> 
+            //    let surf = HashMap.find x.surface surfaces 
+            //    surf.priority.value)
+            //|> List.map(fun (p,k) -> (p, k |> HashMap.ofList))
+            //|> List.sortBy fst
+            //|> List.map snd
+            //|> IndexList.ofList
+
+
+        //let grouped = 
+        //    sgGrouped |> AList.map(
+        //        fun x -> ( x 
+        //            |> AMap.map(fun _ surface ->   
+        //                let s =
+        //                    viewSingleSurfaceSg 
+        //                        signature
+        //                        surface 
+        //                        m.scene.surfacesModel.surfaces.flat
+        //                        m.frustum 
+        //                        selected 
+        //                        surfacePicking
+        //                        surface.globalBB
+        //                        refSystem 
+        //                        m.footPrint 
+        //                        vpVisible
+        //                        usehighlighting filterTexture
+        //                        allowFootprint
+        //                        allowDepthview
+        //                        view
+
+        //                match surface.isObj with
+        //                | true -> 
+        //                    s 
+        //                    |> Sg.effect [
+        //                        objEffect
+        //                    ] 
+        //                | false -> 
+        //                    s
+        //                    |> Sg.effect [surfaceEffect] 
+        //                    |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
+        //                    |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
+        //               )
+        //            |> AMap.toASet 
+        //            |> ASet.map snd                     
+        //        )                 
+        //    )
+
+
 
         //grouped   
         let last = grouped |> AList.tryLast
-        
+
+     
         alist {                    
             for set in grouped do  
-                let sg = set|> Sg.set
+                //let sg = set |> Sg.ofArray
                     //|> Sg.effect [surfaceEffect] 
                     //|> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
                     //|> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
 
-                yield RenderCommand.SceneGraph (sg)
+                yield RenderCommand.SceneGraph (Sg.renderObjectSet (ASet.union' set) |> Sg.noEvents)
 
                 //if i = c then //now gets rendered multiple times
                  // assign priorities globally, or for each anno and make sets

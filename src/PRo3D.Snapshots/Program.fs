@@ -235,7 +235,7 @@ let startApplication (startupArgs : CLStartupArgs) =
   
 
         Sg.useAsyncLoading <- false // need this for rendering without gui!
-        SnapshotGenerator.animate runtime mModel mainApp startupArgs |> ignore
+        SnapshotGenerator.animate runtime signature mModel mainApp startupArgs |> ignore
         try            
             match startupArgs.exitOnFinish with
             | true ->

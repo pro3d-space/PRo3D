@@ -19,6 +19,7 @@ open PRo3D.Base
 open PRo3D.Core
 
 open Adaptify
+open Aardvark.GeoSpatial.Opc
 
 #nowarn "0686"
 
@@ -937,15 +938,19 @@ type Picking =
 | KdTree   of HashMap<Box3d,KdTrees.Level0KdTree>
 | NoPicking
 
+
 [<ModelType>]
 type SgSurface = {    
     [<NonAdaptive>]
     surface     : Guid    
     trafo       : Transformation
     globalBB    : Box3d
-    sceneGraph  : ISg
+    sceneGraph  : Option<ISg>
     picking     : Picking
-    opcScene    : Option<Aardvark.GeoSpatial.Opc.Configurations.OpcScene>
+    opcScene    : Option<Configurations.OpcScene>
+
+    [<NonAdaptive>]
+    patchHierarchies : Option<array<PatchHierarchy>>
 
     [<NonAdaptive>]
     isObj       : bool
