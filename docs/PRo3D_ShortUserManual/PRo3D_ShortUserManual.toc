@@ -38,20 +38,26 @@
 \contentsline {subsubsection}{\numberline {4.8.5}Extended features}{37}{subsubsection.4.8.5}%
 \contentsline {subsubsection}{\numberline {4.8.6}Extended concept}{37}{subsubsection.4.8.6}%
 \contentsline {subsubsection}{\numberline {4.8.7}Caveats}{38}{subsubsection.4.8.7}%
-\contentsline {section}{\numberline {5}Minerva}{39}{section.5}%
-\contentsline {subsection}{\numberline {5.1}Start Minerva}{39}{subsection.5.1}%
-\contentsline {subsection}{\numberline {5.2}Minerva Features}{39}{subsection.5.2}%
-\contentsline {subsubsection}{\numberline {5.2.1}Visplore}{39}{subsubsection.5.2.1}%
-\contentsline {subsubsection}{\numberline {5.2.2}QueryApp}{40}{subsubsection.5.2.2}%
-\contentsline {subsubsection}{\numberline {5.2.3}Product Listing and Selection}{41}{subsubsection.5.2.3}%
-\contentsline {subsubsection}{\numberline {5.2.4}Product Properties}{42}{subsubsection.5.2.4}%
-\contentsline {subsection}{\numberline {5.3}Picking Actions}{42}{subsection.5.3}%
-\contentsline {section}{\numberline {6}PRo3D Command Line Interface}{45}{section.6}%
-\contentsline {subsection}{\numberline {6.1}PRo3D Snapshot Files}{45}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}Arguments and Features}{45}{subsection.6.2}%
-\contentsline {subsection}{\numberline {6.3}Examples}{46}{subsection.6.3}%
-\contentsline {section}{\numberline {7}Surface Comparison Extension}{51}{section.7}%
-\contentsline {subsection}{\numberline {7.1}Comparing Selected Areas}{51}{subsection.7.1}%
-\contentsline {subsection}{\numberline {7.2}Surface Measurements}{55}{subsection.7.2}%
-\contentsline {subsection}{\numberline {7.3}Comparing Length Measurements}{56}{subsection.7.3}%
-\contentsline {section}{\numberline {8}PRo3D Keyboard Shortcuts}{57}{section.8}%
+\contentsline {subsection}{\numberline {4.9}Contour Lines}{39}{subsection.4.9}%
+\contentsline {subsection}{\numberline {4.10}Multitexturing}{41}{subsection.4.10}%
+\contentsline {paragraph}{Caveats and missing features}{42}{section*.4}%
+\contentsline {paragraph}{Data Example}{42}{section*.5}%
+\contentsline {section}{\numberline {5}Minerva}{43}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Start Minerva}{43}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Minerva Features}{43}{subsection.5.2}%
+\contentsline {subsubsection}{\numberline {5.2.1}Visplore}{43}{subsubsection.5.2.1}%
+\contentsline {subsubsection}{\numberline {5.2.2}QueryApp}{44}{subsubsection.5.2.2}%
+\contentsline {subsubsection}{\numberline {5.2.3}Product Listing and Selection}{45}{subsubsection.5.2.3}%
+\contentsline {subsubsection}{\numberline {5.2.4}Product Properties}{46}{subsubsection.5.2.4}%
+\contentsline {subsection}{\numberline {5.3}Picking Actions}{46}{subsection.5.3}%
+\contentsline {section}{\numberline {6}PRo3D Command Line Interface}{49}{section.6}%
+\contentsline {subsection}{\numberline {6.1}PRo3D Snapshot Files}{49}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Arguments and Features}{49}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Examples}{50}{subsection.6.3}%
+\contentsline {section}{\numberline {7}Surface Comparison Extension}{55}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Comparing Selected Areas}{55}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Surface Measurements}{59}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Comparing Length Measurements}{60}{subsection.7.3}%
+\contentsline {section}{\numberline {8}PRo3D Keyboard Shortcuts}{61}{section.8}%
+\contentsline {section}{\numberline {9}Appendix}{62}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Multitexturing: Example of the currently available data}{62}{subsection.9.1}%

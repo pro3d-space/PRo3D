@@ -785,3 +785,81 @@ interactive presentations for science.
 	\subsubsection{Caveats}\label{caveats}}
 
 Currently the GIS settings are not stored to scene files.
+
+%----------------------------------------------------------------------------------------
+%	SubSection: 
+%----------------------------------------------------------------------------------------
+\newpage
+\subsection{Contour Lines}
+\label{sec:contourLines}
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.8\textwidth]{pics/contourTeaser.png}
+	\caption{The contour lines feature.}
+\end{figure}
+
+The feature only works in combination with multilayer opcs. By using surface properties, choose a particular layer as a secondary texture:
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.6\textwidth]{pics/multitexture-ui.png}
+	\caption{The multitexture UI.}
+\end{figure}
+
+Next, in the contour section, enable it and set distance of the lines, as well as line width and line border (both in the domain of the value chosen for texturing, here `Ele`).
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.6\textwidth]{pics/contour1.png}
+	\caption{In the contour section, enable it and set distance of the lines, as well as line width and line border.}
+\end{figure}
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=1.0\textwidth]{pics/contour0.png}
+	\caption{The whole setup looks like this.}
+\end{figure}
+
+%----------------------------------------------------------------------------------------
+%	SubSection: 
+%----------------------------------------------------------------------------------------
+
+\clearpage
+
+\subsection{Multitexturing}
+\label{sec:multitexturing}
+
+This feature allows to visualize multiple (opc) texture layers and control visualization properties.
+
+Instrument data and reconstruction information for example can be mapped onto the surface and blended with the albedo texture (here an accuracy map of the reconstruction):
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.6\textwidth]{pics/AccuracyMap.png}
+	\caption{An accuracy map of the reconstruction.}
+\end{figure}
+
+By using query parameters and a transfer function specific attributes can be filtered (e.g. here the elevation):
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.6\textwidth]{pics/FilteredElevation.png}
+	\caption{The elevation is filtered.}
+\end{figure}
+
+The controls can be found in the surface properties when selecting a surface. 
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.6\textwidth]{pics/MultitexControls.png}
+	\caption{The multitexturing controls in the surface properties.}
+\end{figure}
+
+\paragraph{Caveats and missing features}
+Currently we only read opcx files as opposed to opcx.json files which also provide a friendly name for the texture layers. In favor of reduced complexity we opted for the simpler, established opcx solution which could also be extended to contain a friendly name for the layer.
+
+\paragraph{Data Example}
+An example of currently available data can be found in the Appendix \ref{multitexturingAppendix}.
+
+
