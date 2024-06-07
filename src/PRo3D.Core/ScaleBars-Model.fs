@@ -18,9 +18,12 @@ open Aether.Operators
 #nowarn "0686"
 
 type Orientation = 
-| Horizontal = 0 
-| Vertical   = 1 
-| Sky        = 2
+| Horizontal_cam    = 0 
+| Vertical_cam      = 1 
+| Sky_cam           = 2 
+| Horizontal_planet = 3 // 
+| Sky_planet        = 4 // up direction of reference system
+
 
 type Pivot = //alignment
 | Left   = 0
@@ -135,9 +138,9 @@ module ScaleBar =
         (view : CameraView) =  
 
         match orientation with
-        | Orientation.Horizontal -> view.Right
-        | Orientation.Vertical   -> view.Up
-        | Orientation.Sky        -> view.Sky
+        | Orientation.Horizontal_cam    -> view.Right
+        | Orientation.Vertical_cam      -> view.Up
+        | Orientation.Sky_cam           -> view.Sky
         |_                       -> view.Right
 
     let current = 0   
@@ -171,6 +174,8 @@ module ScaleBar =
 
             let orientation = orientation |> enum<Orientation>
 
+            let! direction        = Json.tryRead "direction"
+
             return 
                 {
                     version         = current
@@ -194,7 +199,9 @@ module ScaleBar =
                     view            = view
                     transformation  = transformation
                     preTransform    = preTransform |> Trafo3d.Parse
-                    direction       = getDirectionVec orientation view
+                    direction       = match direction with
+                                        | Some d -> d |> V3d.Parse
+                                        | None -> getDirectionVec orientation view
                 }
         }
 
@@ -234,6 +241,7 @@ type ScaleBar with
             do! Json.write "view" camView
             do! Json.write "transformation" x.transformation  
             do! Json.write "preTransform" (x.preTransform.ToString())
+            do! Json.write "direction" (x.direction.ToString())
         }
 
 
@@ -367,7 +375,7 @@ module InitScaleBarsParams =
     }
 
     let initialScaleBarDrawing = {
-        orientation     = Orientation.Horizontal
+        orientation     = Orientation.Horizontal_cam
         alignment       = Pivot.Left
         thickness       = thickness
         length          = length

@@ -136,12 +136,16 @@ module ScaleBarUtils =
 
     let getDirectionVec 
         (orientation : Orientation) 
-        (view : CameraView) =  
+        (view : CameraView) 
+        (refSys : ReferenceSystem) =  
             match orientation with
-            | Orientation.Horizontal -> view.Right
-            | Orientation.Vertical   -> view.Up
-            | Orientation.Sky        -> view.Sky
+            | Orientation.Horizontal_cam    -> view.Right
+            | Orientation.Vertical_cam      -> view.Up
+            | Orientation.Sky_cam           -> view.Sky
+            | Orientation.Horizontal_planet -> refSys.up.value.Cross(view.Backward)
+            | Orientation.Sky_planet        -> refSys.up.value
             |_                       -> view.Right
+
 
     let getP1
         (position : V3d) 
@@ -184,18 +188,19 @@ module ScaleBarUtils =
             segments
 
     let updateSegments (scaleBar : ScaleBar) =
-        let direction = getDirectionVec scaleBar.orientation scaleBar.view
+        //let direction = getDirectionVec scaleBar.orientation scaleBar.view
         let length = getLengthInMeter scaleBar.unit scaleBar.length.value
-        getSegments scaleBar.position length direction scaleBar.alignment ((int)scaleBar.subdivisions.value)
+        getSegments scaleBar.position length scaleBar.direction scaleBar.alignment ((int)scaleBar.subdivisions.value)
 
     let mkScaleBar 
         (drawing : ScaleBarDrawing) 
         (position : V3d) 
-        (view : CameraView) =  
+        (view : CameraView) 
+        (refSys : ReferenceSystem) =  
 
             let subdivisions = InitScaleBarsParams.subdivisions // todo via gui
             let length = getLengthInMeter drawing.unit drawing.length.value
-            let direction = getDirectionVec drawing.orientation view
+            let direction = getDirectionVec drawing.orientation view refSys
             let segments = getSegments position length direction drawing.alignment ((int)subdivisions.value)
             let text = drawing.length.value.ToString() + drawing.unit.ToString()
 
@@ -299,7 +304,7 @@ module ScaleBarsApp =
             | None, _ -> model
 
         | AddScaleBar (p,drawing, view) ->
-            let scaleBar = ScaleBarUtils.mkScaleBar drawing p view 
+            let scaleBar = ScaleBarUtils.mkScaleBar drawing p view refSys
             let scaleBars' =  HashMap.add scaleBar.guid scaleBar model.scaleBars
             { model with scaleBars = scaleBars'; selectedScaleBar = Some scaleBar.guid }
 
@@ -497,15 +502,16 @@ module ScaleBarsApp =
             } |> Sg.dynamic
 
         let getP1P2 
-            (scaleBar   : AdaptiveScaleBar) =
+            (scaleBar   : AdaptiveScaleBar) 
+            (refsys : AdaptiveReferenceSystem)=
             aval {
                 let! position = scaleBar.position
                 let! length = scaleBar.length.value
                 let! unit = scaleBar.unit
                 let length' = ScaleBarUtils.getLengthInMeter unit length
-                let! orientation = scaleBar.orientation
-                let! view = scaleBar.view
-                let direction = ScaleBarUtils.getDirectionVec orientation view
+                //let! orientation = scaleBar.orientation
+                //let! view = scaleBar.view
+                let! direction = scaleBar.direction //ScaleBarUtils.getDirectionVec orientation view
                 let! alignment = scaleBar.alignment
                 let p1 = ScaleBarUtils.getP1 position length' direction alignment
                     
