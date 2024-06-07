@@ -18,10 +18,10 @@ open Aether.Operators
 #nowarn "0686"
 
 type Orientation = 
-| Horizontal_cam    = 0 
-| Vertical_cam      = 1 
-| Sky_cam           = 2 
-| Horizontal_planet = 3 // 
+| Horizontal_cam    = 0 // right direction of camera view
+| Vertical_cam      = 1 // up direction of camera view
+| Sky_cam           = 2 // camera sky vector
+| Horizontal_planet = 3 // reference systen plane parallel to right camera view
 | Sky_planet        = 4 // up direction of reference system
 
 
