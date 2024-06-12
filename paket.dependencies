@@ -18,6 +18,7 @@ nuget Aardvark.Base.FSharp                  ~> 5.2.13
 nuget Aardvark.Geometry                     ~> 5.2.13
 nuget Aardvark.PixImage.DevIL               ~> 5.2.13
 
+nuget SixLabors.ImageSharp                  ~> 2.1.7
 
 nuget Aardvark.Rendering                    ~> 5.4.0
 nuget Aardvark.Application.Slim             ~> 5.4.0
@@ -50,7 +51,7 @@ nuget Aardvark.GeoSpatial.Opc               ~> 5.10.8
 
 nuget Aardium                               ~> 2.0.10-prerelease0007
 
-nuget OPCViewer.Base                        ~> 1.6.1
+nuget OPCViewer.Base                        ~> 1.7.2
 
 nuget Uncodium.Eigensystems                 ~> 1.1.2
 nuget Chiron                                ~> 6.3.1

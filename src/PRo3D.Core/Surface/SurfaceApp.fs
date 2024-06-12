@@ -881,7 +881,7 @@ module SurfaceApp =
                     Log.startTimed "[RebuildKdTrees] creating kdtrees"
                     let cnt = 
                         hs |> Array.sumBy (fun h -> 
-                            let m = KdTrees.loadKdTrees' h Trafo3d.Identity true ViewerModality.XYZ Serialization.binarySerializer true true PRo3D.Core.Surface.DebugKdTreesX.loadTriangles' false Aardvark.VRVis.Opc.KdTrees.KdTreeParameters.legacyDefault   
+                            let m = KdTrees.loadKdTrees' h Trafo3d.Identity true ViewerModality.XYZ Serialization.binarySerializer true true PRo3D.Core.Surface.DebugKdTreesX.loadTriangles' false false Aardvark.VRVis.Opc.KdTrees.KdTreeParameters.legacyDefault   
                             HashMap.count m
                         )
                     Log.stop()
