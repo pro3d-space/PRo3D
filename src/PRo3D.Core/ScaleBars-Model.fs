@@ -118,7 +118,7 @@ type ScaleBar = {
     view            : CameraView
     transformation  : Transformations
     preTransform    : Trafo3d
-    direction       : V3d
+    //direction       : V3d
 }
 
 [<ModelType>]
@@ -174,7 +174,7 @@ module ScaleBar =
 
             let orientation = orientation |> enum<Orientation>
 
-            let! direction        = Json.tryRead "direction"
+            //let! direction        = Json.tryRead "direction"
 
             return 
                 {
@@ -199,9 +199,9 @@ module ScaleBar =
                     view            = view
                     transformation  = transformation
                     preTransform    = preTransform |> Trafo3d.Parse
-                    direction       = match direction with
-                                        | Some d -> d |> V3d.Parse
-                                        | None -> getDirectionVec orientation view
+                    //direction       = match direction with
+                    //                    | Some d -> d |> V3d.Parse
+                    //                    | None -> getDirectionVec orientation view
                 }
         }
 
@@ -241,7 +241,7 @@ type ScaleBar with
             do! Json.write "view" camView
             do! Json.write "transformation" x.transformation  
             do! Json.write "preTransform" (x.preTransform.ToString())
-            do! Json.write "direction" (x.direction.ToString())
+            //do! Json.write "direction" (x.direction.ToString())
         }
 
 
