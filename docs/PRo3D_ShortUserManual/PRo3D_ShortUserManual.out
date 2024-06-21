@@ -28,20 +28,32 @@
 \BOOKMARK [3][-]{subsubsection.4.6.1}{Group Actions}{subsection.4.6}% 28
 \BOOKMARK [3][-]{subsubsection.4.6.2}{Leaf Actions}{subsection.4.6}% 29
 \BOOKMARK [2][-]{subsection.4.7}{View Planner}{section.4}% 30
-\BOOKMARK [1][-]{section.5}{Minerva}{}% 31
-\BOOKMARK [2][-]{subsection.5.1}{Start Minerva}{section.5}% 32
-\BOOKMARK [2][-]{subsection.5.2}{Minerva Features}{section.5}% 33
-\BOOKMARK [3][-]{subsubsection.5.2.1}{Visplore}{subsection.5.2}% 34
-\BOOKMARK [3][-]{subsubsection.5.2.2}{QueryApp}{subsection.5.2}% 35
-\BOOKMARK [3][-]{subsubsection.5.2.3}{Product Listing and Selection}{subsection.5.2}% 36
-\BOOKMARK [3][-]{subsubsection.5.2.4}{Product Properties}{subsection.5.2}% 37
-\BOOKMARK [2][-]{subsection.5.3}{Picking Actions}{section.5}% 38
-\BOOKMARK [1][-]{section.6}{PRo3D Command Line Interface}{}% 39
-\BOOKMARK [2][-]{subsection.6.1}{PRo3D Snapshot Files}{section.6}% 40
-\BOOKMARK [2][-]{subsection.6.2}{Arguments and Features}{section.6}% 41
-\BOOKMARK [2][-]{subsection.6.3}{Examples}{section.6}% 42
-\BOOKMARK [1][-]{section.7}{Surface Comparison Extension}{}% 43
-\BOOKMARK [2][-]{subsection.7.1}{Comparing Selected Areas}{section.7}% 44
-\BOOKMARK [2][-]{subsection.7.2}{Surface Measurements}{section.7}% 45
-\BOOKMARK [2][-]{subsection.7.3}{Comparing Length Measurements}{section.7}% 46
-\BOOKMARK [1][-]{section.8}{PRo3D Keyboard Shortcuts}{}% 47
+\BOOKMARK [2][-]{subsection.4.8}{GIS View}{section.4}% 31
+\BOOKMARK [3][-]{subsubsection.4.8.1}{SPICE}{subsection.4.8}% 32
+\BOOKMARK [3][-]{subsubsection.4.8.2}{PRO3D GIS View Tab}{subsection.4.8}% 33
+\BOOKMARK [3][-]{subsubsection.4.8.3}{Reference Frames}{subsection.4.8}% 34
+\BOOKMARK [3][-]{subsubsection.4.8.4}{Observing mars}{subsection.4.8}% 35
+\BOOKMARK [3][-]{subsubsection.4.8.5}{Extended features}{subsection.4.8}% 36
+\BOOKMARK [3][-]{subsubsection.4.8.6}{Extended concept}{subsection.4.8}% 37
+\BOOKMARK [3][-]{subsubsection.4.8.7}{Caveats}{subsection.4.8}% 38
+\BOOKMARK [2][-]{subsection.4.9}{Contour Lines}{section.4}% 39
+\BOOKMARK [2][-]{subsection.4.10}{Multitexturing}{section.4}% 40
+\BOOKMARK [1][-]{section.5}{Minerva}{}% 41
+\BOOKMARK [2][-]{subsection.5.1}{Start Minerva}{section.5}% 42
+\BOOKMARK [2][-]{subsection.5.2}{Minerva Features}{section.5}% 43
+\BOOKMARK [3][-]{subsubsection.5.2.1}{Visplore}{subsection.5.2}% 44
+\BOOKMARK [3][-]{subsubsection.5.2.2}{QueryApp}{subsection.5.2}% 45
+\BOOKMARK [3][-]{subsubsection.5.2.3}{Product Listing and Selection}{subsection.5.2}% 46
+\BOOKMARK [3][-]{subsubsection.5.2.4}{Product Properties}{subsection.5.2}% 47
+\BOOKMARK [2][-]{subsection.5.3}{Picking Actions}{section.5}% 48
+\BOOKMARK [1][-]{section.6}{PRo3D Command Line Interface}{}% 49
+\BOOKMARK [2][-]{subsection.6.1}{PRo3D Snapshot Files}{section.6}% 50
+\BOOKMARK [2][-]{subsection.6.2}{Arguments and Features}{section.6}% 51
+\BOOKMARK [2][-]{subsection.6.3}{Examples}{section.6}% 52
+\BOOKMARK [1][-]{section.7}{Surface Comparison Extension}{}% 53
+\BOOKMARK [2][-]{subsection.7.1}{Comparing Selected Areas}{section.7}% 54
+\BOOKMARK [2][-]{subsection.7.2}{Surface Measurements}{section.7}% 55
+\BOOKMARK [2][-]{subsection.7.3}{Comparing Length Measurements}{section.7}% 56
+\BOOKMARK [1][-]{section.8}{PRo3D Keyboard Shortcuts}{}% 57
+\BOOKMARK [1][-]{section.9}{Appendix}{}% 58
+\BOOKMARK [2][-]{subsection.9.1}{Multitexturing: Example of the currently available data}{section.9}% 59

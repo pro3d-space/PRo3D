@@ -1,3 +1,6 @@
+## 4.24.0
+- streamlined up kdtree loading
+
 ## 4.23.2   
 - fixed sequenced bookmark loading in cross-platform scenarios https://github.com/pro3d-space/PRo3D/pull/391
 

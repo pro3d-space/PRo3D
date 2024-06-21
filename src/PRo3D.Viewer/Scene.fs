@@ -273,7 +273,7 @@ module SceneLoader =
     let addScaleBarSegments (m:Model) = 
         m.scene.scaleBars.scaleBars
         |> HashMap.map( fun id sb -> 
-                let segments = ScaleBarUtils.updateSegments sb
+                let segments = ScaleBarUtils.updateSegments sb m.scene.referenceSystem.planet
                 { sb with scSegments = segments})
         |> (flip <| Optic.set _scaleBarsLens) m
 
