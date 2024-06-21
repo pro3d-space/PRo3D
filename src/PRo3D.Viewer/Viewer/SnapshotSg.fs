@@ -284,6 +284,7 @@ module SnapshotSg =
                     m.navigation.camera.view 
                     m.scene.config
                     mrefConfig
+                    m.scene.referenceSystem.planet
 
             [
                 exploreCenter; 
@@ -306,7 +307,6 @@ module SnapshotSg =
                 m.navigation.camera.view
                 m.scene.config
                 mrefConfig
-                m.scene.referenceSystem
             |> Sg.map ScaleBarsMessage
 
         let sceneObjects =
