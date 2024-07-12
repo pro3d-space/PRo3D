@@ -836,7 +836,7 @@ module ViewerUtils =
             
             Shader.footprintV        |> toEffect 
             Shader.stableTrafo       |> toEffect
-            //Shader.triangleFilterX   |> toEffect
+            Shader.triangleFilterX   |> toEffect
            
            
             Shader.fixAlpha |> toEffect
