@@ -1,3 +1,8 @@
+## 4.25.0-prerelease7
+- distance- and trianglefilter fix
+- fixed problem with sequenced bookmarks performance problem when a traverse is loaded
+- fixed obj not being rendered with batch rendering
+
 ## 4.24.0
 - streamlined up kdtree loading
 
