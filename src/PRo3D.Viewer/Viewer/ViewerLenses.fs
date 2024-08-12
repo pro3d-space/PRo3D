@@ -92,7 +92,7 @@ module ViewerLenses =
                                             m.scene.config
                 stateReferenceSystem   = SceneStateReferenceSystem.fromReferenceSystem 
                                             m.scene.referenceSystem
-                stateTraverses         = Some m.scene.traverses
+                //stateTraverses         = Some m.scene.traverses
             }
         ), 
         (fun state m ->
@@ -104,31 +104,31 @@ module ViewerLenses =
                                 Not applying surfaces for this scene state."
                     {state with stateSurfaces = m.scene.surfacesModel.surfaces}
 
-            let scaleBars = // check scale bars; using old segments for performance reasons
-                if haveSameKeys state.stateScaleBars.scaleBars
-                                m.scene.scaleBars.scaleBars then 
-                    let inline update (newBar : ScaleBar) = 
-                        let current = HashMap.tryFind newBar.guid m.scene.scaleBars.scaleBars
-                        match current with
-                        | Some current ->
-                            { newBar with scSegments = current.scSegments}
-                        | None ->
-                            Log.line "[Viewer] Scale bar %s not present in current scene state." newBar.name
-                            newBar
-                    let updated = 
-                        state.stateScaleBars.scaleBars
-                        |> HashMap.map (fun id bar -> update bar)
-                    {state.stateScaleBars with scaleBars = updated}        
+            //let scaleBars = // check scale bars; using old segments for performance reasons
+            //    if haveSameKeys state.stateScaleBars.scaleBars
+            //                    m.scene.scaleBars.scaleBars then 
+            //        let inline update (newBar : ScaleBar) = 
+            //            let current = HashMap.tryFind newBar.guid m.scene.scaleBars.scaleBars
+            //            match current with
+            //            | Some current ->
+            //                { newBar with scSegments = current.scSegments}
+            //            | None ->
+            //                Log.line "[Viewer] Scale bar %s not present in current scene state." newBar.name
+            //                newBar
+            //        let updated = 
+            //            state.stateScaleBars.scaleBars
+            //            |> HashMap.map (fun id bar -> update bar)
+            //        {state.stateScaleBars with scaleBars = updated}        
                     
-                else
-                    Log.warn "[ViewerLenses] Scale Bars have been added or removed making this scene state invalid. 
-                                Not applying scale bars for this scene state."
-                    m.scene.scaleBars
+            //    else
+            //        Log.warn "[ViewerLenses] Scale Bars have been added or removed making this scene state invalid. 
+            //                    Not applying scale bars for this scene state."
+            //        m.scene.scaleBars
 
-            let traverses = 
-                match state.stateTraverses with
-                | Some t -> t
-                | None -> m.scene.traverses
+            //let traverses = 
+            //    match state.stateTraverses with
+            //    | Some t -> t
+            //    | None -> m.scene.traverses
 
             let frustum =
                 match m.startupArgs.isBatchRendering with
@@ -145,7 +145,7 @@ module ViewerLenses =
                     {m.scene with
                         surfacesModel           = {m.scene.surfacesModel with surfaces = state.stateSurfaces}
                         sceneObjectsModel       = state.stateSceneObjects
-                        scaleBars               = scaleBars
+                        //scaleBars               = scaleBars
                         geologicSurfacesModel   = state.stateGeologicSurfaces
                         config                  = 
                             {m.scene.config with
@@ -172,7 +172,7 @@ module ViewerLenses =
                                         value = state.stateReferenceSystem.size}
                                 selectedScale = state.stateReferenceSystem.selectedScale
                             }
-                        traverses               = traverses
+                        //traverses               = traverses
                         
                     }
                 frustum = frustum

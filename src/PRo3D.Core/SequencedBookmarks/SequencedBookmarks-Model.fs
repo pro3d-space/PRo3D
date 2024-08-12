@@ -189,7 +189,7 @@ type SceneState =
         stateGeologicSurfaces : GeologicSurfacesModel
         stateConfig           : SceneStateViewConfig
         stateReferenceSystem  : SceneStateReferenceSystem  
-        stateTraverses        : option<TraverseModel>
+        //stateTraverses        : option<TraverseModel>
     } with
     static member stateConfig_ =
         (
@@ -229,7 +229,7 @@ module SceneState =
                 let! stateGeologicSurfaces   = Json.read "stateGeologicSurfaces"
                 let! stateConfig             = Json.read "stateConfig"
                 let! stateReferenceSystem    = Json.read "stateReferenceSystem"
-                let! stateTraverse           = Json.tryRead "stateTraverse"
+                //let! stateTraverse           = Json.tryRead "stateTraverse"
 
                 return {
                     version                 = currentVersion
@@ -244,7 +244,7 @@ module SceneState =
                         SceneStateViewConfig.fromViewConfigModel stateConfig
                     stateReferenceSystem    = 
                         SceneStateReferenceSystem.fromReferenceSystem stateReferenceSystem
-                    stateTraverses          = stateTraverse
+                    //stateTraverses          = stateTraverse
                 }
             }
 
@@ -263,7 +263,7 @@ module SceneState =
             let! stateGeologicSurfaces   = Json.read "stateGeologicSurfaces"
             let! stateConfig             = Json.read "stateConfig"
             let! stateReferenceSystem    = Json.read "stateReferenceSystem"
-            let! stateTraverse           = Json.tryRead "stateTraverse"
+            //let! stateTraverse           = Json.tryRead "stateTraverse"
 
             return {
                 version                 = currentVersion
@@ -276,7 +276,7 @@ module SceneState =
                 stateGeologicSurfaces   = stateGeologicSurfaces
                 stateConfig             = stateConfig
                 stateReferenceSystem    = stateReferenceSystem
-                stateTraverses          = stateTraverse
+                //stateTraverses          = stateTraverse
             }
         }
 
@@ -306,7 +306,7 @@ type SceneState with
             do! Json.write "stateGeologicSurfaces" x.stateGeologicSurfaces
             do! Json.write "stateConfig"           x.stateConfig
             do! Json.write "stateReferenceSystem"  x.stateReferenceSystem
-            do! Json.write "stateTraverse"         x.stateTraverses
+            //do! Json.write "stateTraverse"         x.stateTraverses
         }
 
 type FrustumParameters = {
