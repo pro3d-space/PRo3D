@@ -26,6 +26,7 @@ module Entity =
             radius        = 1.0
             textureName   = None
             defaultFrame  = None
+            showTrajectory = false
         }
 
     let update (m : Entity) (msg : EntityAction) =
@@ -46,6 +47,8 @@ module Entity =
             {m with textureName = Some textureName}
         | EntityAction.ToggleDraw ->
             {m with draw = not m.draw}
+        | EntityAction.ToggleTrajectory -> 
+            {m with showTrajectory = not m.showTrajectory }
         | EntityAction.Edit spiceName ->
             {m with isEditing = true}
         | EntityAction.Delete id ->
@@ -156,6 +159,7 @@ module Entity =
                          |> fullWidthText]
                 Html.row "Radius" [radiusInput]
                 Html.row "Draw Entity" [GuiEx.iconCheckBox m.draw EntityAction.ToggleDraw]
+                Html.row "Show Trajectory" [GuiEx.iconCheckBox m.showTrajectory EntityAction.ToggleTrajectory]
                 actions
             ]
 

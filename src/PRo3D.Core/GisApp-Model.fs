@@ -183,6 +183,7 @@ type EntityAction =
     | SetSpiceName      of string
     | SetSpiceNameText  of string
     | ToggleDraw        
+    | ToggleTrajectory
     | SetTextureName    of string
     | SetRadius         of float
     | SetGeometryPath   of string

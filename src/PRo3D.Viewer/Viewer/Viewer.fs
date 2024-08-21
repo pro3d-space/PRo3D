@@ -2033,7 +2033,7 @@ module ViewerApp =
                 heightValidation
                 scaleBarTexts
                 traverse
-                gisEntities
+                //gisEntities
             ] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
         //let minervaSg =
@@ -2100,6 +2100,7 @@ module ViewerApp =
                 sceneObjects; 
                 geologicSurfacesSg
                 traverses
+                gisEntities
             ] |> Sg.ofList
 
 

@@ -627,6 +627,7 @@ module GisApp =
             }
 
 
+
     let getSurfaceTrafo (m : GisApp)  (s : SurfaceId) =
         match m.gisSurfaces |> HashMap.tryFind s with
         | None -> 
@@ -729,38 +730,91 @@ module GisApp =
                 IndexedGeometryPrimitives.solidSubdivisionSphere Sphere3d.Unit 5 C4b.White
                 |> Sg.ofIndexedGeometry
 
-            renderableBodies 
-            |> ASet.map (fun (renderableBody, entity) -> 
-                let texture =
-                    entity.textureName 
-                    |> AVal.map (fun textureName -> 
-                        match textureName with
-                        | None -> nullTexture, false
-                        | Some n -> 
-                            if File.Exists n then
-                                FileTexture(n, true), true
-                            else
-                                Log.warn "texture for entity not found: %A, %s" entity.spiceName n 
-                                nullTexture, false
+            // time steps for sampling the past for trajectories. They end at present.
+            let timeSteps =
+                time
+                |> AVal.map (fun endTime -> 
+                    let samplingInterval = TimeSpan.FromHours 1.0
+                    let trajectoryDuration = TimeSpan.FromDays 1.0
+                    let startTime = endTime - trajectoryDuration
+                    //let timeSteps = (endTime - startTime) / samplingInterval
+                    // could be [| startTime .. samplingRate .. endTime |] if TimeSpan would have get_Zero static member...
+                    Array.init 8000 (fun i -> startTime + samplingInterval * float i)
+                )
+
+            let bodyTrajectoryLines = 
+                let targetReferenceFrame = getFrameWithDefaulting targetReferenceFrame
+                bodies 
+                |> ASet.mapA (fun (entityName, entity) ->
+
+                    entity.showTrajectory |> AVal.map (fun showTrajectory -> 
+                        if showTrajectory then
+                            // pairwise trajectory points looking into the past....
+                            let lineSegments = 
+                                (timeSteps, targetReferenceFrame, observerSpiceBody) 
+                                |||> AVal.map3 (fun steps targetReferenceFrame observer -> 
+                                        steps 
+                                        |> Array.choose (fun time -> 
+                                            // get virutal body transformation using trajectory timestep.
+                                            match CooTransformation.transformBody entityName (Some targetReferenceFrame) observer targetReferenceFrame time with
+                                            | None -> 
+                                                // happens when body is trafo is not valid for time step (e.g. spice kernel ends to early), skip those.
+                                                None
+                                            | Some bodyInPast -> 
+                                                // just take position, ignore orientation, could be useful for vector representations though.
+                                                Some bodyInPast.position
+                                        )
+                                        |> Array.pairwise
+                                        |> Array.map Line3d
+                                )
+                        
+                            Sg.lines (entity.color |> AVal.map C4b) lineSegments
+                        else
+                            Sg.empty
                     )
+                )
+                |> Sg.set
 
-                body
-                |> Sg.diffuseTexture (texture |> AVal.map fst)
-                |> Sg.uniform "HasTexture" (texture |> AVal.map snd)
-                |> Sg.uniform "UniformColor" entity.color
-                |> Sg.trafo renderableBody.trafo
-            )
-            |> Sg.set
-            |> Sg.shader {
-                do! Shaders.stableBodyTrafo
-                do! Shaders.color
-                do! Shaders.generateUv
-                do! Shaders.texture
-            }
+            let bodyTrajectory = 
+                bodyTrajectoryLines 
+                |> Sg.shader {
+                    do! Shaders.stableBodyTrafo
+                }
 
-        nonInstancedRendering () // switch to instancing if needed. 
-        |> Sg.cullMode' CullMode.Back 
-        //|> Sg.depthTest' DepthTest. 
+            let bodies = 
+                renderableBodies 
+                |> ASet.map (fun (renderableBody, entity) -> 
+                    let texture =
+                        entity.textureName 
+                        |> AVal.map (fun textureName -> 
+                            match textureName with
+                            | None -> nullTexture, false
+                            | Some n -> 
+                                if File.Exists n then
+                                    FileTexture(n, true), true
+                                else
+                                    Log.warn "texture for entity not found: %A, %s" entity.spiceName n 
+                                    nullTexture, false
+                        )
+
+                    body
+                    |> Sg.diffuseTexture (texture |> AVal.map fst)
+                    |> Sg.uniform "HasTexture" (texture |> AVal.map snd)
+                    |> Sg.uniform "UniformColor" entity.color
+                    |> Sg.trafo renderableBody.trafo
+                )
+                |> Sg.set
+                |> Sg.shader {
+                    do! Shaders.stableBodyTrafo
+                    do! Shaders.color
+                    do! Shaders.generateUv
+                    do! Shaders.texture
+                }
+                |> Sg.cullMode' CullMode.Back 
+
+            Sg.ofList [bodies; bodyTrajectory]
+
+        nonInstancedRendering () 
 
 
     let getSpiceReferenceSystemFromSurfaces (s : SurfaceId) (m : HashMap<SurfaceId, GisSurface>)  = 
@@ -779,7 +833,7 @@ module GisApp =
         m.gisSurfaces.Content |> AVal.map (getSpiceReferenceSystemFromSurfaces s)
 
     let getObserver (v : ObservationInfo) =
-        match v.target, v.referenceFrame with
+        match v.observer, v.referenceFrame with
         | Some observer, Some referenceFrame -> Some { body = observer; referenceFrame = referenceFrame; time = v.time.date }
         | _ -> None
 
@@ -793,15 +847,16 @@ module GisApp =
         match m.defaultObservationInfo.observer, m.defaultObservationInfo.referenceFrame, m.defaultObservationInfo.target with
         | Some observer, Some observerFrame, Some target ->
             Log.line "look at. target: %A, observer: %A, frame: %A" target observer observerFrame
-            match CooTransformation.transformBody observer (Some observerFrame) target observerFrame m.defaultObservationInfo.time.date with
+            match CooTransformation.transformBody target (Some observerFrame) observer observerFrame m.defaultObservationInfo.time.date with
             | None -> 
                 None
             | Some t -> 
                 t.lookAtBody |> Some
         | _ -> None
 
+
     let viewGisEntities (m : AdaptiveGisApp) =
-        let observer = m.defaultObservationInfo.target 
+        let observer = m.defaultObservationInfo.observer 
         let observerWithDefault = observer |> AVal.map (Option.defaultValue (EntitySpiceName "mars"))
         let time = m.defaultObservationInfo.time.date
         let targetReferenceFrame = m.defaultObservationInfo.referenceFrame 

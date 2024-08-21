@@ -115,6 +115,7 @@ type Entity = {
     radius       : float
     geometryPath : option<string>
     textureName  : option<string>
+    showTrajectory : bool
     defaultFrame : option<FrameSpiceName>
 } with
     static member current = 0
@@ -129,6 +130,7 @@ type Entity = {
             let! defaultFrame = Json.read    "defaultFrame"
             let! (draw : option<bool>) = Json.tryRead "draw"
             let draw = Option.defaultValue false draw
+            let! showTrajectory = Json.tryRead "showTrajectory"
             
             return {
                 version      = Entity.current
@@ -142,6 +144,7 @@ type Entity = {
                 geometryPath = geometryPath
                 textureName  = textureName 
                 defaultFrame = defaultFrame
+                showTrajectory = Option.defaultValue false showTrajectory
             }
         }
     static member FromJson(_ : Entity) = 
@@ -162,6 +165,7 @@ type Entity = {
             do! Json.write "textureName"  x.textureName 
             do! Json.write "defaultFrame" x.defaultFrame
             do! Json.write "draw"         x.draw
+            do! Json.write "showTrajectory" x.showTrajectory
         }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]    
@@ -179,6 +183,7 @@ module Entity =
             radius        = 3376200.0 //polar radius in meter
             textureName   = None
             defaultFrame  = Some (FrameSpiceName "IAU_MARS")
+            showTrajectory = false
         }
 
     let deimos =
@@ -194,6 +199,7 @@ module Entity =
             radius        = 6250.0 //polar radius in meter
             textureName   = None
             defaultFrame  = Some (FrameSpiceName "ECLIPJ2000")
+            showTrajectory = false
         }
 
     let phobos =
@@ -209,6 +215,7 @@ module Entity =
             radius        = 11266.5 //polar radius in meter
             textureName   = None
             defaultFrame  = Some (FrameSpiceName "ECLIPJ2000")
+            showTrajectory = false
         }
 
     let earth =
@@ -224,6 +231,7 @@ module Entity =
             radius        = 6356800.0 // polar radius in meter
             textureName   = None
             defaultFrame  = Some (FrameSpiceName "IAU_EARTH")
+            showTrajectory = false
         }
 
     let moon =
@@ -239,6 +247,7 @@ module Entity =
             radius        = 1736000.0 //polar radius in meter
             textureName   = None
             defaultFrame  = Some (FrameSpiceName "IAU_MOON") // should maybe used different default?
+            showTrajectory = false
         }
 
     let didymos =
@@ -254,6 +263,7 @@ module Entity =
             radius        = 382.5 //mean radius +/- 2.5m
             textureName   = None
             defaultFrame  = Some (FrameSpiceName "ECLIPJ2000") 
+            showTrajectory = false
         }
 
     let dimorphos =
@@ -269,6 +279,7 @@ module Entity =
             radius        = 75.5 //mean radius +/- 2.5m
             textureName   = None
             defaultFrame  = Some (FrameSpiceName "ECLIPJ2000") 
+            showTrajectory = false
         }
     let heraSpacecraft =
         {
@@ -283,6 +294,7 @@ module Entity =
             radius        = 2.0 // ?
             textureName   = None
             defaultFrame  = Some (FrameSpiceName "ECLIPJ2000") // DIMORPHOS_FIXED ?
+            showTrajectory = false
         }
         
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]    
@@ -376,7 +388,7 @@ module CooTransformation =
         match relState, rot with
         | Some rel, Some rot -> 
             let relFrame = rel.rot 
-            let t = Trafo3d.FromBasis(relFrame.C0, relFrame.C1, -relFrame.C2, -rel.pos)
+            let t = Trafo3d.FromBasis(relFrame.C0, relFrame.C1, -relFrame.C2, V3d.Zero)
             Some { 
                 lookAtBody = CameraView.ofTrafo t.Inverse
                 position = rel.pos
