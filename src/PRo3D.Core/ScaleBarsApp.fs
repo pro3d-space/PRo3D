@@ -123,6 +123,9 @@ type ScaleBarsAction =
 
 module ScaleBarUtils = 
 
+    let getPlanetBasedUpVector (p:V3d) (planet:Planet) = 
+        CooTransformation.getUpVector p planet
+
     let getLengthInMeter 
         (unit : PRo3D.Core.Unit)
         (length : float)  =
@@ -136,12 +139,18 @@ module ScaleBarUtils =
 
     let getDirectionVec 
         (orientation : Orientation) 
-        (view : CameraView) =  
+        (view : CameraView) 
+        (position : V3d) 
+        (planet : Planet) =  
+            let planetUp = getPlanetBasedUpVector position planet
             match orientation with
-            | Orientation.Horizontal -> view.Right
-            | Orientation.Vertical   -> view.Up
-            | Orientation.Sky        -> view.Sky
+            | Orientation.Horizontal_cam    -> view.Right
+            | Orientation.Vertical_cam      -> view.Up
+            | Orientation.Sky_cam           -> view.Sky
+            | Orientation.Horizontal_planet -> planetUp.Cross(view.Backward)
+            | Orientation.Sky_planet        -> planetUp
             |_                       -> view.Right
+
 
     let getP1
         (position : V3d) 
@@ -183,19 +192,20 @@ module ScaleBarUtils =
                     segments <- segments |> IndexList.add segment
             segments
 
-    let updateSegments (scaleBar : ScaleBar) =
-        let direction = getDirectionVec scaleBar.orientation scaleBar.view
+    let updateSegments (scaleBar : ScaleBar) (planet : Planet) =
+        let direction = getDirectionVec scaleBar.orientation scaleBar.view scaleBar.position planet
         let length = getLengthInMeter scaleBar.unit scaleBar.length.value
         getSegments scaleBar.position length direction scaleBar.alignment ((int)scaleBar.subdivisions.value)
 
     let mkScaleBar 
         (drawing : ScaleBarDrawing) 
         (position : V3d) 
-        (view : CameraView) =  
+        (view : CameraView) 
+        (planet : Planet) =  
 
             let subdivisions = InitScaleBarsParams.subdivisions // todo via gui
             let length = getLengthInMeter drawing.unit drawing.length.value
-            let direction = getDirectionVec drawing.orientation view
+            let direction = getDirectionVec drawing.orientation view position planet
             let segments = getSegments position length direction drawing.alignment ((int)subdivisions.value)
             let text = drawing.length.value.ToString() + drawing.unit.ToString()
 
@@ -222,7 +232,7 @@ module ScaleBarUtils =
                 transformation  = Init.transformations
                 preTransform    = Trafo3d.Identity
 
-                direction = direction
+                //direction = direction
             }
 
 
@@ -299,7 +309,7 @@ module ScaleBarsApp =
             | None, _ -> model
 
         | AddScaleBar (p,drawing, view) ->
-            let scaleBar = ScaleBarUtils.mkScaleBar drawing p view 
+            let scaleBar = ScaleBarUtils.mkScaleBar drawing p view refSys.planet
             let scaleBars' =  HashMap.add scaleBar.guid scaleBar model.scaleBars
             { model with scaleBars = scaleBars'; selectedScaleBar = Some scaleBar.guid }
 
@@ -322,7 +332,7 @@ module ScaleBarsApp =
                 match scB with
                 | Some sb ->
                     let scaleBar = (ScaleBarProperties.update sb msg)
-                    let scaleBar' = { scaleBar with scSegments = ScaleBarUtils.updateSegments scaleBar }
+                    let scaleBar' = { scaleBar with scSegments = ScaleBarUtils.updateSegments scaleBar refSys.planet}
                     let scaleBars = model.scaleBars |> HashMap.alter sb.guid (function | Some _ -> Some scaleBar' | None -> None )
                     { model with scaleBars = scaleBars} 
                 | None -> model
@@ -482,8 +492,7 @@ module ScaleBarsApp =
             } |> Sg.dynamic
 
         let getSgSegmentLine
-            (segment : AdaptivescSegment) 
-            //(trafo : aval<Trafo3d>)
+            (segment : AdaptivescSegment)
             (thickness : aval<float>) =
             adaptive {
                 let! p1 = segment.startPoint
@@ -497,7 +506,8 @@ module ScaleBarsApp =
             } |> Sg.dynamic
 
         let getP1P2 
-            (scaleBar   : AdaptiveScaleBar) =
+            (scaleBar   : AdaptiveScaleBar) 
+            (planet     : aval<Planet>)=
             aval {
                 let! position = scaleBar.position
                 let! length = scaleBar.length.value
@@ -505,7 +515,8 @@ module ScaleBarsApp =
                 let length' = ScaleBarUtils.getLengthInMeter unit length
                 let! orientation = scaleBar.orientation
                 let! view = scaleBar.view
-                let direction = ScaleBarUtils.getDirectionVec orientation view
+                let! planet = planet
+                let direction = ScaleBarUtils.getDirectionVec orientation view position planet
                 let! alignment = scaleBar.alignment
                 let p1 = ScaleBarUtils.getP1 position length' direction alignment
                     
@@ -517,16 +528,18 @@ module ScaleBarsApp =
             (scaleBar   : AdaptiveScaleBar) 
             (view       : aval<CameraView>)
             (near       : aval<float>)
-            (hfov       : aval<float>) =
+            (hfov       : aval<float>) 
+            (planet     : aval<Planet>) =
 
             let labelPosition =
                 adaptive {
                     let! scaleBar = scaleBar.Current
-
                     let pos = scaleBar.position
+                    let! planet = planet
+                    let direction = ScaleBarUtils.getDirectionVec scaleBar.orientation scaleBar.view pos planet
 
                     let scaledDirection = 
-                        scaleBar.direction * ((scaleBar.length.value / 2.0) |> ScaleBarUtils.getLengthInMeter scaleBar.unit )
+                        direction * ((scaleBar.length.value / 2.0) |> ScaleBarUtils.getLengthInMeter scaleBar.unit )
 
                     match scaleBar.alignment with
                     | Pivot.Left   -> return pos + scaledDirection
@@ -551,7 +564,8 @@ module ScaleBarsApp =
             (scaleBarsModel : AdaptiveScaleBarsModel) 
             (view           : aval<CameraView>)
             (mbigConfig     : 'ma)
-            (minnerConfig   : MInnerConfig<'ma>) =
+            (minnerConfig   : MInnerConfig<'ma>) 
+            (planet         : aval<Planet>) =
 
             let near = minnerConfig.getNearDistance mbigConfig
 
@@ -560,7 +574,7 @@ module ScaleBarsApp =
             
             scaleBars 
             |> AMap.map( fun id sb ->
-                viewSingleText sb view near hfov
+                viewSingleText sb view near hfov planet
             )
             |> AMap.toASet 
             |> ASet.map snd 
@@ -633,8 +647,7 @@ module ScaleBarsApp =
             (scaleBarsModel : AdaptiveScaleBarsModel) 
             (view           : aval<CameraView>)
             (mbigConfig     : 'ma)
-            (minnerConfig   : MInnerConfig<'ma>)
-            (refsys         : AdaptiveReferenceSystem) =
+            (minnerConfig   : MInnerConfig<'ma>) =
 
             let near = minnerConfig.getNearDistance mbigConfig
 
@@ -646,7 +659,6 @@ module ScaleBarsApp =
                 viewSingleScaleBarCylinder
                     sb
                     view
-                    //refsys
                     near
                     selected
             )

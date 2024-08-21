@@ -1,6 +1,6 @@
 # PRo3D uses several open source packages. Some of them require to include the license agreements within the compiled version of PRo3D.
 
-# Sumarry Currently PRo3D uses those packages:
+# Summary Currently PRo3D uses those packages:
 
 __PACKAGES__
 

@@ -1,10 +1,3 @@
-
-## 4.23.1
-- tweaked kdtree split limit epsilon for smaller kdtrees
-
-## 4.23.0
-- tweaked kdtree split limit epsilon for smaller kdtrees
-
 ## 4.21.0-prerelease3
 - bugfix contour lines
 
@@ -15,6 +8,18 @@
 
 ## 4.21.0-prerelease1
 - added readme to opc-tool
+## 4.24.0
+- streamlined up kdtree loading
+
+## 4.23.2   
+- fixed sequenced bookmark loading in cross-platform scenarios https://github.com/pro3d-space/PRo3D/pull/391
+
+## 4.23.1
+- tweaked kdtree split limit epsilon for smaller kdtrees
+
+## 4.23.0
+- tweaked kdtree split limit epsilon for smaller kdtrees
+
 
 ## 4.22.0
 - further improved kdtree loading on NTFS/macbook

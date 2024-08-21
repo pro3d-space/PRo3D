@@ -55,7 +55,7 @@ type Result =
       result : string;
    }
 
-let viewerVersion       = "4.20.0-prerelease1"
+let viewerVersion       = "4.23.2"
 let catchDomainErrors   = false
 
 open System.IO
@@ -413,9 +413,6 @@ let main argv =
 
         disposables.Add(suaveServer)
 
-        Log.line "serving at: %s" renderingUrl
-        Log.line "url: %s" renderingUrl
-
         
         //WebPart.startServer 4322 [
         //    MutableApp.toWebPart' runtime false instrumentApp        
@@ -455,7 +452,7 @@ let main argv =
                 remoteApp.update Guid.Empty act
                 { result = shot.folder }
 
-            let remotePort = 12346
+            let remotePort = 12346 
             let d = WebPart.startServerLocalhost 12346 [ 
                 MutableApp.toWebPart runtime (remoteApp)
                 POST >=> path "/shots" >=> mapJson takeScreenshot
@@ -467,11 +464,9 @@ let main argv =
         else   
             Log.warn "no remote app started"
     
-
+        System.Threading.Thread.Sleep(1000)
         // do not change this line. full url with url needs to be printed for mac deployment!
         Log.line "full url: %s" renderingUrl
-
-        System.Threading.Thread.Sleep(100)
 
         if startupArgs.serverMode then  
             Log.line "running server mode. Press Key to close >"

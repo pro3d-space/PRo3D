@@ -2022,6 +2022,7 @@ module ViewerApp =
                     m.navigation.camera.view 
                     m.scene.config
                     mrefConfig
+                    m.scene.referenceSystem.planet
 
             [
                 exploreCenter; 
@@ -2073,7 +2074,6 @@ module ViewerApp =
                 m.navigation.camera.view
                 m.scene.config
                 mrefConfig
-                m.scene.referenceSystem
             |> Sg.map ScaleBarsMessage
 
         let sceneObjects =
@@ -2120,6 +2120,7 @@ module ViewerApp =
             { kind = Script;      name = "errorReporting";  url = "./resources/errorReporting.js"  }
             { kind = Script;      name = "resize";  url = "./resources/ResizeSensor.js"  }
             { kind = Script;      name = "resizeElem";  url = "./resources/ElementQueries.js"  }
+            { kind = Script;      name = "utilities";  url = "./resources/utilities.js"  }
         ]
         
         let bodyAttributes : list<Attribute<ViewerAnimationAction>> = 
