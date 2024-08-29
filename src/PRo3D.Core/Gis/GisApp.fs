@@ -734,12 +734,11 @@ module GisApp =
             let timeSteps =
                 time
                 |> AVal.map (fun endTime -> 
-                    let samplingInterval = TimeSpan.FromHours 1.0
+                    let steps = 1000
                     let trajectoryDuration = TimeSpan.FromDays 1.0
                     let startTime = endTime - trajectoryDuration
-                    //let timeSteps = (endTime - startTime) / samplingInterval
-                    // could be [| startTime .. samplingRate .. endTime |] if TimeSpan would have get_Zero static member...
-                    Array.init 8000 (fun i -> startTime + samplingInterval * float i)
+                    // could be [| startTime .. samplingDistance .. endTime |] if TimeSpan would have get_Zero static member...
+                    Array.init steps (fun i -> endTime - ((endTime - startTime) / float steps) * float i) 
                 )
 
             let bodyTrajectoryLines = 

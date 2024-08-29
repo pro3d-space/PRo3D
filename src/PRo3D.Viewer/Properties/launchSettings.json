@@ -2,6 +2,7 @@
   "profiles": {
     "PRo3D.Viewer": {
       "commandName": "Project",
+      "commandLineArgs": "--defaultSpiceKernel \"F:\\pro3d\\PRo3D.SPICE\\spice_kernels\\kernels\\mk\\hera_crema_2_0_LPC_ECP_PDP.tm\"",
       "nativeDebugging": true
     },
     "PRo3D.Viewer.Provex": {
