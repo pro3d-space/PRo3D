@@ -1,2 +1,8 @@
+## 4.25.0-prerelease10
+- optimized kd tree loading from caches
+
+## 4.25.0-prerelease1
+- testrelease
+
 ## 4.24.0-prerelease1
 - testrelease
