@@ -14,8 +14,8 @@ open Aardium
 open PRo3D.Lite
 open PRo3D.Base
 
-open Aardvark.UI.Giraffe
-open Aardvark.Service.Giraffe
+open Aardvark.UI
+open Aardvark.Service
 
 type Self = Self
 

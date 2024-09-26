@@ -6,7 +6,7 @@ open FSharp.Data.Adaptive
 open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.SceneGraph.Opc
-open Aardvark.SceneGraph.IO.Loader
+open Aardvark.SceneGraph.Assimp.Loader
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.UI.Trafos

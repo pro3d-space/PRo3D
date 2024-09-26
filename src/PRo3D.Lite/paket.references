@@ -10,7 +10,7 @@ Aardvark.Base.Incremental
 Aardvark.Rendering.Vulkan
 Aardvark.Application.Slim.GL
 Aardvark.SceneGraph
-Aardvark.SceneGraph.IO
+Aardvark.SceneGraph.Assimp
 Aardvark.Rendering.Text
 
 Adaptify.Core
@@ -26,7 +26,7 @@ Newtonsoft.Json
 
 Aardium
 
-Aardvark.Service.Giraffe
+Aardvark.Service
 Giraffe
 Saturn
 

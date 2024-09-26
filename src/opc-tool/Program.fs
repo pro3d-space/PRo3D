@@ -4,7 +4,7 @@ open System.IO
 open System.Threading
 open Aardvark.Base
 open Aardvark.SceneGraph.Opc
-open Aardvark.VRVis.Opc
+open OpcViewer.Base
 open PRo3D.Core.Surface
 open Aardvark.GeoSpatial.Opc
 open Aardvark.GeoSpatial.Opc.PatchLod
