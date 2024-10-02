@@ -6,21 +6,20 @@ open Adaptify.FSharp.Core
 open Aardvark.Base
 open Aardvark.Rendering
 open Aardvark.UI
-open Aardvark.VRVis.Opc.KdTrees
 open MBrace.FsPickler
 open Aardvark.Geometry
 open OpcViewer.Base
 open FSharp.Data.Adaptive
 open OpcViewer.Base.Picking
 open Aardvark.SceneGraph
-open Aardvark.SceneGraph.Opc
-open Aardvark.VRVis.Opc
+open Aardvark.Data.Opc
 
 open PRo3D.Base
 open PRo3D.Core
 open PRo3D.Core.Surface
 open PRo3D.Comparison.ComparisonUtils
 open Aardvark.Geometry
+open OpcViewer.Base.KdTrees
 
 //open System.Collections.Generic
 

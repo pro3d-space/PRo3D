@@ -3,6 +3,7 @@
 open FSharp.Data.Adaptive
 open Aardvark.Base
 open Aardvark.UI
+open Aardvark.UI.Primitives
 open PRo3D.Base
 open System.IO
 
