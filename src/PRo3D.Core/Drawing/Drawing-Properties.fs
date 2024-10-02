@@ -6,7 +6,7 @@ open FSharp.Data.Adaptive
 
 open Aardvark.Base
 open Aardvark.UI
-open Aardvark.UI.Static.Svg
+open Aardvark.UI.Primitives
 
 open PRo3D.Base
 open PRo3D.Base.Annotation

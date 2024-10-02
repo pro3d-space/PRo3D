@@ -5,7 +5,7 @@ open PRo3D.Linking
 open Aardvark.Base
 open Aardvark.Rendering
 open FSharp.Data.Adaptive
-open Aardvark.SceneGraph.Opc
+open Aardvark.Data.Opc
 open Aardvark.UI.Primitives
 open Aardvark.Application
 

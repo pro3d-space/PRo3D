@@ -4,7 +4,7 @@ open System
 open System.IO
 open Aardvark.Base
 open Aardvark.Rendering
-open Aardvark.SceneGraph.Opc
+open Aardvark.Data.Opc
 open Aardvark.GeoSpatial.Opc
 
 open Aardvark.SceneGraph
@@ -14,19 +14,20 @@ open PRo3D.Base.Annotation
 open System.Collections.Generic
 
 open Aardvark.Geometry
+open Aardvark.Data.Opc.Aara
 
 module QTree =
 
-    open Aardvark.SceneGraph.Opc
+    open Aardvark.Data.Opc
 
     let rec foldCulled (consider : Box3d -> bool) (f : Patch -> 's -> 's) (seed : 's) (tree : QTree<Patch>) =
         match tree with
-        | Node(p, children) -> 
+        | QTree.Node(p, children) -> 
             if consider p.info.GlobalBoundingBox then
                 Seq.fold (foldCulled consider f) seed children
             else
                 seed
-        | Leaf(p) -> 
+        | QTree.Leaf(p) -> 
             if consider p.info.GlobalBoundingBox then
                 f p seed
             else

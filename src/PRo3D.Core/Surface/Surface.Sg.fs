@@ -7,18 +7,18 @@ open Aardvark.Base.Ag
 open FSharp.Data.Adaptive
 open Aardvark.Rendering
 open Aardvark.SceneGraph
-open Aardvark.SceneGraph.IO
-open Aardvark.SceneGraph.Opc
+open Aardvark.Data.Opc
 open Aardvark.SceneGraph.Semantics
-open Aardvark.Prinziple
 open Aardvark.UI
+
 open Aardvark.UI.Primitives
+open Aardvark.UI
 
 open Aardvark.UI.Operators
 open Aardvark.UI.Trafos  
 
 open Aardvark.GeoSpatial.Opc
-open Aardvark.VRVis.Opc
+open Aardvark.Data.Opc
 //open OpcViewer.Base
 
 open PRo3D
@@ -26,7 +26,8 @@ open PRo3D.Base
 open PRo3D.Core
 open PRo3D.Core.Surface
 open Aardvark.GeoSpatial.Opc.PatchLod
-open Aardvark.Base.Ag
+open Aardvark.GeoSpatial.Opc.Load
+open OpcViewer.Base
 
 
 
@@ -161,7 +162,7 @@ module Sg =
 
         let patchHierarchies = 
             scene.patchHierarchies
-            |> Seq.map Prinziple.registerIfZipped
+            |> Seq.map Prinziple.register
             |> Seq.map (fun x -> 
                 PatchHierarchy.load Serialization.binarySerializer.Pickle Serialization.binarySerializer.UnPickle (OpcPaths x)
             )
@@ -172,7 +173,7 @@ module Sg =
                 for h in patchHierarchies do
                     if createKdTrees then   
                         Log.startTimed "[KdTrees] Loading kdtrees: %s" h.opcPaths.Patches_DirAbsPath
-                        let m = Aardvark.VRVis.Opc.KdTrees.loadKdTrees h Trafo3d.Identity ViewerModality.XYZ Serialization.binarySerializer false false DebugKdTreesX.loadTriangles' true    
+                        let m = KdTrees.loadKdTrees h Trafo3d.Identity ViewerModality.XYZ Serialization.binarySerializer false false DebugKdTreesX.loadTriangles' true    
                         Log.stop()
                         if HashMap.isEmpty m then
                             Log.warn "[KdTrees], KdTree map for %s is empty." h.opcPaths.Patches_DirAbsPath
@@ -247,7 +248,7 @@ module Sg =
                     PatchNode(signature, runner, h.opcPaths.Opc_DirAbsPath, lodDeciderMars, scene.useCompressedTextures, true, ViewerModality.XYZ, 
                                 PatchLod.CoordinatesMapping.Local, useAsyncLoading, context, map,
                                 PatchLod.toRoseTree h.tree,
-                                Some (getTextures h.opcPaths), Some (getVertexAttributes h.opcPaths), Aardvark.Base.PixImagePfim.Loader)
+                                Some (getTextures h.opcPaths), Some (getVertexAttributes h.opcPaths), Aardvark.Data.PixImagePfim.Loader)
 
                 //let plainPatchLod =
                 //    Sg.patchLod' 
@@ -293,7 +294,7 @@ module Sg =
         |> Seq.map (fun p -> assertInvalidBB p.info.GlobalBoundingBox)
         |> Box3d
        
-    let createSgSurface (scene : OpcScene) (s : Surface) sg (bb : Box3d) (kd : HashMap<Box3d,KdTrees.Level0KdTree>) = 
+    let createSgSurface (scene : OpcScene) (s : Surface) sg (bb : Box3d) (kd : HashMap<Box3d, KdTrees.Level0KdTree>) = 
     
         let pose = Pose.translate V3d.Zero // bb.Center
         let trafo = { TrafoController.initial with pose = pose; previewTrafo = Pose.toTrafo pose; mode = TrafoMode.Local }

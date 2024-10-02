@@ -5,11 +5,13 @@ open Aardvark.Base
 open Aardvark.Application
 open Aardvark.SceneGraph
 open Aardvark.UI
+
+open Aardvark.UI.Primitives
 open Aardvark.Rendering
 open Aardvark.VRVis
 open FSharp.Data.Adaptive
 open Adaptify.FSharp.Core
-open Aardvark.SceneGraph.IO
+open Aardvark.SceneGraph.Assimp
 open Aardvark.SceneGraph.SgPrimitives
 //open Aardvark.Base.Rendering
 open Aardvark.UI.Trafos  

@@ -8,7 +8,7 @@ open Aardvark.Rendering
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.SceneGraph
-open Aardvark.SceneGraph.Opc
+open Aardvark.Data.Opc
 open Aardvark.VRVis
 
 open PRo3D

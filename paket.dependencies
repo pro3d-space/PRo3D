@@ -42,8 +42,8 @@ nuget Aardvark.UI                           ~> 5.5.0
 nuget Aardvark.UI.Primitives                ~> 5.5.0
 nuget Aardvark.Service.Giraffe              ~> 5.5.0
 
-nuget Adaptify.MSBuild                      ~> 1.1.9
-nuget Adaptify.Core                         ~> 1.1.9
+nuget Adaptify.MSBuild                      ~> 1.3.0
+nuget Adaptify.Core                         ~> 1.3.0
 
 nuget Aardvark.Data.Opc                     ~> 0.9.0
 nuget Aardvark.Data.Wavefront               ~> 5.3.10
@@ -51,7 +51,7 @@ nuget Aardvark.GeoSpatial.Opc               ~> 5.11.0
 
 nuget Aardium                               ~> 2.1.1
 
-nuget OPCViewer.Base                        ~> 1.8.0
+nuget OPCViewer.Base                        ~> 1.8.1
 
 nuget Uncodium.Eigensystems                 ~> 1.1.2
 nuget Chiron                                ~> 6.3.1
@@ -98,12 +98,13 @@ nuget Fake.IO.FileSystem
 nuget Fake.Api.GitHub          
 nuget Fake.Core.ReleaseNotes    
 nuget Octokit
-nuget Fake.Core.Target
+nuget Fake.Core.Target    
 nuget Farmer
-nuget Fake.DotNet.Cli ~> 5.23.0
-nuget Fake.DotNet.NuGet
-nuget Fake.Tools.Git
-nuget Fake.DotNet.Paket
+nuget Fake.DotNet.Cli     = 5.23.0
+nuget Fake.DotNet.MSBuild = 5.23.0
+nuget Fake.DotNet.NuGet  
+nuget Fake.Tools.Git     
+nuget Fake.DotNet.Paket   
 nuget fake-cli
 nuget Argu
 nuget Mono.Cecil

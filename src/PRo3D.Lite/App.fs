@@ -20,6 +20,7 @@ open Aardvark.UI.Primitives
 open PRo3D.Lite
 open Aardvark.Rendering
 open PRo3D.Base
+open Aardvark.GeoSpatial.Opc.Load
 
 
 module App = 
@@ -351,11 +352,7 @@ module App =
                     ]
                     button [onClick (fun _ -> CenterScene)] [text "Center Scene"]
                     button [onClick (fun _ -> ToggleBackground)] [text "Change Background"]
-                    Simple.dropDown [] 
-                        model.cameraMode SetCameraMode 
-                        (Map.ofList [
-                            CameraMode.FreeFly, "Free Fly"; CameraMode.Orbit, "Orbit"; 
-                        ])
+                    Dropdown.dropdown SetCameraMode false None model.cameraMode AttributeMap.empty [CameraMode.FreeFly, text "Free Fly"; CameraMode.Orbit, text "Orbit" ] 
                 ]
                 div [style "grid-row: 2; width: 100%; height: 100%"] [
                     renderControl

@@ -3,7 +3,7 @@ open System.Threading.Tasks
 open System.IO
 open System.Threading
 open Aardvark.Base
-open Aardvark.SceneGraph.Opc
+open Aardvark.Data.Opc
 open OpcViewer.Base
 open PRo3D.Core.Surface
 open Aardvark.GeoSpatial.Opc

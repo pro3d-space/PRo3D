@@ -1,22 +1,17 @@
 namespace PRo3D.Core
 
+open System
+open System.IO
+
 open Aardvark.Base
-open Aardvark.Application
 open Aardvark.UI
-open Aardvark.VRVis
+open Aardvark.UI.Primitives
 open FSharp.Data.Adaptive
-open Adaptify.FSharp.Core
-open Aardvark.SceneGraph.IO
-open Aardvark.SceneGraph.SgPrimitives
+open Aardvark.SceneGraph.Assimp
 open Aardvark.Rendering
 open Aardvark.UI.Trafos  
 open PRo3D.Core.Surface
 
-open System
-open System.IO
-open System.Diagnostics
-
-open Aardvark.UI.Primitives
 
 open PRo3D.Base
 //open CSharpUtils

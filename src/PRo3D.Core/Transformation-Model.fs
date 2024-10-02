@@ -1,19 +1,8 @@
 namespace PRo3D.Core.Surface
 
-open System
 open Aardvark.Base
-open FSharp.Data.Adaptive
-open Aardvark.Rendering
-open Aardvark.SceneGraph
-open Aardvark.SceneGraph.Opc
-open Aardvark.SceneGraph.Assimp.Loader
-open Aardvark.UI
 open Aardvark.UI.Primitives
-open Aardvark.UI.Trafos
-open Aardvark.VRVis
-open Aardvark.VRVis.Opc
 
-open DevILSharp.ILU
 open Chiron
 
 open PRo3D.Base

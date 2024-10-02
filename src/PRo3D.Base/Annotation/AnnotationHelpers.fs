@@ -3,6 +3,7 @@ namespace PRo3D.Base.Annotation
 open System
 open Aardvark.Base
 open Aardvark.UI
+open Aardvark.UI.Primitives
 open OpcViewer.Base
 open PRo3D.Base
 

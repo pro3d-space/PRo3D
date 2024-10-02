@@ -5,6 +5,7 @@ open Aardvark.Base
 open Aardvark.Rendering
 open Aardvark.SceneGraph.``Sg RuntimeCommand Extensions``
 open Aardvark.UI 
+open Aardvark.Data
 //open PixImageDevil //DevILSharp
 
 type RenderParameters =

@@ -2,7 +2,6 @@
 
 open System.Threading
 open System.Threading.Tasks
-open Giraffe
 
 open Aardvark.Base
 open Aardvark.Rendering
@@ -16,6 +15,7 @@ open PRo3D.Base
 
 open Aardvark.UI
 open Aardvark.Service
+open Suave
 
 type Self = Self
 
@@ -56,7 +56,7 @@ let main argv =
             MutableApp.toWebPart runtime instance
         ]
     use cts = new CancellationTokenSource()
-    let server = Server.startServer "http://localhost:4321" cts.Token webApp 
+    let server = Server.StartWebPart 4321 webApp 
 
 
     Aardium.run {

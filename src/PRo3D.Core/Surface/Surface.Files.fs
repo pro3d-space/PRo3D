@@ -5,13 +5,13 @@ open System.IO
 open Aardvark.Base
 open FSharp.Data.Adaptive
 open Aardvark.UI
-open Aardvark.UI.Primitives
+
+open Aardvark.UI
 open Aardvark.Rendering
 open Aardvark.SceneGraph
-open Aardvark.SceneGraph.IO
-open Aardvark.SceneGraph.Opc
+open Aardvark.Data.Opc
 
-open Aardvark.VRVis.Opc
+open Aardvark.Data.Opc
 
 open OpcViewer.Base
 open OpcViewer.Base.Picking
@@ -28,7 +28,6 @@ open PRo3DCompability
 
 module Files = 
        open System.IO
-       open Aardvark.Prinziple
 
        type DiscoverFolder = 
           | OpcFolder of string

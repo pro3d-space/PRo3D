@@ -6,10 +6,9 @@ open Aardvark.Base
 open Aardvark.Application
 open Aardvark.Geometry
 open Aardvark.UI
-open Aardvark.UI.Trafos
+open Aardvark.UI.Primitives
 open FSharp.Data.Adaptive
 open Aardvark.SceneGraph
-open Aardvark.VRVis.Opc
 
 open PRo3D.Base
 open PRo3D
