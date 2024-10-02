@@ -19,6 +19,7 @@ open PRo3D.Bookmarkings
 open PRo3D.Viewer
 open Aether
 open Aether.Operators
+open Aardvark.UI.Animation.Deprecated
 
 module ViewerLenses =
     // surfaces

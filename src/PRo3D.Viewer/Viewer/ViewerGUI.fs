@@ -1,32 +1,17 @@
 ﻿namespace PRo3D.Viewer
 
-open Aardvark.Service
 
 open System
-open System.Diagnostics
 open System.IO
 open System.Runtime.InteropServices
 
 
 open Aardvark.Base
-open Aardvark.Base.Geometry
-open Aardvark.Service
 open FSharp.Data.Adaptive
-open FSharp.Data.Adaptive.Operators
 open Aardvark.Rendering
-open Aardvark.SceneGraph
 open Aardvark.UI
 open Aardvark.UI.Operators
 open Aardvark.UI.Primitives
-open Aardvark.Rendering.Text
-
-open Aardvark.SceneGraph.Opc
-open Aardvark.SceneGraph.SgPrimitives.Sg
-open Aardvark.VRVis
-
-open MBrace.FsPickler
-open System.IO
-
 open PRo3D
 open PRo3D.Base
 open PRo3D.Base.Annotation

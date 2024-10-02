@@ -54,10 +54,6 @@
     <Compile Include="Bookmarks.fs" />
     <Compile Include="TraverseApp.fs" />
     <Compile Include="Scene.fs" />
-
-    <Compile Include="LensConfigs.fs" />
-
-    <Compile Include="AnnotationRendering.fs" />
     <Compile Include="Viewer\Viewer-Utils.fs" />
     <Compile Include="Viewer\ViewerGUI.fs" />
     <Compile Include="Viewer\Viewer-IO.fs" />

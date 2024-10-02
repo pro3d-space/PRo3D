@@ -14,6 +14,7 @@ open PRo3D.Core
 open System.IO
 open Aardvark.Base
 open FSharp.Data.Adaptive
+open Aardvark.Data.Opc
 
 
 module RemoteApi =
@@ -211,9 +212,9 @@ module RemoteApi =
                 let patchHierarchies = 
                     opcs |> Seq.collect (fun scene -> 
                         scene.patchHierarchies
-                        |> Seq.map Aardvark.Prinziple.Prinziple.registerIfZipped
+                        |> Seq.map Prinziple.register
                         |> Seq.map (fun x -> 
-                            Aardvark.SceneGraph.Opc.PatchHierarchy.load PRo3D.Base.Serialization.binarySerializer.Pickle PRo3D.Base.Serialization.binarySerializer.UnPickle (Aardvark.SceneGraph.Opc.OpcPaths x), x
+                            Aardvark.Data.Opc.PatchHierarchy.load PRo3D.Base.Serialization.binarySerializer.Pickle PRo3D.Base.Serialization.binarySerializer.UnPickle (Aardvark.Data.Opc.OpcPaths x), x
                         )
                     )
                     |> Seq.toList
@@ -225,43 +226,12 @@ module RemoteApi =
         member x.ApplyGraphAndGetCheckpointState(sceneAsJson : string, drawingAsJson : string, 
                                                  p : Option<ProvenanceModel.Thoth.CyDescription>, activeNode : Option<string>) : Model * ViewerIO.SerializedModel =
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
             let nopSendQueue = new System.Collections.Concurrent.BlockingCollection<_>()
             let nopMailbox = new MessagingMailbox(fun _ -> async { return () })
             let mutable currentModel = x.FullModel.Current.GetValue()
             let emitTopLevel (msg : ViewerAnimationAction) =
                 currentModel <- ViewerApp.updateInternal Unchecked.defaultof<_> Unchecked.defaultof<_> nopSendQueue nopMailbox currentModel msg
             let emit (msg : ViewerAction) = emitTopLevel (ViewerAnimationAction.ViewerMessage msg)
-
-
-
-
-
-
-
-
-
-
-
-
 
 
             let setScene = ViewerAction.LoadSerializedScene sceneAsJson

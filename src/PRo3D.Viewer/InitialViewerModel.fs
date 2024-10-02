@@ -14,10 +14,10 @@ open PRo3D.Core.SequencedBookmarks
 
 open PRo3D.Navigation2
 open Aardvark.UI
-open Aardvark.UI.Anewmation
+open Aardvark.UI.Animation
 open Aardvark.UI.Primitives
 open Aardvark.UI.Trafos
-open Aardvark.UI.Animation
+open Aardvark.UI.Animation.Deprecated
 open Aardvark.Rendering
 
 module Viewer =
@@ -168,7 +168,7 @@ module Viewer =
             renderingUrl        = renderingUrl       
             numberOfSamples     = numberOfSamples    
             screenshotDirectory = screenshotDirectory
-            animator            = Anewmation.Animator.initial animatorLens
+            animator            = Animation.Animator.initial animatorLens
 
             provenanceModel = ProvenanceModel.invalid
 

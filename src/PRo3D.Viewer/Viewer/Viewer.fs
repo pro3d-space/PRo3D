@@ -23,7 +23,7 @@ open Aardvark.UI.Trafos
 open Aardvark.UI.Animation
 open Aardvark.Application
 
-open Aardvark.SceneGraph.Opc
+open Aardvark.Data.Opc
 open Aardvark.SceneGraph.SgPrimitives.Sg
 open Aardvark.VRVis
 
@@ -48,6 +48,7 @@ open Aether
 open Aether.Operators
 open Chiron 
 open PRo3D.Core.Surface
+open Aardvark.UI.Animation.Deprecated
 
 type UserFeedback<'a> = {
     id      : string
@@ -656,7 +657,7 @@ module ViewerApp =
                 m, scenePath
 
             let m =
-                Anewmation.Animator.update (Anewmation.AnimatorMessage.RealTimeTick) m
+                Animation.Animator.update (Animation.AnimatorMessage.RealTimeTick) m
                 
             match msg with
             | SequencedBookmarksAction.StopRecording -> 
@@ -1639,7 +1640,7 @@ module ViewerApp =
             //| _ -> 
             //    ()
 
-            Anewmation.Animator.update msg m   
+            Animation.Animator.update msg m   
 
         | ProvenanceMessage msg -> 
             ProvenanceApp.update msg m
@@ -1714,7 +1715,7 @@ module ViewerApp =
                 )] |> AttributeMap.mapAttributes (AttributeValue.map ViewerMessage)
                 //onResize  (fun s -> OnResize(s,id))
             AttributeMap.ofList [
-                onEvent "onRendered" [] (fun _ -> AnewmationMessage Anewmation.AnimatorMessage.RealTimeTick)                    
+                onEvent "onRendered" [] (fun _ -> AnewmationMessage Animation.AnimatorMessage.RealTimeTick)                    
             ] 
         ]            
 
@@ -2071,7 +2072,7 @@ module ViewerApp =
         unionMany [drawing; animation; nav; m.scene.feedbackThreads; sBookmarks]
             |> ThreadPool.map ViewerMessage
             |> ThreadPool.union (
-                Anewmation.Animator.threads m.animator 
+                Animation.Animator.threads m.animator 
                                     |> ThreadPool.map AnewmationMessage)
         
     let loadWaypoints m = 
