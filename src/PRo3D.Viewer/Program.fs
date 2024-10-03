@@ -124,10 +124,7 @@ let main argv =
 
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
     
-
     Log.line "path: %s, current dir: %s" executeablePath System.Environment.CurrentDirectory
-    Config.colorPaletteStore <- Path.combine [appData; "favoriteColors.js"]
-    Log.line "Color palette favorite colors are stored here: %s" Config.colorPaletteStore
 
     let os = 
         if RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then

@@ -50,15 +50,15 @@ module FalseColorLegendApp =
     //let myCss = { kind = Stylesheet; name = "semui-overrides"; url = "semui-overrides.css" }
 
     module UI =
-        let viewScalarMappingProperties (colorPaletteStore : string) (model:AdaptiveFalseColorsModel) = 
+        let viewScalarMappingProperties (paletteFile : string) (model:AdaptiveFalseColorsModel) = 
             require GuiEx.semui (
                 Html.table [  
                     Html.row "show legend:"             [GuiEx.iconCheckBox model.useFalseColors UseFalseColors ]
                     Html.row "max:"                     [Numeric.view' [InputBox] model.upperBound |> UI.map SetUpperBound ]
                     Html.row "min:"                     [Numeric.view' [InputBox] model.lowerBound |> UI.map SetLowerBound ]
                     Html.row "interval:"                [Numeric.view' [InputBox] model.interval |> UI.map SetInterval ]
-                    Html.row "upper color:"             [ColorPicker.viewAdvanced ColorPicker.defaultPalette colorPaletteStore "pro3d" model.upperColor |> UI.map SetUpperColor ]
-                    Html.row "lower color:"             [ColorPicker.viewAdvanced ColorPicker.defaultPalette colorPaletteStore "pro3d" model.lowerColor |> UI.map SetLowerColor ]
+                    Html.row "upper color:"             [ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" model.upperColor |> UI.map SetUpperColor ]
+                    Html.row "lower color:"             [ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" model.lowerColor |> UI.map SetLowerColor ]
                     Html.row "invert mapping:"          [GuiEx.iconCheckBox model.invertMapping InvertMapping ]
                 ]                
             )

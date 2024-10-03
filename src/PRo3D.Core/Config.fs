@@ -6,6 +6,5 @@ module Config =
   let sampleCount = 100
 
   let mutable configPath = "."
-  let mutable colorPaletteStore = ".\palettes.js"
 
   let mutable besideExecuteable = "."

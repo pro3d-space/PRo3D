@@ -2,35 +2,33 @@
 
 open System
 open Aardvark.Base
-open Adaptify
 
-[<ModelType;Obsolete>]
-type ColorInput = {
-    c : C4b
-}
-
-module ColorPicker =
-    let viewAdvanced _ _ _ _ = failwith ""
-
-    let view _ = failwith ""
-
-    let update _ _ = failwith ""
-
-    let defaultPalette<'a> = failwith ""
-
-    type Action = unit
 
 
 
 namespace Aardvark.UI.Primitives
 
-module ColorPicker =
-    let viewAdvanced _ _ _ _ = failwith ""
+open Aardvark.Base
+open FSharp.Data.Adaptive
+open Aardvark.UI
 
-    let view _ = failwith ""
+module ColorPicker =
+    
+    type Action = SetColor of C4b
+
+    let viewAdvanced (defaultPalette : ColorPicker.Palette) (paletteFile : string) (localStorageKey : string) (model : AdaptiveColorInput) =
+        ColorPicker.view { ColorPicker.Config.Default with localStorageKey = Some localStorageKey; palette = Some defaultPalette } SetColor model.c
+
+    let view (model : AdaptiveColorInput) = 
+        ColorPicker.view ColorPicker.Config.Default SetColor model.c
 
     let update _ _ = failwith ""
 
-    let defaultPalette<'a> = failwith ""
+    let defaultPalette = ColorPicker.Palette.Default
 
-    type Action = unit
+
+namespace PRo3D.Core
+
+module Config =
+    
+    let colorPaletteStore = ""

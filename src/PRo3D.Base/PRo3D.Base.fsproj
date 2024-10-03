@@ -18,6 +18,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- <Compile Include="InteropHelpers.fs" /> -->
+    <Compile Include="DeprecatedModel.fs" />
     <Compile Include="Deprecated.fs" />
     <Compile Include="Multitexturing.fs" />
     <Compile Include="ErrorReporting.fs" />
