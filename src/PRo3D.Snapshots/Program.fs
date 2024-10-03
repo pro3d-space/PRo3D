@@ -43,6 +43,8 @@ open Suave.Json
 
 open FSharp.Data.Adaptive
 
+open Aardvark.GeoSpatial.Opc.Load
+
 
 type EmbeddedRessource = EmbeddedRessource
 
@@ -81,9 +83,6 @@ let startApplication (startupArgs : CLStartupArgs) =
     let logFilePath = Path.Combine(appData, "PRo3D.log")
     Aardvark.Base.Report.LogFileName <- logFilePath
     Log.line "Running with AppData: %s" appData
-
-    Config.colorPaletteStore <- Path.combine [appData; "favoriteColors.js"]
-    Log.line "Color palette favorite colors are stored here: %s" Config.colorPaletteStore
 
     let crashDumpFile = "Aardvark.log"
 

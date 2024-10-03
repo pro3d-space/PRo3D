@@ -11,6 +11,8 @@ open Aardvark.GeoSpatial.Opc
 open FSharp.Data.Adaptive 
 open MBrace.FsPickler
 
+open Aardvark.GeoSpatial.Opc.Load
+
 [<AutoOpen>]
 module Shader =
 

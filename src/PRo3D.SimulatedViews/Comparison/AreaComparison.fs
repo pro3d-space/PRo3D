@@ -58,9 +58,9 @@ module AreaComparison =
 
         let positions = 
             match level0Tree with
-                | InCoreKdTree kd -> 
+                | Aardvark.VRVis.Opc.KdTrees.InCoreKdTree kd -> 
                     (kd.kdTree.KdIntersectionTree.ObjectSet |> toPositionsList)
-                | LazyKdTree kd ->       
+                | Aardvark.VRVis.Opc.KdTrees.LazyKdTree kd ->       
                   match kd.kdTree with
                   | Some tree -> 
                       (tree.KdIntersectionTree.ObjectSet |> toPositionsList)

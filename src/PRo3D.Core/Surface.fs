@@ -111,9 +111,9 @@ module DebugKdTreesX =
 
     let loadObjectSet (cache : HashMap<string, ConcreteKdIntersectionTree>) (lvl0Tree : Level0KdTree) =             
         match lvl0Tree with
-        | InCoreKdTree kd -> 
+        | Aardvark.VRVis.Opc.KdTrees.InCoreKdTree kd -> 
           kd.kdTree, cache
-        | LazyKdTree kd ->             
+        | Aardvark.VRVis.Opc.KdTrees.LazyKdTree kd ->             
             let kdTree, cache =
                 match kd.kdTree with
                 | Some k -> k, cache
