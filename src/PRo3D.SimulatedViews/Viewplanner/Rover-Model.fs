@@ -968,7 +968,7 @@ module FootPrint =
                 | None -> 
                     512, 512
             // save png file
-            try Utilities.takeScreenshotFromAllViews "http://localhost:54322" width height pngName fpPath ".png" with e -> printfn "error: %A" e //"http://localhost:54322"
+            try Utilities.takeScreenshotFromAllViews "http://localhost:54322" width height pngName fpPath ".png" 4 with e -> printfn "error: %A" e //"http://localhost:54322"
            
             let fileInfo = {
                 fileType = "PNGImage"

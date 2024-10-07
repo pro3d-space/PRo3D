@@ -55,7 +55,7 @@ namespace PRo3D.SimulatedViews
 //                                            int(horRes), int(vertRes)
 //                                | None -> 512, 512
 //                // save png file
-//                try Utilities.takeScreenshotFromAllViews "http://localhost:54321" width height pngName fpPath ".png" with e -> printfn "error: %A" e
+//                try Utilities.takeScreenshotFromAllViews "http://localhost:54321" width height pngName fpPath ".png" 4 with e -> printfn "error: %A" e
 
                
 //                let fileInfo = {

@@ -432,10 +432,10 @@ module MinervaApp =
             let docPath = System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
             let imagePathTmp = @"visplore\Minerva"
             let imagePath = Path.combine [docPath; imagePathTmp]
-            let filename = "overview.jpg"
+            let filename = "overview"
             
             Log.startTimed "[Minerva taking] Screenshot %A" (V2i(width, height))
-            PRo3D.Base.ScreenshotUtilities.Utilities.takeScreenshotFromAllViews "http://localhost:54322" width height filename imagePath |> ignore
+            PRo3D.Base.ScreenshotUtilities.Utilities.takeScreenshotFromAllViews "http://localhost:54322" width height filename imagePath ".jpg" 4 |> ignore
             Log.stop()
             
             match model.comm with

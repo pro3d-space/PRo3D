@@ -205,35 +205,6 @@ module Utilities =
                 | t when t > 0 -> applyXTimes (f a lastIndex) f (lastIndex - 1)
                 | _ -> a
 
-    // TODO Refactor: not in use duplicated code
-    //let takeScreenshot baseAddress (width:int) (height:int) name folder =
-    //      let wc = new System.Net.WebClient()
-          
-    //      let clientStatistic = 
-    //          let path = sprintf "%s/rendering/stats.json" baseAddress //sprintf "%s/rendering/stats.json" baseAddress
-    //          Log.line "[Screenshot] querying rendering stats at: %s" path
-    //          let result = wc.DownloadString(path)
-    //          let clientBla : list<ClientStatistics> =
-    //              Pickler.unpickleOfJson  result
-    //          match clientBla.Length with
-    //          | 1 -> clientBla // clientBla.[1] 
-    //          | _ -> failwith "no client bla"
-
-    //      for cs in clientStatistic do
-    //          let color = V4f.IIII
-    //          let screenshot = sprintf "%s/rendering/screenshot/%s?w=%d&h=%d&samples=2&background=[%f,%f,%f,%f]" baseAddress cs.name width height color.X color.Y color.Z color.W
-
-    //          //let screenshot =            
-    //          //    sprintf "%s/rendering/screenshot/%s?w=%d&h=%d&samples=4" baseAddress cs.name width height
-    //          Log.line "[Screenshot] Running screenshot on: %s" screenshot    
-
-    //          match System.IO.Directory.Exists folder with
-    //          | true -> ()
-    //          | false -> System.IO.Directory.CreateDirectory folder |> ignore
-              
-    //         // let filename = cs.name + name
-    //          wc.DownloadFile(screenshot,Path.combine [folder; name])
-
 module Shader = 
 
     module DepthOffset =
@@ -1293,73 +1264,7 @@ module Copy =
         let s = DirectoryInfo(source)
         let t = DirectoryInfo(target)
 
-        copyAll' s t skipExisting
-
-[<AutoOpen>]
-module ScreenshotUtilities = 
-    module Utilities =
-
-        type ClientStatistics =
-          {
-              session         : System.Guid
-              name            : string
-              frameCount      : int
-              invalidateTime  : float
-              renderTime      : float
-              compressTime    : float
-              frameTime       : float
-          }
-
-        let downloadClientStatistics baseAddress (webClient : System.Net.WebClient) =
-            let path = sprintf "%s/rendering/stats.json" baseAddress //sprintf "%s/rendering/stats.json" baseAddress
-            Log.line "[Screenshot] querying rendering stats at: %s" path
-            let result = webClient.DownloadString(path)
-
-            let clientBla : list<ClientStatistics> =
-                Pickler.unpickleOfJson  result
-
-            match clientBla.Length with
-            | 1 | 2 -> clientBla // clientBla.[1] 
-            | _ -> failwith (sprintf "Could not download client statistics for %s" path)  //"no client bla"
-
-        let getScreenshotUrl baseAddress clientStatistic width height =                                
-
-            let screenshot = sprintf "%s/rendering/screenshot/%s?w=%d&h=%d&samples=4" baseAddress clientStatistic.name width height
-            Log.line "[Screenshot] Running screenshot on: %s" screenshot    
-            screenshot
-
-        let getScreenshotFilename folder name clientStats format =
-            match System.IO.Directory.Exists folder with
-            | true -> ()
-            | false -> System.IO.Directory.CreateDirectory folder |> ignore
-                
-            Path.combine [folder; name + "_" + clientStats.name + format]
-
-        let takeScreenshotFromAllViews baseAddress (width:int) (height:int) name folder format =
-              let wc = new System.Net.WebClient()
-              let clientStatistics = downloadClientStatistics baseAddress wc
-
-              for cs in clientStatistics do
-                  let screenshot = getScreenshotUrl baseAddress cs width height
-                  let filename = getScreenshotFilename folder name cs format
-                  wc.DownloadFile(screenshot, filename)
-                  let fullpath =
-                      try System.IO.Path.GetFullPath(filename) with e -> filename
-                  Log.line "[Screenshot] saved to %s" fullpath
-
-        let takeScreenshot baseAddress (width:int) (height:int) name folder format =
-            let wc = new System.Net.WebClient()
-            let clientStatistics = downloadClientStatistics baseAddress wc
-            
-            let cs =
-                match clientStatistics.Length with
-                | 2 -> clientStatistics.[1] 
-                | 1 -> clientStatistics.[0]
-                | _ -> failwith (sprintf "Could not download client statistics")
-                
-            let screenshot = getScreenshotUrl baseAddress cs width height
-            let filename = getScreenshotFilename folder name cs format
-            wc.DownloadFile(screenshot,filename)        
+        copyAll' s t skipExisting        
 
 
 module JsInterop = 

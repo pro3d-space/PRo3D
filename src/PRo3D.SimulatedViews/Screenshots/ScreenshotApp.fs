@@ -6,56 +6,28 @@ open Aardvark.UI
 open PRo3D.Base
 open System.IO
 
+open System.Net.Http
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module ScreenshotApp =
 
     let imageFormatToString (format : ImageFormat) =
         match format with
-        | ImageFormat.JPEG -> "jpg"
-        | ImageFormat.PNG  -> "png"
-        | _ -> "png"
-    
-    let createUrl 
-        baseUrl 
-        numberOfSamples 
-        (m : ScreenshotModel) 
-        (wc : System.Net.WebClient) =
-
-        let stats = ScreenshotUtilities.Utilities.downloadClientStatistics baseUrl wc
-        
-        let color = m.backgroundColor.c.ToC4f().ToV4f()
-        let renderingNodeId = stats.[0].name
-        let url = 
-            sprintf "%s/rendering/screenshot/%s?w=%i&h=%i&samples=%i&fmt=%s&background=[%f,%f,%f,%f]" 
-                baseUrl 
-                renderingNodeId 
-                (int m.width.value) 
-                (int m.height.value)
-                numberOfSamples 
-                (imageFormatToString m.imageFormat)
-                color.X color.Y color.Z color.W
-
-        Log.line "[Screenshots] URL: %s" url
-        url
+        | ImageFormat.JPEG -> ".jpg"
+        | ImageFormat.PNG  -> ".png"
+        | _ -> ".png"
         
     let mutable imgNr = 0
-    let rec findFreeName outputPath (m : ScreenshotModel) = 
-        let filename = sprintf "img%03i.%s" imgNr (imageFormatToString m.imageFormat)
-        let filenamepath = Path.combine [outputPath;filename]        
+    let rec findFreeName outputPath (m : ScreenshotModel) numberOfSamples = 
+
+        let filename = sprintf "img%03i_n%i" imgNr numberOfSamples
+        let filenamepath = Path.combine [outputPath;filename+(imageFormatToString m.imageFormat)]        
         if not (File.Exists filenamepath) then
-            filenamepath
+            filename
         else 
             imgNr <- imgNr + 1
-            findFreeName outputPath m
-    
-    let makeScreenshot baseUrl numberOfSamples outputPath (m : ScreenshotModel) =
-        let wc = new System.Net.WebClient()
-        let url = createUrl baseUrl numberOfSamples m wc
-        let filenamepath = findFreeName outputPath m 
-        imgNr <- imgNr + 1
-        
-        wc.DownloadFile(url, filenamepath)
-        Log.line "[Screenshot] Screenshot saved to %s" filenamepath
+            findFreeName outputPath m numberOfSamples
+
 
     let update baseUrl numberOfSamples outputPath (m : ScreenshotModel) (action : ScreenshotAction) =
         match action with
@@ -66,7 +38,14 @@ module ScreenshotApp =
         | SetBackgroundColor msg ->
             { m with backgroundColor = ColorPicker.update m.backgroundColor msg }
         | CreateScreenshot ->
-            makeScreenshot baseUrl numberOfSamples outputPath m
+            Utilities.takeScreenshot
+                baseUrl
+                (int m.width.value)
+                (int m.height.value)
+                (findFreeName outputPath m numberOfSamples)
+                outputPath
+                (imageFormatToString m.imageFormat)
+                numberOfSamples
             m
         | SetImageFormat format ->
             { m with imageFormat = format }

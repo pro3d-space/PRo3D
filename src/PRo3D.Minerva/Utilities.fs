@@ -67,7 +67,7 @@ module Files =
             let credentials = 
                 System.Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes("minerva:tai8Ies7"))
             client.Headers.[System.Net.HttpRequestHeader.Authorization] <- "Basic " + credentials
-            //try takeScreenshot baseAddress sh.col sh.row sh.id sh.folder with e -> printfn "error: %A" e
+            //try takeScreenshot baseAddress sh.col sh.row sh.id sh.folder ".png" 4 with e -> printfn "error: %A" e
 
             try (client.DownloadFile(path, imagePath) |> ignore) with
                 e -> Log.error "[Minerva] error: %A" e
