@@ -21,7 +21,7 @@ module UI =
             Html.Layout.boxH [ i [clazz "large Write icon"] [] ]
             Html.Layout.boxH [ Html.SemUi.dropDown model.geometry SetGeometry ]
             Html.Layout.boxH [ Html.SemUi.dropDown model.projection SetProjection ]
-            Html.Layout.boxH [ ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" model.color |> UI.map ChangeColor; div [] [] ]
+            Html.Layout.boxH [ ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" false model.color |> UI.map ChangeColor; div [] [] ]
             Html.Layout.boxH [ Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ]
             Html.Layout.boxH [ i [clazz "large crosshairs icon"] [] ]
             Html.Layout.boxH [ Numeric.view' [InputBox] model.samplingAmount |> UI.map ChangeSamplingAmount ]

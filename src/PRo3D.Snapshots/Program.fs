@@ -195,6 +195,7 @@ let startApplication (startupArgs : CLStartupArgs) =
                 MutableApp.toWebPart' runtime false mainApp
                 path "/websocket" >=> handShake ws
                 Reflection.assemblyWebPart typeof<EmbeddedRessource>.Assembly
+                Aardvark.UI.Primitives.Resources.WebPart
                 // Reflection.assemblyWebPart typeof<CorrelationDrawing.CorrelationPanelResources>.Assembly //(System.Reflection.Assembly.LoadFrom "PRo3D.CorrelationPanels.dll")
                 // prefix "/instrument" >=> MutableApp.toWebPart runtime instrumentApp
 

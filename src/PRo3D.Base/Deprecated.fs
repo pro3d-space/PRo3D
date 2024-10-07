@@ -16,13 +16,22 @@ module ColorPicker =
     
     type Action = SetColor of C4b
 
-    let viewAdvanced (defaultPalette : ColorPicker.Palette) (paletteFile : string) (localStorageKey : string) (model : AdaptiveColorInput) =
-        ColorPicker.view { ColorPicker.Config.Default with localStorageKey = Some localStorageKey; palette = Some defaultPalette } SetColor model.c
+    let pickerStyle = { ColorPicker.PickerStyle.Default with showButtons = true }
+
+    let viewAdvanced (defaultPalette : ColorPicker.Palette) (paletteFile : string) (localStorageKey : string) (darkTheme : bool) (model : AdaptiveColorInput) =
+        ColorPicker.view 
+            { ColorPicker.Config.Default with 
+                localStorageKey = Some localStorageKey; 
+                palette = Some defaultPalette; 
+                darkTheme = darkTheme; 
+                pickerStyle = Some pickerStyle 
+            } SetColor model.c
 
     let view (model : AdaptiveColorInput) = 
-        ColorPicker.view ColorPicker.Config.Default SetColor model.c
+        ColorPicker.view { ColorPicker.Config.Default with darkTheme = true; pickerStyle = Some pickerStyle }  SetColor model.c
 
-    let update _ _ = failwith ""
+    let update m (SetColor c) = 
+        { m with c = c }
 
     let defaultPalette = ColorPicker.Palette.Default
 
