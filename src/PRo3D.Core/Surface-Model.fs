@@ -5,13 +5,10 @@ open Aardvark.Base
 open FSharp.Data.Adaptive
 open Aardvark.Rendering
 open Aardvark.SceneGraph
-open Aardvark.SceneGraph.Opc
-open Aardvark.SceneGraph.IO.Loader
+open Aardvark.Data.Opc
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.UI.Trafos
-open Aardvark.VRVis
-open Aardvark.VRVis.Opc
 
 open Chiron
 
@@ -19,6 +16,7 @@ open PRo3D.Base
 open PRo3D.Core
 
 open Adaptify
+open OpcViewer.Base
 
 #nowarn "0686"
 

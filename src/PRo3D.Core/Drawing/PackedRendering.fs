@@ -4,11 +4,13 @@
 open Aardvark.Base
 open Aardvark.Rendering
 open Aardvark.Application
-open Aardvark.SceneGraph.Opc
+open Aardvark.Data.Opc
 open Aardvark.Application.Slim
 open Aardvark.GeoSpatial.Opc
 
 open Aardvark.UI
+open Aardvark.UI.Primitives
+
 open Aardvark.SceneGraph
 open FSharp.Data.Adaptive 
 open MBrace.FsPickler

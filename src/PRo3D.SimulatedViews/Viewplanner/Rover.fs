@@ -7,6 +7,7 @@ open FSharp.Data.Adaptive
 
 open Aardvark.Base
 open Aardvark.UI
+open Aardvark.UI.Primitives
 open IPWrappers
 
 open JR

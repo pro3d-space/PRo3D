@@ -3,12 +3,11 @@ namespace PRo3D.Core
 open Aardvark.Base
 open Aardvark.Application
 open Aardvark.UI
-open Aardvark.UI.Animation
 open Aardvark.UI.Primitives
+open Aardvark.UI.Animation
 open FSharp.Data.Adaptive
 
 open Aardvark.Rendering
-open Aardvark.UI.Anewmation
 
 open System
 open System.IO

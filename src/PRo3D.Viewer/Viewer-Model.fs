@@ -9,9 +9,9 @@ open Aardvark.UI.Primitives
 open Aardvark.Application
 open Aardvark.SceneGraph
 open Aardvark.UI.Trafos
-open Aardvark.UI.Animation
+open Aardvark.UI.Animation.Deprecated
 open Aardvark.Rendering
-open Aardvark.UI.Anewmation
+open Aardvark.UI.Animation
 
 open PRo3D
 open PRo3D.Base
@@ -581,7 +581,7 @@ type Model = {
     screenshotDirectory  : string
 
     [<NonAdaptive>]
-    animator             : Anewmation.Animator<Model>
+    animator             : Animation.Animator<Model>
 
     provenanceModel      : ProvenanceModel
 } 

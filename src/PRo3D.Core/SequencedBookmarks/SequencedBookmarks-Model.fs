@@ -4,6 +4,7 @@
 open System
 open Aardvark.Base
 open Aardvark.UI
+open Aardvark.UI.Primitives
 open FSharp.Data.Adaptive
 open Adaptify
 open PRo3D.Base

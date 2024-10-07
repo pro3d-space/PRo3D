@@ -1,27 +1,12 @@
 ﻿namespace PRo3D.SimulatedViews
 
 open System
-open System.IO
 
 open Aardvark.Base
-open Aardvark.Base.Geometry
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
 open Aardvark.Rendering
-open Aardvark.Rendering.Effects
-open Aardvark.SceneGraph
 open Aardvark.UI
-open Aardvark.UI.Primitives
-open Aardvark.UI.Trafos
-open Aardvark.UI.Animation
-open Aardvark.Rendering.Text
-
-open Aardvark.SceneGraph.Opc
-open Aardvark.SceneGraph.SgPrimitives.Sg
-open Aardvark.GeoSpatial.Opc
-open OpcViewer.Base
-
-open Adaptify.FSharp.Core
 
 open PRo3D.Core
 open PRo3D.Core.Surface

@@ -6,21 +6,20 @@ open Adaptify.FSharp.Core
 open Aardvark.Base
 open Aardvark.Rendering
 open Aardvark.UI
-open Aardvark.VRVis.Opc.KdTrees
 open MBrace.FsPickler
 open Aardvark.Geometry
 open OpcViewer.Base
 open FSharp.Data.Adaptive
 open OpcViewer.Base.Picking
 open Aardvark.SceneGraph
-open Aardvark.SceneGraph.Opc
-open Aardvark.VRVis.Opc
+open Aardvark.Data.Opc
 
 open PRo3D.Base
 open PRo3D.Core
 open PRo3D.Core.Surface
 open PRo3D.Comparison.ComparisonUtils
 open Aardvark.Geometry
+open OpcViewer.Base.KdTrees
 
 //open System.Collections.Generic
 
@@ -59,9 +58,9 @@ module AreaComparison =
 
         let positions = 
             match level0Tree with
-                | InCoreKdTree kd -> 
+                | Aardvark.VRVis.Opc.KdTrees.InCoreKdTree kd -> 
                     (kd.kdTree.KdIntersectionTree.ObjectSet |> toPositionsList)
-                | LazyKdTree kd ->       
+                | Aardvark.VRVis.Opc.KdTrees.LazyKdTree kd ->       
                   match kd.kdTree with
                   | Some tree -> 
                       (tree.KdIntersectionTree.ObjectSet |> toPositionsList)

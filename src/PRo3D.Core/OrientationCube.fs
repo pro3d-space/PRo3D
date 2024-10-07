@@ -1,12 +1,10 @@
 namespace PRo3D.OrientationCube
+
 open FSharp.Data.Adaptive
 open Aardvark.Base
 open Aardvark.Rendering
-open Aardvark.Rendering
-open Aardvark.SceneGraph
 
 open Aardvark.UI
-open Aardvark.UI.Trafos
 open Aardvark.UI.Primitives
 
 open PRo3D
@@ -64,7 +62,7 @@ module Sg =
     
     let loadCubeModel (filename : string) =
         if System.IO.File.Exists filename then
-            Aardvark.SceneGraph.IO.Loader.Assimp.load filename
+            Aardvark.SceneGraph.Assimp.Loader.Assimp.load filename
             |> Sg.adapter
             |> Sg.noEvents
         else 

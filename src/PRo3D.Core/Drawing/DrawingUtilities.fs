@@ -6,7 +6,7 @@ open FSharp.Data.Adaptive
 open Aardvark.Base
 open Aardvark.Application
 open Aardvark.UI
-    
+open Aardvark.UI.Primitives    
 open PRo3D
 open PRo3D.Base
 open PRo3D.Base.Annotation
@@ -19,12 +19,7 @@ module DrawingUtilities =
       
     let semantics = ["unit boundary"; "bed set boundary"; "x beds"] |> List.map(fun x -> x.ToLower())
 
-    open Aardvark.Application
-    open Aardvark.UI
-    open System
     open System.IO
-
-    open PRo3D
 
     type private Self = Self
     

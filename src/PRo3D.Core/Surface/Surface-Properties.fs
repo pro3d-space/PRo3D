@@ -8,7 +8,7 @@ open Aardvark.Rendering
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.SceneGraph
-open Aardvark.SceneGraph.Opc
+open Aardvark.Data.Opc
 open Aardvark.VRVis
 
 open PRo3D
@@ -269,7 +269,7 @@ module ColorCorrectionProperties =
         Html.table [  
           Html.row ""                     []
           Html.row "use color:"           [GuiEx.iconCheckBox model.useColor UseColor ]
-          Html.row "color:"               [ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" model.color |> UI.map SetColor ]
+          Html.row "color:"               [ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" true model.color |> UI.map SetColor ]
           Html.row "grayscale:"           [GuiEx.iconCheckBox model.useGrayscale UseGrayScale ]
           Html.row "use brightness:"      [GuiEx.iconCheckBox model.useBrightn UseBrightness ]
           Html.row "set brightness:"      [Numeric.view' [NumericInputType.Slider; NumericInputType.InputBox]   model.brightness  |> UI.map SetBrightness ] 

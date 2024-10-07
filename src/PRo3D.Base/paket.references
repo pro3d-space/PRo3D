@@ -4,7 +4,7 @@ Aardvark.Base.FSharp
 
 Aardvark.Rendering
 Aardvark.SceneGraph
-Aardvark.SceneGraph.Opc
+Aardvark.Data.Opc 
 Aardvark.Rendering.Text
 
 Adaptify.Core

@@ -1,30 +1,30 @@
-nuget FSharp.Core                          
+FSharp.Core                          
 
-nuget Aardvark.Base                        
-nuget Aardvark.Base.Incremental            
-nuget Aardvark.Base.FSharp                 
-nuget Aardvark.Base.Essentials             
-nuget Aardvark.Service                     
-nuget Aardvark.UI                          
-nuget Aardvark.UI.Primitives               
+Aardvark.Base                        
+Aardvark.Base.Incremental            
+Aardvark.Base.FSharp                 
+Aardvark.Base.Essentials             
+Aardvark.Service                     
+Aardvark.UI                          
+Aardvark.UI.Primitives               
 
-nuget Aardvark.Rendering
-nuget Aardvark.SceneGraph                  
-nuget Aardvark.SceneGraph.IO               
-nuget Aardvark.Rendering.Text              
-nuget Aardvark.Rendering.Vulkan            
-nuget Aardvark.GPGPU                       
+Aardvark.Rendering
+Aardvark.SceneGraph                  
+Aardvark.SceneGraph.Assimp             
+Aardvark.Rendering.Text              
+Aardvark.Rendering.Vulkan            
+Aardvark.GPGPU                       
 
 Adaptify.MSBuild
 Adaptify.Core
 
 
-nuget FsPickler                            
-nuget FsPickler.Json                       
+FsPickler                            
+FsPickler.Json                       
 
-nuget Suave                                
+Suave                                
 
-nuget Aardium                              
+Aardium                              
 
-nuget Aardvark.SceneGraph.Opc 
-nuget Aardvark.Application.Slim
+Aardvark.Data.Opc  
+Aardvark.Application.Slim

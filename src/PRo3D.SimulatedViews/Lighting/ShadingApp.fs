@@ -233,7 +233,7 @@ module ShadingApp =
                 Html.row "Light Direction:"
                     [
                         div [] [text "Normalize Direction ";(Html.SemUi.iconCheckBox model.normalizeLightDirection ShadingAction.ToggleUseDirection)]
-                        (Aardvark.UI.Vector3d.view model.lightDirection) 
+                        (Aardvark.UI.Primitives.Vector3d.view model.lightDirection) 
                             |> UI.map ShadingAction.SetLightDirection
                     ]
                 //Html.row "Light Distance: "               

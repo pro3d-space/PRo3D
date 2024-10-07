@@ -54,10 +54,6 @@
     <Compile Include="Bookmarks.fs" />
     <Compile Include="TraverseApp.fs" />
     <Compile Include="Scene.fs" />
-
-    <Compile Include="LensConfigs.fs" />
-
-    <Compile Include="AnnotationRendering.fs" />
     <Compile Include="Viewer\Viewer-Utils.fs" />
     <Compile Include="Viewer\ViewerGUI.fs" />
     <Compile Include="Viewer\Viewer-IO.fs" />
@@ -119,12 +115,6 @@
     <EmbeddedResource Include="resources\errorReporting.js" />
     <EmbeddedResource Include="resources\jscytoscape.js" />
     <EmbeddedResource Include="resources\HueColorMap.png" />
-    <EmbeddedResource Include="resources\spectrum.js">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </EmbeddedResource>
-    <EmbeddedResource Include="resources\spectrum.css">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </EmbeddedResource>
     <EmbeddedResource Include="resources\jscolor.min.js">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </EmbeddedResource>

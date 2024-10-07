@@ -5,6 +5,7 @@ module NoSemUi =
     open System
     open Aardvark.Base
     open Aardvark.UI
+    open Aardvark.UI.Primitives    
     open FSharp.Data.Adaptive
     open Aardvark.UI.Generic
     open Aardvark.UI.Primitives.SimplePrimitives
@@ -93,6 +94,6 @@ module NoSemUi =
                             ])
                     }
                 )
-        )
+            )
         )
         

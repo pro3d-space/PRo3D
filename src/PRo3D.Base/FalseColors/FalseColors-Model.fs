@@ -3,6 +3,7 @@
 open System
 open Aardvark.Base
 open Aardvark.UI
+open Aardvark.UI.Primitives
 
 open Chiron
 open Adaptify

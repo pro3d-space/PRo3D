@@ -5,8 +5,8 @@ Aardvark.Base.FSharp
 Aardvark.Rendering
 Aardvark.Application.Slim.GL
 Aardvark.SceneGraph
-Aardvark.SceneGraph.IO
-Aardvark.SceneGraph.Opc
+Aardvark.SceneGraph.Assimp
+Aardvark.Data.Opc 
 Aardvark.Rendering.Text
 Aardvark.Geometry 
 Aardvark.Geometry.Intersection
