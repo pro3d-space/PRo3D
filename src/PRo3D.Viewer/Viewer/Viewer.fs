@@ -430,7 +430,7 @@ module ViewerApp =
         (msg       : ViewerAction) =
         //Log.line "[Viewer_update] %A inter:%A pick:%A" msg m.interaction m.picking
         match msg, m.interaction, m.ctrlFlag with
-        | NavigationMessage  msg,_,false when (isGrabbed m |> not) && (not (AnimationApp.shouldAnimate m.animations)) ->                              
+        | NavigationMessage  msg,_,false when (isGrabbed m |> not) && (not (AnimationApp.shouldAnimate m.animations)) ->                
             let c   = m.scene.config
             let ref = m.scene.referenceSystem
             let nav = Navigation.update c ref navConf true m.navigation msg               
@@ -1395,15 +1395,26 @@ module ViewerApp =
         //    | true ->
         //        Log.line "[Viewer] No shattercone updates found."
         //        m
-        | StartDragging _,_,_ 
-        | Dragging _,_,_ 
-        //| MouseOut _,_,_
-        | EndDragging _,_,_ -> 
+        | StartDragging _,_,_ ->
+            let m' =
+                match m.multiSelectBox with
+                | Some x -> { m with multiSelectBox = None }
+                | None -> m
+            m'
+        | Dragging _,_,_ ->
+            let m' =
+                match m.multiSelectBox with
+                | Some x -> { m with multiSelectBox = None }
+                | None -> m
+            m'
+        | EndDragging (mousePos, mouseButton) ,_,_ -> 
           let m' =
                 match m.multiSelectBox with
                 | Some x -> { m with multiSelectBox = None }
                 | None -> m
-          m' //{m' with navigation = {m'.navigation with camera = {m'.navigation.camera with pan = false }}}
+          let m' = 
+            {m' with navigation = {m'.navigation with camera = {m'.navigation.camera with pan = false }}}
+          m'
         | MouseIn _,_,_ ->
             {m with navigation = {m.navigation with camera = {m.navigation.camera with pan = true }}}
         | MouseOut _,_,_ ->
