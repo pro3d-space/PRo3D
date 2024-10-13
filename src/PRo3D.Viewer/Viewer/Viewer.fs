@@ -1840,42 +1840,100 @@ module ViewerApp =
             | _ -> false
         ) m.ctrlFlag m.interaction
 
-    let viewInstrumentView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
-        let frustum = m.frustum 
-        let observer = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
-        let annotationsI, discsI = 
+    // overlays that occur in instrumentview + main renderview
+    let getOverlayed (m: AdaptiveModel) (view :aval<CameraView>) =
+        let refSystem =
+            Sg.view
+                m.scene.config
+                mrefConfig
+                m.scene.referenceSystem
+                view
+            |> Sg.map ReferenceSystemMessage  
+
+        let exploreCenter =
+            Navigation.Sg.view m.navigation
+            |> Sg.onOff m.scene.config.showExplorationPointGui
+          
+        let homePosition =
+            Sg.viewHomePosition m.scene.surfacesModel
+
+        let annotationTexts =
+            DrawingApp.viewTextLabels 
+                m.scene.config
+                mdrawingConfig
+                view 
+                m.drawing            
+            
+        let scaleBarTexts = 
+            ScaleBarsApp.Sg.viewTextLabels 
+                m.scene.scaleBars 
+                view 
+                m.scene.config
+                mrefConfig
+                m.scene.referenceSystem.planet
+        [
+            exploreCenter; 
+            refSystem; 
+            homePosition;
+            annotationTexts |> Sg.noEvents
+            scaleBarTexts
+        ] |> Sg.ofList
+                                 
+    // depthTested that occur in instrumentview + main renderview
+    let getDepthTested (frustum: aval<Frustum>) (view :aval<CameraView>) (observer : aval<ObserverSystem option>) (id : string) (runtime : IRuntime) (m: AdaptiveModel) =
+        let annotations, discs = 
             DrawingApp.view 
                 m.scene.config 
-                mdrawingConfig 
+                mdrawingConfig
                 observer
-                (m.scene.viewPlans.instrumentCam)
+                view //m.navigation.camera.view 
                 frustum
                 runtime
-                ~~(V2i(2048,2048))//(m.viewPortSizes |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
-                (allowAnnotationPicking m)
+                (m.viewPortSizes |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
+                (allowAnnotationPicking m)                 
                 m.drawing
-
-        let ioverlayed =
-            let annos = 
-                annotationsI
+         
+        let annotationSg =
+            let ds =
+                discs
                 |> Sg.map DrawingMessage
                 |> Sg.fillMode (AVal.constant FillMode.Fill)
                 |> Sg.cullMode (AVal.constant CullMode.None)
 
-            [annos] |> Sg.ofList
+            let annos = 
+                annotations
+                |> Sg.map DrawingMessage
+                |> Sg.fillMode (AVal.constant FillMode.Fill)
+                |> Sg.cullMode (AVal.constant CullMode.None)
+                
+            Sg.ofList [ds;annos;]
 
-        let discsInst = 
-           discsI
-             |> Sg.map DrawingMessage
-             |> Sg.fillMode (AVal.constant FillMode.Fill)
-             |> Sg.cullMode (AVal.constant CullMode.None)
+        let scaleBars =
+            ScaleBarsApp.Sg.view
+                m.scene.scaleBars
+                view //m.navigation.camera.view
+                m.scene.config
+                mrefConfig
+            |> Sg.map ScaleBarsMessage
+
+        [
+            scaleBars;
+            annotationSg
+        ] |> Sg.ofList
+
+    let viewInstrumentView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
+        let frustum = m.scene.viewPlans.instrumentFrustum
+        let observer = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
+        let icam = AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
+
+        let ioverlayed = getOverlayed m m.scene.viewPlans.instrumentCam
+       
+        let depthTested = getDepthTested frustum m.scene.viewPlans.instrumentCam observer id runtime m
 
         // instrument view control
-        let icmds = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed discsInst false true runtime m // m.scene.surfacesModel.sgGrouped overlayed discs m
+        let icmds = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed depthTested m.scene.viewPlans.instrumentCam false true runtime m // m.scene.surfacesModel.sgGrouped overlayed discs m
                         |> AList.map ViewerUtils.mapRenderCommand
-        let icam = 
-            AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
-
+        
         //onBoot "attachResize('__ID__')" (
         //    DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
         //)
@@ -1893,53 +1951,6 @@ module ViewerApp =
 
         let observer = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
 
-        let annotations, discs = 
-            DrawingApp.view 
-                m.scene.config 
-                mdrawingConfig
-                observer
-                m.navigation.camera.view 
-                frustum
-                runtime
-                (m.viewPortSizes |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
-                (allowAnnotationPicking m)                 
-                m.drawing
-            
-        let annotationSg = 
-            let ds =
-                discs
-                |> Sg.map DrawingMessage
-                |> Sg.fillMode (AVal.constant FillMode.Fill)
-                |> Sg.cullMode (AVal.constant CullMode.None)
-
-            let annos = 
-                annotations
-                |> Sg.map DrawingMessage
-                |> Sg.fillMode (AVal.constant FillMode.Fill)
-                |> Sg.cullMode (AVal.constant CullMode.None)
-
-            //let _, correlationPlanes =
-            //    PRo3D.Correlations.CorrelationPanelsApp.viewWorkingLog 
-            //        m.scene.config.dnsPlaneSize.value
-            //        m.scene.cameraView 
-            //        m.scene.config.nearPlane.value 
-            //        m.correlationPlot 
-            //        m.drawing.dnsColorLegend
-
-            //let _, planes = 
-            //    PRo3D.Correlations.CorrelationPanelsApp.viewFinishedLogs 
-            //        m.scene.config.dnsPlaneSize.value
-            //        m.scene.cameraView 
-            //        m.scene.config.nearPlane.value 
-            //        m.drawing.dnsColorLegend 
-            //        m.correlationPlot 
-            //        (allowLogPicking m)
-
-            //let viewContactOfInterest = 
-            //    PRo3D.Correlations.CorrelationPanelsApp.viewContactOfInterest m.correlationPlot
-                
-            Sg.ofList [ds;annos;]// correlationPlanes; planes; viewContactOfInterest]
-
         let overlayed =
                         
             //let alignment = 
@@ -1950,20 +1961,7 @@ module ViewerApp =
 
             let near = m.scene.config.nearPlane.value
 
-            let refSystem =
-                Sg.view
-                    m.scene.config
-                    mrefConfig
-                    m.scene.referenceSystem
-                    m.navigation.camera.view
-                |> Sg.map ReferenceSystemMessage  
-
-            let exploreCenter =
-                Navigation.Sg.view m.navigation
-                |> Sg.onOff m.scene.config.showExplorationPointGui
-          
-            let homePosition =
-                Sg.viewHomePosition m.scene.surfacesModel
+            let overL = getOverlayed m m.navigation.camera.view
                                  
             let viewPlans =
                 ViewPlanApp.Sg.view 
@@ -2009,30 +2007,12 @@ module ViewerApp =
             
             let orientationCube = PRo3D.OrientationCube.Sg.view m.navigation.camera.view m.scene.config m.scene.referenceSystem
 
-            let annotationTexts =
-                DrawingApp.viewTextLabels 
-                    m.scene.config
-                    mdrawingConfig
-                    m.navigation.camera.view
-                    m.drawing            
-
-            let scaleBarTexts = 
-                ScaleBarsApp.Sg.viewTextLabels 
-                    m.scene.scaleBars 
-                    m.navigation.camera.view 
-                    m.scene.config
-                    mrefConfig
-                    m.scene.referenceSystem.planet
-
+           
             [
-                exploreCenter; 
-                refSystem; 
+                overL;
                 viewPlans; 
-                homePosition; 
              //   solText; 
-                annotationTexts |> Sg.noEvents
-                heightValidation
-                scaleBarTexts
+                heightValidation;
                 traverse
                 gisEntities
             ] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
@@ -2065,17 +2045,12 @@ module ViewerApp =
         //        m.linkingModel
         //    |> Sg.map LinkingActions
 
+        let dTested = getDepthTested frustum m.navigation.camera.view observer id runtime m //annotations + scaleBars
+
         let heightValidationDiscs =
             HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
 
-        let scaleBars =
-            ScaleBarsApp.Sg.view
-                m.scene.scaleBars
-                m.navigation.camera.view
-                m.scene.config
-                mrefConfig
-            |> Sg.map ScaleBarsMessage
-
+        
         let sceneObjects =
             SceneObjectsApp.Sg.view m.scene.sceneObjectsModel m.scene.referenceSystem |> Sg.map SceneObjectsMessage
 
@@ -2093,10 +2068,9 @@ module ViewerApp =
         let depthTested = 
             [
              //   linkingSg; 
-                annotationSg; 
+                dTested; 
                 //minervaSg; 
                 heightValidationDiscs; 
-                scaleBars; 
                 sceneObjects; 
                 geologicSurfacesSg
                 traverses
@@ -2104,7 +2078,7 @@ module ViewerApp =
 
 
         //render OPCs in priority groups
-        let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested true false runtime m
+        let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m.navigation.camera.view true false runtime m
                         |> AList.map ViewerUtils.mapRenderCommand
         onBoot "attachResize('__ID__')" (
             DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)

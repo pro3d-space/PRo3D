@@ -346,7 +346,7 @@ module InitScaleBarsParams =
     let thickness = {
         value   = 0.03
         min     = 0.001
-        max     = 1.0
+        max     = 10.0
         step    = 0.001
         format  = "{0:0.000}"
     }

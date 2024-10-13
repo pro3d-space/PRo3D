@@ -759,6 +759,8 @@ module ViewPlanApp =
                 thickness = thickness
                 hasArrow  = ~~true
                 text      = ~~None
+                textsize  = AVal.constant 0.05
+                textcolor = AVal.constant C4b.White
                 fix       = ~~false
             }
 
@@ -845,6 +847,8 @@ module ViewPlanApp =
                             thickness = thickness
                             hasArrow  = AVal.constant true
                             text      = AVal.constant None
+                            textsize  = AVal.constant 0.05
+                            textcolor = AVal.constant C4b.White
                             fix       = AVal.constant false
                         }
 

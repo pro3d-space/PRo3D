@@ -580,7 +580,7 @@ module TraverseApp =
                         let loc = ~~(sol.location + sol.location.Normalized * 1.5)
                         let trafo = loc |> AVal.map Trafo3d.Translation
                         
-                        yield Sg.text view near (AVal.constant 60.0) loc trafo model.tTextSize.value  (~~sol.solNumber.ToString())
+                        yield Sg.text view near (AVal.constant 60.0) loc trafo model.tTextSize.value  (~~sol.solNumber.ToString()) (AVal.constant C4b.White)
             } 
             |> ASet.ofAList 
             |> Sg.set

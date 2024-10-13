@@ -70,6 +70,7 @@ module TransformationApp =
            let northCorrection = Trafo3d.RotationZInDegrees(refSystem.noffset.value)
            let refSysBasis = 
                 match refSystem.planet with
+                | Planet.Earth
                 | Planet.ENU -> 
                     Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OIO, V3d.OOI) * northCorrection
                 | Planet.Mars ->

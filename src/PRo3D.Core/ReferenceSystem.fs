@@ -136,6 +136,10 @@ module ReferenceSystemApp =
         | SetPlanet p ->      
             let m' = updateCoordSystem model.origin p model
             { m' with planet = p }, bigConfig
+        | SetTextsize s ->
+            { model with textsize = Numeric.update model.textsize s}, bigConfig
+        | SetTextColor uc -> 
+            { model with textcolor = ColorPicker.update model.textcolor uc }, bigConfig
     
     module UI =
 
@@ -160,6 +164,8 @@ module ReferenceSystemApp =
                     Html.row "Latitude:"    [Incremental.text (sphericalCoo |> AVal.map (fun x -> x.latitude.ToString("0.00")))]
                     Html.row "Altitude:"    [Incremental.text (sphericalCoo |> AVal.map (fun x -> x.altitude.ToString("0.00")))]
                     Html.row "Visible:"     [GuiEx.iconCheckBox model.isVisible ToggleVisible ]
+                    Html.row "Textsize:"    [Numeric.view' [NumericInputType.InputBox] model.textsize |> UI.map SetTextsize ]  
+                    Html.row "Textcolor:"   [ColorPicker.view model.textcolor |> UI.map SetTextColor ]
                       
                 ]
             )

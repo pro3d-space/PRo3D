@@ -76,7 +76,7 @@ module ViewerLenses =
         let inline haveSameKeys (a : HashMap<'a, 'b>) (b : HashMap<'a, 'c>) =
             if a.Count <> b.Count then false
             else
-                a.ToKeyList () |> List.sort = (a.ToKeyList () |> List.sort)
+                a.ToKeyList () |> List.sort = (b.ToKeyList () |> List.sort)
 
         (fun m -> 
             {
@@ -92,43 +92,45 @@ module ViewerLenses =
                                             m.scene.config
                 stateReferenceSystem   = SceneStateReferenceSystem.fromReferenceSystem 
                                             m.scene.referenceSystem
-                //stateTraverses         = Some m.scene.traverses
+                stateTraverses         = Some m.scene.traverses
             }
         ), 
         (fun state m ->
             let state = // check surfaces
                 if haveSameKeys state.stateSurfaces.flat
-                                m.scene.surfacesModel.sgSurfaces then state
+                                m.scene.surfacesModel.sgSurfaces then 
+                                state
                 else
                     Log.warn "[ViewerLenses] Surfaces have been added or removed making this scene state invalid. 
-                                Not applying surfaces for this scene state."
-                    {state with stateSurfaces = m.scene.surfacesModel.surfaces}
-
-            //let scaleBars = // check scale bars; using old segments for performance reasons
-            //    if haveSameKeys state.stateScaleBars.scaleBars
-            //                    m.scene.scaleBars.scaleBars then 
-            //        let inline update (newBar : ScaleBar) = 
-            //            let current = HashMap.tryFind newBar.guid m.scene.scaleBars.scaleBars
-            //            match current with
-            //            | Some current ->
-            //                { newBar with scSegments = current.scSegments}
-            //            | None ->
-            //                Log.line "[Viewer] Scale bar %s not present in current scene state." newBar.name
-            //                newBar
-            //        let updated = 
-            //            state.stateScaleBars.scaleBars
-            //            |> HashMap.map (fun id bar -> update bar)
-            //        {state.stateScaleBars with scaleBars = updated}        
+                                Not applying surfaces for this scene state. Update Scene State for this bookmark
+                                or delete and create new bookmark."
+                    state //{state with stateSurfaces = m.scene.surfacesModel.surfaces}
+            Log.line "m.origin = %s, state.origin = %s" (string m.scene.referenceSystem.origin)  (string state.stateReferenceSystem.origin)
+            let scaleBars = // check scale bars; using old segments for performance reasons
+                if haveSameKeys state.stateScaleBars.scaleBars
+                                m.scene.scaleBars.scaleBars then 
+                    let inline update (newBar : ScaleBar) = 
+                        let current = HashMap.tryFind newBar.guid m.scene.scaleBars.scaleBars
+                        match current with
+                        | Some current ->
+                            { newBar with scSegments = current.scSegments}
+                        | None ->
+                            Log.line "[Viewer] Scale bar %s not present in current scene state." newBar.name
+                            newBar
+                    let updated = 
+                        state.stateScaleBars.scaleBars
+                        |> HashMap.map (fun id bar -> update bar)
+                    {state.stateScaleBars with scaleBars = updated}        
                     
-            //    else
-            //        Log.warn "[ViewerLenses] Scale Bars have been added or removed making this scene state invalid. 
-            //                    Not applying scale bars for this scene state."
-            //        m.scene.scaleBars
+                else
+                    Log.warn "[ViewerLenses] Scale Bars have been added or removed making this scene state invalid. 
+                                Not applying scale bars for this scene state."
+                    m.scene.scaleBars
 
-            //let traverses = 
-            //    match state.stateTraverses with
-            //    | Some t -> t
-            //    | None -> m.scene.traverses
+            let traverses = 
+                match state.stateTraverses with
+                | Some t -> t
+                | None -> m.scene.traverses
 
             let frustum =
                 match m.startupArgs.isBatchRendering with
@@ -139,44 +141,62 @@ module ViewerLenses =
                         state.stateConfig.farPlane
                 | true ->
                         state.stateConfig.frustumModel.frustum
-            {m with
-                drawing = {m.drawing with annotations = state.stateAnnoatations}
-                scene   = 
-                    {m.scene with
-                        surfacesModel           = {m.scene.surfacesModel with surfaces = state.stateSurfaces}
-                        sceneObjectsModel       = state.stateSceneObjects
-                        //scaleBars               = scaleBars
-                        geologicSurfacesModel   = state.stateGeologicSurfaces
-                        config                  = 
-                            {m.scene.config with
-                                nearPlane           = 
-                                    {m.scene.config.nearPlane with value = state.stateConfig.nearPlane}
-                                farPlane            = 
-                                    {m.scene.config.farPlane with value = state.stateConfig.farPlane}
-                                frustumModel        = state.stateConfig.frustumModel       
-                                arrowLength         = 
-                                    {m.scene.config.arrowLength with value = state.stateConfig.arrowLength}
-                                arrowThickness      = 
-                                    {m.scene.config.arrowLength with value = state.stateConfig.arrowThickness}
-                                dnsPlaneSize        = 
-                                    {m.scene.config.dnsPlaneSize with value = state.stateConfig.dnsPlaneSize}
-                                lodColoring         = state.stateConfig.lodColoring        
-                                drawOrientationCube = state.stateConfig.drawOrientationCube
-                            }
-                        referenceSystem         = 
-                            {m.scene.referenceSystem with
-                                origin        = state.stateReferenceSystem.origin       
-                                isVisible     = state.stateReferenceSystem.isVisible    
-                                size          = 
-                                    {m.scene.referenceSystem.size with 
-                                        value = state.stateReferenceSystem.size}
-                                selectedScale = state.stateReferenceSystem.selectedScale
-                            }
-                        //traverses               = traverses
-                        
+            let m = 
+                let refSysState = 
+                    /// UPDATING REF SYSTEM HERE LEADS TO TRAVERSE CALCULATIONS BERING TRIGGERED, EVEN IF THE REF SYSTEM DOES NOT CHANGE!
+                    /// so we check manually if the reference system has changed, and only assign it if there is a change
+                    {m.scene.referenceSystem with
+                        origin        = state.stateReferenceSystem.origin       
+                        isVisible     = state.stateReferenceSystem.isVisible    
+                        size          = 
+                            {m.scene.referenceSystem.size with 
+                                value = state.stateReferenceSystem.size}
+                        selectedScale = state.stateReferenceSystem.selectedScale
+
+                        textsize      = ReferenceSystem.text state.stateReferenceSystem.textsize
+                        textcolor     = { c = state.stateReferenceSystem.textcolor }
                     }
-                frustum = frustum
-            }
+                if m.scene.referenceSystem <> refSysState then
+                    {m with scene   = 
+                            {m.scene with
+                                    referenceSystem = refSysState
+                            }
+                    }
+                else
+                    m
+
+            let m = 
+                {m with
+                    drawing = {m.drawing with annotations = state.stateAnnoatations}
+                    scene   = 
+                        {m.scene with
+                            surfacesModel           = {m.scene.surfacesModel with surfaces = state.stateSurfaces}
+                            sceneObjectsModel       = state.stateSceneObjects
+                            scaleBars               = scaleBars
+                            geologicSurfacesModel   = state.stateGeologicSurfaces
+                            config                  = 
+                                {m.scene.config with
+                                    nearPlane           = 
+                                        {m.scene.config.nearPlane with value = state.stateConfig.nearPlane}
+                                    farPlane            = 
+                                        {m.scene.config.farPlane with value = state.stateConfig.farPlane}
+                                    frustumModel        = state.stateConfig.frustumModel       
+                                    arrowLength         = 
+                                        {m.scene.config.arrowLength with value = state.stateConfig.arrowLength}
+                                    arrowThickness      = 
+                                        {m.scene.config.arrowLength with value = state.stateConfig.arrowThickness}
+                                    dnsPlaneSize        = 
+                                        {m.scene.config.dnsPlaneSize with value = state.stateConfig.dnsPlaneSize}
+                                    lodColoring         = state.stateConfig.lodColoring        
+                                    drawOrientationCube = state.stateConfig.drawOrientationCube
+                                }
+                            traverses               = traverses
+                        
+                        }
+                    frustum = frustum
+                }
+
+            m
         )
 
     let _savedTimeSteps =

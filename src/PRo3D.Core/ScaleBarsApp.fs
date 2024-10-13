@@ -558,6 +558,7 @@ module ScaleBarsApp =
                 (labelPosition |> AVal.map Trafo3d.Translation) 
                 scaleBar.textsize.value 
                 scaleBar.text
+                (AVal.constant C4b.White)
             |> Sg.onOff isVisible
 
         let viewTextLabels

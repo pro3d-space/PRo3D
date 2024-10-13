@@ -1180,7 +1180,8 @@ module Sg =
         (pos        : aval<V3d>) 
         (modelTrafo : aval<Trafo3d>) 
         (size       : aval<double>) 
-        (text       : aval<string>) =
+        (text       : aval<string>) 
+        (color      : aval<C4b>) =
 
         let billboardTrafo = 
             adaptive {
@@ -1188,12 +1189,13 @@ module Sg =
                 let! v = view
                 return screenAlignedTrafo v.Forward v.Up modelt
             }
-      
-        Sg.text (Font.create "Consolas" FontStyle.Regular) C4b.White text
-        |> Sg.noEvents
-        |> Sg.effect [stableTrafoShader]         
-        |> Sg.trafo (invariantScaleTrafo view near pos size hfov)  // fixed pixel size scaling
-        |> Sg.trafo billboardTrafo
+        color |> AVal.map( fun c ->
+            Sg.text (Font.create "Consolas" FontStyle.Regular) c text
+            |> Sg.noEvents
+            |> Sg.effect [stableTrafoShader]         
+            |> Sg.trafo (invariantScaleTrafo view near pos size hfov)  // fixed pixel size scaling
+            |> Sg.trafo billboardTrafo
+            ) |> Sg.dynamic
 
     let billboardText (view: aval<CameraView>) (pos: aval<V3d>) (text: aval<string>) =
         // new implementation with same result, but does not require CameraView

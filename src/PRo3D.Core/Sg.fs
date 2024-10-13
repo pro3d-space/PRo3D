@@ -20,6 +20,8 @@ module Sg =
         thickness : aval<float>
         hasArrow  : aval<bool>
         text      : aval<option<string>>
+        textsize  : aval<float>
+        textcolor : aval<C4b>
         fix       : aval<bool>
     }
 
@@ -78,7 +80,7 @@ module Sg =
                 style.text 
                   |> AVal.map(fun x ->
                     match x with 
-                      | Some text -> Sg.text cam near hfov nLabelPos nPosTrafo ~~0.05 ~~text
+                      | Some text -> Sg.text cam near hfov nLabelPos nPosTrafo style.textsize (AVal.constant text) style.textcolor
                       | None -> Sg.empty)
 
             yield Sg.drawLines al (~~0.0)style.color style.thickness posTrafo
@@ -124,6 +126,8 @@ module Sg =
             thickness = thickness
             hasArrow  = AVal.constant false
             text      = AVal.constant None
+            textsize  = model.textsize.value
+            textcolor = model.textcolor.c
             fix       = AVal.constant false
         }
 
@@ -139,7 +143,7 @@ module Sg =
         let hfov = minnerConfig.getHorizontalFieldOfView mbigConfig
         let nLabelPos = AVal.map2(fun l r -> l + r) position model.north.value
         let nPosTrafo = nLabelPos |> AVal.map(fun d -> Trafo3d.Translation(d))
-        let label = Sg.text cam near hfov nLabelPos nPosTrafo (AVal.constant 0.05) (AVal.constant "N")
+        let label = Sg.text cam near hfov nLabelPos nPosTrafo (AVal.constant 0.05) (AVal.constant "N") model.textcolor.c
 
         Sg.ofList [
             point model.origin (AVal.constant C4b.Red) cam
@@ -177,6 +181,8 @@ module Sg =
             thickness = thickness
             hasArrow  = AVal.constant false
             text      = AVal.constant None
+            textsize  = model.textsize.value
+            textcolor = model.textcolor.c
             fix       = AVal.constant false
         }
 
@@ -188,6 +194,8 @@ module Sg =
             thickness = thickness
             hasArrow  = AVal.constant true
             text      = AVal.constant (Some "N")
+            textsize  = model.textsize.value
+            textcolor = model.textcolor.c
             fix       = AVal.constant false
         }
 
@@ -199,6 +207,8 @@ module Sg =
             thickness = thickness
             hasArrow  = AVal.constant false
             text      = AVal.constant None
+            textsize  = model.textsize.value
+            textcolor = model.textcolor.c
             fix       = AVal.constant false
         }
 
@@ -210,6 +220,8 @@ module Sg =
             thickness = thickness
             hasArrow  = AVal.constant false
             text      = AVal.constant (Some "X")
+            textsize  = model.textsize.value
+            textcolor = model.textcolor.c
             fix       = AVal.constant false
         }
 
@@ -221,6 +233,8 @@ module Sg =
             thickness = thickness
             hasArrow  = AVal.constant false
             text      = AVal.constant (Some "Y")
+            textsize  = model.textsize.value
+            textcolor = model.textcolor.c
             fix       = AVal.constant false
         }
 
@@ -232,6 +246,8 @@ module Sg =
             thickness = thickness
             hasArrow  = ~~false
             text      = ~~(Some "Z")
+            textsize  = model.textsize.value
+            textcolor = model.textcolor.c
             fix       = ~~false
         }
 
@@ -243,6 +259,8 @@ module Sg =
             thickness = thickness
             hasArrow  = AVal.constant false
             text      = ~~(None)//model.up.value |> AVal.map (fun x -> x.ToString() |> Some)
+            textsize  = model.textsize.value
+            textcolor = model.textcolor.c
             fix       = AVal.constant false
         }
 
@@ -254,6 +272,8 @@ module Sg =
             thickness = thickness
             hasArrow  = AVal.constant false
             text      = ~~(Some "E") // |> AVal.map (fun x -> x.ToString() |> Some)
+            textsize  = model.textsize.value
+            textcolor = model.textcolor.c
             fix       = AVal.constant false
         }
 
@@ -265,6 +285,8 @@ module Sg =
             thickness = thickness
             hasArrow  = AVal.constant false
             text      = ~~(Some "N")//model.north.value |> AVal.map (fun x -> x.ToString() |> Some)
+            textsize  = model.textsize.value
+            textcolor = model.textcolor.c
             fix       = AVal.constant false
         }
                
@@ -275,8 +297,9 @@ module Sg =
                 (minnerConfig.getHorizontalFieldOfView mbigConfig)
                 model.origin 
                 (model.origin |> AVal.map Trafo3d.Translation) 
-                (AVal.constant 0.05)
+                model.textsize.value
                 model.selectedScale 
+                model.textcolor.c
 
         let refsystem = 
             Sg.ofList [
