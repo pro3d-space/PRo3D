@@ -2,6 +2,7 @@
 
 open System
 open System.IO
+open System.Text.RegularExpressions
 open Aardvark.Base
 open Aardvark.UI
 open Aardvark.UI.Primitives
@@ -176,23 +177,17 @@ module TraversePropertiesApp =
 
 
 module TraverseApp =
-
-
     type TraverseParseError =
-       | PropertyNotFound         of propertyName : string * feature : GeoJsonFeature
-       | PropertyHasWrongType     of propertyName : string * feature : GeoJsonFeature * expected : string * got : string * str : string
-       | GeometryTypeNotSupported of geometryType : string
+        | PropertyNotFound         of propertyName : string * feature : GeoJsonFeature
+        | PropertyHasWrongType     of propertyName : string * feature : GeoJsonFeature * expected : string * got : string * str : string
+        | GeometryTypeNotSupported of geometryType : string
     
-
-
     let (.|) (point : GeoJsonFeature) (propertyName : string) : Result<Json, TraverseParseError> =
         match point.properties |> Map.tryFind propertyName with
         | None -> PropertyNotFound(propertyName, point) |> error
         | Some v -> v |> Ok
 
     // the parsing functions are a bit verbose but focus on good error reporting....
-
-
     let parseIntProperty (feature : GeoJsonFeature) (propertyName : string) : Result<int, TraverseParseError> =
         result {
             let json = feature.|propertyName
@@ -282,8 +277,7 @@ module TraverseApp =
                             //x ... lon
                             //y ... lat
 
-                            let! elev_goid = parseDoubleProperty x "elev_geoid"
-                        
+                            let! elev_goid = parseDoubleProperty x "elev_geoid"                        
                             let latLonAlt = 
                                 V3d (
                                     y.Y, 
@@ -292,9 +286,7 @@ module TraverseApp =
                                 )
 
                             return CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
-
                         | Coordinate.ThreeDim y ->
-
                             let latLonAlt =  //y.YXZ
                                 V3d (
                                     y.Y, 
@@ -303,7 +295,6 @@ module TraverseApp =
                                 )
 
                             return CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
-
                     | e -> 
                         return! error (GeometryTypeNotSupported (string e))
                 }
@@ -320,10 +311,10 @@ module TraverseApp =
 
             // either choose dist_total_m or dist_total - or default to zero if nothing? @ThomasOrnter - is this defaulting correct or an error?
             match parseDoubleProperty x "dist_total_m", parseDoubleProperty x "dist_total" with
-                | Result.Ok dist, _ | _, Result.Ok  dist -> 
-                    return { sol with totalDistanceM = dist }
-                | _ ->
-                    return { sol with totalDistanceM = 0.0 }
+            | Result.Ok dist, _ | _, Result.Ok  dist -> 
+                return { sol with totalDistanceM = dist }
+            | _ ->
+                return { sol with totalDistanceM = 0.0 }
         }
 
     let parseTraverse (traverse : GeoJsonFeatureCollection) = 
@@ -347,34 +338,64 @@ module TraverseApp =
 
         sols
 
+    // Function to split the string into chunks of numbers and non-numbers
+    let splitString (input: string) =
+        Regex.Matches(input, @"\D+|\d+")
+        |> Seq.cast<Match>
+        |> Seq.map (fun m -> m.Value)
+        |> Seq.toList
+    
+    // Function to compare two strings with natural sorting
+    let compareNatural (left: AdaptiveTraverse) (right: AdaptiveTraverse) =
+        let s1 = left.tName|> AVal.force
+        let s2 = right.tName|> AVal.force
+
+        let rec compareParts (parts1: string list) (parts2: string list) =
+            match parts1, parts2 with
+            | [], [] -> 0
+            | [], _ -> -1
+            | _, [] -> 1
+            | h1::t1, h2::t2 ->
+                let isNum1 = Int32.TryParse(h1)
+                let isNum2 = Int32.TryParse(h2)
+                match isNum1, isNum2 with
+                | (true, num1), (true, num2) -> 
+                    // Compare as numbers
+                    let cmp = compare num1 num2
+                    if cmp <> 0 then cmp else compareParts t1 t2
+                | _ -> 
+                    // Compare as strings
+                    let cmp = compare h1 h2
+                    if cmp <> 0 then cmp else compareParts t1 t2
+    
+        compareParts (splitString s1) (splitString s2)
+
     let update 
         (model : TraverseModel) 
         (action : TraverseAction) : TraverseModel = 
         match action with
-        | LoadTraverse path ->
-            if System.IO.File.Exists path then
-                Log.line "[Traverse] Loading %s" path
-                let geojson = System.IO.File.ReadAllText path
-                 
-                let parsedData =
-                    geojson 
-                    |> Json.parse 
+        | LoadTraverses paths ->            
+            let traverses =             
+                paths 
+                |> List.filter(File.Exists)
+                |> List.map(fun x ->
+                    Log.line "[Traverse] Loading %s" x
+                    let geojson = System.IO.File.ReadAllText x
+                     
+                    let sols =
+                        geojson 
+                        |> Json.parse 
+                        |> Json.deserialize 
+                        |> parseTraverse
 
-                let deserializedData =
-                    parsedData
-                    |> Json.deserialize
-                    
-                let sols =
-                    deserializedData
-                    |> parseTraverse
+                    let name = Path.GetFileName x
 
-                let name = Path.GetFileName path
-                let traverse = Traverse.initial name sols 
-                let traverses' = HashMap.add traverse.guid traverse model.traverses
+                    let traverse = Traverse.initial name sols 
+                    traverse |> HashMap.single traverse.guid        
+                )
+                |> List.fold(fun a b -> HashMap.union a b) model.traverses                        
 
-                { model with traverses = traverses'; selectedTraverse = Some traverse.guid }
-            else
-                model
+            { model with traverses = model.traverses |> HashMap.union traverses; selectedTraverse = None }
         | IsVisibleT id ->
             let traverses' =  
                 model.traverses 
@@ -428,10 +449,9 @@ module TraverseApp =
                     { model with traverses = traverses' }
                 | None -> model
             | None -> model
-
-            
+        | RemoveAllTraverses ->
+            { model with traverses = HashMap.empty; selectedTraverse = None }            
         |_-> model
-
 
     module UI =
         let viewTraverses
@@ -448,15 +468,13 @@ module TraverseApp =
                 alist {
 
                     let! selected = m.selectedTraverse
-                    let traverses = m.traverses |> AMap.toASetValues |> ASet.toAList
-
-                    
-        
+                    let traverses = m.traverses |> AMap.toASetValues |> ASet.toAList |> AList.sortWith compareNatural //(fun x -> x.tName |> AVal.force)
+                            
                     for traverse in traverses do
                         
                         let! sols = traverse.sols
                         let fistSol = sols.[0]
-                        let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
+                        let infoc = sprintf "color: %s" (Html.color C4b.White)
             
                         let! traverseID = traverse.guid  
                         let toggleIcon = 
@@ -472,9 +490,9 @@ module TraverseApp =
                        
                         let color =
                             match selected with
-                              | Some sel -> 
+                            | Some sel -> 
                                 AVal.constant (if sel = (traverse.guid |> AVal.force) then C4b.VRVisGreen else C4b.Gray) 
-                              | None -> AVal.constant C4b.Gray
+                            | None -> AVal.constant C4b.Gray
 
                         let headerText = 
                             AVal.map (fun a -> sprintf "%s" a) traverse.tName
@@ -486,7 +504,7 @@ module TraverseApp =
                             |> AttributeMap.ofAMap
             
                         let! c = color
-                        let bgc = sprintf "color: %s" (Html.ofC4b c)
+                        let bgc = sprintf "color: %s" (Html.color c)
                         yield div [clazz "item"; style infoc] [
                             div [clazz "content"; style infoc] [                     
                                 yield Incremental.div (AttributeMap.ofList [style infoc])(
@@ -504,13 +522,25 @@ module TraverseApp =
                                         |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
 
                                         yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveTraverse traverseID)] [] 
-                                            |> UI.wrapToolTip DataPosition.Bottom "Remove"     
-                                       
+                                            |> UI.wrapToolTip DataPosition.Bottom "Remove"                                            
                                     } 
                                 )                                     
                             ]
                         ]
                 } )
+
+        let viewActions (model:AdaptiveTraverseModel) =
+            adaptive {
+                return Html.table [                            
+                    div [clazz "ui buttons inverted"] [
+                        onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
+                            button [clazz "ui icon button"; onMouseClick (fun _ -> RemoveAllTraverses)] [
+                                i [clazz "remove icon red"] [] ] |> UI.wrapToolTip DataPosition.Right "Remove All"
+                        )
+                    ] 
+                ] 
+            }
+            
 
         let viewProperties (model:AdaptiveTraverseModel) =
             adaptive {
@@ -540,7 +570,6 @@ module TraverseApp =
                 | None -> return empty
             }                
        
-
     module Sg =
         let drawSolLines (model : AdaptiveTraverse) : ISg<TraverseAction> =
             adaptive {
