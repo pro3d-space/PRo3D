@@ -58,16 +58,24 @@ module ScreenshotUtilities =
             do! responseStream.CopyToAsync(fileStream) |> Async.AwaitTask
         }
 
+        let takeScreenshot_ (baseAddress: string) (width:int) (height:int) (fileName: string) (filePath: string) (format: string) (samples: int) (cs: ClientStatistics) (client: HttpClient) =
+            let screenshotUrl = getScreenshotUrl baseAddress cs width height samples
+            let filePathWithName = getScreenshotFilename filePath fileName format
+
+            if (File.Exists filePathWithName) then
+                Log.error "A screenshot with this name already exists. Please provide another name."
+
+            else
+                use fileStream = File.Create(filePathWithName)
+                downloadFile_ screenshotUrl fileStream client |> Async.RunSynchronously
+                Log.line "Screenshot saved under %s" filePathWithName
+
         let takeScreenshotFromAllViews baseAddress (width:int) (height:int) (fileName: string) (filePath: string) (format: string) (samples: int) =
                 let client = new HttpClient()
                 let clientStatistics = downloadClientStatistics baseAddress client
 
                 for cs in clientStatistics do
-                    let screenshotUrl = getScreenshotUrl baseAddress cs width height samples
-                    let filePathWithName = getScreenshotFilename filePath fileName format
-                    use fileStream = File.Create(filePathWithName)
-                    downloadFile_ screenshotUrl fileStream client |> Async.RunSynchronously
-
+                    takeScreenshot_ baseAddress width height fileName filePath format samples cs client
 
         let takeScreenshot (baseAddress: string) (width:int) (height:int) (fileName: string) (filePath: string) (format: string) (samples: int) =
             let client = new HttpClient()
@@ -77,10 +85,7 @@ module ScreenshotUtilities =
                 | 2 -> clientStatistics.[1] 
                 | 1 -> clientStatistics.[0]
                 | _ -> failwith (sprintf "Could not download client statistics")
+            takeScreenshot_ baseAddress width height fileName filePath format samples cs client
+            
 
-            let screenshotUrl = getScreenshotUrl baseAddress cs width height samples
-            let filePathWithName = getScreenshotFilename filePath fileName format
-            use fileStream = File.Create(filePathWithName)
 
-            downloadFile_ screenshotUrl fileStream client |> Async.RunSynchronously
-            Log.line "Screenshot saved under %s" filePathWithName
