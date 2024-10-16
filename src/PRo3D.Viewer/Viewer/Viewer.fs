@@ -924,12 +924,12 @@ module ViewerApp =
                     { m with scene = { m.scene with viewPlans = vp }}
                 | None -> Log.error "no rover selected"; m
             | None -> m     
-        | ImportTraverse tr,_,_ -> 
-            match tr |> List.tryHead with
-            | Some path ->  
-                let t = TraverseApp.update m.scene.traverses (TraverseAction.LoadTraverse path)
+        | ImportTraverse traverseFiles,_,_ -> 
+            match traverseFiles with
+            | _ ->  
+                let t = TraverseApp.update m.scene.traverses (TraverseAction.LoadTraverses traverseFiles)
                 { m with scene = { m.scene with traverses = t }}
-            | None -> m              
+            | [] -> m
         | DeleteLast,_,_ -> 
             if File.Exists @".\last" then
                 File.Delete(@".\last") |> ignore
@@ -1111,9 +1111,7 @@ module ViewerApp =
                     { m with ctrlFlag = false } |> shortFeedback "please use \"save\" in the menu to save the scene" 
                     // (saveSceneAndAnnotations p m)
                 |_-> m
-                         
-          
-
+                                   
             let sensitivity = m.scene.config.navigationSensitivity.value
           
             let configAction = 
@@ -1152,7 +1150,7 @@ module ViewerApp =
                             "M20_waypoints.json"
                         ]
 
-                    let t = TraverseApp.update m.scene.traverses (TraverseAction.LoadTraverse waypointPath)
+                    let t = TraverseApp.update m.scene.traverses (TraverseAction.LoadTraverses [waypointPath])
                     { m with scene = { m.scene with traverses = t }}
                 | _ -> m
 
