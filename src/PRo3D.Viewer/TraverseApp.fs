@@ -107,7 +107,7 @@ module TraversePropertiesApp =
         let viewTraverseProperties (m : AdaptiveTraverse) =
             require GuiEx.semui (
                 Html.table [
-                    Html.row "Name:"       [Html.SemUi.textBox m.tName SetTraverseName ]
+                    Html.row "Name:"       [text m.tName]
                     Html.row "Textsize:"   [Numeric.view' [NumericInputType.InputBox] m.tTextSize |> UI.map SetSolTextsize ]  
                     Html.row "Show Text:"  [GuiEx.iconCheckBox m.showText  ToggleShowText]
                     Html.row "Show Lines:" [GuiEx.iconCheckBox m.showLines ToggleShowLines]
@@ -347,8 +347,8 @@ module TraverseApp =
     
     // Function to compare two strings with natural sorting
     let compareNatural (left: AdaptiveTraverse) (right: AdaptiveTraverse) =
-        let s1 = left.tName|> AVal.force
-        let s2 = right.tName|> AVal.force
+        let s1 = left.tName
+        let s2 = right.tName
 
         let rec compareParts (parts1: string list) (parts2: string list) =
             match parts1, parts2 with
@@ -476,7 +476,7 @@ module TraverseApp =
                         let fistSol = sols.[0]
                         let infoc = sprintf "color: %s" (Html.color C4b.White)
             
-                        let! traverseID = traverse.guid  
+                        let traverseID = traverse.guid
                         let toggleIcon = 
                             AVal.map( fun toggle -> if toggle then "unhide icon" else "hide icon") traverse.isVisibleT
 
@@ -491,11 +491,10 @@ module TraverseApp =
                         let color =
                             match selected with
                             | Some sel -> 
-                                AVal.constant (if sel = (traverse.guid |> AVal.force) then C4b.VRVisGreen else C4b.Gray) 
+                                AVal.constant (if sel = (traverse.guid) then C4b.VRVisGreen else C4b.Gray) 
                             | None -> AVal.constant C4b.Gray
 
-                        let headerText = 
-                            AVal.map (fun a -> sprintf "%s" a) traverse.tName
+                        let headerText = traverse.tName
 
                         let headerAttributes =
                             amap {
@@ -511,7 +510,7 @@ module TraverseApp =
                                     alist {
                                         //let! hc = headerColor
                                         yield div [clazz "header"; style bgc] [
-                                            Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
+                                            Incremental.span headerAttributes ([text headerText] |> AList.ofList)
                                          ]                           
                                         // fly to first sol of traverse
                                         let! refSystem = refSystem.Current

@@ -128,7 +128,9 @@ type Sol with
 [<ModelType>]
 type Traverse =
     { version: int
+      [<NonAdaptive>]
       guid: System.Guid
+      [<NonAdaptive>]
       tName: string
       sols: List<Sol>
       selectedSol: option<int>
