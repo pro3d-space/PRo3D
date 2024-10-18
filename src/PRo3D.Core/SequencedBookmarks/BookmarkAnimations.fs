@@ -371,7 +371,7 @@ module BookmarkAnimations =
         let outerModel =
             outerModel 
             |> Animator.createAndStart AnimationSlot.camera animation
-        //let m = {m with savedSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
+       // let m = {m with savedSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
         outerModel, m
 
     let cameraOnly (m : SequencedBookmarks)

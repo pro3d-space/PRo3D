@@ -145,6 +145,8 @@ type SceneStateReferenceSystem =
         isVisible     : bool
         size          : float
         selectedScale : string
+        textsize      : float
+        textcolor     : C4b
     } with
     static member fromReferenceSystem (refSystem : ReferenceSystem) 
         : SceneStateReferenceSystem =
@@ -153,6 +155,8 @@ type SceneStateReferenceSystem =
             isVisible     = refSystem.isVisible    
             size          = refSystem.size.value         
             selectedScale = refSystem.selectedScale
+            textsize      = refSystem.textsize.value
+            textcolor     = refSystem.textcolor.c
         }
     static member FromJson(_ : SceneStateReferenceSystem) = 
         json {
@@ -160,12 +164,20 @@ type SceneStateReferenceSystem =
             let! isVisible     = Json.read "isVisible"    
             let! size          = Json.read "size"         
             let! selectedScale = Json.read "selectedScale"
+            let! textSize      = Json.tryRead "textsize"
+            let! textColor     = Json.tryRead "textcolor"
 
             return {
                     origin        = origin |> V3d.Parse       
                     isVisible     = isVisible    
                     size          = size         
                     selectedScale = selectedScale 
+                    textsize      = match textSize with
+                                    | Some t -> t
+                                    | None -> 0.05
+                    textcolor     = match textColor with
+                                    | Some tc -> tc |> C4b.Parse
+                                    | None -> C4b.White 
             }
         }
     static member ToJson(x : SceneStateReferenceSystem) =
@@ -173,7 +185,9 @@ type SceneStateReferenceSystem =
             do! Json.write "origin"         (string x.origin)
             do! Json.write "isVisible"      x.isVisible          
             do! Json.write "size"           x.size               
-            do! Json.write "selectedScale"  x.selectedScale      
+            do! Json.write "selectedScale"  x.selectedScale  
+            do! Json.write "textsize"       x.textsize
+            do! Json.write "textcolor"      (x.textcolor.ToString())
         }
 
 /// state of various scene elements for use with animations
@@ -306,7 +320,7 @@ type SceneState with
             do! Json.write "stateGeologicSurfaces" x.stateGeologicSurfaces
             do! Json.write "stateConfig"           x.stateConfig
             do! Json.write "stateReferenceSystem"  x.stateReferenceSystem
-            do! Json.write "stateTraverse"         x.stateTraverses
+            //do! Json.write "stateTraverse"         x.stateTraverses
         }
 
 type FrustumParameters = {

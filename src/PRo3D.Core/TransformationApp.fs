@@ -19,11 +19,24 @@ open PRo3D.Base
 open PRo3D.Core
 open PRo3D.Base.Gis
 
-open Aardvark.Base.MultimethodTest
+open Aardvark.UI.Primitives
         
 module TransformationApp =
 
     //open Aardvark.UI.ChoiceModule
+
+    module EulerMode =
+        let getTrafo (m : EulerMode) (x : float) (y : float) (z : float)=
+            let x = Trafo3d.RotationXInDegrees x
+            let y = Trafo3d.RotationYInDegrees y
+            let z = Trafo3d.RotationZInDegrees z
+            match m with
+            | EulerMode.XYZ -> x * y * z
+            | EulerMode.XZY -> x * z * y
+            | EulerMode.YXZ -> y * x * z
+            | EulerMode.YZX -> y * z * x
+            | EulerMode.ZXY -> z * x * y
+            | EulerMode.ZYX -> z * y * x
    
     type Action =
     | SetTranslation        of Vector3d.Action
@@ -40,6 +53,7 @@ module TransformationApp =
     | SetScaling            of Numeric.Action
     | ToggleUsePivot
     | SetPivotSize          of Numeric.Action
+    | SetEulerMode          of EulerMode
    
     let calcFullTrafo 
         (translation : V3d)
@@ -47,29 +61,49 @@ module TransformationApp =
         (pitch : float)
         (roll : float)
         (pivot : V3d)
-        (oldPivot : V3d)
-        (pivotChanged : bool)
-        (north : V3d)
-        (up : V3d) 
+        (refSystem : ReferenceSystem)
         (observedSystem : Option<SpiceReferenceSystem>)
         (observerSystem : Option<ObserverSystem>)
-        (scale:float)  = 
+        (scale:float)
+        (eulerMode : EulerMode) = 
 
-           
-           let east  = north.Cross(up).Normalized
-           let refSysRotation = Trafo3d.FromOrthoNormalBasis(north, east, up)
+           let northCorrection = Trafo3d.RotationZInDegrees(refSystem.noffset.value)
+           let refSysBasis = 
+                match refSystem.planet with
+                | Planet.Earth
+                | Planet.ENU -> 
+                    Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OIO, V3d.OOI) * northCorrection
+                | Planet.Mars ->
+                    //let upP = CooTransformation.getUpVector pivot refSystem.planet
+                    //let east = V3d.OOI.Cross(upP)
+                    //let north = upP.Cross(east)
+                    //Log.line "%A,%A,%A" upP.Length east.Length north.Length
+                    let north = refSystem.northO.Normalized        
+                    let up    = refSystem.up.value.Normalized
+                    let east  = north.Cross(up).Normalized
+              
+                    let refSysRotation = 
+                        Trafo3d.FromOrthoNormalBasis(north, east, up)
+                    refSysRotation
+                | Planet.JPL -> 
+                    Trafo3d.FromOrthoNormalBasis(-V3d.IOO, V3d.OIO, -V3d.OOI) * northCorrection
+                | Planet.None -> 
+                    northCorrection
+                | _ -> failwith ""
 
-           //translation along north, east, up            
-           let trans = translation |> Trafo3d.Translation
-           let translationTrafo = refSysRotation.Inverse * trans * refSysRotation
+           let originTrafo = pivot |> Trafo3d.Translation
+
+           //translation along north, east, up directions         
+           let fullTrafo = 
+                originTrafo.Inverse * 
+                    refSysBasis.Inverse *
+                            EulerMode.getTrafo eulerMode roll pitch yaw *
+                            Trafo3d.Scale(scale)
+                    * refSysBasis
+                * originTrafo 
+                * Trafo3d.Translation(refSysBasis.Forward.TransformPos(translation))
         
-           let originTrafo = -pivot |> Trafo3d.Translation
-           let eulerRotation = Trafo3d.RotationEulerInDegrees(roll, pitch, -yaw)
-
-           let yawRotation    = Trafo3d.RotationInDegrees(up,  -yaw)
-           let pitchRotation  = Trafo3d.RotationInDegrees(east, pitch)
-           let rollRotation   = Trafo3d.RotationInDegrees(north,roll)
-
+         
            let observerationTrafo = 
                 match observedSystem, observerSystem with
                 | Some observedSystem, Some observerSystem ->
@@ -78,11 +112,18 @@ module TransformationApp =
                     | Some t -> t.Trafo
                 | _ -> Trafo3d.Identity
 
-           let rotAndScale = originTrafo * refSysRotation.Inverse  * eulerRotation * Trafo3d.Scale(scale) * refSysRotation  * originTrafo.Inverse * observerationTrafo
+
+           // translate back to the pivot point (=rotation center)
+           // do rotation around north, east and up
+           // do scaling
+           // translate back from pivot
+           //let rotAndScale = originTrafo * rotation * Trafo3d.Scale(scale)  * originTrafo.Inverse //* observerationTrafo
+           ////let rotAndScale = originTrafo * refSysRotation.Inverse * eulerRotation * Trafo3d.Scale(scale) * refSysRotation * originTrafo.Inverse
            
-           let newTrafo = translationTrafo * rotAndScale 
+           //// do translation than rotation (not sure why this order is working)
+           //let newTrafo = rotAndScale * translationTrafo
            
-           newTrafo
+           fullTrafo
     
     // calc reference system from pivot
     let getNorthAndUpFromPivot
@@ -100,7 +141,7 @@ module TransformationApp =
 
             let noP = 
                 Rot3d.Rotation(upP, refsys.noffset.value |> Double.radiansFromDegrees).Transform(northP)
-            noP, upP
+            noP, upP, eastP
             
 
     let fullTrafo 
@@ -117,21 +158,20 @@ module TransformationApp =
            let! pivot = transform.pivot.value
            let! oldPivot = transform.oldPivot
            let! pivotChanged = transform.pivotChanged
-           let north = refSys.northO
-           let up = refSys.up.value
            let! scale = transform.scaling.value
            let! usePivot = transform.usePivot
            let! transf = transform.Current
            let! observedSystem = observedSystem
            let! observerSystem = observerSystem
+           let! mode = transform.eulerMode
 
-           let northN, upN =
-               if usePivot then
-                   getNorthAndUpFromPivot transf refSys
-               else
-                north, up
+           //let northN, upN, eastN =
+           //    if usePivot then
+           //        getNorthAndUpFromPivot transf refSys
+           //    else
+           //     north, up, north.Cross(up)
 
-           let newTrafo = calcFullTrafo translation yaw pitch roll pivot oldPivot pivotChanged northN.Normalized upN.Normalized observedSystem observerSystem scale
+           let newTrafo = calcFullTrafo translation yaw pitch roll (if usePivot then pivot else V3d.Zero) refSys observedSystem observerSystem scale mode
            return newTrafo
         }
            
@@ -142,11 +182,11 @@ module TransformationApp =
         (observedSystem : Option<SpiceReferenceSystem>)
         (observerSystem : Option<ObserverSystem>) =
 
-        let north, up = 
-            if transform.usePivot then
-                getNorthAndUpFromPivot transform refsys
-            else 
-                refsys.northO, refsys.up.value
+        //let north, up, east = 
+        //    if transform.usePivot then
+        //        getNorthAndUpFromPivot transform refsys
+        //    else 
+        //        refsys.northO, refsys.up.value, refsys.northO.Cross(refsys.up.value)
 
         calcFullTrafo 
             transform.translation.value 
@@ -154,13 +194,11 @@ module TransformationApp =
             transform.pitch.value
             transform.roll.value 
             transform.pivot.value
-            transform.oldPivot
-            transform.pivotChanged 
-            north.Normalized 
-            up.Normalized 
+            refsys
             observedSystem
             observerSystem
             transform.scaling.value
+            transform.eulerMode
 
     let resetRotation (model : Transformations) =
         let yaw = { model.yaw with value = 0.0}
@@ -173,12 +211,11 @@ module TransformationApp =
         (translation : V3d)
         (refSys : ReferenceSystem) =
 
-            let north, up = 
+            let north, up, east = 
                 if transform.usePivot then
                     getNorthAndUpFromPivot transform refSys
                 else 
-                    refSys.northO, refSys.up.value
-            let east  = north.Cross(up).Normalized
+                    refSys.northO, refSys.up.value, refSys.northO.Cross(refSys.up.value)
             
             let refSysRotation = Trafo3d.FromOrthoNormalBasis(north, east, up)
             let trans = translation |> Trafo3d.Translation
@@ -186,15 +223,15 @@ module TransformationApp =
 
     let updateTransformationForNewPivot 
         (model : Transformations) =
-        let yaw = { model.yaw with value = 0.0 }
-        let pitch = { model.pitch with value = 0.0 }
-        let roll = { model.roll with value = 0.0 }
-        let scale = { model.scaling with value = 1.0}
+        //let yaw = { model.yaw with value = 0.0 }
+        //let pitch = { model.pitch with value = 0.0 }
+        //let roll = { model.roll with value = 0.0 }
+        //let scale = { model.scaling with value = 1.0}
         let pChanged = 
             if not (model.pitch.value = 0.0) && not (model.yaw.value = 0.0) && not (model.roll.value = 0.0) then true else false
         let trafo' = (model.translation.value |> Trafo3d.Translation)
         //{ model with yaw = yaw; pitch = pitch; roll = roll; trafo = trafo'; scaling = scale}
-        { model with trafo = trafo'; pivotChanged = pChanged; yaw = yaw; pitch = pitch; roll = roll; scaling = scale} 
+        { model with trafo = trafo'; pivotChanged = pChanged; (*yaw = yaw; pitch = pitch; roll = roll; scaling = scale*)} 
     
 
     let update<'a> 
@@ -207,7 +244,7 @@ module TransformationApp =
             let transPivot = refSysTranslation model (t'.value - model.trafo.Forward.C3.XYZ) refSys //refSysTranslation model t'.value refSys
             let pivot = transPivot.Forward.TransformPos model.oldPivot
             let p' = Vector3d.updateV3d model.pivot pivot
-            { model with translation =  t'; pivot = p'; pivotChanged = false; trafoChanged = true} 
+            { model with translation =  t'; (* pivot = p'; pivotChanged = false; *) trafoChanged = true} 
         | SetPickedTranslation p ->
             let p' = Vector3d.updateV3d model.translation p
             { model with translation =  p'; pivotChanged = false; trafoChanged = true }
@@ -227,17 +264,21 @@ module TransformationApp =
             { model with useTranslationArrows = not model.useTranslationArrows}
         | ToggleSketchFab   -> 
             { model with isSketchFab = not model.isSketchFab; pivotChanged = false }
-        | SetPivotPoint p ->
+        | SetPivotPoint p -> // object space
             if model.usePivot then
                 let p' = Vector3d.update model.pivot p
-                let m' = updateTransformationForNewPivot model
-                { m' with pivot =  p'; oldPivot = p'.value; trafoChanged = false} 
+                //let m' = updateTransformationForNewPivot model
+                //{ m' with pivot =  p'; oldPivot = p'.value; trafoChanged = false} 
+                let fulTrafo : Trafo3d = fullTrafo' model refSys None None
+                { model with pivot = p'; oldPivot = p'.value; trafoChanged = false} 
             else model
-        | SetPickedPivotPoint p ->
+        | SetPickedPivotPoint p -> // world space.......
             if model.usePivot then
-                let p' = Vector3d.updateV3d model.pivot p
-                let m' = updateTransformationForNewPivot model
-                { m' with pivot =  p';oldPivot = p'.value; trafoChanged = false} 
+                let fulTrafo : Trafo3d = fullTrafo' model refSys None None
+                let pivotObjectSpace = fulTrafo.Inverse.TransformPos(p) 
+                let p' = Vector3d.updateV3d model.pivot pivotObjectSpace
+                //let m' = updateTransformationForNewPivot model
+                { model with pivot = p'; oldPivot = p'.value; trafoChanged = false} 
              else model
         | TogglePivotVisible -> 
             { model with showPivot = not model.showPivot}
@@ -248,6 +289,8 @@ module TransformationApp =
         | SetPivotSize s ->    
             let ps = Numeric.update model.pivotSize s
             { model with pivotSize = ps }
+        | SetEulerMode m -> 
+            { model with eulerMode = m }
    
     module UI =
         
@@ -266,21 +309,29 @@ module TransformationApp =
             ]  
 
         let view (model:AdaptiveTransformations) =
-            
+            let mode : aval<EulerMode> = AVal.constant EulerMode.XYZ
+            let modeDropDown = 
+                let values = 
+                    [ EulerMode.XYZ, "XYZ"; EulerMode.XZY, "XZY"; EulerMode.YXZ, "YXZ"; EulerMode.YZX, "YZX"; EulerMode.ZXY, "ZXY"; EulerMode.ZYX, "ZYX"]
+                    |> List.map (fun (m, v) -> m, text v)
+                    |> AMap.ofList
+                SimplePrimitives.dropdownUnclearable AttributeMap.empty values mode SetEulerMode
+
             require GuiEx.semui (
                 Html.table [  
                     //Html.row "Visible:" [GuiEx.iconCheckBox model.useTranslationArrows ToggleVisible ]
                     Html.row "Translation (m):" [viewV3dInput model.translation |> UI.map SetTranslation ]
                     Html.row "Scale:"           [Numeric.view' [NumericInputType.InputBox]   model.scaling  |> UI.map SetScaling ]
-                    Html.row "Yaw (deg):"       [Numeric.view' [InputBox] model.yaw |> UI.map SetYaw]
-                    Html.row "Pitch (deg):"     [Numeric.view' [InputBox] model.pitch |> UI.map SetPitch]
-                    Html.row "Roll (deg):"      [Numeric.view' [InputBox] model.roll |> UI.map SetRoll]
+                    Html.row "Yaw   (Z,deg):"     [Numeric.view' [InputBox] model.yaw |> UI.map SetYaw]
+                    Html.row "Pitch (Y,deg):"     [Numeric.view' [InputBox] model.pitch |> UI.map SetPitch]
+                    Html.row "Roll  (X,deg):"     [Numeric.view' [InputBox] model.roll |> UI.map SetRoll]
                     Html.row "flip Z:"          [GuiEx.iconCheckBox model.flipZ FlipZ ]
                     Html.row "sketchFab:"       [GuiEx.iconCheckBox model.isSketchFab ToggleSketchFab ]
                     Html.row "use Pivot:"       [GuiEx.iconCheckBox model.usePivot ToggleUsePivot ]
                     Html.row "show PivotPoint:" [GuiEx.iconCheckBox model.showPivot TogglePivotVisible ]
                     Html.row "Pivot Point (m):" [viewPivotPointInput model.pivot |> UI.map SetPivotPoint ]
                     Html.row "Pivot Size:"      [Numeric.view' [InputBox] model.pivotSize |> UI.map SetPivotSize]
+                    Html.row "Mode" [modeDropDown]
                     //Html.row "Reset Trafos:"    [button [clazz "ui button tiny"; onClick (fun _ -> ResetTrafos )] []]
                     //Html.row "Pivot Point:"     [Incremental.text (model.pivot |> AVal.map (fun x -> x.ToString ()))]
                 ]
@@ -294,6 +345,6 @@ module TransformationApp =
             )
 
     module Sg =
-        let view (model:AdaptiveTransformations) =
+        let viewObjectSpace (model:AdaptiveTransformations) =
             let point = PRo3D.Base.Sg.dot (AVal.constant C4b.GreenYellow) model.pivotSize.value model.pivot.value 
             Sg.ofList [point] |> Sg.onOff model.showPivot

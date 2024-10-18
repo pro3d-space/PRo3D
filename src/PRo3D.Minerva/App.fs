@@ -919,7 +919,7 @@ module MinervaApp =
             |> ASet.bind (fun x -> 
                 x 
                 |> Array.map (fun struct (text, pos) -> 
-                        Sg.text view near ~~60.0 ~~pos ~~(Trafo3d.Translation pos) ~~0.05 ~~text) // (model.session.featureProperties.textSize.value)) 
+                        Sg.text view near ~~60.0 ~~pos ~~(Trafo3d.Translation pos) ~~0.05 ~~text (AVal.constant C4b.White)) // (model.session.featureProperties.textSize.value)) 
                 |> ASet.ofArray)
             |> Sg.set
 
@@ -935,6 +935,7 @@ module MinervaApp =
                   ~~(Trafo3d.Translation pos)
                   (model.session.featureProperties.textSize.value)
                   ~~txt
+                  (AVal.constant C4b.White)
             ) 
             |> AMap.toASet  
             |> ASet.map(fun x -> snd x)            

@@ -126,7 +126,7 @@ module SequencedBookmarksApp =
             let nav = Optic.get lenses.navigationModel_ outerModel
             let state = Optic.get lenses.sceneState_ outerModel
             let newSBm = 
-                getNewSBookmark nav state  m.bookmarks.Count None
+                getNewSBookmark nav (BookmarkUtils.getValidState state)  m.bookmarks.Count None
             let m = addBookmark newSBm m
             outerModel, m
         | AddGisBookmark ->

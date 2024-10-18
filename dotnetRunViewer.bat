@@ -1,0 +1,1 @@
+dotnet run src\PRo3D.sln --project src\PRo3D.Viewer\PRo3D.Viewer.fsproj -loadRecent
