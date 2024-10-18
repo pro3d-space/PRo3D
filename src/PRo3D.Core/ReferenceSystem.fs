@@ -9,6 +9,7 @@ open Aardvark.Rendering
 open Aardvark.Application    
 open Aardvark.UI
 
+open Aardvark.UI.Primitives
 open PRo3D.Base
 open PRo3D.Base.Annotation
 

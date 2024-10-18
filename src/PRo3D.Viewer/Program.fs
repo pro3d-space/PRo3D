@@ -11,11 +11,7 @@ open System.Collections.Generic
 
 open Aardvark.Base
 open Aardvark.Application.Slim
-open Aardvark.SceneGraph.Opc
 open Aardvark.UI
-open Aardvark.VRVis
-open Aardvark.VRVis.Opc
-open Aardvark.GeoSpatial.Opc
 open OpcViewer.Base
 open Aardvark.Rendering
 
@@ -45,6 +41,7 @@ open FSharp.Data.Adaptive
 open System.Reflection
 open System.Runtime.InteropServices
 
+open Aardvark.GeoSpatial.Opc.Load
 
 type EmbeddedRessource = EmbeddedRessource
 
@@ -127,10 +124,7 @@ let main argv =
 
     System.Threading.ThreadPool.SetMinThreads(12, 12) |> ignore
     
-
     Log.line "path: %s, current dir: %s" executeablePath System.Environment.CurrentDirectory
-    Config.colorPaletteStore <- Path.combine [appData; "favoriteColors.js"]
-    Log.line "Color palette favorite colors are stored here: %s" Config.colorPaletteStore
 
     let os = 
         if RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then
@@ -380,6 +374,7 @@ let main argv =
                 path "/websocket" >=> handShake ws
                 prefix "/api" >=> remoteApi
                 Reflection.assemblyWebPart typeof<EmbeddedRessource>.Assembly
+                Aardvark.UI.Primitives.Resources.WebPart
                // Reflection.assemblyWebPart typeof<CorrelationDrawing.CorrelationPanelResources>.Assembly //(System.Reflection.Assembly.LoadFrom "PRo3D.CorrelationPanels.dll")
                // prefix "/instrument" >=> MutableApp.toWebPart runtime instrumentApp
 
@@ -478,11 +473,6 @@ let main argv =
                 height 800
                 debug true
                 title titlestr
-                
-
-                windowoptions {|  minWidth = 180; minHeight = 180; title = titlestr;|}
-                hideDock true
-                autoclose true
             }
 
     finally

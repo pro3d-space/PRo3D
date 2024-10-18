@@ -3,10 +3,10 @@
 open System
 open Aardvark.Base
 open Aardvark.UI
+open Aardvark.UI.Primitives
 
 open FSharp.Data.Adaptive
 open PRo3D.Base
-open Aardvark.UI
 open PRo3D.Core
 open PRo3D.SurfaceUtils
 open PRo3D.Core.Surface

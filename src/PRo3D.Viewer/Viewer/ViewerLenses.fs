@@ -20,6 +20,7 @@ open PRo3D.Viewer
 open Aether
 open Aether.Operators
 open PRo3D.Core.Gis
+open Aardvark.UI.Animation.Deprecated
 
 module ViewerLenses =
     // surfaces

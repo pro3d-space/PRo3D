@@ -4,6 +4,7 @@ open System
 open System.IO
 open Aardvark.Base
 open Aardvark.UI
+open Aardvark.UI.Primitives
 open Chiron
 open PRo3D.Base.Annotation.GeoJSON
 open PRo3D.Base

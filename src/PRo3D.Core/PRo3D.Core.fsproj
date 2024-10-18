@@ -29,7 +29,6 @@
     <Compile Include="VisualizationAndTFModel.fs" />
     <Compile Include="VisualizationAndTFApp.fs" />
     <Compile Include="Surface-Model.fs" />
-    <Compile Include="glTF.fs" />
     <Compile Include="SceneObjects-Model.fs" />
     <Compile Include="Bookmark-Model.fs" />
     <Compile Include="Groups-Model.fs" />

@@ -4,13 +4,14 @@ open System
 open Aardvark.Base
 open Aardvark.UI
 open Aardvark.UI.Primitives
+
 open FSharp.Data.Adaptive
 
 open Aardvark.Rendering
-open Aardvark.UI.Anewmation
-open Aardvark.UI.Anewmation.AnimationSplinePrimitives.Animation
-open Aardvark.UI.Anewmation.AnimationPrimitives.Animation
-open Aardvark.UI.Anewmation.AnimationCameraPrimitives.Animation
+open Aardvark.UI.Animation
+open Aardvark.UI.Animation.AnimationSplinePrimitives.Animation
+open Aardvark.UI.Animation.AnimationPrimitives.Animation
+open Aardvark.UI.Animation.AnimationCameraPrimitives.Animation
 
 open PRo3D.Base
 open PRo3D.Core.SequencedBookmarks

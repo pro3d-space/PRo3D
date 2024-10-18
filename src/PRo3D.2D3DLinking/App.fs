@@ -10,7 +10,7 @@ namespace LinkingTestApp
 //open Aardvark.Rendering.Text
 
 //open Aardvark.SceneGraph
-//open Aardvark.SceneGraph.Opc
+//open Aardvark.Data.Opc
 //open FShade
 
 //open Aardvark.Application
@@ -22,7 +22,7 @@ namespace LinkingTestApp
 //open OpcViewer.Base.Picking
 //open PRo3D.Base
 //open PRo3D.Minerva
-//open Aardvark.VRVis.Opc
+//open Aardvark.Data.Opc
 //open PRo3D.Linking
 
 //open Aether

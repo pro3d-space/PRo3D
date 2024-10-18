@@ -5,7 +5,8 @@ open Aardvark.Base
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
 open Aardvark.UI
-open Aardvark.UI.Primitives
+
+open Aardvark.UI
 open PRo3D
 open PRo3D.Base
 open PRo3D.Core

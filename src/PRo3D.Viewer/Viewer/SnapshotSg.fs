@@ -23,7 +23,7 @@ open Aardvark.UI.Trafos
 open Aardvark.UI.Animation
 open Aardvark.Application
 
-open Aardvark.SceneGraph.Opc
+open Aardvark.Data.Opc
 open Aardvark.SceneGraph.SgPrimitives.Sg
 open Aardvark.VRVis
 

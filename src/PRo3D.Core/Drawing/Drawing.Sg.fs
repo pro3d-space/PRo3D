@@ -6,16 +6,18 @@ open Aardvark.Base
 open Aardvark.Application
 open Aardvark.UI
 
+open Aardvark.UI.Primitives
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
 open Aardvark.Rendering
 open Aardvark.Application
 open Aardvark.SceneGraph
-open Aardvark.SceneGraph.Opc
+open Aardvark.Data.Opc
 open Aardvark.Rendering.Text
 
 open Aardvark.UI
-open Aardvark.UI.Primitives    
+
+open Aardvark.UI    
 
 open OpcViewer.Base
 
@@ -222,7 +224,7 @@ module Sg =
                         let reallyHit = 
                              // TODO hs/to real horrorshow here!
                              lines 
-                             |> Array.forany (fun e -> 
+                             |> Array.exists (fun e -> 
                                  let m = modelTrafo * sceneHit.event.evtView *  sceneHit.event.evtProj
                                  let r = sceneHit.localRay.Ray.Ray
                                  let a = Line3d(r.Origin, r.Origin + r.Direction * 10000.0)

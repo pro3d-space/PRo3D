@@ -14,8 +14,8 @@ open Aardvark.UI.Primitives
 
 open PRo3D.Navigation
 open PRo3D.Viewer
-open Aardvark.UI.Anewmation
 open Aardvark.UI.Animation
+open Aardvark.UI.Animation.Deprecated
 
 module ProvenanceApp =
 

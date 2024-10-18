@@ -4,6 +4,7 @@ open Aardvark.Base
 open FSharp.Data.Adaptive
 open Adaptify
 open Aardvark.UI
+open Aardvark.UI.Primitives
 open Chiron
 
 open PRo3D.Base

@@ -2,6 +2,8 @@
 
 open Aardvark.Base
 open Aardvark.UI
+open Aardvark.UI.Primitives
+
 open System
 open System.IO
 open PRo3D.Core.SequencedBookmarks

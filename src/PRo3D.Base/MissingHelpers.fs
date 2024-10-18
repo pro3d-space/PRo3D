@@ -1,6 +1,6 @@
 ﻿namespace FSharp.Data.Adaptive
 
-
+open Aardvark.FontProvider
 open FSharp.Data.Adaptive
 open Adaptify.FSharp.Core
 
@@ -108,8 +108,10 @@ namespace Aardvark.Rendering.Text
 
 module Font =
     
+    type HackRegular = Aardvark.FontProvider.FontSquirrelProvider<Family = "Hack">
+
     let create name style =
-        FontSquirrel.Hack.Regular
+        HackRegular.Font
 
 namespace Aardvark.Base
 

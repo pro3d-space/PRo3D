@@ -3,6 +3,7 @@ namespace PRo3D.Core.Surface
 open Aardvark.Base
 open Aardvark.Application
 open Aardvark.UI
+open Aardvark.UI.Primitives
 
 open System
 
@@ -11,9 +12,9 @@ open Aardvark.Rendering
 
 open Aardvark.Rendering   
 
-open Aardvark.SceneGraph.Opc
+open Aardvark.Data.Opc
 open Aardvark.SceneGraph.SgPrimitives
-open Aardvark.VRVis.Opc
+open Aardvark.Data.Opc
 
 open PRo3D.Base
 open PRo3D.Core

@@ -3,13 +3,14 @@ open System.Threading.Tasks
 open System.IO
 open System.Threading
 open Aardvark.Base
-open Aardvark.SceneGraph.Opc
-open Aardvark.VRVis.Opc
+open Aardvark.Data.Opc
+open OpcViewer.Base
 open PRo3D.Core.Surface
 open Aardvark.GeoSpatial.Opc
 open Aardvark.GeoSpatial.Opc.PatchLod
-open Aardvark.Prinziple
+open Aardvark.Data.Opc
 open CommandLine
+open Aardvark.Data
 
 
 let logo = """                    
@@ -26,10 +27,6 @@ Examples: opc-tool --forcekdtreerebuild --generatedds --overwritedds --ignoremas
 """
 
 let validateAndConvertTextures (generateDds : bool) (overwriteDdds : bool) (patchHierarchy : PatchHierarchy) =
-
-    let isZipped path = 
-        let split = path |> Path.GetFullPath |> Prinziple.splitPath
-        split.IsSome
 
     let mutable validationErrors = 0
 
@@ -49,11 +46,7 @@ let validateAndConvertTextures (generateDds : bool) (overwriteDdds : bool) (patc
                             None, 1
 
                     let mip = 
-                        use stream =
-                            if texturePath |> isZipped then                  
-                                Prinziple.openRead (texturePath |> Path.GetFullPath) 
-                            else
-                                File.Open(texturePath, FileMode.Open, FileAccess.Read, FileShare.Read)
+                        use stream = Prinziple.openRead texturePath
                         
                         ImageLoading.loadImageFromStream stream extension
 
@@ -120,12 +113,12 @@ let generateKdTrees (degreeOfParallelism : Option<int>) (forceKdTreeRebuild : bo
 
 
         let kdTrees =
-            KdTrees.loadKdTrees' h Trafo3d.Identity true ViewerModality.XYZ serializer forceKdTreeRebuild ignoreMasterKdTree PRo3D.Core.Surface.DebugKdTreesX.loadTriangles' false false Aardvark.VRVis.Opc.KdTrees.KdTreeParameters.legacyDefault
+            KdTrees.loadKdTrees' h Trafo3d.Identity true ViewerModality.XYZ serializer forceKdTreeRebuild ignoreMasterKdTree PRo3D.Core.Surface.DebugKdTreesX.loadTriangles' false false OpcViewer.Base.KdTrees.KdTreeParameters.legacyDefault
 
         for (bb,kdTree) in kdTrees do
             match kdTree with
-            | KdTrees.Level0KdTree.InCoreKdTree inCore -> ()
-            | KdTrees.Level0KdTree.LazyKdTree l -> 
+            | Aardvark.VRVis.Opc.KdTrees.Level0KdTree.InCoreKdTree inCore -> ()
+            | Aardvark.VRVis.Opc.KdTrees.Level0KdTree.LazyKdTree l -> 
                 ()
             ()
         

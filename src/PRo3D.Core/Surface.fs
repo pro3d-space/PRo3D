@@ -2,15 +2,11 @@
 
 open System
 open Aardvark.Base
-open Aardvark.VRVis.Opc.KdTrees
-open MBrace.FsPickler
 open Aardvark.Geometry
 open OpcViewer.Base
 open FSharp.Data.Adaptive
 open OpcViewer.Base.Picking
-open Aardvark.SceneGraph
-open Aardvark.SceneGraph.Opc
-open Aardvark.VRVis.Opc
+open Aardvark.Data.Opc
 
 open PRo3D.Base
 open PRo3D.Core
@@ -18,6 +14,7 @@ open PRo3D.Base.Gis
 open PRo3D.Extensions
 open PRo3D.Core.Surface
 open PRo3DCompability
+open OpcViewer.Base.KdTrees
 
 module SurfaceTransformations = 
     //let computeSolRotation (sol : Sol) (referenceSystem : ReferenceSystem) : Trafo3d =
@@ -128,9 +125,9 @@ module DebugKdTreesX =
 
     let loadObjectSet (cache : HashMap<string, ConcreteKdIntersectionTree>) (lvl0Tree : Level0KdTree) =             
         match lvl0Tree with
-        | InCoreKdTree kd -> 
+        | Aardvark.VRVis.Opc.KdTrees.InCoreKdTree kd -> 
           kd.kdTree, cache
-        | LazyKdTree kd ->             
+        | Aardvark.VRVis.Opc.KdTrees.LazyKdTree kd ->             
             let kdTree, cache =
                 match kd.kdTree with
                 | Some k -> k, cache

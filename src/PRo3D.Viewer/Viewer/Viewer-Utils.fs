@@ -4,23 +4,14 @@ open System
 open System.IO
 
 open Aardvark.Base
-open Aardvark.Base.Geometry
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
 open FShade
-open Aardvark.Rendering.Effects
 open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.UI.Trafos
-open Aardvark.UI.Animation
-open Aardvark.Rendering.Text
-
-
-open Aardvark.SceneGraph.Opc
-open Aardvark.SceneGraph.SgPrimitives.Sg
-open Aardvark.GeoSpatial.Opc
 open OpcViewer.Base
 
 open PRo3D
@@ -32,6 +23,7 @@ open PRo3D.Viewer
 open PRo3D.SimulatedViews
 
 open Adaptify.FSharp.Core
+open Aardvark.GeoSpatial.Opc
 
 module ViewerUtils =    
     type Self = Self

@@ -10,10 +10,10 @@ open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.Rendering
 open Aardvark.SceneGraph
-open Aardvark.SceneGraph.IO
-open Aardvark.SceneGraph.Opc
+open Aardvark.SceneGraph.Assimp
+open Aardvark.Data.Opc
 
-open Aardvark.VRVis.Opc
+open Aardvark.Data.Opc
 open Aardvark.UI.Operators
 open Aardvark.UI.Trafos  
 
@@ -881,7 +881,7 @@ module SurfaceApp =
                     Log.startTimed "[RebuildKdTrees] creating kdtrees"
                     let cnt = 
                         hs |> Array.sumBy (fun h -> 
-                            let m = KdTrees.loadKdTrees' h Trafo3d.Identity true ViewerModality.XYZ Serialization.binarySerializer true true PRo3D.Core.Surface.DebugKdTreesX.loadTriangles' false false Aardvark.VRVis.Opc.KdTrees.KdTreeParameters.legacyDefault   
+                            let m = KdTrees.loadKdTrees' h Trafo3d.Identity true ViewerModality.XYZ Serialization.binarySerializer true true PRo3D.Core.Surface.DebugKdTreesX.loadTriangles' false false KdTrees.KdTreeParameters.legacyDefault   
                             HashMap.count m
                         )
                     Log.stop()

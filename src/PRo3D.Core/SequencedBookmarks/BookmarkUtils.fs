@@ -3,20 +3,21 @@
 open Aardvark.Base
 open Aardvark.Application
 open Aardvark.UI
+open Aardvark.UI.Primitives
 open Aardvark.UI.Animation
 open Aardvark.UI.Primitives
 open FSharp.Data.Adaptive
 
 open Aardvark.Rendering
-open Aardvark.UI.Anewmation
+open Aardvark.UI.Animation
 
 open System
 open System.IO
 open System.Runtime.InteropServices
 open PRo3D.Base
-open PRo3D.Core.SequencedBookmarks
 open Chiron
-open Aardvark.UI.Anewmation
+open Aardvark.UI.Animation
+open PRo3D.Core.SequencedBookmarks
 open Aether
 open Aether.Operators
 

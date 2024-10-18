@@ -10,11 +10,13 @@ open Aardvark.SceneGraph
 open Aardvark.SceneGraph.SgPrimitives
 open Aardvark.SceneGraph.``Sg Picking Extensions``
 open Aardvark.UI
+open Aardvark.UI.Primitives
 open Aardvark.Rendering.Text
 open OpcViewer.Base
 open OpcViewer.Base.Shader
 open FShade
 open System.IO
+open Aardvark.Base.Fonts
 
 
 type Self = Self
@@ -1173,6 +1175,8 @@ module Sg =
     let stableTrafoShader = 
         Effect.compose [toEffect Shader.StableTrafo.stableTrafo]
 
+    let consolasFont = Font.create "Consolas" FontStyle.Regular
+
     let text 
         (view       : aval<CameraView>) 
         (near       : aval<float>) 
@@ -1190,7 +1194,7 @@ module Sg =
                 return screenAlignedTrafo v.Forward v.Up modelt
             }
         color |> AVal.map( fun c ->
-            Sg.text (Font.create "Consolas" FontStyle.Regular) c text
+            Sg.text consolasFont c text
             |> Sg.noEvents
             |> Sg.effect [stableTrafoShader]         
             |> Sg.trafo (invariantScaleTrafo view near pos size hfov)  // fixed pixel size scaling
@@ -1204,7 +1208,7 @@ module Sg =
             { 
                 TextConfig.Default with
                     renderStyle = RenderStyle.Billboard
-                    font = Font.create "Consolas" FontStyle.Regular
+                    font = consolasFont
                     color = C4b.White
                     align = TextAlignment.Center
             }
@@ -1223,7 +1227,7 @@ module Sg =
                 return screenAlignedTrafo v.Forward v.Up modelt
             }
     
-        Sg.text (Font.create "Consolas" FontStyle.Regular) C4b.White text
+        Sg.text consolasFont C4b.White text
         |> Sg.noEvents
         |> Sg.effect [stableTrafoShader]      
         |> Sg.trafo (0.1 |> Trafo3d.Scale |> AVal.constant )

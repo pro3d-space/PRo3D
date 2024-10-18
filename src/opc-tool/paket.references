@@ -5,7 +5,7 @@ Aardvark.Base
 Aardvark.Base.Incremental
 Aardvark.Base.FSharp
 
-Aardvark.SceneGraph.Opc
+Aardvark.Data.Opc 
 Aardvark.GeoSpatial.Opc
 OPCViewer.Base
 

@@ -6,6 +6,7 @@ open Aardvark.Base
 open FSharp.Data.Adaptive
 open Adaptify
 open Aardvark.UI
+open Aardvark.UI.Primitives
 
 open FSharp.Data
 open FSharp.Data.JsonExtensions

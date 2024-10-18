@@ -1,3 +1,6 @@
+## 4.25.0-prerelease10
+- optimized kd tree loading from caches
+
 ## 4.25.0-prerelease6
 - #413 (without footprints part), #330, #414, #397
 

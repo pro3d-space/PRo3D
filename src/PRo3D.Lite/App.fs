@@ -12,7 +12,7 @@ open Aardvark.Rendering
 
 open Aardvark.SceneGraph
 open Aardvark.GeoSpatial.Opc
-open Aardvark.SceneGraph.Opc
+open Aardvark.Data.Opc
 
 open Aardvark.UI
 open Aardvark.UI.Primitives
@@ -20,6 +20,7 @@ open Aardvark.UI.Primitives
 open PRo3D.Lite
 open Aardvark.Rendering
 open PRo3D.Base
+open Aardvark.GeoSpatial.Opc.Load
 
 
 module App = 
@@ -193,9 +194,9 @@ module App =
                 return r * V4d.IIII + v.c * (1.0 - r)
             }
 
-    let viewScene (runner : Load.Runner) (emit : Message -> unit) (model : AdaptiveModel) =
+    let viewScene (runner : Load.Load.Runner) (emit : Message -> unit) (model : AdaptiveModel) =
         let renderControl = 
-
+         
             let renderControlAttributes = 
                 AttributeMap.ofListCond [
                     always <| style "width: 100%; grid-row: 2; height:100%"; 
@@ -351,11 +352,7 @@ module App =
                     ]
                     button [onClick (fun _ -> CenterScene)] [text "Center Scene"]
                     button [onClick (fun _ -> ToggleBackground)] [text "Change Background"]
-                    Simple.dropDown [] 
-                        model.cameraMode SetCameraMode 
-                        (Map.ofList [
-                            CameraMode.FreeFly, "Free Fly"; CameraMode.Orbit, "Orbit"; 
-                        ])
+                    Dropdown.dropdown SetCameraMode false None model.cameraMode AttributeMap.empty [CameraMode.FreeFly, text "Free Fly"; CameraMode.Orbit, text "Orbit" ] 
                 ]
                 div [style "grid-row: 2; width: 100%; height: 100%"] [
                     renderControl

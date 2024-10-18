@@ -14,6 +14,7 @@ open System.Collections.Concurrent
 open Aardvark.Base
 open Aardvark.Application
 open Aardvark.UI
+open Aardvark.UI.Primitives
 
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
@@ -22,13 +23,12 @@ open FSharp.Data.Adaptive.Operators
 open Aardvark.Rendering
 open Aardvark.Application
 open Aardvark.SceneGraph
-open Aardvark.SceneGraph.Opc
+open Aardvark.Data.Opc
 open Aardvark.Rendering.Text
-open Aardvark.VRVis
-open Aardvark.VRVis.Opc
 
 open Aardvark.UI
-open Aardvark.UI.Primitives    
+
+open Aardvark.UI    
 
 open PRo3D
 

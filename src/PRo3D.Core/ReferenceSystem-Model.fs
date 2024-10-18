@@ -4,6 +4,7 @@ open FSharp.Data.Adaptive
 open Adaptify
 open Aardvark.Base
 open Aardvark.UI
+open Aardvark.UI.Primitives
 open PRo3D
 open PRo3D.Base
 open Chiron
@@ -17,8 +18,8 @@ open Aether.Operators
 type ReferenceSystem = {
     version       : int
     origin        : V3d
-    north         : V3dInput
-    noffset       : NumericInput
+    north         : Aardvark.UI.Primitives.V3dInput
+    noffset       : Aardvark.UI.Primitives.NumericInput
     northO        : V3d
     up            : V3dInput
     isVisible     : bool
