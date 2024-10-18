@@ -104,7 +104,8 @@ module ViewerLenses =
                     Log.warn "[ViewerLenses] Surfaces have been added or removed making this scene state invalid. 
                                 Not applying surfaces for this scene state. Update Scene State for this bookmark
                                 or delete and create new bookmark."
-                    state //{state with stateSurfaces = m.scene.surfacesModel.surfaces}
+                    let newState = {state with stateSurfaces = m.scene.surfacesModel.surfaces}
+                    BookmarkUtils.getValidState newState
             Log.line "m.origin = %s, state.origin = %s" (string m.scene.referenceSystem.origin)  (string state.stateReferenceSystem.origin)
             let scaleBars = // check scale bars; using old segments for performance reasons
                 if haveSameKeys state.stateScaleBars.scaleBars

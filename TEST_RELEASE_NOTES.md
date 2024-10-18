@@ -1,3 +1,6 @@
+## 4.25.0-prerelease6
+- #413 (without footprints part), #330, #414, #397
+
 ## 4.25.0-prerelease5
 - trafo updates merged with develop
 
