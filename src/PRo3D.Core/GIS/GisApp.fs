@@ -734,12 +734,11 @@ module GisApp =
             let timeSteps =
                 time
                 |> AVal.map (fun endTime -> 
-                    let samplingInterval = TimeSpan.FromHours 1.0
+                    let steps = 1000
                     let trajectoryDuration = TimeSpan.FromDays 1.0
                     let startTime = endTime - trajectoryDuration
-                    //let timeSteps = (endTime - startTime) / samplingInterval
-                    // could be [| startTime .. samplingRate .. endTime |] if TimeSpan would have get_Zero static member...
-                    Array.init 8000 (fun i -> startTime + samplingInterval * float i)
+                    // could be [| startTime .. samplingDistance .. endTime |] if TimeSpan would have get_Zero static member...
+                    Array.init steps (fun i -> endTime - ((endTime - startTime) / float steps) * float i) 
                 )
 
             let bodyTrajectoryLines = 
@@ -843,17 +842,20 @@ module GisApp =
     let getObserverSystemAdaptive (m: AdaptiveGisApp) =
         m.defaultObservationInfo.Current |> AVal.map getObserver
 
-    let lookAtObserver (m : GisApp) =
-        match m.defaultObservationInfo.observer, m.defaultObservationInfo.referenceFrame, m.defaultObservationInfo.target with
+
+    let lookAtObserver' (observationInfo : ObservationInfo)  =
+        match observationInfo.observer, observationInfo.referenceFrame, observationInfo.target with
         | Some observer, Some observerFrame, Some target ->
             Log.line "look at. target: %A, observer: %A, frame: %A" target observer observerFrame
-            match CooTransformation.transformBody target (Some observerFrame) observer observerFrame m.defaultObservationInfo.time.date with
+            match CooTransformation.transformBody target (Some observerFrame) observer observerFrame observationInfo.time.date with
             | None -> 
                 None
             | Some t -> 
                 t.lookAtBody |> Some
         | _ -> None
 
+    let lookAtObserver (m : GisApp) =
+        lookAtObserver' m.defaultObservationInfo
 
     let viewGisEntities (m : AdaptiveGisApp) =
         let observer = m.defaultObservationInfo.observer 

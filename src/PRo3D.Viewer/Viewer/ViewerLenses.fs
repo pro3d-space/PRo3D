@@ -206,7 +206,7 @@ module ViewerLenses =
         (fun sb m ->
             let update (sb : SequencedBookmarkModel) = 
                 // update camera to bookmark's camera
-                let m = Optic.set _view sb.cameraView m
+                //let m = Optic.set _view sb.cameraView m
 
                 // update the scene state if the bookmark contains one
                 let inline updateSceneState sb m =
@@ -235,6 +235,11 @@ module ViewerLenses =
                                     referenceFrame = Some r
                                 }
                             let m = Optic.set _observationInfo observationInfo m
+                            let c = GisApp.lookAtObserver' observationInfo
+                            let m = 
+                                match c with 
+                                | Some c -> Optic.set _view c m
+                                | _ -> m
                             m
                         | None ->
                             m
