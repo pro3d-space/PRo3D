@@ -1257,6 +1257,46 @@ module Formatting =
             elif meter        > 0.0 then sprintf "%.0f"   x.Angstrom
             else "0" 
 
+module ColorBrewer =
+
+    let twelveClassSet3 = [
+        C4b(141,211,199);
+        C4b(255,255,179);
+        C4b(190,186,218);
+        C4b(251,128,114);
+        C4b(128,177,211);
+        C4b(253,180,98);
+        C4b(179,222,105);
+        C4b(252,205,229);
+        C4b(217,217,217);
+        C4b(188,128,189);
+        C4b(204,235,197);
+        C4b(255,237,111)
+    ]
+
+    let twelveClassPaired = [
+        C4b(166,206,227);
+        C4b(31,120,180);
+        C4b(178,223,138);
+        C4b(51,160,44);
+        C4b(251,154,153);
+        C4b(227,26,28);
+        C4b(253,191,111);
+        C4b(255,127,0);
+        C4b(202,178,214);
+        C4b(106,61,154);
+        C4b(255,255,153);
+        C4b(177,89,40)
+    ]    
+
+    let toMaxValue (color : C4b) : C4b =
+        let hsv = HSVf.FromC3f (color.ToC3f())
+        HSVf(hsv.H, hsv.S, 1.0f).ToC3f().ToC4b()        
+
+    let assignColors (colors : list<C4b>) (objects: 'a list) =
+        objects
+        |> List.mapi (fun i obj -> (obj, colors.[i % colors.Length]))
+
 module Sorting =
 // Function to split the string into chunks of numbers and non-numbers
     let private splitString (input: string) =

@@ -179,6 +179,9 @@ module Traverse =
           color = { c = C4b.White }
           }
 
+    let withColor(color: C4b) (t: Traverse) =
+        { t with color = { c = color } }
+
     let readV0 =
         json {
             let! sols = Json.read "sols"

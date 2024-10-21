@@ -237,7 +237,6 @@ module TraverseApp =
         | Result.Ok(e) -> Result.Error (PropertyHasWrongType(propertyName, feature, "Json.String", e.ToString(), e.ToString()))
         | Result.Error(e) -> Result.Error(e)
 
-
     let parseProperties (sol : Sol) (x : GeoJsonFeature) : Result<Sol, TraverseParseError> =
         let reportErrorAndUseDefault (v : 'a) (r : Result<_,_>) =
             r |> Result.defaultValue' (fun e -> Log.warn "could not parse property: %A\n\n.Using fallback: %A" e v; v)
@@ -326,7 +325,7 @@ module TraverseApp =
                         String.concat Environment.NewLine [
                             sprintf "[Traverse] could not parse or interpret feature %d in the feature list.\n" idx 
                             sprintf "[Traverse] the detailled error is: %A" e
-                            "[Traverse] we simply skip this one..." 
+                            sprintf "[Traverse] skipping feature of type %A" feature.geometry
                         ]
                     )
                     None
@@ -336,6 +335,13 @@ module TraverseApp =
     
     let compareNatural (left: AdaptiveTraverse) (right: AdaptiveTraverse) =
         Sorting.compareNatural left.tName right.tName
+
+    let assignColorsToTraverse (traverses : List<string>) : List<string * C4b> =
+        if traverses.Length > 1 then
+            let colors = ColorBrewer.twelveClassPaired |> List.map ColorBrewer.toMaxValue
+            traverses |> ColorBrewer.assignColors colors
+        else    
+            traverses |> List.map(fun x -> (x, C4b.White))
 
     let update 
         (model : TraverseModel) 
@@ -351,7 +357,8 @@ module TraverseApp =
 
                     fileExists
                 )
-                |> List.map(fun x ->
+                |> assignColorsToTraverse
+                |> List.map(fun (x, color) ->
                     Log.line "[Traverse] Loading %s" x
                     let geojson = System.IO.File.ReadAllText x
                      
@@ -363,10 +370,10 @@ module TraverseApp =
 
                     let name = Path.GetFileName x
 
-                    let traverse = Traverse.initial name sols 
+                    let traverse = Traverse.initial name sols |> Traverse.withColor color
                     traverse |> HashMap.single traverse.guid        
                 )
-                |> List.fold(fun a b -> HashMap.union a b) model.traverses                        
+                |> List.fold(fun a b -> HashMap.union a b) model.traverses            
 
             { model with traverses = model.traverses |> HashMap.union traverses; selectedTraverse = None }
         | IsVisibleT id ->
