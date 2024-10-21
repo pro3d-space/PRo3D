@@ -55,7 +55,6 @@ nuget OPCViewer.Base                        ~> 1.9.2
 
 nuget Uncodium.Eigensystems                 ~> 1.1.2
 nuget Chiron                                ~> 6.3.1
-nuget RestSharp                             ~> 106.6.9
 
 nuget Microsoft.Diagnostics.Runtime         ~> 2.0.1
 nuget Microsoft.AspNetCore.Authentication.JwtBearer ~> 6.0.10
@@ -77,7 +76,7 @@ group Test
     framework: net6.0, net6.0-windows
     source https://api.nuget.org/v3/index.json
 
-	nuget FSharp.Core                           ~> 6.0.2 lowest_matching: true
+	nuget FSharp.Core                           ~> 8.0.2 lowest_matching: true
     nuget NUnit                    ~> 3.13.3
     nuget FsUnit                   ~> 5.0.0
     nuget FsCheck                  ~> 2.16.4

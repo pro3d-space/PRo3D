@@ -12,8 +12,6 @@ module MinervaGeoJSON =
   open System.Net
   open System.Collections.Specialized
   open System.Text
-  //open RestSharp
-  //open RestSharp.Authenticators
 
   let shout s =
     Log.line "%A" s  
