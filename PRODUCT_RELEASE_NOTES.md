@@ -1,3 +1,7 @@
+## 4.26.0-prerelease1
+- fixed surface priority
+- improved handling of large trajectories
+
 ## 4.25.0-prerelease7
 - distance- and trianglefilter fix
 - fixed problem with sequenced bookmarks performance problem when a traverse is loaded
