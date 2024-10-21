@@ -2,7 +2,6 @@
 
 open System
 open System.IO
-open System.Text.RegularExpressions
 open Aardvark.Base
 open Aardvark.UI
 open Aardvark.UI.Primitives
@@ -12,9 +11,6 @@ open PRo3D.Base
 open PRo3D.Core
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
-
-
-
         
 module Double =
     let parse x =
@@ -337,38 +333,9 @@ module TraverseApp =
             )                
 
         sols
-
-    // Function to split the string into chunks of numbers and non-numbers
-    let splitString (input: string) =
-        Regex.Matches(input, @"\D+|\d+")
-        |> Seq.cast<Match>
-        |> Seq.map (fun m -> m.Value)
-        |> Seq.toList
     
-    // Function to compare two strings with natural sorting
     let compareNatural (left: AdaptiveTraverse) (right: AdaptiveTraverse) =
-        let s1 = left.tName
-        let s2 = right.tName
-
-        let rec compareParts (parts1: string list) (parts2: string list) =
-            match parts1, parts2 with
-            | [], [] -> 0
-            | [], _ -> -1
-            | _, [] -> 1
-            | h1::t1, h2::t2 ->
-                let isNum1 = Int32.TryParse(h1)
-                let isNum2 = Int32.TryParse(h2)
-                match isNum1, isNum2 with
-                | (true, num1), (true, num2) -> 
-                    // Compare as numbers
-                    let cmp = compare num1 num2
-                    if cmp <> 0 then cmp else compareParts t1 t2
-                | _ -> 
-                    // Compare as strings
-                    let cmp = compare h1 h2
-                    if cmp <> 0 then cmp else compareParts t1 t2
-    
-        compareParts (splitString s1) (splitString s2)
+        Sorting.compareNatural left.tName right.tName
 
     let update 
         (model : TraverseModel) 
@@ -377,7 +344,13 @@ module TraverseApp =
         | LoadTraverses paths ->            
             let traverses =             
                 paths 
-                |> List.filter(File.Exists)
+                |> List.filter(fun x ->
+                    let fileExists = File.Exists x
+                    if not fileExists then
+                        Log.warn "[Traverse] File %s does not exist." x
+
+                    fileExists
+                )
                 |> List.map(fun x ->
                     Log.line "[Traverse] Loading %s" x
                     let geojson = System.IO.File.ReadAllText x
