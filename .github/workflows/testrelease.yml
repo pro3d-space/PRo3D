@@ -12,11 +12,7 @@ jobs:
       - name: Install Dotnet
         uses: actions/setup-dotnet@v1
         with:
-          dotnet-version: '6.0.100'
-      - name: Install Dotnet
-        uses: actions/setup-dotnet@v1
-        with:
-          dotnet-version: '5.0.100'
+          dotnet-version: '8.0.100'
       - name: Checkout
         uses: actions/checkout@v2
       - name: Yarn Install
