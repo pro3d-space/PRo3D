@@ -6,33 +6,84 @@ open Aardvark.Base
 open Aardvark.GeoSpatial.Opc
 open Aardvark.Opc
 
-type Kind = Scene | Annotations
+type Kind = Scene | Annotations | Solarsystem
 
 [<EntryPoint>]
 let main argv =
     
-    let kind = Annotations
+    let kind = Scene
 
-    let jezero =
+    let shaler =
         { 
             useCompressedTextures = true
             preTransform     = Trafo3d.Identity
             patchHierarchies = 
                     Seq.delay (fun _ -> 
-                        System.IO.Directory.GetDirectories(@"I:\OPC\2020-08-06-Jezero-OPC") 
+                        System.IO.Directory.GetDirectories(@"K:\PRo3D Data\Shaler_OPCs_2019\Shaler_Navcam") 
                         |> Seq.collect System.IO.Directory.GetDirectories
                     )
-            boundingBox      = Box3d.Parse("[[709869.947406691, 3140052.258326461, 1075121.095408683], [710116.986329168, 3140296.918390740, 1075374.689812710]]") 
+            boundingBox      = Box3d.Parse("[[-2490137.664354247, 2285874.562728135, -271408.476700304], [-2490136.248131170, 2285875.658034266, -271406.605430601]]") 
             near             = 0.1
             far              = 10000.0
             speed            = 5.0
             lodDecider       =  DefaultMetrics.mars2 
         }
 
-    match  kind with
+    let mola =
+        { 
+            useCompressedTextures = true
+            preTransform     = Trafo3d.Identity
+            patchHierarchies = 
+                    Seq.delay (fun _ -> 
+                        System.IO.Directory.GetDirectories(@"I:\MOLA") 
+                    )
+            boundingBox      = Box3d.Parse("[[1042657.138109462, 3023778.035968372, -472791.711967824], [1492041.915577915, 3230435.734121298, -231.611523378]]") 
+            near             = 0.1
+            far              = 10000.0
+            speed            = 5.0
+            lodDecider       =  DefaultMetrics.mars2 
+        }
+
+
+    let jezereo =
+        { 
+            useCompressedTextures = true
+            preTransform     = Trafo3d.Identity
+            patchHierarchies = 
+                    Seq.delay (fun _ -> 
+                        System.IO.Directory.GetDirectories(@"K:\PRo3D Data\Jezero1") 
+                        |> Seq.collect System.IO.Directory.GetDirectories
+                    )
+            boundingBox      = Box3d.Parse("[[701677.203042967, 3141128.733093360, 1075935.257765322], [701942.935458576, 3141252.724183598, 1076182.681085336]]") 
+            near             = 0.1
+            far              = 10000.0
+            speed            = 5.0
+            lodDecider       =  DefaultMetrics.mars2 
+        }
+
+    let mola =
+        { 
+            useCompressedTextures = true
+            preTransform     = Trafo3d.Identity
+            patchHierarchies = 
+                    Seq.delay (fun _ -> 
+                        System.IO.Directory.GetDirectories(@"I:\MOLA") 
+                    )
+            boundingBox      = Box3d.Parse("[[-432.863518980, 2190669.974376967, -2354936.901768766], [1492041.915577915, 3396466.232556264, -231.471982595]]") 
+            near             = 1000.1
+            far              = 100000000000.0
+            speed            = 15.0
+            lodDecider       =  DefaultMetrics.mars2 
+        }
+
+    match kind with
+
+    | Solarsystem -> 
+        Solarsytsem.run [mola;]
+
     | Scene ->
     
-        TestViewer.run jezero
+        TestViewer.run mola
 
     | Annotations ->
 

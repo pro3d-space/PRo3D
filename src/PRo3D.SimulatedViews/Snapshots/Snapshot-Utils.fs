@@ -181,7 +181,7 @@ module SnapshotUtils =
             let surf = surf |> updateColorCorrection placementParameters
             let pnts, trafos = 
                 HaltonPlacement.getHaltonRandomTrafos Interactions.PickSurface surfacesModel
-                                                      refSystem placementParameters frustum view
+                                                      refSystem (constF None) None placementParameters frustum view
             let transformSurfaces toTransform trafos =
                 //let oldTrafos = toTransform |> List.map (fun s -> s.preTransform)
                 let zipped = List.zip trafos toTransform    

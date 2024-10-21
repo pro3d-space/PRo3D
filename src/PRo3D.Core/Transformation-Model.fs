@@ -10,6 +10,10 @@ open PRo3D.Core
 
 open Adaptify
 
+type EulerMode = XYZ | XZY | YXZ | YZX | ZXY | ZYX
+
+module EulerMode = 
+    let defaultMode = EulerMode.XYZ
 
 [<ModelType>]
 type Transformations = { 
@@ -30,6 +34,7 @@ type Transformations = {
     trafoChanged          : bool
     usePivot              : bool
     pivotSize             : NumericInput
+    eulerMode             : EulerMode 
 } 
 
 
@@ -121,6 +126,7 @@ module Transformations =
                 trafoChanged         = false
                 usePivot             = false
                 pivotSize            = Initial.initPivotSize 4.0
+                eulerMode            = EulerMode.defaultMode  
             }
         }
 
@@ -152,6 +158,7 @@ module Transformations =
                 trafoChanged         = false
                 usePivot             = false
                 pivotSize            = Initial.initPivotSize 4.0
+                eulerMode            = EulerMode.defaultMode  
             }
         }
 
@@ -184,6 +191,7 @@ module Transformations =
                 trafoChanged         = false
                 usePivot             = false
                 pivotSize            = Initial.initPivotSize 4.0
+                eulerMode            = EulerMode.defaultMode  
             }
         }
 
@@ -219,6 +227,7 @@ module Transformations =
                 trafoChanged         = false
                 usePivot             = false
                 pivotSize            = Initial.initPivotSize 4.0
+                eulerMode            = EulerMode.defaultMode  
             }
         }
 
@@ -255,6 +264,7 @@ module Transformations =
                 trafoChanged         = false
                 usePivot             = false
                 pivotSize            = Initial.initPivotSize 4.0
+                eulerMode            = EulerMode.defaultMode  
             }
         }
 
@@ -290,6 +300,7 @@ module Transformations =
                 trafoChanged         = false
                 usePivot             = false
                 pivotSize            = Initial.initPivotSize 4.0
+                eulerMode            = EulerMode.defaultMode  
             }
         }
     
@@ -328,6 +339,7 @@ module Transformations =
                 trafoChanged         = false
                 usePivot             = usePivot
                 pivotSize            = match pivotSize with |Some p -> Initial.initPivotSize p | None -> Initial.initPivotSize 4.0
+                eulerMode            = EulerMode.defaultMode  
             }
         }
 

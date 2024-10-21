@@ -124,24 +124,40 @@ module SnapshotSg =
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
         let view = m.navigation.camera.view
+        let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 
-                    |> AMap.map(fun _ surface ->                         
-                        viewSingleSurfaceSg 
-                            surface 
-                            m.scene.surfacesModel.surfaces.flat
-                            m.frustum 
-                            selected 
-                            surfacePicking
-                            surface.globalBB
-                            refSystem 
-                            m.footPrint 
-                            vpVisible
-                            usehighlighting filterTexture
-                            allowFootprint
-                            false
-                            view
+                    |> AMap.map(fun guid surface ->              
+                        let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp guid
+                        let s = 
+                            viewSingleSurfaceSg 
+                                surface 
+                                m.scene.surfacesModel.surfaces.flat
+                                m.frustum 
+                                selected 
+                                surfacePicking
+                                surface.globalBB
+                                refSystem 
+                                observationSystem
+                                observerSystem
+                                m.footPrint
+                                vpVisible
+                                usehighlighting filterTexture
+                                allowFootprint
+                                false
+                                view
+                        match surface.isObj with
+                        | true -> 
+                            s 
+                            |> Sg.effect [
+                                objEffect
+                            ] 
+                        | false -> 
+                            s
+                            |> Sg.effect [surfaceEffect] 
+                            |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
+                            |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
                        )
                     |> AMap.toASet 
                     |> ASet.map snd                     
@@ -159,9 +175,6 @@ module SnapshotSg =
                         let sg = 
                             set 
                             |> Sg.set
-                            |> Sg.effect [surfaceEffect]
-                            |> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-                            |> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring //()
 
                         yield sg :> ISg 
                         let depthTested = 
@@ -200,11 +213,12 @@ module SnapshotSg =
         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) 
                                 m.overlayFrustum m.frustum // use overlay frustum if Some()
         //let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
-
+        let observer = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
         let annotations, discs = 
             DrawingApp.view 
                 m.scene.config 
                 mdrawingConfig 
+                observer
                 m.navigation.camera.view 
                 frustum
                 runtime
@@ -228,7 +242,6 @@ module SnapshotSg =
             Sg.ofList[ds;annos;]
 
         let overlayed =
-            //let near = m.scene.config.nearPlane.value
 
             let refSystem =
                 Sg.view
@@ -239,7 +252,8 @@ module SnapshotSg =
                 |> Sg.map ReferenceSystemMessage  
 
             let exploreCenter =
-                Navigation.Sg.view m.navigation          
+                Navigation.Sg.view m.navigation
+                |> Sg.onOff m.scene.config.showExplorationPointGui     
           
             let homePosition =
                 Sg.viewHomePosition m.scene.surfacesModel
@@ -295,7 +309,7 @@ module SnapshotSg =
                 annotationTexts |> Sg.noEvents
                 heightValidation
                 scaleBarTexts
-                traverse
+                traverse                
             ] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
         let heightValidationDiscs =
@@ -318,7 +332,8 @@ module SnapshotSg =
 
 
         let traverses =
-            TraverseApp.Sg.view                     
+            TraverseApp.Sg.view       
+                m.navigation.camera.view
                 m.scene.referenceSystem
                 m.scene.traverses   
             |> Sg.map TraverseMessage

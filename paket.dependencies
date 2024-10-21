@@ -55,7 +55,6 @@ nuget OPCViewer.Base                        ~> 1.9.2
 
 nuget Uncodium.Eigensystems                 ~> 1.1.2
 nuget Chiron                                ~> 6.3.1
-nuget RestSharp                             ~> 106.6.9
 
 nuget Microsoft.Diagnostics.Runtime         ~> 2.0.1
 nuget Microsoft.AspNetCore.Authentication.JwtBearer ~> 6.0.10
@@ -70,12 +69,14 @@ nuget Thoth.Json.Net ~> 11.0.0
 
 nuget CommandLineParser.FSharp ~> 2.9.1
 
+nuget PRo3D.SPICE ~> 1.0.3
+
 
 group Test
     framework: net6.0, net6.0-windows
     source https://api.nuget.org/v3/index.json
 
-	nuget FSharp.Core                           ~> 6.0.2 lowest_matching: true
+	nuget FSharp.Core                           ~> 8.0.2 lowest_matching: true
     nuget NUnit                    ~> 3.13.3
     nuget FsUnit                   ~> 5.0.0
     nuget FsCheck                  ~> 2.16.4
@@ -85,8 +86,24 @@ group Test
     nuget Expecto                  ~> 9.0.4
     nuget Expecto.FsCheck          ~> 9.0.4
     nuget YoloDev.Expecto.TestSdk  ~> 0.12.20
+	
+	nuget FSharp.Data.Adaptive                  ~> 1.2.13
+
+	nuget Aardvark.Base                         ~> 5.2.13
+	nuget Aardvark.Base.Incremental             ~> 5.2.13
+	nuget Aardvark.Base.FSharp                  ~> 5.2.13
+												
+	nuget Aardvark.Rendering                    ~> 5.4.0
+	nuget Aardvark.Rendering.Text               ~> 5.4.0
+	nuget Aardvark.SceneGraph                   ~> 5.4.0
+	nuget Aardvark.SceneGraph.IO                ~> 5.4.0
+	nuget Aardvark.Application.Slim             ~> 5.4.0
+	nuget Aardvark.Application.Slim.GL          ~> 5.4.0
+	nuget Aardvark.Application.Slim.Vulkan      ~> 5.4.0
 
     nuget BenchmarkDotNet          ~> 0.13.1
+
+	nuget PRo3D.SPICE ~> 1.0.2
 
 
 group Build

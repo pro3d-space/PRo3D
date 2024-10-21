@@ -72,6 +72,8 @@ type StartupArgs = {
 
     isBatchRendering      : bool
 
+    defaultSpiceKernelPath : Option<string>
+
     verbose               : bool    
 
 } with 
@@ -91,7 +93,8 @@ type StartupArgs = {
           port                  = None
           enableRemoteApi       = false
           enableProvenanceTracking = false
-          isBatchRendering      = false
+          isBatchRendering         = false
+          defaultSpiceKernelPath   = None
       }
 
 

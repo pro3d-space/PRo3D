@@ -33,6 +33,7 @@ open Aardvark.UI
 open PRo3D
 
 open PRo3D.Base
+open PRo3D.Base.Gis
 open PRo3D.Base.Annotation
 open PRo3D.Core
 
@@ -109,7 +110,7 @@ module DrawingApp =
     
     //adds new point to working state, if certain conditions are met the annotation finishes itself
     // returns current segment for async computations outside
-    let addPoint up north planet samplePoint (p : V3d) view model surfaceName bc bookmarkId =
+    let addPoint up north planet (referenceSystem : Option<SpiceReferenceSystem>) samplePoint (p : V3d) view model surfaceName bc bookmarkId =
       
         let working, newSegment = 
             match model.working with
@@ -157,7 +158,7 @@ module DrawingApp =
                     //annotation states should be immutable after creation
                     //(Annotation.make model.projection model.geometry model.semantic surfaceName)  
                     //    with points = IndexList.ofList [p]; modelTrafo = Trafo3d.Translation p
-                    (Annotation.make model.projection None model.geometry model.color model.thickness surfaceName)
+                    (Annotation.make model.projection None model.geometry referenceSystem model.color model.thickness surfaceName)
                         with points = IndexList.ofList [p]; modelTrafo = Trafo3d.Translation p
                 }, None
       
@@ -356,8 +357,9 @@ module DrawingApp =
             []
 
     let rec update<'a> 
-        (bigConfig   : 'a) 
-        (smallConfig : SmallConfig<'a> ) 
+        (bigConfig       : 'a) 
+        (smallConfig     : SmallConfig<'a> ) 
+        (referenceSystem : Option<SpiceReferenceSystem>)
         (webSocket   : BlockingCollection<string>) 
         (view        : CameraView) 
         (shiftFlag   : bool)
@@ -381,7 +383,7 @@ module DrawingApp =
                 let north = smallConfig.north.Get(bigConfig)
                 let planet = smallConfig.planet.Get(bigConfig)
 
-                let model, newSegment = addPoint up north planet hitFunction point view model name webSocket bookmarkId
+                let model, newSegment = addPoint up north planet referenceSystem hitFunction point view model name webSocket bookmarkId
             
                 match newSegment with
                 | None         -> model
@@ -653,6 +655,7 @@ module DrawingApp =
     let view<'ma> 
         (mbigConfig       : 'ma)
         (msmallConfig     : MSmallConfig<'ma>)
+        (observerSystem : aval<Option<ObserverSystem>>)
         (view             : aval<CameraView>)
         (frustum          : aval<Frustum>)
         (runtime          : IRuntime)
@@ -664,7 +667,21 @@ module DrawingApp =
         // since set provides more degrees of freedom for the compiler           
         let annoSet = 
             model.annotations.flat 
-            |> AMap.choose (fun _ y -> y |> tryToAnnotation) // TODO v5: here we collapsed some avals - check correctness
+            |> AMap.choose (fun _ y -> 
+                    match y |> tryToAnnotation with 
+                    | None -> None
+                    | Some v -> 
+                        let spiceTrafo = 
+                            (v.referenceSystem, observerSystem) ||> AVal.map2 (fun observedSystem observerSystem -> 
+                                match observedSystem, observerSystem with
+                                | Some observedSystem, Some observerSystem -> 
+                                    CooTransformation.transformBody observedSystem.body (Some observedSystem.referenceFrame) observerSystem.body observerSystem.referenceFrame observerSystem.time
+                                    |> Option.map (fun t -> t.Trafo) 
+                                    |> Option.defaultValue Trafo3d.Identity
+                                | _ -> Trafo3d.Identity
+                            )
+                        Some (v, spiceTrafo)
+            ) 
             |> AMap.toASet
 
         let config : Sg.innerViewConfig = 
@@ -678,12 +695,12 @@ module DrawingApp =
                 pickingTolerance = msmallConfig.getPickingTolerance mbigConfig
             }
        
-        if usePackedAnnotationRendering then
+        if usePackedAnnotationRendering && false then
 
             Log.startTimed "[Drawing] creating finished annotation geometry"
             let annotations =              
                 annoSet 
-                |> ASet.map(fun (_,a) -> 
+                |> ASet.map(fun (_,(a, t)) -> 
                     let c = UI.mkColor model.annotations a
                     let picked = UI.isSingleSelect model.annotations a
                     let showPoints = 
@@ -698,7 +715,7 @@ module DrawingApp =
 
             let hoveredAnnotation = cval -1
             let viewMatrix = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
-            let lines, pickIds, bb = PackedRendering.linesNoIndirect config.offset hoveredAnnotation (model.annotations.selectedLeaves |> ASet.map (fun e -> e.id)) annoSet viewMatrix
+            let lines, pickIds, bb = PackedRendering.linesNoIndirect config.offset hoveredAnnotation (model.annotations.selectedLeaves |> ASet.map (fun e -> e.id)) (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) viewMatrix
             let pickRenderTarget = PackedRendering.pickRenderTarget runtime config.pickingTolerance lines view frustum viewport
             pickRenderTarget.Acquire()
             let packedLines = 
@@ -739,7 +756,7 @@ module DrawingApp =
                        )
                 ]
             let packedPoints = 
-                PackedRendering.points (model.annotations.selectedLeaves |> ASet.map (fun l -> l.id)) annoSet config.offset viewMatrix
+                PackedRendering.points (model.annotations.selectedLeaves |> ASet.map (fun l -> l.id)) (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) config.offset viewMatrix
                 |> Sg.noEvents
 
             let overlay = 
@@ -755,7 +772,7 @@ module DrawingApp =
             //    |> ASet.map(fun (_,a) -> Sg.finishedAnnotationDiscs a config model.dnsColorLegend view) |> Sg.set
 
             let depthTest = 
-                PackedRendering.fastDns config model.dnsColorLegend annoSet view
+                PackedRendering.fastDns config model.dnsColorLegend (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) view
                 |> Sg.noEvents
 
             (overlay, depthTest)
@@ -764,15 +781,18 @@ module DrawingApp =
             Log.startTimed "[Drawing] creating finished annotation geometry"
             let annotations =              
                 annoSet 
-                |> ASet.map(fun (_,a) -> 
+                |> ASet.map(fun (_,(a,t)) -> 
                     let c = UI.mkColor model.annotations a
                     let picked = UI.isSingleSelect model.annotations a
                     let showPoints = 
                         a.geometry 
                         |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
 
-                    let sg = Sg.finishedAnnotationOld a c config view viewport showPoints picked pickingAllowed
-                    sg
+                    let sg = 
+                        Sg.finishedAnnotationOld a c config view viewport showPoints picked pickingAllowed
+                        |> Sg.trafo t
+
+                    sg 
                  )
                 |> Sg.set               
             Log.stop()
@@ -786,7 +806,7 @@ module DrawingApp =
 
             let depthTest = 
                 annoSet 
-                |> ASet.map(fun (_,a) -> Sg.finishedAnnotationDiscs a config model.dnsColorLegend view) |> Sg.set
+                |> ASet.map(fun (_,(a,t)) -> Sg.finishedAnnotationDiscs a config model.dnsColorLegend view |> Sg.trafo t) |> Sg.set
 
             (overlay, depthTest)
             

@@ -70,3 +70,50 @@ module GuiEx =
 
     let iconCheckBox (dings : aval<bool>) action =
       iconToggle dings "check square outline icon" "square icon" action
+
+    module DataChannel =
+        type BespokeChannelReader<'a> (m        : aval<'a>,
+                                       pickle   : 'a -> string) =
+            inherit ChannelReader()
+
+            let mutable last = None
+
+            override x.Release() =
+                last <- None
+
+            override x.ComputeMessages t =
+                let v = m.GetValue t
+
+                if Unchecked.equals last (Some v) then
+                    []
+                else
+                    last <- Some v
+                    [ pickle v ]
+
+        type BespokeAValChannel<'a> (m        : aval<'a>, 
+                                     pickle   : 'a -> string) =
+            inherit Channel()
+            override x.GetReader() = 
+                new BespokeChannelReader<_>(m, pickle) :> ChannelReader
+
+        /// Adds a data channel to a DomNode. updateJs is the content 
+        /// of the javascript function that is called when the data changes. The data
+        /// is addressed in js using the variable 'data'. 
+        let addDataChannel (onBootJs     : string) 
+                           (updateJs     : string)
+                           (pickle       : option<'a -> string>)
+                           (data         : aval<'a>) = 
+            let channel =
+                match pickle with
+                | Some pickle ->
+                    BespokeAValChannel(data, pickle) :> Channel
+                | None -> AVal.channel data
+
+            let updateData = 
+                String.concat ";" [
+                    onBootJs
+                    sprintf "valueCh.onmessage = function (data) {%s};" updateJs
+                ]
+
+            let onBoot = onBoot' ["valueCh", channel] updateData 
+            onBoot        

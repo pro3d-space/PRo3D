@@ -56,6 +56,7 @@ type SequencedBookmarksAction =
     | SaveSceneState
     | RestoreSceneState
     | AddSBookmark  
+    | AddGisBookmark
     | Play
     | Pause
     | Stop
@@ -145,6 +146,8 @@ type SceneStateReferenceSystem =
         isVisible     : bool
         size          : float
         selectedScale : string
+        textsize      : float
+        textcolor     : C4b
     } with
     static member fromReferenceSystem (refSystem : ReferenceSystem) 
         : SceneStateReferenceSystem =
@@ -153,6 +156,8 @@ type SceneStateReferenceSystem =
             isVisible     = refSystem.isVisible    
             size          = refSystem.size.value         
             selectedScale = refSystem.selectedScale
+            textsize      = refSystem.textsize.value
+            textcolor     = refSystem.textcolor.c
         }
     static member FromJson(_ : SceneStateReferenceSystem) = 
         json {
@@ -160,12 +165,20 @@ type SceneStateReferenceSystem =
             let! isVisible     = Json.read "isVisible"    
             let! size          = Json.read "size"         
             let! selectedScale = Json.read "selectedScale"
+            let! textSize      = Json.tryRead "textsize"
+            let! textColor     = Json.tryRead "textcolor"
 
             return {
                     origin        = origin |> V3d.Parse       
                     isVisible     = isVisible    
                     size          = size         
                     selectedScale = selectedScale 
+                    textsize      = match textSize with
+                                    | Some t -> t
+                                    | None -> 0.05
+                    textcolor     = match textColor with
+                                    | Some tc -> tc |> C4b.Parse
+                                    | None -> C4b.White 
             }
         }
     static member ToJson(x : SceneStateReferenceSystem) =
@@ -173,7 +186,9 @@ type SceneStateReferenceSystem =
             do! Json.write "origin"         (string x.origin)
             do! Json.write "isVisible"      x.isVisible          
             do! Json.write "size"           x.size               
-            do! Json.write "selectedScale"  x.selectedScale      
+            do! Json.write "selectedScale"  x.selectedScale  
+            do! Json.write "textsize"       x.textsize
+            do! Json.write "textcolor"      (x.textcolor.ToString())
         }
 
 /// state of various scene elements for use with animations
@@ -306,7 +321,7 @@ type SceneState with
             do! Json.write "stateGeologicSurfaces" x.stateGeologicSurfaces
             do! Json.write "stateConfig"           x.stateConfig
             do! Json.write "stateReferenceSystem"  x.stateReferenceSystem
-            do! Json.write "stateTraverse"         x.stateTraverses
+            //do! Json.write "stateTraverse"         x.stateTraverses
         }
 
 type FrustumParameters = {
@@ -376,6 +391,8 @@ type SequencedBookmarkModel = {
     ///how long an animation rests on this bookmark before proceeding to the next one
     delay               : NumericInput
     duration            : NumericInput
+
+    observationInfo     : option<Gis.ObservationInfo>
 } with 
     static member _sceneState =
         (
@@ -450,6 +467,7 @@ module SequencedBookmarkModel =
             delay               = SequencedBookmarkDefaults.initDelay 0.0
             duration            = SequencedBookmarkDefaults.initDuration 5.0
             basePath            = None
+            observationInfo     = None
         }
 
     let init' bookmark sceneState frustumParameters 
@@ -464,6 +482,7 @@ module SequencedBookmarkModel =
             delay               = SequencedBookmarkDefaults.initDelay 0.0
             duration            = SequencedBookmarkDefaults.initDuration 5.0
             basePath            = None
+            observationInfo     = None
         }
 
     let read0 = 
@@ -476,6 +495,7 @@ module SequencedBookmarkModel =
             let! delay      = Json.read "delay"
             let! duration   = Json.read "duration"
             let! metadata   = Json.tryRead "metadata"
+            let! observationInfo = Json.tryRead "observationInfo"
 
             return {
                 version                 = 0              
@@ -487,6 +507,7 @@ module SequencedBookmarkModel =
                 delay                   = SequencedBookmarkDefaults.initDelay delay                
                 duration                = SequencedBookmarkDefaults.initDuration duration             
                 basePath                = None
+                observationInfo         = observationInfo
             }
         }
 
@@ -585,7 +606,7 @@ type SequencedBookmark =
         | LoadedBookmark _ -> true
         | NotYetLoaded _   -> false
 
-module SequencedBookmark =
+module SequencedBookmark =        
     let isLoaded m =
         match m with
         | LoadedBookmark _ -> true
@@ -768,6 +789,7 @@ type BookmarkLenses<'a> = {
     selectedBookmark_   : Lens<'a, option<Guid>>
     savedTimeSteps_     : Lens<'a, list<AnimationTimeStep>>
     lastStart_          : Lens<'a, option<TimeSpan>>
+    defaultObservationInfo_ : Lens<'a, Gis.ObservationInfo>
 }
                 
 module SequencedBookmarks =

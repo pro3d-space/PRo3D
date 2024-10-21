@@ -9,6 +9,16 @@
       "commandName": "Project",
       "commandLineArgs": "--disableCors --port 4321 --remoteApi --enableProvenance",
       "nativeDebugging": true
+    },
+    "PRo3D.RemoteApi": {
+      "commandName": "Project",
+      "commandLineArgs": "--disableCors --port 4321 --remoteApi",
+      "nativeDebugging": true
+    },
+    "PRo3D.GIS": {
+      "commandName": "Project",
+      "commandLineArgs": "--disableCors --port 4321 --remoteApi --defaultSpiceKernel \"../../../../hera/kernels/mk/hera_crema_2_0_LPC_ECP_PDP.tm\"",
+      "nativeDebugging": true
     }
   }
 }

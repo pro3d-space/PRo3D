@@ -50,7 +50,9 @@ all resources should be embedded using dotnet embedded resources to allow "singl
 
 ## Manual release as a zip file
 
+`build publish` or
 ```SET GH_TOKEN=... && ./build.{cmd|sh} GitHubRelease```
+to just create the release in the bin/publish folder.
 
 ## CI
 

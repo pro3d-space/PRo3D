@@ -68,8 +68,9 @@
     <Compile Include="QueriesRemoteApi.fs" />
     <Compile Include="RemoteApi.fs" />
     <Compile Include="Program.fs" />
+    <EmbeddedResource Include="resources\calendar.css" />
+    <EmbeddedResource Include="resources\calendar.js" />
     <EmbeddedResource Include="resources\utilities.js" />
-
     <Content Include="resources\rotationcubeXYZ\back.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -112,6 +113,7 @@
     <None Include="resources\rotationcube\top.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <EmbeddedResource Include="resources\calendarUtils.js" />
     <EmbeddedResource Include="resources\errorReporting.js" />
     <EmbeddedResource Include="resources\jscytoscape.js" />
     <EmbeddedResource Include="resources\HueColorMap.png" />

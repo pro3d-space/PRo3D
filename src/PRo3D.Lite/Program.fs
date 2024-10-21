@@ -25,7 +25,7 @@ let main argv =
     Aardium.init()
     
     let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
-    CooTransformation.initCooTrafo appData
+    CooTransformation.initCooTrafo None appData
 
     let useVulkan = false
 

@@ -60,9 +60,48 @@ module BookmarkUtils =
         HashMap.tryFind id m.bookmarks
         |> Option.bind SequencedBookmark.tryLoad
 
+    let getValidState (sceneState : SceneState) =
+        let validSurfaces = 
+            (sceneState.stateSurfaces.flat |> Leaf.toSurfaces)
+            |> HashMap.filter(fun _ s ->
+                let dirExists = Directory.Exists s.importPath
+                dirExists
+            )
+            |> HashMap.map(fun _ x -> Leaf.Surfaces x)
+        {sceneState with stateSurfaces = {sceneState.stateSurfaces with flat = validSurfaces}}
+
+
+    /// ensures that all surfaces in sceneState are currently available
+    let checkAndUpdateSurfacesInSceneState (sBookmark : SequencedBookmark) =
+        match sBookmark with
+        | SequencedBookmark.LoadedBookmark bm ->  
+            match bm.sceneState with 
+            | Some sceneState -> 
+                let sState = getValidState sceneState
+                {bm with sceneState = Some sState} |> SequencedBookmark.LoadedBookmark
+            | None -> {bm with sceneState = None} |> SequencedBookmark.LoadedBookmark
+        | SequencedBookmark.NotYetLoaded bm ->
+            sBookmark
+
+    
+
+    /// ensures that all surfaces in sceneState are currently available
+    //let checkAndUpdateSurfacesInSceneStateSBM (sBookmark : SequencedBookmarkModel) =
+    //    let validSurfaces = 
+    //            (sceneState.stateSurfaces.flat |> Leaf.toSurfaces)
+    //            |> HashMap.filter(fun _ s ->
+    //                let dirExists = Directory.Exists s.importPath
+    //                dirExists
+    //            )
+    //            |> HashMap.map(fun _ x -> Leaf.Surfaces x)
+    //    let sState = {sceneState with stateSurfaces = {sceneState.stateSurfaces with flat = validSurfaces}}
+    //    {sBookmark with sceneState = Some sState}
+        
+
     let getNewSBookmark (navigation : NavigationModel) 
                         (sceneState : SceneState)
-                        (bookmarkCount:int) =
+                        (bookmarkCount:int) 
+                        (observationInfo) =
          
         let name = sprintf "Bookmark_%d" bookmarkCount //todo to make useful unique names
         let bookmark = 
@@ -85,6 +124,7 @@ module BookmarkUtils =
                 duration            = SequencedBookmarkDefaults.initDuration 3.0
                 delay               = SequencedBookmarkDefaults.initDelay 0.0
                 basePath            = None
+                observationInfo     = observationInfo
             }
         sequencedBookmark
 
@@ -180,6 +220,7 @@ module BookmarkUtils =
         let bookmarks = 
             m.bookmarks
             |> HashMap.map (fun guid bm -> SequencedBookmark.tryLoad' bm)
+            |> HashMap.map (fun guid bm -> checkAndUpdateSurfacesInSceneState bm)
         {m with bookmarks = bookmarks}
 
     /// after unloading, all bookmarks are if the type

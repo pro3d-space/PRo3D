@@ -14,6 +14,7 @@ open PRo3D.Core.Surface
 
 
 open PRo3D.Base
+open PRo3D.Base.Gis
 //open CSharpUtils
 
 type SceneObjectAction =
@@ -356,6 +357,8 @@ module SceneObjectsApp =
             (sgSurf     : AdaptiveSgSurface) 
             (sceneObjs  : amap<Guid,AdaptiveSceneObject>) 
             (refsys     : AdaptiveReferenceSystem) 
+            (observedSystem : aval<Option<SpiceReferenceSystem>>)
+            (observerSystem : aval<Option<ObserverSystem>>)
             (selected   : aval<Option<Guid>>) =
 
             adaptive {
@@ -377,7 +380,9 @@ module SceneObjectsApp =
                             let! rSys = refsys.Current
                             let! t = s.preTransform
                             let! so = s.Current
-                            let fullTrafo = TransformationApp.fullTrafo' so.transformation rSys 
+                            let! observedSystem = observedSystem
+                            let! observerSystem = observerSystem
+                            let fullTrafo = TransformationApp.fullTrafo' so.transformation rSys observedSystem observerSystem
                             
                             //let! sc = s.transformation.scaling.value // s.scaling.value
                             let! flipZ = s.transformation.flipZ
@@ -417,7 +422,8 @@ module SceneObjectsApp =
                         |> Sg.andAlso ( 
                             // pivot point
                             so.transformation 
-                            |> TransformationApp.Sg.view
+                            |> TransformationApp.Sg.viewObjectSpace
+                            |> Sg.trafo trafo
                             )     
                                                         
                     return surfaceSg
@@ -436,6 +442,8 @@ module SceneObjectsApp =
                         sgsobj
                         sceneObjs
                         refsys
+                        (AVal.constant None)
+                        (AVal.constant None)
                         selected
                     )
                     |> AMap.toASet 

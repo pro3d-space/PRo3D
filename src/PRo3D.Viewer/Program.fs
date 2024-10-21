@@ -52,7 +52,7 @@ type Result =
       result : string;
    }
 
-let viewerVersion       = "4.23.2"
+let viewerVersion       = "4.25.0-prerelease6"
 let catchDomainErrors   = false
 
 open System.IO
@@ -170,7 +170,7 @@ let main argv =
     let mutable cooTrafoInitialized = false
     let disposables = List<IDisposable>()
     try
-        CooTransformation.initCooTrafo appData
+        CooTransformation.initCooTrafo startupArgs.defaultSpiceKernelPath appData
         cooTrafoInitialized <- true
 
         //use app = new VulkanApplication()

@@ -133,7 +133,7 @@ module AreaComparison =
             | KdTree   tree -> 
                 if tree.IsEmpty then None 
                 else Some tree
-        let trafo = SurfaceTransformations.fullTrafo' surface referenceSystem
+        let trafo = SurfaceTransformations.fullTrafo' surface None None referenceSystem
         let vertices = kdTrees |> Option.map (fun trees -> getSurfaceVerticesIn trees trafo area)
         let vertices =
             match vertices with
@@ -279,6 +279,8 @@ module AreaComparison =
             let sendRay ray surfFilter =
                 let hitInfo, c = SurfaceIntersection.doKdTreeIntersection surfaceModel 
                                                                            referenceSystem 
+                                                                           (constF None)
+                                                                           None
                                                                            (FastRay3d(ray)) 
                                                                            surfFilter 
                                                                            cache
@@ -409,8 +411,8 @@ module AreaComparison =
                     if vertices1.Length > vertices2.Length then 
                         noOutliersPoints |> List.map snd else noOutliersPoints |> List.map fst 
                                         
-                let trafo1 = SurfaceTransformations.fullTrafo' surface1 referenceSystem
-                let trafo2 = SurfaceTransformations.fullTrafo' surface2 referenceSystem
+                let trafo1 = SurfaceTransformations.fullTrafo' surface1 None None referenceSystem
+                let trafo2 = SurfaceTransformations.fullTrafo' surface2 None None referenceSystem
                 let scaleTrafo = Trafo3d.Scale (area.radius * pointSizeFactor)
                 let trafo1 = scaleTrafo //* (surface1.preTransform * trafo1)
                 let trafo2 = scaleTrafo //* (surface2.preTransform * trafo2)

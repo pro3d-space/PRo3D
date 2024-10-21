@@ -6,7 +6,7 @@ open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.UI.Animation
 open FSharp.Data.Adaptive
-
+open Adaptify.FSharp.Core
 open Aardvark.Rendering
 
 open System
@@ -48,6 +48,38 @@ module SequencedBookmarksApp =
 
     let outputPath (m : SequencedBookmarks) = 
         Path.combine [m.outputPath;"batchRendering.json"]
+
+    let addBookmark (newBookmark : SequencedBookmarkModel)
+                    (m : SequencedBookmarks)  =
+        let oderList' = m.orderList@[newBookmark.key]
+        let bookmarks = 
+            m.bookmarks 
+            |> HashMap.add newBookmark.key (SequencedBookmark.LoadedBookmark newBookmark)
+        let m = {m with bookmarks = bookmarks
+                        orderList = oderList';
+                        selectedBookmark = Some newBookmark.key}
+        m
+
+    let updateSelected 
+            (f : SequencedBookmarkModel -> SequencedBookmarkModel) 
+            (m : SequencedBookmarks) =
+        let m = loadAll m
+        let bookmarks =
+            m.selectedBookmark
+            |> Option.bind (fun key -> HashMap.tryFind key m.bookmarks)
+            |> Option.bind  (fun b -> 
+                match b with
+                | SequencedBookmark.LoadedBookmark b ->
+                    let b = f b |> SequencedBookmark.LoadedBookmark
+                    Some (HashMap.add b.key b m.bookmarks)
+                | _ ->
+                    None
+            )
+        match bookmarks with
+        | Some bookmarks ->
+            {m with bookmarks = bookmarks}
+        | None -> m
+        
 
     let applytoAllBookmarks (f : (SequencedBookmarkModel -> SequencedBookmarkModel))
                             (m : SequencedBookmarks) =
@@ -93,16 +125,19 @@ module SequencedBookmarksApp =
             let nav = Optic.get lenses.navigationModel_ outerModel
             let state = Optic.get lenses.sceneState_ outerModel
             let newSBm = 
-                getNewSBookmark nav state  m.bookmarks.Count
-            let oderList' = m.orderList@[newSBm.key]
-            let bookmarks = 
-                m.bookmarks 
-                |> HashMap.add newSBm.key (SequencedBookmark.LoadedBookmark newSBm)
-            let m = {m with bookmarks = bookmarks
-                            orderList = oderList';
-                            selectedBookmark = Some newSBm.key}
+                getNewSBookmark nav (BookmarkUtils.getValidState state)  m.bookmarks.Count None
+            let m = addBookmark newSBm m
             outerModel, m
-
+        | AddGisBookmark ->
+            let nav = Optic.get lenses.navigationModel_ outerModel
+            let state = Optic.get lenses.sceneState_ outerModel
+            let defaultInfo = 
+                Optic.get lenses.defaultObservationInfo_ outerModel
+                |> Some
+            let newSBm = 
+                getNewSBookmark nav state  m.bookmarks.Count defaultInfo
+            let m = addBookmark newSBm m
+            outerModel, m
         | SequencedBookmarksAction.FlyToSBM id ->
             toBookmarkFromView m outerModel lenses (tryFind id)
         | RemoveSBM id -> 
@@ -211,7 +246,8 @@ module SequencedBookmarksApp =
                     let m = selectSBookmark m firstBookmark
                     match m.animationSettings.useGlobalAnimation with
                     | true ->
-                        pathWithPausing m lenses outerModel//smoothPathAllBookmarks m lenses outerModel //does not work with focal length
+                        //smoothPathAllBookmarks m lenses outerModel //removed because it does not work with focal length
+                        pathWithPausing m lenses outerModel
                     | false ->
                         pathWithPausing m lenses outerModel
                 | None ->
@@ -350,7 +386,7 @@ module SequencedBookmarksApp =
 
 
     module UI =
-        let viewSequencedBookmarks (m : AdaptiveSequencedBookmarks) =
+        let viewSequencedBookmarks (m : AdaptiveSequencedBookmarks) = //TODO RNO refactor
             let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
             let itemAttributes =
                 amap {
@@ -392,7 +428,7 @@ module SequencedBookmarksApp =
                         
                         yield div [clazz "item"; style infoc] [
                             div [clazz "content"; style infoc] [                     
-                                yield Incremental.div (AttributeMap.ofList [style infoc])(
+                                Incremental.div (AttributeMap.ofList [style infoc])(
                                     alist {
                                         yield div [clazz "header"; style bgc] [
                                             Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
@@ -433,7 +469,7 @@ module SequencedBookmarksApp =
                 "No saved scene state"
 
         let viewBookmarkControls  (model : AdaptiveSequencedBookmarks) = 
-            div [clazz "ui vertical buttons inverted"] [
+            let addBookmarkButton =
                 button [
                     clazz "ui labeled icon button"; 
                     onMouseClick (fun _ -> AddSBookmark )
@@ -441,25 +477,51 @@ module SequencedBookmarksApp =
                 ] [ 
                     i [clazz "plus icon"] [] 
                     text "Add Bookmark"
-                ] 
-                div [clazz "ui labeled button";style "margin: 5px"] [
-                    div [
-                        clazz "ui button"
-                        onMouseClick (fun _ -> SaveSceneState )
-                    ] [ 
-                        text "Save Scene State"
-                    ]
-                    div [clazz "ui basic label"] [
-                        i [clazz "globe icon"] [] 
-                        Incremental.text (model.savedSceneState 
-                                          |> AVal.map (fun x -> stateLabel x))
-                    ]
-                    div [
-                        clazz "ui button"
-                        onMouseClick (fun _ -> RestoreSceneState )
-                    ] [ 
-                        text "Restore to Saved"
-                    ]
+                ]
+
+            let addGisBookmarkButton = 
+                button [
+                    clazz "ui labeled icon button"; 
+                    onMouseClick (fun _ -> AddGisBookmark )
+                    style "margin: 5px"
+                ] [ 
+                    i [clazz "plus icon"] [] 
+                    text "Add GIS Bookmark"
+                ]
+
+            let saveSceneStateButton = 
+                div [
+                    clazz "ui button"
+                    onMouseClick (fun _ -> SaveSceneState )
+                ] [ 
+                    text "Save Scene State"
+                ]
+            let savedSceneState =
+                div [clazz "ui basic label"] [
+                    i [clazz "globe icon"] [] 
+                    Incremental.text (model.savedSceneState 
+                                      |> AVal.map (fun x -> stateLabel x))
+                ]
+            let restoreSceneStateButton =
+                div [
+                    clazz "ui button"
+                    onMouseClick (fun _ -> RestoreSceneState )
+                ] [ 
+                    text "Restore to Saved"
+                ]
+
+            table [clazz "ui unstackable inverted table"] [
+                tr [] [
+                    td [] [addBookmarkButton]
+                    td [] [addGisBookmarkButton]
+                ]
+                tr [] [
+                    td [] [saveSceneStateButton]
+                    td [] [restoreSceneStateButton]
+                ]
+                tr [] [
+                    td [] [text "Saved SceneState: "]
+                    td [] [savedSceneState]
                 ]
             ] 
 
@@ -570,18 +632,19 @@ module SequencedBookmarksApp =
 
             require GuiEx.semui (
                 Html.table [               
-                  Html.row "Animation:"   [div [clazz "ui buttons inverted"] [
-                                              button [clazz "ui icon button"; onMouseClick (fun _ -> StepBackward )] [ //
-                                                  i [clazz "step backward icon"] [] ] 
-                                              button [clazz "ui icon button"; onMouseClick (fun _ -> Play )] [ //
-                                                  i [clazz "play icon"] [] ] 
-                                              button [clazz "ui icon button"; onMouseClick (fun _ -> Pause )] [ //
-                                                  i [clazz "pause icon"] [] ] 
-                                              button [clazz "ui icon button"; onMouseClick (fun _ -> Stop )] [ //
-                                                  i [clazz "stop icon"] [] ] 
-                                              button [clazz "ui icon button"; onMouseClick (fun _ -> StepForward )] [ //
-                                                  i [clazz "step forward icon"] [] ] 
-                                          ] ]
+                  Html.row "Animation:"   [
+                    div [clazz "ui buttons inverted"] [
+                        button [clazz "ui icon button"; onMouseClick (fun _ -> StepBackward )] [ //
+                            i [clazz "step backward icon"] [] ] 
+                        button [clazz "ui icon button"; onMouseClick (fun _ -> Play )] [ //
+                            i [clazz "play icon"] [] ] 
+                        button [clazz "ui icon button"; onMouseClick (fun _ -> Pause )] [ //
+                            i [clazz "pause icon"] [] ] 
+                        button [clazz "ui icon button"; onMouseClick (fun _ -> Stop )] [ //
+                            i [clazz "stop icon"] [] ] 
+                        button [clazz "ui icon button"; onMouseClick (fun _ -> StepForward )] [ //
+                            i [clazz "step forward icon"] [] ] 
+                    ] ]
                   //Html.row "Global Animation:" // RNO deactivated because it does not work with focal length animations
                   //  [GuiEx.iconCheckBox model.animationSettings.useGlobalAnimation ToggleGlobalAnimation
                   //      |> UI.map AnimationSettingsMessage;
@@ -610,20 +673,18 @@ module SequencedBookmarksApp =
               )
 
         let viewSnapshotGUI (model:AdaptiveSequencedBookmarks) = 
+            // recording not in use because as it is, it only works on
+            // hardware that allows PRo3D to run smoothly
             let startRecordingButton =
                 button [clazz "ui icon button"; onMouseClick (fun _ -> StartRecording )] [ 
                         i [clazz "red circle icon"] [] ] 
-                    
-
             let stopRecordingButton = 
                 button [clazz "ui icon button"; onMouseClick (fun _ -> StopRecording )] [ 
                         i [clazz "red stop icon"] [] ] 
-                    
-
-            let recordingButton =
+            let recordingButton = 
                 model.isRecording |> AVal.map (fun r -> if r then stopRecordingButton else startRecordingButton)
                                   |> AList.ofAValSingle
-
+            
             let generateButton = 
                 button [clazz "ui icon button"; onMouseClick (fun _ -> GenerateSnapshots )] [ 
                     i [clazz "camera icon"] [] ] 
@@ -666,7 +727,6 @@ module SequencedBookmarksApp =
                           }
 
                 Incremental.div ([] |> AttributeMap.ofList ) alst
-                
 
             let outputFolderGui =
                 let attributes = 
@@ -737,6 +797,5 @@ module SequencedBookmarksApp =
 
                 ]
             )            
-       
-
+      
   

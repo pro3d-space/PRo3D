@@ -94,7 +94,7 @@ module ViewConfigModel =
     let initFarPlane = {
         value   = 500000.0
         min     = 1.0
-        max     = 10000000.0
+        max     = 5906380000.0 * 1000.0
         step    = 10.0
         format  = "{0:0.0}"
     }

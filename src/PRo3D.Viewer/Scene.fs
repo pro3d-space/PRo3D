@@ -18,6 +18,7 @@ open Chiron
 
 open Aether
 open Aether.Operators
+open PRo3D.Core.Gis
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Model =    
@@ -276,6 +277,9 @@ module SceneLoader =
                 { sb with scSegments = segments})
         |> (flip <| Optic.set _scaleBarsLens) m
 
+    let loadSceneSpiceKernel (m : Model) =
+        let gisApp = GisApp.loadSpiceKernel' m.scene.gisApp
+        {m with scene = {m.scene with gisApp = gisApp}}
 
     let prepareSceneObjectsModel
         (model     : SceneObjectsModel) : SceneObjectsModel =

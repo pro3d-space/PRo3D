@@ -25,6 +25,7 @@ open PRo3D.SimulatedViews
 
 open Adaptify
 open FSharp.Data.Adaptive
+open PRo3D.Core.Gis
 
 module Gui =            
     
@@ -653,13 +654,20 @@ module Gui =
                                             text "3rd Party Licences"
                                         ]
 
-                                        let jsOpenPose = "top.aardvark.dialog.showOpenDialog({title:'Import Pose File' , filters: [{ name: 'Pose Data (*.json)', extensions: ['json']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
-                                        div [ clazz "ui item";
-                                              Dialogs.onChooseFiles ViewerAction.LoadPoseDefinitionFile
-                                              clientEvent "onclick" jsOpenPose ] [
-                                              text "Load Pose Definition File"
+                                        let jsOpenPose = "top.aardvark.dialog.showOpenDialog({title:'Import Pose File' , filters: [{ name: 'Pose Data (*.json)', extensions: ['json']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+                                        div [ clazz "ui item"; Dialogs.onChooseFiles ViewerAction.LoadPoseDefinitionFile; clientEvent "onclick" jsOpenPose ] [
+                                            text "Load Pose Definition File"
                                         ]
+
+
+                                        let jsLoadSpice = "top.aardvark.dialog.showOpenDialog({title:'Load SPICE kernel' , filters: [{ name: 'SPICE Kernel (*.spk, *.pck, *.ik, *.ck, *.tm)', extensions: ['spk','pck','ik','ck','tm']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+                                        div [ clazz "ui item"; Dialogs.onChooseFiles (function [p] -> ViewerAction.GisAppMessage (GisAppAction.SetSpiceKernel p) | _ -> ViewerAction.Nop); clientEvent "onclick" jsLoadSpice ] [
+                                            text "Load SPICE kernel"
+                                        ]
+
+                                        
+
                                         //menuItem "Create Pose File from SBookmarks" SBookmarksToPoseDefinition // for debugging
                                         div [clazz "ui item"; clientEvent "onclick" "sendCrashDump()"] [
                                             text "Send log to maintainers"
@@ -1259,6 +1267,15 @@ module Gui =
             //        ] )
             | Some "provenance" ->
                 require (viewerDependencies) (body bodyAttributes [ProvenanceApp.view m |> UI.map ProvenanceMessage])
+            | Some "gis" ->
+                require (viewerDependencies) (
+                    body bodyAttributes 
+                         [GisApp.view m.scene.gisApp 
+                                      m.scene.surfacesModel 
+                                      m.scene.sequencedBookmarks
+                            |> UI.map GisAppMessage
+                            |> UI.map ViewerMessage]
+                )
             | None -> 
                 require (viewerDependencies) (
                     onBoot (sprintf "document.title = '%s'" Config.title) (

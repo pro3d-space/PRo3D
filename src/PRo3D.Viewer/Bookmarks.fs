@@ -280,7 +280,6 @@ module Bookmarks =
                 
         }
 
-
     let viewBookmarksGroups (bookmarks : AdaptiveGroupsModel) = 
         require GuiEx.semui (
             TreeView.view [] (viewTree [] bookmarks.rootGroup bookmarks)
@@ -323,11 +322,11 @@ module Bookmarks =
             ]
 
         let viewGUI = 
-           div [clazz "ui buttons inverted"]
-               [
-                      //onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (
-                   button [clazz "ui icon button";onMouseClick (fun _ -> AddBookmark )] [ //
-                           i [clazz "plus icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Add Bookmark"
-               ] 
+            div [clazz "ui buttons inverted"] [
+                button [clazz "ui inverted icon button"
+                        onMouseClick (fun _ -> AddBookmark )] [ 
+                        i [clazz "plus icon"] [] 
+                ] |> UI.wrapToolTip DataPosition.Bottom "Add Bookmark"
+            ] 
 
        

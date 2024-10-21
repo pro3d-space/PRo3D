@@ -48,7 +48,7 @@ open Aardvark.GeoSpatial.Opc.Load
 
 type EmbeddedRessource = EmbeddedRessource
 
-let viewerVersion       = "4.12.0-Snapshots"
+let viewerVersion       = "4.25.0-prerelease7-Snapshots"
 let catchDomainErrors   = false
 
 open System.IO
@@ -95,7 +95,7 @@ let startApplication (startupArgs : CLStartupArgs) =
 
 
     try 
-        CooTransformation.initCooTrafo appData
+        CooTransformation.initCooTrafo None appData
         cooTrafoInitialized <- true
 
         use app = new OpenGlApplication()

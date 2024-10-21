@@ -127,7 +127,7 @@ module ViewPlanApp =
         let ray = FastRay3d(p, dir)  
                  
         match SurfaceIntersection.doKdTreeIntersection 
-            surfaceModel refSystem ray (fun id l surf -> l.active) cache with
+            surfaceModel refSystem (constF None) None ray (fun id l surf -> l.active) cache with
         | Some (t,_), _ -> ray.Ray.GetPointOnRay(t) |> Some
         | None, _ -> None
 
@@ -759,6 +759,8 @@ module ViewPlanApp =
                 thickness = thickness
                 hasArrow  = ~~true
                 text      = ~~None
+                textsize  = AVal.constant 0.05
+                textcolor = AVal.constant C4b.White
                 fix       = ~~false
             }
 
@@ -845,6 +847,8 @@ module ViewPlanApp =
                             thickness = thickness
                             hasArrow  = AVal.constant true
                             text      = AVal.constant None
+                            textsize  = AVal.constant 0.05
+                            textcolor = AVal.constant C4b.White
                             fix       = AVal.constant false
                         }
 

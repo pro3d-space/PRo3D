@@ -1357,7 +1357,7 @@ module SurfaceApp =
               (AttributeMap.ofList [clazz "ui celled list"]) 
               (viewTree scenePath [] model.surfaces.rootGroup model.surfaces)            
         )    
-        
+
 
     //let viewSurfaceProperties (model:AdaptiveSurfaceModel) =
     //    adaptive {

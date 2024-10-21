@@ -11,6 +11,8 @@ open Chiron
 
 #nowarn "0686"
 
+type BookmarkId = Guid
+
 [<ModelType>]
 type Bookmark = {
     [<NonAdaptive>]

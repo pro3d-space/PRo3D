@@ -10,6 +10,8 @@ open Aardvark.Data.Opc
 
 open PRo3D.Base
 open PRo3D.Core
+open PRo3D.Base.Gis
+open PRo3D.Extensions
 open PRo3D.Core.Surface
 open PRo3DCompability
 open OpcViewer.Base.KdTrees
@@ -27,7 +29,7 @@ module SurfaceTransformations =
     //    yawRotation * pitchRotation * rollRotation
 
     /// TODO Refactor : This is not actually the complete trafo!! TODO rename this
-    let fullTrafo' (surf : Surface) (refsys : ReferenceSystem) = 
+    let fullTrafo' (surf : Surface) (observedSystem : Option<SpiceReferenceSystem>) (observerSystem : Option<ObserverSystem>) (refsys : ReferenceSystem) = 
     
         let north = refsys.northO.Normalized        
         let up    = refsys.up.value.Normalized
@@ -46,25 +48,37 @@ module SurfaceTransformations =
         let rot = yawRotation * pitchRotation * rollRotation
         
         let originTrafo = -surf.transformation.pivot.value |> Trafo3d.Translation
+
+        let spiceTrafo = 
+            match observedSystem, observerSystem with
+            | Some observedSystem, Some observerSystem ->
+                CooTransformation.transformBody observedSystem.body (Some observedSystem.referenceFrame) observerSystem.body observerSystem.referenceFrame observerSystem.time
+                |> Option.map (fun t -> t.Trafo) 
+                |> Option.defaultValue Trafo3d.Identity
+            | _ -> Trafo3d.Identity
         
-        originTrafo * rot * originTrafo.Inverse * refSysRotation.Inverse * trans * refSysRotation    
+        originTrafo * rot * originTrafo.Inverse * refSysRotation.Inverse * trans * refSysRotation * spiceTrafo
     
-    let fullTrafo (surf : aval<AdaptiveSurface>) (refsys : AdaptiveReferenceSystem) = 
+    let fullTrafo (surf : aval<AdaptiveSurface>) (observedSystem : aval<SpiceReferenceSystem>) (observerSystem: aval<ObserverSystem>) (refsys : AdaptiveReferenceSystem) = 
         adaptive {
             let! s = surf
             let! s = s.Current
             let! rSys = refsys.Current
+            let! observedSytem = observedSystem
+            let! observerSystem = observerSystem
             
-            return fullTrafo' s rSys
+            return fullTrafo' s (Some observedSytem) (Some observerSystem) rSys
         }
     
-    let fullTrafoForSurface (surf : AdaptiveSurface) (refsys : AdaptiveReferenceSystem) = 
+    let fullTrafoForSurface (surf : AdaptiveSurface) (observedSystem : aval<SpiceReferenceSystem>) (observerSystem: aval<ObserverSystem>) (refsys : AdaptiveReferenceSystem) = 
         adaptive {
             let s = surf
             let! s = s.Current
             let! rSys = refsys.Current
+            let! observedSystem = observedSystem
+            let! observerSystem = observerSystem
             
-            return fullTrafo' s rSys
+            return fullTrafo' s (Some observedSystem) (Some observerSystem) rSys
         }
 module DebugKdTreesX = 
    
@@ -155,8 +169,9 @@ module DebugKdTreesX =
         try
             let hitFilter = //true means being omitted
                 fun (a:IIntersectableObjectSet) (b:int) _ _ -> 
-                let triangles = a :?> TriangleSet //TODO TO crashes if not encountering a triangleset
-                b |> getTriangle triangles |> isNotOversized hitObject.triangleSize.value |> not // = tooBig            
+                    let triangles = a :?> TriangleSet //TODO TO crashes if not encountering a triangleset
+                    b |> getTriangle triangles |> isNotOversized hitObject.triangleSize.value |> not // = tooBig       
+                    false
             
             if kdi.Intersect(ray, null, Func<IIntersectableObjectSet,int,int, RayHit3d,bool>(hitFilter), 0.0, Double.MaxValue, &hit) then              
                 Some (hit.RayHit.T, hitObject),c
@@ -173,6 +188,8 @@ module SurfaceIntersection =
     let doKdTreeIntersection 
         (m             : SurfaceModel)
         (refSys        : ReferenceSystem)
+        (observedSystem : SurfaceId -> Option<SpiceReferenceSystem>)
+        (observerSystem : Option<ObserverSystem>)
         (r             : FastRay3d) 
         (filterSurface : Guid -> Leaf -> SgSurface -> bool) 
         cache
@@ -203,8 +220,12 @@ module SurfaceIntersection =
                         //    return Trafo3d.Scale(scaleFactor) * Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * preTransform)
                         //else
                         //    return Trafo3d.Scale(scaleFactor) * (fullTrafo * preTransform)
+                        let observedSystem, observerSystem =
+                            match observedSystem surf.guid, observerSystem with
+                            | Some observed, Some observer -> Some observed, Some observer
+                            | _ -> None, None
 
-                        let fullTrafo = TransformationApp.fullTrafo' surf.transformation refSys //SurfaceTransformations.fullTrafo' surf refSys
+                        let fullTrafo = TransformationApp.fullTrafo' surf.transformation refSys observedSystem observerSystem //SurfaceTransformations.fullTrafo' surf refSys
                         //get bbs that are hit
                         let hitBoxes =
                             kd

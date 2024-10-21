@@ -168,6 +168,7 @@ module MeasurementsImporter =
             manualDipAngle   = Annotation.initial.manualDipAngle
             manualDipAzimuth = Annotation.initial.manualDipAzimuth
             bookmarkId       = None
+            referenceSystem  = None
         }        
         
 
