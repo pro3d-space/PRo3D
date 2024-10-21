@@ -188,8 +188,10 @@ module TraversePropertiesApp =
                                     let descriptionText = sprintf "yaw %A | pitch %A | roll %A" sol.yaw sol.pitch sol.roll
                                     yield div [clazz "description"] [text descriptionText]
     
-                                    yield i [clazz "home icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in FlyToSol (computeSolFlyToParameters sol refSystem))] []
-                                    yield i [clazz "location arrow icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in PlaceRoverAtSol (computeSolViewplanParameters sol refSystem))] []
+                                    yield 
+                                        i [clazz "home icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in FlyToSol (computeSolFlyToParameters sol refSystem))] []
+                                    yield 
+                                        i [clazz "location arrow icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in PlaceRoverAtSol (computeSolViewplanParameters sol refSystem))] []
                                 ]                                     
                             ]
                         ]
