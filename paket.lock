@@ -549,7 +549,7 @@ NUGET
       System.Numerics.Vectors (>= 4.5)
 
 GROUP Build
-RESTRICTION: == net6.0
+RESTRICTION: == net8.0
 NUGET
   remote: https://api.nuget.org/v3/index.json
     Argu (6.2.4)
@@ -702,8 +702,6 @@ NUGET
       System.Collections.Immutable (>= 6.0)
       System.Configuration.ConfigurationManager (>= 6.0)
     Microsoft.NET.StringTools (17.11.4)
-      System.Memory (>= 4.5.5)
-      System.Runtime.CompilerServices.Unsafe (>= 6.0)
     Microsoft.Win32.Registry (5.0)
       System.Security.AccessControl (>= 5.0)
       System.Security.Principal.Windows (>= 5.0)
@@ -730,22 +728,16 @@ NUGET
     Octokit (13.0.1)
     System.CodeDom (8.0)
     System.Collections.Immutable (8.0)
-      System.Runtime.CompilerServices.Unsafe (>= 6.0)
     System.Configuration.ConfigurationManager (8.0.1)
+      System.Diagnostics.EventLog (>= 8.0.1)
       System.Security.Cryptography.ProtectedData (>= 8.0)
-    System.Formats.Asn1 (8.0.1)
-    System.Memory (4.5.5)
+    System.Diagnostics.EventLog (8.0.1)
     System.Reactive (5.0)
     System.Reflection.Metadata (8.0.1)
-      System.Collections.Immutable (>= 8.0)
     System.Reflection.MetadataLoadContext (8.0.1)
-      System.Collections.Immutable (>= 8.0)
-      System.Reflection.Metadata (>= 8.0.1)
     System.Resources.Extensions (8.0)
-    System.Runtime.CompilerServices.Unsafe (6.0)
     System.Security.AccessControl (6.0.1)
     System.Security.Cryptography.Pkcs (8.0.1)
-      System.Formats.Asn1 (>= 8.0.1)
     System.Security.Cryptography.ProtectedData (8.0)
     System.Security.Cryptography.Xml (8.0.2)
       System.Security.Cryptography.Pkcs (>= 8.0.1)
@@ -753,12 +745,7 @@ NUGET
       System.Windows.Extensions (>= 8.0)
     System.Security.Principal.Windows (5.0)
     System.Text.Encoding.CodePages (8.0)
-      System.Runtime.CompilerServices.Unsafe (>= 6.0)
-    System.Text.Encodings.Web (8.0)
-      System.Runtime.CompilerServices.Unsafe (>= 6.0)
     System.Text.Json (8.0.5)
-      System.Runtime.CompilerServices.Unsafe (>= 6.0)
-      System.Text.Encodings.Web (>= 8.0)
     System.Threading.Tasks.Dataflow (8.0.1)
     System.Windows.Extensions (8.0)
 
