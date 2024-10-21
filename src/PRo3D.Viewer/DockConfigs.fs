@@ -73,7 +73,7 @@ module DockConfigs =
                             { id = "annotations"; title = Some " Annotations "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             { id = "scalebars"; title = Some " ScaleBars "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             { id = "instrumentview"; title = Some " Instrument View "; weight = 0.6; deleteInvisible = None; isCloseable = None}
-                            {id = "gis"; title = Some " GIS View"; weight = 0.4; deleteInvisible = None; isCloseable = None }
+                            //{ id = "gis"; title = Some " GIS View"; weight = 0.4; deleteInvisible = None; isCloseable = None }
 
                         ]                          
                         stack 0.5 (Some "config") [
