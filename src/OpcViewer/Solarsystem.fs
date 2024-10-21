@@ -1,5 +1,8 @@
 ﻿module Solarsytsem
 
+open Aardvark.Data.Opc
+open Aardvark.Data
+
 #nowarn "9"
 
 open System
@@ -23,6 +26,8 @@ open Aardvark.Opc
 
 open Aardvark.SceneGraph.Semantics
 open Aardvark.SceneGraph.Semantics.TrafoSemantics
+
+open Aardvark.GeoSpatial.Opc.Load
 
 open PRo3D.Extensions
 
@@ -216,7 +221,7 @@ let run (scenes : list<OpcScene>) =
                               win.FramebufferSignature, runner, basePath, scene.lodDecider, true, true, ViewerModality.XYZ, 
                               PatchLod.CoordinatesMapping.Local, true, context, map,
                               t,
-                              None, None, Aardvark.Base.PixImagePfim.Loader
+                              None, None, PixImagePfim.Loader
                     )
 
                 //Sg.patchLod win.FramebufferSignature runner basePath scene.lodDecider true true ViewerModality.XYZ PatchLod.CoordinatesMapping.Local true t

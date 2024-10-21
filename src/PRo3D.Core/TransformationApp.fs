@@ -316,7 +316,7 @@ module TransformationApp =
                     [ EulerMode.XYZ, "XYZ"; EulerMode.XZY, "XZY"; EulerMode.YXZ, "YXZ"; EulerMode.YZX, "YZX"; EulerMode.ZXY, "ZXY"; EulerMode.ZYX, "ZYX"]
                     |> List.map (fun (m, v) -> m, text v)
                     |> AMap.ofList
-                SimplePrimitives.dropdownUnclearable AttributeMap.empty values mode SetEulerMode
+                Dropdown.dropdown SetEulerMode false None mode AttributeMap.empty values 
 
             require GuiEx.semui (
                 Html.table [  

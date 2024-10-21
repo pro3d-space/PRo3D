@@ -75,7 +75,7 @@ type Style = {
     thickness : NumericInput
 } with
     static member color_ =
-        (fun b -> b.color), (fun c b -> { b with color = c })
+        (fun b -> b.color), (fun c (b : Style) -> { b with color = c })
     static member thickness_ =
         (fun b -> b.thickness), (fun value b -> { b with thickness = value })
 
