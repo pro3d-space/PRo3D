@@ -3,12 +3,15 @@
 open System
 open System.IO
 open Aardvark.Base
+open Aardvark.Rendering.Text
+open Aardvark.SceneGraph
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Chiron
 open PRo3D.Base.Annotation.GeoJSON
 open PRo3D.Base
 open PRo3D.Core
+open Aardvark.Rendering
 open FSharp.Data.Adaptive
 open FSharp.Data.Adaptive.Operators
 
@@ -150,26 +153,44 @@ module TraversePropertiesApp =
                             
                         //if (sol.solNumber = 238) then
                         //items
+                        //yield div [clazz "item"; style white] [
+                        //    i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc] []
+                        //    div [clazz "content"; style white] [                     
+                        //        Incremental.div (AttributeMap.ofList [style white])(
+                        //            alist {
+                                            
+                        //                yield div [clazz "header"; style bgc] [
+                        //                    span [onClick (fun _ -> SelectSol sol.solNumber)] [text headerText]
+                        //                ]                
+    
+                        //                let descriptionText = sprintf "yaw %A | pitch %A | roll %A" sol.yaw sol.pitch sol.roll
+                        //                yield div [clazz "description"] [text descriptionText]
+    
+                        //                let! refSystem = refSystem.Current
+                        //                yield i [clazz "home icon"; onClick (fun _ -> FlyToSol (computeSolFlyToParameters sol refSystem))] []
+                        //                    |> UI.wrapToolTip DataPosition.Bottom "Fly to Sol"
+                        //                yield i [clazz "location arrow icon"; onClick (fun _ -> PlaceRoverAtSol (computeSolViewplanParameters sol refSystem))] []
+                        //                    |> UI.wrapToolTip DataPosition.Bottom "Make Viewplan"
+                        //            } 
+                        //        )                                     
+                        //    ]
+                        //]
+
+                        let! refSystem = refSystem.Current
                         yield div [clazz "item"; style white] [
                             i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc] []
                             div [clazz "content"; style white] [                     
-                                Incremental.div (AttributeMap.ofList [style white])(
-                                    alist {
-                                            
-                                        yield div [clazz "header"; style bgc] [
-                                            span [onClick (fun _ -> SelectSol sol.solNumber)] [text headerText]
-                                        ]                
+                                div [style white] [
+                                    yield div [clazz "header"; style bgc] [
+                                        span [onClick (fun _ -> SelectSol sol.solNumber)] [text headerText]
+                                    ]                
     
-                                        let descriptionText = sprintf "yaw %A | pitch %A | roll %A" sol.yaw sol.pitch sol.roll
-                                        yield div [clazz "description"] [text descriptionText]
+                                    let descriptionText = sprintf "yaw %A | pitch %A | roll %A" sol.yaw sol.pitch sol.roll
+                                    yield div [clazz "description"] [text descriptionText]
     
-                                        let! refSystem = refSystem.Current
-                                        yield i [clazz "home icon"; onClick (fun _ -> FlyToSol (computeSolFlyToParameters sol refSystem))] []
-                                            |> UI.wrapToolTip DataPosition.Bottom "Fly to Sol"
-                                        yield i [clazz "location arrow icon"; onClick (fun _ -> PlaceRoverAtSol (computeSolViewplanParameters sol refSystem))] []
-                                            |> UI.wrapToolTip DataPosition.Bottom "Make Viewplan"
-                                    } 
-                                )                                     
+                                    yield i [clazz "home icon"; onClick (fun _ -> FlyToSol (computeSolFlyToParameters sol refSystem))] []
+                                    yield i [clazz "location arrow icon"; onClick (fun _ -> PlaceRoverAtSol (computeSolViewplanParameters sol refSystem))] []
+                                ]                                     
                             ]
                         ]
                 })
@@ -570,12 +591,36 @@ module TraverseApp =
             |> ASet.map snd 
             |> Sg.set
             
+        let drawSolTextsFast (view : aval<CameraView>) (near : aval<float>) (traverse : AdaptiveTraverse) = 
+            let contents = 
+                let viewTrafo = view |> AVal.map CameraView.viewTrafo
+                traverse.sols 
+                |> AVal.map (fun sols -> 
+                    sols 
+                    |> List.toArray
+                    |> Array.map (fun sol -> 
+                        let loc = sol.location + sol.location.Normalized * 1.5
+                        let trafo = Trafo3d.Translation loc
+                        let text = $"{sol.solNumber}"
+                        //let scaleTrafo = Sg.invariantScaleTrafo view near ~~loc traverse.tTextSize.value ~~60.0
+                        //let dynamicTrafo = scaleTrafo |> AVal.map (fun scale -> scale * trafo)
+                        let stableTrafo = viewTrafo |> AVal.map (fun view -> trafo * view) // stable, and a bit slow
+                        AVal.constant trafo, AVal.constant text
+                    )
+                )
+                |> ASet.ofAVal
+            let sg = 
+                let config = { Text.TextConfig.Default with renderStyle = RenderStyle.Billboard; color = C4b.White }
+                Sg.textsWithConfig config contents
+                |> Sg.noEvents
+                //|> Sg.viewTrafo' Trafo3d.Identity
+            sg 
 
         let drawSolText view near (model : AdaptiveTraverse) =
             alist {
                 let! sols = model.sols
                 let! showText = model.showText
-
+     
                 if showText then
                     for sol in sols do
                         let loc = ~~(sol.location + sol.location.Normalized * 1.5)
@@ -592,7 +637,7 @@ module TraverseApp =
             let traverses = traverseModel.traverses
             traverses 
             |> AMap.map( fun id traverse ->
-                drawSolText
+                drawSolTextsFast
                     view
                     near
                     traverse
@@ -600,6 +645,7 @@ module TraverseApp =
             |> AMap.toASet 
             |> ASet.map snd 
             |> Sg.set
+
 
 
         let viewCoordinateCross 
@@ -616,6 +662,89 @@ module TraverseApp =
                 Sg.drawSingleLine ~~V3d.Zero east  ~~C4b.Green ~~2.0 trafo
             ] 
             |> Sg.ofList
+
+
+        module Shader =
+            open FShade
+            open FShade.Effect
+
+            type InstanceVertex = { [<Semantic("SolNumber")>] solNumber : int; [<Color>] c : V4d }
+            type UniformScope with
+                member x.SelectedSol : int = uniform?SelectedSol
+                member x.SelectionColor : V4d = uniform?SelectionColor
+
+            let selectedColor (v : InstanceVertex) =
+                vertex {
+                    let c = 
+                        if v.solNumber = uniform.SelectedSol then
+                            uniform.SelectionColor
+                        else
+                            v.c
+                    return { v with c = c }
+                }
+
+        let viewTraverseDots (view : aval<CameraView>) (traverse : AdaptiveTraverse) =
+            let solCenterTrafo = 
+                (traverse.sols, view)
+                ||> AVal.map2 (fun sols view -> 
+                    let viewTrafo = view.ViewTrafo
+                    sols |> List.toArray |> Array.map (fun sol -> Trafo3d.Translation(sol.location) * viewTrafo) :> Array
+                )
+                
+            let solNumbers =
+                traverse.sols 
+                |> AVal.map (fun sols -> 
+                    sols |> List.toArray |> Array.map (fun s -> s.solNumber) :> Array
+                )
+
+            let attributes = 
+                Map.ofList [
+                    ("ModelTrafo", (typeof<Trafo3d>, solCenterTrafo))
+                    ("SolNumber", (typeof<int>, solNumbers))
+                ]
+            Sg.sphere 4 traverse.color.c ~~0.3
+            |> Sg.shader {
+                do! DefaultSurfaces.trafo // stable via modelTrafo = model view track trick
+                do! Shader.selectedColor
+            }
+            |> Sg.viewTrafo' Trafo3d.Identity // modelTrafo = model view track trick
+            |> Sg.uniform "SelectionColor" ~~C4b.VRVisGreen
+            |> Sg.uniform "SelectedSol" (traverse.selectedSol |> AVal.map (Option.defaultValue (-1)))
+            |> Sg.instanced' attributes
+            |> Sg.noEvents
+            |> Sg.onOff traverse.showDots
+
+        let viewTraverseCoordinateFrames (view : aval<CameraView>) (refSystem : AdaptiveReferenceSystem)  (traverse : AdaptiveTraverse) =
+            let solTrafosInRefSystem = 
+                (traverse.sols, view, refSystem.Current)
+                |||> AVal.map3 (fun sols view refSystem -> 
+                    let viewTrafo = view.ViewTrafo
+                    sols |> List.toArray |> Array.map (fun sol -> 
+                        let rotation = TraversePropertiesApp.computeSolRotation sol refSystem
+                        let loc = sol.location + sol.location.Normalized * 0.5 // when porting to instancing kept it 0.5
+                        let shiftedSol = Trafo3d.Translation loc
+                        rotation * shiftedSol * viewTrafo
+                    ) 
+                )
+            Sg.coordinateCross ~~2.0
+            |> Sg.shader {
+                do! DefaultSurfaces.trafo // stable via modelTrafo = model view track trick
+            }
+            |> Sg.viewTrafo' Trafo3d.Identity // modelTrafo = model view track trick
+            |> Sg.instanced solTrafosInRefSystem
+            |> Sg.noEvents
+            |> Sg.onOff traverse.showDots
+            
+
+        let viewTraverseFast  
+            (view : aval<CameraView>)
+            (refSystem : AdaptiveReferenceSystem) 
+            (model : AdaptiveTraverse) : ISg<TraverseAction> = 
+            Sg.ofList [
+                viewTraverseCoordinateFrames view refSystem model
+                viewTraverseDots view model
+            ]
+            |> Sg.onOff model.isVisibleT
 
         let viewTraverse  
             (refSystem : AdaptiveReferenceSystem) 
@@ -644,16 +773,17 @@ module TraverseApp =
             |> Sg.set
             |> Sg.onOff model.isVisibleT
 
+
+
         let view
+            (view           : aval<CameraView>)
             (refsys         : AdaptiveReferenceSystem) 
-            (traverseModel : AdaptiveTraverseModel) =
+            (traverseModel  : AdaptiveTraverseModel) =
 
             let traverses = traverseModel.traverses
             traverses 
-            |> AMap.map( fun id traverse ->
-                viewTraverse
-                    refsys
-                    traverse
+            |> AMap.map(fun id traverse ->
+                viewTraverseFast view refsys traverse
             )
             |> AMap.toASet 
             |> ASet.map snd 

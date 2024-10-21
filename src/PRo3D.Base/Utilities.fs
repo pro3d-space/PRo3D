@@ -1128,7 +1128,7 @@ module Sg =
         |> Sg.trafo trafo
 
     //## TEXT ##
-    let private invariantScaleTrafo 
+    let invariantScaleTrafo 
         (view : aval<CameraView>) 
         (near : aval<float>) 
         (pos  : aval<V3d>) 

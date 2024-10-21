@@ -2072,7 +2072,8 @@ module ViewerApp =
 
 
         let traverses =
-            TraverseApp.Sg.view                     
+            TraverseApp.Sg.view     
+                m.navigation.camera.view
                 m.scene.referenceSystem
                 m.scene.traverses   
             |> Sg.map TraverseMessage
