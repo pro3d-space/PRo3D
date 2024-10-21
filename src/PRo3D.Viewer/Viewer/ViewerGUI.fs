@@ -278,12 +278,11 @@ module Gui =
         let jsImportglTfDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select *.gltf files to import', filters: [{ name: 'glTF (*.gltf)', extensions: ['gltf']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
         
-
         let jsImportSceneObjectDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select *.obj or *.dae files to import', filters: [{ name: 'OBJ (*.obj)', extensions: ['obj']}, { name: 'DAE (*.dae)', extensions: ['dae']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
         let jsImportPLYDialog =
-            "top.aardvark.dialog.showOpenDialog({tile: 'Select *.ply files to import', filters: [{ name: 'PLY (*.ply)', extensions: ['ply']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"            
+            "top.aardvark.dialog.showOpenDialog({tile: 'Select *.ply files to import', filters: [{ name: 'PLY (*.ply)', extensions: ['ply']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"                    
 
         let private importSurface =
             [
@@ -337,6 +336,7 @@ module Gui =
                 ]
             ]
         
+
         let private scene (m:AdaptiveModel) =
             let jsSaveSceneDialog = 
                 "top.aardvark.dialog.showSaveDialog({ title:'Save Scene as', filters:  [{ name: 'Scene (*.pro3d)', extensions: ['pro3d'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
@@ -486,8 +486,8 @@ module Gui =
             "top.aardvark.dialog.showSaveDialog({ title: 'Export Profile (*.csv)', filters:  [{ name: 'Annotations (*.csv)', extensions: ['csv'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
 
         let jsExportAnnotationsAsGeoJSONDialog =
-            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"
-              
+            "top.aardvark.dialog.showSaveDialog({ title: 'Export Annotations (*.json)', filters:  [{ name: 'Annotations (*.json)', extensions: ['json'] }] }).then(result => {top.aardvark.processEvent('__ID__', 'onsave', result.filePath);});"              
+
         let annotationMenu = //todo move to viewer io gui
             div [ clazz "ui dropdown item"] [
                 text "Annotations"
@@ -627,11 +627,11 @@ module Gui =
                                             clientEvent "onclick" jsOpenOldAnnotationsFileDialogue ] [
                                             text "Import v1 Annotations (*.xml)"
                                         ]
+                                        
+                                        let jsImportTraverseDialog = "top.aardvark.dialog.showOpenDialog({title:'Import Traverse files' , filters: [{ name: 'Traverses (*.json)', extensions: ['json']},], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
-                                        let openM20waypointsFileDialogue = "top.aardvark.dialog.showOpenDialog({title:'Import M20_waypoints file' , filters: [{ name: 'Traverses (*.json)', extensions: ['json']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
-
-                                        div [ clazz "ui item"; Dialogs.onChooseFiles ImportTraverse; clientEvent "onclick" openM20waypointsFileDialogue ] [
-                                            text "Import Traverse (*.json)"
+                                        div [ clazz "ui item"; Dialogs.onChooseFiles ImportTraverse; clientEvent "onclick" jsImportTraverseDialog ] [
+                                            text "Import Traverses (*.json)"
                                         ]
                                         //div [ clazz "ui item";
                                         //    Dialogs.onChooseFiles ImportSurfaceTrafo;
@@ -949,6 +949,9 @@ module Gui =
     module Traverse =
         let traverseUI (m : AdaptiveModel) =
             div [] [
+                yield GuiEx.accordion "Actions" "Asterisk" true [
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewActions m.scene.traverses))
+                ]
                 yield GuiEx.accordion "Properties" "Content" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewProperties m.scene.traverses))
                 ]

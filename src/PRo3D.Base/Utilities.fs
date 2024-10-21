@@ -1,7 +1,7 @@
 namespace PRo3D.Base
 
 open System
-
+open System.Text.RegularExpressions
 open FSharp.Data.Adaptive
 
 open Aardvark.Base
@@ -768,10 +768,7 @@ module Shader =
 
             return color
         }
-
     
-
-
 module Sg =    
 
     let colorPointsEffect = 
@@ -1262,6 +1259,37 @@ module Formatting =
             elif meter        > 0.0 then sprintf "%.0f"   x.Angstrom
             else "0" 
 
+module Sorting =
+// Function to split the string into chunks of numbers and non-numbers
+    let private splitString (input: string) =
+        Regex.Matches(input, @"\D+|\d+")
+        |> Seq.cast<Match>
+        |> Seq.map (fun m -> m.Value)
+        |> Seq.toList
+    
+    // Function to compare two strings with natural sorting
+    let compareNatural (left: string) (right: string) =        
+
+        let rec compareParts (parts1: string list) (parts2: string list) =
+            match parts1, parts2 with
+            | [], [] -> 0
+            | [], _ -> -1
+            | _, [] -> 1
+            | h1::t1, h2::t2 ->
+                let isNum1 = Int32.TryParse(h1)
+                let isNum2 = Int32.TryParse(h2)
+                match isNum1, isNum2 with
+                | (true, num1), (true, num2) -> 
+                    // Compare as numbers
+                    let cmp = compare num1 num2
+                    if cmp <> 0 then cmp else compareParts t1 t2
+                | _ -> 
+                    // Compare as strings
+                    let cmp = compare h1 h2
+                    if cmp <> 0 then cmp else compareParts t1 t2
+    
+        compareParts (splitString left) (splitString right)
+
 module AList =
     let pairwise (input : alist<'a>) = 
         input 
@@ -1366,7 +1394,6 @@ module ScreenshotUtilities =
             let screenshot = getScreenshotUrl baseAddress cs width height
             let filename = getScreenshotFilename folder name cs format
             wc.DownloadFile(screenshot,filename)        
-
 
 module JsInterop = 
     let escapePath (s : string) =
