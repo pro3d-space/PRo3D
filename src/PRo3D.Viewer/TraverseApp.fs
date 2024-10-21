@@ -173,7 +173,10 @@ module TraversePropertiesApp =
                         //    ]
                         //]
 
-                        let! refSystem = refSystem.Current
+                        // only to be called in callback
+                        let getCurrentRefSystem () =
+                            refSystem.Current.GetValue()
+
                         yield div [clazz "item"; style white] [
                             i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc] []
                             div [clazz "content"; style white] [                     
@@ -185,8 +188,8 @@ module TraversePropertiesApp =
                                     let descriptionText = sprintf "yaw %A | pitch %A | roll %A" sol.yaw sol.pitch sol.roll
                                     yield div [clazz "description"] [text descriptionText]
     
-                                    yield i [clazz "home icon"; onClick (fun _ -> FlyToSol (computeSolFlyToParameters sol refSystem))] []
-                                    yield i [clazz "location arrow icon"; onClick (fun _ -> PlaceRoverAtSol (computeSolViewplanParameters sol refSystem))] []
+                                    yield i [clazz "home icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in FlyToSol (computeSolFlyToParameters sol refSystem))] []
+                                    yield i [clazz "location arrow icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in PlaceRoverAtSol (computeSolViewplanParameters sol refSystem))] []
                                 ]                                     
                             ]
                         ]
