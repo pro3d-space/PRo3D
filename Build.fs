@@ -356,6 +356,7 @@ Target.create "CopyToElectron" (fun _ ->
                  Configuration = DotNet.BuildConfiguration.Release
                  VersionSuffix = Some notes.NugetVersion
                  OutputPath = Some "aardium/build/build"
+                 MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
              }
          )
          for f in System.IO.Directory.GetFiles("./lib/Native/JR.Wrappers/mac/") do    
@@ -370,6 +371,7 @@ Target.create "CopyToElectron" (fun _ ->
                     Configuration = DotNet.BuildConfiguration.Release
                     VersionSuffix = Some notes.NugetVersion
                     OutputPath = Some "aardium/build/build"
+                    MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
                 }
         )
         for f in System.IO.Directory.GetFiles("./lib/Native/JR.Wrappers/linux/AMD64") do    
@@ -385,6 +387,7 @@ Target.create "CopyToElectron" (fun _ ->
                 Configuration = DotNet.BuildConfiguration.Release
                 VersionSuffix = Some notes.NugetVersion
                 OutputPath = Some "aardium/build/build"
+                MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
             }
         )
         File.Copy("data/runtime/vcruntime140.dll", "aardium/build/build/vcruntime140.dll")

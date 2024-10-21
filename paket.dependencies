@@ -113,20 +113,15 @@ source https://api.nuget.org/v3/index.json
 
 nuget Octokit
 nuget Farmer
-nuget Fake.Core.Target      = 5.23.0
-nuget Fake.DotNet.Cli       = 5.23.0
-nuget Fake.DotNet.MSBuild   = 5.23.0
-nuget Fake.DotNet.NuGet     = 5.23.0
-nuget Fake.IO.FileSystem    = 5.23.0
-nuget Fake.Api.GitHub       = 5.23.0 
-nuget Fake.Core.ReleaseNotes = 5.23.0
-nuget Fake.Tools.Git         = 5.23.0
-nuget Fake.DotNet.Paket      = 5.23.0
+nuget Fake.Core.Target      = 6.1.3
+nuget Fake.DotNet.Cli       = 6.1.3
+nuget Fake.DotNet.MSBuild   = 6.1.3
+nuget Fake.DotNet.NuGet     = 6.1.3
+nuget Fake.IO.FileSystem    = 6.1.3
+nuget Fake.Api.GitHub       = 6.1.3 
+nuget Fake.Core.ReleaseNotes = 6.1.3
+nuget Fake.Tools.Git         = 6.1.3
+nuget Fake.DotNet.Paket      = 6.1.3
 nuget fake-cli
 nuget Argu
 nuget Mono.Cecil
-
-nuget Microsoft.Build                = 17.3.2
-nuget Microsoft.Build.Framework      = 17.3.2
-nuget Microsoft.Build.Tasks.Core     = 17.3.2
-nuget Microsoft.Build.Utilities.Core = 17.3.2

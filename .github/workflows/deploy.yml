@@ -59,7 +59,7 @@ jobs:
         run: .\build.cmd PublishToElectron
 
   linux_x64:
-    name: linux
+    name: linux 
     runs-on: ubuntu-latest
     steps:  
       - name: Install Snapcraft
