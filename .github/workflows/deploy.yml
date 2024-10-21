@@ -17,10 +17,10 @@ jobs:
         with:
           python-version: '3.11'
           architecture: 'x64'
-      - name: Setup .NET 6.0
+      - name: Setup .NET 8.0
         uses: actions/setup-dotnet@v1
         with:
-          dotnet-version: 6.0.x
+          dotnet-version: 8.0.x
       - name: Add Cert to Keychain
         uses: apple-actions/import-codesign-certs@v1
         with: 
@@ -47,11 +47,7 @@ jobs:
       - name: Install Dotnet
         uses: actions/setup-dotnet@v1
         with:
-          dotnet-version: '6.0.100'
-      - name: Install Dotnet
-        uses: actions/setup-dotnet@v1
-        with:
-          dotnet-version: '5.0.100'
+          dotnet-version: '8.0.x'
       - name: Checkout
         uses: actions/checkout@v2
       - name: Yarn Install
@@ -71,11 +67,7 @@ jobs:
       - name: Install Dotnet
         uses: actions/setup-dotnet@v1
         with:
-          dotnet-version: '6.0.100'
-      - name: Install Dotnet
-        uses: actions/setup-dotnet@v1
-        with:
-          dotnet-version: '5.0.100'
+          dotnet-version: '8.0.x'
       - name: Checkout
         uses: actions/checkout@v2
       - name: Yarn Install
