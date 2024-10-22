@@ -1019,48 +1019,48 @@ module ViewerUtils =
         // TODO Laura: test depthTested outside the loop
 
         //grouped   
-        //let last = grouped |> AList.tryLast
+        let last = grouped |> AList.tryLast
 
-        //alist {                    
-        //    for set in grouped do  
-        //        let sg = set|> Sg.set
-        //            //|> Sg.effect [surfaceEffect] 
-        //            //|> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
-        //            //|> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
-
-        //        yield RenderCommand.SceneGraph sg
-
-        //        //if i = c then //now gets rendered multiple times
-        //         // assign priorities globally, or for each anno and make sets
-        //        let depthTested =
-        //            last 
-        //            |> AVal.map (function 
-        //                | Some e when System.Object.ReferenceEquals(e,set) -> depthTested 
-        //                | _ -> Sg.empty
-        //            )
-        //        yield RenderCommand.SceneGraph (depthTested |> Sg.dynamic)
-
-        //        yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
-
-        //    yield RenderCommand.SceneGraph overlayed
-
-        //}
-
-        alist {
-            for set in grouped do
+        alist {                    
+            for set in grouped do  
                 let sg = set|> Sg.set
-                    //|> Sg.effect [surfaceEffect]
+                    //|> Sg.effect [surfaceEffect] 
                     //|> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
                     //|> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
 
                 yield RenderCommand.SceneGraph sg
 
-            yield RenderCommand.SceneGraph depthTested
-            yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
+                //if i = c then //now gets rendered multiple times
+                 // assign priorities globally, or for each anno and make sets
+                let depthTested =
+                    last 
+                    |> AVal.map (function 
+                        | Some e when System.Object.ReferenceEquals(e,set) -> depthTested 
+                        | _ -> Sg.empty
+                    )
+                yield RenderCommand.SceneGraph (depthTested |> Sg.dynamic)
+
+                yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
 
             yield RenderCommand.SceneGraph overlayed
 
         }
+
+        //alist {
+        //    for set in grouped do
+        //        let sg = set|> Sg.set
+        //            //|> Sg.effect [surfaceEffect]
+        //            //|> Sg.uniform "LoDColor" (AVal.constant C4b.Gray)
+        //            //|> Sg.uniform "LodVisEnabled" m.scene.config.lodColoring
+
+        //        yield RenderCommand.SceneGraph sg
+
+        //    yield RenderCommand.SceneGraph depthTested
+        //    yield Aardvark.UI.RenderCommand.Clear(None,Some (AVal.constant 1.0), None)
+
+        //    yield RenderCommand.SceneGraph overlayed
+
+        //}
 
 
 module Jezero =
