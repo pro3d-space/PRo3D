@@ -1,5 +1,5 @@
 ## 4.26.0-prerelease1
-- fixed surface priority
+- fixed surface priority 
 - improved handling of large trajectories
 
 ## 4.25.0-prerelease10
