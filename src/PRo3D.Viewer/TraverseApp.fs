@@ -626,7 +626,7 @@ module TraverseApp =
                 let config = { Text.TextConfig.Default with renderStyle = RenderStyle.Billboard; color = C4b.White }
                 Sg.textsWithConfig config contents
                 |> Sg.noEvents
-                |> Sg.onOff model.isVisibleT
+                |> Sg.onOff ((traverse.isVisibleT, traverse.showText) ||> AVal.map2 (&&))
                 //|> Sg.viewTrafo' Trafo3d.Identity
             sg 
 
