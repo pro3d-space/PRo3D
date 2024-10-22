@@ -1,3 +1,7 @@
+## 4.26.0-prerelease1
+- fixed surface priority
+- improved handling of large trajectories
+
 ## 4.25.0-prerelease10
 - optimized kd tree loading from caches
 
