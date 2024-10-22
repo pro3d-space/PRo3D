@@ -596,12 +596,14 @@ Target.create "GitHubRelease" (fun _ ->
             let release = sprintf "bin/PRo3D.Viewer.%s.zip" notes.NugetVersion
             let z = System.IO.Compression.ZipFile.CreateFromDirectory("bin/publish/win-x64", release)
 
-            GitHub.createClientWithToken token
-            |> GitHub.draftNewRelease "pro3d-space" "PRo3D" notes.NugetVersion (notes.SemVer.PreRelease <> None) notes.Notes
-            |> GitHub.uploadFiles (Seq.singleton release)
-            //|> GitHub.publishDraft
-            |> Async.RunSynchronously
-            |> ignore
+            let release =
+                GitHub.createClientWithToken token
+                |> GitHub.draftNewRelease "pro3d-space" "PRo3D" notes.NugetVersion (notes.SemVer.PreRelease <> None) notes.Notes
+                |> GitHub.uploadFiles (Seq.singleton release)
+                //|> GitHub.publishDraft
+                |> Async.RunSynchronously
+
+            try Branches.pushTag "." "origin" newVersion with e -> Trace.logf "could not create tag: %A" e
 
         with e -> 
             Trace.logf "failed to create github release: %A" e
