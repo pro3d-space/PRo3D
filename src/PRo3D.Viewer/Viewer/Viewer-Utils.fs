@@ -864,7 +864,7 @@ module ViewerUtils =
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
         let vpVisible = isViewPlanVisible m
-        let view = m.navigation.camera.view
+        let view = m.navigation.view
 
         let grouped = 
             sgGrouped |> AList.map(
@@ -946,7 +946,7 @@ module ViewerUtils =
         let vpVisible = isViewPlanVisible m
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
-        let view = m.navigation.camera.view
+        let view = m.navigation.view
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 

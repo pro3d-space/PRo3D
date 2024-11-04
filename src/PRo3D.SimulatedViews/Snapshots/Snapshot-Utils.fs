@@ -118,7 +118,7 @@ module SnapshotUtils =
                              (filename:string) (name:string) (nav : NavigationModel) =
         let distances =
             surfs
-            |> List.map( fun s -> Vec.Distance(s.preTransform.Forward.C3.XYZ, nav.camera.view.Location))
+            |> List.map( fun s -> Vec.Distance(s.preTransform.Forward.C3.XYZ, nav.view.Location))
             
         let distXml = sprintf "%s_%s_distances.xml" filename name
         let text = (distances |> List.map(fun d -> sprintf "%f\n" d)) |> List.fold (+)""
@@ -296,7 +296,7 @@ module SnapshotUtils =
                   (shattercones : list<ObjectPlacementParameters>) 
                   (m            : SurfaceModel)
                   (surface      : Surface) =
-        let placeSc = placeSc surface filename frustum refSystem navModel.camera.view navModel
+        let placeSc = placeSc surface filename frustum refSystem navModel.view navModel
         let m = applyToModel shattercones m placeSc
         m
 

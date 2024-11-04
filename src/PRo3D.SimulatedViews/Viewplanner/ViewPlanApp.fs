@@ -486,7 +486,7 @@ module ViewPlanApp =
             | Some rover -> 
                 let navigation = Optic.get _navigation outerModel
 
-                let vp = createViewPlanFromTrafo name rover refSystem navigation.camera.view trafo position
+                let vp = createViewPlanFromTrafo name rover refSystem navigation.view trafo position
 
                 { model with viewPlans = HashMap.add vp.id vp model.viewPlans; working = List.Empty } 
                 |> selectViewplan outerModel _footprint vp.id
@@ -502,7 +502,7 @@ module ViewPlanApp =
                 | false -> // second point (lookAt)
                     let w = List.append model.working [p]
                     let navigation = Optic.get _navigation outerModel
-                    let vp = createViewPlanFromPlacement w r ref navigation.camera.view kdTree surfaceModel
+                    let vp = createViewPlanFromPlacement w r ref navigation.view kdTree surfaceModel
 
                     { model with viewPlans = HashMap.add vp.id vp model.viewPlans; working = List.Empty } 
                     |> selectViewplan outerModel _footprint vp.id
@@ -535,12 +535,12 @@ module ViewPlanApp =
 
                 let nav = Optic.get _navigation outerModel
                 let cameraView = 
-                    nav.camera.view 
+                    nav.view 
                     |> CameraView.withForward forward
                     |> CameraView.withLocation v.position
                     |> CameraView.withUp up
 
-                let nav' = { nav with camera = { nav.camera with view = cameraView }}
+                let nav' = NavigationModel.withView cameraView nav
                 let newOuterModel = Optic.set _navigation nav' outerModel
                 (newOuterModel, model)
             | _ -> 

@@ -281,7 +281,7 @@ module ViewerIO =
 
     let getSerializedModel  (m : Model) : SerializedModel  =
         let sceneJson =        
-            let cameraState = m.navigation.camera.view            
+            let cameraState = m.navigation.view            
             let scene = 
                 { m.scene with 
                     cameraView     = cameraState;
@@ -302,7 +302,7 @@ module ViewerIO =
         else
            //saving scene
             let scenePaths = path |> ScenePaths.create             
-            let cameraState = m.navigation.camera.view            
+            let cameraState = m.navigation.view            
             let bookmarks = BookmarkUtils.saveSequencedBookmarks scenePaths.bookmarksFolder
                                                                  m.scene.sequencedBookmarks
 

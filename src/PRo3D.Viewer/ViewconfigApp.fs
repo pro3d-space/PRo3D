@@ -85,31 +85,32 @@ module ConfigProperties =
         )
 
 module CameraProperties =
-    let view (refSystem:AdaptiveReferenceSystem) (camera : AdaptiveCameraControllerState) =    
+    let view (refSystem:AdaptiveReferenceSystem) (view : aval<CameraView>) =    
         let bearing = 
             adaptive {
                 let! up = refSystem.up.value
                 let! north = refSystem.northO //model.north.value 
-                let! view = camera.view
+                let! view = view
                 return Calculations.bearing up north view.Forward
             }
 
         let pitch = 
             adaptive {
                 let! up = refSystem.up.value
-                let! view = camera.view
+                let! view = view
                 return Calculations.pitch up view.Forward
             }
 
         require GuiEx.semui (
             Html.table [      
-                Html.row "Location:"    [Incremental.text (camera.view |> AVal.map(fun x -> x.Location.ToString("0.00")))]
-                Html.row "Forward:"     [Incremental.text (camera.view |> AVal.map(fun x -> x.Forward.ToString("0.000")))]
-                Html.row "Sky:"         [Incremental.text (camera.view |> AVal.map(fun x -> x.Sky.ToString("0.000")))]
+                Html.row "Location:"    [Incremental.text (view |> AVal.map(fun x -> x.Location.ToString("0.00")))]
+                Html.row "Forward:"     [Incremental.text (view |> AVal.map(fun x -> x.Forward.ToString("0.000")))]
+                Html.row "Sky:"         [Incremental.text (view |> AVal.map(fun x -> x.Sky.ToString("0.000")))]
                 Html.row "Bearing:"     [Incremental.text (bearing |> AVal.map (fun x -> x.ToString("0.00")))] // compute azimuth with view dir, north vector and up vector
                 Html.row "Pitch:"       [Incremental.text (pitch |> AVal.map (fun x -> x.ToString("0.00")))]  // same for pitch which relates to dip angle
             ]
         )
+
 
 module FrustumProperties =
 

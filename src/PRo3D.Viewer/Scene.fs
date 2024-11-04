@@ -12,7 +12,6 @@ open PRo3D.Base
 open PRo3D.Core
 open PRo3D.Core.Surface
 open PRo3D.Viewer
-open PRo3D.Navigation2
 
 open Chiron
 
@@ -62,8 +61,7 @@ module SceneLoader =
     let _scaleBarsLens       = _scaleBarsModelLens >-> ScaleBarsModel.scaleBars_
     let _sceneObjects        = Model.scene_ >-> Scene.sceneObjectsModel_ 
 
-    let _camera              = Model.navigation_ >-> NavigationModel.camera_
-    let _cameraView          = _camera >-> CameraControllerState.view_
+    let _cameraView          = Model.navigation_ >-> NavigationModel.view_
     let _flatSurfaces        = Scene.surfacesModel_ >-> SurfaceModel.surfaces_ >-> GroupsModel.flat_
     let _geologicSurfaceLens = Model.scene_ >-> Scene.geologicSurfacesModel_ >-> GeologicSurfacesModel.geologicSurfaces_
 
@@ -297,51 +295,34 @@ module SceneLoader =
             m.scene.config.nearPlane.value
             m.scene.config.farPlane.value
             m.aspect
-           
-    let resetControllerState (m : Model) = 
-      
-        let state = m.navigation.camera
-        { 
-            state with 
-              forward  = false
-              backward = false
-              left     = false
-              right    = false
-              isWheel  = false
-              zoom     = false
-              pan      = false 
-              look     = false
-              moveVec  = V3d.Zero
-        }
-        |> (flip <| Optic.set _camera) m
 
     let updateNavigation (m : Model) =
-        let navigation' = 
+        let navigation = 
+            m.navigation
+            |> NavigationModel.resetControllerState
+            |> NavigationModel.withView m.scene.cameraView
+        let navigation = 
             { 
-                m.navigation with 
-                    camera          = { m.navigation.camera with view = m.scene.cameraView }
+                navigation with 
                     exploreCenter   = m.scene.exploreCenter;
                     navigationMode  = m.scene.navigationMode 
             }
-        { m with navigation = navigation' }
+        {m with navigation = navigation}
      
     let updateCameraUp (m: Model) =
-        let cam = m.navigation.camera
-        let view' = 
+        let view = m.navigation.view
+        let view = 
             CameraView.lookAt 
-                cam.view.Location 
-                (cam.view.Location + cam.view.Forward) 
+                view.Location 
+                (view.Location + view.Forward) 
                 m.scene.referenceSystem.up.value
-
-        let cam' = { cam with view = view' }
-        Optic.set _camera cam' m
-
+        let navigation = NavigationModel.withView view m.navigation
+        {m with navigation = navigation}
 
     let private applyScene (scene : Scene) (m : Model) (runtime : IRuntime) (signature : IFramebufferSignature)=
         let m = 
             m 
             |> Model.withScene scene
-            |> resetControllerState
             |> updateNavigation
 
 

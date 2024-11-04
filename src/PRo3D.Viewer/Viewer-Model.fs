@@ -22,7 +22,6 @@ open PRo3D.Core.Surface
 open PRo3D.Core.SequencedBookmarks
 open PRo3D.SimulatedViews
 open PRo3D.Core.Surface
-open PRo3D.Navigation2
 
 open PRo3D.Comparison
 
@@ -159,8 +158,6 @@ type ViewerAction =
 | StartDragging                   of V2i * MouseButtons
 | Dragging                        of V2i
 | EndDragging                     of V2i * MouseButtons
-| MouseOut                        of V2i
-| MouseIn                         of V2i
 //| CorrelationPanelMessage         of CorrelationPanelsMessage
 | MakeSnapshot                    of int*int*string
 | ImportSnapshotData              of list<string>

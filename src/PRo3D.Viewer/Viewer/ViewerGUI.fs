@@ -881,7 +881,7 @@ module Gui =
                     ReferenceSystemApp.UI.view m.scene.referenceSystem |> UI.map ReferenceSystemMessage
                 ]
                 GuiEx.accordion "Camera" "Camera Retro" false [
-                    CameraProperties.view m.scene.referenceSystem m.navigation.camera
+                    CameraProperties.view m.scene.referenceSystem m.navigation.view
                 ]
                 GuiEx.accordion "Frustum" "Settings" false [
                     FrustumProperties.view m.scene.config.frustumModel |> UI.map FrustumMessage
@@ -1131,8 +1131,6 @@ module Gui =
                         onMouseDown (fun button pos -> StartDragging (pos, button))
                      //   onMouseMove (fun delta -> Dragging delta)
                         onMouseUp (fun button pos -> EndDragging (pos, button))
-                        //onMouseEnter (fun pos ->  (MouseIn pos))
-                        onMouseOut (fun pos ->  (MouseOut pos))
                         ] |> List.map (ViewerUtils.mapAttribute ViewerMessage)
 
                     body renderViewAttributes [ //[ style "background: #1B1C1E; height:100%; width:100%"] [
@@ -1140,7 +1138,7 @@ module Gui =
                         Incremental.div (AttributeMap.ofList [style "background:#000;"]) (
                             alist {
                                 yield viewRenderView runtime renderViewportSizeId m
-                                yield textOverlays m.scene.referenceSystem m.navigation.camera.view
+                                yield textOverlays m.scene.referenceSystem m.navigation.view
                                 yield textOverlaysUserFeedback m.scene
                                 yield dnsColorLegend m
                                 yield (ComparisonApp.viewLegend m.scene.comparisonApp)

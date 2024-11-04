@@ -12,7 +12,6 @@ open PRo3D.Core
 open PRo3D.SimulatedViews
 open PRo3D.Core.SequencedBookmarks
 
-open PRo3D.Navigation2
 open Aardvark.UI
 open Aardvark.UI.Animation
 open Aardvark.UI.Primitives
@@ -48,13 +47,6 @@ module Viewer =
             return! messageLoop newState
         }
         messageLoop MailboxState.empty
-
-    let navInit = 
-        let init = NavigationModel.initial
-        let init = Optic.set (NavigationModel.camera_ >-> CameraControllerState.sensitivity_) 3.0 init
-        let init = Optic.set (NavigationModel.camera_ >-> CameraControllerState.panFactor_) 0.0008 init
-        let init = Optic.set (NavigationModel.camera_ >-> CameraControllerState.zoomFactor_) 0.0008 init
-        init        
 
     let sceneElm = {id = "scene"; title = (Some "Scene"); weight = 0.4; deleteInvisible = None; isCloseable = None }   
 
@@ -106,7 +98,7 @@ module Viewer =
 
             viewerVersion   = viewerVerson
             dashboardMode   = defaultDashboard.name
-            navigation      = navInit
+            navigation      = NavigationModel.initialDefault
 
             startupArgs     = startupArgs            
             drawing         = Drawing.DrawingModel.initialdrawing
@@ -140,7 +132,7 @@ module Viewer =
                 { 
                     animations = IndexList.empty
                     animation  = Animate.On
-                    cam        = CameraController.initial.view
+                    cam        = FreeFlyController.initial.view
                 }
            
             //minervaModel = MinervaModel.initial // CHECK-merge PRo3D.Minerva.Initial.model msgBox2

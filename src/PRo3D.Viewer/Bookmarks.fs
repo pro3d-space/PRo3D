@@ -10,7 +10,6 @@ open Aardvark.Rendering
 open PRo3D
 open PRo3D.Base
 open PRo3D.Core
-open PRo3D.Navigation2
 
 open PRo3D.Viewer
 
@@ -46,7 +45,7 @@ module Bookmarks =
         | AddBookmark ->
             let nav = Optic.get navigationModel outerModel
             let newBm = 
-                getNewBookmark nav.camera.view nav.navigationMode nav.exploreCenter bookmarks.flat.Count
+                getNewBookmark nav.view nav.navigationMode nav.exploreCenter bookmarks.flat.Count
             
             let groups = 
                 GroupsApp.addLeafToActiveGroup (Leaf.Bookmarks newBm) true bookmarks
@@ -86,11 +85,12 @@ module Bookmarks =
                     match b with
                     | Leaf.Bookmarks bkm ->
                         let camState = FreeFlyController.initial
-
+                        let orbitRadius = bkm.cameraView.Location.Distance bkm.exploreCenter
                         let nav' = 
                             {
-                                camera = { camState with view = bkm.cameraView }
-                                exploreCenter = bkm.exploreCenter
+                                freeFlyCamera  = {camState with view = bkm.cameraView}
+                                orbitCamera    = OrbitState.ofFreeFly orbitRadius camState
+                                exploreCenter  = bkm.exploreCenter
                                 navigationMode = bkm.navigationMode
                             }
                         let newOuterModel = Optic.set navigationModel nav' outerModel

@@ -32,8 +32,7 @@ open PRo3D.Base
 open PRo3D.Base.Annotation
 open PRo3D.Core
 open PRo3D.Core.Drawing
-open PRo3D.Navigation2
-open PRo3D.Bookmarkings
+
 
 open PRo3D.Core.Surface
 open PRo3D.Viewer
@@ -88,7 +87,7 @@ module SnapshotSg =
 
     /// creaste simple sg for debugging purposes
     let createDebugSg (m:AdaptiveModel) =
-        let camera = AVal.map2 (fun v f -> Camera.create v f) m.navigation.camera.view m.frustum 
+        let camera = AVal.map2 (fun v f -> Camera.create v f) m.navigation.view m.frustum 
         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
         let sg =
             Sg.box' C4b.White Box3d.Unit 
@@ -123,7 +122,7 @@ module SnapshotSg =
         let vpVisible = isViewPlanVisible m
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
         let refSystem = m.scene.referenceSystem
-        let view = m.navigation.camera.view
+        let view = m.navigation.view
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 
@@ -205,7 +204,7 @@ module SnapshotSg =
             DrawingApp.view 
                 m.scene.config 
                 mdrawingConfig 
-                m.navigation.camera.view 
+                m.navigation.view 
                 frustum
                 runtime
                 (m.viewPortSizes |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
@@ -235,7 +234,7 @@ module SnapshotSg =
                     m.scene.config
                     mrefConfig
                     m.scene.referenceSystem
-                    m.navigation.camera.view
+                    m.navigation.view
                 |> Sg.map ReferenceSystemMessage  
 
             let exploreCenter =
@@ -249,7 +248,7 @@ module SnapshotSg =
                     m.scene.config 
                     mrefConfig 
                     m.scene.viewPlans 
-                    m.navigation.camera.view
+                    m.navigation.view
                 |> Sg.map ViewPlanMessage           
 
             //let solText = 
@@ -259,7 +258,7 @@ module SnapshotSg =
                 [ 
                     TraverseApp.Sg.viewLines m.scene.traverses
                     TraverseApp.Sg.viewText 
-                        m.navigation.camera.view
+                        m.navigation.view
                         m.scene.config.nearPlane.value 
                         m.scene.traverses
                 ]
@@ -275,13 +274,13 @@ module SnapshotSg =
                 DrawingApp.viewTextLabels 
                     m.scene.config
                     mdrawingConfig
-                    m.navigation.camera.view
+                    m.navigation.view
                     m.drawing            
 
             let scaleBarTexts = 
                 ScaleBarsApp.Sg.viewTextLabels 
                     m.scene.scaleBars 
-                    m.navigation.camera.view 
+                    m.navigation.view 
                     m.scene.config
                     mrefConfig
                     m.scene.referenceSystem.planet
@@ -304,7 +303,7 @@ module SnapshotSg =
         let scaleBars =
             ScaleBarsApp.Sg.view
                 m.scene.scaleBars
-                m.navigation.camera.view
+                m.navigation.view
                 m.scene.config
                 mrefConfig
             |> Sg.map ScaleBarsMessage
@@ -335,7 +334,7 @@ module SnapshotSg =
                 traverses
             ] |> Sg.ofList
 
-        let camera = AVal.map2 (fun v f -> Camera.create v f) m.navigation.camera.view m.frustum 
+        let camera = AVal.map2 (fun v f -> Camera.create v f) m.navigation.view m.frustum 
         let sg = createSceneGraph m.scene.surfacesModel.sgGrouped 
                                   overlayed depthTested runtime true m
         sg

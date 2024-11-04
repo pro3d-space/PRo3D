@@ -33,7 +33,6 @@ open PRo3D.Base.Annotation
 open PRo3D.Core
 open PRo3D.Core.SequencedBookmarks
 open PRo3D.Core.Drawing
-open PRo3D.Navigation2
 open PRo3D.Bookmarkings
 
 open PRo3D.Core.Surface
@@ -260,7 +259,7 @@ module ViewerApp =
             
             let view = 
                 match m.viewerMode with 
-                | ViewerMode.Standard -> m.navigation.camera.view
+                | ViewerMode.Standard -> m.navigation.view
                 | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam 
 
             let msg = DrawingAction.AddPointAdv(p, hitFunction, surf.name, None)
@@ -280,11 +279,8 @@ module ViewerApp =
             //update camera upvector
             SceneLoader.updateCameraUp m
         | Interactions.PickExploreCenter, ViewerMode.Standard ->
-            let c   = m.scene.config
-            let ref = m.scene.referenceSystem
-            let navigation' = 
-                Navigation.update c ref navConf true m.navigation (Navigation.Action.ArcBallAction(ArcBallController.Message.Pick p))
-            { m with navigation = navigation' }
+            let navigation = Navigation.setExploreCenter m.navigation p
+            { m with navigation = navigation}
         | Interactions.PlaceRover, ViewerMode.Standard ->
             let ref = m.scene.referenceSystem 
 
@@ -305,13 +301,13 @@ module ViewerApp =
             let action = (SurfaceAppAction.PlaceSurface(p)) 
             let surfaceModel =
                 SurfaceApp.update 
-                    m.scene.surfacesModel action m.scene.scenePath m.navigation.camera.view m.scene.referenceSystem
+                    m.scene.surfacesModel action m.scene.scenePath m.navigation.view m.scene.referenceSystem
             { m with scene = { m.scene with surfacesModel = surfaceModel } }
         | Interactions.PickSurface, ViewerMode.Standard -> 
             let action = SurfaceAppAction.GroupsMessage(GroupsAppAction.SingleSelectLeaf(list.Empty, surf.guid, ""))
             let surfaceModel' = 
                 SurfaceApp.update
-                   m.scene.surfacesModel action m.scene.scenePath m.navigation.camera.view m.scene.referenceSystem
+                   m.scene.surfacesModel action m.scene.scenePath m.navigation.view m.scene.referenceSystem
             { m with scene = { m.scene with surfacesModel = surfaceModel' } }
         //| Interactions.PickMinervaFilter, ViewerMode.Standard ->
         //    let action = PRo3D.Minerva.QueryAction.SetFilterLocation p |> PRo3D.Minerva.MinervaAction.QueryMessage
@@ -349,7 +345,7 @@ module ViewerApp =
 
             { m with heighValidation = heightVal }
         | Interactions.PlaceScaleBar, _ ->
-            let msg = ScaleBarsAction.AddScaleBar(p, m.scaleBarsDrawing, m.navigation.camera.view)
+            let msg = ScaleBarsAction.AddScaleBar(p, m.scaleBarsDrawing, m.navigation.view)
             let scm = ScaleBarsApp.update m.scene.scaleBars msg m.scene.referenceSystem
             { m with scene = { m.scene with scaleBars = scm } }
         | Interactions.PlaceSceneObject, ViewerMode.Standard -> 
@@ -362,7 +358,7 @@ module ViewerApp =
             | PickPivot.SurfacePivot     -> 
                 let action = (SurfaceAppAction.TranslationMessage( TransformationApp.Action.SetPickedPivotPoint p )) 
                 let surfaceModel =
-                    SurfaceApp.update m.scene.surfacesModel action m.scene.scenePath m.navigation.camera.view m.scene.referenceSystem
+                    SurfaceApp.update m.scene.surfacesModel action m.scene.scenePath m.navigation.view m.scene.referenceSystem
                 { m with scene = { m.scene with surfacesModel = surfaceModel } }
             //| PickPivot.ScaleBarPivot    -> 
             //    let action = (ScaleBarsAction.TranslationMessage( TransformationApp.Action.SetPickedPivotPoint p )) 
@@ -433,13 +429,13 @@ module ViewerApp =
         | NavigationMessage  msg,_,false when (isGrabbed m |> not) && (not (AnimationApp.shouldAnimate m.animations)) ->                
             let c   = m.scene.config
             let ref = m.scene.referenceSystem
-            let nav = Navigation.update c ref navConf true m.navigation msg               
+            let nav = Navigation.update c ref navConf m.navigation msg               
              
             //m.scene.navigation.camera.view.Location.ToString() |> NoAction |> ViewerAction |> mailbox.Post
              
             m 
             |> Optic.set _navigation nav
-            |> Optic.set _animationView nav.camera.view
+            |> Optic.set _animationView nav.view
         | NavigationMessage msg, _, _ ->
             m // cases where navigation is blocked by other operations (e.g. animation)
         | AnimationMessage msg,_,_ ->
@@ -521,7 +517,7 @@ module ViewerApp =
             | _ ->
                 let view = 
                     match m.viewerMode with 
-                    | ViewerMode.Standard -> m.navigation.camera.view
+                    | ViewerMode.Standard -> m.navigation.view
                     | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam
 
                 let drawing = 
@@ -530,7 +526,7 @@ module ViewerApp =
                 { m with drawing = drawing; } |> stash
         | SurfaceActions msg,_,_ ->
             
-            let view = m.navigation.camera.view
+            let view = m.navigation.view
             let s = SurfaceApp.update m.scene.surfacesModel msg m.scene.scenePath view m.scene.referenceSystem
             let animation = 
                 match msg with
@@ -605,7 +601,7 @@ module ViewerApp =
                 Optic.set _annotations a m
             | None -> m       
         | BookmarkMessage msg,_,_ ->  
-            Log.warn "[Viewer] bookmarks animation %A" m.navigation.camera.view.Location
+            Log.warn "[Viewer] bookmarks animation %A" m.navigation.view.Location
 
             let m', bm = Bookmarks.update m.scene.bookmarks m.scene.referenceSystem.planet msg _navigation m
             let animation = 
@@ -614,10 +610,10 @@ module ViewerApp =
                     match k with 
                     | GroupsAppAction.UpdateCam _->                      
                         createAnimation 
-                            m'.navigation.camera.view.Location
-                            m'.navigation.camera.view.Forward
-                            m'.navigation.camera.view.Up
-                            { m.animations with cam = m.navigation.camera.view } 
+                            m'.navigation.view.Location
+                            m'.navigation.view.Forward
+                            m'.navigation.view.Up
+                            { m.animations with cam = m.navigation.view } 
                     | _ -> m.animations
                 | _ -> m.animations
             
@@ -626,7 +622,7 @@ module ViewerApp =
             let bm = GroupsApp.update m.scene.bookmarks msg
             { m with scene = { m.scene with bookmarks = bm }} 
         | SequencedBookmarkMessage msg,_,_ ->
-            let m, bm = 
+            let (m : Model), bm = 
                 SequencedBookmarksApp.update 
                     m.scene.sequencedBookmarks
                     msg bookmarkLenses m
@@ -700,7 +696,7 @@ module ViewerApp =
                 | ViewPlanApp.Action.FlyToViewPlan vp ->
 
                     //TODO refactor, strange flyto approach
-                    let view = model.navigation.camera.view
+                    let view = model.navigation.view
                     let animationMessage = 
                         CameraAnimations.animateForwardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
 
@@ -920,7 +916,8 @@ module ViewerApp =
                 let importedData = RoverPlacementImporter.startRPImporter path
                 match m.scene.viewPlans.roverModel.selectedRover with
                 | Some r -> 
-                    let vp = ViewPlanApp.createViewPlanFromFile importedData m.scene.viewPlans r m.scene.referenceSystem m.navigation.camera.view
+                    let vp = ViewPlanApp.createViewPlanFromFile 
+                                importedData m.scene.viewPlans r m.scene.referenceSystem m.navigation.view
                     { m with scene = { m.scene with viewPlans = vp }}
                 | None -> Log.error "no rover selected"; m
             | None -> m     
@@ -992,7 +989,7 @@ module ViewerApp =
 
                             Log.line "[PickSurface] surface hit at %A" hit
 
-                            let cameraLocation = m.navigation.camera.view.Location //navigation'.camera.view.Location 
+                            let cameraLocation = m.navigation.view.Location //navigation'.camera.view.Location 
                             let hitF = hitF cameraLocation
                    
                             lastHash <- rayHash
@@ -1118,8 +1115,10 @@ module ViewerApp =
           
             let configAction = 
                 match k with 
-                | Aardvark.Application.Keys.PageUp   -> ConfigProperties.Action.SetNavigationSensitivity (Numeric.Action.SetValue (sensitivity + 0.5))
-                | Aardvark.Application.Keys.PageDown -> ConfigProperties.Action.SetNavigationSensitivity (Numeric.Action.SetValue (sensitivity - 0.5))
+                | Aardvark.Application.Keys.PageUp   -> 
+                    ConfigProperties.Action.SetNavigationSensitivity (Numeric.Action.SetValue (sensitivity + 0.5))
+                | Aardvark.Application.Keys.PageDown -> 
+                    ConfigProperties.Action.SetNavigationSensitivity (Numeric.Action.SetValue (sensitivity - 0.5))
                 | _ -> ConfigProperties.Action.SetNavigationSensitivity (Numeric.Action.SetValue (sensitivity))
 
             let c' = ConfigProperties.update m.scene.config configAction
@@ -1170,11 +1169,11 @@ module ViewerApp =
             | Keyboard.Modifier -> 
                 match m.interaction with
                 | Interactions.DrawAnnotation -> 
-                    let view = m.navigation.camera.view
+                    let view = m.navigation.view
                     let d = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing DrawingAction.StopDrawing
                     { m with drawing = d; ctrlFlag = false; picking = false }
                 | Interactions.PickAnnotation -> 
-                    let view = m.navigation.camera.view
+                    let view = m.navigation.view
                     let d = DrawingApp.update m.scene.referenceSystem drawingConfig sendQueue view m.shiftFlag m.drawing DrawingAction.StopPicking 
                     { m with drawing = d; ctrlFlag = false; picking = false }
                 //| Interactions.PickMinervaProduct -> { m with minervaModel = { m.minervaModel with picking = false }}
@@ -1408,18 +1407,13 @@ module ViewerApp =
                 | None -> m
             m'
         | EndDragging (mousePos, mouseButton) ,_,_ -> 
-          let m' =
+          let m =
                 match m.multiSelectBox with
                 | Some x -> { m with multiSelectBox = None }
                 | None -> m
-          let m' = 
-            {m' with navigation = {m'.navigation with camera = {m'.navigation.camera with pan = false }}}
-          m'
-        | MouseIn _,_,_ ->
-            {m with navigation = {m.navigation with camera = {m.navigation.camera with pan = true }}}
-        | MouseOut _,_,_ ->
-            {m with navigation = {m.navigation with camera = {m.navigation.camera with pan = false }}}
-
+          let m = 
+            {m with navigation = Navigation.stopPanning m.navigation}
+          m
        // | CorrelationPanelMessage a,_,_ ->
             //let blurg =
             //    match a with 
@@ -1541,7 +1535,7 @@ module ViewerApp =
                 
                 m |> Optic.set _geologicSurfacesModel geologicSurfaces'
             | _ ->
-                let geologicSurfaces' = GeologicSurfacesApp.update m.navigation.camera.view m.scene.geologicSurfacesModel msg
+                let geologicSurfaces' = GeologicSurfacesApp.update m.navigation.view m.scene.geologicSurfacesModel msg
                 let m' = m |> Optic.set _geologicSurfacesModel geologicSurfaces'  
                 m'
         | ScreenshotMessage msg, _ , _ ->
@@ -1690,9 +1684,11 @@ module ViewerApp =
                 let! state = model.navigationMode
                 match state with
                 | NavigationMode.FreeFly -> 
-                    yield! FreeFlyController.extractAttributes model.camera Navigation.Action.FreeFlyAction
+                    yield! FreeFlyController.extractAttributes model.freeFlyCamera Navigation.Action.FreeFlyAction
                 | NavigationMode.ArcBall ->                         
-                    yield! ArcBallController.extractAttributes model.camera Navigation.Action.ArcBallAction
+                    yield! ArcBallController.extractAttributes model.freeFlyCamera Navigation.Action.ArcBallAction
+                | NavigationMode.Orbit ->                         
+                    yield! OrbitController.extractAttributes model.orbitCamera Navigation.Action.OrbitAction
                 | _ -> 
                     failwith "Invalid NavigationMode"
             } 
@@ -1816,13 +1812,13 @@ module ViewerApp =
     let viewRenderView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
 
         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) m.overlayFrustum m.frustum // use overlay frustum if Some()
-        let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
+        let cam     = AVal.map2 Camera.create m.navigation.view frustum
 
         let annotations, discs = 
             DrawingApp.view 
                 m.scene.config 
                 mdrawingConfig 
-                m.navigation.camera.view 
+                m.navigation.view 
                 frustum
                 runtime
                 (m.viewPortSizes |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
@@ -1879,7 +1875,7 @@ module ViewerApp =
                     m.scene.config
                     mrefConfig
                     m.scene.referenceSystem
-                    m.navigation.camera.view
+                    m.navigation.view
                 |> Sg.map ReferenceSystemMessage  
 
             let exploreCenter =
@@ -1894,7 +1890,7 @@ module ViewerApp =
                     m.scene.config 
                     mrefConfig 
                     m.scene.viewPlans 
-                    m.navigation.camera.view
+                    m.navigation.view
                 |> Sg.map ViewPlanMessage           
 
             //let solText = 
@@ -1921,7 +1917,7 @@ module ViewerApp =
                 [ 
                     TraverseApp.Sg.viewLines m.scene.traverses
                     TraverseApp.Sg.viewText 
-                        m.navigation.camera.view
+                        m.navigation.view
                         m.scene.config.nearPlane.value 
                         m.scene.traverses
                 ]
@@ -1931,19 +1927,19 @@ module ViewerApp =
             let heightValidation =
                 HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation            
             
-            let orientationCube = PRo3D.OrientationCube.Sg.view m.navigation.camera.view m.scene.config m.scene.referenceSystem
+            let orientationCube = PRo3D.OrientationCube.Sg.view m.navigation.view m.scene.config m.scene.referenceSystem
 
             let annotationTexts =
                 DrawingApp.viewTextLabels 
                     m.scene.config
                     mdrawingConfig
-                    m.navigation.camera.view
+                    m.navigation.view
                     m.drawing            
 
             let scaleBarTexts = 
                 ScaleBarsApp.Sg.viewTextLabels 
                     m.scene.scaleBars 
-                    m.navigation.camera.view 
+                    m.navigation.view 
                     m.scene.config
                     mrefConfig
                     m.scene.referenceSystem.planet
@@ -1994,7 +1990,7 @@ module ViewerApp =
         let scaleBars =
             ScaleBarsApp.Sg.view
                 m.scene.scaleBars
-                m.navigation.camera.view
+                m.navigation.view
                 m.scene.config
                 mrefConfig
             |> Sg.map ScaleBarsMessage
@@ -2069,11 +2065,15 @@ module ViewerApp =
         let nav =
             match m.navigation.navigationMode with
             | NavigationMode.FreeFly -> 
-                FreeFlyController.threads m.navigation.camera
+                FreeFlyController.threads m.navigation.freeFlyCamera
                 |> ThreadPool.map Navigation.FreeFlyAction |> ThreadPool.map NavigationMessage
             | NavigationMode.ArcBall ->
-                ArcBallController.threads m.navigation.camera
+                ArcBallController.threads m.navigation.freeFlyCamera
                 |> ThreadPool.map Navigation.ArcBallAction |> ThreadPool.map NavigationMessage
+            | NavigationMode.Orbit ->
+                OrbitController.threads m.navigation.orbitCamera
+                |> ThreadPool.map Navigation.OrbitAction |> ThreadPool.map NavigationMessage
+
             | _ -> failwith "invalid nav mode"
          
       //  let minerva = MinervaApp.threads m.minervaModel |> ThreadPool.map MinervaActions

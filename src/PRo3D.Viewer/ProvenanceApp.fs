@@ -24,7 +24,7 @@ module ProvenanceApp =
 
     let applyPModel (baseModel : Model) (model : PModel) : Model =
         let setCameraView =
-            PRo3D.Viewer.Model.navigation_ >-> NavigationModel.camera_ >-> CameraControllerState.view_
+            PRo3D.Viewer.Model.navigation_ >-> NavigationModel.view_ 
          
         let setDrawing =
             PRo3D.Viewer.Model.drawing_ 
@@ -56,7 +56,7 @@ module ProvenanceApp =
         | ViewerMessage (ViewerAction.NavigationMessage (Action.FreeFlyAction FreeFlyController.Message.Rendered)) -> 
             Ignore
         | ViewerMessage (ViewerAction.NavigationMessage (Action.FreeFlyAction freeFly)) -> 
-            let msg = PMessage.SetCameraView newModel.navigation.camera.view
+            let msg = PMessage.SetCameraView newModel.navigation.view
             match lastMsg with
             | Some (PMessage.SetCameraView _) -> 
                 msg |> OverwrideLastNode
@@ -85,7 +85,7 @@ module ProvenanceApp =
 
     let reduceModel (model : Model) : PModel =
         { 
-            cameraView = model.navigation.camera.view
+            cameraView = model.navigation.view
             annotations = model.drawing
         }
 

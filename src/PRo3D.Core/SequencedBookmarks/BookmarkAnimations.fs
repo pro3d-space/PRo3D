@@ -339,9 +339,7 @@ module BookmarkAnimations =
             orderedLoadedBookmarks m
             |> List.map (fun (bm : SequencedBookmarkModel) -> bm.cameraView)
 
-        let view_ = navigationModel 
-                    >-> NavigationModel.camera_
-                    >-> CameraControllerState.view_
+        let view_ = NavigationModel.view_
 
         let animation = 
                 AnimationCameraPrimitives.Animation.Camera.smoothPath
@@ -357,9 +355,7 @@ module BookmarkAnimations =
                            (outerModel      : 'a) 
                            (lenses : BookmarkLenses<'a>)
                            (f : SequencedBookmarks -> option<SequencedBookmarkModel>) =
-        let view_ = lenses.navigationModel_ 
-                    >-> NavigationModel.camera_
-                    >-> CameraControllerState.view_
+        let view_ = lenses.navigationModel_ >-> NavigationModel.view_
         let currentView = Optic.get view_ outerModel
         match f m with
         | Some next -> 

@@ -13,7 +13,7 @@ open PRo3D.Base
 open PRo3D.Core
 open PRo3D.Core.SequencedBookmarks
 open PRo3D.Core.Drawing
-open PRo3D.Navigation2
+
 open PRo3D.Bookmarkings
 
 open PRo3D.Viewer
@@ -29,9 +29,9 @@ module ViewerLenses =
        
     // navigation
     let _navigation = Model.navigation_
-    let _camera     = _navigation >-> NavigationModel.camera_
-    let _view       = _camera >-> CameraControllerState.view_
-
+    let _orbitState = _navigation >-> NavigationModel.orbitCamera_
+    let _view       = _navigation >-> NavigationModel.view_
+    
     // view config
     let _viewConfigModel = Model.scene_ >-> Scene.config_
     let _frustumModel = _viewConfigModel >-> ViewConfigModel.frustumModel_

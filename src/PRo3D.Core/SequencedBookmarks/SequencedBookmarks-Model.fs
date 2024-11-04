@@ -761,7 +761,7 @@ type SequencedBookmarks = {
   }
 
 type BookmarkLenses<'a> = {
-    navigationModel_    : Lens<'a,NavigationModel>
+    navigationModel_    : Lens<'a, NavigationModel>
     sceneState_         : Lens<'a, SceneState>
     sequencedBookmarks_ : Lens<'a, SequencedBookmarks>
     setModel_           : Lens<'a, SequencedBookmark>

@@ -70,7 +70,7 @@ module BookmarkUtils =
                 version        = Bookmark.current
                 key            = System.Guid.NewGuid()
                 name           = name
-                cameraView     = navigation.camera.view 
+                cameraView     = navigation.view 
                 navigationMode = navigation.navigationMode
                 exploreCenter  = navigation.exploreCenter
             }
