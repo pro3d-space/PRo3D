@@ -123,13 +123,13 @@ module Navigation =
                 | _ ->  
                     model
             
-            //// update move sensitivity and target center to current values in model - why is this necessary here? Should this not be done whenever changes occur in model?
-            //let sensitivity = (lenses.navigationSensitivity.Get(viewConfigModel))
+            // update move sensitivity and target center to current values in model - why is this necessary here? Should this not be done whenever changes occur in model?
+            let sensitivity = (lenses.navigationSensitivity.Get(viewConfigModel))
 
-            //let zoomMouseWheelSensitivity = exp(sensitivity) * 0.1 // TODO RNO check where that calculation comes from
-            //let camera = snd OrbitState.moveSensitivity_ sensitivity camera
-            //let camera = snd OrbitState.zoomSensitivity_ zoomMouseWheelSensitivity camera
-            //let camera = snd OrbitState.targetCenter_ model.exploreCenter camera
+            let zoomMouseWheelSensitivity = exp(sensitivity) * 0.1 // TODO RNO check where that calculation comes from
+            let camera = snd OrbitState.moveSensitivity_ sensitivity camera
+            let camera = snd OrbitState.zoomSensitivity_ zoomMouseWheelSensitivity camera
+            let camera = snd OrbitState.targetCenter_ model.exploreCenter camera
             { model with orbitCamera   = camera
                          //freeFlyCamera = OrbitState.toFreeFly model.freeFlyCamera.moveSpeed camera // RNO is moveSpeed right here?
             }     
