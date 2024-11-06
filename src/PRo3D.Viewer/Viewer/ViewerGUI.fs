@@ -603,6 +603,7 @@ module Gui =
                                           menuItem "Surface Comparison" (ChangeDashboardMode DashboardModes.comparison)
                                           menuItem "Render Only" (ChangeDashboardMode DashboardModes.renderOnly)
                                           menuItem "Provenance" (ChangeDashboardMode DashboardModes.provenance)
+                                          menuItem "GIS" (ChangeDashboardMode DashboardModes.gis)
                                         ]   
                                 
                                 //scene objects

@@ -39,4 +39,11 @@ module DashboardModes =
             dockConfig = DockConfigs.provenance
         }
 
+
+    let gis =
+        {
+            name       = "GIS"
+            dockConfig = DockConfigs.gis
+        }
+
     
