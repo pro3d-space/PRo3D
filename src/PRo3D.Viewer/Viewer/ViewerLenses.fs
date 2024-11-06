@@ -107,7 +107,6 @@ module ViewerLenses =
                                 or delete and create new bookmark."
                     let newState = {state with stateSurfaces = m.scene.surfacesModel.surfaces}
                     BookmarkUtils.getValidState newState
-            Log.line "m.origin = %s, state.origin = %s" (string m.scene.referenceSystem.origin)  (string state.stateReferenceSystem.origin)
             let scaleBars = // check scale bars; using old segments for performance reasons
                 if haveSameKeys state.stateScaleBars.scaleBars
                                 m.scene.scaleBars.scaleBars then 
@@ -227,8 +226,6 @@ module ViewerLenses =
         ),
         (fun sb m ->
             let update (sb : SequencedBookmarkModel) = 
-                // update camera to bookmark's camera
-                //let m = Optic.set _view sb.cameraView m
 
                 // update the scene state if the bookmark contains one
                 let inline updateSceneState sb m =
@@ -266,6 +263,8 @@ module ViewerLenses =
                         | None ->
                             m
                     | None ->
+                        //update camera to bookmark's camera
+                        let m = Optic.set _view sb.cameraView m
                         m
                    
                 m
