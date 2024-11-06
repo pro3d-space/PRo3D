@@ -324,28 +324,29 @@ module BookmarkAnimations =
     //    let m = {m with originalSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
     //    outerModel, m
 
-    let smoothPathAllBookmarks (m : SequencedBookmarks)
-                               (lenses : BookmarkLenses<'a>)
-                               (outerModel      : 'a) =
-        let bookmarks = orderedLoadedBookmarks m
-        let animation =
-            bookmarks
-            |> smoothBookmarkPath m.animationSettings.smoothingFactor.value
-            |> List.ofArray
-            |> List.map (Animation.onStart (fun name x m -> 
-                                                    Log.line "selected bm %s" x.name
-                                                    Optic.set lenses.selectedBookmark_ (Some x.key) m
-                                    ))
-                |> Animation.path
-        let animation = 
-            animation
-            |> addGlobalAttributes m lenses outerModel
+    /// This function does no work with focal length therefore it is not in use
+    //let smoothPathAllBookmarks (m : SequencedBookmarks)
+    //                           (lenses : BookmarkLenses<'a>)
+    //                           (outerModel      : 'a) =
+    //    let bookmarks = orderedLoadedBookmarks m
+    //    let animation =
+    //        bookmarks
+    //        |> smoothBookmarkPath m.animationSettings.smoothingFactor.value
+    //        |> List.ofArray
+    //        |> List.map (Animation.onStart (fun name x m -> 
+    //                                                Log.line "selected bm %s" x.name
+    //                                                Optic.set lenses.selectedBookmark_ (Some x.key) m
+    //                                ))
+    //            |> Animation.path
+    //    let animation = 
+    //        animation
+    //        |> addGlobalAttributes m lenses outerModel
                 
-        let outerModel =
-            outerModel 
-            |> Animator.createAndStart AnimationSlot.camera animation
-        //let m = {m with savedSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
-        outerModel, m
+    //    let outerModel =
+    //        outerModel 
+    //        |> Animator.createAndStart AnimationSlot.camera animation
+    //    //let m = {m with savedSceneState = Some (Optic.get lenses.sceneState_ outerModel)}
+    //    outerModel, m
         
     let pathWithPausing (m : SequencedBookmarks)
                         (lenses : BookmarkLenses<'a>)
