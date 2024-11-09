@@ -55,6 +55,39 @@ module TransformationApp =
     | ToggleUsePivot
     | SetPivotSize          of Numeric.Action
     | SetEulerMode          of EulerMode
+
+
+    let getReferenceSystemBasis (refSystem : ReferenceSystem) =
+
+        let northCorrection = Trafo3d.RotationZInDegrees(refSystem.noffset.value)
+
+        match refSystem.planet with
+        | Planet.Earth
+        | Planet.ENU -> 
+            Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OIO, V3d.OOI) * northCorrection
+        | Planet.Mars ->
+            //let upP = CooTransformation.getUpVector pivot refSystem.planet
+            //let east = V3d.OOI.Cross(upP)
+            //let north = upP.Cross(east)
+            //Log.line "%A,%A,%A" upP.Length east.Length north.Length
+            let north = refSystem.northO.Normalized        
+            let up    = refSystem.up.value.Normalized
+            let east  = north.Cross(up).Normalized
+              
+            let refSysRotation = 
+                Trafo3d.FromOrthoNormalBasis(north, east, up)
+            refSysRotation
+        | Planet.JPL -> 
+            Trafo3d.FromOrthoNormalBasis(-V3d.IOO, V3d.OIO, -V3d.OOI) * northCorrection
+        | Planet.None -> 
+            northCorrection
+        | _ -> failwith ""
+
+    let translationFromReferenceSystemBasis
+        (translation    : V3d)
+        (refSystem      : ReferenceSystem) =
+            let refsysbasis = getReferenceSystemBasis refSystem
+            refsysbasis.Forward.TransformPos(translation) 
    
     let calcFullTrafo 
         (translation : V3d)
@@ -68,30 +101,7 @@ module TransformationApp =
         (scale:float)
         (eulerMode : EulerMode) = 
 
-           let northCorrection = Trafo3d.RotationZInDegrees(refSystem.noffset.value)
-           let refSysBasis = 
-                match refSystem.planet with
-                | Planet.Earth
-                | Planet.ENU -> 
-                    Trafo3d.FromOrthoNormalBasis(V3d.IOO, V3d.OIO, V3d.OOI) * northCorrection
-                | Planet.Mars ->
-                    //let upP = CooTransformation.getUpVector pivot refSystem.planet
-                    //let east = V3d.OOI.Cross(upP)
-                    //let north = upP.Cross(east)
-                    //Log.line "%A,%A,%A" upP.Length east.Length north.Length
-                    let north = refSystem.northO.Normalized        
-                    let up    = refSystem.up.value.Normalized
-                    let east  = north.Cross(up).Normalized
-              
-                    let refSysRotation = 
-                        Trafo3d.FromOrthoNormalBasis(north, east, up)
-                    refSysRotation
-                | Planet.JPL -> 
-                    Trafo3d.FromOrthoNormalBasis(-V3d.IOO, V3d.OIO, -V3d.OOI) * northCorrection
-                | Planet.None -> 
-                    northCorrection
-                | _ -> failwith ""
-
+           let refSysBasis = getReferenceSystemBasis refSystem
            let originTrafo = pivot |> Trafo3d.Translation
 
            //translation along north, east, up directions         

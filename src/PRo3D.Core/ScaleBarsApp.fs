@@ -228,43 +228,43 @@ module ScaleBarUtils =
             }
 
 
-module ScaleBarTransformations = 
+//module ScaleBarTransformations = 
 
 
-    //TODO refactor: is this code duplication necessary? transformations should all work the same, shouldn't they?
-    let fullTrafo'' (translation : V3d) (yaw : float) (pivot : V3d) (refsys : ReferenceSystem) = 
-        let north = refsys.northO.Normalized
+//    //TODO refactor: is this code duplication necessary? transformations should all work the same, shouldn't they?
+//    let fullTrafo'' (translation : V3d) (yaw : float) (pivot : V3d) (refsys : ReferenceSystem) = 
+//        let north = refsys.northO.Normalized
         
-        let up = refsys.up.value.Normalized
-        let east   = north.Cross(up)
+//        let up = refsys.up.value.Normalized
+//        let east   = north.Cross(up)
               
-        let refSysRotation = 
-            Trafo3d.FromOrthoNormalBasis(north, east, up)
+//        let refSysRotation = 
+//            Trafo3d.FromOrthoNormalBasis(north, east, up)
             
-        //translation along north, east, up            
-        let trans = translation |> Trafo3d.Translation
-        let rot = Trafo3d.Rotation(up, yaw.RadiansFromDegrees())
+//        //translation along north, east, up            
+//        let trans = translation |> Trafo3d.Translation
+//        let rot = Trafo3d.Rotation(up, yaw.RadiansFromDegrees())
         
-        let originTrafo = -pivot |> Trafo3d.Translation
+//        let originTrafo = -pivot |> Trafo3d.Translation
         
-        (originTrafo * rot * originTrafo.Inverse * refSysRotation.Inverse * trans * refSysRotation)
+//        (originTrafo * rot * originTrafo.Inverse * refSysRotation.Inverse * trans * refSysRotation)
            
     
-    let fullTrafo (tansform : AdaptiveTransformations) (refsys : ReferenceSystem) = 
-        adaptive {
-           let! translation = tansform.translation.value
-           let! yaw = tansform.yaw.value
-           let! pivot = tansform.pivot.value
+//    let fullTrafo (tansform : AdaptiveTransformations) (refsys : ReferenceSystem) = 
+//        adaptive {
+//           let! translation = tansform.translation.value
+//           let! yaw = tansform.yaw.value
+//           let! pivot = tansform.pivot.value
             
-           return fullTrafo'' translation yaw pivot refsys
-        }
+//           return fullTrafo'' translation yaw pivot refsys
+//        }
 
-    let fullTrafo' (tansform : Transformations) (refsys : ReferenceSystem) = 
-        let translation = tansform.translation.value
-        let yaw = tansform.yaw.value
-        let pivot = tansform.pivot.value
+//    let fullTrafo' (tansform : Transformations) (refsys : ReferenceSystem) = 
+//        let translation = tansform.translation.value
+//        let yaw = tansform.yaw.value
+//        let pivot = tansform.pivot.value
             
-        fullTrafo'' translation yaw pivot refsys
+//        fullTrafo'' translation yaw pivot refsys
         
 
 module ScaleBarsApp = 
@@ -521,26 +521,34 @@ module ScaleBarsApp =
             (view       : aval<CameraView>)
             (near       : aval<float>)
             (hfov       : aval<float>) 
-            (planet     : aval<Planet>) =
+            //(planet     : aval<Planet>) =
+            (refSys     : AdaptiveReferenceSystem) =
 
             let labelPosition =
                 adaptive {
                     let! scaleBar = scaleBar.Current
                     let pos = scaleBar.position
-                    let! planet = planet
-                    let direction = ScaleBarUtils.getDirectionVec scaleBar.orientation scaleBar.view pos planet
+
+                    //translation along north, east, up 
+                    let! refsys = refSys.Current
+                    let translation = TransformationApp.translationFromReferenceSystemBasis scaleBar.transformation.translation.value refsys
+                    let newPos = pos + translation
+
+                    let direction = ScaleBarUtils.getDirectionVec scaleBar.orientation scaleBar.view pos refsys.planet
 
                     let scaledDirection = 
                         direction * ((scaleBar.length.value / 2.0) |> ScaleBarUtils.getLengthInMeter scaleBar.unit )
 
                     match scaleBar.alignment with
-                    | Pivot.Left   -> return pos + scaledDirection
-                    | Pivot.Right  -> return pos - scaledDirection
-                    | Pivot.Middle -> return pos
-                    | _ -> return pos                    
+                    | Pivot.Left   -> return newPos + scaledDirection
+                    | Pivot.Right  -> return newPos - scaledDirection
+                    | Pivot.Middle -> return newPos
+                    | _ -> return newPos                    
                 }
 
             let isVisible = AVal.map2(fun t v -> t && v ) scaleBar.textVisible scaleBar.isVisible
+
+            //translation along north, east, up 
             
             Sg.text 
                 view 
@@ -558,7 +566,8 @@ module ScaleBarsApp =
             (view           : aval<CameraView>)
             (mbigConfig     : 'ma)
             (minnerConfig   : MInnerConfig<'ma>) 
-            (planet         : aval<Planet>) =
+            //(planet         : aval<Planet>) =
+            (refSys         : AdaptiveReferenceSystem) =
 
             let near = minnerConfig.getNearDistance mbigConfig
 
@@ -567,7 +576,7 @@ module ScaleBarsApp =
             
             scaleBars 
             |> AMap.map( fun id sb ->
-                viewSingleText sb view near hfov planet
+                viewSingleText sb view near hfov refSys
             )
             |> AMap.toASet 
             |> ASet.map snd 
@@ -577,7 +586,8 @@ module ScaleBarsApp =
             (scaleBar   : AdaptiveScaleBar) 
             (view       : aval<CameraView>)
             (near       : aval<float>)
-            (selected   : aval<Option<Guid>>) =
+            (selected   : aval<Option<Guid>>) 
+            (refSys     : AdaptiveReferenceSystem) =
 
             adaptive {
                 
@@ -586,15 +596,17 @@ module ScaleBarsApp =
                     match selected' with
                     | Some sel -> sel = (scaleBar.guid |> AVal.force)
                     | None -> false
-
+                
+                let! scaleBarTrans = scaleBar.transformation.translation.value
                 //translation along north, east, up 
-                let! translation = scaleBar.transformation.translation.value
-                let trans = translation |> Trafo3d.Translation
+                let! refsys = refSys.Current
+                let translation = (TransformationApp.translationFromReferenceSystemBasis scaleBarTrans refsys) |> Trafo3d.Translation 
+                        
 
                 let trafo =
                     adaptive {
                         let! pos = scaleBar.position
-                        return (Trafo3d.Translation pos) * trans
+                        return (Trafo3d.Translation pos) * translation
                     }                
 
                 let pickFunc = Sg.pickEventsHelper scaleBar.guid (AVal.constant selected) scaleBar.thickness.value trafo
@@ -603,7 +615,7 @@ module ScaleBarsApp =
                 // do this for all lineparts
                 let sgSegments = 
                     scaleBar.scSegments 
-                    |> AList.map( fun seg -> getSgSegmentCylinder seg scaleBar.thickness.value trans ) 
+                    |> AList.map( fun seg -> getSgSegmentCylinder seg scaleBar.thickness.value translation ) 
                     |> AList.toASet
                     |> Sg.set
                
@@ -622,7 +634,7 @@ module ScaleBarsApp =
                     if selected then
                         let cylinder = 
                             scaleBar.scSegments 
-                            |> AList.map( fun seg -> getSgSegmentCylinderMask seg scaleBar.thickness.value trans ) 
+                            |> AList.map( fun seg -> getSgSegmentCylinderMask seg scaleBar.thickness.value translation) 
                             |> AList.toASet
                             |> Sg.set
                         OutlineEffect.createForSg 2 RenderPass.main C4f.VRVisGreen cylinder
@@ -640,7 +652,8 @@ module ScaleBarsApp =
             (scaleBarsModel : AdaptiveScaleBarsModel) 
             (view           : aval<CameraView>)
             (mbigConfig     : 'ma)
-            (minnerConfig   : MInnerConfig<'ma>) =
+            (minnerConfig   : MInnerConfig<'ma>)
+            (refSys         : AdaptiveReferenceSystem) =
 
             let near = minnerConfig.getNearDistance mbigConfig
 
@@ -654,6 +667,7 @@ module ScaleBarsApp =
                     view
                     near
                     selected
+                    refSys
             )
             |> AMap.toASet 
             |> ASet.map snd 
