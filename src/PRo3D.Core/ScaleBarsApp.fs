@@ -444,14 +444,17 @@ module ScaleBarsApp =
         let getSgSegmentCylinder
             (segment : AdaptivescSegment)
             (thickness : aval<float>) 
-            (translation : Trafo3d) =
+            (translation : V3d) =
             adaptive {
                 let! p1 = segment.startPoint
                 let! p2 = segment.endPoint
 
+                let p1 = p1 + translation
+                let p2 = p2 + translation
+
                 let length = Vec.Distance(p1,p2)
                 let dir = p2 - p1
-                let trafo =  (Trafo3d.RotateInto(V3d.ZAxis, dir.Normalized) * (Trafo3d.Translation(p1) * translation))
+                let trafo =  (Trafo3d.RotateInto(V3d.ZAxis, dir.Normalized) * (Trafo3d.Translation(p1)))
                 return Sg.cylinder 30 segment.color thickness (AVal.constant length)             
                         |> Sg.noEvents
                         |> Sg.uniform "WorldPos" (segment.startPoint)
@@ -468,14 +471,17 @@ module ScaleBarsApp =
         let getSgSegmentCylinderMask
             (segment : AdaptivescSegment)
             (thickness : aval<float>) 
-            (translation : Trafo3d) =
+            (translation : V3d) =
             adaptive {
                 let! p1 = segment.startPoint
                 let! p2 = segment.endPoint
 
+                let p1 = p1 + translation
+                let p2 = p2 + translation
+
                 let length = Vec.Distance(p1,p2)
                 let dir = p2 - p1
-                let trafo =  (Trafo3d.RotateInto(V3d.ZAxis, dir.Normalized) * (Trafo3d.Translation(p1) * translation))
+                let trafo =  (Trafo3d.RotateInto(V3d.ZAxis, dir.Normalized) * (Trafo3d.Translation(p1) ))
                 return Sg.cylinder 30 segment.color thickness (AVal.constant length)             
                         |> Sg.noEvents
                         |> Sg.uniform "WorldPos" (segment.startPoint)
@@ -534,7 +540,7 @@ module ScaleBarsApp =
                     let translation = TransformationApp.translationFromReferenceSystemBasis scaleBar.transformation.translation.value refsys
                     let newPos = pos + translation
 
-                    let direction = ScaleBarUtils.getDirectionVec scaleBar.orientation scaleBar.view pos refsys.planet
+                    let direction = ScaleBarUtils.getDirectionVec scaleBar.orientation scaleBar.view newPos refsys.planet
 
                     let scaledDirection = 
                         direction * ((scaleBar.length.value / 2.0) |> ScaleBarUtils.getLengthInMeter scaleBar.unit )
@@ -600,13 +606,13 @@ module ScaleBarsApp =
                 let! scaleBarTrans = scaleBar.transformation.translation.value
                 //translation along north, east, up 
                 let! refsys = refSys.Current
-                let translation = (TransformationApp.translationFromReferenceSystemBasis scaleBarTrans refsys) |> Trafo3d.Translation 
+                let translation = (TransformationApp.translationFromReferenceSystemBasis scaleBarTrans refsys) //|> Trafo3d.Translation 
                         
 
                 let trafo =
                     adaptive {
                         let! pos = scaleBar.position
-                        return (Trafo3d.Translation pos) * translation
+                        return (Trafo3d.Translation pos) * (translation |> Trafo3d.Translation)
                     }                
 
                 let pickFunc = Sg.pickEventsHelper scaleBar.guid (AVal.constant selected) scaleBar.thickness.value trafo
