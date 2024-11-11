@@ -20,7 +20,11 @@ module QTree =
 
     open Aardvark.Data.Opc
 
-    let rec foldCulled (consider : Box3d -> bool) (f : Patch -> 's -> 's) (seed : 's) (tree : QTree<Patch>) =
+    let rec foldCulled 
+        (consider : Box3d -> bool) 
+        (f        : Patch -> 's -> 's) 
+        (seed     : 's) 
+        (tree     : QTree<Patch>) =
         match tree with
         | QTree.Node(p, children) -> 
             if consider p.info.GlobalBoundingBox then
@@ -46,7 +50,7 @@ type QueryResult =
 
 type QueryFunctions =
     {
-        boxIntersectsQuery : Box3d -> bool
+        boxIntersectsQuery          : Box3d -> bool
         globalWorldPointWithinQuery : V3d -> bool
     }
 
@@ -89,27 +93,41 @@ module AnnotationQuery =
             globalWorldPointWithinQuery = globalCoordWithinQuery
         }
 
-    let queryFunctionsFromAnnotation (heightRange : Range1d) (annotation : Annotation) =
+    let queryFunctionsFromAnnotation 
+        (heightRange : Range1d)
+        (annotation : Annotation)
+        : QueryFunctions =
+
         let corners = annotation.points |> IndexList.toSeq
         let segmentPoints = annotation.segments |> Seq.collect (fun s -> s.points)
         let points = Seq.concat [corners; segmentPoints]
         queryFunctionsFromPointsOnPlane heightRange points
 
-    let handlePatch (q : QueryFunctions) (paths : OpcPaths) (requestedAttributes : list<string>) (p : Patch) (o : List<QueryResult>) =
+//    let loadAttibuteLayer =
+
+    let handlePatch 
+        (q                   : QueryFunctions) 
+        (paths               : OpcPaths) 
+        (attributeLayerNames : list<string>) 
+        (p                   : Patch) 
+        (o                   : List<QueryResult>) 
+        : List<QueryResult> =
+
         let ig, _ = Patch.load paths ViewerModality.XYZ p.info
         let pfi = paths.Patches_DirAbsPath +/ p.info.Name
         let attributes = 
             let available = Set.ofList p.info.Attributes
             let attributes = 
-                requestedAttributes |> List.choose (fun l -> 
-                    if Set.contains l available then
-                        let path = paths.Patches_DirAbsPath +/ p.info.Name +/ l
+                attributeLayerNames 
+                |> List.choose (fun layerName -> 
+                    if Set.contains layerName available then
+                        let path = paths.Patches_DirAbsPath +/ p.info.Name +/ layerName
                         if File.Exists path then
-                            Some (l, path)
+                            Some (layerName, path)
                         else
                             None
                     else 
-                        Log.warn $"[Queries] requested attribute {l} but patch {p.info.Name} does not provide it." 
+                        Log.warn $"[Queries] requested attribute {layerName} but patch {p.info.Name} does not provide it." 
                         Log.line "[Queries] available attributes: %s" (available |> Set.toSeq |> String.concat ",")
                         None
                 )
@@ -127,7 +145,6 @@ module AnnotationQuery =
             | (:? array<V3f> as v) when not (isNull v) -> v
             | _ -> failwith "[Queries] Patch has no V3f[] positions"
 
-
         let idxArray = 
             if ig.IsIndexed then
                 match ig.IndexArray with
@@ -135,7 +152,6 @@ module AnnotationQuery =
                 | _ -> failwith "[Queries] Patch index geometry has no int[] index"
             else
                 failwith "[Queries] Patch index geometry is not indexed."
-
 
         let attributesInputOutput =
             attributes 
@@ -146,7 +162,6 @@ module AnnotationQuery =
         let localOutputPositions = List<V3f>()
         let indices = List<int>()
                 
-
         for startIndex in 0 .. 3 ..  idxArray.Length - 3 do
             let tri = [| idxArray[startIndex]; idxArray[startIndex + 1]; idxArray[startIndex + 2] |] 
             let localVertices = tri |> Array.map (fun idx -> positions[idx])
@@ -173,35 +188,47 @@ module AnnotationQuery =
                     localOutputPositions.AddRange(localVertices)
 
         o.Add {
-            attributes = attributesInputOutput |> Map.map (fun p (i,o) -> { channels = 1; array = o.ToArray() :> System.Array})
-            globalPositions = globalOutputPositions :> IReadOnlyList<V3d>
-            patchFileInfoPath = pfi
-            localPositions = localOutputPositions :> IReadOnlyList<V3f>
-            indices = indices :> IReadOnlyList<int>
+            attributes          = attributesInputOutput |> Map.map (fun p (i,o) -> { channels = 1; array = o.ToArray() :> System.Array})
+            globalPositions     = globalOutputPositions :> IReadOnlyList<V3d>
+            patchFileInfoPath   = pfi
+            localPositions      = localOutputPositions :> IReadOnlyList<V3f>
+            indices             = indices :> IReadOnlyList<int>
         }
         o
 
-    let pick (hierarchies : list<PatchHierarchy * FileName>) (requestedAttributes : list<string>) 
-             (q : QueryFunctions) (handlePatch : OpcPaths -> list<string> -> Patch  -> List<QueryResult> -> List<QueryResult>) 
-             (hit : List<QueryResult> -> unit) =
+    let pick 
+        (hierarchies         : list<PatchHierarchy * FileName>) 
+        (requestedAttributes : list<string>) 
+        (q                   : QueryFunctions) 
+        (handlePatch         : OpcPaths -> list<string> -> Patch -> List<QueryResult> -> List<QueryResult>) 
+        (hit                 : List<QueryResult> -> unit) =
 
-        let hits = 
-            let points = List<QueryResult>()
-            hierarchies |> List.fold (fun points (h, basePath) -> 
+        let queryResults = 
+            //let points = List<QueryResult>()
+            hierarchies 
+            |> List.fold (fun points (h, basePath) -> 
                 let paths = OpcPaths basePath
-                let result = QTree.foldCulled q.boxIntersectsQuery (handlePatch paths requestedAttributes) points h.tree
+                let result = 
+                    QTree.foldCulled 
+                        q.boxIntersectsQuery 
+                        (handlePatch paths requestedAttributes) 
+                        points 
+                        h.tree
                 points
-            ) points
+            ) (List<QueryResult>())
              
-        hit hits
-        hits
+        hit queryResults
+        queryResults
 
+    let pickAnnotation 
+        (hierarchies    : list<PatchHierarchy * FileName>) 
+        (attributeNames : list<string>) 
+        (heightRange    : Range1d) 
+        (hit            : List<QueryResult> -> unit) 
+        (annotation     : Annotation) : List<QueryResult>=
 
-    let pickAnnotation (hierarchies : list<PatchHierarchy * FileName>) (requestedAttributes : list<string>) (heightRange : Range1d) (hit : List<QueryResult> -> unit) (annotation : Annotation) =
         let q = queryFunctionsFromAnnotation heightRange annotation
-        pick hierarchies requestedAttributes q (handlePatch q) hit
-
-
+        pick hierarchies attributeNames q (handlePatch q) hit
 
     let queryResultsToObj (hits : List<QueryResult>) =
         let allVertices = hits |> Seq.collect (fun h -> h.globalPositions) |> Seq.toArray

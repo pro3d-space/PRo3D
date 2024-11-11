@@ -173,8 +173,11 @@ module RemoteApi =
             ViewerAction.SetScenePath virtualScenePath |> emit
             serializedModel
 
-        member x.SetSceneFromCheckpoint(sceneAsJson : string, drawingAsJson : string, 
-                                        p : Option<ProvenanceModel.Thoth.CyDescription>, activeNode : Option<string>) : unit =
+        member x.SetSceneFromCheckpoint(
+                sceneAsJson     : string, 
+                drawingAsJson   : string, 
+                p               : Option<ProvenanceModel.Thoth.CyDescription>, 
+                activeNode      : Option<string>) : unit =
             let setScene = ViewerAction.LoadSerializedScene sceneAsJson
             let setDrawing = ViewerAction.LoadSerializedDrawingModel drawingAsJson
             setScene |> emit
@@ -204,29 +207,44 @@ module RemoteApi =
                 )
                 |> Seq.toArray
 
-        member x.QueryAnnotation(annotationId : string, requestedAttributes : list<string>, heightRange : Range1d) =
-            let map = x.FullModel.drawing.annotations.flat.Content.GetValue()
-            match HashMap.tryFind (Guid.Parse(annotationId)) map with
-            | Some (AdaptiveAnnotations annotations) -> 
-                let anno = annotations.Current.GetValue()
+        member x.QueryAnnotation(
+                queryAnnotationId   : string, 
+                attributeNames : list<string>, 
+                heightRange         : Range1d) =
+
+            let annotations = x.FullModel.drawing.annotations.flat.Content.GetValue()
+            match HashMap.tryFind (Guid.Parse(queryAnnotationId)) annotations with
+            | Some (AdaptiveAnnotations queryAnnotation) -> 
+                let anno = queryAnnotation.Current.GetValue()
                 let sgSurfaces = x.FullModel.scene.surfacesModel.sgSurfaces.Content.GetValue()
-                let opcs = sgSurfaces |> Seq.choose (fun (_,s) -> match s.opcScene.GetValue() with None -> None | Some s -> Some s)
+                let opcs = 
+                    sgSurfaces 
+                    |> Seq.choose (fun (_,s) -> s.opcScene.GetValue())
                 let patchHierarchies = 
-                    opcs |> Seq.collect (fun scene -> 
+                    opcs 
+                    |> Seq.collect (fun scene -> 
                         scene.patchHierarchies
                         |> Seq.map Prinziple.register
                         |> Seq.map (fun x -> 
-                            Aardvark.Data.Opc.PatchHierarchy.load PRo3D.Base.Serialization.binarySerializer.Pickle PRo3D.Base.Serialization.binarySerializer.UnPickle (Aardvark.Data.Opc.OpcPaths x), x
+                            Aardvark.Data.Opc.PatchHierarchy.load 
+                                PRo3D.Base.Serialization.binarySerializer.Pickle 
+                                PRo3D.Base.Serialization.binarySerializer.UnPickle
+                                (Aardvark.SceneGraph.Opc.OpcPaths x), x
                         )
                     )
                     |> Seq.toList
-                let hits = PRo3D.Base.AnnotationQuery.pickAnnotation patchHierarchies requestedAttributes heightRange ignore anno
-                Some hits
-            | _ -> None
 
+                let queryResults = PRo3D.Base.AnnotationQuery.pickAnnotation patchHierarchies attributeNames heightRange ignore anno
+                Some queryResults
+            | _ -> 
+                None
 
-        member x.ApplyGraphAndGetCheckpointState(sceneAsJson : string, drawingAsJson : string, 
-                                                 p : Option<ProvenanceModel.Thoth.CyDescription>, activeNode : Option<string>) : Model * ViewerIO.SerializedModel =
+        member x.ApplyGraphAndGetCheckpointState(
+                sceneAsJson   : string, 
+                drawingAsJson : string, 
+                p             : Option<ProvenanceModel.Thoth.CyDescription>, 
+                activeNode    : Option<string>) : Model * ViewerIO.SerializedModel =
+
 
             let nopSendQueue = new System.Collections.Concurrent.BlockingCollection<_>()
             let nopMailbox = new MessagingMailbox(fun _ -> async { return () })
@@ -241,7 +259,6 @@ module RemoteApi =
             setScene |> emit
             setDrawing |> emit
 
-            
             match activeNode, p with
             | Some nodeId, Some graph -> 
                 ProvenanceMessage (ProvenanceApp.ProvenanceMessage.SetGraph(graph, storage)) |> emitTopLevel
@@ -251,7 +268,6 @@ module RemoteApi =
 
             let serializedModel = ViewerIO.getSerializedModel currentModel
             currentModel, serializedModel
-
 
         member x.ImportDrawingModel(drawingAsJson : string, source : string) : unit =
             let setDrawing = ViewerAction.ImportSerializedDrawingModel(drawingAsJson, source)
@@ -407,7 +423,6 @@ module RemoteApi =
             api.ImportDrawingModel(drawingAsJson, source)
             Successful.OK ""
 
-
         let getFullStateFor (api : Api) (importAnnotations : bool) (r : HttpRequest) =
             let str = r.rawForm |> getUTF8
 
@@ -447,13 +462,10 @@ module RemoteApi =
             | Some (Result.Error e) -> 
                 ServerErrors.INTERNAL_ERROR e
 
-
-
         let getProvenanceGraph (api : Api) (r : HttpRequest) =
             let graphJson = api.GetProvenanceGraphJson()
             Successful.OK graphJson 
              
-
 
     module Suave = 
 
@@ -474,8 +486,6 @@ module RemoteApi =
         open SuaveHelpers
         open ProvenanceGraph
 
-
-   
         let loadScene (api : Api) (r : HttpRequest)= 
             let str = r.rawForm |> getUTF8
             let command : LoadScene = str |> JsonSerializer.Deserialize
@@ -485,29 +495,24 @@ module RemoteApi =
             else
                 RequestErrors.BAD_REQUEST "Oops, something went wrong here!"
             
-
         let discoverSurfaces (api : Api) (r : HttpRequest) = 
             let str = r.rawForm |> getUTF8
             let command : ChangeImportDirectories = str |> JsonSerializer.Deserialize
             api.LocateSurfaces(command.folders)
             Successful.OK "done"
             
-
         let saveScene (api : Api) (r : HttpRequest)= 
             let str = r.rawForm |> getUTF8
             let command : SaveScene = str |> JsonSerializer.Deserialize
             api.SaveScene command.sceneFile 
             Successful.OK "done"
             
-
         let importOpc (api : Api) (r : HttpRequest) = 
             let str = r.rawForm |> getUTF8
             let command : ImportOpc = str |> JsonSerializer.Deserialize
             api.ImportOpc command.folders 
             Successful.OK "done"
             
-
-
         let provenanceGraphWebSocket (hackDoNotSendInitialState : bool) (storage : PPersistence) (api : Api) =
             WebSocket.handShake (fun webSocket ctx -> 
                 let nodes = 
@@ -572,7 +577,6 @@ module RemoteApi =
                 }
             )
         
-
         let annotationsGeoJsonWebSocket (planet : Option<Base.Planet>) (api : Api) =
             
             WebSocket.handShake (fun webSocket ctx -> 
