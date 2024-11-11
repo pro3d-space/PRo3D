@@ -28,41 +28,41 @@ type SceneObjectAction =
     | ChangeSOImportDirectories of list<string>
 
 
-module SceneObjectTransformations = 
+//module SceneObjectTransformations = 
 
-    let fullTrafo'' (translation : V3d) (yaw : float) (pivot : V3d) (refsys : ReferenceSystem) = 
-        let north = refsys.northO.Normalized
+//    let fullTrafo'' (translation : V3d) (yaw : float) (pivot : V3d) (refsys : ReferenceSystem) = 
+//        let north = refsys.northO.Normalized
         
-        let up = refsys.up.value.Normalized
-        let east   = north.Cross(up)
+//        let up = refsys.up.value.Normalized
+//        let east   = north.Cross(up)
               
-        let refSysRotation = 
-            Trafo3d.FromOrthoNormalBasis(north, east, up)
+//        let refSysRotation = 
+//            Trafo3d.FromOrthoNormalBasis(north, east, up)
             
-        //translation along north, east, up            
-        let trans = translation |> Trafo3d.Translation
-        let rot = Trafo3d.Rotation(up, yaw.RadiansFromDegrees())
+//        //translation along north, east, up            
+//        let trans = translation |> Trafo3d.Translation
+//        let rot = Trafo3d.Rotation(up, yaw.RadiansFromDegrees())
         
-        let originTrafo = -pivot |> Trafo3d.Translation //
+//        let originTrafo = -pivot |> Trafo3d.Translation //
         
-        (originTrafo * rot * originTrafo.Inverse * refSysRotation.Inverse * trans * refSysRotation)
+//        (originTrafo * rot * originTrafo.Inverse * refSysRotation.Inverse * trans * refSysRotation)
            
     
-    let fullTrafo (tansform : AdaptiveTransformations) (refsys : ReferenceSystem) = 
-        adaptive {
-           let! translation = tansform.translation.value
-           let! yaw = tansform.yaw.value
-           let! pivot = tansform.pivot.value
+//    let fullTrafo (tansform : AdaptiveTransformations) (refsys : ReferenceSystem) = 
+//        adaptive {
+//           let! translation = tansform.translation.value
+//           let! yaw = tansform.yaw.value
+//           let! pivot = tansform.pivot.value
             
-           return fullTrafo'' translation yaw pivot refsys
-        }
+//           return fullTrafo'' translation yaw pivot refsys
+//        }
 
-    let fullTrafo' (tansform : Transformations) (refsys : ReferenceSystem) = 
-        let translation = tansform.translation.value
-        let yaw = tansform.yaw.value
-        let pivot = tansform.pivot.value
+//    let fullTrafo' (tansform : Transformations) (refsys : ReferenceSystem) = 
+//        let translation = tansform.translation.value
+//        let yaw = tansform.yaw.value
+//        let pivot = tansform.pivot.value
             
-        fullTrafo'' translation yaw pivot refsys
+//        fullTrafo'' translation yaw pivot refsys
 
 module SceneObjectsUtils = 
 

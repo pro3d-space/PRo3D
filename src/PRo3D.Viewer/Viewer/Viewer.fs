@@ -1528,14 +1528,19 @@ module ViewerApp =
             let scDrawing = ScaleBarsDrawing.update m.scaleBarsDrawing msg
             { m with scaleBarsDrawing = scDrawing }
         | ScaleBarsMessage msg,_,_->  
-            //let _scaleBars = (Model.scene_ >-> Scene.scaleBars_ >-> ScaleBarsModel.scaleBars_)
             match msg with
             | ScaleBarsAction.FlyToSB id ->
                 let _sb = m |> Optic.get _scaleBars |> HashMap.tryFind id
                 match _sb with 
                 | Some sb ->
+                    let translation = (TransformationApp.translationFromReferenceSystemBasis sb.transformation.translation.value m.scene.referenceSystem) 
+                    let viewLocation = sb.view.Location + translation
+                    let viewForward = sb.position + translation
+
+                    let view = CameraView.lookAt viewLocation viewForward m.scene.referenceSystem.up.value    
+
                     let animationMessage = 
-                        CameraAnimations.animateForwardAndLocation sb.view.Location sb.view.Forward sb.view.Up 2.0 "ForwardAndLocation2s"
+                        CameraAnimations.animateForwardAndLocation view.Location view.Forward view.Up 2.0 "ForwardAndLocation2s"
                     let a' = AnimationApp.update m.animations (AnimationAction.PushAnimation(animationMessage))
                     { m with  animations = a'}
                 | None -> m
@@ -1880,13 +1885,25 @@ module ViewerApp =
                 view 
                 m.scene.config
                 mrefConfig
-                m.scene.referenceSystem.planet
+                m.scene.referenceSystem
+
+        let traverse = 
+            [ 
+                TraverseApp.Sg.viewLines m.scene.traverses
+                TraverseApp.Sg.viewText 
+                    view
+                    m.scene.config.nearPlane.value 
+                    m.scene.traverses
+            ]
+            |> Sg.ofList
+            |> Sg.map TraverseMessage
         [
             exploreCenter; 
             refSystem; 
             homePosition;
             annotationTexts |> Sg.noEvents
             scaleBarTexts
+            traverse
         ] |> Sg.ofList
                                  
     // depthTested that occur in instrumentview + main renderview
@@ -1924,11 +1941,20 @@ module ViewerApp =
                 view //m.navigation.camera.view
                 m.scene.config
                 mrefConfig
+                m.scene.referenceSystem
             |> Sg.map ScaleBarsMessage
+
+        let traverses =
+            TraverseApp.Sg.view     
+                m.navigation.camera.view
+                m.scene.referenceSystem
+                m.scene.traverses   
+            |> Sg.map TraverseMessage
 
         [
             scaleBars;
             annotationSg
+            traverses
         ] |> Sg.ofList
 
     let viewInstrumentView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
@@ -2001,16 +2027,16 @@ module ViewerApp =
             //        m.correlationPlot 
             //        (allowLogPicking m)
 
-            let traverse = 
-                [ 
-                    TraverseApp.Sg.viewLines m.scene.traverses
-                    TraverseApp.Sg.viewText 
-                        m.navigation.camera.view
-                        m.scene.config.nearPlane.value 
-                        m.scene.traverses
-                ]
-                |> Sg.ofList
-                |> Sg.map TraverseMessage
+            //let traverse = 
+            //    [ 
+            //        TraverseApp.Sg.viewLines m.scene.traverses
+            //        TraverseApp.Sg.viewText 
+            //            m.navigation.camera.view
+            //            m.scene.config.nearPlane.value 
+            //            m.scene.traverses
+            //    ]
+            //    |> Sg.ofList
+            //    |> Sg.map TraverseMessage
            
             let heightValidation =
                 HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation            
@@ -2023,7 +2049,7 @@ module ViewerApp =
                 viewPlans; 
              //   solText; 
                 heightValidation;
-                traverse
+                //traverse
                 //gisEntities
             ] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
@@ -2069,12 +2095,12 @@ module ViewerApp =
             |> Sg.map GeologicSurfacesMessage 
 
 
-        let traverses =
-            TraverseApp.Sg.view     
-                m.navigation.camera.view
-                m.scene.referenceSystem
-                m.scene.traverses   
-            |> Sg.map TraverseMessage
+        //let traverses =
+        //    TraverseApp.Sg.view     
+        //        m.navigation.camera.view
+        //        m.scene.referenceSystem
+        //        m.scene.traverses   
+        //    |> Sg.map TraverseMessage
 
         let depthTested = 
             [
@@ -2084,7 +2110,7 @@ module ViewerApp =
                 heightValidationDiscs; 
                 sceneObjects; 
                 geologicSurfacesSg
-                traverses
+                //traverses
                 gisEntities
             ] |> Sg.ofList
 
