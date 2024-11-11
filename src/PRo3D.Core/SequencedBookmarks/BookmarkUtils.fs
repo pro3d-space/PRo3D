@@ -18,6 +18,7 @@ open PRo3D.Base
 open Chiron
 open Aardvark.UI.Animation
 open PRo3D.Core.SequencedBookmarks
+open PRo3D.Core.Surface
 open Aether
 open Aether.Operators
 
@@ -64,8 +65,9 @@ module BookmarkUtils =
         let validSurfaces = 
             (sceneState.stateSurfaces.flat |> Leaf.toSurfaces)
             |> HashMap.filter(fun _ s ->
-                let dirExists = Directory.Exists s.importPath
-                dirExists
+                let isobj = Path.GetExtension s.importPath = ".obj"
+                let isValid = (Directory.Exists s.importPath) || (isobj && (File.Exists s.importPath)) 
+                isValid
             )
             |> HashMap.map(fun _ x -> Leaf.Surfaces x)
         {sceneState with stateSurfaces = {sceneState.stateSurfaces with flat = validSurfaces}}
