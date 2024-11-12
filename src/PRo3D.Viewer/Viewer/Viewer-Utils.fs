@@ -288,12 +288,16 @@ module ViewerUtils =
             | Some (AdaptiveSurfaces surf) -> 
 
                 let isSelected = 
-                    (selectedId, useHighlighting) ||> AVal.map2(fun x y ->
-                        match x with
-                        | Some id -> (id = surface.surface) && y
-                        | None -> false
-                    )
-                
+                    adaptive {
+                        let! selId = selectedId
+                        let! selectedH = surf.highlightSelected
+                        let! alwaysH = surf.highlightAlways
+
+                        match selId with
+                        | Some id -> return (((id = surface.surface) && selectedH) || alwaysH)
+                        | None -> return false
+                    }
+                   
                 let createSg (sg : ISg) =
                     sg 
                     |> Sg.noEvents 

@@ -48,6 +48,8 @@ module SurfaceProperties =
         | SetHomePosition //of Guid //of Option<CameraView>
         | ToggleFilterByDistance //of Guid //of Option<CameraView>
         | SetFilterDistance of Numeric.Action //of Guid //of Option<CameraView>
+        | ToggleHighlightSelected
+        | ToggleHighlightAlways
 
     let update (model : Surface) (act : Action) =
         match act with
@@ -116,6 +118,10 @@ module SurfaceProperties =
 
 
         | SetHomePosition -> model
+        | ToggleHighlightSelected ->
+            { model with highlightSelected = not model.highlightSelected }
+        | ToggleHighlightAlways ->
+            { model with highlightAlways = not model.highlightAlways }
             
 
     let getTextures (layers : seq<AttributeLayer>) =
@@ -161,6 +167,8 @@ module SurfaceProperties =
                 yield Html.row "Name:"        [Html.SemUi.textBox model.name SetName ]
                 yield Html.row "Visible:"     [GuiEx.iconCheckBox model.isVisible ToggleVisible ]
                 yield Html.row "Active:"      [GuiEx.iconCheckBox model.isActive ToggleIsActive ]
+                yield Html.row "Highlight Selected:"   [GuiEx.iconCheckBox model.highlightSelected ToggleHighlightSelected ]
+                yield Html.row "Highlight Always:"     [GuiEx.iconCheckBox model.highlightAlways ToggleHighlightAlways ]
                 yield Html.row "Priority:"    [Numeric.view' [NumericInputType.InputBox] model.priority |> UI.map SetPriority ]       
                 yield Html.row "Quality:"     [Numeric.view' [NumericInputType.Slider]   model.quality  |> UI.map SetQuality ]
                 yield Html.row "TriangleFilter:" [Numeric.view' [NumericInputType.InputBox]   model.triangleSize  |> UI.map SetTriangleSize ]

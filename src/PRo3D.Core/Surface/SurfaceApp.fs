@@ -97,6 +97,9 @@ module SurfaceUtils =
 
             
             contourModel = ContourLineModel.initial
+
+            highlightSelected = true
+            highlightAlways   = false
         }       
    
 

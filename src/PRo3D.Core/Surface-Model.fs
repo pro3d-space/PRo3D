@@ -676,6 +676,9 @@ type Surface = {
     radiometry      : Radiometry
 
     contourModel    : ContourLineModel
+
+    highlightSelected : bool
+    highlightAlways   : bool
 }
 
 module Surface =
@@ -781,6 +784,9 @@ module Surface =
                     filterDistance   = Initial.filterDistance 10.0
 
                     contourModel = ContourLineModel.initial
+
+                    highlightSelected = true
+                    highlightAlways   = false
                 }
         }
 
@@ -833,6 +839,9 @@ module Surface =
             let scalarLayers  = scalarLayers  |> HashMap.ofList
             let textureLayers = textureLayers |> IndexList.ofList
 
+            let! highlightSel  = Json.tryRead "highlightSelected"
+            let! highlightAl   = Json.tryRead "highlightAlways"
+
             return 
                 {
                     version         = current
@@ -870,6 +879,9 @@ module Surface =
 
                     
                     contourModel = ContourLineModel.initial
+
+                    highlightSelected = match highlightSel with |Some v -> v |None -> true
+                    highlightAlways   = match highlightAl with |Some v -> v |None -> false
                 }
         }
      
@@ -930,6 +942,9 @@ type Surface with
             
             do! Json.write "filterByDistance" x.filterByDistance
             do! Json.write "filterDistance" x.filterDistance.value
+
+            do! Json.write "highlightSelected" x.highlightSelected
+            do! Json.write "highlightAlways" x.highlightAlways
         }
 
 type Picking =
