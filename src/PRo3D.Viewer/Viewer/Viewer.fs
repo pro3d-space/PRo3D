@@ -85,8 +85,6 @@ module UserFeedback =
 module ViewerApp =         
     let dataSamples = 4
 
-
-
     let lookAtData (m: Model) =         
         let bb = m |> Optic.get _sgSurfaces |> HashMap.toSeq |> Seq.map(fun (_,x) -> x.globalBB) |> Box3d
         let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value             
@@ -117,9 +115,7 @@ module ViewerApp =
 
     let stash (model : Model) =
         { model with past = Some model.drawing; future = None }
-       
-    
-
+           
     let mrefConfig : MInnerConfig<AdaptiveViewConfigModel> =
         {
             getArrowLength    = fun (x:AdaptiveViewConfigModel) -> x.arrowLength.value
@@ -1737,21 +1733,18 @@ module ViewerApp =
             ProvenanceApp.update msg m
             
     let updateWithProvenanceTracking 
-                (runtime   : IRuntime) 
-                (enableProvenance : bool)
-                (signature : IFramebufferSignature) 
-                (sendQueue : BlockingCollection<string>) 
-                (mailbox   : MessagingMailbox) 
-                (m         : Model) 
-                (msg       : ViewerAnimationAction) =
+        (runtime   : IRuntime) 
+        (enableProvenance : bool)
+        (signature : IFramebufferSignature) 
+        (sendQueue : BlockingCollection<string>) 
+        (mailbox   : MessagingMailbox) 
+        (m         : Model) 
+        (msg       : ViewerAnimationAction) =
         let newModel = updateInternal runtime signature sendQueue mailbox m msg 
         if enableProvenance then
             ProvenanceApp.track m newModel msg
         else
             newModel
-
-
-
 
     let mkBrushISg color size trafo : ISg<Message> =
       Sg.sphere 5 color size 
@@ -1986,6 +1979,20 @@ module ViewerApp =
 
         let overlayed =
                         
+            let createLabelBillboards (model : amap<string, V3d>) (view:aval<CameraView>) (near:aval<float>) =        
+                model
+                |> AMap.map(fun txt pos ->
+                   Sg.text view near 
+                      ~~60.0
+                      ~~pos
+                      ~~(Trafo3d.Translation pos)
+                      ~~20.0
+                      ~~txt
+                ) 
+                |> AMap.toASet  
+                |> ASet.map(fun x -> snd x)            
+                |> Sg.set
+
             //let alignment = 
             //    AlignmentApp.view m.alignment m.scene.navigation.camera.view
             //        |> Sg.map AlignmentActions
@@ -2141,8 +2148,7 @@ module ViewerApp =
             fun request -> 
                 Gui.Pages.pageRouting viewerDependencies bodyAttributes m viewInstrumentView viewRenderView runtime request
         )
-        
-                   
+                           
     let threadPool (m: Model) =
         let unionMany xs = List.fold ThreadPool.union ThreadPool.empty xs
 

@@ -210,7 +210,7 @@ type Scene = {
     bookmarks         : GroupsModel
     scaleBars         : ScaleBarsModel
 
-    traverses          : TraverseModel
+    traverses         : TraverseModel
 
     viewPlans         : ViewPlanModel
     dockConfig        : DockConfig

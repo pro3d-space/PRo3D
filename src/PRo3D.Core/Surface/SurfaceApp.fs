@@ -120,9 +120,7 @@ module SurfaceUtils =
             stream.CopyTo(fileStream)
             fileStream.Close ()
 
-
         module AssimpLoader =
-
 
             let loadObject (surface : Surface) : SgSurface =
                 Log.line "[OBJ] Please wait while the file is being loaded..." 
@@ -676,9 +674,6 @@ module SurfaceUtils =
 
                 sgObjects
 
-        
-
-
     module SurfaceAttributes = 
         open System.Xml
             
@@ -826,8 +821,6 @@ module SurfaceApp =
               |> List.fold HashMap.union HashMap.empty
               
         { model with surfaces = { model.surfaces with flat = flat' } }
-
-
 
     let update 
         (model     : SurfaceModel) 
@@ -1353,14 +1346,12 @@ module SurfaceApp =
                 
         }
 
-
     let viewSurfacesGroups (scenePath : aval<Option<string>>) (model:AdaptiveSurfaceModel) = 
         require GuiEx.semui (
             Incremental.div 
               (AttributeMap.ofList [clazz "ui celled list"]) 
               (viewTree scenePath [] model.surfaces.rootGroup model.surfaces)            
         )    
-
 
     //let viewSurfaceProperties (model:AdaptiveSurfaceModel) =
     //    adaptive {

@@ -196,66 +196,131 @@ module AnnotationQuery =
         }
         o
 
-    let pick 
+    let clip 
         (hierarchies         : list<PatchHierarchy * FileName>) 
         (requestedAttributes : list<string>) 
         (q                   : QueryFunctions) 
         (handlePatch         : OpcPaths -> list<string> -> Patch -> List<QueryResult> -> List<QueryResult>) 
         (hit                 : List<QueryResult> -> unit) =
 
-        let queryResults = 
-            //let points = List<QueryResult>()
+        let queryResults =      
             hierarchies 
             |> List.fold (fun points (h, basePath) -> 
                 let paths = OpcPaths basePath
-                let result = 
-                    QTree.foldCulled 
-                        q.boxIntersectsQuery 
-                        (handlePatch paths requestedAttributes) 
-                        points 
-                        h.tree
-                points
+                
+                QTree.foldCulled 
+                    q.boxIntersectsQuery 
+                    (handlePatch paths requestedAttributes) 
+                    points 
+                    h.tree //|> ignore                
             ) (List<QueryResult>())
-             
+
+
+        Log.line("[AnnotationQuery:] found following patches") 
+        queryResults |> List.ofSeq |> List.iter(fun x -> Log.line $"{x.patchFileInfoPath |> Path.GetFileName}")
+            
+
         hit queryResults
         queryResults
 
-    let pickAnnotation 
+    type OutputReferenceFrame = 
+        | Local     //per patch local positions
+        | Centered  //per output centered positions
+        | Global    //per output global positions
+
+    type OutputGeometryType = 
+        | Mesh
+        | PointCloud
+
+    /// Clips the specified geometry to the area defined by the provided annotation polygon.
+    /// - `hierarchies`: A list of patch hierarchies and associated file names to be processed within the region of interest.
+    /// - `attributeNames`: A list of attribute names relevant to the clipping operation, specifying which attributes to consider.
+    /// - `heightRange`: The height range that bounds the vertical extent of the region of interest.
+    /// - `hit`: A callback function that processes the list of query results after clipping.
+    /// - `annotation`: The clipping polygon that defines the region of interest. ... assumes polygonal annotation
+    /// Returns a list of query results representing the geometry clipped to the specified region.
+    let clipToRegion    
         (hierarchies    : list<PatchHierarchy * FileName>) 
         (attributeNames : list<string>) 
         (heightRange    : Range1d) 
         (hit            : List<QueryResult> -> unit) 
-        (annotation     : Annotation) : List<QueryResult>=
+        (annotation     : Annotation)         
+        : List<QueryResult> =
 
         let q = queryFunctionsFromAnnotation heightRange annotation
-        pick hierarchies attributeNames q (handlePatch q) hit
+        clip hierarchies attributeNames q (handlePatch q) hit
 
-    let queryResultsToObj (hits : List<QueryResult>) =
-        let allVertices = hits |> Seq.collect (fun h -> h.globalPositions) |> Seq.toArray
-        let objGeometries = 
-            hits 
-            |> Seq.map (fun h -> 
-                let colors =
-                    match h.attributes |> Map.toSeq |> Seq.tryHead with
-                    | None -> None
-                    | Some (name, att) -> 
-                        match att.array with
-                        | :? array<float> as v when v.Length > 0 -> 
-                            let min, max = v.Min(), v.Max()
-                            if max - min > 0 then
-                                let colors = v |> Array.map (fun v -> if v.IsNaN() then C3b.Black else (v - min) / (max - min) |> TransferFunction.transferPlasma)
-                                Some colors
-                            else 
+    let queryResultsToObj 
+        (outputReferenceFrame : OutputReferenceFrame)
+        (outputGeometryType   : OutputGeometryType)
+        (queryResults         : List<QueryResult>) =
+       
+        match outputGeometryType with
+        | Mesh ->
+            let objGeometries = 
+                queryResults 
+                |> Seq.map (fun h -> 
+                    let colors =
+                        match h.attributes |> Map.toSeq |> Seq.tryHead with
+                        | None -> None
+                        | Some (name, att) -> 
+                            match att.array with
+                            | :? array<float> as v when v.Length > 0 -> 
+                                let min, max = v.Min(), v.Max()
+                                if max - min > 0 then
+                                    let colors = 
+                                        v 
+                                        |> Array.map (fun v -> 
+                                            if v.IsNaN() then 
+                                                C3b.Black 
+                                            else 
+                                                (v - min) / (max - min) |> TransferFunction.transferPlasma
+                                        )
+                                    Some colors
+                                else 
+                                    None
+                            | _ -> 
                                 None
-                        | _ -> 
-                            None
 
-                let geometry = 
-                    {
-                        colors = colors
-                        indices = h.indices |> Seq.toArray
-                        vertices = h.localPositions |> Seq.map V3d  |> Seq.toArray
-                    }
-                geometry
-            )
-        RudimentaryObjExport.writeToString objGeometries 
+                    let vertices = 
+                        match outputReferenceFrame with
+                        | Local -> h.localPositions |> Seq.map V3d  |> Seq.toArray
+                        | Global -> h.globalPositions |> Seq.map V3d  |> Seq.toArray
+                        | Centered -> 
+                            failwith "Centered not implemented yet"
+
+                    let geometry = 
+                        {
+                            colors = colors
+                            indices = h.indices |> Seq.toArray
+                            vertices = vertices
+                        }
+                    geometry
+                )
+
+            RudimentaryObjExport.writeToString objGeometries
+
+        | PointCloud ->
+            let shiftByCenterOfMass (points: V3d[]) : V3d[] =
+                // Calculate the center of mass
+                let centerOfMass = 
+                    points 
+                    |> Array.reduce (+) 
+                    |> fun sum -> sum / float points.Length
+
+                // Shift each point by subtracting the center of mass
+                points |> Array.map (fun point -> point - centerOfMass)
+
+            let allVertices = 
+                queryResults 
+                |> Seq.collect (fun h -> h.globalPositions) 
+                |> Seq.toArray
+
+            let geometry = 
+                {
+                    colors = None
+                    indices = [| |] // h.indices |> Seq.toArray
+                    vertices = allVertices |> shiftByCenterOfMass
+                }
+
+            geometry |> Seq.singleton |> RudimentaryObjExport.writeToString        
