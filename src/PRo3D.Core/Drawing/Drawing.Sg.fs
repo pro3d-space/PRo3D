@@ -302,7 +302,11 @@ module Sg =
 
         Sg.text view conf.nearPlane conf.hfov pos (pos |> AVal.map Trafo3d.Translation) anno.textsize.value text
     
-    let drawText (view : aval<CameraView>) (conf: innerViewConfig) (anno : AdaptiveAnnotation) = 
+    let drawText 
+        (view : aval<CameraView>) 
+        (conf: innerViewConfig) 
+        (anno : AdaptiveAnnotation) = 
+
         drawText' view conf anno.text anno
     
     let optionalSet (sg : ISg<_>) (m : aval<bool>) : aset<ISg<_>> =

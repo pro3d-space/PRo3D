@@ -644,7 +644,7 @@ module TraverseApp =
             |> Sg.onOff model.isVisibleT
 
         let view
-            (refsys         : AdaptiveReferenceSystem) 
+            (refsys        : AdaptiveReferenceSystem) 
             (traverseModel : AdaptiveTraverseModel) =
 
             let traverses = traverseModel.traverses

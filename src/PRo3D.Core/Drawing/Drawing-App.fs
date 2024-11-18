@@ -640,11 +640,8 @@ module DrawingApp =
 
         let labels =              
             annoSet 
-            |> ASet.map(fun (_,a) -> 
-               
-                           
-                let sg = Sg.finishedAnnotationText a config view
-                sg 
+            |> ASet.map(fun (_,a) ->                                           
+                Sg.finishedAnnotationText a config view                 
             )
             |> Sg.set   
 

@@ -28,8 +28,6 @@ open PRo3D.Core.Surface
 open Aardvark.GeoSpatial.Opc.PatchLod
 open Aardvark.Base.Ag
 
-
-
 module FootprintSg = 
     open Aardvark.SceneGraph.Sg
     
@@ -41,7 +39,6 @@ module FootprintSg =
     type FootprintSem() =
         member x.FootprintVP(n : FootprintApplicator, scope : Ag.Scope) =
             n.Child?FootprintVP <- n.ViewProj
-
 
 //module DepthSg = 
 //    open Aardvark.SceneGraph.Sg
@@ -55,9 +52,7 @@ module FootprintSg =
 //        member x.DepthVP(n : DepthApplicator, scope : Ag.Scope) =
 //            n.Child?DepthVP <- n.ViewProj
 
-
 module Sg =
-
     
     type Ag.Scope with
         member x.FootprintVP : aval<M44d> = x?FootprintVP
@@ -81,7 +76,6 @@ module Sg =
 
     let mutable hackRunner : Option<Load.Runner> = None
     let mutable useAsyncLoading = true
-
     
     let lodDeciderMars 
         (preTrafo    : Trafo3d)
@@ -149,14 +143,17 @@ module Sg =
                     
             log area > 1.0 - (log p.factor) * 1.2
 
-    let createPlainSceneGraph (runtime : IRuntime) (signature : IFramebufferSignature) (scene : OpcScene) (createKdTrees)
+    let createPlainSceneGraph 
+        (runtime        : IRuntime) 
+        (signature      : IFramebufferSignature) 
+        (scene          : OpcScene) 
+        (createKdTrees  : bool)
         : (ISg * list<PatchHierarchy> * HashMap<Box3d, KdTrees.Level0KdTree>) =
 
         let runner = 
             match hackRunner with
             | None -> 
                 failwith "GL runner was not initialized."
-
             | Some h -> h
 
         let patchHierarchies = 
@@ -190,11 +187,10 @@ module Sg =
             kdTreesPerHierarchy                     
             |> Array.fold HashMap.union HashMap.empty
 
-
         let createShadowContext (f : Aardvark.GeoSpatial.Opc.PatchLod.PatchNode) (scope : Scope) =
              match scope.TryGetInherited "LightViewProj" with
-                 | None -> Option<aval<Trafo3d>>.None :> obj
-                 | Some v -> Some (v |> unbox<aval<Trafo3d>>) :> obj
+             | None -> Option<aval<Trafo3d>>.None :> obj
+             | Some v -> Some (v |> unbox<aval<Trafo3d>>) :> obj
 
         let uniforms = 
              Map.ofList [    
@@ -217,7 +213,6 @@ module Sg =
      
         let lodDeciderMars = lodDeciderMars scene.preTransform
         //let lodDeciderMars = marsArea scene.preTransform
-
 
         let map = 
             Map.ofList [
@@ -244,10 +239,23 @@ module Sg =
                     let getTextures = extractTextureScope SecondaryTexture.textures
                     let getVertexAttributes = extractTextureScope SecondaryTexture.vertexAttributes
 
-                    PatchNode(signature, runner, h.opcPaths.Opc_DirAbsPath, lodDeciderMars, scene.useCompressedTextures, true, ViewerModality.XYZ, 
-                                PatchLod.CoordinatesMapping.Local, useAsyncLoading, context, map,
-                                PatchLod.toRoseTree h.tree,
-                                Some (getTextures h.opcPaths), Some (getVertexAttributes h.opcPaths), Aardvark.Base.PixImagePfim.Loader)
+                    PatchNode(
+                        signature, 
+                        runner, 
+                        h.opcPaths.Opc_DirAbsPath, 
+                        lodDeciderMars, 
+                        scene.useCompressedTextures, 
+                        true, 
+                        ViewerModality.XYZ, 
+                        PatchLod.CoordinatesMapping.Local, 
+                        useAsyncLoading, 
+                        context, 
+                        map,
+                        PatchLod.toRoseTree h.tree,
+                        Some (getTextures h.opcPaths), 
+                        Some (getVertexAttributes h.opcPaths), 
+                        Aardvark.Base.PixImagePfim.Loader
+                    )
 
                 //let plainPatchLod =
                 //    Sg.patchLod' 
@@ -270,9 +278,7 @@ module Sg =
                 patchLodWithTextures
             )
             |> SgFSharp.Sg.ofList  
-           
-           
-                                                
+                                                                      
         g, patchHierarchies, kdTrees
     
     let assertInvalidBB (bb:Box3d) = 
@@ -293,7 +299,12 @@ module Sg =
         |> Seq.map (fun p -> assertInvalidBB p.info.GlobalBoundingBox)
         |> Box3d
        
-    let createSgSurface (scene : OpcScene) (s : Surface) sg (bb : Box3d) (kd : HashMap<Box3d,KdTrees.Level0KdTree>) = 
+    let createSgSurface 
+        (scene : OpcScene) 
+        (s     : Surface) 
+        sg 
+        (bb    : Box3d) 
+        (kd    : HashMap<Box3d,KdTrees.Level0KdTree>) = 
     
         let pose = Pose.translate V3d.Zero // bb.Center
         let trafo = { TrafoController.initial with pose = pose; previewTrafo = Pose.toTrafo pose; mode = TrafoMode.Local }
@@ -312,7 +323,11 @@ module Sg =
     
     let transformBox (trafo:Trafo3d) (bb:Box3d) = bb.Transformed(trafo)
               
-    let createSgSurfaces runtime signature (surfaces:IndexList<Surface>) =
+    let createSgSurfaces 
+        runtime 
+        signature 
+        (surfaces : IndexList<Surface>)
+        : HashMap<Guid, SgSurface> =
       
         let surfaces = 
             surfaces
@@ -333,7 +348,7 @@ module Sg =
                        patchHierarchies      = d.opcPaths
                        preTransform          = d.preTransform
                        useCompressedTextures = false
-                       lodDecider = DefaultMetrics.mars2
+                       lodDecider            = DefaultMetrics.mars2
                 }
             )
             |> List.map (fun d -> d, createPlainSceneGraph runtime signature d true)
@@ -370,13 +385,43 @@ module Sg =
                             match surf with 
                             | AdaptiveSurfaces s -> s 
                             | _ -> surf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
+
                         let! hpos = x.homePosition
                         match hpos with
                         | Some p -> yield Sg.dot (AVal.constant C4b.Yellow) (AVal.constant 3.0) (AVal.constant p.Location)
                         | None -> yield fail
                     else
                         yield fail
-                | None -> yield fail
+                | None -> 
+                    yield fail
+            }|> Aardvark.UI.``F# Sg``.Sg.set
+        Aardvark.UI.``F# Sg``.Sg.ofList [point]
+
+    let viewPatchCenters (model:AdaptiveSurfaceModel) =
+        let point = 
+            aset{
+                let! guid = model.surfaces.singleSelectLeaf
+                let fail = Sg.empty
+
+                match guid with
+                | Some i -> 
+                    let! exists = (model.surfaces.flat |> AMap.keys) |> ASet.contains i
+                    if exists then
+                        let leaf = model.surfaces.flat |> AMap.find i 
+                        let! surf = leaf 
+                        let x = 
+                            match surf with 
+                            | AdaptiveSurfaces s -> s 
+                            | _ -> surf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
+
+                        let! hpos = x.homePosition
+                        match hpos with
+                        | Some p -> yield Sg.dot (AVal.constant C4b.Yellow) (AVal.constant 3.0) (AVal.constant p.Location)
+                        | None -> yield fail
+                    else
+                        yield fail
+                | None -> 
+                    yield fail
             }|> Aardvark.UI.``F# Sg``.Sg.set
         Aardvark.UI.``F# Sg``.Sg.ofList [point]
         

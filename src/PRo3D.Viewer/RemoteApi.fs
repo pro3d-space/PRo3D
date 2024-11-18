@@ -14,6 +14,7 @@ open PRo3D.Core
 open System.IO
 open Aardvark.Base
 open FSharp.Data.Adaptive
+open PRo3D.Base.AnnotationQuery
 
 
 module RemoteApi =
@@ -136,6 +137,8 @@ module RemoteApi =
             let operationsToJson (ops : array<SetOperation<GraphElement>>) =
                 ops |> Array.map encodeSetOperation |> Encode.array |> Encode.toString 4
 
+    
+
     type Api(emitTopLevel : ViewerAnimationAction -> unit, p : AdaptiveProvenanceModel, m : AdaptiveModel, storage : PPersistence) = 
 
         let emit s = emitTopLevel (ViewerAnimationAction.ViewerMessage s)
@@ -203,20 +206,24 @@ module RemoteApi =
                         None
                 )
                 |> Seq.toArray
-
+        
         member x.QueryAnnotation(
-                queryAnnotationId   : string, 
-                attributeNames : list<string>, 
-                heightRange         : Range1d) =
+                queryAnnotationId    : string, 
+                attributeNames       : list<string>, 
+                heightRange          : Range1d,
+                outputReferenceFrame : OutputReferenceFrame) =
 
             let annotations = x.FullModel.drawing.annotations.flat.Content.GetValue()
+
             match HashMap.tryFind (Guid.Parse(queryAnnotationId)) annotations with
             | Some (AdaptiveAnnotations queryAnnotation) -> 
                 let anno = queryAnnotation.Current.GetValue()
                 let sgSurfaces = x.FullModel.scene.surfacesModel.sgSurfaces.Content.GetValue()
+
                 let opcs = 
                     sgSurfaces 
                     |> Seq.choose (fun (_,s) -> s.opcScene.GetValue())
+
                 let patchHierarchies = 
                     opcs 
                     |> Seq.collect (fun scene -> 
@@ -231,7 +238,14 @@ module RemoteApi =
                     )
                     |> Seq.toList
 
-                let queryResults = PRo3D.Base.AnnotationQuery.pickAnnotation patchHierarchies attributeNames heightRange ignore anno
+                let queryResults = 
+                    PRo3D.Base.AnnotationQuery.clipToRegion 
+                        patchHierarchies 
+                        attributeNames 
+                        heightRange 
+                        ignore 
+                        anno
+
                 Some queryResults
             | _ -> 
                 None
@@ -626,29 +640,53 @@ module RemoteApi =
                         | _ -> ()
                 }
             )
+        
+        let parseCoordinateSpace (value: string) : Option<OutputReferenceFrame> =
+            match value.ToLower() with
+            | "local" -> Some OutputReferenceFrame.Local
+            | "global" -> Some OutputReferenceFrame.Global
+            | _ -> None // or handle as an error case
 
-        let queryAnnotation (api : Api) (f : System.Collections.Generic.List<Base.QueryResult> -> WebPart) (r : HttpRequest)= 
-            let str = r.rawForm |> getUTF8
-            let input = PRo3D.Base.QueryApi.parseRequest str
+        let parseGeometryType (value: string) : Option<OutputGeometryType> =
+            match value.ToLower() with
+            | "pointcloud" -> Some OutputGeometryType.PointCloud
+            | "mesh" -> Some OutputGeometryType.Mesh
+            | _ -> None // or handle as an error case
+
+        type QueryResults = System.Collections.Generic.List<Base.QueryResult>
+
+        let queryAnnotation (api : Api) (f : OutputReferenceFrame -> OutputGeometryType -> QueryResults -> WebPart) (httpRequest : HttpRequest) =
+            let input =  httpRequest.rawForm |> getUTF8 |> PRo3D.Base.QueryApi.parseRequest
             match input with
             | Result.Ok input -> 
-                match api.QueryAnnotation(input.annotationId, input.queryAttributes, Range1d.FromCenterAndSize(0, input.distanceToPlane)) with
-                | None -> RequestErrors.BAD_REQUEST "Oops, something went wrong here!"
-                | Some r -> 
-                    f r
-
+                match ((parseCoordinateSpace input.outputReferenceFrame), parseGeometryType(input.outputGeometryType)) with
+                | (Some outputReferenceFrame, Some outputGeometryType) ->
+                    //here we can go from primitive types to real types
+                    match api.QueryAnnotation(
+                        input.annotationId, 
+                        input.queryAttributes, 
+                        Range1d.FromCenterAndSize(0, input.distanceToPlane), 
+                        outputReferenceFrame) with
+                    | None -> RequestErrors.BAD_REQUEST "Oops, something went wrong here!"
+                    | Some queryResults -> 
+                        f  outputReferenceFrame outputGeometryType queryResults                
+                | _ -> RequestErrors.BAD_REQUEST "could not parse outputReferenceFrame and/or outputGeometryType"
             | _ -> RequestErrors.BAD_REQUEST "could not parse command"
 
         let queryAnnotationAsObj (api : Api) = 
-            let toResult r = 
-                let s = PRo3D.Base.AnnotationQuery.queryResultsToObj r
+
+            let toResult (frame : OutputReferenceFrame) (geometryType : OutputGeometryType) (results : QueryResults) = 
+                let s = PRo3D.Base.AnnotationQuery.queryResultsToObj frame geometryType results
                 Successful.OK s
+
             queryAnnotation api toResult
 
         let queryAnnotationAsJson (api : Api) = 
-            let toJson r = 
-                let s = PRo3D.Base.QueryApi.hitsToJson r
+            
+            let toJson (_ : OutputReferenceFrame) (_ : OutputGeometryType) (results : QueryResults)  = 
+                let s = PRo3D.Base.QueryApi.hitsToJson results //todo: also add frame
                 Successful.OK s
+
             queryAnnotation api toJson
 
         let webPart (storage : PPersistence) (api : Api) = 
