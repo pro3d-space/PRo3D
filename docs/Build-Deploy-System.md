@@ -8,7 +8,10 @@ In order to deploy all supported architectures using github actions is the prefe
 
 ## TL;DR
 
-Deployments are triggered by github actions. Currently this is configured in such a way that each commit which touches one of those [files](https://github.com/pro3d-space/PRo3D/blob/bee4f8716e9fcfd94b78112f2d2777867b7685c3/.github/workflows/deploy.yml#L4) triggers a release.
+Deployments are triggered by github actions. 
+There are two release types:
+ - test releases for internal testing, modify [this](https://github.com/pro3d-space/PRo3D/blob/develop/TEST_RELEASE_NOTES.md) file and let the CI build a zip which appears on the github release page as a draft
+ - public releases, modify [this](https://github.com/pro3d-space/PRo3D/blob/develop/PRODUCT_RELEASE_NOTES.md) and change the version number [here](https://github.com/pro3d-space/PRo3D/blob/0fc290263430b5c2ff172c18286885a8bf0b73a0/aardium/package.json#L4) and let the CI build a multiplatform build with installer, the result will appear at as a draft in the github release page
 
 ## Details
 
@@ -31,6 +34,10 @@ For development use `./build.sh CopyToElectron`, switch into the aardium directo
 ## Release notes
 
 tags and release notes taken from PRODCT_RELEASE_NOTES.md
+
+## Version numbers
+
+when creating releases from within branches suffix the version number with the name of the branch to make the version unique.
 
 ## Resources
 
