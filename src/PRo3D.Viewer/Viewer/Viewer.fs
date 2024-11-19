@@ -1533,7 +1533,7 @@ module ViewerApp =
                 let _sb = m |> Optic.get _scaleBars |> HashMap.tryFind id
                 match _sb with 
                 | Some sb ->
-                    let translation = (TransformationApp.translationFromReferenceSystemBasis sb.transformation.translation.value m.scene.referenceSystem) 
+                    let translation = (TransformationApp.translationFromReferenceSystemBasis sb.transformation.translation.value V3d.Zero m.scene.referenceSystem) 
                     let viewLocation = sb.view.Location + translation
                     let viewForward = sb.position + translation
 

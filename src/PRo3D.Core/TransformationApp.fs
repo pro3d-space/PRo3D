@@ -56,8 +56,29 @@ module TransformationApp =
     | SetPivotSize          of Numeric.Action
     | SetEulerMode          of EulerMode
 
+    // calc reference system from pivot
+    let getNorthAndUpFromPivot
+        //(transform : Transformations) 
+        (pivot : V3d) 
+        (refsys : ReferenceSystem) =
+            
+            //let upP = CooTransformation.getUpVector transform.pivot.value refsys.planet
+            let upP = CooTransformation.getUpVector pivot refsys.planet
+            let eastP = V3d.OOI.Cross(upP)
+        
+            let northP  = 
+                match refsys.planet with 
+                | Planet.None | Planet.JPL -> V3d.IOO
+                | Planet.ENU -> V3d.OIO
+                | _ -> upP.Cross(eastP) 
 
-    let getReferenceSystemBasis (refSystem : ReferenceSystem) =
+            let noP = 
+                Rot3d.Rotation(upP, refsys.noffset.value |> Double.radiansFromDegrees).Transform(northP)
+            noP, upP, eastP
+
+    let getReferenceSystemBasis 
+        (pivot     : V3d)
+        (refSystem : ReferenceSystem) =
 
         let northCorrection = Trafo3d.RotationZInDegrees(refSystem.noffset.value)
 
@@ -70,9 +91,15 @@ module TransformationApp =
             //let east = V3d.OOI.Cross(upP)
             //let north = upP.Cross(east)
             //Log.line "%A,%A,%A" upP.Length east.Length north.Length
-            let north = refSystem.northO.Normalized        
-            let up    = refSystem.up.value.Normalized
-            let east  = north.Cross(up).Normalized
+
+            let north, up, east = 
+                if not(pivot = V3d.Zero) then
+                    getNorthAndUpFromPivot pivot refSystem
+                else 
+                    let north = refSystem.northO.Normalized        
+                    let up    = refSystem.up.value.Normalized
+                    let east  = north.Cross(up).Normalized
+                    north, up, east
               
             let refSysRotation = 
                 Trafo3d.FromOrthoNormalBasis(north, east, up)
@@ -85,8 +112,9 @@ module TransformationApp =
 
     let translationFromReferenceSystemBasis
         (translation    : V3d)
+        (pivot          : V3d )
         (refSystem      : ReferenceSystem) =
-            let refsysbasis = getReferenceSystemBasis refSystem
+            let refsysbasis = getReferenceSystemBasis V3d.Zero refSystem 
             refsysbasis.Forward.TransformPos(translation) 
    
     let calcFullTrafo 
@@ -101,7 +129,7 @@ module TransformationApp =
         (scale:float)
         (eulerMode : EulerMode) = 
 
-           let refSysBasis = getReferenceSystemBasis refSystem
+           let refSysBasis = getReferenceSystemBasis pivot refSystem
            let originTrafo = pivot |> Trafo3d.Translation
 
            //translation along north, east, up directions         
@@ -136,24 +164,6 @@ module TransformationApp =
            
            fullTrafo
     
-    // calc reference system from pivot
-    let getNorthAndUpFromPivot
-        (transform : Transformations) 
-        (refsys : ReferenceSystem) =
-            
-            let upP = CooTransformation.getUpVector transform.pivot.value refsys.planet
-            let eastP = V3d.OOI.Cross(upP)
-        
-            let northP  = 
-                match refsys.planet with 
-                | Planet.None | Planet.JPL -> V3d.IOO
-                | Planet.ENU -> V3d.OIO
-                | _ -> upP.Cross(eastP) 
-
-            let noP = 
-                Rot3d.Rotation(upP, refsys.noffset.value |> Double.radiansFromDegrees).Transform(northP)
-            noP, upP, eastP
-            
 
     let fullTrafo 
         (transform : AdaptiveTransformations) 
@@ -220,11 +230,12 @@ module TransformationApp =
     let refSysTranslation 
         (transform : Transformations)
         (translation : V3d)
+        (pivot       : V3d)
         (refSys : ReferenceSystem) =
 
             let north, up, east = 
                 if transform.usePivot then
-                    getNorthAndUpFromPivot transform refSys
+                    getNorthAndUpFromPivot pivot refSys
                 else 
                     refSys.northO, refSys.up.value, refSys.northO.Cross(refSys.up.value)
             
@@ -252,7 +263,7 @@ module TransformationApp =
         match act with
         | SetTranslation t ->    
             let t' = Vector3d.update model.translation t
-            let transPivot = refSysTranslation model (t'.value - model.trafo.Forward.C3.XYZ) refSys //refSysTranslation model t'.value refSys
+            let transPivot = refSysTranslation model (t'.value - model.trafo.Forward.C3.XYZ) model.pivot.value refSys //refSysTranslation model t'.value refSys
             let pivot = transPivot.Forward.TransformPos model.oldPivot
             let p' = Vector3d.updateV3d model.pivot pivot
             { model with translation =  t'; (* pivot = p'; pivotChanged = false; *) trafoChanged = true} 

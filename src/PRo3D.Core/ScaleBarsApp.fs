@@ -537,7 +537,7 @@ module ScaleBarsApp =
 
                     //translation along north, east, up 
                     let! refsys = refSys.Current
-                    let translation = TransformationApp.translationFromReferenceSystemBasis scaleBar.transformation.translation.value refsys
+                    let translation = TransformationApp.translationFromReferenceSystemBasis scaleBar.transformation.translation.value V3d.Zero refsys
                     let newPos = pos + translation
 
                     let direction = ScaleBarUtils.getDirectionVec scaleBar.orientation scaleBar.view newPos refsys.planet
@@ -606,7 +606,7 @@ module ScaleBarsApp =
                 let! scaleBarTrans = scaleBar.transformation.translation.value
                 //translation along north, east, up 
                 let! refsys = refSys.Current
-                let translation = (TransformationApp.translationFromReferenceSystemBasis scaleBarTrans refsys) //|> Trafo3d.Translation 
+                let translation = (TransformationApp.translationFromReferenceSystemBasis scaleBarTrans V3d.Zero refsys) //|> Trafo3d.Translation 
                         
 
                 let trafo =
