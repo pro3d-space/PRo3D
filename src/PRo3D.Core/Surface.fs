@@ -69,10 +69,14 @@ module SurfaceTransformations =
             
             return fullTrafo' s rSys
         }
+
 module DebugKdTreesX = 
    
     let getInvalidIndices3f (positions : V3f[]) =
-        positions |> List.ofArray |> List.mapi (fun i x -> if x.AnyNaN then Some i else None) |> List.choose id    
+        positions 
+        |> List.ofArray 
+        |> List.mapi (fun i x -> if x.AnyNaN then Some i else None) 
+        |> List.choose id    
 
     let getTriangleSet3f (vertices:V3f[]) =
         vertices

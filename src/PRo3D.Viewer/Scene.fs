@@ -182,7 +182,7 @@ module SceneLoader =
             |> Sg.createSgSurfaces runtime signature
             |> HashMap.union m.scene.surfacesModel.sgSurfaces
             |> Files.expandLazyKdTreePaths m.scene.scenePath surfaceMap
-            |> (flip <| Optic.set (_surfaceModelLens >-> SurfaceModel.sgSurfaces_)) m                                               
+            |> (flip <| Optic.set (_surfaceModelLens >-> SurfaceModel.sgSurfaces_)) m
          
         m.scene.surfacesModel 
         |> SurfaceModel.triggerSgGrouping 
@@ -253,7 +253,8 @@ module SceneLoader =
             |> IndexList.filter ( fun x -> x.surfaceType = SurfaceType.SurfaceOPC)
 
         let sgSurfaces = 
-            Sg.createSgSurfaces runtime signature opcSurfs |> Files.expandLazyKdTreePaths scenePath surfaces        
+            Sg.createSgSurfaces runtime signature opcSurfs 
+            |> Files.expandLazyKdTreePaths scenePath surfaces        
 
         // TODO hs: should how to handle multiple loaders here?
         let objSurfs = 
@@ -267,7 +268,7 @@ module SceneLoader =
 
         model           
         |> SurfaceModel.withSgSurfaces sgs
-        |> SurfaceModel.triggerSgGrouping    
+        |> SurfaceModel.triggerSgGrouping
 
     let addScaleBarSegments (m:Model) = 
         m.scene.scaleBars.scaleBars
@@ -275,7 +276,6 @@ module SceneLoader =
                 let segments = ScaleBarUtils.updateSegments sb
                 { sb with scSegments = segments})
         |> (flip <| Optic.set _scaleBarsLens) m
-
 
     let prepareSceneObjectsModel
         (model     : SceneObjectsModel) : SceneObjectsModel =

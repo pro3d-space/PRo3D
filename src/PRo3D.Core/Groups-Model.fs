@@ -319,8 +319,7 @@ module GroupsModel =
         selectedLeaves   = HashSet.Empty
         singleSelectLeaf = None
     }
-
-    
+   
     // selectedLeaves, singleSelectLeaf, activeGroup, activeChild are not patched
     let patchNames (g : Guid -> Guid)  (m : GroupsModel) =
         let leafNewNames, flat = 
@@ -385,8 +384,6 @@ type GroupsModel with
             do! Json.write "flat"         (x.flat |> HashMap.toList |> List.map snd)
             do! Json.write "groupsLookup" (x.groupsLookup |> HashMap.toList)
         }
-
-
         
 module Groups = 
     let updateLeaf' id f model =
@@ -491,12 +488,6 @@ module SurfaceModel =
             kdTreeCache = HashMap.Empty
             debugPreTrafo = ""
         }
-   
-    //let surfaceModelPickler : Pickler<SurfaceModel> =
-    //    Pickler.product initSurfaceModel
-    //    ^+ Pickler.field (fun s -> s.surfaces.rootGroup)             Pickler.auto<Node>
-    //    ^+ Pickler.field (fun s -> s.surfaces.flat)                  Pickler.auto<HashMap<Guid,Leaf>>
-    //    ^. Pickler.field (fun s -> s.surfaces.singleSelectLeaf)      Pickler.auto<option<Guid>>
 
     let initial = initSurfaceModel Group.initRoot HashMap.Empty None
     

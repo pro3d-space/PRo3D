@@ -928,17 +928,17 @@ module MinervaApp =
     // fix-size billboards (expensive!)
     let getSolBillboards (model : AdaptiveMinervaModel) (view:aval<CameraView>) (near:aval<float>) : ISg<MinervaAction> =        
         model.solLabels
-            |> AMap.map(fun txt pos ->
-               Sg.text view near 
-                  ~~60.0
-                  ~~pos
-                  ~~(Trafo3d.Translation pos)
-                  (model.session.featureProperties.textSize.value)
-                  ~~txt
-            ) 
-            |> AMap.toASet  
-            |> ASet.map(fun x -> snd x)            
-            |> Sg.set
+        |> AMap.map(fun txt pos ->
+           Sg.text view near 
+              ~~60.0
+              ~~pos
+              ~~(Trafo3d.Translation pos)
+              (model.session.featureProperties.textSize.value)
+              ~~txt
+        ) 
+        |> AMap.toASet  
+        |> ASet.map(fun x -> snd x)
+        |> Sg.set
             
     let viewFilterLocation (model : AdaptiveMinervaModel) =
         let height = 5.0
