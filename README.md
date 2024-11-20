@@ -84,6 +84,11 @@ A reconstruction of the Cape Desire outcrop at the rim of Victoria crater can be
 
 If you have any questions, feel free to contact us on [discord](https://discord.gg/CyxNwrg).
 
+# Development
+
+The project makes heavy use of the [`adaptify`](https://github.com/krauthaufen/Adaptify) tool. Until 20.11.2024 all model type generation was handled by the msbuild tool implicitly. For better development experience we now use local adaptify mode, some documentation can be found [here](./docs/ModelTypes.md).
+This allows developers to use a much wider set of IDEs. Development in vscode or rider should work out-of-the box!
+
 # Packages
 
 package | description
