@@ -356,7 +356,7 @@ module GeologicSurfacesApp =
         
                     for gs in geologicSurfaces do
             
-                        let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
+                        let infoc = sprintf "color: %s" (Html.color C4b.White)
             
                         let! scbid = gs.guid  
                         let toggleIcon = 
@@ -386,7 +386,7 @@ module GeologicSurfacesApp =
                             |> AttributeMap.ofAMap
             
                         let! c = color
-                        let bgc = sprintf "color: %s" (Html.ofC4b c)
+                        let bgc = sprintf "color: %s" (Html.color c)
                         yield div [clazz "item"; style infoc] [
                             div [clazz "content"; style infoc] [                     
                                 yield Incremental.div (AttributeMap.ofList [style infoc])(

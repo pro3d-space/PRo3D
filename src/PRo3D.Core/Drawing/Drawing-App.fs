@@ -1,3 +1,4 @@
+#nowarn "44" 
 namespace PRo3D.Core.Drawing
 
 open System
@@ -285,7 +286,7 @@ module DrawingApp =
         | ExportAsCsv _         -> false
         | ExportAsProfileCsv _  -> false
         | ExportAsGeoJSON_xyz _ -> false
-        | LegacySaveVersioned _ -> false
+        | LegacySaveVersioned   -> false
         | _ -> true
 
     // exports geojson, optionally using XYZ format

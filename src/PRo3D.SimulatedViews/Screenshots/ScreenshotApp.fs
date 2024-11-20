@@ -20,7 +20,7 @@ module ScreenshotApp =
         baseUrl 
         numberOfSamples 
         (m : ScreenshotModel) 
-        (wc : System.Net.WebClient) =
+        (wc : System.Net.Http.HttpClient) =
 
         let stats = ScreenshotUtilities.Utilities.downloadClientStatistics baseUrl wc
         
@@ -50,7 +50,7 @@ module ScreenshotApp =
             findFreeName outputPath m
     
     let makeScreenshot baseUrl numberOfSamples outputPath (m : ScreenshotModel) =
-        let wc = new System.Net.WebClient()
+        let wc = new System.Net.Http.HttpClient()
         let url = createUrl baseUrl numberOfSamples m wc
         let filenamepath = findFreeName outputPath m 
         imgNr <- imgNr + 1

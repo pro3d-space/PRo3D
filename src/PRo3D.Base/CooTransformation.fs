@@ -1,4 +1,5 @@
 ﻿#nowarn "9"
+#nowarn "51"
 namespace PRo3D.Base
 
 open System

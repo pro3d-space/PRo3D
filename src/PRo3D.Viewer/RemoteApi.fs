@@ -36,6 +36,8 @@ module RemoteApi =
                 Thoth.Json.Net.Encode.decimal n
             | Chiron.Json.String s -> 
                 Thoth.Json.Net.Encode.string s
+            | Chiron.Json.Null _ -> 
+                Thoth.Json.Net.Encode.nil
 
         module Operations =
 

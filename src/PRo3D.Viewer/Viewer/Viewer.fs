@@ -934,11 +934,8 @@ module ViewerApp =
                 | None -> Log.error "no rover selected"; m
             | None -> m     
         | ImportTraverse traverseFiles,_,_ -> 
-            match traverseFiles with
-            | _ ->  
-                let t = TraverseApp.update m.scene.traverses (TraverseAction.LoadTraverses traverseFiles)
-                { m with scene = { m.scene with traverses = t }}
-            | [] -> m
+            let t = TraverseApp.update m.scene.traverses (TraverseAction.LoadTraverses traverseFiles)
+            { m with scene = { m.scene with traverses = t }}
         | DeleteLast,_,_ -> 
             if File.Exists @".\last" then
                 File.Delete(@".\last") |> ignore

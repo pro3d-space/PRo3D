@@ -50,7 +50,7 @@ let validateAndConvertTextures (generateDds : bool) (overwriteDdds : bool) (patc
                         
                         ImageLoading.loadImageFromStream stream extension
 
-                    match mip.Images |> Seq.tryHead with
+                    match mip.ImageArray |> Seq.tryHead with
                     | Some i -> 
                         let greaterZero = i.Size.AllGreater(V2i.OO) 
                         let smallerHuge = i.Size.AllSmallerOrEqual(32768)

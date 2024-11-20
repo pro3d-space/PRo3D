@@ -18,6 +18,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- <Compile Include="InteropHelpers.fs" /> -->
+    <Compile Include="WebClientDeprecation.fs" />
     <Compile Include="DeprecatedModel.fs" />
     <Compile Include="DeprecatedModel.g.fs" />
     <Compile Include="Deprecated.fs" />

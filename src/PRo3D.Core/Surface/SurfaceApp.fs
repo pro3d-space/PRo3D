@@ -1167,7 +1167,7 @@ module SurfaceApp =
                 //let! selected = s |> isSingleSelect model
             
                 let! c = mkColor model s
-                let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
+                let infoc = sprintf "color: %s" (Html.color C4b.White)
             
                 let! key = s.guid                                                                             
                 let! absRelIcons = absRelIcons s
@@ -1187,11 +1187,11 @@ module SurfaceApp =
                     (isSingleSelect model s) 
                     |> AVal.map(fun x -> 
                         (if x then C4b.VRVisGreen else C4b.Gray) 
-                        |> Html.ofC4b 
+                        |> Html.color 
                         |> sprintf "color: %s"
                     ) 
             
-               // let headerColor = sprintf "color: %s" (Html.ofC4b C4b.Gray)
+               // let headerColor = sprintf "color: %s" (Html.color C4b.Gray)
                 let headerAttributes =
                     amap {
                         yield onClick singleSelect
@@ -1225,7 +1225,7 @@ module SurfaceApp =
 
                 //[clientEvent "onclick" (sprintf "aardvark.electron.shell.showItemInFolder('%s');" (Helpers.escape path)) ] <---- this is the way to go for "reveal in explorer/finder"
             
-                let bgc = sprintf "color: %s" (Html.ofC4b c)
+                let bgc = sprintf "color: %s" (Html.color c)
                 yield div [clazz "item"; style infoc] [
                     i [clazz "cube middle aligned icon"; onClick multiSelect;style bgc] [] 
                     div [clazz "content"; style infoc] [                     
@@ -1281,7 +1281,7 @@ module SurfaceApp =
         alist {
 
             let! s = model.activeGroup
-            let color = sprintf "color: %s" (Html.ofC4b C4b.White)                
+            let color = sprintf "color: %s" (Html.color C4b.White)                
             let children = AList.collecti (fun i v -> viewTree scenePath (i::path) v model) group.subNodes    
             let activeAttributes = GroupsApp.setActiveGroupAttributeMap path model group GroupsMessage
                                    

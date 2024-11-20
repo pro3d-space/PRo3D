@@ -1372,6 +1372,7 @@ module Copy =
 [<AutoOpen>]
 module ScreenshotUtilities = 
     module Utilities =
+        open System.Net.Http
 
         type ClientStatistics =
           {
@@ -1384,10 +1385,10 @@ module ScreenshotUtilities =
               frameTime       : float
           }
 
-        let downloadClientStatistics baseAddress (webClient : System.Net.WebClient) =
+        let downloadClientStatistics baseAddress (webClient : HttpClient) =
             let path = sprintf "%s/rendering/stats.json" baseAddress //sprintf "%s/rendering/stats.json" baseAddress
             Log.line "[Screenshot] querying rendering stats at: %s" path
-            let result = webClient.DownloadString(path)
+            let result = webClient.GetStringAsync(path).Result
 
             let clientBla : list<ClientStatistics> =
                 Pickler.unpickleOfJson  result
@@ -1410,7 +1411,7 @@ module ScreenshotUtilities =
             Path.combine [folder; name + "_" + clientStats.name + format]
 
         let takeScreenshotFromAllViews baseAddress (width:int) (height:int) name folder format =
-              let wc = new System.Net.WebClient()
+              let wc = new HttpClient()
               let clientStatistics = downloadClientStatistics baseAddress wc
 
               for cs in clientStatistics do
@@ -1422,7 +1423,7 @@ module ScreenshotUtilities =
                   Log.line "[Screenshot] saved to %s" fullpath
 
         let takeScreenshot baseAddress (width:int) (height:int) name folder format =
-            let wc = new System.Net.WebClient()
+            let wc = new HttpClient()
             let clientStatistics = downloadClientStatistics baseAddress wc
             
             let cs =

@@ -280,7 +280,7 @@ module SceneObjectsApp =
         
                     for so in sceneObjects do
             
-                        let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
+                        let infoc = sprintf "color: %s" (Html.color C4b.White)
             
                         let! soid = so.guid  
                         let toggleIcon = 
@@ -310,7 +310,7 @@ module SceneObjectsApp =
                             |> AttributeMap.ofAMap
 
                         let! c = color
-                        let bgc = sprintf "color: %s" (Html.ofC4b c)
+                        let bgc = sprintf "color: %s" (Html.color c)
 
                 
                                      

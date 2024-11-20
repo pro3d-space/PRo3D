@@ -170,7 +170,7 @@ module DebugKdTreesX =
             let hitFilter = //true means being omitted
                 fun (a:IIntersectableObjectSet) (b:int) _ _ -> 
                     let triangles = a :?> TriangleSet //TODO TO crashes if not encountering a triangleset
-                    b |> getTriangle triangles |> isNotOversized hitObject.triangleSize.value |> not // = tooBig       
+                    //b |> getTriangle triangles |> isNotOversized hitObject.triangleSize.value |> not // = tooBig       
                     false
             
             if kdi.Intersect(ray, null, Func<IIntersectableObjectSet,int,int, RayHit3d,bool>(hitFilter), 0.0, Double.MaxValue, &hit) then              

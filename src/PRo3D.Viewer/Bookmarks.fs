@@ -164,8 +164,8 @@ module Bookmarks =
             for b in bookmarks do
                               
                 let! c = mkColor model b
-                let bgc = sprintf "color: %s" (Html.ofC4b c)
-                let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
+                let bgc = sprintf "color: %s" (Html.color c)
+                let infoc = sprintf "color: %s" (Html.color C4b.White)
                 
                 let singleSelect = fun _ -> singleSelect(b,path)
                 let multiSelect  = fun _ -> multiSelect(b,path)
@@ -176,7 +176,7 @@ module Bookmarks =
                    (isSingleSelect model b) 
                     |> AVal.map(fun x -> 
                     (if x then C4b.VRVisGreen else C4b.Gray) 
-                        |> Html.ofC4b 
+                        |> Html.color 
                         |> sprintf "color: %s"
                     )                 
 
@@ -215,7 +215,7 @@ module Bookmarks =
         alist {
 
             let! active = model.activeGroup
-            let color = sprintf "color: %s" (Html.ofC4b C4b.White)                
+            let color = sprintf "color: %s" (Html.color C4b.White)                
             
             let map = GroupsApp.setActiveGroupAttributeMap path model group GroupsMessage
                

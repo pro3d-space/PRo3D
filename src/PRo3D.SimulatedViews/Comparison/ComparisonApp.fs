@@ -44,11 +44,9 @@ module CustomGui =
         ] 
 
     let surfacesDropdown (surfaces : AdaptiveSurfaceModel) (change : string -> 'msg) (noSelection : string)=
-        let surfaceToName (s : aval<AdaptiveSurface>) =
-            s |> AVal.bind (fun s -> s.name)
 
         let surfaces = surfaces.surfaces.flat |> toAvalSurfaces
-        let surfaceNames = surfaces |> AMap.map (fun g s -> s |> surfaceToName)                                                         
+        let surfaceNames = surfaces |> AMap.map (fun g s -> s.name)                                                         
                                     |> AMap.toAVal
         let items = 
           surfaceNames |> AVal.map (fun n -> n.ToValueList ())

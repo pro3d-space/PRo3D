@@ -1,4 +1,4 @@
-﻿#rnowarn "9"
+﻿#nowarn "9"
 namespace PRo3D.Base.Gis
 
 open System

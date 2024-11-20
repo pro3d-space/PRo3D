@@ -1,4 +1,5 @@
-﻿namespace Aardvark.Opc
+﻿#nowarn "44" // allowed to use old annotations
+namespace Aardvark.Opc
 
 open System.IO
 open Aardvark.Base

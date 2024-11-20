@@ -1012,7 +1012,7 @@ module ViewPlanApp =
                                       | None -> AVal.constant C4b.Gray
                                                                          
                                 let! c = color
-                                let bgc = sprintf "color: %s" (Html.ofC4b c)
+                                let bgc = sprintf "color: %s" (Html.color c)
 
                                 yield style bgc
                                 yield onClick (fun _ -> SelectViewPlan vpid)

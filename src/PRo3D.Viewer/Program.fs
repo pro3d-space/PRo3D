@@ -160,7 +160,7 @@ let main argv =
         match aardiumPath with
         | Some p when true -> 
             Log.line "init aardium at: %s" p
-            Aardium.initPath p
+            Aardium.initAt p
         | _ -> 
             Log.warn "system aardium"; 
             Aardium.init()

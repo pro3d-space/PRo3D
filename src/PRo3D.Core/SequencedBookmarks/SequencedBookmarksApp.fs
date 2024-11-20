@@ -387,7 +387,7 @@ module SequencedBookmarksApp =
 
     module UI =
         let viewSequencedBookmarks (m : AdaptiveSequencedBookmarks) = //TODO RNO refactor
-            let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
+            let infoc = sprintf "color: %s" (Html.color C4b.White)
             let itemAttributes =
                 amap {
                     yield clazz "ui divided list inverted segment"
@@ -406,7 +406,7 @@ module SequencedBookmarksApp =
                                 (if sel = id then C4b.VRVisGreen else C4b.Gray) 
                             | None -> 
                                 C4b.Gray
-                        let bgc = sprintf "color: %s" (Html.ofC4b color)
+                        let bgc = sprintf "color: %s" (Html.color color)
 
                         let headerAttributes =
                             amap {
