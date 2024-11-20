@@ -13,7 +13,6 @@ Aardvark.UI
 Aardvark.UI.Primitives
 
 Adaptify.Core
-Adaptify.MSBuild
 
 Aardvark.Geometry.Intersection
 Aardvark.Geometry.PointTree

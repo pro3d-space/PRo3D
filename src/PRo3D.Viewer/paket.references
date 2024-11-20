@@ -17,7 +17,6 @@ Aardvark.PixImage.DevIL
 Aardvark.UI.Primitives
 Aardvark.Service
       
-Adaptify.MSBuild
 Adaptify.Core
 
 FSharp.Core

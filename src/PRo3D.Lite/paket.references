@@ -14,7 +14,6 @@ Aardvark.SceneGraph.Assimp
 Aardvark.Rendering.Text
 
 Adaptify.Core
-Adaptify.MSBuild
 
 FsPickler
 FsPickler.Json

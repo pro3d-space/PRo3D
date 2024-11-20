@@ -19,6 +19,7 @@
   <ItemGroup>
     <!-- <Compile Include="InteropHelpers.fs" /> -->
     <Compile Include="DeprecatedModel.fs" />
+    <Compile Include="DeprecatedModel.g.fs" />
     <Compile Include="Deprecated.fs" />
     <Compile Include="Multitexturing.fs" />
     <Compile Include="ErrorReporting.fs" />
@@ -40,14 +41,19 @@
     <Compile Include="PlatformIndependent.fs" />    
     <Compile Include="Utilities.fs" />    
     <Compile Include="CalendarApp\CalendarModel.fs" />    
+    <Compile Include="CalendarApp\CalendarModel.g.fs" />
     <Compile Include="CalendarApp\Calendar.fs" />
     <Compile Include="OutlineEffect.fs" />
     <Compile Include="Navigation-Model.fs" />
+    <Compile Include="Navigation-Model.g.fs" />
     <Compile Include="GisModels.fs" />
+    <Compile Include="GisModels.g.fs" />
     <Compile Include="FalseColors\FalseColors-Model.fs" />
+    <Compile Include="FalseColors\FalseColors-Model.g.fs" />
     <Compile Include="FalseColors\FalseColorLegendApp.fs" />
     <Compile Include="Annotation\RegressionInfo.fs" />
     <Compile Include="Annotation\Annotation-Model.fs" />
+    <Compile Include="Annotation\Annotation-Model.g.fs" />
     <Compile Include="Annotation\AnnotationHelpers.fs" />
     <Compile Include="Annotation\Exporters\GeoJSON.fs" />
     <Compile Include="Annotation\Exporters\GeoJSON.Export.fs" />

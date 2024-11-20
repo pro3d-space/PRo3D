@@ -40,6 +40,7 @@
     <None Include="paket.references" />
     <Compile Include="Config.fs" />
     <Compile Include="Models\Model.fs" />
+    <Compile Include="Models\Model.g.fs" />
     <Compile Include="Models\Lenses.fs" />
     <Compile Include="Utilities.fs" />
     <Compile Include="Navigation-Model.fs" />
@@ -48,7 +49,9 @@
     <Compile Include="DockConfigs.fs" />
     <Compile Include="DashboardModes.fs" />
     <Compile Include="ProvenanceModel.fs" />
+    <Compile Include="ProvenanceModel.g.fs" />
     <Compile Include="Viewer-Model.fs" />
+    <Compile Include="Viewer-Model.g.fs" />
     <Compile Include="ProvenanceApp.fs" />
     <Compile Include="InitialViewerModel.fs" />
     <Compile Include="Bookmarks.fs" />
@@ -64,6 +67,7 @@
     <Compile Include="CommandLine\CommandLineUtils.fs" />
     <Compile Include="CommandLine\CommandLine.fs" />
     <Compile Include="RemoteControlModel.fs" />
+    <Compile Include="RemoteControlModel.g.fs" />
     <Compile Include="RemoteControlApp.fs" />
     <Compile Include="QueriesRemoteApi.fs" />
     <Compile Include="RemoteApi.fs" />

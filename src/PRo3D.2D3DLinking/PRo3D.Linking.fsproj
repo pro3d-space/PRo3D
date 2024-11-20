@@ -30,8 +30,10 @@
   <ItemGroup>
     <None Include="paket.references" />
     <Compile Include="Linking\LinkingModel.fs" />
+    <Compile Include="Linking\LinkingModel.g.fs" />
     <Compile Include="Linking\LinkingApp.fs" />
     <Compile Include="Model.fs" />
+    <Compile Include="Model.g.fs" />
     <Compile Include="App.fs" />
     <Compile Include="Program.fs" />
     <EmbeddedResource Include="resources\linkingstyle.css">

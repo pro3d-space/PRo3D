@@ -34,6 +34,7 @@
     <Compile Include="Communication\Client.fs" />
     <Compile Include="Communication\NetworkCommunication.fs" />
     <Compile Include="Model.fs" />
+    <Compile Include="Model.g.fs" />
     <Compile Include="GeoJSON.fs" />
     <Compile Include="Utilities.fs" />
     <Compile Include="QueryApp.fs" />
