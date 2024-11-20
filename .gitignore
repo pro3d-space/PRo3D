@@ -1,6 +1,5 @@
 bin/Release
 bin/Debug
-*.g.fs
 *.swp
 *.userprefs
 **/obj
