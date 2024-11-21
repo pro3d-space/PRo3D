@@ -611,20 +611,20 @@ module TraverseApp =
         let drawSolTextsFast (view : aval<CameraView>) (near : aval<float>) (traverse : AdaptiveTraverse) = 
             let contents = 
                 let viewTrafo = view |> AVal.map CameraView.viewTrafo
-                traverse.sols 
-                |> AVal.map (fun sols -> 
+                 
+                AVal.map2 (fun sols scale -> 
                     sols 
                     |> List.toArray
                     |> Array.map (fun sol -> 
                         let loc = sol.location + sol.location.Normalized * 1.5
-                        let trafo = Trafo3d.Translation loc
+                        let trafo = (Trafo3d.Scale((float)scale) ) * (Trafo3d.Translation loc)
                         let text = $"{sol.solNumber}"
                         //let scaleTrafo = Sg.invariantScaleTrafo view near ~~loc traverse.tTextSize.value ~~60.0
                         //let dynamicTrafo = scaleTrafo |> AVal.map (fun scale -> scale * trafo)
                         let stableTrafo = viewTrafo |> AVal.map (fun view -> trafo * view) // stable, and a bit slow
                         AVal.constant trafo, AVal.constant text
-                    )
-                )
+                    ) 
+                ) traverse.sols traverse.tTextSize.value
                 |> ASet.ofAVal
             let sg = 
                 let config = { Text.TextConfig.Default with renderStyle = RenderStyle.Billboard; color = C4b.White }
