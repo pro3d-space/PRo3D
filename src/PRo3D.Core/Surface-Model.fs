@@ -594,6 +594,22 @@ module Init =
         z     = { translationInput with value = v.Z }
         value = v    
     }
+
+    let pivotInput = {
+        value   = 0.0
+        min     = -10000000.0
+        max     = 10000000.0
+        step    = 0.001
+        format  = "{0:0.000}"
+    }
+    
+    let initPivot (v : V3d) = {
+        x     = { pivotInput with value = v.X }
+        y     = { pivotInput with value = v.Y }
+        z     = { pivotInput with value = v.Z }
+        value = v    
+    }
+
     let transformations = {
         version              = Transformations.current
         useTranslationArrows = false
@@ -602,7 +618,7 @@ module Init =
         yaw                  = Transformations.Initial.yaw
         pitch                = Transformations.Initial.pitch
         roll                 = Transformations.Initial.roll
-        pivot                = initTranslation (V3d.OOO)
+        pivot                = initPivot (V3d.OOO)
         oldPivot             = V3d.OOO
         showPivot            = false
         pivotChanged         = false

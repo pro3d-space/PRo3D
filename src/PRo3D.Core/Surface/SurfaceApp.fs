@@ -55,7 +55,7 @@ module SurfaceUtils =
     
     /// creates a surface from opc folder path
     let mk (stype:SurfaceType) (preferredLoader : MeshLoaderType) (maxTriangleSize : float) path =                 
-    
+        let transform   = Init.transformations
         let names = Files.getOPCNames path                
         {
             version         = Surface.current
@@ -88,7 +88,8 @@ module SurfaceUtils =
     
             colorCorrection = Init.initColorCorrection
             homePosition    = None
-            transformation  = Init.transformations
+
+            transformation  = transform //{transform with pivot = V3d.Zero}
             opcxPath        = None
             radiometry      = Init.initRadiometry
 

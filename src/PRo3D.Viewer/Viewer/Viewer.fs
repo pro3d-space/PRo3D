@@ -429,7 +429,7 @@ module ViewerApp =
         let surface = m.scene.surfacesModel.surfaces.flat |> HashMap.find id |> Leaf.toSurface 
         let observedSystem = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp id
         let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
-        let fullTrafo = TransformationApp.fullTrafo' surface.transformation m.scene.referenceSystem observedSystem observerSystem //SurfaceTransformations.fullTrafo' surface m.scene.referenceSystem
+         //SurfaceTransformations.fullTrafo' surface m.scene.referenceSystem
         match surface.homePosition with
         | Some hp ->                        
             let animationMessage = 
@@ -438,6 +438,7 @@ module ViewerApp =
         | None ->
             match surf with
             | Some s ->
+                let fullTrafo = TransformationApp.fullTrafo' surface.transformation m.scene.referenceSystem observedSystem observerSystem
                 let bb = s.globalBB.Transformed(fullTrafo.Forward)
                 let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value    
                 let animationMessage = 
@@ -1888,15 +1889,12 @@ module ViewerApp =
                 m.scene.referenceSystem
 
         let traverse = 
-            [ 
-                TraverseApp.Sg.viewLines m.scene.traverses
-                TraverseApp.Sg.viewText 
-                    view
-                    m.scene.config.nearPlane.value 
-                    m.scene.traverses
-            ]
-            |> Sg.ofList
+            TraverseApp.Sg.viewText 
+                view
+                m.scene.config.nearPlane.value 
+                m.scene.traverses
             |> Sg.map TraverseMessage
+
         [
             exploreCenter; 
             refSystem; 
@@ -1943,12 +1941,16 @@ module ViewerApp =
                 mrefConfig
                 m.scene.referenceSystem
             |> Sg.map ScaleBarsMessage
-
-        let traverses =
-            TraverseApp.Sg.view     
-                m.navigation.camera.view
-                m.scene.referenceSystem
-                m.scene.traverses   
+       
+        let traverses = 
+            [ 
+                TraverseApp.Sg.viewLines m.scene.traverses
+                TraverseApp.Sg.view     
+                    view //m.navigation.camera.view
+                    m.scene.referenceSystem
+                    m.scene.traverses   
+            ]
+            |> Sg.ofList
             |> Sg.map TraverseMessage
 
         [
@@ -2027,16 +2029,6 @@ module ViewerApp =
             //        m.correlationPlot 
             //        (allowLogPicking m)
 
-            //let traverse = 
-            //    [ 
-            //        TraverseApp.Sg.viewLines m.scene.traverses
-            //        TraverseApp.Sg.viewText 
-            //            m.navigation.camera.view
-            //            m.scene.config.nearPlane.value 
-            //            m.scene.traverses
-            //    ]
-            //    |> Sg.ofList
-            //    |> Sg.map TraverseMessage
            
             let heightValidation =
                 HeightValidatorApp.view m.heighValidation |> Sg.map HeightValidation            
@@ -2047,9 +2039,7 @@ module ViewerApp =
             [
                 overL;
                 viewPlans; 
-             //   solText; 
                 heightValidation;
-                //traverse
                 //gisEntities
             ] |> Sg.ofList // (correlationLogs |> Sg.map CorrelationPanelMessage); (finishedLogs |> Sg.map CorrelationPanelMessage)] |> Sg.ofList // (*;orientationCube*) //solText
 
@@ -2095,13 +2085,6 @@ module ViewerApp =
             |> Sg.map GeologicSurfacesMessage 
 
 
-        //let traverses =
-        //    TraverseApp.Sg.view     
-        //        m.navigation.camera.view
-        //        m.scene.referenceSystem
-        //        m.scene.traverses   
-        //    |> Sg.map TraverseMessage
-
         let depthTested = 
             [
              //   linkingSg; 
@@ -2110,7 +2093,6 @@ module ViewerApp =
                 heightValidationDiscs; 
                 sceneObjects; 
                 geologicSurfacesSg
-                //traverses
                 gisEntities
             ] |> Sg.ofList
 

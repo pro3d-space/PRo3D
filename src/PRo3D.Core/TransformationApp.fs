@@ -166,6 +166,7 @@ module TransformationApp =
     
 
     let fullTrafo 
+        //(bbCenter : V3d)
         (transform : AdaptiveTransformations) 
         (refsys : AdaptiveReferenceSystem)
         (observedSystem : aval<Option<SpiceReferenceSystem>>)
@@ -191,14 +192,15 @@ module TransformationApp =
            //        getNorthAndUpFromPivot transf refSys
            //    else
            //     north, up, north.Cross(up)
-
-           let newTrafo = calcFullTrafo translation yaw pitch roll (if usePivot then pivot else V3d.Zero) refSys observedSystem observerSystem scale mode
+           // (if (pivot = V3d.Zero) then bbCenter else pivot )
+           let newTrafo = calcFullTrafo translation yaw pitch roll (if usePivot then pivot else V3d.Zero) refSys observedSystem observerSystem scale mode //
            return newTrafo
         }
            
     
     let fullTrafo' 
         (transform : Transformations) 
+        //(bbCenter : V3d)
         (refsys : ReferenceSystem) 
         (observedSystem : Option<SpiceReferenceSystem>)
         (observerSystem : Option<ObserverSystem>) =
@@ -208,7 +210,7 @@ module TransformationApp =
         //        getNorthAndUpFromPivot transform refsys
         //    else 
         //        refsys.northO, refsys.up.value, refsys.northO.Cross(refsys.up.value)
-
+        //let pivot = (if (transform.pivot.value = V3d.Zero) then bbCenter else transform.pivot.value )
         calcFullTrafo 
             transform.translation.value 
             transform.yaw.value 
@@ -291,7 +293,7 @@ module TransformationApp =
                 let p' = Vector3d.update model.pivot p
                 //let m' = updateTransformationForNewPivot model
                 //{ m' with pivot =  p'; oldPivot = p'.value; trafoChanged = false} 
-                let fulTrafo : Trafo3d = fullTrafo' model refSys None None
+                //let fulTrafo : Trafo3d = fullTrafo' model refSys None None
                 { model with pivot = p'; oldPivot = p'.value; trafoChanged = false} 
             else model
         | SetPickedPivotPoint p -> // world space.......

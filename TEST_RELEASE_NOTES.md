@@ -1,3 +1,9 @@
+## 4.26.0-prerelease3
+- surface priority tested
+- trajectories visibility priorities fixes
+- trajectories line width adjustable
+- bugfix: #439 surface jumping fixed by use of pivot
+
 ## 4.26.0-prerelease2 
 - fixed surface priority 
 - improved handling of large trajectories

@@ -18,6 +18,7 @@ type TraversePropertiesAction =
     | ToggleShowDots
     | SetTraverseName of string
     | SetSolTextsize of Numeric.Action
+    | SetLineWidth of Numeric.Action
     | SetTraverseColor of ColorPicker.Action
 
 type TraverseAction =
@@ -38,6 +39,13 @@ module InitTraverseParams =
         { value = 0.05
           min = 0.001
           max = 5.0
+          step = 0.001
+          format = "{0:0.000}" }
+
+    let tLineW (w : float) =
+        { value = w
+          min = 0.001
+          max = 10.0
           step = 0.001
           format = "{0:0.000}" }
 
@@ -137,6 +145,7 @@ type Traverse =
       showLines: bool
       showText: bool
       tTextSize: NumericInput
+      tLineWidth: NumericInput
       showDots: bool
       isVisibleT: bool
       color: ColorInput }
@@ -174,6 +183,7 @@ module Traverse =
           showLines = true
           showText = false
           tTextSize = InitTraverseParams.tText
+          tLineWidth = InitTraverseParams.tLineW 1.5
           showDots = false
           isVisibleT = true
           color = { c = C4b.White }
@@ -198,6 +208,7 @@ module Traverse =
                   showLines = showLines
                   showText = showText
                   tTextSize = InitTraverseParams.tText
+                  tLineWidth = InitTraverseParams.tLineW 1.5
                   showDots = showDots
                   isVisibleT = true
                   color = { c = C4b.White } }
@@ -211,9 +222,15 @@ module Traverse =
             let! showLines = Json.read "showLines"
             let! showText = Json.read "showText"
             let! tTextSize = Json.readWith Ext.fromJson<NumericInput, Ext> "tTextSize"
+            let! tLWidth = Json.tryRead "tLineWidth"
             let! showDots = Json.read "showDots"
             let! isVisibleT = Json.read "isVisibleT"
             let! color = Json.readWith Ext.fromJson<ColorInput, Ext> "color"
+
+            let tLineWidth = 
+                match tLWidth with
+                | Some w -> InitTraverseParams.tLineW w
+                | None -> InitTraverseParams.tLineW 1.5
 
             return
                 { version = current
@@ -224,6 +241,7 @@ module Traverse =
                   showLines = showLines
                   showText = showText
                   tTextSize = tTextSize
+                  tLineWidth = tLineWidth
                   showDots = showDots
                   isVisibleT = isVisibleT
                   color = color }
@@ -253,6 +271,7 @@ type Traverse with
             do! Json.write "showDots" x.showDots
             do! Json.write "isVisibleT" x.isVisibleT
             do! Json.writeWith (Ext.toJson<ColorInput, Ext>) "color" x.color
+            do! Json.write "tLineWidth" x.tLineWidth.value
         }
 
 [<ModelType>]

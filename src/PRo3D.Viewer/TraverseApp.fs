@@ -62,6 +62,8 @@ module TraversePropertiesApp =
             { model with tTextSize = Numeric.update model.tTextSize s}
         | SetTraverseColor tc -> 
             { model with color = ColorPicker.update model.color tc }
+        | SetLineWidth w ->
+            { model with tLineWidth = Numeric.update model.tLineWidth w}
 
 
     let computeSolRotation (sol : Sol) (referenceSystem : ReferenceSystem) : Trafo3d =
@@ -112,6 +114,7 @@ module TraversePropertiesApp =
                     Html.row "Show Lines:" [GuiEx.iconCheckBox m.showLines ToggleShowLines]
                     Html.row "Show Dots:"  [GuiEx.iconCheckBox m.showDots  ToggleShowDots]
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
+                    Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]  
                 ]
             )
     
@@ -580,11 +583,12 @@ module TraverseApp =
             adaptive {
                 let! sols = model.sols
                 let! c = model.color.c
+                let! w = model.tLineWidth.value
                 let lines = 
                     sols 
                     |> List.map(fun x -> x.location)
                     |> List.toArray
-                    |> PRo3D.Core.Drawing.Sg.lines c 2.0 
+                    |> PRo3D.Core.Drawing.Sg.lines c w 
                 
                 return lines
             }

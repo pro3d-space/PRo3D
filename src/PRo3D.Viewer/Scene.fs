@@ -183,7 +183,7 @@ module SceneLoader =
             |> Sg.createSgSurfaces runtime signature
             |> HashMap.union m.scene.surfacesModel.sgSurfaces
             |> Files.expandLazyKdTreePaths m.scene.scenePath surfaceMap
-            |> (flip <| Optic.set (_surfaceModelLens >-> SurfaceModel.sgSurfaces_)) m                                               
+            |> (flip <| Optic.set (_surfaceModelLens >-> SurfaceModel.sgSurfaces_)) m     
          
         m.scene.surfacesModel 
         |> SurfaceModel.triggerSgGrouping 

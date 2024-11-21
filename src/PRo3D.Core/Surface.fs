@@ -224,7 +224,11 @@ module SurfaceIntersection =
                             match observedSystem surf.guid, observerSystem with
                             | Some observed, Some observer -> Some observed, Some observer
                             | _ -> None, None
-
+                        //let sgSurf = activeSgSurfaces |> List.tryFind(fun sg -> sg.surface = surf.guid)
+                        //let gBB = 
+                        //    match sgSurf with 
+                        //    | Some sg -> sg.globalBB.Center
+                        //    | None -> V3d.Zero
                         let fullTrafo = TransformationApp.fullTrafo' surf.transformation refSys observedSystem observerSystem //SurfaceTransformations.fullTrafo' surf refSys
                         //get bbs that are hit
                         let hitBoxes =

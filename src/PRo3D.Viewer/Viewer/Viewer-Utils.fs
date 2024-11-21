@@ -197,12 +197,14 @@ module ViewerUtils =
 
     let getLodParameters 
         (surf:aval<AdaptiveSurface>) 
+        (globalBB : aval<Box3d>)
         (refsys:AdaptiveReferenceSystem) 
         (observedSystem : aval<Option<SpiceReferenceSystem>>) 
         (observerSystem : aval<Option<ObserverSystem>>)
         (frustum : aval<Frustum>) =
         adaptive {
             let! s = surf
+            let! gBB = globalBB
             let! frustum = frustum 
             let sizes = V2i(1024,768)
             let! quality = s.quality.value
@@ -308,6 +310,7 @@ module ViewerUtils =
 
                 let trafo =
                     adaptive {
+                        let! gBB = globalBB
                         let! fullTrafo = TransformationApp.fullTrafo surf.transformation refsys observedSystem observerSystem
                         let! preTransform = surf.preTransform
                         let! flipZ = surf.transformation.flipZ
@@ -436,7 +439,7 @@ module ViewerUtils =
                     |> Sg.noEvents
                     |> Sg.texture (Sym.ofString "ColorMapTexture") (AVal.constant colormap)
                     |> Sg.texture (Sym.ofString "FootPrintTexture") fp.projTex
-                    |> Sg.LodParameters ( getLodParameters  (AVal.constant surf) refsys observedSystem observerSystem frustum  )
+                    |> Sg.LodParameters ( getLodParameters  (AVal.constant surf) globalBB refsys observedSystem observerSystem frustum  )
                     |> Sg.AttributeParameters( attributeParameters  (AVal.constant surf) )
                     
                     |> SecondaryTexture.Sg.applySecondaryTextureId (
@@ -545,6 +548,7 @@ module ViewerUtils =
 
                 let trafo =
                         adaptive {
+                            let! gBB = surface.globalBB
                             let! fullTrafo = TransformationApp.fullTrafo surf.transformation refsys observedSystem observerSystem
                             let! preTransform = surf.preTransform
                             let! flipZ = surf.transformation.flipZ
@@ -593,7 +597,7 @@ module ViewerUtils =
                     |> Sg.trafo trafo 
                     |> Sg.uniform "TriangleSize"   triangleFilter 
                     |> Sg.onOff (surf.isVisible)
-                    |> Sg.LodParameters( getLodParameters  (AVal.constant surf) refsys  observedSystem observerSystem frustum )
+                    |> Sg.LodParameters( getLodParameters  (AVal.constant surf) surface.globalBB refsys  observedSystem observerSystem frustum )
                     |> Sg.noEvents 
                     |> Sg.effect [
                         triangleFilterX     |> toEffect
