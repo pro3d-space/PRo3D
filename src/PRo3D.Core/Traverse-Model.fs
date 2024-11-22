@@ -20,6 +20,7 @@ type TraversePropertiesAction =
     | SetSolTextsize of Numeric.Action
     | SetLineWidth of Numeric.Action
     | SetTraverseColor of ColorPicker.Action
+    | SetHeightOffset of Numeric.Action
 
 type TraverseAction =
     | SelectSol of int
@@ -148,7 +149,9 @@ type Traverse =
       tLineWidth: NumericInput
       showDots: bool
       isVisibleT: bool
-      color: ColorInput }
+      color: ColorInput;
+      heightOffset : NumericInput
+    }
 
 module Traverse =
     let colorsSoft12 =
@@ -187,6 +190,7 @@ module Traverse =
           showDots = false
           isVisibleT = true
           color = { c = C4b.White }
+          heightOffset = { Numeric.init with value = 0.0 }
           }
 
     let withColor(color: C4b) (t: Traverse) =
@@ -211,7 +215,9 @@ module Traverse =
                   tLineWidth = InitTraverseParams.tLineW 1.5
                   showDots = showDots
                   isVisibleT = true
-                  color = { c = C4b.White } }
+                  color = { c = C4b.White } 
+                  heightOffset = { Numeric.init with value = 0.0}
+                }
         }
 
     let readV1 =
@@ -226,6 +232,7 @@ module Traverse =
             let! showDots = Json.read "showDots"
             let! isVisibleT = Json.read "isVisibleT"
             let! color = Json.readWith Ext.fromJson<ColorInput, Ext> "color"
+            let! heightOffset = Json.tryRead "heightOffset"
 
             let tLineWidth = 
                 match tLWidth with
@@ -244,7 +251,9 @@ module Traverse =
                   tLineWidth = tLineWidth
                   showDots = showDots
                   isVisibleT = isVisibleT
-                  color = color }
+                  color = color
+                  heightOffset = { Numeric.init with value = Option.defaultValue 0.0 heightOffset }
+                }
         }
 
 type Traverse with
@@ -272,6 +281,7 @@ type Traverse with
             do! Json.write "isVisibleT" x.isVisibleT
             do! Json.writeWith (Ext.toJson<ColorInput, Ext>) "color" x.color
             do! Json.write "tLineWidth" x.tLineWidth.value
+            do! Json.write "heightOffset" x.heightOffset.value
         }
 
 [<ModelType>]

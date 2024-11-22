@@ -1,3 +1,6 @@
+## 4.26.0-prerelease4
+- height offset for traverses
+
 ## 4.26.0-prerelease3
 - surface priority tested
 - trajectories visibility priorities fixes
