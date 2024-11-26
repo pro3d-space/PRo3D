@@ -1883,6 +1883,9 @@ module ViewerApp =
           
             let homePosition =
                 Sg.viewHomePosition m.scene.surfacesModel
+
+            let leafLabels =
+                Sg.viewLeafLabels ~~0.01 ~~60.0 m.navigation.camera.view m.scene.surfacesModel
                                  
             let viewPlans =
                 ViewPlanApp.Sg.view 
@@ -1947,6 +1950,7 @@ module ViewerApp =
                 refSystem; 
                 viewPlans; 
                 homePosition; 
+             //   leafLabels;
              //   solText; 
                 annotationTexts |> Sg.noEvents
                 heightValidation

@@ -5,6 +5,7 @@ open System.IO
 open Aardvark.Base
 open Aardvark.Base.Ag
 open FSharp.Data.Adaptive
+open FSharp.Data.Adaptive.Operators
 open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.SceneGraph.IO
@@ -27,6 +28,7 @@ open PRo3D.Core
 open PRo3D.Core.Surface
 open Aardvark.GeoSpatial.Opc.PatchLod
 open Aardvark.Base.Ag
+open Aardvark.Rendering.Text
 
 module FootprintSg = 
     open Aardvark.SceneGraph.Sg
@@ -302,13 +304,33 @@ module Sg =
     let createSgSurface 
         (scene : OpcScene) 
         (s     : Surface) 
-        sg 
+        (sg    : ISg)        
         (bb    : Box3d) 
         (kd    : HashMap<Box3d,KdTrees.Level0KdTree>) = 
     
         let pose = Pose.translate V3d.Zero // bb.Center
         let trafo = { TrafoController.initial with pose = pose; previewTrafo = Pose.toTrafo pose; mode = TrafoMode.Local }
     
+
+        let patchHierarchies = 
+            scene.patchHierarchies
+            |> Seq.map Prinziple.registerIfZipped
+            |> Seq.map (fun x -> 
+                PatchHierarchy.load Serialization.binarySerializer.Pickle Serialization.binarySerializer.UnPickle (OpcPaths x)
+            )
+            |> Seq.toList
+
+        let leafLabels =
+            patchHierarchies
+            |> List.map (fun h -> h.tree |> QTree.getLeaves)
+            |> Seq.concat
+            |> Seq.map (fun p -> (p.info.Name, p.info.GlobalBoundingBox))
+            |> HashSet.ofSeq
+
+            
+
+        Log.line "[SgSurface] %A" leafLabels
+
         let sgSurface = {
                 surface     = s.guid
                 sceneGraph  = sg
@@ -317,6 +339,7 @@ module Sg =
                 trafo       = trafo
                 isObj       = false
                 opcScene    = Some scene
+                leafLabels  = leafLabels
                 //transformation = Init.Transformations
             }
         sgSurface
@@ -369,7 +392,9 @@ module Sg =
         
         sgSurfaces
     
-    let viewHomePosition (model:AdaptiveSurfaceModel) =
+    
+
+    let viewHomePosition (model:AdaptiveSurfaceModel) : ISg<'a> =
         let point = 
             aset{
                 let! guid = model.surfaces.singleSelectLeaf
@@ -397,33 +422,39 @@ module Sg =
             }|> Aardvark.UI.``F# Sg``.Sg.set
         Aardvark.UI.``F# Sg``.Sg.ofList [point]
 
-    let viewPatchCenters (model:AdaptiveSurfaceModel) =
-        let point = 
-            aset{
+    let viewLeafLabels 
+        (near   : aval<float>)
+        (fov    : aval<float>) 
+        (view   : aval<CameraView>) 
+        (model  : AdaptiveSurfaceModel) 
+        : ISg<'a> =
+
+        let points = 
+            aset{                
                 let! guid = model.surfaces.singleSelectLeaf
-                let fail = Sg.empty
-
                 match guid with
-                | Some i -> 
-                    let! exists = (model.surfaces.flat |> AMap.keys) |> ASet.contains i
-                    if exists then
-                        let leaf = model.surfaces.flat |> AMap.find i 
-                        let! surf = leaf 
-                        let x = 
-                            match surf with 
-                            | AdaptiveSurfaces s -> s 
-                            | _ -> surf |> sprintf "wrong type %A; expected AdaptiveSurfaces" |> failwith
-
-                        let! hpos = x.homePosition
-                        match hpos with
-                        | Some p -> yield Sg.dot (AVal.constant C4b.Yellow) (AVal.constant 3.0) (AVal.constant p.Location)
-                        | None -> yield fail
-                    else
-                        yield fail
+                | Some surfaceId -> 
+                    let! selectedSgSurface = (model.sgSurfaces |> AMap.tryFind surfaceId)
+                    match selectedSgSurface with
+                    | Some s -> 
+                        let labels = 
+                            s.leafLabels 
+                            |> ASet.filter(fun (name, box) -> true)
+                            |> ASet.map (fun (name, box) -> 
+                                let pos = box.Center
+                                (PRo3D.Base.Sg.text (view) (near) (fov) ~~pos (~~pos |> AVal.map Trafo3d.Translation) ~~0.05 ~~name) 
+                                |> Sg.andAlso (Sg.dot (AVal.constant C4b.VRVisGreen) (AVal.constant 5.0) (~~pos))
+                            )
+                        yield! labels                        
+                    | None -> yield Sg.empty
                 | None -> 
-                    yield fail
-            }|> Aardvark.UI.``F# Sg``.Sg.set
-        Aardvark.UI.``F# Sg``.Sg.ofList [point]
+                    yield Sg.empty
+            }
+
+        points 
+        |> ASet.map Sg.noEvents 
+        |> Sg.set
+        
         
             
                                   

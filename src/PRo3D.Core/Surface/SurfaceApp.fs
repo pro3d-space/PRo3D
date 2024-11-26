@@ -200,6 +200,7 @@ module SurfaceUtils =
                     picking     = Picking.KdTree(kdTrees |> HashMap.ofList) //Picking.PickMesh meshes
                     isObj       = true
                     opcScene    = None
+                    leafLabels  = FSharp.Data.Adaptive.HashSet.empty
                     //transformation = Init.Transformations
                 }
                  
@@ -648,6 +649,7 @@ module SurfaceUtils =
                     picking         = Picking.KdTree(kdTrees |> HashMap.ofList)
                     isObj           = true
                     opcScene        = None
+                    leafLabels      = FSharp.Data.Adaptive.HashSet.empty
                     //transformation = Init.Transformations
                 }
                  

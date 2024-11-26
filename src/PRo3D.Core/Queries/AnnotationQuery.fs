@@ -55,17 +55,18 @@ type QueryFunctions =
 
 module AnnotationQuery =
 
-    let queryFunctionsFromPointsOnPlane (heightRange : Range1d) (points : seq<V3d>) =
+    let queryFunctionsFromPointsOnPlane (heightRange : Range1d) (points : seq<V3d>) : QueryFunctions =
 
-        let lineRegression = 
+        let linearRegression = 
             let regression = new LinearRegression3d(points)
             regression.TryGetRegressionInfo()
+
         let plane = 
-            match lineRegression with
+            match linearRegression with
+            | Some p -> Plane3d(p.Normal.Normalized, p.Center)
             | None -> 
                 Log.warn "[Queries] line regression failed, using fallback"
                 CSharpUtils.PlaneFitting.Fit(points |> Seq.toArray)
-            | Some p -> Plane3d(p.Normal.Normalized, p.Center) //p.Plane
 
         let projectedPolygon = 
             points 
@@ -73,19 +74,17 @@ module AnnotationQuery =
             |> Polygon2d
 
         let projectedPolygon = projectedPolygon.ComputeConvexHullIndexPolygon().ToPolygon2d()
-            
-        
+                    
         let intersectsQuery (globalBoundingBox : Box3d) =
-            let p2w = plane.GetPlaneToWorld()
-            let pointsInWorld = projectedPolygon.Points |> Seq.map (fun p -> p2w.TransformPos(V3d(p,0.0)))
-            pointsInWorld |> Seq.exists (fun p -> globalBoundingBox.Contains p)
+            true
+            //let p2w = plane.GetPlaneToWorld()
+            //let pointsInWorld = projectedPolygon.Points |> Seq.map (fun p -> p2w.TransformPos(V3d(p,0.0)))
+            //pointsInWorld |> Seq.exists (fun p -> globalBoundingBox.Contains p)
                 
-
         let globalCoordWithinQuery (p : V3d) =
             let projected = plane.ProjectToPlaneSpace(p) 
             let h = plane.Height(p)
             projectedPolygon.Contains(projected) && heightRange.Contains(h)
-
 
         {
             boxIntersectsQuery = intersectsQuery
@@ -96,7 +95,7 @@ module AnnotationQuery =
         (heightRange : Range1d)
         (annotation : Annotation)
         : QueryFunctions =
-
+        
         let corners = annotation.points |> IndexList.toSeq
         let segmentPoints = annotation.segments |> Seq.collect (fun s -> s.points)
         let points = Seq.concat [corners; segmentPoints]

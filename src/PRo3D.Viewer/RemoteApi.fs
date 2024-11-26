@@ -675,7 +675,11 @@ module RemoteApi =
 
         let queryAnnotationAsObj (api : Api) = 
 
-            let toResult (frame : OutputReferenceFrame) (geometryType : OutputGeometryType) (results : QueryResults) = 
+            let toResult 
+                (frame        : OutputReferenceFrame) 
+                (geometryType : OutputGeometryType) 
+                (results      : QueryResults) = 
+
                 let s = PRo3D.Base.AnnotationQuery.queryResultsToObj frame geometryType results
                 Successful.OK s
 
@@ -683,7 +687,7 @@ module RemoteApi =
 
         let queryAnnotationAsJson (api : Api) = 
             
-            let toJson (_ : OutputReferenceFrame) (_ : OutputGeometryType) (results : QueryResults)  = 
+            let toJson (_ : OutputReferenceFrame) (_ : OutputGeometryType) (results : QueryResults) = 
                 let s = PRo3D.Base.QueryApi.hitsToJson results //todo: also add frame
                 Successful.OK s
 
