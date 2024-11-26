@@ -2002,6 +2002,9 @@ module ViewerApp =
             let near = m.scene.config.nearPlane.value
 
             let overL = getOverlayed m m.navigation.camera.view
+
+            let leafLabels =
+                Sg.viewLeafLabels ~~0.01 ~~60.0 m.navigation.camera.view m.scene.surfacesModel
                                  
             let viewPlans =
                 ViewPlanApp.Sg.view 
@@ -2051,6 +2054,7 @@ module ViewerApp =
             [
                 overL;
                 viewPlans; 
+             //   leafLabels;
              //   solText; 
                 heightValidation;
                 //traverse

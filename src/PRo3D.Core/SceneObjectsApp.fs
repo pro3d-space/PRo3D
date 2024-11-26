@@ -114,6 +114,7 @@ module SceneObjectsUtils =
             picking     = Picking.NoPicking 
             isObj       = true 
             opcScene    = None
+            leafLabels  = HashSet.empty
         }
 
              
