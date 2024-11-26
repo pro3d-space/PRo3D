@@ -382,7 +382,7 @@ module SceneObjectsApp =
                             let! so = s.Current
                             let! observedSystem = observedSystem
                             let! observerSystem = observerSystem
-                            let fullTrafo = TransformationApp.fullTrafo' so.transformation rSys observedSystem observerSystem
+                            let fullTrafo = TransformationApp.fullTrafo' true so.transformation rSys observedSystem observerSystem
                             
                             //let! sc = s.transformation.scaling.value // s.scaling.value
                             let! flipZ = s.transformation.flipZ

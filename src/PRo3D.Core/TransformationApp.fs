@@ -77,6 +77,7 @@ module TransformationApp =
             noP, upP, eastP
 
     let getReferenceSystemBasis 
+        (usePivot  : bool)
         (pivot     : V3d)
         (refSystem : ReferenceSystem) =
 
@@ -93,7 +94,7 @@ module TransformationApp =
             //Log.line "%A,%A,%A" upP.Length east.Length north.Length
 
             let north, up, east = 
-                if not(pivot = V3d.Zero) then
+                if (not(pivot = V3d.Zero)) && usePivot then
                     getNorthAndUpFromPivot pivot refSystem
                 else 
                     let north = refSystem.northO.Normalized        
@@ -111,13 +112,15 @@ module TransformationApp =
         | _ -> failwith ""
 
     let translationFromReferenceSystemBasis
+        (usePivot       : bool)
         (translation    : V3d)
         (pivot          : V3d )
         (refSystem      : ReferenceSystem) =
-            let refsysbasis = getReferenceSystemBasis V3d.Zero refSystem 
+            let refsysbasis = getReferenceSystemBasis usePivot V3d.Zero refSystem 
             refsysbasis.Forward.TransformPos(translation) 
    
     let calcFullTrafo 
+        (usePivot    : bool)
         (translation : V3d)
         (yaw : float)
         (pitch : float)
@@ -129,7 +132,7 @@ module TransformationApp =
         (scale:float)
         (eulerMode : EulerMode) = 
 
-           let refSysBasis = getReferenceSystemBasis pivot refSystem
+           let refSysBasis = getReferenceSystemBasis usePivot pivot refSystem
            let originTrafo = pivot |> Trafo3d.Translation
 
            //translation along north, east, up directions         
@@ -167,6 +170,7 @@ module TransformationApp =
 
     let fullTrafo 
         //(bbCenter : V3d)
+        
         (transform : AdaptiveTransformations) 
         (refsys : AdaptiveReferenceSystem)
         (observedSystem : aval<Option<SpiceReferenceSystem>>)
@@ -193,12 +197,13 @@ module TransformationApp =
            //    else
            //     north, up, north.Cross(up)
            // (if (pivot = V3d.Zero) then bbCenter else pivot )
-           let newTrafo = calcFullTrafo translation yaw pitch roll (if usePivot then pivot else V3d.Zero) refSys observedSystem observerSystem scale mode //
+           let newTrafo = calcFullTrafo true translation yaw pitch roll (if usePivot then pivot else V3d.Zero) refSys observedSystem observerSystem scale mode //
            return newTrafo
         }
            
     
     let fullTrafo' 
+        (usePivot       : bool)
         (transform : Transformations) 
         //(bbCenter : V3d)
         (refsys : ReferenceSystem) 
@@ -212,6 +217,7 @@ module TransformationApp =
         //        refsys.northO, refsys.up.value, refsys.northO.Cross(refsys.up.value)
         //let pivot = (if (transform.pivot.value = V3d.Zero) then bbCenter else transform.pivot.value )
         calcFullTrafo 
+            usePivot
             transform.translation.value 
             transform.yaw.value 
             transform.pitch.value
@@ -298,7 +304,7 @@ module TransformationApp =
             else model
         | SetPickedPivotPoint p -> // world space.......
             if model.usePivot then
-                let fulTrafo : Trafo3d = fullTrafo' model refSys None None
+                let fulTrafo : Trafo3d = fullTrafo' true model refSys None None
                 let pivotObjectSpace = fulTrafo.Inverse.TransformPos(p) 
                 let p' = Vector3d.updateV3d model.pivot pivotObjectSpace
                 //let m' = updateTransformationForNewPivot model

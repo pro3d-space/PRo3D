@@ -1,3 +1,7 @@
+## 4.26.0-prerelease5
+- surfacepicking fixed
+- surface.isActive fixed
+
 ## 4.26.0-prerelease4
 - height offset for traverses
 

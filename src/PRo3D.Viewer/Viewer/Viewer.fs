@@ -438,7 +438,7 @@ module ViewerApp =
         | None ->
             match surf with
             | Some s ->
-                let fullTrafo = TransformationApp.fullTrafo' surface.transformation m.scene.referenceSystem observedSystem observerSystem
+                let fullTrafo = TransformationApp.fullTrafo' true surface.transformation m.scene.referenceSystem observedSystem observerSystem
                 let bb = s.globalBB.Transformed(fullTrafo.Forward)
                 let view = CameraView.lookAt bb.Max bb.Center m.scene.referenceSystem.up.value    
                 let animationMessage = 
@@ -732,7 +732,7 @@ module ViewerApp =
                     let sceneObj = sobjs.sceneObjects |> HashMap.find id
                     let observedSystem = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp id
                     let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
-                    let superTrafo = TransformationApp.fullTrafo' sceneObj.transformation m.scene.referenceSystem observedSystem observerSystem //SceneObjectTransformations.fullTrafo' sceneObj.transformation m.scene.referenceSystem
+                    let superTrafo = TransformationApp.fullTrafo' true sceneObj.transformation m.scene.referenceSystem observedSystem observerSystem //SceneObjectTransformations.fullTrafo' sceneObj.transformation m.scene.referenceSystem
 
                     let sgSo = sobjs.sgSceneObjects |> HashMap.find id
                     let bb = sgSo.globalBB.Transformed(sceneObj.preTransform.Forward * superTrafo.Forward)
@@ -974,10 +974,11 @@ module ViewerApp =
                          
                     let onlyActive (id : Guid) (l : Leaf) (s : SgSurface) = l.active
                     let onlyVisible (id : Guid) (l : Leaf) (s : SgSurface) = l.visible
+                    let visibleAndActive (id : Guid) (l : Leaf) (s : SgSurface) = l.visible && l.active
 
                     let surfaceFilter = 
                         match m.interaction with
-                        | Interactions.PickSurface -> onlyVisible
+                        | Interactions.PickSurface -> visibleAndActive
                         | _ -> onlyActive
 
                     let hitF (camLocation : V3d) (p : V3d) = 
@@ -1534,7 +1535,7 @@ module ViewerApp =
                 let _sb = m |> Optic.get _scaleBars |> HashMap.tryFind id
                 match _sb with 
                 | Some sb ->
-                    let translation = (TransformationApp.translationFromReferenceSystemBasis sb.transformation.translation.value V3d.Zero m.scene.referenceSystem) 
+                    let translation = (TransformationApp.translationFromReferenceSystemBasis false sb.transformation.translation.value V3d.Zero m.scene.referenceSystem) 
                     let viewLocation = sb.view.Location + translation
                     let viewForward = sb.position + translation
 

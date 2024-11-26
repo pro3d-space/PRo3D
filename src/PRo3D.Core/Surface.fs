@@ -229,7 +229,7 @@ module SurfaceIntersection =
                         //    match sgSurf with 
                         //    | Some sg -> sg.globalBB.Center
                         //    | None -> V3d.Zero
-                        let fullTrafo = TransformationApp.fullTrafo' surf.transformation refSys observedSystem observerSystem //SurfaceTransformations.fullTrafo' surf refSys
+                        let fullTrafo = TransformationApp.fullTrafo' false surf.transformation refSys observedSystem observerSystem //SurfaceTransformations.fullTrafo' surf refSys
                         //get bbs that are hit
                         let hitBoxes =
                             kd
