@@ -263,11 +263,16 @@ module SurfaceIntersection =
                                         surf.preTransform.Backward * fullTrafo.Backward
 
                                 let ray = r.Ray.Transformed(backward) |> FastRay3d
-                                let hit, c = 
-                                  kd |> DebugKdTreesX.intersectKdTrees key surf cache ray
+                                let hit, c = kd |> DebugKdTreesX.intersectKdTrees key surf cache ray
                                 Log.stop()
-                                cache <- c
-                                hit
+                                match hit with
+                                | Some (t, object) -> 
+                                    let hitPoint = ray.Ray.GetPointOnRay(t)
+                                    let tOfOriginalRay = r.Ray.GetTOfProjectedPoint(hitPoint)
+                                    cache <- c
+                                    Some (tOfOriginalRay, object)
+                                | _ -> 
+                                    None
                             )
                             |> List.sortBy(fun (t,_)-> t)
                             |> List.tryHead
@@ -283,3 +288,104 @@ module SurfaceIntersection =
             
         hits, cache    
 
+    let doKdTreeIntersectionTESTING 
+        (m             : SurfaceModel)
+        (refSys        : ReferenceSystem)
+        (observedSystem : SurfaceId -> Option<SpiceReferenceSystem>)
+        (observerSystem : Option<ObserverSystem>)
+        (r             : FastRay3d) 
+        (filterSurface : Guid -> Leaf -> SgSurface -> bool) 
+        cache
+        : option<V3d * Surface> * HashMap<_,_> = 
+        
+        let mutable cache = cache
+        let activeSgSurfaces = 
+            m.surfaces.flat
+            |> HashMap.toList 
+            |> List.choose (fun (id,leaf) -> 
+                match m.sgSurfaces |> HashMap.tryFind id with
+                | Some s -> 
+                    if filterSurface id leaf s then Some s
+                    else None
+                | _ -> None
+            )
+            
+        let hits = 
+            activeSgSurfaces 
+            |> List.map (fun d -> d.picking, (m.surfaces.flat |> HashMap.find d.surface) |> Leaf.toSurface)                      
+            |> List.choose (fun (p ,surf) ->
+                match p with
+                | Picking.NoPicking -> None
+                | Picking.KdTree kd ->
+                    if kd.IsEmpty then Log.error "no kdtree loaded for %s" surf.name; None
+                    else                    
+                        //if flipZ then 
+                        //    return Trafo3d.Scale(scaleFactor) * Trafo3d.Scale(1.0, 1.0, -1.0) * (fullTrafo * preTransform)
+                        //else
+                        //    return Trafo3d.Scale(scaleFactor) * (fullTrafo * preTransform)
+                        let observedSystem, observerSystem =
+                            match observedSystem surf.guid, observerSystem with
+                            | Some observed, Some observer -> Some observed, Some observer
+                            | _ -> None, None
+                        //let sgSurf = activeSgSurfaces |> List.tryFind(fun sg -> sg.surface = surf.guid)
+                        //let gBB = 
+                        //    match sgSurf with 
+                        //    | Some sg -> sg.globalBB.Center
+                        //    | None -> V3d.Zero
+                        let fullTrafo = TransformationApp.fullTrafo' false surf.transformation refSys observedSystem observerSystem //SurfaceTransformations.fullTrafo' surf refSys
+                        //get bbs that are hit
+                        let hitBoxes =
+                            kd
+                            |> HashMap.toList |> List.map fst
+                            |> List.filter(fun x -> 
+                                let mutable t = 0.0
+                                let r' = r.Ray //combine pre and current transform
+
+                                let trafo = 
+                                    if surf.transformation.flipZ then 
+                                        Trafo3d.Scale(1.0, 1.0, -1.0).Forward * (fullTrafo.Forward * surf.preTransform.Forward)
+                                    else if surf.transformation.isSketchFab then
+                                        Sg.switchYZTrafo.Forward
+                                    else
+                                        (fullTrafo.Forward * surf.preTransform.Forward)
+
+                                x.Transformed(trafo).Intersects(r', &t)
+                            )
+                        //intersect corresponding kdtrees
+                        let closestHit =
+                            hitBoxes
+                            |> List.choose(fun key -> 
+                                Log.startTimed "intersection: %s; pr: %f" surf.name surf.priority.value                                                             
+                                //let ray = r.Ray.Transformed(surf.preTransform.Backward) |> FastRay3d  //combine pre and current transform         
+                                let backward = 
+                                    if surf.transformation.flipZ then
+                                        Trafo3d.Scale(1.0, 1.0, -1.0).Backward * surf.preTransform.Backward * fullTrafo.Backward
+                                    else if surf.transformation.isSketchFab then
+                                        Sg.switchYZTrafo.Backward
+                                    else
+                                        surf.preTransform.Backward * fullTrafo.Backward
+
+                                let ray = r.Ray.Transformed(backward) |> FastRay3d
+                                let hit, c = kd |> DebugKdTreesX.intersectKdTrees key surf cache ray
+                                Log.stop()
+                                match hit with
+                                | Some (t, object) -> 
+                                    let hitPoint = ray.Ray.GetPointOnRay(t)
+                                    //let tOfOriginalRay = r.Ray.GetTOfProjectedPoint(hitPoint)
+                                    cache <- c
+                                    Some (t, backward.Inverse.TransformPos(hitPoint), object)
+                                | _ -> 
+                                    None
+                            )
+                            |> List.sortBy(fun (t,hitPoint, _)-> t)
+                            |> List.tryHead
+                        
+                        closestHit
+                | Picking.PickMesh pm -> Log.error "no kdtree loaded for %s" surf.name; None
+            )
+            |> List.groupBy(fun (_,hitPoint, surf) -> surf.priority.value) 
+            |> List.sortByDescending fst
+            |> List.tryHead
+            |> Option.bind(fun (_,b) -> b |> List.sortBy (fun (t,_,_) -> t) |> List.map (fun (t, hitPoint, surf) -> hitPoint,surf) |> List.tryHead)
+            
+        hits, cache    

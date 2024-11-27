@@ -64,13 +64,13 @@ module TransformationApp =
             
             //let upP = CooTransformation.getUpVector transform.pivot.value refsys.planet
             let upP = CooTransformation.getUpVector pivot refsys.planet
-            let eastP = V3d.OOI.Cross(upP)
+            let eastP = V3d.OOI.Cross(upP).Normalized
         
             let northP  = 
                 match refsys.planet with 
                 | Planet.None | Planet.JPL -> V3d.IOO
                 | Planet.ENU -> V3d.OIO
-                | _ -> upP.Cross(eastP) 
+                | _ -> upP.Cross(eastP).Normalized 
 
             let noP = 
                 Rot3d.Rotation(upP, refsys.noffset.value |> Double.radiansFromDegrees).Transform(northP)
@@ -82,7 +82,7 @@ module TransformationApp =
         (refSystem : ReferenceSystem) =
 
         let northCorrection = Trafo3d.RotationZInDegrees(refSystem.noffset.value)
-
+        let usePivot = true
         match refSystem.planet with
         | Planet.Earth
         | Planet.ENU -> 
@@ -197,7 +197,7 @@ module TransformationApp =
            //    else
            //     north, up, north.Cross(up)
            // (if (pivot = V3d.Zero) then bbCenter else pivot )
-           let newTrafo = calcFullTrafo true translation yaw pitch roll (if usePivot then pivot else V3d.Zero) refSys observedSystem observerSystem scale mode //
+           let newTrafo = calcFullTrafo true translation yaw pitch roll pivot refSys observedSystem observerSystem scale mode //
            return newTrafo
         }
            
