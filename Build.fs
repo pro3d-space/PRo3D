@@ -36,8 +36,21 @@ let solutionName = "src/PRo3D.sln"
 //    run dotnet "build" "src"
 //)
 
+let patchVersion () =
+    let programFs = File.ReadAllLines "src/PRo3D.Viewer/Program.fs"
+    let patched = 
+        programFs 
+        |> Array.map (fun line -> 
+            if line.StartsWith "let viewerVersion" then 
+                sprintf "let viewerVersion       = \"%s\"" notes.NugetVersion 
+            else line
+        )
+    File.WriteAllLines("src/PRo3D.Viewer/Program.fs", patched)
 
 Target.create "Compile" (fun _ ->
+
+    patchVersion()
+
     let debug = false
     let cfg = if debug then "Debug" else "Release"
     
@@ -336,15 +349,7 @@ Target.create "CopyToElectron" (fun _ ->
         Directory.Delete("./aardium/build/build", true) 
 
     // 0.0 copy version over into source code...
-    let programFs = File.ReadAllLines "src/PRo3D.Viewer/Program.fs"
-    let patched = 
-        programFs 
-        |> Array.map (fun line -> 
-            if line.StartsWith "let viewerVersion" then 
-                sprintf "let viewerVersion       = \"%s\"" notes.NugetVersion 
-            else line
-        )
-    File.WriteAllLines("src/PRo3D.Viewer/Program.fs", patched)
+    patchVersion()
 
     if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX) then
          "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
@@ -406,15 +411,7 @@ Target.create "CopyToElectron" (fun _ ->
 Target.create "Publish" (fun _ ->
 
     // 0.0 copy version over into source code...
-    let programFs = File.ReadAllLines "src/PRo3D.Viewer/Program.fs"
-    let patched = 
-        programFs 
-        |> Array.map (fun line -> 
-            if line.StartsWith "let viewerVersion" then 
-                sprintf "let viewerVersion       = \"%s\"" notes.NugetVersion 
-            else line
-        )
-    File.WriteAllLines("src/PRo3D.Viewer/Program.fs", patched)
+    patchVersion()
 
     if Directory.Exists "bin/publish" then 
         Directory.Delete("bin/publish", true)
