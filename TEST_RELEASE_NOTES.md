@@ -1,3 +1,6 @@
+## 4.26.0-prerelease6
+- fixed surface picking in presense of local refsystems
+
 ## 4.26.0-prerelease5
 - surfacepicking fixed
 - surface.isActive fixed
