@@ -999,14 +999,15 @@ module ViewerApp =
                             cache <- c; None
                                    
                     let result = 
-                        match SurfaceIntersection.doKdTreeIntersectionTESTING (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem fray surfaceFilter cache with
-                        | Some (hit,surf), c ->                         
+                        match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem fray surfaceFilter cache with
+                        | Some (t,surf), c ->                         
                             cache <- c
+                            let hit = r.GetPointOnRay(t)
 
                             Log.line "[PickSurface] surface hit at %A" hit
 
                             let cameraLocation = m.navigation.camera.view.Location //navigation'.camera.view.Location 
-                            let hitF = hitF cameraLocation
+                            let hitF = hitF cameraLocation 
                    
                             lastHash <- rayHash
 
