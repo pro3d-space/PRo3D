@@ -1,14 +1,12 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.33214.272
+# Visual Studio Version 17
+VisualStudioVersion = 17.12.35506.116 d17.12
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PRo3D.Linking", "PRo3D.2D3DLinking\PRo3D.Linking.fsproj", "{674F1D0F-54AB-4880-8A9F-4AFB61F00999}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PRo3D.Base", "PRo3D.Base\PRo3D.Base.fsproj", "{6ED07581-1089-4AA7-A66D-FC2581278355}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CSharpUtils", "CSharpUtils\CSharpUtils.csproj", "{88198843-22D3-49BD-9114-61F29A217195}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PRo3D.Minerva", "PRo3D.Minerva\PRo3D.Minerva.fsproj", "{76852227-902C-4AEC-A97F-1E666BC80B64}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PRo3D.Viewer", "PRo3D.Viewer\PRo3D.Viewer.fsproj", "{A375E5FD-ABB2-48CF-AF27-CC3E4B650D04}"
 EndProject
@@ -60,10 +58,6 @@ Global
 		{88198843-22D3-49BD-9114-61F29A217195}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{88198843-22D3-49BD-9114-61F29A217195}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{88198843-22D3-49BD-9114-61F29A217195}.Release|Any CPU.Build.0 = Release|Any CPU
-		{76852227-902C-4AEC-A97F-1E666BC80B64}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{76852227-902C-4AEC-A97F-1E666BC80B64}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{76852227-902C-4AEC-A97F-1E666BC80B64}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{76852227-902C-4AEC-A97F-1E666BC80B64}.Release|Any CPU.Build.0 = Release|Any CPU
 		{A375E5FD-ABB2-48CF-AF27-CC3E4B650D04}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A375E5FD-ABB2-48CF-AF27-CC3E4B650D04}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A375E5FD-ABB2-48CF-AF27-CC3E4B650D04}.Release|Any CPU.ActiveCfg = Release|Any CPU
