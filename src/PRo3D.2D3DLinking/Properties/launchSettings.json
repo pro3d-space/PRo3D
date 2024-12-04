@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "2D3DLinking": {
-      "commandName": "Project",
-      "commandLineArgs": "opc=\"C:\\Users\\laura\\VRVis\\Data\\Stimson_minerva\\1087_004777_MSLMST_0013\" -rotate dump=\"C:\\Users\\laura\\VRVis\\PRo3D_25062018\\bin\\Debug\\MinervaData\\dump.csv\" cache=\"C:\\Users\\laura\\VRVis\\PRo3D_25062018\\bin\\Debug\\MinervaData\\dump.cache\" access=\"minerva:tai8Ies7\""
-    }
-  }
-}
