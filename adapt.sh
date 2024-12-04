@@ -1,3 +1,5 @@
+#!/bin/bash
+
 dotnet fsi ./src/PRo3D.Base/RunAdaptify.fsx
 dotnet fsi ./src/PRo3D.Core/RunAdaptify.fsx
 dotnet fsi ./src/PRo3D.SimulatedViews/RunAdaptify.fsx
