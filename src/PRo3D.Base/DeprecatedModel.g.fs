@@ -1,7 +1,7 @@
 //442bfe3f-802e-9ced-f327-3e199b517b27
 //0d68e79f-1ac7-4d06-e1f4-f208c0412e00
 #nowarn "49" // upper case patterns
-#nowarn "66" // upcast is unncecessary 
+#nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
 #nowarn "1182" // value is unused
 namespace rec Aardvark.UI
