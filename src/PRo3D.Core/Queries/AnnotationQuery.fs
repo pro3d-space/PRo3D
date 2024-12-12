@@ -58,6 +58,8 @@ module AnnotationQuery =
 
     let queryFunctionsFromPointsOnPlane (heightRange : Range1d) (points : seq<V3d>) : QueryFunctions =
 
+        let pointsOnPlaneBBEnlarged = lazy (Box3d points).EnlargedByRelativeEps(0.1)
+
         let linearRegression = 
             let regression = new LinearRegression3d(points)
             regression.TryGetRegressionInfo()
@@ -75,12 +77,12 @@ module AnnotationQuery =
             |> Polygon2d
 
         let projectedPolygon = projectedPolygon.ComputeConvexHullIndexPolygon().ToPolygon2d()
-                    
-        let intersectsQuery (globalBoundingBox : Box3d) =
-            true
-            //let p2w = plane.GetPlaneToWorld()
-            //let pointsInWorld = projectedPolygon.Points |> Seq.map (fun p -> p2w.TransformPos(V3d(p,0.0)))
-            //pointsInWorld |> Seq.exists (fun p -> globalBoundingBox.Contains p)
+                     
+        let intersectsQuery (globalBoundingBox : Box3d) =      
+            //globalBoundingBox.Intersects(pointsOnPlaneBBEnlarged.Value)
+            let p2w = plane.GetPlaneToWorld()
+            let pointsInWorld = projectedPolygon.Points |> Seq.map (fun p -> p2w.TransformPos(V3d(p,0.0)))
+            pointsInWorld |> Seq.exists (fun p -> globalBoundingBox.Contains p)
                 
         let globalCoordWithinQuery (p : V3d) =
             let projected = plane.ProjectToPlaneSpace(p) 
@@ -297,7 +299,10 @@ module AnnotationQuery =
                     geometry
                 )
 
-            RudimentaryObjExport.writeToString objGeometries
+            objGeometries 
+            |> WavefrontGeometry.mergeWithDefaultColor C3b.White  
+            |> Seq.singleton
+            |> RudimentaryObjExport.writeToString 
 
         | PointCloud ->
             let shiftByCenterOfMass (points: V3d[]) : V3d[] =

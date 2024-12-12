@@ -1,5 +1,5 @@
-//fec45fe6-71db-8f5c-de69-ad066f6a8b15
-//88c3a24e-0280-7dee-c9a7-2c05a60d4172
+//d270384d-0447-0ff8-9bdb-116e0949d418
+//6721c0b9-fad4-e841-535f-0341e54c2528
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -314,6 +314,7 @@ type AdaptiveSgSurface(value : SgSurface) =
     let _sceneGraph_ = FSharp.Data.Adaptive.cval(value.sceneGraph)
     let _picking_ = FSharp.Data.Adaptive.cval(value.picking)
     let _opcScene_ = FSharp.Data.Adaptive.cval(value.opcScene)
+    let _leafLabels_ = FSharp.Data.Adaptive.cset(value.leafLabels)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : SgSurface) = AdaptiveSgSurface(value)
@@ -327,6 +328,7 @@ type AdaptiveSgSurface(value : SgSurface) =
             _sceneGraph_.Value <- value.sceneGraph
             _picking_.Value <- value.picking
             _opcScene_.Value <- value.opcScene
+            _leafLabels_.Value <- value.leafLabels
             ()
     member __.Current = __adaptive
     member __.surface = __value.surface
@@ -335,6 +337,7 @@ type AdaptiveSgSurface(value : SgSurface) =
     member __.sceneGraph = _sceneGraph_ :> FSharp.Data.Adaptive.aval<Aardvark.SceneGraph.ISg>
     member __.picking = _picking_ :> FSharp.Data.Adaptive.aval<Picking>
     member __.opcScene = _opcScene_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Aardvark.GeoSpatial.Opc.Configurations.OpcScene>>
+    member __.leafLabels = _leafLabels_ :> FSharp.Data.Adaptive.aset<(Microsoft.FSharp.Core.string * Aardvark.Base.Box3d)>
     member __.isObj = __value.isObj
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module SgSurfaceLenses = 
@@ -345,5 +348,6 @@ module SgSurfaceLenses =
         static member sceneGraph_ = ((fun (self : SgSurface) -> self.sceneGraph), (fun (value : Aardvark.SceneGraph.ISg) (self : SgSurface) -> { self with sceneGraph = value }))
         static member picking_ = ((fun (self : SgSurface) -> self.picking), (fun (value : Picking) (self : SgSurface) -> { self with picking = value }))
         static member opcScene_ = ((fun (self : SgSurface) -> self.opcScene), (fun (value : Microsoft.FSharp.Core.Option<Aardvark.GeoSpatial.Opc.Configurations.OpcScene>) (self : SgSurface) -> { self with opcScene = value }))
+        static member leafLabels_ = ((fun (self : SgSurface) -> self.leafLabels), (fun (value : FSharp.Data.Adaptive.HashSet<(Microsoft.FSharp.Core.string * Aardvark.Base.Box3d)>) (self : SgSurface) -> { self with leafLabels = value }))
         static member isObj_ = ((fun (self : SgSurface) -> self.isObj), (fun (value : Microsoft.FSharp.Core.bool) (self : SgSurface) -> { self with isObj = value }))
 
