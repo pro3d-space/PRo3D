@@ -271,8 +271,8 @@ module SnapshotSg =
                 
             let traverse = 
                 [ 
-                    TraverseApp.Sg.viewLines m.scene.traverses
-                    TraverseApp.Sg.viewText 
+                    TraverseApp.Sg.viewLines m.scene.referenceSystem m.scene.traverses
+                    TraverseApp.Sg.viewText m.scene.referenceSystem
                         m.navigation.camera.view
                         m.scene.config.nearPlane.value 
                         m.scene.traverses

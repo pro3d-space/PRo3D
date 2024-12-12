@@ -568,7 +568,7 @@ module Sg =
         |> IndexedGeometryPrimitives.lines
         |> Sg.ofIndexedGeometry
         |> Sg.uniform "LineWidth" (AVal.constant width)
-        |> Sg.uniform "DepthOffset" (AVal.constant 0.0001)
+        |> Sg.uniform "DepthOffset" (AVal.constant 0.0000000001)
         |> Sg.blendMode (AVal.constant BlendMode.None)
         |> Sg.effect [
             toEffect Aardvark.UI.Trafos.Shader.stableTrafo

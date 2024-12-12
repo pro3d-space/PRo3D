@@ -970,10 +970,11 @@ module ViewerApp =
                          
                     let onlyActive (id : Guid) (l : Leaf) (s : SgSurface) = l.active
                     let onlyVisible (id : Guid) (l : Leaf) (s : SgSurface) = l.visible
+                    let visibleAndActive (id : Guid) (l : Leaf) (s : SgSurface) = l.visible && l.active
 
                     let surfaceFilter = 
                         match m.interaction with
-                        | Interactions.PickSurface -> onlyVisible
+                        | Interactions.PickSurface -> visibleAndActive
                         | _ -> onlyActive
 
                     let hitF (camLocation : V3d) (p : V3d) = 
@@ -1885,15 +1886,13 @@ module ViewerApp =
                 m.scene.referenceSystem
 
         let traverse = 
-            [ 
-                TraverseApp.Sg.viewLines m.scene.traverses
-                TraverseApp.Sg.viewText 
-                    view
-                    m.scene.config.nearPlane.value 
-                    m.scene.traverses
-            ]
-            |> Sg.ofList
+            TraverseApp.Sg.viewText 
+                m.scene.referenceSystem
+                view
+                m.scene.config.nearPlane.value 
+                m.scene.traverses
             |> Sg.map TraverseMessage
+
         [
             exploreCenter; 
             refSystem; 
@@ -1940,12 +1939,16 @@ module ViewerApp =
                 mrefConfig
                 m.scene.referenceSystem
             |> Sg.map ScaleBarsMessage
-
-        let traverses =
-            TraverseApp.Sg.view     
-                m.navigation.camera.view
-                m.scene.referenceSystem
-                m.scene.traverses   
+       
+        let traverses = 
+            [ 
+                TraverseApp.Sg.viewLines m.scene.referenceSystem m.scene.traverses
+                TraverseApp.Sg.view     
+                    view //m.navigation.camera.view
+                    m.scene.referenceSystem
+                    m.scene.traverses   
+            ]
+            |> Sg.ofList
             |> Sg.map TraverseMessage
 
         [

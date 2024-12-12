@@ -1,5 +1,5 @@
-//ec4d1a00-81de-5aa3-2cc0-38e6b45c407c
-//ec89bce4-585e-bb81-9cca-8285d09a3e26
+//bf094ef8-ba1d-b7e9-630a-ee58479219c3
+//12a8350e-944b-2fee-aa29-55d4c22959cc
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -18,9 +18,11 @@ type AdaptiveTraverse(value : Traverse) =
     let _showLines_ = FSharp.Data.Adaptive.cval(value.showLines)
     let _showText_ = FSharp.Data.Adaptive.cval(value.showText)
     let _tTextSize_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.tTextSize)
+    let _tLineWidth_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.tLineWidth)
     let _showDots_ = FSharp.Data.Adaptive.cval(value.showDots)
     let _isVisibleT_ = FSharp.Data.Adaptive.cval(value.isVisibleT)
     let _color_ = Aardvark.UI.AdaptiveColorInput(value.color)
+    let _heightOffset_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.heightOffset)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : Traverse) = AdaptiveTraverse(value)
@@ -35,9 +37,11 @@ type AdaptiveTraverse(value : Traverse) =
             _showLines_.Value <- value.showLines
             _showText_.Value <- value.showText
             _tTextSize_.Update(value.tTextSize)
+            _tLineWidth_.Update(value.tLineWidth)
             _showDots_.Value <- value.showDots
             _isVisibleT_.Value <- value.isVisibleT
             _color_.Update(value.color)
+            _heightOffset_.Update(value.heightOffset)
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.guid = __value.guid
@@ -47,9 +51,11 @@ type AdaptiveTraverse(value : Traverse) =
     member __.showLines = _showLines_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.showText = _showText_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.tTextSize = _tTextSize_
+    member __.tLineWidth = _tLineWidth_
     member __.showDots = _showDots_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.isVisibleT = _isVisibleT_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.color = _color_
+    member __.heightOffset = _heightOffset_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module TraverseLenses = 
     type Traverse with
@@ -61,9 +67,11 @@ module TraverseLenses =
         static member showLines_ = ((fun (self : Traverse) -> self.showLines), (fun (value : Microsoft.FSharp.Core.bool) (self : Traverse) -> { self with showLines = value }))
         static member showText_ = ((fun (self : Traverse) -> self.showText), (fun (value : Microsoft.FSharp.Core.bool) (self : Traverse) -> { self with showText = value }))
         static member tTextSize_ = ((fun (self : Traverse) -> self.tTextSize), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Traverse) -> { self with tTextSize = value }))
+        static member tLineWidth_ = ((fun (self : Traverse) -> self.tLineWidth), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Traverse) -> { self with tLineWidth = value }))
         static member showDots_ = ((fun (self : Traverse) -> self.showDots), (fun (value : Microsoft.FSharp.Core.bool) (self : Traverse) -> { self with showDots = value }))
         static member isVisibleT_ = ((fun (self : Traverse) -> self.isVisibleT), (fun (value : Microsoft.FSharp.Core.bool) (self : Traverse) -> { self with isVisibleT = value }))
         static member color_ = ((fun (self : Traverse) -> self.color), (fun (value : Aardvark.UI.ColorInput) (self : Traverse) -> { self with color = value }))
+        static member heightOffset_ = ((fun (self : Traverse) -> self.heightOffset), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : Traverse) -> { self with heightOffset = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveTraverseModel(value : TraverseModel) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)

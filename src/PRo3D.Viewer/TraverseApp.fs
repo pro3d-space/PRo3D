@@ -62,6 +62,10 @@ module TraversePropertiesApp =
             { model with tTextSize = Numeric.update model.tTextSize s}
         | SetTraverseColor tc -> 
             { model with color = ColorPicker.update model.color tc }
+        | SetLineWidth w ->
+            { model with tLineWidth = Numeric.update model.tLineWidth w}
+        | SetHeightOffset w -> 
+            { model with heightOffset = Numeric.update model.heightOffset w}
 
 
     let computeSolRotation (sol : Sol) (referenceSystem : ReferenceSystem) : Trafo3d =
@@ -112,6 +116,8 @@ module TraversePropertiesApp =
                     Html.row "Show Lines:" [GuiEx.iconCheckBox m.showLines ToggleShowLines]
                     Html.row "Show Dots:"  [GuiEx.iconCheckBox m.showDots  ToggleShowDots]
                     Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
+                    Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]  
+                    Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
                 ]
             )
     
@@ -144,9 +150,9 @@ module TraversePropertiesApp =
     
                         let headerText = sprintf "Sol %i" sol.solNumber                    
                 
-                        let white = sprintf "color: %s" (Html.color C4b.White)
+                        let white = sprintf "color: %s" (Html.ofC4b C4b.White)
                         let! c = color
-                        let bgc = sprintf "color: %s" (Html.color c)
+                        let bgc = sprintf "color: %s" (Html.ofC4b c)
                             
                         //if (sol.solNumber = 238) then
                         //items
@@ -580,11 +586,12 @@ module TraverseApp =
             adaptive {
                 let! sols = model.sols
                 let! c = model.color.c
+                let! w = model.tLineWidth.value
                 let lines = 
                     sols 
                     |> List.map(fun x -> x.location)
                     |> List.toArray
-                    |> PRo3D.Core.Drawing.Sg.lines c 2.0 
+                    |> PRo3D.Core.Drawing.Sg.lines c w 
                 
                 return lines
             }
@@ -592,13 +599,23 @@ module TraverseApp =
             |> Sg.onOff model.showLines
             |> Sg.onOff model.isVisibleT
 
-        let viewLines (traverseModel : AdaptiveTraverseModel) =
+
+        let getTraverseOffsetTransform (refSystem : AdaptiveReferenceSystem) (model : AdaptiveTraverse) =
+            (refSystem.Current, model.Current, model.heightOffset.value) |||> AVal.map3 (fun refSystem current offset ->
+                match current.sols |> List.tryHead with
+                | None -> Trafo3d.Identity
+                | Some sol -> 
+                    let north, up, east = PRo3D.Core.Surface.TransformationApp.getNorthAndUpFromPivot sol.location refSystem
+                    Trafo3d.Translation(offset * up)
+            )
+
+        let viewLines (refSystem: AdaptiveReferenceSystem) (traverseModel : AdaptiveTraverseModel) =
 
             let traverses = traverseModel.traverses
             traverses 
             |> AMap.map( fun id traverse ->
-                drawSolLines
-                    traverse
+                drawSolLines traverse
+                |> Sg.trafo (getTraverseOffsetTransform refSystem traverse)
             )
             |> AMap.toASet 
             |> ASet.map snd 
@@ -607,20 +624,20 @@ module TraverseApp =
         let drawSolTextsFast (view : aval<CameraView>) (near : aval<float>) (traverse : AdaptiveTraverse) = 
             let contents = 
                 let viewTrafo = view |> AVal.map CameraView.viewTrafo
-                traverse.sols 
-                |> AVal.map (fun sols -> 
+                 
+                AVal.map2 (fun sols scale -> 
                     sols 
                     |> List.toArray
                     |> Array.map (fun sol -> 
                         let loc = sol.location + sol.location.Normalized * 1.5
-                        let trafo = Trafo3d.Translation loc
+                        let trafo = (Trafo3d.Scale((float)scale) ) * (Trafo3d.Translation loc)
                         let text = $"{sol.solNumber}"
                         //let scaleTrafo = Sg.invariantScaleTrafo view near ~~loc traverse.tTextSize.value ~~60.0
                         //let dynamicTrafo = scaleTrafo |> AVal.map (fun scale -> scale * trafo)
                         let stableTrafo = viewTrafo |> AVal.map (fun view -> trafo * view) // stable, and a bit slow
                         AVal.constant trafo, AVal.constant text
-                    )
-                )
+                    ) 
+                ) traverse.sols traverse.tTextSize.value
                 |> ASet.ofAVal
             let sg = 
                 let config = { Text.TextConfig.Default with renderStyle = RenderStyle.Billboard; color = C4b.White }
@@ -646,15 +663,17 @@ module TraverseApp =
             |> Sg.set
             |> Sg.onOff model.isVisibleT
 
-        let viewText view near (traverseModel : AdaptiveTraverseModel) =
+
+        let viewText (refSystem : AdaptiveReferenceSystem) view near (traverseModel : AdaptiveTraverseModel) =
         
             let traverses = traverseModel.traverses
             traverses 
-            |> AMap.map( fun id traverse ->
+            |> AMap.map(fun id traverse ->
                 drawSolTextsFast
                     view
                     near
                     traverse
+                |> Sg.trafo (getTraverseOffsetTransform refSystem traverse)
             )
             |> AMap.toASet 
             |> ASet.map snd 
@@ -697,12 +716,13 @@ module TraverseApp =
                     return { v with c = c }
                 }
 
-        let viewTraverseDots (view : aval<CameraView>) (traverse : AdaptiveTraverse) =
+        let viewTraverseDots (refSystem: AdaptiveReferenceSystem) (view : aval<CameraView>) (traverse : AdaptiveTraverse) =
+            let shift = getTraverseOffsetTransform refSystem traverse
             let solCenterTrafo = 
-                (traverse.sols, view)
-                ||> AVal.map2 (fun sols view -> 
+                (traverse.sols, view, shift)
+                |||> AVal.map3 (fun sols view shift -> 
                     let viewTrafo = view.ViewTrafo
-                    sols |> List.toArray |> Array.map (fun sol -> Trafo3d.Translation(sol.location) * viewTrafo) :> Array
+                    sols |> List.toArray |> Array.map (fun sol -> Trafo3d.Translation(sol.location) * shift * viewTrafo) :> Array
                 )
                 
             let solNumbers =
@@ -729,16 +749,19 @@ module TraverseApp =
             |> Sg.onOff traverse.showDots
 
         let viewTraverseCoordinateFrames (view : aval<CameraView>) (refSystem : AdaptiveReferenceSystem)  (traverse : AdaptiveTraverse) =
+            let shift = getTraverseOffsetTransform refSystem traverse
             let solTrafosInRefSystem = 
                 (traverse.sols, view, refSystem.Current)
-                |||> AVal.map3 (fun sols view refSystem -> 
+                |||> AVal.bind3 (fun sols view refSystem -> 
                     let viewTrafo = view.ViewTrafo
-                    sols |> List.toArray |> Array.map (fun sol -> 
-                        let rotation = TraversePropertiesApp.computeSolRotation sol refSystem
-                        let loc = sol.location + sol.location.Normalized * 0.5 // when porting to instancing kept it 0.5
-                        let shiftedSol = Trafo3d.Translation loc
-                        rotation * shiftedSol * viewTrafo
-                    ) 
+                    shift |> AVal.map (fun shift -> 
+                        sols |> List.toArray |> Array.map (fun sol -> 
+                            let rotation = TraversePropertiesApp.computeSolRotation sol refSystem
+                            let loc = sol.location + sol.location.Normalized * 0.5 // when porting to instancing kept it 0.5
+                            let shiftedSol = Trafo3d.Translation loc
+                            rotation * shiftedSol * shift * viewTrafo
+                        ) 
+                    )
                 )
             Sg.coordinateCross ~~2.0
             |> Sg.shader {
@@ -750,19 +773,20 @@ module TraverseApp =
             |> Sg.onOff traverse.showDots
             
 
+
         let viewTraverseFast  
             (view : aval<CameraView>)
-            (refSystem : AdaptiveReferenceSystem) 
-            (model : AdaptiveTraverse) : ISg<TraverseAction> = 
+            (refSystem : AdaptiveReferenceSystem) (model : AdaptiveTraverse) : ISg<TraverseAction> = 
+
             Sg.ofList [
                 viewTraverseCoordinateFrames view refSystem model
-                viewTraverseDots view model
+                viewTraverseDots refSystem view model
             ]
             |> Sg.onOff model.isVisibleT
 
         let viewTraverse  
-            (refSystem : AdaptiveReferenceSystem) 
-            (model : AdaptiveTraverse) : ISg<TraverseAction> = 
+            (refSystem : AdaptiveReferenceSystem) (model : AdaptiveTraverse) : ISg<TraverseAction> = 
+
             alist {
                 let! sols = model.sols
                 for sol in sols do
@@ -786,6 +810,7 @@ module TraverseApp =
             |> ASet.ofAList         
             |> Sg.set
             |> Sg.onOff model.isVisibleT
+            |> Sg.trafo (getTraverseOffsetTransform refSystem model)
 
 
 
