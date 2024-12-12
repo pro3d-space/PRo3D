@@ -1988,6 +1988,7 @@ module ViewerApp =
                       ~~(Trafo3d.Translation pos)
                       ~~20.0
                       ~~txt
+                      ~~C4b.White
                 ) 
                 |> AMap.toASet  
                 |> ASet.map(fun x -> snd x)            

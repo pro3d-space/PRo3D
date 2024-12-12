@@ -236,7 +236,7 @@ module RemoteApi =
                             Aardvark.Data.Opc.PatchHierarchy.load 
                                 PRo3D.Base.Serialization.binarySerializer.Pickle 
                                 PRo3D.Base.Serialization.binarySerializer.UnPickle
-                                (Aardvark.SceneGraph.Opc.OpcPaths x), x
+                                (Aardvark.Data.Opc.OpcPaths x), x
                         )
                     )
                     |> Seq.toList

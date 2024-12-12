@@ -315,7 +315,7 @@ module Sg =
 
         let patchHierarchies = 
             scene.patchHierarchies
-            |> Seq.map Prinziple.registerIfZipped
+            |> Seq.map Prinziple.register
             |> Seq.map (fun x -> 
                 PatchHierarchy.load Serialization.binarySerializer.Pickle Serialization.binarySerializer.UnPickle (OpcPaths x)
             )
@@ -443,7 +443,7 @@ module Sg =
                             |> ASet.filter(fun (name, box) -> true)
                             |> ASet.map (fun (name, box) -> 
                                 let pos = box.Center
-                                (PRo3D.Base.Sg.text (view) (near) (fov) ~~pos (~~pos |> AVal.map Trafo3d.Translation) ~~0.05 ~~name) 
+                                (PRo3D.Base.Sg.text (view) (near) (fov) ~~pos (~~pos |> AVal.map Trafo3d.Translation) ~~0.05 ~~name ~~C4b.White) 
                                 |> Sg.andAlso (Sg.dot (AVal.constant C4b.VRVisGreen) (AVal.constant 5.0) (~~pos))
                             )
                         yield! labels                        
