@@ -285,8 +285,8 @@ module GisApp =
                         (fun x -> x.Value)
                         "Select Frame"
                 let! c = SurfaceApp.mkColor model s
-                let infoc = sprintf "color: %s" (Html.color C4b.White)
-                let bgc = sprintf "color: %s" (Html.color c)
+                let infoc = sprintf "color: %s" (Html.ofC4b C4b.White)
+                let bgc = sprintf "color: %s" (Html.ofC4b c)
                 let content = 
                     div [style infoc] [
                         div [clazz "header"] [
@@ -318,7 +318,7 @@ module GisApp =
                      (m : AdaptiveGisApp) =
         alist {
             let! s = surfaces.activeGroup
-            let color = sprintf "color: %s" (Html.color C4b.White)                
+            let color = sprintf "color: %s" (Html.ofC4b C4b.White)                
             let children = AList.collecti (fun i v -> viewTree (i::path) v surfaces m) group.subNodes    
             let activeAttributes = GroupsApp.setActiveGroupAttributeMap path surfaces group GroupsMessage
                                    
