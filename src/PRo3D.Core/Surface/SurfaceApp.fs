@@ -3,7 +3,6 @@ namespace PRo3D.Core.Surface
 open System
 open System.IO
 open System.Diagnostics
-open FSharp.Data.Adaptive
 
 open Aardvark.Base
 open Aardvark.UI
@@ -27,6 +26,7 @@ open PRo3D.Core.Surface
 
 open Adaptify.FSharp.Core
 open Aardvark.Base.Coder
+open FSharp.Data.Adaptive
 
 type SurfaceAppAction =
 | SurfacePropertiesMessage  of SurfaceProperties.Action
@@ -203,7 +203,7 @@ module SurfaceUtils =
                     picking     = Picking.KdTree(kdTrees |> HashMap.ofList) //Picking.PickMesh meshes
                     isObj       = true
                     opcScene    = None
-                    leafLabels  = FSharp.Data.Adaptive.HashSet.empty
+                    dataSource  = DataSource.Mesh
                     //transformation = Init.Transformations
                 }
                  
@@ -652,7 +652,7 @@ module SurfaceUtils =
                     picking         = Picking.KdTree(kdTrees |> HashMap.ofList)
                     isObj           = true
                     opcScene        = None
-                    leafLabels      = FSharp.Data.Adaptive.HashSet.empty
+                    dataSource      = DataSource.Mesh
                     //transformation = Init.Transformations
                 }
                  

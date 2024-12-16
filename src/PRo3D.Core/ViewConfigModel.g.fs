@@ -1,5 +1,5 @@
-//38ef849e-5c38-fb95-8d91-933c7f037aee
-//fee28bb4-35e4-f777-f774-be2e27a1ac01
+//8ab874e0-e2dc-2ea8-f09a-7d225ab57616
+//467f9d72-b605-3963-e059-0bc82710dfe9
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -56,6 +56,7 @@ type AdaptiveViewConfigModel(value : ViewConfigModel) =
     let _drawOrientationCube_ = FSharp.Data.Adaptive.cval(value.drawOrientationCube)
     let _filterTexture_ = FSharp.Data.Adaptive.cval(value.filterTexture)
     let _showExplorationPointGui_ = FSharp.Data.Adaptive.cval(value.showExplorationPointGui)
+    let _showLeafLabels_ = FSharp.Data.Adaptive.cval(value.showLeafLabels)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : ViewConfigModel) = AdaptiveViewConfigModel(value)
@@ -78,6 +79,7 @@ type AdaptiveViewConfigModel(value : ViewConfigModel) =
             _drawOrientationCube_.Value <- value.drawOrientationCube
             _filterTexture_.Value <- value.filterTexture
             _showExplorationPointGui_.Value <- value.showExplorationPointGui
+            _showLeafLabels_.Value <- value.showLeafLabels
     member __.Current = __adaptive
     member __.version = __value.version
     member __.nearPlane = _nearPlane_
@@ -94,6 +96,7 @@ type AdaptiveViewConfigModel(value : ViewConfigModel) =
     member __.drawOrientationCube = _drawOrientationCube_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.filterTexture = _filterTexture_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.showExplorationPointGui = _showExplorationPointGui_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.showLeafLabels = _showLeafLabels_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module ViewConfigModelLenses = 
     type ViewConfigModel with
@@ -112,4 +115,5 @@ module ViewConfigModelLenses =
         static member drawOrientationCube_ = ((fun (self : ViewConfigModel) -> self.drawOrientationCube), (fun (value : Microsoft.FSharp.Core.bool) (self : ViewConfigModel) -> { self with drawOrientationCube = value }))
         static member filterTexture_ = ((fun (self : ViewConfigModel) -> self.filterTexture), (fun (value : Microsoft.FSharp.Core.bool) (self : ViewConfigModel) -> { self with filterTexture = value }))
         static member showExplorationPointGui_ = ((fun (self : ViewConfigModel) -> self.showExplorationPointGui), (fun (value : Microsoft.FSharp.Core.bool) (self : ViewConfigModel) -> { self with showExplorationPointGui = value }))
+        static member showLeafLabels_ = ((fun (self : ViewConfigModel) -> self.showLeafLabels), (fun (value : Microsoft.FSharp.Core.bool) (self : ViewConfigModel) -> { self with showLeafLabels = value }))
 

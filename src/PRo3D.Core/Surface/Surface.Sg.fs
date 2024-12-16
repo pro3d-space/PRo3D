@@ -75,6 +75,7 @@ module Sg =
         sg     : ISg        
         kdtree : HashMap<Box3d,KdTrees.Level0KdTree>
         scene  : OpcScene
+        patchHierarchies : array<PatchHierarchy>
     }
 
     let mutable hackRunner : Option<Load.Runner> = None
@@ -151,7 +152,7 @@ module Sg =
         (signature      : IFramebufferSignature) 
         (scene          : OpcScene) 
         (createKdTrees  : bool)
-        : (ISg * list<PatchHierarchy> * HashMap<Box3d, KdTrees.Level0KdTree>) =
+        : (ISg * array<PatchHierarchy> * HashMap<Box3d, KdTrees.Level0KdTree>) =
 
         let runner = 
             match hackRunner with
@@ -165,7 +166,7 @@ module Sg =
             |> Seq.map (fun x -> 
                 PatchHierarchy.load Serialization.binarySerializer.Pickle Serialization.binarySerializer.UnPickle (OpcPaths x)
             )
-            |> Seq.toList
+            |> Seq.toArray
                             
         let kdTreesPerHierarchy =
             [| 
@@ -228,7 +229,7 @@ module Sg =
         // create level of detail hierarchy (Sg)
         let g = 
             patchHierarchies 
-            |> List.map (fun h ->      
+            |> Array.map (fun h ->      
                 let patchLodWithTextures = 
                     let context (n : PatchNode) (s : Ag.Scope) =
                         let vp = s.FootprintVP
@@ -280,7 +281,7 @@ module Sg =
                 //plainPatchLod
                 patchLodWithTextures
             )
-            |> SgFSharp.Sg.ofList  
+            |> SgFSharp.Sg.ofArray  
                                                                       
         g, patchHierarchies, kdTrees
     
@@ -289,10 +290,10 @@ module Sg =
             failwith (sprintf "invalid bounding box %s" (bb.ToString()))
         else bb
     
-    let combineLeafBBs (hierarchies : list<PatchHierarchy>) =
+    let combineLeafBBs (hierarchies : array<PatchHierarchy>) =
         hierarchies
-        |> List.map(fun d -> d.tree |> QTree.getLeaves)
-        |> Seq.map (fun p -> p |> Seq.map(fun d -> assertInvalidBB d.info.GlobalBoundingBox)) 
+        |> Array.map(fun d -> d.tree |> QTree.getLeaves)
+        |> Array.map (fun p -> p |> Seq.map(fun d -> assertInvalidBB d.info.GlobalBoundingBox)) 
         |> Seq.concat
         |> Box3d
     
@@ -305,32 +306,14 @@ module Sg =
     let createSgSurface 
         (scene : OpcScene) 
         (s     : Surface) 
-        (sg    : ISg)        
+        (sg    : ISg)     
+        (patchHierarchies : array<PatchHierarchy>)
         (bb    : Box3d) 
         (kd    : HashMap<Box3d,KdTrees.Level0KdTree>) = 
     
         let pose = Pose.translate V3d.Zero // bb.Center
         let trafo = { TrafoController.initial with pose = pose; previewTrafo = Pose.toTrafo pose; mode = TrafoMode.Local }
     
-
-        let patchHierarchies = 
-            scene.patchHierarchies
-            |> Seq.map Prinziple.register
-            |> Seq.map (fun x -> 
-                PatchHierarchy.load Serialization.binarySerializer.Pickle Serialization.binarySerializer.UnPickle (OpcPaths x)
-            )
-            |> Seq.toList
-
-        let leafLabels =
-            patchHierarchies
-            |> List.map (fun h -> h.tree |> QTree.getLeaves)
-            |> Seq.concat
-            |> Seq.map (fun p -> (p.info.Name, p.info.GlobalBoundingBox))
-            |> HashSet.ofSeq
-
-            
-
-        Log.line "[SgSurface] %A" leafLabels
 
         let sgSurface = {
                 surface     = s.guid
@@ -340,7 +323,7 @@ module Sg =
                 trafo       = trafo
                 isObj       = false
                 opcScene    = Some scene
-                leafLabels  = leafLabels
+                dataSource  = DataSource.OpcHierarchy patchHierarchies
                 //transformation = Init.Transformations
             }
         sgSurface
@@ -365,33 +348,29 @@ module Sg =
         
         let sghs =
             surfaces          
-            |> List.map (fun d -> { d with opcPaths = d.opcNames |> Files.expandNamesToPaths d.importPath })
-            |> List.map (fun d -> 
-                { 
-                   Configurations.Empty.mars() with
-                       patchHierarchies      = d.opcPaths
-                       preTransform          = d.preTransform
+            |> List.map (fun surface -> 
+                let surface = 
+                    { surface with opcPaths = surface.opcNames |> Files.expandNamesToPaths surface.importPath }
+                let opcScene =
+                    { Configurations.Empty.mars() with
+                       patchHierarchies      = surface.opcPaths
+                       preTransform          = surface.preTransform
                        useCompressedTextures = false
                        lodDecider            = DefaultMetrics.mars2
-                }
-            )
-            |> List.map (fun d -> d, createPlainSceneGraph runtime signature d true)
-            |> List.zip surfaces
-            |> List.map(fun (surf, (d, (sg, hierarchies, kdtree))) -> 
+                    }
+                let (sg, hierarchies, kdtree) = createPlainSceneGraph runtime signature opcScene true
+
                 let bb = 
                     hierarchies 
                     |> combineLeafBBs 
-                    |> transformBox surf.preTransform
+                    |> transformBox surface.preTransform
 
-                { surf = surf; bb = bb; sg = sg; kdtree = kdtree ; scene = d })
+                let sgSurface = createSgSurface opcScene surface sg hierarchies bb kdtree
+                sgSurface.surface, sgSurface
+            )
+            |> HashMap.ofList       
         
-        let sgSurfaces =
-          sghs 
-          |> List.map (fun d -> createSgSurface d.scene d.surf d.sg d.bb d.kdtree)
-          |> List.map (fun d -> (d.surface, d))
-          |> HashMap.ofList       
-        
-        sgSurfaces
+        sghs
     
     
 
@@ -438,10 +417,20 @@ module Sg =
                     let! selectedSgSurface = (model.sgSurfaces |> AMap.tryFind surfaceId)
                     match selectedSgSurface with
                     | Some s -> 
+
+                        let leafLabels =
+                            match s.dataSource with
+                            | DataSource.OpcHierarchy patchHierarchies -> 
+                                patchHierarchies
+                                |> Array.map (fun h -> h.tree |> QTree.getLeaves)
+                                |> Seq.concat
+                                |> Seq.map (fun p -> (p.info.Name, p.info.GlobalBoundingBox))
+                            | _ -> 
+                                []
+
                         let labels = 
-                            s.leafLabels 
-                            |> ASet.filter(fun (name, box) -> true)
-                            |> ASet.map (fun (name, box) -> 
+                            leafLabels
+                            |> Seq.map (fun (name, box) -> 
                                 let pos = box.Center
                                 (PRo3D.Base.Sg.text (view) (near) (fov) ~~pos (~~pos |> AVal.map Trafo3d.Translation) ~~0.05 ~~name ~~C4b.White) 
                                 |> Sg.andAlso (Sg.dot (AVal.constant C4b.VRVisGreen) (AVal.constant 5.0) (~~pos))

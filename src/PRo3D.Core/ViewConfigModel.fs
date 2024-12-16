@@ -80,7 +80,10 @@ type ViewConfigModel = {
     filterTexture           : bool
     //useSurfaceHighlighting  : bool
     showExplorationPointGui : bool
-    }
+
+    // labels rendered in 3D showing the individual location of patches
+    showLeafLabels          : bool
+}
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module ViewConfigModel =
@@ -170,6 +173,7 @@ module ViewConfigModel =
         filterTexture       = false
         //useSurfaceHighlighting = true
         showExplorationPointGui = true
+        showLeafLabels = false
     }
        
     module V0 =
@@ -203,6 +207,7 @@ module ViewConfigModel =
                     pickingTolerance      = initPickingTolerance
                     filterTexture         = false
                     showExplorationPointGui = true
+                    showLeafLabels        = false
                 }
             }
     module V1 =
@@ -237,6 +242,7 @@ module ViewConfigModel =
                     pickingTolerance      = initPickingTolerance
                     filterTexture         = false
                     showExplorationPointGui = true
+                    showLeafLabels        = false
                 }
             }
 
@@ -273,6 +279,7 @@ module ViewConfigModel =
                     pickingTolerance      = pickingTolerance
                     filterTexture         = false
                     showExplorationPointGui = true
+                    showLeafLabels        = false
                 }
             }
 
@@ -307,6 +314,7 @@ module ViewConfigModel =
                     pickingTolerance      = initPickingTolerance
                     filterTexture         = filterTexture 
                     showExplorationPointGui = true
+                    showLeafLabels        = false
                 }
             }
 
@@ -342,6 +350,7 @@ module ViewConfigModel =
                     pickingTolerance      = initPickingTolerance
                     filterTexture         = filterTexture 
                     showExplorationPointGui = true
+                    showLeafLabels        = false
                 }
             }
 

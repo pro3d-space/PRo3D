@@ -948,9 +948,13 @@ type Surface with
         }
 
 type Picking =
-| PickMesh of ISg
-| KdTree   of HashMap<Box3d,KdTrees.Level0KdTree>
-| NoPicking
+    | PickMesh of ISg
+    | KdTree   of HashMap<Box3d,KdTrees.Level0KdTree>
+    | NoPicking
+
+type DataSource = 
+    | OpcHierarchy of array<PatchHierarchy>
+    | Mesh
 
 [<ModelType>]
 type SgSurface = {    
@@ -961,7 +965,8 @@ type SgSurface = {
     sceneGraph  : ISg
     picking     : Picking
     opcScene    : Option<Aardvark.GeoSpatial.Opc.Configurations.OpcScene>
-    leafLabels  : HashSet<string * Box3d>
+    [<NonAdaptive>]
+    dataSource  : DataSource
 
     [<NonAdaptive>]
     isObj       : bool

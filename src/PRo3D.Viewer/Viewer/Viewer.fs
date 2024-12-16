@@ -2008,7 +2008,14 @@ module ViewerApp =
             let overL = getOverlayed m m.navigation.camera.view
 
             let leafLabels =
-                Sg.viewLeafLabels ~~0.01 ~~60.0 m.navigation.camera.view m.scene.surfacesModel
+                m.scene.config.showLeafLabels 
+                |> AVal.map (fun enabled -> 
+                    if enabled then
+                        Sg.viewLeafLabels ~~0.01 ~~60.0 m.navigation.camera.view m.scene.surfacesModel
+                    else 
+                        Sg.empty
+                )
+                |> Sg.dynamic
                                  
             let viewPlans =
                 ViewPlanApp.Sg.view 
@@ -2058,7 +2065,7 @@ module ViewerApp =
             [
                 overL;
                 viewPlans; 
-             //   leafLabels;
+                leafLabels;
              //   solText; 
                 heightValidation;
                 //traverse
