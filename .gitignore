@@ -53,3 +53,4 @@ src\Aardvark.OpcViewer.psess
 /provex/result.obj
 **/bin/Debug/**
 **/bin/Release/**
+/notebooks/result.obj

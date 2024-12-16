@@ -12,6 +12,25 @@ type WavefrontGeometry =
         colors   : Option<C3b[]>
     }
 
+module WavefrontGeometry =
+    open System.Collections.Generic
+
+    // merges all geometries. if some has no color, the supplied default color is assigned accordingly.
+    let mergeWithDefaultColor (defaultColor : C3b) (s : seq<WavefrontGeometry>) =
+        let vertices = List<V3d>()
+        let indices = List<int>()
+        let colors = List<C3b>()
+        for w in s do
+            let offset = vertices.Count
+            let addObjectOffset (idx : int) = 
+                idx + offset
+            vertices.AddRange(w.vertices)
+            indices.AddRange(w.indices |> Array.map addObjectOffset)
+            match w.colors with
+            | None -> for v in w.vertices do colors.Add defaultColor
+            | Some c -> colors.AddRange(c)
+        { vertices = vertices.ToArray(); indices = indices.ToArray(); colors = Some (colors.ToArray())}
+
 
 
 module RudimentaryObjExport =

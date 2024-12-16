@@ -961,6 +961,7 @@ type SgSurface = {
     sceneGraph  : ISg
     picking     : Picking
     opcScene    : Option<Aardvark.GeoSpatial.Opc.Configurations.OpcScene>
+    leafLabels  : HashSet<string * Box3d>
 
     [<NonAdaptive>]
     isObj       : bool

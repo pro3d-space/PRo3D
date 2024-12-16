@@ -321,8 +321,7 @@ module SceneLoader =
 
     let updateNavigation (m : Model) =
         let navigation' = 
-            { 
-                m.navigation with 
+            {                 
                     camera          = { m.navigation.camera with view = m.scene.cameraView }
                     exploreCenter   = m.scene.exploreCenter;
                     navigationMode  = m.scene.navigationMode 
@@ -348,15 +347,14 @@ module SceneLoader =
             |> resetControllerState
             |> updateNavigation
 
-
         let m = { m with frustum = setFrustum m } 
-
 
         let surfaceModel = 
             m.scene.surfacesModel 
             |> prepareSurfaceModel runtime signature scene.scenePath
 
-        let m = m |> Optic.set _surfaceModelLens surfaceModel
+        let m = 
+            m |> Optic.set _surfaceModelLens surfaceModel
 
         let fullBoundingBox = 
             surfaceModel.sgSurfaces             
@@ -412,7 +410,6 @@ module SceneLoader =
             |> expandRelativePaths
            
         applyScene scene m runtime signature
-
     
     let loadLastScene runtime signature m =
         match Serialization.fileExists "./recent" with

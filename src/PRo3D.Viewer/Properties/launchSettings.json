@@ -7,7 +7,7 @@
     },
     "PRo3D.Viewer.Provex": {
       "commandName": "Project",
-      "commandLineArgs": "--disableCors --port 4321 --remoteApi --enableProvenance",
+      "commandLineArgs": "--disableCors --port 4321 --remoteApi -loadRecent",
       "nativeDebugging": true
     },
     "PRo3D.RemoteApi": {
