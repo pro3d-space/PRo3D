@@ -79,10 +79,10 @@ module AnnotationQuery =
         let projectedPolygon = projectedPolygon.ComputeConvexHullIndexPolygon().ToPolygon2d()
                      
         let intersectsQuery (globalBoundingBox : Box3d) =      
-            //globalBoundingBox.Intersects(pointsOnPlaneBBEnlarged.Value)
-            let p2w = plane.GetPlaneToWorld()
-            let pointsInWorld = projectedPolygon.Points |> Seq.map (fun p -> p2w.TransformPos(V3d(p,0.0)))
-            pointsInWorld |> Seq.exists (fun p -> globalBoundingBox.Contains p)
+            //let p2w = plane.GetPlaneToWorld()
+            //let pointsInWorld = projectedPolygon.Points |> Seq.map (fun p -> p2w.TransformPos(V3d(p,0.0)))
+            //pointsInWorld |> Seq.exists (fun p -> globalBoundingBox.Contains p)
+            globalBoundingBox.Intersects(pointsOnPlaneBBEnlarged.Value)
                 
         let globalCoordWithinQuery (p : V3d) =
             let projected = plane.ProjectToPlaneSpace(p) 
