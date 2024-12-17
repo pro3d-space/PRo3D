@@ -419,20 +419,36 @@ Target.create "Publish" (fun _ ->
     if Directory.Exists "bin/publish" then 
         Directory.Delete("bin/publish", true)
 
-    // 1. publish exe
+    // vuewer
     "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
         { o with
             Framework = Some "net6.0"
             Runtime = Some "win10-x64" //-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true
-            Common = { o.Common with CustomParams = Some "-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true -p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
+            Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
             //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
             Configuration = DotNet.BuildConfiguration.Release
             VersionSuffix = Some notes.NugetVersion
             OutputPath = Some "bin/publish/win-x64"
+            MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
         }
     )
 
-    // 1. publish exe
+    // snapshots
+    "src/PRo3D.Snapshots/PRo3D.Snapshots.fsproj" |> DotNet.publish (fun o ->
+        { o with
+            Framework = Some "net6.0"
+            Runtime = Some "win10-x64" //-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true
+            Common = { o.Common with CustomParams = Some "-p:InPublish=True -p:DebugType=None -p:DebugSymbols=false -p:BuildInParallel=false"  }
+            //SelfContained = Some true // https://github.com/dotnet/sdk/issues/10566#issuecomment-602111314
+            Configuration = DotNet.BuildConfiguration.Release
+            VersionSuffix = Some notes.NugetVersion
+            OutputPath = Some "bin/publish/win-x64"
+            MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
+            
+        }
+    )
+
+    // mac
     "src/PRo3D.Viewer/PRo3D.Viewer.fsproj" |> DotNet.publish (fun o ->
         { o with
             Framework = Some "net6.0"
@@ -442,6 +458,7 @@ Target.create "Publish" (fun _ ->
             Configuration = DotNet.BuildConfiguration.Release
             VersionSuffix = Some notes.NugetVersion
             OutputPath = Some "bin/publish/mac-x64"
+            MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
         }
     )
 
