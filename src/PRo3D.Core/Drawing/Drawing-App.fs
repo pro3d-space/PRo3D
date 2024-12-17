@@ -693,7 +693,7 @@ module DrawingApp =
                 pickingTolerance = msmallConfig.getPickingTolerance mbigConfig
             }
        
-        if usePackedAnnotationRendering && false then
+        if usePackedAnnotationRendering then
 
             Log.startTimed "[Drawing] creating finished annotation geometry"
             let annotations =              
