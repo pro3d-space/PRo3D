@@ -150,9 +150,9 @@ module TraversePropertiesApp =
     
                         let headerText = sprintf "Sol %i" sol.solNumber                    
                 
-                        let white = sprintf "color: %s" (Html.ofC4b C4b.White)
+                        let white = sprintf "color: %s" (Html.color C4b.White)
                         let! c = color
-                        let bgc = sprintf "color: %s" (Html.ofC4b c)
+                        let bgc = sprintf "color: %s" (Html.color c)
                             
                         //if (sol.solNumber = 238) then
                         //items
