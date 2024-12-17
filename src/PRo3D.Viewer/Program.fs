@@ -368,7 +368,13 @@ let main argv =
                 choose []
 
         let suaveServer = 
-            WebPart.startServer port [
+            let startServer = 
+                if startupArgs.enableRemoteApi then 
+                    WebPart.startServer
+                else   
+                    WebPart.startServerLocalhost
+
+            startServer port [
                 if startupArgs.disableCors then allow_cors
                 MutableApp.toWebPart' runtime false mainApp
                 path "/websocket" >=> handShake ws
