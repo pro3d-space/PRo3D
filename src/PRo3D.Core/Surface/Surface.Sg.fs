@@ -147,6 +147,86 @@ module Sg =
                     
             log area > 1.0 - (log p.factor) * 1.2
 
+    module Helper = 
+
+        // ported from here: https://gamedev.stackexchange.com/a/146362
+        let intersect (b : Box3d) (r : Ray3d) =
+            let dirInv = 1.0 / r.Direction
+            let tx1 = (b.Min.X - r.Origin.X) * dirInv.X;
+            let tx2 = (b.Max.X - r.Origin.X) * dirInv.X;
+
+            let tmin = min tx1 tx2
+            let tmax = max tx1 tx2
+
+            let ty1 = (b.Min.Y - r.Origin.Y) * dirInv.Y;
+            let ty2 = (b.Max.Y - r.Origin.Y) * dirInv.Y;
+
+            let tmin = max tmin (min ty1 ty2)
+            let tmax = min tmax (max ty1 ty2)
+            if tmax > tmin then
+                Some (tmin,tmax)
+            else 
+                None
+
+    let reworkedLoD 
+        (preTrafo    : Trafo3d)
+        (self        : AdaptiveToken) 
+        (viewTrafo   : aval<Trafo3d>)
+        (projTrafo   : aval<Trafo3d>) 
+        (renderPatch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) 
+        (lodParams   : aval<LodParameters>)
+        (isActive    : aval<bool>) =
+        
+        let renderingActive = isActive.GetValue self
+        if not renderingActive then false
+        else
+            let model = preTrafo * renderPatch.trafo.GetValue self
+            let view = viewTrafo.GetValue self
+            let proj = projTrafo.GetValue self
+            let p = lodParams.GetValue self
+            let viewProj = view * proj
+
+            let globalBBModelSpace = renderPatch.info.LocalBoundingBox.Transformed(model)
+            let cornersNdc = globalBBModelSpace.ComputeCorners() |> Array.map viewProj.TransformPosProj
+            let boundsNdc = Box3d(cornersNdc)
+            if Box3d(-V3d.IIO, V3d.III).Intersects(boundsNdc) then
+                // if we have a potential hit, also use the hold hacky one, if both (the new one and the old one) agree on going deeper, let's do it
+                // the situation is rather complex since many special cases (huge bounding boxes, inhomogenous point densities etc)
+                let legacyDecider = lodDeciderMars preTrafo self viewTrafo projTrafo renderPatch lodParams isActive
+
+                let camPos = view.Backward.C3.XYZ
+                if globalBBModelSpace.Contains(camPos) && false then
+                    legacyDecider
+                else
+                    let ray = Ray3d(view.Backward.C3.XYZ, -view.Backward.C2.XYZ)
+                    let referencePoint =
+                        match Helper.intersect globalBBModelSpace ray with
+                        | Some (tmin,tmax) -> 
+                            if globalBBModelSpace.Contains(camPos) then 
+                                ray.GetPointOnRay(tmax)
+                            else
+                                ray.GetPointOnRay(tmin)
+                        | _ -> globalBBModelSpace.Center
+                    // approach: place virtual sphere with radius = triangle size at bb center
+                    // go deeper until virtual sphere is smaller than one pixel 
+                    let localLodFocusPoint = referencePoint// arbitrary. use center for computing screen space triangle size
+                    let lodCenterViewSpace = view.TransformPos(localLodFocusPoint)
+                    let pointOnSphere = lodCenterViewSpace + V3d(renderPatch.triangleSize, renderPatch.triangleSize, 0.0)
+                    let lodCenterNdc = proj.TransformPosProj(lodCenterViewSpace)
+                    let pointOnSphereNdc = proj.TransformPosProj(pointOnSphere)
+                    let triangleSizeInNcs = Vec.distance pointOnSphereNdc lodCenterNdc
+                    // true = go deeper
+                    // more restrictive condition = less LoDs
+                    let normalizedQuality = p.factor - (-2.0) / (5.0 - (-2.0))
+                    // triangle size in [-1,1] space, scale to [0,1], rescale with max viewport dimension to get to pixels
+                    // roughly. Next, go deepter if triangle is larger than largestTriangleInPixels
+
+                    let largestTriangleInPixels = 20.0
+                    triangleSizeInNcs * 0.5 * float p.size.NormMax > largestTriangleInPixels * normalizedQuality && legacyDecider
+            else
+                // culled 
+                false
+
     let createPlainSceneGraph 
         (runtime        : IRuntime) 
         (signature      : IFramebufferSignature) 
@@ -215,8 +295,9 @@ module Sg =
                          | _ -> AVal.constant false :> IAdaptiveValue
              ]
      
-        let lodDeciderMars = lodDeciderMars scene.preTransform
+        //let lodDeciderMars = lodDeciderMars scene.preTransform
         //let lodDeciderMars = marsArea scene.preTransform
+        let lodDeciderMars = reworkedLoD scene.preTransform
 
         let map = 
             Map.ofList [
@@ -260,25 +341,6 @@ module Sg =
                         Some (getVertexAttributes h.opcPaths), 
                         Aardvark.Data.PixImagePfim.Loader
                     )
-
-                //let plainPatchLod =
-                //    Sg.patchLod' 
-                //        signature
-                //        runner 
-                //        h.opcPaths.Opc_DirAbsPath
-                //        lodDeciderMars //scene.lodDecider 
-                //        scene.useCompressedTextures
-                //        true
-                //        ViewerModality.XYZ
-                //        PatchLod.CoordinatesMapping.Local
-                //        useAsyncLoading
-                //        (PatchLod.toRoseTree h.tree)
-                //        map
-                //        (fun n s -> 
-                //            let vp = s.FootprintVP
-                //            vp :> obj
-                //        )
-                //plainPatchLod
                 patchLodWithTextures
             )
             |> SgFSharp.Sg.ofArray  
