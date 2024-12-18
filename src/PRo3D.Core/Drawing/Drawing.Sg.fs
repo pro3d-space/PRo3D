@@ -413,15 +413,11 @@ module Sg =
             dotsAndText
         ] |> optional anno.visible
 
-    let finishedAnnotationText
-         (anno             : AdaptiveAnnotation) 
-         (config           : innerViewConfig)
-         (view             : aval<CameraView>) =
-        
-        anno.text 
-        |> AVal.map3 (fun show visible text -> (String.IsNullOrEmpty text) || (show && visible) ) anno.showText anno.visible
-        |> optionalSet (drawText view config anno)
-        |> Sg.set
+
+    let shouldTextBeRendered (anno : AdaptiveAnnotation) =
+         (anno.text, anno.visible, anno.showText) 
+         |||> AVal.map3 (fun text visible show -> show && visible && not (String.IsNullOrEmpty text))
+
 
     let finishedAnnotation 
         (anno             : AdaptiveAnnotation) 
