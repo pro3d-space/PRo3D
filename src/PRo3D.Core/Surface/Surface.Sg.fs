@@ -30,6 +30,7 @@ open Aardvark.GeoSpatial.Opc.PatchLod
 open Aardvark.GeoSpatial.Opc.Load
 open OpcViewer.Base
 open Aardvark.Rendering.Text
+open Aardvark.Geometry
 
 module FootprintSg = 
     open Aardvark.SceneGraph.Sg
@@ -149,27 +150,61 @@ module Sg =
 
     module Helper = 
 
-        // ported from here: https://gamedev.stackexchange.com/a/146362
-        let intersect (b : Box3d) (r : Ray3d) =
-            let dirInv = 1.0 / r.Direction
-            let tx1 = (b.Min.X - r.Origin.X) * dirInv.X;
-            let tx2 = (b.Max.X - r.Origin.X) * dirInv.X;
-
-            let tmin = min tx1 tx2
-            let tmax = max tx1 tx2
-
-            let ty1 = (b.Min.Y - r.Origin.Y) * dirInv.Y;
-            let ty2 = (b.Max.Y - r.Origin.Y) * dirInv.Y;
-
-            let tmin = max tmin (min ty1 ty2)
-            let tmax = min tmax (max ty1 ty2)
-            if tmax > tmin then
-                Some (tmin,tmax)
-            else 
+        let intersectBox' (b : Box3d) (r : FastRay3d) = 
+            let mutable tmin = -infinity
+            let mutable tmax = infinity
+            if r.Intersects(b, &tmin, &tmax) then
+                Some (tmin, tmax)
+            else
                 None
+
+        let intersectBox (b : Box3d) (r : Ray3d) =
+            FastRay3d r |> intersectBox' b
+
+
+
+    // hs: not sure what the original intention was, but was obviusly wrong (but worked reasonably well for most scenes)
+    // this this version removed obvious problems but is still much worse than the reworked on reworkedLoD
+    let cleanedOldLegacyLoD 
+        (preTrafo    : Trafo3d)
+        (self        : AdaptiveToken) 
+        (viewTrafo   : aval<Trafo3d>)
+        (projTrafo   : aval<Trafo3d>) 
+        (renderPatch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) 
+        (lodParams   : aval<LodParameters>)
+        (isActive    : aval<bool>)
+        =
+
+        let isRenderingActive = isActive.GetValue self
+        if isRenderingActive then
+            let lodParams = lodParams.GetValue self
+            let viewTrafo = viewTrafo.GetValue self
+            let model = preTrafo * renderPatch.trafo.GetValue self
+            let proj = projTrafo.GetValue self
+            let viewProj = viewTrafo * proj
+
+            let globalBBModelSpace = renderPatch.info.LocalBoundingBox.Transformed(model)
+            let cornersNdc = globalBBModelSpace.ComputeCorners() |> Array.map viewProj.TransformPosProj
+            let boundsNdc = Box3d(cornersNdc)
+            if Box3d(-V3d.IIO, V3d.III).Intersects(boundsNdc) then
+                let campPos = viewTrafo.Backward.C3.XYZ
+                let bb      = renderPatch.info.GlobalBoundingBox.Transformed(lodParams.trafo) 
+                let closest = bb.GetClosestPointOn(campPos)
+                let dist    = (closest - campPos).Length
+
+                let unitPxSize = (lodParams.frustum.right - lodParams.frustum.left) / (float lodParams.size.X * 0.5)
+                let px = (0.1 * renderPatch.triangleSize) / (pow dist 1.2) // (pow dist 1.2) // (added pow 1.2 here... discuss)
+
+                // Log.warn "%f to %f - avgSize: %f" px (unitPxSize * lodParams.factor) p.triangleSize
+                px > unitPxSize * (exp lodParams.factor)
+            else
+                false
+        else
+            false
 
     let reworkedLoD 
         (preTrafo    : Trafo3d)
+        (intersect   : ValueOption<FastRay3d -> ValueOption<V3d>>)
         (self        : AdaptiveToken) 
         (viewTrafo   : aval<Trafo3d>)
         (projTrafo   : aval<Trafo3d>) 
@@ -195,34 +230,43 @@ module Sg =
                 let legacyDecider = lodDeciderMars preTrafo self viewTrafo projTrafo renderPatch lodParams isActive
 
                 let camPos = view.Backward.C3.XYZ
-                if globalBBModelSpace.Contains(camPos) && false then
-                    legacyDecider
-                else
-                    let ray = Ray3d(view.Backward.C3.XYZ, -view.Backward.C2.XYZ)
-                    let referencePoint =
-                        match Helper.intersect globalBBModelSpace ray with
-                        | Some (tmin,tmax) -> 
+                let ray = Ray3d(view.Backward.C3.XYZ, -view.Backward.C2.XYZ)
+                let fastRay = FastRay3d(ray)
+                let referencePoint =
+                    match Helper.intersectBox' globalBBModelSpace fastRay with
+                    | Some (tmin,tmax) -> 
+                        match intersect with
+                        | ValueSome intersectionFunction ->
+                            match intersectionFunction fastRay with
+                            | ValueNone -> 
+                                Log.warn "no hit"
+                                globalBBModelSpace.Center
+                            | ValueSome v -> 
+                                v
+                        | ValueNone -> 
                             if globalBBModelSpace.Contains(camPos) then 
-                                ray.GetPointOnRay(tmax)
+                                let scnd = ray.GetPointOnRay(tmax)
+                                scnd
                             else
-                                ray.GetPointOnRay(tmin)
-                        | _ -> globalBBModelSpace.Center
-                    // approach: place virtual sphere with radius = triangle size at bb center
-                    // go deeper until virtual sphere is smaller than one pixel 
-                    let localLodFocusPoint = referencePoint// arbitrary. use center for computing screen space triangle size
-                    let lodCenterViewSpace = view.TransformPos(localLodFocusPoint)
-                    let pointOnSphere = lodCenterViewSpace + V3d(renderPatch.triangleSize, renderPatch.triangleSize, 0.0)
-                    let lodCenterNdc = proj.TransformPosProj(lodCenterViewSpace)
-                    let pointOnSphereNdc = proj.TransformPosProj(pointOnSphere)
-                    let triangleSizeInNcs = Vec.distance pointOnSphereNdc lodCenterNdc
-                    // true = go deeper
-                    // more restrictive condition = less LoDs
-                    let normalizedQuality = p.factor - (-2.0) / (5.0 - (-2.0))
-                    // triangle size in [-1,1] space, scale to [0,1], rescale with max viewport dimension to get to pixels
-                    // roughly. Next, go deepter if triangle is larger than largestTriangleInPixels
+                                ray.GetPointOnRay(tmax)
+                    | _ -> 
+                        globalBBModelSpace.Center
+                // approach: place virtual sphere with radius = triangle size at bb center
+                // go deeper until virtual sphere is smaller than one pixel 
+                let localLodFocusPoint = referencePoint// arbitrary. use center for computing screen space triangle size
+                let lodCenterViewSpace = view.TransformPos(localLodFocusPoint)
+                let pointOnSphere = lodCenterViewSpace + V3d(renderPatch.triangleSize, renderPatch.triangleSize, 0.0)
+                let lodCenterNdc = proj.TransformPosProj(lodCenterViewSpace)
+                let pointOnSphereNdc = proj.TransformPosProj(pointOnSphere)
+                let triangleSizeInNcs = Vec.distance pointOnSphereNdc lodCenterNdc
+                // true = go deeper
+                // more restrictive condition = less LoDs
+                let normalizedQuality = p.factor - (-2.0) / (5.0 - (-2.0))
+                // triangle size in [-1,1] space, scale to [0,1], rescale with max viewport dimension to get to pixels
+                // roughly. Next, go deepter if triangle is larger than largestTriangleInPixels
 
-                    let largestTriangleInPixels = 20.0
-                    triangleSizeInNcs * 0.5 * float p.size.NormMax > largestTriangleInPixels * normalizedQuality && legacyDecider
+                let largestTriangleInPixels = 5.0
+                triangleSizeInNcs * 0.5 * float p.size.NormMax > largestTriangleInPixels * normalizedQuality && legacyDecider
             else
                 // culled 
                 false
@@ -247,6 +291,61 @@ module Sg =
                 PatchHierarchy.load Serialization.binarySerializer.Pickle Serialization.binarySerializer.UnPickle (OpcPaths x)
             )
             |> Seq.toArray
+
+        let intersect =
+            let rayGuidedLoD = false
+            if rayGuidedLoD then
+                let kdTrees = 
+                    patchHierarchies 
+                    |> Array.choose (fun h -> 
+                        Log.startTimed "loading lowesd kd"
+                        let kdTree = 
+                            let level, info = 
+                                match h.tree with
+                                | QTree.Node(p,_) -> p.level, p.info
+                                | QTree.Leaf p -> 0, p.info
+                            match h.kdTree_FileAbsPath info.Name -1 ViewerModality.XYZ |> KdTrees.tryFixPatchFileIfNeeded with
+                            | None -> 
+                                Log.warn "no kd tree for level 0"
+                                None
+                            | Some kdPath ->
+                                let kd = KdTrees.loadKdtree kdPath
+                                match h.opcPaths.Patches_DirAbsPath +/ info.Name +/ info.Positions |> KdTrees.tryFixPatchFileIfNeeded with
+                                | None -> 
+                                    None
+                                | Some objectSetPath -> 
+                                    let t = DebugKdTreesX.loadTriangles' info.Local2Global  objectSetPath
+                                    kd.KdIntersectionTree.ObjectSet <- t
+                                    Some (h,kd, info.GlobalBoundingBox)
+                        Log.stop()
+                        kdTree
+                    )
+
+                let intersect (r : FastRay3d) = 
+                    let hits = 
+                        kdTrees 
+                        |> Seq.filter (fun (h,kd,bb) ->
+                            Helper.intersectBox' bb r |> Option.isSome
+                        )
+                        |> Seq.choose (fun (h,kd,bb) ->
+                            let mutable hit = ObjectRayHit.MaxRange
+                            let intersecBox = Helper.intersectBox' kd.KdIntersectionTree.BoundingBox3d r
+                            if kd.KdIntersectionTree.Intersect(r, 0.0, Double.MaxValue, &hit) then
+                                Some hit
+                            else
+                                None
+                        )
+                    if Seq.isEmpty hits then 
+                        ValueNone
+                    else 
+                        let h = hits |> Seq.minBy (fun h -> h.RayHit.T)
+                        ValueSome h.RayHit.Point
+
+                ValueSome intersect
+
+            else    
+                ValueNone
+            
                             
         let kdTreesPerHierarchy =
             [| 
@@ -297,7 +396,8 @@ module Sg =
      
         //let lodDeciderMars = lodDeciderMars scene.preTransform
         //let lodDeciderMars = marsArea scene.preTransform
-        let lodDeciderMars = reworkedLoD scene.preTransform
+        //let lodDeciderMars = reworkedLoD scene.preTransform intersect
+        let lodDeciderMars = cleanedOldLegacyLoD  scene.preTransform 
 
         let map = 
             Map.ofList [
