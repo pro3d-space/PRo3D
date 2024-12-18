@@ -1099,7 +1099,6 @@ module ViewerApp =
                     m.screenshotDirectory
                     _animator
                     m.viewerVersion
-                |> ProvenanceApp.emptyWithModel
 
             { initialModel with recent = m.recent} |> ViewerIO.loadRoverData
 
@@ -2219,7 +2218,7 @@ module ViewerApp =
             if startEmpty |> not then
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl 
                                             dataSamples screenshotDirectory _animator viewerVersion
-                |> ProvenanceApp.emptyWithModel
+                |> ProvenanceApp.emptyWithModel enableProvenance
                 |> SceneLoader.loadLastScene runtime signature                
                 |> SceneLoader.loadLogBrush
                 |> ViewerIO.loadRoverData                
@@ -2235,7 +2234,7 @@ module ViewerApp =
             else
                 PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl
                                             dataSamples screenshotDirectory _animator viewerVersion
-                |> ProvenanceApp.emptyWithModel
+                |> ProvenanceApp.emptyWithModel enableProvenance
                 |> ViewerIO.loadRoverData
 
         let app = {
