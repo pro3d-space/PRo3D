@@ -439,14 +439,7 @@ module Sg =
         //            anno.geometry 
         //            config.offset
         //    )
-     
-        let texts = 
-            anno.text 
-            |> AVal.map2 (fun show text -> (String.IsNullOrEmpty text) || show ) anno.showText
-            |> optionalSet (drawText view config anno)
-    
-        let dotsAndText = texts |> Sg.set //ASet.union' [dots; texts] |> Sg.set
-            
+
         //let selectionColor = AVal.map2(fun x color -> if x then C4b.VRVisGreen else color) picked c
         let pickingAllowed = // for this particular annotation // whether should fire pick actions
             AVal.map2 (&&) pickingAllowed anno.visible
