@@ -1,3 +1,7 @@
+## 4.27.0-prerelease1
+- coordinate frames as scale bars
+- fixed memory leak for high focal length fulcra
+
 ## 4.26.0-prerelease2 
 - fixed surface priority 
 - improved handling of large trajectories
