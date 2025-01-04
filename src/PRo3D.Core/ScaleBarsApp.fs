@@ -61,8 +61,9 @@ module ScaleBarProperties =
         | SetOrientation of Orientation
         | SetUnit        of PRo3D.Core.Unit
         | SetSubdivisions of Numeric.Action
+        | SetRepresentation of ScaleRepresentation
 
-    let update (model : ScaleBar) (act : Action) =
+    let update (model : ScaleVisualization) (act : Action) =
         match act with
         | SetName s ->
             { model with name = s }
@@ -85,8 +86,10 @@ module ScaleBarProperties =
             { model with unit = mode; text = text'} 
         | SetSubdivisions a ->
             { model with subdivisions = Numeric.update model.subdivisions a}
+        | SetRepresentation mode ->
+            { model with representation = mode }
           
-    let view (model : AdaptiveScaleBar) =        
+    let view (model : AdaptiveScaleVisualization) =        
       require GuiEx.semui (
         Html.table [               
           Html.row "Name:"          [Html.SemUi.textBox model.name SetName ]
@@ -98,6 +101,7 @@ module ScaleBarProperties =
           Html.row "Subdivisions:"  [Numeric.view' [NumericInputType.InputBox]   model.subdivisions  |> UI.map SetSubdivisions ]
           Html.row "Orientation:"   [Html.SemUi.dropDown model.orientation SetOrientation]
           Html.row "Unit:"          [Html.SemUi.dropDown model.unit SetUnit]
+          Html.row "Representation:" [Html.SemUi.dropDown model.representation SetRepresentation]
           //Html.row "Pivot:"         [Html.SemUi.dropDown model.alignment SetPivot]
         ]
       )
@@ -139,9 +143,9 @@ module ScaleBarUtils =
             | Orientation.Horizontal_cam    -> view.Right
             | Orientation.Vertical_cam      -> view.Up
             | Orientation.Sky_cam           -> view.Sky
-            | Orientation.Horizontal_planet -> planetUp.Cross(view.Backward)
+            | Orientation.Horizontal_planet -> planetUp.Cross(view.Backward).Normalized
             | Orientation.Sky_planet        -> planetUp
-            |_                       -> view.Right
+            |_                       -> view.Right.Normalized
 
 
     let getP1
@@ -184,7 +188,7 @@ module ScaleBarUtils =
                     segments <- segments |> IndexList.add segment
             segments
 
-    let updateSegments (scaleBar : ScaleBar) (planet : Planet) =
+    let updateSegments (scaleBar : ScaleVisualization) (planet : Planet) =
         let direction = getDirectionVec scaleBar.orientation scaleBar.view scaleBar.position planet
         let length = getLengthInMeter scaleBar.unit scaleBar.length.value
         getSegments scaleBar.position length direction scaleBar.alignment ((int)scaleBar.subdivisions.value)
@@ -224,7 +228,7 @@ module ScaleBarUtils =
                 transformation  = Init.transformations
                 preTransform    = Trafo3d.Identity
 
-                //direction = direction
+                representation  = ScaleRepresentation.ScaleBar 
             }
 
 
@@ -504,7 +508,7 @@ module ScaleBarsApp =
             } |> Sg.dynamic
 
         let getP1P2 
-            (scaleBar   : AdaptiveScaleBar) 
+            (scaleBar   : AdaptiveScaleVisualization) 
             (planet     : aval<Planet>)=
             aval {
                 let! position = scaleBar.position
@@ -523,7 +527,7 @@ module ScaleBarsApp =
             }
 
         let viewSingleText
-            (scaleBar   : AdaptiveScaleBar) 
+            (scaleBar   : AdaptiveScaleVisualization) 
             (view       : aval<CameraView>)
             (near       : aval<float>)
             (hfov       : aval<float>) 
@@ -589,7 +593,7 @@ module ScaleBarsApp =
             |> Sg.set
 
         let viewSingleScaleBarCylinder
-            (scaleBar   : AdaptiveScaleBar) 
+            (scaleBar   : AdaptiveScaleVisualization) 
             (view       : aval<CameraView>)
             (near       : aval<float>)
             (selected   : aval<Option<Guid>>) 
@@ -654,6 +658,88 @@ module ScaleBarsApp =
             
             } |> Sg.dynamic
 
+            
+        let coordinateCrossCylinders (colors : array<C4b>) (isMask : bool) (thickness : aval<float>) (length : aval<float>) =
+            length 
+            |> AVal.map (fun length ->
+                [
+                    { startPoint = V3d.Zero; endPoint = V3d.XAxis * length; color = colors[0] } 
+                    { startPoint = V3d.Zero; endPoint = V3d.YAxis * length; color = colors[1] }
+                    { startPoint = V3d.Zero; endPoint = V3d.ZAxis * length; color = colors[2] }
+                ]
+                |> List.map (fun seg -> 
+                    let aseg = seg |> AdaptivescSegment.Create 
+                    if isMask then 
+                        getSgSegmentCylinderMask aseg thickness V3d.Zero
+                    else
+                        getSgSegmentCylinder aseg thickness V3d.Zero
+                   )
+                |> Sg.ofList
+            )
+            |> Sg.dynamic
+
+
+        let viewScaleCoordinateFrame
+            (scaleBar   : AdaptiveScaleVisualization) 
+            (view       : aval<CameraView>)
+            (near       : aval<float>)
+            (selected   : aval<Option<Guid>>) 
+            (refSys     : AdaptiveReferenceSystem) =
+
+            let inRefFrame = 
+                refSys.Current 
+                |> AVal.map (fun refSys -> 
+                    TransformationApp.getReferenceSystemBasis V3d.Zero refSys
+                )
+
+            let fullTranslation = 
+                adaptive {
+                    let! scaleBarTrans = scaleBar.transformation.translation.value
+                    //translation along north, east, up 
+                    let! refsys = refSys.Current
+                    let translation = (TransformationApp.translationFromReferenceSystemBasis scaleBarTrans V3d.Zero refsys) //|> Trafo3d.Translation 
+
+                    let! pos = scaleBar.position
+                    return (Trafo3d.Translation pos) * (translation |> Trafo3d.Translation)
+                }
+
+            let selectionSg = 
+                let visible = 
+                    (scaleBar.guid, selected) ||> AVal.map2 (fun current selected -> 
+                        match selected with
+                        | Some sel when sel = current -> true
+                        | _ -> false
+                    )
+                let selectionSg = 
+                    coordinateCrossCylinders [| C4b.IndianRed; C4b.DarkGreen; C4b.DarkBlue |] true scaleBar.thickness.value scaleBar.length.value
+                    |> Sg.onOff visible
+                // does not work nicely with those cylinders
+                OutlineEffect.createForSg' (AVal.constant 2.0) 2 RenderPass.main C4f.VRVisGreen selectionSg
+                //selectionSg
+
+
+            coordinateCrossCylinders [| C4b.Red; C4b.Green; C4b.Blue |] false scaleBar.thickness.value scaleBar.length.value
+            |> Sg.andAlso selectionSg
+            |> Sg.trafo inRefFrame // for orientation
+            |> Sg.trafo fullTranslation // for translation (not happy with how it is handled currently though, part of trafo rework)
+            |> Sg.onOff scaleBar.isVisible
+
+        let viewScaleBarVisualization
+            (viewScaleModel : AdaptiveScaleVisualization) 
+            (view       : aval<CameraView>)
+            (near       : aval<float>)
+            (selected   : aval<Option<Guid>>) 
+            (refSys     : AdaptiveReferenceSystem) =
+
+            viewScaleModel.representation
+            |> AVal.map (function
+                | ScaleRepresentation.CoordinateFrame ->
+                    viewScaleCoordinateFrame viewScaleModel view near selected refSys 
+                | _ -> 
+                    viewSingleScaleBarCylinder viewScaleModel view near selected refSys
+            )
+            |> Sg.dynamic
+
         let view 
             (scaleBarsModel : AdaptiveScaleBarsModel) 
             (view           : aval<CameraView>)
@@ -668,7 +754,7 @@ module ScaleBarsApp =
             
             scaleBars 
             |> AMap.map( fun id sb ->
-                viewSingleScaleBarCylinder
+                viewScaleBarVisualization
                     sb
                     view
                     near

@@ -1,5 +1,5 @@
-//27ac5532-ddb7-01d9-9019-b717235c0777
-//652ff85a-951e-e7c3-8a3d-31cd4ac20715
+//55ffe839-1706-fe94-127c-a66d739541fc
+//6e02a380-6769-a0ff-1f49-6d0a6d57d862
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -37,7 +37,7 @@ module scSegmentLenses =
         static member endPoint_ = ((fun (self : scSegment) -> self.endPoint), (fun (value : Aardvark.Base.V3d) (self : scSegment) -> { self with endPoint = value }))
         static member color_ = ((fun (self : scSegment) -> self.color), (fun (value : Aardvark.Base.C4b) (self : scSegment) -> { self with color = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
-type AdaptiveScaleBar(value : ScaleBar) =
+type AdaptiveScaleVisualization(value : ScaleVisualization) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)
     let _guid_ = FSharp.Data.Adaptive.cval(value.guid)
     let _name_ = FSharp.Data.Adaptive.cval(value.name)
@@ -60,12 +60,13 @@ type AdaptiveScaleBar(value : ScaleBar) =
     let _view_ = FSharp.Data.Adaptive.cval(value.view)
     let _transformation_ = PRo3D.Core.Surface.AdaptiveTransformations(value.transformation)
     let _preTransform_ = FSharp.Data.Adaptive.cval(value.preTransform)
+    let _representation_ = FSharp.Data.Adaptive.cval(value.representation)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
-    static member Create(value : ScaleBar) = AdaptiveScaleBar(value)
-    static member Unpersist = Adaptify.Unpersist.create (fun (value : ScaleBar) -> AdaptiveScaleBar(value)) (fun (adaptive : AdaptiveScaleBar) (value : ScaleBar) -> adaptive.Update(value))
-    member __.Update(value : ScaleBar) =
-        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<ScaleBar>.ShallowEquals(value, __value))) then
+    static member Create(value : ScaleVisualization) = AdaptiveScaleVisualization(value)
+    static member Unpersist = Adaptify.Unpersist.create (fun (value : ScaleVisualization) -> AdaptiveScaleVisualization(value)) (fun (adaptive : AdaptiveScaleVisualization) (value : ScaleVisualization) -> adaptive.Update(value))
+    member __.Update(value : ScaleVisualization) =
+        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<ScaleVisualization>.ShallowEquals(value, __value))) then
             __value <- value
             __adaptive.MarkOutdated()
             _version_.Value <- value.version
@@ -86,6 +87,7 @@ type AdaptiveScaleBar(value : ScaleBar) =
             _view_.Value <- value.view
             _transformation_.Update(value.transformation)
             _preTransform_.Value <- value.preTransform
+            _representation_.Value <- value.representation
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.guid = _guid_ :> FSharp.Data.Adaptive.aval<System.Guid>
@@ -105,27 +107,29 @@ type AdaptiveScaleBar(value : ScaleBar) =
     member __.view = _view_ :> FSharp.Data.Adaptive.aval<Aardvark.Rendering.CameraView>
     member __.transformation = _transformation_
     member __.preTransform = _preTransform_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.Trafo3d>
+    member __.representation = _representation_ :> FSharp.Data.Adaptive.aval<ScaleRepresentation>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
-module ScaleBarLenses = 
-    type ScaleBar with
-        static member version_ = ((fun (self : ScaleBar) -> self.version), (fun (value : Microsoft.FSharp.Core.int) (self : ScaleBar) -> { self with version = value }))
-        static member guid_ = ((fun (self : ScaleBar) -> self.guid), (fun (value : System.Guid) (self : ScaleBar) -> { self with guid = value }))
-        static member name_ = ((fun (self : ScaleBar) -> self.name), (fun (value : Microsoft.FSharp.Core.string) (self : ScaleBar) -> { self with name = value }))
-        static member text_ = ((fun (self : ScaleBar) -> self.text), (fun (value : Microsoft.FSharp.Core.string) (self : ScaleBar) -> { self with text = value }))
-        static member textsize_ = ((fun (self : ScaleBar) -> self.textsize), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ScaleBar) -> { self with textsize = value }))
-        static member textVisible_ = ((fun (self : ScaleBar) -> self.textVisible), (fun (value : Microsoft.FSharp.Core.bool) (self : ScaleBar) -> { self with textVisible = value }))
-        static member isVisible_ = ((fun (self : ScaleBar) -> self.isVisible), (fun (value : Microsoft.FSharp.Core.bool) (self : ScaleBar) -> { self with isVisible = value }))
-        static member position_ = ((fun (self : ScaleBar) -> self.position), (fun (value : Aardvark.Base.V3d) (self : ScaleBar) -> { self with position = value }))
-        static member scSegments_ = ((fun (self : ScaleBar) -> self.scSegments), (fun (value : FSharp.Data.Adaptive.IndexList<scSegment>) (self : ScaleBar) -> { self with scSegments = value }))
-        static member orientation_ = ((fun (self : ScaleBar) -> self.orientation), (fun (value : Orientation) (self : ScaleBar) -> { self with orientation = value }))
-        static member alignment_ = ((fun (self : ScaleBar) -> self.alignment), (fun (value : Pivot) (self : ScaleBar) -> { self with alignment = value }))
-        static member thickness_ = ((fun (self : ScaleBar) -> self.thickness), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ScaleBar) -> { self with thickness = value }))
-        static member length_ = ((fun (self : ScaleBar) -> self.length), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ScaleBar) -> { self with length = value }))
-        static member unit_ = ((fun (self : ScaleBar) -> self.unit), (fun (value : Unit) (self : ScaleBar) -> { self with unit = value }))
-        static member subdivisions_ = ((fun (self : ScaleBar) -> self.subdivisions), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ScaleBar) -> { self with subdivisions = value }))
-        static member view_ = ((fun (self : ScaleBar) -> self.view), (fun (value : Aardvark.Rendering.CameraView) (self : ScaleBar) -> { self with view = value }))
-        static member transformation_ = ((fun (self : ScaleBar) -> self.transformation), (fun (value : PRo3D.Core.Surface.Transformations) (self : ScaleBar) -> { self with transformation = value }))
-        static member preTransform_ = ((fun (self : ScaleBar) -> self.preTransform), (fun (value : Aardvark.Base.Trafo3d) (self : ScaleBar) -> { self with preTransform = value }))
+module ScaleVisualizationLenses = 
+    type ScaleVisualization with
+        static member version_ = ((fun (self : ScaleVisualization) -> self.version), (fun (value : Microsoft.FSharp.Core.int) (self : ScaleVisualization) -> { self with version = value }))
+        static member guid_ = ((fun (self : ScaleVisualization) -> self.guid), (fun (value : System.Guid) (self : ScaleVisualization) -> { self with guid = value }))
+        static member name_ = ((fun (self : ScaleVisualization) -> self.name), (fun (value : Microsoft.FSharp.Core.string) (self : ScaleVisualization) -> { self with name = value }))
+        static member text_ = ((fun (self : ScaleVisualization) -> self.text), (fun (value : Microsoft.FSharp.Core.string) (self : ScaleVisualization) -> { self with text = value }))
+        static member textsize_ = ((fun (self : ScaleVisualization) -> self.textsize), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ScaleVisualization) -> { self with textsize = value }))
+        static member textVisible_ = ((fun (self : ScaleVisualization) -> self.textVisible), (fun (value : Microsoft.FSharp.Core.bool) (self : ScaleVisualization) -> { self with textVisible = value }))
+        static member isVisible_ = ((fun (self : ScaleVisualization) -> self.isVisible), (fun (value : Microsoft.FSharp.Core.bool) (self : ScaleVisualization) -> { self with isVisible = value }))
+        static member position_ = ((fun (self : ScaleVisualization) -> self.position), (fun (value : Aardvark.Base.V3d) (self : ScaleVisualization) -> { self with position = value }))
+        static member scSegments_ = ((fun (self : ScaleVisualization) -> self.scSegments), (fun (value : FSharp.Data.Adaptive.IndexList<scSegment>) (self : ScaleVisualization) -> { self with scSegments = value }))
+        static member orientation_ = ((fun (self : ScaleVisualization) -> self.orientation), (fun (value : Orientation) (self : ScaleVisualization) -> { self with orientation = value }))
+        static member alignment_ = ((fun (self : ScaleVisualization) -> self.alignment), (fun (value : Pivot) (self : ScaleVisualization) -> { self with alignment = value }))
+        static member thickness_ = ((fun (self : ScaleVisualization) -> self.thickness), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ScaleVisualization) -> { self with thickness = value }))
+        static member length_ = ((fun (self : ScaleVisualization) -> self.length), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ScaleVisualization) -> { self with length = value }))
+        static member unit_ = ((fun (self : ScaleVisualization) -> self.unit), (fun (value : Unit) (self : ScaleVisualization) -> { self with unit = value }))
+        static member subdivisions_ = ((fun (self : ScaleVisualization) -> self.subdivisions), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ScaleVisualization) -> { self with subdivisions = value }))
+        static member view_ = ((fun (self : ScaleVisualization) -> self.view), (fun (value : Aardvark.Rendering.CameraView) (self : ScaleVisualization) -> { self with view = value }))
+        static member transformation_ = ((fun (self : ScaleVisualization) -> self.transformation), (fun (value : PRo3D.Core.Surface.Transformations) (self : ScaleVisualization) -> { self with transformation = value }))
+        static member preTransform_ = ((fun (self : ScaleVisualization) -> self.preTransform), (fun (value : Aardvark.Base.Trafo3d) (self : ScaleVisualization) -> { self with preTransform = value }))
+        static member representation_ = ((fun (self : ScaleVisualization) -> self.representation), (fun (value : ScaleRepresentation) (self : ScaleVisualization) -> { self with representation = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveScaleBarDrawing(value : ScaleBarDrawing) =
     let _orientation_ = FSharp.Data.Adaptive.cval(value.orientation)
@@ -164,10 +168,10 @@ module ScaleBarDrawingLenses =
 type AdaptiveScaleBarsModel(value : ScaleBarsModel) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)
     let _scaleBars_ =
-        let inline __arg2 (m : AdaptiveScaleBar) (v : ScaleBar) =
+        let inline __arg2 (m : AdaptiveScaleVisualization) (v : ScaleVisualization) =
             m.Update(v)
             m
-        FSharp.Data.Traceable.ChangeableModelMap(value.scaleBars, (fun (v : ScaleBar) -> AdaptiveScaleBar(v)), __arg2, (fun (m : AdaptiveScaleBar) -> m))
+        FSharp.Data.Traceable.ChangeableModelMap(value.scaleBars, (fun (v : ScaleVisualization) -> AdaptiveScaleVisualization(v)), __arg2, (fun (m : AdaptiveScaleVisualization) -> m))
     let _selectedScaleBar_ = FSharp.Data.Adaptive.cval(value.selectedScaleBar)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
@@ -182,12 +186,12 @@ type AdaptiveScaleBarsModel(value : ScaleBarsModel) =
             _selectedScaleBar_.Value <- value.selectedScaleBar
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
-    member __.scaleBars = _scaleBars_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveScaleBar>
+    member __.scaleBars = _scaleBars_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveScaleVisualization>
     member __.selectedScaleBar = _selectedScaleBar_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<System.Guid>>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module ScaleBarsModelLenses = 
     type ScaleBarsModel with
         static member version_ = ((fun (self : ScaleBarsModel) -> self.version), (fun (value : Microsoft.FSharp.Core.int) (self : ScaleBarsModel) -> { self with version = value }))
-        static member scaleBars_ = ((fun (self : ScaleBarsModel) -> self.scaleBars), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, ScaleBar>) (self : ScaleBarsModel) -> { self with scaleBars = value }))
+        static member scaleBars_ = ((fun (self : ScaleBarsModel) -> self.scaleBars), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, ScaleVisualization>) (self : ScaleBarsModel) -> { self with scaleBars = value }))
         static member selectedScaleBar_ = ((fun (self : ScaleBarsModel) -> self.selectedScaleBar), (fun (value : Microsoft.FSharp.Core.Option<System.Guid>) (self : ScaleBarsModel) -> { self with selectedScaleBar = value }))
 
