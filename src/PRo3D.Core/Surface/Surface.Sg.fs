@@ -175,8 +175,10 @@ module Sg =
         (isActive    : aval<bool>)
         =
 
-        let isRenderingActive = isActive.GetValue self
-        if isRenderingActive then
+        let isRenderingActive = 
+            //isActive.GetValue self, using isActive (actually is invisible) is not possible here, see https://github.com/pro3d-space/PRo3D/issues/484
+            true
+        if isRenderingActive  then
             let lodParams = lodParams.GetValue self
             let viewTrafo = viewTrafo.GetValue self
             let model = preTrafo * renderPatch.trafo.GetValue self
