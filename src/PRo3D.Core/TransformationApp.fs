@@ -64,13 +64,13 @@ module TransformationApp =
             
             //let upP = CooTransformation.getUpVector transform.pivot.value refsys.planet
             let upP = CooTransformation.getUpVector pivot refsys.planet
-            let eastP = V3d.OOI.Cross(upP)
+            let eastP = V3d.OOI.Cross(upP.Normalized).Normalized
         
             let northP  = 
                 match refsys.planet with 
                 | Planet.None | Planet.JPL -> V3d.IOO
                 | Planet.ENU -> V3d.OIO
-                | _ -> upP.Cross(eastP) 
+                | _ -> upP.Cross(eastP).Normalized 
 
             let noP = 
                 Rot3d.Rotation(upP, refsys.noffset.value |> Double.radiansFromDegrees).Transform(northP)
