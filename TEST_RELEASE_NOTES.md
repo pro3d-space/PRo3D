@@ -1,4 +1,7 @@
 ## 4.27.0-prerelease2
+- fixed wrong picking when using pivot based transformations
+
+## 4.27.0-prerelease2
 - fixed lod when switching surfaces visible/invisible (keep invisible opcs in lod, to make fast switching possible)
 
 ## 4.27.0-prerelease1
