@@ -1,4 +1,7 @@
 ## 4.27.0-prerelease3
+- reverted polynomial distance decay for lod.
+
+## 4.27.0-prerelease3
 - fixed wrong picking when using pivot based transformations
 
 ## 4.27.0-prerelease2

@@ -195,7 +195,7 @@ module Sg =
                 let dist    = (closest - campPos).Length
 
                 let unitPxSize = (lodParams.frustum.right - lodParams.frustum.left) / (float lodParams.size.X * 0.5)
-                let px = (0.1 * renderPatch.triangleSize) / (pow dist 1.2) // (pow dist 1.2) // (added pow 1.2 here... discuss)
+                let px = (0.1 * renderPatch.triangleSize) / dist // (pow dist 1.2) // (added pow 1.2 here... discuss)
 
                 // Log.warn "%f to %f - avgSize: %f" px (unitPxSize * lodParams.factor) p.triangleSize
                 px > unitPxSize * (exp lodParams.factor)
