@@ -1,3 +1,6 @@
+## 4.27.0-prerelease5
+- fixed screenshot functionality
+
 ## 4.27.0-prerelease4
 - reverted polynomial distance decay for lod. 
 

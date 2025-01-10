@@ -13,4 +13,4 @@ module Helpers =
             }
 
         member x.DownloadFile(uri : string, filename : string) =
-            x.DownloadFileAsync(uri, filename).RunSynchronously()
+            x.DownloadFileAsync(uri, filename).Wait()
