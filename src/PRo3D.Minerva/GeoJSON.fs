@@ -6,6 +6,9 @@ open FSharp.Data.JsonExtensions
 
 open FSharp.Data.Adaptive
 
+open System.Net.Http
+open System.Collections.Generic
+
 module MinervaGeoJSON =
   open FSharp.Data.Runtime
   open PRo3D.Base
@@ -159,21 +162,29 @@ module MinervaGeoJSON =
 
   type QueryDict = HashMap<string,string>
 
-  let toNameValue (nvPairs : QueryDict) =
-    let mutable nv = new NameValueCollection()
-    for (n,v) in nvPairs do nv.Add(n,v)
-    nv    
+  let patchThroughHttpClient (nv : QueryDict) (site : string)  = 
+    let handler = new HttpClientHandler()
+    handler.UseDefaultCredentials = true
+    let mutable httpClient = new HttpClient(handler)
+    let credentials = System.Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes("minerva:tai8Ies7"))
+    httpClient.DefaultRequestHeaders.Authorization <- System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials)
 
-  let patchThroughWebClient (nv : QueryDict) (site : string)  = 
-    let mutable client = new WebClient()    
-    client.UseDefaultCredentials <- true       
-    let credentials = System.Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes("minerva:tai8Ies7"))   
-    client.Headers.[System.Net.HttpRequestHeader.Authorization] <- "Basic " + credentials   
-   // client.QueryString <- nv |> toNameValue    
-    
-    let response = client.UploadValues(site, nv |> toNameValue)
-    let responseString = Encoding.Default.GetString(response)
-    responseString
+    let content = new FormUrlEncodedContent(nv |> Seq.map (fun (key, value) -> KeyValuePair(key, value)) |> Seq.toArray)
+
+    async {
+        let! response = httpClient.PostAsync(site, content) |> Async.AwaitTask
+        if response.IsSuccessStatusCode then
+            let! responseString = response.Content.ReadAsStringAsync() |> Async.AwaitTask
+            printfn "PRo3D Minerva httpclient response: %s" responseString
+        else
+            printfn "PRo3D Minerva httpclient error with status code: %O" response.StatusCode
+    } |> Async.RunSynchronously
+    let response = httpClient.PostAsync(site, content).Result
+    if response.IsSuccessStatusCode then
+        response.Content.ReadAsStringAsync().Result
+    else
+        failwithf "PRo3D Minerva httpclient error with status code: %O" response.StatusCode
+
     //client.DownloadString(site)
 
   //let patchThroughRestSharpClient (nv : QueryDict) (site : string)  = 
@@ -194,7 +205,7 @@ module MinervaGeoJSON =
     sites 
       |> List.mapi(fun i (x,nv) -> 
         Report.Progress(float i / count)
-        x |> patchThroughWebClient nv |> JsonValue.Parse
+        x |> patchThroughHttpClient nv |> JsonValue.Parse
       )
       //|> Async.Parallel
       //|> Async.RunSynchronously 
@@ -204,7 +215,7 @@ module MinervaGeoJSON =
 
   let loadPaged (site:string) (cql : QueryDict) = 
     
-    let bla = site |> patchThroughWebClient cql |> JsonValue.Parse
+    let bla = site |> patchThroughHttpClient cql |> JsonValue.Parse
     let probs = bla?properties |> parseRootProperties
     Log.line "[Minerva] found %i entries" probs.totalCount
     let pages =

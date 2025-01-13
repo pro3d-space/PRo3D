@@ -5,11 +5,12 @@ open System.IO
 
 open Aardvark.Base
 open Aardvark.UI
-open PRo3D
 open OpcViewer.Base
 
 open PRo3D
 open PRo3D.Base.Annotation
+
+open System.Net.Http
           
 module Mod =
     open FSharp.Data.Adaptive
@@ -30,24 +31,28 @@ module Net =
     open System.Threading
     open Aardvark.UI
     let getClient () =
+        let downloadString_ (httpClient: HttpClient) (path: string) = async {
+            let! result = httpClient.GetStringAsync(path) |> Async.AwaitTask
+            return result
+        }
         use cancelToken = new CancellationTokenSource()
         let waitForClient =
             async {
                 for i in 1..100 do
-                    let wc = new System.Net.WebClient()
+                    let httpClient = new HttpClient()
                     try
-                        let lst = wc.DownloadString("http://localhost:54321/rendering/stats.json")
+                        let lst = downloadString_ httpClient "http://localhost:54321/rendering/stats.json" |> Async.RunSynchronously
                         match String.length lst > 3 with
                         | true -> cancelToken.Cancel ()
                         | false -> do! Async.Sleep 1000
                     with ex -> do! Async.Sleep 1000
             }
         try Async.RunSynchronously (waitForClient, -1, cancelToken.Token) with e -> ()
-        let wc = new System.Net.WebClient()
-        let jsonString = wc.DownloadString("http://localhost:54321/rendering/stats.json")
+        let httpClient = new HttpClient()
+        let jsonString = downloadString_ httpClient "http://localhost:54321/rendering/stats.json" |> Async.RunSynchronously
         let clientStats : list<PRo3D.Base.Utilities.ClientStatistics> =
             Pickler.unpickleOfJson jsonString
-        (wc, clientStats)
+        (httpClient, clientStats)
 
 
 namespace Aardvark.UI

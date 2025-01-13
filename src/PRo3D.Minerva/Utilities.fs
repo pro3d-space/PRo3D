@@ -17,9 +17,16 @@ open FShade
 open OpcViewer.Base
 open PRo3D.Base
 
+open System.Net.Http
+
 module Files = 
 
-    let loadTifAndConvert (client : System.Net.WebClient) (featureId: string)  =
+    let downloadFile_ (url: string) (fileStream: FileStream) (client : HttpClient) = async {
+        let! responseStream = client.GetStreamAsync(url) |> Async.AwaitTask
+        do! responseStream.CopyToAsync(fileStream) |> Async.AwaitTask
+    }
+
+    let loadTifAndConvert (httpClient : HttpClient) (featureId: string)  =
 
         let filename = featureId.ToLower() + ".tif"
         let imagePath = @".\MinervaData\" + filename
@@ -28,11 +35,10 @@ module Files =
         | true -> ()
         | false -> 
             let targetPath = @".\MinervaData\" + featureId.ToLower() + ".png"
-
             let path = "https://minerva.eox.at/store/datafile/" + featureId + "/" + filename
-
             try
-                client.DownloadFile(path, imagePath) |> ignore   
+                use fileStream = File.Create(filename)
+                downloadFile_ imagePath fileStream httpClient |> Async.RunSynchronously
                 System.Threading.Thread.Sleep(10)
                 System.Threading.Thread.Sleep(10)
                 PixImage.Load(imagePath).ToPixImage<byte>().Save(targetPath)
@@ -62,14 +68,19 @@ module Files =
            imagePath |> openImage
            model
         | false -> 
-            let mutable client = new System.Net.WebClient()
-            client.UseDefaultCredentials <- true
-            let credentials = 
-                System.Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes("minerva:tai8Ies7"))
-            client.Headers.[System.Net.HttpRequestHeader.Authorization] <- "Basic " + credentials
-            //try takeScreenshot baseAddress sh.col sh.row sh.id sh.folder ".png" 4 with e -> printfn "error: %A" e
+            let mutable httpClient = new HttpClient()
 
-            try (client.DownloadFile(path, imagePath) |> ignore) with
+            let handler = new HttpClientHandler()
+            handler.UseDefaultCredentials = true
+            let mutable httpClient = new HttpClient(handler)
+            let credentials = System.Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes("minerva:tai8Ies7"))
+            httpClient.DefaultRequestHeaders.Authorization <- System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials)
+
+            //try takeScreenshot baseAddress sh.col sh.row sh.id sh.folder ".png" 4 with e -> printfn "error: %A" e
+            try
+                use fileStream = File.Create(path)
+                downloadFile_ imagePath fileStream httpClient |> Async.RunSynchronously
+            with
                 e -> Log.error "[Minerva] error: %A" e
 
             match (File.Exists imagePath) with

@@ -28,6 +28,8 @@ open PRo3D.Minerva.Communication.JsonNetworkCommand
 open Chiron
 open Aether
 open Aether.Operators
+
+open System.Net.Http
         
 module MinervaApp =      
 
@@ -355,12 +357,12 @@ module MinervaApp =
     let loadTifs (features: IndexList<Feature>) =
         let numOfFeatures = (features |> IndexList.count)
         Log.startTimed "[Minerva] Fetching TIFs %d selected products" numOfFeatures
-        let credentials = "minerva:tai8Ies7" 
-
-        let mutable client = new System.Net.WebClient()
-        client.UseDefaultCredentials <- true       
-        let credentials = System.Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes(credentials))
-        client.Headers.[System.Net.HttpRequestHeader.Authorization] <- "Basic " + credentials  
+        
+        let handler = new HttpClientHandler()
+        handler.UseDefaultCredentials = true
+        let mutable client = new HttpClient(handler)
+        let credentials = System.Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes("minerva:tai8Ies7"))
+        client.DefaultRequestHeaders.Authorization <- System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials)
 
         features
         |> IndexList.toList
@@ -373,7 +375,6 @@ module MinervaApp =
 
     // 1087 -> Some(Files.loadTifAndConvert credentials f.id) 
     let loadTifs1087 (model: MinervaModel) =
-        let credentials = "minerva:tai8Ies7" 
         let features1087 = 
             model.data.features 
             |> IndexList.filter(fun (x :Feature) -> x.sol = 1087)
@@ -381,10 +382,11 @@ module MinervaApp =
         let numOfFeatures = features1087.Count
         Log.startTimed "[Minerva] Fetching %d TIFs from data file" numOfFeatures
 
-        let mutable client = new System.Net.WebClient()
-        client.UseDefaultCredentials <- true       
-        let credentials = System.Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes(credentials))
-        client.Headers.[System.Net.HttpRequestHeader.Authorization] <- "Basic " + credentials  
+        let handler = new HttpClientHandler()
+        handler.UseDefaultCredentials = true
+        let mutable client = new HttpClient(handler)     
+        let credentials = System.Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes("minerva:tai8Ies7" ))
+        client.DefaultRequestHeaders.Authorization <- System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials )
 
         features1087
         |> IndexList.toList
