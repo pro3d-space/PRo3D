@@ -39,6 +39,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docs", "Docs", "{235F058E-E
 		..\docs\spice.md = ..\docs\spice.md
 	EndProjectSection
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "ModelViewer", "ModelViewer\ModelViewer.fsproj", "{83BF76B7-5383-4CB3-AEAE-1B8903D70C74}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -85,6 +87,10 @@ Global
 		{BF2F6AE3-F87E-400E-A511-7A0F107089A7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BF2F6AE3-F87E-400E-A511-7A0F107089A7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BF2F6AE3-F87E-400E-A511-7A0F107089A7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{83BF76B7-5383-4CB3-AEAE-1B8903D70C74}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{83BF76B7-5383-4CB3-AEAE-1B8903D70C74}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{83BF76B7-5383-4CB3-AEAE-1B8903D70C74}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{83BF76B7-5383-4CB3-AEAE-1B8903D70C74}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
