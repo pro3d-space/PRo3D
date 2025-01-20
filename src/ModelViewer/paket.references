@@ -8,6 +8,7 @@ Aardvark.Application.Slim.Vulkan
 Aardvark.SceneGraph
 Aardvark.Data.Opc
 Aardvark.Rendering.Text
+Aardvark.PixImage.DevIL
 
 Aardvark.Data.GLTF
 

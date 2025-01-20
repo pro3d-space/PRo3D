@@ -15,11 +15,9 @@ module Skybox =
             let name = names |> Array.find (fun str -> str.EndsWith name)
             use s = typeof<Marker>.Assembly.GetManifestResourceStream(name)
             PixImage.Load(s)
-
         load
 
     let get (name : string) =
-
         AVal.custom (fun _ ->
             let env =
                 // let names = typeof<Marker>.Assembly.GetManifestResourceNames()
