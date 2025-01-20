@@ -90,6 +90,16 @@ let main argv =
     Aardvark.Base.Report.LogFileName <- logFilePath
     Log.line "Running with AppData: %s" appData
 
+    //let forward = 
+    //    M44d(
+    //        0.99993,    -0.0118106,  0.00100585,  0.014535,
+    //        0.0118174,   0.999905,  -0.00709351, -0.00293431,
+    //        -0.000921978,0.0071049,  0.999974,    0.000543439, 
+    //        0.0,         0.0,        0.0,         1.0)
+
+    //let trafo = Trafo3d(forward, forward.Inverse)
+    //printfn "%A" trafo
+
     // use this one to get path to self-contained exe (not temp expanded dll)
     let executeablePath = 
         if RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then
@@ -207,7 +217,11 @@ let main argv =
         Serialization.registry.RegisterFactory (fun _ -> Init.incorePickler)
     
         Log.line "PRo3D Viewer - Version: %s; powered by Aardvark" viewerVersion
-        let titlestr = "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH"
+        let titlestr = 
+                match startupArgs.port with
+                | Some p -> "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH - listening: http://localhost:" + p
+                | None -> "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH"
+
         Config.title <- titlestr
     
         let signature =
