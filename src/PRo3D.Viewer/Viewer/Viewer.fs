@@ -2200,10 +2200,15 @@ module ViewerApp =
             { m with waypoints = wp }
         | None -> m
 
+    type ViewerStartupLoad =
+        | Empty
+        | LoadLastScene
+        | LoadScene of string
+
     let start 
         (runtime             : IRuntime) 
         (signature           : IFramebufferSignature)
-        (startEmpty          : bool)
+        (startupLoad         : ViewerStartupLoad)
         (messagingMailbox    : MessagingMailbox)
         (sendQueue           : BlockingCollection<string>)
         (dumpFile            : string)
@@ -2215,10 +2220,24 @@ module ViewerApp =
         (viewerVersion       : string)
         =
 
+        let viewerInitial =
+            PRo3D.Viewer.Viewer.initial 
+                messagingMailbox 
+                StartupArgs.initArgs 
+                renderingUrl
+                dataSamples 
+                screenshotDirectory 
+                _animator 
+                viewerVersion
+                
         let m = 
-            if startEmpty |> not then
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl 
-                                            dataSamples screenshotDirectory _animator viewerVersion
+            match startupLoad with
+            | Empty -> 
+                viewerInitial
+                |> ProvenanceApp.emptyWithModel
+                |> ViewerIO.loadRoverData
+            | LoadLastScene ->
+                viewerInitial
                 |> ProvenanceApp.emptyWithModel
                 |> SceneLoader.loadLastScene runtime signature                
                 |> SceneLoader.loadLogBrush
@@ -2231,12 +2250,28 @@ module ViewerApp =
                 //|> ViewerIO.loadLinking
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
-                
-            else
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl
-                                            dataSamples screenshotDirectory _animator viewerVersion
+            | LoadScene path ->
+                viewerInitial
                 |> ProvenanceApp.emptyWithModel
-                |> ViewerIO.loadRoverData
+                |> SceneLoader.loadSceneFromFile runtime signature path
+                |> SceneLoader.loadLogBrush
+                |> ViewerIO.loadRoverData                
+                |> ViewerIO.loadAnnotations
+                |> ViewerIO.loadCorrelations
+                |> ViewerIO.loadLastFootPrint
+                |> ViewerIO.loadSequencedBookmarks
+                //|> ViewerIO.loadMinerva dumpFile cacheFile
+                //|> ViewerIO.loadLinking
+                |> SceneLoader.addScaleBarSegments
+                |> SceneLoader.addGeologicSurfaces
+                
+            
+
+
+
+            
+                
+            
 
         let app = {
             unpersist = Unpersist.instance

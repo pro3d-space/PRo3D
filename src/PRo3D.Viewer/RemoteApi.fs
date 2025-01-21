@@ -141,6 +141,7 @@ module RemoteApi =
                 ops |> Array.map encodeSetOperation |> Encode.array |> Encode.toString 4
 
     
+    open Thoth.Json.Net
 
     type Api(emitTopLevel : ViewerAnimationAction -> unit, p : AdaptiveProvenanceModel, m : AdaptiveModel, storage : PPersistence) = 
 
@@ -209,6 +210,25 @@ module RemoteApi =
                         None
                 )
                 |> Seq.toArray
+
+        
+
+        member x.getAnnotationById(id : string) =
+            let map = x.FullModel.drawing.annotations.flat.Content.GetValue()
+            
+            match HashMap.tryFind (Guid.Parse(id)) map with
+            | Some (AdaptiveAnnotations annotation) -> ///????
+                let a = annotation.Current.GetValue()
+                
+                Encode.array [|
+                    for p in a.points |> IndexList.toArray do                        
+                            Encode.array [|
+                                Encode.float p.X
+                                Encode.float p.Y
+                                Encode.float p.Z
+                            |]
+                |] |> Some                
+            | _ -> None
         
         member x.QueryAnnotation(
                 queryAnnotationId    : string, 
@@ -659,8 +679,14 @@ module RemoteApi =
 
         type QueryResults = System.Collections.Generic.List<Base.QueryResult>
 
-        let queryAnnotation (api : Api) (f : OutputReferenceFrame -> OutputGeometryType -> QueryResults -> WebPart) (httpRequest : HttpRequest) =
-            let input =  httpRequest.rawForm |> getUTF8 |> PRo3D.Base.QueryApi.parseRequest
+        let queryAnnotation
+            (api : Api) 
+            (f : OutputReferenceFrame -> OutputGeometryType -> QueryResults -> WebPart) 
+            (httpRequest : HttpRequest) =
+
+            let input =  
+                httpRequest.rawForm |> getUTF8 |> PRo3D.Base.QueryApi.parseRequest
+
             match input with
             | Result.Ok input -> 
                 match ((parseCoordinateSpace input.outputReferenceFrame), parseGeometryType(input.outputGeometryType)) with
@@ -759,6 +785,30 @@ module RemoteApi =
                         path "/queryAnnotationAsObj" >=> request (queryAnnotationAsObj api)
                     ]
                 )
-            ]
+                prefix "/exp" >=> 
+                    choose [
+                        path "/greet" >=> 
+                            request (fun req ->
+                                match req.queryParam "name" with
+                                | Choice1Of2 name ->Successful.OK $"Hello, {name} via GET!"
+                                | Choice2Of2 _ -> RequestErrors.BAD_REQUEST "Missing 'name' parameter."
+                            )
+                        pathScan "/greet/%s" (fun name -> Successful.OK $"Hello, {name}, via URL!")
+                    ]
+                prefix "/annotations" >=> 
+                    choose [
+                        // path "/greet" >=> 
+                        //     request (fun req ->
+                        //         match req.queryParam "name" with
+                        //         | Choice1Of2 name ->Successful.OK $"Hello, {name} via GET!"
+                        //         | Choice2Of2 _ -> RequestErrors.BAD_REQUEST "Missing 'name' parameter."
+                        //     )
+                        pathScan "/%s/points" (fun id ->                            
+                            match api.getAnnotationById(id) with
+                            | Some s -> s |> Encode.toString 4 |> Successful.OK
+                            | None -> RequestErrors.NOT_FOUND "Annotation not found"                            
+                        )
+                    ]
+                ]
 
 

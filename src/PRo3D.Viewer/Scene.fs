@@ -397,7 +397,7 @@ module SceneLoader =
 
         applyScene scene m runtime signature
 
-    let loadSceneFromFile path m runtime signature =
+    let loadSceneFromFile runtime signature path m =
 
         let scene = 
             path
@@ -419,7 +419,7 @@ module SceneLoader =
                 match m.recent.recentScenes |> List.sortByDescending (fun v -> v.writeDate) |> List.tryHead with
                 | Some (scenePath) ->
                     try
-                        loadSceneFromFile scenePath.path m runtime signature
+                        loadSceneFromFile runtime signature scenePath.path m
                     with e ->
                         Log.warn "[Scene] Error parsing last scene: %s. loading empty" scenePath.path
                         Log.error "[Scene] %A" e.Message

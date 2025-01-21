@@ -290,15 +290,6 @@ let main argv =
         //    match argsKv |> HashMap.tryFind "access" with
         //    | Some file -> file
         //    | None -> failwith "need minerva access ... access=\"minervaaccount:pw\" "
-
-        Log.startTimed "[Viewer] reading json scene"
-        //let loadedScnx : Scene = 
-        //    @"E:\PRo3D\Scenes SCN\20191210_ViewPlanner.pro3d"
-        //    |> Chiron.readFromFile 
-        //    |> Json.parse 
-        //    |> Json.deserialize
-
-        //Log.line "[Viewer] scene: %A" loadedScnx
         
         let port = 
             match startupArgs.port with
@@ -312,11 +303,23 @@ let main argv =
 
         let renderingUrl = sprintf "http://localhost:%d" port
 
+        let startupLoad =
+            match startupArgs.loadScene with
+            | Some scene -> 
+                Log.line "[Viewer] loading scene %s" scene
+                ViewerApp.ViewerStartupLoad.LoadScene scene
+            | None when startEmpty -> 
+                Log.line "[Viewer] starting empty"
+                ViewerApp.ViewerStartupLoad.Empty
+            | _ -> 
+                Log.line "[Viewer] loading last scene"
+                ViewerApp.ViewerStartupLoad.LoadLastScene
+
         let (adaptiveModel, mainApp) = 
             ViewerApp.start 
                 runtime 
                 signature 
-                startEmpty 
+                startupLoad
                 messagingMailbox 
                 sendQueue 
                 dumpFile 
@@ -327,12 +330,15 @@ let main argv =
                 appData
                 viewerVersion
 
-        let s = {MailboxState.empty with update = 
-                                            (fun a -> 
-                                                let a = Seq.map ViewerMessage a
-                                                mainApp.update Guid.Empty a) 
-                }
-        MailboxAction.InitMailboxState s |> messagingMailbox.Post            
+        
+        { MailboxState.empty with 
+            update = (fun a -> 
+                let a = Seq.map ViewerMessage a
+                mainApp.update Guid.Empty a
+            ) 
+        }
+        |> InitMailboxState
+        |> messagingMailbox.Post
     
         //let domainError (sender:obj) (args:UnhandledExceptionEventArgs) =
         //    let e = args.ExceptionObject :?> Exception;
@@ -349,7 +355,6 @@ let main argv =
     
         if catchDomainErrors then
             AppDomain.CurrentDomain.UnhandledException.AddHandler(UnhandledExceptionEventHandler(domainError))
-
 
         let setCORSHeaders =
             Suave.Writers.setHeader  "Access-Control-Allow-Origin" "*"

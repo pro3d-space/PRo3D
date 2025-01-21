@@ -127,7 +127,7 @@ module SceneLoading =
         match Path.GetExtension sceneFile with 
         | ".pro3d" ->
             try 
-                SceneLoader.loadSceneFromFile sceneFile m runtime signature 
+                SceneLoader.loadSceneFromFile runtime signature sceneFile m
                 |> Model.stashAndSaveRecent sceneFile
                 |> ViewerIO.loadRoverData
                 |> ViewerIO.loadAnnotations  
