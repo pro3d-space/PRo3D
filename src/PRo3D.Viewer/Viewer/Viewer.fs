@@ -2100,7 +2100,8 @@ module ViewerApp =
         //        m.linkingModel
         //    |> Sg.map LinkingActions
 
-        let dTested = getDepthTested frustum m.navigation.camera.view observer id runtime m //annotations + scaleBars
+        let depthTested = 
+            getDepthTested frustum m.navigation.camera.view observer id runtime m //annotations + scaleBars
 
         let heightValidationDiscs =
             HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
@@ -2124,7 +2125,7 @@ module ViewerApp =
         let depthTested = 
             [
              //   linkingSg; 
-                dTested; 
+                depthTested; 
                 //minervaSg; 
                 heightValidationDiscs; 
                 sceneObjects; 
@@ -2135,8 +2136,16 @@ module ViewerApp =
 
 
         //render OPCs in priority groups
-        let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m.navigation.camera.view true false runtime m
-                        |> AList.map ViewerUtils.mapRenderCommand
+        let cmds  = 
+            ViewerUtils.renderCommands 
+                m.scene.surfacesModel.sgGrouped 
+                overlayed depthTested 
+                m.navigation.camera.view 
+                true 
+                false 
+                runtime 
+                m
+            |> AList.map ViewerUtils.mapRenderCommand
         onBoot "attachResize('__ID__')" (
             DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
         )
@@ -2153,11 +2162,10 @@ module ViewerApp =
             { kind = Script;      name = "utilities";  url = "./resources/utilities.js"  }
         ]
         
-        let bodyAttributes : list<Attribute<ViewerAnimationAction>> = 
-            [
+        let bodyAttributes : list<Attribute<ViewerAnimationAction>> = [
             style "background: #1B1C1E; height:100%; overflow-y:scroll; overflow-x:hidden;" //] //overflow-y : visible
             onMouseUp (fun button pos -> ViewerAnimationAction.ViewerMessage (EndDragging (pos, button)))
-            ]
+        ]
 
         page (
             fun request -> 
@@ -2265,14 +2273,6 @@ module ViewerApp =
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
                 
-            
-
-
-
-            
-                
-            
-
         let app = {
             unpersist = Unpersist.instance
             threads   = threadPool

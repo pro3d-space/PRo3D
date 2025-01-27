@@ -49,6 +49,7 @@ type SurfaceAppAction =
 | SetHomePosition           
 | TranslationMessage        of TransformationApp.Action
 | SetPreTrafo               of string
+| SetPreTrafoById           of Guid*Trafo3d
 
 
 module SurfaceUtils =    
@@ -1006,63 +1007,54 @@ module SurfaceApp =
                     { model with surfaces = surfacesGroup; sgSurfaces = sgs } 
                 | _ -> model
             | None -> model
-        | TranslationMessage msg ->  
-           
-            let m = 
-                //match model.surfaces.singleSelectLeaf with
-                //    | Some id -> 
-                //      match model.surfaces.flat.TryFind(id) with 
-                //      | Some s -> 
-                //         let surface = s |> Leaf.toSurface
-                //         let s' = { surface with transformation = (TranslationApp.update surface.transformation msg) }
-                //         let sgs' = 
-                //             model.sgSurfaces
-                //             |> HashMap.update id (fun x -> 
-                //               match x with 
-                //               | Some sg ->  
-                //                let trafo' = { sg.trafo with previewTrafo = sg.trafo.previewTrafo * s'.transformation.trafo }
-                //                { sg with trafo = trafo'; globalBB = (sg.globalBB.Transformed trafo'.previewTrafo) }
-                //               | None   -> failwith "surface not found")                             
-                //         let m' = { model with sgSurfaces = sgs'} 
-                //         m' |> SurfaceModel.updateSingleSurface s'
-                //      | None -> model
-                //    | None -> model
-                match model.surfaces.singleSelectLeaf with
-                | Some s -> 
-                    let surface = model.surfaces.flat |> HashMap.find s |> Leaf.toSurface
-                    let t =  if surface.transformation.usePivot then    
-                                surface.transformation
-                             else 
-                                { surface.transformation with pivot = Vector3d.updateV3d surface.transformation.pivot refSys.origin }
-                    let transformation' = (TransformationApp.update t msg refSys) //surface.transformation msg)
-                    let s' = { surface with transformation = transformation' }
-                    //let homePosition = 
-                    //  match surface.homePosition with
-                    //    | Some hp ->
-                    //        let superTrafo = PRo3D.Transformations.fullTrafo' s' refSys
-                    //        let trafo' = superTrafo.Forward
-                    //        let pos = trafo'.TransformPos(hp.Location)
-                    //        let forward = trafo'.TransformDir(hp.Forward)
-                    //        let up = trafo'.TransformDir(hp.Up)
-                    //        Some ( hp
-                    //                 |> CameraView.withLocation pos
-                    //                 |> CameraView.withForward forward )//(CameraView.lookAt pos forward hp.Up)
-                    //    | None -> surface.homePosition
-                    //let s'' = { s' with homePosition = homePosition }
-                    
-                    
-                    //let sgs' = 
-                    //      model.sgSurfaces
-                    //      |> HashMap.update s (fun x -> 
-                    //          match x with 
-                    //          | Some sg ->  
-                    //              let trafo' = { sg.trafo with previewTrafo = sg.trafo.previewTrafo * s'.transformation.trafo }
-                    //              { sg with trafo = trafo'; globalBB = (sg.globalBB.Transformed trafo'.previewTrafo) }
-                    //          | None   -> failwith "surface not found") 
-                    //let m' = { model with sgSurfaces = sgs'} 
-                    model |> SurfaceModel.updateSingleSurface s'            
-                | None -> model
-            m
+        | SetPreTrafoById (id : Guid, trafo : Trafo3d) ->             
+            Log.line "[SurfaceApp] SetPreTrafoById %A" id
+            match model.surfaces.flat.TryFind(id) with 
+            | Some (Leaf.Surfaces surface) ->        
+                Log.line "[SurfaceApp] surface found"
+                Log.line "[SurfaceApp] setting trafo %A" trafo
+                                         
+                let surfacesGroup = 
+                    model.surfaces 
+                    |> Groups.updateLeaf 
+                        surface.guid
+                        (fun _ -> { surface with preTransform = trafo  } |> Leaf.Surfaces)                      
+    
+                let sgs = 
+                    model.sgSurfaces
+                    |> HashMap.update id (fun x -> 
+                        match x with 
+                        | Some sg ->    
+                            { sg with globalBB = (sg.globalBB.Transformed trafo) }
+                        | None -> 
+                            failwith "surface not found")                        
+
+                { model with surfaces = surfacesGroup; sgSurfaces = sgs } 
+            | _ -> model            
+        | TranslationMessage msg ->                       
+            match model.surfaces.singleSelectLeaf with
+            | Some s -> 
+                let surface = 
+                    model.surfaces.flat 
+                    |> HashMap.find s 
+                    |> Leaf.toSurface
+
+                let t =
+                    if surface.transformation.usePivot then    
+                        surface.transformation
+                    else 
+                        { surface.transformation with 
+                            pivot = Vector3d.updateV3d surface.transformation.pivot refSys.origin 
+                        }
+                let transformation' = 
+                    TransformationApp.update t msg refSys
+                let s' = 
+                    { surface with transformation = transformation' }
+                
+                model 
+                |> SurfaceModel.updateSingleSurface s'            
+            | None -> 
+                model            
         | _ -> model
 
     let absRelIcons (m : AdaptiveSurface)=

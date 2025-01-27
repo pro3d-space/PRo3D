@@ -259,26 +259,7 @@ module Sg =
                         Some (getTextures h.opcPaths), 
                         Some (getVertexAttributes h.opcPaths), 
                         Aardvark.Data.PixImagePfim.Loader
-                    )
-
-                //let plainPatchLod =
-                //    Sg.patchLod' 
-                //        signature
-                //        runner 
-                //        h.opcPaths.Opc_DirAbsPath
-                //        lodDeciderMars //scene.lodDecider 
-                //        scene.useCompressedTextures
-                //        true
-                //        ViewerModality.XYZ
-                //        PatchLod.CoordinatesMapping.Local
-                //        useAsyncLoading
-                //        (PatchLod.toRoseTree h.tree)
-                //        map
-                //        (fun n s -> 
-                //            let vp = s.FootprintVP
-                //            vp :> obj
-                //        )
-                //plainPatchLod
+                    )            
                 patchLodWithTextures
             )
             |> SgFSharp.Sg.ofArray  
@@ -358,7 +339,8 @@ module Sg =
                        useCompressedTextures = false
                        lodDecider            = DefaultMetrics.mars2
                     }
-                let (sg, hierarchies, kdtree) = createPlainSceneGraph runtime signature opcScene true
+                let (sg, hierarchies, kdtree) = 
+                    createPlainSceneGraph runtime signature opcScene true
 
                 let bb = 
                     hierarchies 

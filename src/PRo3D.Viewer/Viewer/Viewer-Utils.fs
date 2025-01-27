@@ -273,8 +273,8 @@ module ViewerUtils =
         (surfacePicking  : aval<bool>)
         (globalBB        : aval<Box3d>) 
         (refsys          : AdaptiveReferenceSystem)
-        (observedSystem : aval<Option<SpiceReferenceSystem>>) 
-        (observerSystem : aval<Option<ObserverSystem>>)
+        (observedSystem  : aval<Option<SpiceReferenceSystem>>) 
+        (observerSystem  : aval<Option<ObserverSystem>>)
         (fp              : AdaptiveFootPrint) 
         (vpVisible       : aval<bool>)
         (useHighlighting : aval<bool>)
@@ -954,14 +954,14 @@ module ViewerUtils =
             |> (camera |> Sg.camera)
 
     let renderCommands 
-        (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) 
-        overlayed 
-        depthTested 
-        (view : aval<CameraView>)
+        (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>) 
+        (overlayed      : ISg<ViewerAction>)
+        (depthTested    : ISg<ViewerAction>)
+        (view           : aval<CameraView>)
         (allowFootprint : bool) 
         (allowDepthview : bool) 
-        (runtime : IRuntime) 
-        (m:AdaptiveModel)  =
+        (runtime        : IRuntime) 
+        (m              : AdaptiveModel)  =
 
         let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true

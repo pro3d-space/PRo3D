@@ -213,8 +213,9 @@ module RemoteApi =
 
         
 
-        member x.getAnnotationById(id : string) =
-            let map = x.FullModel.drawing.annotations.flat.Content.GetValue()
+        member x.getAnnotationPointsById(id : string) =
+            let map = 
+                x.FullModel.drawing.annotations.flat.Content.GetValue()
             
             match HashMap.tryFind (Guid.Parse(id)) map with
             | Some (AdaptiveAnnotations annotation) -> ///????
@@ -222,13 +223,37 @@ module RemoteApi =
                 
                 Encode.array [|
                     for p in a.points |> IndexList.toArray do                        
-                            Encode.array [|
-                                Encode.float p.X
-                                Encode.float p.Y
-                                Encode.float p.Z
-                            |]
+                        Encode.array [|
+                            Encode.float p.X
+                            Encode.float p.Y
+                            Encode.float p.Z
+                        |]
                 |] |> Some                
             | _ -> None
+
+         member x.getSurfaceById(id : string) =
+            let map = 
+                x.FullModel.scene.surfacesModel.surfaces.flat.Content.GetValue()
+            
+            match HashMap.tryFind (Guid.Parse(id)) map with
+            | Some (AdaptiveSurfaces surface) -> ///????
+                let s = surface.Current.GetValue()
+
+                s.preTransform.Forward.ToString() |> Some
+            | _ -> None
+
+        member x.setSurfaceTransform(id, forward : M44d) =
+            let trafo = Trafo3d(forward, forward.Inverse)
+
+            Log.line "[remoteApi] setting trafo"
+            Log.line "[remoteApi] %A" trafo
+
+            let action = 
+                Surface.SurfaceAppAction.SetPreTrafoById(id, trafo)
+                |> ViewerAction.SurfaceActions
+
+            action |> emit
+            ()
         
         member x.QueryAnnotation(
                 queryAnnotationId    : string, 
@@ -519,6 +544,7 @@ module RemoteApi =
 
         open SuaveHelpers
         open ProvenanceGraph
+        open Newtonsoft.Json.Linq
 
         let loadScene (api : Api) (r : HttpRequest)= 
             let str = r.rawForm |> getUTF8
@@ -804,11 +830,38 @@ module RemoteApi =
                         //         | Choice2Of2 _ -> RequestErrors.BAD_REQUEST "Missing 'name' parameter."
                         //     )
                         pathScan "/%s/points" (fun id ->                            
-                            match api.getAnnotationById(id) with
+                            match api.getAnnotationPointsById(id) with
                             | Some s -> s |> Encode.toString 4 |> Successful.OK
                             | None -> RequestErrors.NOT_FOUND "Annotation not found"                            
                         )
                     ]
-                ]
+                prefix "/surfaces" >=> 
+                    choose [                        
+                        POST >=> pathScan "/%s/transform" (fun id ->
+                            request (fun req ->
+                                match api.getSurfaceById(id) with
+                                | Some s -> 
+                                    let payload = System.Text.Encoding.UTF8.GetString req.rawForm
+                                    match payload with
+                                    | "" -> 
+                                        RequestErrors.BAD_REQUEST "No payload"
+                                    | validPayload -> 
+                                        let parsedJson = JObject.Parse(validPayload)
+                                        let forward = parsedJson.["forward"].ToString()
+
+                                        let forward = forward |> M44d.Parse
+                                                                      
+                                        api.setSurfaceTransform(id |> Guid, forward)
+
+                                        Successful.OK (sprintf "Received payload %s" (forward.ToString()))
+                                        
+                                | None -> 
+                                    RequestErrors.NOT_FOUND "Surface not found"
+                            )
+                        )
+                        RequestErrors.NOT_FOUND "Endpoint not found"
+                    ]
+                
+            ]
 
 
