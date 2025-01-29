@@ -237,10 +237,10 @@ module SnapshotGenerator =
                         verbose             = args.verbose
                     }
                 SnapshotApp.executeAnimation snapshotApp
-                
+            | Some (SnapshotAnimation.PanoramaCollection data) ->
+                Log.warn "[SnapshotGenerator] Panoramas are not yet implemented!"
             | None -> 
                 Log.error "[SNAPSHOT] Could not load data."
-
         | false -> 
             Log.error "[SNAPSHOT] No valid paths to surfaces found."
             ()

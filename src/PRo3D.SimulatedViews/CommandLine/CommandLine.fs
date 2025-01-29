@@ -23,7 +23,7 @@ module CommandLine =
         Log.line @"--refsystem                                    show reference system"
         Log.line @"--noMagFilter                                  turn off linear texture magnification filtering"
                                                                   
-        Log.line @"--snap [path\snapshot.json]                    path to a snapshot file containing camera views (old format)"
+        //Log.line @"--snap [path\snapshot.json]                    path to a snapshot file containing camera views (old format)" // not in use anymore
         Log.line @""
         Log.line @"Examples:"
         Log.line @"PRo3D.Snapshots.exe --opc c:\Users\myname\Desktop\myOpc --asnap c:\Users\myname\Desktop\mySnapshotFile.json"
