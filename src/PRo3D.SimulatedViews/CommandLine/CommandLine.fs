@@ -92,15 +92,12 @@ module CommandLine =
                     | _,_,_ -> Some false
                     
 
-
                 //let check = Option.map2 (fun c1 p -> c1 && (checkPath p)) check snapshot
                 let sPath, sType, snapPathValid = 
-                    match snapshot, animationSnapshot with
-                    | Some s, None -> 
-                        snapshot, Some SnapshotType.Camera, checkPath s
-                    | None, Some sa -> 
+                    match animationSnapshot with
+                    | Some sa -> 
                         animationSnapshot, Some SnapshotType.CameraAndSurface, checkPath sa
-                    | _, _ -> None, None, true
+                    | _ -> None, None, true
                 Log.line "[Arguments] Exit on finish%s" (b2str exitOnFinish)
                 Log.line "[Arguments] Render depth%s" (b2str renderDepth)
                 Log.line "[Arguments] Using linear magnification filtering%s" (b2str magFilter)

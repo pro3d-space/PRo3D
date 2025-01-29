@@ -235,7 +235,6 @@ module SnapshotApp =
             app.mutableApp.updateSync (Guid.NewGuid ()) actions 
 
             renderAndSave (sprintf "%s.png" fullPathName) app.verbose parameters
-        
 
     let executeAnimation (app : SnapshotApp<'model,'aModel, 'msg>) =
         verbose <- app.verbose
@@ -244,6 +243,9 @@ module SnapshotApp =
             executeCameraAnimation a app
         | SnapshotAnimation.BookmarkAnimation a ->
             executeBookmarkAnimation a app
+        | SnapshotAnimation.PanoramaCollection a ->
+            let a = CameraSnapshotAnimation.fromPanoramaCollection a
+            executeCameraAnimation a app
             
     let transformAllSurfaces (surfacesModel : SurfaceModel) (surfaceUpdates : list<SnapshotSurfaceUpdate>) =
         let surfaces = surfacesModel.surfaces.flat 
