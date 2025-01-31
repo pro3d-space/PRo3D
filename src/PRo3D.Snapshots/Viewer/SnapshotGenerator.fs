@@ -186,6 +186,8 @@ module SnapshotGenerator =
             ]
         | SnapshotAnimation.PanoramaCollection a ->
             [
+                (ViewerAction.SetRenderViewportSize a.resolution |> ViewerMessage) 
+                (ViewerAction.SetFrustum (SnapshotApp.calculateFrustum a)) |> ViewerMessage
                 // Add actions that need to happen for each panorama batch (not single panorama shot) here
             ]
            

@@ -92,6 +92,16 @@ module SnapshotApp =
                               (float(resolution.X)/float(resolution.Y))
         frustum
 
+    let calculateFrustumP (snapshotAnimation : PanoramaSnapshotCollection)  = 
+        let resolution = V3i (snapshotAnimation.resolution.X, snapshotAnimation.resolution.Y, 1)
+
+        let foV = snapshotAnimation.fieldOfView
+
+        let frustum =
+          Frustum.perspective foV snapshotAnimation.nearplane snapshotAnimation.farplane
+                              (float(resolution.X)/float(resolution.Y))
+        frustum
+
     let private executeCameraAnimation (a : CameraSnapshotAnimation) 
                                        (app : SnapshotApp<'model,'aModel, 'msg>) =
         let frustum, recalcOption, near, far = calculateFrustumRecalcNearFar a
