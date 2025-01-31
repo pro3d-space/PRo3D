@@ -1,0 +1,97 @@
+{
+    "asset" : {
+        "generator" : "Khronos glTF Blender I/O v3.3.32",
+        "version" : "2.0"
+    },
+    "scene" : 0,
+    "scenes" : [
+        {
+            "name" : "Scene",
+            "nodes" : [
+                0
+            ]
+        }
+    ],
+    "nodes" : [
+        {
+            "mesh" : 0,
+            "name" : "hera_satellite_assy_08_outer_shape_20220225.003_hera_satellite_",
+            "rotation" : [
+                0.7071068286895752,
+                0,
+                0,
+                0.7071067094802856
+            ]
+        }
+    ],
+    "meshes" : [
+        {
+            "name" : "hera_satellite_assy_08_outer_shape_20220225.003_hera_satell",
+            "primitives" : [
+                {
+                    "attributes" : {
+                        "POSITION" : 0,
+                        "NORMAL" : 1
+                    },
+                    "indices" : 2
+                }
+            ]
+        }
+    ],
+    "accessors" : [
+        {
+            "bufferView" : 0,
+            "componentType" : 5126,
+            "count" : 114022,
+            "max" : [
+                0.47255998849868774,
+                0.4724169969558716,
+                0.07840000092983246
+            ],
+            "min" : [
+                -0.47255998849868774,
+                -0.4724079966545105,
+                -0.8629739880561829
+            ],
+            "type" : "VEC3"
+        },
+        {
+            "bufferView" : 1,
+            "componentType" : 5126,
+            "count" : 114022,
+            "type" : "VEC3"
+        },
+        {
+            "bufferView" : 2,
+            "componentType" : 5125,
+            "count" : 171543,
+            "type" : "SCALAR"
+        }
+    ],
+    "bufferViews" : [
+        {
+            "buffer" : 0,
+            "byteLength" : 1368264,
+            "byteOffset" : 0,
+            "target" : 34962
+        },
+        {
+            "buffer" : 0,
+            "byteLength" : 1368264,
+            "byteOffset" : 1368264,
+            "target" : 34962
+        },
+        {
+            "buffer" : 0,
+            "byteLength" : 686172,
+            "byteOffset" : 2736528,
+            "target" : 34963
+        }
+    ],
+    "buffers" : [
+        {
+            "byteLength" : 3422700,
+            "uri" : "hera_sc_me_v01.bin"
+        }
+    ]
+}

@@ -5,23 +5,21 @@
     <TargetFramework>net6.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+	<EmbeddedResource Include="resources\mars_bk.png" />
+	<EmbeddedResource Include="resources\mars_dn.png" />
+	<EmbeddedResource Include="resources\mars_ft.png" />
+    <EmbeddedResource Include="resources\mars_lf.png" />
+	<EmbeddedResource Include="resources\mars_rt.png" />
+	<EmbeddedResource Include="resources\mars_up.png" />
 	<EmbeddedResource Include="resources\chapel_bk.png" />
 	<EmbeddedResource Include="resources\chapel_dn.png" />
 	<EmbeddedResource Include="resources\chapel_ft.png" />
-    <EmbeddedResource Include="resources\chapel_lf.png" />
+	<EmbeddedResource Include="resources\chapel_lf.png" />
 	<EmbeddedResource Include="resources\chapel_rt.png" />
 	<EmbeddedResource Include="resources\chapel_up.png" />
-	<EmbeddedResource Include="resources\miramar_bk.png" />
-	<EmbeddedResource Include="resources\miramar_dn.png" />
-	<EmbeddedResource Include="resources\miramar_ft.png" />
-	<EmbeddedResource Include="resources\miramar_lf.png" />
-	<EmbeddedResource Include="resources\miramar_rt.png" />
-	<EmbeddedResource Include="resources\miramar_up.png" />
-	<EmbeddedResource Include="resources\random.png" />
 	<Compile Include="CubeMap.fs" />
 	<Compile Include="SceneGraph.fs" />
 	<Compile Include="Program.fs" />
   </ItemGroup>
-  <ItemGroup />
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
