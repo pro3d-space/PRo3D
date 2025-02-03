@@ -560,7 +560,7 @@ module SceneSg =
         let specular, diffuse =
             // FileTexture("/Users/schorsch/Desktop/studio_country_hall_4k.png", TextureParams.empty)
             // |> EnvironmentMap.ofPanorama runtime
-            Skybox.get "chapel_$.png"
+            Skybox.get "mars_$.png"
             |> AVal.force
             |> EnvironmentMap.prepare runtime
 

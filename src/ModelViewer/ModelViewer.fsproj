@@ -11,12 +11,6 @@
     <EmbeddedResource Include="resources\mars_lf.png" />
 	<EmbeddedResource Include="resources\mars_rt.png" />
 	<EmbeddedResource Include="resources\mars_up.png" />
-	<EmbeddedResource Include="resources\chapel_bk.png" />
-	<EmbeddedResource Include="resources\chapel_dn.png" />
-	<EmbeddedResource Include="resources\chapel_ft.png" />
-	<EmbeddedResource Include="resources\chapel_lf.png" />
-	<EmbeddedResource Include="resources\chapel_rt.png" />
-	<EmbeddedResource Include="resources\chapel_up.png" />
 	<Compile Include="CubeMap.fs" />
 	<Compile Include="SceneGraph.fs" />
 	<Compile Include="Program.fs" />
