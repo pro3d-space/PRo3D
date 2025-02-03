@@ -1,0 +1,20 @@
+{
+  "profiles": {
+    "ModelViewer": {
+      "commandName": "Project",
+      "commandLineArgs": "..//..//..//resources//m2020-urdf-models//rover//meshes"
+    },
+    "AFC Camera": {
+      "commandName": "Project",
+      "commandLineArgs": "..//..//..//resources//Spacecraft//gltf//AFC"
+    },
+    "Hera Spacecraft": {
+      "commandName": "Project",
+      "commandLineArgs": "..//..//..//resources//Spacecraft//gltf"
+    },
+    "Perserverance Rover": {
+      "commandName": "Project",
+      "commandLineArgs": "..//..//..//resources//m2020-urdf-models//rover//meshes"
+    }
+  }
+}

@@ -13,6 +13,14 @@ open Example.GLTF
 [<EntryPoint>]
 let main args =
 
+    (* 
+    Models under resources can be referenced:
+        1) ..//..//..//resources//m2020-urdf-models//rover//meshes : perseverance rover
+        2) ..//..//..//resources//Spacecraft//gltf : hera spacecraft
+        3) ..//..//..//resources//Spacecraft//gltf//AFC : AFC Camera
+    *)
+    let relativePath = args[0]
+
     let emptyScene =
         let mutable materials = Map.empty
         let mutable geometries = Map.empty
@@ -28,13 +36,9 @@ let main args =
         Directory.GetFiles(folderPath, $"*.{fileExtension}")
         |> Array.map Path.GetFullPath
 
-    let roverFolderPath = @"..\..\..\resources\m2020-urdf-models\rover\meshes"
-    let roverFileExtension = "gltf" 
+    let roverFiles = getFileNamesWithExtension relativePath "gltf"
 
-    let roverFiles = getFileNamesWithExtension roverFolderPath roverFileExtension
-
-    let roverModel = roverFiles |> Array.map(fun path -> match GLTF.tryLoad path with | Some scene -> scene | None -> emptyScene)
-    let models = clist roverModel
+    let models = clist (roverFiles |> Array.map(fun path -> match GLTF.tryLoad path with | Some scene -> scene | None -> emptyScene))
 
     Aardvark.Init()
 
@@ -76,12 +80,8 @@ let main args =
             Trafo3d.Scale(5.0 / bb.Size.NormMax)
         )
 
+    let rotateRoverTrafo = if (relativePath.Contains("m2020-urdf-models")) then Trafo3d.RotationX(1.57) else Trafo3d.RotationX(0)
 
-    let rotateRoverTrafo = 
-        models |> AList.toAVal |> AVal.map (fun models ->
-            let bb = models |> Seq.map (fun m -> m.BoundingBox) |> Box3d
-            Trafo3d.RotationX(1.57)
-        )
 
     let renderTask =
         Sg.ofList [
@@ -90,7 +90,7 @@ let main args =
             |> AVal.map (fun scenes -> SceneSg.toSimpleSg win.Runtime scenes)
             |> Sg.dynamic
             |> Sg.trafo centerTrafo1
-            |> Sg.trafo rotateRoverTrafo
+            |> Sg.trafo' rotateRoverTrafo
             |> Sg.trafo' (Trafo3d.RotationX Constant.PiHalf)
 
         ]
