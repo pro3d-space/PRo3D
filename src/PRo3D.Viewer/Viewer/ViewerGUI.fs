@@ -265,7 +265,26 @@ module Gui =
                     if exclude |> HashSet.contains value |> not then
                         let att = attributes name value
                         yield Incremental.option att (AList.ofList [text name])
-            ] 
+            ]
+
+        let dropDownWithTooltip<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (selected : aval<'a>) (change : 'a -> 'msg) (getTooltip : 'a -> string) =
+            let names  = Enum.GetNames(typeof<'a>)
+            let values = Enum.GetValues(typeof<'a>) |> unbox<'a[]> 
+            let nv     = Array.zip names values
+
+            let attributes (name : string) (value : 'a) =
+                AttributeMap.ofListCond [
+                    always (attribute "value" name)
+                    onlyWhen (AVal.map ((=) value) selected) (attribute "selected" "selected")
+                ]
+       
+            select [onChange (fun str -> Enum.Parse(typeof<'a>, str) |> unbox<'a> |> change); style "color:black"] [
+                for (name, value) in nv do
+                    if exclude |> HashSet.contains value |> not then
+                        let att = attributes name value
+                        let tooltip = getTooltip value
+                        yield Incremental.option att (AList.ofList [text name]) |> UI.wrapToolTip DataPosition.Bottom tooltip
+            ]
 
     module TopMenu =                       
 
@@ -761,15 +780,31 @@ module Gui =
             | Interactions.PickPivotPoint        -> sprintf "%s+click to place pivot point" ctrl
             //| Interactions.PickLinking           -> "CTRL+click to place point on surface"
             | _ -> ""
+
+        let interactionTooltip (i : Interactions) : string =
+            match i with 
+            | Interactions.PickExploreCenter     -> "Pick the camera pivot point if ArcBall navigation is activated. Press CTRL + LMB to pick the pivot point on a surface."
+            | Interactions.PlaceCoordinateSystem -> "Press CTRL+LMB to pick a point on the surface and choose a unit of measurement to adapt the size of the axis gizmo."
+            | Interactions.DrawAnnotation        -> "Choose an annotation mode to draw an annotation on a surface. Press CTRL+LMB to pick a point on a surface."
+            | Interactions.PlaceRover            -> "Select a rover model in the rover menu."
+            | Interactions.PickAnnotation        -> "Press CTRL+LMB and pick an annotation in the main view. The selected annotation will be highlighted green."
+            | Interactions.PickSurface           -> "Press CTRL+LMB and pick the surface in the main view. The surface’s name turns its color to green in the listing."
+            | Interactions.SelectArea            -> ""
+            | Interactions.PlaceScaleBar         -> ""
+            | Interactions.PlaceSceneObject      -> ""
+            | Interactions.PickPivotPoint        -> ""
+            | _ -> ""
         
         let topMenuItems (model : AdaptiveModel) = [ 
+
+
             div [style "font-weight: bold;margin-left: 1px; margin-right:1px"] 
                 [Incremental.text (model.dashboardMode |> AVal.map (fun x -> sprintf "Mode: %s" x))]
             Navigation.UI.viewNavigationModes model.navigation  |> UI.map NavigationMessage 
               
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large wizard icon"] [] ]
-                Html.Layout.boxH [ CustomGui.dropDown Interactions.hideSet model.interaction SetInteraction ]
+                Html.Layout.boxH [ CustomGui.dropDownWithTooltip Interactions.hideSet model.interaction SetInteraction interactionTooltip ]
                 Incremental.div  AttributeMap.empty (AList.ofAValSingle (dynamicTopMenu model))
                 Html.Layout.boxH [ 
                     div [style "font-style:italic; width:100%; text-align:right"] [
