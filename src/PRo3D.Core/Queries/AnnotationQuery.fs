@@ -303,7 +303,6 @@ module AnnotationQuery =
             |> WavefrontGeometry.mergeWithDefaultColor C3b.White  
             |> Seq.singleton
             |> RudimentaryObjExport.writeToString 
-
         | PointCloud ->
             let shiftByCenterOfMass (points: V3d[]) : V3d[] =
                 // Calculate the center of mass
@@ -324,7 +323,7 @@ module AnnotationQuery =
                 {
                     colors = None
                     indices = [| |] // h.indices |> Seq.toArray
-                    vertices = allVertices |> shiftByCenterOfMass
+                    vertices = allVertices //|> shiftByCenterOfMass
                 }
 
             geometry |> Seq.singleton |> RudimentaryObjExport.writeToString        
