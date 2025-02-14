@@ -373,6 +373,16 @@ module ViewerApp =
                     SceneObjectsApp.update m.scene.sceneObjectsModel action m.scene.referenceSystem
                 { m with scene = { m.scene with sceneObjectsModel = so' } }
             | _ -> m
+        | Interactions.PickSurfaceRefSys, ViewerMode.Standard -> 
+            match m.pivotType with
+            | PickPivot.SurfacePivot     -> 
+                let action = (SurfaceAppAction.TranslationMessage( TransformationApp.Action.SetPickedReferenceSystem p )) 
+                let surfaceModel =
+                    SurfaceApp.update m.scene.surfacesModel action m.scene.scenePath m.navigation.camera.view m.scene.referenceSystem
+                { m with scene = { m.scene with surfacesModel = surfaceModel } }
+            | PickPivot.SceneObjectPivot -> m
+                //todo
+            | _ -> m
         | _ -> m       
 
     let mutable lastHash = -1    
@@ -1526,7 +1536,7 @@ module ViewerApp =
                 let _sb = m |> Optic.get _scaleBars |> HashMap.tryFind id
                 match _sb with 
                 | Some sb ->
-                    let translation = (TransformationApp.translationFromReferenceSystemBasis sb.transformation.translation.value V3d.Zero m.scene.referenceSystem) 
+                    let translation = (TransformationApp.translationFromReferenceSystemBasis sb.transformation.translation.value m.scene.referenceSystem) 
                     let viewLocation = sb.view.Location + translation
                     let viewForward = sb.position + translation
 
