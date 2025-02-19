@@ -106,17 +106,19 @@ module SnapshotApp =
                                        (app : SnapshotApp<'model,'aModel, 'msg>) =
         let frustum, recalcOption, near, far = calculateFrustumRecalcNearFar a
         let resolution = V3i (a.resolution.X, a.resolution.Y, 1)
+        let projMat = (frustum |> Frustum.projTrafo)
+       
         if verbose then
             Log.line "calculated near plane as %f and far plane as %f" near far
 
-        let col   = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Rgba8, 1, 8);
-        let depth = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Depth24Stencil8, 1, 8);
+        let col   = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.Rgba8, 1, 1);
+        let depth = app.runtime.CreateTexture (resolution, TextureDimension.Texture2D, TextureFormat.DepthComponent32f, 1, 1); //Depth24Stencil8 test laura
 
         let signature = 
              app.runtime.CreateFramebufferSignature ([
                  DefaultSemantic.Colors, TextureFormat.Rgba8
-                 DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
-             ], 8)
+                 DefaultSemantic.DepthStencil, TextureFormat.DepthComponent32f 
+             ], 1)
 
         let fbo = 
             app.runtime.CreateFramebuffer(
@@ -155,7 +157,7 @@ module SnapshotApp =
         let sg = app.sg //app.sceneGraph app.runtime app.adaptiveModel
 
         let taskclear = app.runtime.CompileClear(signature,AVal.constant C4f.Black,AVal.constant 1.0)
-        let task = app.runtime.CompileRender(signature, sg)
+        let task = app.runtime.CompileRender(signature, sg) 
         
         let (size, depth) = 
             match app.renderDepth with 
@@ -181,7 +183,7 @@ module SnapshotApp =
             if app.verbose then Log.line "[Snapshots] Updating parameters for next frame."
             app.mutableApp.updateSync (Guid.NewGuid ()) actions 
 
-            renderAndSave (sprintf "%s.png" fullPathName) app.verbose parameters
+            renderAndSave (sprintf "%s.png" fullPathName) app.verbose parameters projMat
 
     let private executeBookmarkAnimation (a : BookmarkSnapshotAnimation) 
                                          (app : SnapshotApp<'model,'aModel, 'msg>) =
@@ -244,7 +246,7 @@ module SnapshotApp =
                           
             app.mutableApp.updateSync (Guid.NewGuid ()) actions 
 
-            renderAndSave (sprintf "%s.png" fullPathName) app.verbose parameters
+            renderAndSave (sprintf "%s.png" fullPathName) app.verbose parameters Trafo3d.Identity
 
     let executeAnimation (app : SnapshotApp<'model,'aModel, 'msg>) =
         verbose <- app.verbose

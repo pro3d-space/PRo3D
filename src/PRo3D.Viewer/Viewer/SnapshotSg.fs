@@ -105,10 +105,11 @@ module SnapshotSg =
                 |> Sg.trafo (m.scene.exploreCenter  |> AVal.map Trafo3d.Translation)
         sg
 
+    let useOverlays = false
     /// create scengegraph using Rendering.RenderCommands
     let createSceneGraph (sgGrouped:alist<amap<Guid,AdaptiveSgSurface>>) 
                          overlayed depthTested (runtime : IRuntime) (allowFootprint : bool) 
-                         (m:AdaptiveModel)  =
+                         (calcDepth : bool) (m:AdaptiveModel)  =
         let usehighlighting = ~~true //m.scene.config.useSurfaceHighlighting
         let filterTexture = ~~true
 
@@ -177,27 +178,30 @@ module SnapshotSg =
                             |> Sg.set
 
                         yield sg :> ISg 
-                        let depthTested = 
-                            last 
-                            |> AVal.map (function 
-                                | Some e when System.Object.ReferenceEquals(e,set) -> 
-                                    depthTested 
-                                | _ -> 
-                                    Sg.empty
-                            )
+
+                        if (not calcDepth) then
+                            let depthTested = 
+                                last 
+                                |> AVal.map (function 
+                                    | Some e when System.Object.ReferenceEquals(e,set) -> 
+                                        depthTested 
+                                    | _ -> 
+                                        Sg.empty
+                                )
                         
-                        yield (depthTested |> Sg.dynamic) :> ISg
+                            yield (depthTested |> Sg.dynamic) :> ISg 
                     }
             }
 
         let commands = 
             alist {
                 for sgBundle in sgs do
-                    yield RenderCommand.ClearDepth(1.0) 
+                    if (not calcDepth) then yield RenderCommand.ClearDepth(1.0) 
                     yield RenderCommand.Ordered sgBundle
                     
-                yield RenderCommand.ClearDepth(1.0) 
-                yield RenderCommand.Unordered [(overlayed :> ISg)] 
+                if (not calcDepth) then yield RenderCommand.ClearDepth(1.0) 
+                if useOverlays then
+                    yield RenderCommand.Unordered [(overlayed :> ISg)] 
             } |> RenderCommand.Ordered
 
         Sg.execute commands
@@ -208,7 +212,7 @@ module SnapshotSg =
     // could be resolved by dividing up code in Viewer.fs
     // duplicated to minimise merge troubles, but should be changed once merge is done // TODO RNO
     let viewRenderView (runtime : IRuntime) (id : string) 
-                       (viewportSize : aval<V2i>) (m: AdaptiveModel) = 
+                       (viewportSize : aval<V2i>) (calcDepth : bool) (m: AdaptiveModel) = 
         //PRo3D.Core.Drawing.DrawingApp.usePackedAnnotationRendering <- false  // not the problem
         let frustum = AVal.map2 (fun o f -> o |> Option.defaultValue f) 
                                 m.overlayFrustum m.frustum // use overlay frustum if Some()
@@ -353,7 +357,7 @@ module SnapshotSg =
 
         let camera = AVal.map2 (fun v f -> Camera.create v f) m.navigation.camera.view m.frustum 
         let sg = createSceneGraph m.scene.surfacesModel.sgGrouped 
-                                  overlayed depthTested runtime true m
+                                  overlayed depthTested runtime true calcDepth m
         sg
             |> Sg.noEvents
             |> Sg.camera camera
