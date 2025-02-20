@@ -2,7 +2,7 @@
   "profiles": {
     "PRo3D.Viewer": {
       "commandName": "Project",
-      "commandLineArgs": "--scn \"C:\\Users\\laura\\VRVis\\PRo3D\\Data\\S1326-Compare-BOTH-to-LBS\\S1326-Compare-BOTH-to-LBS.pro3d\" --asnap \"C:\\Users\\laura\\VRVis\\PRo3D\\PRo3D_depthMaps2\\bin\\Debug\\net6.0\\panoramaInputFormat.json\" --out \"D:\\Setups\\PRo3D\\PRo3D.Viewer.4.6.1-prerelease1\\images\" --verbose"
+      "commandLineArgs": "--scn \"C:\\Users\\laura\\VRVis\\PRo3D\\Data\\S1326-Compare-BOTH-to-LBS\\S1326-Compare-BOTH-to-LBS.pro3d\" --asnap \"C:\\Users\\laura\\VRVis\\PRo3D\\PRo3D_depthMaps2\\bin\\Debug\\net6.0\\images\\panoramaInputFormat.json\" --out \"C:\\Users\\laura\\VRVis\\PRo3D\\PRo3D_depthMaps2\\bin\\Debug\\net6.0\\images\" --verbose"
     }
   }
 }

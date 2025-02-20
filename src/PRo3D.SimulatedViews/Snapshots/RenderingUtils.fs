@@ -155,9 +155,9 @@ module Rendering =
         match depthByte, String.contains "mask" filename with
         | Some depthB, false ->
             try 
-                depthB.Save(names.depth)
+                //depthB.Save(names.depth)
                 depthB.TryDispose () |> ignore
-                Log.line "[SNAPSHOT] Saved %s" names.depth
+                //Log.line "[SNAPSHOT] Saved %s" names.depth
             with e ->
                 Log.error "[SNAPSHOT] Could not save image %s" names.baseName
                 Log.error "%s" e.Message

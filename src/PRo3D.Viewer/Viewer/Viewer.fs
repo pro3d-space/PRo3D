@@ -691,7 +691,7 @@ module ViewerApp =
                     Log.warn "[JsonChiron] Could not save %s" "panoramaInputFormat.json" 
                     Log.warn "%s" e.Message
 
-                Log.warn "Debug Saved json to %s" (Path.GetFullPath "panoramaInputFormat.json")
+                Log.warn "Debug Saved json to %s" (jsonDepthPanoramasPathName)
             let generateDepthPanoramas =
                 SequencedBookmarksApp.generateDepthPanoramas m.scene.sequencedBookmarks
                                                         SnapshotUtils.runProcess

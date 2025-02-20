@@ -425,7 +425,7 @@ module SequencedBookmarksApp =
                 let args =
                     sprintf "--scn \"%s\" --asnap \"%s\" --out \"%s\" --exitOnFinish" 
                                         scenePath jsonPathName m.outputPathDepthImages
-                Log.line "[Viewer] Starting snapshot rendering with arguments: %s" args
+                Log.line "[Viewer] Starting panorama depth rendering with arguments: %s" args
                 snapshotProcess <- Some (runProcess exeName args None)
                 let id = System.Guid.NewGuid () |> string
                 let proclst =
