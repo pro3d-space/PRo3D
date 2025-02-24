@@ -16,16 +16,57 @@ open PRo3D.Core.Drawing
 
 module UI =
 
+    module CustomGui =
+        let dropDownWithTooltip<'a, 'msg when 'a : enum<int> and 'a : equality> (selected : aval<'a>) (change : 'a -> 'msg) (getTooltip : 'a -> string) =
+            let names  = Enum.GetNames(typeof<'a>)
+            let values = Enum.GetValues(typeof<'a>) |> unbox<'a[]> 
+            let nv     = Array.zip names values
+
+            let attributes (name : string) (value : 'a) =
+                AttributeMap.ofListCond [
+                    always (attribute "value" name)
+                    onlyWhen (AVal.map ((=) value) selected) (attribute "selected" "selected")
+                ]
+       
+            select [onChange (fun str -> Enum.Parse(typeof<'a>, str) |> unbox<'a> |> change); style "color:black"] [
+                for (name, value) in nv do
+                    let att = attributes name value
+                    let tooltip = getTooltip value
+                    yield Incremental.option att (AList.ofList [text name]) |> UI.wrapToolTip DataPosition.Bottom tooltip
+            ]
+
     let viewAnnotationToolsHorizontal (paletteFile : string) (model:AdaptiveDrawingModel) =
+        let geometryTooltip (i : Geometry) : string =
+            match i with 
+            | Geometry.Point        -> "A single point measurement on the surface."
+            | Geometry.Line         -> "Pick two points on the surface to create a line connecting them.\nThe line depends on the projection mode."
+            | Geometry.Polyline     -> "Pick an arbitrary number of points on the surface to create a polyline connecting them. The polyline depends on the projection mode."
+            | Geometry.Polygon      -> "Pick an arbitrary number of points on the surface to create a closed region connecting them. The polygon depends on the projection mode."
+            | Geometry.DnS          -> "Pick an arbitrary number of points on the surface to draw a polyline that is used to draw an intersecting plane using least squares computation. The vectors strike (red) and dip (green) represent the directions of least and highest inclination."
+            | Geometry.TT           -> ""
+            | _ -> ""
+
+        let projectionTooltip (i: Projection) : string =
+            match i with
+            | Projection.Linear     -> "Produces straight line segments as point-to-point connections with linear interpolation between them, no actual projection is performed."
+            | Projection.Viewpoint  -> "Between two points the space is sampled by shooting additional rays to intersect with the surface."
+            | Projection.Sky        -> "Between two points the space is sampled by shooting additional rays to intersect with the surface along the scene’s up-vector."
+            | Projection.Bookmark   -> ""
+            | _ -> ""
+
+        let thicknessTooltip = "Thickness of annotation"
+        let samplingAmountTooltip = "Sampling amount used for annotations rendered with viewpoint or sky projection"
+        let samplingUnitTooltip = "Sampling unit used for annotations rendered with viewpoint or sky projection"
+
         Html.Layout.horizontal [
             Html.Layout.boxH [ i [clazz "large Write icon"] [] ]
-            Html.Layout.boxH [ Html.SemUi.dropDown model.geometry SetGeometry ]
-            Html.Layout.boxH [ Html.SemUi.dropDown model.projection SetProjection ]
+            Html.Layout.boxH [ CustomGui.dropDownWithTooltip model.geometry SetGeometry geometryTooltip ]
+            Html.Layout.boxH [ CustomGui.dropDownWithTooltip model.projection SetProjection projectionTooltip ]
             Html.Layout.boxH [ ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" false model.color |> UI.map ChangeColor; div [] [] ]
-            Html.Layout.boxH [ Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ]
+            Html.Layout.boxH [ Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ] |> UI.wrapToolTip DataPosition.Bottom thicknessTooltip     
             Html.Layout.boxH [ i [clazz "large crosshairs icon"] [] ]
-            Html.Layout.boxH [ Numeric.view' [InputBox] model.samplingAmount |> UI.map ChangeSamplingAmount ]
-            Html.Layout.boxH [ Html.SemUi.dropDown model.samplingUnit SetSamplingUnit ]
+            Html.Layout.boxH [ Numeric.view' [InputBox] model.samplingAmount |> UI.map ChangeSamplingAmount ] |> UI.wrapToolTip DataPosition.Bottom samplingAmountTooltip
+            Html.Layout.boxH [ Html.SemUi.dropDown model.samplingUnit SetSamplingUnit ] |> UI.wrapToolTip DataPosition.Bottom samplingUnitTooltip
         //  Html.Layout.boxH [ Html.SemUi.dropDown model.semantic SetSemantic ]
         ]
                     

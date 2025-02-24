@@ -715,11 +715,12 @@ module Gui =
                 | Interactions.PlaceRover ->
                     return ViewPlanApp.UI.viewSelectRover m.scene.viewPlans.roverModel |> UI.map RoverMessage
                 | Interactions.PlaceCoordinateSystem -> 
+                    let measurementTooltip = "Measurement to adapt the size of the axis gizmo"
+                    let visibilityTooltip = "Toggle visibility of axis gizmo"
                     return Html.Layout.horizontal [
-                        Html.Layout.boxH [ Html.SemUi.dropDown' m.scene.referenceSystem.scaleChart m.scene.referenceSystem.selectedScale ReferenceSystemAction.SetScale id ]
-                        //Html.Layout.boxH [ i [clazz "unhide icon"][] ]
-                        Html.Layout.boxH [ GuiEx.iconToggle m.scene.referenceSystem.isVisible "unhide icon" "hide icon" ReferenceSystemAction.ToggleVisible  ]                        
-                        ] |> UI.map ReferenceSystemMessage
+                        Html.Layout.boxH [ Html.SemUi.dropDown' m.scene.referenceSystem.scaleChart m.scene.referenceSystem.selectedScale ReferenceSystemAction.SetScale id ] |> UI.wrapToolTip DataPosition.Bottom measurementTooltip
+                        Html.Layout.boxH [ GuiEx.iconToggle m.scene.referenceSystem.isVisible "unhide icon" "hide icon" ReferenceSystemAction.ToggleVisible  ] |> UI.wrapToolTip DataPosition.Bottom visibilityTooltip                     
+                        ] |> UI.map ReferenceSystemMessage 
                 | Interactions.PickAnnotation ->
                      return Html.Layout.horizontal [
                         Html.Layout.boxH [text "eps.:"]
@@ -783,12 +784,12 @@ module Gui =
 
         let interactionTooltip (i : Interactions) : string =
             match i with 
-            | Interactions.PickExploreCenter     -> "Pick the camera pivot point if ArcBall navigation is activated. Press CTRL + LMB to pick the pivot point on a surface."
-            | Interactions.PlaceCoordinateSystem -> "Press CTRL+LMB to pick a point on the surface and choose a unit of measurement to adapt the size of the axis gizmo."
-            | Interactions.DrawAnnotation        -> "Choose an annotation mode to draw an annotation on a surface. Press CTRL+LMB to pick a point on a surface."
+            | Interactions.PickExploreCenter     -> "Pick the camera pivot point if ArcBall navigation is activated."
+            | Interactions.PlaceCoordinateSystem -> "Pick a point on the surface and choose a unit of measurement to adapt the size of the axis gizmo."
+            | Interactions.DrawAnnotation        -> "Choose an annotation mode to draw an annotation on a surface."
             | Interactions.PlaceRover            -> "Select a rover model in the rover menu."
-            | Interactions.PickAnnotation        -> "Press CTRL+LMB and pick an annotation in the main view. The selected annotation will be highlighted green."
-            | Interactions.PickSurface           -> "Press CTRL+LMB and pick the surface in the main view. The surface’s name turns its color to green in the listing."
+            | Interactions.PickAnnotation        -> "Select an annotation in the main view. The selected annotation will be highlighted green."
+            | Interactions.PickSurface           -> "Select a surface in the main view. The selected surface will be highlighted green."
             | Interactions.SelectArea            -> ""
             | Interactions.PlaceScaleBar         -> ""
             | Interactions.PlaceSceneObject      -> ""

@@ -32,7 +32,7 @@ module UI =
                     //|> AttributeMap.union dom.                
                 
             
-            onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (       
+            onBoot "$('#__ID__').popup({inline:true,hoverable:true}).popup('refresh');" (       
                 dom.WithAttributes attr     
             ) 
         else
