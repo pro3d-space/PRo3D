@@ -39,7 +39,7 @@ module UI =
         let geometryTooltip (i : Geometry) : string =
             match i with 
             | Geometry.Point        -> "A single point measurement on the surface."
-            | Geometry.Line         -> "Pick two points on the surface to create a line connecting them.\nThe line depends on the projection mode."
+            | Geometry.Line         -> "Pick two points on the surface to create a line connecting them. The line depends on the projection mode."
             | Geometry.Polyline     -> "Pick an arbitrary number of points on the surface to create a polyline connecting them. The polyline depends on the projection mode."
             | Geometry.Polygon      -> "Pick an arbitrary number of points on the surface to create a closed region connecting them. The polygon depends on the projection mode."
             | Geometry.DnS          -> "Pick an arbitrary number of points on the surface to draw a polyline that is used to draw an intersecting plane using least squares computation. The vectors strike (red) and dip (green) represent the directions of least and highest inclination."
