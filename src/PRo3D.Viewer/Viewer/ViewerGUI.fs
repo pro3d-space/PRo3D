@@ -248,44 +248,6 @@ module Gui =
             ]                              
         ]
 
-    module CustomGui =
-        let dropDown<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (selected : aval<'a>) (change : 'a -> 'msg) =
-            let names  = Enum.GetNames(typeof<'a>)
-            let values = Enum.GetValues(typeof<'a>) |> unbox<'a[]> 
-            let nv     = Array.zip names values
-
-            let attributes (name : string) (value : 'a) =
-                AttributeMap.ofListCond [
-                    always (attribute "value" name)
-                    onlyWhen (AVal.map ((=) value) selected) (attribute "selected" "selected")
-                ]
-       
-            select [onChange (fun str -> Enum.Parse(typeof<'a>, str) |> unbox<'a> |> change); style "color:black"] [
-                for (name, value) in nv do
-                    if exclude |> HashSet.contains value |> not then
-                        let att = attributes name value
-                        yield Incremental.option att (AList.ofList [text name])
-            ]
-
-        let dropDownWithTooltip<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (selected : aval<'a>) (change : 'a -> 'msg) (getTooltip : 'a -> string) =
-            let names  = Enum.GetNames(typeof<'a>)
-            let values = Enum.GetValues(typeof<'a>) |> unbox<'a[]> 
-            let nv     = Array.zip names values
-
-            let attributes (name : string) (value : 'a) =
-                AttributeMap.ofListCond [
-                    always (attribute "value" name)
-                    onlyWhen (AVal.map ((=) value) selected) (attribute "selected" "selected")
-                ]
-       
-            select [onChange (fun str -> Enum.Parse(typeof<'a>, str) |> unbox<'a> |> change); style "color:black"] [
-                for (name, value) in nv do
-                    if exclude |> HashSet.contains value |> not then
-                        let att = attributes name value
-                        let tooltip = getTooltip value
-                        yield Incremental.option att (AList.ofList [text name]) |> UI.wrapToolTip DataPosition.Bottom tooltip
-            ]
-
     module TopMenu =                       
 
         let jsImportOPCDialog =
@@ -805,7 +767,7 @@ module Gui =
               
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large wizard icon"] [] ]
-                Html.Layout.boxH [ CustomGui.dropDownWithTooltip Interactions.hideSet model.interaction SetInteraction interactionTooltip ]
+                Html.Layout.boxH [ Drawing.UI.dropDownWithTooltip Interactions.hideSet model.interaction SetInteraction interactionTooltip ]
                 Incremental.div  AttributeMap.empty (AList.ofAValSingle (dynamicTopMenu model))
                 Html.Layout.boxH [ 
                     div [style "font-style:italic; width:100%; text-align:right"] [

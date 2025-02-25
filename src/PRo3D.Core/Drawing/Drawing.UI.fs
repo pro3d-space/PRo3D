@@ -13,27 +13,45 @@ open PRo3D.Base
 open PRo3D.Base.Annotation
 open PRo3D.Core
 open PRo3D.Core.Drawing
+open FSharp.Data.Adaptive
 
 module UI =
+    let dropDown<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (selected : aval<'a>) (change : 'a -> 'msg) =
+        let names  = Enum.GetNames(typeof<'a>)
+        let values = Enum.GetValues(typeof<'a>) |> unbox<'a[]> 
+        let nv     = Array.zip names values
 
-    module CustomGui =
-        let dropDownWithTooltip<'a, 'msg when 'a : enum<int> and 'a : equality> (selected : aval<'a>) (change : 'a -> 'msg) (getTooltip : 'a -> string) =
-            let names  = Enum.GetNames(typeof<'a>)
-            let values = Enum.GetValues(typeof<'a>) |> unbox<'a[]> 
-            let nv     = Array.zip names values
-
-            let attributes (name : string) (value : 'a) =
-                AttributeMap.ofListCond [
-                    always (attribute "value" name)
-                    onlyWhen (AVal.map ((=) value) selected) (attribute "selected" "selected")
-                ]
+        let attributes (name : string) (value : 'a) =
+            AttributeMap.ofListCond [
+                always (attribute "value" name)
+                onlyWhen (AVal.map ((=) value) selected) (attribute "selected" "selected")
+            ]
        
-            select [onChange (fun str -> Enum.Parse(typeof<'a>, str) |> unbox<'a> |> change); style "color:black"] [
-                for (name, value) in nv do
+        select [onChange (fun str -> Enum.Parse(typeof<'a>, str) |> unbox<'a> |> change); style "color:black"] [
+            for (name, value) in nv do
+                if exclude |> HashSet.contains value |> not then
+                    let att = attributes name value
+                    yield Incremental.option att (AList.ofList [text name])
+        ]
+
+    let dropDownWithTooltip<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (selected : aval<'a>) (change : 'a -> 'msg) (getTooltip : 'a -> string) =
+        let names  = Enum.GetNames(typeof<'a>)
+        let values = Enum.GetValues(typeof<'a>) |> unbox<'a[]> 
+        let nv     = Array.zip names values
+
+        let attributes (name : string) (value : 'a) =
+            AttributeMap.ofListCond [
+                always (attribute "value" name)
+                onlyWhen (AVal.map ((=) value) selected) (attribute "selected" "selected")
+            ]
+       
+        select [onChange (fun str -> Enum.Parse(typeof<'a>, str) |> unbox<'a> |> change); style "color:black"] [
+            for (name, value) in nv do
+                if exclude |> HashSet.contains value |> not then
                     let att = attributes name value
                     let tooltip = getTooltip value
                     yield Incremental.option att (AList.ofList [text name]) |> UI.wrapToolTip DataPosition.Bottom tooltip
-            ]
+        ]
 
     let viewAnnotationToolsHorizontal (paletteFile : string) (model:AdaptiveDrawingModel) =
         let geometryTooltip (i : Geometry) : string =
@@ -60,8 +78,8 @@ module UI =
 
         Html.Layout.horizontal [
             Html.Layout.boxH [ i [clazz "large Write icon"] [] ]
-            Html.Layout.boxH [ CustomGui.dropDownWithTooltip model.geometry SetGeometry geometryTooltip ]
-            Html.Layout.boxH [ CustomGui.dropDownWithTooltip model.projection SetProjection projectionTooltip ]
+            Html.Layout.boxH [ dropDownWithTooltip ([] |> HashSet.ofList) model.geometry SetGeometry geometryTooltip ]
+            Html.Layout.boxH [ dropDownWithTooltip ([] |> HashSet.ofList) model.projection SetProjection projectionTooltip ]
             Html.Layout.boxH [ ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" false model.color |> UI.map ChangeColor; div [] [] ]
             Html.Layout.boxH [ Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ] |> UI.wrapToolTip DataPosition.Bottom thicknessTooltip     
             Html.Layout.boxH [ i [clazz "large crosshairs icon"] [] ]
