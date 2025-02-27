@@ -756,7 +756,6 @@ module Gui =
             | Interactions.PlaceScaleBar         -> ""
             | Interactions.PlaceSceneObject      -> ""
             | Interactions.PickPivotPoint        -> ""
-            | _ -> ""
         
         let topMenuItems (model : AdaptiveModel) = [ 
 
@@ -767,7 +766,7 @@ module Gui =
               
             Html.Layout.horizontal [
                 Html.Layout.boxH [ i [clazz "large wizard icon"] [] ]
-                Html.Layout.boxH [ Drawing.UI.dropDownWithTooltip Interactions.hideSet model.interaction SetInteraction interactionTooltip ]
+                Html.Layout.boxH [ Drawing.UI.dropDown Interactions.hideSet model.interaction SetInteraction interactionTooltip ]
                 Incremental.div  AttributeMap.empty (AList.ofAValSingle (dynamicTopMenu model))
                 Html.Layout.boxH [ 
                     div [style "font-style:italic; width:100%; text-align:right"] [

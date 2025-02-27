@@ -16,25 +16,8 @@ open PRo3D.Core.Drawing
 open FSharp.Data.Adaptive
 
 module UI =
-    let dropDown<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (selected : aval<'a>) (change : 'a -> 'msg) =
-        let names  = Enum.GetNames(typeof<'a>)
-        let values = Enum.GetValues(typeof<'a>) |> unbox<'a[]> 
-        let nv     = Array.zip names values
 
-        let attributes (name : string) (value : 'a) =
-            AttributeMap.ofListCond [
-                always (attribute "value" name)
-                onlyWhen (AVal.map ((=) value) selected) (attribute "selected" "selected")
-            ]
-       
-        select [onChange (fun str -> Enum.Parse(typeof<'a>, str) |> unbox<'a> |> change); style "color:black"] [
-            for (name, value) in nv do
-                if exclude |> HashSet.contains value |> not then
-                    let att = attributes name value
-                    yield Incremental.option att (AList.ofList [text name])
-        ]
-
-    let dropDownWithTooltip<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (selected : aval<'a>) (change : 'a -> 'msg) (getTooltip : 'a -> string) =
+    let dropDown<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (selected : aval<'a>) (change : 'a -> 'msg) (getTooltip : 'a -> string) =
         let names  = Enum.GetNames(typeof<'a>)
         let values = Enum.GetValues(typeof<'a>) |> unbox<'a[]> 
         let nv     = Array.zip names values
@@ -50,7 +33,10 @@ module UI =
                 if exclude |> HashSet.contains value |> not then
                     let att = attributes name value
                     let tooltip = getTooltip value
-                    yield Incremental.option att (AList.ofList [text name]) |> UI.wrapToolTip DataPosition.Bottom tooltip
+                    if tooltip != "" then
+                        yield Incremental.option att (AList.ofList [text name]) |> UI.wrapToolTip DataPosition.Bottom tooltip
+                    else 
+                        yield Incremental.option att (AList.ofList [text name])
         ]
 
     let viewAnnotationToolsHorizontal (paletteFile : string) (model:AdaptiveDrawingModel) =
@@ -62,7 +48,6 @@ module UI =
             | Geometry.Polygon      -> "Pick an arbitrary number of points on the surface to create a closed region connecting them. The polygon depends on the projection mode."
             | Geometry.DnS          -> "Pick an arbitrary number of points on the surface to draw a polyline that is used to draw an intersecting plane using least squares computation. The vectors strike (red) and dip (green) represent the directions of least and highest inclination."
             | Geometry.TT           -> ""
-            | _ -> ""
 
         let projectionTooltip (i: Projection) : string =
             match i with
@@ -70,7 +55,6 @@ module UI =
             | Projection.Viewpoint  -> "Between two points the space is sampled by shooting additional rays to intersect with the surface."
             | Projection.Sky        -> "Between two points the space is sampled by shooting additional rays to intersect with the surface along the scene’s up-vector."
             | Projection.Bookmark   -> ""
-            | _ -> ""
 
         let thicknessTooltip = "Thickness of annotation"
         let samplingAmountTooltip = "Sampling amount used for annotations rendered with viewpoint or sky projection"
@@ -78,8 +62,8 @@ module UI =
 
         Html.Layout.horizontal [
             Html.Layout.boxH [ i [clazz "large Write icon"] [] ]
-            Html.Layout.boxH [ dropDownWithTooltip ([] |> HashSet.ofList) model.geometry SetGeometry geometryTooltip ]
-            Html.Layout.boxH [ dropDownWithTooltip ([] |> HashSet.ofList) model.projection SetProjection projectionTooltip ]
+            Html.Layout.boxH [ dropDown ([] |> HashSet.ofList) model.geometry SetGeometry geometryTooltip ]
+            Html.Layout.boxH [ dropDown ([] |> HashSet.ofList) model.projection SetProjection projectionTooltip ]
             Html.Layout.boxH [ ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" false model.color |> UI.map ChangeColor; div [] [] ]
             Html.Layout.boxH [ Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ] |> UI.wrapToolTip DataPosition.Bottom thicknessTooltip     
             Html.Layout.boxH [ i [clazz "large crosshairs icon"] [] ]
