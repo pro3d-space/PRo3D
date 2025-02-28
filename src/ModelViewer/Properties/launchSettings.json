@@ -1,0 +1,20 @@
+{
+  "profiles": {
+    "ModelViewer": {
+      "commandName": "Project",
+      "commandLineArgs": "..//..//..//resources//Perserverence-Rover//meshes"
+    },
+    "AFC Camera": {
+      "commandName": "Project",
+      "commandLineArgs": "..//..//..//resources//Hera-Spacecraft//gltf//AFC"
+    },
+    "Hera Spacecraft": {
+      "commandName": "Project",
+      "commandLineArgs": "..//..//..//resources//Hera-Spacecraft//gltf"
+    },
+    "Perserverance Rover": {
+      "commandName": "Project",
+      "commandLineArgs": "..//..//..//resources//Perserverence-Rover//meshes"
+    }
+  }
+}

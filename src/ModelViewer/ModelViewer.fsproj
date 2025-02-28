@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+	<EmbeddedResource Include="resources\Cubemap-Mars\mars_bk.png" />
+	<EmbeddedResource Include="resources\Cubemap-Mars\mars_dn.png" />
+	<EmbeddedResource Include="resources\Cubemap-Mars\mars_ft.png" />
+	<EmbeddedResource Include="resources\Cubemap-Mars\mars_lf.png" />
+	<EmbeddedResource Include="resources\Cubemap-Mars\mars_rt.png" />
+	<EmbeddedResource Include="resources\Cubemap-Mars\mars_up.png" />
+	<Compile Include="CubeMap.fs" />
+	<Compile Include="SceneGraph.fs" />
+	<Compile Include="Program.fs" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>
