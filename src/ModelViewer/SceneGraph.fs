@@ -9,62 +9,44 @@ open System.IO
 
 module Skybox =
     type Marker = Marker
-    let getImage =
-        let names = typeof<Marker>.Assembly.GetManifestResourceNames()
-        let load (name : string) =
-            let name = names |> Array.find (fun str -> str.EndsWith name)
-            use s = typeof<Marker>.Assembly.GetManifestResourceStream(name)
-            PixImage.Load(s)
-        load
+    let getImage (folderPath: string) (suffix: string) =
+        let names = Directory.GetFiles(folderPath)|> Array.map Path.GetFullPath
+        let file = names |> Array.find (fun str -> str.EndsWith suffix)
+        PixImage.Load(file)
 
-    let get (name : string) =
+    let get (folderPath: string) =
         AVal.custom (fun _ ->
             let env =
-                // let names = typeof<Marker>.Assembly.GetManifestResourceNames()
-                // let getMipMaps (img : PixImage) =
-                //     use ii = PixImageSharp.ToImage img
-                //     let res = Array.zeroCreate (1 + int (floor (log2 (float img.Size.X))))
-                //     res.[0] <- img
-                //     for l in 1 .. res.Length - 1 do
-                //         ii.Mutate (fun ctx ->
-                //             ctx.Resize(ii.Width/2, ii.Height/2)
-                //             |> ignore
-                //         )
-                //         res.[l] <- PixImageSharp.ToPixImage ii
-                //     res
                 let trafo t (img : PixImage) =
                     img.TransformedPixImage t
-                    //|> getMipMaps
-
 
                 PixCube [|
                     PixImageMipMap(
-                        getImage (name.Replace("$", "rt"))
+                        getImage folderPath "_rt.png"
                         |> trafo ImageTrafo.Rot90
                     )
                     PixImageMipMap(
-                        getImage (name.Replace("$", "lf"))
+                        getImage folderPath "_lf.png"
                         |> trafo ImageTrafo.Rot270
                     )
 
                     PixImageMipMap(
-                        getImage (name.Replace("$", "bk"))
+                        getImage folderPath "_bk.png"
                     )
                     PixImageMipMap(
-                        getImage (name.Replace("$", "ft"))
+                        getImage folderPath "_ft.png"
                         |> trafo ImageTrafo.Rot180
                     )
 
                     PixImageMipMap(
-                        getImage (name.Replace("$", "up"))
+                        getImage folderPath "_up.png"
                         |> trafo ImageTrafo.Rot90
                     )
                     PixImageMipMap(
-                        getImage (name.Replace("$", "dn"))
+                        getImage folderPath "_dn.png"
                         |> trafo ImageTrafo.Rot90
                     )
                 |]
-
             PixTextureCube(env, TextureParams.mipmapped) :> ITexture
         )
 
@@ -433,7 +415,7 @@ module SceneSg =
 
         Sg.UniformApplicator(uniforms, sg) :> ISg
 
-    let toSimpleSg (runtime : IRuntime) (scenes : seq<Scene>) =
+    let toSimpleSg (runtime : IRuntime) (scenes : seq<Scene>) (environmentPath: string) =
 
         let defaultMaterial =
             UniformProvider.ofList [
@@ -558,9 +540,7 @@ module SceneSg =
             )
 
         let specular, diffuse =
-            // FileTexture("/Users/schorsch/Desktop/studio_country_hall_4k.png", TextureParams.empty)
-            // |> EnvironmentMap.ofPanorama runtime
-            Skybox.get "mars_$.png"
+            Skybox.get environmentPath
             |> AVal.force
             |> EnvironmentMap.prepare runtime
 

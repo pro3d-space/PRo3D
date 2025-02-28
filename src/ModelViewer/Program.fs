@@ -13,13 +13,8 @@ open Example.GLTF
 [<EntryPoint>]
 let main args =
 
-    (* 
-    Models under resources can be referenced:
-        1) ..//..//..//resources//m2020-urdf-models//rover//meshes : perseverance rover
-        2) ..//..//..//resources//Spacecraft//gltf : hera spacecraft
-        3) ..//..//..//resources//Spacecraft//gltf//AFC : AFC Camera
-    *)
     let relativePath = args[0]
+    let environmentPath = args[1]
 
     let emptyScene =
         let mutable materials = Map.empty
@@ -87,7 +82,7 @@ let main args =
         Sg.ofList [
             models
             |> AList.toAVal
-            |> AVal.map (fun scenes -> SceneSg.toSimpleSg win.Runtime scenes)
+            |> AVal.map (fun scenes -> SceneSg.toSimpleSg win.Runtime scenes environmentPath)
             |> Sg.dynamic
             |> Sg.trafo centerTrafo1
             |> Sg.trafo' rotateRoverTrafo
