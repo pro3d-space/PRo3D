@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "PRo3D.GIS": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}

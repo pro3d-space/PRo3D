@@ -245,7 +245,7 @@ module CooTransformation =
         | Planet.ENU  ->  V3d.ZAxis
         | _ ->
             let sc = getLatLonAlt planet p
-            let height = sc.altitude + 100.0
+            let height = sc.altitude + 100.0 // to get stable up vector on planet surface
             
             let v2 = getXYZFromLatLonAlt ({sc with altitude = height}) planet
             (v2 - p).Normalized
