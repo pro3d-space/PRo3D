@@ -44,7 +44,7 @@ module ImageProjection =
 
         let stableImageProjectionTrafo (v : Vertex) =
             vertex {
-                return { v with projectedPos = uniform.ProjectedImageModelViewProj * v.pos; localPos = v.pos; localNormalNumericallyUnstable = V3d.Zero }
+                return { v with projectedPos = uniform.ProjectedImageModelViewProj * v.pos; localPos = v.pos; localNormalNumericallyUnstable = uniform.ApproximateBodyNormalLocalSpace }
             }
 
         let stableImageProjection (v : Vertex) = 
@@ -54,7 +54,7 @@ module ImageProjection =
                 let inRange = Vec.allGreaterOrEqual tc V3d.OOO && Vec.allSmallerOrEqual tc.XYZ V3d.III
                 let borderWidth = 0.01 
 
-                let normal = uniform.ProjectedImageModelViewProj.TransformDir(uniform.ApproximateBodyNormalLocalSpace)
+                let normal = uniform.ProjectedImageModelViewProj.TransformDir(uniform.ApproximateBodyNormalLocalSpace) |> Vec.normalize
 
                 let c = 
                     if uniform.ProjectedImageModelViewProjValid && inRange && (Vec.dot normal V3d.OOI) < 0.0 then
@@ -102,7 +102,7 @@ module ImageProjection =
                 let mutable clippedCount = 0
                 for i in 0 .. uniform.ProjectedImagesCount - 1 do
                     let ndc = uniform.ProjectedImagesLocalTrafos[i] * v.localPos
-                    let normal = uniform.ProjectedImagesLocalTrafos[i].TransformDir(uniform.ApproximateBodyNormalLocalSpace).Normalized
+                    let normal = uniform.ProjectedImagesLocalTrafos[i].TransformDir(v.localNormalNumericallyUnstable).Normalized
                     let p = ndc.XYZ / ndc.W
                     let tc = V3d(0.5, 0.5, 0.5) + V3d(0.5, 0.5, 0.5) * p.XYZ
                     let clipped = Vec.anyGreater tc.XY V2d.II || Vec.anySmaller tc.XY V2d.OO
@@ -117,6 +117,31 @@ module ImageProjection =
                 else 
                     return v.c
             }
+
+        type NormalVertex = {
+            [<Position>] pos : V4d
+            [<Semantic("LocalNormal")>] n : V3d
+            [<SourceVertexIndex>] i : int
+        }
+
+
+        let generateNormal (t : Triangle<NormalVertex>) =
+            triangle {
+                let p0 = t.P0.pos.XYZ
+                let p1 = t.P1.pos.XYZ
+                let p2 = t.P2.pos.XYZ
+
+                let edge1 = p1 - p0
+                let edge2 = p2 - p0
+
+                let normal = Vec.cross edge2 edge1 |> Vec.normalize
+
+                yield { t.P0 with n = normal; i = 0 }
+                yield { t.P1 with n = normal; i = 1 }
+                yield { t.P2 with n = normal; i = 2 }
+
+            }
+
 
 module ImageProjectionTrafoSceneGraph =
     open Aardvark.Base.Ag

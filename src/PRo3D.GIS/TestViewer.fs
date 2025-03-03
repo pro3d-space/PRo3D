@@ -129,7 +129,7 @@ module TestViewer =
         let aspect = win.Sizes |> AVal.map (fun s -> float s.X / float s.Y)
 
         let instruments =
-            let frustum = Frustum.perspective 5.5306897076421 10.0 distanceSunPluto 1.0
+            let frustum = Frustum.perspective 5.5306897076421 10000000.0 distanceSunPluto 1.0
             Map.ofList [
                 "HERA_AFC-1", frustum
                 "HERA_AFC-2", frustum
@@ -329,6 +329,7 @@ module TestViewer =
             |> Sg.shader {
                 do! Shaders.planetLocalLightingViewSpace
                 do! ImageProjection.Shaders.stableImageProjectionTrafo
+                do! ImageProjection.Shaders.generateNormal
                 do! Shaders.stableTrafo
                 do! DefaultSurfaces.constantColor C4f.White 
                 do! DefaultSurfaces.diffuseTexture 
@@ -338,7 +339,7 @@ module TestViewer =
                 //do! ImageProjection.Shaders.stableImageProjection
             }
             |> Sg.uniform "LodVisEnabled" (cval false)
-            |> Sg.uniform "ProjectedImagesLocalTrafosCount" timeClampedCount //count
+            |> Sg.uniform "ProjectedImagesLocalTrafosCount" count //timeClampedCount //count
             |> Sg.fileTexture "ProjectedTexture" @"C:\Users\haral\Pictures\OIP.jpg" true
             |> Sg.trafo (transformation |> AVal.map fst)
             |> Sg.onOff (transformation |> AVal.map snd)
