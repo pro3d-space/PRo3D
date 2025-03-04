@@ -8,7 +8,7 @@ open Aardvark.SceneGraph
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Chiron
-open PRo3D.Base.Annotation.GeoJSON
+open PRo3D.Base
 open PRo3D.Base
 open PRo3D.Core
 open Aardvark.Rendering
@@ -152,32 +152,7 @@ module TraversePropertiesApp =
                 
                         let white = sprintf "color: %s" (Html.color C4b.White)
                         let! c = color
-                        let bgc = sprintf "color: %s" (Html.color c)
-                            
-                        //if (sol.solNumber = 238) then
-                        //items
-                        //yield div [clazz "item"; style white] [
-                        //    i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc] []
-                        //    div [clazz "content"; style white] [                     
-                        //        Incremental.div (AttributeMap.ofList [style white])(
-                        //            alist {
-                                            
-                        //                yield div [clazz "header"; style bgc] [
-                        //                    span [onClick (fun _ -> SelectSol sol.solNumber)] [text headerText]
-                        //                ]                
-    
-                        //                let descriptionText = sprintf "yaw %A | pitch %A | roll %A" sol.yaw sol.pitch sol.roll
-                        //                yield div [clazz "description"] [text descriptionText]
-    
-                        //                let! refSystem = refSystem.Current
-                        //                yield i [clazz "home icon"; onClick (fun _ -> FlyToSol (computeSolFlyToParameters sol refSystem))] []
-                        //                    |> UI.wrapToolTip DataPosition.Bottom "Fly to Sol"
-                        //                yield i [clazz "location arrow icon"; onClick (fun _ -> PlaceRoverAtSol (computeSolViewplanParameters sol refSystem))] []
-                        //                    |> UI.wrapToolTip DataPosition.Bottom "Make Viewplan"
-                        //            } 
-                        //        )                                     
-                        //    ]
-                        //]
+                        let bgc = sprintf "color: %s" (Html.color c)                                                   
 
                         // only to be called in callback
                         let getCurrentRefSystem () =
@@ -203,73 +178,9 @@ module TraversePropertiesApp =
                         ]
                 })
 
-
 module TraverseApp =
-    type TraverseParseError =
-        | PropertyNotFound         of propertyName : string * feature : GeoJsonFeature
-        | PropertyHasWrongType     of propertyName : string * feature : GeoJsonFeature * expected : string * got : string * str : string
-        | GeometryTypeNotSupported of geometryType : string
-    
-    let (.|) (point : GeoJsonFeature) (propertyName : string) : Result<Json, TraverseParseError> =
-        match point.properties |> Map.tryFind propertyName with
-        | None -> PropertyNotFound(propertyName, point) |> error
-        | Some v -> v |> Ok
 
-    // the parsing functions are a bit verbose but focus on good error reporting....
-    let parseIntProperty (feature : GeoJsonFeature) (propertyName : string) : Result<int, TraverseParseError> =
-        result {
-            let json = feature.|propertyName
-            match json with
-            | Result.Ok(Json.String p) -> 
-                return! 
-                    Result.Int.tryParse p 
-                    |> Result.mapError (fun _ -> 
-                        PropertyHasWrongType(propertyName, feature, "int", "string which could not be parsed to an int.", sprintf "%A" json)
-                    )
-            | Result.Ok(Json.Number n) -> 
-                if ((float n) % 1.0) = 0 then  // here we might have gotten a double, instead of inplicity truncating, we report is an error
-                    return int n
-                else
-                    return! 
-                        PropertyHasWrongType(propertyName, feature, "int", "decimal which was not an integer.", sprintf "%A" n)
-                        |> error
-            | Result.Ok(e) -> 
-                return! 
-                    error (
-                        PropertyHasWrongType(propertyName, feature, "Json.Number", e.ToString(), sprintf "%A" json)
-                    )
-            | Result.Error e -> 
-                return! Result.Error e
-        }
-
-    let parseDoubleProperty (feature : GeoJsonFeature) (propertyName : string) : Result<float, TraverseParseError> =
-        result {
-            let json = feature.|propertyName 
-            match json with
-            | Result.Ok(Json.String p) -> 
-                return! 
-                    Result.Double.tryParse p 
-                    |> Result.mapError (fun _ -> 
-                        PropertyHasWrongType(propertyName, feature, "double", "string which could not be parsed to a double", sprintf "%A" json)
-                    )
-            | Result.Ok(Json.Number n) -> 
-                return double n
-            | Result.Ok(e) -> 
-                return! 
-                    error (
-                        PropertyHasWrongType(propertyName, feature, "Json.Number", sprintf "%A" e, sprintf "%A" json)
-                    )
-            | Result.Error e -> 
-                return! Result.Error e
-        }
-
-    let parseStringProperty (feature : GeoJsonFeature) (propertyName : string) =
-        match feature.|propertyName with
-        | Result.Ok(Json.String p) -> Result.Ok p
-        | Result.Ok(e) -> Result.Error (PropertyHasWrongType(propertyName, feature, "Json.String", e.ToString(), e.ToString()))
-        | Result.Error(e) -> Result.Error(e)
-
-    let parseProperties (sol : Sol) (x : GeoJsonFeature) : Result<Sol, TraverseParseError> =
+    let parseProperties (sol : Sol) (x ) : Result<Sol, GeoJSON.ParseError> =
         let reportErrorAndUseDefault (v : 'a) (r : Result<_,_>) =
             r |> Result.defaultValue' (fun e -> Log.warn "could not parse property: %A\n\n.Using fallback: %A" e v; v)
 
@@ -288,8 +199,13 @@ module TraverseApp =
                                   
             return 
                 { sol with 
-                    solNumber = solNumber; site = site; yaw = yaw; pitch = pitch; 
-                    roll = roll; tilt = tilt; distanceM = distanceM
+                    solNumber = solNumber; 
+                    site = site; 
+                    yaw = yaw; 
+                    pitch = pitch; 
+                    roll = roll; 
+                    tilt = tilt; 
+                    distanceM = distanceM
                 }
         }
 
@@ -323,13 +239,13 @@ module TraverseApp =
 
                             return CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
                     | e -> 
-                        return! error (GeometryTypeNotSupported (string e))
+                        return! error (GeoJsonParseError.GeometryTypeNotSupported (string e))
                 }
                         
             let! sol = parseProperties { Sol.initial with version = Sol.current; location = position; } x
 
             // note is (now) optional for all cases. 
-            // Previsouly note was mandatory in 2D, and optional in 3D - not sure whether this was intentioanl @ThomasOrtner
+            // Previsouly note was mandatory in 2D, and optional in 3D - not sure whether this was intentional @ThomasOrtner
             let sol = 
                 match parseStringProperty x "Note" with
                 | Result.Ok note -> { sol with note = note }
@@ -344,7 +260,7 @@ module TraverseApp =
                 return { sol with totalDistanceM = 0.0 }
         }
 
-    let parseTraverse (traverse : GeoJsonFeatureCollection) = 
+    let parseTraverse (traverse : FeatureCollection) = 
         let sols = 
             traverse.features        
             |> List.mapi (fun i e -> (i,e)) // tag the elements for better error reporting

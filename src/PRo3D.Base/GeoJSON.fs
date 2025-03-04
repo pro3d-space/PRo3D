@@ -1,4 +1,4 @@
-﻿namespace PRo3D.Base.Annotation
+﻿namespace PRo3D.Base
 
 
 
@@ -13,7 +13,6 @@ open Chiron
 //open NUnit.Framework
 open System.Text.RegularExpressions
 open System.IO
-
       
 module GeoJSON =
     //type V2d = {
@@ -88,7 +87,7 @@ module GeoJSON =
                 return x |> List.map(fun x -> x |> List.map(fun x -> x |> List.map(fun x -> x |> Ext.CoordinateFromArray)))
             }
 
-        static member tryReadM20Props name = 
+        static member tryReadProperties name = 
             json {
                 let! x = Json.tryRead name
                 let object = 
@@ -116,18 +115,18 @@ module GeoJSON =
                 do! Json.write "coordinates"  (x |> List.map(fun x -> x |> List.map(fun x -> x|> List.map(fun x -> x |> Ext.CoordinateToArray))))
             }
     
-    type GeoJsonGeometry =
+    type Geometry =
     | Point                 of coordinates : Coordinate
     | MultiPoint            of coordinates : List<Coordinate>
     | LineString            of coordinates : List<Coordinate>
     | MultiLineString       of coordinates : List<List<Coordinate>>
     | Polygon               of coordinates : List<List<Coordinate>>
     | MultiPolygon          of coordinates : List<List<List<Coordinate>>>
-    | GeometryCollection    of geometries :  List<GeoJsonGeometry>
+    | GeometryCollection    of geometries :  List<Geometry>
     
         with 
         
-        static member ToJson (x: GeoJsonGeometry) = 
+        static member ToJson (x: Geometry) = 
             json {
                 match x with
                 | Point(c) -> 
@@ -153,7 +152,7 @@ module GeoJSON =
                     do! Json.write "type" "GeometryCollection"
             }
         
-        static member FromJson (_: GeoJsonGeometry) = 
+        static member FromJson (_: Geometry) = 
             json {
                 let! (x: string) = Json.read "type"
                 match x with
@@ -181,18 +180,14 @@ module GeoJSON =
                 | _ ->
                     return Point(V3d.NaN |> ThreeDim)
             }
-
-    
-        
-
-
-    type GeoJsonFeature = {
-        geometry   : GeoJsonGeometry
+            
+    type Feature = {
+        geometry   : Geometry
         bbox       : Option<List<float>> 
         properties : Map<string, Json> 
     }
     with    
-        static member ToJson (gf: GeoJsonFeature) =
+        static member ToJson (gf: Feature) =
             json{
                 do! Json.write "geometry" gf.geometry
                 match gf.bbox with 
@@ -204,7 +199,7 @@ module GeoJSON =
                 do! Json.write "type" "Feature"
             }
         
-        static member FromJson (_: GeoJsonFeature) =
+        static member FromJson (_: Feature) =
             json{
                 let! g = Json.read "geometry"
                 let! (b:Option<list<float>>) = Json.tryRead "bbox"
@@ -213,13 +208,13 @@ module GeoJSON =
                 return { geometry = g;bbox = b; properties = Option.defaultValue Map.empty properties }
             }
                     
-    type GeoJsonFeatureCollection = {
-        features   : List<GeoJsonFeature>
+    type FeatureCollection = {
+        features   : List<Feature>
         bbox       : Option<List<float>>
         //properties : Option<List<string * string>>
     }
     with            
-        static member ToJson (x: GeoJsonFeatureCollection) =
+        static member ToJson (x: FeatureCollection) =
             json{
                 do! Json.write "features" x.features
                 match x.bbox with 
@@ -228,110 +223,73 @@ module GeoJSON =
                 do! Json.write "type" "FeatureCollection"
             }
             
-        static member FromJson (_: GeoJsonFeatureCollection) =
+        static member FromJson (_: FeatureCollection) =
             json{
                 let! g = Json.read "features"
                 let! (b:Option<List<float>>) = Json.tryRead "bbox"
                 return {features = g;bbox =b}
             }
-        
+                
+    type ParseError =
+        | PropertyNotFound         of propertyName : string * feature : Feature
+        | PropertyHasWrongType     of propertyName : string * feature : Feature * expected : string * got : string * str : string
+        | GeometryTypeNotSupported of geometryType : string
 
-        
-//[<TestFixture>]
-//type TestClass() =
-    
-//    [<Test>] 
-//    member this.PointDeserializeTest() =
+    let (.|) (point : Feature) (propertyName : string) : Result<Json, ParseError> =
+        match point.properties |> Map.tryFind propertyName with
+        | None -> PropertyNotFound(propertyName, point) |> error
+        | Some v -> v |> Ok
 
-//        let geojson = """{"coordinates":[100,0],"type":"Point"}"""
-//        let point:GeoJsonGeometry = geojson |> Json.parse |> Json.deserialize
+    // the parsing functions are a bit verbose but focus on good error reporting....
+    let parseIntProperty (feature : Feature) (propertyName : string) : Result<int, ParseError> =
+        result {
+            let json = feature.|propertyName
+            match json with
+            | Result.Ok(Json.String p) -> 
+                return! 
+                    Result.Int.tryParse p 
+                    |> Result.mapError (fun _ -> 
+                        PropertyHasWrongType(propertyName, feature, "int", "string which could not be parsed to an int.", sprintf "%A" json)
+                    )
+            | Result.Ok(Json.Number n) -> 
+                if ((float n) % 1.0) = 0 then  // here we might have gotten a double, instead of inplicity truncating, we report is an error
+                    return int n
+                else
+                    return! 
+                        PropertyHasWrongType(propertyName, feature, "int", "decimal which was not an integer.", sprintf "%A" n)
+                        |> error
+            | Result.Ok(e) -> 
+                return! 
+                    error (
+                        PropertyHasWrongType(propertyName, feature, "Json.Number", e.ToString(), sprintf "%A" json)
+                    )
+            | Result.Error e -> 
+                return! Result.Error e
+        }
 
-//        Assert.AreEqual(point,GeoJsonGeometry.Point(Coordinate.V2d{X=100.0;Y=0.0}))
-    
-//    [<Test>] 
-//    member this.PointSerializeTest() =
-    
-//        let point = GeoJsonGeometry.Point(Coordinate.V2d{X=101.0;Y=0.0}) |> Json.serialize |> Json.format
-//        let geojson = """{"coordinates":[101,0],"type":"Point"}"""
+    let parseDoubleProperty (feature : Feature) (propertyName : string) : Result<float, ParseError> =
+        result {
+            let json = feature.|propertyName 
+            match json with
+            | Result.Ok(Json.String p) -> 
+                return! 
+                    Result.Double.tryParse p 
+                    |> Result.mapError (fun _ -> 
+                        PropertyHasWrongType(propertyName, feature, "double", "string which could not be parsed to a double", sprintf "%A" json)
+                    )
+            | Result.Ok(Json.Number n) -> 
+                return double n
+            | Result.Ok(e) -> 
+                return! 
+                    error (
+                        PropertyHasWrongType(propertyName, feature, "Json.Number", sprintf "%A" e, sprintf "%A" json)
+                    )
+            | Result.Error e -> 
+                return! Result.Error e
+        }
 
-//        Assert.AreEqual(point,geojson)
-    
-//    [<Test>] 
-//    member this.PolygonDeserializeTest() =
-
-//        let geojson = 
-//            """{
-//                "type": "Polygon",
-//                "coordinates": [
-//                    [
-//                        [100.0, 0.0],
-//                        [101.0, 0.0],
-//                        [101.0, 1.0],
-//                        [100.0, 1.0],
-//                        [100.0, 0.0]
-//                    ],
-//                    [
-//                        [100.8, 0.8],
-//                        [100.8, 0.2],
-//                        [100.2, 0.2],
-//                        [100.2, 0.8],
-//                        [100.8, 0.8]
-//                    ]
-//                ]
-//            }"""
-
-//        let polygon = GeoJsonGeometry.Polygon([[Coordinate.V2d{X=100.0;Y=0.0};
-//                                                Coordinate.V2d{X=101.0;Y=0.0};
-//                                                Coordinate.V2d{X=101.0;Y=1.0};
-//                                                Coordinate.V2d{X=100.0;Y=1.0};
-//                                                Coordinate.V2d{X=100.0;Y=0.0}];
-//                                               [Coordinate.V2d{X=100.8;Y=0.8};
-//                                                Coordinate.V2d{X=100.8;Y=0.2};
-//                                                Coordinate.V2d{X=100.2;Y=0.2};
-//                                                Coordinate.V2d{X=100.2;Y=0.8};
-//                                                Coordinate.V2d{X=100.8;Y=0.8}]])
-
-//        let polygon_des:GeoJsonGeometry = geojson |> Json.parse |> Json.deserialize
-
-//        Assert.AreEqual(polygon,polygon_des)
-        
-//    [<Test>] 
-//    member this.PolygonSerializeTest() =
-
-//        let polygon = GeoJsonGeometry.Polygon([[Coordinate.V2d{X=100.0;Y=0.0};
-//                                                Coordinate.V2d{X=101.0;Y=0.0};
-//                                                Coordinate.V2d{X=101.0;Y=1.0};
-//                                                Coordinate.V2d{X=100.0;Y=1.0};
-//                                                Coordinate.V2d{X=100.0;Y=0.0}];
-//                                                [Coordinate.V2d{X=100.8;Y=0.8};
-//                                                Coordinate.V2d{X=100.8;Y=0.2};
-//                                                Coordinate.V2d{X=100.2;Y=0.2};
-//                                                Coordinate.V2d{X=100.2;Y=0.8};
-//                                                Coordinate.V2d{X=100.8;Y=0.8}]])
-
-//        let polygon_ser = polygon |> Json.serialize |> Json.formatWith JsonFormattingOptions.Compact
-//        let polygon_des:GeoJsonGeometry = polygon_ser |> Json.parse |> Json.deserialize
-
-//        Assert.AreEqual(polygon,polygon_des)
-
-
-//    [<Test>] 
-//        member this.SentinalDatasetTest() =
-            
-//            let feature = {
-//                    geometry = GeoJsonGeometry.Polygon([[Coordinate.V2d{X=13.662865;Y= 47.845915};
-//                                                            Coordinate.V2d{X=15.13047; Y=47.853628};
-//                                                            Coordinate.V2d{X=15.128057;Y= 46.865628};
-//                                                            Coordinate.V2d{X=13.687589;Y= 46.858176};
-//                                                            Coordinate.V2d{X=13.662865;Y= 47.845915}]])
-//                    bbox = Some([13.662865; 46.858176; 15.13047; 47.853628])
-//                }
-
-            
-//            let geojson = System.IO.File.ReadAllText "./sentinal.json"
-
-//            let featurecollection_des:GeoJsonFeatureCollection = geojson |> Json.parse |> Json.deserialize
-
-//            Assert.AreEqual(feature,featurecollection_des.features.[1])
-
-
+    let parseStringProperty (feature : Feature) (propertyName : string) =
+        match feature.|propertyName with
+        | Result.Ok(Json.String p) -> Result.Ok p
+        | Result.Ok(e) -> Result.Error (PropertyHasWrongType(propertyName, feature, "Json.String", e.ToString(), e.ToString()))
+        | Result.Error(e) -> Result.Error(e)

@@ -24,7 +24,7 @@ module RemoteApi =
 
         open PRo3D.Base.Annotation
 
-        type T = Guid * ElementOperation<GeoJSON.GeoJsonGeometry>
+        type T = Guid * ElementOperation<GeoJSON.Geometry>
 
         let rec chironToThoth (v : Chiron.Json) : Thoth.Json.Net.JsonValue =
             match v with

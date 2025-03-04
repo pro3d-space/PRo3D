@@ -43,7 +43,7 @@ module GeoJSONExport =
     let annotationToGeoJsonGeometry 
         (planet : option<Planet>) 
         (a      : Annotation)
-        : GeoJSON.GeoJsonGeometry =
+        : GeoJSON.Geometry =
 
         // add sampled points to the export
         let points = 
@@ -63,22 +63,22 @@ module GeoJSONExport =
 
         match a.geometry with
         | Geometry.Point ->
-            coordinates |> List.map ThreeDim |> List.head |> GeoJsonGeometry.Point                
+            coordinates |> List.map ThreeDim |> List.head |> Geometry.Point                
         | Geometry.Line -> 
-            coordinates |> List.map ThreeDim |> GeoJsonGeometry.LineString
+            coordinates |> List.map ThreeDim |> Geometry.LineString
         | Geometry.Polyline -> 
-            coordinates |> List.map ThreeDim |> List.singleton |> GeoJsonGeometry.MultiLineString
+            coordinates |> List.map ThreeDim |> List.singleton |> Geometry.MultiLineString
         | Geometry.Polygon -> 
-            coordinates |> List.map ThreeDim |> List.singleton |> GeoJsonGeometry.Polygon
+            coordinates |> List.map ThreeDim |> List.singleton |> Geometry.Polygon
         | Geometry.DnS -> 
-            coordinates |> List.map ThreeDim |> List.singleton |> GeoJsonGeometry.Polygon
+            coordinates |> List.map ThreeDim |> List.singleton |> Geometry.Polygon
         | Geometry.TT ->
-            coordinates |> List.map ThreeDim |> GeoJsonGeometry.LineString
+            coordinates |> List.map ThreeDim |> Geometry.LineString
         | _ ->
             Point(V3d.NaN |> ThreeDim)
           
           
-    let geoJsonGeometryToJson (geometry : GeoJsonGeometry) =
+    let geoJsonGeometryToJson (geometry : Geometry) =
         geometry
         |> Json.serialize
 
@@ -90,7 +90,7 @@ module GeoJSONExport =
         let geometryCollection =
             annotations
             |> List.map(annotationToGeoJsonGeometry planet)
-            |> GeoJsonGeometry.GeometryCollection
+            |> Geometry.GeometryCollection
 
         geometryCollection
         |> Json.serialize
