@@ -9,7 +9,6 @@ open Aardvark.UI
 open Aardvark.UI.Primitives
 open Chiron
 open PRo3D.Base
-open PRo3D.Base
 open PRo3D.Core
 open Aardvark.Rendering
 open FSharp.Data.Adaptive
@@ -20,7 +19,7 @@ module Double =
         Double.Parse(x, Globalization.CultureInfo.InvariantCulture)
 
 module M20 =
-    let parseDouble x =
+    let parseDouble x : double =
         match x with
         | Json.String p ->
             p |> Double.parse  
@@ -29,7 +28,7 @@ module M20 =
         | _ -> 
             0.0
 
-    let parseInt x =
+    let parseInt x : int =
         match x with
         | Json.String p ->
             p |> int
@@ -38,13 +37,121 @@ module M20 =
         | _ -> 
             0
 
-    let parseString x =
+    let parseString x : string =
         match x with
         | Json.String p -> p
         | Json.Number p ->
             p.ToString() 
         | _ -> 
             ""
+
+    let parseProperties 
+        (sol : Sol) 
+        (x : GeoJSON.Feature ) 
+        : Result<Sol, GeoJSON.ParseError> =
+
+        let reportErrorAndUseDefault (v : 'a) (r : Result<_,_>) =
+            r |> Result.defaultValue' (fun e -> Log.warn "could not parse property: %A\n\n.Using fallback: %A" e v; v)
+
+        result {
+            let! solNumber = GeoJSON.parseIntProperty x  "sol" // not optional
+            let! yaw       = GeoJSON.parseDoubleProperty x  "yaw"     // not optional
+            let! pitch     = GeoJSON.parseDoubleProperty x  "pitch"   // not optional 
+            let! roll      = GeoJSON.parseDoubleProperty x  "roll"    // not optional
+
+            // those are optional (still print a warning)
+            let! tilt      = GeoJSON.parseDoubleProperty x  "tilt"    |> reportErrorAndUseDefault  0.0    
+            let! distanceM = GeoJSON.parseDoubleProperty x  "dist_m"  |> reportErrorAndUseDefault  0.0    
+
+            // not sure whether site should be optional (make it optional if needed), https://github.com/pro3d-space/PRo3D/issues/263
+            let! site      = GeoJSON.parseIntProperty x  "site"  
+                                  
+            return 
+                { sol with 
+                    solNumber = solNumber; 
+                    site = site; 
+                    yaw = yaw; 
+                    pitch = pitch; 
+                    roll = roll; 
+                    tilt = tilt; 
+                    distanceM = distanceM
+                }
+        }
+
+    let parseFeature 
+        (x : GeoJSON.Feature) 
+        : Result<Sol, GeoJSON.ParseError> =
+
+        result {
+            let! position = 
+                result {
+                    match x.geometry with
+                    | GeoJSON.Geometry.Point p ->
+                        match p with
+                        | GeoJSON.Coordinate.TwoDim y ->
+                            //x ... lon
+                            //y ... lat
+
+                            let! elev_goid = GeoJSON.parseDoubleProperty x "elev_geoid"                        
+                            let latLonAlt = 
+                                V3d (
+                                    y.Y, 
+                                    360.0 - y.X, 
+                                    elev_goid                            
+                                )
+                            return CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
+                        | GeoJSON.Coordinate.ThreeDim y ->
+                            let latLonAlt =  //y.YXZ
+                                V3d (
+                                    y.Y, 
+                                    360.0 - y.X, 
+                                    y.Z                                 
+                                )
+                            return CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
+                    | e -> 
+                        return! error (GeoJSON.ParseError.GeometryTypeNotSupported (string e))
+                }
+                        
+            let! sol = parseProperties { Sol.initial with version = Sol.current; location = position; } x
+
+            // note is (now) optional for all cases. 
+            // Previsouly note was mandatory in 2D, and optional in 3D - not sure whether this was intentional @ThomasOrtner
+            let sol = 
+                match GeoJSON.parseStringProperty x "Note" with
+                | Result.Ok note -> { sol with note = note }
+                | _ -> sol
+        
+
+            // either choose dist_total_m or dist_total - or default to zero if nothing? @ThomasOrnter - is this defaulting correct or an error?
+            match GeoJSON.parseDoubleProperty x "dist_total_m", GeoJSON.parseDoubleProperty x "dist_total" with
+            | Result.Ok dist, _ | _, Result.Ok  dist -> 
+                return { sol with totalDistanceM = dist }
+            | _ ->
+                return { sol with totalDistanceM = 0.0 }
+        }
+
+    let parseTraverse 
+        (traverse : GeoJSON.FeatureCollection)
+        : list<Sol> =
+
+        let sols = 
+            traverse.features        
+            |> List.mapi (fun i e -> (i,e)) // tag the elements for better error reporting
+            |> List.choose (fun (idx, feature) ->
+                match parseFeature feature with
+                | Result.Ok r -> Some r
+                | Result.Error e -> 
+                    // we skip this one in case of errors, see // see https://github.com/pro3d-space/PRo3D/issues/263
+                    Report.Warn(
+                        String.concat Environment.NewLine [
+                            sprintf "[Traverse] could not parse or interpret feature %d in the feature list.\n" idx 
+                            sprintf "[Traverse] the detailled error is: %A" e
+                            sprintf "[Traverse] skipping feature of type %A" feature.geometry
+                        ]
+                    )
+                    None
+            )
+        sols
 
 module TraversePropertiesApp =
 
@@ -66,7 +173,6 @@ module TraversePropertiesApp =
             { model with tLineWidth = Numeric.update model.tLineWidth w}
         | SetHeightOffset w -> 
             { model with heightOffset = Numeric.update model.heightOffset w}
-
 
     let computeSolRotation (sol : Sol) (referenceSystem : ReferenceSystem) : Trafo3d =
         let north = referenceSystem.northO
@@ -179,108 +285,7 @@ module TraversePropertiesApp =
                 })
 
 module TraverseApp =
-
-    let parseProperties (sol : Sol) (x ) : Result<Sol, GeoJSON.ParseError> =
-        let reportErrorAndUseDefault (v : 'a) (r : Result<_,_>) =
-            r |> Result.defaultValue' (fun e -> Log.warn "could not parse property: %A\n\n.Using fallback: %A" e v; v)
-
-        result {
-            let! solNumber      = parseIntProperty x  "sol" // not optional
-            let! yaw            = parseDoubleProperty x  "yaw"     // not optional
-            let! pitch          = parseDoubleProperty x  "pitch"   // not optional 
-            let! roll           = parseDoubleProperty x  "roll"    // not optional
-
-            // those are optional (still print a warning)
-            let! tilt      = parseDoubleProperty x  "tilt"    |> reportErrorAndUseDefault  0.0    
-            let! distanceM = parseDoubleProperty x  "dist_m"  |> reportErrorAndUseDefault  0.0    
-
-            // not sure whether site should be optional (make it optional if needed), https://github.com/pro3d-space/PRo3D/issues/263
-            let! site      = parseIntProperty x  "site"  
-                                  
-            return 
-                { sol with 
-                    solNumber = solNumber; 
-                    site = site; 
-                    yaw = yaw; 
-                    pitch = pitch; 
-                    roll = roll; 
-                    tilt = tilt; 
-                    distanceM = distanceM
-                }
-        }
-
-    let parseFeature (x : GeoJsonFeature) =
-        result {
-            let! position = 
-                result {
-                    match x.geometry with
-                    | GeoJsonGeometry.Point p ->
-                        match p with
-                        | Coordinate.TwoDim y ->
-                            //x ... lon
-                            //y ... lat
-
-                            let! elev_goid = parseDoubleProperty x "elev_geoid"                        
-                            let latLonAlt = 
-                                V3d (
-                                    y.Y, 
-                                    360.0 - y.X, 
-                                    elev_goid                            
-                                )
-
-                            return CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
-                        | Coordinate.ThreeDim y ->
-                            let latLonAlt =  //y.YXZ
-                                V3d (
-                                    y.Y, 
-                                    360.0 - y.X, 
-                                    y.Z                                 
-                                )
-
-                            return CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
-                    | e -> 
-                        return! error (GeoJsonParseError.GeometryTypeNotSupported (string e))
-                }
-                        
-            let! sol = parseProperties { Sol.initial with version = Sol.current; location = position; } x
-
-            // note is (now) optional for all cases. 
-            // Previsouly note was mandatory in 2D, and optional in 3D - not sure whether this was intentional @ThomasOrtner
-            let sol = 
-                match parseStringProperty x "Note" with
-                | Result.Ok note -> { sol with note = note }
-                | _ -> sol
-        
-
-            // either choose dist_total_m or dist_total - or default to zero if nothing? @ThomasOrnter - is this defaulting correct or an error?
-            match parseDoubleProperty x "dist_total_m", parseDoubleProperty x "dist_total" with
-            | Result.Ok dist, _ | _, Result.Ok  dist -> 
-                return { sol with totalDistanceM = dist }
-            | _ ->
-                return { sol with totalDistanceM = 0.0 }
-        }
-
-    let parseTraverse (traverse : FeatureCollection) = 
-        let sols = 
-            traverse.features        
-            |> List.mapi (fun i e -> (i,e)) // tag the elements for better error reporting
-            |> List.choose (fun (idx, feature) ->
-                match parseFeature feature with
-                | Result.Ok r -> Some r
-                | Result.Error e -> 
-                    // we skip this one in case of errors, see // see https://github.com/pro3d-space/PRo3D/issues/263
-                    Report.Warn(
-                        String.concat Environment.NewLine [
-                            sprintf "[Traverse] could not parse or interpret feature %d in the feature list.\n" idx 
-                            sprintf "[Traverse] the detailled error is: %A" e
-                            sprintf "[Traverse] skipping feature of type %A" feature.geometry
-                        ]
-                    )
-                    None
-            )                
-
-        sols
-    
+               
     let compareNatural (left: AdaptiveTraverse) (right: AdaptiveTraverse) =
         Sorting.compareNatural left.tName right.tName
 
@@ -314,11 +319,15 @@ module TraverseApp =
                         geojson 
                         |> Json.parse 
                         |> Json.deserialize 
-                        |> parseTraverse
+                        |> M20.parseTraverse
 
                     let name = Path.GetFileName x
 
-                    let traverse = Traverse.initial name sols |> Traverse.withColor color
+                    let traverse = 
+                        sols 
+                        |> Traverse.initial name 
+                        |> Traverse.withColor color
+
                     traverse |> HashMap.single traverse.guid        
                 )
                 |> List.fold(fun a b -> HashMap.union a b) model.traverses            
@@ -468,7 +477,6 @@ module TraverseApp =
                 ] 
             }
             
-
         let viewProperties (model:AdaptiveTraverseModel) =
             adaptive {
                 let! guid = model.selectedTraverse
@@ -579,7 +587,6 @@ module TraverseApp =
             |> Sg.set
             |> Sg.onOff model.isVisibleT
 
-
         let viewText (refSystem : AdaptiveReferenceSystem) view near (traverseModel : AdaptiveTraverseModel) =
         
             let traverses = traverseModel.traverses
@@ -594,8 +601,6 @@ module TraverseApp =
             |> AMap.toASet 
             |> ASet.map snd 
             |> Sg.set
-
-
 
         let viewCoordinateCross 
             (refSystem : AdaptiveReferenceSystem) 
@@ -688,8 +693,6 @@ module TraverseApp =
             |> Sg.noEvents
             |> Sg.onOff traverse.showDots
             
-
-
         let viewTraverseFast  
             (view : aval<CameraView>)
             (refSystem : AdaptiveReferenceSystem) (model : AdaptiveTraverse) : ISg<TraverseAction> = 
@@ -728,8 +731,6 @@ module TraverseApp =
             |> Sg.onOff model.isVisibleT
             |> Sg.trafo (getTraverseOffsetTransform refSystem model)
 
-
-
         let view
             (view           : aval<CameraView>)
             (refsys         : AdaptiveReferenceSystem) 
@@ -743,7 +744,3 @@ module TraverseApp =
             |> AMap.toASet 
             |> ASet.map snd 
             |> Sg.set
-
-    
-        
-

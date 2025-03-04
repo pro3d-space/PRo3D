@@ -8,7 +8,6 @@ open FSharp.Data.Adaptive
 open Aardvark.Base
 open Aardvark.UI
 
-open PRo3D.Base.Annotation.GeoJSON
 open PRo3D.Base
 
 open Chiron
@@ -63,22 +62,28 @@ module GeoJSONExport =
 
         match a.geometry with
         | Geometry.Point ->
-            coordinates |> List.map ThreeDim |> List.head |> Geometry.Point                
+            coordinates 
+            |> List.map GeoJSON.ThreeDim |> List.head |> GeoJSON.Geometry.Point                
         | Geometry.Line -> 
-            coordinates |> List.map ThreeDim |> Geometry.LineString
+            coordinates 
+            |> List.map GeoJSON.ThreeDim |> GeoJSON.Geometry.LineString
         | Geometry.Polyline -> 
-            coordinates |> List.map ThreeDim |> List.singleton |> Geometry.MultiLineString
+            coordinates 
+            |> List.map GeoJSON.ThreeDim |> List.singleton |> GeoJSON.Geometry.MultiLineString
         | Geometry.Polygon -> 
-            coordinates |> List.map ThreeDim |> List.singleton |> Geometry.Polygon
+            coordinates 
+            |> List.map GeoJSON.ThreeDim |> List.singleton |> GeoJSON.Geometry.Polygon
         | Geometry.DnS -> 
-            coordinates |> List.map ThreeDim |> List.singleton |> Geometry.Polygon
+            coordinates 
+            |> List.map GeoJSON.ThreeDim |> List.singleton |> GeoJSON.Geometry.Polygon
         | Geometry.TT ->
-            coordinates |> List.map ThreeDim |> Geometry.LineString
+            coordinates 
+            |> List.map GeoJSON.ThreeDim |> GeoJSON.Geometry.LineString
         | _ ->
-            Point(V3d.NaN |> ThreeDim)
+            V3d.NaN |> GeoJSON.ThreeDim |> GeoJSON.Geometry.Point
           
           
-    let geoJsonGeometryToJson (geometry : Geometry) =
+    let geoJsonGeometryToJson (geometry : GeoJSON.Geometry) =
         geometry
         |> Json.serialize
 
@@ -90,7 +95,7 @@ module GeoJSONExport =
         let geometryCollection =
             annotations
             |> List.map(annotationToGeoJsonGeometry planet)
-            |> Geometry.GeometryCollection
+            |> GeoJSON.Geometry.GeometryCollection
 
         geometryCollection
         |> Json.serialize
@@ -132,7 +137,7 @@ module GeoJSONExport =
 
                 let geometry = annotationToGeoJsonGeometry None annotation
 
-                let feature = 
+                let feature : GeoJSON.Feature = 
                     {
                         geometry   = geometry
                         bbox       = None

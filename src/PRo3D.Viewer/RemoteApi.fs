@@ -15,6 +15,7 @@ open System.IO
 open Aardvark.Base
 open FSharp.Data.Adaptive
 open Aardvark.Data.Opc
+open PRo3D.Base
 open PRo3D.Base.AnnotationQuery
 
 
