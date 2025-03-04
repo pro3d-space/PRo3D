@@ -62,8 +62,8 @@ module UI =
 
         Html.Layout.horizontal [
             Html.Layout.boxH [ i [clazz "large Write icon"] [] ]
-            Html.Layout.boxH [ dropDown ([] |> HashSet.ofList) model.geometry SetGeometry geometryTooltip ]
-            Html.Layout.boxH [ dropDown ([] |> HashSet.ofList) model.projection SetProjection projectionTooltip ]
+            Html.Layout.boxH [ dropDown HashSet.empty model.geometry SetGeometry geometryTooltip ]
+            Html.Layout.boxH [ dropDown HashSet.empty model.projection SetProjection projectionTooltip ]
             Html.Layout.boxH [ ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3d" false model.color |> UI.map ChangeColor; div [] [] ]
             Html.Layout.boxH [ Numeric.view' [InputBox] model.thickness |> UI.map ChangeThickness ] |> UI.wrapToolTip DataPosition.Bottom thicknessTooltip     
             Html.Layout.boxH [ i [clazz "large crosshairs icon"] [] ]
