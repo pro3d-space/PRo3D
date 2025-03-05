@@ -39,10 +39,30 @@ let main args =
             lodDecider       =  DefaultMetrics.mars2 
         }
 
+    let gale = 
+        { 
+            useCompressedTextures = true
+            preTransform     = Trafo3d.Identity
+            patchHierarchies = 
+                    Seq.delay (fun _ -> 
+                        System.IO.Directory.GetDirectories(@"C:\pro3ddata\MSL") 
+                    )
+            boundingBox      = Box3d.Parse("[[-2501010.345666911, 2277325.986722603, -298757.311126349], [-2499653.391829742, 2278566.143892688, -296038.813352552]]") 
+            near             = 0.1
+            far              = 10000.0
+            speed            = 5.0
+            lodDecider       =  DefaultMetrics.mars2 
+        }
 
-    let additionalHierarchies = 
+
+    let jezero = 
         Directory.GetDirectories(@"C:\pro3ddata\JezeroRGB\Jezero1")
         |> Seq.collect Directory.GetDirectories
+      
+    let gale = 
+         Directory.GetDirectories(@"C:\pro3ddata\MSL\")
+         |> Seq.collect Directory.GetDirectories
 
+    let additional = Seq.append jezero gale
 
-    TestViewer.run mola additionalHierarchies
+    TestViewer.run mola additional

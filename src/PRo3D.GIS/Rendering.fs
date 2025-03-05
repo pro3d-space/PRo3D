@@ -19,6 +19,17 @@ open PRo3D.SPICE
 
 module Rendering = 
 
+    type BodyRenderingParameters = {
+        name : string
+        diameter : float<km>
+        color : C4f
+        diffuseMap : Option<string>
+        normalMap : Option<string>
+        specularMap : Option<string>
+        referenceFrame : Option<string>
+        visible : aval<bool>
+    }
+
     [<AutoOpen>]
     module StableTrafoSceneGraphExtension =
         open Aardvark.Base.Ag
@@ -40,21 +51,25 @@ module Rendering =
                 StableViewProjTrafo(sg, trafo) :> ISg
 
 
-    let getRelState (referenceFrame : string) (supportBody : aval<string>) (body : string) (observer : aval<string>) (time : aval<DateTime>) =
-        (observer, time, supportBody) |||> AVal.map3 (fun observer time supportBody -> 
+    let getRelState (referenceFrame : aval<string>) (supportBody : aval<string>) (body : string) (observer : aval<string>) (time : aval<DateTime>) =
+        AVal.custom (fun t -> 
+            let observer = observer.GetValue(t)
+            let time = time.GetValue(t)
+            let referenceFrame = referenceFrame.GetValue(t)
+            let supportBody = supportBody.GetValue(t)
             CooTransformation.getRelState body supportBody observer time referenceFrame
         )
 
-    let getPosition (referenceFrame : string) (supportBody : aval<string>) (body : string) (observer : aval<string>) (time : aval<DateTime>) = 
+    let getPosition (referenceFrame : aval<string>) (supportBody : aval<string>) (body : string) (observer : aval<string>) (time : aval<DateTime>) = 
         let getPos (o : CooTransformation.RelState) = o.pos
         getRelState referenceFrame supportBody body observer time |> AVal.map (Option.map getPos)
 
-    let fullTrafo  (referenceFrame : string) (supportBody : aval<string>) (body : string) (bodyFrame : Option<string>) (observer : aval<string>) (time : aval<DateTime>) =
+    let fullTrafo  (referenceFrame : aval<string>) (supportBody : aval<string>) (body : string) (bodyFrame : Option<string>) (observer : aval<string>) (time : aval<DateTime>) =
         let rotation = 
             match bodyFrame with
             | None -> AVal.constant None
             | Some frame -> 
-                time |> AVal.map (fun time -> CooTransformation.getRotationTrafo frame referenceFrame time)
+                (referenceFrame, time) ||> AVal.map2 (fun referenceFrame time -> CooTransformation.getRotationTrafo frame referenceFrame time)
         let pos = getRelState referenceFrame supportBody body observer time
         (rotation, pos) ||> AVal.map2 (fun rot relState -> 
             match rot, relState with
@@ -66,8 +81,8 @@ module Rendering =
                 None
         )
 
-    let bodiesVisualization (referenceFrame : string) (supportBody : aval<string>) 
-                            (bodies : aset<BodyDesc>) (observer : aval<string>) 
+    let bodiesVisualization (referenceFrame : aval<string>) (supportBody : aval<string>) 
+                            (bodies : aset<string>) (bodyRenderingParameters : string -> BodyRenderingParameters) (observer : aval<string>) 
                             (time : aval<DateTime>) (wrapModel : string -> ISg -> ISg) =
 
         let sphericalUnitBody (scale : float) = 
@@ -88,15 +103,16 @@ module Rendering =
 
         let bodySgs = 
             bodies 
-            |> ASet.map (fun bodyDesc -> 
-                let bodyPos = getPosition referenceFrame supportBody bodyDesc.name observer time
+            |> ASet.map (fun bodyName -> 
+                let renderingParameters = bodyRenderingParameters bodyName
+                let bodyPos = getPosition referenceFrame supportBody bodyName observer time
                 let transformation = 
-                    fullTrafo referenceFrame supportBody bodyDesc.name bodyDesc.referenceFrame observer time
+                    fullTrafo referenceFrame supportBody bodyName renderingParameters.referenceFrame observer time
                     |> AVal.map (fun trafo -> 
                         match trafo with
                         | Some trafo -> trafo, true
                         | _ -> 
-                            Log.warn "could not get trafo for body %s" bodyDesc.name
+                            Log.warn "could not get trafo for body %s" bodyName
                             Trafo3d.Identity, false
                     )
                 let sunDirection = 
@@ -107,24 +123,26 @@ module Rendering =
                         | Some sunPos, Some bodyPos -> sunPos - bodyPos |> Vec.normalize
                         | _ -> V3d.Zero
                     )
-                let isObserver = observer |> AVal.map (fun o -> o = bodyDesc.name)
+                let isObserver = observer |> AVal.map (fun o -> o = bodyName)
                 let createTexture (filePath : string) =
                     PixTexture2d(filePath |> PixImageMipMap.Load) :> ITexture
-                let radius = bodyDesc.diameter |> kmToMeters |> float 
-                sphericalUnitBody radius // inefficient, but for a reason, see below for sg.scale
-                |> wrapModel bodyDesc.name
+                let radius = renderingParameters.diameter |> kmToMeters |> float 
+                let model =  sphericalUnitBody (radius * 0.5) // inefficient, but for a reason, see below for sg.scale
+                model
+                |> wrapModel bodyName
+                |> Sg.onOff renderingParameters.visible
                 //|> Sg.scale radius (don't use model trafo for scaling here to make transformations less complex, trust me)
                 |> Sg.trafo (AVal.map fst transformation)
                 |> Sg.onOff (AVal.map snd transformation)
-                |> Sg.applyPlanet bodyDesc.name
+                |> Sg.applyPlanet bodyName
                 |> Sg.uniform "SunDirectionWorld" sunDirection
-                |> Sg.uniform' "Color" bodyDesc.color
-                |> Sg.texture' DefaultSemantic.DiffuseColorTexture (bodyDesc.diffuseMap |> Option.map createTexture |> Option.defaultValue fallbackTexture)
-                |> Sg.uniform' "HasDiffuseColorTexture" (bodyDesc.diffuseMap |> Option.isSome)
-                |> Sg.texture' DefaultSemantic.NormalMapTexture (bodyDesc.normalMap |> Option.map createTexture |> Option.defaultValue fallbackTexture)
-                |> Sg.uniform' "HasNormalMap" (bodyDesc.diffuseMap |> Option.isSome)
-                |> Sg.texture' DefaultSemantic.SpecularColorTexture (bodyDesc.specularMap |> Option.map createTexture |> Option.defaultValue fallbackTexture)
-                |> Sg.uniform' "HasSpecularColorTexture" (bodyDesc.diffuseMap |> Option.isSome)
+                |> Sg.uniform' "Color" renderingParameters.color
+                |> Sg.texture' DefaultSemantic.DiffuseColorTexture (renderingParameters.diffuseMap |> Option.map createTexture |> Option.defaultValue fallbackTexture)
+                |> Sg.uniform' "HasDiffuseColorTexture" (renderingParameters.diffuseMap |> Option.isSome)
+                |> Sg.texture' DefaultSemantic.NormalMapTexture (renderingParameters.normalMap |> Option.map createTexture |> Option.defaultValue fallbackTexture)
+                |> Sg.uniform' "HasNormalMap" (renderingParameters.diffuseMap |> Option.isSome)
+                |> Sg.texture' DefaultSemantic.SpecularColorTexture (renderingParameters.specularMap |> Option.map createTexture |> Option.defaultValue fallbackTexture)
+                |> Sg.uniform' "HasSpecularColorTexture" (renderingParameters.diffuseMap |> Option.isSome)
             )
             |> Sg.set
 
@@ -133,7 +151,7 @@ module Rendering =
         |> Sg.cullMode' CullMode.Back
 
 
-    let renderShadowMap (runtime : IRuntime) (referenceFrame : string) (supportBody : aval<string>) (scene : ISg) 
+    let renderShadowMap (runtime : IRuntime) (referenceFrame : aval<string>) (supportBody : aval<string>) (scene : ISg) 
                         (observer : aval<string>) (time : aval<DateTime>) = 
         
         let sunToObserverCameraView = 
@@ -211,19 +229,20 @@ module Rendering =
         ) 
 
 
-    let trajectoryVisualization (referenceFrame : string) (observer : aval<string>) (time : aval<DateTime>) 
+    let trajectoryVisualization (referenceFrame : aval<string>) (observer : aval<string>) (time : aval<DateTime>) 
                                 (getTrajectorySamples : string -> aval<TimeSpan * int>) 
                                 (showTrajectory : string -> aval<bool>)
-                                (trajectoryColor : string -> aval<C4b>) (bodies : aset<BodyDesc>) =
+                                (trajectoryColor : string -> aval<C4b>) (bodies : aset<string>) =
  
 
         let trajectories =
             bodies
-            |> ASet.mapA (fun b -> 
+            |> ASet.mapA (fun name -> 
                 adaptive {
-                    let! show = showTrajectory b.name
+                    let! referenceFrame = referenceFrame
+                    let! show = showTrajectory name
                     if show then
-                        let! trajectoryLength, trajectorySamples = getTrajectorySamples(b.name)
+                        let! trajectoryLength, trajectorySamples = getTrajectorySamples(name)
 
                         // this one only works properly when getTimeStemps provides temporal coherence (which is currently not the case)
                         let cache = LruCache(int64 (trajectorySamples))
@@ -236,7 +255,7 @@ module Rendering =
                             let r = 
                                 cache.GetOrAdd(time, 1, fun _ -> 
                                     wasHit <- false
-                                    CooTransformation.getRelState b.name defaultSupportBodyWhenIrrelevant observer time referenceFrame
+                                    CooTransformation.getRelState name defaultSupportBodyWhenIrrelevant observer time referenceFrame
                                 )
                             if wasHit then 
                                 hits <- hits + 1
@@ -278,9 +297,9 @@ module Rendering =
                         oldTimes <- times |> Seq.toArray
                         //printfn "hits %s: %d/%d" b.name hits  times.Length
 
-                        return r, trajectoryColor b.name
+                        return r, trajectoryColor name
                     else 
-                        return [||], trajectoryColor b.name
+                        return [||], trajectoryColor name
                 }
             ) 
 

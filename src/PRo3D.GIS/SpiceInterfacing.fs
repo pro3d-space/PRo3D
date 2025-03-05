@@ -43,3 +43,21 @@ module CooTransformation =
                 printfn "could not get rot trafo for frame: %s" fromFrame
                 Trafo3d.Identity |> Some
         )
+
+    let latLon2Xyz (planet : string) (lat : float, lon : float, alt : float) =
+        lock l (fun _ -> 
+            let mutable x, y, z = 0.0, 0.0, 0.0
+            if CooTransformation.LatLonAlt2Xyz(planet, lat, lon, alt, &x, &y, &z) = 0 then
+                V3d(x, -y, z) |> Some
+            else
+                None
+        )
+
+    let xyzToLatLon (planet : string) (p : V3d) =
+        lock l (fun _ -> 
+            let mutable lat, lon, alt = 0.0, 0.0, 0.0
+            if CooTransformation.Xyz2LatLonAlt(planet, p.X, p.Y, p.Z, &lat, &lon, &alt) = 0 then
+                (lat, lon, alt) |> Some
+            else
+                None
+        )

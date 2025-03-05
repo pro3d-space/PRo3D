@@ -1,6 +1,7 @@
 ﻿namespace PRo3D.SPICE
 
 open System
+open System.IO
 open FSharp.Data.Adaptive
 open Aardvark.Base
 
@@ -35,7 +36,9 @@ module CelestialBodies =
 
     let bodySources = 
         let getTexturePath (name : string) = 
-            Path.combine [__SOURCE_DIRECTORY__; ".."; ".."; "resources"; name] |> Some
+            let path = Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "resources")
+            let path = @"C:\Users\haral\Desktop\pro3d\PRo3D.SPICE\resources"
+            Path.Combine(path, name) |> Some
 
         [|  
             { name = "sun"        ; color = C4f.White;     diameter = 1391016.0<km>;  goodObserver = "mercury"; diffuseMap = None; normalMap = None; specularMap = None; referenceFrame = None }
@@ -49,6 +52,7 @@ module CelestialBodies =
             }
             { name = "moon"       ; color = C4f.DarkGray;  diameter = 3474.8<km>;     goodObserver = "earth"  ; diffuseMap = None; normalMap = None; specularMap = None; referenceFrame = None }
             { name = "mars"       ; color = C4f.Red;       diameter = 6779.0<km>;     goodObserver = "phobos" ; 
+                    //diffuseMap = getTexturePath "OIP.jpg";
                     diffuseMap = getTexturePath "mar0kuu2.jpg"; 
                     normalMap = None; specularMap = None; 
                     referenceFrame = Some "IAU_MARS" }

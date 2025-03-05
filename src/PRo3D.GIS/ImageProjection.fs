@@ -120,7 +120,8 @@ module ImageProjection =
 
         type NormalVertex = {
             [<Position>] pos : V4d
-            [<Semantic("LocalNormal")>] n : V3d
+            [<Semantic("LocalNormal")>] localNormal : V3d
+            [<Normal>] n : V3d
             [<SourceVertexIndex>] i : int
         }
 
@@ -136,12 +137,20 @@ module ImageProjection =
 
                 let normal = Vec.cross edge2 edge1 |> Vec.normalize
 
-                yield { t.P0 with n = normal; i = 0 }
-                yield { t.P1 with n = normal; i = 1 }
-                yield { t.P2 with n = normal; i = 2 }
-
+                yield { t.P0 with localNormal = normal; i = 0 }
+                yield { t.P1 with localNormal = normal; i = 1 }
+                yield { t.P2 with localNormal = normal; i = 2 }
             }
 
+        let useVertexNormals (v : NormalVertex) =
+            vertex {
+                return { v with localNormal = v.n.Normalized }
+            }
+
+        let flipNormals (v : NormalVertex) =
+            vertex {
+                return { v with localNormal = -v.localNormal }
+            }
 
 module ImageProjectionTrafoSceneGraph =
     open Aardvark.Base.Ag

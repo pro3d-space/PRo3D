@@ -6,18 +6,21 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="MarsTaggedLocations.fs" />
+    <Compile Include="SpiceInterfacing.fs" />
     <Compile Include="OpcShaders.fs" />
     <Compile Include="Shaders.fs" />
     <Compile Include="CelestialBodies.fs" />
     <Compile Include="ImageProjection.fs" />
-    <Compile Include="SpiceInterfacing.fs" />
     <Compile Include="Rendering.fs" />
     <Compile Include="TestViewer.fs" />
     <None Include="paket.references" />
+    <Compile Include="GisApp.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
+    <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

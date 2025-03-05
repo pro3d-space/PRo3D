@@ -69,7 +69,7 @@ module Shaders =
             let n = v.n |> Vec.normalize
             let c = v.vldir |> Vec.normalize
 
-            let ambient = 0.2
+            let ambient = 0.1
             let diffuse = Vec.dot c n |> max 0.0
 
             let l = ambient + (1.0 - ambient) * diffuse
@@ -134,7 +134,7 @@ module Shaders =
 
     let genAndFlipTextureCoord (v : TexturedVertex) =
         vertex {
-            return { v with tc = V2d(v.tc.X, 1.0 - v.tc.Y) }
+            return { v with tc = V2d(v.tc.X + 0.5, 1.0 - v.tc.Y) }
         }
 
 

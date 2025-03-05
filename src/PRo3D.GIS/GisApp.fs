@@ -22,6 +22,8 @@ open Aardvark.SceneGraph
 open PRo3D.Extensions
 open PRo3D.Extensions.FSharp
 
+open PRo3D.SPICE
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module GisApp = 
     type GisLenses<'viewer> = 
@@ -689,41 +691,7 @@ module GisApp =
                 )
             )
 
-        let instancedRendering () =
-            let extractArray (f : AdaptiveToken -> RenderableBody -> 'a) = 
-                renderableBodies.Content
-                |> AVal.bind (fun s -> 
-                    AVal.custom (fun t -> 
-                        s |> HashSet.toArray |> Array.map (f t << fst)
-                    )
-                )
-
-            let trafos = extractArray (fun t b -> b.trafo.GetValue(t))
-            let colors = extractArray (fun t b -> b.color.GetValue(t))
-
-            let bodySg = 
-                IndexedGeometryPrimitives.solidPhiThetaSphere (Sphere3d.FromCenterAndRadius(V3d.Zero, 1.0)) 20 C4b.White
-                |> Sg.ofIndexedGeometry
-
-            let instancedUniforms = 
-                Map.ofList [
-                    Sym.toString DefaultSemantic.Colors, (typeof<C4b>, colors |> AVal.map (fun c -> c :> Array))
-                    "ModelTrafo", (typeof<Trafo3d>, (trafos |> AVal.map (fun t -> t :> Array)))
-                ]
-
-            bodySg
-            |> Sg.instanced' instancedUniforms 
-            |> Sg.shader {
-                do! Shaders.stableBodyTrafo
-            }
-
-
-        let sunTransformation = //WIP RNO
-            (targetReferenceFrame
-                |> getFrameWithDefaulting, observerSpiceBody, time)  
-            |||> AVal.map3 (fun observerFrame observer time -> 
-                CooTransformation.transformBody (EntitySpiceName "sun") (Some observerFrame) observer observerFrame time
-            )
+        //let bodyVisualization = Rendering.bodiesVisualization 
 
         let nonInstancedRendering () =
             let body = 

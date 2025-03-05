@@ -73,15 +73,15 @@ module TestViewer =
 
         let observer = cval "MARS" //"HERA_AFC-1" 
         let supportBody = cval "SUN"
-        let referenceFrame = "ECLIPJ2000"
-        //let referenceFrame = "IAU_MARS" 
+        let referenceFrame = cval "ECLIPJ2000"
+        let referenceFrame = cval "IAU_MARS" 
         let time = 
             let startTime = "2025-03-12 11:50:00.000Z"
             cval (DateTime.Parse startTime)
 
 
         let hera = 
-            match CooTransformation.getRelState "HERA" "SUN" observer.Value time.Value referenceFrame  with
+            match CooTransformation.getRelState "HERA" "SUN" observer.Value time.Value referenceFrame.Value  with
             | Some s -> s.pos
             | None -> failwith "could not get initial position"
 
@@ -93,13 +93,13 @@ module TestViewer =
             | _ -> 
                 None
 
-        let marsToReferenceFrame = marsToRefFrame "MARS" observer.Value referenceFrame "IAU_MARS" |> Option.get
+        let marsToReferenceFrame = marsToRefFrame "MARS" observer.Value referenceFrame.Value "IAU_MARS" |> Option.get
 
         //let initialView = CameraView.lookAt targetState.pos V3d.Zero V3d.OOI |> cval
         let bb =  Box3d.Parse("[[701677.203042967, 3141128.733093360, 1075935.257765322], [701942.935458576, 3141252.724183598, 1076182.681085336]]").Transformed(marsToReferenceFrame)
         let initialView = CameraView.lookAt bb.Max bb.Center bb.Center.Normalized |> cval
         let initialView = CameraView.lookAt -hera bb.Center V3d.OOI |> cval
-        let speed = 7900.0 * 1000.0 |> cval
+        let speed = 7900.0 * 100.0 |> cval
         let cameraMode = cval CameraMode.Orbit
 
         let view = 
@@ -128,6 +128,23 @@ module TestViewer =
         //let frustumMars = win.Sizes |> AVal.map (fun s -> Frustum.perspective 60.0 1000.0 farPlaneMars (float s.X / float s.Y))
         let aspect = win.Sizes |> AVal.map (fun s -> float s.X / float s.Y)
 
+
+        let opcSurfaces = [] //["mars"] //["mars"]
+
+
+        let getRenderingParameters (b : string) : Rendering.BodyRenderingParameters = 
+            let b = CelestialBodies.getBodySource b |> Option.get
+            {
+                name = b.name
+                diameter = b.diameter
+                color = b.color
+                diffuseMap = b.diffuseMap
+                normalMap = b.normalMap
+                specularMap = b.specularMap
+                referenceFrame = b.referenceFrame
+                visible = List.contains b.name opcSurfaces |> not |> AVal.constant
+            }
+
         let instruments =
             let frustum = Frustum.perspective 5.5306897076421 10000000.0 distanceSunPluto 1.0
             Map.ofList [
@@ -135,11 +152,8 @@ module TestViewer =
                 "HERA_AFC-2", frustum
             ]
 
-        let computeMarsFlyByCam (referenceFrame : string) (time : DateTime) =
-            let supportBody = "SUN"
-            let viewer = "HERA"
-
-            let afc1Pos = CooTransformation.getRelState viewer supportBody observer.Value time referenceFrame
+        let getLookAt (viewerBody : string) (observer : string) (referenceFrame : string) (supportBody : string) (time : DateTime) =
+            let afc1Pos = CooTransformation.getRelState viewerBody supportBody observer time referenceFrame
             match afc1Pos with    
             | Some targetState -> 
                 let rot = targetState.rot
@@ -152,19 +166,17 @@ module TestViewer =
 
         let startTime = DateTime.Parse("2025-03-12 11:30:20.482190Z", CultureInfo.InvariantCulture)
         let endTime = DateTime.Parse("2025-03-12 15:20:20.482190Z", CultureInfo.InvariantCulture)
-        let allObservations = 
+        let allObservationsFor (viewerBody : string)  (bodyReferenceFrame : string) (targetRefSystem : string) = 
             let shots = (endTime - startTime) / TimeSpan.FromMinutes(2) |> ceil |> int
             let interval = (endTime - startTime) / float shots
             let snapshots = [ 0 .. shots ] |> List.map (fun i -> startTime + interval * float i) |> List.toArray
             time |> AVal.map (fun _ -> 
                 snapshots 
                 |> Array.choose (fun time -> 
-                    match computeMarsFlyByCam referenceFrame time, CooTransformation.getRelState "HERA" "SUN" "MARS" time referenceFrame, CooTransformation.getRotationTrafo "IAU_MARS" referenceFrame time  with
-                    | Some camInMarsSpace, Some rel, Some t -> 
+                    match getLookAt viewerBody observer.Value targetRefSystem "SUN" time,  CooTransformation.getRotationTrafo bodyReferenceFrame targetRefSystem time  with
+                    | Some camInMarsSpace, Some t -> 
                         let frustum = instruments["HERA_AFC-1"]
-                        let view = CameraView.lookAt rel.pos V3d.Zero V3d.OOI 
-                        let view =  camInMarsSpace
-                        let forward = (t * CameraView.viewTrafo view * Frustum.projTrafo frustum)
+                        let forward = (t * CameraView.viewTrafo camInMarsSpace * Frustum.projTrafo frustum)
                         (time, forward) |> Some
 
                     | _ -> 
@@ -172,7 +184,8 @@ module TestViewer =
                 )
             )
 
-        let firstProjection = allObservations |> AVal.map (snd << Array.head)
+        let marsObservations = allObservationsFor "HERA" "IAU_MARS" referenceFrame.Value
+        let firstProjection = marsObservations |> AVal.map (snd << Array.head)
         let prio = RenderPass.after "jds" RenderPassOrder.Arbitrary RenderPass.main 
 
         let hierarchies = 
@@ -193,6 +206,7 @@ module TestViewer =
                         | _ -> V3d.Zero
                     )
 
+                let allObservations = allObservationsFor "HERA" bodyFrame referenceFrame.Value
 
                 hierarchies
                 |> Seq.toList 
@@ -260,11 +274,64 @@ module TestViewer =
                 |> Sg.pass prio
 
             Sg.ofList [
-                mola; hirise
+                //mola; 
+                hirise
             ]
+            
+        let timeClampedCount =
+            (time, marsObservations) ||> AVal.map2 (fun currentTime observations -> 
+                match observations |> Array.tryFindIndex (fun (observationTime,_) -> observationTime > currentTime) with
+                | Some i -> 
+                    printfn "i: %A" i
+                    i
+                | _ -> 
+                    observations.Length
+            )
 
-        let planets = Sg.empty
+        let count = cval 0
+        let projectionCount = count //timeClampedCount 
+
         let bodies = CelestialBodies.bodySources |> Array.map (fun b -> b.name, b) |> AMap.ofArray
+        let wrapModel (planet : string) (sg : ISg) =
+            sg
+            |> Sg.uniform "ProjectedImagesLocalTrafosCount" projectionCount 
+            |> Sg.uniform "ProjectedImagesLocalTrafos" (
+                    marsObservations |> AVal.map (fun arr -> 
+                        arr |> Array.map (fun (_,t) -> t.Forward |> M44f.op_Explicit)
+                    )
+            )
+            |> Sg.fileTexture "ProjectedTexture" @"C:\Users\haral\Pictures\OIP.jpg" true
+            //let projected
+            //sg 
+            //|> Sg.applyProjectedImage getObservationCamera 
+            ////|> Sg.texture "ProjectedTexture" projectedTexture
+            ////|> Rendering.StableTrafoSceneGraphExtension.Sg.wrapStableShadowViewProjTrafo (shadowMapCamera |> AVal.map Camera.viewProjTrafo) 
+            //|> Sg.uniform "ProjectedImageModelViewProjValid" (projectedImageTrafo |> AVal.map Option.isSome)
+
+        let planets = 
+            Rendering.bodiesVisualization referenceFrame supportBody (bodies |> AMap.toASetValues |> ASet.map (fun b -> b.name)) getRenderingParameters observer time wrapModel
+            |> Sg.shader {
+                do! Shaders.planetLocalLightingViewSpace
+                do! ImageProjection.Shaders.stableImageProjectionTrafo
+                do! Shaders.transformShadowVertices
+
+                // regenerate normals using gs. the face normals from the mesh do not work (did not investigate it further).
+                do! ImageProjection.Shaders.generateNormal
+                //do! ImageProjection.Shaders.useVertexNormals
+                do! ImageProjection.Shaders.flipNormals
+
+                do! Shaders.genAndFlipTextureCoord // for some reason v needs to be 1- flipped. 
+                do! DefaultSurfaces.sgColor
+
+                do! Shaders.stableTrafo
+                do! DefaultSurfaces.diffuseTexture
+
+                //do! Shaders.shadow
+                //do! Rendering.Shaders.shadowPCF
+                do! Shaders.solarLightingWithSpecular
+                do! ImageProjection.Shaders.stableImageProjection
+                do! ImageProjection.Shaders.localImageProjections
+            }
 
         let trajectories = 
             let getTrajectoryProperties (bodyName : string) =
@@ -280,7 +347,7 @@ module TestViewer =
                     | Some c -> C4b c.color
                 )
 
-            Rendering.trajectoryVisualization referenceFrame observer time getTrajectoryProperties (constF (AVal.constant true)) color (bodies |> AMap.toASetValues)
+            Rendering.trajectoryVisualization referenceFrame observer time getTrajectoryProperties (constF (AVal.constant true)) color (bodies |> AMap.toASetValues |> ASet.map (fun b -> b.name))
        
 
 
@@ -296,7 +363,7 @@ module TestViewer =
             )
 
         let mutable percentage = 0.0
-        let count = cval 0
+
         win.Keyboard.DownWithRepeats.Values.Add(fun k ->
             percentage <-
                 match k with
@@ -304,7 +371,7 @@ module TestViewer =
                 | Keys.Up -> clamp 0.0 1.0 (percentage + 0.05)
                 | _ -> percentage
 
-            let c = allObservations.GetValue().Length
+            let c = marsObservations.GetValue().Length
             let v = float c * percentage |> int
             transact (fun _ -> 
                 count.Value <- clamp 0 c v
@@ -313,15 +380,6 @@ module TestViewer =
                 
         )
 
-        let timeClampedCount =
-            (time, allObservations) ||> AVal.map2 (fun currentTime observations -> 
-                match observations |> Array.tryFindIndex (fun (observationTime,_) -> observationTime > currentTime) with
-                | Some i -> 
-                    printfn "i: %A" i
-                    i
-                | _ -> 
-                    observations.Length
-            )
 
 
         let marsSg =
@@ -339,11 +397,10 @@ module TestViewer =
                 //do! ImageProjection.Shaders.stableImageProjection
             }
             |> Sg.uniform "LodVisEnabled" (cval false)
-            |> Sg.uniform "ProjectedImagesLocalTrafosCount" count //timeClampedCount //count
+            |> Sg.uniform "ProjectedImagesLocalTrafosCount" projectionCount //count
             |> Sg.fileTexture "ProjectedTexture" @"C:\Users\haral\Pictures\OIP.jpg" true
             |> Sg.trafo (transformation |> AVal.map fst)
             |> Sg.onOff (transformation |> AVal.map snd)
-            //|> Sg.trafo marsTrafo
 
 
         let viewProj = (view, frustum) ||> AVal.map2 (fun view frustum -> (view |> CameraView.viewTrafo) * (frustum |> Frustum.projTrafo))
@@ -353,63 +410,63 @@ module TestViewer =
             let box = Box3d.FromPoints(V3d(-1,-1,-1),V3d(1,1,1))
             fun (p : V3d) -> box.Contains p
 
-        let jezeroMarker, jezeroText = 
-            let jezero =  Box3d.Parse("[[701677.203042967, 3141128.733093360, 1075935.257765322], [701942.935458576, 3141252.724183598, 1076182.681085336]]")
-            let mutable lat, lon, alt = 0.0,0.0,0.0
-            let geo = CooTransformation.Xyz2LatLonAlt("MARS", jezero.Center.X, jezero.Center.Y, jezero.Center.Z, &lat, &lon, &alt)
-            if geo <> 0 then failwith ""
-            let inSatHeight = V3d(lat,lon,alt + 230000.0 * 20.0)
-            let mutable x,y,z = 0.0,0.0,0.0
-            let xyz = CooTransformation.LatLonAlt2Xyz("MARS", lat, lon, alt + 230000.0, &x, &y, &z)
-            if xyz <> 0 then failwith ""
+        let markers = 
+            MarsTaggedLocations.taggedLocations 
+            |> List.choose (fun (name, (lat,lon)) -> 
+                match CooTransformation.latLon2Xyz "MARS" (lat, lon, 0.0), CooTransformation.latLon2Xyz "MARS" (lat, lon, 500000.0) with
+                | Some p0, Some p1 -> 
+                    let text =
+                        let contents = 
+                            Array.ofList [
+                                let p = 
+                                    AVal.custom (fun t -> 
+                                        let referenceFrame = referenceFrame.GetValue(t)
+                                        let time = time.GetValue(t)
+                                        let marsToGlobal = CooTransformation.getRotationTrafo "IAU_MARS" referenceFrame time |> Option.get
+                                        let bodyPos = marsToGlobal.TransformPos(p1) |> Some
+                                        let vp = viewProj.GetValue t
+                                        let scale = aspectScaling.GetValue t
+                                        match bodyPos with
+                                        | None -> Trafo3d.Scale(0.0)
+                                        | Some p ->
+                                            let ndc = vp.Forward.TransformPosProj (p) 
+                                            let scale = if inNdcBox ndc then scale else Trafo3d.Scale(0.0)
+                                            Trafo3d.Scale(0.03) * scale * Trafo3d.Translation(ndc.XYZ)
+                                    )
+                                p, AVal.constant name
+                            ]
+                        Sg.texts font C4b.White (ASet.ofArray contents)
 
-
-            let jezeroText =
-                let contents = 
-                    Array.ofList [
-                        let bodyPos = (CooTransformation.getRotationTrafo "IAU_MARS" referenceFrame time.Value).Value.TransformPos(V3d(x,y,z)) |> Some |> AVal.constant
-                        let p = 
-                            AVal.custom (fun t -> 
-                                let p = bodyPos.GetValue t
-                                let vp = viewProj.GetValue t
-                                let scale = aspectScaling.GetValue t
-                                let observer = observer.GetValue()
-                                match p with
-                                | None -> Trafo3d.Scale(0.0)
-                                | Some p ->
-                                    let ndc = vp.Forward.TransformPosProj (p) 
-                                    let scale = if inNdcBox ndc then scale else Trafo3d.Scale(0.0)
-                                    Trafo3d.Scale(0.05) * scale * Trafo3d.Translation(ndc.XYZ)
-                            )
-                        p, AVal.constant "JEZERO"
-                    ]
-                Sg.texts font C4b.White (ASet.ofArray contents)
-
-            let line = 
-                [|
-                    Line3d(V3d.Zero, V3d(x,y,z) - jezero.Center)
-                |]
-            let line = 
-                Sg.lines' C4b.White line
-                |> Sg.translation' jezero.Center
-                |> Sg.trafo (transformation |> AVal.map fst)
-                |> Sg.pass prio
-                |> Sg.depthTest' DepthTest.None
+                    let global2Local = Trafo3d.Translation(p0)
+                    let line = 
+                        [|
+                            Line3d(p0, p1).Transformed(global2Local.Backward)
+                        |]
+                    let line = 
+                        Sg.lines' C4b.White line
+                        |> Sg.trafo' global2Local
+                        |> Sg.trafo (transformation |> AVal.map fst)
+                        |> Sg.pass prio
+                        //|> Sg.depthTest' DepthTest.None
             
-            let sg = 
-                line
-                |> Sg.shader {
-                    do! DefaultSurfaces.stableTrafo
-                    do! DefaultSurfaces.thickLine
-                }
-                |> Sg.uniform' "LineWidth" 3.0
-                |> Sg.uniform' "PointSize" 8.0
-            sg, jezeroText
+                    let sg = 
+                        line
+                        |> Sg.shader {
+                            do! DefaultSurfaces.stableTrafo
+                            do! DefaultSurfaces.thickLine
+                        }
+                        |> Sg.uniform' "LineWidth" 1.5
+                        |> Sg.uniform' "PointSize" 8.0
+                    
+                    Some (sg, text)
+
+                | _ -> None
+            )
 
         
 
         let sg =
-            Sg.ofList [ planets; marsSg; trajectories; jezeroMarker ] 
+            Sg.ofList [ planets; marsSg; trajectories; (List.map fst markers |> Sg.ofList) ] 
             |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
             |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo)
 
@@ -457,8 +514,9 @@ module TestViewer =
             |> Sg.trafo (aspectScaling |> AVal.map (fun s -> Trafo3d.Scale(0.02) * s * Trafo3d.Translation(-0.95, 0.90,0.0)))
 
 
-        let sg = Sg.ofList [sg; bodyLabels; info; help; jezeroText]
+        let sg = Sg.ofList [sg; bodyLabels; info; help; (markers |> List.map snd |> Sg.ofList)]
 
+        let mutable paused = true
         let s = 
             let sw = Diagnostics.Stopwatch.StartNew()
             let mutable lastFrame = None
@@ -469,15 +527,28 @@ module TestViewer =
                         match lastFrame with
                         | None -> TimeSpan.Zero
                         | Some l -> sw.Elapsed - l
-
-                    time.Value <- time.Value + dt * 120.0
-                    let frustum = instruments.["HERA_AFC-1"]
-                    let view = (computeMarsFlyByCam referenceFrame time.Value).Value
+                    if not paused then
+                        time.Value <- time.Value + dt * 160.0
+                    //let frustum = instruments.["HERA_AFC-1"]
+                    //let view = (getLookAt "HERA"  referenceFrame.Value time.Value).Value
                     //customObservationCamera.Value <- Some (Camera.create view frustum)
                     //animationStep()
                     lastFrame <- Some sw.Elapsed
                 )
             )
+
+
+        win.Keyboard.KeyDown(Keys.C).Values.Add(fun _ -> 
+            transact (fun _ -> 
+                cameraMode.Value <-
+                    match cameraMode.Value with
+                    | CameraMode.FreeFly -> CameraMode.Orbit
+                    | CameraMode.Orbit -> CameraMode.FreeFly
+            )
+        )
+        win.Keyboard.KeyDown(Keys.Space).Values.Add(fun _ -> 
+            paused <- not paused
+        )
 
         let task =
             app.Runtime.CompileRender(win.FramebufferSignature, sg)
