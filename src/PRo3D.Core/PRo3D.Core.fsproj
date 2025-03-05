@@ -59,6 +59,8 @@
     <Compile Include="Surface\Translation.fs" />
     <Compile Include="Surface\Surface-Properties.fs" />
     <Compile Include="Surface\Surface.Files.fs" />
+    <Compile Include="Surface\OpcRenderingProperties.fs" />
+    <Compile Include="Surface\ImageProjectionOpcRendering.fs" />
     <Compile Include="Surface\Surface.Sg.fs" />
     <Compile Include="Surface\SurfaceApp.fs" />
     <Compile Include="Surface\SurfaceUtils.fs" />

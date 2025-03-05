@@ -131,7 +131,7 @@ module TestViewer =
         let aspect = win.Sizes |> AVal.map (fun s -> float s.X / float s.Y)
 
 
-        let opcSurfaces = ["mars"] //["mars"]
+        let opcSurfaces = [] //["mars"] //["mars"]
 
 
         let getRenderingParameters (b : string) : Rendering.BodyRenderingParameters = 
@@ -160,7 +160,6 @@ module TestViewer =
             | Some targetState -> 
                 let rot = targetState.rot
                 let t = Trafo3d.FromBasis(rot.C0, rot.C1, rot.C2, targetState.pos)
-                //CameraView.lookAt targetState.pos V3d.Zero V3d.OOI |> Some
                 CameraView.ofTrafo t.Inverse |> Some 
             | _ -> 
                 None
@@ -230,46 +229,17 @@ module TestViewer =
                     let h = PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths basePath)
                     let t = PatchLod.toRoseTree h.tree
 
-                    let context (n : Aardvark.GeoSpatial.Opc.PatchLod.PatchNode) (s : Ag.Scope) =
-                        let v = s.ViewTrafo
-                        let m = s.ModelTrafo
-                        (m, v)  :> obj
+                    let imageProjection = firstProjection |> AVal.map Option.Some
+                    let localImageProjectionTrafos = marsObservations |> Array.map snd |> AVal.constant
+                    let sunLight = sunLightDirection |> AVal.map Option.Some
 
-                    let map = 
-                        Map.ofList [
-                            "ProjectedImagesLocalTrafos", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
-                                let (modelTrafo,_) = scope |> unbox<aval<Trafo3d> * aval<Trafo3d>>
-                                (allObservations, modelTrafo)
-                                ||> AVal.map2 (fun arr modelTrafo -> 
-                                    arr
-                                    |> Array.map (fun (_, vp : Trafo3d) -> 
-                                        // first to body space, then through projection
-                                        vp.Forward * patch.info.Local2Global.Forward  |> M44f.op_Explicit
-                                    )
-                                ) :> IAdaptiveValue
-                            )
-                            "ProjectedImageModelViewProjValid", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
-                                true |> AVal.constant :> IAdaptiveValue
-                             )
-                            "ProjectedImageModelViewProj", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
-                                let (m,_) = scope |> unbox<aval<Trafo3d> * aval<Trafo3d>>
-                                (firstProjection, m) ||> AVal.map2 (fun vp m -> 
-                                     vp.Forward * patch.info.Local2Global.Forward
-                                ) :> IAdaptiveValue
-                            )
-                            "SunDirectionWorld", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
-                                sunLightDirection :> IAdaptiveValue
-                            )
-                            "SunLightEnabled", fun _ _ -> sunLightEnabled :> IAdaptiveValue
-                            "ApproximateBodyNormalLocalSpace", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
-                                patch.info.Local2Global.Backward.TransformDir(patch.info.GlobalBoundingBox.Center.Normalized).Normalized |> AVal.constant :> IAdaptiveValue
-                            )
-                        ]
+                    let additionalUniforms = 
+                        PRo3D.Core.ImageProjectionOpcExtensions.projectionUniformMap imageProjection localImageProjectionTrafos sunLight (AVal.constant true)
 
                     let n =
                         Aardvark.GeoSpatial.Opc.PatchLod.PatchNode(
                                   win.FramebufferSignature, runner, basePath, scene.lodDecider, true, true, ViewerModality.XYZ, 
-                                  PatchLod.CoordinatesMapping.Local, true, context, map,
+                                  PatchLod.CoordinatesMapping.Local, true, PRo3D.Core.OpcRenderingExtensions.captureContext, additionalUniforms,
                                   t,
                                   None, None, PixImagePfim.Loader
                         )
@@ -288,7 +258,7 @@ module TestViewer =
                 |> Sg.pass prio
 
             Sg.ofList [
-                mola; 
+                //mola; 
                 hirise
             ]
             
@@ -323,7 +293,7 @@ module TestViewer =
             sg
             // projected frusta
             |> Sg.uniform "ProjectedImagesLocalTrafosCount" projectionCount 
-            |> Sg.uniform' "ProjectedImagesLocalTrafos" (observations |> Array.map (Trafo.forward >> M44f.op_Explicit))
+            |> Sg.uniform' "ProjectedImagesLocalTrafos" (observations |> Array.map (Trafo.forward >> M44f))
             // projected texture
             |> Sg.fileTexture "ProjectedTexture" @"C:\Users\haral\Pictures\OIP.jpg" true
             |> Sg.applyProjectedImage getProjectionTrafo 
@@ -333,6 +303,7 @@ module TestViewer =
 
         let planets = 
             Rendering.bodiesVisualization referenceFrame supportBody (bodies |> AMap.toASetValues |> ASet.map (fun b -> b.name)) getRenderingParameters observer time wrapModel
+            |> Sg.uniform' "SunLightEnabled" true
             |> Sg.shader {
                 do! Shaders.planetLocalLightingViewSpace
                 do! ImageProjection.Shaders.stableImageProjectionTrafo
@@ -351,8 +322,8 @@ module TestViewer =
 
                 //do! Shaders.shadow
                 //do! Rendering.Shaders.shadowPCF
-                do! Shaders.solarLightingWithSpecular
-                do! ImageProjection.Shaders.stableImageProjection
+                do! Shaders.solarLighting
+                //do! ImageProjection.Shaders.stableImageProjection
                 do! ImageProjection.Shaders.localImageProjections
             }
 
@@ -415,10 +386,12 @@ module TestViewer =
                 do! DefaultSurfaces.constantColor C4f.White 
                 do! DefaultSurfaces.diffuseTexture 
                 do! Shaders.solarLighting
-                do! ImageProjection.Shaders.localImageProjections
-                do! ImageProjection.Shaders.stableImageProjection
+                //do! ImageProjection.Shaders.localImageProjections
+                //do! ImageProjection.Shaders.stableImageProjection
                 //do! Shader.LoDColor 
             }
+            |> PRo3D.Core.Surface.Sg.applyFootprint (AVal.constant M44d.Identity)
+            |> Aardvark.GeoSpatial.Opc.SecondaryTexture.Sg.applySecondaryTextureId (AVal.constant 0)
             |> Sg.uniform "LodVisEnabled" (cval false)
             |> Sg.uniform "ProjectedImagesLocalTrafosCount" projectionCount //count
             |> Sg.fileTexture "ProjectedTexture" @"C:\Users\haral\Pictures\OIP.jpg" true
@@ -537,7 +510,7 @@ module TestViewer =
             |> Sg.trafo (aspectScaling |> AVal.map (fun s -> Trafo3d.Scale(0.02) * s * Trafo3d.Translation(-0.95, 0.90,0.0)))
 
 
-        let sg = Sg.ofList [sg; bodyLabels; info; help; (markers |> List.map snd |> Sg.ofList)]
+        let sg = Sg.ofList [sg; bodyLabels;  (markers |> List.map snd |> Sg.ofList); ]//info; help;]
 
         let mutable paused = true
         let s = 

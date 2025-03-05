@@ -40,6 +40,8 @@ module FootprintSg =
 
     [<Rule>]
     type FootprintSem() =
+        member x.FootprintVP(r : Ag.Root<ISg>, scope : Ag.Scope) = 
+            r.Child?FootprintVP <- AVal.constant M44f.Identity
         member x.FootprintVP(n : FootprintApplicator, scope : Ag.Scope) =
             n.Child?FootprintVP <- n.ViewProj
 
@@ -57,8 +59,6 @@ module FootprintSg =
 
 module Sg =
     
-    type Ag.Scope with
-        member x.FootprintVP : aval<M44d> = x?FootprintVP
 
     let applyFootprint (v : aval<M44d>) (sg : ISg) = 
         FootprintSg.FootprintApplicator(v, sg) :> ISg
@@ -231,14 +231,10 @@ module Sg =
             patchHierarchies 
             |> Array.map (fun h ->      
                 let patchLodWithTextures = 
-                    let context (n : PatchNode) (s : Ag.Scope) =
-                        let vp = s.FootprintVP
-                        let secondaryTexture = SecondaryTexture.getSecondary n s
-                        (vp, secondaryTexture)  :> obj
 
                     let extractTextureScope f (p : OpcPaths) (lodScope : obj) (r : RenderPatch) =
-                        let (_, textures) = unbox<aval<M44d> * obj> lodScope
-                        f p textures r 
+                        let context = unbox<OpcRenderingExtensions.Context> lodScope
+                        f p context.texturesScope r 
 
                     let getTextures = extractTextureScope SecondaryTexture.textures
                     let getVertexAttributes = extractTextureScope SecondaryTexture.vertexAttributes
@@ -253,7 +249,7 @@ module Sg =
                         ViewerModality.XYZ, 
                         PatchLod.CoordinatesMapping.Local, 
                         useAsyncLoading, 
-                        context, 
+                        OpcRenderingExtensions.captureContext, 
                         map,
                         PatchLod.toRoseTree h.tree,
                         Some (getTextures h.opcPaths), 
@@ -261,24 +257,6 @@ module Sg =
                         Aardvark.Data.PixImagePfim.Loader
                     )
 
-                //let plainPatchLod =
-                //    Sg.patchLod' 
-                //        signature
-                //        runner 
-                //        h.opcPaths.Opc_DirAbsPath
-                //        lodDeciderMars //scene.lodDecider 
-                //        scene.useCompressedTextures
-                //        true
-                //        ViewerModality.XYZ
-                //        PatchLod.CoordinatesMapping.Local
-                //        useAsyncLoading
-                //        (PatchLod.toRoseTree h.tree)
-                //        map
-                //        (fun n s -> 
-                //            let vp = s.FootprintVP
-                //            vp :> obj
-                //        )
-                //plainPatchLod
                 patchLodWithTextures
             )
             |> SgFSharp.Sg.ofArray  
