@@ -31,8 +31,9 @@ module UI =
                 |> AttributeMap.ofList
                     //|> AttributeMap.union dom.                
                 
-            
-            onBoot "$('#__ID__').popup({inline:true,hoverable:true});" (       
+            // we call 'refresh' to place the tooltip after the DOM elements are rendered to ensure
+            // that the tooltip is at the right position
+            onBoot "$('#__ID__').popup({inline:true,hoverable:true}).popup('refresh');" (       
                 dom.WithAttributes attr     
             ) 
         else
