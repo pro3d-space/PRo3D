@@ -757,6 +757,9 @@ module Gui =
             | Interactions.PlaceScaleBar         -> ""
             | Interactions.PlaceSceneObject      -> ""
             | Interactions.PickPivotPoint        -> ""
+            | Interactions.TrafoControls         -> ""
+            | Interactions.PlaceSurface          -> ""
+            | _    -> ""
         
         let topMenuItems (model : AdaptiveModel) = [ 
 
