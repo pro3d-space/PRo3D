@@ -20,8 +20,6 @@ module ImageProjection =
             member x.ProjectedImageModelViewProj : M44d = uniform?ProjectedImageModelViewProj
             member x.ProjectedImagesLocalTrafos : M44d[] = uniform?StorageBuffer?ProjectedImagesLocalTrafos
             member x.ProjectedImagesCount : int = uniform?ProjectedImagesLocalTrafosCount
-            member x.ProjectedImageProjTrafoInv : M44d = uniform?ProjectedImageProjTrafoInv
-            member x.ApproximateBodyNormalLocalSpace : V3d = uniform?ApproximateBodyNormalLocalSpace
 
         type Vertex = {
             [<Position>]    pos     : V4d
@@ -44,7 +42,7 @@ module ImageProjection =
 
         let stableImageProjectionTrafo (v : Vertex) =
             vertex {
-                return { v with projectedPos = uniform.ProjectedImageModelViewProj * v.pos; localPos = v.pos; localNormalNumericallyUnstable = uniform.ApproximateBodyNormalLocalSpace }
+                return { v with projectedPos = uniform.ProjectedImageModelViewProj * v.pos; localPos = v.pos; }
             }
 
         let stableImageProjection (v : Vertex) = 
@@ -54,7 +52,7 @@ module ImageProjection =
                 let inRange = Vec.allGreaterOrEqual tc V3d.OOO && Vec.allSmallerOrEqual tc.XYZ V3d.III
                 let borderWidth = 0.01 
 
-                let normal = uniform.ProjectedImageModelViewProj.TransformDir(uniform.ApproximateBodyNormalLocalSpace) |> Vec.normalize
+                let normal = uniform.ProjectedImageModelViewProj.TransformDir(v.localNormalNumericallyUnstable) |> Vec.normalize
 
                 let c = 
                     if uniform.ProjectedImageModelViewProjValid && inRange && (Vec.dot normal V3d.OOI) < 0.0 then
@@ -65,12 +63,6 @@ module ImageProjection =
                         let borderColor = V3d(0.0, 1.0, 0.0)
                         let c = c.XYZ * borderFactor + borderColor * (1.0 - borderFactor)
                         V4d(c, 1.0)
-                        //let borderX = tc.X < borderWidth || tc.X > 1.0 - borderWidth 
-                        //let borderY = tc.Y < borderWidth || tc.Y > 1.0 - borderWidth
-                        //if borderX || borderY then 
-                        //    V4d(borderColor, 1.0) 
-                        //else
-                        //    V4d(c, 1.0)
                     else
                         v.c
                 return { v with c = c }
@@ -166,7 +158,7 @@ module ImageProjectionTrafoSceneGraph =
             app.Child?Planet <- app.Planet
         
 
-    type ProjectedImageApplicator(child : ISg, viewProjection : string -> aval<Option<Camera>>) =
+    type ProjectedImageApplicator(child : ISg, viewProjection : string -> aval<Option<Trafo3d>>) =
         inherit Sg.AbstractApplicator(child)
         member x.ViewProjection = viewProjection
 
@@ -180,7 +172,7 @@ module ImageProjectionTrafoSceneGraph =
                 projectionTrafo |> AVal.bind (function
                     | None -> AVal.constant None
                     | Some vp -> 
-                        AVal.map (fun m -> m * Camera.viewProjTrafo vp |> Some) modelTrafo
+                        AVal.map (fun m -> m *  vp |> Some) modelTrafo
                 )
             let trafo = possiblyTrafo |> AVal.map (Option.defaultValue Trafo3d.Identity)
             app.Child?ProjectedImageModelViewProj <- trafo
@@ -192,5 +184,5 @@ module Sg =
     let applyPlanet (planet : string) (sg : ISg) =
         PlanetApplicator(sg, planet)
 
-    let applyProjectedImage (viewProjTrafo : string -> aval<Option<Camera>>) (sg : ISg) =
+    let applyProjectedImage (viewProjTrafo : string -> aval<Option<Trafo3d>>) (sg : ISg) =
         ProjectedImageApplicator(sg, viewProjTrafo) :> ISg

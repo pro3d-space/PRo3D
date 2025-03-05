@@ -30,6 +30,8 @@ open PRo3D.Extensions
 open PRo3D.Extensions.FSharp
 open PRo3D.SPICE
 
+open PRo3D.Core.ProjectedImages
+
 [<Struct>]
 type RelState = 
     {
@@ -73,8 +75,8 @@ module TestViewer =
 
         let observer = cval "MARS" //"HERA_AFC-1" 
         let supportBody = cval "SUN"
-        let referenceFrame = cval "ECLIPJ2000"
         let referenceFrame = cval "IAU_MARS" 
+        let referenceFrame = cval "ECLIPJ2000"
         let time = 
             let startTime = "2025-03-12 11:50:00.000Z"
             cval (DateTime.Parse startTime)
@@ -129,7 +131,7 @@ module TestViewer =
         let aspect = win.Sizes |> AVal.map (fun s -> float s.X / float s.Y)
 
 
-        let opcSurfaces = [] //["mars"] //["mars"]
+        let opcSurfaces = ["mars"] //["mars"]
 
 
         let getRenderingParameters (b : string) : Rendering.BodyRenderingParameters = 
@@ -166,6 +168,9 @@ module TestViewer =
 
         let startTime = DateTime.Parse("2025-03-12 11:30:20.482190Z", CultureInfo.InvariantCulture)
         let endTime = DateTime.Parse("2025-03-12 15:20:20.482190Z", CultureInfo.InvariantCulture)
+        let shots = (endTime - startTime) / TimeSpan.FromMinutes(2) |> ceil |> int
+        let observationTimes = ProjectedImages.splitTimes startTime endTime shots
+
         let allObservationsFor (viewerBody : string)  (bodyReferenceFrame : string) (targetRefSystem : string) = 
             let shots = (endTime - startTime) / TimeSpan.FromMinutes(2) |> ceil |> int
             let interval = (endTime - startTime) / float shots
@@ -185,14 +190,25 @@ module TestViewer =
             )
 
         let marsObservations = allObservationsFor "HERA" "IAU_MARS" referenceFrame.Value
-        let firstProjection = marsObservations |> AVal.map (snd << Array.head)
-        let prio = RenderPass.after "jds" RenderPassOrder.Arbitrary RenderPass.main 
+        let marsObservations = 
+            let p = {
+                worldReferenceSystem = referenceFrame.Value
+                observer = observer.Value
+                sourceReferenceFrame = "IAU_MARS"
+                target = CameraFocus.FocusBody "MARS"
+                cameraSource = CameraSource.InBody "HERA"
+                instrument = Intrinsics.Plain instruments["HERA_AFC-1"]
+                supportBody = "SUN"
+            }
+            let observations = observationTimes |> ProjectedImages.computeProjections p
+            Array.zip observationTimes observations
+
+        let firstProjection = marsObservations |> (snd << Array.head) |> AVal.constant
+        let prio = RenderPass.after "priority" RenderPassOrder.Arbitrary RenderPass.main 
 
         let hierarchies = 
             let runner = win.Runtime.CreateLoadRunner 1
             let serializer = FsPickler.CreateBinarySerializer()
-
-            let hierarchies = [scene.patchHierarchies; additionalHierarchies ] 
 
             let createSg (sunLightEnabled : aval<bool>) (body : string) (bodyFrame : string) (hierarchies : seq<string>) =
 
@@ -227,6 +243,7 @@ module TestViewer =
                                 ||> AVal.map2 (fun arr modelTrafo -> 
                                     arr
                                     |> Array.map (fun (_, vp : Trafo3d) -> 
+                                        // first to body space, then through projection
                                         vp.Forward * patch.info.Local2Global.Forward  |> M44f.op_Explicit
                                     )
                                 ) :> IAdaptiveValue
@@ -237,11 +254,8 @@ module TestViewer =
                             "ProjectedImageModelViewProj", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
                                 let (m,_) = scope |> unbox<aval<Trafo3d> * aval<Trafo3d>>
                                 (firstProjection, m) ||> AVal.map2 (fun vp m -> 
-                                    patch.info.Local2Global * vp
+                                     vp.Forward * patch.info.Local2Global.Forward
                                 ) :> IAdaptiveValue
-                            )
-                            "ProjectedImageProjTrafoInv", (fun _ _ -> 
-                                (instruments["HERA_AFC-1"] |> Frustum.projTrafo).Backward |> AVal.constant :> IAdaptiveValue
                             )
                             "SunDirectionWorld", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
                                 sunLightDirection :> IAdaptiveValue
@@ -274,39 +288,48 @@ module TestViewer =
                 |> Sg.pass prio
 
             Sg.ofList [
-                //mola; 
+                mola; 
                 hirise
             ]
             
         let timeClampedCount =
-            (time, marsObservations) ||> AVal.map2 (fun currentTime observations -> 
-                match observations |> Array.tryFindIndex (fun (observationTime,_) -> observationTime > currentTime) with
+            time |> AVal.map (fun currentTime  -> 
+                match marsObservations |> Array.tryFindIndex (fun (observationTime,_) -> observationTime > currentTime) with
                 | Some i -> 
                     printfn "i: %A" i
                     i
                 | _ -> 
-                    observations.Length
+                    marsObservations.Length
             )
 
         let count = cval 0
-        let projectionCount = count //timeClampedCount 
+        let projectionCount = timeClampedCount 
+
 
         let bodies = CelestialBodies.bodySources |> Array.map (fun b -> b.name, b) |> AMap.ofArray
         let wrapModel (planet : string) (sg : ISg) =
+            let p = {
+                worldReferenceSystem = referenceFrame.Value
+                observer = observer.Value
+                sourceReferenceFrame = "IAU_MARS"
+                target = CameraFocus.FocusBody "MARS"
+                cameraSource = CameraSource.InBody "HERA"
+                instrument = Intrinsics.Plain instruments["HERA_AFC-1"]
+                supportBody = "SUN"
+            }
+            let observations = observationTimes |> ProjectedImages.computeProjections p
+            let getProjectionTrafo _ =
+                observations[0] |> Some |> AVal.constant
             sg
+            // projected frusta
             |> Sg.uniform "ProjectedImagesLocalTrafosCount" projectionCount 
-            |> Sg.uniform "ProjectedImagesLocalTrafos" (
-                    marsObservations |> AVal.map (fun arr -> 
-                        arr |> Array.map (fun (_,t) -> t.Forward |> M44f.op_Explicit)
-                    )
-            )
+            |> Sg.uniform' "ProjectedImagesLocalTrafos" (observations |> Array.map (Trafo.forward >> M44f.op_Explicit))
+            // projected texture
             |> Sg.fileTexture "ProjectedTexture" @"C:\Users\haral\Pictures\OIP.jpg" true
-            //let projected
-            //sg 
-            //|> Sg.applyProjectedImage getObservationCamera 
-            ////|> Sg.texture "ProjectedTexture" projectedTexture
-            ////|> Rendering.StableTrafoSceneGraphExtension.Sg.wrapStableShadowViewProjTrafo (shadowMapCamera |> AVal.map Camera.viewProjTrafo) 
-            //|> Sg.uniform "ProjectedImageModelViewProjValid" (projectedImageTrafo |> AVal.map Option.isSome)
+            |> Sg.applyProjectedImage getProjectionTrafo 
+            |> Sg.uniform' "ProjectedImageModelViewProjValid" true
+            //|> Rendering.StableTrafoSceneGraphExtension.Sg.wrapStableShadowViewProjTrafo (shadowMapCamera |> AVal.map Camera.viewProjTrafo) 
+
 
         let planets = 
             Rendering.bodiesVisualization referenceFrame supportBody (bodies |> AMap.toASetValues |> ASet.map (fun b -> b.name)) getRenderingParameters observer time wrapModel
@@ -371,7 +394,7 @@ module TestViewer =
                 | Keys.Up -> clamp 0.0 1.0 (percentage + 0.05)
                 | _ -> percentage
 
-            let c = marsObservations.GetValue().Length
+            let c = marsObservations.Length
             let v = float c * percentage |> int
             transact (fun _ -> 
                 count.Value <- clamp 0 c v
@@ -392,9 +415,9 @@ module TestViewer =
                 do! DefaultSurfaces.constantColor C4f.White 
                 do! DefaultSurfaces.diffuseTexture 
                 do! Shaders.solarLighting
-                //do! Shader.LoDColor 
                 do! ImageProjection.Shaders.localImageProjections
-                //do! ImageProjection.Shaders.stableImageProjection
+                do! ImageProjection.Shaders.stableImageProjection
+                //do! Shader.LoDColor 
             }
             |> Sg.uniform "LodVisEnabled" (cval false)
             |> Sg.uniform "ProjectedImagesLocalTrafosCount" projectionCount //count
