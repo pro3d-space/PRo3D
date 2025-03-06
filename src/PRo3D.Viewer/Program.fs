@@ -52,7 +52,7 @@ type Result =
       result : string;
    }
 
-let viewerVersion       = "4.26.0-prerelease1"
+let viewerVersion       = "4.27.0-prerelease1"
 let catchDomainErrors   = false
 
 open System.IO
@@ -368,7 +368,13 @@ let main argv =
                 choose []
 
         let suaveServer = 
-            WebPart.startServer port [
+            let startServer = 
+                if startupArgs.enableRemoteApi then 
+                    WebPart.startServer
+                else   
+                    WebPart.startServerLocalhost
+
+            startServer port [
                 if startupArgs.disableCors then allow_cors
                 MutableApp.toWebPart' runtime false mainApp
                 path "/websocket" >=> handShake ws

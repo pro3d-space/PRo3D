@@ -741,6 +741,7 @@ module Gui =
             | Interactions.PlaceScaleBar         -> sprintf "%s+click to place scale bar" ctrl
             | Interactions.PlaceSceneObject      -> sprintf "%s+click to place scene object" ctrl
             | Interactions.PickPivotPoint        -> sprintf "%s+click to place pivot point" ctrl
+            | Interactions.PickSurfaceRefSys     -> sprintf "%s+click to place additional reference system for surface" ctrl
             //| Interactions.PickLinking           -> "CTRL+click to place point on surface"
             | _ -> ""
 
@@ -756,6 +757,9 @@ module Gui =
             | Interactions.PlaceScaleBar         -> ""
             | Interactions.PlaceSceneObject      -> ""
             | Interactions.PickPivotPoint        -> ""
+            | Interactions.TrafoControls         -> ""
+            | Interactions.PlaceSurface          -> ""
+            | _    -> ""
         
         let topMenuItems (model : AdaptiveModel) = [ 
 
