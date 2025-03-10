@@ -69,3 +69,6 @@ module Dialogs =
             String.replace "\\" "\\\\" startPath
         sprintf "top.aardvark.dialog.showOpenDialog({tile: 'Select directory', defaultPath: '%s', filters: [{ name: 'directories'}], properties: ['openDirectory']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
             startPath
+
+    let jsImportImagesDialog =
+            "top.aardvark.dialog.showOpenDialog({title:'Import Images' , filters: [{ name: 'Images (*.jpg)', extensions: ['jpg']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"

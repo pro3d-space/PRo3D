@@ -51,6 +51,12 @@ module ViewPlanApp =
     | DepthColorLegendMessage   of FalseColorLegendApp.Action
     | SaveDepthData
     | OpenDepthDataFolder
+    | SelectImage        of Guid
+    | RemoveImage        of Guid
+    | ToggleProjectedImage
+    | LoadImage          of list<string>
+    | ImportExInTrinsics of list<string>
+    | LoadImageTest
 
             
     let loadRoverData 
@@ -471,6 +477,17 @@ module ViewPlanApp =
             newOuterModel, { model with selectedViewPlan = Some a.id }
         | None, _ -> outerModel, model
 
+    let updateFootPrint 
+        (model : ViewPlanModel)
+        (selectedVp : ViewPlan) 
+        (fp' : FootPrint)
+        (_footprint  : Lens<'a,FootPrint>)
+        (outerModel  :'a) =
+        let vp' = {selectedVp with footPrint = fp'}
+        let viewPlans = model.viewPlans |> HashMap.add vp'.id vp'
+        let newOuterModel = Optic.set _footprint fp' outerModel
+        newOuterModel, {model with viewPlans = viewPlans }         
+
     //let update (model : ViewPlanModel) (camState:CameraControllerState) (action : Action) =
     let update 
         (model       : ViewPlanModel) 
@@ -670,10 +687,11 @@ module ViewPlanApp =
                 let selectedVp = model.viewPlans |> HashMap.find vpid 
                 let fp = Optic.get _footprint outerModel
                 let fp' = { fp with isVisible = not fp.isVisible }
-                let vp' = {selectedVp with footPrint = fp'}
-                let viewPlans = model.viewPlans |> HashMap.add vp'.id vp'
-                let newOuterModel = Optic.set _footprint fp' outerModel
-                newOuterModel, {model with viewPlans = viewPlans }              
+                updateFootPrint model selectedVp fp' _footprint outerModel
+                //let vp' = {selectedVp with footPrint = fp'}
+                //let viewPlans = model.viewPlans |> HashMap.add vp'.id vp'
+                //let newOuterModel = Optic.set _footprint fp' outerModel
+                //newOuterModel, {model with viewPlans = viewPlans }              
             | None -> outerModel, model
 
             //let fp = Optic.get _footprint outerModel
@@ -703,10 +721,11 @@ module ViewPlanApp =
                 let selectedVp = model.viewPlans |> HashMap.find vpid 
                 let fp = Optic.get _footprint outerModel
                 let fp' = { fp with isDepthVisible = not fp.isDepthVisible }
-                let vp' = {selectedVp with footPrint = fp'}
-                let viewPlans = model.viewPlans |> HashMap.add vp'.id vp'
-                let newOuterModel = Optic.set _footprint fp' outerModel
-                newOuterModel, {model with viewPlans = viewPlans }              
+                updateFootPrint model selectedVp fp' _footprint outerModel
+                //let vp' = {selectedVp with footPrint = fp'}
+                //let viewPlans = model.viewPlans |> HashMap.add vp'.id vp'
+                //let newOuterModel = Optic.set _footprint fp' outerModel
+                //newOuterModel, {model with viewPlans = viewPlans }              
             | None -> outerModel, model
 
             //let fp = Optic.get _footprint outerModel
@@ -722,11 +741,12 @@ module ViewPlanApp =
                 let fp = Optic.get _footprint outerModel
                 let colorUpdate = FalseColorLegendApp.update fp.depthColorLegend msg
                 let fp' = { fp with depthColorLegend = colorUpdate }
-                let vp' = 
-                    {selectedVp with footPrint = fp'}
-                let viewPlans = model.viewPlans |> HashMap.add vp'.id vp'
-                let newOuterModel = Optic.set _footprint fp' outerModel
-                newOuterModel, {model with viewPlans = viewPlans }              
+                updateFootPrint model selectedVp fp' _footprint outerModel
+                //let vp' = 
+                //    {selectedVp with footPrint = fp'}
+                //let viewPlans = model.viewPlans |> HashMap.add vp'.id vp'
+                //let newOuterModel = Optic.set _footprint fp' outerModel
+                //newOuterModel, {model with viewPlans = viewPlans }              
             | None -> outerModel, model
 
             //let fp = Optic.get _footprint outerModel
@@ -747,6 +767,91 @@ module ViewPlanApp =
                 if (Directory.Exists fpPath) then Process.Start("explorer.exe", fpPath) |> ignore
                 outerModel, model
             | None -> outerModel, model   
+
+        
+        | SelectImage id -> 
+            match model.selectedViewPlan with
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid
+                let fp  = Optic.get _footprint outerModel
+                let fp' = { fp with selectedImage = Some id }
+                updateFootPrint model selectedVp fp' _footprint outerModel
+            | None -> outerModel, model                 
+        | RemoveImage id -> 
+            match model.selectedViewPlan with
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid
+                let fp  = Optic.get _footprint outerModel
+                let fp' = { fp with images = (HashMap.remove id fp.images) }
+                updateFootPrint model selectedVp fp' _footprint outerModel
+            | None -> outerModel, model                 
+        | ToggleProjectedImage -> 
+            match model.selectedViewPlan with
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid 
+                let fp = Optic.get _footprint outerModel
+                //TEST
+                //let pImage = ProjectedImage.initProjectedImage "C:\Users\laura\VRVis\PRo3D\Data\mars-2020-pico-turquino-south-sol-1326-SketchFab\m1_PT_south_1x.jpg"
+                //let fp' = { fp with images = HashMap.add pImage.id pImage fp.images; useProjectedImage = not fp.useProjectedImage }
+                let fp' = { fp with useProjectedImage = not fp.useProjectedImage }
+                updateFootPrint model selectedVp fp' _footprint outerModel      
+            | None -> outerModel, model
+        | LoadImage pathList -> 
+            match pathList with
+            | filepath :: tail ->
+                match System.IO.File.Exists filepath with
+                | true ->
+                    match model.selectedViewPlan with
+                    | Some vpid -> 
+                        let selectedVp = model.viewPlans |> HashMap.find vpid 
+                        let fp = Optic.get _footprint outerModel
+                        let pImage = ProjectedImage.initProjectedImage filepath
+                        //@Laura: add ex- and intrinsics here
+                        let fp' = { fp with images = HashMap.add pImage.id pImage fp.images }
+                        updateFootPrint model selectedVp fp' _footprint outerModel
+                    | None -> outerModel, model
+                | false ->
+                    outerModel, model
+            | [] -> outerModel, model
+        | ImportExInTrinsics pathList ->
+            match pathList with
+            | filepath :: tail ->
+                match System.IO.File.Exists filepath with
+                | true ->
+                    match model.selectedViewPlan with
+                    | Some vpid -> 
+                        let selectedVp = model.viewPlans |> HashMap.find vpid 
+                        let fp = Optic.get _footprint outerModel
+                        match selectedVp.footPrint.selectedImage with
+                        | Some img ->
+                            let selectedImage = fp.images |> HashMap.find img
+                        
+                                //@Harri: add ex- and intrinsics here
+
+                            outerModel, model
+                        | None -> outerModel, model
+                    | None -> outerModel, model
+                | false ->
+                    outerModel, model
+            | [] -> outerModel, model
+
+         | LoadImageTest -> outerModel, model
+            //match pathList with
+            //| filepath :: tail ->
+            //    match System.IO.File.Exists filepath with
+            //    | true ->
+            //        match model.selectedViewPlan with
+            //        | Some vpid -> 
+            //            let selectedVp = model.viewPlans |> HashMap.find vpid 
+            //            let fp = Optic.get _footprint outerModel
+            //            let pImage = ProjectedImage.initProjectedImage filepath
+            //            //@Laura: add ex- and intrinsics here
+            //            let fp' = { fp with images = HashMap.add pImage.id pImage fp.images }
+            //            updateFootPrint model selectedVp fp' _footprint outerModel
+            //        | None -> outerModel, model
+            //    | false ->
+            //        outerModel, model
+            //| [] -> outerModel, model
 
 
     module Sg =     
@@ -1112,12 +1217,129 @@ module ViewPlanApp =
                 )
               | AdaptiveNone -> div [] [])
 
+        let viewImageHeader (m:AdaptiveProjectedImage) (id:Guid) = 
+            [
+                Incremental.text m.image; text " "
+
+                i [clazz "Remove icon red";                                             
+                    onClick (fun _ -> RemoveImage id)
+                ] [] |> UI.wrapToolTip DataPosition.Bottom "Remove"                                         
+            ]    
+
+
+        let viewProjedtedImages (m:AdaptiveViewPlan) = 
+            let listAttributes =
+                amap {
+                    yield clazz "ui divided list inverted segment"
+                    yield style "overflow-y : visible"
+                } |> AttributeMap.ofAMap
+
+            Incremental.div listAttributes (
+                alist { 
+                    let! selected = m.footPrint.selectedImage
+                    let images = 
+                        m.footPrint.images 
+                        |> AMap.toASetValues 
+                        |> ASet.sortBy (fun a -> a.id)
+
+                    for img in images do
+                        let imgId = img.id
+                        
+                        let itemAttributes = 
+                            amap {                                
+                                yield clazz "large cube middle aligned icon";
+
+                                let color =
+                                    match selected with
+                                      | Some sel -> 
+                                        AVal.constant (if sel = imgId then C4b.VRVisGreen else C4b.Gray) 
+                                      | None -> AVal.constant C4b.Gray
+                                                                         
+                                let! c = color
+                                let bgc = sprintf "color: %s" (Html.color c)
+
+                                yield style bgc
+                                yield onClick (fun _ -> SelectImage imgId)
+                            } |> AttributeMap.ofAMap
+
+                        yield div [clazz "item"] [
+                            Incremental.i itemAttributes AList.empty
+                            div [clazz "content"] [
+                                //Incremental.i listAttributes AList.empty
+                                div [clazz "header"] (
+                                    viewImageHeader img imgId
+                                )      
+                            ]
+                        ]
+                }
+            )
+
+        
+
+            
+
+        let viewProjectedImagesProperties (m : AdaptiveViewPlan) = 
+            
+            let readImagesGui =
+                let attributes = 
+                    alist {
+                        yield Dialogs.onChooseFiles LoadImage;
+                        yield clientEvent "onclick" (Dialogs.jsImportImagesDialog)
+                        yield (style "word-break: break-all")
+                    } |> AttributeMap.ofAList 
+
+                let content =
+                        alist {
+                            yield i [clazz "ui button tiny"] []
+                        }
+                Incremental.div attributes content
+            let jsImportImageInfoDialog =
+                                "top.aardvark.dialog.showOpenDialog({title:'Import Imageinfo files' , filters: [{ name: '(*.json)', extensions: ['json']},], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+            let readImageInfoGui =
+                let attributes = 
+                    alist {
+                        yield Dialogs.onChooseFiles ImportExInTrinsics;
+                        yield clientEvent "onclick" (jsImportImageInfoDialog)
+                        yield (style "word-break: break-all")
+                    } |> AttributeMap.ofAList 
+
+                let content =
+                        alist {
+                            yield i [clazz "ui button tiny"] []
+                        }
+                Incremental.div attributes content
+
+                //let ui = 
+                //    alist {
+                //        yield
+                //            div [ 
+                //                clazz "ui item";
+                //                Dialogs.onChooseFiles  LoadImage;
+                //                clientEvent "onclick" Dialogs.jsImportImagesDialog
+                //            ] [
+                //                text "load image"
+                //            ]
+                //    }
+                
+                //Incremental.div(AttributeMap.Empty) ui // |> UI.map this.Action
+
+            require GuiEx.semui (
+                Html.table [
+                     Html.row "use image:"  [ GuiEx.iconCheckBox m.footPrint.useProjectedImage ToggleProjectedImage ]
+                     Html.row "load image" [ readImagesGui ]
+                     Html.row "load image info"  [readImageInfoGui]
+                     Html.row "Images:" [ viewProjedtedImages m ]
+                     ] 
+                
+            )
+
         let viewDepthColorLegendUI (m : AdaptiveViewPlan) = 
             m.footPrint.depthColorLegend
             |> FalseColorLegendApp.viewDepthLegendProperties DepthColorLegendMessage 
             |> AVal.constant
 
-        let viewDepthImageProperties (diVisible:aval<bool>) (model : AdaptiveViewPlanModel) (m : AdaptiveViewPlan) = 
+        let viewDepthImageProperties (m : AdaptiveViewPlan) = 
           m.selectedInstrument 
             |> AVal.map(fun x ->
               match x with 
@@ -1184,8 +1406,11 @@ module ViewPlanApp =
                      Html.row "Footprint:" [   
                         Incremental.div AttributeMap.empty (AList.ofAValSingle ( viewFootprintProperties fpVisible m ))
                      ]
+                     Html.row "ProjectedImages:" [   
+                        Incremental.div AttributeMap.empty (AList.ofAValSingle ( (viewProjectedImagesProperties m)|> AVal.constant ))
+                     ]
                      Html.row "Depthimage:" [   
-                        Incremental.div AttributeMap.empty (AList.ofAValSingle ( viewDepthImageProperties diVisible model m ))
+                        Incremental.div AttributeMap.empty (AList.ofAValSingle ( viewDepthImageProperties m ))
                      ]
                      Html.row "Colors:" [   
                         Incremental.div AttributeMap.empty (AList.ofAValSingle (viewDepthColorLegendUI m))

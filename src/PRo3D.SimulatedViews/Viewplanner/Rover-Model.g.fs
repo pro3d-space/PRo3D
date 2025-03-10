@@ -1,5 +1,5 @@
-//c9813624-3291-4e7a-8640-469cd7e007da
-//d2c328c5-9ea5-c2f2-a2ab-876f80847784
+//dd7a2992-ff19-cb40-c0b9-7a63c6f3476c
+//a775f9de-7822-d6b0-20e0-b58f042e7eff
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -238,7 +238,47 @@ module SimulatedViewDataLenses =
         static member calibration_ = ((fun (self : SimulatedViewData) -> self.calibration), (fun (value : Calibration) (self : SimulatedViewData) -> { self with calibration = value }))
         static member acquisition_ = ((fun (self : SimulatedViewData) -> self.acquisition), (fun (value : Acquisition) (self : SimulatedViewData) -> { self with acquisition = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
+type AdaptiveProjectedImage(value : ProjectedImage) =
+    let _version_ = FSharp.Data.Adaptive.cval(value.version)
+    let _intrinsics_ = FSharp.Data.Adaptive.cval(value.intrinsics)
+    let _extrinsics_ =
+        let inline __arg2 (o : System.Object) (v : Extrinsics) =
+            (unbox<AdaptiveExtrinsics> o).Update(v)
+            o
+        let inline __arg5 (o : System.Object) (v : Extrinsics) =
+            (unbox<AdaptiveExtrinsics> o).Update(v)
+            o
+        Adaptify.FSharp.Core.AdaptiveOption<PRo3D.SimulatedViews.Extrinsics, PRo3D.SimulatedViews.AdaptiveExtrinsics, PRo3D.SimulatedViews.AdaptiveExtrinsics>(value.extrinsics, (fun (v : Extrinsics) -> AdaptiveExtrinsics(v) :> System.Object), __arg2, (fun (o : System.Object) -> unbox<AdaptiveExtrinsics> o), (fun (v : Extrinsics) -> AdaptiveExtrinsics(v) :> System.Object), __arg5, (fun (o : System.Object) -> unbox<AdaptiveExtrinsics> o))
+    let _image_ = FSharp.Data.Adaptive.cval(value.image)
+    let mutable __value = value
+    let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
+    static member Create(value : ProjectedImage) = AdaptiveProjectedImage(value)
+    static member Unpersist = Adaptify.Unpersist.create (fun (value : ProjectedImage) -> AdaptiveProjectedImage(value)) (fun (adaptive : AdaptiveProjectedImage) (value : ProjectedImage) -> adaptive.Update(value))
+    member __.Update(value : ProjectedImage) =
+        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<ProjectedImage>.ShallowEquals(value, __value))) then
+            __value <- value
+            __adaptive.MarkOutdated()
+            _version_.Value <- value.version
+            _intrinsics_.Value <- value.intrinsics
+            _extrinsics_.Update(value.extrinsics)
+            _image_.Value <- value.image
+    member __.Current = __adaptive
+    member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
+    member __.id = __value.id
+    member __.intrinsics = _intrinsics_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<Intrinsics>>
+    member __.extrinsics = _extrinsics_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<Extrinsics, AdaptiveExtrinsics, AdaptiveExtrinsics>>
+    member __.image = _image_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
+[<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
+module ProjectedImageLenses = 
+    type ProjectedImage with
+        static member version_ = ((fun (self : ProjectedImage) -> self.version), (fun (value : Microsoft.FSharp.Core.int) (self : ProjectedImage) -> { self with version = value }))
+        static member id_ = ((fun (self : ProjectedImage) -> self.id), (fun (value : System.Guid) (self : ProjectedImage) -> { self with id = value }))
+        static member intrinsics_ = ((fun (self : ProjectedImage) -> self.intrinsics), (fun (value : Microsoft.FSharp.Core.Option<Intrinsics>) (self : ProjectedImage) -> { self with intrinsics = value }))
+        static member extrinsics_ = ((fun (self : ProjectedImage) -> self.extrinsics), (fun (value : Microsoft.FSharp.Core.Option<Extrinsics>) (self : ProjectedImage) -> { self with extrinsics = value }))
+        static member image_ = ((fun (self : ProjectedImage) -> self.image), (fun (value : Microsoft.FSharp.Core.string) (self : ProjectedImage) -> { self with image = value }))
+[<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveFootPrint(value : FootPrint) =
+    let _version_ = FSharp.Data.Adaptive.cval(value.version)
     let _vpId_ = FSharp.Data.Adaptive.cval(value.vpId)
     let _isVisible_ = FSharp.Data.Adaptive.cval(value.isVisible)
     let _projectionMatrix_ = FSharp.Data.Adaptive.cval(value.projectionMatrix)
@@ -248,6 +288,13 @@ type AdaptiveFootPrint(value : FootPrint) =
     let _depthTexture_ = FSharp.Data.Adaptive.cval(value.depthTexture)
     let _isDepthVisible_ = FSharp.Data.Adaptive.cval(value.isDepthVisible)
     let _depthColorLegend_ = PRo3D.Base.AdaptiveFalseColorsModel(value.depthColorLegend)
+    let _useProjectedImage_ = FSharp.Data.Adaptive.cval(value.useProjectedImage)
+    let _images_ =
+        let inline __arg2 (m : AdaptiveProjectedImage) (v : ProjectedImage) =
+            m.Update(v)
+            m
+        FSharp.Data.Traceable.ChangeableModelMap(value.images, (fun (v : ProjectedImage) -> AdaptiveProjectedImage(v)), __arg2, (fun (m : AdaptiveProjectedImage) -> m))
+    let _selectedImage_ = FSharp.Data.Adaptive.cval(value.selectedImage)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : FootPrint) = AdaptiveFootPrint(value)
@@ -256,6 +303,7 @@ type AdaptiveFootPrint(value : FootPrint) =
         if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<FootPrint>.ShallowEquals(value, __value))) then
             __value <- value
             __adaptive.MarkOutdated()
+            _version_.Value <- value.version
             _vpId_.Value <- value.vpId
             _isVisible_.Value <- value.isVisible
             _projectionMatrix_.Value <- value.projectionMatrix
@@ -265,7 +313,11 @@ type AdaptiveFootPrint(value : FootPrint) =
             _depthTexture_.Value <- value.depthTexture
             _isDepthVisible_.Value <- value.isDepthVisible
             _depthColorLegend_.Update(value.depthColorLegend)
+            _useProjectedImage_.Value <- value.useProjectedImage
+            _images_.Update(value.images)
+            _selectedImage_.Value <- value.selectedImage
     member __.Current = __adaptive
+    member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.vpId = _vpId_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<System.Guid>>
     member __.isVisible = _isVisible_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.projectionMatrix = _projectionMatrix_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.M44d>
@@ -275,9 +327,13 @@ type AdaptiveFootPrint(value : FootPrint) =
     member __.depthTexture = _depthTexture_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Aardvark.Rendering.IBackendTexture>>
     member __.isDepthVisible = _isDepthVisible_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.depthColorLegend = _depthColorLegend_
+    member __.useProjectedImage = _useProjectedImage_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.images = _images_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveProjectedImage>
+    member __.selectedImage = _selectedImage_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<System.Guid>>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module FootPrintLenses = 
     type FootPrint with
+        static member version_ = ((fun (self : FootPrint) -> self.version), (fun (value : Microsoft.FSharp.Core.int) (self : FootPrint) -> { self with version = value }))
         static member vpId_ = ((fun (self : FootPrint) -> self.vpId), (fun (value : Microsoft.FSharp.Core.option<System.Guid>) (self : FootPrint) -> { self with vpId = value }))
         static member isVisible_ = ((fun (self : FootPrint) -> self.isVisible), (fun (value : Microsoft.FSharp.Core.bool) (self : FootPrint) -> { self with isVisible = value }))
         static member projectionMatrix_ = ((fun (self : FootPrint) -> self.projectionMatrix), (fun (value : Aardvark.Base.M44d) (self : FootPrint) -> { self with projectionMatrix = value }))
@@ -287,6 +343,9 @@ module FootPrintLenses =
         static member depthTexture_ = ((fun (self : FootPrint) -> self.depthTexture), (fun (value : Microsoft.FSharp.Core.option<Aardvark.Rendering.IBackendTexture>) (self : FootPrint) -> { self with depthTexture = value }))
         static member isDepthVisible_ = ((fun (self : FootPrint) -> self.isDepthVisible), (fun (value : Microsoft.FSharp.Core.bool) (self : FootPrint) -> { self with isDepthVisible = value }))
         static member depthColorLegend_ = ((fun (self : FootPrint) -> self.depthColorLegend), (fun (value : PRo3D.Base.FalseColorsModel) (self : FootPrint) -> { self with depthColorLegend = value }))
+        static member useProjectedImage_ = ((fun (self : FootPrint) -> self.useProjectedImage), (fun (value : Microsoft.FSharp.Core.bool) (self : FootPrint) -> { self with useProjectedImage = value }))
+        static member images_ = ((fun (self : FootPrint) -> self.images), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, ProjectedImage>) (self : FootPrint) -> { self with images = value }))
+        static member selectedImage_ = ((fun (self : FootPrint) -> self.selectedImage), (fun (value : Microsoft.FSharp.Core.Option<System.Guid>) (self : FootPrint) -> { self with selectedImage = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveViewPlan(value : ViewPlan) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)

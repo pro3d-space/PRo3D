@@ -625,6 +625,65 @@ with
     }
 
 [<ModelType>]
+type ProjectedImage  = {
+    version         : int
+    [<NonAdaptive>]
+    id              : Guid
+    intrinsics      : Option<Intrinsics>
+    extrinsics      : Option<Extrinsics>
+    image           : string
+
+}
+
+module ProjectedImage  =
+    let current = 0
+
+    let initProjectedImage (path : string) = {
+        version    = current
+        id         = Guid.NewGuid()
+        intrinsics = None 
+        extrinsics = None
+        image      = path
+    }
+
+    let read0 =
+        json {
+            
+            let! id         = Json.read "id"
+            let! intrinsics = Json.tryRead "intrinsics"
+            let! extrinsics = Json.tryRead "extrinsics"
+            let! image      = Json.read "image"
+            return 
+                {
+                    version    = current
+                    id         = id |> Guid
+                    intrinsics = match intrinsics with |Some i -> Some i |None -> None
+                    extrinsics = match extrinsics with |Some i -> Some i |None -> None
+                    image      = image
+                }
+        }
+
+type ProjectedImage  with
+    static member FromJson(_ : ProjectedImage ) =
+        json {
+            let! v = Json.read "version"
+            match v with 
+            | 0 -> return! ProjectedImage .read0
+            | _ -> 
+                return! v 
+                |> sprintf "don't know version %A  of ProjectedImage "
+                |> Json.error
+        }
+    static member ToJson(x : ProjectedImage ) =
+        json {
+            do! Json.write "version" x.version
+            do! Json.write "id" x.id
+            do! Json.write "intrinsics" x.intrinsics
+            do! Json.write "extrinsics" x.extrinsics   
+            do! Json.write "image" x.image 
+        } 
+
+[<ModelType>]
 type FootPrint = {
     version             : int
     vpId                : option<Guid>
@@ -636,6 +695,12 @@ type FootPrint = {
     depthTexture        : option<IBackendTexture>
     isDepthVisible      : bool
     depthColorLegend    : FalseColorsModel
+
+    // @Harri: stuff for image projection
+    useProjectedImage   : bool
+    images              : HashMap<Guid,ProjectedImage>
+    selectedImage       : Option<Guid>
+
 }
 
 module FootPrint =
@@ -658,6 +723,9 @@ module FootPrint =
         depthTexture        = None
         isDepthVisible      = false
         depthColorLegend    = FalseColorsModel.initDepthLegend
+        useProjectedImage   = false
+        images              = HashMap.Empty
+        selectedImage       = None
     }
 
     let read0 =
@@ -666,6 +734,12 @@ module FootPrint =
             let! isVisible          = Json.read "isVisible"
             let! isDepthVisible     = Json.read "isDepthVisible"
             let! depthColorLegend   = Json.tryRead "depthColorLegend"
+            let! useProjectedImage  = Json.tryRead "useProjectedImage"
+            let! images             = Json.tryRead "images"
+            let images              = match images with
+                                        | Some i -> i|> List.map(fun (a : ProjectedImage) -> (a.id, a)) |> HashMap.ofList
+                                        | None -> HashMap.Empty
+            let! selectedImage      = Json.tryRead "selectedImage"
             return 
                 {
                     version             = current
@@ -677,7 +751,10 @@ module FootPrint =
                     globalToLocalPos    = V3d.OOO
                     depthTexture        = None
                     isDepthVisible      = isDepthVisible
-                    depthColorLegend    = match depthColorLegend with | Some dcl -> dcl | None -> FalseColorsModel.initDepthLegend //depthColorLegend //
+                    depthColorLegend    = match depthColorLegend with | Some dcl -> dcl | None -> FalseColorsModel.initDepthLegend 
+                    useProjectedImage   = match useProjectedImage with | Some pi -> pi | None -> false
+                    images              = images
+                    selectedImage       = selectedImage
                 }
         }
 
@@ -698,6 +775,10 @@ type FootPrint with
             do! Json.write "isVisible" x.isVisible 
             do! Json.write "isDepthVisible" x.isDepthVisible 
             do! Json.write "depthColorLegend" x.depthColorLegend
+            do! Json.write "useProjectedImage" x.useProjectedImage 
+            do! Json.write "images" (x.images |> HashMap.toList |> List.map snd)
+            if x.selectedImage.IsSome then
+                do! Json.write "selectedImage" (x.selectedImage.Value.ToString())
         }
 
 [<ModelType>]
@@ -774,7 +855,7 @@ module ViewPlan =
                     selectedAxis       = selectedAxis
 
                     currentAngle = currentAngle
-                    footPrint         = match footPrint with | Some fp -> fp  | None -> FootPrint.initFootPrint //FootPrint.initFootPrint//
+                    footPrint         = match footPrint with | Some fp -> fp  | None -> FootPrint.initFootPrint 
                 }
         }
 
@@ -1116,6 +1197,10 @@ module FootPrintUtils =
                 depthTexture     = None
                 isDepthVisible   = vp.footPrint.isDepthVisible
                 depthColorLegend = vp.footPrint.depthColorLegend //FalseColorsModel.initDepthLegend
+
+                useProjectedImage   = vp.footPrint.useProjectedImage //false
+                images              = vp.footPrint.images //HashMap.Empty
+                selectedImage       = vp.footPrint.selectedImage 
             }
         fp //{ model with footPrint = fp }
     
