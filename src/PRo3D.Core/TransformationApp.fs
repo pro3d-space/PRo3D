@@ -162,7 +162,7 @@ module TransformationApp =
            //// do translation than rotation (not sure why this order is working)
            //let newTrafo = rotAndScale * translationTrafo
            
-           fullTrafo
+           observerationTrafo * fullTrafo
     
 
     let fullTrafo 

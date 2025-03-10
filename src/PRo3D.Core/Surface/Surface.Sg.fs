@@ -218,13 +218,18 @@ module Sg =
         let lodDeciderMars = lodDeciderMars scene.preTransform
         //let lodDeciderMars = marsArea scene.preTransform
 
-        let map = 
+        let projectedImages = ImageProjectionOpcExtensions.projectionUniformMap
+
+        let footprintUniforms = 
             Map.ofList [
                 "FootprintModelViewProj", fun scope (patch : RenderPatch) -> 
-                    let viewTrafo,_ = scope |> unbox<aval<M44d> * obj>
+                    let context = unbox<OpcRenderingExtensions.Context> scope
+                    let viewTrafo = context.footprintVP
                     let r = AVal.map2 (fun viewTrafo (model : Trafo3d) -> viewTrafo * model.Forward) viewTrafo patch.trafo 
                     r :> IAdaptiveValue
             ]
+
+        let allUniforms = Map.unionMany [projectedImages; projectedImages; ]
 
         // create level of detail hierarchy (Sg)
         let g = 
@@ -250,7 +255,7 @@ module Sg =
                         PatchLod.CoordinatesMapping.Local, 
                         useAsyncLoading, 
                         OpcRenderingExtensions.captureContext, 
-                        map,
+                        allUniforms,
                         PatchLod.toRoseTree h.tree,
                         Some (getTextures h.opcPaths), 
                         Some (getVertexAttributes h.opcPaths), 

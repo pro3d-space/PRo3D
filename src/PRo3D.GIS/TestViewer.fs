@@ -97,10 +97,22 @@ module TestViewer =
 
         let marsToReferenceFrame = marsToRefFrame "MARS" observer.Value referenceFrame.Value "IAU_MARS" |> Option.get
 
+
+        let getLookAt (viewerBody : string) (observer : string) (referenceFrame : string) (supportBody : string) (time : DateTime) =
+            let afc1Pos = CooTransformation.getRelState viewerBody supportBody observer time referenceFrame
+            match afc1Pos with    
+            | Some targetState -> 
+                let rot = targetState.rot
+                let t = Trafo3d.FromBasis(rot.C0, rot.C1, rot.C2, targetState.pos)
+                CameraView.ofTrafo t.Inverse |> Some 
+            | _ -> 
+                None
+                
         //let initialView = CameraView.lookAt targetState.pos V3d.Zero V3d.OOI |> cval
         let bb =  Box3d.Parse("[[701677.203042967, 3141128.733093360, 1075935.257765322], [701942.935458576, 3141252.724183598, 1076182.681085336]]").Transformed(marsToReferenceFrame)
         let initialView = CameraView.lookAt bb.Max bb.Center bb.Center.Normalized |> cval
         let initialView = CameraView.lookAt -hera bb.Center V3d.OOI |> cval
+        //let initialView = (getLookAt "DEIMOS" observer.Value referenceFrame.Value "SUN" time.Value).Value |> cval
         let speed = 7900.0 * 100.0 |> cval
         let cameraMode = cval CameraMode.Orbit
 
@@ -131,7 +143,7 @@ module TestViewer =
         let aspect = win.Sizes |> AVal.map (fun s -> float s.X / float s.Y)
 
 
-        let opcSurfaces = [] //["mars"] //["mars"]
+        let opcSurfaces =["mars"]// ["mars"] //["mars"]
 
 
         let getRenderingParameters (b : string) : Rendering.BodyRenderingParameters = 
@@ -148,25 +160,16 @@ module TestViewer =
             }
 
         let instruments =
-            let frustum = Frustum.perspective 5.5306897076421 10000000.0 distanceSunPluto 1.0
+            let frustum = Frustum.perspective 5.5306897076421 1000.0 distanceSunPluto 1.0
             Map.ofList [
                 "HERA_AFC-1", frustum
                 "HERA_AFC-2", frustum
             ]
 
-        let getLookAt (viewerBody : string) (observer : string) (referenceFrame : string) (supportBody : string) (time : DateTime) =
-            let afc1Pos = CooTransformation.getRelState viewerBody supportBody observer time referenceFrame
-            match afc1Pos with    
-            | Some targetState -> 
-                let rot = targetState.rot
-                let t = Trafo3d.FromBasis(rot.C0, rot.C1, rot.C2, targetState.pos)
-                CameraView.ofTrafo t.Inverse |> Some 
-            | _ -> 
-                None
 
 
-        let startTime = DateTime.Parse("2025-03-12 11:30:20.482190Z", CultureInfo.InvariantCulture)
-        let endTime = DateTime.Parse("2025-03-12 15:20:20.482190Z", CultureInfo.InvariantCulture)
+        let startTime = DateTime.Parse("2025-03-12 10:30:20.482190Z", CultureInfo.InvariantCulture)
+        let endTime = DateTime.Parse("2025-03-12 13:20:20.482190Z", CultureInfo.InvariantCulture)
         let shots = (endTime - startTime) / TimeSpan.FromMinutes(2) |> ceil |> int
         let observationTimes = ProjectedImages.splitTimes startTime endTime shots
 
@@ -202,7 +205,22 @@ module TestViewer =
             let observations = observationTimes |> ProjectedImages.computeProjections p
             Array.zip observationTimes observations
 
-        let firstProjection = marsObservations |> (snd << Array.head) |> AVal.constant
+        let currentProjection =   
+            AVal.custom (fun t -> 
+                let time = time.GetValue(t)
+                let observer = observer.GetValue(t)
+                let referenceFrame = referenceFrame.GetValue()
+                let p = {
+                    worldReferenceSystem = referenceFrame
+                    observer = observer
+                    sourceReferenceFrame = "IAU_MARS"
+                    target = CameraFocus.FocusBody "MARS"
+                    cameraSource = CameraSource.InBody "HERA"
+                    instrument = Intrinsics.Plain instruments["HERA_AFC-1"]
+                    supportBody = "SUN"
+                }
+                ProjectedImages.projectOnto p time
+            )
         let prio = RenderPass.after "priority" RenderPassOrder.Arbitrary RenderPass.main 
 
         let hierarchies = 
@@ -229,12 +247,13 @@ module TestViewer =
                     let h = PatchHierarchy.load serializer.Pickle serializer.UnPickle (OpcPaths.OpcPaths basePath)
                     let t = PatchLod.toRoseTree h.tree
 
-                    let imageProjection = firstProjection |> AVal.map Option.Some
+                    //let imageProjection = firstProjection |> AVal.map Option.Some
                     let localImageProjectionTrafos = marsObservations |> Array.map snd |> AVal.constant
                     let sunLight = sunLightDirection |> AVal.map Option.Some
 
-                    let additionalUniforms = 
-                        PRo3D.Core.ImageProjectionOpcExtensions.projectionUniformMap imageProjection localImageProjectionTrafos sunLight (AVal.constant true)
+                    //let additionalUniforms = 
+                    //    PRo3D.Core.ImageProjectionOpcExtensions.projectionUniformMap imageProjection localImageProjectionTrafos sunLight (AVal.constant true)
+                    let additionalUniforms = PRo3D.Core.ImageProjectionOpcExtensions.projectionUniformMap 
 
                     let n =
                         Aardvark.GeoSpatial.Opc.PatchLod.PatchNode(
@@ -245,6 +264,17 @@ module TestViewer =
                         )
 
                     n
+                    |> Sg.applyBody "MARS"
+                    |> Sg.applyProjectedImages' (
+                        Some (fun s -> 
+                            Some {
+                                imageProjection = currentProjection
+                                localImageProjectionTrafos = localImageProjectionTrafos
+                                sunDirection  = sunLight
+                                sunLightEnabled = sunLightEnabled
+                            }
+                        )
+                     )
                 ) 
  
             let mola = 
@@ -258,7 +288,7 @@ module TestViewer =
                 |> Sg.pass prio
 
             Sg.ofList [
-                //mola; 
+                mola; 
                 hirise
             ]
             
@@ -386,15 +416,15 @@ module TestViewer =
                 do! DefaultSurfaces.constantColor C4f.White 
                 do! DefaultSurfaces.diffuseTexture 
                 do! Shaders.solarLighting
-                //do! ImageProjection.Shaders.localImageProjections
-                //do! ImageProjection.Shaders.stableImageProjection
+                do! ImageProjection.Shaders.localImageProjections
+                do! ImageProjection.Shaders.stableImageProjection
                 //do! Shader.LoDColor 
             }
             |> PRo3D.Core.Surface.Sg.applyFootprint (AVal.constant M44d.Identity)
             |> Aardvark.GeoSpatial.Opc.SecondaryTexture.Sg.applySecondaryTextureId (AVal.constant 0)
             |> Sg.uniform "LodVisEnabled" (cval false)
             |> Sg.uniform "ProjectedImagesLocalTrafosCount" projectionCount //count
-            |> Sg.fileTexture "ProjectedTexture" @"C:\Users\haral\Pictures\OIP.jpg" true
+            |> Sg.fileTexture "ProjectedTexture" @"C:\Users\haral\Desktop\pro3d\pro3d-hera\src\PRo3D.GIS\resources\AFC_1020x1020 (2).png" true
             |> Sg.trafo (transformation |> AVal.map fst)
             |> Sg.onOff (transformation |> AVal.map snd)
 

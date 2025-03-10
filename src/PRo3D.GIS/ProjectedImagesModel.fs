@@ -42,7 +42,7 @@ module ProjectedImages =
         match afc1Pos with    
         | Some targetState -> 
             let rot = targetState.rot
-            let t = Trafo3d.FromBasis(rot.C0, rot.C1, rot.C2, targetState.pos)
+            let t = Trafo3d.FromBasis(-rot.C1, rot.C0, rot.C2, targetState.pos)
             CameraView.ofTrafo t.Inverse |> Some 
         | _ -> 
             None

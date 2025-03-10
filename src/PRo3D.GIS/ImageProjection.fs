@@ -55,14 +55,14 @@ module ImageProjection =
                 let normal = uniform.ProjectedImageModelViewProj.TransformDir(v.localNormalNumericallyUnstable) |> Vec.normalize
 
                 let c = 
-                    if uniform.ProjectedImageModelViewProjValid && inRange && (Vec.dot normal V3d.OOI) < 0.0 then
+                    if uniform.ProjectedImageModelViewProjValid && inRange && normal.Z < 0.0 then
                         let c = projectedTexture.Sample(tc.XY) * v.c
                         let xBorder = (smoothstep 0.0 borderWidth tc.X) * smoothstep 1.0 (1.0 - borderWidth) tc.X 
                         let yBorder = (smoothstep 0.0 borderWidth tc.Y) * smoothstep 1.0 (1.0 - borderWidth) tc.Y
                         let borderFactor = xBorder * yBorder
                         let borderColor = V3d(0.0, 1.0, 0.0)
                         let c = c.XYZ * borderFactor + borderColor * (1.0 - borderFactor)
-                        V4d(c, 1.0)
+                        V4d(c.XYZ, 1.0)
                     else
                         v.c
                 return { v with c = c }
@@ -89,6 +89,22 @@ module ImageProjection =
                 else V3d(1.0, 0.0, 0.0) // Red
             color
 
+        [<ReflectedDefinition>]
+        let mapClippedProjectionsToColor2 (validCount : int) (totalCount : int) =
+            let ratio = float validCount / float totalCount
+            let color = 
+                if ratio < 0.1 then V3d(0.0, 0.0, 1.0) // Blue
+                elif ratio < 0.2 then V3d(0.0, 0.5, 1.0) // Light Blue
+                elif ratio < 0.3 then V3d(0.0, 1.0, 1.0) // Cyan
+                elif ratio < 0.4 then V3d(0.0, 1.0, 0.5) // Light Green
+                elif ratio < 0.5 then V3d(0.0, 1.0, 0.0) // Green
+                elif ratio < 0.6 then V3d(0.5, 1.0, 0.0) // Yellow-Green
+                elif ratio < 0.7 then V3d(1.0, 1.0, 0.0) // Yellow
+                elif ratio < 0.8 then V3d(1.0, 0.5, 0.0) // Orange
+                elif ratio < 0.9 then V3d(1.0, 0.0, 0.0) // Red
+                else V3d(0.5, 0.0, 0.0) // Dark Red
+            color
+
         let localImageProjections (v : Vertex) = 
             fragment {
                 let mutable clippedCount = 0
@@ -98,12 +114,12 @@ module ImageProjection =
                     let p = ndc.XYZ / ndc.W
                     let tc = V3d(0.5, 0.5, 0.5) + V3d(0.5, 0.5, 0.5) * p.XYZ
                     let clipped = Vec.anyGreater tc.XY V2d.II || Vec.anySmaller tc.XY V2d.OO
-                    let onRightSide = normal.Z < 0.0
+                    let onRightSide =  normal.Z < 0.0
                     if not onRightSide || clipped then
                         clippedCount <- clippedCount + 1
 
                 if clippedCount < uniform.ProjectedImagesCount then 
-                    let color = mapClippedProjectionsToColor (uniform.ProjectedImagesCount  - clippedCount) uniform.ProjectedImagesCount 
+                    let color = mapClippedProjectionsToColor2 (uniform.ProjectedImagesCount  - clippedCount) uniform.ProjectedImagesCount 
                     let c = v.c.XYZ * 0.8 + color * 0.2
                     return V4d(c, 1.0)
                 else 
