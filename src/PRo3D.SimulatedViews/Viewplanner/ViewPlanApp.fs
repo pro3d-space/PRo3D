@@ -270,7 +270,8 @@ module ViewPlanApp =
             isVisible          = true
             selectedInstrument = None
             selectedAxis       = None
-            currentAngle       = angle            
+            currentAngle       = angle
+            footPrint          = FootPrint.initFootPrint
         }
         
         newViewPlan    
@@ -320,7 +321,8 @@ module ViewPlanApp =
             isVisible      = true
             selectedInstrument = None
             selectedAxis   = None
-            currentAngle   = angle            
+            currentAngle   = angle
+            footPrint      = FootPrint.initFootPrint
         }
         
         newViewPlan
@@ -368,7 +370,8 @@ module ViewPlanApp =
             isVisible          = true
             selectedInstrument = None
             selectedAxis       = None
-            currentAngle       = angle         
+            currentAngle       = angle
+            footPrint          = FootPrint.initFootPrint
         }
 
         { model with 
@@ -420,7 +423,7 @@ module ViewPlanApp =
             
             //Log.line "%A" model.instrumentCam.ViewTrafo
             
-            let f = FootPrint.updateFootprint i' vp.position m'
+            let f = FootPrintUtils.updateFootprint i' vp m'
             f,m'
             
         | None -> 
@@ -661,22 +664,33 @@ module ViewPlanApp =
                 outerModel, {model with viewPlans = viewPlans }              
             | None -> outerModel, model
 
-        | ToggleFootprint ->   
-            let fp = Optic.get _footprint outerModel
-            let fp' = { fp with isVisible = not fp.isVisible }
-            let newOuterModel = Optic.set _footprint fp' outerModel
-            let model' = {model with footPrint = fp'}
-            newOuterModel, model'
+        | ToggleFootprint ->  
+            match model.selectedViewPlan with
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid 
+                let fp = Optic.get _footprint outerModel
+                let fp' = { fp with isVisible = not fp.isVisible }
+                let vp' = {selectedVp with footPrint = fp'}
+                let viewPlans = model.viewPlans |> HashMap.add vp'.id vp'
+                let newOuterModel = Optic.set _footprint fp' outerModel
+                newOuterModel, {model with viewPlans = viewPlans }              
+            | None -> outerModel, model
+
+            //let fp = Optic.get _footprint outerModel
+            //let fp' = { fp with isVisible = not fp.isVisible }
+            //let newOuterModel = Optic.set _footprint fp' outerModel
+            //let model' = {model with footPrint = fp'}
+            //newOuterModel, model'
 
         | SaveFootPrint -> 
             match scenepath with
-            | Some sp -> outerModel, (FootPrint.createFootprintData model sp)
+            | Some sp -> outerModel, (FootPrintUtils.createFootprintData model sp)
             | None -> outerModel, model
 
         | OpenFootprintFolder ->
             match scenepath with
             | Some sp -> 
-                let fpPath = FootPrint.getDataPath sp "FootPrints"
+                let fpPath = FootPrintUtils.getDataPath sp "FootPrints"
                 if (not (Directory.Exists fpPath)) then 
                     Directory.CreateDirectory fpPath |> ignore
                 Process.Start("explorer.exe", fpPath) |> ignore
@@ -684,28 +698,52 @@ module ViewPlanApp =
             | None -> outerModel, model   
 
         | ToggleDepth ->   
-            let fp = Optic.get _footprint outerModel
-            let fp' = { fp with isDepthVisible = not fp.isDepthVisible }
-            let newOuterModel = Optic.set _footprint fp' outerModel
-            let model' = {model with footPrint = fp'}
-            newOuterModel, model'
+            match model.selectedViewPlan with
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid 
+                let fp = Optic.get _footprint outerModel
+                let fp' = { fp with isDepthVisible = not fp.isDepthVisible }
+                let vp' = {selectedVp with footPrint = fp'}
+                let viewPlans = model.viewPlans |> HashMap.add vp'.id vp'
+                let newOuterModel = Optic.set _footprint fp' outerModel
+                newOuterModel, {model with viewPlans = viewPlans }              
+            | None -> outerModel, model
+
+            //let fp = Optic.get _footprint outerModel
+            //let fp' = { fp with isDepthVisible = not fp.isDepthVisible }
+            //let newOuterModel = Optic.set _footprint fp' outerModel
+            //let model' = {model with footPrint = fp'}
+            //newOuterModel, model'
 
         | DepthColorLegendMessage msg -> 
-            let fp = Optic.get _footprint outerModel
-            let fp' = { fp with depthColorLegend = FalseColorLegendApp.update fp.depthColorLegend msg }
-            let newOuterModel = Optic.set _footprint fp' outerModel
-            let model' = {model with footPrint = fp'}
-            newOuterModel, model'
+            match model.selectedViewPlan with
+            | Some vpid -> 
+                let selectedVp = model.viewPlans |> HashMap.find vpid 
+                let fp = Optic.get _footprint outerModel
+                let colorUpdate = FalseColorLegendApp.update fp.depthColorLegend msg
+                let fp' = { fp with depthColorLegend = colorUpdate }
+                let vp' = 
+                    {selectedVp with footPrint = fp'}
+                let viewPlans = model.viewPlans |> HashMap.add vp'.id vp'
+                let newOuterModel = Optic.set _footprint fp' outerModel
+                newOuterModel, {model with viewPlans = viewPlans }              
+            | None -> outerModel, model
+
+            //let fp = Optic.get _footprint outerModel
+            //let fp' = { fp with depthColorLegend = FalseColorLegendApp.update fp.depthColorLegend msg }
+            //let newOuterModel = Optic.set _footprint fp' outerModel
+            //let model' = {model with footPrint = fp'}
+            //newOuterModel, model'
 
         | SaveDepthData -> 
             match scenepath with
-            | Some sp -> outerModel, (FootPrint.createFootprintData model sp)
+            | Some sp -> outerModel, (FootPrintUtils.createFootprintData model sp)
             | None -> outerModel, model
 
         | OpenDepthDataFolder ->
             match scenepath with
             | Some sp -> 
-                let fpPath = FootPrint.getDataPath sp "DepthData"
+                let fpPath = FootPrintUtils.getDataPath sp "DepthData"
                 if (Directory.Exists fpPath) then Process.Start("explorer.exe", fpPath) |> ignore
                 outerModel, model
             | None -> outerModel, model   
@@ -1067,14 +1105,14 @@ module ViewPlanApp =
               | AdaptiveSome _ -> 
                 require GuiEx.semui (
                     Html.table [  
-                        Html.row "show footprint:"  [GuiEx.iconCheckBox fpVisible ToggleFootprint]
+                        Html.row "show footprint:"  [GuiEx.iconCheckBox m.footPrint.isVisible ToggleFootprint]
                         Html.row "export footprint:"  [button [clazz "ui button tiny"; onClick (fun _ -> SaveFootPrint )] []]
                         Html.row "open footprint folder:"  [button [clazz "ui button tiny"; onClick (fun _ -> OpenFootprintFolder )] []]
                     ]
                 )
               | AdaptiveNone -> div [] [])
 
-        let viewDepthColorLegendUI (m : AdaptiveViewPlanModel) = 
+        let viewDepthColorLegendUI (m : AdaptiveViewPlan) = 
             m.footPrint.depthColorLegend
             |> FalseColorLegendApp.viewDepthLegendProperties DepthColorLegendMessage 
             |> AVal.constant
@@ -1086,7 +1124,7 @@ module ViewPlanApp =
               | AdaptiveSome _ -> 
                 require GuiEx.semui (
                     Html.table [  
-                        Html.row "show depth:"  [GuiEx.iconCheckBox diVisible ToggleDepth]
+                        Html.row "show depth:"  [GuiEx.iconCheckBox m.footPrint.isDepthVisible ToggleDepth]
                         ] 
                     //]
                     
@@ -1150,7 +1188,7 @@ module ViewPlanApp =
                         Incremental.div AttributeMap.empty (AList.ofAValSingle ( viewDepthImageProperties diVisible model m ))
                      ]
                      Html.row "Colors:" [   
-                        Incremental.div AttributeMap.empty (AList.ofAValSingle (viewDepthColorLegendUI model))
+                        Incremental.div AttributeMap.empty (AList.ofAValSingle (viewDepthColorLegendUI m))
                      ]
                      
                      ]

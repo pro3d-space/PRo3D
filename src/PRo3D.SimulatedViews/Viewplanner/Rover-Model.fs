@@ -626,6 +626,7 @@ with
 
 [<ModelType>]
 type FootPrint = {
+    version             : int
     vpId                : option<Guid>
     isVisible           : bool
     projectionMatrix    : M44d
@@ -637,6 +638,67 @@ type FootPrint = {
     depthColorLegend    : FalseColorsModel
 }
 
+module FootPrint =
+    let current = 0
+
+    let initPixTex = 
+        let res = V2i((int)1024, (int)1024)
+        let pi = PixImage<byte>(Col.Format.RGBA, res)
+        pi.GetMatrix<C4b>().SetByCoord(fun (c : V2l) -> C4b.White) |> ignore
+        PixTexture2d(PixImageMipMap [| (pi.ToPixImage(Col.Format.RGBA)) |], true) :> ITexture
+
+    let initFootPrint = {
+        version             = current
+        vpId                = None
+        isVisible           = false
+        projectionMatrix    = M44d.Identity
+        instViewMatrix      = M44d.Identity
+        projTex             = initPixTex
+        globalToLocalPos    = V3d.OOO
+        depthTexture        = None
+        isDepthVisible      = false
+        depthColorLegend    = FalseColorsModel.initDepthLegend
+    }
+
+    let read0 =
+        json {
+            
+            let! isVisible          = Json.read "isVisible"
+            let! isDepthVisible     = Json.read "isDepthVisible"
+            let! depthColorLegend   = Json.tryRead "depthColorLegend"
+            return 
+                {
+                    version             = current
+                    vpId                = None
+                    isVisible           = isVisible
+                    projectionMatrix    = M44d.Identity
+                    instViewMatrix      = M44d.Identity
+                    projTex             = initPixTex
+                    globalToLocalPos    = V3d.OOO
+                    depthTexture        = None
+                    isDepthVisible      = isDepthVisible
+                    depthColorLegend    = match depthColorLegend with | Some dcl -> dcl | None -> FalseColorsModel.initDepthLegend //depthColorLegend //
+                }
+        }
+
+type FootPrint with
+    static member FromJson(_ : FootPrint) =
+        json {
+            let! v = Json.read "version"
+            match v with 
+            | 0 -> return! FootPrint.read0
+            | _ -> 
+                return! v 
+                |> sprintf "don't know version %A  of FootPrint"
+                |> Json.error
+        }
+    static member ToJson(x : FootPrint) =
+        json {
+            do! Json.write "version" x.version
+            do! Json.write "isVisible" x.isVisible 
+            do! Json.write "isDepthVisible" x.isDepthVisible 
+            do! Json.write "depthColorLegend" x.depthColorLegend
+        }
 
 [<ModelType>]
 type ViewPlan = {
@@ -654,6 +716,9 @@ type ViewPlan = {
     selectedInstrument  : option<Instrument>
     selectedAxis        : option<Axis>
     currentAngle        : NumericInput    
+
+    // laura 6.3.2025 place fp for each vp
+    footPrint           : FootPrint
 }
 
 module ViewPlan =
@@ -687,6 +752,8 @@ module ViewPlan =
             let! selectedAxis        = Json.read "selectedAxis"
             let! currentAngle   = Json.readWith Ext.fromJson<NumericInput,Ext> "currentAngle"
 
+            let! footPrint      = Json.tryRead "footPrint"
+
             return 
                 {
                     version         = current
@@ -707,6 +774,7 @@ module ViewPlan =
                     selectedAxis       = selectedAxis
 
                     currentAngle = currentAngle
+                    footPrint         = match footPrint with | Some fp -> fp  | None -> FootPrint.initFootPrint //FootPrint.initFootPrint//
                 }
         }
 
@@ -742,6 +810,7 @@ type ViewPlan with
             do! Json.write "selectedInstrument" x.selectedInstrument
             do! Json.write "selectedAxis" x.selectedAxis  
             do! Json.writeWith Ext.toJson<NumericInput,Ext> "currentAngle" x.currentAngle
+            do! Json.write "footPrint"  x.footPrint
         }
 
     //let initial = {
@@ -771,30 +840,12 @@ type ViewPlanModel = {
     roverModel          : RoverModel
     instrumentCam       : CameraView
     instrumentFrustum   : Frustum
-    footPrint           : FootPrint
+    //footPrint           : FootPrint
     
 }
 
 module ViewPlanModel = 
     let current = 1 
-           
-    let initPixTex = 
-        let res = V2i((int)1024, (int)1024)
-        let pi = PixImage<byte>(Col.Format.RGBA, res)
-        pi.GetMatrix<C4b>().SetByCoord(fun (c : V2l) -> C4b.White) |> ignore
-        PixTexture2d(PixImageMipMap [| (pi.ToPixImage(Col.Format.RGBA)) |], true) :> ITexture
-
-    let initFootPrint = {
-        vpId                = None
-        isVisible           = false
-        projectionMatrix    = M44d.Identity
-        instViewMatrix      = M44d.Identity
-        projTex             = initPixTex
-        globalToLocalPos    = V3d.OOO
-        depthTexture        = None
-        isDepthVisible      = false
-        depthColorLegend    = FalseColorsModel.initDepthLegend
-    }
 
     let initial = {
         version           = current
@@ -804,7 +855,7 @@ module ViewPlanModel =
         roverModel        = RoverModel.initial
         instrumentCam     = CameraView.lookAt V3d.Zero V3d.One V3d.OOI
         instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
-        footPrint         = initFootPrint        
+        //footPrint         = FootPrint.initFootPrint        
     }
 
     let readV0 = 
@@ -820,7 +871,7 @@ module ViewPlanModel =
                 roverModel        = RoverModel.initial
                 instrumentCam     = CameraView.lookAt V3d.Zero V3d.One V3d.OOI
                 instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
-                footPrint         = initFootPrint                
+                //footPrint         = FootPrint.initFootPrint                
             }
         }    
 
@@ -829,16 +880,17 @@ module ViewPlanModel =
 
             let! viewPlans = Json.read "viewPlans"
             let viewPlans = viewPlans |> List.map(fun (a : ViewPlan) -> (a.id, a)) |> HashMap.ofList
+            let! selectedVp = Json.tryRead "selectedViewPlan"
 
             return {
                 version           = current
                 viewPlans         = viewPlans 
-                selectedViewPlan  = None
+                selectedViewPlan  = selectedVp //None
                 working           = list.Empty
                 roverModel        = RoverModel.initial
                 instrumentCam     = CameraView.lookAt V3d.Zero V3d.One V3d.OOI
                 instrumentFrustum = Frustum.perspective 60.0 0.1 10000.0 1.0
-                footPrint         = initFootPrint                
+                //footPrint         = FootPrint.initFootPrint                
             }
         }    
 
@@ -854,10 +906,12 @@ type ViewPlanModel with
     static member ToJson (x : ViewPlanModel) =
         json {
             do! Json.write "version"             x.version
-            do! Json.write "viewPlans"       (x.viewPlans |> HashMap.toList |> List.map snd)
+            do! Json.write "viewPlans"           (x.viewPlans |> HashMap.toList |> List.map snd)
+            if x.selectedViewPlan.IsSome then
+                do! Json.write "selectedViewPlan" (x.selectedViewPlan.Value.ToString())
         }
 
-module FootPrint = 
+module FootPrintUtils = 
         
     let getDataPath (scenePath:string) (dirName:string) =
         let path = Path.GetDirectoryName scenePath
@@ -926,7 +980,9 @@ module FootPrint =
             //let task : IRenderTask =  runtimeInstance.CompileRender(signature, render2TextureSg)
             //let taskclear : IRenderTask = runtimeInstance.CompileClear(signature,Mod.constant C4f.Black,Mod.constant 1.0)
             //let realTask = RenderTask.ofList [taskclear; task]
-            { vp with footPrint = {vp.footPrint with depthTexture = Some depth}}
+            let updatedVp = {selectedVp with footPrint = {selectedVp.footPrint with depthTexture = Some depth}}
+            let viewPlans = vp.viewPlans |> HashMap.alter updatedVp.id (function | Some _ -> Some selectedVp | None -> None )
+            { vp with viewPlans = viewPlans}
         | None -> vp
 
         
@@ -1035,7 +1091,7 @@ module FootPrint =
             vp
         | None -> vp
     
-    let updateFootprint (instrument:Instrument) (roverpos:V3d) (model:ViewPlanModel) =
+    let updateFootprint (instrument:Instrument) (vp: ViewPlan) (model:ViewPlanModel) =
         
         let res = V2i((int)instrument.intrinsics.horizontalResolution, (int)instrument.intrinsics.verticalResolution)
         //let image = PixImage<byte>(Col.Format.RGB,res).ToPixImage(Col.Format.RGB)
@@ -1050,15 +1106,16 @@ module FootPrint =
 
         let fp = 
             { 
+                version          = vp.footPrint.version
                 vpId             = model.selectedViewPlan
-                isVisible        = model.footPrint.isVisible //true
+                isVisible        = vp.footPrint.isVisible //true
                 projectionMatrix = (model.instrumentFrustum |> Frustum.projTrafo).Forward
                 instViewMatrix   = model.instrumentCam.ViewTrafo.Forward
                 projTex          = DefaultTextures.blackTex.GetValue()
-                globalToLocalPos = roverpos //transformenExt.position
+                globalToLocalPos = vp.position
                 depthTexture     = None
-                isDepthVisible   = model.footPrint.isDepthVisible
-                depthColorLegend = model.footPrint.depthColorLegend //FalseColorsModel.initDepthLegend
+                isDepthVisible   = vp.footPrint.isDepthVisible
+                depthColorLegend = vp.footPrint.depthColorLegend //FalseColorsModel.initDepthLegend
             }
         fp //{ model with footPrint = fp }
     

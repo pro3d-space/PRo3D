@@ -1,5 +1,5 @@
-//296cb7a5-e19b-f937-81d2-1441ae6c0a3d
-//d58b2316-e3d0-86a4-c27f-6ead0e34cb7b
+//c9813624-3291-4e7a-8640-469cd7e007da
+//d2c328c5-9ea5-c2f2-a2ab-876f80847784
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -315,6 +315,7 @@ type AdaptiveViewPlan(value : ViewPlan) =
             o
         Adaptify.FSharp.Core.AdaptiveOption<PRo3D.SimulatedViews.Axis, PRo3D.SimulatedViews.AdaptiveAxis, PRo3D.SimulatedViews.AdaptiveAxis>(value.selectedAxis, (fun (v : Axis) -> AdaptiveAxis(v) :> System.Object), __arg2, (fun (o : System.Object) -> unbox<AdaptiveAxis> o), (fun (v : Axis) -> AdaptiveAxis(v) :> System.Object), __arg5, (fun (o : System.Object) -> unbox<AdaptiveAxis> o))
     let _currentAngle_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.currentAngle)
+    let _footPrint_ = AdaptiveFootPrint(value.footPrint)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : ViewPlan) = AdaptiveViewPlan(value)
@@ -335,6 +336,7 @@ type AdaptiveViewPlan(value : ViewPlan) =
             _selectedInstrument_.Update(value.selectedInstrument)
             _selectedAxis_.Update(value.selectedAxis)
             _currentAngle_.Update(value.currentAngle)
+            _footPrint_.Update(value.footPrint)
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.id = __value.id
@@ -349,6 +351,7 @@ type AdaptiveViewPlan(value : ViewPlan) =
     member __.selectedInstrument = _selectedInstrument_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<Instrument, AdaptiveInstrument, AdaptiveInstrument>>
     member __.selectedAxis = _selectedAxis_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<Axis, AdaptiveAxis, AdaptiveAxis>>
     member __.currentAngle = _currentAngle_
+    member __.footPrint = _footPrint_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module ViewPlanLenses = 
     type ViewPlan with
@@ -365,6 +368,7 @@ module ViewPlanLenses =
         static member selectedInstrument_ = ((fun (self : ViewPlan) -> self.selectedInstrument), (fun (value : Microsoft.FSharp.Core.option<Instrument>) (self : ViewPlan) -> { self with selectedInstrument = value }))
         static member selectedAxis_ = ((fun (self : ViewPlan) -> self.selectedAxis), (fun (value : Microsoft.FSharp.Core.option<Axis>) (self : ViewPlan) -> { self with selectedAxis = value }))
         static member currentAngle_ = ((fun (self : ViewPlan) -> self.currentAngle), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ViewPlan) -> { self with currentAngle = value }))
+        static member footPrint_ = ((fun (self : ViewPlan) -> self.footPrint), (fun (value : FootPrint) (self : ViewPlan) -> { self with footPrint = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveViewPlanModel(value : ViewPlanModel) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)
@@ -378,7 +382,6 @@ type AdaptiveViewPlanModel(value : ViewPlanModel) =
     let _roverModel_ = AdaptiveRoverModel(value.roverModel)
     let _instrumentCam_ = FSharp.Data.Adaptive.cval(value.instrumentCam)
     let _instrumentFrustum_ = FSharp.Data.Adaptive.cval(value.instrumentFrustum)
-    let _footPrint_ = AdaptiveFootPrint(value.footPrint)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : ViewPlanModel) = AdaptiveViewPlanModel(value)
@@ -394,7 +397,6 @@ type AdaptiveViewPlanModel(value : ViewPlanModel) =
             _roverModel_.Update(value.roverModel)
             _instrumentCam_.Value <- value.instrumentCam
             _instrumentFrustum_.Value <- value.instrumentFrustum
-            _footPrint_.Update(value.footPrint)
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.viewPlans = _viewPlans_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveViewPlan>
@@ -403,7 +405,6 @@ type AdaptiveViewPlanModel(value : ViewPlanModel) =
     member __.roverModel = _roverModel_
     member __.instrumentCam = _instrumentCam_ :> FSharp.Data.Adaptive.aval<Aardvark.Rendering.CameraView>
     member __.instrumentFrustum = _instrumentFrustum_ :> FSharp.Data.Adaptive.aval<Aardvark.Rendering.Frustum>
-    member __.footPrint = _footPrint_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module ViewPlanModelLenses = 
     type ViewPlanModel with
@@ -414,5 +415,4 @@ module ViewPlanModelLenses =
         static member roverModel_ = ((fun (self : ViewPlanModel) -> self.roverModel), (fun (value : RoverModel) (self : ViewPlanModel) -> { self with roverModel = value }))
         static member instrumentCam_ = ((fun (self : ViewPlanModel) -> self.instrumentCam), (fun (value : Aardvark.Rendering.CameraView) (self : ViewPlanModel) -> { self with instrumentCam = value }))
         static member instrumentFrustum_ = ((fun (self : ViewPlanModel) -> self.instrumentFrustum), (fun (value : Aardvark.Rendering.Frustum) (self : ViewPlanModel) -> { self with instrumentFrustum = value }))
-        static member footPrint_ = ((fun (self : ViewPlanModel) -> self.footPrint), (fun (value : FootPrint) (self : ViewPlanModel) -> { self with footPrint = value }))
 
