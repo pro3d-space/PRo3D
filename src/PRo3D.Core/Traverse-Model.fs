@@ -51,8 +51,14 @@ module InitTraverseParams =
           format = "{0:0.000}" }
 
 
+type Source =
+    | Rover
+    | RIMFAX
+
+
 type Sol =
-    { version: int
+    { solType: Source
+      version: int
       location: V3d
       solNumber: int
       site: int
@@ -62,13 +68,20 @@ type Sol =
       tilt: float
       note: string
       distanceM: float
-      totalDistanceM: float }
+      totalDistanceM: float
+      length: float
+      fromRMC: string
+      toRMC: string
+      SCLK_START: float
+      SCLK_END: float
+    }
 
 module Sol =
     let current = 0
 
     let initial =
-        { version = current
+        { solType = Source.Rover
+          version = current
           location = V3d.NaN
           solNumber = -1
           site = -1
@@ -78,7 +91,13 @@ module Sol =
           tilt = nan
           note = ""
           distanceM = nan
-          totalDistanceM = nan }
+          totalDistanceM = nan
+          length = nan
+          fromRMC = ""
+          toRMC = ""
+          SCLK_START = nan
+          SCLK_END = nan       
+        }
 
     let readV0 =
         json {
@@ -93,9 +112,15 @@ module Sol =
             let! note = Json.read "note"
             let! distanceM = Json.read "distanceM"
             let! totalDistanceM = Json.read "totalDistanceM"
+            let! length = Json.read "length"
+            let! fromRMC = Json.read "fromRMC"
+            let! toRMC = Json.read "toRMC"
+            let! SCLK_START = Json.read "SCLK_START"
+            let! SCLK_END = Json.read "SCLK_END"       
 
             return
-                { version = current
+                { solType = Source.Rover
+                  version = current
                   location = location |> V3d.Parse
                   solNumber = solNumber
                   site = site
@@ -105,7 +130,13 @@ module Sol =
                   tilt = tilt
                   note = note
                   distanceM = distanceM
-                  totalDistanceM = totalDistanceM }
+                  totalDistanceM = totalDistanceM
+                  length = length
+                  fromRMC = fromRMC
+                  toRMC = toRMC
+                  SCLK_START = SCLK_START
+                  SCLK_END = SCLK_END
+                }
         }
 
 type Sol with
