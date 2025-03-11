@@ -2255,7 +2255,7 @@ module ViewerApp =
                 |> ViewerIO.loadRoverData
             | LoadLastScene ->
                 viewerInitial
-                |> ProvenanceApp.emptyWithModel
+                |> ProvenanceApp.emptyWithModel enableProvenance
                 |> SceneLoader.loadLastScene runtime signature                
                 |> SceneLoader.loadLogBrush
                 |> ViewerIO.loadRoverData                
@@ -2269,7 +2269,7 @@ module ViewerApp =
                 |> SceneLoader.addGeologicSurfaces
             | LoadScene path ->
                 viewerInitial
-                |> ProvenanceApp.emptyWithModel
+                |> ProvenanceApp.emptyWithModel enableProvenance
                 |> SceneLoader.loadSceneFromFile runtime signature path
                 |> SceneLoader.loadLogBrush
                 |> ViewerIO.loadRoverData                

@@ -58,6 +58,7 @@ module SurfaceUtils =
     let mk (stype:SurfaceType) (preferredLoader : MeshLoaderType) (maxTriangleSize : float) path =                 
     
         let names = Files.getOPCNames path                
+
         {
             version         = Surface.current
             guid            = Guid.NewGuid()
@@ -1030,15 +1031,7 @@ module SurfaceApp =
                             failwith "surface not found")                        
 
                 { model with surfaces = surfacesGroup; sgSurfaces = sgs } 
-            | _ -> model            
-        | TranslationMessage msg ->                       
-            match model.surfaces.singleSelectLeaf with
-            | Some s -> 
-                let surface = 
-                    model.surfaces.flat 
-                    |> HashMap.find s 
-                    |> Leaf.toSurface
-
+            | _ -> model
         | TranslationMessage msg ->  
            
             let m = 
