@@ -52,7 +52,7 @@ type Result =
       result : string;
    }
 
-let viewerVersion       = "4.26.0-prerelease1"
+let viewerVersion       = "4.27.0-prerelease1"
 let catchDomainErrors   = false
 
 open System.IO
@@ -76,11 +76,7 @@ let main argv =
     // ensure appdata is here
     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create) |> printfn "ApplicationData: %s"
     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.Create) |> printfn "LocalApplicationData: %s"
-
-    //let geojson = System.IO.File.ReadAllText @"D:\CloudStation\_WORK\_2021\20211014_AZTravels\M20_waypoints.json"
-    //let featurecollection_des : PRo3D.Base.Annotation.GeoJSON.GeoJsonFeatureCollection = geojson |> Json.parse |> Json.deserialize
-    //Log.line "%A" featurecollection_des
-
+    
     let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
     Config.configPath <- appData
 
@@ -88,17 +84,7 @@ let main argv =
 
     let logFilePath = Path.Combine(appData, "PRo3D.log")
     Aardvark.Base.Report.LogFileName <- logFilePath
-    Log.line "Running with AppData: %s" appData
-
-    //let forward = 
-    //    M44d(
-    //        0.99993,    -0.0118106,  0.00100585,  0.014535,
-    //        0.0118174,   0.999905,  -0.00709351, -0.00293431,
-    //        -0.000921978,0.0071049,  0.999974,    0.000543439, 
-    //        0.0,         0.0,        0.0,         1.0)
-
-    //let trafo = Trafo3d(forward, forward.Inverse)
-    //printfn "%A" trafo
+    Log.line "Running with AppData: %s" appData    
 
     // use this one to get path to self-contained exe (not temp expanded dll)
     let executeablePath = 
@@ -387,7 +373,13 @@ let main argv =
                 choose []
 
         let suaveServer = 
-            WebPart.startServer port [
+            let startServer = 
+                if startupArgs.enableRemoteApi then 
+                    WebPart.startServer
+                else   
+                    WebPart.startServerLocalhost
+
+            startServer port [
                 if startupArgs.disableCors then allow_cors
                 MutableApp.toWebPart' runtime false mainApp
                 path "/websocket" >=> handShake ws
