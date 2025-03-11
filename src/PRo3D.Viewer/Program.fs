@@ -76,11 +76,7 @@ let main argv =
     // ensure appdata is here
     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create) |> printfn "ApplicationData: %s"
     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.Create) |> printfn "LocalApplicationData: %s"
-
-    //let geojson = System.IO.File.ReadAllText @"D:\CloudStation\_WORK\_2021\20211014_AZTravels\M20_waypoints.json"
-    //let featurecollection_des : PRo3D.Base.Annotation.GeoJSON.GeoJsonFeatureCollection = geojson |> Json.parse |> Json.deserialize
-    //Log.line "%A" featurecollection_des
-
+    
     let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
     Config.configPath <- appData
 
@@ -88,7 +84,7 @@ let main argv =
 
     let logFilePath = Path.Combine(appData, "PRo3D.log")
     Aardvark.Base.Report.LogFileName <- logFilePath
-    Log.line "Running with AppData: %s" appData
+    Log.line "Running with AppData: %s" appData    
 
     // use this one to get path to self-contained exe (not temp expanded dll)
     let executeablePath = 
@@ -207,7 +203,11 @@ let main argv =
         Serialization.registry.RegisterFactory (fun _ -> Init.incorePickler)
     
         Log.line "PRo3D Viewer - Version: %s; powered by Aardvark" viewerVersion
-        let titlestr = "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH"
+        let titlestr = 
+                match startupArgs.port with
+                | Some p -> "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH - listening: http://localhost:" + p
+                | None -> "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH"
+
         Config.title <- titlestr
     
         let signature =
@@ -276,15 +276,6 @@ let main argv =
         //    match argsKv |> HashMap.tryFind "access" with
         //    | Some file -> file
         //    | None -> failwith "need minerva access ... access=\"minervaaccount:pw\" "
-
-        Log.startTimed "[Viewer] reading json scene"
-        //let loadedScnx : Scene = 
-        //    @"E:\PRo3D\Scenes SCN\20191210_ViewPlanner.pro3d"
-        //    |> Chiron.readFromFile 
-        //    |> Json.parse 
-        //    |> Json.deserialize
-
-        //Log.line "[Viewer] scene: %A" loadedScnx
         
         let port = 
             match startupArgs.port with
@@ -298,11 +289,23 @@ let main argv =
 
         let renderingUrl = sprintf "http://localhost:%d" port
 
+        let startupLoad =
+            match startupArgs.loadScene with
+            | Some scene -> 
+                Log.line "[Viewer] loading scene %s" scene
+                ViewerApp.ViewerStartupLoad.LoadScene scene
+            | None when startEmpty -> 
+                Log.line "[Viewer] starting empty"
+                ViewerApp.ViewerStartupLoad.Empty
+            | _ -> 
+                Log.line "[Viewer] loading last scene"
+                ViewerApp.ViewerStartupLoad.LoadLastScene
+
         let (adaptiveModel, mainApp) = 
             ViewerApp.start 
                 runtime 
                 signature 
-                startEmpty 
+                startupLoad
                 messagingMailbox 
                 sendQueue 
                 dumpFile 
@@ -313,12 +316,15 @@ let main argv =
                 appData
                 viewerVersion
 
-        let s = {MailboxState.empty with update = 
-                                            (fun a -> 
-                                                let a = Seq.map ViewerMessage a
-                                                mainApp.update Guid.Empty a) 
-                }
-        MailboxAction.InitMailboxState s |> messagingMailbox.Post            
+        
+        { MailboxState.empty with 
+            update = (fun a -> 
+                let a = Seq.map ViewerMessage a
+                mainApp.update Guid.Empty a
+            ) 
+        }
+        |> InitMailboxState
+        |> messagingMailbox.Post
     
         //let domainError (sender:obj) (args:UnhandledExceptionEventArgs) =
         //    let e = args.ExceptionObject :?> Exception;
@@ -335,7 +341,6 @@ let main argv =
     
         if catchDomainErrors then
             AppDomain.CurrentDomain.UnhandledException.AddHandler(UnhandledExceptionEventHandler(domainError))
-
 
         let setCORSHeaders =
             Suave.Writers.setHeader  "Access-Control-Allow-Origin" "*"
