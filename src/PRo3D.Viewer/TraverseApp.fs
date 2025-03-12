@@ -203,7 +203,6 @@ module TraversePropertiesApp =
                         ]
                 })
 
-
 module TraverseApp =
     type TraverseParseError =
         | PropertyNotFound         of propertyName : string * feature : GeoJsonFeature
@@ -320,7 +319,6 @@ module TraverseApp =
         let parseFeature (x : GeoJsonFeature) (coord: Coordinate) =
             result {
                 let! sol = parseProperties { Sol.initial with version = Sol.current; location = parseCoordinate coord; } x
-        
 
                 // either choose dist_total_m or dist_total - or default to zero if nothing? @ThomasOrnter - is this defaulting correct or an error?
                 match parseDoubleProperty x "dist_total_m", parseDoubleProperty x "dist_total" with
@@ -331,30 +329,27 @@ module TraverseApp =
             }
 
         let sols = 
-            traverse.features        
-            |> List.mapi (fun i feat -> 
-                match feat.geometry with
-                | GeoJsonGeometry.LineString coordinates ->
-                    coordinates 
-                    |> List.mapi (fun idx coord -> (idx, coord)) 
-                    |> List.choose (fun (idx, coord) ->
-                            match parseFeature feat coord with
-                            | Result.Ok r -> Some r
-                            | Result.Error e -> 
-                                // we skip this one in case of errors, see // see https://github.com/pro3d-space/PRo3D/issues/263
-                                Report.Warn(
-                                    String.concat Environment.NewLine [
-                                        sprintf "[Traverse] could not parse or interpret feature for coordinate %d in the coordinate list.\n" idx 
-                                        sprintf "[Traverse] the detailled error is: %A" e
-                                        sprintf "[Traverse] skipping coordinate %A" coord
-                                    ]
-                                )
-                                None
-                        ) 
-                | _ -> [])
-        []
+            match traverse.features[0].geometry with
+            | GeoJsonGeometry.LineString coordinates ->
+                coordinates 
+                |> List.mapi (fun idx coord -> (idx, coord)) 
+                |> List.choose (fun (idx, coord) ->
+                        match parseFeature traverse.features[0] coord with
+                        | Result.Ok r -> Some r
+                        | Result.Error e -> 
+                            // we skip this one in case of errors, see // see https://github.com/pro3d-space/PRo3D/issues/263
+                            Report.Warn(
+                                String.concat Environment.NewLine [
+                                    sprintf "[Traverse] could not parse or interpret feature for coordinate %d in the coordinate list.\n" idx 
+                                    sprintf "[Traverse] the detailled error is: %A" e
+                                    sprintf "[Traverse] skipping coordinate %A" coord
+                                ]
+                            )
+                            None
+                    ) 
+            | _ -> []
 
-
+        sols
 
 
     let parseRoverTraverse (traverse : GeoJsonFeatureCollection) =
@@ -582,7 +577,7 @@ module TraverseApp =
                     for traverse in traverses do
                         
                         let! sols = traverse.sols
-                        let fistSol = sols.[0]
+                        let firstSol = sols.[0]
                         let infoc = sprintf "color: %s" (Html.color C4b.White)
             
                         let traverseID = traverse.guid
@@ -623,7 +618,7 @@ module TraverseApp =
                                          ]                           
                                         // fly to first sol of traverse
                                         let! refSystem = refSystem.Current
-                                        yield i [clazz "home icon"; onClick (fun _ -> FlyToSol (TraversePropertiesApp.computeSolFlyToParameters fistSol refSystem))] []
+                                        yield i [clazz "home icon"; onClick (fun _ -> FlyToSol (TraversePropertiesApp.computeSolFlyToParameters firstSol refSystem))] []
                                             |> UI.wrapToolTip DataPosition.Bottom "Fly to traverse"          
             
                                         yield Incremental.i toggleMap AList.empty 
@@ -924,7 +919,3 @@ module TraverseApp =
             |> AMap.toASet 
             |> ASet.map snd 
             |> Sg.set
-
-    
-        
-
