@@ -498,6 +498,8 @@ with
                     SurfaceSnapshot.fromNameAndCamera 
                         (p.filename + postfix)
                         (SnapshotCamera.fromCamera (CameraView.withForward v p.camera.view))
+
+                let letstry = p.camera.view.Orientation //normalized quaternion
                     
                 let directions = [ 
                      cam p.camera.forward "_FORWARD"                                                    
@@ -620,4 +622,34 @@ with
                     let! panorama = Json.read "PanoramaCollection"
                     return 
                         SnapshotAnimation.PanoramaCollection panorama
+        }
+
+// image pose output for panorama computation
+type PanoramaPose =
+    {
+        panoramaPose   : Affine3d
+        fieldOfView    : float
+        principalPoint : V2d
+        //euclidPose    : Euclidean3d
+    } 
+    static member ToJson (x : PanoramaPose) = 
+        json {
+          do! Json.writeWith Ext.toJson<Affine3d,Ext> "panoramaPose"   x.panoramaPose
+          do! Json.write                              "fieldOfView"    x.fieldOfView
+          do! Json.write                              "principalPoint" (x.principalPoint.ToString ())
+          //do! Json.writeWith Ext.toJson<Euclidean3d,Ext> "euclideanPose" x.euclidPose
+        }
+    static member FromJson (x : PanoramaPose) =
+        json {
+             let! panoramaPose   = Json.readWith Ext.fromJson<Affine3d,Ext> "panoramaPose"
+             let! fieldOfView    = Json.read "fieldOfView"
+             let! principalPoint = Json.read "principalPoint"
+             //let! euclidPose = Json.readWith Ext.fromJson<Euclidean3d,Ext> "euclideanPose"
+
+            return {
+                panoramaPose    = panoramaPose 
+                fieldOfView     = fieldOfView
+                principalPoint  = principalPoint |> V2d.Parse
+                //euclidPose = euclidPose
+            }
         }

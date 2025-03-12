@@ -17,6 +17,8 @@ open PRo3D.Core
 open PRo3D.SimulatedViews.Rendering
 open Aardvark.UI
 
+open Chiron 
+
 
 
 type NearFarRecalculation =
@@ -58,6 +60,32 @@ module SnapshotApp =
     let defaultFoV = 30.0
     let mutable verbose = false
 
+    let writePanoramaPoseToJson 
+        (sCam : SnapshotCamera) 
+        (fieldOfView: float) 
+        (resolution : V2i) 
+        (fullPathName : String) =
+        let rCam = sCam.forward.Cross(sCam.up).Normalized
+        let af = Affine3d(M33d.FromCols(sCam.forward.Normalized, rCam, sCam.up.Normalized), sCam.location)
+        let ppx = Math.Ceiling((float(resolution.X) - 1.0) * 0.5) //(float(resolution.X) - 1.0) / 2.0
+        let ppy = Math.Ceiling((float(resolution.Y) - 1.0) * 0.5) //(float(resolution.Y) - 1.0) / 2.0
+        let pPose = {   panoramaPose = af
+                        fieldOfView = fieldOfView
+                        principalPoint = V2d(ppx, ppy)
+                    }
+        let jsonPathName = sprintf "%s.json" fullPathName
+        let serialised = 
+                pPose
+                |> Json.serialize 
+                |> Json.formatWith JsonFormattingOptions.Pretty 
+        try 
+            System.IO.File.WriteAllText(jsonPathName , serialised)
+        with e ->
+            Log.warn "[JsonChiron] Could not save %s" jsonPathName 
+            Log.warn "%s" e.Message
+
+        Log.warn "Debug Saved json to %s" (jsonPathName)
+
     let calculateFrustumRecalcNearFar (snapshotAnimation : CameraSnapshotAnimation)  = 
         let resolution = V3i (snapshotAnimation.resolution.X, snapshotAnimation.resolution.Y, 1)
         let recalcOption, near, far =
@@ -78,7 +106,7 @@ module SnapshotApp =
         let frustum =
           Frustum.perspective foV near far 
                               (float(resolution.X)/float(resolution.Y))
-        frustum, recalcOption, near, far
+        frustum, recalcOption, near, far, foV
 
     let calculateFrustum (snapshotAnimation : BookmarkSnapshotAnimation)  = 
         let resolution = V3i (snapshotAnimation.resolution.X, snapshotAnimation.resolution.Y, 1)
@@ -104,7 +132,7 @@ module SnapshotApp =
 
     let private executeCameraAnimation (a : CameraSnapshotAnimation) 
                                        (app : SnapshotApp<'model,'aModel, 'msg>) =
-        let frustum, recalcOption, near, far = calculateFrustumRecalcNearFar a
+        let frustum, recalcOption, near, far, fOV = calculateFrustumRecalcNearFar a
         let resolution = V3i (a.resolution.X, a.resolution.Y, 1)
         let projMat = (frustum |> Frustum.projTrafo)
        
@@ -182,6 +210,11 @@ module SnapshotApp =
             let actions = (app.getSnapshotActions (Snapshot.Surface snapshot) recalcOption fullPathName)
             if app.verbose then Log.line "[Snapshots] Updating parameters for next frame."
             app.mutableApp.updateSync (Guid.NewGuid ()) actions 
+
+            // write json file with camera params output
+            let wjs = 
+                if app.renderDepth then
+                    writePanoramaPoseToJson snapshot.camera fOV resolution.XY fullPathName
 
             renderAndSave (sprintf "%s.png" fullPathName) app.verbose parameters projMat
 
