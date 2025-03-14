@@ -175,6 +175,7 @@ type ViewerAction =
 | GeologicSurfacesMessage        of GeologicSurfaceAction
 | ScreenshotMessage              of ScreenshotAction
 | TraverseMessage                of TraverseAction
+| MissionMessage                 of MissionAction
 | SetSceneState                  of SceneState
 | WriteBookmarkMetadata          of string * SequencedBookmarkModel
 | WriteCameraMetadata            of string * SnapshotCamera

@@ -772,7 +772,6 @@ module TraverseApp =
             |> Sg.set
 
 
-
         let viewCoordinateCross 
             (refSystem : AdaptiveReferenceSystem) 
             (trafo : aval<Trafo3d>) =
