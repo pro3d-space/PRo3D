@@ -175,7 +175,6 @@ type ViewerAction =
 | GeologicSurfacesMessage        of GeologicSurfaceAction
 | ScreenshotMessage              of ScreenshotAction
 | TraverseMessage                of TraverseAction
-| MissionMessage                 of MissionAction
 | SetSceneState                  of SceneState
 | WriteBookmarkMetadata          of string * SequencedBookmarkModel
 | WriteCameraMetadata            of string * SnapshotCamera
@@ -212,6 +211,7 @@ type Scene = {
     scaleBars         : ScaleBarsModel
 
     traverses         : TraverseModel
+    missions          : TraverseModel
 
     viewPlans         : ViewPlanModel
     dockConfig        : DockConfig
@@ -272,6 +272,8 @@ module Scene =
                     geologicSurfacesModel = GeologicSurfacesModel.initial
 
                     traverses             = TraverseModel.initial
+                    missions              = TraverseModel.initial
+
                     sequencedBookmarks    = SequencedBookmarks.initial
 
                     comparisonApp         = ComparisonApp.init
