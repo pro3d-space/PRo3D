@@ -63,6 +63,8 @@ nuget Giraffe
 nuget Saturn
 nuget Thoth.Json.Giraffe
 
+nuget FSharp.Json
+
 nuget Cyjs.NET       ~> 0.0.4
 nuget Thoth.Json.Net ~> 11.0.0
 

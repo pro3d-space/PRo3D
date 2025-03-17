@@ -31,6 +31,7 @@ open PRo3D.Extensions.FSharp
 open PRo3D.SPICE
 
 open PRo3D.Core.ProjectedImages
+open PRo3D.Core.Gis
 
 [<Struct>]
 type RelState = 
@@ -78,7 +79,7 @@ module TestViewer =
         let referenceFrame = cval "IAU_MARS" 
         let referenceFrame = cval "ECLIPJ2000"
         let time = 
-            let startTime = "2025-03-12 11:50:00.000Z"
+            let startTime = "2025-03-12 12:08:30.000Z"
             cval (DateTime.Parse startTime)
 
 
@@ -100,11 +101,18 @@ module TestViewer =
 
         let getLookAt (viewerBody : string) (observer : string) (referenceFrame : string) (supportBody : string) (time : DateTime) =
             let afc1Pos = CooTransformation.getRelState viewerBody supportBody observer time referenceFrame
-            match afc1Pos with    
-            | Some targetState -> 
+            let camToSpace = CooTransformation.getRotationTrafo "HERA_AFC-1" referenceFrame time
+            match afc1Pos, camToSpace with    
+            | Some targetState, Some toSpace -> 
                 let rot = targetState.rot
-                let t = Trafo3d.FromBasis(rot.C0, rot.C1, rot.C2, targetState.pos)
+                let t = toSpace * Trafo3d.FromBasis(rot.C0, rot.C1, rot.C2, targetState.pos)
+                let right = toSpace.Forward.C0.XYZ
+                let forward = rot.C2
+                let up = right.Cross(forward)
+                let t = Trafo3d.FromBasis(right, up, forward, targetState.pos)
+                let t = Trafo3d.FromBasis(-rot.C1, rot.C0, rot.C2, targetState.pos)
                 CameraView.ofTrafo t.Inverse |> Some 
+                //CameraView.lookAt targetState.pos V3d.Zero V3d.OOI |> Some
             | _ -> 
                 None
                 
@@ -135,15 +143,23 @@ module TestViewer =
                             ]
             }
 
+        let instruments =
+            let frustum = Frustum.perspective 5.5306897076421 1000.0 distanceSunPluto 1.0
+            Map.ofList [
+                "HERA_AFC-1", frustum
+                "HERA_AFC-2", frustum
+            ]
+
 
         let distanceSunPluto = 5906380000.0 * 1000.0
         let farPlaneMars = 30101626.50 * 1000.0
         let frustum = win.Sizes |> AVal.map (fun s -> Frustum.perspective 60.0 100.0 farPlaneMars (float s.X / float s.Y))
+        let frustum = instruments["HERA_AFC-1"] |> AVal.constant
         //let frustumMars = win.Sizes |> AVal.map (fun s -> Frustum.perspective 60.0 1000.0 farPlaneMars (float s.X / float s.Y))
         let aspect = win.Sizes |> AVal.map (fun s -> float s.X / float s.Y)
 
 
-        let opcSurfaces =["mars"]// ["mars"] //["mars"]
+        let opcSurfaces = ["mars"]//["mars"]// ["mars"] //["mars"]
 
 
         let getRenderingParameters (b : string) : Rendering.BodyRenderingParameters = 
@@ -159,12 +175,6 @@ module TestViewer =
                 visible = List.contains b.name opcSurfaces |> not |> AVal.constant
             }
 
-        let instruments =
-            let frustum = Frustum.perspective 5.5306897076421 1000.0 distanceSunPluto 1.0
-            Map.ofList [
-                "HERA_AFC-1", frustum
-                "HERA_AFC-2", frustum
-            ]
 
 
 
@@ -173,37 +183,40 @@ module TestViewer =
         let shots = (endTime - startTime) / TimeSpan.FromMinutes(2) |> ceil |> int
         let observationTimes = ProjectedImages.splitTimes startTime endTime shots
 
-        let allObservationsFor (viewerBody : string)  (bodyReferenceFrame : string) (targetRefSystem : string) = 
-            let shots = (endTime - startTime) / TimeSpan.FromMinutes(2) |> ceil |> int
-            let interval = (endTime - startTime) / float shots
-            let snapshots = [ 0 .. shots ] |> List.map (fun i -> startTime + interval * float i) |> List.toArray
-            time |> AVal.map (fun _ -> 
-                snapshots 
-                |> Array.choose (fun time -> 
-                    match getLookAt viewerBody observer.Value targetRefSystem "SUN" time,  CooTransformation.getRotationTrafo bodyReferenceFrame targetRefSystem time  with
-                    | Some camInMarsSpace, Some t -> 
-                        let frustum = instruments["HERA_AFC-1"]
-                        let forward = (t * CameraView.viewTrafo camInMarsSpace * Frustum.projTrafo frustum)
-                        (time, forward) |> Some
+        //let allObservationsFor (viewerBody : string)  (bodyReferenceFrame : string) (targetRefSystem : string) = 
+        //    let shots = (endTime - startTime) / TimeSpan.FromMinutes(2) |> ceil |> int
+        //    let interval = (endTime - startTime) / float shots
+        //    let snapshots = [ 0 .. shots ] |> List.map (fun i -> startTime + interval * float i) |> List.toArray
+        //    time |> AVal.map (fun _ -> 
+        //        snapshots 
+        //        |> Array.choose (fun time -> 
+        //            match getLookAt viewerBody observer.Value targetRefSystem "SUN" time,  CooTransformation.getRotationTrafo bodyReferenceFrame targetRefSystem time  with
+        //            | Some camInMarsSpace, Some t -> 
+        //                let frustum = instruments["HERA_AFC-1"]
+        //                let forward = (t * CameraView.viewTrafo camInMarsSpace * Frustum.projTrafo frustum)
+        //                (time, forward) |> Some
 
-                    | _ -> 
-                        None
-                )
+        //            | _ -> 
+        //                None
+        //        )
+        //    )
+
+        //let marsObservations = allObservationsFor "HERA" "IAU_MARS" referenceFrame.Value
+        let marsObservations = 
+            observationTimes 
+            |> Array.map (fun t -> 
+                let p = {
+                    target = InstrumentImages.CameraFocus.FocusBody "MARS"
+                    cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
+                    instrumentReferenceFrame = "HERA_AFC-1"
+                    instrumentName = "HERA_AFC-1"
+                    supportBody = "SUN"
+                    time = t
+                }
+                t, ProjectedImages.projectOnto referenceFrame.Value observer.Value instruments p
             )
 
-        let marsObservations = allObservationsFor "HERA" "IAU_MARS" referenceFrame.Value
-        let marsObservations = 
-            let p = {
-                worldReferenceSystem = referenceFrame.Value
-                observer = observer.Value
-                sourceReferenceFrame = "IAU_MARS"
-                target = CameraFocus.FocusBody "MARS"
-                cameraSource = CameraSource.InBody "HERA"
-                instrument = Intrinsics.Plain instruments["HERA_AFC-1"]
-                supportBody = "SUN"
-            }
-            let observations = observationTimes |> ProjectedImages.computeProjections p
-            Array.zip observationTimes observations
+
 
         let currentProjection =   
             AVal.custom (fun t -> 
@@ -211,15 +224,14 @@ module TestViewer =
                 let observer = observer.GetValue(t)
                 let referenceFrame = referenceFrame.GetValue()
                 let p = {
-                    worldReferenceSystem = referenceFrame
-                    observer = observer
-                    sourceReferenceFrame = "IAU_MARS"
-                    target = CameraFocus.FocusBody "MARS"
-                    cameraSource = CameraSource.InBody "HERA"
-                    instrument = Intrinsics.Plain instruments["HERA_AFC-1"]
+                    target = InstrumentImages.CameraFocus.FocusBody "MARS"
+                    cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
+                    instrumentReferenceFrame = "HERA_AFC-1"
+                    instrumentName = "HERA_AFC-1"
                     supportBody = "SUN"
+                    time = time
                 }
-                ProjectedImages.projectOnto p time
+                ProjectedImages.projectOnto referenceFrame observer instruments p
             )
         let prio = RenderPass.after "priority" RenderPassOrder.Arbitrary RenderPass.main 
 
@@ -239,7 +251,6 @@ module TestViewer =
                         | _ -> V3d.Zero
                     )
 
-                let allObservations = allObservationsFor "HERA" bodyFrame referenceFrame.Value
 
                 hierarchies
                 |> Seq.toList 
@@ -248,7 +259,7 @@ module TestViewer =
                     let t = PatchLod.toRoseTree h.tree
 
                     //let imageProjection = firstProjection |> AVal.map Option.Some
-                    let localImageProjectionTrafos = marsObservations |> Array.map snd |> AVal.constant
+                    let localImageProjectionTrafos = marsObservations |> Array.map snd |> Array.choose id  |> AVal.constant
                     let sunLight = sunLightDirection |> AVal.map Option.Some
 
                     //let additionalUniforms = 
@@ -264,16 +275,17 @@ module TestViewer =
                         )
 
                     n
-                    |> Sg.applyBody "MARS"
+                    |> Sg.applyBody (AVal.constant (Some "MARS"))
                     |> Sg.applyProjectedImages' (
-                        Some (fun s -> 
-                            Some {
-                                imageProjection = currentProjection
-                                localImageProjectionTrafos = localImageProjectionTrafos
-                                sunDirection  = sunLight
-                                sunLightEnabled = sunLightEnabled
-                            }
-                        )
+                        fun s -> 
+                            s |> AVal.map (fun _ -> 
+                                Some {
+                                    imageProjection = currentProjection
+                                    localImageProjectionTrafos = localImageProjectionTrafos
+                                    sunDirection  = sunLight
+                                    sunLightEnabled = sunLightEnabled
+                                }
+                            )
                      )
                 ) 
  
@@ -308,22 +320,25 @@ module TestViewer =
 
         let bodies = CelestialBodies.bodySources |> Array.map (fun b -> b.name, b) |> AMap.ofArray
         let wrapModel (planet : string) (sg : ISg) =
-            let p = {
-                worldReferenceSystem = referenceFrame.Value
-                observer = observer.Value
-                sourceReferenceFrame = "IAU_MARS"
-                target = CameraFocus.FocusBody "MARS"
-                cameraSource = CameraSource.InBody "HERA"
-                instrument = Intrinsics.Plain instruments["HERA_AFC-1"]
-                supportBody = "SUN"
-            }
-            let observations = observationTimes |> ProjectedImages.computeProjections p
+            let observations = 
+                observationTimes 
+                |> Array.map (fun t -> 
+                    let p = {
+                        target = InstrumentImages.CameraFocus.FocusBody "MARS"
+                        cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
+                        instrumentReferenceFrame = "HERA_AFC-1"
+                        instrumentName = "HERA_AFC-1"
+                        supportBody = "SUN"
+                        time = t
+                    }
+                    ProjectedImages.projectOnto referenceFrame.Value observer.Value instruments p
+                )
             let getProjectionTrafo _ =
-                observations[0] |> Some |> AVal.constant
+                currentProjection
             sg
             // projected frusta
             |> Sg.uniform "ProjectedImagesLocalTrafosCount" projectionCount 
-            |> Sg.uniform' "ProjectedImagesLocalTrafos" (observations |> Array.map (Trafo.forward >> M44f))
+            |> Sg.uniform' "ProjectedImagesLocalTrafos" (observations |> Array.choose id |> Array.map (Trafo.forward >> M44f))
             // projected texture
             |> Sg.fileTexture "ProjectedTexture" @"C:\Users\haral\Pictures\OIP.jpg" true
             |> Sg.applyProjectedImage getProjectionTrafo 
@@ -354,7 +369,7 @@ module TestViewer =
                 //do! Rendering.Shaders.shadowPCF
                 do! Shaders.solarLighting
                 //do! ImageProjection.Shaders.stableImageProjection
-                do! ImageProjection.Shaders.localImageProjections
+                //do! ImageProjection.Shaders.localImageProjections
             }
 
         let trajectories = 
@@ -540,7 +555,7 @@ module TestViewer =
             |> Sg.trafo (aspectScaling |> AVal.map (fun s -> Trafo3d.Scale(0.02) * s * Trafo3d.Translation(-0.95, 0.90,0.0)))
 
 
-        let sg = Sg.ofList [sg; bodyLabels;  (markers |> List.map snd |> Sg.ofList); ]//info; help;]
+        let sg = Sg.ofList [sg; bodyLabels;  (markers |> List.map snd |> Sg.ofList); info; help;]
 
         let mutable paused = true
         let s = 
@@ -554,10 +569,12 @@ module TestViewer =
                         | None -> TimeSpan.Zero
                         | Some l -> sw.Elapsed - l
                     if not paused then
-                        time.Value <- time.Value + dt * 160.0
-                    //let frustum = instruments.["HERA_AFC-1"]
-                    //let view = (getLookAt "HERA"  referenceFrame.Value time.Value).Value
+                        time.Value <- time.Value + dt * 1.0
+
+                    let frustum = instruments.["HERA_AFC-1"]
+                    let view = (getLookAt "HERA" observer.Value referenceFrame.Value "SUN" time.Value).Value
                     //customObservationCamera.Value <- Some (Camera.create view frustum)
+                    //initialView.Value <- view
                     //animationStep()
                     lastFrame <- Some sw.Elapsed
                 )
@@ -572,6 +589,16 @@ module TestViewer =
                     | CameraMode.Orbit -> CameraMode.FreeFly
             )
         )
+
+        win.Keyboard.KeyDown(Keys.M).Values.Add(fun _ -> 
+            transact (fun _ -> 
+                let frustum = instruments.["HERA_AFC-1"]
+                let view = (getLookAt "HERA" observer.Value referenceFrame.Value "SUN" time.Value).Value
+                //customObservationCamera.Value <- Some (Camera.create view frustum)
+                initialView.Value <- view
+            )
+        )
+
         win.Keyboard.KeyDown(Keys.Space).Values.Add(fun _ -> 
             paused <- not paused
         )

@@ -103,6 +103,79 @@ module GisSurface =
             referenceFrame = frame
         }
 
+module InstrumentImages = 
+
+    open Aardvark.Rendering
+
+    type Extrinsics = 
+        | Plain of CameraView
+
+    type Intrinsics = 
+        | Plain of Frustum
+
+    type ImageData = 
+        | FilePath of string
+
+    type ProjectedImage =
+        {
+            intrinsics : Intrinsics
+            extrinsics : Extrinsics
+            image      : Option<ImageData>
+        }
+
+    type CameraFocus = 
+        | FocusBody of focusedBody : string
+
+    type CameraSource =
+        | InBody of body : string
+
+    type Intrinsics with
+        member x.ProjTrafo = 
+            match x with
+            | Intrinsics.Plain frustum -> Frustum.projTrafo frustum
+
+type InstrumentProjection = 
+    {
+        instrumentReferenceFrame : string
+        target : InstrumentImages.CameraFocus
+        cameraSource : InstrumentImages.CameraSource
+        instrumentName : string
+        supportBody : string
+        time : DateTime
+    }
+
+
+module InstrumentProjection = 
+
+    module Serialization =
+
+        open FSharp.Json
+
+        let serialize (projection: InstrumentProjection) : string =
+            let json = Json.serialize projection
+            json
+
+        let deserialize (json: string) : InstrumentProjection =
+            let projection = Json.deserialize<InstrumentProjection>(json)
+            projection
+
+
+type ProjectedImage = 
+    {
+        fullName : string
+        projection : Option<InstrumentProjection>
+    }
+
+[<ModelType>]
+type ProjectedImages =
+    {
+        images : IndexList<ProjectedImage>
+        selectedImage : Option<Index>
+    }
+
+module ProjectedImages = 
+    let initial = { images = IndexList.empty; selectedImage = None }
+
 [<ModelType>]
 type GisApp = 
     {
@@ -116,6 +189,7 @@ type GisApp =
         spiceKernel            : option<CooTransformation.SPICEKernel>
         spiceKernelLoadSuccess : bool
         cameraInObserver       : bool
+        projectedImages        : ProjectedImages
     } 
 with
     static member current = 0
@@ -154,6 +228,7 @@ module GisAppJson =
                 spiceKernel            = Option.map CooTransformation.SPICEKernel.ofPath spiceKernel
                 cameraInObserver       = Option.defaultValue false cameraInObserver
                 spiceKernelLoadSuccess = false
+                projectedImages        = ProjectedImages.initial //{ ProjectedImages.initial with images = System.IO.Directory.EnumerateFiles(@"C:\pro3ddata\HERA\simulated") |> Seq.map (fun a -> { fullName = a }) |> IndexList.ofSeq }
             }
         }
     
@@ -204,6 +279,11 @@ type ReferenceFrameAction =
     | Cancel
     | Save      
 
+
+type ImageProjectionMessage = 
+    | SelectImage of Index
+    | LoadImagesDir of string
+
 type GisAppAction =
     | Observe
     | AssignBody                of (SurfaceId * option<EntitySpiceName>)
@@ -217,6 +297,7 @@ type GisAppAction =
     | ToggleCameraInObserver    
     | NewEntity
     | NewFrame
+    | ImageProjection           of ImageProjectionMessage
 
 
     

@@ -1,5 +1,5 @@
-//aa12ae5e-5fa3-0a42-74b9-ec4392ae7ad1
-//690b63cb-8351-abec-b049-09c7eeb3d072
+//845f97cc-79d3-f414-ddd2-2b0a8b6331ca
+//a5d4f8da-6482-6aa5-888b-9d058dc3a40a
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -44,6 +44,28 @@ module ObservationInfoLenses =
         static member time_ = ((fun (self : ObservationInfo) -> self.time), (fun (value : PRo3D.Base.Calendar) (self : ObservationInfo) -> { self with time = value }))
         static member referenceFrame_ = ((fun (self : ObservationInfo) -> self.referenceFrame), (fun (value : Microsoft.FSharp.Core.option<PRo3D.Base.Gis.FrameSpiceName>) (self : ObservationInfo) -> { self with referenceFrame = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
+type AdaptiveProjectedImages(value : ProjectedImages) =
+    let _images_ = FSharp.Data.Adaptive.clist(value.images)
+    let _selectedImage_ = FSharp.Data.Adaptive.cval(value.selectedImage)
+    let mutable __value = value
+    let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
+    static member Create(value : ProjectedImages) = AdaptiveProjectedImages(value)
+    static member Unpersist = Adaptify.Unpersist.create (fun (value : ProjectedImages) -> AdaptiveProjectedImages(value)) (fun (adaptive : AdaptiveProjectedImages) (value : ProjectedImages) -> adaptive.Update(value))
+    member __.Update(value : ProjectedImages) =
+        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<ProjectedImages>.ShallowEquals(value, __value))) then
+            __value <- value
+            __adaptive.MarkOutdated()
+            _images_.Value <- value.images
+            _selectedImage_.Value <- value.selectedImage
+    member __.Current = __adaptive
+    member __.images = _images_ :> FSharp.Data.Adaptive.alist<ProjectedImage>
+    member __.selectedImage = _selectedImage_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<FSharp.Data.Adaptive.Index>>
+[<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
+module ProjectedImagesLenses = 
+    type ProjectedImages with
+        static member images_ = ((fun (self : ProjectedImages) -> self.images), (fun (value : FSharp.Data.Adaptive.IndexList<ProjectedImage>) (self : ProjectedImages) -> { self with images = value }))
+        static member selectedImage_ = ((fun (self : ProjectedImages) -> self.selectedImage), (fun (value : Microsoft.FSharp.Core.Option<FSharp.Data.Adaptive.Index>) (self : ProjectedImages) -> { self with selectedImage = value }))
+[<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveGisApp(value : GisApp) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)
     let _defaultObservationInfo_ = AdaptiveObservationInfo(value.defaultObservationInfo)
@@ -77,6 +99,7 @@ type AdaptiveGisApp(value : GisApp) =
     let _spiceKernel_ = FSharp.Data.Adaptive.cval(value.spiceKernel)
     let _spiceKernelLoadSuccess_ = FSharp.Data.Adaptive.cval(value.spiceKernelLoadSuccess)
     let _cameraInObserver_ = FSharp.Data.Adaptive.cval(value.cameraInObserver)
+    let _projectedImages_ = AdaptiveProjectedImages(value.projectedImages)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : GisApp) = AdaptiveGisApp(value)
@@ -95,6 +118,7 @@ type AdaptiveGisApp(value : GisApp) =
             _spiceKernel_.Value <- value.spiceKernel
             _spiceKernelLoadSuccess_.Value <- value.spiceKernelLoadSuccess
             _cameraInObserver_.Value <- value.cameraInObserver
+            _projectedImages_.Update(value.projectedImages)
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.defaultObservationInfo = _defaultObservationInfo_
@@ -106,6 +130,7 @@ type AdaptiveGisApp(value : GisApp) =
     member __.spiceKernel = _spiceKernel_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<PRo3D.Base.CooTransformation.SPICEKernel>>
     member __.spiceKernelLoadSuccess = _spiceKernelLoadSuccess_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
     member __.cameraInObserver = _cameraInObserver_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.projectedImages = _projectedImages_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module GisAppLenses = 
     type GisApp with
@@ -119,4 +144,5 @@ module GisAppLenses =
         static member spiceKernel_ = ((fun (self : GisApp) -> self.spiceKernel), (fun (value : Microsoft.FSharp.Core.option<PRo3D.Base.CooTransformation.SPICEKernel>) (self : GisApp) -> { self with spiceKernel = value }))
         static member spiceKernelLoadSuccess_ = ((fun (self : GisApp) -> self.spiceKernelLoadSuccess), (fun (value : Microsoft.FSharp.Core.bool) (self : GisApp) -> { self with spiceKernelLoadSuccess = value }))
         static member cameraInObserver_ = ((fun (self : GisApp) -> self.cameraInObserver), (fun (value : Microsoft.FSharp.Core.bool) (self : GisApp) -> { self with cameraInObserver = value }))
+        static member projectedImages_ = ((fun (self : GisApp) -> self.projectedImages), (fun (value : ProjectedImages) (self : GisApp) -> { self with projectedImages = value }))
 

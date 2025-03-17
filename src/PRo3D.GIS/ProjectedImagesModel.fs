@@ -5,6 +5,7 @@ open Aardvark.Base
 open Aardvark.Rendering
 
 open PRo3D.SPICE
+open PRo3D.Core.Gis
 
 
 module ProjectedImages =
@@ -26,16 +27,21 @@ module ProjectedImages =
             image      : Option<ImageData>
         }
 
-    type CameraFocus = 
-        | FocusBody of focusedBody : string
-
-    type CameraSource =
-        | InBody of body : string
-
     type Intrinsics with
         member x.ProjTrafo = 
             match x with
             | Intrinsics.Plain frustum -> Frustum.projTrafo frustum
+
+    //type ProjectionInfo = 
+    //    {
+    //        worldReferenceSystem : string
+    //        observer : string
+    //        sourceReferenceFrame : string
+    //        target : CameraFocus
+    //        cameraSource : CameraSource
+    //        instrument : Intrinsics
+    //        supportBody : string
+    //    }
 
     let getLookAt (viewerBody : string) (observer : string) (referenceFrame : string) (supportBody : string) (time : DateTime) =
         let afc1Pos = CooTransformation.getRelState viewerBody supportBody observer time referenceFrame
@@ -47,32 +53,19 @@ module ProjectedImages =
         | _ -> 
             None
 
-    type ProjectionInfo = 
-        {
-            worldReferenceSystem : string
-            observer : string
-            sourceReferenceFrame : string
-            target : CameraFocus
-            cameraSource : CameraSource
-            instrument : Intrinsics
-            supportBody : string
-        }
-
-    let projectOnto (p : ProjectionInfo) (time : DateTime) = 
-        let bodyToWorld = CooTransformation.getRotationTrafo p.sourceReferenceFrame p.worldReferenceSystem time
-        match bodyToWorld, p.target, p.cameraSource  with
-        | Some bodyToWorld, FocusBody target, InBody source-> 
-            match getLookAt source p.observer p.worldReferenceSystem p.supportBody time with
+    let projectOnto (referenceFrame : string) (observer : string) (instruments : Map<string, Frustum>) (p : InstrumentProjection) = 
+        let bodyToWorld = Trafo3d.Identity |> Some // CooTransformation.getRotationTrafo p.instrumentReferenceFrame referenceFrame p.time
+        match bodyToWorld, p.target, p.cameraSource, Map.tryFind p.instrumentName instruments with
+        | Some bodyToWorld, InstrumentImages.FocusBody target, InstrumentImages.InBody source, Some frustum -> 
+            match getLookAt source observer referenceFrame p.supportBody p.time with
             | Some view ->
-                bodyToWorld * CameraView.viewTrafo view * p.instrument.ProjTrafo |> Some
+                //  r.Value * 
+                CameraView.viewTrafo view * (Frustum.projTrafo frustum) |> Some
             | None -> None
-        | None, _, _ -> None
+        | _ -> None
 
 
     let splitTimes (startTime : DateTime) (endTime : DateTime) (nrOfShots : int) =
         let shots = (endTime - startTime) / TimeSpan.FromMinutes(2) |> ceil |> int
         let interval = (endTime - startTime) / float shots
         [| 0 .. shots |] |> Array.map (fun i -> startTime + interval * float i) 
-
-    let computeProjections (projectionInfo : ProjectionInfo) (times : array<DateTime>) = 
-        times |> Array.choose (projectOnto projectionInfo)

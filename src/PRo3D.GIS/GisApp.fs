@@ -220,6 +220,21 @@ module GisApp =
             viewer, m
         | GisAppAction.ToggleCameraInObserver ->
             viewer, {m with cameraInObserver = not m.cameraInObserver}
+        | GisAppAction.ImageProjection msg -> 
+            let m = 
+                match msg with 
+                | ImageProjectionMessage.SelectImage idx when false -> 
+                    match IndexList.tryGet idx m.projectedImages.images with
+                    | None -> m
+                    | Some img -> 
+                        match img.projection with
+                        | None -> m
+                        | Some p ->
+                            let info = ObservationInfo.update m.defaultObservationInfo (ObservationInfoAction.SetTime p.time)
+                            let m = {m with defaultObservationInfo = info}
+                            m
+                | _ -> m
+            viewer, {m with projectedImages = ProjectedImagesApp.update msg m.projectedImages }
             
     let private currentlyAssociatedEntity
         (surface : SurfaceId) 
@@ -535,6 +550,10 @@ module GisApp =
             ]
             GuiEx.accordion "Reference Frames" "Cubes" false [
                 viewFrames m
+            ]
+
+            GuiEx.accordion "Projected Images" "Images" false [
+                ProjectedImagesApp.viewProjectedImages m.projectedImages |> UI.map GisAppAction.ImageProjection
             ]
 
             let kernelPathTextBox = 
@@ -867,6 +886,7 @@ module GisApp =
                 spiceKernel             = spiceKernel |> Option.map CooTransformation.SPICEKernel.ofPath  
                 spiceKernelLoadSuccess  = true
                 cameraInObserver        = false
+                projectedImages         = ProjectedImages.initial //{ ProjectedImages.initial with images = Directory.EnumerateFiles(@"C:\pro3ddata\HERA\simulated") |> Seq.map (fun a -> { fullName = a }) |> IndexList.ofSeq }
             }
 
         match spiceKernel with

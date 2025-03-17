@@ -17,7 +17,7 @@ module SgExtensions =
         open Aardvark.SceneGraph.Semantics
         open Aardvark.UI
 
-        type BodyApplicator(child : ISg, body : Option<string>) =
+        type BodyApplicator(child : ISg, body : aval<Option<string>>) =
             inherit Sg.AbstractApplicator(child)
             member x.Body = body
         
@@ -27,7 +27,8 @@ module SgExtensions =
             member x.Body(app : BodyApplicator, scope : Ag.Scope) =
                 app.Child?Body <- app.Body
             member x.Body(s : Root<ISg>, scope : Ag.Scope) =
-                s.Child?Body <- None
+                let empty : aval<Option<string>> = AVal.constant None
+                s.Child?Body <- AVal.constant empty
 
         type ProjectedImages = 
             {
@@ -37,7 +38,7 @@ module SgExtensions =
                 sunLightEnabled : aval<bool>
             }
 
-        type ProjectedImageApplicator(child : ISg, images : Option<string -> Option<ProjectedImages>>) =
+        type ProjectedImageApplicator(child : ISg, images : aval<Option<string>> -> aval<Option<ProjectedImages>>) =
             inherit Sg.AbstractApplicator(child)
             member x.Images = images
 
@@ -46,30 +47,31 @@ module SgExtensions =
             member x.ProjectedImages(app : ProjectedImageApplicator, scope : Ag.Scope) =
                 app.Child?ProjectedImages <- app.Images
 
-        let applyBody (s : string) (sg : ISg) = 
-            BodyApplicator(sg, Some s) :> ISg
+        let applyBody (s : aval<Option<string>>) (sg : ISg) = 
+            BodyApplicator(sg, s) :> ISg
 
-        let applyProjectedImages' (s : Option<string -> Option<ProjectedImages>>) (sg : ISg) = 
+        let applyProjectedImages' (s : aval<Option<string>> -> aval<Option<ProjectedImages>>) (sg : ISg) = 
             ProjectedImageApplicator(sg, s) :> ISg
 
-        let applyProjectedImages (s : Option<string -> Option<ProjectedImages>>) (sg : ISg<_>) = 
+        let applyProjectedImages (s : aval<Option<string>> -> aval<Option<ProjectedImages>>) (sg : ISg<_>) = 
             ProjectedImageApplicator(sg, s) 
             |> Sg.noEvents
 
 module OpcRenderingExtensions =
     open Aardvark.Base.Ag
     open Aardvark.SceneGraph.Semantics
+    open SgExtensions.Sg
 
     type Ag.Scope with
         member x.FootprintVP : aval<M44d> = x?FootprintVP
-        member x.ProjectedImages : Option<string -> Option<Sg.ProjectedImages>> = x?ProjectedImages
-        member x.Body : Option<string> = x?Body
+        member x.ProjectedImages : aval<Option<string>> -> aval<Option<ProjectedImages>> = x?ProjectedImages
+        member x.Body : aval<Option<string>> = x?Body
 
     type Context = 
         { 
             footprintVP : aval<M44d> 
             modelTrafo: aval<Trafo3d>
-            projectedImages : Option<Sg.ProjectedImages>
+            projectedImages : aval<Option<Sg.ProjectedImages>>
             texturesScope : obj
             agScope : Ag.Scope
         }
@@ -79,12 +81,8 @@ module OpcRenderingExtensions =
         let secondaryTexture = SecondaryTexture.getSecondary n s
         let modelTrafo = s.ModelTrafo
         let body = s.Body
-        let projectedImages = 
-            match s.ProjectedImages, s.Body with
-            | Some p, Some b -> 
-                p b
-            | _ -> 
-                None
+        let projectedImages = s.ProjectedImages s.Body
+
         {   footprintVP = footprintVP; texturesScope = secondaryTexture; 
             modelTrafo = modelTrafo;
             projectedImages = projectedImages

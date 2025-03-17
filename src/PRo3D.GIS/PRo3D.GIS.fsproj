@@ -16,6 +16,7 @@
     <Compile Include="Rendering.fs" />
     <Compile Include="TestViewer.fs" />
     <None Include="paket.references" />
+    <Compile Include="ImagesView.fs" />
     <Compile Include="GisApp.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

@@ -37,7 +37,7 @@ module CooTransformation =
             let r = CooTransformation.GetPositionTransformationMatrix(fromFrame, toFrame, Time.toUtcFormat time, pdMat) 
             let rot = M33d(m)
             if r = 0 && rot.Determinant > 0.95 then
-                let forward = M44d(rot.Transposed)
+                let forward = M44d(rot)
                 Trafo3d(forward, forward.Inverse) |> Some
             else
                 printfn "could not get rot trafo for frame: %s" fromFrame
@@ -47,8 +47,8 @@ module CooTransformation =
     let latLon2Xyz (planet : string) (lat : float, lon : float, alt : float) =
         lock l (fun _ -> 
             let mutable x, y, z = 0.0, 0.0, 0.0
-            if CooTransformation.LatLonAlt2Xyz(planet, lat, lon, alt, &x, &y, &z) = 0 then
-                V3d(x, -y, z) |> Some
+            if CooTransformation.LatLonAlt2Xyz(planet, lat, -lon, alt, &x, &y, &z) = 0 then
+                V3d(x, y, z) |> Some
             else
                 None
         )

@@ -13,63 +13,68 @@ module ImageProjectionOpcExtensions =
     let projectionUniformMap : Map<string, obj -> Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch -> IAdaptiveValue> =
         Map.ofList [
             "ProjectedImagesLocalTrafos", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
-                let context = scope |> unbox<OpcRenderingExtensions.Context>
-                match context.projectedImages with
-                | None -> AVal.constant [|M44f.Identity|] :> IAdaptiveValue
-                | Some p -> 
-                    (p.localImageProjectionTrafos, context.modelTrafo)
-                    ||> AVal.map2 (fun arr modelTrafo ->  
-                        arr |> Array.map (fun (vp : Trafo3d) -> 
-                            // first to body space, then through projection
-                            vp.Forward  * patch.info.Local2Global.Forward  |> M44f
+                let context = scope |> unbox<OpcRenderingExtensions.Context> 
+                context.projectedImages |> AVal.bind (function 
+                    | None -> AVal.constant Array.empty<M44f>
+                    | Some p ->
+                        (p.localImageProjectionTrafos, context.modelTrafo)
+                        ||> AVal.map2 (fun arr modelTrafo ->  
+                            arr |> Array.map (fun (vp : Trafo3d) -> 
+                                // first to body space, then through projection
+                                vp.Forward  * patch.info.Local2Global.Forward  |> M44f
+                            )
                         )
-                    ) :> IAdaptiveValue
+                ) :> IAdaptiveValue
             )
             "ProjectedImagesLocalTrafosCount", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
                 let context = scope |> unbox<OpcRenderingExtensions.Context>
-                match context.projectedImages with
-                | None -> AVal.constant 0 :> IAdaptiveValue
-                | Some p -> 
-                    (p.localImageProjectionTrafos |> AVal.map Array.length) :> IAdaptiveValue
+                context.projectedImages |> AVal.bind (function
+                    | None -> AVal.constant 0 
+                    | Some p -> 
+                        (p.localImageProjectionTrafos |> AVal.map Array.length)
+                ) :> IAdaptiveValue
             )
             "ProjectedImageModelViewProjValid", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
                 let context = scope |> unbox<OpcRenderingExtensions.Context>
-                match context.projectedImages with
-                | None -> AVal.constant M44f.Identity :> IAdaptiveValue
-                | Some p -> 
-                    p.imageProjection |> AVal.map Option.isSome :> IAdaptiveValue
+                context.projectedImages |> AVal.bind (function
+                    | None -> AVal.constant false
+                    | Some p -> 
+                        p.imageProjection |> AVal.map Option.isSome 
+                ) :> IAdaptiveValue
             )
             "ProjectedImageModelViewProj", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
                 let context = scope |> unbox<OpcRenderingExtensions.Context>
-                match context.projectedImages with
-                | None -> AVal.constant M44f.Identity :> IAdaptiveValue
-                | Some p -> 
-                    (p.imageProjection, context.modelTrafo) ||> AVal.map2 (fun vp m -> 
-                        match vp with
-                        | Some vp -> 
-                            vp.Forward * patch.info.Local2Global.Forward
-                        | None -> 
-                            M44d.Identity
-                    ) :> IAdaptiveValue
+                context.projectedImages |> AVal.bind (function 
+                    | None -> AVal.constant M44d.Identity
+                    | Some p -> 
+                        (p.imageProjection, context.modelTrafo) ||> AVal.map2 (fun vp m -> 
+                            match vp with
+                            | Some vp -> 
+                                vp.Forward * patch.info.Local2Global.Forward
+                            | None -> 
+                                M44d.Identity
+                        ) 
+                ) :> IAdaptiveValue
             )
             "ApproximateBodyNormalLocalSpace", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
                 patch.info.Local2Global.Backward.TransformDir(patch.info.GlobalBoundingBox.Center.Normalized).Normalized |> AVal.constant :> IAdaptiveValue
             )
             "SunDirectionWorld", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) -> 
                 let context = scope |> unbox<OpcRenderingExtensions.Context>
-                match context.projectedImages with
-                | None -> V3d.OOO |> AVal.constant :> IAdaptiveValue
-                | Some d -> 
-                    d.sunDirection |> AVal.map (Option.defaultValue V3d.Zero) :> IAdaptiveValue
+                context.projectedImages |> AVal.bind (function 
+                    | None -> V3d.OOO |> AVal.constant 
+                    | Some d -> 
+                        d.sunDirection |> AVal.map (Option.defaultValue V3d.Zero)
+                ) :> IAdaptiveValue
             )
             "SunLightEnabled", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
                 let context = scope |> unbox<OpcRenderingExtensions.Context>
-                match context.projectedImages with
-                | None -> false |> AVal.constant :> IAdaptiveValue
+                context.projectedImages |> AVal.bind (function 
+                | None -> false |> AVal.constant
                 | Some p -> 
                     (p.sunLightEnabled, p.sunDirection) 
                     ||> AVal.map2 (fun enabled dir -> Option.isSome dir && enabled) 
-                    :> IAdaptiveValue
+                ) :> IAdaptiveValue
             )
         ]
 

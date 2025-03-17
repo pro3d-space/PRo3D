@@ -417,42 +417,44 @@ module ViewerUtils =
                             return false
                     }       
                     
-                let startTime = DateTime.Parse("2025-03-12 11:30:20.482190Z", CultureInfo.InvariantCulture)
-                let endTime = DateTime.Parse("2025-03-12 15:20:20.482190Z", CultureInfo.InvariantCulture)
-                let shots = (endTime - startTime) / TimeSpan.FromMinutes(2) |> ceil |> int
-                let observationTimes = ProjectedImages.splitTimes startTime endTime shots
 
-                let instruments =
-                    let distanceSunPluto = 5906380000.0 * 1000.0
-                    let frustum = Frustum.perspective 5.5306897076421 10000000.0 distanceSunPluto 1.0
-                    Map.ofList [
-                        "HERA_AFC-1", frustum
-                        "HERA_AFC-2", frustum
-                    ]
+                
+                //let startTime = DateTime.Parse("2025-03-12 11:30:20.482190Z", CultureInfo.InvariantCulture)
+                //let endTime = DateTime.Parse("2025-03-12 15:20:20.482190Z", CultureInfo.InvariantCulture)
+                //let shots = (endTime - startTime) / TimeSpan.FromMinutes(2) |> ceil |> int
+                //let observationTimes = ProjectedImages.splitTimes startTime endTime shots
 
-                let marsObservations = 
-                    let p = {
-                        worldReferenceSystem = "ECLIPJ2000"
-                        observer = "MARS"
-                        sourceReferenceFrame = "IAU_MARS"
-                        target = CameraFocus.FocusBody "MARS"
-                        cameraSource = CameraSource.InBody "HERA"
-                        instrument = Intrinsics.Plain instruments["HERA_AFC-1"]
-                        supportBody = "SUN"
-                    }
-                    let observations = observationTimes |> ProjectedImages.computeProjections p
-                    Array.zip observationTimes observations
+                //let instruments =
+                //    let distanceSunPluto = 5906380000.0 * 1000.0
+                //    let frustum = Frustum.perspective 5.5306897076421 10000000.0 distanceSunPluto 1.0
+                //    Map.ofList [
+                //        "HERA_AFC-1", frustum
+                //        "HERA_AFC-2", frustum
+                //    ]
 
-                let projectedImages s = 
-                    if s = "MARS" then 
-                        Some {
-                            imageProjection = AVal.constant None
-                            localImageProjectionTrafos = marsObservations |> Array.map snd |> AVal.constant
-                            sunDirection  = AVal.constant None
-                            sunLightEnabled = AVal.constant false
-                        }
-                    else
-                        None
+                //let marsObservations = 
+                //    let p = {
+                //        worldReferenceSystem = "ECLIPJ2000"
+                //        observer = "MARS"
+                //        sourceReferenceFrame = "IAU_MARS"
+                //        target = CameraFocus.FocusBody "MARS"
+                //        cameraSource = CameraSource.InBody "HERA"
+                //        instrument = Intrinsics.Plain instruments["HERA_AFC-1"]
+                //        supportBody = "SUN"
+                //    }
+                //    let observations = observationTimes |> ProjectedImages.computeProjections p
+                //    Array.zip observationTimes observations
+
+                //let projectedImages s = 
+                //    if s = "MARS" then 
+                //        Some {
+                //            imageProjection = AVal.constant None
+                //            localImageProjectionTrafos = marsObservations |> Array.map snd |> AVal.constant
+                //            sunDirection  = AVal.constant None
+                //            sunLightEnabled = AVal.constant false
+                //        }
+                //    else
+                //        None
 
                 let surfaceSg =
                     surface.sceneGraph
@@ -460,8 +462,7 @@ module ViewerUtils =
                     |> Sg.dynamic
                     |> Sg.trafo trafo //(Transformations.fullTrafo surf refsys)
                     |> Sg.modifySamplerState DefaultSemantic.DiffuseColorTexture samplerDescription
-                    |> Sg.applyProjectedImages (Some projectedImages)
-                    |> Sg.applyBody "MARS"
+                    |> Sg.applyBody (observedSystem |> AVal.map (function None -> None | Some o -> Some o.body.Value))
                     |> Sg.noEvents
                     |> Sg.uniform "selected"      (isSelected) // isSelected
                     |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
@@ -906,6 +907,7 @@ module ViewerUtils =
             PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect
 
             PRo3D.Base.Shader.footPrintF |> toEffect
+            ImageProjection.Shaders.stableImageProjection |> toEffect
             ImageProjection.Shaders.localImageProjections |> toEffect
         ]
 
@@ -1020,6 +1022,78 @@ module ViewerUtils =
         let refSystem = m.scene.referenceSystem
         //let view = m.navigation.camera.view
         let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
+
+        let instruments =
+            let frustum = Frustum.perspective 5.5306897076421 1000.0 100000000000.0 1.0
+            Map.ofList [
+                "HERA_AFC-1", frustum
+                "HERA_AFC-2", frustum
+            ]
+
+        let singleProjectedImage = 
+            m.scene.gisApp.projectedImages.selectedImage 
+            |> AVal.bind (function 
+                | None -> AVal.constant None
+                | Some s -> 
+                    AList.tryGet s m.scene.gisApp.projectedImages.images 
+                    |> AVal.map (function 
+                        | None -> None
+                        | Some img -> 
+                            match img.projection with
+                            | None -> None
+                            | Some p -> 
+                                let trafo = 
+                                    observerSystem |> AVal.map (function 
+                                    | Some o -> 
+                                        ProjectedImages.projectOnto o.referenceFrame.Value o.body.Value instruments p
+                                    | _ -> 
+                                        Some Trafo3d.Identity
+                                    )
+                                Some (img.fullName, trafo)
+                    )
+            )
+
+        let hasSingleImageProjection = 
+            singleProjectedImage |> AVal.map (function None -> false | Some (_, p) -> true)
+        let singleImageProjectionTrafo =
+            singleProjectedImage |> AVal.bind (function None -> AVal.constant None | Some (_, p) -> p)
+        let singleImageProjectionTexture = 
+            singleProjectedImage |> AVal.map (function None -> NullTexture.Instance | Some (s, p) -> FileTexture(s, true) :> ITexture)
+
+        let projectedImages = 
+            m.scene.gisApp.projectedImages.images.Content
+            |> AVal.map (fun images -> 
+                let arr = IndexList.toArray images
+                let trafos = 
+                    observerSystem |> AVal.map (function
+                        | None -> [||]
+                        | Some o -> 
+                            arr |> Array.choose (fun a -> 
+                                match a.projection with
+                                | None -> None
+                                | Some p -> 
+                                    ProjectedImages.projectOnto o.referenceFrame.Value o.body.Value instruments p
+                            )
+                    )
+
+         
+                { 
+                    imageProjection = singleImageProjectionTrafo
+                    localImageProjectionTrafos = trafos
+                    sunDirection = AVal.constant None
+                    sunLightEnabled = AVal.constant false
+                }
+            )
+
+        let wrapGisData (sg : ISg<_>) =
+            sg
+            |> Sg.applyProjectedImages (fun body -> 
+                (body, projectedImages) ||> AVal.map2 (fun body projectedImages -> 
+                    Some projectedImages
+                )
+            )
+            |> Sg.texture "ProjectedTexture" singleImageProjectionTexture
+
         let grouped = 
             sgGrouped |> AList.map(
                 fun x -> ( x 
@@ -1042,6 +1116,8 @@ module ViewerUtils =
                                 allowFootprint
                                 allowDepthview
                                 view
+
+                            |> wrapGisData
 
                         match surface.isObj with
                         | true -> 
