@@ -970,8 +970,8 @@ module Gui =
     module Mission =
         let traverseUI (m : AdaptiveModel) =
             div [] [
-                yield GuiEx.accordion "Traverses" "Write" true [
-                    TraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
+                yield GuiEx.accordion "Missions" "Write" true [
+                    TraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.missions
                 ]
                 yield GuiEx.accordion "Actions" "Asterisk" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewActions m.scene.traverses))
