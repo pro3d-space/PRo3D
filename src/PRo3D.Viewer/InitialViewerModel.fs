@@ -100,7 +100,6 @@ module Viewer =
                     geologicSurfacesModel = GeologicSurfacesModel.initial
 
                     traverses             = TraverseModel.initial
-                    missions              = TraverseModel.initial
                     sequencedBookmarks    = SequencedBookmarks.initial //with outputPath = Config.besideExecuteable}
                     screenshotModel       = ScreenshotModel.initial
                     gisApp                = Gis.GisApp.initial startupArgs.defaultSpiceKernelPath

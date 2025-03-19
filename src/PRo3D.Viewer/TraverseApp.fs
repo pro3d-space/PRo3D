@@ -141,7 +141,6 @@ module MissionTraverseApp =
                                   
                 return 
                     { sol with 
-                        solType = Source.RIMFAX
                         solNumber = solNumber;
                         length = length;
                         fromRMC = fromRMC;
@@ -244,7 +243,6 @@ module RoverTraverseApp =
                                   
                 return 
                     { sol with 
-                        solType = Source.Rover
                         solNumber = solNumber
                         site = site
                         yaw = yaw
@@ -349,9 +347,10 @@ module TraversePropertiesApp =
     let computeSolFlyToParameters
         (sol : Sol) 
         (referenceSystem : ReferenceSystem) 
+        (traverseType: TraverseType)
         : V3d * V3d * V3d =
 
-        let rotation = if sol.solType = Source.Rover then RoverTraverseApp.computeSolRotation sol referenceSystem else MissionTraverseApp.computeSolRotation sol referenceSystem
+        let rotation = if traverseType = TraverseType.Rover then RoverTraverseApp.computeSolRotation sol referenceSystem else MissionTraverseApp.computeSolRotation sol referenceSystem
 
         let north = rotation.Forward.TransformDir referenceSystem.northO
         let up    = rotation.Forward.TransformDir referenceSystem.up.value
@@ -361,9 +360,10 @@ module TraversePropertiesApp =
     let computeSolViewplanParameters
         (sol : Sol)
         (referenceSystem : ReferenceSystem)
+        (traverseType: TraverseType)
         : (string * Trafo3d * V3d * ReferenceSystem) = 
 
-        let rotTrafo = if sol.solType = Source.Rover then RoverTraverseApp.computeSolRotation sol referenceSystem else MissionTraverseApp.computeSolRotation sol referenceSystem
+        let rotTrafo = if traverseType = TraverseType.Rover then RoverTraverseApp.computeSolRotation sol referenceSystem else MissionTraverseApp.computeSolRotation sol referenceSystem
 
         //let loc =(sol.location + sol.location.Normalized * 0.5)
         //let locTranslation = Trafo3d.Translation(loc)        
@@ -390,7 +390,8 @@ module TraversePropertiesApp =
     
         let viewSolList 
             (refSystem : AdaptiveReferenceSystem) 
-            (m : AdaptiveTraverse) =
+            (m : AdaptiveTraverse)
+            (traverseType: TraverseType) =
     
             let listAttributes =
                 amap {
@@ -462,9 +463,9 @@ module TraversePropertiesApp =
                                     yield div [clazz "description"] [text descriptionText]
     
                                     yield 
-                                        i [clazz "home icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in FlyToSol (computeSolFlyToParameters sol refSystem))] []
+                                        i [clazz "home icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in FlyToSol (computeSolFlyToParameters sol refSystem traverseType ))] []
                                     yield 
-                                        i [clazz "location arrow icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in PlaceRoverAtSol (computeSolViewplanParameters sol refSystem))] []
+                                        i [clazz "location arrow icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in PlaceRoverAtSol (computeSolViewplanParameters sol refSystem traverseType))] []
                                 ]                                     
                             ]
                         ]
@@ -521,13 +522,13 @@ module TraverseApp =
             let traversesRover = 
                 traversesJson
                 |> HashMap.filter(fun guid traverse ->
-                    traverse.sols[0].solType = Source.Rover
+                    traverse.traverseType = TraverseType.Rover
                 )
 
             let traversesMissions = 
                 traversesJson
                 |> HashMap.filter(fun guid traverse ->
-                    traverse.sols[0].solType = Source.RIMFAX
+                    traverse.traverseType = TraverseType.RIMFAX
                 )
 
             { model with traverses = model.traverses |> HashMap.union traversesRover; missions = model.missions |> HashMap.union traversesMissions; selectedTraverse = None }
@@ -591,7 +592,8 @@ module TraverseApp =
     module UI =
         let viewTraverses
             (refSystem : AdaptiveReferenceSystem) 
-            (m : AdaptiveTraverseModel) =
+            (m : AdaptiveTraverseModel)
+            (traverseType : TraverseType) =
 
             let itemAttributes =
                 amap {
@@ -649,7 +651,7 @@ module TraverseApp =
                                          ]                           
                                         // fly to first sol of traverse
                                         let! refSystem = refSystem.Current
-                                        yield i [clazz "home icon"; onClick (fun _ -> FlyToSol (TraversePropertiesApp.computeSolFlyToParameters firstSol refSystem))] []
+                                        yield i [clazz "home icon"; onClick (fun _ -> FlyToSol (TraversePropertiesApp.computeSolFlyToParameters firstSol refSystem traverseType))] []
                                             |> UI.wrapToolTip DataPosition.Bottom "Fly to traverse"          
             
                                         yield Incremental.i toggleMap AList.empty 
@@ -690,7 +692,7 @@ module TraverseApp =
                 | None -> return empty
             }  
             
-        let viewSols (refSystem : AdaptiveReferenceSystem) (model:AdaptiveTraverseModel) =
+        let viewSols (refSystem : AdaptiveReferenceSystem) (model:AdaptiveTraverseModel) (traverseType : TraverseType) =
             adaptive {
                 let! guid = model.selectedTraverse
                 let empty = div [ style "font-style:italic"] [ text "no traverse selected" ] |> UI.map TraversePropertiesMessage 
@@ -699,7 +701,9 @@ module TraverseApp =
                 | Some id -> 
                     let! traverse = model.traverses |> AMap.tryFind id
                     match traverse with
-                    | Some t -> return (TraversePropertiesApp.UI.viewSolList refSystem t ) //|> UI.map TraverseAction)
+                    | Some t ->
+                        let ui = (TraversePropertiesApp.UI.viewSolList refSystem t traverseType )
+                        return ui //|> UI.map TraverseAction)
                     | None -> return empty
                 | None -> return empty
             }                
@@ -870,7 +874,7 @@ module TraverseApp =
             |> Sg.noEvents
             |> Sg.onOff traverse.showDots
 
-        let viewTraverseCoordinateFrames (view : aval<CameraView>) (refSystem : AdaptiveReferenceSystem)  (traverse : AdaptiveTraverse) =
+        let viewTraverseCoordinateFrames (view : aval<CameraView>) (refSystem : AdaptiveReferenceSystem) (traverse : AdaptiveTraverse) =
             let shift = getTraverseOffsetTransform refSystem traverse
             let solTrafosInRefSystem = 
                 (traverse.sols, view, refSystem.Current)
@@ -878,7 +882,11 @@ module TraverseApp =
                     let viewTrafo = view.ViewTrafo
                     shift |> AVal.map (fun shift -> 
                         sols |> List.toArray |> Array.map (fun sol -> 
-                            let rotation = if sol.solType = Source.Rover then RoverTraverseApp.computeSolRotation sol refSystem else MissionTraverseApp.computeSolRotation sol refSystem
+                            let rotation =
+                                if traverse.traverseType = TraverseType.Rover then
+                                    RoverTraverseApp.computeSolRotation sol refSystem
+                                else
+                                    MissionTraverseApp.computeSolRotation sol refSystem
                             let loc = sol.location + sol.location.Normalized * 0.5 // when porting to instancing kept it 0.5
                             let shiftedSol = Trafo3d.Translation loc
                             rotation * shiftedSol * shift * viewTrafo
@@ -907,7 +915,9 @@ module TraverseApp =
             |> Sg.onOff model.isVisibleT
 
         let viewTraverse  
-            (refSystem : AdaptiveReferenceSystem) (model : AdaptiveTraverse) : ISg<TraverseAction> = 
+            (refSystem : AdaptiveReferenceSystem)
+            (model : AdaptiveTraverse)
+            (traverseType: TraverseType) : ISg<TraverseAction> = 
 
             alist {
                 let! sols = model.sols
@@ -926,7 +936,7 @@ module TraverseApp =
                         let loc =(sol.location + sol.location.Normalized * 0.5)
                         let locTranslation = Trafo3d.Translation(loc)
                         let! r = refSystem.Current
-                        let rotation = if sol.solType = Source.Rover then RoverTraverseApp.computeSolRotation sol r else MissionTraverseApp.computeSolRotation sol r
+                        let rotation = if traverseType = TraverseType.Rover then RoverTraverseApp.computeSolRotation sol r else MissionTraverseApp.computeSolRotation sol r
                         yield viewCoordinateCross refSystem ~~(rotation * locTranslation)
             }        
             |> ASet.ofAList         

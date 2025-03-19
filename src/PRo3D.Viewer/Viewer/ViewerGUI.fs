@@ -951,7 +951,7 @@ module Gui =
         let traverseUI (m : AdaptiveModel) =
             div [] [
                 yield GuiEx.accordion "Traverses" "Write" true [
-                    TraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
+                    TraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses TraverseType.Rover
                 ]
                 yield GuiEx.accordion "Actions" "Asterisk" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewActions m.scene.traverses))
@@ -961,7 +961,7 @@ module Gui =
                 ]
                 yield GuiEx.accordion "Sols" "road" true [
                     //TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverse
-                    Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverses))
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverses TraverseType.Rover))
                 ]
             ] 
             |> UI.map TraverseMessage
@@ -971,7 +971,7 @@ module Gui =
         let traverseUI (m : AdaptiveModel) =
             div [] [
                 yield GuiEx.accordion "Missions" "Write" true [
-                    TraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.missions
+                    TraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses TraverseType.RIMFAX
                 ]
                 yield GuiEx.accordion "Actions" "Asterisk" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewActions m.scene.traverses))
@@ -981,7 +981,7 @@ module Gui =
                 ]
                 yield GuiEx.accordion "Sols" "road" true [
                     //TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverse
-                    Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverses))
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverses TraverseType.RIMFAX))
                 ]
             ] 
             |> UI.map TraverseMessage

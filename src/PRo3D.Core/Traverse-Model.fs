@@ -51,14 +51,13 @@ module InitTraverseParams =
           format = "{0:0.000}" }
 
 
-type Source =
+type TraverseType =
     | Rover
     | RIMFAX
 
 
 type Sol =
-    { solType: Source
-      version: int
+    { version: int
       location: V3d
       solNumber: int
       site: int
@@ -80,8 +79,7 @@ module Sol =
     let current = 0
 
     let initial =
-        { solType = Source.Rover
-          version = current
+        { version = current
           location = V3d.NaN
           solNumber = -1
           site = -1
@@ -119,8 +117,7 @@ module Sol =
             let! SCLK_END = Json.read "SCLK_END"       
 
             return
-                { solType = Source.Rover
-                  version = current
+                { version = current
                   location = location |> V3d.Parse
                   solNumber = solNumber
                   site = site
@@ -173,6 +170,8 @@ type Traverse =
       [<NonAdaptive>]
       tName: string
       sols: List<Sol>
+      [<NonAdaptive>]
+      traverseType: TraverseType
       selectedSol: option<int>
       showLines: bool
       showText: bool
@@ -212,6 +211,7 @@ module Traverse =
         { version = current
           guid = Guid.NewGuid()
           tName = name
+          traverseType = TraverseType.Rover
           sols = sols //[]
           selectedSol = None
           showLines = true
@@ -239,6 +239,7 @@ module Traverse =
                   guid = Guid.NewGuid()
                   tName = ""
                   sols = sols
+                  traverseType = TraverseType.Rover
                   selectedSol = None
                   showLines = showLines
                   showText = showText
@@ -274,6 +275,7 @@ module Traverse =
                 { version = current
                   guid = guid |> Guid
                   tName = tName
+                  traverseType = TraverseType.Rover
                   sols = sols
                   selectedSol = None
                   showLines = showLines

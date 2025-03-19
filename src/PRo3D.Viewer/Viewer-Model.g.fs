@@ -1,5 +1,5 @@
-//bbd9eadc-d216-360c-a54d-b3104c3ab65b
-//85a68d21-9a09-9d5d-231a-215702ead788
+//f5051465-ed32-0845-8b5d-62da3b623e4a
+//2044358d-8a9f-d107-f4aa-e8d327dadce8
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -24,7 +24,6 @@ type AdaptiveScene(value : Scene) =
     let _bookmarks_ = PRo3D.Core.AdaptiveGroupsModel(value.bookmarks)
     let _scaleBars_ = PRo3D.Core.AdaptiveScaleBarsModel(value.scaleBars)
     let _traverses_ = PRo3D.Core.AdaptiveTraverseModel(value.traverses)
-    let _missions_ = PRo3D.Core.AdaptiveTraverseModel(value.missions)
     let _viewPlans_ = PRo3D.SimulatedViews.AdaptiveViewPlanModel(value.viewPlans)
     let _dockConfig_ = FSharp.Data.Adaptive.cval(value.dockConfig)
     let _closedPages_ = FSharp.Data.Adaptive.cval(value.closedPages)
@@ -57,7 +56,6 @@ type AdaptiveScene(value : Scene) =
             _bookmarks_.Update(value.bookmarks)
             _scaleBars_.Update(value.scaleBars)
             _traverses_.Update(value.traverses)
-            _missions_.Update(value.missions)
             _viewPlans_.Update(value.viewPlans)
             _dockConfig_.Value <- value.dockConfig
             _closedPages_.Value <- value.closedPages
@@ -83,7 +81,6 @@ type AdaptiveScene(value : Scene) =
     member __.bookmarks = _bookmarks_
     member __.scaleBars = _scaleBars_
     member __.traverses = _traverses_
-    member __.missions = _missions_
     member __.viewPlans = _viewPlans_
     member __.dockConfig = _dockConfig_ :> FSharp.Data.Adaptive.aval<Aardvark.UI.Primitives.DockConfig>
     member __.closedPages = _closedPages_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Collections.list<Aardvark.UI.Primitives.DockElement>>
@@ -111,7 +108,6 @@ module SceneLenses =
         static member bookmarks_ = ((fun (self : Scene) -> self.bookmarks), (fun (value : PRo3D.Core.GroupsModel) (self : Scene) -> { self with bookmarks = value }))
         static member scaleBars_ = ((fun (self : Scene) -> self.scaleBars), (fun (value : PRo3D.Core.ScaleBarsModel) (self : Scene) -> { self with scaleBars = value }))
         static member traverses_ = ((fun (self : Scene) -> self.traverses), (fun (value : PRo3D.Core.TraverseModel) (self : Scene) -> { self with traverses = value }))
-        static member missions_ = ((fun (self : Scene) -> self.missions), (fun (value : PRo3D.Core.TraverseModel) (self : Scene) -> { self with missions = value }))
         static member viewPlans_ = ((fun (self : Scene) -> self.viewPlans), (fun (value : PRo3D.SimulatedViews.ViewPlanModel) (self : Scene) -> { self with viewPlans = value }))
         static member dockConfig_ = ((fun (self : Scene) -> self.dockConfig), (fun (value : Aardvark.UI.Primitives.DockConfig) (self : Scene) -> { self with dockConfig = value }))
         static member closedPages_ = ((fun (self : Scene) -> self.closedPages), (fun (value : Microsoft.FSharp.Collections.list<Aardvark.UI.Primitives.DockElement>) (self : Scene) -> { self with closedPages = value }))
