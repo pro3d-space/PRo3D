@@ -141,6 +141,7 @@ module MissionTraverseApp =
                                   
                 return 
                     { sol with 
+                        solType = Source.RIMFAX
                         solNumber = solNumber;
                         length = length;
                         fromRMC = fromRMC;
@@ -243,8 +244,14 @@ module RoverTraverseApp =
                                   
                 return 
                     { sol with 
-                        solNumber = solNumber; site = site; yaw = yaw; pitch = pitch; 
-                        roll = roll; tilt = tilt; distanceM = distanceM
+                        solType = Source.Rover
+                        solNumber = solNumber
+                        site = site
+                        yaw = yaw
+                        pitch = pitch
+                        roll = roll
+                        tilt = tilt
+                        distanceM = distanceM
                     }
             }
 
@@ -483,8 +490,8 @@ module TraverseApp =
         (model : TraverseModel) 
         (action : TraverseAction) : TraverseModel = 
         match action with
-        | LoadTraverses paths ->            
-            let traverses =             
+        | LoadTraverses paths ->                  
+            let traversesJson =             
                 paths 
                 |> List.filter(fun x ->
                     let fileExists = File.Exists x
@@ -509,9 +516,21 @@ module TraverseApp =
                     let traverse = Traverse.initial name sols |> Traverse.withColor color
                     traverse |> HashMap.single traverse.guid        
                 )
-                |> List.fold(fun a b -> HashMap.union a b) model.traverses            
+                |> List.fold(fun a b -> HashMap.union a b) model.traverses
 
-            { model with traverses = model.traverses |> HashMap.union traverses; selectedTraverse = None }
+            let traversesRover = 
+                traversesJson
+                |> HashMap.filter(fun guid traverse ->
+                    traverse.sols[0].solType = Source.Rover
+                )
+
+            let traversesMissions = 
+                traversesJson
+                |> HashMap.filter(fun guid traverse ->
+                    traverse.sols[0].solType = Source.RIMFAX
+                )
+
+            { model with traverses = model.traverses |> HashMap.union traversesRover; missions = model.missions |> HashMap.union traversesMissions; selectedTraverse = None }
         | IsVisibleT id ->
             let traverses' =  
                 model.traverses 

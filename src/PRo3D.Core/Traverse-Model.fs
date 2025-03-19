@@ -319,6 +319,7 @@ type Traverse with
 type TraverseModel =
     { version: int
       traverses: HashMap<Guid, Traverse>
+      missions: HashMap<Guid, Traverse>
       selectedTraverse: Option<Guid> }
 
 module TraverseModel =
@@ -332,17 +333,24 @@ module TraverseModel =
             let traverses =
                 traverses |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
 
+            let! missions = Json.read "missions"
+
+            let missions =
+                missions |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
+
             let! selected = Json.read "selectedTraverse"
 
             return
                 { version = current
                   traverses = traverses
+                  missions = missions
                   selectedTraverse = selected }
         }
 
     let initial =
         { version = current
           traverses = HashMap.empty
+          missions = HashMap.empty
           selectedTraverse = None }
 
 
