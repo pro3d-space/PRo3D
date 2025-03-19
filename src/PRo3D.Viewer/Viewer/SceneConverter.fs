@@ -133,6 +133,7 @@ module SceneLoading =
                 |> ViewerIO.loadAnnotations  
                 |> ViewerIO.loadCorrelations
                 |> ViewerIO.loadLastFootPrint
+                |> ViewerIO.loadSequencedBookmarks
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.loadSceneSpiceKernel
                 |> Choice1Of2 

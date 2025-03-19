@@ -473,7 +473,7 @@ module ViewerApp =
             |> Optic.set _animationView nav.camera.view
         | NavigationMessage msg, _, _ ->
             m // cases where navigation is blocked by other operations (e.g. animation)
-        | AnimationMessage msg,_,_ ->
+        | AnimationMessage msg,_,_ -> // belongs to deprecated animation
             let m = 
                 match msg with
                 | Tick t when AnimationApp.shouldAnimate m.animations -> 
@@ -1736,7 +1736,6 @@ module ViewerApp =
             //    ()
             //| _ -> 
             //    ()
-
             Animation.Animator.update msg m   
 
         | ProvenanceMessage msg -> 
