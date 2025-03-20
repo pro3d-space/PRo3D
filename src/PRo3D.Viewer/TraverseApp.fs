@@ -110,6 +110,33 @@ module TraverseUtilities =
         | Result.Ok(Json.String p) -> Result.Ok p
         | Result.Ok(e) -> Result.Error (PropertyHasWrongType(propertyName, feature, "Json.String", e.ToString(), e.ToString()))
         | Result.Error(e) -> Result.Error(e)
+    
+    let compareNatural (left: AdaptiveTraverse) (right: AdaptiveTraverse) =
+        Sorting.compareNatural left.tName right.tName
+
+    let computeSolFlyToParameters
+        (sol : Sol) 
+        (referenceSystem : ReferenceSystem) 
+        (rotation: Trafo3d)
+        : V3d * V3d * V3d =
+
+        let north = rotation.Forward.TransformDir referenceSystem.northO
+        let up    = rotation.Forward.TransformDir referenceSystem.up.value
+
+        north, up, (sol.location + 2.0 * up)
+
+    let computeSolViewplanParameters
+        (sol : Sol)
+        (referenceSystem : ReferenceSystem)
+        (rotation)
+        : (string * Trafo3d * V3d * ReferenceSystem) = 
+
+        //let loc =(sol.location + sol.location.Normalized * 0.5)
+        //let locTranslation = Trafo3d.Translation(loc)        
+
+        let name = sprintf "Sol %d" sol.solNumber
+
+        name, rotation, sol.location, referenceSystem
 
 module MissionTraverseApp =
 
@@ -119,12 +146,8 @@ module MissionTraverseApp =
         let north = referenceSystem.northO
         let up = referenceSystem.up.value
         let east = Vec.cross up north
-        
-        let yawRotation    = Trafo3d.RotationInDegrees(up, -sol.yaw)
-        let pitchRotation  = Trafo3d.RotationInDegrees(east, sol.pitch)
-        let rollRotation   = Trafo3d.RotationInDegrees(north, sol.roll)
 
-        yawRotation * pitchRotation * rollRotation
+        Trafo3d.Identity
 
     let parseRIMFAXTraverse (traverse : GeoJsonFeatureCollection) =
         let parseProperties (sol : Sol) (x : GeoJsonFeature) : Result<Sol, TraverseParseError> =
@@ -206,6 +229,81 @@ module MissionTraverseApp =
             | _ -> []
 
         sols
+
+    module UI =
+        let viewTraverses
+            (refSystem : AdaptiveReferenceSystem) 
+            (m : AdaptiveTraverseModel) =
+
+            let itemAttributes =
+                amap {
+                    yield clazz "ui divided list inverted segment"
+                    yield style "overflow-y : visible"
+                } |> AttributeMap.ofAMap
+
+            Incremental.div itemAttributes (
+                alist {
+
+                    let! selected = m.selectedTraverse
+                    let traverses = m.missions |> AMap.toASetValues |> ASet.toAList |> AList.sortWith compareNatural //(fun x -> x.tName |> AVal.force)
+                            
+                    for traverse in traverses do
+                        
+                        let! sols = traverse.sols
+                        let firstSol = sols.[0]
+                        let infoc = sprintf "color: %s" (Html.color C4b.White)
+            
+                        let traverseID = traverse.guid
+                        let toggleIcon = 
+                            AVal.map( fun toggle -> if toggle then "unhide icon" else "hide icon") traverse.isVisibleT
+
+                        let toggleMap = 
+                            amap {
+                                let! toggleIcon = toggleIcon
+                                yield clazz toggleIcon
+                                yield onClick (fun _ -> IsVisibleT traverseID)
+                            } |> AttributeMap.ofAMap  
+
+                       
+                        let color =
+                            match selected with
+                            | Some sel -> 
+                                AVal.constant (if sel = (traverse.guid) then C4b.VRVisGreen else C4b.Gray) 
+                            | None -> AVal.constant C4b.Gray
+
+                        let headerText = traverse.tName
+
+                        let headerAttributes =
+                            amap {
+                                yield onClick (fun _ -> SelectTraverse traverseID)
+                            } 
+                            |> AttributeMap.ofAMap
+            
+                        let! c = color
+                        let bgc = sprintf "color: %s" (Html.color c)
+                        yield div [clazz "item"; style infoc] [
+                            div [clazz "content"; style infoc] [                     
+                                yield Incremental.div (AttributeMap.ofList [style infoc])(
+                                    alist {
+                                        //let! hc = headerColor
+                                        yield div [clazz "header"; style bgc] [
+                                            Incremental.span headerAttributes ([text headerText] |> AList.ofList)
+                                         ]                           
+                                        // fly to first sol of traverse
+                                        let! refSystem = refSystem.Current
+                                        yield i [clazz "home icon"; onClick (fun _ -> FlyToSol (computeSolFlyToParameters firstSol refSystem (computeSolRotation firstSol refSystem)))] []
+                                            |> UI.wrapToolTip DataPosition.Bottom "Fly to traverse"          
+            
+                                        yield Incremental.i toggleMap AList.empty 
+                                        |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
+
+                                        yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveTraverse traverseID)] [] 
+                                            |> UI.wrapToolTip DataPosition.Bottom "Remove"                                            
+                                    } 
+                                )                                     
+                            ]
+                        ]
+                } )
 
 module RoverTraverseApp =
 
@@ -324,7 +422,85 @@ module RoverTraverseApp =
 
         sols
 
+    module UI =
+        let viewTraverses
+            (refSystem : AdaptiveReferenceSystem) 
+            (m : AdaptiveTraverseModel) =
+
+            let itemAttributes =
+                amap {
+                    yield clazz "ui divided list inverted segment"
+                    yield style "overflow-y : visible"
+                } |> AttributeMap.ofAMap
+
+            Incremental.div itemAttributes (
+                alist {
+
+                    let! selected = m.selectedTraverse
+                    let traverses = m.traverses |> AMap.toASetValues |> ASet.toAList |> AList.sortWith compareNatural //(fun x -> x.tName |> AVal.force)
+                            
+                    for traverse in traverses do
+                        
+                        let! sols = traverse.sols
+                        let firstSol = sols.[0]
+                        let infoc = sprintf "color: %s" (Html.color C4b.White)
+            
+                        let traverseID = traverse.guid
+                        let toggleIcon = 
+                            AVal.map( fun toggle -> if toggle then "unhide icon" else "hide icon") traverse.isVisibleT
+
+                        let toggleMap = 
+                            amap {
+                                let! toggleIcon = toggleIcon
+                                yield clazz toggleIcon
+                                yield onClick (fun _ -> IsVisibleT traverseID)
+                            } |> AttributeMap.ofAMap  
+
+                       
+                        let color =
+                            match selected with
+                            | Some sel -> 
+                                AVal.constant (if sel = (traverse.guid) then C4b.VRVisGreen else C4b.Gray) 
+                            | None -> AVal.constant C4b.Gray
+
+                        let headerText = traverse.tName
+
+                        let headerAttributes =
+                            amap {
+                                yield onClick (fun _ -> SelectTraverse traverseID)
+                            } 
+                            |> AttributeMap.ofAMap
+            
+                        let! c = color
+                        let bgc = sprintf "color: %s" (Html.color c)
+                        yield div [clazz "item"; style infoc] [
+                            div [clazz "content"; style infoc] [                     
+                                yield Incremental.div (AttributeMap.ofList [style infoc])(
+                                    alist {
+                                        //let! hc = headerColor
+                                        yield div [clazz "header"; style bgc] [
+                                            Incremental.span headerAttributes ([text headerText] |> AList.ofList)
+                                         ]                           
+                                        // fly to first sol of traverse
+                                        let! refSystem = refSystem.Current
+                                        yield i [clazz "home icon"; onClick (fun _ -> FlyToSol (computeSolFlyToParameters firstSol refSystem (computeSolRotation firstSol refSystem)))] []
+                                            |> UI.wrapToolTip DataPosition.Bottom "Fly to traverse"          
+            
+                                        yield Incremental.i toggleMap AList.empty 
+                                        |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
+
+                                        yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveTraverse traverseID)] [] 
+                                            |> UI.wrapToolTip DataPosition.Bottom "Remove"                                            
+                                    } 
+                                )                                     
+                            ]
+                        ]
+                } )
+
 module TraversePropertiesApp =
+
+    open TraverseUtilities
+
     let update (model : Traverse) (action : TraversePropertiesAction) : Traverse = 
         match action with
         | ToggleShowText ->
@@ -343,34 +519,6 @@ module TraversePropertiesApp =
             { model with tLineWidth = Numeric.update model.tLineWidth w}
         | SetHeightOffset w -> 
             { model with heightOffset = Numeric.update model.heightOffset w}
-
-    let computeSolFlyToParameters
-        (sol : Sol) 
-        (referenceSystem : ReferenceSystem) 
-        (traverseType: TraverseType)
-        : V3d * V3d * V3d =
-
-        let rotation = if traverseType = TraverseType.Rover then RoverTraverseApp.computeSolRotation sol referenceSystem else MissionTraverseApp.computeSolRotation sol referenceSystem
-
-        let north = rotation.Forward.TransformDir referenceSystem.northO
-        let up    = rotation.Forward.TransformDir referenceSystem.up.value
-
-        north, up, (sol.location + 2.0 * up)
-
-    let computeSolViewplanParameters
-        (sol : Sol)
-        (referenceSystem : ReferenceSystem)
-        (traverseType: TraverseType)
-        : (string * Trafo3d * V3d * ReferenceSystem) = 
-
-        let rotTrafo = if traverseType = TraverseType.Rover then RoverTraverseApp.computeSolRotation sol referenceSystem else MissionTraverseApp.computeSolRotation sol referenceSystem
-
-        //let loc =(sol.location + sol.location.Normalized * 0.5)
-        //let locTranslation = Trafo3d.Translation(loc)        
-
-        let name = sprintf "Sol %d" sol.solNumber
-
-        name, rotTrafo, sol.location, referenceSystem
 
     module UI =
     
@@ -463,26 +611,40 @@ module TraversePropertiesApp =
                                     yield div [clazz "description"] [text descriptionText]
     
                                     yield 
-                                        i [clazz "home icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in FlyToSol (computeSolFlyToParameters sol refSystem traverseType ))] []
+                                        i [clazz "home icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in FlyToSol (
+                                        computeSolFlyToParameters
+                                            sol
+                                            refSystem
+                                            (if traverseType = TraverseType.RIMFAX then MissionTraverseApp.computeSolRotation sol refSystem else RoverTraverseApp.computeSolRotation sol refSystem)))] []
                                     yield 
-                                        i [clazz "location arrow icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in PlaceRoverAtSol (computeSolViewplanParameters sol refSystem traverseType))] []
+                                        i [clazz "location arrow icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in PlaceRoverAtSol (
+                                            computeSolViewplanParameters
+                                                sol
+                                                refSystem
+                                                (if traverseType = TraverseType.RIMFAX then MissionTraverseApp.computeSolRotation sol refSystem else RoverTraverseApp.computeSolRotation sol refSystem)))] []
                                 ]                                     
                             ]
                         ]
+
+
+
                 })
 
 module TraverseApp = 
 
+    let getTraverseTypeFromGeoJson (traverse : GeoJsonFeatureCollection) =
+        if (List.length traverse.features = 1 && traverse.features[0].properties.ContainsKey("fromRMC")) then
+            TraverseType.RIMFAX
+        else
+            TraverseType.Rover
+    
     let parseTraverse (traverse : GeoJsonFeatureCollection) = 
         let sols =
-            if (List.length traverse.features = 1 && traverse.features[0].properties.ContainsKey("fromRMC")) then
-                MissionTraverseApp.parseRIMFAXTraverse (traverse)
+            if getTraverseTypeFromGeoJson(traverse) = TraverseType.RIMFAX then
+                MissionTraverseApp.parseRIMFAXTraverse (traverse), TraverseType.RIMFAX
             else
-                RoverTraverseApp.parseRoverTraverse (traverse)
+                RoverTraverseApp.parseRoverTraverse (traverse), TraverseType.Rover
         sols
-    
-    let compareNatural (left: AdaptiveTraverse) (right: AdaptiveTraverse) =
-        Sorting.compareNatural left.tName right.tName
 
     let assignColorsToTraverse (traverses : List<string>) : List<string * C4b> =
         traverses |> List.map(fun x -> (x, C4b.Pink))
@@ -506,7 +668,7 @@ module TraverseApp =
                     Log.line "[Traverse] Loading %s" x
                     let geojson = System.IO.File.ReadAllText x
                      
-                    let sols =
+                    let sols, traverseType =
                         geojson 
                         |> Json.parse 
                         |> Json.deserialize 
@@ -514,8 +676,8 @@ module TraverseApp =
 
                     let name = Path.GetFileName x
 
-                    let traverse = Traverse.initial name sols |> Traverse.withColor color
-                    traverse |> HashMap.single traverse.guid        
+                    let traverse = Traverse.initial name sols |> Traverse.withColor color |> Traverse.withTraverseType traverseType
+                    traverse |> HashMap.single traverse.guid 
                 )
                 |> List.fold(fun a b -> HashMap.union a b) model.traverses
 
@@ -601,69 +763,10 @@ module TraverseApp =
                     yield style "overflow-y : visible"
                 } |> AttributeMap.ofAMap
 
-            Incremental.div itemAttributes (
-                alist {
-
-                    let! selected = m.selectedTraverse
-                    let traverses = m.traverses |> AMap.toASetValues |> ASet.toAList |> AList.sortWith compareNatural //(fun x -> x.tName |> AVal.force)
-                            
-                    for traverse in traverses do
-                        
-                        let! sols = traverse.sols
-                        let firstSol = sols.[0]
-                        let infoc = sprintf "color: %s" (Html.color C4b.White)
-            
-                        let traverseID = traverse.guid
-                        let toggleIcon = 
-                            AVal.map( fun toggle -> if toggle then "unhide icon" else "hide icon") traverse.isVisibleT
-
-                        let toggleMap = 
-                            amap {
-                                let! toggleIcon = toggleIcon
-                                yield clazz toggleIcon
-                                yield onClick (fun _ -> IsVisibleT traverseID)
-                            } |> AttributeMap.ofAMap  
-
-                       
-                        let color =
-                            match selected with
-                            | Some sel -> 
-                                AVal.constant (if sel = (traverse.guid) then C4b.VRVisGreen else C4b.Gray) 
-                            | None -> AVal.constant C4b.Gray
-
-                        let headerText = traverse.tName
-
-                        let headerAttributes =
-                            amap {
-                                yield onClick (fun _ -> SelectTraverse traverseID)
-                            } 
-                            |> AttributeMap.ofAMap
-            
-                        let! c = color
-                        let bgc = sprintf "color: %s" (Html.color c)
-                        yield div [clazz "item"; style infoc] [
-                            div [clazz "content"; style infoc] [                     
-                                yield Incremental.div (AttributeMap.ofList [style infoc])(
-                                    alist {
-                                        //let! hc = headerColor
-                                        yield div [clazz "header"; style bgc] [
-                                            Incremental.span headerAttributes ([text headerText] |> AList.ofList)
-                                         ]                           
-                                        // fly to first sol of traverse
-                                        let! refSystem = refSystem.Current
-                                        yield i [clazz "home icon"; onClick (fun _ -> FlyToSol (TraversePropertiesApp.computeSolFlyToParameters firstSol refSystem traverseType))] []
-                                            |> UI.wrapToolTip DataPosition.Bottom "Fly to traverse"          
-            
-                                        yield Incremental.i toggleMap AList.empty 
-                                        |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
-
-                                        yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveTraverse traverseID)] [] 
-                                            |> UI.wrapToolTip DataPosition.Bottom "Remove"                                            
-                                    } 
-                                )                                     
-                            ]
-                        ]
-                } )
+            if traverseType = TraverseType.RIMFAX then
+                MissionTraverseApp.UI.viewTraverses refSystem m
+            else 
+                RoverTraverseApp.UI.viewTraverses refSystem m
 
         let viewActions (model:AdaptiveTraverseModel) =
             adaptive {

@@ -224,6 +224,9 @@ module Traverse =
           heightOffset = { Numeric.init with value = 0.0 }
           }
 
+    let withTraverseType(traverseType: TraverseType) (t: Traverse) =
+        { t with traverseType = traverseType }
+
     let withColor(color: C4b) (t: Traverse) =
         { t with color = { c = color } }
 
