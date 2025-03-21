@@ -569,31 +569,6 @@ module TraversePropertiesApp =
                         let white = sprintf "color: %s" (Html.color C4b.White)
                         let! c = color
                         let bgc = sprintf "color: %s" (Html.color c)
-                            
-                        //if (sol.solNumber = 238) then
-                        //items
-                        //yield div [clazz "item"; style white] [
-                        //    i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc] []
-                        //    div [clazz "content"; style white] [                     
-                        //        Incremental.div (AttributeMap.ofList [style white])(
-                        //            alist {
-                                            
-                        //                yield div [clazz "header"; style bgc] [
-                        //                    span [onClick (fun _ -> SelectSol sol.solNumber)] [text headerText]
-                        //                ]                
-    
-                        //                let descriptionText = sprintf "yaw %A | pitch %A | roll %A" sol.yaw sol.pitch sol.roll
-                        //                yield div [clazz "description"] [text descriptionText]
-    
-                        //                let! refSystem = refSystem.Current
-                        //                yield i [clazz "home icon"; onClick (fun _ -> FlyToSol (computeSolFlyToParameters sol refSystem))] []
-                        //                    |> UI.wrapToolTip DataPosition.Bottom "Fly to Sol"
-                        //                yield i [clazz "location arrow icon"; onClick (fun _ -> PlaceRoverAtSol (computeSolViewplanParameters sol refSystem))] []
-                        //                    |> UI.wrapToolTip DataPosition.Bottom "Make Viewplan"
-                        //            } 
-                        //        )                                     
-                        //    ]
-                        //]
 
                         // only to be called in callback
                         let getCurrentRefSystem () =
@@ -772,7 +747,6 @@ module TraverseApp =
                     ] 
                 ] 
             }
-            
 
         let viewProperties (model:AdaptiveTraverseModel) =
             adaptive {
@@ -781,7 +755,7 @@ module TraverseApp =
                 
                 match guid with
                 | Some id -> 
-                    let! traverse = model.traverses |> AMap.tryFind id
+                    let! traverse = AMap.union model.traverses model.missions |> AMap.tryFind id
                     match traverse with
                     | Some t -> return (TraversePropertiesApp.UI.viewTraverseProperties t |> UI.map TraversePropertiesMessage)
                     | None -> return empty
@@ -795,7 +769,7 @@ module TraverseApp =
                 
                 match guid with
                 | Some id -> 
-                    let! traverse = model.traverses |> AMap.tryFind id
+                    let! traverse = AMap.union model.traverses model.missions |> AMap.tryFind id
                     match traverse with
                     | Some t ->
                         let ui = (TraversePropertiesApp.UI.viewSolList refSystem t traverseType )
@@ -833,8 +807,7 @@ module TraverseApp =
             )
 
         let viewLines (refSystem: AdaptiveReferenceSystem) (traverseModel : AdaptiveTraverseModel) =
-
-            let traverses = traverseModel.traverses
+            let traverses = AMap.union traverseModel.traverses traverseModel.missions
             traverses 
             |> AMap.map( fun id traverse ->
                 drawSolLines traverse
