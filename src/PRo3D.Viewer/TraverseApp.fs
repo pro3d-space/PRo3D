@@ -305,6 +305,74 @@ module MissionTraverseApp =
                         ]
                 } )
 
+        let viewSolList 
+            (refSystem : AdaptiveReferenceSystem) 
+            (m : AdaptiveTraverse) =
+    
+            let listAttributes =
+                amap {
+                    yield clazz "ui divided list inverted segment"
+                    yield style "overflow-y : hidden"
+                } |> AttributeMap.ofAMap
+    
+            Incremental.div listAttributes (
+                alist {
+    
+                    let! selected = m.selectedSol
+                    let! sols = m.sols
+
+                    let reversedSols = sols |> List.rev
+                    
+                    for sol in reversedSols do
+                                                    
+                        let color =
+                            match selected with
+                            | Some sel -> 
+                                AVal.constant (if sel = sol.solNumber then C4b.VRVisGreen else C4b.Gray) 
+                            | None ->
+                                AVal.constant C4b.Gray
+    
+                        let headerText = sprintf "Sol %i" sol.solNumber                    
+                
+                        let white = sprintf "color: %s" (Html.color C4b.White)
+                        let! c = color
+                        let bgc = sprintf "color: %s" (Html.color c)
+
+                        // only to be called in callback
+                        let getCurrentRefSystem () =
+                            refSystem.Current.GetValue()
+
+                        yield div [clazz "item"; style white] [
+                            i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc] []
+                            div [clazz "content"; style white] [                     
+                                div [style white] [
+                                    yield div [clazz "header"; style bgc] [
+                                        span [onClick (fun _ -> SelectSol sol.solNumber)] [text headerText]
+                                    ]                
+    
+                                    let descriptionText = sprintf "coordinates: %A" sol.location
+                                    yield div [clazz "description"] [text descriptionText]
+    
+                                    yield 
+                                        i [clazz "home icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in FlyToSol (
+                                        computeSolFlyToParameters
+                                            sol
+                                            refSystem
+                                            (computeSolRotation sol refSystem)))] []
+                                    yield 
+                                        i [clazz "location arrow icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in PlaceRoverAtSol (
+                                            computeSolViewplanParameters
+                                                sol
+                                                refSystem
+                                                (computeSolRotation sol refSystem)))] []
+                                ]                                     
+                            ]
+                        ]
+
+
+
+                })
+
 module RoverTraverseApp =
 
     open TraverseUtilities
@@ -497,49 +565,9 @@ module RoverTraverseApp =
                         ]
                 } )
 
-module TraversePropertiesApp =
-
-    open TraverseUtilities
-
-    let update (model : Traverse) (action : TraversePropertiesAction) : Traverse = 
-        match action with
-        | ToggleShowText ->
-            { model with showText = not model.showText }
-        | ToggleShowLines ->
-            { model with showLines = not model.showLines }
-        | ToggleShowDots ->
-            { model with showDots = not model.showDots }
-        | SetTraverseName s ->
-            { model with tName = s }
-        | SetSolTextsize s ->
-            { model with tTextSize = Numeric.update model.tTextSize s}
-        | SetTraverseColor tc -> 
-            { model with color = ColorPicker.update model.color tc }
-        | SetLineWidth w ->
-            { model with tLineWidth = Numeric.update model.tLineWidth w}
-        | SetHeightOffset w -> 
-            { model with heightOffset = Numeric.update model.heightOffset w}
-
-    module UI =
-    
-        let viewTraverseProperties (m : AdaptiveTraverse) =
-            require GuiEx.semui (
-                Html.table [
-                    Html.row "Name:"       [text m.tName]
-                    Html.row "Textsize:"   [Numeric.view' [NumericInputType.InputBox] m.tTextSize |> UI.map SetSolTextsize ]  
-                    Html.row "Show Text:"  [GuiEx.iconCheckBox m.showText  ToggleShowText]
-                    Html.row "Show Lines:" [GuiEx.iconCheckBox m.showLines ToggleShowLines]
-                    Html.row "Show Dots:"  [GuiEx.iconCheckBox m.showDots  ToggleShowDots]
-                    Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
-                    Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]  
-                    Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
-                ]
-            )
-    
         let viewSolList 
             (refSystem : AdaptiveReferenceSystem) 
-            (m : AdaptiveTraverse)
-            (traverseType: TraverseType) =
+            (m : AdaptiveTraverse) =
     
             let listAttributes =
                 amap {
@@ -590,13 +618,13 @@ module TraversePropertiesApp =
                                         computeSolFlyToParameters
                                             sol
                                             refSystem
-                                            (if traverseType = TraverseType.RIMFAX then MissionTraverseApp.computeSolRotation sol refSystem else RoverTraverseApp.computeSolRotation sol refSystem)))] []
+                                            (computeSolRotation sol refSystem)))] []
                                     yield 
                                         i [clazz "location arrow icon"; onClick (fun _ -> let refSystem = getCurrentRefSystem() in PlaceRoverAtSol (
                                             computeSolViewplanParameters
                                                 sol
                                                 refSystem
-                                                (if traverseType = TraverseType.RIMFAX then MissionTraverseApp.computeSolRotation sol refSystem else RoverTraverseApp.computeSolRotation sol refSystem)))] []
+                                                (computeSolRotation sol refSystem)))] []
                                 ]                                     
                             ]
                         ]
@@ -605,6 +633,45 @@ module TraversePropertiesApp =
 
                 })
 
+module TraversePropertiesApp =
+
+    open TraverseUtilities
+
+    let update (model : Traverse) (action : TraversePropertiesAction) : Traverse = 
+        match action with
+        | ToggleShowText ->
+            { model with showText = not model.showText }
+        | ToggleShowLines ->
+            { model with showLines = not model.showLines }
+        | ToggleShowDots ->
+            { model with showDots = not model.showDots }
+        | SetTraverseName s ->
+            { model with tName = s }
+        | SetSolTextsize s ->
+            { model with tTextSize = Numeric.update model.tTextSize s}
+        | SetTraverseColor tc -> 
+            { model with color = ColorPicker.update model.color tc }
+        | SetLineWidth w ->
+            { model with tLineWidth = Numeric.update model.tLineWidth w}
+        | SetHeightOffset w -> 
+            { model with heightOffset = Numeric.update model.heightOffset w}
+
+    module UI =
+    
+        let viewTraverseProperties (m : AdaptiveTraverse) =
+            require GuiEx.semui (
+                Html.table [
+                    Html.row "Name:"       [text m.tName]
+                    Html.row "Textsize:"   [Numeric.view' [NumericInputType.InputBox] m.tTextSize |> UI.map SetSolTextsize ]  
+                    Html.row "Show Text:"  [GuiEx.iconCheckBox m.showText  ToggleShowText]
+                    Html.row "Show Lines:" [GuiEx.iconCheckBox m.showLines ToggleShowLines]
+                    Html.row "Show Dots:"  [GuiEx.iconCheckBox m.showDots  ToggleShowDots]
+                    Html.row "Color:"      [ColorPicker.view m.color |> UI.map SetTraverseColor ]
+                    Html.row "Linewidth:"  [Numeric.view' [NumericInputType.InputBox] m.tLineWidth |> UI.map SetLineWidth ]  
+                    Html.row "Height offset:"  [Numeric.view' [NumericInputType.InputBox] m.heightOffset |> UI.map SetHeightOffset ]  
+                ]
+            )
+    
 module TraverseApp = 
 
     let getTraverseTypeFromGeoJson (traverse : GeoJsonFeatureCollection) =
@@ -762,19 +829,25 @@ module TraverseApp =
                 | None -> return empty
             }  
             
-        let viewSols (refSystem : AdaptiveReferenceSystem) (model:AdaptiveTraverseModel) (traverseType : TraverseType) =
+        let viewSols (refSystem : AdaptiveReferenceSystem) (model:AdaptiveTraverseModel) =
             adaptive {
                 let! guid = model.selectedTraverse
                 let empty = div [ style "font-style:italic"] [ text "no traverse selected" ] |> UI.map TraversePropertiesMessage 
                 
                 match guid with
                 | Some id -> 
-                    let! traverse = AMap.union model.traverses model.missions |> AMap.tryFind id
+                    let! traverse = model.traverses |> AMap.tryFind id
                     match traverse with
                     | Some t ->
-                        let ui = (TraversePropertiesApp.UI.viewSolList refSystem t traverseType )
-                        return ui //|> UI.map TraverseAction)
-                    | None -> return empty
+                        let ui = (RoverTraverseApp.UI.viewSolList refSystem t )
+                        return ui
+                    | None -> 
+                        let! traverse = model.missions |> AMap.tryFind id
+                        match traverse with
+                        | Some t ->
+                            let ui = (MissionTraverseApp.UI.viewSolList refSystem t )
+                            return ui
+                        | None -> return empty
                 | None -> return empty
             }                
        

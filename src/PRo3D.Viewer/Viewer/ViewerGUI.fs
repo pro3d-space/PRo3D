@@ -964,7 +964,7 @@ module Gui =
                 ]
                 yield GuiEx.accordion "Sols" "road" true [
                     //TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverse
-                    Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverses TraverseType.Rover))
+                    Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverses))
                 ]
             ] 
             |> UI.map TraverseMessage
