@@ -951,7 +951,10 @@ module Gui =
         let traverseUI (m : AdaptiveModel) =
             div [] [
                 yield GuiEx.accordion "Traverses" "Write" true [
-                    TraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses TraverseType.Rover
+                    RoverTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
+                ]
+                yield GuiEx.accordion "Missions" "Write" true [
+                    MissionTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
                 ]
                 yield GuiEx.accordion "Actions" "Asterisk" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewActions m.scene.traverses))
@@ -962,26 +965,6 @@ module Gui =
                 yield GuiEx.accordion "Sols" "road" true [
                     //TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverse
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverses TraverseType.Rover))
-                ]
-            ] 
-            |> UI.map TraverseMessage
-
-
-    module Mission =
-        let traverseUI (m : AdaptiveModel) =
-            div [] [
-                yield GuiEx.accordion "Missions" "Write" true [
-                    TraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses TraverseType.RIMFAX
-                ]
-                yield GuiEx.accordion "Actions" "Asterisk" true [
-                    Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewActions m.scene.traverses))
-                ]
-                yield GuiEx.accordion "Properties" "Content" true [
-                    Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewProperties m.scene.traverses))
-                ]
-                yield GuiEx.accordion "Sols" "road" true [
-                    //TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverse
-                    Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverses TraverseType.RIMFAX))
                 ]
             ] 
             |> UI.map TraverseMessage
@@ -1207,8 +1190,6 @@ module Gui =
                 require (viewerDependencies) (body bodyAttributes [ScaleBars.scaleBarsUI m |> UI.map ViewerMessage])
             | Some "traverse" -> 
                 require (viewerDependencies) (body bodyAttributes [Traverse.traverseUI m |> UI.map ViewerMessage])
-            | Some "mission" -> 
-                require (viewerDependencies) (body bodyAttributes [Mission.traverseUI m |> UI.map ViewerMessage])
             | Some "geologicSurf" -> 
                 require (viewerDependencies) (body bodyAttributes [GeologicSurfaces.geologicSurfacesUI m |> UI.map ViewerMessage])
             | Some "sequencedBookmarks" -> 

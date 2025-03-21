@@ -698,7 +698,10 @@ module TraverseApp =
             let traverses' =  
                 model.traverses 
                 |> HashMap.alter id (function None -> None | Some t -> Some { t with isVisibleT = not t.isVisibleT })
-            { model with traverses = traverses' }
+            let missions' =  
+                model.missions 
+                |> HashMap.alter id (function None -> None | Some m -> Some { m with isVisibleT = not m.isVisibleT })
+            { model with traverses = traverses'; missions = missions' }
         | RemoveTraverse id -> 
             let selectedTraverse' = 
                 match model.selectedTraverse with
@@ -706,9 +709,10 @@ module TraverseApp =
                 | None -> None
 
             let traverses' = HashMap.remove id model.traverses
-            { model with traverses = traverses'; selectedTraverse = selectedTraverse' }
+            let missions' = HashMap.remove id model.missions
+            { model with traverses = traverses'; missions = missions'; selectedTraverse = selectedTraverse' }
         | SelectTraverse id ->
-            let selT = model.traverses |> HashMap.tryFind id
+            let selT = HashMap.union model.traverses model.missions |> HashMap.tryFind id
             match selT, model.selectedTraverse with
             | Some a, Some b -> 
                 if a.guid = b then 
@@ -721,18 +725,19 @@ module TraverseApp =
         | TraversePropertiesMessage msg ->  
             match model.selectedTraverse with
             | Some id -> 
-                let selectedT = model.traverses |> HashMap.tryFind id
+                let selectedT = HashMap.union model.traverses model.missions |> HashMap.tryFind id
                 match selectedT with
                 | Some selT ->
                     let traverse = (TraversePropertiesApp.update selT msg)
                     let traverses' = model.traverses |> HashMap.alter selT.guid (function | Some _ -> Some traverse | None -> None )
-                    { model with traverses = traverses'} 
+                    let missions' = model.missions |> HashMap.alter selT.guid (function | Some _ -> Some traverse | None -> None )
+                    { model with traverses = traverses'; missions = missions'} 
                 | None -> model
             | None -> model
         | SelectSol solNumber ->
             match model.selectedTraverse with
             | Some id -> 
-                let selectedT = model.traverses |> HashMap.tryFind id
+                let selectedT = HashMap.union model.traverses model.missions |> HashMap.tryFind id
                 match selectedT with
                 | Some selT ->
                     let selectedSol =
@@ -744,29 +749,17 @@ module TraverseApp =
                     let traverses' =  
                         model.traverses 
                         |> HashMap.alter id (function None -> None | Some t -> Some { t with selectedSol = selectedSol })
-                    { model with traverses = traverses' }
+                    let missions' =  
+                        model.missions 
+                        |> HashMap.alter id (function None -> None | Some t -> Some { t with selectedSol = selectedSol })
+                    { model with traverses = traverses'; missions = missions' }
                 | None -> model
             | None -> model
         | RemoveAllTraverses ->
-            { model with traverses = HashMap.empty; selectedTraverse = None }            
+            { model with traverses = HashMap.empty; missions = HashMap.empty; selectedTraverse = None } 
         |_-> model
 
     module UI =
-        let viewTraverses
-            (refSystem : AdaptiveReferenceSystem) 
-            (m : AdaptiveTraverseModel)
-            (traverseType : TraverseType) =
-
-            let itemAttributes =
-                amap {
-                    yield clazz "ui divided list inverted segment"
-                    yield style "overflow-y : visible"
-                } |> AttributeMap.ofAMap
-
-            if traverseType = TraverseType.RIMFAX then
-                MissionTraverseApp.UI.viewTraverses refSystem m
-            else 
-                RoverTraverseApp.UI.viewTraverses refSystem m
 
         let viewActions (model:AdaptiveTraverseModel) =
             adaptive {

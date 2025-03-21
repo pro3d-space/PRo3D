@@ -83,7 +83,6 @@ module DockConfigs =
                             { id = "viewplanner"; title = Some " Viewplans "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             { id = "properties"; title = Some " Properties "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             { id = "traverse";   title = Some " Traverses"; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "mission";   title = Some " Mission"; weight = 0.4; deleteInvisible = None; isCloseable = None }
                         ]
                     ]
                 ]              
@@ -115,7 +114,6 @@ module DockConfigs =
                             { id = "viewplanner"; title = Some " Viewplans "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             { id = "properties"; title = Some " Properties "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             { id = "traverse";   title = Some " Traverses"; weight = 0.4; deleteInvisible = None; isCloseable = None }
-                            { id = "mission";   title = Some " Mission"; weight = 0.4; deleteInvisible = None; isCloseable = None }
                         ]
                     ]
                 ]              
@@ -263,7 +261,6 @@ module DockConfigs =
                             { id = "config";     title = Some " Config "; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             { id = "scalebars";  title = Some " Scale Bars"; weight = 0.4; deleteInvisible = None; isCloseable = None }
                             { id = "traverse";   title = Some " Traverse"; weight = 0.4; deleteInvisible = None; isCloseable = None }  
-                            { id = "mission";   title = Some " Mission"; weight = 0.4; deleteInvisible = None; isCloseable = None }  
                         ]
                     ]
                 ]                        
