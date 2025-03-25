@@ -211,8 +211,6 @@ module RemoteApi =
                 )
                 |> Seq.toArray
 
-        
-
         member x.getAnnotationPointsById(id : string) =
             let map = 
                 x.FullModel.drawing.annotations.flat.Content.GetValue()
@@ -361,7 +359,6 @@ module RemoteApi =
         }
 
     module SuaveHelpers =
-
        let getUTF8 (str: byte []) = System.Text.Encoding.UTF8.GetString(str)
 
     module SuaveV2 =
@@ -387,7 +384,6 @@ module RemoteApi =
                 virtualFileName : string
             }
 
-        
         let checkpointTemplate = """ { "sceneAsJson": __SCENE__, "drawingAsJson": __DRAWING__, "version": 1 } """
 
         let serializeCheckpoint (fullModel : ViewerIO.SerializedModel) =
@@ -525,7 +521,6 @@ module RemoteApi =
             let graphJson = api.GetProvenanceGraphJson()
             Successful.OK graphJson 
              
-
     module Suave = 
 
         open Suave
@@ -690,7 +685,7 @@ module RemoteApi =
                         | _ -> ()
                 }
             )
-        
+
         let parseCoordinateSpace (value: string) : Option<OutputReferenceFrame> =
             match value.ToLower() with
             | "local" -> Some OutputReferenceFrame.Local
@@ -703,52 +698,54 @@ module RemoteApi =
             | "mesh" -> Some OutputGeometryType.Mesh
             | _ -> None // or handle as an error case
 
-        type QueryResults = System.Collections.Generic.List<Base.QueryResult>
+        module QueryAnnotation =
 
-        let queryAnnotation
-            (api : Api) 
-            (f : OutputReferenceFrame -> OutputGeometryType -> QueryResults -> WebPart) 
-            (httpRequest : HttpRequest) =
+            type QueryResults = System.Collections.Generic.List<Base.QueryResult>
 
-            let input =  
-                httpRequest.rawForm |> getUTF8 |> PRo3D.Base.QueryApi.parseRequest
+            let queryAnnotation
+                (api : Api) 
+                (f : OutputReferenceFrame -> OutputGeometryType -> QueryResults -> WebPart) 
+                (httpRequest : HttpRequest) =
 
-            match input with
-            | Result.Ok input -> 
-                match ((parseCoordinateSpace input.outputReferenceFrame), parseGeometryType(input.outputGeometryType)) with
-                | (Some outputReferenceFrame, Some outputGeometryType) ->
-                    //here we can go from primitive types to real types
-                    match api.QueryAnnotation(
-                        input.annotationId, 
-                        input.queryAttributes, 
-                        Range1d.FromCenterAndSize(0, input.distanceToPlane), 
-                        outputReferenceFrame) with
-                    | None -> RequestErrors.BAD_REQUEST "Oops, something went wrong here!"
-                    | Some queryResults -> 
-                        f  outputReferenceFrame outputGeometryType queryResults                
-                | _ -> RequestErrors.BAD_REQUEST "could not parse outputReferenceFrame and/or outputGeometryType"
-            | _ -> RequestErrors.BAD_REQUEST "could not parse command"
+                let input =  
+                    httpRequest.rawForm |> getUTF8 |> PRo3D.Base.QueryApi.parseRequest
 
-        let queryAnnotationAsObj (api : Api) = 
+                match input with
+                | Result.Ok input -> 
+                    match ((parseCoordinateSpace input.outputReferenceFrame), parseGeometryType(input.outputGeometryType)) with
+                    | (Some outputReferenceFrame, Some outputGeometryType) ->
+                        //here we can go from primitive types to real types
+                        match api.QueryAnnotation(
+                            input.annotationId, 
+                            input.queryAttributes, 
+                            Range1d.FromCenterAndSize(0, input.distanceToPlane), 
+                            outputReferenceFrame) with
+                        | None -> RequestErrors.BAD_REQUEST "Oops, something went wrong here!"
+                        | Some queryResults -> 
+                            f  outputReferenceFrame outputGeometryType queryResults                
+                    | _ -> RequestErrors.BAD_REQUEST "could not parse outputReferenceFrame and/or outputGeometryType"
+                | _ -> RequestErrors.BAD_REQUEST "could not parse command"
 
-            let toResult 
-                (frame        : OutputReferenceFrame) 
-                (geometryType : OutputGeometryType) 
-                (results      : QueryResults) = 
+            let queryAnnotationAsObj (api : Api) = 
 
-                let s = PRo3D.Base.AnnotationQuery.queryResultsToObj frame geometryType results
-                Successful.OK s
+                let toResult 
+                    (frame        : OutputReferenceFrame) 
+                    (geometryType : OutputGeometryType) 
+                    (results      : QueryResults) = 
 
-            queryAnnotation api toResult
+                    let s = PRo3D.Base.AnnotationQuery.queryResultsToObj frame geometryType results
+                    Successful.OK s
 
-        let queryAnnotationAsJson (api : Api) = 
-            
-            let toJson (_ : OutputReferenceFrame) (_ : OutputGeometryType) (results : QueryResults) = 
-                let s = PRo3D.Base.QueryApi.hitsToJson results //todo: also add frame
-                Successful.OK s
+                queryAnnotation api toResult
 
-            queryAnnotation api toJson
+            let queryAnnotationAsJson (api : Api) = 
 
+                let toJson (_ : OutputReferenceFrame) (_ : OutputGeometryType) (results : QueryResults) = 
+                    let s = PRo3D.Base.QueryApi.hitsToJson results //todo: also add frame
+                    Successful.OK s
+
+                queryAnnotation api toJson
+        
         let webPart (storage : PPersistence) (api : Api) = 
             choose [
                 path "/loadScene" >=> request (loadScene api)
@@ -807,8 +804,8 @@ module RemoteApi =
                         )
                         path "/queryAnnotationAsJson" >=> 
                             Suave.Writers.setMimeType "application/json; charset=utf-8" 
-                                >=> request (queryAnnotationAsJson api)
-                        path "/queryAnnotationAsObj" >=> request (queryAnnotationAsObj api)
+                                >=> request (QueryAnnotation.queryAnnotationAsJson api)
+                        path "/queryAnnotationAsObj" >=> request (QueryAnnotation.queryAnnotationAsObj api)
                     ]
                 )
                 prefix "/exp" >=> 
