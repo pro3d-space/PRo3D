@@ -211,14 +211,22 @@ module RemoteApi =
                 )
                 |> Seq.toArray
 
-        member x.getAnnotationPointsById(id : string) =
+        member x.getSelectedAnnotationId() : option<Guid> =
+            x.FullModel.drawing.annotations.singleSelectLeaf.GetValue()
+
+        member x.getAnnotationById (id : string) : option<Base.Annotation.Annotation> =
             let map = 
                 x.FullModel.drawing.annotations.flat.Content.GetValue()
-            
+
             match HashMap.tryFind (Guid.Parse(id)) map with
-            | Some (AdaptiveAnnotations annotation) -> ///????
-                let a = annotation.Current.GetValue()
-                
+            | Some (AdaptiveAnnotations annotation) ->
+                annotation.Current.GetValue()
+                |> Some                
+            | _ -> None
+
+        member x.getAnnotationPointsById(id : string) =
+            match x.getAnnotationById id with
+            | Some a ->
                 Encode.array [|
                     for p in a.points |> IndexList.toArray do                        
                         Encode.array [|
@@ -229,16 +237,15 @@ module RemoteApi =
                 |] |> Some                
             | _ -> None
 
-         member x.getSurfaceById(id : string) =
+         member x.getSurfaceById(id : string) : option<Surface.Surface> =
             let map = 
                 x.FullModel.scene.surfacesModel.surfaces.flat.Content.GetValue()
             
             match HashMap.tryFind (Guid.Parse(id)) map with
-            | Some (AdaptiveSurfaces surface) -> ///????
-                let s = surface.Current.GetValue()
-
-                s.preTransform.Forward.ToString() |> Some
-            | _ -> None
+            | Some (AdaptiveSurfaces surface) ->
+                surface.Current.GetValue() |> Some
+            | _ -> 
+                None
 
         member x.setSurfaceTransform(id, forward : M44d) =
             let trafo = Trafo3d(forward, forward.Inverse)
@@ -686,19 +693,18 @@ module RemoteApi =
                 }
             )
 
-        let parseCoordinateSpace (value: string) : Option<OutputReferenceFrame> =
-            match value.ToLower() with
-            | "local" -> Some OutputReferenceFrame.Local
-            | "global" -> Some OutputReferenceFrame.Global
-            | _ -> None // or handle as an error case
-
-        let parseGeometryType (value: string) : Option<OutputGeometryType> =
-            match value.ToLower() with
-            | "pointcloud" -> Some OutputGeometryType.PointCloud
-            | "mesh" -> Some OutputGeometryType.Mesh
-            | _ -> None // or handle as an error case
-
         module QueryAnnotation =
+            let parseCoordinateSpace (value: string) : Option<OutputReferenceFrame> =
+                match value.ToLower() with
+                | "local" -> Some OutputReferenceFrame.Local
+                | "global" -> Some OutputReferenceFrame.Global
+                | _ -> None // or handle as an error case
+
+            let parseGeometryType (value: string) : Option<OutputGeometryType> =
+                match value.ToLower() with
+                | "pointcloud" -> Some OutputGeometryType.PointCloud
+                | "mesh" -> Some OutputGeometryType.Mesh
+                | _ -> None // or handle as an error case
 
             type QueryResults = System.Collections.Generic.List<Base.QueryResult>
 
@@ -746,6 +752,54 @@ module RemoteApi =
 
                 queryAnnotation api toJson
         
+        module Surfaces =
+            let transform (surfaceId : option<string>) (api : Api) (req : HttpRequest) = 
+                match surfaceId with 
+                | Some id ->
+                    match api.getSurfaceById(id) with
+                    | Some _ -> 
+                        let payload = System.Text.Encoding.UTF8.GetString req.rawForm
+                        match payload with
+                        | "" -> 
+                            RequestErrors.BAD_REQUEST "No payload"
+                        | validPayload -> 
+                            let parsedJson = JObject.Parse(validPayload)
+                            let forward = parsedJson.["forward"].ToString()
+
+                            let forward = forward |> M44d.Parse
+
+                            api.setSurfaceTransform(id |> Guid, forward)
+
+                            Successful.OK (sprintf "Received payload %s" (forward.ToString()))    
+                    | None -> 
+                        RequestErrors.NOT_FOUND "Surface not found"
+                | None -> 
+                        RequestErrors.NOT_FOUND "Route without selection id not implemented"         
+
+        module Annotations = 
+            let getPoints (annotationId : option<string>) (api : Api) =
+                match annotationId with
+                | Some id ->
+                    match api.getAnnotationPointsById(id) with
+                    | Some s -> 
+                        s 
+                        |> Encode.toString 4 
+                        |> Successful.OK
+                    | None -> 
+                        RequestErrors.NOT_FOUND $"Annotation of {id} not found"
+                | None ->
+                    match api.getSelectedAnnotationId() with
+                    | Some id ->
+                        match api.getAnnotationPointsById(id.ToString()) with
+                        | Some s -> 
+                            s 
+                            |> Encode.toString 4 
+                            |> Successful.OK
+                        | None -> 
+                            RequestErrors.NOT_FOUND $"Selected annotation does not exist - really bad"
+                    | None ->
+                        RequestErrors.NOT_FOUND $"no annotation selected"
+
         let webPart (storage : PPersistence) (api : Api) = 
             choose [
                 path "/loadScene" >=> request (loadScene api)
@@ -809,37 +863,30 @@ module RemoteApi =
                     ]
                 )                
                 prefix "/annotations" >=> 
-                    choose [                        
-                        pathScan "/%s/points" (fun id ->                            
-                            match api.getAnnotationPointsById(id) with
-                            | Some s -> s |> Encode.toString 4 |> Successful.OK
-                            | None -> RequestErrors.NOT_FOUND "Annotation not found"                            
+                    choose [
+                        // GET
+                        //     >=> path "/selected/points" 
+                        //     >=> Annotations.getPoints None api
+                        GET
+                            >=> pathScan "/%s/points" (fun id ->
+                                match id with 
+                                | "selected" -> 
+                                    Log.line "retrieving selected"
+                                    Annotations.getPoints None api
+                                | _ -> 
+                                    Log.line "retrieving by id"
+                                    Annotations.getPoints (Some id) api
                         )
                     ]
                 prefix "/surfaces" >=> 
                     choose [                        
-                        POST >=> pathScan "/%s/transform" (fun id ->
-                            request (fun req ->
-                                match api.getSurfaceById(id) with
-                                | Some s -> 
-                                    let payload = System.Text.Encoding.UTF8.GetString req.rawForm
-                                    match payload with
-                                    | "" -> 
-                                        RequestErrors.BAD_REQUEST "No payload"
-                                    | validPayload -> 
-                                        let parsedJson = JObject.Parse(validPayload)
-                                        let forward = parsedJson.["forward"].ToString()
-
-                                        let forward = forward |> M44d.Parse
-                                                                      
-                                        api.setSurfaceTransform(id |> Guid, forward)
-
-                                        Successful.OK (sprintf "Received payload %s" (forward.ToString()))
-                                        
-                                | None -> 
-                                    RequestErrors.NOT_FOUND "Surface not found"
+                        PUT
+                            >=> path "/selected/transformation" 
+                            >=> request (fun (req: HttpRequest) -> Surfaces.transform None api req)
+                        PUT
+                            >=> pathScan "/%s/transformation" (fun id ->
+                                request (fun (req: HttpRequest) -> Surfaces.transform (Some id) api req)
                             )
-                        )
                         RequestErrors.NOT_FOUND "Endpoint not found"
                     ]
                 
