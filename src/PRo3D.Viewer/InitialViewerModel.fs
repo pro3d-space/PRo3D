@@ -73,6 +73,9 @@ module Viewer =
         //let defaultDashboard = DashboardModes.provenance
         let defaultDockConfig = defaultDashboard.dockConfig //DockConfigs.m2020    
         let viewConfigModel = ViewConfigModel.initial 
+
+        let applyProvenaceIfEnabled (m : Model) =
+            ProvenanceApp.emptyWithModel startupArgs.enableProvenanceTracking m
         {     
             scene = 
                 {
@@ -172,6 +175,6 @@ module Viewer =
             animator            = Animation.Animator.initial animatorLens
 
             provenanceModel = ProvenanceModel.invalid
-        } |> ProvenanceApp.emptyWithModel
+        } |> applyProvenaceIfEnabled
 
 

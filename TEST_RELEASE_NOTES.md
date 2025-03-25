@@ -1,3 +1,16 @@
+## 4.27.0-prerelease4
+- reverted polynomial distance decay for lod. 
+
+## 4.27.0-prerelease3
+- fixed wrong picking when using pivot based transformations
+
+## 4.27.0-prerelease2
+- fixed lod when switching surfaces visible/invisible (keep invisible opcs in lod, to make fast switching possible)
+
+## 4.27.0-prerelease1
+- coordinate frames as scale bars
+- fixed memory leak for high focal length fulcra
+
 ## 4.26.0-prerelease2 
 - fixed surface priority 
 - improved handling of large trajectories

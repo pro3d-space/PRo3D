@@ -517,6 +517,12 @@ module ViewerUtils =
                         |> Sg.trafo trafo
                         //|> Sg.dynamic
                     )    
+                    // surface reference system (global coords)
+                    |> Sg.andAlso (
+                        TransformationApp.Sg.viewTrafoRefSys surf.transformation
+                        //|> Sg.trafo trafo
+                        //|> Sg.dynamic
+                    )    
                 return surfaceSg
             | _ -> 
                 return Sg.empty

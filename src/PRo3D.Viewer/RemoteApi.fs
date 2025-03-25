@@ -807,25 +807,9 @@ module RemoteApi =
                                 >=> request (QueryAnnotation.queryAnnotationAsJson api)
                         path "/queryAnnotationAsObj" >=> request (QueryAnnotation.queryAnnotationAsObj api)
                     ]
-                )
-                prefix "/exp" >=> 
-                    choose [
-                        path "/greet" >=> 
-                            request (fun req ->
-                                match req.queryParam "name" with
-                                | Choice1Of2 name ->Successful.OK $"Hello, {name} via GET!"
-                                | Choice2Of2 _ -> RequestErrors.BAD_REQUEST "Missing 'name' parameter."
-                            )
-                        pathScan "/greet/%s" (fun name -> Successful.OK $"Hello, {name}, via URL!")
-                    ]
+                )                
                 prefix "/annotations" >=> 
-                    choose [
-                        // path "/greet" >=> 
-                        //     request (fun req ->
-                        //         match req.queryParam "name" with
-                        //         | Choice1Of2 name ->Successful.OK $"Hello, {name} via GET!"
-                        //         | Choice2Of2 _ -> RequestErrors.BAD_REQUEST "Missing 'name' parameter."
-                        //     )
+                    choose [                        
                         pathScan "/%s/points" (fun id ->                            
                             match api.getAnnotationPointsById(id) with
                             | Some s -> s |> Encode.toString 4 |> Successful.OK

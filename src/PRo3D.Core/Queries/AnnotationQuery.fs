@@ -322,8 +322,8 @@ module AnnotationQuery =
             let geometry = 
                 {
                     colors = None
-                    indices = [| |] // h.indices |> Seq.toArray
-                    vertices = allVertices //|> shiftByCenterOfMass
+                    indices = [| |] 
+                    vertices = allVertices
                 }
 
             geometry |> Seq.singleton |> RudimentaryObjExport.writeToString        
