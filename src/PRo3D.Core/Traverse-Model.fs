@@ -60,6 +60,7 @@ type Sol =
     { version: int
       location: V3d
       solNumber: int
+      // Rover properties
       site: int
       yaw: float
       pitch: float
@@ -69,6 +70,9 @@ type Sol =
       distanceM: float
       totalDistanceM: float
       length: float
+      RMC: string
+      missionReference: string
+      // RIMFAX properties
       fromRMC: string
       toRMC: string
       SCLK_START: float
@@ -91,8 +95,10 @@ module Sol =
           distanceM = nan
           totalDistanceM = nan
           length = nan
+          RMC = ""
+          missionReference = ""
           fromRMC = ""
-          toRMC = ""
+          toRMC = "" 
           SCLK_START = nan
           SCLK_END = nan       
         }
@@ -111,6 +117,8 @@ module Sol =
             let! distanceM = Json.read "distanceM"
             let! totalDistanceM = Json.read "totalDistanceM"
             let! length = Json.read "length"
+            let! RMC = Json.read "RMC"
+            let! missionReference = Json.read "missionReference"
             let! fromRMC = Json.read "fromRMC"
             let! toRMC = Json.read "toRMC"
             let! SCLK_START = Json.read "SCLK_START"
@@ -129,6 +137,8 @@ module Sol =
                   distanceM = distanceM
                   totalDistanceM = totalDistanceM
                   length = length
+                  RMC = RMC
+                  missionReference = missionReference
                   fromRMC = fromRMC
                   toRMC = toRMC
                   SCLK_START = SCLK_START

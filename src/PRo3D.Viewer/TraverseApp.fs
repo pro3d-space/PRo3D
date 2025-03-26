@@ -138,6 +138,14 @@ module TraverseUtilities =
 
         name, rotation, sol.location, referenceSystem
 
+    let linkMissionToTraverse
+        (traverse : Traverse)
+        (mission : Traverse) =
+        let solID =
+            traverse.sols
+            |> List.tryFindIndex (fun sol ->  sol.RMC = mission.sols[0].fromRMC)
+        solID
+
 module MissionTraverseApp =
 
     open TraverseUtilities
@@ -558,7 +566,7 @@ module RoverTraverseApp =
                                         |> UI.wrapToolTip DataPosition.Bottom "Toggle Visible"
 
                                         yield i [clazz "Remove icon red"; onClick (fun _ -> RemoveTraverse traverseID)] [] 
-                                            |> UI.wrapToolTip DataPosition.Bottom "Remove"                                            
+                                            |> UI.wrapToolTip DataPosition.Bottom "Remove"     
                                     } 
                                 )                                     
                             ]
@@ -625,6 +633,9 @@ module RoverTraverseApp =
                                                 sol
                                                 refSystem
                                                 (computeSolRotation sol refSystem)))] []
+
+                                    yield i [clazz "wrench icon blue"] [] 
+                                        |> UI.wrapToolTip DataPosition.Bottom "Select Mission" 
                                 ]                                     
                             ]
                         ]
