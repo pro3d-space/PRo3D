@@ -71,13 +71,13 @@ type Sol =
       totalDistanceM: float
       length: float
       RMC: string
-      missionReference: string
+      missionReference: Guid
       // RIMFAX properties
       fromRMC: string
       toRMC: string
       SCLK_START: float
       SCLK_END: float
-    }
+    } 
 
 module Sol =
     let current = 0
@@ -96,7 +96,7 @@ module Sol =
           totalDistanceM = nan
           length = nan
           RMC = ""
-          missionReference = ""
+          missionReference = Guid.Empty
           fromRMC = ""
           toRMC = "" 
           SCLK_START = nan

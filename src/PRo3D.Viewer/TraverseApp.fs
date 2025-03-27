@@ -138,14 +138,6 @@ module TraverseUtilities =
 
         name, rotation, sol.location, referenceSystem
 
-    let linkMissionToTraverse
-        (traverse : Traverse)
-        (mission : Traverse) =
-        let solID =
-            traverse.sols
-            |> List.tryFindIndex (fun sol ->  sol.RMC = mission.sols[0].fromRMC)
-        solID
-
 module MissionTraverseApp =
 
     open TraverseUtilities
@@ -407,6 +399,7 @@ module RoverTraverseApp =
                 let! yaw            = parseDoubleProperty x  "yaw"     // not optional
                 let! pitch          = parseDoubleProperty x  "pitch"   // not optional 
                 let! roll           = parseDoubleProperty x  "roll"    // not optional
+                let! RMC           = parseStringProperty x  "RMC"    // not optional
 
                 // those are optional (still print a warning)
                 let! tilt      = parseDoubleProperty x  "tilt"    |> reportErrorAndUseDefault  0.0    
@@ -417,6 +410,7 @@ module RoverTraverseApp =
                                   
                 return 
                     { sol with 
+                        RMC = RMC
                         solNumber = solNumber
                         site = site
                         yaw = yaw
@@ -495,10 +489,10 @@ module RoverTraverseApp =
                     )
                     None
             ) 
-
         sols
 
     module UI =
+
         let viewTraverses
             (refSystem : AdaptiveReferenceSystem) 
             (m : AdaptiveTraverseModel) =
@@ -575,6 +569,7 @@ module RoverTraverseApp =
 
         let viewSolList 
             (refSystem : AdaptiveReferenceSystem) 
+            (missions: amap<Guid, AdaptiveTraverse>)
             (m : AdaptiveTraverse) =
     
             let listAttributes =
@@ -591,8 +586,20 @@ module RoverTraverseApp =
 
                     let reversedSols = sols |> List.rev
                     
+
                     for sol in reversedSols do
-                                                    
+
+                        let! missionReference = 
+                            AVal.custom (fun t -> 
+                                let traverseMap = missions.Content.GetValue t
+                                traverseMap 
+                                    |> HashMap.toValueList
+                                    |> List.tryPick (fun v ->
+                                        let sols = v.sols.GetValue t
+                                        if sols[0].fromRMC = sol.RMC then Some v.guid else None
+                                    )
+                            )
+   
                         let color =
                             match selected with
                             | Some sel -> 
@@ -633,9 +640,11 @@ module RoverTraverseApp =
                                                 sol
                                                 refSystem
                                                 (computeSolRotation sol refSystem)))] []
-
-                                    yield i [clazz "wrench icon blue"] [] 
-                                        |> UI.wrapToolTip DataPosition.Bottom "Select Mission" 
+                                    match missionReference with
+                                    | None -> ()
+                                    | Some reference -> 
+                                        yield i [clazz "wrench icon blue"; onClick (fun _ -> SelectTraverse reference)] [] 
+                                            |> UI.wrapToolTip DataPosition.Bottom "Select Mission"
                                 ]                                     
                             ]
                         ]
@@ -701,6 +710,7 @@ module TraverseApp =
 
     let assignColorsToTraverse (traverses : List<string>) : List<string * C4b> =
         traverses |> List.map(fun x -> (x, C4b.Pink))
+            
 
     let update 
         (model : TraverseModel) 
@@ -844,13 +854,13 @@ module TraverseApp =
             adaptive {
                 let! guid = model.selectedTraverse
                 let empty = div [ style "font-style:italic"] [ text "no traverse selected" ] |> UI.map TraversePropertiesMessage 
-                
+                let t = model.missions
                 match guid with
                 | Some id -> 
                     let! traverse = model.traverses |> AMap.tryFind id
                     match traverse with
                     | Some t ->
-                        let ui = (RoverTraverseApp.UI.viewSolList refSystem t )
+                        let ui = (RoverTraverseApp.UI.viewSolList refSystem model.missions t )
                         return ui
                     | None -> 
                         let! traverse = model.missions |> AMap.tryFind id
