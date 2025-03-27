@@ -709,9 +709,13 @@ module TraverseApp =
         sols
 
     let assignColorsToTraverse (traverses : List<string>) : List<string * C4b> =
-        traverses |> List.map(fun x -> (x, C4b.Pink))
+        // this function is not in use at the moment
+        if traverses.Length > 1 then
+            let colors = ColorBrewer.twelveClassPaired |> List.map ColorBrewer.toMaxValue
+            traverses |> ColorBrewer.assignColors colors
+        else    
+            traverses |> List.map(fun x -> (x, C4b.White))
             
-
     let update 
         (model : TraverseModel) 
         (action : TraverseAction) : TraverseModel = 
@@ -726,8 +730,7 @@ module TraverseApp =
 
                     fileExists
                 )
-                |> assignColorsToTraverse
-                |> List.map(fun (x, color) ->
+                |> List.map(fun x ->
                     Log.line "[Traverse] Loading %s" x
                     let geojson = System.IO.File.ReadAllText x
                      
@@ -738,6 +741,8 @@ module TraverseApp =
                         |> parseTraverse
 
                     let name = Path.GetFileName x
+
+                    let color = if traverseType = TraverseType.Rover then C4b.White else C4b.Magenta
 
                     let traverse = Traverse.initial name sols |> Traverse.withColor color |> Traverse.withTraverseType traverseType
                     traverse |> HashMap.single traverse.guid 
@@ -1106,7 +1111,6 @@ module TraverseApp =
             |> Sg.set
             |> Sg.onOff model.isVisibleT
             |> Sg.trafo (getTraverseOffsetTransform refSystem model)
-
 
 
         let view
