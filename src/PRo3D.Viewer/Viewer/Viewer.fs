@@ -289,7 +289,7 @@ module ViewerApp =
             let addPointMsg = ViewPlanApp.Action.AddPoint(p, ref, cache, (Optic.get _surfacesModel m))
 
             let outerModel, viewPlans = 
-                ViewPlanApp.update m.scene.viewPlans addPointMsg _navigation _footprint m.scene.scenePath m
+                ViewPlanApp.update m.scene.viewPlans addPointMsg _navigation _footprint m.scene.scenePath ref m
 
             let m' = 
                 { m with 
@@ -373,6 +373,10 @@ module ViewerApp =
                     SceneObjectsApp.update m.scene.sceneObjectsModel action m.scene.referenceSystem
                 { m with scene = { m.scene with sceneObjectsModel = so' } }
             | _ -> m
+        | Interactions.PickDistanePoint, _ ->
+            let msg = ViewPlanApp.Action.AddDistancePoint(p)
+            let outerModel, viewPlans = ViewPlanApp.update m.scene.viewPlans msg _navigation _footprint m.scene.scenePath m.scene.referenceSystem m
+            { m with scene = { m.scene with viewPlans = viewPlans } }
         | _ -> m       
 
     let mutable lastHash = -1    
@@ -696,7 +700,7 @@ module ViewerApp =
             let roverModel = RoverApp.update m.scene.viewPlans.roverModel msg
             { m with scene = { m.scene with viewPlans = {m.scene.viewPlans with roverModel = roverModel }}}
         | ViewPlanMessage msg,_,_ ->
-            let model, viewPlanModel = ViewPlanApp.update m.scene.viewPlans msg _navigation _footprint m.scene.scenePath m
+            let model, viewPlanModel = ViewPlanApp.update m.scene.viewPlans msg _navigation _footprint m.scene.scenePath m.scene.referenceSystem m
 
             let animations = 
                 match msg with
@@ -1600,7 +1604,7 @@ module ViewerApp =
                 match msg with 
                 | PlaceRoverAtSol (name, trafo, location, refSystem) ->
                     let vpMessage = ViewPlanApp.Action.CreateNewViewplan (name, trafo, location, refSystem)
-                    let model, viewPlanModel = ViewPlanApp.update m.scene.viewPlans vpMessage _navigation _footprint m.scene.scenePath m
+                    let model, viewPlanModel = ViewPlanApp.update m.scene.viewPlans vpMessage _navigation _footprint m.scene.scenePath refSystem m
                     { m with 
                         scene = { m.scene with viewPlans = viewPlanModel }
                         footPrint = model.footPrint
@@ -1886,6 +1890,13 @@ module ViewerApp =
                 m.scene.traverses
             |> Sg.map TraverseMessage
 
+        let distancePointsText =
+            ViewPlanApp.Sg.viewText 
+                m.scene.referenceSystem
+                m.scene.viewPlans 
+            |> Sg.map ViewPlanMessage    
+
+
         [
             exploreCenter; 
             refSystem; 
@@ -1893,6 +1904,7 @@ module ViewerApp =
             annotationTexts |> Sg.noEvents
             scaleBarTexts
             traverse
+            distancePointsText
         ] |> Sg.ofList
                                  
     // depthTested that occur in instrumentview + main renderview
@@ -1944,10 +1956,17 @@ module ViewerApp =
             |> Sg.ofList
             |> Sg.map TraverseMessage
 
+        let distancePoints =
+            ViewPlanApp.Sg.viewVPDistancePoints 
+                m.scene.referenceSystem
+                m.scene.viewPlans 
+            |> Sg.map ViewPlanMessage    
+
         [
             scaleBars;
             annotationSg
             traverses
+            distancePoints
         ] |> Sg.ofList
 
     let viewInstrumentView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 

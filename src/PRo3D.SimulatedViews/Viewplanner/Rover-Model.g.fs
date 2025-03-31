@@ -1,5 +1,5 @@
-//dd7a2992-ff19-cb40-c0b9-7a63c6f3476c
-//a775f9de-7822-d6b0-20e0-b58f042e7eff
+//92f17606-c99e-29d2-6d70-fb07b9415f4d
+//89f29823-b678-b15f-c300-1a17aba2b3e7
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -277,6 +277,38 @@ module ProjectedImageLenses =
         static member extrinsics_ = ((fun (self : ProjectedImage) -> self.extrinsics), (fun (value : Microsoft.FSharp.Core.Option<Extrinsics>) (self : ProjectedImage) -> { self with extrinsics = value }))
         static member image_ = ((fun (self : ProjectedImage) -> self.image), (fun (value : Microsoft.FSharp.Core.string) (self : ProjectedImage) -> { self with image = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
+type AdaptiveDistancePoint(value : DistancePoint) =
+    let _version_ = FSharp.Data.Adaptive.cval(value.version)
+    let _vpId_ = FSharp.Data.Adaptive.cval(value.vpId)
+    let _position_ = FSharp.Data.Adaptive.cval(value.position)
+    let _distance_ = FSharp.Data.Adaptive.cval(value.distance)
+    let mutable __value = value
+    let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
+    static member Create(value : DistancePoint) = AdaptiveDistancePoint(value)
+    static member Unpersist = Adaptify.Unpersist.create (fun (value : DistancePoint) -> AdaptiveDistancePoint(value)) (fun (adaptive : AdaptiveDistancePoint) (value : DistancePoint) -> adaptive.Update(value))
+    member __.Update(value : DistancePoint) =
+        if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<DistancePoint>.ShallowEquals(value, __value))) then
+            __value <- value
+            __adaptive.MarkOutdated()
+            _version_.Value <- value.version
+            _vpId_.Value <- value.vpId
+            _position_.Value <- value.position
+            _distance_.Value <- value.distance
+    member __.Current = __adaptive
+    member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
+    member __.id = __value.id
+    member __.vpId = _vpId_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<System.Guid>>
+    member __.position = _position_ :> FSharp.Data.Adaptive.aval<Aardvark.Base.V3d>
+    member __.distance = _distance_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.float>
+[<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
+module DistancePointLenses = 
+    type DistancePoint with
+        static member version_ = ((fun (self : DistancePoint) -> self.version), (fun (value : Microsoft.FSharp.Core.int) (self : DistancePoint) -> { self with version = value }))
+        static member id_ = ((fun (self : DistancePoint) -> self.id), (fun (value : System.Guid) (self : DistancePoint) -> { self with id = value }))
+        static member vpId_ = ((fun (self : DistancePoint) -> self.vpId), (fun (value : Microsoft.FSharp.Core.option<System.Guid>) (self : DistancePoint) -> { self with vpId = value }))
+        static member position_ = ((fun (self : DistancePoint) -> self.position), (fun (value : Aardvark.Base.V3d) (self : DistancePoint) -> { self with position = value }))
+        static member distance_ = ((fun (self : DistancePoint) -> self.distance), (fun (value : Microsoft.FSharp.Core.float) (self : DistancePoint) -> { self with distance = value }))
+[<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveFootPrint(value : FootPrint) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)
     let _vpId_ = FSharp.Data.Adaptive.cval(value.vpId)
@@ -375,6 +407,16 @@ type AdaptiveViewPlan(value : ViewPlan) =
         Adaptify.FSharp.Core.AdaptiveOption<PRo3D.SimulatedViews.Axis, PRo3D.SimulatedViews.AdaptiveAxis, PRo3D.SimulatedViews.AdaptiveAxis>(value.selectedAxis, (fun (v : Axis) -> AdaptiveAxis(v) :> System.Object), __arg2, (fun (o : System.Object) -> unbox<AdaptiveAxis> o), (fun (v : Axis) -> AdaptiveAxis(v) :> System.Object), __arg5, (fun (o : System.Object) -> unbox<AdaptiveAxis> o))
     let _currentAngle_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.currentAngle)
     let _footPrint_ = AdaptiveFootPrint(value.footPrint)
+    let _distancePoints_ =
+        let inline __arg2 (m : AdaptiveDistancePoint) (v : DistancePoint) =
+            m.Update(v)
+            m
+        FSharp.Data.Traceable.ChangeableModelMap(value.distancePoints, (fun (v : DistancePoint) -> AdaptiveDistancePoint(v)), __arg2, (fun (m : AdaptiveDistancePoint) -> m))
+    let _selectedDistPoint_ = FSharp.Data.Adaptive.cval(value.selectedDistPoint)
+    let _showDistanceText_ = FSharp.Data.Adaptive.cval(value.showDistanceText)
+    let _textSize_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.textSize)
+    let _dPointSize_ = Aardvark.UI.Primitives.AdaptiveNumericInput(value.dPointSize)
+    let _dPointColor_ = Aardvark.UI.AdaptiveColorInput(value.dPointColor)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : ViewPlan) = AdaptiveViewPlan(value)
@@ -396,6 +438,12 @@ type AdaptiveViewPlan(value : ViewPlan) =
             _selectedAxis_.Update(value.selectedAxis)
             _currentAngle_.Update(value.currentAngle)
             _footPrint_.Update(value.footPrint)
+            _distancePoints_.Update(value.distancePoints)
+            _selectedDistPoint_.Value <- value.selectedDistPoint
+            _showDistanceText_.Value <- value.showDistanceText
+            _textSize_.Update(value.textSize)
+            _dPointSize_.Update(value.dPointSize)
+            _dPointColor_.Update(value.dPointColor)
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.id = __value.id
@@ -411,6 +459,12 @@ type AdaptiveViewPlan(value : ViewPlan) =
     member __.selectedAxis = _selectedAxis_ :> FSharp.Data.Adaptive.aval<Adaptify.FSharp.Core.AdaptiveOptionCase<Axis, AdaptiveAxis, AdaptiveAxis>>
     member __.currentAngle = _currentAngle_
     member __.footPrint = _footPrint_
+    member __.distancePoints = _distancePoints_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveDistancePoint>
+    member __.selectedDistPoint = _selectedDistPoint_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<System.Guid>>
+    member __.showDistanceText = _showDistanceText_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.textSize = _textSize_
+    member __.dPointSize = _dPointSize_
+    member __.dPointColor = _dPointColor_
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module ViewPlanLenses = 
     type ViewPlan with
@@ -428,6 +482,12 @@ module ViewPlanLenses =
         static member selectedAxis_ = ((fun (self : ViewPlan) -> self.selectedAxis), (fun (value : Microsoft.FSharp.Core.option<Axis>) (self : ViewPlan) -> { self with selectedAxis = value }))
         static member currentAngle_ = ((fun (self : ViewPlan) -> self.currentAngle), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ViewPlan) -> { self with currentAngle = value }))
         static member footPrint_ = ((fun (self : ViewPlan) -> self.footPrint), (fun (value : FootPrint) (self : ViewPlan) -> { self with footPrint = value }))
+        static member distancePoints_ = ((fun (self : ViewPlan) -> self.distancePoints), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, DistancePoint>) (self : ViewPlan) -> { self with distancePoints = value }))
+        static member selectedDistPoint_ = ((fun (self : ViewPlan) -> self.selectedDistPoint), (fun (value : Microsoft.FSharp.Core.Option<System.Guid>) (self : ViewPlan) -> { self with selectedDistPoint = value }))
+        static member showDistanceText_ = ((fun (self : ViewPlan) -> self.showDistanceText), (fun (value : Microsoft.FSharp.Core.bool) (self : ViewPlan) -> { self with showDistanceText = value }))
+        static member textSize_ = ((fun (self : ViewPlan) -> self.textSize), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ViewPlan) -> { self with textSize = value }))
+        static member dPointSize_ = ((fun (self : ViewPlan) -> self.dPointSize), (fun (value : Aardvark.UI.Primitives.NumericInput) (self : ViewPlan) -> { self with dPointSize = value }))
+        static member dPointColor_ = ((fun (self : ViewPlan) -> self.dPointColor), (fun (value : Aardvark.UI.ColorInput) (self : ViewPlan) -> { self with dPointColor = value }))
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveViewPlanModel(value : ViewPlanModel) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)

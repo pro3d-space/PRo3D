@@ -684,6 +684,73 @@ type ProjectedImage  with
         } 
 
 [<ModelType>]
+type DistancePoint  = {
+    version     : int
+    [<NonAdaptive>]
+    id          : Guid
+    vpId        : option<Guid>
+    position    : V3d
+    distance    : float
+
+    //view        : CameraView
+
+    //intrinsics      : Option<Intrinsics>
+    //extrinsics      : Option<Extrinsics>
+}
+
+module DistancePoint  =
+    let current = 0
+
+    let initDistancePoint 
+        (position : V3d)
+        (dist: float) 
+        (vp  : option<Guid>) = 
+        {
+        version    = current
+        id         = Guid.NewGuid()
+        vpId       = vp
+        position   = position
+        distance   = dist
+    }
+
+    let read0 =
+        json {
+            
+            let! id       = Json.read "id"
+            let! vpId     = Json.tryRead "vpId"
+            let! position = Json.read "position"
+            let! distance = Json.read "distance"
+            return 
+                {
+                    version     = current
+                    id          = id |> Guid
+                    vpId        = vpId 
+                    position    = position |> V3d.Parse
+                    distance    = distance
+                }
+        }
+
+type DistancePoint  with
+    static member FromJson(_ : DistancePoint ) =
+        json {
+            let! v = Json.read "version"
+            match v with 
+            | 0 -> return! DistancePoint .read0
+            | _ -> 
+                return! v 
+                |> sprintf "don't know version %A  of DistancePoint "
+                |> Json.error
+        }
+    static member ToJson(x : DistancePoint ) =
+        json {
+            do! Json.write "version" x.version
+            do! Json.write "id" x.id
+            do! Json.write "vpId" x.vpId
+            do! Json.write "position" (x.position.ToString())
+            do! Json.write "distance" x.distance
+        } 
+
+[<ModelType>]
 type FootPrint = {
     version             : int
     vpId                : option<Guid>
@@ -800,6 +867,12 @@ type ViewPlan = {
 
     // laura 6.3.2025 place fp for each vp
     footPrint           : FootPrint
+    distancePoints      : HashMap<Guid,DistancePoint>
+    selectedDistPoint   : Option<Guid>
+    showDistanceText    : bool
+    textSize            : NumericInput
+    dPointSize          : NumericInput
+    dPointColor         : ColorInput
 }
 
 module ViewPlan =
@@ -812,6 +885,24 @@ module ViewPlan =
         step = 0.1
         format = "{0:0.0}"
     }
+
+    let initTextSize size = 
+        {
+            value = size
+            min = 0.3
+            max = 15.0
+            step = 0.1
+            format = "{0:0.00}"
+        }
+
+    let initPointSize size = 
+        {
+            value = size
+            min = 0.3
+            max = 15.0
+            step = 0.1
+            format = "{0:0.00}"
+        }
 
     let read0 =
         json {
@@ -834,28 +925,44 @@ module ViewPlan =
             let! currentAngle   = Json.readWith Ext.fromJson<NumericInput,Ext> "currentAngle"
 
             let! footPrint      = Json.tryRead "footPrint"
+            let! distancePoints = Json.tryRead "distancePoints"
+            let distancePoints  = match distancePoints with
+                                    | Some i -> i|> List.map(fun (a : DistancePoint) -> (a.id, a)) |> HashMap.ofList
+                                    | None -> HashMap.Empty
+            let! selectedDistPoint  = Json.tryRead "selectedDistPoint"
+            let! showDistanceText   = Json.tryRead "showDistanceText"
+            let! textSize           = Json.tryRead "textSize"
+            let! dPointSize         = Json.tryRead "dPointSize"
+            let! c                  = Json.tryRead "dPointColor"   //Json.readWith Ext.fromJson<ColorInput,Ext> "dPointColor"  
+            let dPointColor         = match c with |Some col -> col |> C4b.Parse | None -> C4b.Orange
 
             return 
                 {
-                    version         = current
-                    id            = id |> Guid
-                    name            = name
+                    version             = current
+                    id                  = id |> Guid
+                    name                = name
 
-                    position    = position |> V3d.Parse
-                    lookAt      = lookAt |> V3d.Parse
-                    viewerState = viewerState
-                    rover       = rover
-                    roverTrafo  = roverTrafo |> Trafo3d.Parse
+                    position            = position |> V3d.Parse
+                    lookAt              = lookAt |> V3d.Parse
+                    viewerState         = viewerState
+                    rover               = rover
+                    roverTrafo          = roverTrafo |> Trafo3d.Parse
 
-                    isVisible   = isVisible
+                    isVisible           = isVisible
 
-                    vectorsVisible = vectorsVisible
+                    vectorsVisible      = vectorsVisible
 
-                    selectedInstrument = selectedInstrument
-                    selectedAxis       = selectedAxis
+                    selectedInstrument  = selectedInstrument
+                    selectedAxis        = selectedAxis
 
-                    currentAngle = currentAngle
-                    footPrint         = match footPrint with | Some fp -> fp  | None -> FootPrint.initFootPrint 
+                    currentAngle        = currentAngle
+                    footPrint           = match footPrint with | Some fp -> fp  | None -> FootPrint.initFootPrint 
+                    distancePoints      = distancePoints
+                    selectedDistPoint   = selectedDistPoint
+                    showDistanceText    = match showDistanceText with | Some sd -> sd  | None -> true
+                    textSize            = match textSize with |Some p -> initTextSize p | None -> initTextSize 4.0
+                    dPointSize          = match dPointSize with |Some p -> initPointSize p | None -> initPointSize 8.0
+                    dPointColor         = {c = dPointColor}
                 }
         }
 
@@ -892,6 +999,13 @@ type ViewPlan with
             do! Json.write "selectedAxis" x.selectedAxis  
             do! Json.writeWith Ext.toJson<NumericInput,Ext> "currentAngle" x.currentAngle
             do! Json.write "footPrint"  x.footPrint
+            do! Json.write "distancePoints" (x.distancePoints |> HashMap.toList |> List.map snd)
+            if x.selectedDistPoint.IsSome then
+                do! Json.write "selectedDistPoint" (x.selectedDistPoint.Value.ToString())
+            do! Json.write "showDistanceText" x.showDistanceText 
+            do! Json.write "textSize" x.textSize.value
+            do! Json.write "dPointSize" x.dPointSize.value
+            do! Json.write "dPointColor" (x.dPointColor.c.ToString())
         }
 
     //let initial = {
