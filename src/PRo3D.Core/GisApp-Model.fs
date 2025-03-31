@@ -190,6 +190,7 @@ type GisApp =
         spiceKernelLoadSuccess : bool
         cameraInObserver       : bool
         projectedImages        : ProjectedImages
+        showMarkers            : bool // whether line + text markers are displayed (for known planets)
     } 
 with
     static member current = 0
@@ -216,6 +217,8 @@ module GisAppJson =
             let! (spiceKernel : option<string>) = Json.tryRead "spiceKernel"
 
             let! cameraInObserver = Json.tryRead "cameraInObserver"
+
+            let! showMarkers = Json.tryRead "showMarkers"
             
             return {
                 version                = ReferenceFrame.current
@@ -229,6 +232,7 @@ module GisAppJson =
                 cameraInObserver       = Option.defaultValue false cameraInObserver
                 spiceKernelLoadSuccess = false
                 projectedImages        = ProjectedImages.initial //{ ProjectedImages.initial with images = System.IO.Directory.EnumerateFiles(@"C:\pro3ddata\HERA\simulated") |> Seq.map (fun a -> { fullName = a }) |> IndexList.ofSeq }
+                showMarkers            = Option.defaultValue false showMarkers
             }
         }
     
@@ -241,6 +245,7 @@ type GisApp with
             do! Json.write "entities"                (x.entities |> HashMap.toList |> List.map snd)   
             do! Json.write "gisSurfaces"             (x.gisSurfaces |> HashMap.toList |> List.map snd)
             do! Json.write "spiceKernel"             (Option.map CooTransformation.SPICEKernel.toPath x.spiceKernel)
+            do! Json.write "showMarkers"             x.showMarkers
         }
     static member FromJson (_ : GisApp) =
         json {
@@ -298,6 +303,7 @@ type GisAppAction =
     | NewEntity
     | NewFrame
     | ImageProjection           of ImageProjectionMessage
+    | ToggleDrawMarkers
 
 
     

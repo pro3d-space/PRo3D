@@ -909,6 +909,7 @@ module ViewerUtils =
             PRo3D.Base.Shader.footPrintF |> toEffect
             ImageProjection.Shaders.stableImageProjection |> toEffect
             ImageProjection.Shaders.localImageProjections |> toEffect
+            PRo3D.SPICE.Shaders.solarLighting |> toEffect
         ]
 
 
@@ -1030,7 +1031,7 @@ module ViewerUtils =
                 "HERA_AFC-2", frustum
             ]
 
-        let singleProjectedImage = 
+        let singleProjectedImage  = 
             m.scene.gisApp.projectedImages.selectedImage 
             |> AVal.bind (function 
                 | None -> AVal.constant None
@@ -1045,52 +1046,55 @@ module ViewerUtils =
                                 let trafo = 
                                     observerSystem |> AVal.map (function 
                                     | Some o -> 
-                                        ProjectedImages.projectOnto o.referenceFrame.Value o.body.Value instruments p
+                                        ProjectedImages.projectOnto "IAU_MARS" o.body.Value instruments p
                                     | _ -> 
                                         Some Trafo3d.Identity
                                     )
                                 Some (img.fullName, trafo)
                     )
-            )
+             )
 
-        let hasSingleImageProjection = 
-            singleProjectedImage |> AVal.map (function None -> false | Some (_, p) -> true)
-        let singleImageProjectionTrafo =
-            singleProjectedImage |> AVal.bind (function None -> AVal.constant None | Some (_, p) -> p)
+
+        let singleImageProjectionTrafo (body : string) (refSystem :string) =
+            singleProjectedImage  |> AVal.bind (function None -> AVal.constant None | Some (_, p) -> p)
         let singleImageProjectionTexture = 
             singleProjectedImage |> AVal.map (function None -> NullTexture.Instance | Some (s, p) -> FileTexture(s, true) :> ITexture)
 
-        let projectedImages = 
-            m.scene.gisApp.projectedImages.images.Content
-            |> AVal.map (fun images -> 
-                let arr = IndexList.toArray images
-                let trafos = 
-                    observerSystem |> AVal.map (function
-                        | None -> [||]
-                        | Some o -> 
-                            arr |> Array.choose (fun a -> 
-                                match a.projection with
-                                | None -> None
-                                | Some p -> 
-                                    ProjectedImages.projectOnto o.referenceFrame.Value o.body.Value instruments p
-                            )
-                    )
+
+
+        let projectedImages (surfaceId : Guid) (body : string) (refSystem :  string)  = 
+            if body.ToLower() = "mars" then
+                m.scene.gisApp.projectedImages.images.Content
+                |> AVal.map (fun images -> 
+                    let sunDirection = Gis.GisApp.getSunDirection m.scene.gisApp surfaceId
+                    let arr = IndexList.toArray images
+                    let trafos = 
+                        observerSystem |> AVal.map (function
+                            | None -> [||]
+                            | Some o -> 
+                                arr |> Array.choose (fun a -> 
+                                    match a.projection with
+                                    | None -> None
+                                    | Some p -> 
+                                        ProjectedImages.projectOnto "IAU_MARS" o.body.Value instruments p
+                                )
+                        )
 
          
-                { 
-                    imageProjection = singleImageProjectionTrafo
-                    localImageProjectionTrafos = trafos
-                    sunDirection = AVal.constant None
-                    sunLightEnabled = AVal.constant false
-                }
-            )
+                    Some { 
+                        imageProjection = singleImageProjectionTrafo body refSystem
+                        localImageProjectionTrafos = trafos
+                        sunDirection = sunDirection
+                        sunLightEnabled = sunDirection |> AVal.map Option.isSome
+                    }
+                )
+            else
+                AVal.constant None
 
-        let wrapGisData (sg : ISg<_>) =
+        let wrapGisData (surfaceId : Guid) (sg : ISg<_>) =
             sg
             |> Sg.applyProjectedImages (fun body -> 
-                (body, projectedImages) ||> AVal.map2 (fun body projectedImages -> 
-                    Some projectedImages
-                )
+                body |> AVal.bind (function None -> AVal.constant None | Some p -> projectedImages surfaceId p "IAU_MARS")
             )
             |> Sg.texture "ProjectedTexture" singleImageProjectionTexture
 
@@ -1117,7 +1121,7 @@ module ViewerUtils =
                                 allowDepthview
                                 view
 
-                            |> wrapGisData
+                            |> wrapGisData surface.surface
 
                         match surface.isObj with
                         | true -> 

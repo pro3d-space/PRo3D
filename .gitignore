@@ -54,3 +54,10 @@ src\Aardvark.OpcViewer.psess
 **/bin/Debug/**
 **/bin/Release/**
 /notebooks/result.obj
+/docs/PRo3D_ShortUserManual/*.aux
+/docs/PRo3D_ShortUserManual/*.log
+/docs/PRo3D_ShortUserManual/*.out
+/docs/PRo3D_ShortUserManual/*.gz
+/docs/PRo3D_ShortUserManual/*.toc
+/docs/PRo3D_ShortUserManual/*.tps
+/src/PRo3D.GIS/*.fs

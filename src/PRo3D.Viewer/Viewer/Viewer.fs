@@ -1976,7 +1976,7 @@ module ViewerApp =
         let cam     = AVal.map2 Camera.create m.navigation.camera.view frustum
 
         
-        let gisEntities = Gis.GisApp.viewGisEntities m.scene.gisApp |> Sg.noEvents
+        let gisEntities = Gis.GisApp.viewGisEntities cam m.scene.gisApp |> Sg.noEvents
 
         let observer = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
 

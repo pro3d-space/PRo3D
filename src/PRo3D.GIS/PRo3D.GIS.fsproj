@@ -7,13 +7,13 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="MarsTaggedLocations.fs" />
-    <Compile Include="SpiceInterfacing.fs" />
     <Compile Include="ProjectedImagesModel.fs" />
     <Compile Include="OpcShaders.fs" />
     <Compile Include="Shaders.fs" />
     <Compile Include="CelestialBodies.fs" />
     <Compile Include="ImageProjection.fs" />
     <Compile Include="Rendering.fs" />
+    <Compile Include="Markers.fs" />
     <Compile Include="TestViewer.fs" />
     <None Include="paket.references" />
     <Compile Include="ImagesView.fs" />

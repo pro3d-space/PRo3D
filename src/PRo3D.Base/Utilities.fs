@@ -1459,6 +1459,7 @@ module FrustumUtils =
         // http://paulbourke.net/miscellaneous/lens/
         // https://photo.stackexchange.com/questions/41273/how-to-calculate-the-fov-in-degrees-from-focal-length-or-distance
         let hfov = 2.0 * atan(11.84 /(focal*2.0))
+        Log.line $"computed hvov: {hfov}."
         Frustum.perspective (hfov.DegreesFromRadians()) near far 1.0
 
     let calculateFrustum' (focal : float) (near : float) 
@@ -1466,4 +1467,5 @@ module FrustumUtils =
         // http://paulbourke.net/miscellaneous/lens/
         // https://photo.stackexchange.com/questions/41273/how-to-calculate-the-fov-in-degrees-from-focal-length-or-distance
         let hfov = 2.0 * atan(11.84 /(focal*2.0))
+        Log.line $"computed hvov: {hfov}."
         Frustum.perspective (hfov.DegreesFromRadians()) near far aspect

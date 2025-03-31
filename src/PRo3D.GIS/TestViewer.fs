@@ -79,7 +79,7 @@ module TestViewer =
         let referenceFrame = cval "IAU_MARS" 
         let referenceFrame = cval "ECLIPJ2000"
         let time = 
-            let startTime = "2025-03-12 12:08:30.000Z"
+            let startTime = "2025-03-12 11:50:30.000Z"
             cval (DateTime.Parse startTime)
 
 
@@ -111,8 +111,9 @@ module TestViewer =
                 let up = right.Cross(forward)
                 let t = Trafo3d.FromBasis(right, up, forward, targetState.pos)
                 let t = Trafo3d.FromBasis(-rot.C1, rot.C0, rot.C2, targetState.pos)
+                //let t = Trafo3d.FromBasis(rot.C0, rot.C1, rot.C2, targetState.pos)
                 CameraView.ofTrafo t.Inverse |> Some 
-                //CameraView.lookAt targetState.pos V3d.Zero V3d.OOI |> Some
+                CameraView.lookAt targetState.pos V3d.Zero V3d.OOI |> Some
             | _ -> 
                 None
                 
@@ -120,7 +121,7 @@ module TestViewer =
         let bb =  Box3d.Parse("[[701677.203042967, 3141128.733093360, 1075935.257765322], [701942.935458576, 3141252.724183598, 1076182.681085336]]").Transformed(marsToReferenceFrame)
         let initialView = CameraView.lookAt bb.Max bb.Center bb.Center.Normalized |> cval
         let initialView = CameraView.lookAt -hera bb.Center V3d.OOI |> cval
-        //let initialView = (getLookAt "DEIMOS" observer.Value referenceFrame.Value "SUN" time.Value).Value |> cval
+        let initialView = (getLookAt "DEIMOS" observer.Value referenceFrame.Value "SUN" time.Value).Value |> cval
         let speed = 7900.0 * 100.0 |> cval
         let cameraMode = cval CameraMode.Orbit
 
@@ -154,7 +155,7 @@ module TestViewer =
         let distanceSunPluto = 5906380000.0 * 1000.0
         let farPlaneMars = 30101626.50 * 1000.0
         let frustum = win.Sizes |> AVal.map (fun s -> Frustum.perspective 60.0 100.0 farPlaneMars (float s.X / float s.Y))
-        let frustum = instruments["HERA_AFC-1"] |> AVal.constant
+        //let frustum = instruments["HERA_AFC-1"] |> AVal.constant
         //let frustumMars = win.Sizes |> AVal.map (fun s -> Frustum.perspective 60.0 1000.0 farPlaneMars (float s.X / float s.Y))
         let aspect = win.Sizes |> AVal.map (fun s -> float s.X / float s.Y)
 
@@ -213,7 +214,7 @@ module TestViewer =
                     supportBody = "SUN"
                     time = t
                 }
-                t, ProjectedImages.projectOnto referenceFrame.Value observer.Value instruments p
+                t, ProjectedImages.projectOnto "IAU_MARS" observer.Value instruments p
             )
 
 
@@ -231,7 +232,7 @@ module TestViewer =
                     supportBody = "SUN"
                     time = time
                 }
-                ProjectedImages.projectOnto referenceFrame observer instruments p
+                ProjectedImages.projectOnto "IAU_MARS" observer instruments p
             )
         let prio = RenderPass.after "priority" RenderPassOrder.Arbitrary RenderPass.main 
 
@@ -431,7 +432,7 @@ module TestViewer =
                 do! DefaultSurfaces.constantColor C4f.White 
                 do! DefaultSurfaces.diffuseTexture 
                 do! Shaders.solarLighting
-                do! ImageProjection.Shaders.localImageProjections
+                //do! ImageProjection.Shaders.localImageProjections
                 do! ImageProjection.Shaders.stableImageProjection
                 //do! Shader.LoDColor 
             }
@@ -569,12 +570,12 @@ module TestViewer =
                         | None -> TimeSpan.Zero
                         | Some l -> sw.Elapsed - l
                     if not paused then
-                        time.Value <- time.Value + dt * 1.0
+                        time.Value <- time.Value + dt * 200.0
 
                     let frustum = instruments.["HERA_AFC-1"]
                     let view = (getLookAt "HERA" observer.Value referenceFrame.Value "SUN" time.Value).Value
                     //customObservationCamera.Value <- Some (Camera.create view frustum)
-                    //initialView.Value <- view
+                    initialView.Value <- view
                     //animationStep()
                     lastFrame <- Some sw.Elapsed
                 )

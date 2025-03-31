@@ -361,16 +361,6 @@ module TransformedBody =
 module CooTransformation =
     open PRo3D.Extensions
     open PRo3D.Extensions.FSharp
-    open System
-
-    let getPositionTransformationMatrix (pcFrom : string) (pcTo : string) (time : DateTime) : Option<M33d> = 
-        let m33d : array<double> = Array.zeroCreate 9
-        let pdRotMat = fixed &m33d[0] 
-        let result = CooTransformation.GetPositionTransformationMatrix(pcFrom, pcTo, CooTransformation.Time.toUtcFormat time, pdRotMat)
-        if result <> 0 then 
-            None
-        else
-            m33d |> M33d |> Some
 
 
     let transformBody (body : EntitySpiceName) (bodyFrame : Option<FrameSpiceName>) (observer : EntitySpiceName) (observerFrame : FrameSpiceName) (time : DateTime) =
@@ -381,18 +371,20 @@ module CooTransformation =
             | None -> observerFrame
 
         let suportBody = "sun"
-        let relState = CooTransformation.getRelState body suportBody observer time observerFrame 
-        let rot = getPositionTransformationMatrix bodyFrame observerFrame time
+        let relState = PRo3D.SPICE.CooTransformation.getRelState body suportBody observer time observerFrame 
+        let rot = PRo3D.SPICE.CooTransformation.getRotationTrafo bodyFrame observerFrame time
         let switchToLeftHanded = Trafo3d.FromBasis(V3d.IOO, -V3d.OOI, -V3d.OIO, V3d.Zero)
         let flipZ = Trafo3d.FromBasis(V3d.IOO, V3d.OIO, -V3d.OOI, V3d.Zero)
         match relState, rot with
         | Some rel, Some rot -> 
             let relFrame = rel.rot 
-            let t = Trafo3d.FromBasis(relFrame.C0, relFrame.C1, -relFrame.C2, V3d.Zero)
+            let t = Trafo3d.FromBasis(relFrame.C1, relFrame.C0, relFrame.C2, rel.pos)
+            let camera = CameraView.ofTrafo t.Inverse
+            let camera = CameraView.lookAt rel.pos V3d.Zero V3d.OOI
             Some { 
-                lookAtBody = CameraView.ofTrafo t.Inverse
+                lookAtBody = camera
                 position = rel.pos
-                alignBodyToObserverFrame = rot  
+                alignBodyToObserverFrame = M33d rot.Forward
             }
         | _ -> 
             Log.line $"[SPICE] failed to transform body (body = {body}, bodyFrame = {bodyFrame}, observer = {observer}, observerFrame = {observerFrame}, time = {time}."

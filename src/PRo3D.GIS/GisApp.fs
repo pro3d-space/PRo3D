@@ -220,10 +220,12 @@ module GisApp =
             viewer, m
         | GisAppAction.ToggleCameraInObserver ->
             viewer, {m with cameraInObserver = not m.cameraInObserver}
+        | GisAppAction.ToggleDrawMarkers -> 
+            viewer, {m with showMarkers = not m.showMarkers }
         | GisAppAction.ImageProjection msg -> 
             let m = 
                 match msg with 
-                | ImageProjectionMessage.SelectImage idx when false -> 
+                | ImageProjectionMessage.SelectImage idx -> 
                     match IndexList.tryGet idx m.projectedImages.images with
                     | None -> m
                     | Some img -> 
@@ -582,6 +584,7 @@ module GisApp =
                     Html.table [ 
                         Html.row "Path to Spice Kernel" 
                                  [kernelPathTextBox;kernelStatusIcon]
+                        Html.row "Show Markers" [GuiEx.iconCheckBox m.showMarkers ToggleDrawMarkers]
                         Html.row "Animation Camera in Observer"
                                  [GuiEx.iconCheckBox m.cameraInObserver ToggleCameraInObserver]
                     ]
@@ -700,7 +703,7 @@ module GisApp =
         { trafo = trafo; color = entity.color |> AVal.map C4b }
 
 
-    let viewWithObserver (observerSpiceBody : aval<EntitySpiceName>) (targetReferenceFrame : aval<Option<FrameSpiceName>>) (time : aval<DateTime>) (bodies : aset<EntitySpiceName * AdaptiveEntity>) =
+    let viewWithObserver (cam : aval<Camera>) (observerSpiceBody : aval<EntitySpiceName>) (targetReferenceFrame : aval<Option<FrameSpiceName>>) (time : aval<DateTime>) (showMarkers : aval<bool>) (bodies : aset<EntitySpiceName * AdaptiveEntity>) =
 
         let renderableBodies =
             bodies |> ASet.chooseA (fun (EntitySpiceName spiceBody, entity) ->
@@ -710,7 +713,19 @@ module GisApp =
                 )
             )
 
-        //let bodyVisualization = Rendering.bodiesVisualization 
+
+
+        let markers = 
+            showMarkers 
+            |> AVal.map (function 
+                | true -> 
+                    let referenceFrame = targetReferenceFrame |> AVal.map (function None -> "IAU_MARS" | Some (FrameSpiceName m) -> m)
+                    let observer = observerSpiceBody |> AVal.map (fun (EntitySpiceName n) -> n)
+                    Markers.markers cam referenceFrame observer time
+                | false -> Sg.empty
+            )
+            |> Sg.dynamic
+                //let bodyVisualization = Rendering.bodiesVisualization 
 
         let nonInstancedRendering () =
             let body = 
@@ -801,7 +816,10 @@ module GisApp =
 
             Sg.ofList [bodies; bodyTrajectory]
 
-        nonInstancedRendering () 
+        let bodies = 
+            nonInstancedRendering () 
+
+        Sg.ofList [bodies; markers]
 
 
     let getSpiceReferenceSystemFromSurfaces (s : SurfaceId) (m : HashMap<SurfaceId, GisSurface>)  = 
@@ -819,6 +837,24 @@ module GisApp =
     let getSpiceReferenceSystemAdaptive (m : AdaptiveGisApp) (s : SurfaceId) =
         m.gisSurfaces.Content |> AVal.map (getSpiceReferenceSystemFromSurfaces s)
 
+    let getSunDirection (m: AdaptiveGisApp) (s : SurfaceId) =
+        let observer = m.defaultObservationInfo.observer 
+        let observerWithDefault = observer |> AVal.map (Option.defaultValue (EntitySpiceName "mars"))
+        let time = m.defaultObservationInfo.time.date
+        let targetReferenceFrame = m.defaultObservationInfo.referenceFrame |> AVal.map (Option.defaultValue (FrameSpiceName "IAU_MARS"))
+        getSpiceReferenceSystemAdaptive m s 
+        |> AVal.bind (function
+            | None -> AVal.constant None
+            | Some r -> 
+                (observerWithDefault, targetReferenceFrame, time) |||> AVal.map3 (fun observer targetReferenceFrame time -> 
+                    let bodyPos = CooTransformation.transformBody r.body (Some r.referenceFrame) observer targetReferenceFrame time 
+                    let sunPos = CooTransformation.transformBody (EntitySpiceName "SUN") (Some r.referenceFrame) observer targetReferenceFrame time 
+                    match sunPos, bodyPos with
+                    | Some sunPos, Some bodyPos -> sunPos.position - bodyPos.position |> Vec.normalize |> Some
+                    | _ -> None
+                )
+        )
+        
     let getObserver (v : ObservationInfo) =
         match v.observer, v.referenceFrame with
         | Some observer, Some referenceFrame -> Some { body = observer; referenceFrame = referenceFrame; time = v.time.date }
@@ -845,12 +881,12 @@ module GisApp =
     let lookAtObserver (m : GisApp) =
         lookAtObserver' m.defaultObservationInfo
 
-    let viewGisEntities (m : AdaptiveGisApp) =
+    let viewGisEntities (cam : aval<Camera>) (m : AdaptiveGisApp) =
         let observer = m.defaultObservationInfo.observer 
         let observerWithDefault = observer |> AVal.map (Option.defaultValue (EntitySpiceName "mars"))
         let time = m.defaultObservationInfo.time.date
         let targetReferenceFrame = m.defaultObservationInfo.referenceFrame 
-        viewWithObserver observerWithDefault targetReferenceFrame time (m.entities |> AMap.toASet)
+        viewWithObserver cam observerWithDefault targetReferenceFrame time m.showMarkers (m.entities |> AMap.toASet)
         |> Sg.onOff (observer |> AVal.map Option.isSome)
 
 
@@ -887,6 +923,7 @@ module GisApp =
                 spiceKernelLoadSuccess  = true
                 cameraInObserver        = false
                 projectedImages         = ProjectedImages.initial //{ ProjectedImages.initial with images = Directory.EnumerateFiles(@"C:\pro3ddata\HERA\simulated") |> Seq.map (fun a -> { fullName = a }) |> IndexList.ofSeq }
+                showMarkers             = false
             }
 
         match spiceKernel with

@@ -31,6 +31,34 @@ open Aardvark.GeoSpatial.Opc.Load
 open OpcViewer.Base
 open Aardvark.Rendering.Text
 
+
+module LodDecider =
+    open Aardvark.GeoSpatial.Opc
+    open FSharp.Data.Adaptive
+
+    let lodDeciderMars 
+           (preTrafo    : Trafo3d) (self        : AdaptiveToken) (viewTrafo   : aval<Trafo3d>) (_projection : aval<Trafo3d>) (p : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) 
+           (lodParams   : aval<LodParameters>) (isActive    : aval<bool>) =
+
+           let lodParams = lodParams.GetValue self
+           let isActive = isActive.GetValue self
+      
+           let campPos = (viewTrafo.GetValue self).Backward.C3.XYZ
+           let bb      = p.info.GlobalBoundingBox.Transformed(lodParams.trafo * preTrafo ) //* preTrafo)
+           let closest = bb.GetClosestPointOn(campPos)
+           let dist    = (closest - campPos).Length
+
+           //// super agressive to prune out far away stuff, too aggresive !!!
+           //if not isActive || (campPos - bb.Center).Length > p.info.GlobalBoundingBox.Size.[p.info.GlobalBoundingBox.Size.MajorDim] * 1.5 
+           //    then false
+           //else
+
+           let unitPxSize = lodParams.frustum.right / (float lodParams.size.X / 2.0)
+           let px = (lodParams.frustum.near * p.triangleSize) / dist // (pow dist 1.2) // (added pow 1.2 here... discuss)
+
+               //    Log.warn "%f to %f - avgSize: %f" px (unitPxSize * lodParams.factor) p.triangleSize
+           px > unitPxSize * (exp lodParams.factor)
+
 module FootprintSg = 
     open Aardvark.SceneGraph.Sg
     
