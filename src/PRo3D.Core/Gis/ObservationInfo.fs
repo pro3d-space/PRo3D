@@ -65,8 +65,8 @@ module ObservationInfo =
 
         require GuiEx.semui (
             Html.table [                                                
-                Html.row "Observer:" [observerDropdown]
-                Html.row "Target:"   [targetDropdown]
+                Html.row "Observed body:" [observerDropdown]
+                Html.row "Camera source Body"   [targetDropdown]
                 Html.row "Time:"     
                     [
                         Calendar.view m.time false false 
