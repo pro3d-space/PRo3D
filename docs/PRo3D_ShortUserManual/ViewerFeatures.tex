@@ -445,9 +445,9 @@ In the main view the footprint of the selected camera is shown in light gray. Fo
 \subsection{GIS View}
 \label{sec:gisview}
 
-
+   
 Summary: This feature allows to interpret celestial bodies and surfaces
-from within pro3d and serves as a basis for GIS functionality in PRo3D.
+from within PRo3D and serves as a basis for GIS functionality in PRo3D.
 General concept: A new UI tab allows to assign coordiante frames and
 celestial body information to surfaces and GIS entities. By setting
 observeration time and by choosing an observer body, views or fly-by
@@ -546,7 +546,7 @@ information why, it might be that the path to the kernel is not correct.
 		Settings}\label{current-observation-settings}}
 
 At the top of the GIS tab there is a section entitled ``Current
-Observation Settings''. This is used to define an observer, a target, a
+Observation Settings''. This is used to define the observed target, a camera location, a
 point in time, and a reference frame.
 
 \begin{figure}[h!]
@@ -558,8 +558,8 @@ point in time, and a reference frame.
 \begin{itemize}
 	\tightlist
 	\item
-	Observer: The entity from which we want to observe a specific target.
-	The camera will be placed at the location of the observer.
+	Observed body: The entity from which we want to observe a specific target.
+	The camera will focus the observed body (look at it).
 	\item
 	Target: The entity we want to look at. The camera will look in the
 	direction of the target.
@@ -570,7 +570,7 @@ point in time, and a reference frame.
 	\item
 	Reference Frame: The reference frame into which all other frames will
 	be converted. Which frame is selected here should not change the
-	visual result.
+	visual result (except for trajectories).
 \end{itemize}
 
 \hypertarget{surfaces}{%
@@ -599,7 +599,7 @@ Frames'' tab.
 \hypertarget{entities}{%
 	\textbf{Entities}\label{entities}}
 
-Entities can be celestial bodies or spacecraft. To work with PRO3D's GIS
+Entities can be celestial bodies or spacecraft. To work with PRo3D's GIS
 functionality the Spice Name of the entity needs to be defined in the
 loaded spice kernel.
 

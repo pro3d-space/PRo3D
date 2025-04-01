@@ -61,3 +61,7 @@ src\Aardvark.OpcViewer.psess
 /docs/PRo3D_ShortUserManual/*.toc
 /docs/PRo3D_ShortUserManual/*.tps
 /src/PRo3D.GIS/*.fs
+/docs/PRo3D_ShortUserManual/PRo3D_ShortUserManual.bbl
+/docs/PRo3D_ShortUserManual/PRo3D_ShortUserManual.blg
+/docs/PRo3D_ShortUserManual/PRo3D_ShortUserManual.fdb_latexmk
+/docs/PRo3D_ShortUserManual/PRo3D_ShortUserManual.fls
