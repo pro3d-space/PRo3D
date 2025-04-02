@@ -22,6 +22,7 @@ type Interactions =
     | PlaceScaleBar         = 16
     | PlaceSceneObject      = 17
     | PickPivotPoint        = 18
+    | PickSurfaceRefSys     = 19
     | PickDistanePoint      = 19
 
 module Interactions =

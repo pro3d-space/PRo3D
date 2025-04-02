@@ -373,6 +373,16 @@ module ViewerApp =
                     SceneObjectsApp.update m.scene.sceneObjectsModel action m.scene.referenceSystem
                 { m with scene = { m.scene with sceneObjectsModel = so' } }
             | _ -> m
+        | Interactions.PickSurfaceRefSys, ViewerMode.Standard -> 
+            match m.pivotType with
+            | PickPivot.SurfacePivot     -> 
+                let action = (SurfaceAppAction.TranslationMessage( TransformationApp.Action.SetPickedReferenceSystem p )) 
+                let surfaceModel =
+                    SurfaceApp.update m.scene.surfacesModel action m.scene.scenePath m.navigation.camera.view m.scene.referenceSystem
+                { m with scene = { m.scene with surfacesModel = surfaceModel } }
+            | PickPivot.SceneObjectPivot -> m
+                //todo
+            | _ -> m
         | Interactions.PickDistanePoint, _ ->
             let msg = ViewPlanApp.Action.AddDistancePoint(p)
             let outerModel, viewPlans = ViewPlanApp.update m.scene.viewPlans msg _navigation _footprint m.scene.scenePath m.scene.referenceSystem m
@@ -467,7 +477,7 @@ module ViewerApp =
             |> Optic.set _animationView nav.camera.view
         | NavigationMessage msg, _, _ ->
             m // cases where navigation is blocked by other operations (e.g. animation)
-        | AnimationMessage msg,_,_ ->
+        | AnimationMessage msg,_,_ -> // belongs to deprecated animation
             let m = 
                 match msg with
                 | Tick t when AnimationApp.shouldAnimate m.animations -> 
@@ -1103,7 +1113,6 @@ module ViewerApp =
                     m.screenshotDirectory
                     _animator
                     m.viewerVersion
-                |> ProvenanceApp.emptyWithModel
 
             { initialModel with recent = m.recent} |> ViewerIO.loadRoverData
 
@@ -1531,7 +1540,7 @@ module ViewerApp =
                 let _sb = m |> Optic.get _scaleBars |> HashMap.tryFind id
                 match _sb with 
                 | Some sb ->
-                    let translation = (TransformationApp.translationFromReferenceSystemBasis sb.transformation.translation.value V3d.Zero m.scene.referenceSystem) 
+                    let translation = (TransformationApp.translationFromReferenceSystemBasis sb.transformation.translation.value m.scene.referenceSystem) 
                     let viewLocation = sb.view.Location + translation
                     let viewForward = sb.position + translation
 
@@ -1731,7 +1740,6 @@ module ViewerApp =
             //    ()
             //| _ -> 
             //    ()
-
             Animation.Animator.update msg m   
 
         | ProvenanceMessage msg -> 
@@ -2119,7 +2127,8 @@ module ViewerApp =
         //        m.linkingModel
         //    |> Sg.map LinkingActions
 
-        let dTested = getDepthTested frustum m.navigation.camera.view observer id runtime m //annotations + scaleBars
+        let depthTested = 
+            getDepthTested frustum m.navigation.camera.view observer id runtime m //annotations + scaleBars
 
         let heightValidationDiscs =
             HeightValidatorApp.viewDiscs m.heighValidation |> Sg.map HeightValidation
@@ -2143,7 +2152,7 @@ module ViewerApp =
         let depthTested = 
             [
              //   linkingSg; 
-                dTested; 
+                depthTested; 
                 //minervaSg; 
                 heightValidationDiscs; 
                 sceneObjects; 
@@ -2154,8 +2163,16 @@ module ViewerApp =
 
 
         //render OPCs in priority groups
-        let cmds  = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped overlayed depthTested m.navigation.camera.view true false runtime m
-                        |> AList.map ViewerUtils.mapRenderCommand
+        let cmds  = 
+            ViewerUtils.renderCommands 
+                m.scene.surfacesModel.sgGrouped 
+                overlayed depthTested 
+                m.navigation.camera.view 
+                true 
+                false 
+                runtime 
+                m
+            |> AList.map ViewerUtils.mapRenderCommand
         onBoot "attachResize('__ID__')" (
             DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
         )
@@ -2172,11 +2189,10 @@ module ViewerApp =
             { kind = Script;      name = "utilities";  url = "./resources/utilities.js"  }
         ]
         
-        let bodyAttributes : list<Attribute<ViewerAnimationAction>> = 
-            [
+        let bodyAttributes : list<Attribute<ViewerAnimationAction>> = [
             style "background: #1B1C1E; height:100%; overflow-y:scroll; overflow-x:hidden;" //] //overflow-y : visible
             onMouseUp (fun button pos -> ViewerAnimationAction.ViewerMessage (EndDragging (pos, button)))
-            ]
+        ]
 
         page (
             fun request -> 
@@ -2219,10 +2235,15 @@ module ViewerApp =
             { m with waypoints = wp }
         | None -> m
 
+    type ViewerStartupLoad =
+        | Empty
+        | LoadLastScene
+        | LoadScene of string
+
     let start 
         (runtime             : IRuntime) 
         (signature           : IFramebufferSignature)
-        (startEmpty          : bool)
+        (startupLoad         : ViewerStartupLoad)
         (messagingMailbox    : MessagingMailbox)
         (sendQueue           : BlockingCollection<string>)
         (dumpFile            : string)
@@ -2234,11 +2255,25 @@ module ViewerApp =
         (viewerVersion       : string)
         =
 
+        let viewerInitial =
+            PRo3D.Viewer.Viewer.initial 
+                messagingMailbox 
+                StartupArgs.initArgs 
+                renderingUrl
+                dataSamples 
+                screenshotDirectory 
+                _animator 
+                viewerVersion
+                
         let m = 
-            if startEmpty |> not then
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl 
-                                            dataSamples screenshotDirectory _animator viewerVersion
-                |> ProvenanceApp.emptyWithModel
+            match startupLoad with
+            | Empty -> 
+                viewerInitial
+                |> ProvenanceApp.emptyWithModel enableProvenance
+                |> ViewerIO.loadRoverData
+            | LoadLastScene ->
+                viewerInitial
+                |> ProvenanceApp.emptyWithModel enableProvenance
                 |> SceneLoader.loadLastScene runtime signature                
                 |> SceneLoader.loadLogBrush
                 |> ViewerIO.loadRoverData                
@@ -2250,13 +2285,21 @@ module ViewerApp =
                 //|> ViewerIO.loadLinking
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.addGeologicSurfaces
+            | LoadScene path ->
+                viewerInitial
+                |> ProvenanceApp.emptyWithModel enableProvenance
+                |> SceneLoader.loadSceneFromFile runtime signature path
+                |> SceneLoader.loadLogBrush
+                |> ViewerIO.loadRoverData                
+                |> ViewerIO.loadAnnotations
+                |> ViewerIO.loadCorrelations
+                |> ViewerIO.loadLastFootPrint
+                |> ViewerIO.loadSequencedBookmarks
+                //|> ViewerIO.loadMinerva dumpFile cacheFile
+                //|> ViewerIO.loadLinking
+                |> SceneLoader.addScaleBarSegments
+                |> SceneLoader.addGeologicSurfaces
                 
-            else
-                PRo3D.Viewer.Viewer.initial messagingMailbox StartupArgs.initArgs renderingUrl
-                                            dataSamples screenshotDirectory _animator viewerVersion
-                |> ProvenanceApp.emptyWithModel
-                |> ViewerIO.loadRoverData
-
         let app = {
             unpersist = Unpersist.instance
             threads   = threadPool

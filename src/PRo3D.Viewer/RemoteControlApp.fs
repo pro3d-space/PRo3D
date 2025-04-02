@@ -11,6 +11,8 @@ open PRo3D.SimulatedViews
 open RemoteControlModel
 open MBrace
 
+
+
 type ClientStatistics =
     {
         session         : System.Guid
@@ -26,36 +28,8 @@ module RemoteControlApp =
     
     let jsonSerializer = FsPickler.Json.JsonSerializer(indent=true)
 
-    
-
     let fromDate (dt : DateTime) =
         dt.ToString("yyyymmdd_hhmmss")
-
-    let takeScreenshot baseAddress (width:int) (height:int) name folder =
-        let wc = new System.Net.WebClient()
-        let path = "screenshots"
-        if System.IO.Directory.Exists path |> not then
-            System.IO.Directory.CreateDirectory path |> ignore
-        let clientStatistic = 
-            let path = sprintf "%s/rendering/stats.json" baseAddress
-            Log.line "[RemoteControl] querying rendering stats at: %s" path
-            let result = wc.DownloadString(path) 
-            let clientBla : list<ClientStatistics> =
-                Pickler.unpickleOfJson  result
-            match clientBla with
-                | [] -> failwith "no client bla"
-                | x::[] -> x
-                | _ -> failwith "doent know"
-        let screenshot =            
-            sprintf "%s/rendering/screenshot/%s?w=%d&h=%d&samples=8" baseAddress clientStatistic.name width height
-        Log.line "[RemoteControl] Running screenshot on: %s" screenshot    
-
-        match System.IO.Directory.Exists folder with
-          | true -> ()
-          | false -> System.IO.Directory.CreateDirectory folder |> ignore
-               
-        let filename = System.IO.Path.ChangeExtension (name,".jpg")
-        wc.DownloadFile(screenshot,Path.combine [folder; filename])
 
     let mkInstrumetnWps m = 
         let pShots = 
@@ -108,14 +82,12 @@ module RemoteControlApp =
             | CaptureShot sh ->                
                 let view = sh |> Shot.getViewSpec
                 view |> RemoteAction.SetView |> send
-
-                try Utilities.takeScreenshot baseAddress sh.col sh.row sh.id sh.folder ".png"  with e -> printfn "error: %A" e
+                try Utilities.takeScreenshot baseAddress sh.col sh.row sh.id sh.folder ".png" with e -> printfn "error: %A" e
                 m
             | CapturePlatform psh ->
                 let view = PlatformShot.getViewSpec m.Rover psh
                 view |> RemoteAction.SetView |> send
-
-                try Utilities.takeScreenshot baseAddress view.resolution.X view.resolution.Y psh.id psh.folder ".png"  with e -> printfn "error: %A" e
+                try Utilities.takeScreenshot baseAddress view.resolution.X view.resolution.Y psh.id psh.folder ".png" with e -> printfn "error: %A" e
                 m                
             | UpdateCameraTest sh ->                                
                 send <| RemoteAction.SetCameraView (sh |> Shot.getCamera)
@@ -127,8 +99,7 @@ module RemoteControlApp =
                         
                         let view = PlatformShot.getViewSpec m.Rover p
                         view |> RemoteAction.SetView |> send
-
-                        try Utilities.takeScreenshot baseAddress view.resolution.X view.resolution.Y sh.id sh.folder ".png"  with e -> printfn "error: %A" e
+                        try Utilities.takeScreenshot baseAddress view.resolution.X view.resolution.Y sh.id sh.folder ".png" with e -> printfn "error: %A" e
                         m
                     | None -> m
             | SelectShot sh -> 
@@ -138,8 +109,8 @@ module RemoteControlApp =
                 { m with selectedShot = Some sh }
             | Play ->                
                 for sh in m.shots do
-                    send <| RemoteAction.SetCameraView (sh |> Shot.getCamera)                  
-                    try Utilities.takeScreenshot baseAddress sh.col sh.row sh.id sh.folder ".png" with e -> printfn "error: %A" e 
+                    send <| RemoteAction.SetCameraView (sh |> Shot.getCamera)
+                    try Utilities.takeScreenshot baseAddress sh.col sh.row sh.id sh.folder ".png" with e -> printfn "error: %A" e
                 m
             | Load ->
                 loadData m

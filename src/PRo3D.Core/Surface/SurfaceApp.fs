@@ -49,6 +49,7 @@ type SurfaceAppAction =
 | SetHomePosition           
 | TranslationMessage        of TransformationApp.Action
 | SetPreTrafo               of string
+| SetPreTrafoById           of Guid*Trafo3d
 
 
 module SurfaceUtils =    
@@ -57,6 +58,7 @@ module SurfaceUtils =
     let mk (stype:SurfaceType) (preferredLoader : MeshLoaderType) (maxTriangleSize : float) path =                 
     
         let names = Files.getOPCNames path                
+
         {
             version         = Surface.current
             guid            = Guid.NewGuid()
@@ -102,7 +104,6 @@ module SurfaceUtils =
             highlightAlways   = false
         }       
    
-
     module ObjectFiles =        
         open Aardvark.Geometry
         open Aardvark.Data.Wavefront
@@ -984,62 +985,53 @@ module SurfaceApp =
                 | None -> model
             m
         | SetPreTrafo str -> 
-            //let m = 
-            //    match model.surfaces.singleSelectLeaf, str.Length > 0 with
-            //    | Some s, true -> 
-            //        let surface = model.surfaces.flat |> HashMap.find s |> Leaf.toSurface
-            //        let s' = { surface with preTransform = str |> Trafo3d.Parse}
-            //        model |> SurfaceModel.updateSingleSurface s'             
-            //    | _, _ -> model
-            //m
-
             match model.surfaces.singleSelectLeaf with
             | Some id -> 
                 match model.surfaces.flat.TryFind(id) with 
-                | Some s -> 
+                | Some (Leaf.Surfaces surface) -> 
                     let trafo = str |> Trafo3d.Parse
-                    let s = s |> Leaf.toSurface
-                    let f = (fun _ -> { s with preTransform = trafo  } |> Leaf.Surfaces)
-                    let g = Groups.updateLeaf s.guid f model.surfaces
+                  
+                    let surfacesGroup = 
+                        model.surfaces 
+                        |> Groups.updateLeaf 
+                            surface.guid
+                            (fun _ -> { surface with preTransform = trafo  } |> Leaf.Surfaces)                      
         
-                    let sgs' = 
+                    let sgs = 
                         model.sgSurfaces
                         |> HashMap.update id (fun x -> 
                             match x with 
                             | Some sg ->    
-                                { sg with globalBB = (sg.globalBB.Transformed trafo) } // (Trafo3d.Translation(p))) }  //
-                            | None   -> failwith "surface not found")                             
-                    { model with surfaces = g; sgSurfaces = sgs'} 
-                | None -> model
+                                { sg with globalBB = (sg.globalBB.Transformed trafo) }
+                            | None -> 
+                                failwith "surface not found")                             
+                    { model with surfaces = surfacesGroup; sgSurfaces = sgs } 
+                | _ -> model
             | None -> model
+        | SetPreTrafoById (id : Guid, trafo : Trafo3d) ->             
+            Log.line "[SurfaceApp] SetPreTrafoById %A" id
+            match model.surfaces.flat.TryFind(id) with 
+            | Some (Leaf.Surfaces surface) ->        
+                Log.line "[SurfaceApp] surface found"
+                Log.line "[SurfaceApp] setting trafo %A" trafo
+                                         
+                let surfacesGroup = 
+                    model.surfaces 
+                    |> Groups.updateLeaf 
+                        surface.guid
+                        (fun _ -> { surface with preTransform = trafo  } |> Leaf.Surfaces)                      
+    
+                let sgs = 
+                    model.sgSurfaces
+                    |> HashMap.update id (fun x -> 
+                        match x with 
+                        | Some sg ->    
+                            { sg with globalBB = (sg.globalBB.Transformed trafo) }
+                        | None -> 
+                            failwith "surface not found")                        
 
-            //match model.surfaces.singleSelectLeaf with
-            //| Some id -> 
-            //    match model.surfaces.flat.TryFind(id) with 
-            //    | Some s -> 
-            //        let trafo = str |> Trafo3d.Parse
-            //        let s = s |> Leaf.toSurface
-            //        let f = (fun _ -> { s with preTransform = trafo  } |> Leaf.Surfaces)
-            //        let g = Groups.updateLeaf s.guid f model.surfaces
-        
-            //        let sgs' = 
-            //            model.sgSurfaces
-            //            |> HashMap.update id (fun x -> 
-            //                match x with 
-            //                | Some sg ->    
-            //                    let pose = Pose.transform Pose.identity trafo
-            //                    let trafo' = { 
-            //                      TrafoController.initial with 
-            //                        pose = pose
-            //                        previewTrafo = trafo
-            //                        mode = TrafoMode.Local 
-            //                    }
-            //                    { sg with trafo = trafo'; globalBB = (sg.globalBB.Transformed trafo'.previewTrafo) } // (Trafo3d.Translation(p))) }  //
-            //                | None   -> failwith "surface not found")                             
-            //        { model with surfaces = g; sgSurfaces = sgs'} 
-            //    | None -> model
-            //| None -> model
-
+                { model with surfaces = surfacesGroup; sgSurfaces = sgs } 
+            | _ -> model
         | TranslationMessage msg ->  
            
             let m = 
@@ -1064,11 +1056,7 @@ module SurfaceApp =
                 match model.surfaces.singleSelectLeaf with
                 | Some s -> 
                     let surface = model.surfaces.flat |> HashMap.find s |> Leaf.toSurface
-                    let t =  if surface.transformation.usePivot then    
-                                surface.transformation
-                             else 
-                                { surface.transformation with pivot = Vector3d.updateV3d surface.transformation.pivot refSys.origin }
-                    let transformation' = (TransformationApp.update t msg refSys) //surface.transformation msg)
+                    let transformation' = (TransformationApp.update surface.transformation msg refSys) //surface.transformation msg)
                     let s' = { surface with transformation = transformation' }
                     //let homePosition = 
                     //  match surface.homePosition with

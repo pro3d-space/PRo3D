@@ -110,7 +110,7 @@ module ViewerLenses =
             let scaleBars = // check scale bars; using old segments for performance reasons
                 if haveSameKeys state.stateScaleBars.scaleBars
                                 m.scene.scaleBars.scaleBars then 
-                    let inline update (newBar : ScaleBar) = 
+                    let inline update (newBar : ScaleVisualization) = 
                         let current = HashMap.tryFind newBar.guid m.scene.scaleBars.scaleBars
                         match current with
                         | Some current ->
@@ -257,7 +257,8 @@ module ViewerLenses =
                             let c = GisApp.lookAtObserver' observationInfo
                             let m = 
                                 match c with 
-                                | Some c -> Optic.set _view c m
+                                | Some c -> 
+                                    Optic.set _view c m
                                 | _ -> m
                             m
                         | None ->
