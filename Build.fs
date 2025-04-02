@@ -237,7 +237,7 @@ let test = """let viewerVersion       = "3.1.3" """
     res
     *)
 
-let aardiumVersion = "2.0.5"
+let aardiumVersion = "2.1.1"
     //let versions = getInstalledPackageVersions()
     //match Map.tryFind "Aardium" versions with
     //| Some v -> v
