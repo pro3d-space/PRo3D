@@ -52,7 +52,7 @@ type Result =
       result : string;
    }
 
-let viewerVersion       = "4.3.0-prerelease-hera-1 "
+let viewerVersion       = "5.0.0-prerelease-hera-5"
 let catchDomainErrors   = false
 
 open System.IO
