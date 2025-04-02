@@ -445,7 +445,7 @@ In the main view the footprint of the selected camera is shown in light gray. Fo
 \subsection{GIS View}
 \label{sec:gisview}
 
-   
+    
 Summary: This feature allows to interpret celestial bodies and surfaces
 from within PRo3D and serves as a basis for GIS functionality in PRo3D.
 General concept: A new UI tab allows to assign coordiante frames and
@@ -785,6 +785,34 @@ interactive presentations for science.
 	\subsubsection{Caveats}\label{caveats}}
 
 Currently the GIS settings are not stored to scene files.
+
+\subsubsection{Instrument projections}
+\label{sec:instrumentProjections}
+
+In the main menu (three vertical bars top left) you will find "Load Image Projections" in the "Extras" menu.
+The visualization control for projected images can be found in the GIS tab in "Projected Images".
+See \autoref{fig:hera-projectedImages} for an active instrument image projection setup.
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.8\textwidth]{pics/hera-projectedImages.png}
+	\caption{Simulated instrument data being projected onto mars mola reconstruction.}
+	\label{fig:hera-projectedImages}
+\end{figure}
+
+For simulated images the images must contain a json file with the same name of as the image an should contain at least the field as shown in this example:
+\begin{verbatim}
+	{
+	"instrumentReferenceFrame": "ECLIPJ2000",
+	"target": "MARS",
+	"cameraSource": "HERA",
+	"instrumentName": "HERA_AFC-1",
+	"time": "2025-03-12T11:50:31.0110000Z"
+	}
+\end{verbatim}
+
+For real mission data, we refer to internal deliverable communication where and the interpretation of fits files.
+
 
 %----------------------------------------------------------------------------------------
 %	SubSection: 

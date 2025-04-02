@@ -1,3 +1,7 @@
+## 4.3.0-prerelease-hera-5 
+- fixed surface priority 
+- improved handling of large trajectories
+
 ## 4.26.0-prerelease2 
 - fixed surface priority 
 - improved handling of large trajectories
