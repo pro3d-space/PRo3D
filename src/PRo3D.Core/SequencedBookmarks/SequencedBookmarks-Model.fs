@@ -630,7 +630,7 @@ module SequencedBookmark =
                         |> Json.deserialize
                 Some loadedBookmark
             with e ->
-                Log.error "[SequencedBookmarks] Error Loading Bookmark %s" m.path
+                Log.error "[SequencedBookmarks] Error Loading Bookmark %s. When copying or moving a scene in the file system, make sure to also copy the folder with the same name as your scene. The sequenced bookmarks are stored in that folder." m.path
                 Log.error "%s" e.Message
                 None
         | SequencedBookmark.LoadedBookmark m ->

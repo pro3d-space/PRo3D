@@ -541,7 +541,7 @@ module ScaleBarsApp =
 
                     //translation along north, east, up 
                     let! refsys = refSys.Current
-                    let translation = TransformationApp.translationFromReferenceSystemBasis scaleBar.transformation.translation.value V3d.Zero refsys
+                    let translation = TransformationApp.translationFromReferenceSystemBasis scaleBar.transformation.translation.value refsys
                     let newPos = pos + translation
 
                     let direction = ScaleBarUtils.getDirectionVec scaleBar.orientation scaleBar.view newPos refsys.planet
@@ -610,7 +610,7 @@ module ScaleBarsApp =
                 let! scaleBarTrans = scaleBar.transformation.translation.value
                 //translation along north, east, up 
                 let! refsys = refSys.Current
-                let translation = (TransformationApp.translationFromReferenceSystemBasis scaleBarTrans V3d.Zero refsys) //|> Trafo3d.Translation 
+                let translation = (TransformationApp.translationFromReferenceSystemBasis scaleBarTrans refsys) //|> Trafo3d.Translation 
                         
 
                 let trafo =
@@ -689,15 +689,15 @@ module ScaleBarsApp =
             let inRefFrame = 
                 refSys.Current 
                 |> AVal.map (fun refSys -> 
-                    TransformationApp.getReferenceSystemBasis V3d.Zero refSys
+                    TransformationApp.getReferenceSystemBasis_global refSys //TODO: local or global?
                 )
-
+                 
             let fullTranslation = 
                 adaptive {
                     let! scaleBarTrans = scaleBar.transformation.translation.value
                     //translation along north, east, up 
                     let! refsys = refSys.Current
-                    let translation = (TransformationApp.translationFromReferenceSystemBasis scaleBarTrans V3d.Zero refsys) //|> Trafo3d.Translation 
+                    let translation = (TransformationApp.translationFromReferenceSystemBasis scaleBarTrans refsys) //|> Trafo3d.Translation 
 
                     let! pos = scaleBar.position
                     return (Trafo3d.Translation pos) * (translation |> Trafo3d.Translation)

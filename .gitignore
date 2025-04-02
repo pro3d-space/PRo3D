@@ -42,6 +42,7 @@ src\Aardvark.OpcViewer.psess
 /instruments/InstrumentPlatforms/.vs/InstrumentPlatforms/DesignTimeBuild/*.v2
 **/.vs/**
 
+.vscode
 .ionide
 /bin/pack
 /SAFE/src/Server/*.user

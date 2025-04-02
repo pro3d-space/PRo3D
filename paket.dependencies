@@ -71,6 +71,8 @@ nuget CommandLineParser.FSharp ~> 2.9.1
 
 nuget PRo3D.SPICE ~> 1.0.3
 
+nuget Aardvark.Data.GLTF  ~> 1.0.1
+
 
 group Test
     framework: net6.0, net6.0-windows

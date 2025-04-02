@@ -1403,10 +1403,10 @@ module ScreenshotUtilities =
               frameTime       : float
           }
 
-        let downloadClientStatistics baseAddress (webClient : HttpClient) =
+        let downloadClientStatistics baseAddress (httpClient : HttpClient) =
             let path = sprintf "%s/rendering/stats.json" baseAddress //sprintf "%s/rendering/stats.json" baseAddress
             Log.line "[Screenshot] querying rendering stats at: %s" path
-            let result = webClient.GetStringAsync(path).Result
+            let result = httpClient.GetStringAsync(path).Result
 
             let clientBla : list<ClientStatistics> =
                 Pickler.unpickleOfJson  result
@@ -1429,20 +1429,20 @@ module ScreenshotUtilities =
             Path.combine [folder; name + "_" + clientStats.name + format]
 
         let takeScreenshotFromAllViews baseAddress (width:int) (height:int) name folder format =
-              let wc = new HttpClient()
-              let clientStatistics = downloadClientStatistics baseAddress wc
+              let httpClient = new HttpClient()
+              let clientStatistics = downloadClientStatistics baseAddress httpClient
 
               for cs in clientStatistics do
                   let screenshot = getScreenshotUrl baseAddress cs width height
                   let filename = getScreenshotFilename folder name cs format
-                  wc.DownloadFile(screenshot, filename)
+                  httpClient.DownloadFile(screenshot, filename)
                   let fullpath =
                       try System.IO.Path.GetFullPath(filename) with e -> filename
                   Log.line "[Screenshot] saved to %s" fullpath
 
         let takeScreenshot baseAddress (width:int) (height:int) name folder format =
-            let wc = new HttpClient()
-            let clientStatistics = downloadClientStatistics baseAddress wc
+            let httpClient = new HttpClient()
+            let clientStatistics = downloadClientStatistics baseAddress httpClient
             
             let cs =
                 match clientStatistics.Length with
@@ -1452,7 +1452,7 @@ module ScreenshotUtilities =
                 
             let screenshot = getScreenshotUrl baseAddress cs width height
             let filename = getScreenshotFilename folder name cs format
-            wc.DownloadFile(screenshot,filename)        
+            httpClient.DownloadFile(screenshot,filename)        
 
 module JsInterop = 
     let escapePath (s : string) =

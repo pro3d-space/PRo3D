@@ -522,7 +522,8 @@ module Sg =
                        useCompressedTextures = false
                        lodDecider            = DefaultMetrics.mars2
                     }
-                let (sg, hierarchies, kdtree) = createPlainSceneGraph runtime signature opcScene true
+                let (sg, hierarchies, kdtree) = 
+                    createPlainSceneGraph runtime signature opcScene true
 
                 let bb = 
                     hierarchies 

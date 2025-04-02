@@ -60,6 +60,7 @@ type PropertyActions =
 type PickPivot =
     | SurfacePivot      = 0
     | SceneObjectPivot  = 1
+
    // | ScaleBarPivot     = 2
 //type CorrelationPanelsMessage = 
 //| CorrPlotMessage               of CorrelationPlotAction
