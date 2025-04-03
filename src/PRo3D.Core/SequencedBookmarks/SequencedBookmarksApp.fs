@@ -324,6 +324,41 @@ module SequencedBookmarksApp =
                 viewer, m
             | None -> 
                 viewer, m
+        | GeneratePanoramaDepthImages -> 
+            viewer, {m with isGeneratingDepthImages = true}
+        | CancelPanoramas ->
+            viewer, {m with isCancelledDepthImages = true}
+        | SetOutputPathPanoramas str -> 
+            let str = 
+                match str with
+                | [] -> SequencedBookmarks.defaultOutputPath ()
+                | head::tail -> head
+            viewer, {m with outputPathDepthImages = str}
+        | CheckDepthPanoramaProcess id ->
+            match snapshotProcess with 
+            | Some p -> 
+                let m = 
+                    match p.HasExited , m.isCancelledDepthImages with
+                    | true, _ -> 
+                        Log.warn "[Snapshots] Depth Panorama generation finished."
+                        let m = {m with panoramaThreads = ThreadPool.remove id m.panoramaThreads
+                                        isGeneratingDepthImages = false
+                                }
+                                
+                        m
+                    | false, false ->
+                        m
+                    | false, true ->
+                        Log.warn "[Snapshots] Depth Panorama generation cancelled."
+                        p.Kill ()
+                        let m = {m with panoramaThreads = ThreadPool.remove id m.panoramaThreads
+                                        isGeneratingDepthImages = false
+                                        isCancelledDepthImages  = false
+                                }
+                        m
+                viewer, m
+            | None -> 
+                viewer, m
 
     let addBookmarks (m : SequencedBookmarks) (bookmarks : list<SequencedBookmark>) =
         let bookmarksWithKeys = 
@@ -379,9 +414,38 @@ module SequencedBookmarksApp =
             Log.warn "[Viewer] This feature is only available for Windows."
             m
 
+    let generateDepthPanoramas m runProcess scenePath =
+        let jsonPathName = Path.combine [m.outputPathDepthImages;"panoramaInputFormat.json"]
+        if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform
+                (System.Runtime.InteropServices.OSPlatform.Windows) then
+                    
+            let exeName = "PRo3D.Snapshots.exe"
+            match File.Exists exeName with
+            | true -> 
+                let args =
+                    sprintf "--scn \"%s\" --asnap \"%s\" --out \"%s\" --exitOnFinish" 
+                                        scenePath jsonPathName m.outputPathDepthImages
+                Log.line "[Viewer] Starting panorama depth rendering with arguments: %s" args
+                snapshotProcess <- Some (runProcess exeName args None)
+                let id = System.Guid.NewGuid () |> string
+                let proclst =
+                    proclist {
+                        for i in 0..4000 do
+                            do! Proc.Sleep 4000
+                            yield CheckDepthPanoramaProcess id
+                    }              
+                {m with panoramaThreads = ThreadPool.add id proclst m.panoramaThreads}
+            | false -> 
+                Log.warn "[Snapshots] Could not find %s" exeName
+                m
+        else 
+            Log.warn "[Viewer] This feature is only available for Windows."
+            m
+
 
     let threads (m : SequencedBookmarks) = 
-        m.snapshotThreads
+        //m.snapshotThreads
+        ThreadPool.union m.snapshotThreads m.panoramaThreads
        // ThreadPool.union m.snapshotThreads m.animationThreads
 
 
@@ -794,6 +858,67 @@ module SequencedBookmarksApp =
                                 outputFolderGui
                             ]
                     ]
+
+
+
+                ]
+            ) 
+            
+        let viewPanoramaDepthGUI (model:AdaptiveSequencedBookmarks) = 
+            
+            
+            let generateButton = 
+                button [clazz "ui icon button"; onMouseClick (fun _ -> GeneratePanoramaDepthImages )] [ 
+                    i [clazz "camera icon"] [] ] 
+                    
+                    
+            let cancelButton = 
+                button [clazz "ui icon button"; onMouseClick (fun _ -> CancelPanoramas )] 
+                       [i [clazz "remove icon"] []]
+                            
+               
+
+            let generateToggleButton =
+                model.isGeneratingDepthImages |> AVal.map (fun b -> if b then cancelButton else  generateButton)
+                                   |> AList.ofAValSingle
+            
+            
+            
+            let outputFolderGui =
+                let attributes = 
+                    alist {
+                        let! outputPath = model.outputPathDepthImages
+                        yield Dialogs.onChooseFiles SetOutputPathPanoramas;
+                        yield clientEvent "onclick" (Dialogs.jsSelectPathDialogWithPath outputPath)
+                        yield (style "word-break: break-all")
+                    } |> AttributeMap.ofAList
+
+                let content =
+                    alist {
+                        yield i [clazz "write icon"] []
+                        yield Incremental.text model.outputPathDepthImages
+                    }
+
+                Incremental.div attributes content
+
+            // RNO tooltips are deactivated, because they cause html body content to disappear
+            require GuiEx.semui ( 
+                div [] [
+                    Html.table [            
+                        
+                        Html.row "Generate Depth Images:" 
+                            [
+                                Incremental.div ([] |> AttributeMap.ofList) generateToggleButton         
+                            ]
+
+                        
+                        Html.row "Output Path" 
+                            [
+                                outputFolderGui
+                            ]
+                    ]
+
+
 
                 ]
             )            

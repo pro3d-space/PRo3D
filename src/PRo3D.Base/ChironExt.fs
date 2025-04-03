@@ -203,6 +203,31 @@ type Ext with
             
             do! Json.write "view" (camView |> List.map(fun x -> x.ToString()))
         }
+    
+    // Euclidean3d
+    static member FromJson1 (ext : Ext, _ : Euclidean3d) = 
+        json {
+            let! t  = Json.read "euclidean3d"
+            return (t |> Euclidean3d.Parse)            
+        }
+
+    static member ToJson1 (ext : Ext, v : Euclidean3d) = 
+        json {
+            do! Json.write "euclidean3d"  (v.ToString())
+        }
+
+
+    // Affine3d
+    static member FromJson1 (ext : Ext, _ : Affine3d) = 
+        json {
+            let! t  = Json.read "affine3d"
+            return (t |> Affine3d.Parse)            
+        }
+
+    static member ToJson1 (ext : Ext, v : Affine3d) = 
+        json {
+            do! Json.write "affine3d"  (v.ToString())
+        }
 
     //V3d
     static member FromJson1 (_ : Ext, _ : list<V3d>) = 

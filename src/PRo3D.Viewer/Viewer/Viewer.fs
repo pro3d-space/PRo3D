@@ -659,6 +659,53 @@ module ViewerApp =
             let generateSnapshots = 
                 SequencedBookmarksApp.generateSnapshots m.scene.sequencedBookmarks
                                                         SnapshotUtils.runProcess
+            let generateDepthPanoramaJson () = 
+                let jsonDepthPanoramasPathName = Path.combine [bm.outputPathDepthImages;"panoramaInputFormat.json"]
+                let parnoamaCollection = 
+                    SnapshotAnimation.PanoramaCollection 
+                        {
+                            fieldOfView             = (m.frustum |> Frustum.horizontalFieldOfViewInDegrees)            
+                            nearplane               = m.scene.config.nearPlane.value              
+                            farplane                = m.scene.config.farPlane.value               
+                            resolution              = V2i(bm.resolutionX.value, bm.resolutionY.value)             
+                            panoramaKind            = PanoramaKind.Spherical         
+                            renderRgbWithoutOverlay = false
+                            renderDepth             = true
+                            renderRgbWithOverlay    = true
+                            snapshots               = 
+                                bm.bookmarks
+                                |> HashMap.toList
+                                |> List.map (fun s ->
+                                    let id, sbm = s
+                                    match sbm with
+                                    | SequencedBookmark.LoadedBookmark sb ->
+                                        let snapshotCam = 
+                                                {   location = sb.cameraView.Location
+                                                    forward  = sb.cameraView.Forward
+                                                    up       = sb.cameraView.Up
+                                                    }                         
+                                        {
+                                            filename = sb.filename
+                                            camera   = snapshotCam
+                                        }
+                                    //| SequencedBookmark.NotYetLoaded sb -> List.empty
+                                )
+                        }
+                let serialised = 
+                    parnoamaCollection
+                        |> Json.serialize 
+                        |> Json.formatWith JsonFormattingOptions.Pretty 
+                try 
+                    System.IO.File.WriteAllText(jsonDepthPanoramasPathName , serialised)
+                with e ->
+                    Log.warn "[JsonChiron] Could not save %s" "panoramaInputFormat.json" 
+                    Log.warn "%s" e.Message
+
+                Log.warn "Debug Saved json to %s" (jsonDepthPanoramasPathName)
+            let generateDepthPanoramas =
+                SequencedBookmarksApp.generateDepthPanoramas m.scene.sequencedBookmarks
+                                                        SnapshotUtils.runProcess
+
             let save m =
                 let scenePath = 
                     match m.scene.scenePath with
@@ -699,6 +746,13 @@ module ViewerApp =
                 generateJson ()
                 let m = shortFeedback "Saved snapshot JSON file." m
                 m
+
+            | SequencedBookmarksAction.GeneratePanoramaDepthImages -> 
+                let m, scenePath = save m
+                generateDepthPanoramaJson()
+                let m = shortFeedback "Panorama Depthimages generation started." m
+                let bm = generateDepthPanoramas scenePath
+                {m with scene = { m.scene with sequencedBookmarks = bm }}
             | _ -> m
                 
             
