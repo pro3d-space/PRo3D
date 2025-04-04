@@ -138,15 +138,25 @@ module TraverseUtilities =
 
         name, rotation, sol.location, referenceSystem
 
+    let computeBoundingBox (coord: List<V3d>) =
+        match coord with
+        | [] -> None
+        | _ ->
+            let minX = coord |> List.minBy (fun p -> p.X) |> fun p -> p.X
+            let maxX = coord |> List.maxBy (fun p -> p.X) |> fun p -> p.X
+            let minY = coord |> List.minBy (fun p -> p.Y) |> fun p -> p.Y
+            let maxY = coord |> List.maxBy (fun p -> p.Y) |> fun p -> p.Y
+            let minZ = coord |> List.minBy (fun p -> p.Z) |> fun p -> p.Z
+            let maxZ = coord |> List.maxBy (fun p -> p.Z) |> fun p -> p.Z
+        
+            Some ([minX, minY, minZ ], [ maxX, maxY, maxZ ])
+
+
 module MissionTraverseApp =
 
     open TraverseUtilities
 
     let computeSolRotation (sol : Sol) (referenceSystem : ReferenceSystem) : Trafo3d =
-        let north = referenceSystem.northO
-        let up = referenceSystem.up.value
-        let east = Vec.cross up north
-
         Trafo3d.Identity
 
     let parseRIMFAXTraverse (traverse : GeoJsonFeatureCollection) =
