@@ -20,9 +20,9 @@ module ScreenshotApp =
         baseUrl 
         numberOfSamples 
         (m : ScreenshotModel) 
-        (wc : System.Net.Http.HttpClient) =
+        (httpClient : System.Net.Http.HttpClient) =
 
-        let stats = ScreenshotUtilities.Utilities.downloadClientStatistics baseUrl wc
+        let stats = ScreenshotUtilities.Utilities.downloadClientStatistics baseUrl httpClient
         
         let color = m.backgroundColor.c.ToC4f().ToV4f()
         let renderingNodeId = stats.[0].name

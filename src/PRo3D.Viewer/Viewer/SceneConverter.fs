@@ -3,6 +3,7 @@
 open System
 open System.Diagnostics
 
+open System.Net.Http
 
 // helper module for spawning processes
 module private Process = 
@@ -71,11 +72,17 @@ module SceneLoading =
 
         let mutable DownloadPath = "http://download.vrvis.at/acquisition/pro3d/49a0d346a7ecd7f8eca596a7d895da7cb38ed8c0.zip"
 
+        let downloadFile_ (url: string) (fileStream: FileStream) (client : HttpClient) = async {
+            let! responseStream = client.GetStreamAsync(url) |> Async.AwaitTask
+            do! responseStream.CopyToAsync(fileStream) |> Async.AwaitTask
+        }
+
         let downloadConverter () = 
-            use wc = new WebClient()
+            use httpClient = new HttpClient()
             let temp = Path.GetTempFileName()
             Log.line "Downloading converter from: %s" DownloadPath
-            wc.DownloadFile(DownloadPath, temp)
+            use fileStream = File.Create(DownloadPath)
+            downloadFile_ temp fileStream httpClient |> Async.RunSynchronously
             if Directory.Exists ConverterPath then Directory.Delete(ConverterPath, true)
             Directory.CreateDirectory ConverterPath |> ignore
             Log.line "unpacking to: %s" ConverterPath
@@ -133,6 +140,7 @@ module SceneLoading =
                 |> ViewerIO.loadAnnotations  
                 |> ViewerIO.loadCorrelations
                 |> ViewerIO.loadLastFootPrint
+                |> ViewerIO.loadSequencedBookmarks
                 |> SceneLoader.addScaleBarSegments
                 |> SceneLoader.loadSceneSpiceKernel
                 |> Choice1Of2 

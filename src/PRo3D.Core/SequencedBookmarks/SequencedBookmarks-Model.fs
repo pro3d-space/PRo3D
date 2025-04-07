@@ -76,6 +76,10 @@ type SequencedBookmarksAction =
     | UpdateJson
     | ToggleUpdateJsonBeforeRendering
     | SaveAnimation
+    | GeneratePanoramaDepthImages
+    | CancelPanoramas
+    | SetOutputPathPanoramas of list<string>
+    | CheckDepthPanoramaProcess of string
 
 
 /// a reduced version of SceneConfigModel that is saved and restore with sequenced bookmarks
@@ -626,7 +630,7 @@ module SequencedBookmark =
                         |> Json.deserialize
                 Some loadedBookmark
             with e ->
-                Log.error "[SequencedBookmarks] Error Loading Bookmark %s" m.path
+                Log.error "[SequencedBookmarks] Error Loading Bookmark %s. When copying or moving a scene in the file system, make sure to also copy the folder with the same name as your scene. The sequenced bookmarks are stored in that folder." m.path
                 Log.error "%s" e.Message
                 None
         | SequencedBookmark.LoadedBookmark m ->
@@ -779,6 +783,14 @@ type SequencedBookmarks = {
     [<NonAdaptive>]
     snapshotThreads   : ThreadPool<SequencedBookmarksAction>
     updateJsonBeforeRendering : bool
+
+    // panorama depth images
+    isGeneratingDepthImages      : bool
+    isCancelledDepthImages       : bool
+    outputPathDepthImages        : string
+
+    [<NonAdaptive>]
+    panoramaThreads   : ThreadPool<SequencedBookmarksAction>
   }
 
 type BookmarkLenses<'a> = {
@@ -883,6 +895,13 @@ module SequencedBookmarks =
                     AnimationSettings.init
 
             let! (sceneState : option<SceneState>) = Json.tryRead "originalSceneState"
+
+            let! (outputPathDepthImages : option<string>) = Json.tryRead "outputPathDepthImages"
+            let outputPathDepthImages = 
+                match outputPathDepthImages with
+                | Some p -> 
+                    if p = "" then defaultOutputPath () else p
+                | None -> defaultOutputPath ()
                 
             return 
                 {
@@ -908,6 +927,10 @@ module SequencedBookmarks =
                     lastStart           = None
                     fpsSetting          = fpsSetting
                     updateJsonBeforeRendering = updateJsonBeforeRendering
+                    isCancelledDepthImages  = false
+                    isGeneratingDepthImages = false
+                    outputPathDepthImages = outputPathDepthImages
+                    panoramaThreads     = ThreadPool.Empty
                 }
         }  
 
@@ -972,6 +995,13 @@ module SequencedBookmarks =
                     AnimationSettings.init
 
             let! (sceneState : option<SceneState>) = Json.tryRead "originalSceneState"
+
+            let! (outputPathDepthImages : option<string>) = Json.tryRead "outputPathDepthImages"
+            let outputPathDepthImages = 
+                match outputPathDepthImages with
+                | Some p -> 
+                    if p = "" then defaultOutputPath () else p
+                | None -> defaultOutputPath ()
                 
             return 
                 {
@@ -997,6 +1027,10 @@ module SequencedBookmarks =
                     lastStart           = None
                     fpsSetting          = fpsSetting
                     updateJsonBeforeRendering = updateJsonBeforeRendering
+                    isCancelledDepthImages  = false
+                    isGeneratingDepthImages = false
+                    outputPathDepthImages = outputPathDepthImages
+                    panoramaThreads     = ThreadPool.Empty
                 }
         }  
 
@@ -1026,6 +1060,10 @@ module SequencedBookmarks =
             lastStart           = None
             fpsSetting          = FPSSetting.Full
             updateJsonBeforeRendering = true
+            isCancelledDepthImages  = false
+            isGeneratingDepthImages = false
+            outputPathDepthImages = defaultOutputPath ()
+            panoramaThreads     = ThreadPool.Empty
         }
 
 type SequencedBookmarks with

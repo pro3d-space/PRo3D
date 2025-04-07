@@ -257,7 +257,8 @@ module ViewerLenses =
                             let c = GisApp.lookAtObserver' observationInfo
                             let m = 
                                 match c with 
-                                | Some c -> Optic.set _view c m
+                                | Some c -> 
+                                    Optic.set _view c m
                                 | _ -> m
                             m
                         | None ->

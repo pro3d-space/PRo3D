@@ -1,3 +1,12 @@
+##4.27.0-prerelease7
+- #412 update: *.json file with image info for every image
+
+## 4.27.0-prerelease6
+- #412 depth panoramas
+
+## 4.27.0-prerelease5
+- fixed screenshot functionality
+
 ## 4.27.0-prerelease4
 - reverted polynomial distance decay for lod. 
 
