@@ -1,5 +1,5 @@
-//6d8cd910-4dda-ff00-b5b9-3124d680763e
-//4e9a6602-710f-0eba-7fe1-2a31d5c6d528
+//19581071-d5a9-7bab-fb34-6d7ef3b0f748
+//9c0a8433-b2af-4b30-af55-ecea5fad2fd2
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -12,11 +12,11 @@ open Adaptify
 open PRo3D.Core.SequencedBookmarks
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveSequencedBookmarkModel(value : SequencedBookmarkModel) =
-    let mutable _cameraView_ = FSharp.Data.Adaptive.cval(value.cameraView)
-    let mutable _filename_ = FSharp.Data.Adaptive.cval(value.filename)
     let mutable _key_ = FSharp.Data.Adaptive.cval(value.key)
-    let mutable _path_ = FSharp.Data.Adaptive.cval(value.path)
+    let mutable _filename_ = FSharp.Data.Adaptive.cval(value.filename)
+    let mutable _cameraView_ = FSharp.Data.Adaptive.cval(value.cameraView)
     let mutable _name_ = FSharp.Data.Adaptive.cval(value.name)
+    let mutable _path_ = FSharp.Data.Adaptive.cval(value.path)
     let _bookmark_ = PRo3D.Core.AdaptiveBookmark(value.bookmark)
     let _metadata_ = FSharp.Data.Adaptive.cval(value.metadata)
     let _frustumParameters_ = FSharp.Data.Adaptive.cval(value.frustumParameters)
@@ -41,11 +41,11 @@ type AdaptiveSequencedBookmarkModel(value : SequencedBookmarkModel) =
         if Microsoft.FSharp.Core.Operators.not((FSharp.Data.Adaptive.ShallowEqualityComparer<SequencedBookmarkModel>.ShallowEquals(value, __value))) then
             __value <- value
             __adaptive.MarkOutdated()
-            _cameraView_.Value <- value.cameraView
-            _filename_.Value <- value.filename
             _key_.Value <- value.key
-            _path_.Value <- value.path
+            _filename_.Value <- value.filename
+            _cameraView_.Value <- value.cameraView
             _name_.Value <- value.name
+            _path_.Value <- value.path
             _bookmark_.Update(value.bookmark)
             _metadata_.Value <- value.metadata
             _frustumParameters_.Value <- value.frustumParameters
@@ -56,11 +56,11 @@ type AdaptiveSequencedBookmarkModel(value : SequencedBookmarkModel) =
             _duration_.Update(value.duration)
             _observationInfo_.Update(value.observationInfo)
     member __.Current = __adaptive
-    member __.cameraView = _cameraView_ :> FSharp.Data.Adaptive.aval<Aardvark.Rendering.CameraView>
-    member __.filename = _filename_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.key = _key_ :> FSharp.Data.Adaptive.aval<System.Guid>
-    member __.path = _path_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
+    member __.filename = _filename_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
+    member __.cameraView = _cameraView_ :> FSharp.Data.Adaptive.aval<Aardvark.Rendering.CameraView>
     member __.name = _name_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
+    member __.path = _path_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.version = __value.version
     member __.bookmark = _bookmark_
     member __.metadata = _metadata_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.string>>
@@ -238,6 +238,9 @@ type AdaptiveSequencedBookmarks(value : SequencedBookmarks) =
     let _outputPath_ = FSharp.Data.Adaptive.cval(value.outputPath)
     let _fpsSetting_ = FSharp.Data.Adaptive.cval(value.fpsSetting)
     let _updateJsonBeforeRendering_ = FSharp.Data.Adaptive.cval(value.updateJsonBeforeRendering)
+    let _isGeneratingDepthImages_ = FSharp.Data.Adaptive.cval(value.isGeneratingDepthImages)
+    let _isCancelledDepthImages_ = FSharp.Data.Adaptive.cval(value.isCancelledDepthImages)
+    let _outputPathDepthImages_ = FSharp.Data.Adaptive.cval(value.outputPathDepthImages)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : SequencedBookmarks) = AdaptiveSequencedBookmarks(value)
@@ -267,6 +270,10 @@ type AdaptiveSequencedBookmarks(value : SequencedBookmarks) =
             _outputPath_.Value <- value.outputPath
             _fpsSetting_.Value <- value.fpsSetting
             _updateJsonBeforeRendering_.Value <- value.updateJsonBeforeRendering
+            _isGeneratingDepthImages_.Value <- value.isGeneratingDepthImages
+            _isCancelledDepthImages_.Value <- value.isCancelledDepthImages
+            _outputPathDepthImages_.Value <- value.outputPathDepthImages
+            ()
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.bookmarks = _bookmarks_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveSequencedBookmarkCase>
@@ -290,6 +297,10 @@ type AdaptiveSequencedBookmarks(value : SequencedBookmarks) =
     member __.fpsSetting = _fpsSetting_ :> FSharp.Data.Adaptive.aval<FPSSetting>
     member __.snapshotThreads = __value.snapshotThreads
     member __.updateJsonBeforeRendering = _updateJsonBeforeRendering_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.isGeneratingDepthImages = _isGeneratingDepthImages_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.isCancelledDepthImages = _isCancelledDepthImages_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.bool>
+    member __.outputPathDepthImages = _outputPathDepthImages_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
+    member __.panoramaThreads = __value.panoramaThreads
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module SequencedBookmarksLenses = 
     type SequencedBookmarks with
@@ -315,4 +326,8 @@ module SequencedBookmarksLenses =
         static member fpsSetting_ = ((fun (self : SequencedBookmarks) -> self.fpsSetting), (fun (value : FPSSetting) (self : SequencedBookmarks) -> { self with fpsSetting = value }))
         static member snapshotThreads_ = ((fun (self : SequencedBookmarks) -> self.snapshotThreads), (fun (value : FSharp.Data.Adaptive.ThreadPool<SequencedBookmarksAction>) (self : SequencedBookmarks) -> { self with snapshotThreads = value }))
         static member updateJsonBeforeRendering_ = ((fun (self : SequencedBookmarks) -> self.updateJsonBeforeRendering), (fun (value : Microsoft.FSharp.Core.bool) (self : SequencedBookmarks) -> { self with updateJsonBeforeRendering = value }))
+        static member isGeneratingDepthImages_ = ((fun (self : SequencedBookmarks) -> self.isGeneratingDepthImages), (fun (value : Microsoft.FSharp.Core.bool) (self : SequencedBookmarks) -> { self with isGeneratingDepthImages = value }))
+        static member isCancelledDepthImages_ = ((fun (self : SequencedBookmarks) -> self.isCancelledDepthImages), (fun (value : Microsoft.FSharp.Core.bool) (self : SequencedBookmarks) -> { self with isCancelledDepthImages = value }))
+        static member outputPathDepthImages_ = ((fun (self : SequencedBookmarks) -> self.outputPathDepthImages), (fun (value : Microsoft.FSharp.Core.string) (self : SequencedBookmarks) -> { self with outputPathDepthImages = value }))
+        static member panoramaThreads_ = ((fun (self : SequencedBookmarks) -> self.panoramaThreads), (fun (value : FSharp.Data.Adaptive.ThreadPool<SequencedBookmarksAction>) (self : SequencedBookmarks) -> { self with panoramaThreads = value }))
 

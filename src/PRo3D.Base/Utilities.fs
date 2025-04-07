@@ -768,6 +768,24 @@ module Shader =
 
             return color
         }
+
+    //let panoramaDepth (v : FootPrintVertex) =
+    //    fragment {     
+            
+    //        if uniform?CalcPanoramaDepth then
+    //            let depth = v.tc0.Z 
+    //            let screenW = uniform?xRes
+    //            let screenH = uniform?yRes
+
+    //            let 
+
+    //            let hue = mapFalseColors depth 
+    //            let c = hsv2rgb ((clamp 0.0 255.0 hue)/ 255.0 ) 1.0 1.0 
+    //            let texColor = v.c * V4d(c.X, c.Y, c.Z, 1.0)
+    //            color <- texColor
+
+    //        return color
+    //    }
     
 module Sg =    
 

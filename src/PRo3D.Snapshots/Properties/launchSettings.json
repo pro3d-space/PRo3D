@@ -2,7 +2,7 @@
   "profiles": {
     "PRo3D.Viewer": {
       "commandName": "Project",
-      "commandLineArgs": "--scn \"D:\\Data\\PRo3D\\Scenes\\objKillsSBookmarksTest.pro3d\" --asnap \"C:\\Users\\rnowak\\Desktop\\Pro3D\\PRo3D\\bin\\Debug\\net6.0\\images\\batchRendering.json\" --out \"C:\\Users\\rnowak\\Desktop\\Pro3D\\PRo3D\\bin\\Debug\\net6.0\\images\" --verbose"
+      "commandLineArgs": "--scn \"C:\\Users\\laura\\VRVis\\PRo3D\\Data\\S1326-Compare-BOTH-to-LBS\\S1326-Compare-BOTH-to-LBS.pro3d\" --asnap \"C:\\Users\\laura\\VRVis\\PRo3D\\PRo3D_depthMaps2\\bin\\Debug\\net6.0\\images\\panoramaInputFormat.json\" --out \"C:\\Users\\laura\\VRVis\\PRo3D\\PRo3D_depthMaps2\\bin\\Debug\\net6.0\\images\" --verbose"
     }
   }
 }
