@@ -1,3 +1,6 @@
+## 5.0.0-prerelease-hera-7
+- product style release for hera deliverable
+
 ## 4.26.0-prerelease1
 - fixed surface priority
 - improved handling of large trajectories
