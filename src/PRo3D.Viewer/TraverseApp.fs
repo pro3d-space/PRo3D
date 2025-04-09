@@ -723,6 +723,7 @@ module TraverseApp =
                 |||> AVal.map3 (fun sols view shift -> 
                     let viewTrafo = view.ViewTrafo
                     sols |> List.toArray |> Array.map (fun sol -> Trafo3d.Translation(sol.location) * shift * viewTrafo) :> Array
+                    
                 )
                 
             let solNumbers =

@@ -126,6 +126,7 @@ type Ext with
                 c = c |> C4b.Parse
             }
         }
+    
     static member ToJson1 (ext : Ext, v : ColorInput) = 
         json {
             do! Json.write "color"  (v.c.ToString())
