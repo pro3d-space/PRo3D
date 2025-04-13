@@ -19,6 +19,8 @@ open PRo3D.Viewer
 open PRo3D.OrientationCube
 open PRo3D.SimulatedViews
 open Adaptify
+open Chiron
+open System.IO
 
 module SnapshotGenerator =
     let loadData (args  : PRo3D.SimulatedViews.CLStartupArgs) 
@@ -46,7 +48,7 @@ module SnapshotGenerator =
             let hasLoadedAny = 
                 match args.objPaths with
                 | Some objs ->
-                    // TODO @RebeccaNowak what loader should be used here?
+                    // TODO @RebeccaNowak what loader should be used here? -> Rebecca Nowak: Should be same as used in Viewer
                     for x in objs do
                         if args.verbose then
                             Log.line "Loading %s" x
@@ -64,19 +66,6 @@ module SnapshotGenerator =
         | _, None -> 
             Log.warn "[CLI] The snapshot file type was not specified."
             false
-
-    let readAnimation (startupArgs  : CLStartupArgs) = 
-        match startupArgs.snapshotPath, startupArgs.snapshotType with
-        | Some spath, Some stype ->   
-                match stype with
-                | SnapshotType.Camera -> //backwards compatibility
-                    Some (SnapshotAnimation.CameraAnimation (SnapshotAnimation.readLegacyFile spath))
-                | SnapshotType.CameraAndSurface ->
-                    SnapshotAnimation.read spath
-                | SnapshotType.Bookmark ->
-                    SnapshotAnimation.read spath
-                
-        | _ -> None
 
     let getSnapshotActions (snapshot : Snapshot) recalcNearFar filename =
         match snapshot with
@@ -174,6 +163,14 @@ module SnapshotGenerator =
                 actions
                 |> List.map ViewerMessage
                 |> List.toSeq    
+        | Snapshot.Panorama panorama ->
+            let actions = 
+                [
+                    ViewerAction.SetCamera panorama.camera.view
+                ]
+            actions
+            |> List.map ViewerMessage
+            |> List.toSeq   
 
     let getAnimationActions (anim : SnapshotAnimation) =       
         match anim with
@@ -182,11 +179,16 @@ module SnapshotGenerator =
                 yield ViewerAction.SetRenderViewportSize a.resolution |> ViewerMessage
                 yield ViewerAction.SetFrustum a.Frustum |> ViewerMessage
             }
-
         | SnapshotAnimation.BookmarkAnimation a ->
             [
-             (ViewerAction.SetFrustum (SnapshotApp.calculateFrustum a)) |> ViewerMessage
-             (ViewerAction.SetRenderViewportSize a.resolution |> ViewerMessage) 
+                (ViewerAction.SetFrustum (SnapshotApp.calculateFrustum a)) |> ViewerMessage
+                (ViewerAction.SetRenderViewportSize a.resolution |> ViewerMessage) 
+            ]
+        | SnapshotAnimation.PanoramaCollection a ->
+            [
+                (ViewerAction.SetRenderViewportSize a.resolution |> ViewerMessage) 
+                (ViewerAction.SetFrustum (SnapshotApp.calculateFrustumP a)) |> ViewerMessage
+                // Add actions that need to happen for each panorama batch (not single panorama shot) here
             ]
            
     let animate   (runtime      : IRuntime) 
@@ -197,11 +199,15 @@ module SnapshotGenerator =
         let hasLoadedAny = loadData args mApp
         match hasLoadedAny with
         | true ->
-            let animation = readAnimation args
+            let animation = 
+                match args.snapshotPath, args.snapshotType with
+                | Some spath, Some stype ->   
+                    SnapshotAnimation.read spath
+                | _ -> None
             match animation with
             | Some (SnapshotAnimation.CameraAnimation data) ->
                 let sg = SnapshotSg.viewRenderView runtime (System.Guid.NewGuid().ToString()) 
-                                                   (AVal.constant data.resolution) mModel 
+                                                   (AVal.constant data.resolution) false mModel 
                 let snapshotApp  = 
                     {
                         mutableApp          = mApp
@@ -219,8 +225,42 @@ module SnapshotGenerator =
                     }
                 SnapshotApp.executeAnimation snapshotApp
             | Some (SnapshotAnimation.BookmarkAnimation data) ->
+                //// DEBUG / Test for Panoramas
+                //let parnoamaCollection = 
+                //    SnapshotAnimation.PanoramaCollection 
+                //        {
+                //            fieldOfView             = Option.defaultValue 6.0 data.fieldOfView            
+                //            nearplane               = data.nearplane              
+                //            farplane                = data.farplane               
+                //            resolution              = data.resolution             
+                //            panoramaKind            = PanoramaKind.Spherical         
+                //            renderRgbWithoutOverlay = false
+                //            renderDepth             = true
+                //            renderRgbWithOverlay    = true
+                //            snapshots               = 
+                //                data.snapshots
+                //                |> List.map (fun s ->
+                //                    {
+                //                        filename = s.filename
+                //                        camera   = s.transformation.camera
+                //                    }
+                //                )
+                //        }
+                //let serialised = 
+                //    parnoamaCollection
+                //        |> Json.serialize 
+                //        |> Json.formatWith JsonFormattingOptions.Pretty 
+                //try 
+                //    System.IO.File.WriteAllText("panoramaInputFormat.json" , serialised)
+                //with e ->
+                //    Log.warn "[JsonChiron] Could not save %s" "panoramaInputFormat.json" 
+                //    Log.warn "%s" e.Message
+
+                //Log.warn "Debug Saved json to %s" (Path.GetFullPath "panoramaInputFormat.json")
+
+                /////
                 let sg = SnapshotSg.viewRenderView runtime (System.Guid.NewGuid().ToString()) 
-                                                   (AVal.constant data.resolution) mModel 
+                                                   (AVal.constant data.resolution) false mModel 
                 let snapshotApp  = 
                     {
                         mutableApp          = mApp
@@ -237,10 +277,28 @@ module SnapshotGenerator =
                         verbose             = args.verbose
                     }
                 SnapshotApp.executeAnimation snapshotApp
-                
+            | Some (SnapshotAnimation.PanoramaCollection data) ->
+                let sg = SnapshotSg.viewRenderView runtime (System.Guid.NewGuid().ToString()) 
+                                                    (AVal.constant data.resolution) true mModel 
+                let snapshotApp  = 
+                    {
+                        mutableApp          = mApp
+                        adaptiveModel       = mModel
+                        sg                  = sg
+                        snapshotAnimation   = SnapshotAnimation.PanoramaCollection data
+                        getAnimationActions = getAnimationActions
+                        getSnapshotActions  = getSnapshotActions
+                        runtime             = runtime
+                        renderRange         = RenderRange.fromOptions args.frameId args.frameCount
+                        outputFolder        = args.outFolder
+                        renderMask          = args.renderMask
+                        renderDepth         = data.renderDepth
+                        verbose             = args.verbose
+                    }
+                SnapshotApp.executeAnimation snapshotApp
+                Log.warn "[SnapshotGenerator] Panoramas are not yet implemented!"
             | None -> 
                 Log.error "[SNAPSHOT] Could not load data."
-
         | false -> 
             Log.error "[SNAPSHOT] No valid paths to surfaces found."
             ()

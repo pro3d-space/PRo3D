@@ -289,7 +289,7 @@ module ViewerApp =
             let addPointMsg = ViewPlanApp.Action.AddPoint(p, ref, cache, (Optic.get _surfacesModel m))
 
             let outerModel, viewPlans = 
-                ViewPlanApp.update m.scene.viewPlans addPointMsg _navigation _footprint m.scene.scenePath m
+                ViewPlanApp.update m.scene.viewPlans addPointMsg _navigation _footprint m.scene.scenePath ref m
 
             let m' = 
                 { m with 
@@ -383,6 +383,10 @@ module ViewerApp =
             | PickPivot.SceneObjectPivot -> m
                 //todo
             | _ -> m
+        | Interactions.PickDistanePoint, _ ->
+            let msg = ViewPlanApp.Action.AddDistancePoint(p)
+            let outerModel, viewPlans = ViewPlanApp.update m.scene.viewPlans msg _navigation _footprint m.scene.scenePath m.scene.referenceSystem m
+            { m with scene = { m.scene with viewPlans = viewPlans } }
         | _ -> m       
 
     let mutable lastHash = -1    
@@ -473,7 +477,7 @@ module ViewerApp =
             |> Optic.set _animationView nav.camera.view
         | NavigationMessage msg, _, _ ->
             m // cases where navigation is blocked by other operations (e.g. animation)
-        | AnimationMessage msg,_,_ ->
+        | AnimationMessage msg,_,_ -> // belongs to deprecated animation
             let m = 
                 match msg with
                 | Tick t when AnimationApp.shouldAnimate m.animations -> 
@@ -659,6 +663,53 @@ module ViewerApp =
             let generateSnapshots = 
                 SequencedBookmarksApp.generateSnapshots m.scene.sequencedBookmarks
                                                         SnapshotUtils.runProcess
+            let generateDepthPanoramaJson () = 
+                let jsonDepthPanoramasPathName = Path.combine [bm.outputPathDepthImages;"panoramaInputFormat.json"]
+                let parnoamaCollection = 
+                    SnapshotAnimation.PanoramaCollection 
+                        {
+                            fieldOfView             = (m.frustum |> Frustum.horizontalFieldOfViewInDegrees)            
+                            nearplane               = m.scene.config.nearPlane.value              
+                            farplane                = m.scene.config.farPlane.value               
+                            resolution              = V2i(bm.resolutionX.value, bm.resolutionY.value)             
+                            panoramaKind            = PanoramaKind.Spherical         
+                            renderRgbWithoutOverlay = false
+                            renderDepth             = true
+                            renderRgbWithOverlay    = true
+                            snapshots               = 
+                                bm.bookmarks
+                                |> HashMap.toList
+                                |> List.map (fun s ->
+                                    let id, sbm = s
+                                    match sbm with
+                                    | SequencedBookmark.LoadedBookmark sb ->
+                                        let snapshotCam = 
+                                                {   location = sb.cameraView.Location
+                                                    forward  = sb.cameraView.Forward
+                                                    up       = sb.cameraView.Up
+                                                    }                         
+                                        {
+                                            filename = sb.filename
+                                            camera   = snapshotCam
+                                        }
+                                    //| SequencedBookmark.NotYetLoaded sb -> List.empty
+                                )
+                        }
+                let serialised = 
+                    parnoamaCollection
+                        |> Json.serialize 
+                        |> Json.formatWith JsonFormattingOptions.Pretty 
+                try 
+                    System.IO.File.WriteAllText(jsonDepthPanoramasPathName , serialised)
+                with e ->
+                    Log.warn "[JsonChiron] Could not save %s" "panoramaInputFormat.json" 
+                    Log.warn "%s" e.Message
+
+                Log.warn "Debug Saved json to %s" (jsonDepthPanoramasPathName)
+            let generateDepthPanoramas =
+                SequencedBookmarksApp.generateDepthPanoramas m.scene.sequencedBookmarks
+                                                        SnapshotUtils.runProcess
+
             let save m =
                 let scenePath = 
                     match m.scene.scenePath with
@@ -699,6 +750,13 @@ module ViewerApp =
                 generateJson ()
                 let m = shortFeedback "Saved snapshot JSON file." m
                 m
+
+            | SequencedBookmarksAction.GeneratePanoramaDepthImages -> 
+                let m, scenePath = save m
+                generateDepthPanoramaJson()
+                let m = shortFeedback "Panorama Depthimages generation started." m
+                let bm = generateDepthPanoramas scenePath
+                {m with scene = { m.scene with sequencedBookmarks = bm }}
             | _ -> m
                 
             
@@ -706,7 +764,7 @@ module ViewerApp =
             let roverModel = RoverApp.update m.scene.viewPlans.roverModel msg
             { m with scene = { m.scene with viewPlans = {m.scene.viewPlans with roverModel = roverModel }}}
         | ViewPlanMessage msg,_,_ ->
-            let model, viewPlanModel = ViewPlanApp.update m.scene.viewPlans msg _navigation _footprint m.scene.scenePath m
+            let model, viewPlanModel = ViewPlanApp.update m.scene.viewPlans msg _navigation _footprint m.scene.scenePath m.scene.referenceSystem m
 
             let animations = 
                 match msg with
@@ -1609,7 +1667,7 @@ module ViewerApp =
                 match msg with 
                 | PlaceRoverAtSol (name, trafo, location, refSystem) ->
                     let vpMessage = ViewPlanApp.Action.CreateNewViewplan (name, trafo, location, refSystem)
-                    let model, viewPlanModel = ViewPlanApp.update m.scene.viewPlans vpMessage _navigation _footprint m.scene.scenePath m
+                    let model, viewPlanModel = ViewPlanApp.update m.scene.viewPlans vpMessage _navigation _footprint m.scene.scenePath refSystem m
                     { m with 
                         scene = { m.scene with viewPlans = viewPlanModel }
                         footPrint = model.footPrint
@@ -1736,7 +1794,6 @@ module ViewerApp =
             //    ()
             //| _ -> 
             //    ()
-
             Animation.Animator.update msg m   
 
         | ProvenanceMessage msg -> 
@@ -1895,6 +1952,13 @@ module ViewerApp =
                 m.scene.traverses
             |> Sg.map TraverseMessage
 
+        let distancePointsText =
+            ViewPlanApp.Sg.viewText 
+                m.scene.referenceSystem
+                m.scene.viewPlans 
+            |> Sg.map ViewPlanMessage    
+
+
         [
             exploreCenter; 
             refSystem; 
@@ -1902,6 +1966,7 @@ module ViewerApp =
             annotationTexts |> Sg.noEvents
             scaleBarTexts
             traverse
+            distancePointsText
         ] |> Sg.ofList
                                  
     // depthTested that occur in instrumentview + main renderview
@@ -1953,10 +2018,17 @@ module ViewerApp =
             |> Sg.ofList
             |> Sg.map TraverseMessage
 
+        let distancePoints =
+            ViewPlanApp.Sg.viewVPDistancePoints 
+                m.scene.referenceSystem
+                m.scene.viewPlans 
+            |> Sg.map ViewPlanMessage    
+
         [
             scaleBars;
             annotationSg
             traverses
+            distancePoints
         ] |> Sg.ofList
 
     let viewInstrumentView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 

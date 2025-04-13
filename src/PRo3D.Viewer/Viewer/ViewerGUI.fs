@@ -757,9 +757,7 @@ module Gui =
             | Interactions.PlaceScaleBar         -> ""
             | Interactions.PlaceSceneObject      -> ""
             | Interactions.PickPivotPoint        -> ""
-            | Interactions.TrafoControls         -> ""
-            | Interactions.PlaceSurface          -> ""
-            | _    -> ""
+            | _ -> ""
         
         let topMenuItems (model : AdaptiveModel) = [ 
 
@@ -1084,7 +1082,10 @@ module Gui =
               ]   
               yield GuiEx.accordion "Snapshots" "Write" true [
                   SequencedBookmarksApp.UI.viewSnapshotGUI m.scene.sequencedBookmarks
-              ]                 
+              ] 
+              yield GuiEx.accordion "Depth Panoramas" "Write" true [
+                  SequencedBookmarksApp.UI.viewPanoramaDepthGUI m.scene.sequencedBookmarks
+              ]      
           ] |> UI.map SequencedBookmarkMessage
     
     //TODO refactor: two codes for resize attachments

@@ -47,26 +47,6 @@ module SnapshotAnimation =
             |> Json.formatWith JsonFormattingOptions.Pretty 
             |> Serialization.writeToFile filepath
 
-    let readLegacyAnimation path =
-        try
-            let foo =
-                path
-                    |> Serialization.readFromFile
-                    |> Json.parse 
-            let (bar : LegacyAnimation) =
-                foo
-                |> Json.deserialize
-            bar
-        with e ->
-            Log.error "[SNAPSHOTS] Could not read json File. Please check the format is correct."
-            Log.line "%s" e.Message
-            Log.line "%s" e.StackTrace 
-            raise e
-
-    let readLegacyFile path =
-        let animation = readLegacyAnimation path
-        (animation.toSnapshotAnimation ())
-
     let read path = 
         try
             let json =
@@ -352,27 +332,9 @@ module SnapshotAnimation =
     let updateSnapshotCam (location : V3d) (forward : V3d) (up : V3d) = 
         CameraView.look location forward.Normalized up.Normalized
 
-    let updateArnoldSnapshotCam (extr:LegacySnapshot)  = 
-        CameraView.look extr.location extr.forward.Normalized extr.up.Normalized
-
     let updateSnapshotFrustum (frust:Frustum) (fieldOfView : double) (resolution : V2i)  =
         let resh  = float(resolution.X)
         let resv  = float(resolution.Y)
 
         Frustum.perspective fieldOfView frust.near frust.far (resh/resv)
 
-    let updateArnoldSnapshotFrustum (frust:Frustum) (dataAnimation:LegacyAnimation)  =
-        updateSnapshotFrustum frust dataAnimation.fieldOfView dataAnimation.resolution
-        
-    let loadData (path : string) =
-        try 
-             let (arnoldanims : LegacyAnimation) =
-                    path 
-                        |> Serialization.readFromFile
-                        |> Json.parse 
-                        |> Json.deserialize
-             arnoldanims |> Some    
-        with e ->        
-            Log.error "[ViewerIO] couldn't load %A" e
-            None
-       
