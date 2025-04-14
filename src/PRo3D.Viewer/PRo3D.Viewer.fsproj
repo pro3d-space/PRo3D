@@ -37,6 +37,12 @@
     <EmbeddedResource Remove="Drawing\**" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Traverse\TraverseUtilities.fs" />
+    <Compile Include="Traverse\PlannedTargetsTraverse.fs" />
+    <Compile Include="Traverse\StrategicAnnotationsTraverse.fs" />
+    <Compile Include="Traverse\WayPointsTraverse.fs" />
+    <Compile Include="Traverse\RIMFAXTraverse.fs" />
+    <Compile Include="Traverse\RoverTraverse.fs" />
     <None Include="RunAdaptify.fsx" />
     <None Include="paket.references" />
     <Compile Include="Config.fs" />

@@ -54,6 +54,9 @@ module InitTraverseParams =
 type TraverseType =
     | Rover
     | RIMFAX
+    | WayPoints
+    | StrategicAnnotations
+    | PlannedTargets
 
 
 type Sol =

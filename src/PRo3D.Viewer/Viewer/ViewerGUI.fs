@@ -954,7 +954,7 @@ module Gui =
                     RoverTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
                 ]
                 yield GuiEx.accordion "Missions" "Write" true [
-                    MissionTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
+                    WayPointsTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
                 ]
                 yield GuiEx.accordion "Actions" "Asterisk" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewActions m.scene.traverses))
