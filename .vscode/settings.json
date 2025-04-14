@@ -1,3 +1,17 @@
 {
-    "dotnet.defaultSolution": "disable"
+    "dotnet.defaultSolution": "disable",
+    "workbench.colorCustomizations": {
+        "commandCenter.border": "#e7e7e799",
+        "sash.hoverBorder": "#a8400d",
+        "titleBar.activeBackground": "#792e09",
+        "titleBar.activeForeground": "#e7e7e7",
+        "titleBar.inactiveBackground": "#792e0999",
+        "titleBar.inactiveForeground": "#e7e7e799",
+        "statusBar.background": "#792e09",
+        "statusBar.foreground": "#e7e7e7",
+        "statusBarItem.hoverBackground": "#a8400d",
+        "statusBarItem.remoteBackground": "#792e09",
+        "statusBarItem.remoteForeground": "#e7e7e7"
+    },
+    "peacock.color": "#792e09"
 }

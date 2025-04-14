@@ -8,8 +8,7 @@ module QueryApi =
     open Thoth.Json.Net
 
     type Request =
-        {
-            annotationId         : string
+        {            
             queryAttributes      : list<string>
             distanceToPlane      : float
             outputReferenceFrame : string

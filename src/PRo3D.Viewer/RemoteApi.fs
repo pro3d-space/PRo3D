@@ -237,6 +237,9 @@ module RemoteApi =
                 |] |> Some                
             | _ -> None
 
+        member x.getSelectedSurfaceId() : option<Guid> =
+            x.FullModel.scene.surfacesModel.surfaces.singleSelectLeaf.GetValue()
+
          member x.getSurfaceById(id : string) : option<Surface.Surface> =
             let map = 
                 x.FullModel.scene.surfacesModel.surfaces.flat.Content.GetValue()
@@ -260,15 +263,15 @@ module RemoteApi =
             action |> emit
             ()
         
-        member x.QueryAnnotation(
-                queryAnnotationId    : string, 
+        member x.QueryAnnotation(                
                 attributeNames       : list<string>, 
                 heightRange          : Range1d,
                 outputReferenceFrame : OutputReferenceFrame) =
 
+            let queryAnnotationId = x.getSelectedAnnotationId()
             let annotations = x.FullModel.drawing.annotations.flat.Content.GetValue()
 
-            match HashMap.tryFind (Guid.Parse(queryAnnotationId)) annotations with
+            match HashMap.tryFind (queryAnnotationId.Value) annotations with
             | Some (AdaptiveAnnotations queryAnnotation) -> 
                 let anno = queryAnnotation.Current.GetValue()
                 let sgSurfaces = x.FullModel.scene.surfacesModel.sgSurfaces.Content.GetValue()
@@ -721,8 +724,7 @@ module RemoteApi =
                     match ((parseCoordinateSpace input.outputReferenceFrame), parseGeometryType(input.outputGeometryType)) with
                     | (Some outputReferenceFrame, Some outputGeometryType) ->
                         //here we can go from primitive types to real types
-                        match api.QueryAnnotation(
-                            input.annotationId, 
+                        match api.QueryAnnotation(                            
                             input.queryAttributes, 
                             Range1d.FromCenterAndSize(0, input.distanceToPlane), 
                             outputReferenceFrame) with
@@ -771,10 +773,27 @@ module RemoteApi =
                             api.setSurfaceTransform(id |> Guid, forward)
 
                             Successful.OK (sprintf "Received payload %s" (forward.ToString()))    
-                    | None -> 
+                    | None ->                                             
                         RequestErrors.NOT_FOUND "Surface not found"
                 | None -> 
-                        RequestErrors.NOT_FOUND "Route without selection id not implemented"         
+                    match api.getSelectedSurfaceId() with
+                    | Some id ->
+                        match api.getSurfaceById(id.ToString()) with
+                        | Some _ -> 
+                            let payload = System.Text.Encoding.UTF8.GetString req.rawForm
+                            match payload with
+                            | "" -> 
+                                RequestErrors.BAD_REQUEST "No payload"
+                            | validPayload -> 
+                                let parsedJson = JObject.Parse(validPayload)
+                                let forward = parsedJson.["forward"].ToString()
+                                let forward = forward |> M44d.Parse
+                                api.setSurfaceTransform(id, forward)
+                                Successful.OK (sprintf "Received payload %s" (forward.ToString()))    
+                        | None ->                                             
+                            RequestErrors.NOT_FOUND "Selected surface does not exist - really bad"
+                    | None ->
+                        RequestErrors.NOT_FOUND $"no surface selected"
 
         module Annotations = 
             let getPoints (annotationId : option<string>) (api : Api) =
@@ -880,12 +899,16 @@ module RemoteApi =
                     ]
                 prefix "/surfaces" >=> 
                     choose [                        
-                        PUT
-                            >=> path "/selected/transformation" 
-                            >=> request (fun (req: HttpRequest) -> Surfaces.transform None api req)
+                        // PUT
+                        //     >=> path "/selected/transformation" 
+                        //     >=> request (fun (req: HttpRequest) -> Surfaces.transform None api req)
                         PUT
                             >=> pathScan "/%s/transformation" (fun id ->
-                                request (fun (req: HttpRequest) -> Surfaces.transform (Some id) api req)
+                                match id with 
+                                | "selected" -> 
+                                    request (fun (req: HttpRequest) -> Surfaces.transform None api req)
+                                | _ ->
+                                    request (fun (req: HttpRequest) -> Surfaces.transform (Some id) api req)
                             )
                         RequestErrors.NOT_FOUND "Endpoint not found"
                     ]
