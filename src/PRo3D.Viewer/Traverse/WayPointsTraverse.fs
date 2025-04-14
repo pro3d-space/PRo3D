@@ -14,13 +14,9 @@ module WayPointsTraverseApp =
     open TraverseUtilities
 
     let computeSolRotation (sol : Sol) (referenceSystem : ReferenceSystem) : Trafo3d =
-        let north = referenceSystem.northO
-        let up = referenceSystem.up.value
-        let east = Vec.cross up north
-
         Trafo3d.Identity
 
-    let parseRIMFAXTraverse (traverse : GeoJsonFeatureCollection) =
+    let parseTraverse (traverse : GeoJsonFeatureCollection) =
         let parseProperties (sol : Sol) (x : GeoJsonFeature) : Result<Sol, TraverseParseError> =
             let reportErrorAndUseDefault (v : 'a) (r : Result<_,_>) =
                 r |> Result.defaultValue' (fun e -> Log.warn "could not parse property: %A\n\n.Using fallback: %A" e v; v)
@@ -30,8 +26,8 @@ module WayPointsTraverseApp =
                 let! toRMC      = parseStringProperty x  "toRMC"     // not optional
                 let! length     = parseDoubleProperty x  "length"   // not optional 
                 let! solNumber  = parseIntProperty  x  "sol"    // not optional
-                let! SCLK_START = parseDoubleProperty x  "SCLK_START"    // not optional
-                let! SCLK_END   = parseDoubleProperty x  "SCLK_END"    // not optional
+                let! sclkStart = parseIntProperty x  "SCLK_START"    // not optional
+                let! sclkEnd  = parseIntProperty x  "SCLK_END"    // not optional
                                   
                 return 
                     { sol with 
@@ -39,8 +35,8 @@ module WayPointsTraverseApp =
                         length = length;
                         fromRMC = fromRMC;
                         toRMC = toRMC; 
-                        SCLK_START = SCLK_START;
-                        SCLK_END = SCLK_END;
+                        sclkStart = sclkStart;
+                        sclkEnd = sclkEnd;
                     }
             }
 
@@ -116,7 +112,7 @@ module WayPointsTraverseApp =
                 alist {
 
                     let! selected = m.selectedTraverse
-                    let traverses = m.missions |> AMap.toASetValues |> ASet.toAList |> AList.sortWith compareNatural //(fun x -> x.tName |> AVal.force)
+                    let traverses = m.waypointsTraverses |> AMap.toASetValues |> ASet.toAList |> AList.sortWith compareNatural //(fun x -> x.tName |> AVal.force)
                             
                     for traverse in traverses do
                         

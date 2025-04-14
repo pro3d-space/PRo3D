@@ -1,5 +1,5 @@
-//033d7929-4c59-87d6-75c3-6bc9f1b44d96
-//94be513e-5555-8d91-0bbd-5be4f8452e86
+//50e3ac1f-974e-6c34-86ea-3ce37a56e72a
+//cc855d7b-d3ef-ec75-5e63-f547c4e2af6e
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -77,16 +77,31 @@ module TraverseLenses =
 [<System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 type AdaptiveTraverseModel(value : TraverseModel) =
     let _version_ = FSharp.Data.Adaptive.cval(value.version)
-    let _traverses_ =
+    let _roverTraverses_ =
         let inline __arg2 (m : AdaptiveTraverse) (v : Traverse) =
             m.Update(v)
             m
-        FSharp.Data.Traceable.ChangeableModelMap(value.traverses, (fun (v : Traverse) -> AdaptiveTraverse(v)), __arg2, (fun (m : AdaptiveTraverse) -> m))
-    let _missions_ =
+        FSharp.Data.Traceable.ChangeableModelMap(value.roverTraverses, (fun (v : Traverse) -> AdaptiveTraverse(v)), __arg2, (fun (m : AdaptiveTraverse) -> m))
+    let _strategicAnnotationTraverses_ =
         let inline __arg2 (m : AdaptiveTraverse) (v : Traverse) =
             m.Update(v)
             m
-        FSharp.Data.Traceable.ChangeableModelMap(value.missions, (fun (v : Traverse) -> AdaptiveTraverse(v)), __arg2, (fun (m : AdaptiveTraverse) -> m))
+        FSharp.Data.Traceable.ChangeableModelMap(value.strategicAnnotationTraverses, (fun (v : Traverse) -> AdaptiveTraverse(v)), __arg2, (fun (m : AdaptiveTraverse) -> m))
+    let _RIMFAXTraverses_ =
+        let inline __arg2 (m : AdaptiveTraverse) (v : Traverse) =
+            m.Update(v)
+            m
+        FSharp.Data.Traceable.ChangeableModelMap(value.RIMFAXTraverses, (fun (v : Traverse) -> AdaptiveTraverse(v)), __arg2, (fun (m : AdaptiveTraverse) -> m))
+    let _plannedTargetsTraverses_ =
+        let inline __arg2 (m : AdaptiveTraverse) (v : Traverse) =
+            m.Update(v)
+            m
+        FSharp.Data.Traceable.ChangeableModelMap(value.plannedTargetsTraverses, (fun (v : Traverse) -> AdaptiveTraverse(v)), __arg2, (fun (m : AdaptiveTraverse) -> m))
+    let _waypointsTraverses_ =
+        let inline __arg2 (m : AdaptiveTraverse) (v : Traverse) =
+            m.Update(v)
+            m
+        FSharp.Data.Traceable.ChangeableModelMap(value.waypointsTraverses, (fun (v : Traverse) -> AdaptiveTraverse(v)), __arg2, (fun (m : AdaptiveTraverse) -> m))
     let _selectedTraverse_ = FSharp.Data.Adaptive.cval(value.selectedTraverse)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
@@ -97,19 +112,28 @@ type AdaptiveTraverseModel(value : TraverseModel) =
             __value <- value
             __adaptive.MarkOutdated()
             _version_.Value <- value.version
-            _traverses_.Update(value.traverses)
-            _missions_.Update(value.missions)
+            _roverTraverses_.Update(value.roverTraverses)
+            _strategicAnnotationTraverses_.Update(value.strategicAnnotationTraverses)
+            _RIMFAXTraverses_.Update(value.RIMFAXTraverses)
+            _plannedTargetsTraverses_.Update(value.plannedTargetsTraverses)
+            _waypointsTraverses_.Update(value.waypointsTraverses)
             _selectedTraverse_.Value <- value.selectedTraverse
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
-    member __.traverses = _traverses_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveTraverse>
-    member __.missions = _missions_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveTraverse>
+    member __.roverTraverses = _roverTraverses_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveTraverse>
+    member __.strategicAnnotationTraverses = _strategicAnnotationTraverses_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveTraverse>
+    member __.RIMFAXTraverses = _RIMFAXTraverses_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveTraverse>
+    member __.plannedTargetsTraverses = _plannedTargetsTraverses_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveTraverse>
+    member __.waypointsTraverses = _waypointsTraverses_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveTraverse>
     member __.selectedTraverse = _selectedTraverse_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<System.Guid>>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module TraverseModelLenses = 
     type TraverseModel with
         static member version_ = ((fun (self : TraverseModel) -> self.version), (fun (value : Microsoft.FSharp.Core.int) (self : TraverseModel) -> { self with version = value }))
-        static member traverses_ = ((fun (self : TraverseModel) -> self.traverses), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, Traverse>) (self : TraverseModel) -> { self with traverses = value }))
-        static member missions_ = ((fun (self : TraverseModel) -> self.missions), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, Traverse>) (self : TraverseModel) -> { self with missions = value }))
+        static member roverTraverses_ = ((fun (self : TraverseModel) -> self.roverTraverses), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, Traverse>) (self : TraverseModel) -> { self with roverTraverses = value }))
+        static member strategicAnnotationTraverses_ = ((fun (self : TraverseModel) -> self.strategicAnnotationTraverses), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, Traverse>) (self : TraverseModel) -> { self with strategicAnnotationTraverses = value }))
+        static member RIMFAXTraverses_ = ((fun (self : TraverseModel) -> self.RIMFAXTraverses), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, Traverse>) (self : TraverseModel) -> { self with RIMFAXTraverses = value }))
+        static member plannedTargetsTraverses_ = ((fun (self : TraverseModel) -> self.plannedTargetsTraverses), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, Traverse>) (self : TraverseModel) -> { self with plannedTargetsTraverses = value }))
+        static member waypointsTraverses_ = ((fun (self : TraverseModel) -> self.waypointsTraverses), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, Traverse>) (self : TraverseModel) -> { self with waypointsTraverses = value }))
         static member selectedTraverse_ = ((fun (self : TraverseModel) -> self.selectedTraverse), (fun (value : Microsoft.FSharp.Core.Option<System.Guid>) (self : TraverseModel) -> { self with selectedTraverse = value }))
 

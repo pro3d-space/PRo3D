@@ -1,5 +1,5 @@
 //6d8cd910-4dda-ff00-b5b9-3124d680763e
-//f7cf6a79-cab2-9ec4-cccb-e0e7ba3b3d7b
+//77756e4f-ce9f-6226-eda2-ac7ba53d2857
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -14,9 +14,9 @@ open PRo3D.Core.SequencedBookmarks
 type AdaptiveSequencedBookmarkModel(value : SequencedBookmarkModel) =
     let mutable _path_ = FSharp.Data.Adaptive.cval(value.path)
     let mutable _name_ = FSharp.Data.Adaptive.cval(value.name)
+    let mutable _key_ = FSharp.Data.Adaptive.cval(value.key)
     let mutable _filename_ = FSharp.Data.Adaptive.cval(value.filename)
     let mutable _cameraView_ = FSharp.Data.Adaptive.cval(value.cameraView)
-    let mutable _key_ = FSharp.Data.Adaptive.cval(value.key)
     let _bookmark_ = PRo3D.Core.AdaptiveBookmark(value.bookmark)
     let _metadata_ = FSharp.Data.Adaptive.cval(value.metadata)
     let _frustumParameters_ = FSharp.Data.Adaptive.cval(value.frustumParameters)
@@ -43,9 +43,9 @@ type AdaptiveSequencedBookmarkModel(value : SequencedBookmarkModel) =
             __adaptive.MarkOutdated()
             _path_.Value <- value.path
             _name_.Value <- value.name
+            _key_.Value <- value.key
             _filename_.Value <- value.filename
             _cameraView_.Value <- value.cameraView
-            _key_.Value <- value.key
             _bookmark_.Update(value.bookmark)
             _metadata_.Value <- value.metadata
             _frustumParameters_.Value <- value.frustumParameters
@@ -58,9 +58,9 @@ type AdaptiveSequencedBookmarkModel(value : SequencedBookmarkModel) =
     member __.Current = __adaptive
     member __.path = _path_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.name = _name_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
+    member __.key = _key_ :> FSharp.Data.Adaptive.aval<System.Guid>
     member __.filename = _filename_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
     member __.cameraView = _cameraView_ :> FSharp.Data.Adaptive.aval<Aardvark.Rendering.CameraView>
-    member __.key = _key_ :> FSharp.Data.Adaptive.aval<System.Guid>
     member __.version = __value.version
     member __.bookmark = _bookmark_
     member __.metadata = _metadata_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.option<Microsoft.FSharp.Core.string>>

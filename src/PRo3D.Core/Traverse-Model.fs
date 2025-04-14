@@ -78,8 +78,8 @@ type Sol =
       // RIMFAX properties
       fromRMC: string
       toRMC: string
-      SCLK_START: float
-      SCLK_END: float
+      sclkStart: int
+      sclkEnd: int
     } 
 
 module Sol =
@@ -102,8 +102,8 @@ module Sol =
           missionReference = Guid.Empty
           fromRMC = ""
           toRMC = "" 
-          SCLK_START = nan
-          SCLK_END = nan       
+          sclkStart = -1
+          sclkEnd = -1       
         }
 
     let readV0 =
@@ -124,8 +124,8 @@ module Sol =
             let! missionReference = Json.read "missionReference"
             let! fromRMC = Json.read "fromRMC"
             let! toRMC = Json.read "toRMC"
-            let! SCLK_START = Json.read "SCLK_START"
-            let! SCLK_END = Json.read "SCLK_END"       
+            let! sclkStart = Json.read "sclkStart"
+            let! sclkEnd = Json.read "sclkEnd"       
 
             return
                 { version = current
@@ -144,8 +144,8 @@ module Sol =
                   missionReference = missionReference
                   fromRMC = fromRMC
                   toRMC = toRMC
-                  SCLK_START = SCLK_START
-                  SCLK_END = SCLK_END
+                  sclkStart = sclkStart
+                  sclkEnd = sclkEnd
                 }
         }
 
@@ -336,8 +336,11 @@ type Traverse with
 [<ModelType>]
 type TraverseModel =
     { version: int
-      traverses: HashMap<Guid, Traverse>
-      missions: HashMap<Guid, Traverse>
+      roverTraverses: HashMap<Guid, Traverse>
+      strategicAnnotationTraverses: HashMap<Guid, Traverse>
+      RIMFAXTraverses: HashMap<Guid, Traverse>
+      plannedTargetsTraverses: HashMap<Guid, Traverse>
+      waypointsTraverses: HashMap<Guid, Traverse>
       selectedTraverse: Option<Guid> }
 
 module TraverseModel =
@@ -346,29 +349,45 @@ module TraverseModel =
 
     let read0 =
         json {
-            let! traverses = Json.read "traverses"
+            let! roverTraverses = Json.read "roverTraverses"
+            let roverTraverses =
+                roverTraverses |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
 
-            let traverses =
-                traverses |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
+            let! strategicAnnotationTraverses = Json.read "strategicAnnotationTraverses"
+            let strategicAnnotationTraverses =
+                strategicAnnotationTraverses |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
 
-            let! missions = Json.read "missions"
+            let! RIMFAXTraverses = Json.read "RIMFAXTraverses"
+            let RIMFAXTraverses =
+                RIMFAXTraverses |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
 
-            let missions =
-                missions |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
+            let! plannedTargetsTraverses = Json.read "plannedTargetsTraverses"
+            let plannedTargetsTraverses =
+                plannedTargetsTraverses |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
+
+            let! waypointsTraverses = Json.read "waypointsTraverses"
+            let waypointsTraverses =
+                waypointsTraverses |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
 
             let! selected = Json.read "selectedTraverse"
 
             return
                 { version = current
-                  traverses = traverses
-                  missions = missions
+                  roverTraverses = roverTraverses
+                  strategicAnnotationTraverses = strategicAnnotationTraverses
+                  RIMFAXTraverses = RIMFAXTraverses
+                  plannedTargetsTraverses = plannedTargetsTraverses
+                  waypointsTraverses = waypointsTraverses
                   selectedTraverse = selected }
         }
 
     let initial =
         { version = current
-          traverses = HashMap.empty
-          missions = HashMap.empty
+          roverTraverses = HashMap.empty
+          strategicAnnotationTraverses = HashMap.empty
+          RIMFAXTraverses = HashMap.empty
+          plannedTargetsTraverses = HashMap.empty
+          waypointsTraverses = HashMap.empty
           selectedTraverse = None }
 
 
@@ -381,12 +400,16 @@ type TraverseModel with
 
             match v with
             | 0 -> return! TraverseModel.read0
-            | _ -> return! v |> sprintf "don't know version %A  of TraverseModel" |> Json.error
+            | _ -> return! v |> sprintf "don't know version %A of TraverseModel" |> Json.error
         }
 
     static member ToJson(x: TraverseModel) =
         json {
             do! Json.write "version" x.version
-            do! Json.write "traverses" (x.traverses |> HashMap.toList |> List.map snd)
+            do! Json.write "roverTraverses" (x.roverTraverses |> HashMap.toList |> List.map snd)
+            do! Json.write "strategicAnnotationTraverses" (x.strategicAnnotationTraverses |> HashMap.toList |> List.map snd)
+            do! Json.write "RIMFAXTraverses" (x.RIMFAXTraverses |> HashMap.toList |> List.map snd)
+            do! Json.write "plannedTargetsTraverses" (x.plannedTargetsTraverses |> HashMap.toList |> List.map snd)
+            do! Json.write "waypointsTraverses" (x.waypointsTraverses |> HashMap.toList |> List.map snd)
             do! Json.write "selectedTraverse" x.selectedTraverse
         }

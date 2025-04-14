@@ -24,36 +24,28 @@ module RoverTraverseApp =
 
         yawRotation * pitchRotation * rollRotation
 
-    let parseRoverTraverse (traverse : GeoJsonFeatureCollection) =
+    let parseTraverse (traverse : GeoJsonFeatureCollection) =
 
         let parseProperties (sol : Sol) (x : GeoJsonFeature) : Result<Sol, TraverseParseError> =
             let reportErrorAndUseDefault (v : 'a) (r : Result<_,_>) =
                 r |> Result.defaultValue' (fun e -> Log.warn "could not parse property: %A\n\n.Using fallback: %A" e v; v)
 
             result {
-                let! solNumber      = parseIntProperty x  "sol" // not optional
-                let! yaw            = parseDoubleProperty x  "yaw"     // not optional
-                let! pitch          = parseDoubleProperty x  "pitch"   // not optional 
-                let! roll           = parseDoubleProperty x  "roll"    // not optional
-                let! RMC           = parseStringProperty x  "RMC"    // not optional
-
-                // those are optional (still print a warning)
-                let! tilt      = parseDoubleProperty x  "tilt"    |> reportErrorAndUseDefault  0.0    
-                let! distanceM = parseDoubleProperty x  "dist_m"  |> reportErrorAndUseDefault  0.0    
-
-                // not sure whether site should be optional (make it optional if needed), https://github.com/pro3d-space/PRo3D/issues/263
-                let! site      = parseIntProperty x  "site"  
+                let! solNumber  = parseIntProperty x  "sol"
+                let! fromRMC    = parseStringProperty x  "fromRMC"
+                let! toRMC  = parseStringProperty x  "toRMC"
+                let! length = parseDoubleProperty x  "length"
+                let! sclkStart = parseIntProperty x  "SCLK_START"
+                let! sclkEnd   = parseIntProperty x  "SCLK_END" 
                                   
                 return 
                     { sol with 
-                        RMC = RMC
                         solNumber = solNumber
-                        site = site
-                        yaw = yaw
-                        pitch = pitch
-                        roll = roll
-                        tilt = tilt
-                        distanceM = distanceM
+                        fromRMC = fromRMC
+                        toRMC = toRMC
+                        length = length
+                        sclkStart = sclkStart
+                        sclkEnd = sclkEnd
                     }
             }
 
@@ -143,7 +135,7 @@ module RoverTraverseApp =
                 alist {
 
                     let! selected = m.selectedTraverse
-                    let traverses = m.traverses |> AMap.toASetValues |> ASet.toAList |> AList.sortWith compareNatural //(fun x -> x.tName |> AVal.force)
+                    let traverses = m.roverTraverses |> AMap.toASetValues |> ASet.toAList |> AList.sortWith compareNatural //(fun x -> x.tName |> AVal.force)
                             
                     for traverse in traverses do
                         

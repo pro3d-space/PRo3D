@@ -113,9 +113,9 @@ module TraverseApp =
     let parseTraverse (traverse : GeoJsonFeatureCollection) = 
         let sols =
             if getTraverseTypeFromGeoJson(traverse) = TraverseType.RIMFAX then
-                WayPointsTraverseApp.parseRIMFAXTraverse (traverse), TraverseType.RIMFAX
+                WayPointsTraverseApp.parseTraverse (traverse), TraverseType.RIMFAX
             else
-                RoverTraverseApp.parseRoverTraverse (traverse), TraverseType.Rover
+                RoverTraverseApp.parseTraverse (traverse), TraverseType.Rover
         sols
 
     let assignColorsToTraverse (traverses : List<string>) : List<string * C4b> =
@@ -157,40 +157,61 @@ module TraverseApp =
                     let traverse = Traverse.initial name sols |> Traverse.withColor color |> Traverse.withTraverseType traverseType
                     traverse |> HashMap.single traverse.guid 
                 )
-                |> List.fold(fun a b -> HashMap.union a b) model.traverses
+                |> List.fold(fun a b -> HashMap.union a b) (HashMap.unionMany [model.roverTraverses; model.RIMFAXTraverses; model.waypointsTraverses])
 
-            let traversesRover = 
+            let roverTraverses = 
                 traversesJson
                 |> HashMap.filter(fun guid traverse ->
                     traverse.traverseType = TraverseType.Rover
                 )
 
-            let traversesMissions = 
+            let RIMFAXTraverses = 
                 traversesJson
                 |> HashMap.filter(fun guid traverse ->
                     traverse.traverseType = TraverseType.RIMFAX
                 )
 
-            { model with traverses = model.traverses |> HashMap.union traversesRover; missions = model.missions |> HashMap.union traversesMissions; selectedTraverse = None }
+            let waypointsTraverses = 
+                traversesJson
+                |> HashMap.filter(fun guid traverse ->
+                    traverse.traverseType = TraverseType.WayPoints
+                )
+
+            { model with 
+                roverTraverses = model.roverTraverses |> HashMap.union roverTraverses;
+                RIMFAXTraverses = model.RIMFAXTraverses |> HashMap.union RIMFAXTraverses;
+                waypointsTraverses = model.waypointsTraverses |> HashMap.union waypointsTraverses;
+                selectedTraverse = None }
         | IsVisibleT id ->
-            let traverses' =  
-                model.traverses 
+            let roverTraverses' =  
+                model.roverTraverses 
                 |> HashMap.alter id (function None -> None | Some t -> Some { t with isVisibleT = not t.isVisibleT })
-            let missions' =  
-                model.missions 
+            let RIMFAXTraverses' =  
+                model.RIMFAXTraverses 
                 |> HashMap.alter id (function None -> None | Some m -> Some { m with isVisibleT = not m.isVisibleT })
-            { model with traverses = traverses'; missions = missions' }
+            let waypointsTraverses' =  
+                model.waypointsTraverses 
+                |> HashMap.alter id (function None -> None | Some m -> Some { m with isVisibleT = not m.isVisibleT })
+            { model with
+                roverTraverses = roverTraverses';
+                RIMFAXTraverses = RIMFAXTraverses';
+                waypointsTraverses = waypointsTraverses'
+                }
         | RemoveTraverse id -> 
             let selectedTraverse' = 
                 match model.selectedTraverse with
                 | Some selT -> if selT = id then None else Some selT
                 | None -> None
-
-            let traverses' = HashMap.remove id model.traverses
-            let missions' = HashMap.remove id model.missions
-            { model with traverses = traverses'; missions = missions'; selectedTraverse = selectedTraverse' }
+            let roverTraverses' = HashMap.remove id model.roverTraverses
+            let RIMFAXTraverses' = HashMap.remove id model.RIMFAXTraverses
+            let waypointsTraverses' = HashMap.remove id model.waypointsTraverses
+            { model with 
+                roverTraverses = roverTraverses';
+                RIMFAXTraverses = RIMFAXTraverses';
+                waypointsTraverses = waypointsTraverses';
+                selectedTraverse = selectedTraverse' }
         | SelectTraverse id ->
-            let selT = HashMap.union model.traverses model.missions |> HashMap.tryFind id
+            let selT = HashMap.unionMany [model.roverTraverses; model.RIMFAXTraverses; model.waypointsTraverses] |> HashMap.tryFind id
             match selT, model.selectedTraverse with
             | Some a, Some b -> 
                 if a.guid = b then 
@@ -203,19 +224,23 @@ module TraverseApp =
         | TraversePropertiesMessage msg ->  
             match model.selectedTraverse with
             | Some id -> 
-                let selectedT = HashMap.union model.traverses model.missions |> HashMap.tryFind id
+                let selectedT = HashMap.unionMany [model.roverTraverses; model.RIMFAXTraverses; model.waypointsTraverses] |> HashMap.tryFind id
                 match selectedT with
                 | Some selT ->
                     let traverse = (TraversePropertiesApp.update selT msg)
-                    let traverses' = model.traverses |> HashMap.alter selT.guid (function | Some _ -> Some traverse | None -> None )
-                    let missions' = model.missions |> HashMap.alter selT.guid (function | Some _ -> Some traverse | None -> None )
-                    { model with traverses = traverses'; missions = missions'} 
+                    let roverTraverses' = model.roverTraverses |> HashMap.alter selT.guid (function | Some _ -> Some traverse | None -> None )
+                    let RIMFAXTraverses' = model.RIMFAXTraverses |> HashMap.alter selT.guid (function | Some _ -> Some traverse | None -> None )
+                    let waypointsTraverses' = model.waypointsTraverses |> HashMap.alter selT.guid (function | Some _ -> Some traverse | None -> None )
+                    { model with 
+                        roverTraverses = roverTraverses';
+                        RIMFAXTraverses = RIMFAXTraverses';
+                        waypointsTraverses = waypointsTraverses' }
                 | None -> model
             | None -> model
         | SelectSol solNumber ->
             match model.selectedTraverse with
             | Some id -> 
-                let selectedT = HashMap.union model.traverses model.missions |> HashMap.tryFind id
+                let selectedT = HashMap.unionMany [model.roverTraverses; model.RIMFAXTraverses; model.waypointsTraverses] |> HashMap.tryFind id
                 match selectedT with
                 | Some selT ->
                     let selectedSol =
@@ -224,17 +249,27 @@ module TraverseApp =
                         | number, Some n -> 
                             if n = number then None else Some number
 
-                    let traverses' =  
-                        model.traverses 
+                    let roverTraverses' =  
+                        model.roverTraverses 
                         |> HashMap.alter id (function None -> None | Some t -> Some { t with selectedSol = selectedSol })
-                    let missions' =  
-                        model.missions 
+                    let RIMFAXTraverses' =  
+                        model.RIMFAXTraverses 
                         |> HashMap.alter id (function None -> None | Some t -> Some { t with selectedSol = selectedSol })
-                    { model with traverses = traverses'; missions = missions' }
+                    let waypointsTraverses' =  
+                        model.waypointsTraverses 
+                        |> HashMap.alter id (function None -> None | Some t -> Some { t with selectedSol = selectedSol })
+                    { model with 
+                        roverTraverses = roverTraverses';
+                        RIMFAXTraverses = RIMFAXTraverses';
+                        waypointsTraverses = waypointsTraverses' }
                 | None -> model
             | None -> model
         | RemoveAllTraverses ->
-            { model with traverses = HashMap.empty; missions = HashMap.empty; selectedTraverse = None } 
+            { model with 
+                roverTraverses = HashMap.empty;
+                waypointsTraverses = HashMap.empty;
+                RIMFAXTraverses = HashMap.empty;
+                selectedTraverse = None } 
         |_-> model
 
     module UI =
@@ -258,7 +293,7 @@ module TraverseApp =
                 
                 match guid with
                 | Some id -> 
-                    let! traverse = AMap.union model.traverses model.missions |> AMap.tryFind id
+                    let! traverse = AMap.union (AMap.union model.roverTraverses model.RIMFAXTraverses) model.waypointsTraverses |> AMap.tryFind id
                     match traverse with
                     | Some t -> 
                         match t.traverseType with
@@ -275,16 +310,15 @@ module TraverseApp =
             adaptive {
                 let! guid = model.selectedTraverse
                 let empty = div [ style "font-style:italic"] [ text "no traverse selected" ] |> UI.map TraversePropertiesMessage 
-                let t = model.missions
                 match guid with
                 | Some id -> 
-                    let! traverse = model.traverses |> AMap.tryFind id
+                    let! traverse = AMap.union (AMap.union model.roverTraverses model.RIMFAXTraverses) model.waypointsTraverses |> AMap.tryFind id
                     match traverse with
                     | Some t ->
-                        let ui = (RoverTraverseApp.UI.viewSolList refSystem model.missions t )
+                        let ui = (RoverTraverseApp.UI.viewSolList refSystem model.RIMFAXTraverses t )
                         return ui
                     | None -> 
-                        let! traverse = model.missions |> AMap.tryFind id
+                        let! traverse = model.RIMFAXTraverses |> AMap.tryFind id
                         match traverse with
                         | Some t ->
                             let ui = (WayPointsTraverseApp.UI.viewSolList refSystem t )
@@ -322,7 +356,7 @@ module TraverseApp =
             )
 
         let viewLines (refSystem: AdaptiveReferenceSystem) (traverseModel : AdaptiveTraverseModel) =
-            let traverses = AMap.union traverseModel.traverses traverseModel.missions
+            let traverses = AMap.union (AMap.union traverseModel.roverTraverses traverseModel.RIMFAXTraverses) traverseModel.waypointsTraverses
             traverses 
             |> AMap.map( fun id traverse ->
                 drawSolLines traverse
@@ -377,7 +411,7 @@ module TraverseApp =
 
         let viewText (refSystem : AdaptiveReferenceSystem) view near (traverseModel : AdaptiveTraverseModel) =
         
-            let traverses = traverseModel.traverses
+            let traverses = traverseModel.roverTraverses
             traverses 
             |> AMap.map(fun id traverse ->
                 drawSolTextsFast
@@ -534,7 +568,7 @@ module TraverseApp =
             (refsys         : AdaptiveReferenceSystem) 
             (traverseModel  : AdaptiveTraverseModel) =
 
-            let traverses = traverseModel.traverses
+            let traverses = traverseModel.roverTraverses
             traverses 
             |> AMap.map(fun id traverse ->
                 viewTraverseFast view refsys traverse
