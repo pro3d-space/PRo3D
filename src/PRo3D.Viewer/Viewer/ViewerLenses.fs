@@ -59,7 +59,7 @@ module ViewerLenses =
 
     // traverses
     let _traversesModel = Model.scene_  >->  Scene.traverses_
-    let _traverses      = _traversesModel >-> TraverseModel.traverses_
+    let _traverses      = _traversesModel >-> TraverseModel.roverTraverses_
 
     // geologic surfaces
     let _geologicSurfacesModel = Model.scene_ >->  Scene.geologicSurfacesModel_
