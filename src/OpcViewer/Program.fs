@@ -5,13 +5,14 @@ open System
 open Aardvark.Base
 open Aardvark.GeoSpatial.Opc
 open Aardvark.Opc
+open PriorityRendering
 
-type Kind = Scene | Annotations | Solarsystem
+type Kind = Scene | Annotations | Solarsystem | PriorityRendering
 
 [<EntryPoint>]
 let main argv =
     
-    let kind = Annotations
+    let kind = PriorityRendering
 
     let shaler =
         { 
@@ -77,6 +78,9 @@ let main argv =
         }
 
     match kind with
+
+    | PriorityRendering -> 
+        PriorityRenderingViewer.run ()
 
     | Solarsystem -> 
         Solarsytsem.run [mola;]

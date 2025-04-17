@@ -11,6 +11,7 @@
     <OutputPath>..\..\bin\Release</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="PriorityRenderingViewer.fs" />
     <Compile Include="TestViewer.fs" />
     <Compile Include="AnnotationViewer.fs" />
     <Compile Include="Solarsystem.fs" />
