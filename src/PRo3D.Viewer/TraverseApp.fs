@@ -103,19 +103,16 @@ module TraversePropertiesApp =
             )
     
 module TraverseApp = 
-
-    let getTraverseTypeFromGeoJson (traverse : GeoJsonFeatureCollection) =
-        if (List.length traverse.features = 1 && traverse.features[0].properties.ContainsKey("fromRMC")) then
-            TraverseType.RIMFAX
-        else
-            TraverseType.Rover
     
-    let parseTraverse (traverse : GeoJsonFeatureCollection) = 
+    let parseTraverse (traverse : GeoJsonTraverse) = 
         let sols =
-            if getTraverseTypeFromGeoJson(traverse) = TraverseType.RIMFAX then
-                WayPointsTraverseApp.parseTraverse (traverse), TraverseType.RIMFAX
-            else
-                RoverTraverseApp.parseTraverse (traverse), TraverseType.Rover
+            match traverse.traverseType with
+            | "WayPoints" -> WayPointsTraverseApp.parseTraverse (traverse), TraverseType.WayPoints
+            | "Rover" -> RoverTraverseApp.parseTraverse (traverse), TraverseType.Rover
+            | "RIMFAX" -> RIMFAXTraverseApp.parseTraverse (traverse), TraverseType.RIMFAX
+            // | "PlannedTargets" -> PlannedTargetsTraverseApp.parseTraverse (traverse), TraverseType.PlannedTargets
+            // | "StrategicAnnotations" -> StrategicAnnotationsTraverseApp.parseTraverse (traverse), TraverseType.WayPoints
+            | t -> failwithf "Traverse file does not define a valid traverseType. Valid types are WayPoints, Rover, RIMFAX, PlannedTargets and StrategicAnnotations. The given traverseType is: %s" t
         sols
 
     let assignColorsToTraverse (traverses : List<string>) : List<string * C4b> =
@@ -130,7 +127,7 @@ module TraverseApp =
         (model : TraverseModel) 
         (action : TraverseAction) : TraverseModel = 
         match action with
-        | LoadTraverses paths ->                  
+        | LoadTraverses paths ->    
             let traversesJson =             
                 paths 
                 |> List.filter(fun x ->
@@ -336,6 +333,7 @@ module TraverseApp =
                 let lines = 
                     sols 
                     |> List.map(fun x -> x.location)
+                    |> List.fold (fun acc sublist -> acc @ sublist) []
                     |> List.toArray
                     |> PRo3D.Core.Drawing.Sg.lines c w 
                 
@@ -351,7 +349,7 @@ module TraverseApp =
                 match current.sols |> List.tryHead with
                 | None -> Trafo3d.Identity
                 | Some sol -> 
-                    let north, up, east = PRo3D.Core.Surface.TransformationApp.getNorthAndUpFromPivot sol.location refSystem
+                    let north, up, east = PRo3D.Core.Surface.TransformationApp.getNorthAndUpFromPivot sol.location[0] refSystem
                     Trafo3d.Translation(offset * up)
             )
 
@@ -374,7 +372,7 @@ module TraverseApp =
                     sols 
                     |> List.toArray
                     |> Array.map (fun sol -> 
-                        let loc = sol.location + sol.location.Normalized * 1.5
+                        let loc = sol.location[0] + sol.location[0].Normalized * 1.5
                         let trafo = (Trafo3d.Scale((float)scale) ) * (Trafo3d.Translation loc)
                         let text = $"{sol.solNumber}"
                         //let scaleTrafo = Sg.invariantScaleTrafo view near ~~loc traverse.tTextSize.value ~~60.0
@@ -399,7 +397,7 @@ module TraverseApp =
      
                 if showText then
                     for sol in sols do
-                        let loc = ~~(sol.location + sol.location.Normalized * 1.5)
+                        let loc = ~~(sol.location[0] + sol.location[0].Normalized * 1.5)
                         let trafo = loc |> AVal.map Trafo3d.Translation
                         
                         yield Sg.text view near (AVal.constant 60.0) loc trafo model.tTextSize.value  (~~sol.solNumber.ToString()) (AVal.constant C4b.White)
@@ -466,7 +464,7 @@ module TraverseApp =
                 (traverse.sols, view, shift)
                 |||> AVal.map3 (fun sols view shift -> 
                     let viewTrafo = view.ViewTrafo
-                    sols |> List.toArray |> Array.map (fun sol -> Trafo3d.Translation(sol.location) * shift * viewTrafo) :> Array
+                    sols |> List.toArray |> Array.map (fun sol -> Trafo3d.Translation(sol.location[0]) * shift * viewTrafo) :> Array
                 )
                 
             let solNumbers =
@@ -505,7 +503,7 @@ module TraverseApp =
                                     RoverTraverseApp.computeSolRotation sol refSystem
                                 else
                                     WayPointsTraverseApp.computeSolRotation sol refSystem
-                            let loc = sol.location + sol.location.Normalized * 0.5 // when porting to instancing kept it 0.5
+                            let loc = sol.location[0] + sol.location[0].Normalized * 0.5 // when porting to instancing kept it 0.5
                             let shiftedSol = Trafo3d.Translation loc
                             rotation * shiftedSol * shift * viewTrafo
                         ) 
@@ -549,9 +547,9 @@ module TraverseApp =
                                 if sel = sol.solNumber then  AVal.constant(C4b.VRVisGreen) else model.color.c
                             | None ->
                                 model.color.c
-                        yield PRo3D.Core.Drawing.Sg.sphere' color ~~6.0 ~~sol.location
+                        yield PRo3D.Core.Drawing.Sg.sphere' color ~~6.0 ~~sol.location[0]
 
-                        let loc =(sol.location + sol.location.Normalized * 0.5)
+                        let loc =(sol.location[0] + sol.location[0].Normalized * 0.5)
                         let locTranslation = Trafo3d.Translation(loc)
                         let! r = refSystem.Current
                         let rotation = if traverseType = TraverseType.Rover then RoverTraverseApp.computeSolRotation sol r else WayPointsTraverseApp.computeSolRotation sol r

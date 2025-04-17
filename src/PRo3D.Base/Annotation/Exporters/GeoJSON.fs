@@ -27,6 +27,7 @@ module GeoJSON =
     //    Z:float
     //}
     
+
     type Coordinate =
     | TwoDim of V2d
     | ThreeDim of V3d
@@ -233,6 +234,25 @@ module GeoJSON =
                 let! g = Json.read "features"
                 let! (b:Option<List<float>>) = Json.tryRead "bbox"
                 return {features = g;bbox =b}
+            }
+
+    type GeoJsonTraverse = {
+        features        : List<GeoJsonFeature>
+        traverseType    : string
+    }
+    with            
+        static member ToJson (x: GeoJsonTraverse) =
+            json{
+                do! Json.write "features" x.features
+                do! Json.write "traverseType" x.traverseType
+                do! Json.write "type" "FeatureCollection"
+            }
+            
+        static member FromJson (_: GeoJsonTraverse) =
+            json{
+                let! f = Json.read "features"
+                let! tt = Json.read "traverseType"
+                return {features = f; traverseType = tt}
             }
         
 

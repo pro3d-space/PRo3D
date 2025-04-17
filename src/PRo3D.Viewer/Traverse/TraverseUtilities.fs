@@ -84,7 +84,7 @@ module TraverseUtilities =
         let north = rotation.Forward.TransformDir referenceSystem.northO
         let up    = rotation.Forward.TransformDir referenceSystem.up.value
 
-        north, up, (sol.location + 2.0 * up)
+        north, up, (sol.location[0] + 2.0 * up)
 
     let computeSolViewplanParameters
         (sol : Sol)
@@ -97,5 +97,5 @@ module TraverseUtilities =
 
         let name = sprintf "Sol %d" sol.solNumber
 
-        name, rotation, sol.location, referenceSystem
+        name, rotation, sol.location[0], referenceSystem
 

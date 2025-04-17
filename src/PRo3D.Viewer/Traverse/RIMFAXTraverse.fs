@@ -17,55 +17,73 @@ module RIMFAXTraverseApp =
     let computeSolRotation (sol : Sol) (referenceSystem : ReferenceSystem) : Trafo3d =
         Trafo3d.Identity
 
-    let parseTraverse (traverse : GeoJsonFeatureCollection) =
+    let parseTraverse (traverse : GeoJsonTraverse) =
+
         let parseProperties (sol : Sol) (x : GeoJsonFeature) : Result<Sol, TraverseParseError> =
             let reportErrorAndUseDefault (v : 'a) (r : Result<_,_>) =
                 r |> Result.defaultValue' (fun e -> Log.warn "could not parse property: %A\n\n.Using fallback: %A" e v; v)
 
             result {
-                let! fromRMC    = parseStringProperty x  "fromRMC" // not optional
-                let! toRMC      = parseStringProperty x  "toRMC"     // not optional
-                let! length     = parseDoubleProperty x  "length"   // not optional 
-                let! solNumber  = parseIntProperty  x  "sol"    // not optional
-                let! sclkStart = parseIntProperty x  "SCLK_START"    // not optional
-                let! sclkEnd   = parseIntProperty x  "SCLK_END"    // not optional
+                let! solNumber  = parseIntProperty x  "sol"
+                let! fromRMC    = parseStringProperty x  "fromRMC"
+                let! toRMC  = parseStringProperty x  "toRMC"
+                let! length = parseDoubleProperty x  "length"
+                let! sclkStart = parseIntProperty x  "SCLK_START"
+                let! sclkEnd   = parseIntProperty x  "SCLK_END" 
                                   
                 return 
                     { sol with 
-                        solNumber = solNumber;
-                        length = length;
-                        fromRMC = fromRMC;
-                        toRMC = toRMC; 
-                        sclkStart = sclkStart;
-                        sclkEnd = sclkEnd;
+                        solNumber = solNumber
+                        fromRMC = fromRMC
+                        toRMC = toRMC
+                        length = length
+                        sclkStart = sclkStart
+                        sclkEnd = sclkEnd
                     }
             }
 
-        let parseCoordinate (coord: Coordinate) =
-            match coord with
-                | Coordinate.TwoDim y ->
-                    //x ... lon
-                    //y ... lat
-                    let latLonAlt = 
-                        V3d (
-                            y.Y, 
-                            360.0 - y.X,
-                            0 // orti implements the correct projection
-                        )
-                    CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
-                | Coordinate.ThreeDim y ->
-                    let latLonAlt =  //y.YXZ
-                        V3d (
-                            y.Y,
-                            360.0 - y.X,
-                            y.Z
-                        )
-                    CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars 
-
-
-        let parseFeature (x : GeoJsonFeature) (coord: Coordinate) =
+        let parseFeature (x : GeoJsonFeature) =
             result {
-                let! sol = parseProperties { Sol.initial with version = Sol.current; location = parseCoordinate coord; } x
+                let! position = 
+                    result {
+                        match x.geometry with
+                        | GeoJsonGeometry.Point p ->
+                            match p with
+                            | Coordinate.TwoDim y ->
+                                //x ... lon
+                                //y ... lat
+
+                                let! elev_goid = parseDoubleProperty x "elev_geoid"                        
+                                let latLonAlt = 
+                                    V3d (
+                                        y.Y, 
+                                        360.0 - y.X, 
+                                        elev_goid                            
+                                    )
+
+                                return CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
+                            | Coordinate.ThreeDim y ->
+                                let latLonAlt =  //y.YXZ
+                                    V3d (
+                                        y.Y, 
+                                        360.0 - y.X, 
+                                        y.Z                                 
+                                    )
+
+                                return CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars
+                        | e -> 
+                            return! error (GeometryTypeNotSupported (string e))
+                    }
+                        
+                let! sol = parseProperties { Sol.initial with version = Sol.current; location = [position]; } x
+
+                // note is (now) optional for all cases. 
+                // Previsouly note was mandatory in 2D, and optional in 3D - not sure whether this was intentioanl @ThomasOrtner
+                let sol = 
+                    match parseStringProperty x "Note" with
+                    | Result.Ok note -> { sol with note = note }
+                    | _ -> sol
+        
 
                 // either choose dist_total_m or dist_total - or default to zero if nothing? @ThomasOrnter - is this defaulting correct or an error?
                 match parseDoubleProperty x "dist_total_m", parseDoubleProperty x "dist_total" with
@@ -76,26 +94,22 @@ module RIMFAXTraverseApp =
             }
 
         let sols = 
-            match traverse.features[0].geometry with
-            | GeoJsonGeometry.LineString coordinates ->
-                coordinates 
-                |> List.mapi (fun idx coord -> (idx, coord)) 
-                |> List.choose (fun (idx, coord) ->
-                        match parseFeature traverse.features[0] coord with
-                        | Result.Ok r -> Some r
-                        | Result.Error e -> 
-                            // we skip this one in case of errors, see // see https://github.com/pro3d-space/PRo3D/issues/263
-                            Report.Warn(
-                                String.concat Environment.NewLine [
-                                    sprintf "[Traverse] could not parse or interpret feature for coordinate %d in the coordinate list.\n" idx 
-                                    sprintf "[Traverse] the detailled error is: %A" e
-                                    sprintf "[Traverse] skipping coordinate %A" coord
-                                ]
-                            )
-                            None
-                    ) 
-            | _ -> []
-
+            traverse.features        
+            |> List.mapi (fun i e -> (i,e)) // tag the elements for better error reporting
+            |> List.choose (fun (idx, feature) ->
+                match parseFeature feature with
+                | Result.Ok r -> Some r
+                | Result.Error e -> 
+                    // we skip this one in case of errors, see // see https://github.com/pro3d-space/PRo3D/issues/263
+                    Report.Warn(
+                        String.concat Environment.NewLine [
+                            sprintf "[Traverse] could not parse or interpret feature %d in the feature list.\n" idx 
+                            sprintf "[Traverse] the detailled error is: %A" e
+                            sprintf "[Traverse] skipping feature of type %A" feature.geometry
+                        ]
+                    )
+                    None
+            ) 
         sols
 
     module UI =

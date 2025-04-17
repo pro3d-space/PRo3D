@@ -61,7 +61,7 @@ type TraverseType =
 
 type Sol =
     { version: int
-      location: V3d
+      location: list<V3d>
       solNumber: int
       // Rover properties
       site: int
@@ -87,7 +87,7 @@ module Sol =
 
     let initial =
         { version = current
-          location = V3d.NaN
+          location = [V3d.NaN]
           solNumber = -1
           site = -1
           yaw = nan
@@ -109,7 +109,7 @@ module Sol =
     let readV0 =
         json {
 
-            let! location = Json.read "location"
+            //let! location = Json.read "location"
             let! solNumber = Json.read "solNumber"
             let! site = Json.read "site"
             let! yaw = Json.read "yaw"
@@ -124,12 +124,13 @@ module Sol =
             let! missionReference = Json.read "missionReference"
             let! fromRMC = Json.read "fromRMC"
             let! toRMC = Json.read "toRMC"
-            let! sclkStart = Json.read "sclkStart"
-            let! sclkEnd = Json.read "sclkEnd"       
+            let! sclkStart = Json.read "SCLK_START"
+            let! sclkEnd = Json.read "SCLK_END"       
 
             return
                 { version = current
-                  location = location |> V3d.Parse
+                // !!!! needs fixing!
+                  location = [new V3d(0.0, 0.0, 0.0)] //location |> V3d.Parse
                   solNumber = solNumber
                   site = site
                   yaw = yaw
@@ -148,6 +149,7 @@ module Sol =
                   sclkEnd = sclkEnd
                 }
         }
+
 
 type Sol with
 
@@ -174,6 +176,7 @@ type Sol with
             do! Json.write "distanceM" x.distanceM
             do! Json.write "totalDistanceM" x.totalDistanceM
         }
+
 
 [<ModelType>]
 type Traverse =
@@ -305,6 +308,7 @@ module Traverse =
                 }
         }
 
+
 type Traverse with
 
     static member FromJson(_: Traverse) =
@@ -333,6 +337,7 @@ type Traverse with
             do! Json.write "heightOffset" x.heightOffset.value
         }
 
+
 [<ModelType>]
 type TraverseModel =
     { version: int
@@ -349,25 +354,25 @@ module TraverseModel =
 
     let read0 =
         json {
-            let! roverTraverses = Json.read "roverTraverses"
+            let! roverTraverses' = Json.read "roverTraverses"
             let roverTraverses =
-                roverTraverses |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
+                roverTraverses' |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
 
             let! strategicAnnotationTraverses = Json.read "strategicAnnotationTraverses"
             let strategicAnnotationTraverses =
                 strategicAnnotationTraverses |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
 
-            let! RIMFAXTraverses = Json.read "RIMFAXTraverses"
+            let! RIMFAXTraverses' = Json.read "RIMFAXTraverses"
             let RIMFAXTraverses =
-                RIMFAXTraverses |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
+                RIMFAXTraverses' |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
 
-            let! plannedTargetsTraverses = Json.read "plannedTargetsTraverses"
+            let! plannedTargetsTraverses' = Json.read "plannedTargetsTraverses"
             let plannedTargetsTraverses =
-                plannedTargetsTraverses |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
+                plannedTargetsTraverses' |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
 
-            let! waypointsTraverses = Json.read "waypointsTraverses"
+            let! waypointsTraverses' = Json.read "waypointsTraverses"
             let waypointsTraverses =
-                waypointsTraverses |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
+                waypointsTraverses' |> List.map (fun (a: Traverse) -> (a.guid, a)) |> HashMap.ofList
 
             let! selected = Json.read "selectedTraverse"
 
@@ -391,7 +396,6 @@ module TraverseModel =
           selectedTraverse = None }
 
 
-
 type TraverseModel with
 
     static member FromJson(_: TraverseModel) =
@@ -400,7 +404,7 @@ type TraverseModel with
 
             match v with
             | 0 -> return! TraverseModel.read0
-            | _ -> return! v |> sprintf "don't know version %A of TraverseModel" |> Json.error
+            | _ -> return! v |> sprintf "don't know version %A  of TraverseModel" |> Json.error
         }
 
     static member ToJson(x: TraverseModel) =

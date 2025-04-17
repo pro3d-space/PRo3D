@@ -24,7 +24,7 @@ module RoverTraverseApp =
 
         yawRotation * pitchRotation * rollRotation
 
-    let parseTraverse (traverse : GeoJsonFeatureCollection) =
+    let parseTraverse (traverse : GeoJsonTraverse) =
 
         let parseProperties (sol : Sol) (x : GeoJsonFeature) : Result<Sol, TraverseParseError> =
             let reportErrorAndUseDefault (v : 'a) (r : Result<_,_>) =
@@ -82,7 +82,7 @@ module RoverTraverseApp =
                             return! error (GeometryTypeNotSupported (string e))
                     }
                         
-                let! sol = parseProperties { Sol.initial with version = Sol.current; location = position; } x
+                let! sol = parseProperties { Sol.initial with version = Sol.current; location = [position]; } x
 
                 // note is (now) optional for all cases. 
                 // Previsouly note was mandatory in 2D, and optional in 3D - not sure whether this was intentioanl @ThomasOrtner
