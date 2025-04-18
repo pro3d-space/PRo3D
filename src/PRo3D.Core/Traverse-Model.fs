@@ -78,8 +78,8 @@ type Sol =
       // RIMFAX properties
       fromRMC: string
       toRMC: string
-      sclkStart: int
-      sclkEnd: int
+      sclkStart: float
+      sclkEnd: float
     } 
 
 module Sol =
@@ -102,8 +102,8 @@ module Sol =
           missionReference = Guid.Empty
           fromRMC = ""
           toRMC = "" 
-          sclkStart = -1
-          sclkEnd = -1       
+          sclkStart = nan
+          sclkEnd = nan      
         }
 
     let readV0 =

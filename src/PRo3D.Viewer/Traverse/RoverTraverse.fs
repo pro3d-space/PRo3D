@@ -35,8 +35,8 @@ module RoverTraverseApp =
                 let! fromRMC    = parseStringProperty x  "fromRMC"
                 let! toRMC  = parseStringProperty x  "toRMC"
                 let! length = parseDoubleProperty x  "length"
-                let! sclkStart = parseIntProperty x  "SCLK_START"
-                let! sclkEnd   = parseIntProperty x  "SCLK_END" 
+                let! sclkStart = parseDoubleProperty x  "SCLK_START"
+                let! sclkEnd   = parseDoubleProperty x  "SCLK_END" 
                                   
                 return 
                     { sol with 
@@ -197,7 +197,7 @@ module RoverTraverseApp =
 
         let viewSolList 
             (refSystem : AdaptiveReferenceSystem) 
-            (missions: amap<Guid, AdaptiveTraverse>)
+            (RIMFAXTraverses: amap<Guid, AdaptiveTraverse>)
             (m : AdaptiveTraverse) =
     
             let listAttributes =
@@ -219,7 +219,7 @@ module RoverTraverseApp =
 
                         let! missionReference = 
                             AVal.custom (fun t -> 
-                                let traverseMap = missions.Content.GetValue t
+                                let traverseMap = RIMFAXTraverses.Content.GetValue t
                                 traverseMap 
                                     |> HashMap.toValueList
                                     |> List.tryPick (fun v ->

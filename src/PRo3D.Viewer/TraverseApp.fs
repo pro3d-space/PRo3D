@@ -312,8 +312,12 @@ module TraverseApp =
                     let! traverse = AMap.union (AMap.union model.roverTraverses model.RIMFAXTraverses) model.waypointsTraverses |> AMap.tryFind id
                     match traverse with
                     | Some t ->
-                        let ui = (RoverTraverseApp.UI.viewSolList refSystem model.RIMFAXTraverses t )
-                        return ui
+                        match t.traverseType with
+                        | TraverseType.Rover -> return RoverTraverseApp.UI.viewSolList refSystem model.roverTraverses t
+                        | TraverseType.RIMFAX -> return RIMFAXTraverseApp.UI.viewSolList refSystem t
+                        | TraverseType.WayPoints -> return WayPointsTraverseApp.UI.viewSolList refSystem t
+                        // | TraverseType.StrategicAnnotations -> return StrategicAnnotationsTraverseApp.UI.viewSolList refSystem t
+                        // | TraverseType.PlannedTargets -> return PlannedTargetsTraverseApp.UI.viewSolList refSystem model.RIMFAXTraverses t
                     | None -> 
                         let! traverse = model.RIMFAXTraverses |> AMap.tryFind id
                         match traverse with
