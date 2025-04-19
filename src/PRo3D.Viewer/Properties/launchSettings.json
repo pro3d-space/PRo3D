@@ -12,7 +12,7 @@
     },
     "PRo3D.Viewer.CoReg": {
       "commandName": "Project",
-      "commandLineArgs": "--port 4322 --remoteApi --scene \"G:\\PRo3D\\AI-Mars-3D\\Co-Registration\\20250325_Nukshak_Sol544\\20250325_Nukshak_TGT.pro3d\"",
+      "commandLineArgs": "--port 4321 --remoteApi",
       "nativeDebugging": true
     },
     "PRo3D.RemoteApi": {
