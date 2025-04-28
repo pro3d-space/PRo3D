@@ -270,33 +270,64 @@ module RemoteApi =
 
             let queryAnnotationId = x.getSelectedAnnotationId()
             let annotations = x.FullModel.drawing.annotations.flat.Content.GetValue()
+            let anno = 
+                queryAnnotationId 
+                |> Option.bind(fun x -> HashMap.tryFind x annotations)
+                |> Option.bind(fun x ->
+                    match x with
+                    | AdaptiveAnnotations a -> Some a
+                    | _ -> None
+                )
 
-            match HashMap.tryFind (queryAnnotationId.Value) annotations with
-            | Some (AdaptiveAnnotations queryAnnotation) -> 
+            let cutoutSurfaceId = x.getSelectedSurfaceId()
+            let surfaces = x.FullModel.scene.surfacesModel.surfaces.flat.Content.GetValue()
+            let surf = 
+                cutoutSurfaceId 
+                |> Option.bind(fun x -> HashMap.tryFind x surfaces) 
+                |> Option.bind(fun x ->
+                    match x with
+                    | AdaptiveSurfaces s -> Some s
+                    | _ -> None
+                )
+
+            match (anno, surf) with
+            |  (Some queryAnnotation, Some cutoutSurface) -> 
                 let anno = queryAnnotation.Current.GetValue()
-                let sgSurfaces = x.FullModel.scene.surfacesModel.sgSurfaces.Content.GetValue()
-
-                let opcs = 
-                    sgSurfaces 
-                    |> Seq.choose (fun (_,s) -> s.opcScene.GetValue())
+                // let sgSurfaces = 
+                //     x.FullModel.scene.surfacesModel.sgSurfaces.Content.GetValue()
 
                 let patchHierarchies = 
-                    opcs 
-                    |> Seq.collect (fun scene -> 
-                        scene.patchHierarchies
-                        |> Seq.map Prinziple.register
-                        |> Seq.map (fun x -> 
-                            Aardvark.Data.Opc.PatchHierarchy.load 
-                                PRo3D.Base.Serialization.binarySerializer.Pickle 
-                                PRo3D.Base.Serialization.binarySerializer.UnPickle
-                                (Aardvark.Data.Opc.OpcPaths x), x
-                        )
-                    )
+                    cutoutSurface.opcPaths.GetValue()
+                    |> Seq.map Prinziple.register
+                    |> Seq.map (fun x -> 
+                        PatchHierarchy.load 
+                            PRo3D.Base.Serialization.binarySerializer.Pickle 
+                            PRo3D.Base.Serialization.binarySerializer.UnPickle
+                            (OpcPaths x), x
+                    ) 
                     |> Seq.toList
+
+                // let opcs = 
+                //     sgSurfaces 
+                //     |> Seq.choose (fun (_,s) -> s.opcScene.GetValue())
+
+                // let patchHierarchies = 
+                //     opcs 
+                //     |> Seq.collect (fun scene -> 
+                //         scene.patchHierarchies
+                //         |> Seq.map Prinziple.register
+                //         |> Seq.map (fun x -> 
+                //             Aardvark.Data.Opc.PatchHierarchy.load 
+                //                 PRo3D.Base.Serialization.binarySerializer.Pickle 
+                //                 PRo3D.Base.Serialization.binarySerializer.UnPickle
+                //                 (Aardvark.Data.Opc.OpcPaths x), x
+                //         )
+                //     )
+                //     |> Seq.toList
 
                 let queryResults = 
                     PRo3D.Base.AnnotationQuery.clipToRegion 
-                        patchHierarchies 
+                        patchHierarchies
                         attributeNames 
                         heightRange 
                         ignore 

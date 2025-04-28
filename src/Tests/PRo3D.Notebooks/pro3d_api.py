@@ -128,9 +128,9 @@ class Pro3DClient:
 
         payload = {
             "queryAttributes": [],
-            "distanceToPlane": 100000.0,
-            "outputReferenceFrame": "global",
-            "outputGeometryType": "mesh",
+            "distanceToPlane": 10000.0,
+            "outputReferenceFrame": "local",
+            "outputGeometryType": "pointcloud",
         }
 
         try:
