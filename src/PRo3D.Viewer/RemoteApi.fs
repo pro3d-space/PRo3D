@@ -732,6 +732,7 @@ module RemoteApi =
                 match value.ToLower() with
                 | "local" -> Some OutputReferenceFrame.Local
                 | "global" -> Some OutputReferenceFrame.Global
+                | "centered" -> Some OutputReferenceFrame.Centered
                 | _ -> None // or handle as an error case
 
             let parseGeometryType (value: string) : Option<OutputGeometryType> =
@@ -772,7 +773,12 @@ module RemoteApi =
                     (geometryType : OutputGeometryType) 
                     (results      : QueryResults) = 
 
-                    let s = PRo3D.Base.AnnotationQuery.queryResultsToObj frame geometryType results
+                    let s = 
+                        if geometryType = OutputGeometryType.PointCloud then
+                            PRo3D.Base.AnnotationQuery.queryResultsToCoordinatesSet frame results
+                        else
+                            PRo3D.Base.AnnotationQuery.queryResultsToObj frame geometryType results
+                            
                     Successful.OK s
 
                 queryAnnotation api toResult

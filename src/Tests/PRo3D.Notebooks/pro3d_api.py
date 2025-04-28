@@ -129,7 +129,7 @@ class Pro3DClient:
         payload = {
             "queryAttributes": [],
             "distanceToPlane": 10000.0,
-            "outputReferenceFrame": "local",
+            "outputReferenceFrame": "centered",
             "outputGeometryType": "pointcloud",
         }
 
@@ -150,6 +150,56 @@ class Pro3DClient:
                 raise ValueError("Response does not appear to be in valid OBJ format.")
 
             return obj_text
+        
+        except requests.HTTPError as e:
+            # Attempt to get error message from response body
+            message = e.response.text if e.response is not None else str(e)
+            print(f"❌ Server responded with error: {e.response.status_code} - {message.strip()}")
+            raise
+
+        except requests.RequestException as e:
+            print(f"❌ Request to queryAnnotationAsObj failed: {e}")
+            raise
+
+    def query_annotation_as_json(
+            self,
+            verbose: bool = False
+        ) -> str:
+        """
+        Sends a query to retrieve cutout geometry from the currently selected annotation as OBJ string.
+
+        Args:
+            verbose (bool): If True, prints the raw OBJ response.
+
+        Returns:
+            str: The raw OBJ string from the response.
+
+        Raises:
+            requests.RequestException: If the request fails.
+            ValueError: If the response doesn't look like a valid OBJ.
+        """
+        url = f"{self.base_url}/queries/queryAnnotationAsObj"
+
+        payload = {
+            "queryAttributes": [],
+            "distanceToPlane": 10000.0,
+            "outputReferenceFrame": "global",
+            "outputGeometryType": "pointcloud",
+        }
+
+        try:
+            if verbose:
+                print("📤 Sending payload:", payload)
+
+            response = requests.post(url, json=payload)
+            response.raise_for_status()
+
+            json_text = response.text.strip()
+
+            if verbose:
+                print("📥 Received Json vertex data:\n", json_text[:300], "...\n")            
+
+            return json_text
         
         except requests.HTTPError as e:
             # Attempt to get error message from response body
