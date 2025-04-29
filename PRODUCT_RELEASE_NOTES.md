@@ -1,3 +1,6 @@
+## 5.0.2 
+- updated PRo3d.SPICE/fixed osx cootrafo build
+
 ## 5.0.0 
 - next major release preparation
 
