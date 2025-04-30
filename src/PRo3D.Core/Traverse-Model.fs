@@ -33,6 +33,7 @@ type TraverseAction =
     | SelectTraverse of Guid
     | TraversePropertiesMessage of TraversePropertiesAction
     | RemoveAllTraverses
+    | SetImportDirectory of list<string>
 
 module InitTraverseParams =
 
@@ -346,7 +347,9 @@ type TraverseModel =
       RIMFAXTraverses: HashMap<Guid, Traverse>
       plannedTargetsTraverses: HashMap<Guid, Traverse>
       waypointsTraverses: HashMap<Guid, Traverse>
-      selectedTraverse: Option<Guid> }
+      selectedTraverse: Option<Guid>
+      RIMFAXRootDirectory: string
+      }
 
 module TraverseModel =
 
@@ -376,6 +379,8 @@ module TraverseModel =
 
             let! selected = Json.read "selectedTraverse"
 
+            let! RIMFAXRootDirectory = Json.read "RIMFAXRootDirectory"
+
             return
                 { version = current
                   roverTraverses = roverTraverses
@@ -383,7 +388,8 @@ module TraverseModel =
                   RIMFAXTraverses = RIMFAXTraverses
                   plannedTargetsTraverses = plannedTargetsTraverses
                   waypointsTraverses = waypointsTraverses
-                  selectedTraverse = selected }
+                  selectedTraverse = selected 
+                  RIMFAXRootDirectory = RIMFAXRootDirectory}
         }
 
     let initial =
@@ -393,7 +399,8 @@ module TraverseModel =
           RIMFAXTraverses = HashMap.empty
           plannedTargetsTraverses = HashMap.empty
           waypointsTraverses = HashMap.empty
-          selectedTraverse = None }
+          selectedTraverse = None 
+          RIMFAXRootDirectory = ""}
 
 
 type TraverseModel with
@@ -416,4 +423,5 @@ type TraverseModel with
             do! Json.write "plannedTargetsTraverses" (x.plannedTargetsTraverses |> HashMap.toList |> List.map snd)
             do! Json.write "waypointsTraverses" (x.waypointsTraverses |> HashMap.toList |> List.map snd)
             do! Json.write "selectedTraverse" x.selectedTraverse
+            do! Json.write "RIMFAXRootDirectory" x.RIMFAXRootDirectory
         }

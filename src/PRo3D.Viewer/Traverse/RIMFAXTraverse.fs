@@ -173,7 +173,6 @@ module RIMFAXTraverseApp =
 
         let viewSolList 
             (refSystem : AdaptiveReferenceSystem) 
-            (RIMFAXTraverses: amap<Guid, AdaptiveTraverse>)
             (m : AdaptiveTraverse) =
     
             let listAttributes =
@@ -192,17 +191,6 @@ module RIMFAXTraverseApp =
                     
 
                     for sol in reversedSols do
-
-                        let! missionReference = 
-                            AVal.custom (fun t -> 
-                                let traverseMap = RIMFAXTraverses.Content.GetValue t
-                                traverseMap 
-                                    |> HashMap.toValueList
-                                    |> List.tryPick (fun v ->
-                                        let sols = v.sols.GetValue t
-                                        if sols[0].fromRMC = sol.RMC then Some v.guid else None
-                                    )
-                            )
    
                         let color =
                             match selected with
@@ -229,7 +217,7 @@ module RIMFAXTraverseApp =
                                         span [onClick (fun _ -> SelectSol sol.solNumber)] [text headerText]
                                     ]                
     
-                                    let descriptionText = sprintf "yaw %A | pitch %A | roll %A" sol.yaw sol.pitch sol.roll
+                                    let descriptionText = sprintf "length %A" sol.length
                                     yield div [clazz "description"] [text descriptionText]
     
                                     yield 
@@ -244,11 +232,6 @@ module RIMFAXTraverseApp =
                                                 sol
                                                 refSystem
                                                 (computeSolRotation sol refSystem)))] []
-                                    match missionReference with
-                                    | None -> ()
-                                    | Some reference -> 
-                                        yield i [clazz "wrench icon blue"; onClick (fun _ -> SelectTraverse reference)] [] 
-                                            |> UI.wrapToolTip DataPosition.Bottom "Select Mission"
                                 ]                                     
                             ]
                         ]

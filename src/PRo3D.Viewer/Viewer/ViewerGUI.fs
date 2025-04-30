@@ -953,9 +953,36 @@ module Gui =
                 yield GuiEx.accordion "Rover Traverses" "Write" true [
                     RoverTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
                 ]
-                yield GuiEx.accordion "RIMFAX Traverses" "Write" true [
-                    RIMFAXTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
-                ]
+                yield
+                    GuiEx.accordionWithHeader
+                        "RIMFAX Traverses"
+                        "Import"
+                        (fun _ ->
+                            //let jsLocateOBJDialog = 
+                            //    "top.aardvark.dialog.showOpenDialog({title:'Select directory to locate OBJs', filters: [{ name: 'OBJs (*.obj)', extensions: ['obj']}], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+                            //clientEvent "onclick" jsLocateOBJDialog
+                            
+                            let outputFolderGui =
+                                let attributes = 
+                                    alist {
+                                        let! outputPath = m.scene.traverses.RIMFAXRootDirectory
+                                        yield Dialogs.onChooseFiles SetImportDirectory;
+                                        yield clientEvent "onclick" (Dialogs.jsSelectPathDialogWithPath outputPath)
+                                        yield (style "word-break: break-all")
+                                    } |> AttributeMap.ofAList
+
+                                let content =
+                                    alist {
+                                        yield i [clazz "write icon"] []
+                                        yield Incremental.text m.scene.traverses.RIMFAXRootDirectory
+                                    }
+                                Incremental.div attributes content
+                            
+                            SetImportDirectory [""])
+                            //Dialogs.onChooseFiles SetImportDirectory)
+                        "Write"
+                        true
+                        [RIMFAXTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses]
                 yield GuiEx.accordion "WayPoint Traverses" "Write" true [
                     WayPointsTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
                 ]
@@ -974,7 +1001,6 @@ module Gui =
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewProperties m.scene.traverses))
                 ]
                 yield GuiEx.accordion "Sols" "road" true [
-                    //TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverse
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewSols m.scene.referenceSystem m.scene.traverses))
                 ]
             ] 

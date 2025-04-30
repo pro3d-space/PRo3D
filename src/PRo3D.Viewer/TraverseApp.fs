@@ -267,6 +267,8 @@ module TraverseApp =
                 waypointsTraverses = HashMap.empty;
                 RIMFAXTraverses = HashMap.empty;
                 selectedTraverse = None } 
+        | SetImportDirectory directory ->
+            model
         |_-> model
 
     module UI =

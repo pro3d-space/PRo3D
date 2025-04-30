@@ -37,6 +37,31 @@ module GuiEx =
                 ]
             )
 
+    let accordionWithHeader text' buttonText' buttonFunction' icon active content' =
+            let title = if active then "title active inverted" else "title inverted"
+            let content = if active then "content active" else "content"
+           // let arrow = if active then 
+                                    
+            onBoot "$('#__ID__').accordion();" (
+                div [clazz "ui inverted segment"] [
+                    div [clazz "ui inverted accordion fluid"] [
+                        div [clazz title; style "background-color: #282828"] [
+                                i [clazz ("dropdown icon")] []
+                                text text' 
+                                button [
+                                    clazz "ui icon button";
+                                    style "margin-left:15px";
+                                    onMouseClick (
+                                        buttonFunction'
+                                    )] [text buttonText']
+                                div [style "float:right"] [i [clazz (icon + " icon")] []]
+                                
+                        ]
+                        div [clazz content;  style "overflow-y : auto; "] content' //max-height: 35%
+                    ]
+                ]
+            )
+
     let accordionWithOnClick text' icon active content' iconAction =
         let title = if active then "title active inverted" else "title inverted"
         let content = if active then "content active" else "content"
