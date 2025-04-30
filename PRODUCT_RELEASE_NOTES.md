@@ -1,3 +1,6 @@
+## 5.0.3
+- updated PRo3d.SPICE/fixed osx cootrafo build (again)
+
 ## 5.0.2 
 - updated PRo3d.SPICE/fixed osx cootrafo build
 
