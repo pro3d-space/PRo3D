@@ -1,5 +1,5 @@
-//c960cecf-7fc2-0971-9cf4-ccc474d33a3c
-//cc855d7b-d3ef-ec75-5e63-f547c4e2af6e
+//98190f45-8471-7d7a-b0f2-bbf3d60dfd5e
+//1b0aaff8-367e-3837-e9dc-5cfc8578b113
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
@@ -103,6 +103,7 @@ type AdaptiveTraverseModel(value : TraverseModel) =
             m
         FSharp.Data.Traceable.ChangeableModelMap(value.waypointsTraverses, (fun (v : Traverse) -> AdaptiveTraverse(v)), __arg2, (fun (m : AdaptiveTraverse) -> m))
     let _selectedTraverse_ = FSharp.Data.Adaptive.cval(value.selectedTraverse)
+    let _RIMFAXRootDirectory_ = FSharp.Data.Adaptive.cval(value.RIMFAXRootDirectory)
     let mutable __value = value
     let __adaptive = FSharp.Data.Adaptive.AVal.custom((fun (token : FSharp.Data.Adaptive.AdaptiveToken) -> __value))
     static member Create(value : TraverseModel) = AdaptiveTraverseModel(value)
@@ -118,6 +119,7 @@ type AdaptiveTraverseModel(value : TraverseModel) =
             _plannedTargetsTraverses_.Update(value.plannedTargetsTraverses)
             _waypointsTraverses_.Update(value.waypointsTraverses)
             _selectedTraverse_.Value <- value.selectedTraverse
+            _RIMFAXRootDirectory_.Value <- value.RIMFAXRootDirectory
     member __.Current = __adaptive
     member __.version = _version_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.int>
     member __.roverTraverses = _roverTraverses_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveTraverse>
@@ -126,6 +128,7 @@ type AdaptiveTraverseModel(value : TraverseModel) =
     member __.plannedTargetsTraverses = _plannedTargetsTraverses_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveTraverse>
     member __.waypointsTraverses = _waypointsTraverses_ :> FSharp.Data.Adaptive.amap<System.Guid, AdaptiveTraverse>
     member __.selectedTraverse = _selectedTraverse_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.Option<System.Guid>>
+    member __.RIMFAXRootDirectory = _RIMFAXRootDirectory_ :> FSharp.Data.Adaptive.aval<Microsoft.FSharp.Core.string>
 [<AutoOpen; System.Diagnostics.CodeAnalysis.SuppressMessage("NameConventions", "*")>]
 module TraverseModelLenses = 
     type TraverseModel with
@@ -136,4 +139,5 @@ module TraverseModelLenses =
         static member plannedTargetsTraverses_ = ((fun (self : TraverseModel) -> self.plannedTargetsTraverses), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, Traverse>) (self : TraverseModel) -> { self with plannedTargetsTraverses = value }))
         static member waypointsTraverses_ = ((fun (self : TraverseModel) -> self.waypointsTraverses), (fun (value : FSharp.Data.Adaptive.HashMap<System.Guid, Traverse>) (self : TraverseModel) -> { self with waypointsTraverses = value }))
         static member selectedTraverse_ = ((fun (self : TraverseModel) -> self.selectedTraverse), (fun (value : Microsoft.FSharp.Core.Option<System.Guid>) (self : TraverseModel) -> { self with selectedTraverse = value }))
+        static member RIMFAXRootDirectory_ = ((fun (self : TraverseModel) -> self.RIMFAXRootDirectory), (fun (value : Microsoft.FSharp.Core.string) (self : TraverseModel) -> { self with RIMFAXRootDirectory = value }))
 
