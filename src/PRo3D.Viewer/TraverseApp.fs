@@ -331,24 +331,34 @@ module TraverseApp =
             }                
        
     module Sg =
-        let drawSolLines (model : AdaptiveTraverse) : ISg<TraverseAction> =
+
+        let drawSolLine (model: AdaptiveTraverse) (segment: V3d list) : ISg<TraverseAction> =
             adaptive {
-                let! sols = model.sols
                 let! c = model.color.c
                 let! w = model.tLineWidth.value
-                let lines = 
-                    sols 
-                    |> List.map(fun x -> x.location)
-                    |> List.fold (fun acc sublist -> acc @ sublist) []
+                return 
+                    segment
                     |> List.toArray
-                    |> PRo3D.Core.Drawing.Sg.lines c w 
-                
-                return lines
+                    |> PRo3D.Core.Drawing.Sg.lines c w
             }
             |> Sg.dynamic
             |> Sg.onOff model.showLines
             |> Sg.onOff model.isVisibleT
 
+        let drawSolLines (model: AdaptiveTraverse) : ISg<TraverseAction> =
+            adaptive {
+                let! sols = model.sols
+                let segments = sols |> List.map (fun x -> x.location)
+
+                let segmentSgs =
+                    segments
+                    |> List.map (drawSolLine model)
+
+                return Sg.ofList segmentSgs
+            }
+            |> Sg.dynamic
+            |> Sg.onOff model.showLines
+            |> Sg.onOff model.isVisibleT
 
         let getTraverseOffsetTransform (refSystem : AdaptiveReferenceSystem) (model : AdaptiveTraverse) =
             (refSystem.Current, model.Current, model.heightOffset.value) |||> AVal.map3 (fun refSystem current offset ->

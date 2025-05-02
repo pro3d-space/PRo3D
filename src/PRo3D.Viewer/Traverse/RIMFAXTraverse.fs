@@ -232,6 +232,12 @@ module RIMFAXTraverseApp =
                                                 sol
                                                 refSystem
                                                 (computeSolRotation sol refSystem)))] []
+                                    yield 
+                                        button [
+                                            clazz "ui button tiny"; onClick (fun _ -> LoadRIMFAXSurface )
+                                        ] [
+                                            text "Load"
+                                        ]
                                 ]                                     
                             ]
                         ]

@@ -498,7 +498,7 @@ module Gui =
                         Dialogs.onChooseFiles AddAnnotations
                         clientEvent "onclick" jsOpenAnnotationFileDialog
                     ] [
-                        text "Import"
+                        text "Import Directory"
                     ]
                     div [
                         clazz "ui inverted item"; onMouseClick (fun _ -> Clear)

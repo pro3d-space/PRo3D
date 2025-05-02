@@ -34,6 +34,7 @@ type TraverseAction =
     | TraversePropertiesMessage of TraversePropertiesAction
     | RemoveAllTraverses
     | SetImportDirectory of list<string>
+    | LoadRIMFAXSurface
 
 module InitTraverseParams =
 
