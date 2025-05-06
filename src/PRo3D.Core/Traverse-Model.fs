@@ -22,6 +22,10 @@ type TraversePropertiesAction =
     | SetTraverseColor of ColorPicker.Action
     | SetHeightOffset of Numeric.Action
 
+type RIMFAXImageMode =
+    | JPEG = 0
+    | PNG = 1
+
 type TraverseAction =
     | SelectSol of int
     | FlyToSol of V3d * V3d * V3d //forward * sky * location
@@ -35,6 +39,7 @@ type TraverseAction =
     | RemoveAllTraverses
     | SetImportDirectory of list<string>
     | LoadRIMFAXSurface
+    | SetRIMFAXImageMode of RIMFAXImageMode
 
 module InitTraverseParams =
 
@@ -60,7 +65,7 @@ type TraverseType =
     | StrategicAnnotations
     | PlannedTargets
 
-
+[<ModelType>]
 type Sol =
     { version: int
       location: list<V3d>
@@ -82,6 +87,8 @@ type Sol =
       toRMC: string
       sclkStart: float
       sclkEnd: float
+      RIMFAXImageMode: RIMFAXImageMode
+      RIMFAXImageModeOptions: list<string>
     } 
 
 module Sol =
@@ -105,13 +112,13 @@ module Sol =
           fromRMC = ""
           toRMC = "" 
           sclkStart = nan
-          sclkEnd = nan      
+          sclkEnd = nan
+          RIMFAXImageMode = RIMFAXImageMode.PNG
+          RIMFAXImageModeOptions = ["026"; "056"; "078"; "214"; "240"]
         }
 
     let readV0 =
         json {
-
-            //let! location = Json.read "location"
             let! solNumber = Json.read "solNumber"
             let! site = Json.read "site"
             let! yaw = Json.read "yaw"
@@ -128,6 +135,7 @@ module Sol =
             let! toRMC = Json.read "toRMC"
             let! sclkStart = Json.read "SCLK_START"
             let! sclkEnd = Json.read "SCLK_END"       
+            let! RIMFAXImageModeOptions = Json.read "RIMFAXImageModeOptions"  
 
             return
                 { version = current
@@ -149,6 +157,8 @@ module Sol =
                   toRMC = toRMC
                   sclkStart = sclkStart
                   sclkEnd = sclkEnd
+                  RIMFAXImageMode = RIMFAXImageMode.PNG
+                  RIMFAXImageModeOptions = RIMFAXImageModeOptions
                 }
         }
 

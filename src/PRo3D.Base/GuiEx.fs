@@ -38,6 +38,9 @@ module GuiEx =
             )
 
     let accordionWithHeader text' domNode icon active content' =
+            let disableClickPropagation =
+                onBoot "$('#__ID__').on('click', function(e) { e.stopPropagation(); } );"
+
             let title = if active then "title active inverted" else "title inverted"
             let content = if active then "content active" else "content"
            // let arrow = if active then 
@@ -48,7 +51,9 @@ module GuiEx =
                         div [clazz title; style "background-color: #282828; display: flex"] [
                                 i [clazz ("dropdown icon")] []
                                 text text' 
-                                domNode
+                                disableClickPropagation (
+                                    domNode
+                                )
                                 div [style "margin-left:auto"] [i [clazz (icon + " icon")] []]
                                 
                         ]

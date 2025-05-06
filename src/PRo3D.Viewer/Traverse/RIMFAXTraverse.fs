@@ -179,6 +179,7 @@ module RIMFAXTraverseApp =
                 amap {
                     yield clazz "ui divided list inverted segment"
                     yield style "overflow-y : hidden"
+
                 } |> AttributeMap.ofAMap
     
             Incremental.div listAttributes (
@@ -189,7 +190,6 @@ module RIMFAXTraverseApp =
 
                     let reversedSols = sols |> List.rev
                     
-
                     for sol in reversedSols do
    
                         let color =
@@ -209,6 +209,7 @@ module RIMFAXTraverseApp =
                         let getCurrentRefSystem () =
                             refSystem.Current.GetValue()
 
+                        let options = [ RIMFAXImageMode.JPEG; RIMFAXImageMode.PNG ]
                         yield div [clazz "item"; style white] [
                             i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc] []
                             div [clazz "content"; style white] [                     
@@ -232,6 +233,8 @@ module RIMFAXTraverseApp =
                                                 sol
                                                 refSystem
                                                 (computeSolRotation sol refSystem)))] []
+                                    yield 
+                                        Html.SemUi.dropDown sol.RIMFAXImageMode SetRIMFAXImageMode
                                     yield 
                                         button [
                                             clazz "ui button tiny"; onClick (fun _ -> LoadRIMFAXSurface )
