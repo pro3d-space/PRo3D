@@ -191,7 +191,7 @@ module RIMFAXTraverseApp =
                     let reversedSols = sols |> List.rev
                     
                     for sol in reversedSols do
-   
+                        let testsol = adaptive { return sol }
                         let color =
                             match selected with
                             | Some sel -> 
@@ -208,7 +208,9 @@ module RIMFAXTraverseApp =
                         // only to be called in callback
                         let getCurrentRefSystem () =
                             refSystem.Current.GetValue()
-
+                        let dynamicEnum = System.Collections.Generic.Dictionary<string, int>()
+                        dynamicEnum.Add("Start", 1)
+                        dynamicEnum.Add("Stop", 2)
                         let options = [ RIMFAXImageMode.JPEG; RIMFAXImageMode.PNG ]
                         yield div [clazz "item"; style white] [
                             i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc] []
@@ -234,17 +236,14 @@ module RIMFAXTraverseApp =
                                                 refSystem
                                                 (computeSolRotation sol refSystem)))] []
                                     yield 
-                                        Html.SemUi.dropDown sol.RIMFAXImageMode SetRIMFAXImageMode
+                                        Html.SemUi.dropDown (adaptive { return sol } |> AVal.map (fun sol -> sol.RIMFAXImageMode)) SetRIMFAXImageMode
                                     yield 
                                         button [
-                                            clazz "ui button tiny"; onClick (fun _ -> LoadRIMFAXSurface )
+                                            clazz "ui button tiny"; style "margin-left: 10px"; onClick (fun _ -> LoadRIMFAXSurface )
                                         ] [
                                             text "Load"
                                         ]
                                 ]                                     
                             ]
                         ]
-
-
-
                 })

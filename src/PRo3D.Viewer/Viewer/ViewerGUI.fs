@@ -980,14 +980,14 @@ module Gui =
                 yield GuiEx.accordion "WayPoint Traverses" "Write" true [
                     WayPointsTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
                 ]
-                yield GuiEx.accordion "Strategic Annotations" "Write" true [
+                //yield GuiEx.accordion "Strategic Annotations" "Write" true [
                     // not yet implemented
                     // StrategicAnnotationsTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
-                ]
-                yield GuiEx.accordion "Planned Targets" "Write" true [
+                //]
+                //yield GuiEx.accordion "Planned Targets" "Write" true [
                     // not yet implemented
                     // PlannedTargetsTraverseApp.UI.viewTraverses m.scene.referenceSystem m.scene.traverses
-                ]
+                //]
                 yield GuiEx.accordion "Actions" "Asterisk" true [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(TraverseApp.UI.viewActions m.scene.traverses))
                 ]
@@ -1002,7 +1002,7 @@ module Gui =
 
     module ScaleBars = 
         
-        let scaleBarsUI (m : AdaptiveModel) =             
+        let scaleBarsUI (m : AdaptiveModel) = 
             div [] [
                 GuiEx.accordion "ScaleBars" "Write" true [
                     ScaleBarsApp.UI.viewScaleBars m.scene.scaleBars
