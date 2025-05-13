@@ -27,6 +27,7 @@ module WayPointsTraverseApp =
                 let! yaw            = parseDoubleProperty x  "yaw"     // not optional
                 let! pitch          = parseDoubleProperty x  "pitch"   // not optional 
                 let! roll           = parseDoubleProperty x  "roll"    // not optional
+                let! RMC           = parseStringProperty x  "RMC"    // not optional
 
                 // those are optional (still print a warning)
                 let! tilt      = parseDoubleProperty x  "tilt"    |> reportErrorAndUseDefault  0.0    
@@ -43,6 +44,7 @@ module WayPointsTraverseApp =
                         pitch = pitch
                         roll = roll
                         tilt = tilt
+                        RMC = RMC
                         distanceM = distanceM
                     }
             }
@@ -236,7 +238,7 @@ module WayPointsTraverseApp =
                                         span [onClick (fun _ -> SelectSol sol.solNumber)] [text headerText]
                                     ]                
     
-                                    let descriptionText = sprintf "coordinates: %A" sol.location
+                                    let descriptionText = sprintf "RMC: %s" sol.RMC
                                     yield div [clazz "description"] [text descriptionText]
     
                                     yield 

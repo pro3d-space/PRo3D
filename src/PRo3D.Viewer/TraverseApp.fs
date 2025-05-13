@@ -348,13 +348,27 @@ module TraverseApp =
         let drawSolLines (model: AdaptiveTraverse) : ISg<TraverseAction> =
             adaptive {
                 let! sols = model.sols
-                let segments = sols |> List.map (fun x -> x.location)
+                match model.traverseType with
+                | TraverseType.RIMFAX ->
+                    let segments = sols |> List.map (fun x -> x.location)
 
-                let segmentSgs =
-                    segments
-                    |> List.map (drawSolLine model)
+                    let segmentSgs =
+                        segments
+                        |> List.map (drawSolLine model)
 
-                return Sg.ofList segmentSgs
+                    return Sg.ofList segmentSgs
+                | TraverseType.WayPoints ->
+                    let! sols = model.sols
+                    let! c = model.color.c
+                    let! w = model.tLineWidth.value
+                    let lines = 
+                        sols 
+                        |> List.map(fun x -> x.location)
+                        |> List.collect id
+                        |> List.toArray
+                        |> PRo3D.Core.Drawing.Sg.lines c w 
+                
+                    return lines
             }
             |> Sg.dynamic
             |> Sg.onOff model.showLines
@@ -534,8 +548,6 @@ module TraverseApp =
             |> Sg.noEvents
             |> Sg.onOff traverse.showDots
             
-
-
         let viewTraverseFast  
             (view : aval<CameraView>)
             (refSystem : AdaptiveReferenceSystem) (model : AdaptiveTraverse) : ISg<TraverseAction> = 

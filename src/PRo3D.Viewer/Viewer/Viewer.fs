@@ -1944,22 +1944,10 @@ module ViewerApp =
             |> Sg.ofList
             |> Sg.map TraverseMessage
 
-        let missions = 
-            [ 
-                TraverseApp.Sg.viewLines m.scene.referenceSystem m.scene.traverses
-                TraverseApp.Sg.view     
-                    view //m.navigation.camera.view
-                    m.scene.referenceSystem
-                    m.scene.traverses   
-            ]
-            |> Sg.ofList
-            |> Sg.map TraverseMessage
-
         [
             scaleBars;
             annotationSg
             traverses
-            missions
         ] |> Sg.ofList
 
     let viewInstrumentView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
