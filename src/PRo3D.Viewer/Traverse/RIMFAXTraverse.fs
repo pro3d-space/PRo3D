@@ -191,7 +191,6 @@ module RIMFAXTraverseApp =
                     let reversedSols = sols |> List.rev
                     
                     for sol in reversedSols do
-                        let testsol = adaptive { return sol }
                         let color =
                             match selected with
                             | Some sel -> 
@@ -211,15 +210,13 @@ module RIMFAXTraverseApp =
                         let dynamicEnum = System.Collections.Generic.Dictionary<string, int>()
                         dynamicEnum.Add("Start", 1)
                         dynamicEnum.Add("Stop", 2)
-                        let options = [ RIMFAXImageMode.JPEG; RIMFAXImageMode.PNG ]
                         yield div [clazz "item"; style white] [
                             i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectSol sol.solNumber); style bgc] []
                             div [clazz "content"; style white] [                     
                                 div [style white] [
                                     yield div [clazz "header"; style bgc] [
                                         span [onClick (fun _ -> SelectSol sol.solNumber)] [text headerText]
-                                    ]                
-    
+                                    ]      
                                     let descriptionText = sprintf "length %A" sol.length
                                     yield div [clazz "description"] [text descriptionText]
     

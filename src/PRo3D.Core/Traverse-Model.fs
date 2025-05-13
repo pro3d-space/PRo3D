@@ -23,8 +23,11 @@ type TraversePropertiesAction =
     | SetHeightOffset of Numeric.Action
 
 type RIMFAXImageMode =
-    | JPEG = 0
-    | PNG = 1
+    | M026 = 0
+    | M056 = 1
+    | M078 = 2
+    | M214 = 3
+    | M240 = 4
 
 type TraverseAction =
     | SelectSol of int
@@ -88,7 +91,6 @@ type Sol =
       sclkStart: float
       sclkEnd: float
       RIMFAXImageMode: RIMFAXImageMode
-      RIMFAXImageModeOptions: list<string>
     } 
 
 module Sol =
@@ -113,8 +115,7 @@ module Sol =
           toRMC = "" 
           sclkStart = nan
           sclkEnd = nan
-          RIMFAXImageMode = RIMFAXImageMode.PNG
-          RIMFAXImageModeOptions = ["026"; "056"; "078"; "214"; "240"]
+          RIMFAXImageMode = RIMFAXImageMode.M026
         }
 
     let readV0 =
@@ -135,7 +136,6 @@ module Sol =
             let! toRMC = Json.read "toRMC"
             let! sclkStart = Json.read "SCLK_START"
             let! sclkEnd = Json.read "SCLK_END"       
-            let! RIMFAXImageModeOptions = Json.read "RIMFAXImageModeOptions"  
 
             return
                 { version = current
@@ -157,8 +157,7 @@ module Sol =
                   toRMC = toRMC
                   sclkStart = sclkStart
                   sclkEnd = sclkEnd
-                  RIMFAXImageMode = RIMFAXImageMode.PNG
-                  RIMFAXImageModeOptions = RIMFAXImageModeOptions
+                  RIMFAXImageMode = RIMFAXImageMode.M026
                 }
         }
 
