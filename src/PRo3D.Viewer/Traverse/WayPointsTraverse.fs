@@ -14,7 +14,15 @@ module WayPointsTraverseApp =
     open TraverseUtilities
 
     let computeSolRotation (sol : Sol) (referenceSystem : ReferenceSystem) : Trafo3d =
-        Trafo3d.Identity
+        let north = referenceSystem.northO
+        let up = referenceSystem.up.value
+        let east = Vec.cross up north
+        
+        let yawRotation    = Trafo3d.RotationInDegrees(up, -sol.yaw)
+        let pitchRotation  = Trafo3d.RotationInDegrees(east, sol.pitch)
+        let rollRotation   = Trafo3d.RotationInDegrees(north, sol.roll)
+
+        yawRotation * pitchRotation * rollRotation
 
     let parseTraverse (traverse : GeoJsonTraverse) =
 

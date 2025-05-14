@@ -107,9 +107,9 @@ module TraverseApp =
     let parseTraverse (traverse : GeoJsonTraverse) = 
         let sols =
             match traverse.traverseType with
-            | "WayPoints" -> WayPointsTraverseApp.parseTraverse (traverse), TraverseType.WayPoints
-            | "Rover" -> RoverTraverseApp.parseTraverse (traverse), TraverseType.Rover
-            | "RIMFAX" -> RIMFAXTraverseApp.parseTraverse (traverse), TraverseType.RIMFAX
+            | "WayPoints" -> WayPointsTraverseApp.parseTraverse (traverse), TraverseType.WayPoints, false, true, true
+            | "Rover" -> RoverTraverseApp.parseTraverse (traverse), TraverseType.Rover, true, false, false
+            | "RIMFAX" -> RIMFAXTraverseApp.parseTraverse (traverse), TraverseType.RIMFAX, true, false, false
             // | "PlannedTargets" -> PlannedTargetsTraverseApp.parseTraverse (traverse), TraverseType.PlannedTargets
             // | "StrategicAnnotations" -> StrategicAnnotationsTraverseApp.parseTraverse (traverse), TraverseType.WayPoints
             | t -> failwithf "Traverse file does not define a valid traverseType. Valid types are WayPoints, Rover, RIMFAX, PlannedTargets and StrategicAnnotations. The given traverseType is: %s" t
@@ -141,7 +141,7 @@ module TraverseApp =
                     Log.line "[Traverse] Loading %s" x
                     let geojson = System.IO.File.ReadAllText x
                      
-                    let sols, traverseType =
+                    let sols, traverseType, showLines, showText, showDots =
                         geojson 
                         |> Json.parse 
                         |> Json.deserialize 
@@ -151,7 +151,11 @@ module TraverseApp =
 
                     let color = if traverseType = TraverseType.Rover then C4b.White else C4b.Magenta
 
-                    let traverse = Traverse.initial name sols |> Traverse.withColor color |> Traverse.withTraverseType traverseType
+                    let traverse = 
+                        Traverse.initial name sols 
+                        |> Traverse.withColor color
+                        |> Traverse.withTraverseType traverseType 
+                        |> Traverse.withProperties showLines showText showDots
                     traverse |> HashMap.single traverse.guid 
                 )
                 |> List.fold(fun a b -> HashMap.union a b) (HashMap.unionMany [model.roverTraverses; model.RIMFAXTraverses; model.waypointsTraverses])
@@ -357,6 +361,7 @@ module TraverseApp =
                         |> List.map (drawSolLine model)
 
                     return Sg.ofList segmentSgs
+                | TraverseType.Rover
                 | TraverseType.WayPoints ->
                     let! sols = model.sols
                     let! c = model.color.c
@@ -439,7 +444,7 @@ module TraverseApp =
 
         let viewText (refSystem : AdaptiveReferenceSystem) view near (traverseModel : AdaptiveTraverseModel) =
         
-            let traverses = traverseModel.roverTraverses
+            let traverses = AMap.union (AMap.union traverseModel.roverTraverses traverseModel.RIMFAXTraverses) traverseModel.waypointsTraverses
             traverses 
             |> AMap.map(fun id traverse ->
                 drawSolTextsFast
@@ -594,7 +599,7 @@ module TraverseApp =
             (refsys         : AdaptiveReferenceSystem) 
             (traverseModel  : AdaptiveTraverseModel) =
 
-            let traverses = traverseModel.roverTraverses
+            let traverses = AMap.union (AMap.union traverseModel.roverTraverses traverseModel.RIMFAXTraverses) traverseModel.waypointsTraverses
             traverses 
             |> AMap.map(fun id traverse ->
                 viewTraverseFast view refsys traverse

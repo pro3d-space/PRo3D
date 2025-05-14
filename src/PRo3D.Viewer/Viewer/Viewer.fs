@@ -2114,12 +2114,12 @@ module ViewerApp =
             |> Sg.map GeologicSurfacesMessage 
 
 
-        //let traverses =
-        //    TraverseApp.Sg.view     
-        //        m.navigation.camera.view
-        //        m.scene.referenceSystem
-        //        m.scene.traverses   
-        //    |> Sg.map TraverseMessage
+        let traverses =
+            TraverseApp.Sg.view     
+                m.navigation.camera.view
+                m.scene.referenceSystem
+                m.scene.traverses   
+            |> Sg.map TraverseMessage
 
         let depthTested = 
             [
@@ -2129,7 +2129,7 @@ module ViewerApp =
                 heightValidationDiscs; 
                 sceneObjects; 
                 geologicSurfacesSg
-                //traverses
+                traverses
                 gisEntities
             ] |> Sg.ofList
 

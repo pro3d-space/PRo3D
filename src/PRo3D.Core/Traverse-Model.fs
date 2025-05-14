@@ -254,6 +254,9 @@ module Traverse =
     let withTraverseType(traverseType: TraverseType) (t: Traverse) =
         { t with traverseType = traverseType }
 
+    let withProperties(showLines: bool) (showText: bool) (showDots: bool) (t: Traverse) =
+        { t with showLines = showLines; showText = showText; showDots = showDots }
+
     let withColor(color: C4b) (t: Traverse) =
         { t with color = { c = color } }
 

@@ -63,36 +63,38 @@ module RIMFAXTraverseApp =
                         )
                     CooTransformation.getXYZFromLatLonAlt' latLonAlt Planet.Mars 
 
-        let parseFeature (x : GeoJsonFeature) =
-            result {
-                let locations = 
-                    match x.geometry with
-                    | GeoJsonGeometry.LineString coordinates ->
-                        coordinates 
-                        |> List.mapi (fun idx coord -> (idx, coord)) 
-                        |> List.map (fun (idx, coord) -> parseCoordinate coord)
-                    | _ -> []
-                let! sol = parseProperties { Sol.initial with version = Sol.current; location = locations; } x
-                return sol
-            }
+        let parseFeature (idx : int) (x : GeoJsonFeature) =
+            let locations = 
+                match x.geometry with
+                | GeoJsonGeometry.LineString coordinates ->
+                    [coordinates 
+                    |> List.map (fun coord -> parseCoordinate coord)]
+                | GeoJsonGeometry.MultiLineString coordinates ->
+                    coordinates |> List.map (List.map parseCoordinate)
+                | _ -> [[]]
+            let sols = 
+                locations 
+                |> List.choose (fun location -> 
+                    match parseProperties { Sol.initial with version = Sol.current; location = location; } x with
+                    | Result.Ok r -> Some r
+                    | Result.Error e -> 
+                        // we skip this one in case of errors, see // see https://github.com/pro3d-space/PRo3D/issues/263
+                        Report.Warn(
+                            String.concat Environment.NewLine [
+                                sprintf "[Traverse] could not parse or interpret feature for coordinate %d in the coordinate list.\n" idx 
+                                sprintf "[Traverse] the detailled error is: %A" e
+                                sprintf "[Traverse] skipping feature of type %A" x.geometry
+                            ]
+                        )
+                        None
+                    )
+            sols
 
         let sols = 
             traverse.features        
             |> List.mapi (fun i e -> (i,e)) // tag the elements for better error reporting
-            |> List.choose (fun (idx, feature) ->
-                match parseFeature feature with
-                | Result.Ok r -> Some r
-                | Result.Error e -> 
-                    // we skip this one in case of errors, see // see https://github.com/pro3d-space/PRo3D/issues/263
-                    Report.Warn(
-                        String.concat Environment.NewLine [
-                            sprintf "[Traverse] could not parse or interpret feature for coordinate %d in the coordinate list.\n" idx 
-                            sprintf "[Traverse] the detailled error is: %A" e
-                            sprintf "[Traverse] skipping feature of type %A" feature.geometry
-                        ]
-                    )
-                    None
-            ) 
+            |> List.map (fun (idx, feature) -> parseFeature idx feature) 
+            |> List.concat
         sols
 
 
