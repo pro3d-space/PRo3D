@@ -12,9 +12,12 @@ open Aardvark.Application.Slim
 open Aardvark.GeoSpatial.Opc
 
 open FSharp.Data.Adaptive 
+open FSharp.Data.Adaptive.Operators
 open MBrace.FsPickler
 
 open Aardvark.GeoSpatial.Opc.Load
+
+open PRo3D.Core
 
 [<AutoOpen>]
 module Shader =
@@ -125,11 +128,12 @@ module PriorityRenderingViewer =
 
         Aardvark.Init()
 
-        use app = new OpenGlApplication()
+        use app = new OpenGlApplication(true)
         let win = app.CreateGameWindow()
+
         let runtime = win.Runtime
 
-        let runner = runtime.CreateLoadRunner 1 
+        let runner = runtime.CreateLoadRunner 2 
 
         let serializer = FsPickler.CreateBinarySerializer()
 
@@ -151,7 +155,9 @@ module PriorityRenderingViewer =
             )
 
         let surfaceSgs = 
-            surfaces |> Seq.map (fun s -> 
+            surfaces 
+            |> Seq.toArray
+            |> Array.map (fun s -> 
                 s.patches
                 |> Option.defaultValue [||]
                 |> Array.map (fun basePath ->
@@ -191,46 +197,11 @@ module PriorityRenderingViewer =
             )
         )
 
-        let lensDepth = cval 2.0
-        let lensEnabled = cval true
-
-        let size = V2i(1024,1024)
-        let colors = runtime.CreateTexture2DArray(size, TextureFormat.Rgba8, 1, 1, 10)
-        let depths = runtime.CreateTexture2DArray(size, TextureFormat.Depth32fStencil8, 1, 1, 10)
-
-        let renderTasks =
-            surfaceSgs 
-            |> Seq.toList
-            |> List.map (fun sg -> 
-                sg
-                |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
-                |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo)
-                |> Sg.texture "LensMask" lensMask
-                |> Sg.uniform "LensDepth" lensDepth
-                |> Sg.uniform "LensEnabled" lensEnabled
-                |> Sg.shader {
-                        do! Shader.keepNdc
-                        do! Shader.stableTrafo 
-                        do! DefaultSurfaces.constantColor C4f.White 
-                        do! DefaultSurfaces.diffuseTexture 
-                        do! Shader.magicLens
-                   }
-                |> Sg.blendMode' BlendMod
-            )
-            
-        let a = 
-            runtime.CreateFramebuffer(
-                win.FramebufferSignature, 
-                Map.ofList [
-                    DefaultSemantic.Colors, colors[TextureAspect.Color, 0, 0] :> IFramebufferOutput
-                ]
-            )
-
         let lensMask = 
             let signarure = runtime.CreateFramebufferSignature (Map.ofList [DefaultSemantic.Colors, TextureFormat.Rgba8])
             Sg.fullScreenQuad
             |> Sg.uniform "MousePosNdc" (win.Mouse.Position |> AVal.map (fun p -> V2d(p.NormalizedPosition.X, 1.0 - p.NormalizedPosition.Y) * 2.0 - V2d(1.0,1.0)))
-            |> Sg.uniform' "RadiusNdc" 0.6
+            |> Sg.uniform' "RadiusNdc" 0.2
             |> Sg.shader {
                 do! DefaultSurfaces.constantColor C4f.White
                 do! Shader.discardNdcDistance 
@@ -239,24 +210,128 @@ module PriorityRenderingViewer =
             |> RenderTask.renderToColor win.Sizes 
 
 
+        let lensDepth = cval 2.0
+        let lensEnabled = cval false
 
-        let sg = 
-            Sg.ofSeq surfaceSgs
-            |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
-            |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo)
+        let size = V2i(2048,2048)
+        let signature = 
+            win.Runtime.CreateFramebufferSignature(
+                Map.ofList [
+                    DefaultSemantic.Colors, TextureFormat.Rgba8
+                    DefaultSemantic.DepthStencil, TextureFormat.Depth32fStencil8
+                    //Sym.ofString "ViewPositions2", TextureFormat.Rgba32f
+                ]
+            )
+        let layerCount = cval surfaceSgs.Length
+        let colors = runtime.CreateTexture2DArray(size, TextureFormat.Rgba8, 1, 1, 10)
+        let depths = runtime.CreateTexture2DArray(size, TextureFormat.Depth32fStencil8, 1, 1, 10)
+        let positionsLayers = runtime.CreateTexture2DArray(size, TextureFormat.Rgba32f, 1, 1, 10)
+
+        let renderTasks =
+            surfaceSgs 
+            |> Seq.toList
+            |> List.mapi (fun i sg -> 
+                
+                let fbo  =
+                    runtime.CreateFramebuffer(
+                        signature,
+                        Map.ofList [
+                            DefaultSemantic.Colors, colors[TextureAspect.Color, 0, i] :> IFramebufferOutput
+                            DefaultSemantic.DepthStencil, depths[TextureAspect.Depth, 0, i] :> IFramebufferOutput
+                            //Sym.ofString "ViewPositions2", positionsLayers[TextureAspect.Color, 0, i] :> IFramebufferOutput
+                        ]
+                    )
+                
+                let rt = 
+                    sg
+                    |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
+                    |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo)
+                    |> Sg.shader {
+                            do! Shaders.writeViewPos
+                            do! Shader.stableTrafo 
+                            do! DefaultSurfaces.constantColor C4f.White 
+                            do! DefaultSurfaces.diffuseTexture 
+    
+                       }
+                    |> Sg.depthTest' DepthTest.LessOrEqual
+                    |> Sg.cullMode' CullMode.None
+                    |> Sg.blendMode' BlendMode.None
+                    |> Sg.compile win.Runtime signature
+
+                fbo, RenderTask.ofList [runtime.CompileClear(signature, ~~C4f.Red, ~~1.0); rt]
+            )
+
+        let currentLayer = cval 2
+        win.Keyboard.KeyDown(Keys.N).Values.Add(fun _ -> 
+            transact (fun _ -> 
+                currentLayer.Value <- (currentLayer.Value + 1) % 4
+                printfn "%A" currentLayer.Value
+            )
+        )
+        win.Keyboard.KeyDown(Keys.L).Values.Add(fun _ -> 
+            transact (fun _ -> 
+                lensEnabled.Value <- not lensEnabled.Value
+                printfn "%A" lensEnabled.Value
+            )
+        )
+        
+        let projTrafoInv, projTrafo = 
+            let projTrafo = frustum |> AVal.map Frustum.projTrafo
+            projTrafo |> AVal.map (Trafo.backward >> M44f), projTrafo |> AVal.map (Trafo.backward >> M44f) 
+            
+        let composeTask =
+            Sg.fullScreenQuad
+            |> Sg.texture' "ColorLayers" colors
+            |> Sg.texture' "DepthLayers" depths
+            |> Sg.texture' "PositionsLayers" positionsLayers
+            |> Sg.uniform "ActiveLayer" currentLayer
+            |> Sg.uniform "ActiveLayerCount" layerCount
             |> Sg.texture "LensMask" lensMask
-            |> Sg.uniform "LensDepth" lensDepth
+            |> Sg.uniform "LensLayer" currentLayer
             |> Sg.uniform "LensEnabled" lensEnabled
+            |> Sg.uniform "SourceFragmentProjInv" projTrafoInv
+            |> Sg.uniform "SourceFragmentProj" projTrafo
+            |> Sg.uniform "SourceFragmentViewInv" (view |> AVal.map (Trafo.backward << CameraView.viewTrafo))
+            |> Sg.uniform' "Sky" bb.Center.Normalized
+            |> Sg.fileTexture "HatchingTexture" @"C:\pro3ddata\hatchingTest.jpg" true
+            |> Sg.fileTexture "TransferFunction" @"C:\pro3ddata\viridis.png" true
             |> Sg.shader {
-                    do! Shader.keepNdc
-                    do! Shader.stableTrafo 
-                    do! DefaultSurfaces.constantColor C4f.White 
-                    do! DefaultSurfaces.diffuseTexture 
-                    do! Shader.magicLens
-               }
-            |> Sg.blendMode' BlendMode.Blend
-            |> Sg.fillMode fillMode
+                do! Shaders.composeLayers
+            }
+            |> Sg.compile win.Runtime win.FramebufferSignature
 
-        win.RenderTask <- runtime.CompileRender(win.FramebufferSignature, sg)
+        let renderToLayers = 
+            RenderTask.custom (fun (at, rt, od) -> 
+                for (fbo, task) in renderTasks  do
+                    
+                    task.Run(at, rt, fbo)
+      
+
+                composeTask.Run(at, rt, od)
+            )
+
+        //let sg = 
+        //    Sg.ofSeq surfaceSgs
+        //    |> Sg.viewTrafo (view |> AVal.map CameraView.viewTrafo)
+        //    |> Sg.projTrafo (frustum |> AVal.map Frustum.projTrafo)
+        //    |> Sg.texture "LensMask" lensMask
+        //    |> Sg.uniform "LensDepth" lensDepth
+        //    |> Sg.uniform "LensEnabled" lensEnabled
+        //    |> Sg.shader {
+        //            do! Shader.keepNdc
+        //            do! Shader.stableTrafo 
+        //            do! DefaultSurfaces.constantColor C4f.White 
+        //            do! DefaultSurfaces.diffuseTexture 
+        //            do! Shader.magicLens
+        //       }
+        //    |> Sg.blendMode' BlendMode.Blend
+        //    |> Sg.fillMode fillMode
+
+
+        win.RenderTask <- 
+            RenderTask.ofList [
+                renderToLayers
+            ]
+
         win.Run()
         0
