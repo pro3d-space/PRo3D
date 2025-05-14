@@ -49,6 +49,8 @@ nuget Aardvark.Data.Opc                     ~> 0.11.0
 nuget Aardvark.Data.Wavefront               ~> 5.3.10
 nuget Aardvark.GeoSpatial.Opc               ~> 5.11.2
 
+nuget Aardvark.PixImage.FreeImage           == 5.3.5
+
 nuget Aardium                               ~> 2.1.1
 
 nuget OPCViewer.Base                        ~> 1.9.2

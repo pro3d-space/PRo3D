@@ -146,6 +146,9 @@ NUGET
     Aardvark.PixImage.DevIL (5.2.33)
       Aardvark.Base.Tensors (>= 5.3 < 5.4)
       DevILSharp
+    Aardvark.PixImage.FreeImage (5.3.5)
+      Aardvark.Base.Tensors (>= 5.3.5 < 5.4)
+      FSharp.Core (>= 8.0)
     Aardvark.PixImage.Pfim (0.9.3)
       Aardvark.Base.Tensors (>= 5.3 < 5.4)
       FSharp.Core (>= 8.0)
