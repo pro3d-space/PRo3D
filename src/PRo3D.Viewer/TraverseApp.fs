@@ -106,10 +106,10 @@ module TraverseApp =
     
     let parseTraverse (traverse : GeoJsonTraverse) = 
         let sols =
-            match traverse.traverseType with
-            | "WayPoints" -> WayPointsTraverseApp.parseTraverse (traverse), TraverseType.WayPoints, false, true, true
-            | "Rover" -> RoverTraverseApp.parseTraverse (traverse), TraverseType.Rover, true, false, false
-            | "RIMFAX" -> RIMFAXTraverseApp.parseTraverse (traverse), TraverseType.RIMFAX, true, false, false
+            match traverse.properties.traverseType with
+            | "waypoints" -> WayPointsTraverseApp.parseTraverse (traverse), TraverseType.WayPoints, false, true, true
+            | "rover" -> RoverTraverseApp.parseTraverse (traverse), TraverseType.Rover, true, false, false
+            | "rimfax" -> RIMFAXTraverseApp.parseTraverse (traverse), TraverseType.RIMFAX, true, false, false
             // | "PlannedTargets" -> PlannedTargetsTraverseApp.parseTraverse (traverse), TraverseType.PlannedTargets
             // | "StrategicAnnotations" -> StrategicAnnotationsTraverseApp.parseTraverse (traverse), TraverseType.WayPoints
             | t -> failwithf "Traverse file does not define a valid traverseType. Valid types are WayPoints, Rover, RIMFAX, PlannedTargets and StrategicAnnotations. The given traverseType is: %s" t

@@ -30,6 +30,7 @@ module RIMFAXTraverseApp =
                 let! solNumber  = parseIntProperty  x  "sol"    // not optional
                 let! sclkStart = parseDoubleProperty x  "SCLK_START"    // not optional
                 let! sclkEnd   = parseDoubleProperty x  "SCLK_END"    // not optional
+                // let! options = match 
                                   
                 return 
                     { sol with 

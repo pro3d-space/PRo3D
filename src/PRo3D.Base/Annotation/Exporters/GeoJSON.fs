@@ -1,12 +1,5 @@
 ﻿namespace PRo3D.Base.Annotation
 
-
-
-open System
-open Microsoft.FSharp.Reflection
-open Newtonsoft.Json
-open Newtonsoft.Json.Converters
-
 open Aardvark.Base
 
 open Chiron
@@ -116,6 +109,45 @@ module GeoJSON =
             json{
                 do! Json.write "coordinates"  (x |> List.map(fun x -> x |> List.map(fun x -> x|> List.map(fun x -> x |> Ext.CoordinateToArray))))
             }
+
+
+    type GeoJsonImage = {
+        url : string
+        imageType : string
+        mode : string
+        topElev : int
+        depth : float
+        length : float
+    }
+        with    
+        static member ToJson (image: GeoJsonImage) =
+            json{
+                do! Json.write "url" image.url
+                do! Json.write "imageType" image.imageType
+                do! Json.write "mode" image.mode
+                do! Json.write "topElev" image.topElev
+                do! Json.write "depth" image.depth
+                do! Json.write "length" image.length
+            }
+        
+        static member FromJson (_: GeoJsonImage) =
+            json{
+                let! url = Json.read "url"
+                let! imageType = Json.read "type"
+                let! mode = Json.read "mode"
+                let! topElev = Json.read "topElev"
+                let! depth = Json.read "depth"
+                let! length = Json.read "length"
+
+                return {
+                    url = url;
+                    imageType = imageType;
+                    mode = mode;
+                    topElev = topElev;
+                    depth = depth;
+                    length = length;
+                }
+            }  
     
     type GeoJsonGeometry =
     | Point                 of coordinates : Coordinate
@@ -184,8 +216,35 @@ module GeoJSON =
             }
 
     
+    type GeoJsonProperties = {
+        generatedBy : string
+        segmentCount : int
+        timestamp : string
+        traverseType : string
+    }
+    with    
+        static member ToJson (gp: GeoJsonProperties) =
+            json{
+                do! Json.write "generatedBy" gp.generatedBy
+                do! Json.write "segmentCount" gp.segmentCount
+                do! Json.write "timestamp" gp.timestamp
+                do! Json.write "type" gp.traverseType
+            }
         
+        static member FromJson (_: GeoJsonProperties) =
+            json{
+                let! generatedBy = Json.read "generatedBy"
+                let! segmentCount = Json.read "segmentCount"
+                let! timestamp = Json.read "timestamp"
+                let! traverseType = Json.read "type"
 
+                return {
+                    generatedBy = generatedBy;
+                    segmentCount = segmentCount; 
+                    timestamp = timestamp
+                    traverseType = traverseType
+                }
+            }        
 
     type GeoJsonFeature = {
         geometry   : GeoJsonGeometry
@@ -238,120 +297,20 @@ module GeoJSON =
 
     type GeoJsonTraverse = {
         features        : List<GeoJsonFeature>
-        traverseType    : string
+        properties    : GeoJsonProperties
     }
     with            
         static member ToJson (x: GeoJsonTraverse) =
             json{
                 do! Json.write "features" x.features
-                do! Json.write "traverseType" x.traverseType
+                do! Json.write "properties" x.properties
                 do! Json.write "type" "FeatureCollection"
             }
             
         static member FromJson (_: GeoJsonTraverse) =
             json{
-                let! f = Json.read "features"
-                let! tt = Json.read "traverseType"
-                return {features = f; traverseType = tt}
+                let! features = Json.read "features"
+                let! properties = Json.read "properties"
+                return {features = features; properties = properties}
             }
         
-
-        
-//[<TestFixture>]
-//type TestClass() =
-    
-//    [<Test>] 
-//    member this.PointDeserializeTest() =
-
-//        let geojson = """{"coordinates":[100,0],"type":"Point"}"""
-//        let point:GeoJsonGeometry = geojson |> Json.parse |> Json.deserialize
-
-//        Assert.AreEqual(point,GeoJsonGeometry.Point(Coordinate.V2d{X=100.0;Y=0.0}))
-    
-//    [<Test>] 
-//    member this.PointSerializeTest() =
-    
-//        let point = GeoJsonGeometry.Point(Coordinate.V2d{X=101.0;Y=0.0}) |> Json.serialize |> Json.format
-//        let geojson = """{"coordinates":[101,0],"type":"Point"}"""
-
-//        Assert.AreEqual(point,geojson)
-    
-//    [<Test>] 
-//    member this.PolygonDeserializeTest() =
-
-//        let geojson = 
-//            """{
-//                "type": "Polygon",
-//                "coordinates": [
-//                    [
-//                        [100.0, 0.0],
-//                        [101.0, 0.0],
-//                        [101.0, 1.0],
-//                        [100.0, 1.0],
-//                        [100.0, 0.0]
-//                    ],
-//                    [
-//                        [100.8, 0.8],
-//                        [100.8, 0.2],
-//                        [100.2, 0.2],
-//                        [100.2, 0.8],
-//                        [100.8, 0.8]
-//                    ]
-//                ]
-//            }"""
-
-//        let polygon = GeoJsonGeometry.Polygon([[Coordinate.V2d{X=100.0;Y=0.0};
-//                                                Coordinate.V2d{X=101.0;Y=0.0};
-//                                                Coordinate.V2d{X=101.0;Y=1.0};
-//                                                Coordinate.V2d{X=100.0;Y=1.0};
-//                                                Coordinate.V2d{X=100.0;Y=0.0}];
-//                                               [Coordinate.V2d{X=100.8;Y=0.8};
-//                                                Coordinate.V2d{X=100.8;Y=0.2};
-//                                                Coordinate.V2d{X=100.2;Y=0.2};
-//                                                Coordinate.V2d{X=100.2;Y=0.8};
-//                                                Coordinate.V2d{X=100.8;Y=0.8}]])
-
-//        let polygon_des:GeoJsonGeometry = geojson |> Json.parse |> Json.deserialize
-
-//        Assert.AreEqual(polygon,polygon_des)
-        
-//    [<Test>] 
-//    member this.PolygonSerializeTest() =
-
-//        let polygon = GeoJsonGeometry.Polygon([[Coordinate.V2d{X=100.0;Y=0.0};
-//                                                Coordinate.V2d{X=101.0;Y=0.0};
-//                                                Coordinate.V2d{X=101.0;Y=1.0};
-//                                                Coordinate.V2d{X=100.0;Y=1.0};
-//                                                Coordinate.V2d{X=100.0;Y=0.0}];
-//                                                [Coordinate.V2d{X=100.8;Y=0.8};
-//                                                Coordinate.V2d{X=100.8;Y=0.2};
-//                                                Coordinate.V2d{X=100.2;Y=0.2};
-//                                                Coordinate.V2d{X=100.2;Y=0.8};
-//                                                Coordinate.V2d{X=100.8;Y=0.8}]])
-
-//        let polygon_ser = polygon |> Json.serialize |> Json.formatWith JsonFormattingOptions.Compact
-//        let polygon_des:GeoJsonGeometry = polygon_ser |> Json.parse |> Json.deserialize
-
-//        Assert.AreEqual(polygon,polygon_des)
-
-
-//    [<Test>] 
-//        member this.SentinalDatasetTest() =
-            
-//            let feature = {
-//                    geometry = GeoJsonGeometry.Polygon([[Coordinate.V2d{X=13.662865;Y= 47.845915};
-//                                                            Coordinate.V2d{X=15.13047; Y=47.853628};
-//                                                            Coordinate.V2d{X=15.128057;Y= 46.865628};
-//                                                            Coordinate.V2d{X=13.687589;Y= 46.858176};
-//                                                            Coordinate.V2d{X=13.662865;Y= 47.845915}]])
-//                    bbox = Some([13.662865; 46.858176; 15.13047; 47.853628])
-//                }
-
-            
-//            let geojson = System.IO.File.ReadAllText "./sentinal.json"
-
-//            let featurecollection_des:GeoJsonFeatureCollection = geojson |> Json.parse |> Json.deserialize
-
-//            Assert.AreEqual(feature,featurecollection_des.features.[1])
-
-
