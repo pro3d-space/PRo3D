@@ -192,32 +192,32 @@ module Rendering =
                 depthF.TryDispose () |> ignore
                 Log.line "[SNAPSHOT] Saved %s" names.exrDepth
 
+                // Test image
+                //let loadedPi = PixImage.Load(names.exrDepth, PixImageFreeImage.Loader) |> unbox<PixImage<T>>
+                //let loadedMat = loadedPi.GetMatrix<T>()
+                //let data = loadedMat.Data.Map(fun v -> Math.Abs(v))//.IntoArray()
+                //let max = Array.max data
+                //let min = Array.min data
+                //let max = toT 12000.0
 
-                let loadedPi = PixImage.Load(names.exrDepth, PixImageFreeImage.Loader) |> unbox<PixImage<T>>
-                let loadedMat = loadedPi.GetMatrix<T>()
-                let data = loadedMat.Data.Map(fun v -> Math.Abs(v))//.IntoArray()
-                let max = Array.max data
-                let min = Array.min data
-                let max = toT 12000.0
+                //let scaleFactor = (max - min)
+                //Log.line "[SNAPSHOT] Min: %f, Max: %f, scale: %f" min max scaleFactor
+                //let inline scale x =
+                //    (x - min) / scaleFactor
 
-                let scaleFactor = (max - min)
-                Log.line "[SNAPSHOT] Min: %f, Max: %f, scale: %f" min max scaleFactor
-                let inline scale x =
-                    (x - min) / scaleFactor
+                //let pi = PixImage<'t>(loadedMat.Dim, 1)
+                //let depthMat = pi.GetMatrix<'t>()
+                //depthMat.SetByCoord(fun (l : V2l) -> 
+                //    let v = loadedMat.[l]
+                //    scale (Math.Abs(v))
+                //)
 
-                let pi = PixImage<'t>(loadedMat.Dim, 1)
-                let depthMat = pi.GetMatrix<'t>()
-                depthMat.SetByCoord(fun (l : V2l) -> 
-                    let v = loadedMat.[l]
-                    scale (Math.Abs(v))
-                )
-
-                let saveParams = PixSaveParams(PixFileFormat.Jpeg)
-                let loader = PixImageDevil.Loader
-                let img = pi
-                loader.SaveToFile(names.depth, img, saveParams) |> ignore
-                pi.TryDispose () |> ignore
-                Log.line "[SNAPSHOT] %s" names.depth
+                //let saveParams = PixSaveParams(PixFileFormat.Jpeg)
+                //let loader = PixImageDevil.Loader
+                //let img = pi
+                //loader.SaveToFile(names.depth, img, saveParams) |> ignore
+                //pi.TryDispose () |> ignore
+                //Log.line "[SNAPSHOT] %s" names.depth
             with e ->
                 Log.error "[SNAPSHOT] Could not save image %s" names.exrDepth
                 Log.error "%s" e.Message
