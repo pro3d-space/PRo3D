@@ -52,7 +52,7 @@ type Result =
       result : string;
    }
 
-let viewerVersion       = "4.27.0-prerelease8"
+let viewerVersion       = "4.27.0-prerelease9"
 let catchDomainErrors   = false
 
 open System.IO
