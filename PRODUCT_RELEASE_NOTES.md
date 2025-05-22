@@ -1,3 +1,6 @@
+## 5.0.5
+- first official 5.0 release
+
 ## 5.0.4
 - updated PRo3d.SPICE/fixed osx cootrafo build (again)
 
