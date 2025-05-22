@@ -219,8 +219,8 @@ module PackedRendering =
 
         [<ReflectedDefinition>]
         let clipLine (plane : V4d) (p0 : ref<V4d>) (p1 : ref<V4d>) =
-            let h0 = Vec.dot plane !p0
-            let h1 = Vec.dot plane !p1
+            let h0 = Vec.dot plane p0.Value
+            let h1 = Vec.dot plane p1.Value
 
             // h = h0 + (h1 - h0)*t
             // 0 = h0 + (h1 - h0)*t
@@ -230,11 +230,11 @@ module PackedRendering =
                 false
             elif h0 < 0.0 && h1 > 0.0 then
                 let t = h0 / (h0 - h1)
-                p1 := !p0 + t * (!p1 - !p0)
+                p1.Value <- p0.Value + t * (p1.Value - p0.Value)
                 true
             elif h1 < 0.0 && h0 > 0.0 then
                 let t = h0 / (h0 - h1)
-                p0 := !p0 + t * (!p1 - !p0)
+                p0.Value <- p0.Value + t * (p1.Value - p0.Value)
                 true
             else
                 true
